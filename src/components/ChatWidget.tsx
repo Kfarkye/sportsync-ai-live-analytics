@@ -56,7 +56,12 @@ interface WireMessage {
 }
 
 interface Source { readonly title: string; readonly uri: string; readonly snippet?: string; }
-interface Attachment { readonly file: File; readonly base64: string; readonly mimeType: string; }
+interface Attachment {
+  readonly file: File;
+  readonly base64: string;
+  readonly mimeType: string;
+  readonly storageUrl?: string; // For Supabase Storage persistence
+}
 
 // Gemini Grounding Types
 interface GroundingSegment { readonly startIndex: number; readonly endIndex: number; readonly text?: string; }
@@ -704,11 +709,36 @@ const InputDeck: FC<InputDeckProps> = memo(({ value, onChange, onSend, onStop, a
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!isProcessing && !showCommandMenu) onSend(); }
   }, [onSend, isProcessing, showCommandMenu]);
 
-  const handleFileChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
     if (files.length > 0) {
-      const file = files[0], reader = new FileReader();
-      reader.onload = () => onAttachmentsChange([...attachments, { file, base64: (reader.result as string).split(',')[1], mimeType: file.type }]);
+      const file = files[0];
+      const reader = new FileReader();
+
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+
+        // Immediately add with base64 for instant AI inference
+        const tempAttachment: Attachment = { file, base64, mimeType: file.type };
+        onAttachmentsChange([...attachments, tempAttachment]);
+
+        // Background upload to Supabase Storage for persistence
+        try {
+          const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+          const { data, error } = await supabase.storage
+            .from('chat-attachments')
+            .upload(fileName, file, { contentType: file.type, upsert: false });
+
+          if (!error && data) {
+            const { data: urlData } = supabase.storage.from('chat-attachments').getPublicUrl(data.path);
+            console.log('[attachment] ✅ Uploaded to storage:', urlData.publicUrl);
+            // Note: Storage URL available for future DB persistence
+          }
+        } catch (uploadErr) {
+          console.warn('[attachment] Storage upload failed (using base64 only):', uploadErr);
+        }
+      };
+
       reader.readAsDataURL(file);
     }
     e.target.value = '';

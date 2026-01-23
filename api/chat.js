@@ -478,6 +478,49 @@ You must output your analysis in this **EXACT** structure:
 </output_rules>
 `;
 
+        // === VISION MODE: Sportsbook Screenshot OCR ===
+        const hasImage = messages.some(m =>
+            Array.isArray(m.content) &&
+            m.content.some(c => c.type === 'image' || c.type === 'file')
+        );
+
+        if (hasImage) {
+            console.log('[vision-mode] Image detected - injecting OCR instructions');
+            systemInstruction += `
+<vision_mode>
+You have received a sportsbook screenshot. Perform the following:
+
+1. **OCR EXTRACTION** — Extract ALL visible betting information:
+   - Teams/Players involved
+   - Spread, Total (O/U), Moneyline
+   - Odds (American format: +150, -110)
+   - Sportsbook name (if visible)
+   - Timestamp or "Live" indicator (if visible)
+
+2. **STRUCTURED OUTPUT** — Present extracted data as:
+   \`\`\`
+   BOOK: [Sportsbook Name or "Unknown"]
+   GAME: [Away] @ [Home]
+   SPREAD: [Team] [Line] ([Odds])
+   TOTAL: O/U [Number] ([Odds])
+   ML: [Team] ([Odds])
+   \`\`\`
+
+3. **MARKET COMPARISON** — Compare extracted odds to your known market consensus:
+   - Flag if odds appear stale (>2 hours based on visible timestamp)
+   - Flag significant deviation from typical market lines
+   - Note any line movement indicators
+
+4. **EDGE ASSESSMENT** — Apply Triple Confluence framework to the extracted data.
+
+CRITICAL RULES:
+- If the image is blurry or data is unclear, explicitly state what you cannot read.
+- Do NOT fabricate or guess data that isn't visible.
+- If this is not a sportsbook screenshot, acknowledge and assist with whatever is shown.
+</vision_mode>
+`;
+        }
+
         const geminiHistory = messages.map((m) => {
             const role = m.role === 'assistant' ? 'model' : 'user';
             if (Array.isArray(m.content)) {
