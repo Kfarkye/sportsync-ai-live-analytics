@@ -66,7 +66,19 @@ const SPORT_CONFIG = {
     HOCKEY: { sport: 'hockey', league: 'nhl' }
 };
 
+// === INJURY CACHE (5-minute TTL) ===
+const INJURY_CACHE = new Map(); // Key: teamId, Value: { data, timestamp }
+const INJURY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 async function fetchESPNInjuries(teamId, sportKey = 'NBA') {
+    // Check cache first
+    const cacheKey = `${sportKey}_${teamId}`;
+    const cached = INJURY_CACHE.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < INJURY_CACHE_TTL_MS) {
+        console.log(`[injury-cache] HIT: ${cacheKey} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
+        return { ...cached.data, cached: true };
+    }
+
     const start = Date.now();
     const config = SPORT_CONFIG[sportKey?.toUpperCase()] || SPORT_CONFIG.NBA;
     const controller = new AbortController();
@@ -89,7 +101,13 @@ async function fetchESPNInjuries(teamId, sportKey = 'NBA') {
             .filter(i => INJURY_STATUSES.some(s => i.status.includes(s.replace(/-/g, ''))))
             .slice(0, 6); // Cap at 6 per team
 
-        return { ok: true, ms: Date.now() - start, injuries };
+        const result = { ok: true, ms: Date.now() - start, injuries };
+
+        // Cache successful results
+        INJURY_CACHE.set(cacheKey, { data: result, timestamp: Date.now() });
+        console.log(`[injury-cache] MISS: ${cacheKey} - cached ${injuries.length} injuries`);
+
+        return result;
     } catch (e) {
         clearTimeout(timeout);
         return { ok: false, ms: Date.now() - start, injuries: [], error: e.name };
