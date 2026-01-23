@@ -125,7 +125,7 @@ async function fetchInjuriesForLeague(league: string) {
   };
 
   const result = await executeAnalyticalQuery(prompt, {
-    model: "gemini-3-pro-preview",
+    model: "gemini-3-flash-preview",
     tools: [{ googleSearch: {} }],
     responseSchema: responseSchema,
     temperature: 0.2

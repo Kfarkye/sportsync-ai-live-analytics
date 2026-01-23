@@ -12,7 +12,7 @@ import { executeAnalyticalQuery, safeJsonParse } from "../_shared/gemini.ts";
 declare const Deno: any;
 
 // --- Configuration ---
-const GEMINI_MODEL = "gemini-3-pro-preview";
+const GEMINI_MODEL = "gemini-3-flash-preview";
 const CACHE_HOURS = 4;
 
 const CORS_HEADERS = {

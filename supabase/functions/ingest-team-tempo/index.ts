@@ -67,7 +67,7 @@ Use today's date as the reference. Cross-reference ESPN, Basketball Reference, a
 Output ONLY a valid JSON object with a "teams" array containing all 30 teams.`;
 
         const result = await executeAnalyticalQuery(prompt, {
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-3-flash-preview',
             responseSchema: TEAM_TEMPO_SCHEMA,
             temperature: 0.1
         });

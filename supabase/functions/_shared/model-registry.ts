@@ -24,12 +24,12 @@ export const MODEL_REGISTRY: ModelConfig[] = [
         timeout: 45000
     },
     {
-        id: 'gemini-3-pro-preview',
+        id: 'gemini-3-flash-preview',
         displayName: 'Gemini 3 Pro',
         apiProvider: 'google',
         strengths: ['Deep Reasoning', 'Complex Analysis', 'Accuracy'],
-        priority: 2, // SECONDARY - Fallback within Google ecosystem
-        isActive: true,
+        priority: 2,
+        isActive: false, // DEPRECATED per user request
         timeout: 55000
     },
     {

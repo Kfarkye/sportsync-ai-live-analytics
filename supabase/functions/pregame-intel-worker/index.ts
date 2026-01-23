@@ -506,7 +506,7 @@ Based on the context above:
 
     console.log(`[${requestId}] 🧠 [SYNTHESIS-START] Invoking Architect Dossier...`);
     const { text, sources, thoughts, rawText } = await executeAnalyticalQuery(synthesisPrompt, {
-        model: "gemini-3-pro-preview",
+        model: "gemini-3-flash-preview",
         systemInstruction,
         responseSchema: INTEL_OUTPUT_SCHEMA,
         // thinkingLevel defaults to "high" for deep reasoning

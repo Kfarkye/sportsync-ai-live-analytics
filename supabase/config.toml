@@ -8,6 +8,12 @@ entrypoint = "./functions/ai-chat/index.ts"
 [functions.pregame-intel]
 verify_jwt = false
 
+[functions.pregame-intel-worker]
+verify_jwt = false
+
+[functions.sharp-picks-worker]
+verify_jwt = false
+
 [functions.pregame-intel-cron]
 verify_jwt = false
 

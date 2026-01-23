@@ -156,7 +156,7 @@ Deno.serve(async (req: Request) => {
                 const prompt = buildPrompt(game.home_team, game.away_team, game.start_ts);
 
                 const result = await executeAnalyticalQuery(prompt, {
-                    model: "gemini-3-pro-preview",
+                    model: "gemini-3-flash-preview",
                     responseSchema: PREGAME_CONTEXT_SCHEMA,
                     thinkingBudget: 16000
                 });

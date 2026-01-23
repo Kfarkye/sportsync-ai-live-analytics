@@ -258,7 +258,7 @@ You must output your analysis in this **EXACT** structure:
         if (picks.length > 0) {
             try {
                 const { error: pickError } = await supabase.from('ai_chat_picks').insert(picks.map(p => ({
-                    match_id: matchId || null, // Allow null match_id for general picks
+                    match_id: matchId || null,
                     pick_type: p.type,
                     pick_side: p.side,
                     pick_line: p.line,

@@ -146,7 +146,7 @@ OPERATING PRINCIPLES:
     }`;
 
     const { text } = await executeAnalyticalQuery([{ text: prompt }], {
-        model: "gemini-3-pro-preview",
+        model: "gemini-3-flash-preview",
         systemInstruction: SYSTEM_INSTRUCTION,
         responseSchema: QUANT_INTEL_SCHEMA,
         thinkingBudget: 32768,
@@ -361,34 +361,48 @@ Deno.serve(async (req: Request) => {
                     const results = await Promise.allSettled(uniqueQueue.map(async ({ game }) => {
                         console.log(`[gap-fix] 🚀 Launching rectification for ${game.id} (${game.away_team} @ ${game.home_team})`);
                         // DISPATCH TO NEW WORKER (v4.2 Architecture)
-                        const invocation = supabase.functions.invoke("pregame-intel-worker", {
-                            body: {
-                                match_id: game.id,
-                                home_team: game.home_team,
-                                away_team: game.away_team,
-                                sport: game.sport,
-                                league: game.league_id,
-                                start_time: game.start_time,
-                                current_spread: (game as any).odds_home_spread_safe,
-                                current_total: (game as any).odds_total_safe,
-                                current_odds: (game as any).current_odds,
-                                // Explicitly pass ML for data completeness
-                                home_ml: (game as any).current_odds?.homeWin || (game as any).current_odds?.home_ml,
-                                away_ml: (game as any).current_odds?.awayWin || (game as any).current_odds?.away_ml,
-                                force_refresh: isForce
-                            },
+                        // Using direct fetch for reliable function-to-function auth
+                        const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+                        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+                        const workerPayload = {
+                            match_id: game.id,
+                            home_team: game.home_team,
+                            away_team: game.away_team,
+                            sport: game.sport,
+                            league: game.league_id,
+                            start_time: game.start_time,
+                            current_spread: (game as any).odds_home_spread_safe,
+                            current_total: (game as any).odds_total_safe,
+                            current_odds: (game as any).current_odds,
+                            home_ml: (game as any).current_odds?.homeWin || (game as any).current_odds?.home_ml,
+                            away_ml: (game as any).current_odds?.awayWin || (game as any).current_odds?.away_ml,
+                            force_refresh: isForce
+                        };
+
+                        const invocation = fetch(`${supabaseUrl}/functions/v1/pregame-intel-worker`, {
+                            method: "POST",
                             headers: {
-                                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                                apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+                                "Content-Type": "application/json",
+                                "Authorization": `Bearer ${serviceRoleKey}`,
+                                "apikey": serviceRoleKey
+                            },
+                            body: JSON.stringify(workerPayload)
+                        }).then(async (res) => {
+                            if (!res.ok) {
+                                const errText = await res.text();
+                                throw new Error(`Worker returned ${res.status}: ${errText}`);
                             }
-                        });
+                            return { data: await res.json(), error: null };
+                        }).catch((err) => ({ data: null, error: err }));
 
                         const result = await withTimeout(invocation, CONFIG.TIMEOUT_MS, `Dossier Generation: ${game.id}`) as any;
 
                         if (result.error || result.data?.error) {
                             const err = result.error || result.data?.error;
-                            console.error(`[discovery] ❌ Gap Failure ${game.id}:`, err);
-                            debug_logs.push(`[gap-err] ${game.id}: ${typeof err === 'object' ? JSON.stringify(err) : err}`);
+                            const errMsg = err?.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+                            console.error(`[discovery] ❌ Gap Failure ${game.id}:`, errMsg);
+                            debug_logs.push(`[gap-err] ${game.id}: ${errMsg}`);
                             throw err;
                         }
 

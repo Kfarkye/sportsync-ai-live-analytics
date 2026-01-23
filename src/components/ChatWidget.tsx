@@ -81,6 +81,7 @@ interface EdgeServiceContext {
   readonly session_id?: string;
   readonly conversation_id?: string;
   readonly current_match?: { readonly match_id: string; readonly home_team: string; readonly away_team: string; readonly league: string; } | null;
+  readonly run_id?: string;
 }
 
 interface StreamChunk {
@@ -265,7 +266,8 @@ const edgeService = {
         })),
         session_id: context.session_id,
         conversation_id: context.conversation_id,
-        gameContext: context.current_match
+        gameContext: context.current_match,
+        run_id: context.run_id
       }),
       signal,
     });
@@ -762,6 +764,7 @@ const InnerChatWidget: FC<InnerChatWidgetProps> = ({ currentMatch, inline, isMin
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [showCommandMenu, setShowCommandMenu] = useState(false);
 
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -771,13 +774,19 @@ const InnerChatWidget: FC<InnerChatWidgetProps> = ({ currentMatch, inline, isMin
 
   const { session_id, conversation_id } = useChatContext({ match: currentMatch });
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages, isProcessing]);
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages, isProcessing]);
+
   useEffect(() => { if (!inline) inputRef.current?.focus(); }, [inline]);
   useEffect(() => { setShowCommandMenu(input === '/'); }, [input]);
 
   const handleStop = useCallback(() => {
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort(); abortControllerRef.current = null; setIsProcessing(false);
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsProcessing(false);
+      setActiveRunId(null);
       setMessages(p => p.map(m => m.isStreaming ? { ...m, isStreaming: false } : m));
       triggerHaptic();
     }
@@ -787,7 +796,19 @@ const InnerChatWidget: FC<InnerChatWidgetProps> = ({ currentMatch, inline, isMin
     const query = forcedQuery ?? input.trim();
     if ((!query && attachments.length === 0) || isProcessing) return;
 
-    setIsProcessing(true); setInput(''); setIsVoiceMode(false); setShowCommandMenu(false);
+    // Reset previous run
+    handleStop();
+
+    setIsProcessing(true);
+    setInput('');
+    setIsVoiceMode(false);
+    setShowCommandMenu(false);
+
+    const currentRunId = generateId();
+    setActiveRunId(currentRunId);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     const userMsg: Message = { id: generateId(), role: 'user', content: query || 'File Analysis', timestamp: new Date().toISOString() };
     const aiMsgId = generateId();
@@ -803,11 +824,10 @@ const InnerChatWidget: FC<InnerChatWidgetProps> = ({ currentMatch, inline, isMin
         setAttachments([]);
       }
 
-      const context: EdgeServiceContext = { session_id, conversation_id, current_match: currentMatch ? { match_id: currentMatch.id, home_team: currentMatch.homeTeam?.name ?? currentMatch.home_team ?? '', away_team: currentMatch.awayTeam?.name ?? currentMatch.away_team ?? '', league: currentMatch.leagueId ?? currentMatch.league_id ?? '' } : null };
+      const context: EdgeServiceContext = { session_id, conversation_id, current_match: currentMatch ? { match_id: currentMatch.id, home_team: currentMatch.homeTeam?.name ?? currentMatch.home_team ?? '', away_team: currentMatch.awayTeam?.name ?? currentMatch.away_team ?? '', league: currentMatch.leagueId ?? currentMatch.league_id ?? '' } : null, run_id: currentRunId };
 
       let contentBuffer = '', thoughtBuffer = '';
       let groundingBuffer: GroundingMetadata | undefined;
-      abortControllerRef.current = new AbortController();
 
       await edgeService.chat(wirePayload, context, (chunk) => {
         if (chunk.type === 'text') { contentBuffer += chunk.content ?? ''; setMessages(p => p.map(m => m.id === aiMsgId ? { ...m, content: contentBuffer } : m)); }
