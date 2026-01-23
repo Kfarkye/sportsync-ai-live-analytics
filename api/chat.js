@@ -253,6 +253,7 @@ You must output your analysis in this **EXACT** structure:
 
         // Extract and save picks
         const picks = extractPicksFromResponse(fullText, rawThoughts);
+        const userQuery = messages.filter(m => m.role === 'user').pop()?.content || '';
         console.log(`[pick-extraction] Found ${picks.length} picks, matchId=${matchId || 'null'}`);
 
         if (picks.length > 0) {
@@ -264,6 +265,7 @@ You must output your analysis in this **EXACT** structure:
                     pick_line: p.line,
                     ai_confidence: p.confidence,
                     reasoning_summary: fullText.slice(0, 500),
+                    user_query: userQuery.slice(0, 500),
                     session_id,
                     conversation_id: activeConversationId,
                     model_id: CONFIG.MODEL_ID,
