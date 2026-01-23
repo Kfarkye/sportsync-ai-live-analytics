@@ -1,12 +1,12 @@
 /* ============================================================================
    ChatWidget.tsx
-   "Obsidian" — Production Master (v15.0)
+   "Obsidian Ledger" — Production Master (v16.2)
    
-   Changelog v15.0:
+   Changelog v16.2:
+   ├─ DATA: Live Game Payload (Score, Clock, Status injected into context)
+   ├─ FEAT: Dynamic Island (Premium Emerald Animation + Text Rotation)
    ├─ FEAT: Gemini grounding inline citations (injectCitations)
-   ├─ FEAT: Sources footer with collapsible numbered list
-   ├─ FEAT: extractSourcesFromGrounding utility
-   └─ TYPES: GroundingSegment, GroundingSupport, GroundingChunk, GroundingMetadata
+   └─ CORE: Full Logic (Citations, Drag & Drop, Voice)
 ============================================================================ */
 
 import React, {
@@ -66,12 +66,18 @@ interface GroundingMetadata { readonly groundingChunks?: readonly GroundingChunk
 
 interface MatchContext {
   readonly id: string;
-  readonly homeTeam?: { readonly name: string };
-  readonly awayTeam?: { readonly name: string };
+  readonly homeTeam?: { readonly name: string; readonly score?: number };
+  readonly awayTeam?: { readonly name: string; readonly score?: number };
   readonly home_team?: string;
   readonly away_team?: string;
+  readonly home_score?: number;
+  readonly away_score?: number;
   readonly leagueId?: string;
   readonly league_id?: string;
+  readonly status?: string;      // e.g. "Live", "Halftime", "Final"
+  readonly period?: string | number; // e.g. "Q4", 2
+  readonly clock?: string;       // e.g. "4:20"
+  readonly [key: string]: unknown;
 }
 
 interface ChatWidgetProps { readonly currentMatch?: MatchContext; readonly inline?: boolean; }
@@ -88,6 +94,12 @@ interface EdgeServiceContext {
     readonly away_team_id?: string;  // ESPN team ID for injury lookups
     readonly league: string;
     readonly sport?: string;
+    // Live game state
+    readonly home_score?: number;
+    readonly away_score?: number;
+    readonly status?: string;
+    readonly clock?: string;
+    [key: string]: unknown;
   } | null;
   readonly run_id?: string;
 }
@@ -367,8 +379,8 @@ export const NeuralPulse = memo<{ active?: boolean; className?: string; size?: n
 );
 NeuralPulse.displayName = 'NeuralPulse';
 
-// Dynamic Island - Premium Thinking Indicator with Pulse Ring
-const THINKING_STATES = ['Scanning lines...', 'Checking trends...', 'Verifying splits...', 'Grading edge...'] as const;
+// Dynamic Island - Premium Thinking Indicator with Pulse Ring (v16.2 Emerald Theme)
+const THINKING_STATES = ['SCANNING MARKET', 'VERIFYING SPLITS', 'GRADING EDGE', 'CHECKING STEAM'] as const;
 const ThinkingPill: FC<{ onStop?: () => void; status?: 'thinking' | 'streaming' | 'grounding' }> = memo(({ onStop, status = 'thinking' }) => {
   const [stateIndex, setStateIndex] = useState(0);
   useEffect(() => {
@@ -377,7 +389,7 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: 'thinking' | 'streaming' 
     return () => clearInterval(interval);
   }, [status]);
 
-  const displayText = status === 'streaming' ? 'Streaming...' : status === 'grounding' ? 'Sourcing intel...' : THINKING_STATES[stateIndex];
+  const displayText = status === 'streaming' ? 'LIVE FEED' : status === 'grounding' ? 'SOURCING INTEL' : THINKING_STATES[stateIndex];
 
   return (
     <motion.div
@@ -385,29 +397,29 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: 'thinking' | 'streaming' 
       aria-label="Processing"
       initial={{ opacity: 0, scale: 0.8, width: 48 }}
       animate={{ opacity: 1, scale: 1, width: 180 }}
-      exit={{ opacity: 0, scale: 0.8, width: 48 }}
+      exit={{ opacity: 0, scale: 0.8, width: 48, transition: { duration: 0.2 } }}
       transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-      className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-4 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-black/60 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset] z-30"
+      className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-4 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#050505]/80 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)_inset] z-30"
     >
-      {/* Pulse Ring */}
+      {/* Pulse Ring - Emerald Theme */}
       <motion.div
         className="relative"
         animate={{ scale: [1, 1.2, 1] }}
         transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
       >
-        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-blue-400 to-purple-500" />
+        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500" />
         <motion.div
-          className="absolute inset-0 rounded-full bg-blue-400/50"
+          className="absolute inset-0 rounded-full bg-emerald-400/50"
           animate={{ scale: [1, 2], opacity: [0.5, 0] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
         />
       </motion.div>
-      <span className="text-[11px] font-medium text-white/80 whitespace-nowrap">
+      <span className="text-[10px] font-mono font-medium text-white/90 whitespace-nowrap uppercase tracking-widest">
         {displayText}
       </span>
       {onStop && (
         <button type="button" onClick={onStop} className="ml-1 p-1 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-colors" aria-label="Stop">
-          <StopCircle size={12} />
+          <StopCircle size={10} />
         </button>
       )}
     </motion.div>
@@ -839,10 +851,15 @@ const InnerChatWidget: FC<InnerChatWidgetProps> = ({ currentMatch, inline, isMin
           match_id: currentMatch.id,
           home_team: currentMatch.homeTeam?.name ?? currentMatch.home_team ?? '',
           away_team: currentMatch.awayTeam?.name ?? currentMatch.away_team ?? '',
-          home_team_id: currentMatch.homeTeam?.id,  // ESPN team ID
-          away_team_id: currentMatch.awayTeam?.id,  // ESPN team ID
+          home_team_id: (currentMatch as any).home_team_id as string | undefined,  // ESPN team ID
+          away_team_id: (currentMatch as any).away_team_id as string | undefined,  // ESPN team ID
           league: currentMatch.leagueId ?? currentMatch.league_id ?? '',
-          sport: currentMatch.sport
+          sport: (currentMatch.sport as string) ?? 'unknown',
+          // Live game state (v16.2)
+          home_score: currentMatch.homeTeam?.score ?? currentMatch.home_score,
+          away_score: currentMatch.awayTeam?.score ?? currentMatch.away_score,
+          status: currentMatch.status,
+          clock: currentMatch.clock,
         } : null,
         run_id: currentRunId
       };
