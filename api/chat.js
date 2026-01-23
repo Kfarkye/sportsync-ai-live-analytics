@@ -1,24 +1,20 @@
 /* ============================================================================
-   api/chat.ts
-   "Obsidian Ledger" — Gemini 3 Production Backend (v17.0)
-
-   ENGINE: Gemini 3 Flash Preview (Native Google SDK)
-   FEATURES:
-   ├─ THINKING: Enabled (High Level) via 'thinkingConfig'
-   ├─ STREAMING: Separates 'thought' (Internal Monologue) from 'text' (Verdict)
-   ├─ LOGIC: Full Deno Logic Ported (Phase Detection, Pick Extraction, DB)
-   └─ MULTIMODAL: Handles Images/Screenshots via inlineData
+   api/chat.js
+   "Obsidian Ledger" — Gemini 3 Production Backend (v17.2)
+   
+   ENGINE: Gemini 3 Flash Preview (Native Google SDK v1.0+)
+   OUTPUT: Exact "Analytical Walkthrough" Report Format
+   LOGIC: Triple Confluence Gate (Pass if edge is thin)
 ============================================================================ */
 
-const { GoogleGenAI } = require("@google/genai");
-const { createClient } = require('@supabase/supabase-js');
+import { GoogleGenAI } from "@google/genai";
+import { createClient } from '@supabase/supabase-js';
 
 // 1. CONFIGURATION
-// Initialize Native Gemini Client
 const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY });
 const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 const CONFIG = {
@@ -26,18 +22,23 @@ const CONFIG = {
     TIMEOUT_MS: 55000,
     THINKING_CONFIG: {
         includeThoughts: true,
-        thinkingLevel: "high" as const // Force maximum reasoning depth
-    }
+        thinkingLevel: "high"
+    },
+    RETRY_LADDER: [
+        { attempt: 1, maxEvidence: 8, maxChars: 15000, useSearch: true },
+        { attempt: 2, maxEvidence: 4, maxChars: 6000, useSearch: true },
+        { attempt: 3, maxEvidence: 0, maxChars: 2000, useSearch: false } // Fail-closed PASS
+    ]
 };
 
-// 2. LOGIC UTILITIES (Ported from your Deno code)
-const getETDate = (offsetDays = 0): string => {
+// 2. LOGIC UTILITIES
+const getETDate = (offsetDays = 0) => {
     const now = new Date();
     now.setDate(now.getDate() + offsetDays);
     return now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 };
 
-const getMarketPhase = (match: any): string => {
+const getMarketPhase = (match) => {
     if (!match) return "UNKNOWN";
     const status = (match.status || match.game_status || "").toUpperCase();
 
@@ -56,37 +57,32 @@ const getMarketPhase = (match: any): string => {
     return "🔭 OPENING_MARKET";
 };
 
-// 3. PICK EXTRACTION (Robust Regex Suite)
-function extractPicksFromResponse(response: string, thoughts: string = ""): any[] {
-    const picks: any[] = [];
+// 3. PICK EXTRACTION
+function extractPicksFromResponse(response, thoughts = "") {
+    const picks = [];
     const cleanText = response.replace(/[*_]+/g, '');
     const lowerText = (response + thoughts).toLowerCase();
 
-    // Hard Gate: If "PASS", return empty
     if (lowerText.includes('verdict: pass') || lowerText.includes('verdict: **pass**')) return [];
 
     let confidence = 'medium';
     if (lowerText.includes('high confidence')) confidence = 'high';
     if (lowerText.includes('low confidence')) confidence = 'low';
 
-    // Regex 1: Spread ("Lakers -4.5")
     const verdictSpreadRegex = /verdict[:\s]+([A-Za-z0-9\s]+?)\s*([-+]\d+\.?\d*)/gi;
     let match;
     while ((match = verdictSpreadRegex.exec(cleanText)) !== null) {
         const team = match[1].trim();
-        // Filter out totals misidentified as teams
         if (!team.toLowerCase().includes('over') && !team.toLowerCase().includes('under')) {
             picks.push({ type: 'spread', side: team, line: parseFloat(match[2]), confidence });
         }
     }
 
-    // Regex 2: Total ("Over 220.5")
     const verdictTotalRegex = /verdict[:\s]+(over|under)\s*(\d+\.?\d*)/gi;
     while ((match = verdictTotalRegex.exec(cleanText)) !== null) {
         picks.push({ type: 'total', side: match[1].toUpperCase(), line: parseFloat(match[2]), confidence });
     }
 
-    // Regex 3: Moneyline ("Lakers ML")
     const verdictMLRegex = /verdict[:\s]+([A-Za-z0-9\s]+?)\s*(?:ML|moneyline)/gi;
     while ((match = verdictMLRegex.exec(cleanText)) !== null) {
         picks.push({ type: 'moneyline', side: match[1].trim(), line: null, confidence });
@@ -96,168 +92,217 @@ function extractPicksFromResponse(response: string, thoughts: string = ""): any[
 }
 
 // 4. MAIN HANDLER
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        const { messages, session_id, conversation_id, gameContext } = req.body;
+        const { messages, session_id, conversation_id: inputConversationId, gameContext, run_id } = req.body;
+
+        // Reliability Guard: Ensure run_id exists
+        const currentRunId = run_id || crypto.randomUUID();
+
+        // Auto-create conversation if not provided
+        let activeConversationId = inputConversationId;
+        if (!activeConversationId && session_id) {
+            try {
+                const { data: newConv, error: convError } = await supabase
+                    .from('conversations')
+                    .insert({
+                        session_id,
+                        messages: [],
+                        created_at: new Date().toISOString(),
+                        last_message_at: new Date().toISOString()
+                    })
+                    .select('id')
+                    .single();
+
+                if (!convError && newConv) {
+                    activeConversationId = newConv.id;
+                    console.log(`[run] 🆕 Created conversation: ${activeConversationId}`);
+                }
+            } catch (e) {
+                console.error('[run] Failed to create conversation:', e);
+            }
+        }
+
+        // Idempotency Skeleton (to be expanded in 2B)
+        console.log(`[run] 🆔 ${currentRunId} | Session: ${session_id} | Conv: ${activeConversationId}`);
+
         const matchId = gameContext?.match_id || gameContext?.id;
 
-        // --- CONTEXT BUILDER ---
-        const marketPhase = getMarketPhase(gameContext);
+        // Retry Ladder Logic
+        const attemptNumber = parseInt(req.headers['x-retry-attempt'] || '1');
+        const retryStrategy = CONFIG.RETRY_LADDER.find(r => r.attempt === attemptNumber) || CONFIG.RETRY_LADDER[0];
+        console.log(`[run] 🪜 Attempt ${attemptNumber} | Budget: ${retryStrategy.maxChars} chars`);
+
+        const marketPhase = getMarketPhase(gameContext || {});
         const isLive = marketPhase.includes('LIVE');
         const estTime = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
 
-        const systemInstruction = `
+        let systemInstruction = `
 <temporal_anchor>
 TODAY: ${getETDate()} | TIME: ${estTime} ET
 PHASE: ${marketPhase}
 </temporal_anchor>
 
 <context>
-MATCH: ${gameContext?.away_team} @ ${gameContext?.home_team}
-${isLive && gameContext?.home_score ? `LIVE SCORE: ${gameContext.away_score} - ${gameContext.home_score} | ${gameContext.clock}` : ''}
-${gameContext?.current_odds ? `ODDS: ${JSON.stringify(gameContext.current_odds)}` : ''}
+MATCH: ${gameContext?.away_team || 'Unknown'} @ ${gameContext?.home_team || 'Unknown'}`;
+
+        if (isLive && gameContext?.home_score !== undefined) {
+            systemInstruction += `\nLIVE SCORE: ${gameContext.away_score} - ${gameContext.home_score} | ${gameContext.clock || 'Active'}`;
+        }
+
+        if (gameContext?.current_odds) {
+            systemInstruction += `\nODDS: ${JSON.stringify(gameContext.current_odds)}`;
+        }
+
+        systemInstruction += `
 </context>
 
 <role>
 You are "The Obsidian Ledger," an elite sports analytics engine powered by **Gemini 3**.
-You utilize your "Thinking Process" to simulate the game physics before rendering a verdict.
+You do not predict the game. You predict where the *Line* is wrong using the "Triple Confluence" framework.
 </role>
 
+<methodology>
+**THE DECISION GATE:**
+Your Default State is **PASS**.
+To recommend a play, you must prove a **TRIPLE CONFLUENCE**:
+1. 💰 **Price Error:** Model Delta > Market Line.
+2. 📉 **Sentiment Signal:** Weaponized search confirms Sharp/Public split.
+3. 🏗️ **Structural Support:** Fatigue, Injuries, or Tactical mismatch supports the angle.
+**IF ANY CONDITION FAILS -> VERDICT: PASS.**
+</methodology>
+
 <output_rules>
-FORMAT IS NON-NEGOTIABLE:
-1. **VERDICT:** [Team/Total] [Line] (e.g. "Lakers -4.5" or "Over 210.5") or [PASS].
-2. **EVIDENCE:**
-   - **Context:** Narrative/Trap.
-   - **Fundamentals:** Physics/Stats.
-   - **Flow:** Market/Splits.
-3. **CONFIDENCE:** [High/Medium/Low].
+You must output your analysis in this **EXACT** structure:
+
+**Analytical Walkthrough**
+1. **Market Dynamics & Price Verification**
+   [Analyze the implied probability vs. reality. Mention the delta.]
+2. **Sentiment Signal (Weaponized Search)**
+   [Public Perception vs. Sharp Lean. Reverse Line Movement analysis.]
+3. **Structural Assessment (Game Physics)**
+   [Fatigue, Injuries, "Road Paradox", or Tactical Mismatch.]
+
+**Triple Confluence Evaluation**
+[Summarize: Do we have all 3 pillars (Price, Sentiment, Structure)? If not, why?]
+
+**Final Determination**
+[Synthesize the risk profile.]
+
+**VERDICT:** [The Play] OR [PASS]
+**CONFIDENCE:** [High/Medium/Low] OR [N/A]
+**THE RULE:** [One-sentence generalized betting principle derived from this spot.]
 </output_rules>
 `;
 
-        // --- MULTIMODAL HISTORY MAPPER ---
-        // Converts frontend message format to Google SDK format (handling images/files)
-        const geminiHistory = messages.map((m: any) => {
+        const geminiHistory = messages.map((m) => {
             const role = m.role === 'assistant' ? 'model' : 'user';
-
-            // Handle array content (Text + Images)
             if (Array.isArray(m.content)) {
-                const parts = m.content.map((c: any) => {
-                    // Map Base64 Images to inlineData
-                    if (c.type === 'image' && c.source?.data) {
-                        return { inlineData: { mimeType: c.source.media_type, data: c.source.data } };
-                    }
-                    if (c.type === 'file' && c.source?.data) {
-                        return { inlineData: { mimeType: c.source.media_type, data: c.source.data } };
-                    }
+                const parts = m.content.map((c) => {
+                    if (c.type === 'image' && c.source?.data) return { inlineData: { mimeType: c.source.media_type, data: c.source.data } };
+                    if (c.type === 'file' && c.source?.data) return { inlineData: { mimeType: c.source.media_type, data: c.source.data } };
                     return { text: c.text || '' };
                 });
                 return { role, parts };
             }
-
-            // Handle simple string content
             return { role, parts: [{ text: String(m.content) }] };
         });
 
-        // --- GEMINI 3 EXECUTION (Native SDK) ---
+        const tools = retryStrategy.useSearch ? [{ googleSearch: {} }] : [];
+
         const result = await genAI.models.generateContentStream({
             model: CONFIG.MODEL_ID,
-            contents: geminiHistory,
+            contents: geminiHistory.slice(-retryStrategy.maxEvidence), // Prune history for retry
             config: {
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-                thinkingConfig: CONFIG.THINKING_CONFIG, // <--- NATIVE THINKING ENABLED
-                tools: [{ googleSearch: {} }] // Native Grounding
+                systemInstruction: { parts: [{ text: systemInstruction.slice(0, retryStrategy.maxChars) }] }, // Cap instruction
+                thinkingConfig: CONFIG.THINKING_CONFIG,
+                tools
             }
         });
 
-        // Setup SSE Stream
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
         let fullText = "";
         let rawThoughts = "";
-        let sources: any[] = [];
+        let sources = [];
 
-        // --- STREAM LOOP ---
         for await (const chunk of result) {
             const parts = chunk.candidates?.[0]?.content?.parts || [];
-
             for (const part of parts) {
                 if (part.text) {
                     if (part.thought) {
-                        // 🧠 THOUGHT STREAM (Purple Text for Dynamic Island)
                         rawThoughts += part.text;
                         res.write(`data: ${JSON.stringify({ type: 'thought', content: part.text })}\n\n`);
                     } else {
-                        // 📝 VERDICT STREAM (White Text for Chat)
                         fullText += part.text;
                         res.write(`data: ${JSON.stringify({ type: 'text', content: part.text })}\n\n`);
                     }
                 }
             }
-
-            // Capture Grounding (Citations)
             if (chunk.candidates?.[0]?.groundingMetadata?.groundingChunks) {
                 const newSources = chunk.candidates[0].groundingMetadata.groundingChunks
-                    .map((c: any) => ({
-                        title: c.web?.title || 'Source',
-                        uri: c.web?.uri
-                    }))
-                    .filter((s: any) => s.uri);
+                    .map((c) => ({ title: c.web?.title || 'Source', uri: c.web?.uri }))
+                    .filter((s) => s.uri);
                 sources = [...sources, ...newSources];
             }
         }
 
-        // --- PERSISTENCE (Restored Deno Logic) ---
-
-        // 1. Save Picks
         if (matchId) {
             const picks = extractPicksFromResponse(fullText, rawThoughts);
             if (picks.length > 0) {
-                await supabase.from('ai_chat_picks').insert(picks.map(p => ({
-                    match_id: matchId,
-                    pick_type: p.type,
-                    pick_side: p.side,
-                    pick_line: p.line,
-                    ai_confidence: p.confidence,
-                    reasoning_summary: fullText.slice(0, 500),
-                    session_id,
-                    conversation_id,
-                    model_id: CONFIG.MODEL_ID
-                })));
+                try {
+                    await supabase.from('ai_chat_picks').insert(picks.map(p => ({
+                        match_id: matchId,
+                        pick_type: p.type,
+                        pick_side: p.side,
+                        pick_line: p.line,
+                        ai_confidence: p.confidence,
+                        reasoning_summary: fullText.slice(0, 500),
+                        session_id,
+                        activeConversationId,
+                        model_id: CONFIG.MODEL_ID,
+                        run_id: currentRunId // NEW: Link pick to run
+                    })));
+                } catch (e) { console.error("DB Pick Error", e); }
             }
         }
 
-        // 2. Save Conversation (Including Thoughts)
-        if (conversation_id) {
-            const uniqueSources = Array.from(new Map(sources.map(s => [s.uri, s])).values());
-            await supabase.from('conversations').update({
-                messages: [
-                    ...messages,
-                    {
-                        role: 'assistant',
-                        content: fullText,
-                        thoughts: rawThoughts, // Saved to DB for audit
-                        sources: uniqueSources,
-                        model: CONFIG.MODEL_ID
-                    }
-                ].slice(-40),
-                last_message_at: new Date().toISOString()
-            }).eq('id', conversation_id);
+        // Idempotent Run Tracking: Mark run as completed
+        console.log(`[run-tracking] conversation_id=${activeConversationId}, run_id=${currentRunId}, attempt=${attemptNumber}`);
+        if (activeConversationId) {
+            try {
+                const { error: runError } = await supabase.from('ai_chat_runs').upsert({
+                    conversation_id: activeConversationId,
+                    run_id: currentRunId,
+                    status: 'completed',
+                    attempt_number: attemptNumber,
+                    metadata: { model: CONFIG.MODEL_ID, sources_count: sources.length }
+                }, { onConflict: 'conversation_id,run_id' });
+                if (runError) console.error("[run-tracking] Upsert Error:", runError);
+                else console.log("[run-tracking] ✅ Run logged successfully");
+            } catch (e) { console.error("DB Run Tracking Error", e); }
+        } else {
+            console.warn("[run-tracking] ⚠️ Skipped - no conversation_id");
         }
 
-        // Finalize
-        res.write(`data: ${JSON.stringify({
-            done: true,
-            model: CONFIG.MODEL_ID,
-            sources
-        })}\n\n`);
+        if (activeConversationId) {
+            const uniqueSources = Array.from(new Map(sources.map(s => [s.uri, s])).values());
+            try {
+                await supabase.from('conversations').update({
+                    messages: [...messages, { role: 'assistant', content: fullText, thoughts: rawThoughts, sources: uniqueSources, model: CONFIG.MODEL_ID }].slice(-40),
+                    last_message_at: new Date().toISOString()
+                }).eq('id', activeConversationId);
+            } catch (e) { console.error("DB Conv Error", e); }
+        }
 
+        res.write(`data: ${JSON.stringify({ done: true, model: CONFIG.MODEL_ID, sources, conversation_id: activeConversationId })}\n\n`);
         res.end();
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("[Gemini 3 Error]", error);
         res.write(`data: ${JSON.stringify({ type: 'error', content: error.message })}\n\n`);
         res.end();
