@@ -263,7 +263,7 @@ You must output your analysis in this **EXACT** structure:
                         ai_confidence: p.confidence,
                         reasoning_summary: fullText.slice(0, 500),
                         session_id,
-                        activeConversationId,
+                        conversation_id: activeConversationId,
                         model_id: CONFIG.MODEL_ID,
                         run_id: currentRunId // NEW: Link pick to run
                     })));
