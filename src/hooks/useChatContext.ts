@@ -17,6 +17,8 @@ interface MatchContext {
     match_id: string;
     home_team: string;
     away_team: string;
+    home_team_id?: string;  // ESPN team ID for injury lookups
+    away_team_id?: string;  // ESPN team ID for injury lookups
     league: string;
     sport?: string;
     start_time?: string;

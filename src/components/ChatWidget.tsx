@@ -80,7 +80,15 @@ interface InnerChatWidgetProps extends ChatWidgetProps { readonly isMinimized?: 
 interface EdgeServiceContext {
   readonly session_id?: string;
   readonly conversation_id?: string;
-  readonly current_match?: { readonly match_id: string; readonly home_team: string; readonly away_team: string; readonly league: string; } | null;
+  readonly current_match?: {
+    readonly match_id: string;
+    readonly home_team: string;
+    readonly away_team: string;
+    readonly home_team_id?: string;  // ESPN team ID for injury lookups
+    readonly away_team_id?: string;  // ESPN team ID for injury lookups
+    readonly league: string;
+    readonly sport?: string;
+  } | null;
   readonly run_id?: string;
 }
 
@@ -824,7 +832,20 @@ const InnerChatWidget: FC<InnerChatWidgetProps> = ({ currentMatch, inline, isMin
         setAttachments([]);
       }
 
-      const context: EdgeServiceContext = { session_id, conversation_id, current_match: currentMatch ? { match_id: currentMatch.id, home_team: currentMatch.homeTeam?.name ?? currentMatch.home_team ?? '', away_team: currentMatch.awayTeam?.name ?? currentMatch.away_team ?? '', league: currentMatch.leagueId ?? currentMatch.league_id ?? '' } : null, run_id: currentRunId };
+      const context: EdgeServiceContext = {
+        session_id,
+        conversation_id,
+        current_match: currentMatch ? {
+          match_id: currentMatch.id,
+          home_team: currentMatch.homeTeam?.name ?? currentMatch.home_team ?? '',
+          away_team: currentMatch.awayTeam?.name ?? currentMatch.away_team ?? '',
+          home_team_id: currentMatch.homeTeam?.id,  // ESPN team ID
+          away_team_id: currentMatch.awayTeam?.id,  // ESPN team ID
+          league: currentMatch.leagueId ?? currentMatch.league_id ?? '',
+          sport: currentMatch.sport
+        } : null,
+        run_id: currentRunId
+      };
 
       let contentBuffer = '', thoughtBuffer = '';
       let groundingBuffer: GroundingMetadata | undefined;

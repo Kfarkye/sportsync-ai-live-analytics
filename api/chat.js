@@ -57,6 +57,62 @@ const getMarketPhase = (match) => {
     return "🔭 OPENING_MARKET";
 };
 
+// === HARDENED INJURY FETCH (3s timeout, status normalization, token cap) ===
+const INJURY_STATUSES = ['OUT', 'DOUBTFUL', 'QUESTIONABLE', 'DAY-TO-DAY', 'GTD', 'SUSPENSION', 'PROBABLE'];
+const SPORT_CONFIG = {
+    NBA: { sport: 'basketball', league: 'nba' },
+    NFL: { sport: 'football', league: 'nfl' },
+    NHL: { sport: 'hockey', league: 'nhl' },
+    HOCKEY: { sport: 'hockey', league: 'nhl' }
+};
+
+async function fetchESPNInjuries(teamId, sportKey = 'NBA') {
+    const start = Date.now();
+    const config = SPORT_CONFIG[sportKey?.toUpperCase()] || SPORT_CONFIG.NBA;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000); // 3s timeout
+
+    try {
+        const url = `https://site.api.espn.com/apis/site/v2/sports/${config.sport}/${config.league}/teams/${teamId}?enable=injuries`;
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
+
+        if (!res.ok) return { ok: false, ms: Date.now() - start, injuries: [], error: `HTTP ${res.status}` };
+
+        const data = await res.json();
+        const injuries = (data.team?.injuries || [])
+            .map(i => ({
+                name: i.athlete?.displayName || 'Unknown',
+                status: (i.status || '').toUpperCase().replace(/-/g, ''),
+                desc: (i.description || '').slice(0, 40)
+            }))
+            .filter(i => INJURY_STATUSES.some(s => i.status.includes(s.replace(/-/g, ''))))
+            .slice(0, 6); // Cap at 6 per team
+
+        return { ok: true, ms: Date.now() - start, injuries };
+    } catch (e) {
+        clearTimeout(timeout);
+        return { ok: false, ms: Date.now() - start, injuries: [], error: e.name };
+    }
+}
+
+function formatInjuryContext(homeResult, awayResult, homeName, awayName) {
+    const formatTeam = (r, name) => {
+        if (!r.ok) return `${name}: ⚠️ FETCH FAILED (${r.error || 'timeout'})`;
+        if (!r.injuries.length) return `${name}: No injuries returned by ESPN`;
+        return `${name}: ${r.injuries.map(i => `${i.name} (${i.status})`).join(', ')}`;
+    };
+
+    const status = (homeResult.ok && awayResult.ok) ? 'ok' : 'partial_fail';
+    const totalMs = (homeResult.ms || 0) + (awayResult.ms || 0);
+
+    return `
+🚨 LIVE INJURY REPORT (${new Date().toISOString().slice(11, 19)} UTC):
+${formatTeam(homeResult, homeName)}
+${formatTeam(awayResult, awayName)}
+[INJURY_FETCH: ${status} | ${totalMs}ms | home:${homeResult.injuries.length} away:${awayResult.injuries.length}]`;
+}
+
 // 3. PICK EXTRACTION
 function extractPicksFromResponse(response, thoughts = "") {
     const picks = [];
@@ -139,6 +195,23 @@ export default async function handler(req, res) {
         const isLive = marketPhase.includes('LIVE');
         const estTime = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
 
+        // === INJURY PRE-FLIGHT FETCH ===
+        let injuryContext = '';
+        if (gameContext?.home_team_id && gameContext?.away_team_id) {
+            const sport = gameContext?.sport || 'NBA';
+            const [homeInjuries, awayInjuries] = await Promise.all([
+                fetchESPNInjuries(gameContext.home_team_id, sport),
+                fetchESPNInjuries(gameContext.away_team_id, sport)
+            ]);
+            injuryContext = formatInjuryContext(
+                homeInjuries, awayInjuries,
+                gameContext.home_team, gameContext.away_team
+            );
+            console.log(`[injury-fetch] sport=${sport} home:${homeInjuries.injuries.length} away:${awayInjuries.injuries.length} ms:${(homeInjuries.ms || 0) + (awayInjuries.ms || 0)}`);
+        } else {
+            console.log('[injury-fetch] Skipped - no team IDs in context');
+        }
+
         let systemInstruction = `
 <temporal_anchor>
 TODAY: ${getETDate()} | TIME: ${estTime} ET
@@ -154,6 +227,11 @@ MATCH: ${gameContext?.away_team || 'Unknown'} @ ${gameContext?.home_team || 'Unk
 
         if (gameContext?.current_odds) {
             systemInstruction += `\nODDS: ${JSON.stringify(gameContext.current_odds)}`;
+        }
+
+        // Inject injury context
+        if (injuryContext) {
+            systemInstruction += injuryContext;
         }
 
         systemInstruction += `
