@@ -87,6 +87,55 @@ async function fetchLiveState(supabaseClient, matchId) {
     }
 }
 
+// === PHASE 2: LIVE GAME AUTO-DETECTION ===
+function extractTeamHint(query) {
+    if (!query) return null;
+    const q = query.toLowerCase();
+
+    // Only attempt if query includes live-intent keywords
+    const intent = /(vs|versus|game|score|live|quarter|q[1-4]|half|period|inning|overtime)/i.test(q);
+    if (!intent) return null;
+
+    // Pick longest word token as a hint (reduces noise, avoids short words like "heat")
+    const tokens = q.split(/[^a-z0-9]+/).filter(Boolean);
+    const candidates = tokens.filter(t => t.length >= 4);
+    if (!candidates.length) return null;
+    candidates.sort((a, b) => b.length - a.length);
+    return candidates[0];
+}
+
+async function detectLiveGame(supabaseClient, userQuery, gameContext) {
+    // Already have context
+    if (gameContext?.match_id) return { ok: true, data: gameContext, reason: 'already_has_context' };
+
+    const hint = extractTeamHint(userQuery);
+    if (!hint) return { ok: false, data: null, reason: 'no_hint' };
+
+    const t0 = Date.now();
+    try {
+        const { data, error } = await supabaseClient
+            .from('live_game_state')
+            .select('id, home_team, away_team, home_score, away_score, display_clock, game_status, period, odds, updated_at')
+            .eq('game_status', 'IN_PROGRESS')
+            .or(`home_team.ilike.%${hint}%,away_team.ilike.%${hint}%`)
+            .order('updated_at', { ascending: false })
+            .limit(1);
+
+        const ms = Date.now() - t0;
+
+        if (error || !data?.length) {
+            console.log(`[live-detect] no_match hint=${hint} ms=${ms}`);
+            return { ok: false, data: null, reason: 'no_match', ms };
+        }
+
+        console.log(`[live-detect] FOUND hint=${hint} matchId=${data[0].id} ${data[0].home_score}-${data[0].away_score} ms=${ms}`);
+        return { ok: true, data: data[0], reason: 'match', ms };
+    } catch (e) {
+        console.log(`[live-detect] exception hint=${hint} err=${String(e)}`);
+        return { ok: false, data: null, reason: 'exception' };
+    }
+}
+
 const getETDate = (offsetDays = 0) => {
     const now = new Date();
     now.setDate(now.getDate() + offsetDays);
@@ -257,7 +306,31 @@ export default async function handler(req, res) {
         // Idempotency Skeleton (to be expanded in 2B)
         console.log(`[run] 🆔 ${currentRunId} | Session: ${session_id} | Conv: ${activeConversationId}`);
 
-        const matchId = gameContext?.match_id || gameContext?.id;
+        let matchId = gameContext?.match_id || gameContext?.id;
+
+        // === PHASE 2: AUTO-DETECT LIVE GAME ===
+        // If no explicit game context, try to detect from user query
+        if (!matchId) {
+            const userQuery = messages.filter(m => m.role === 'user').pop()?.content || '';
+            const detectRes = await detectLiveGame(supabase, userQuery, gameContext);
+            if (detectRes.ok && detectRes.data && detectRes.reason === 'match') {
+                // Hydrate gameContext from detected live game
+                const d = detectRes.data;
+                gameContext = {
+                    match_id: d.id,
+                    home_team: d.home_team,
+                    away_team: d.away_team,
+                    home_score: d.home_score,
+                    away_score: d.away_score,
+                    clock: d.display_clock,
+                    status: d.game_status,
+                    period: d.period,
+                    current_odds: d.odds
+                };
+                matchId = d.id;
+                console.log(`[live-detect] 🎯 Auto-hydrated context: ${d.home_team} vs ${d.away_team}`);
+            }
+        }
 
         // Retry Ladder Logic
         const attemptNumber = parseInt(req.headers['x-retry-attempt'] || '1');
