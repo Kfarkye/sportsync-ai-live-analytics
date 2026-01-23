@@ -166,93 +166,116 @@ Deno.serve(async (req: Request) => {
     );
 
     const debug_logs: string[] = [];
+    const body = await req.json().catch(() => ({}));
+    const userAgent = req.headers.get("user-agent") || "";
+    const cronSecret = req.headers.get("x-cron-secret");
+
+    // SRE: Heartbeat Logic (Immediate observability)
+    const isCron = body.is_cron === true ||
+        userAgent.includes("PostgREST") ||
+        userAgent.includes("pg_net") ||
+        (userAgent.includes("Deno") && Object.keys(body).length === 0) ||
+        cronSecret === Deno.env.get("CRON_SECRET");
+
+    const isForce = body.force === true;
+    const triggerLabel = isCron ? (isForce ? "CRON_FORCE" : "CRON") : "MANUAL";
+    const batchId = `cron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const startTime = new Date();
+
+    console.log(`[pulse] 💓 HEARTBEAT: ${triggerLabel} | Start: ${startTime.toISOString()}`);
+
+    // Immediate Heartbeat Log to DB for 100% observability
+    if (isCron) {
+        try {
+            await supabase.from("pregame_intel_log").insert({
+                batch_id: batchId,
+                matches_processed: 0,
+                matches_succeeded: 0,
+                matches_failed: 0,
+                trace: [`[pulse] Heartbeat Triggered via ${userAgent}`],
+                duration_ms: 0
+            });
+        } catch (e: any) {
+            console.error("[pulse-err] Failed heartbeat log:", e.message);
+        }
+    }
+
+    // Quick validation: throttle check
+    if (isCron) {
+        const { data: sentinel, error: guardErr } = await supabase
+            .from("pregame_intel")
+            .select("generated_at")
+            .eq("match_id", "CRON_SENTINEL")
+            .single();
+
+        if (guardErr && guardErr.code !== 'PGRST116') {
+            console.error(`[guard] ⚠️ Error querying sentinel:`, guardErr);
+            debug_logs.push(`[guard] ⚠️ Error querying sentinel: ${guardErr.message}`);
+        }
+
+        if (sentinel && sentinel?.generated_at) {
+            const ageMins = (Date.now() - new Date(sentinel.generated_at).getTime()) / (1000 * 60);
+            if (ageMins < 14 && !isForce) {
+                console.log(`[guard] 🛑 Throttling: Last run ${ageMins.toFixed(1)}m ago`);
+                return new Response(JSON.stringify({
+                    status: "THROTTLED",
+                    age_mins: ageMins,
+                    batchId
+                }), { status: 200, headers: CORS_HEADERS });
+            }
+        }
+
+        // Acquire lock immediately
+        const lockDossier = {
+            match_id: "CRON_SENTINEL",
+            sport: "SYSTEM",
+            league_id: "SYSTEM",
+            home_team: "SYSTEM",
+            away_team: "SYSTEM",
+            game_date: new Date().toISOString().split('T')[0],
+            headline: "Cron Sentinel [LOCKED]",
+            briefing: "Execution tracking active.",
+            cards: [{ title: 'Sentinel', body: 'Throttling guard heartbeat.', category: 'SYSTEM' }],
+            generated_at: new Date().toISOString(),
+            freshness: 'LIVE'
+        };
+        await supabase.from("pregame_intel").upsert(lockDossier, { onConflict: 'match_id,game_date' });
+        console.log(`[guard] 🔒 Lock acquired, returning 202 immediately`);
+
+        // === FIRE AND FORGET: Return 202 now, run work in background ===
+        // The background work is NOT awaited - it continues after response
+        runBatchProcessing(supabase, batchId, isForce, startTime).catch(err => {
+            console.error(`[background] ❌ Batch failed:`, err.message);
+        });
+
+        return new Response(JSON.stringify({
+            status: "ACCEPTED",
+            batchId,
+            message: "Processing started in background",
+            ts: new Date().toISOString()
+        }), { status: 202, headers: CORS_HEADERS });
+    }
+
+    // MANUAL requests and targeted dossiers still run synchronously
+    if (body.match_id && !body.is_cron) {
+        console.log(`[originator] 🔬 Targeted Dossier Request: ${body.match_id}`);
+        const dossier = await generateDossier(body);
+        return new Response(JSON.stringify(dossier), { headers: CORS_HEADERS });
+    }
+
+    // Fallback for non-cron, non-targeted requests
+    return new Response(JSON.stringify({ error: "Invalid request" }), { status: 400, headers: CORS_HEADERS });
+});
+
+// === BACKGROUND BATCH PROCESSING ===
+async function runBatchProcessing(supabase: any, batchId: string, isForce: boolean, startTime: Date) {
+    const trace: string[] = [];
+    const debug_logs: string[] = [];
+    let rectifiedCount = 0;
+    let queueLength = 0;
+
     try {
-        const body = await req.json().catch(() => ({}));
-        const userAgent = req.headers.get("user-agent") || "";
-        const cronSecret = req.headers.get("x-cron-secret");
-
-        // SRE: Heartbeat Logic (Immediate observability)
-        const isCron = body.is_cron === true ||
-            userAgent.includes("PostgREST") ||
-            userAgent.includes("pg_net") ||
-            (userAgent.includes("Deno") && Object.keys(body).length === 0) ||
-            cronSecret === Deno.env.get("CRON_SECRET");
-
-        const isForce = body.force === true;
-        const triggerLabel = isCron ? (isForce ? "CRON_FORCE" : "CRON") : "MANUAL";
-        const batchId = `cron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-
-        const trace: string[] = [];
-        console.log(`[pulse] 💓 HEARTBEAT: ${triggerLabel} | Start: ${new Date().toISOString()}`);
-
-        // Immediate Heartbeat Log to DB for 100% observability
-        if (isCron) {
-            try {
-                await supabase.from("pregame_intel_log").insert({
-                    batch_id: batchId,
-                    matches_processed: 0,
-                    matches_succeeded: 0,
-                    matches_failed: 0,
-                    trace: [`[pulse] Heartbeat Triggered via ${userAgent}`],
-                    duration_ms: 0
-                });
-            } catch (e: any) {
-                console.error("[pulse-err] Failed heartbeat log:", e.message);
-            }
-        }
-
-        trace.push(`[boot] Trigger: ${triggerLabel}, Force: ${isForce}, Batch: ${batchId}`);
-
-        if (isCron) {
-            const { data: sentinel, error: guardErr } = await supabase
-                .from("pregame_intel")
-                .select("generated_at")
-                .eq("match_id", "CRON_SENTINEL")
-                .single();
-
-            if (guardErr && guardErr.code !== 'PGRST116') {
-                console.error(`[guard] ⚠️ Error querying sentinel:`, guardErr);
-                debug_logs.push(`[guard] ⚠️ Error querying sentinel: ${guardErr.message}`);
-            }
-
-            if (sentinel && sentinel?.generated_at) {
-                const ageMins = (Date.now() - new Date(sentinel.generated_at).getTime()) / (1000 * 60);
-                trace.push(`[guard] Last sentinel sync was ${ageMins.toFixed(1)}m ago.`);
-                if (ageMins < 14 && !isForce) {
-                    trace.push(`[guard] Throttling active. Exiting.`);
-                    return new Response(JSON.stringify({ status: "THROTTLED", age_mins: ageMins, debug_logs, trace }), { headers: CORS_HEADERS });
-                }
-            } else {
-                console.log(`[guard] 🟢 No previous sentinel found.`);
-                debug_logs.push(`[guard] 🟢 No previous sentinel found.`);
-            }
-
-            const lockDossier = {
-                match_id: "CRON_SENTINEL",
-                sport: "SYSTEM",
-                league_id: "SYSTEM",
-                home_team: "SYSTEM",
-                away_team: "SYSTEM",
-                game_date: new Date().toISOString().split('T')[0],
-                headline: "Cron Sentinel [LOCKED]",
-                briefing: "Execution tracking active.",
-                cards: [{ title: 'Sentinel', body: 'Throttling guard heartbeat.', category: 'SYSTEM' }],
-                generated_at: new Date().toISOString(),
-                freshness: 'LIVE'
-            };
-            await supabase.from("pregame_intel").upsert(lockDossier, { onConflict: 'match_id,game_date' });
-            debug_logs.push(`[guard] 🔒 Lock acquired at ${new Date().toISOString()}`);
-        }
-
-        debug_logs.push(`[log] 📝 Run initialized: ${batchId}`);
-        trace.push(`[log] Run initialized: ${batchId}`);
-
-        if (body.match_id && !body.is_cron) {
-            console.log(`[originator] 🔬 Targeted Dossier Request: ${body.match_id}`);
-            const dossier = await generateDossier(body);
-            return new Response(JSON.stringify(dossier), { headers: CORS_HEADERS });
-        }
-
+        trace.push(`[boot] Background batch started: ${batchId}`);
         console.log(`[discovery] 🛰️ Initiating Slate Audit: Lookahead=${CONFIG.LOOKAHEAD_HOURS}h`);
         const now = new Date();
         const windowEnd = new Date(now.getTime() + CONFIG.LOOKAHEAD_HOURS * 60 * 60 * 1000);
@@ -536,19 +559,23 @@ Deno.serve(async (req: Request) => {
             matches_succeeded: rectifiedCount,
             matches_failed: (queueLength - rectifiedCount),
             trace: trace,
-            duration_ms: Date.now() - now.getTime()
+            duration_ms: Date.now() - startTime.getTime()
         });
 
-        return new Response(JSON.stringify({
-            status: "SUCCESS",
-            rectified: rectifiedCount,
-            batch_size: queueLength,
-            debug_logs,
-            trace
-        }), { headers: CORS_HEADERS });
+        console.log(`[background] ✅ Batch complete: ${batchId} | Rectified: ${rectifiedCount}/${queueLength} | Duration: ${Date.now() - startTime.getTime()}ms`);
 
     } catch (err: any) {
-        console.error(`[discovery] ❌ Critical System Failure:`, err.message);
-        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: CORS_HEADERS });
+        console.error(`[background] ❌ Critical System Failure:`, err.message);
+        // Log failure to DB for observability
+        try {
+            await supabase.from("pregame_intel_log").insert({
+                batch_id: batchId,
+                matches_processed: 0,
+                matches_succeeded: 0,
+                matches_failed: 1,
+                trace: [`[error] ${err.message}`],
+                duration_ms: Date.now() - startTime.getTime()
+            });
+        } catch { /* ignore */ }
     }
-});
+}
