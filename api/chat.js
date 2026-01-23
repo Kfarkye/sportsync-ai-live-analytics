@@ -251,24 +251,27 @@ You must output your analysis in this **EXACT** structure:
             }
         }
 
-        if (matchId) {
-            const picks = extractPicksFromResponse(fullText, rawThoughts);
-            if (picks.length > 0) {
-                try {
-                    await supabase.from('ai_chat_picks').insert(picks.map(p => ({
-                        match_id: matchId,
-                        pick_type: p.type,
-                        pick_side: p.side,
-                        pick_line: p.line,
-                        ai_confidence: p.confidence,
-                        reasoning_summary: fullText.slice(0, 500),
-                        session_id,
-                        conversation_id: activeConversationId,
-                        model_id: CONFIG.MODEL_ID,
-                        run_id: currentRunId // NEW: Link pick to run
-                    })));
-                } catch (e) { console.error("DB Pick Error", e); }
-            }
+        // Extract and save picks
+        const picks = extractPicksFromResponse(fullText, rawThoughts);
+        console.log(`[pick-extraction] Found ${picks.length} picks, matchId=${matchId || 'null'}`);
+
+        if (picks.length > 0) {
+            try {
+                const { error: pickError } = await supabase.from('ai_chat_picks').insert(picks.map(p => ({
+                    match_id: matchId || null, // Allow null match_id for general picks
+                    pick_type: p.type,
+                    pick_side: p.side,
+                    pick_line: p.line,
+                    ai_confidence: p.confidence,
+                    reasoning_summary: fullText.slice(0, 500),
+                    session_id,
+                    conversation_id: activeConversationId,
+                    model_id: CONFIG.MODEL_ID,
+                    run_id: currentRunId
+                })));
+                if (pickError) console.error('[pick-extraction] DB Error:', pickError);
+                else console.log(`[pick-extraction] ✅ Saved ${picks.length} picks with run_id=${currentRunId}`);
+            } catch (e) { console.error("[pick-extraction] Exception:", e); }
         }
 
         // Idempotent Run Tracking: Mark run as completed
