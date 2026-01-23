@@ -32,6 +32,61 @@ const CONFIG = {
 };
 
 // 2. LOGIC UTILITIES
+function safeJsonStringify(obj, maxLen = 1200) {
+    try {
+        const s = JSON.stringify(obj);
+        return s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
+    } catch {
+        return '';
+    }
+}
+
+function clampText(s, maxLen = 1200) {
+    if (!s) return '';
+    return s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
+}
+
+// === LIVE STATE FETCH (Phase 1: DB > Frontend) ===
+async function fetchLiveState(supabaseClient, matchId) {
+    if (!matchId) return { ok: false, reason: 'no_match_id', data: null };
+
+    const t0 = Date.now();
+    try {
+        const { data, error } = await supabaseClient
+            .from('live_game_state')
+            .select('id, home_team, away_team, home_score, away_score, display_clock, game_status, period, odds, ai_analysis, updated_at')
+            .eq('id', matchId)
+            .maybeSingle();
+
+        const ms = Date.now() - t0;
+
+        if (error) {
+            console.log(`[live-state] error matchId=${matchId} ms=${ms} err=${error.message}`);
+            return { ok: false, reason: 'db_error', data: null, ms };
+        }
+        if (!data) return { ok: false, reason: 'not_found', data: null, ms };
+
+        const updatedAt = new Date(data.updated_at).getTime();
+        const ageMs = Date.now() - updatedAt;
+
+        // Stale guard: ignore if older than 5 minutes
+        if (!Number.isFinite(ageMs) || ageMs > 5 * 60 * 1000) {
+            console.log(`[live-state] stale matchId=${matchId} ageSec=${Math.round(ageMs / 1000)} ms=${ms}`);
+            return { ok: false, reason: 'stale', data: null, ms, ageMs };
+        }
+
+        console.log(
+            `[live-state] ok matchId=${matchId} ${data.home_score}-${data.away_score} | ${data.display_clock} | ageSec=${Math.round(ageMs / 1000)} ms=${ms}`
+        );
+
+        return { ok: true, reason: 'ok', data, ms, ageMs };
+    } catch (e) {
+        const ms = Date.now() - t0;
+        console.log(`[live-state] exception matchId=${matchId} ms=${ms} err=${String(e)}`);
+        return { ok: false, reason: 'exception', data: null, ms };
+    }
+}
+
 const getETDate = (offsetDays = 0) => {
     const now = new Date();
     now.setDate(now.getDate() + offsetDays);
@@ -230,6 +285,60 @@ export default async function handler(req, res) {
             console.log('[injury-fetch] Skipped - no team IDs in context');
         }
 
+        // === LIVE STATE INJECTION (Phase 1: DB > Frontend) ===
+        let liveContext = '';
+        let liveStateMeta = { ok: false, reason: 'not_attempted' };
+
+        const fetchMatchId = gameContext?.match_id ?? gameContext?.id ?? null;
+        const liveRes = await fetchLiveState(supabase, fetchMatchId);
+        liveStateMeta = { ok: liveRes.ok, reason: liveRes.reason, ms: liveRes.ms, ageMs: liveRes.ageMs };
+
+        if (liveRes.ok && liveRes.data) {
+            const d = liveRes.data;
+
+            // Override gameContext with fresh DB state
+            gameContext = {
+                ...gameContext,
+                match_id: d.id,
+                home_team: gameContext?.home_team ?? d.home_team,
+                away_team: gameContext?.away_team ?? d.away_team,
+                home_score: d.home_score,
+                away_score: d.away_score,
+                clock: d.display_clock,
+                status: d.game_status,
+                period: d.period,
+                current_odds: d.odds,
+                ai_analysis: d.ai_analysis
+            };
+
+            const ageSec = Math.round((liveRes.ageMs ?? 0) / 1000);
+            const oddsSummary = safeJsonStringify(d.odds, 900);
+            const aiBrief = clampText(d.ai_analysis, 900);
+
+            liveContext = `
+📡 LIVE DB SNAPSHOT (source=live_game_state)
+timestamp_utc: ${new Date().toISOString()}
+updated_at_utc: ${new Date(d.updated_at).toISOString()}
+age_seconds: ${ageSec}
+status: ${d.game_status}
+period: ${d.period ?? ''}
+clock: ${d.display_clock}
+score: ${d.home_team ?? 'HOME'} ${d.home_score} — ${d.away_score} ${d.away_team ?? 'AWAY'}
+odds_json: ${oddsSummary || 'n/a'}
+precomputed_ai_analysis: ${aiBrief || 'n/a'}
+
+RULES:
+- Treat LIVE DB SNAPSHOT as the single source of truth for score/clock/status/odds.
+- If any other context conflicts, ignore it and reference LIVE DB SNAPSHOT.`;
+        } else {
+            // Always include a small footer so "no live context" isn't mistaken for "no changes"
+            liveContext = `
+📡 LIVE DB SNAPSHOT
+timestamp_utc: ${new Date().toISOString()}
+fetch_status: ${liveStateMeta.reason}
+NOTE: If fetch_status is not "ok", do not assume current score/clock is known.`;
+        }
+
         let systemInstruction = `
 <temporal_anchor>
 TODAY: ${getETDate()} | TIME: ${estTime} ET
@@ -244,13 +353,16 @@ MATCH: ${gameContext?.away_team || 'Unknown'} @ ${gameContext?.home_team || 'Unk
         }
 
         if (gameContext?.current_odds) {
-            systemInstruction += `\nODDS: ${JSON.stringify(gameContext.current_odds)}`;
+            systemInstruction += `\nODDS: ${safeJsonStringify(gameContext.current_odds, 600)}`;
         }
 
         // Inject injury context
         if (injuryContext) {
             systemInstruction += injuryContext;
         }
+
+        // Inject live state context (critical for source-of-truth enforcement)
+        systemInstruction += liveContext;
 
         systemInstruction += `
 </context>
