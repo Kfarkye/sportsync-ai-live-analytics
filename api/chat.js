@@ -160,7 +160,7 @@ async function extractPickStructured(text, context) {
 
     try {
         const { object } = await generateObject({
-            model: google('gemini-1.5-flash'), // Use Flash for speed/cost efficiency in extraction
+            model: google('gemini-3-flash-preview'), // MUST use Gemini 3 per non-negotiable
             schema: BettingPickSchema,
             prompt: `${contextPrompt}\n\nANALYSIS TEXT:\n${text}`,
             mode: 'json'
