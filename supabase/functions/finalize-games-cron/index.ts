@@ -36,6 +36,16 @@ const LEAGUE_ENDPOINTS: Record<string, string> = {
     'esp.1': 'soccer/esp.1',
     'ger.1': 'soccer/ger.1',
     'bundesliga': 'soccer/ger.1',
+    'fra.1': 'soccer/fra.1',
+    'usa.1': 'soccer/usa.1',
+    'mex.1': 'soccer/mex.1',
+    'uefa.champions': 'soccer/uefa.champions',
+    'uefa.europa': 'soccer/uefa.europa',
+    'caf.nations': 'soccer/caf.nations',
+    // Tennis
+    'atp': 'tennis/atp',
+    'wta': 'tennis/wta',
+    'tennis': 'tennis/atp', // fallback for generic tennis
 };
 
 async function fetchGameStatus(matchId: string, leagueId: string): Promise<{ status: string; homeScore: number; awayScore: number } | null> {
