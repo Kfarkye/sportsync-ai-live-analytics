@@ -134,23 +134,64 @@ function buildClaimMap(response, thoughts) {
     return map;
 }
 
-function extractPicks(text) {
-    const picks = [];
-    const clean = text.replace(/[*_]+/g, '');
-    const regexes = [
-        { type: 'spread', re: /verdict[:\s]+([A-Za-z0-9\s]+?)\s*([-+]\d+\.?\d*)/gi },
-        { type: 'total', re: /verdict[:\s]+(over|under)\s*(\d+\.?\d*)/gi },
-        { type: 'moneyline', re: /verdict[:\s]+([A-Za-z0-9\s]+?)\s*(?:ML|moneyline)/gi }
-    ];
-    regexes.forEach(({ type, re }) => {
-        let m; while ((m = re.exec(clean)) !== null) {
-            const side = m[1].trim();
-            if (type !== 'moneyline' || (!side.toLowerCase().includes('over') && !side.toLowerCase().includes('under'))) {
-                picks.push({ pick_type: type, pick_side: side, pick_line: m[2] ? parseFloat(m[2]) : null });
+import { generateObject } from 'ai';
+import { google } from '@ai-sdk/google';
+import { BettingPickSchema } from '../lib/schemas/picks.js';
+
+// Elite Pick Extraction - Two-Phase Structural Generation
+async function extractPickStructured(text, context) {
+    if (!context) return [];
+
+    // 1. Construct strict context-aware prompt
+    const contextPrompt = `
+    GAME CONTEXT:
+    Home Team: "${context.home_team}"
+    Away Team: "${context.away_team}"
+    
+    TASK:
+    Extract the "Verdict" or final betting recommendation from the analysis below.
+    
+    STRICT RULES:
+    1. "pick_team" MUST be EXACTLY "${context.home_team}" or "${context.away_team}" (or null for Totals).
+    2. If the verdict is "PASS", set verdict="PASS".
+    3. For Totals (Over/Under), set pick_type="total" and pick_direction="over" or "under".
+    4. Ignore "lean" or "slight preference". Only extract explicit "VERDICT" or "BET".
+    `;
+
+    try {
+        const { object } = await generateObject({
+            model: google('gemini-1.5-flash'), // Use Flash for speed/cost efficiency in extraction
+            schema: BettingPickSchema,
+            prompt: `${contextPrompt}\n\nANALYSIS TEXT:\n${text}`,
+            mode: 'json'
+        });
+
+        // 2. Application-Level Validation (Defense in Depth) (Self-Correction)
+        // Ensure strictly valid pick_team if not a total
+        if (object.verdict === 'BET' || object.verdict === 'FADE') {
+            if (object.pick_type !== 'total') {
+                const tNorm = (object.pick_team || '').toLowerCase().replace(/[^a-z]/g, '');
+                const hNorm = (context.home_team || '').toLowerCase().replace(/[^a-z]/g, '');
+                const aNorm = (context.away_team || '').toLowerCase().replace(/[^a-z]/g, '');
+
+                // Fuzzy match fallback if exact match failed but AI implies it
+                let matchedTeam = null;
+                if (tNorm.includes(hNorm) || hNorm.includes(tNorm)) matchedTeam = context.home_team;
+                else if (tNorm.includes(aNorm) || aNorm.includes(tNorm)) matchedTeam = context.away_team;
+
+                if (matchedTeam) object.pick_team = matchedTeam; // Auto-correct
+                else if (!object.pick_team) {
+                    // Critical failure for team bet without team
+                    return [];
+                }
             }
         }
-    });
-    return picks;
+
+        return [object]; // Return as array to maintain interface compatibility
+    } catch (e) {
+        console.error("Structured Extraction Failed:", e);
+        return [];
+    }
 }
 
 async function persistRun(runId, map, gate, context, convoId, modelId) {
@@ -162,14 +203,36 @@ async function persistRun(runId, map, gate, context, convoId, modelId) {
     }, { onConflict: 'id' });
 
     if (gate.approved && map.verdict && map.verdict !== 'PASS') {
-        const picks = extractPicks(map.verdict);
-        if (picks.length > 0) {
-            await supabase.from('ai_chat_picks').insert(picks.map(p => ({
-                run_id: runId, conversation_id: convoId,
-                match_id: context?.match_id,
-                pick_type: p.pick_type, pick_side: p.pick_side, pick_line: p.pick_line,
-                ai_confidence: map.confidence, model_id: modelId
-            })));
+        const structuralPicks = await extractPickStructured(map.verdict, context); // Now passing full text really (map.verdict usually contains snippet)
+
+        if (structuralPicks.length > 0) {
+            await supabase.from('ai_chat_picks').insert(structuralPicks.map(p => {
+                // Adapter: Map 2.0 Schema to DB Columns
+                let side = p.pick_team;
+                if (p.pick_type === 'total') {
+                    side = p.pick_direction ? p.pick_direction.toUpperCase() : 'UNKNOWN';
+                }
+
+                return {
+                    run_id: runId,
+                    conversation_id: convoId,
+                    match_id: context?.match_id,
+                    home_team: context?.home_team,
+                    away_team: context?.away_team,
+                    league: context?.league, // If available
+                    game_start_time: context?.start_time || context?.game_start_time,
+
+                    pick_type: p.pick_type,
+                    pick_side: side,
+                    pick_line: p.pick_line,
+                    ai_confidence: p.confidence || map.confidence,
+                    model_id: modelId,
+
+                    // Audit columns (new)
+                    reasoning_summary: p.reasoning_summary,
+                    extraction_method: 'structured_v2_gemini'
+                };
+            }));
         }
     }
 }
