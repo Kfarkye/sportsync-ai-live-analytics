@@ -137,6 +137,57 @@ async function detectLiveGame(userQuery, currentContext) {
     } catch (e) { return { ok: false }; }
 }
 
+// 🔴 LIVE SENTINEL: Aggressive live game scanner
+// Always checks for live games matching query, even when context exists
+async function scanForLiveGame(userQuery) {
+    const hints = extractAllTeamHints(userQuery);
+    if (!hints.length) return { ok: false };
+
+    try {
+        // Build OR clause for all team hints
+        const orClauses = hints.map(h => `home_team.ilike.%${h}%,away_team.ilike.%${h}%`).join(',');
+        const { data } = await supabase.from('live_game_state')
+            .select('*')
+            .in('game_status', ['IN_PROGRESS', 'HALFTIME', 'END_PERIOD'])
+            .or(orClauses)
+            .order('updated_at', { ascending: false })
+            .limit(1);
+
+        if (data?.[0]) {
+            console.log(`[LiveSentinel] ⚡ Found LIVE game: ${data[0].away_team} @ ${data[0].home_team} (${data[0].home_score}-${data[0].away_score})`);
+            return { ok: true, data: data[0], isLiveOverride: true };
+        }
+        return { ok: false };
+    } catch (e) {
+        console.error('[LiveSentinel] Scan error:', e.message);
+        return { ok: false };
+    }
+}
+
+// Extract multiple team hints from query (supports "Lakers vs Celtics" style)
+function extractAllTeamHints(query) {
+    if (!query) return [];
+    const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 4);
+    // Return top 3 longest tokens as potential team names
+    return tokens.sort((a, b) => b.length - a.length).slice(0, 3);
+}
+
+// Check if frontend context is stale (game started but still marked as scheduled)
+function isContextStale(context) {
+    if (!context?.start_time) return false;
+    const gameStart = new Date(context.start_time);
+    const now = new Date();
+    const status = (context.status || context.game_status || '').toUpperCase();
+
+    // Game should have started but status is still pre-match
+    if (gameStart < now && !['IN_PROGRESS', 'LIVE', 'HALFTIME', 'FINAL', 'FINISHED', 'END_PERIOD'].includes(status)) {
+        console.log(`[LiveSentinel] 🔄 Stale context detected: game started ${Math.round((now - gameStart) / 60000)}min ago but status is '${status}'`);
+        return true;
+    }
+    return false;
+}
+
+
 // 5. PICK EXTRACTION (Strict Mode Only)
 function extractPicksFromResponse(response, thoughts = "") {
     const picks = [];
@@ -186,13 +237,34 @@ export default async function handler(req, res) {
         console.log(`[Obsidian] Intent: ${INTENT} | Query: "${userQuery.slice(0, 30)}..."`);
 
         let activeContext = gameContext;
-        if (!activeContext?.match_id) {
+        let isLiveOverride = false;
+
+        // 🔴 LIVE SENTINEL: Always scan for live games first
+        const liveScan = await scanForLiveGame(userQuery);
+        if (liveScan.ok) {
+            // Live game found - override any stale context
+            const d = liveScan.data;
+            activeContext = {
+                ...activeContext,
+                ...d,
+                match_id: d.id,
+                clock: d.display_clock,
+                status: d.game_status,
+                current_odds: d.odds,
+                home_score: d.home_score,
+                away_score: d.away_score,
+                _liveOverride: true
+            };
+            isLiveOverride = true;
+        } else if (!activeContext?.match_id || isContextStale(activeContext)) {
+            // No live game found, try regular detection if context is missing/stale
             const detect = await detectLiveGame(userQuery, activeContext);
             if (detect.ok) {
                 const d = detect.data;
                 activeContext = { ...d, match_id: d.id, clock: d.display_clock, status: d.game_status, current_odds: d.odds };
             }
         }
+
 
         // B. DATA FETCHING
         const matchId = activeContext?.match_id;
@@ -219,7 +291,7 @@ export default async function handler(req, res) {
         // C. SYSTEM PROMPT CONSTRUCTION
         const estTime = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
         const marketPhase = getMarketPhase(activeContext || {});
-        const isLive = marketPhase.includes('LIVE');
+        const isLive = marketPhase.includes('LIVE') || isLiveOverride;
 
         let systemInstruction = `
 <temporal_anchor>
@@ -241,6 +313,24 @@ You are connected to Google Search. You MUST verify injuries, line moves, and st
 You MUST include citations [1] for every factual claim.
 </citation_directive>
 `;
+
+        // 🔴 LIVE SENTINEL: Inject live-only directive when game is in progress
+        if (isLive) {
+            systemInstruction += `
+<live_sentinel_directive>
+⚠️ **LIVE GAME ACTIVE** ⚠️
+This game is CURRENTLY IN PROGRESS. You MUST:
+1. ALWAYS reference the LIVE SCORE: ${activeContext?.away_team} ${activeContext?.away_score} - ${activeContext?.home_score} ${activeContext?.home_team}
+2. ALWAYS reference the LIVE CLOCK: ${activeContext?.clock || activeContext?.display_clock || 'In Progress'}
+3. NEVER discuss "closing line value" or "pre-match analysis" - the game has STARTED
+4. Focus on LIVE MOMENTUM, current game flow, and in-play dynamics
+5. Any betting analysis must be for LIVE/IN-PLAY markets only
+6. If user asks about pre-game value, explain the game is already live and shift to live analysis
+</live_sentinel_directive>
+`;
+        }
+
+
 
         if (INTENT === 'STRICT_PICK') {
             // === MODE A: THE LEDGER (Strict) ===
