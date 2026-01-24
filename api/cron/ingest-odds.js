@@ -14,9 +14,10 @@ export default async function handler(req, res) {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'x-cron-secret': process.env.CRON_SECRET || ''
             },
-            body: JSON.stringify({ leagues: ["nba", "nfl", "nhl"] }),
+            body: JSON.stringify({ leagues: ["nba", "nfl", "nhl", "mens-college-basketball", "soccer_epl", "soccer_spain_la_liga", "soccer_italy_serie_a", "tennis_atp_australian_open", "tennis_wta_australian_open"] }),
             signal: controller.signal
         });
         clearTimeout(timeout);
