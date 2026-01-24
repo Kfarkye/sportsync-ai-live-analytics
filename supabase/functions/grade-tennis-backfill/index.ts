@@ -35,6 +35,9 @@ interface MatchResult {
     loserGames: number;
     totalGames: number;
     gameMargin: number;
+    winnerSets: number;
+    loserSets: number;
+    setMargin: number;
     confidence: 'HIGH' | 'LOW';
     matchSource: string;
 }
@@ -131,15 +134,27 @@ async function findTennisMatch(
 
                             if (!winner || !loser) continue;
 
-                            // Calculate games
+                            // Calculate games and sets
                             let winnerGames = 0;
                             let loserGames = 0;
+                            let winnerSets = 0;
+                            let loserSets = 0;
 
-                            for (const ls of (winner.linescores || [])) {
-                                winnerGames += parseInt(ls?.value || '0');
-                            }
-                            for (const ls of (loser.linescores || [])) {
-                                loserGames += parseInt(ls?.value || '0');
+                            const winnerLinescores = winner.linescores || [];
+                            const loserLinescores = loser.linescores || [];
+
+                            for (let i = 0; i < winnerLinescores.length; i++) {
+                                const wGames = parseInt(winnerLinescores[i]?.value || '0');
+                                const lGames = parseInt(loserLinescores[i]?.value || '0');
+                                winnerGames += wGames;
+                                loserGames += lGames;
+
+                                // Determine who won this set
+                                if (wGames > lGames) {
+                                    winnerSets++;
+                                } else if (lGames > wGames) {
+                                    loserSets++;
+                                }
                             }
 
                             // Skip if no game data
@@ -152,6 +167,9 @@ async function findTennisMatch(
                                 loserGames,
                                 totalGames: winnerGames + loserGames,
                                 gameMargin: winnerGames - loserGames,
+                                winnerSets,
+                                loserSets,
+                                setMargin: winnerSets - loserSets,
                                 confidence: checkDate === date ? 'HIGH' : 'LOW',
                                 matchSource: `${endpoint}/${dateStr}`
                             };
@@ -235,10 +253,10 @@ function gradePickResult(pick: TennisPick, result: MatchResult): {
         }
     }
 
-    // === GAME SPREAD PICKS ("+5.5 Games", "-7.5 Games", "+4.5 Spread", "+3.5") ===
+    // === GAME/SET SPREAD PICKS ("+5.5 Games", "-1.5 Sets", "+4.5 Spread") ===
     const spreadPatterns = [
-        /(.+?)\s*([+-]\d+\.?\d*)\s*(games|spread)?$/i,  // "Player +5.5 Games"
-        /(.+?)\s*-\s*([+-]?\d+\.?\d*)\s*(games|spread)?$/i  // "Player - 5.5 Games"
+        /(.+?)\s*([+-]\d+\.?\d*)\s*(games|spread|sets)?$/i,  // "Player +5.5 Games" or "Player -1.5 Sets"
+        /(.+?)\s*-\s*([+-]?\d+\.?\d*)\s*(games|spread|sets)?$/i  // "Player - 5.5 Games"
     ];
 
     for (const pattern of spreadPatterns) {
@@ -247,10 +265,35 @@ function gradePickResult(pick: TennisPick, result: MatchResult): {
             const pickedPlayer = match[1].trim();
             let spread = parseFloat(match[2]);
 
-            // Handle "Player -1.5 Sets" differently
+            // Handle "Player -1.5 Sets"
             if (match[3]?.toLowerCase() === 'sets') {
-                // Sets spread - not games
-                return { result: 'SKIP', reason: 'Sets spread requires set count data' };
+                const pickedIsWinner = playersMatch(pickedPlayer, result.winner);
+                const pickedIsLoser = playersMatch(pickedPlayer, result.loser);
+
+                if (!pickedIsWinner && !pickedIsLoser) {
+                    continue; // Try next pattern
+                }
+
+                // Use set margin for sets spread
+                if (pickedIsWinner) {
+                    // Favorite with negative sets spread (e.g., "-1.5 Sets")
+                    if (result.setMargin > Math.abs(spread)) {
+                        return { result: 'WIN', reason: `${result.winner} won ${result.winnerSets}-${result.loserSets} sets (spread: ${spread})` };
+                    } else if (result.setMargin === Math.abs(spread)) {
+                        return { result: 'PUSH', reason: `${result.winner} won ${result.winnerSets}-${result.loserSets} sets = |${spread}|` };
+                    } else {
+                        return { result: 'LOSS', reason: `${result.winner} won ${result.winnerSets}-${result.loserSets} sets < |${spread}|` };
+                    }
+                } else {
+                    // Underdog with positive sets spread (e.g., "+1.5 Sets")
+                    if (result.setMargin < spread) {
+                        return { result: 'WIN', reason: `${result.winner} won ${result.winnerSets}-${result.loserSets} sets, +${spread} covers` };
+                    } else if (result.setMargin === spread) {
+                        return { result: 'PUSH', reason: `${result.winner} won ${result.winnerSets}-${result.loserSets} sets = +${spread}` };
+                    } else {
+                        return { result: 'LOSS', reason: `${result.winner} won ${result.winnerSets}-${result.loserSets} sets > +${spread}` };
+                    }
+                }
             }
 
             const pickedIsWinner = playersMatch(pickedPlayer, result.winner);
@@ -283,11 +326,6 @@ function gradePickResult(pick: TennisPick, result: MatchResult): {
                 }
             }
         }
-    }
-
-    // === SETS SPREAD (Player -1.5 Sets) - Skip for now ===
-    if (pickText.includes('sets')) {
-        return { result: 'SKIP', reason: 'Sets spread requires set count data (not implemented)' };
     }
 
     // === FALLBACK: Try to detect simple player name as ML ===
@@ -375,7 +413,10 @@ Deno.serve(async (req: Request) => {
                         winnerGames: result.winnerGames,
                         loserGames: result.loserGames,
                         totalGames: result.totalGames,
-                        margin: result.gameMargin,
+                        gameMargin: result.gameMargin,
+                        winnerSets: result.winnerSets,
+                        loserSets: result.loserSets,
+                        setMargin: result.setMargin,
                         source: result.matchSource,
                         reason: grade.reason
                     }
