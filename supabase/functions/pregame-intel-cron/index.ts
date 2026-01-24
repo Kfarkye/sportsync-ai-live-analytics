@@ -395,8 +395,9 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
                             sport: game.sport,
                             league: game.league_id,
                             start_time: game.start_time,
-                            current_spread: (game as any).odds_home_spread_safe,
-                            current_total: (game as any).odds_total_safe,
+                            // Fallback chain: flattened column -> current_odds.homeSpread -> null
+                            current_spread: (game as any).odds_home_spread_safe ?? (game as any).current_odds?.homeSpread ?? null,
+                            current_total: (game as any).odds_total_safe ?? (game as any).current_odds?.total ?? null,
                             current_odds: (game as any).current_odds,
                             home_ml: (game as any).current_odds?.homeWin || (game as any).current_odds?.home_ml,
                             away_ml: (game as any).current_odds?.awayWin || (game as any).current_odds?.away_ml,
