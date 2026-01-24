@@ -187,9 +187,230 @@ function isContextStale(context) {
     return false;
 }
 
+// ============================================================================
+// 🔧 THE 4-TOOL SPINE: Structured Evidence → Claim → Gate → Persist Pipeline
+// ============================================================================
+
+/**
+ * TOOL 1: buildEvidencePacket
+ * Collects all data sources with token budget enforcement.
+ */
+async function buildEvidencePacket(context, budget = 2000) {
+    const packet = {
+        injuries: { home: [], away: [] },
+        liveState: null,
+        temporal: { opening: null, t60: null, t0: null },
+        searchGrounding: true,
+        tokenUsage: { injuries: 0, live: 0, temporal: 0, total: 0 }
+    };
+
+    // Fetch injuries if team IDs available
+    if (context?.home_team_id && context?.away_team_id) {
+        const sport = context.sport || 'NBA';
+        const [h, a] = await Promise.all([
+            fetchESPNInjuries(context.home_team_id, sport),
+            fetchESPNInjuries(context.away_team_id, sport)
+        ]);
+        packet.injuries.home = h.injuries || [];
+        packet.injuries.away = a.injuries || [];
+        packet.tokenUsage.injuries = JSON.stringify(packet.injuries).length;
+    }
+
+    // Fetch live state if match ID available
+    if (context?.match_id) {
+        const liveRes = await fetchLiveState(context.match_id);
+        if (liveRes.ok) {
+            const d = liveRes.data;
+            packet.liveState = {
+                score: { home: d.home_score, away: d.away_score },
+                clock: d.display_clock,
+                status: d.game_status,
+                odds: d.odds
+            };
+            packet.temporal.opening = d.opening_odds;
+            packet.temporal.t60 = d.t60_snapshot;
+            packet.temporal.t0 = d.t0_snapshot;
+            packet.tokenUsage.live = JSON.stringify(packet.liveState).length;
+            packet.tokenUsage.temporal = JSON.stringify(packet.temporal).length;
+        }
+    }
+
+    packet.tokenUsage.total = packet.tokenUsage.injuries + packet.tokenUsage.live + packet.tokenUsage.temporal;
+
+    // Budget enforcement: trim if over budget
+    if (packet.tokenUsage.total > budget) {
+        console.log(`[4-Tool] ⚠️ Evidence packet (${packet.tokenUsage.total}) exceeds budget (${budget}), trimming...`);
+        // Prioritize: live > temporal > injuries
+        if (packet.tokenUsage.injuries > budget * 0.3) {
+            packet.injuries.home = packet.injuries.home.slice(0, 3);
+            packet.injuries.away = packet.injuries.away.slice(0, 3);
+        }
+    }
+
+    console.log(`[4-Tool] 📦 Evidence packet built: ${packet.tokenUsage.total} tokens`);
+    return packet;
+}
+
+/**
+ * TOOL 2: buildClaimMap
+ * Parses AI response into structured claims with evidence references.
+ */
+function buildClaimMap(response, thoughts = "") {
+    const fullText = (response + thoughts).toLowerCase();
+    const cleanText = response.replace(/[*_]+/g, '');
+
+    const claimMap = {
+        verdict: null,
+        confidence: 'medium',
+        claims: [],
+        tripleConfluence: { price: false, sentiment: false, structure: false }
+    };
+
+    // Extract verdict
+    const verdictMatch = cleanText.match(/verdict[:\s]+(.+?)(?:\n|$)/i);
+    if (verdictMatch) {
+        const v = verdictMatch[1].trim();
+        claimMap.verdict = v.toLowerCase().includes('pass') ? 'PASS' : v;
+    }
+
+    // Extract confidence
+    if (fullText.includes('high confidence')) claimMap.confidence = 'high';
+    else if (fullText.includes('low confidence')) claimMap.confidence = 'low';
+
+    // Detect Triple Confluence
+    claimMap.tripleConfluence.price =
+        fullText.includes('market dynamics') ||
+        fullText.includes('price verification') ||
+        fullText.includes('clv') ||
+        fullText.includes('delta');
+
+    claimMap.tripleConfluence.sentiment =
+        fullText.includes('sentiment') ||
+        fullText.includes('sharp') ||
+        fullText.includes('public') ||
+        fullText.includes('splits');
+
+    claimMap.tripleConfluence.structure =
+        fullText.includes('structural') ||
+        fullText.includes('injury') ||
+        fullText.includes('rotation') ||
+        fullText.includes('rest');
+
+    // Extract claims with citations
+    const citationMatches = response.matchAll(/([^.]+)\s*\[(\d+)\]/g);
+    let claimId = 1;
+    for (const match of citationMatches) {
+        claimMap.claims.push({
+            id: `CLAIM_${String(claimId++).padStart(3, '0')}`,
+            text: match[1].trim(),
+            citation: parseInt(match[2])
+        });
+    }
+
+    console.log(`[4-Tool] 📋 ClaimMap built: verdict="${claimMap.verdict}", confluence=${JSON.stringify(claimMap.tripleConfluence)}`);
+    return claimMap;
+}
+
+/**
+ * TOOL 3: gateDecision
+ * Validates Triple Confluence before finalizing verdict.
+ */
+function gateDecision(claimMap, strictMode = true) {
+    const result = {
+        approved: false,
+        reason: null,
+        confluenceScore: 0
+    };
+
+    // Count how many confluence factors are met
+    const { price, sentiment, structure } = claimMap.tripleConfluence;
+    result.confluenceScore = [price, sentiment, structure].filter(Boolean).length;
+
+    // If verdict is PASS, always approve (intentional pass)
+    if (claimMap.verdict === 'PASS') {
+        result.approved = true;
+        result.reason = 'INTENTIONAL_PASS';
+        return result;
+    }
+
+    // Strict mode requires 2/3 confluence for approval
+    if (strictMode) {
+        if (result.confluenceScore >= 2) {
+            result.approved = true;
+            result.reason = 'CONFLUENCE_MET';
+        } else {
+            result.approved = false;
+            result.reason = `CONFLUENCE_NOT_MET (${result.confluenceScore}/3)`;
+        }
+    } else {
+        // Flex mode: approve any verdict
+        result.approved = true;
+        result.reason = 'FLEX_MODE';
+    }
+
+    console.log(`[4-Tool] 🚦 Gate: ${result.approved ? '✅ APPROVED' : '❌ BLOCKED'} - ${result.reason}`);
+    return result;
+}
+
+/**
+ * TOOL 4: persistRun
+ * Idempotent database commit with conflict resolution.
+ */
+async function persistRun(runId, claimMap, gateResult, context, conversationId) {
+    try {
+        // 1. Upsert to ai_chat_runs
+        const { error: runError } = await supabase.from('ai_chat_runs').upsert({
+            id: runId,
+            conversation_id: conversationId,
+            confluence_met: gateResult.approved,
+            confluence_score: gateResult.confluenceScore,
+            verdict: claimMap.verdict,
+            confidence: claimMap.confidence,
+            claims: claimMap.claims,
+            gate_reason: gateResult.reason,
+            match_context: context ? {
+                match_id: context.match_id,
+                home_team: context.home_team,
+                away_team: context.away_team
+            } : null,
+            created_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+
+        if (runError) {
+            console.error(`[4-Tool] ❌ Failed to persist run: ${runError.message}`);
+            return { success: false, error: runError.message };
+        }
+
+        // 2. Only persist picks if gate approved AND verdict is not PASS
+        if (gateResult.approved && claimMap.verdict && claimMap.verdict !== 'PASS') {
+            // Extract detailed pick info
+            const picks = extractPicksFromResponse(claimMap.verdict);
+            for (const pick of picks) {
+                await supabase.from('ai_chat_picks').insert({
+                    run_id: runId,
+                    conversation_id: conversationId,
+                    pick_type: pick.pick_type,
+                    pick_side: pick.pick_side,
+                    pick_line: pick.pick_line,
+                    ai_confidence: claimMap.confidence,
+                    match_id: context?.match_id,
+                    game_date: context?.start_time ? new Date(context.start_time).toISOString().split('T')[0] : null
+                });
+            }
+            console.log(`[4-Tool] 💾 Persisted ${picks.length} picks for run ${runId}`);
+        }
+
+        console.log(`[4-Tool] ✅ Run ${runId} persisted successfully`);
+        return { success: true };
+    } catch (e) {
+        console.error(`[4-Tool] ❌ Persist exception: ${e.message}`);
+        return { success: false, error: e.message };
+    }
+}
 
 // 5. PICK EXTRACTION (Strict Mode Only)
 function extractPicksFromResponse(response, thoughts = "") {
+
     const picks = [];
     const cleanText = response.replace(/[*_]+/g, '');
     const lowerText = (response + thoughts).toLowerCase();
@@ -465,21 +686,13 @@ Your goal is to provide high-quality, factual information (injuries, stats, news
             }
         }
 
-        // E. PERSISTENCE (Only save strict picks)
-        if (INTENT === 'STRICT_PICK' && matchId) {
-            const picks = extractPicksFromResponse(fullText, rawThoughts);
-            if (picks.length > 0) {
-                await supabase.from('ai_chat_picks').insert(picks.map(p => ({
-                    match_id: matchId,
-                    pick_type: p.pick_type,
-                    pick_side: p.pick_side,
-                    pick_line: p.pick_line,
-                    ai_confidence: p.ai_confidence,
-                    reasoning_summary: fullText.slice(0, 500),
-                    session_id, conversation_id, model_id: CONFIG.MODEL_ID, run_id: currentRunId
-                })));
-            }
+        // E. 4-TOOL SPINE: Claim → Gate → Persist Pipeline
+        if (INTENT === 'STRICT_PICK') {
+            const claimMap = buildClaimMap(fullText, rawThoughts);
+            const gateResult = gateDecision(claimMap, true);
+            await persistRun(currentRunId, claimMap, gateResult, activeContext, conversation_id);
         }
+
 
         if (conversation_id) {
             const uniqueSources = Array.from(new Map(sources.map(s => [s.uri, s])).values());
