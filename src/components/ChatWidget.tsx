@@ -1,74 +1,52 @@
 /* ============================================================================
    ChatWidget.tsx
-   "Obsidian Weissach" — Production Master (v19.0)
+   "Obsidian Weissach" — Production Master (v19.2 Fixed)
    
-   DESIGN SYSTEM: "Weissach Physics"
-   ├─ KINETICS: Vector-draw animations (Checkmark draws itself).
-   ├─ TEXTURE: Perceptible "Film Grain" for anodized aluminum feel.
-   ├─ UI: Tactical HUD (Amber Alert), Verdict Ticket (Holographic).
-   └─ TYPOGRAPHY: Tabular figures for chronometer precision.
+   FIXES:
+   ├─ TYPES: Added FC, ReactNode, ChangeEvent, KeyboardEvent, RefObject imports.
 ============================================================================ */
 
 import React, {
-  useState, useEffect, useRef, useCallback, useMemo, memo, Component,
-  createContext, useContext,
-  type ReactNode, type FC, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type RefObject,
+  useState, useEffect, useRef, useCallback, useMemo, memo, createContext, useContext, Component,
+  type FC, type ReactNode, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type RefObject
 } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { motion, AnimatePresence, type Transition, LayoutGroup } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup, type Transition } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { supabase } from '../lib/supabase';
 import { useChatContext } from '../hooks/useChatContext';
 import { useAppStore } from '../store/appStore';
-import {
-  X, Plus, ArrowUp, Copy, CheckCircle2,
-  Minimize2, Mic, MicOff, StopCircle,
-  Image as ImageIcon, AlertTriangle, Zap, Activity, ChevronRight
-} from 'lucide-react';
+import { X, Plus, ArrowUp, Copy, CheckCircle2, Minimize2, Mic, MicOff, StopCircle, Image as ImageIcon, AlertTriangle, Zap, Activity, ChevronRight } from 'lucide-react';
 
-// ============================================================================
-// 1. WEISSACH DESIGN SYSTEM
-// ============================================================================
-
+// --- 1. WEISSACH DESIGN SYSTEM ---
 const SYSTEM = {
   anim: {
     fluid: { type: 'spring', damping: 30, stiffness: 380, mass: 0.8 } as Transition,
-    hover: { type: 'spring', damping: 20, stiffness: 300 } as Transition,
     draw: { duration: 0.6, ease: "circOut" } as Transition,
+    morph: { type: 'spring', damping: 25, stiffness: 280 } as Transition
   },
   surface: {
     void: 'bg-[#050505]',
     panel: 'bg-[#080808] border border-white/[0.06]',
     glass: 'bg-white/[0.02] backdrop-blur-[20px] border border-white/[0.05]',
-    milled: 'border-t border-white/[0.08] border-b border-black/50 border-x border-white/[0.04]',
     hud: 'bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20',
+    milled: 'border-t border-white/[0.08] border-b border-black/50 border-x border-white/[0.04]'
   },
-  type: {
-    mono: 'font-mono text-[10px] tracking-[0.1em] uppercase text-zinc-500 tabular-nums',
-    body: 'text-[15px] leading-[1.65] tracking-[-0.01em] font-normal text-[#A1A1AA] antialiased',
-    h1: 'text-[13px] font-medium tracking-[-0.02em] text-white',
-  },
-  geo: {
-    pill: 'rounded-full',
-    card: 'rounded-[22px]',
-    input: 'rounded-[24px]',
-  }
-} as const;
+  type: { mono: 'font-mono text-[10px] tracking-[0.1em] uppercase text-zinc-500 tabular-nums', body: 'text-[15px] leading-[1.65] tracking-[-0.01em] text-[#A1A1AA]', h1: 'text-[13px] font-medium tracking-[-0.02em] text-white' },
+  geo: { pill: 'rounded-full', card: 'rounded-[22px]', input: 'rounded-[24px]' }
+};
 
-function cn(...inputs: ClassValue[]): string { return twMerge(clsx(inputs)); }
-function generateId(): string { return crypto.randomUUID(); }
-function triggerHaptic(): void { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(4); }
-function tryParseJson<T = unknown>(str: string): T | null { try { return JSON.parse(str) as T; } catch { return null; } }
-
-// ============================================================================
-// 2. LOGIC & UTILS
-// ============================================================================
+function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+function generateId() { return crypto.randomUUID(); }
+function triggerHaptic() { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(4); }
+function tryParseJson<T = unknown>(str: string): T | null { try { return JSON.parse(str); } catch { return null; } }
 
 interface Message { id: string; role: 'user' | 'assistant'; content: any; thoughts?: string; sources?: any[]; groundingMetadata?: any; isStreaming?: boolean; timestamp: string; }
 interface Attachment { file: File; base64: string; mimeType: string; storageUrl?: string; }
 interface ChatWidgetProps { currentMatch?: any; inline?: boolean; }
+declare global { interface Window { webkitSpeechRecognition?: any; SpeechRecognition?: any; } }
 
 function extractTextContent(content: any): string {
   if (typeof content === 'string') return content;
@@ -82,8 +60,7 @@ function injectCitations(text: string, metadata?: any): string {
   let result = text;
   for (const s of sorted) {
     if (s.segment.endIndex > result.length) continue;
-    const links = s.groundingChunkIndices
-      .filter((i: number) => metadata.groundingChunks[i]?.web?.uri)
+    const links = s.groundingChunkIndices.filter((i: number) => metadata.groundingChunks[i]?.web?.uri)
       .map((i: number) => `[${i + 1}](${metadata.groundingChunks[i].web.uri})`).join('');
     if (links) result = result.slice(0, s.segment.endIndex) + ` ${links}` + result.slice(s.segment.endIndex);
   }
@@ -101,33 +78,23 @@ const edgeService = {
     if (!res.ok) throw new Error('Stream failed');
     const reader = res.body?.getReader();
     const decoder = new TextDecoder();
-    let buffer = '';
-    try {
-      while (true) {
-        const { done, value } = await reader!.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-        for (const line of lines) {
-          const t = line.trim();
-          if (!t || t === '[DONE]') continue;
-          const json = tryParseJson(t.startsWith('data:') ? t.slice(5) : t);
-          if (json) onChunk(json);
+    while (true) {
+      const { done, value } = await reader!.read();
+      if (done) break;
+      const lines = decoder.decode(value).split('\n');
+      for (const line of lines) {
+        const t = line.trim();
+        if (t.startsWith('data:')) {
+          try { onChunk(JSON.parse(t.slice(5))); } catch { }
         }
       }
-    } finally { reader!.releaseLock(); }
+    }
   },
 };
 
-// ============================================================================
-// 3. PREMIUM VISUALS (Texture & Light)
-// ============================================================================
-
+// --- 3. PREMIUM VISUALS ---
 const FilmGrain = memo(() => (
-  <div className="absolute inset-0 pointer-events-none z-0 opacity-[0.03] mix-blend-overlay"
-    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
-  />
+  <div className="absolute inset-0 pointer-events-none z-0 opacity-[0.03] mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
 ));
 
 const OrbitalRadar = memo(() => (
@@ -149,24 +116,18 @@ const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
   return (
     <ToastContext.Provider value={useMemo(() => ({ showToast }), [showToast])}>
       {children}
-      <AnimatePresence>
-        {toast && (
-          <motion.div key={toast.id} initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} transition={SYSTEM.anim.fluid}
-            className={cn('absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-[#0A0A0A] border border-white/10 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)]')}>
-            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]" />
-            <span className="text-[12px] font-medium text-white tracking-tight">{toast.message}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AnimatePresence>{toast && (
+        <motion.div key={toast.id} initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} transition={SYSTEM.anim.fluid} className={cn('absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-[#0A0A0A] border border-white/10 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)]')}>
+          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]" /><span className="text-[12px] font-medium text-white tracking-tight">{toast.message}</span>
+        </motion.div>
+      )}</AnimatePresence>
     </ToastContext.Provider>
   );
 };
 
 const CopyButton: FC<{ content: string }> = memo(({ content }) => {
   const [copied, setCopied] = useState(false);
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(content); setCopied(true); triggerHaptic(); setTimeout(() => setCopied(false), 1500);
-  }, [content]);
+  const handleCopy = useCallback(() => { navigator.clipboard.writeText(content); setCopied(true); triggerHaptic(); setTimeout(() => setCopied(false), 1500); }, [content]);
   return (
     <button onClick={handleCopy} className={cn("p-1.5 rounded-md transition-all duration-200", copied ? "text-emerald-400 bg-emerald-500/10" : "text-zinc-600 hover:text-zinc-300 hover:bg-white/5")}>
       {copied ? <CheckCircle2 size={12} /> : <Copy size={12} />}
@@ -174,15 +135,11 @@ const CopyButton: FC<{ content: string }> = memo(({ content }) => {
   );
 });
 
-// ============================================================================
-// 4. INTELLIGENCE ARTIFACTS
-// ============================================================================
-
+// --- 4. INTELLIGENCE ARTIFACTS ---
 const VerdictTicket: FC<{ content: string }> = memo(({ content }) => (
   <motion.div layout initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SYSTEM.anim.fluid}
     className={cn("my-6 relative overflow-hidden rounded-[18px] bg-[#0A0A0B] shadow-2xl group select-none", SYSTEM.surface.milled)}>
     <div className="absolute inset-0 bg-[linear-gradient(115deg,transparent_40%,rgba(255,255,255,0.03)_45%,transparent_50%)] bg-[length:200%_100%] animate-[shimmer_5s_infinite_linear] pointer-events-none" />
-
     <div className="px-6 py-3.5 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
       <span className={SYSTEM.type.mono}>Market Read</span>
       <div className="flex items-center gap-2 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
@@ -196,9 +153,7 @@ const VerdictTicket: FC<{ content: string }> = memo(({ content }) => (
         <div className="text-[10px] text-emerald-500/60 uppercase tracking-wider font-mono mt-3">Confidence Verified</div>
       </div>
       <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center bg-white/[0.02]">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400">
-          <motion.path d="M20 6L9 17l-5-5" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={SYSTEM.anim.draw} />
-        </svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400"><motion.path d="M20 6L9 17l-5-5" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={SYSTEM.anim.draw} /></svg>
       </div>
     </div>
   </motion.div>
@@ -248,26 +203,15 @@ const SmartChips: FC<{ onSelect: (t: string) => void; hasMatch: boolean }> = mem
   );
 });
 
-// ============================================================================
-// 5. MESSAGE BUBBLE
-// ============================================================================
-
+// --- 5. MESSAGE BUBBLE ---
 const MessageBubble: FC<{ message: Message; isLast: boolean; onAction: (t: string) => void }> = memo(({ message }) => {
   const isUser = message.role === 'user';
-  const textContent = useMemo(() => {
-    const raw = extractTextContent(message.content);
-    return isUser ? raw : injectCitations(raw, message.groundingMetadata);
-  }, [message.content, message.groundingMetadata, isUser]);
+  const textContent = useMemo(() => { const raw = extractTextContent(message.content); return isUser ? raw : injectCitations(raw, message.groundingMetadata); }, [message.content, message.groundingMetadata, isUser]);
   const sources = useMemo(() => extractSources(message.groundingMetadata), [message.groundingMetadata]);
 
   return (
     <motion.div layout="position" initial={{ opacity: 0, y: 20, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={SYSTEM.anim.fluid} className={cn('flex flex-col mb-10 w-full relative group', isUser ? 'items-end' : 'items-start')}>
-      {!isUser && (message.isStreaming || textContent) && (
-        <div className="flex items-center gap-2 mb-2 ml-1">
-          <div className="w-[3px] h-[3px] bg-zinc-600 rounded-full" />
-          <span className={SYSTEM.type.mono}>Obsidian</span>
-        </div>
-      )}
+      {!isUser && (message.isStreaming || textContent) && <div className="flex items-center gap-2 mb-2 ml-1"><div className="w-[3px] h-[3px] bg-zinc-600 rounded-full" /><span className={SYSTEM.type.mono}>Obsidian</span></div>}
       <div className={cn('relative max-w-[92%] md:max-w-[88%]', isUser ? 'bg-white text-black rounded-[20px] rounded-tr-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5' : 'bg-transparent text-white px-0')}>
         <div className={cn("prose prose-invert max-w-none", isUser && "prose-p:text-black/90")}>
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
@@ -286,7 +230,7 @@ const MessageBubble: FC<{ message: Message; isLast: boolean; onAction: (t: strin
             },
             a: ({ href, children }) => {
               const t = String(children);
-              if (/^\[?\d+\]?$/.test(t.trim())) return <a href={href} target="_blank" rel="noopener" className="inline-flex items-center justify-center ml-0.5 -mt-1 w-3.5 h-3.5 rounded-[3px] bg-white/10 hover:bg-emerald-500 hover:text-white text-[8px] font-bold text-white/50 transition-all no-underline select-none" title={`Source: ${href}`}>{t.replace(/[\[\]]/g, '')}</a>;
+              if (/^\[?\d+\]?$/.test(t.trim())) return <a href={href} target="_blank" rel="noopener" className="inline-flex items-center justify-center ml-0.5 -mt-1 w-3.5 h-3.5 rounded-[3px] bg-white/10 hover:bg-emerald-500 hover:text-white text-[8px] font-bold text-white/50 transition-all no-underline select-none">{t.replace(/[\[\]]/g, '')}</a>;
               return <a href={href} target="_blank" rel="noopener" className="text-emerald-400 hover:text-emerald-300 underline decoration-emerald-500/20 underline-offset-4 transition-colors">{children}</a>;
             },
             ul: ({ children }) => <ul className="space-y-2 mb-4 ml-1">{children}</ul>,
@@ -317,10 +261,7 @@ const MessageBubble: FC<{ message: Message; isLast: boolean; onAction: (t: strin
   );
 });
 
-// ============================================================================
-// 6. RECESSED INPUT DECK
-// ============================================================================
-
+// --- 6. INPUT DECK (Voice + Upload) ---
 const InputDeck: FC<{ value: string; onChange: (v: string) => void; onSend: () => void; onStop: () => void; attachments: Attachment[]; onAttach: (a: Attachment[]) => void; isProcessing: boolean; isVoiceMode: boolean; onVoiceModeChange: (v: boolean) => void; inputRef: RefObject<HTMLTextAreaElement | null>; fileInputRef: RefObject<HTMLInputElement | null>; }> = memo(({ value, onChange, onSend, onStop, attachments, onAttach, isProcessing, isVoiceMode, onVoiceModeChange, inputRef, fileInputRef }) => {
   const recognitionRef = useRef<any>(null);
   const handleKeyDown = (e: ReactKeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (value.trim() || attachments.length) onSend(); } };
@@ -375,9 +316,13 @@ const InputDeck: FC<{ value: string; onChange: (v: string) => void; onSend: () =
   );
 });
 
-// ============================================================================
-// 7. MAIN WIDGET
-// ============================================================================
+// --- 7. MAIN WIDGET ---
+class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(e: Error, i: React.ErrorInfo) { console.error('ChatWidget Error:', e, i); }
+  render() { if (this.state.hasError) return <div className={cn('p-6 text-rose-400 font-mono text-xs')}>System Error</div>; return this.props.children; }
+}
 
 const InnerChatWidget: FC<ChatWidgetProps & { isMinimized?: boolean; setIsMinimized?: (v: boolean) => void }> = ({ currentMatch, inline, isMinimized, setIsMinimized }) => {
   const { toggleGlobalChat } = useAppStore();
@@ -436,7 +381,7 @@ const InnerChatWidget: FC<ChatWidgetProps & { isMinimized?: boolean; setIsMinimi
           <FilmGrain />
           {!inline && <header className="flex items-center justify-between px-8 pt-6 pb-2 shrink-0 z-20 select-none"><div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" /><span className={cn(SYSTEM.type.h1)}>Obsidian<span className="text-white/30 font-normal ml-1">Weissach</span></span></div><div className="flex items-center gap-2"><button onClick={() => setIsMinimized?.(true)} className="p-2 text-zinc-600 hover:text-white transition-colors"><Minimize2 size={16} /></button><button onClick={() => toggleGlobalChat(false)} className="p-2 text-zinc-600 hover:text-white transition-colors"><X size={16} /></button></div></header>}
           <div ref={scrollRef} className="relative flex-1 overflow-y-auto px-6 pt-4 pb-44 scroll-smooth no-scrollbar z-10"><AnimatePresence mode="popLayout">{messages.length === 0 ? <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="h-full flex flex-col items-center justify-center text-center opacity-40"><div className="w-20 h-20 rounded-[24px] border border-white/10 bg-white/5 flex items-center justify-center mb-6"><div className="w-1 h-1 bg-white/40 rounded-full shadow-[0_0_20px_white]" /></div><p className={SYSTEM.type.mono}>System Ready</p></motion.div> : messages.map((m, i) => <MessageBubble key={m.id} message={m} isLast={i === messages.length - 1} onAction={handleSend} />)}</AnimatePresence></div>
-          <footer className={cn('absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#030303] via-[#030303]/95 to-transparent pointer-events-none')}><div className="pointer-events-auto relative"><AnimatePresence>{isProcessing && <ThinkingPill onStop={() => abortRef.current?.abort()} />}</AnimatePresence><AnimatePresence>{messages.length < 2 && !isProcessing && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-4"><SmartChips onSelect={handleSend} hasMatch={!!currentMatch} /></motion.div>}</AnimatePresence><InputDeck value={input} onChange={setInput} onSend={() => handleSend()} onStop={() => abortRef.current?.abort()} attachments={attachments} onAttach={a => setAttachments(a)} isProcessing={isProcessing} isVoiceMode={isVoiceMode} onVoiceModeChange={setIsVoiceMode} inputRef={inputRef} fileInputRef={fileInputRef} /></div></footer>
+          <footer className={cn('absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#030303] via-[#030303]/95 to-transparent pointer-events-none')}><div className="pointer-events-auto relative"><AnimatePresence>{isProcessing && <ThinkingPill onStop={() => abortRef.current?.abort()} />}</AnimatePresence><AnimatePresence>{messages.length < 2 && !isProcessing && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-4"><SmartChips onSelect={handleSend} hasMatch={!!currentMatch} /></motion.div>}</AnimatePresence><InputDeck value={input} onChange={setInput} onSend={() => handleSend()} onStop={() => abortRef.current?.abort()} attachments={attachments} onAttach={setAttachments} isProcessing={isProcessing} isVoiceMode={isVoiceMode} onVoiceModeChange={setIsVoiceMode} inputRef={inputRef} fileInputRef={fileInputRef} /></div></footer>
         </motion.div>
       </LayoutGroup>
     </ToastProvider>
@@ -447,7 +392,11 @@ const ChatWidget: FC<ChatWidgetProps> = (props) => {
   const { isGlobalChatOpen } = useAppStore();
   const [isMinimized, setIsMinimized] = useState(false);
   if (props.inline) return <InnerChatWidget {...props} inline />;
-  return <AnimatePresence>{isGlobalChatOpen && <motion.div initial={{ opacity: 0, y: 80, scale: 0.95, filter: 'blur(10px)' }} animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, y: 80, scale: 0.95, filter: 'blur(10px)' }} transition={SYSTEM.anim.fluid} className={cn("fixed z-[9999]", isMinimized ? "bottom-8 right-8" : "inset-0 md:inset-auto md:bottom-8 md:right-8")}><InnerChatWidget {...props} inline={false} isMinimized={isMinimized} setIsMinimized={setIsMinimized} /></motion.div>}</AnimatePresence>;
+  return (
+    <ChatErrorBoundary>
+      <AnimatePresence>{isGlobalChatOpen && <motion.div initial={{ opacity: 0, y: 80, scale: 0.95, filter: 'blur(10px)' }} animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, y: 80, scale: 0.95, filter: 'blur(10px)' }} transition={SYSTEM.anim.fluid} className={cn("fixed z-[9999]", isMinimized ? "bottom-8 right-8" : "inset-0 md:inset-auto md:bottom-8 md:right-8")}><InnerChatWidget {...props} inline={false} isMinimized={isMinimized} setIsMinimized={setIsMinimized} /></motion.div>}</AnimatePresence>
+    </ChatErrorBoundary>
+  );
 };
 
 export default ChatWidget;

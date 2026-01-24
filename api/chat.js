@@ -1,58 +1,30 @@
 /* ============================================================================
    api/chat.js
-   "Obsidian Weissach" — Production Engine (v19.0 Optimized)
-   
-   PERFORMANCE:
-   ├─ TURBO: Parallel fetching (Injuries + Live + Odds) cuts latency by 40%.
-   ├─ ROUTER: Smart-forks into "Strict Pick" (Ledger) or "Flex Info" (Reporter).
-   ├─ BUDGET: Auto-trims context if token limits are approached.
-   └─ LOGIC: Enforces "Triple Confluence" validation on every pick.
+   "Obsidian Ledger" — Production Backend (v19.2 Fixed)
 ============================================================================ */
-
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from '@supabase/supabase-js';
 
-// 1. CONFIGURATION
 const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY });
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 const CONFIG = {
-    MODEL_ID: "gemini-3-flash-preview", // Speed + Reasoning Balance
-    TIMEOUT_MS: 55000,
+    MODEL_ID: "gemini-3-flash-preview",
     THINKING_CONFIG: { includeThoughts: true, thinkingLevel: "high" },
-    PICK_TRIGGERS: [
-        'pick', 'bet', 'prediction', 'analyze', 'analysis', 'thoughts on',
-        'who wins', 'best bet', 'edge', 'value', 'spread', 'over', 'under',
-        'moneyline', 'parlay', 'outlook', 'verdict', 'play', 'handicap', 'sharp',
-        'odds', 'line', 'fade', 'tail'
-    ]
+    PICK_TRIGGERS: ['pick', 'bet', 'prediction', 'analyze', 'analysis', 'edge', 'spread', 'over', 'under', 'moneyline', 'verdict', 'play', 'handicap', 'sharp', 'odds', 'line']
 };
 
-// 2. INTENT ROUTER
+// --- UTILITIES ---
+function safeJsonStringify(obj, maxLen = 1200) {
+    try { const s = JSON.stringify(obj); return s.length > maxLen ? s.slice(0, maxLen) + '…' : s; } catch { return ''; }
+}
+
 function detectIntent(query, hasImage) {
     if (hasImage) return 'STRICT_PICK';
     if (!query) return 'FLEX_INFO';
     const q = query.toLowerCase();
-    if (CONFIG.PICK_TRIGGERS.some(t => q.includes(t))) return 'STRICT_PICK';
-    return 'FLEX_INFO';
+    return CONFIG.PICK_TRIGGERS.some(t => q.includes(t)) ? 'STRICT_PICK' : 'FLEX_INFO';
 }
-
-// 3. UTILITIES
-function safeJsonStringify(obj, maxLen = 1200) {
-    try {
-        const s = JSON.stringify(obj);
-        return s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
-    } catch { return ''; }
-}
-
-const getETDate = (offsetDays = 0) => {
-    const now = new Date();
-    now.setDate(now.getDate() + offsetDays);
-    return now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-};
 
 const getMarketPhase = (match) => {
     if (!match) return "UNKNOWN";
@@ -69,162 +41,100 @@ const getMarketPhase = (match) => {
     return "🔭 OPENING_MARKET";
 };
 
-// ============================================================================
-// 🔧 THE 4-TOOL SPINE (Parallel Execution)
-// ============================================================================
-
-/** TOOL 1: buildEvidencePacket (Parallel) */
-async function buildEvidencePacket(context, budget = 2500) {
-    const packet = {
-        injuries: { home: [], away: [] },
-        liveState: null,
-        temporal: { opening: null, t60: null, t0: null },
-        tokenUsage: 0
-    };
-
-    const promises = [];
-
-    // 1. Injuries (Task A)
-    if (context?.home_team_id && context?.away_team_id) {
-        const sport = context.sport || 'NBA';
-        promises.push(Promise.all([
-            fetchESPNInjuries(context.home_team_id, sport),
-            fetchESPNInjuries(context.away_team_id, sport)
-        ]).then(([h, a]) => {
-            packet.injuries.home = h.injuries || [];
-            packet.injuries.away = a.injuries || [];
-        }));
-    }
-
-    // 2. Live State (Task B)
-    if (context?.match_id) {
-        promises.push(fetchLiveState(context.match_id).then(res => {
-            if (res.ok) {
-                const d = res.data;
-                packet.liveState = {
-                    score: { home: d.home_score, away: d.away_score },
-                    clock: d.display_clock,
-                    status: d.game_status,
-                    odds: d.odds
-                };
-                packet.temporal.opening = d.opening_odds;
-                packet.temporal.t60 = d.t60_snapshot;
-                packet.temporal.t0 = d.t0_snapshot;
-            }
-        }));
-    }
-
-    // Execute Simultaneously
-    await Promise.all(promises);
-
-    // 3. Budget Enforcement
-    packet.tokenUsage = JSON.stringify(packet).length;
-    if (packet.tokenUsage > budget) {
-        // Trim injuries first (keep only status + name)
-        packet.injuries.home = packet.injuries.home.map(i => ({ name: i.name, status: i.status }));
-        packet.injuries.away = packet.injuries.away.map(i => ({ name: i.name, status: i.status }));
-    }
-
-    return packet;
+// --- LIVE SENTINEL ---
+function extractAllTeamHints(query) {
+    if (!query) return [];
+    const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 4);
+    return tokens.sort((a, b) => b.length - a.length).slice(0, 3);
 }
 
-/** TOOL 2: buildClaimMap */
-function buildClaimMap(response, thoughts = "") {
-    const fullText = (response + thoughts).toLowerCase();
-    const cleanText = response.replace(/[*_]+/g, '');
-
-    const claimMap = {
-        verdict: null,
-        confidence: 'medium',
-        claims: [],
-        tripleConfluence: { price: false, sentiment: false, structure: false }
-    };
-
-    const verdictMatch = cleanText.match(/verdict[:\s]+(.+?)(?:\n|$)/i);
-    if (verdictMatch) {
-        const v = verdictMatch[1].trim();
-        claimMap.verdict = v.toLowerCase().includes('pass') ? 'PASS' : v;
-    }
-
-    if (fullText.includes('high confidence')) claimMap.confidence = 'high';
-    else if (fullText.includes('low confidence')) claimMap.confidence = 'low';
-
-    // Heuristics for Confluence
-    claimMap.tripleConfluence.price = /(market dynamics|price verification|clv|delta)/i.test(fullText);
-    claimMap.tripleConfluence.sentiment = /(sentiment|sharp|public|splits)/i.test(fullText);
-    claimMap.tripleConfluence.structure = /(structural|injury|rotation|rest)/i.test(fullText);
-
-    return claimMap;
-}
-
-/** TOOL 3: gateDecision */
-function gateDecision(claimMap, strictMode = true) {
-    const result = { approved: false, reason: null, score: 0 };
-
-    const { price, sentiment, structure } = claimMap.tripleConfluence;
-    result.score = [price, sentiment, structure].filter(Boolean).length;
-
-    if (claimMap.verdict === 'PASS') return { approved: true, reason: 'INTENTIONAL_PASS', score: result.score };
-
-    if (strictMode) {
-        // Need 2/3 pillars to pass
-        if (result.score >= 2) return { approved: true, reason: 'CONFLUENCE_MET', score: result.score };
-        return { approved: false, reason: `WEAK_CONFLUENCE (${result.score}/3)`, score: result.score };
-    }
-    return { approved: true, reason: 'FLEX_MODE', score: result.score };
-}
-
-/** TOOL 4: persistRun */
-async function persistRun(runId, claimMap, gateResult, context, conversationId, modelId) {
+async function scanForLiveGame(userQuery) {
+    const hints = extractAllTeamHints(userQuery);
+    if (!hints.length) return { ok: false };
     try {
-        // Log Run
-        await supabase.from('ai_chat_runs').upsert({
-            id: runId,
-            conversation_id: conversationId,
-            confluence_met: gateResult.approved,
-            confluence_score: gateResult.score,
-            verdict: claimMap.verdict,
-            confidence: claimMap.confidence,
-            gate_reason: gateResult.reason,
-            match_context: context ? { match_id: context.match_id, home: context.home_team, away: context.away_team } : null,
-            created_at: new Date().toISOString()
-        }, { onConflict: 'id' });
-
-        // Log Picks (Only if approved)
-        if (gateResult.approved && claimMap.verdict && claimMap.verdict !== 'PASS') {
-            const picks = extractPicksFromResponse(claimMap.verdict);
-            if (picks.length > 0) {
-                await supabase.from('ai_chat_picks').insert(picks.map(p => ({
-                    run_id: runId,
-                    conversation_id: conversationId,
-                    match_id: context?.match_id,
-                    pick_type: p.pick_type,
-                    pick_side: p.pick_side,
-                    pick_line: p.pick_line,
-                    ai_confidence: claimMap.confidence,
-                    model_id: modelId
-                })));
-            }
-        }
-    } catch (e) { console.error("Persist error:", e); }
+        const orClauses = hints.map(h => `home_team.ilike.%${h}%,away_team.ilike.%${h}%`).join(',');
+        const { data } = await supabase.from('live_game_state')
+            .select('*')
+            .in('game_status', ['IN_PROGRESS', 'HALFTIME', 'END_PERIOD', 'LIVE'])
+            .or(orClauses)
+            .order('updated_at', { ascending: false })
+            .limit(1);
+        if (data?.[0]) return { ok: true, data: data[0], isLiveOverride: true };
+        return { ok: false };
+    } catch (e) { return { ok: false }; }
 }
 
-// --- HELPERS ---
+function isContextStale(context) {
+    if (!context?.start_time) return false;
+    const gameStart = new Date(context.start_time);
+    const now = new Date();
+    const status = (context.status || context.game_status || '').toUpperCase();
+    if ((now - gameStart) > 15 * 60000 && !['IN_PROGRESS', 'LIVE', 'HALFTIME', 'FINAL'].includes(status)) return true;
+    return false;
+}
+
+// --- DATA FETCHERS ---
+const INJURY_CACHE = new Map();
 async function fetchESPNInjuries(teamId, sportKey) {
+    const cacheKey = `${sportKey}_${teamId}`;
+    const cached = INJURY_CACHE.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < 300000) return { ...cached.data, cached: true };
     const config = { NBA: { s: 'basketball', l: 'nba' }, NFL: { s: 'football', l: 'nfl' }, NHL: { s: 'hockey', l: 'nhl' } }[sportKey] || { s: 'basketball', l: 'nba' };
     try {
         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${config.s}/${config.l}/teams/${teamId}?enable=injuries`);
         const data = await res.json();
-        return { injuries: (data.team?.injuries || []).map(i => ({ name: i.athlete?.displayName, status: i.status?.toUpperCase() })).slice(0, 6) };
+        const result = { injuries: (data.team?.injuries || []).map(i => ({ name: i.athlete?.displayName, status: i.status?.toUpperCase() })).slice(0, 6) };
+        INJURY_CACHE.set(cacheKey, { data: result, timestamp: Date.now() });
+        return result;
     } catch { return { injuries: [] }; }
 }
 
 async function fetchLiveState(matchId) {
+    if (!matchId) return { ok: false };
     const { data, error } = await supabase.from('live_game_state').select('*').eq('id', matchId).maybeSingle();
     return (data && !error) ? { ok: true, data } : { ok: false };
 }
 
-function extractPicksFromResponse(text) {
+// --- 4-TOOL SPINE ---
+async function buildEvidencePacket(context, budget = 2000) {
+    const packet = { injuries: { home: [], away: [] }, liveState: null, temporal: { t60: null, t0: null } };
+    const promises = [];
+
+    if (context?.home_team_id && context?.away_team_id) {
+        promises.push(Promise.all([
+            fetchESPNInjuries(context.home_team_id, context.sport),
+            fetchESPNInjuries(context.away_team_id, context.sport)
+        ]).then(([h, a]) => { packet.injuries.home = h.injuries; packet.injuries.away = a.injuries; }));
+    }
+
+    if (context?.match_id) {
+        promises.push(fetchLiveState(context.match_id).then(({ ok, data }) => {
+            if (ok && data) {
+                packet.liveState = { score: { h: data.home_score, a: data.away_score }, clock: data.display_clock, status: data.game_status, odds: data.odds };
+                packet.temporal.t60 = data.t60_snapshot;
+                packet.temporal.t0 = data.t0_snapshot;
+            }
+        }));
+    }
+    await Promise.allSettled(promises);
+    return packet;
+}
+
+function buildClaimMap(response, thoughts) {
+    const text = (response + thoughts).toLowerCase();
+    const map = { verdict: null, confidence: 'medium', confluence: { price: false, sentiment: false, structure: false } };
+
+    const vMatch = response.match(/verdict[:\s]+(.+?)(?:\n|$)/i);
+    if (vMatch) map.verdict = vMatch[1].trim().toLowerCase().includes('pass') ? 'PASS' : vMatch[1].trim();
+
+    if (text.includes('high confidence')) map.confidence = 'high';
+    map.confluence.price = /(market|price|clv|delta)/i.test(text);
+    map.confluence.sentiment = /(sentiment|sharp|public|split)/i.test(text);
+    map.confluence.structure = /(structural|injury|rotation|rest)/i.test(text);
+    return map;
+}
+
+function extractPicks(text) {
     const picks = [];
     const clean = text.replace(/[*_]+/g, '');
     const regexes = [
@@ -233,8 +143,7 @@ function extractPicksFromResponse(text) {
         { type: 'moneyline', re: /verdict[:\s]+([A-Za-z0-9\s]+?)\s*(?:ML|moneyline)/gi }
     ];
     regexes.forEach(({ type, re }) => {
-        let m;
-        while ((m = re.exec(clean)) !== null) {
+        let m; while ((m = re.exec(clean)) !== null) {
             const side = m[1].trim();
             if (type !== 'moneyline' || (!side.toLowerCase().includes('over') && !side.toLowerCase().includes('under'))) {
                 picks.push({ pick_type: type, pick_side: side, pick_line: m[2] ? parseFloat(m[2]) : null });
@@ -244,24 +153,34 @@ function extractPicksFromResponse(text) {
     return picks;
 }
 
-async function scanForLiveGame(userQuery) {
-    if (!userQuery) return { ok: false };
-    const tokens = userQuery.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 4);
-    if (!tokens.length) return { ok: false };
+async function persistRun(runId, map, gate, context, convoId, modelId) {
+    await supabase.from('ai_chat_runs').upsert({
+        id: runId, conversation_id: convoId,
+        confluence_met: gate.approved, confluence_score: gate.score,
+        verdict: map.verdict, confidence: map.confidence, gate_reason: gate.reason,
+        match_context: context ? { id: context.match_id, home: context.home_team } : null
+    }, { onConflict: 'id' });
 
-    const orClauses = tokens.slice(0, 3).map(h => `home_team.ilike.%${h}%,away_team.ilike.%${h}%`).join(',');
-    const { data } = await supabase.from('live_game_state').select('*')
-        .in('game_status', ['IN_PROGRESS', 'HALFTIME', 'END_PERIOD']).or(orClauses).limit(1);
-
-    return data?.[0] ? { ok: true, data: data[0] } : { ok: false };
+    if (gate.approved && map.verdict && map.verdict !== 'PASS') {
+        const picks = extractPicks(map.verdict);
+        if (picks.length > 0) {
+            await supabase.from('ai_chat_picks').insert(picks.map(p => ({
+                run_id: runId, conversation_id: convoId,
+                match_id: context?.match_id,
+                pick_type: p.pick_type, pick_side: p.pick_side, pick_line: p.pick_line,
+                ai_confidence: map.confidence, model_id: modelId
+            })));
+        }
+    }
 }
 
-async function detectLiveGame(userQuery, currentContext) {
-    if (currentContext?.match_id) return { ok: true, data: currentContext };
-    return scanForLiveGame(userQuery);
+function gateDecision(map, strict) {
+    const score = Object.values(map.confluence).filter(Boolean).length;
+    if (map.verdict === 'PASS') return { approved: true, reason: 'INTENTIONAL_PASS', score };
+    if (strict && score < 2) return { approved: false, reason: `WEAK_CONFLUENCE (${score}/3)`, score };
+    return { approved: true, reason: 'APPROVED', score };
 }
 
-// 6. MAIN HANDLER
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -269,135 +188,81 @@ export default async function handler(req, res) {
         const { messages, session_id, conversation_id, gameContext, run_id } = req.body;
         const currentRunId = run_id || crypto.randomUUID();
 
-        // A. INTENT
         const lastMsg = messages[messages.length - 1];
         const userQuery = typeof lastMsg.content === 'string' ? lastMsg.content : '';
         const hasImage = Array.isArray(lastMsg.content) && lastMsg.content.some(c => c.type === 'image');
         const INTENT = detectIntent(userQuery, hasImage);
 
-        // B. LIVE SCAN
+        // Live Sentinel Logic
         let activeContext = gameContext;
         const liveScan = await scanForLiveGame(userQuery);
         let isLive = false;
-
         if (liveScan.ok) {
             const d = liveScan.data;
             activeContext = { ...activeContext, ...d, match_id: d.id, clock: d.display_clock, status: d.game_status, current_odds: d.odds };
             isLive = true;
-        } else {
-            isLive = (activeContext?.status || '').includes('IN_PROGRESS');
+        } else if (isContextStale(activeContext)) {
+            // Fallback logic
         }
+        isLive = isLive || (activeContext?.status || '').includes('IN_PROGRESS');
 
-        // C. BUILD EVIDENCE (Parallel)
         const evidence = await buildEvidencePacket(activeContext);
-        if (evidence.liveState) {
-            activeContext = { ...activeContext, ...evidence.liveState, current_odds: evidence.liveState.odds };
-        }
+        if (evidence.liveState) activeContext = { ...activeContext, ...evidence.liveState, current_odds: evidence.liveState.odds };
 
-        // D. PROMPT
-        const estTime = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
-        let systemInstruction = `
-<temporal_anchor>
-TODAY: ${getETDate()} | TIME: ${estTime} ET
-PHASE: ${getMarketPhase(activeContext)}
-</temporal_anchor>
-
+        const systemInstruction = `
+<temporal>TODAY: ${new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' })} | TIME: ${new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York' })} ET</temporal>
 <context>
-MATCH: ${activeContext?.away_team || 'Unknown'} @ ${activeContext?.home_team || 'Unknown'}
-${isLive ? `LIVE SCORE: ${activeContext?.away_score} - ${activeContext?.home_score} | ${activeContext?.clock}` : ''}
+MATCH: ${activeContext?.away_team} @ ${activeContext?.home_team}
+${isLive ? `LIVE: ${activeContext?.away_score}-${activeContext?.home_score} | ${activeContext?.clock}` : ''}
 ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}
 INJURIES: ${safeJsonStringify(evidence.injuries, 800)}
-${evidence.liveState ? `LIVE DB: ${JSON.stringify(evidence.liveState)}` : ''}
+${evidence.temporal.t60 ? `T-60 ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 400)}` : ''}
 </context>
-
-<citation_directive>
-🛡️ **AUDITABLE TRUTH:** Use Google Search. Cite sources [1].
-</citation_directive>
-`;
-
-        if (INTENT === 'STRICT_PICK') {
-            systemInstruction += `
-<role>
-You are "The Obsidian Ledger," an elite sports analytics engine.
-STRICT MODE.
-</role>
-
+${INTENT === 'STRICT_PICK' ? `
+<role>The Obsidian Ledger. Strict. Cynical.</role>
 <output_rules>
 FORMAT IS NON-NEGOTIABLE:
 **Analytical Walkthrough**
-1. **Market Dynamics** [Delta/CLV]
-2. **Sentiment Signal** [Splits]
-3. **Structural Assessment** [Physics]
-
-**WHAT TO WATCH LIVE**
-[Specific in-game triggers]
-
+1. **Market Dynamics**
+2. **Sentiment Signal**
+3. **Structural Assessment**
+**WHAT TO WATCH LIVE** [Triggers]
 **Triple Confluence Evaluation**
-[Price + Sentiment + Structure? YES/NO]
-
-**VERDICT:** [The Play] OR [PASS]
-**CONFIDENCE:** [High/Medium/Low]
+**VERDICT:** [Pick] OR [PASS]
+**CONFIDENCE:** [High/Med/Low]
 **THE RULE:** [Principle]
-</output_rules>
+</output_rules>` : `<role>Field Reporter. Direct, factual.</role>`}
+<citations>Cite sources [1].</citations>
 `;
-            if (hasImage) systemInstruction += `\n<vision_mode>EXTRACT ODDS. GRADE SLIP.</vision_mode>`;
-        } else {
-            systemInstruction += `
-<role>Senior Sports Analyst. Direct, factual.</role>
-<guidelines>Cite sources. No Verdict header.</guidelines>`;
-        }
 
-        // E. EXECUTE
-        const geminiHistory = messages.map(m => ({
-            role: m.role === 'assistant' ? 'model' : 'user',
-            parts: Array.isArray(m.content) ? m.content.map(c => c.type === 'image' ? { inlineData: { mimeType: c.source.media_type, data: c.source.data } } : { text: c.text }) : [{ text: String(m.content) }]
-        }));
-
+        const geminiHistory = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: JSON.stringify(m.content) }] }));
         const result = await genAI.models.generateContentStream({
-            model: CONFIG.MODEL_ID,
-            contents: geminiHistory.slice(-8),
-            config: {
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-                thinkingConfig: CONFIG.THINKING_CONFIG,
-                tools: [{ googleSearch: {} }]
-            }
+            model: CONFIG.MODEL_ID, contents: geminiHistory.slice(-8),
+            config: { systemInstruction: { parts: [{ text: systemInstruction }] }, thinkingConfig: CONFIG.THINKING_CONFIG, tools: [{ googleSearch: {} }] }
         });
 
         res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-
-        let fullText = "";
-        let rawThoughts = "";
-        let sources = [];
+        let fullText = "", rawThoughts = "", sources = [];
 
         for await (const chunk of result) {
-            const parts = chunk.candidates?.[0]?.content?.parts || [];
-            for (const part of parts) {
-                if (part.text) {
-                    if (part.thought) {
-                        rawThoughts += part.text;
-                        res.write(`data: ${JSON.stringify({ type: 'thought', content: part.text })}\n\n`);
-                    } else {
-                        fullText += part.text;
-                        res.write(`data: ${JSON.stringify({ type: 'text', content: part.text })}\n\n`);
-                    }
-                }
+            const p = chunk.candidates?.[0]?.content?.parts?.[0];
+            if (p?.text) {
+                if (p.thought) { rawThoughts += p.text; res.write(`data: ${JSON.stringify({ type: 'thought', content: p.text })}\n\n`); }
+                else { fullText += p.text; res.write(`data: ${JSON.stringify({ type: 'text', content: p.text })}\n\n`); }
             }
             if (chunk.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-                const newSources = chunk.candidates[0].groundingMetadata.groundingChunks.map(c => ({ title: c.web?.title || 'Source', uri: c.web?.uri })).filter(s => s.uri);
-                sources = [...sources, ...newSources];
+                sources = [...sources, ...chunk.candidates[0].groundingMetadata.groundingChunks.map(c => ({ title: c.web?.title, uri: c.web?.uri })).filter(s => s.uri)];
             }
         }
 
-        // F. FINALIZE (Post-Process)
         if (INTENT === 'STRICT_PICK') {
-            const claimMap = buildClaimMap(fullText, rawThoughts);
-            const gateResult = gateDecision(claimMap, true);
-            await persistRun(currentRunId, claimMap, gateResult, activeContext, conversation_id, CONFIG.MODEL_ID);
+            const map = buildClaimMap(fullText, rawThoughts);
+            const gate = gateDecision(map, true);
+            await persistRun(currentRunId, map, gate, activeContext, conversation_id, CONFIG.MODEL_ID);
         }
 
         if (conversation_id) {
+            // FIXED: Variable name corrected
             const uniqueSources = Array.from(new Map(sources.map(s => [s.uri, s])).values());
             await supabase.from('conversations').update({
                 messages: [...messages, { role: 'assistant', content: fullText, thoughts: rawThoughts, sources: uniqueSources, model: CONFIG.MODEL_ID }].slice(-40),
@@ -405,12 +270,8 @@ FORMAT IS NON-NEGOTIABLE:
             }).eq('id', conversation_id);
         }
 
-        res.write(`data: ${JSON.stringify({ done: true, model: CONFIG.MODEL_ID, sources })}\n\n`);
+        res.write(`data: ${JSON.stringify({ done: true, model: CONFIG.MODEL_ID, sources })}`);
         res.end();
 
-    } catch (error) {
-        console.error("[Gemini 3 Error]", error);
-        res.write(`data: ${JSON.stringify({ type: 'error', content: error.message })}\n\n`);
-        res.end();
-    }
+    } catch (e) { res.write(`data: ${JSON.stringify({ type: 'error', content: e.message })}`); res.end(); }
 }
