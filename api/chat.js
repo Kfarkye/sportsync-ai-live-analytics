@@ -279,12 +279,30 @@ export default async function handler(req, res) {
             injuryText = `\nINJURIES:\n${activeContext.home_team}: ${h.injuries.map(i => `${i.name} (${i.status})`).join(', ') || 'Clean'}\n${activeContext.away_team}: ${a.injuries.map(i => `${i.name} (${i.status})`).join(', ') || 'Clean'}`;
         }
 
+        // 🕐 TEMPORAL STATE INJECTION: Fetch live state with T-60/T-0 snapshots
+        let temporalText = '';
         if (matchId) {
             const liveRes = await fetchLiveState(matchId);
             if (liveRes.ok) {
                 const d = liveRes.data;
                 liveText = `\n📡 LIVE DB SNAPSHOT: ${d.home_team} ${d.home_score} - ${d.away_score} ${d.away_team} | ${d.display_clock} | Status: ${d.game_status}\nODDS: ${safeJsonStringify(d.odds, 500)}`;
                 activeContext = { ...activeContext, ...d };
+
+                // Inject temporal snapshots for CLV analysis
+                if (d.t0_snapshot || d.t60_snapshot || d.opening_odds) {
+                    temporalText = `\n<temporal_state>`;
+                    if (d.t60_snapshot) {
+                        temporalText += `\nT-60 (Pre-Match): ${safeJsonStringify(d.t60_snapshot, 300)}`;
+                    }
+                    if (d.opening_odds) {
+                        temporalText += `\nOPENING ODDS: ${safeJsonStringify(d.opening_odds, 300)}`;
+                    }
+                    if (d.t0_snapshot) {
+                        temporalText += `\nT-0 (Tipoff): ${safeJsonStringify(d.t0_snapshot, 300)}`;
+                    }
+                    temporalText += `\n</temporal_state>`;
+                    console.log(`[LiveSentinel] 🕐 Temporal data injected for ${matchId}`);
+                }
             }
         }
 
@@ -305,7 +323,9 @@ ${isLive && activeContext?.home_score !== undefined ? `LIVE SCORE: ${activeConte
 ${activeContext?.current_odds ? `ODDS: ${safeJsonStringify(activeContext.current_odds, 600)}` : ''}
 ${injuryText}
 ${liveText}
+${temporalText}
 </context>
+
 
 <citation_directive>
 🛡️ **AUDITABLE TRUTH:** 
@@ -360,6 +380,20 @@ FORMAT IS NON-NEGOTIABLE:
 </output_rules>
 `;
             if (hasImage) systemInstruction += `\n<vision_mode>EXTRACT ALL ODDS FROM IMAGE AND COMPARE TO MARKET. GRADE THE SLIP.</vision_mode>`;
+
+            // 🕐 CLV Analysis when temporal data is available
+            if (temporalText) {
+                systemInstruction += `
+<clv_analysis>
+TEMPORAL DATA AVAILABLE. You MUST analyze Closing Line Value (CLV):
+1. Compare OPENING ODDS to CURRENT ODDS - identify the steam direction
+2. If line moved IN our favor: "Positive CLV captured" 
+3. If line moved AGAINST us: "Negative CLV - market corrected against this position"
+4. Reference T-60 snapshot for late scratches or lineup changes
+5. This temporal shift is CRITICAL for the Market Dynamics section
+</clv_analysis>
+`;
+            }
 
         } else {
             // === MODE B: THE REPORTER (Flexible) ===
