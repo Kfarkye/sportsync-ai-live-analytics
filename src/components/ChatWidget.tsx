@@ -2,11 +2,11 @@
    ChatWidget.tsx
    "Obsidian Weissach" — Production Master (v19.0)
    
-   THE PORSCHE STANDARD:
-   ├─ TEXTURE: Perceptible "Film Grain" overlay (Anodized Aluminum feel)
-   ├─ PHYSICS: "Recessed" Input Deck with inner shadows
-   ├─ KINETICS: Vector-draw animations for icons (Checkmarks draw strokes)
-   └─ TYPOGRAPHY: Tabular figures for all data points (Chronometer alignment)
+   DESIGN SYSTEM: "Weissach Physics"
+   ├─ KINETICS: Vector-draw animations (Checkmark draws itself).
+   ├─ TEXTURE: Perceptible "Film Grain" for anodized aluminum feel.
+   ├─ UI: Tactical HUD (Amber Alert), Verdict Ticket (Holographic).
+   └─ TYPOGRAPHY: Tabular figures for chronometer precision.
 ============================================================================ */
 
 import React, {
@@ -336,7 +336,7 @@ const InputDeck: FC<{ value: string; onChange: (v: string) => void; onSend: () =
   };
 
   const toggleVoice = () => {
-    const API = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const API = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!API) return;
     if (isVoiceMode) { recognitionRef.current?.abort(); onVoiceModeChange(false); }
     else {
@@ -412,7 +412,7 @@ const InnerChatWidget: FC<ChatWidgetProps & { isMinimized?: boolean; setIsMinimi
         wireMessages[wireMessages.length - 1].content = [{ type: 'text', text: text || 'Analyze this.' }, ...attachments.map(a => ({ type: a.mimeType.startsWith('image') ? 'image' : 'file', source: { type: 'base64', media_type: a.mimeType, data: a.base64 } }))];
         setAttachments([]);
       }
-      const context = { session_id, conversation_id, gameContext: currentMatch, run_id: generateId() };
+      const context = { session_id, conversation_id, current_match: currentMatch, run_id: generateId() };
       abortRef.current = new AbortController();
       let fullText = '', fullThought = '', grounding: any;
 
