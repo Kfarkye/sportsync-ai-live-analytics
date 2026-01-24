@@ -1,8 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Home, Zap, TrendingUp, Bot } from 'lucide-react';
-import { NeuralPulse } from '../ChatWidget';
+import { Home, Zap, Bot } from 'lucide-react';
 import { useAppStore, ViewType } from '../../store/appStore';
 import { ESSENCE } from '../../lib/essence';
 import { clsx, type ClassValue } from 'clsx';
@@ -13,6 +12,18 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const MotionDiv = motion.div as any;
+
+// Inline pulse indicator (replaces NeuralPulse)
+const EdgePulse = () => (
+    <div className="relative w-5 h-5 flex items-center justify-center">
+        <div className="w-2 h-2 rounded-full bg-emerald-400" />
+        <motion.div
+            className="absolute inset-0 rounded-full bg-emerald-400/40"
+            animate={{ scale: [1, 2], opacity: [0.5, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
+        />
+    </div>
+);
 
 export const MobileNavBar = () => {
     const { activeView, setActiveView, toggleGlobalChat, isGlobalChatOpen } = useAppStore();
@@ -66,7 +77,7 @@ export const MobileNavBar = () => {
                     title="Edge"
                 >
                     {isGlobalChatOpen ? (
-                        <NeuralPulse active className="relative z-10" />
+                        <EdgePulse />
                     ) : (
                         <Bot size={20} strokeWidth={2} className="relative z-10" />
                     )}
@@ -83,4 +94,3 @@ export const MobileNavBar = () => {
         </div>
     );
 };
-
