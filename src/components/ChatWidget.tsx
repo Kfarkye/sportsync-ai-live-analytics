@@ -76,16 +76,30 @@ function triggerHaptic(): void {
 /**
  * Recursive helper to extract raw text from React children.
  * Handles nested elements like <strong>, <em>, <a> etc.
+ * 
  * @param children - React children to flatten
  * @returns Plain text string
  */
 function flattenText(children: ReactNode): string {
-  return React.Children.toArray(children).reduce((acc: string, child) => {
-    if (typeof child === "string") return acc + child;
-    if (typeof child === "number") return acc + child.toString();
-    if (React.isValidElement(child) && child.props.children) {
-      return acc + flattenText(child.props.children);
+  return React.Children.toArray(children).reduce<string>((acc, child) => {
+    // Handle string nodes directly
+    if (typeof child === "string") {
+      return acc + child;
     }
+
+    // Handle number nodes (convert to string)
+    if (typeof child === "number") {
+      return acc + String(child);
+    }
+
+    // Handle React elements with children prop
+    if (React.isValidElement<{ children?: ReactNode }>(child)) {
+      const elementChildren = child.props.children;
+      if (elementChildren !== undefined && elementChildren !== null) {
+        return acc + flattenText(elementChildren);
+      }
+    }
+
     return acc;
   }, "");
 }
