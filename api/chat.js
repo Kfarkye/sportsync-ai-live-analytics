@@ -1,8 +1,8 @@
 /* ============================================================================
    api/chat.js
-   "Obsidian Citadel" — Production Backend (v20.2)
+   "Obsidian Citadel" — Production Backend (v20.5)
    - Engine: Gemini 3 Flash Preview (Strict)
-   - Protocol: Forensic Grounding (Zero-Trust)
+   - Protocol: Forensic Grounding + Hallucination Suppression
 ============================================================================ */
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from '@supabase/supabase-js';
@@ -14,10 +14,9 @@ const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 const CONFIG = {
-    MODEL_ID: "gemini-3-flash-preview", // STRICTLY ENFORCED
+    MODEL_ID: "gemini-3-flash-preview",
     THINKING_CONFIG: { includeThoughts: true, thinkingLevel: "high" },
     PICK_TRIGGERS: ['pick', 'bet', 'prediction', 'analyze', 'analysis', 'edge', 'spread', 'over', 'under', 'moneyline', 'verdict', 'play', 'handicap', 'sharp', 'odds', 'line'],
-    // NEW: Force Google Search for forensic grounding
     TOOLS: [{ googleSearch: {} }]
 };
 
@@ -32,21 +31,6 @@ function detectIntent(query, hasImage) {
     const q = query.toLowerCase();
     return CONFIG.PICK_TRIGGERS.some(t => q.includes(t)) ? 'STRICT_PICK' : 'FLEX_INFO';
 }
-
-const getMarketPhase = (match) => {
-    if (!match) return "UNKNOWN";
-    const status = (match.status || match.game_status || "").toUpperCase();
-    if (status.includes("IN_PROGRESS") || status.includes("LIVE") || status.includes("HALFTIME")) return `🔴 LIVE_IN_PLAY [${match.clock || "Active"}]`;
-    if (status.includes("FINAL") || status.includes("FINISHED")) return "🏁 FINAL_SCORE";
-    if (match.start_time) {
-        const diff = (new Date(match.start_time).getTime() - Date.now()) / 36e5;
-        if (diff < 0 && diff > -4) return "🔴 LIVE_IN_PLAY (Calculated)";
-        if (diff <= -4) return "🏁 FINAL_SCORE";
-        if (diff < 1) return "⚡ CLOSING_LINE";
-        if (diff < 24) return "🌊 DAY_OF_GAME";
-    }
-    return "🔭 OPENING_MARKET";
-};
 
 function isContextStale(context) {
     if (!context?.start_time) return false;
@@ -139,7 +123,7 @@ function buildClaimMap(response, thoughts) {
     return map;
 }
 
-// Elite Pick Extraction - Two-Phase Structural Generation
+// Elite Pick Extraction
 async function extractPickStructured(text, context) {
     if (!context) return [];
     const contextPrompt = `
@@ -219,7 +203,6 @@ export default async function handler(req, res) {
         const hasImage = Array.isArray(lastMsg.content) && lastMsg.content.some(c => c.type === 'image');
         const INTENT = detectIntent(userQuery, hasImage);
 
-        // --- LIVE SENTINEL LOGIC ---
         let activeContext = gameContext;
         const liveScan = await scanForLiveGame(userQuery);
         let isLive = false;
@@ -227,15 +210,12 @@ export default async function handler(req, res) {
             const d = liveScan.data;
             activeContext = { ...activeContext, ...d, match_id: d.id, clock: d.display_clock, status: d.game_status, current_odds: d.odds };
             isLive = true;
-        } else if (isContextStale(activeContext)) {
-            // Logic to handle stale context could go here
         }
         isLive = isLive || (activeContext?.status || '').includes('IN_PROGRESS');
 
         const evidence = await buildEvidencePacket(activeContext);
         if (evidence.liveState) activeContext = { ...activeContext, ...evidence.liveState, current_odds: evidence.liveState.odds };
 
-        // --- CITADEL PROTOCOL SYSTEM PROMPT ---
         const systemInstruction = `
 <temporal>TODAY: ${new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' })} | TIME: ${new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York' })} ET</temporal>
 <context>
@@ -251,8 +231,13 @@ You are "The Obsidian Ledger," a forensic sports analyst.
 **RULE #1: ZERO HALLUCINATION.**
 - You have NO internal knowledge of today's specific props/lines beyond the provided context.
 - **MANDATORY:** You MUST use the 'googleSearch' tool to verify every single stat, spread, injury news, or trend you cite.
-- **CITATION:** Every claim (Score, Spread, Trend, ROI) must be immediately backed by a search result.
-- **NULL HYPOTHESIS:** If the search tool does not return data for a specific prop/line, state "Data Unavailable". DO NOT GUESS.
+
+**NEGATIVE CONSTRAINT (CRITICAL):**
+- **DO NOT** manually type citations in the text (e.g., [1], [1.1], [Source 1]).
+- **DO NOT** write "Source [1]" or "According to [1]".
+- Just write the facts cleanly.
+- The system will automatically attach the verified citations to your text based on the tool usage.
+- **OUTPUT PLAIN TEXT ONLY.**
 </prime_directive>
 
 ${INTENT === 'STRICT_PICK' ? `
@@ -261,8 +246,8 @@ FORMAT IS NON-NEGOTIABLE:
 **Analytical Walkthrough**
 (Break down the matchup using ONLY verified stats found via Search.)
 **Market Dynamics**
-**Sentiment Signal** (What is the public/sharp split? Cite sources.)
-**Structural Assessment** (Injuries & Lineups. Cite sources.)
+**Sentiment Signal** (What is the public/sharp split?)
+**Structural Assessment** (Injuries & Lineups.)
 **WHAT TO WATCH LIVE** [Triggers]
 **Triple Confluence Evaluation**
 **VERDICT:** [Pick] OR [PASS]
@@ -282,7 +267,7 @@ FORMAT IS NON-NEGOTIABLE:
             config: {
                 systemInstruction: { parts: [{ text: systemInstruction }] },
                 thinkingConfig: CONFIG.THINKING_CONFIG,
-                tools: CONFIG.TOOLS // Enable Search
+                tools: CONFIG.TOOLS
             }
         });
 
@@ -290,14 +275,12 @@ FORMAT IS NON-NEGOTIABLE:
 
         let fullText = "";
         let rawThoughts = "";
-        let finalMetadata = null; // Store grounding metadata
+        let finalMetadata = null;
 
         for await (const chunk of result) {
             // 1. Capture Grounding Metadata (Evidence)
-            // This is the key change: we capture the evidence package from Google
             if (chunk.candidates?.[0]?.groundingMetadata) {
                 finalMetadata = chunk.candidates[0].groundingMetadata;
-                // Stream evidence to frontend immediately
                 res.write(`data: ${JSON.stringify({ type: 'grounding', metadata: finalMetadata })}\n\n`);
             }
 
@@ -314,7 +297,6 @@ FORMAT IS NON-NEGOTIABLE:
             }
         }
 
-        // --- POST-RUN AUDIT & STORAGE ---
         if (INTENT === 'STRICT_PICK') {
             const map = buildClaimMap(fullText, rawThoughts);
             const gate = gateDecision(map, true);
@@ -322,7 +304,6 @@ FORMAT IS NON-NEGOTIABLE:
         }
 
         if (conversation_id) {
-            // Flatten sources for database storage
             const sources = finalMetadata?.groundingChunks?.map(c => ({
                 title: c.web?.title,
                 uri: c.web?.uri
@@ -333,8 +314,8 @@ FORMAT IS NON-NEGOTIABLE:
                     role: 'assistant',
                     content: fullText,
                     thoughts: rawThoughts,
-                    groundingMetadata: finalMetadata, // Store the raw proof for playback
-                    sources: sources, // Clean list
+                    groundingMetadata: finalMetadata,
+                    sources: sources,
                     model: CONFIG.MODEL_ID
                 }].slice(-40),
                 last_message_at: new Date().toISOString()

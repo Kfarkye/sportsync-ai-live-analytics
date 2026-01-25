@@ -1,7 +1,7 @@
 /* ============================================================================
    ChatWidget.tsx
-   "Obsidian Weissach" — Production Master (v20.2 Citadel)
-   - Features: Full UI Kit + Forensic Citation Injection + Grounding Chips
+   "Obsidian Weissach" — Production Master (v20.5 Citadel)
+   - Feature: Forensic Injection + Hallucination Scrubbing
 ============================================================================ */
 
 import React, {
@@ -48,7 +48,7 @@ interface Attachment { file: File; base64: string; mimeType: string; }
 interface ChatWidgetProps { currentMatch?: any; inline?: boolean; }
 declare global { interface Window { webkitSpeechRecognition?: any; SpeechRecognition?: any; } }
 
-// --- 2. FORENSIC CITATION ENGINE ---
+// --- 2. FORENSIC CITATION ENGINE (THE CLEANER) ---
 function extractTextContent(content: any): string {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) return content.find(c => c.type === 'text')?.text ?? '';
@@ -56,18 +56,18 @@ function extractTextContent(content: any): string {
 }
 
 /**
- * Maps Google Grounding Metadata indices to Markdown links.
- * Returns text with [1](url) injected.
+ * 1. INJECT: Use verified metadata to insert [1](url) links at exact character indices.
+ * 2. SCRUB: Use Regex to remove any "ugly" [1.1] type citations the AI might have hallucinated.
  */
 function injectForensicCitations(text: string, metadata?: any): string {
   if (!metadata?.groundingSupports || !metadata?.groundingChunks) return text;
 
-  // Sort supports descending by index to prevent drift during injection
+  let verifiedText = text;
+
+  // A. INJECTION PHASE (Sort DESC to keep indices valid)
   const sortedSupports = [...metadata.groundingSupports].sort((a: any, b: any) =>
     (b.segment?.endIndex || 0) - (a.segment?.endIndex || 0)
   );
-
-  let verifiedText = text;
 
   sortedSupports.forEach((support: any) => {
     const { endIndex } = support.segment;
@@ -76,7 +76,6 @@ function injectForensicCitations(text: string, metadata?: any): string {
     const citationMarkdown = support.groundingChunkIndices
       .map((idx: number) => {
         const chunk = metadata.groundingChunks[idx];
-        // ID used for display (idx + 1), Url used for href
         return chunk?.web?.uri ? ` [${idx + 1}](${chunk.web.uri})` : '';
       })
       .join('');
@@ -85,6 +84,12 @@ function injectForensicCitations(text: string, metadata?: any): string {
       verifiedText = verifiedText.slice(0, endIndex) + citationMarkdown + verifiedText.slice(endIndex);
     }
   });
+
+  // B. SCRUB PHASE
+  // Remove brackets containing digits that are NOT followed by `(`.
+  // This removes `[1.1]` but PRESERVES `[1](url)`.
+  // Regex matches: [ whitespace digits (decimals/commas) whitespace ] NOT followed by (
+  verifiedText = verifiedText.replace(/\[\s*((?:\d+(?:\.\d+)?\s*,?\s*)+)\s*\](?!\()/g, '');
 
   return verifiedText;
 }
@@ -173,7 +178,6 @@ const VerdictTicket: FC<{ content: string }> = memo(({ content }) => (
     <div className="relative p-6 flex items-start gap-4">
       <div className="flex-1">
         <div className="text-2xl md:text-3xl font-medium text-white tracking-tight leading-none mb-1 tabular-nums">
-          {/* Render markdown citations inside the ticket */}
           <ReactMarkdown components={{ a: ({ href, children }) => <CitationChip href={href}>{children}</CitationChip> }}>{content}</ReactMarkdown>
         </div>
         <div className="text-[10px] text-emerald-500/60 uppercase tracking-wider font-mono mt-3">Confidence Verified</div>
@@ -304,7 +308,7 @@ const MessageBubble: FC<{ message: Message; isLast: boolean; onAction: (t: strin
   );
 });
 
-// --- 6. INPUT DECK ---
+// --- 6. INPUT DECK (Voice + Upload) ---
 const InputDeck: FC<{ value: string; onChange: (v: string) => void; onSend: () => void; onStop: () => void; attachments: Attachment[]; onAttach: (a: Attachment[]) => void; isProcessing: boolean; isVoiceMode: boolean; onVoiceModeChange: (v: boolean) => void; inputRef: RefObject<HTMLTextAreaElement | null>; fileInputRef: RefObject<HTMLInputElement | null>; }> = memo(({ value, onChange, onSend, onStop, attachments, onAttach, isProcessing, isVoiceMode, onVoiceModeChange, inputRef, fileInputRef }) => {
   const recognitionRef = useRef<any>(null);
   const handleKeyDown = (e: ReactKeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (value.trim() || attachments.length) onSend(); } };
@@ -377,14 +381,11 @@ const edgeService = {
   },
 };
 
-// --- 8. ERROR BOUNDARY ---
 class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
   static getDerivedStateFromError() { return { hasError: true }; }
-  render() {
-    if (this.state.hasError) return <div className="p-6 text-center text-zinc-500">Chat unavailable</div>;
-    return this.props.children;
-  }
+  componentDidCatch(e: Error, i: React.ErrorInfo) { console.error('ChatWidget Error:', e, i); }
+  render() { if (this.state.hasError) return <div className={cn('p-6 text-rose-400 font-mono text-xs')}>System Error</div>; return this.props.children; }
 }
 
 const InnerChatWidget: FC<any & { isMinimized?: boolean; setIsMinimized?: (v: boolean) => void }> = ({ currentMatch, inline, isMinimized, setIsMinimized }) => {
@@ -427,7 +428,6 @@ const InnerChatWidget: FC<any & { isMinimized?: boolean; setIsMinimized?: (v: bo
       await edgeService.chat(wireMessages, context, (chunk) => {
         if (chunk.type === 'text') { fullText += chunk.content || ''; setMessages(p => p.map(m => m.id === aiMsgId ? { ...m, content: fullText, groundingMetadata: grounding || m.groundingMetadata } : m)); }
         if (chunk.type === 'thought') { fullThought += chunk.content || ''; setMessages(p => p.map(m => m.id === aiMsgId ? { ...m, thoughts: fullThought } : m)); }
-        // HYDRATION: Capture metadata instantly
         if (chunk.type === 'grounding') { grounding = chunk.metadata; setMessages(p => p.map(m => m.id === aiMsgId ? { ...m, groundingMetadata: chunk.metadata } : m)); }
         if (chunk.done) setMessages(p => p.map(m => m.id === aiMsgId ? { ...m, isStreaming: false } : m));
       }, abortRef.current.signal);
