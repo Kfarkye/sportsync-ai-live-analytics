@@ -1,15 +1,16 @@
 /* ============================================================================
    api/chat.js
-   "Obsidian Citadel" — Production Backend (v23.1 Enhanced)
+   "Obsidian Citadel" — Production Backend (v26.1 Enhanced)
    
-   Engine: Gemini 3 Flash Preview (Strict)
-   Protocol: Explicit Anchoring [1] + Line Movement Delta + Stale Context Guard
+   Engine: Gemini 3 Flash Preview
+   Protocol: Dual-Mode + Verdict First + Entity Firewall
    
-   ENHANCEMENTS (v23.1):
-   ├─ REGEX: Markdown-aware verdict extraction
-   ├─ CONTEXT: isContextStale guard re-integrated
-   ├─ INTEL: calculateLineMovement for Sharp Signal injection
-   └─ SAFETY: Robust error handling throughout
+   ENHANCEMENTS (v26.1 Enhanced):
+   ├─ LOGIC: Corrected spread delta sign calculation (preserves direction)
+   ├─ STREAM: Iterates ALL parts per chunk (prevents data loss)
+   ├─ GATE: Restored score < 2 for strict confluence filtering
+   ├─ PROMPT: Softened Entity Firewall (status claims only)
+   └─ PROMPT: Added colon to INVALIDATION for UI parsing
 ============================================================================ */
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
@@ -17,7 +18,10 @@ import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { BettingPickSchema } from "../lib/schemas/picks.js";
 
-// --- INITIALIZATION ---
+// =============================================================================
+// INITIALIZATION
+// =============================================================================
+
 const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY });
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -27,14 +31,15 @@ const supabase = createClient(
 const CONFIG = {
     MODEL_ID: "gemini-3-flash-preview",
     THINKING_CONFIG: { includeThoughts: true, thinkingLevel: "high" },
-    PICK_TRIGGERS: [
-        "pick", "bet", "prediction", "analyze", "analysis", "edge", "spread",
-        "over", "under", "moneyline", "verdict", "play", "handicap", "sharp",
-        "odds", "line", "lean", "lock", "best bet", "parlay"
+    ANALYSIS_TRIGGERS: [
+        "edge", "best bet", "should i bet", "picks", "prediction",
+        "analyze", "analysis", "spread", "over", "under", "moneyline",
+        "verdict", "play", "handicap", "sharp", "odds", "line",
+        "lean", "lock", "parlay", "action", "value", "bet", "pick"
     ],
     TOOLS: [{ googleSearch: {} }],
-    STALE_THRESHOLD_MS: 15 * 60 * 1000, // 15 minutes
-    INJURY_CACHE_TTL_MS: 5 * 60 * 1000  // 5 minutes
+    STALE_THRESHOLD_MS: 15 * 60 * 1000,  // 15 minutes
+    INJURY_CACHE_TTL_MS: 5 * 60 * 1000   // 5 minutes
 };
 
 // =============================================================================
@@ -57,16 +62,16 @@ function safeJsonStringify(obj, maxLen = 1200) {
 }
 
 /**
- * Detect user intent based on query content.
+ * Detect operating mode based on query content.
  * @param {string} query - User's message
  * @param {boolean} hasImage - Whether message contains an image
- * @returns {'STRICT_PICK' | 'FLEX_INFO'}
+ * @returns {'ANALYSIS' | 'CONVERSATION'}
  */
-function detectIntent(query, hasImage) {
-    if (hasImage) return "STRICT_PICK";
-    if (!query) return "FLEX_INFO";
+function detectMode(query, hasImage) {
+    if (hasImage) return "ANALYSIS";
+    if (!query) return "CONVERSATION";
     const q = query.toLowerCase();
-    return CONFIG.PICK_TRIGGERS.some((t) => q.includes(t)) ? "STRICT_PICK" : "FLEX_INFO";
+    return CONFIG.ANALYSIS_TRIGGERS.some((t) => q.includes(t)) ? "ANALYSIS" : "CONVERSATION";
 }
 
 /**
@@ -115,7 +120,6 @@ function isContextStale(context) {
     const now = new Date();
     const status = (context.status || context.game_status || "").toUpperCase();
 
-    // If game should have started but status doesn't reflect it
     const timeSinceStart = now - gameStart;
     const activeStatuses = ["IN_PROGRESS", "LIVE", "HALFTIME", "FINAL", "FINISHED"];
 
@@ -127,8 +131,16 @@ function isContextStale(context) {
 }
 
 /**
- * Calculate line movement between T-60 and current odds.
- * Provides explicit Sharp Move signal for the AI.
+ * Calculate line movement preserving directional sign.
+ * 
+ * Assumes standard US convention: spread is relative to Home team.
+ * - Negative spread = Home favored (e.g., Home -5.5)
+ * - Positive spread = Home underdog (e.g., Home +3.0)
+ * 
+ * Delta Interpretation:
+ * - Delta < 0: Line moved LEFT (e.g., -3 → -4) = HOME steam (money on favorite)
+ * - Delta > 0: Line moved RIGHT (e.g., -3 → -2) = AWAY steam (money on underdog)
+ * 
  * @param {object} currentOdds - Current odds object
  * @param {object} t60Snapshot - T-60 snapshot with odds
  * @returns {object} Line movement analysis
@@ -142,16 +154,19 @@ function calculateLineMovement(currentOdds, t60Snapshot) {
     const opening = t60Snapshot.odds;
     const movements = [];
 
-    // Spread movement analysis
+    // Spread movement analysis (preserves algebraic sign)
     if (current.spread !== undefined && opening.spread !== undefined) {
-        const spreadDelta = Math.abs(current.spread) - Math.abs(opening.spread);
+        const spreadDelta = current.spread - opening.spread;
+
         if (Math.abs(spreadDelta) >= 0.5) {
-            const direction = spreadDelta > 0 ? "AWAY" : "HOME";
+            // Negative delta = moved left (more negative) = HOME steam
+            // Positive delta = moved right (less negative/more positive) = AWAY steam
+            const direction = spreadDelta < 0 ? "HOME" : "AWAY";
             movements.push({
                 type: "SPREAD",
-                delta: spreadDelta.toFixed(1),
+                delta: Math.abs(spreadDelta).toFixed(1),
                 direction,
-                signal: Math.abs(spreadDelta) >= 2 ? "🚨 SHARP_STEAM" : "📊 LINE_MOVE"
+                signal: Math.abs(spreadDelta) >= 1.5 ? "🚨 SHARP_STEAM" : "📊 LINE_MOVE"
             });
         }
     }
@@ -159,13 +174,14 @@ function calculateLineMovement(currentOdds, t60Snapshot) {
     // Total movement analysis
     if (current.total !== undefined && opening.total !== undefined) {
         const totalDelta = current.total - opening.total;
+
         if (Math.abs(totalDelta) >= 1) {
             const direction = totalDelta > 0 ? "UP" : "DOWN";
             movements.push({
                 type: "TOTAL",
-                delta: totalDelta.toFixed(1),
+                delta: Math.abs(totalDelta).toFixed(1),
                 direction,
-                signal: Math.abs(totalDelta) >= 3 ? "🚨 SHARP_STEAM" : "📊 LINE_MOVE"
+                signal: Math.abs(totalDelta) >= 2.5 ? "🚨 SHARP_STEAM" : "📊 LINE_MOVE"
             });
         }
     }
@@ -240,7 +256,7 @@ const INJURY_CACHE = new Map();
 /**
  * Fetch injuries from ESPN API with caching.
  * @param {string} teamId - ESPN team ID
- * @param {string} sportKey - Sport identifier (NBA, NFL, NHL)
+ * @param {string} sportKey - Sport identifier (NBA, NFL, NHL, NCAAB, CBB)
  * @returns {Promise<{injuries: object[], cached?: boolean}>}
  */
 async function fetchESPNInjuries(teamId, sportKey) {
@@ -357,7 +373,7 @@ async function buildEvidencePacket(context) {
                     packet.temporal.t60 = data.t60_snapshot;
                     packet.temporal.t0 = data.t0_snapshot;
 
-                    // Calculate line movement
+                    // Calculate line movement with corrected sign logic
                     if (data.odds && data.t60_snapshot) {
                         packet.lineMovement = calculateLineMovement(data.odds, data.t60_snapshot);
                     }
@@ -411,22 +427,23 @@ function buildClaimMap(response, thoughts) {
     }
 
     // Confidence detection
-    if (combinedText.includes("high confidence") || combinedText.includes("confidence: high")) {
+    if (combinedText.includes("high confidence") || combinedText.includes("confidence: high") || combinedText.includes("(high)")) {
         map.confidence = "high";
-    } else if (combinedText.includes("low confidence") || combinedText.includes("confidence: low")) {
+    } else if (combinedText.includes("low confidence") || combinedText.includes("confidence: low") || combinedText.includes("(low)")) {
         map.confidence = "low";
     }
 
     // Confluence signal detection
-    map.confluence.price = /(market|price|clv|delta|line move|steam|reverse)/i.test(combinedText);
-    map.confluence.sentiment = /(sentiment|sharp|public|split|money|ticket|fade)/i.test(combinedText);
-    map.confluence.structure = /(structural|injury|rotation|rest|b2b|travel|revenge)/i.test(combinedText);
+    map.confluence.price = /(market|price|clv|delta|line move|steam|reverse|closing)/i.test(combinedText);
+    map.confluence.sentiment = /(sentiment|sharp|public|split|money|ticket|fade|action)/i.test(combinedText);
+    map.confluence.structure = /(structural|injury|rotation|rest|b2b|travel|revenge|matchup)/i.test(combinedText);
 
     return map;
 }
 
 /**
  * Gate decision based on confluence score.
+ * RESTORED: Requires score >= 2 for strict quality filtering.
  * @param {object} map - Claim map
  * @param {boolean} strict - Whether to enforce minimum confluence
  * @returns {{approved: boolean, reason: string, score: number}}
@@ -438,6 +455,7 @@ function gateDecision(map, strict) {
         return { approved: true, reason: "INTENTIONAL_PASS", score };
     }
 
+    // RESTORED: Require 2+ confluence factors for approval
     if (strict && score < 2) {
         return { approved: false, reason: `WEAK_CONFLUENCE (${score}/3)`, score };
     }
@@ -563,7 +581,7 @@ async function persistRun(runId, map, gate, context, convoId, modelId) {
                         ai_confidence: p.confidence || map.confidence,
                         model_id: modelId,
                         reasoning_summary: p.reasoning_summary,
-                        extraction_method: "structured_v23_gemini"
+                        extraction_method: "structured_v26_enhanced"
                     };
                 });
 
@@ -593,7 +611,8 @@ export default async function handler(req, res) {
         const lastMsg = messages[messages.length - 1];
         const userQuery = typeof lastMsg.content === "string" ? lastMsg.content : "";
         const hasImage = Array.isArray(lastMsg.content) && lastMsg.content.some((c) => c.type === "image");
-        const INTENT = detectIntent(userQuery, hasImage);
+
+        const MODE = detectMode(userQuery, hasImage);
 
         // --- LIVE SENTINEL CHECK ---
         const liveScan = await scanForLiveGame(userQuery);
@@ -613,12 +632,6 @@ export default async function handler(req, res) {
         }
 
         isLive = isLive || (activeContext?.status || "").toUpperCase().includes("IN_PROGRESS");
-
-        // --- STALE CONTEXT GUARD ---
-        const contextIsStale = isContextStale(activeContext);
-        const staleWarning = contextIsStale
-            ? "\n⚠️ CONTEXT_WARNING: Provided game data may be stale. Use Search to verify current state."
-            : "";
 
         // --- BUILD EVIDENCE PACKET ---
         const evidence = await buildEvidencePacket(activeContext);
@@ -642,18 +655,24 @@ export default async function handler(req, res) {
                 .join(" | ");
         }
 
-        // --- SYSTEM PROMPT: EXPLICIT ANCHORING ---
+        // Stale context warning
+        const staleWarning = isContextStale(activeContext)
+            ? "\n⚠️ DATA WARNING: Context may be stale. Verify with Search."
+            : "";
+
+        // --- SYSTEM PROMPT: VERDICT FIRST + ENTITY FIREWALL (SOFTENED) ---
         const systemInstruction = `
 <temporal>
 TODAY: ${new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" })}
 TIME: ${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET
 MARKET_PHASE: ${marketPhase}
+MODE: ${MODE}
 </temporal>
 
 <context>
 MATCHUP: ${activeContext?.away_team || "TBD"} @ ${activeContext?.home_team || "TBD"}
 ${isLive ? `🔴 LIVE: ${activeContext?.away_score || 0}-${activeContext?.home_score || 0} | ${activeContext?.clock || ""}` : ""}
-CURRENT_ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}
+ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}
 ${lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : ""}
 INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}
 INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}
@@ -662,49 +681,64 @@ ${staleWarning}
 </context>
 
 <prime_directive>
-You are "The Obsidian Ledger," a forensic sports analyst operating under Zero-Trust principles.
+You are "The Obsidian Ledger," a forensic sports analyst.
 
-**RULE #1: ZERO HALLUCINATION**
+**RULE 1 (ENTITY FIREWALL - STATUS CLAIMS ONLY):**
+- For **injury/availability/status claims**, you MUST cite a source [1.x].
+- **FALLBACK:** If you cannot verify a player's STATUS (playing, doubtful, out), use their role (e.g., "The starting PG", "The backup center") instead of their name.
+- For general performance stats/impact discussion, verification is encouraged but not strictly required.
+- **NO GUESSING on injury/availability.**
+
+**RULE 2 (CITATION PROTOCOL):**
+- Use high-density decimal citations [1.1], [1.2], [2.1] for every factual claim.
+- Place citations IMMEDIATELY after the fact they support.
+- Do NOT use footnotes.
+
+**RULE 3 (ZERO HALLUCINATION):**
 - You have NO internal knowledge of today's specific lines, scores, or results.
-- **MANDATORY:** Use the 'googleSearch' tool to verify EVERY factual claim about current events.
-
-**CITATION PROTOCOL (CRITICAL):**
-- **YOU MUST** cite sources using simple bracketed numbers: [1], [2], [3]
-- Place citations IMMEDIATELY after the fact they support
-- **EXAMPLE:** "The Lakers are 4-1 ATS in their last 5 games [1], largely due to Davis's return [2]."
-- Do NOT write "Source [1]" or footnotes. Just the inline brackets.
-- The system will automatically convert your brackets to verified evidence links.
+- **MANDATORY:** Use 'googleSearch' to verify current event claims.
 </prime_directive>
 
-${INTENT === "STRICT_PICK" ? `
-<output_format>
-FORMAT IS NON-NEGOTIABLE:
+${MODE === "ANALYSIS" ? `
+<mode_analysis>
+**OUTPUT FORMAT (STRICT - VERDICT FIRST):**
 
-**Analytical Walkthrough**
-(Break down the matchup. Cite every statistical claim with [x].)
+**VERDICT:** [Team/Side] [Line/Price] ([Confidence: High/Med/Low])
 
-**Market Dynamics**
-(Line movement, CLV opportunity. Cite with [x].)
+**THE EDGE**
+(2-3 sentences max. State the market inefficiency directly. No hedging.)
 
-**Sentiment Signal**
-(Public/sharp split, ticket vs money. Cite with [x].)
+**KEY FACTORS**
+- [Factor 1] [1.x]
+- [Factor 2] [1.x]
+- [Factor 3] [1.x]
 
-**Structural Assessment**
-(Injuries, rest, travel, revenge. Cite with [x].)
+**MARKET DYNAMICS**
+(Line movement direction, opening vs current, sharp vs public splits. Cite [1.x].)
 
-**WHAT TO WATCH LIVE** [Triggers]
-(Key inflection points during the game.)
+**WHAT TO WATCH LIVE**
+IF [Trigger Condition] → THEN [Action/Adjustment]
 
-**Triple Confluence Evaluation**
-• Price: [Present/Absent]
-• Sentiment: [Present/Absent]
-• Structure: [Present/Absent]
+**INVALIDATION:** [Exit condition that would void this pick]
 
-**VERDICT:** [Team/Side +/- Line] OR [PASS]
-**CONFIDENCE:** [High/Med/Low]
-**THE RULE:** [One-sentence betting principle applied]
-</output_format>
-` : `<role>Field Reporter. Direct answers. Cite all facts with [x].</role>`}
+**TRIPLE CONFLUENCE**
+• Price: [Present/Absent] - [Brief reason]
+• Sentiment: [Present/Absent] - [Brief reason]
+• Structure: [Present/Absent] - [Brief reason]
+
+**STYLE RULES:**
+- HEADERS: ALL CAPS with colons.
+- Be ASSERTIVE. No "I think" or "It seems".
+- Verdict must include exact line/price when available.
+</mode_analysis>
+` : `
+<mode_conversation>
+Role: Field Reporter. Direct, factual, concise.
+- Answer the question directly.
+- Cite all factual claims with [1.x].
+- Keep responses focused and efficient.
+</mode_conversation>
+`}
 `;
 
         // --- BUILD GEMINI HISTORY ---
@@ -741,23 +775,25 @@ FORMAT IS NON-NEGOTIABLE:
                 res.write(`data: ${JSON.stringify({ type: "grounding", metadata: finalMetadata })}\n\n`);
             }
 
-            // Capture content
-            const part = chunk.candidates?.[0]?.content?.parts?.[0];
-            if (part?.text) {
-                if (part.thought) {
-                    rawThoughts += part.text;
-                    res.write(`data: ${JSON.stringify({ type: "thought", content: part.text })}\n\n`);
-                } else {
-                    fullText += part.text;
-                    res.write(`data: ${JSON.stringify({ type: "text", content: part.text })}\n\n`);
+            // FIX: Iterate ALL parts in the chunk (prevents data loss)
+            const parts = chunk.candidates?.[0]?.content?.parts || [];
+            for (const part of parts) {
+                if (part.text) {
+                    if (part.thought) {
+                        rawThoughts += part.text;
+                        res.write(`data: ${JSON.stringify({ type: "thought", content: part.text })}\n\n`);
+                    } else {
+                        fullText += part.text;
+                        res.write(`data: ${JSON.stringify({ type: "text", content: part.text })}\n\n`);
+                    }
                 }
             }
         }
 
         // --- POST-RUN PROCESSING ---
-        if (INTENT === "STRICT_PICK") {
+        if (MODE === "ANALYSIS") {
             const map = buildClaimMap(fullText, rawThoughts);
-            const gate = gateDecision(map, true);
+            const gate = gateDecision(map, true);  // Strict mode with score >= 2
             await persistRun(currentRunId, map, gate, activeContext, conversation_id, CONFIG.MODEL_ID);
         }
 

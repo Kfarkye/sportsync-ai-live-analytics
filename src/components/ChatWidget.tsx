@@ -1,14 +1,14 @@
 /* ============================================================================
    ChatWidget.tsx
-   "Obsidian Weissach" — Production Master (v23.1 Enhanced)
+   "Obsidian Weissach" — Production Master (v26.1 Enhanced)
    
-   Feature: Explicit Anchor Hydration + Safe Source Mapping
-   
-   ENHANCEMENTS (v23.1):
-   ├─ HYDRATION: Safe bounds checking for source indices
-   ├─ COPY: CopyButton restored in message bubbles
-   ├─ UI: All components fully implemented (no truncation)
-   └─ TYPES: Strict TypeScript compliance
+   ENHANCEMENTS (v26.1 Enhanced):
+   ├─ PARSING: Recursive flattenText helper for safe Markdown parsing
+   ├─ CITATIONS: Decimal regex /^[\d.]+$/ for [1.1] style chips
+   ├─ TRIGGERS: Case-insensitive regex for VERDICT/INVALIDATION detection
+   ├─ HEADERS: Normalized UPPERCASE matching for section styling
+   ├─ PILL: Variable renamed to displayText to avoid scope conflicts
+   └─ NEW: InvalidationAlert component for exit conditions
 ============================================================================ */
 
 import React, {
@@ -51,7 +51,8 @@ import {
   ChevronRight,
   ShieldCheck,
   Globe,
-  ExternalLink
+  ExternalLink,
+  AlertTriangle
 } from "lucide-react";
 
 // =============================================================================
@@ -72,17 +73,34 @@ function triggerHaptic(): void {
   }
 }
 
+/**
+ * Recursive helper to extract raw text from React children.
+ * Handles nested elements like <strong>, <em>, <a> etc.
+ * @param children - React children to flatten
+ * @returns Plain text string
+ */
+function flattenText(children: ReactNode): string {
+  return React.Children.toArray(children).reduce((acc: string, child) => {
+    if (typeof child === "string") return acc + child;
+    if (typeof child === "number") return acc + child.toString();
+    if (React.isValidElement(child) && child.props.children) {
+      return acc + flattenText(child.props.children);
+    }
+    return acc;
+  }, "");
+}
+
 // =============================================================================
-// HYDRATION ENGINE (THE SAFE LINKMASTER)
+// HYDRATION ENGINE
 // =============================================================================
 
 /**
- * Hydrate explicit bracket citations [1], [2] with verified URLs from metadata.
- * Includes safety bounds checking to prevent broken links.
+ * Hydrate explicit bracket citations [1], [1.1] with verified URLs from metadata.
+ * Includes support for decimal citations and multi-citation blocks [1, 2].
  * 
- * @param text - Raw text with [1], [2] anchors
+ * @param text - Raw text with citation anchors
  * @param metadata - Grounding metadata from Gemini
- * @returns Text with [1](url) markdown links
+ * @returns Text with markdown links
  */
 function hydrateCitations(text: string, metadata?: any): string {
   if (!text) return "";
@@ -93,26 +111,24 @@ function hydrateCitations(text: string, metadata?: any): string {
   const chunks = metadata.groundingChunks;
   const maxIndex = chunks.length;
 
-  // Regex: Find [1], [2], [10]... but NOT if already a markdown link [1](
-  return text.replace(/\[(\d+)\](?!\()/g, (match, idStr) => {
-    const id = parseInt(idStr, 10);
-    const index = id - 1; // [1] maps to array index 0
+  // Regex: Find [1], [1.1], [1, 2], but NOT if already a markdown link [1](
+  return text.replace(/\[([\d,.\s]+)\](?!\()/g, (match, inner) => {
+    const parts = inner.split(/[,\s]+/).filter((p: string) => p.trim());
 
-    // SAFETY: Bounds check
-    if (index < 0 || index >= maxIndex) {
-      // Return original bracket without link (prevents broken [1]() links)
-      return match;
-    }
+    const links = parts.map((part: string) => {
+      const num = parseFloat(part);
+      if (isNaN(num)) return null;
 
-    const chunk = chunks[index];
+      const index = Math.floor(num) - 1;  // [1] maps to index 0
 
-    if (chunk?.web?.uri) {
-      // Convert to markdown link with space for readability
-      return ` [${id}](${chunk.web.uri})`;
-    }
+      // SAFETY: Bounds check
+      if (index < 0 || index >= maxIndex) return null;
 
-    // No URI available, return original
-    return match;
+      const chunk = chunks[index];
+      return chunk?.web?.uri ? `[${part}](${chunk.web.uri})` : null;
+    }).filter(Boolean);
+
+    return links.length ? ` ${links.join(" ")}` : match;
   });
 }
 
@@ -157,7 +173,8 @@ const SYSTEM = {
     panel: "bg-[#080808] border border-white/[0.06]",
     glass: "bg-white/[0.02] backdrop-blur-[20px] border border-white/[0.05]",
     hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20",
-    milled: "border-t border-white/[0.08] border-b border-black/50 border-x border-white/[0.04]"
+    milled: "border-t border-white/[0.08] border-b border-black/50 border-x border-white/[0.04]",
+    alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20"
   },
   type: {
     mono: "font-mono text-[10px] tracking-[0.1em] uppercase text-zinc-500 tabular-nums",
@@ -232,7 +249,7 @@ const OrbitalRadar = memo(() => (
  * Citation Chip - Interactive evidence link with hover tooltip.
  */
 const CitationChip: FC<{ href?: string; children: ReactNode }> = ({ href, children }) => {
-  const id = String(children).replace(/[\[\]]/g, "");
+  const id = flattenText(children).replace(/[\[\]]/g, "");
 
   // Safely parse hostname
   let hostname = "External Source";
@@ -457,10 +474,47 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => (
   </motion.div>
 ));
 
+/**
+ * Invalidation Alert - Displays exit conditions with rose styling.
+ */
+const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => (
+  <motion.div
+    layout
+    initial={{ x: -5, opacity: 0 }}
+    animate={{ x: 0, opacity: 1 }}
+    transition={SYSTEM.anim.fluid}
+    className={cn(
+      "my-6 relative overflow-hidden rounded-r-[16px] border-l-[3px] border-l-rose-500/80",
+      "shadow-[20px_0_40px_-10px_rgba(225,29,72,0.05)]",
+      SYSTEM.surface.alert
+    )}
+  >
+    <div className="p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <AlertTriangle size={14} className="text-rose-400" />
+        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">
+          Invalidation Condition
+        </span>
+      </div>
+      <div className="text-[14px] text-rose-100/90 leading-[1.6] font-medium tracking-wide">
+        <ReactMarkdown
+          components={{
+            a: ({ href, children }) => <CitationChip href={href}>{children}</CitationChip>
+          }}
+        >
+          {content}
+        </ReactMarkdown>
+      </div>
+    </div>
+  </motion.div>
+));
+
 const ThinkingPill: FC<{ onStop?: () => void; status?: string }> = memo(({ onStop, status = "thinking" }) => {
   const [idx, setIdx] = useState(0);
 
   const phrases = ["CHECKING LINES", "SCANNING", "GRADING EDGE", "VERIFYING"];
+
+  // FIX: Variable renamed to displayText to avoid scope conflict
   const displayText = useMemo(() => {
     if (status === "streaming") return "LIVE FEED";
     if (status === "grounding") return "VERIFYING SOURCES";
@@ -624,23 +678,32 @@ const MessageBubble: FC<{
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
+              // Use DIV for p to allow block-level children (Tickets/HUDs)
               p: ({ children }) => {
-                const text = String(React.Children.toArray(children)[0] || "");
+                // FIX: Use flattenText to check content even if it contains bold/links
+                const text = flattenText(children);
 
-                // Verdict detection
-                if (text.startsWith("VERDICT:") || text.startsWith("**VERDICT:**")) {
-                  const cleanContent = text.replace(/\*?\*?VERDICT:\*?\*?/i, "").trim();
+                // REGEX: Robust matching (Case-Insensitive) for special sections
+                // VERDICT detection - handles **VERDICT:**, *VERDICT:, VERDICT:
+                if (/^\*{0,2}verdict:/i.test(text)) {
+                  const cleanContent = text.replace(/^\*{0,2}verdict:\*{0,2}\s*/i, "").trim();
                   return <VerdictTicket content={cleanContent} />;
                 }
 
-                // Live triggers detection
-                if (text.includes("WHAT TO WATCH LIVE")) {
-                  const cleanContent = text.replace(/\*?\*?WHAT TO WATCH LIVE\*?\*?:?/i, "").trim();
+                // Live Triggers detection
+                if (/what to watch live/i.test(text)) {
+                  const cleanContent = text.replace(/.*what to watch live.*?:\s*/i, "").trim();
                   return cleanContent.length > 5 ? <TacticalHUD content={cleanContent} /> : null;
                 }
 
+                // Invalidation detection - requires colon per prompt spec
+                if (/^\*{0,2}invalidation:/i.test(text)) {
+                  const cleanContent = text.replace(/^\*{0,2}invalidation:\*{0,2}\s*/i, "").trim();
+                  return cleanContent.length > 3 ? <InvalidationAlert content={cleanContent} /> : null;
+                }
+
                 return (
-                  <p
+                  <div
                     className={cn(
                       SYSTEM.type.body,
                       isUser ? "text-[#1a1a1a]" : "text-[#A1A1AA]",
@@ -648,18 +711,24 @@ const MessageBubble: FC<{
                     )}
                   >
                     {children}
-                  </p>
+                  </div>
                 );
               },
 
               strong: ({ children }) => {
-                const text = String(children);
+                // FIX: Normalize to UPPERCASE for reliable header matching
+                const text = flattenText(children).toUpperCase();
+
                 const sectionHeaders = [
-                  "Analytical Walkthrough",
-                  "Market Dynamics",
-                  "Sentiment Signal",
-                  "Structural Assessment",
-                  "Triple Confluence"
+                  "THE EDGE",
+                  "KEY FACTORS",
+                  "MARKET DYNAMICS",
+                  "WHAT TO WATCH LIVE",
+                  "INVALIDATION",
+                  "TRIPLE CONFLUENCE",
+                  "ANALYTICAL WALKTHROUGH",
+                  "SENTIMENT SIGNAL",
+                  "STRUCTURAL ASSESSMENT"
                 ];
 
                 if (sectionHeaders.some((h) => text.includes(h))) {
@@ -677,10 +746,10 @@ const MessageBubble: FC<{
               },
 
               a: ({ href, children }) => {
-                const text = String(children);
+                const text = flattenText(children);
 
-                // Numeric links become citation chips
-                if (/^\d+$/.test(text)) {
+                // FIX: Regex updated to allow decimals [1.1]
+                if (/^[\d.]+$/.test(text)) {
                   return <CitationChip href={href}>{children}</CitationChip>;
                 }
 
