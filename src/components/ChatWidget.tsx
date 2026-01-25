@@ -203,35 +203,157 @@ const SYSTEM = {
 };
 
 // =============================================================================
-// TYPES
+// TYPES — Strict Interfaces (Google/Apple Quality)
 // =============================================================================
 
+/**
+ * Verified source from grounding search.
+ */
+interface Source {
+  title: string;
+  uri: string;
+}
+
+/**
+ * Individual grounding chunk from Gemini search.
+ */
+interface GroundingChunk {
+  web?: {
+    uri: string;
+    title?: string;
+  };
+}
+
+/**
+ * Grounding metadata from Gemini API response.
+ */
+interface GroundingMetadata {
+  groundingChunks?: GroundingChunk[];
+  searchEntryPoint?: {
+    renderedContent: string;
+  };
+  webSearchQueries?: string[];
+}
+
+/**
+ * Text content part in a message.
+ */
+interface TextContent {
+  type: "text";
+  text: string;
+}
+
+/**
+ * Image content part in a message.
+ */
+interface ImageContent {
+  type: "image";
+  source: {
+    type: "base64";
+    media_type: string;
+    data: string;
+  };
+}
+
+/**
+ * Union type for all possible message content formats.
+ */
+type MessageContent = string | (TextContent | ImageContent)[];
+
+/**
+ * Chat message with full typing.
+ */
 interface Message {
   id: string;
   role: "user" | "assistant";
-  content: any;
+  content: MessageContent;
   thoughts?: string;
-  sources?: Array<{ title: string; uri: string }>;
-  groundingMetadata?: any;
+  sources?: Source[];
+  groundingMetadata?: GroundingMetadata;
   isStreaming?: boolean;
   timestamp: string;
+  error?: {
+    message: string;
+    retryable: boolean;
+  };
 }
 
+/**
+ * File attachment for multimodal messages.
+ */
 interface Attachment {
   file: File;
   base64: string;
   mimeType: string;
 }
 
+/**
+ * Game context passed to the chat widget.
+ */
+interface GameContext {
+  match_id?: string;
+  home_team?: string;
+  away_team?: string;
+  league?: string;
+  start_time?: string;
+  status?: string;
+  current_odds?: Record<string, unknown>;
+}
+
+/**
+ * ChatWidget component props.
+ */
 interface ChatWidgetProps {
-  currentMatch?: any;
+  currentMatch?: GameContext;
   inline?: boolean;
+}
+
+/**
+ * Stream chunk from the edge function.
+ */
+interface StreamChunk {
+  type: "text" | "thought" | "grounding" | "error";
+  content?: string;
+  metadata?: GroundingMetadata;
+  done?: boolean;
 }
 
 declare global {
   interface Window {
-    webkitSpeechRecognition?: any;
-    SpeechRecognition?: any;
+    webkitSpeechRecognition?: new () => SpeechRecognition;
+    SpeechRecognition?: new () => SpeechRecognition;
+  }
+
+  interface SpeechRecognition extends EventTarget {
+    continuous: boolean;
+    interimResults: boolean;
+    onresult: ((event: SpeechRecognitionEvent) => void) | null;
+    onend: (() => void) | null;
+    start: () => void;
+    stop: () => void;
+    abort: () => void;
+  }
+
+  interface SpeechRecognitionEvent extends Event {
+    results: SpeechRecognitionResultList;
+  }
+
+  interface SpeechRecognitionResultList {
+    readonly length: number;
+    item(index: number): SpeechRecognitionResult;
+    [index: number]: SpeechRecognitionResult;
+  }
+
+  interface SpeechRecognitionResult {
+    readonly length: number;
+    readonly isFinal: boolean;
+    item(index: number): SpeechRecognitionAlternative;
+    [index: number]: SpeechRecognitionAlternative;
+  }
+
+  interface SpeechRecognitionAlternative {
+    readonly transcript: string;
+    readonly confidence: number;
   }
 }
 
@@ -641,7 +763,7 @@ const MessageBubble: FC<{
   // Apply hydration to convert [1] anchors to [1](url) links
   const verifiedContent = useMemo(() => {
     if (isUser) return extractTextContent(message.content);
-    return hydrateCitations(message.content, message.groundingMetadata);
+    return hydrateCitations(extractTextContent(message.content), message.groundingMetadata);
   }, [message.content, message.groundingMetadata, isUser]);
 
   const sources = useMemo(
@@ -1190,12 +1312,34 @@ const InnerChatWidget: FC<
     messagesRef.current = messages;
   }, [messages]);
 
-  // Auto-scroll on new messages
+  // ---------------------------------------------------------------------------
+  // INTELLIGENT SCROLL: Stick-to-Bottom Logic
+  // Only auto-scroll if user is already near the bottom (respects reading position)
+  // ---------------------------------------------------------------------------
+  const isNearBottomRef = useRef(true);
+  const SCROLL_THRESHOLD = 150; // pixels from bottom to consider "at bottom"
+
+  // Track user's scroll position
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    isNearBottomRef.current = distanceFromBottom < SCROLL_THRESHOLD;
+  }, []);
+
+  // Auto-scroll only when appropriate
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: "smooth"
+    const container = scrollRef.current;
+    if (!container) return;
+
+    // Only scroll if user is near bottom (not reading history)
+    if (isNearBottomRef.current) {
+      // Check for reduced motion preference (accessibility)
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: prefersReducedMotion ? "auto" : "smooth"
       });
     }
   }, [messages, isProcessing]);
@@ -1244,12 +1388,13 @@ const InnerChatWidget: FC<
 
         // Handle attachments
         if (attachments.length > 0) {
+          // Type assertion for API compatibility (API accepts looser types)
           wireMessages[wireMessages.length - 1].content = [
-            { type: "text", text: text || "Analyze this." },
+            { type: "text" as const, text: text || "Analyze this." },
             ...attachments.map((a) => ({
-              type: a.mimeType.startsWith("image") ? "image" : "file",
+              type: (a.mimeType.startsWith("image") ? "image" : "file") as "image",
               source: {
-                type: "base64",
+                type: "base64" as const,
                 media_type: a.mimeType,
                 data: a.base64
               }
@@ -1396,6 +1541,7 @@ const InnerChatWidget: FC<
           {/* Messages Area */}
           <div
             ref={scrollRef}
+            onScroll={handleScroll}
             className="relative flex-1 overflow-y-auto px-6 pt-4 pb-44 scroll-smooth no-scrollbar z-10"
           >
             <AnimatePresence mode="popLayout">
