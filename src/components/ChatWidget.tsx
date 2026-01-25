@@ -442,6 +442,10 @@ const VerdictTicket: FC<{ content: string }> = memo(({ content }) => (
   </motion.div>
 ));
 
+/**
+ * TacticalHUD - Live Triggers card with premium subtle styling.
+ * Typography-driven design, no icons.
+ */
 const TacticalHUD: FC<{ content: string }> = memo(({ content }) => (
   <motion.div
     layout
@@ -449,19 +453,18 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => (
     animate={{ x: 0, opacity: 1 }}
     transition={SYSTEM.anim.fluid}
     className={cn(
-      "my-6 relative overflow-hidden rounded-r-[16px] border-l-[3px] border-l-amber-500/80",
-      "shadow-[20px_0_40px_-10px_rgba(245,158,11,0.05)]",
-      SYSTEM.surface.hud
+      "my-6 relative overflow-hidden",
+      "rounded-r-[12px] border-l-[2px] border-l-amber-500/60",
+      "bg-[linear-gradient(135deg,rgba(245,158,11,0.04)_0%,transparent_60%)]"
     )}
   >
-    <div className="p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <Zap size={14} className="text-amber-400 fill-amber-400/20" />
-        <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
-          Live Triggers
-        </span>
+    <div className="py-4 px-5">
+      {/* Header: Typography-only, no icon */}
+      <div className="mb-3 font-mono text-[10px] font-semibold tracking-[0.1em] uppercase text-amber-500">
+        Live Triggers
       </div>
-      <div className="text-[14px] text-amber-100/90 leading-[1.6] font-medium tracking-wide">
+      {/* Body: Neutral zinc for readability */}
+      <div className="text-[15px] leading-[1.6] tracking-[-0.01em] text-zinc-300">
         <ReactMarkdown
           components={{
             a: ({ href, children }) => <CitationChip href={href}>{children}</CitationChip>
@@ -475,7 +478,8 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => (
 ));
 
 /**
- * Invalidation Alert - Displays exit conditions with rose styling.
+ * InvalidationAlert - Exit condition card with premium subtle styling.
+ * Typography-driven design, no icons.
  */
 const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => (
   <motion.div
@@ -484,19 +488,18 @@ const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => (
     animate={{ x: 0, opacity: 1 }}
     transition={SYSTEM.anim.fluid}
     className={cn(
-      "my-6 relative overflow-hidden rounded-r-[16px] border-l-[3px] border-l-rose-500/80",
-      "shadow-[20px_0_40px_-10px_rgba(225,29,72,0.05)]",
-      SYSTEM.surface.alert
+      "my-6 relative overflow-hidden",
+      "rounded-r-[12px] border-l-[2px] border-l-red-500/50",
+      "bg-[linear-gradient(135deg,rgba(239,68,68,0.04)_0%,transparent_60%)]"
     )}
   >
-    <div className="p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <AlertTriangle size={14} className="text-rose-400" />
-        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">
-          Invalidation Condition
-        </span>
+    <div className="py-4 px-5">
+      {/* Header: Typography-only, no icon */}
+      <div className="mb-3 font-mono text-[10px] font-semibold tracking-[0.1em] uppercase text-red-500">
+        Invalidation
       </div>
-      <div className="text-[14px] text-rose-100/90 leading-[1.6] font-medium tracking-wide">
+      {/* Body: Neutral zinc for readability */}
+      <div className="text-[15px] leading-[1.6] tracking-[-0.01em] text-zinc-300">
         <ReactMarkdown
           components={{
             a: ({ href, children }) => <CitationChip href={href}>{children}</CitationChip>
