@@ -1,17 +1,24 @@
 /* ============================================================================
    api/chat.js
-   "Obsidian Ledger" — Production Backend (v19.2 Fixed)
+   "Obsidian Citadel" — Production Backend (v20.2)
+   - Engine: Gemini 3 Flash Preview (Strict)
+   - Protocol: Forensic Grounding (Zero-Trust)
 ============================================================================ */
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from '@supabase/supabase-js';
+import { generateObject } from 'ai';
+import { google } from '@ai-sdk/google';
+import { BettingPickSchema } from '../lib/schemas/picks.js';
 
 const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY });
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 const CONFIG = {
-    MODEL_ID: "gemini-3-flash-preview",
+    MODEL_ID: "gemini-3-flash-preview", // STRICTLY ENFORCED
     THINKING_CONFIG: { includeThoughts: true, thinkingLevel: "high" },
-    PICK_TRIGGERS: ['pick', 'bet', 'prediction', 'analyze', 'analysis', 'edge', 'spread', 'over', 'under', 'moneyline', 'verdict', 'play', 'handicap', 'sharp', 'odds', 'line']
+    PICK_TRIGGERS: ['pick', 'bet', 'prediction', 'analyze', 'analysis', 'edge', 'spread', 'over', 'under', 'moneyline', 'verdict', 'play', 'handicap', 'sharp', 'odds', 'line'],
+    // NEW: Force Google Search for forensic grounding
+    TOOLS: [{ googleSearch: {} }]
 };
 
 // --- UTILITIES ---
@@ -41,6 +48,15 @@ const getMarketPhase = (match) => {
     return "🔭 OPENING_MARKET";
 };
 
+function isContextStale(context) {
+    if (!context?.start_time) return false;
+    const gameStart = new Date(context.start_time);
+    const now = new Date();
+    const status = (context.status || context.game_status || '').toUpperCase();
+    if ((now - gameStart) > 15 * 60000 && !['IN_PROGRESS', 'LIVE', 'HALFTIME', 'FINAL'].includes(status)) return true;
+    return false;
+}
+
 // --- LIVE SENTINEL ---
 function extractAllTeamHints(query) {
     if (!query) return [];
@@ -62,15 +78,6 @@ async function scanForLiveGame(userQuery) {
         if (data?.[0]) return { ok: true, data: data[0], isLiveOverride: true };
         return { ok: false };
     } catch (e) { return { ok: false }; }
-}
-
-function isContextStale(context) {
-    if (!context?.start_time) return false;
-    const gameStart = new Date(context.start_time);
-    const now = new Date();
-    const status = (context.status || context.game_status || '').toUpperCase();
-    if ((now - gameStart) > 15 * 60000 && !['IN_PROGRESS', 'LIVE', 'HALFTIME', 'FINAL'].includes(status)) return true;
-    return false;
 }
 
 // --- DATA FETCHERS ---
@@ -96,7 +103,7 @@ async function fetchLiveState(matchId) {
 }
 
 // --- 4-TOOL SPINE ---
-async function buildEvidencePacket(context, budget = 2000) {
+async function buildEvidencePacket(context) {
     const packet = { injuries: { home: [], away: [] }, liveState: null, temporal: { t60: null, t0: null } };
     const promises = [];
 
@@ -123,10 +130,8 @@ async function buildEvidencePacket(context, budget = 2000) {
 function buildClaimMap(response, thoughts) {
     const text = (response + thoughts).toLowerCase();
     const map = { verdict: null, confidence: 'medium', confluence: { price: false, sentiment: false, structure: false } };
-
     const vMatch = response.match(/verdict[:\s]+(.+?)(?:\n|$)/i);
     if (vMatch) map.verdict = vMatch[1].trim().toLowerCase().includes('pass') ? 'PASS' : vMatch[1].trim();
-
     if (text.includes('high confidence')) map.confidence = 'high';
     map.confluence.price = /(market|price|clv|delta)/i.test(text);
     map.confluence.sentiment = /(sentiment|sharp|public|split)/i.test(text);
@@ -134,64 +139,38 @@ function buildClaimMap(response, thoughts) {
     return map;
 }
 
-import { generateObject } from 'ai';
-import { google } from '@ai-sdk/google';
-import { BettingPickSchema } from '../lib/schemas/picks.js';
-
 // Elite Pick Extraction - Two-Phase Structural Generation
 async function extractPickStructured(text, context) {
     if (!context) return [];
-
-    // 1. Construct strict context-aware prompt
     const contextPrompt = `
-    GAME CONTEXT:
-    Home Team: "${context.home_team}"
-    Away Team: "${context.away_team}"
-    
-    TASK:
-    Extract the "Verdict" or final betting recommendation from the analysis below.
-    
+    GAME CONTEXT: Home: "${context.home_team}", Away: "${context.away_team}"
+    TASK: Extract "Verdict" from analysis.
     STRICT RULES:
-    1. "pick_team" MUST be EXACTLY "${context.home_team}" or "${context.away_team}" (or null for Totals).
-    2. If the verdict is "PASS", set verdict="PASS".
-    3. For Totals (Over/Under), set pick_type="total" and pick_direction="over" or "under".
-    4. Ignore "lean" or "slight preference". Only extract explicit "VERDICT" or "BET".
+    1. "pick_team" MUST be "${context.home_team}" or "${context.away_team}" (or null for Totals).
+    2. If "PASS", set verdict="PASS".
+    3. Totals: pick_type="total", direction="over"/"under".
     `;
-
     try {
         const { object } = await generateObject({
-            model: google('gemini-3-flash-preview'), // MUST use Gemini 3 per non-negotiable
+            model: google(CONFIG.MODEL_ID),
             schema: BettingPickSchema,
             prompt: `${contextPrompt}\n\nANALYSIS TEXT:\n${text}`,
             mode: 'json'
         });
-
-        // 2. Application-Level Validation (Defense in Depth) (Self-Correction)
-        // Ensure strictly valid pick_team if not a total
         if (object.verdict === 'BET' || object.verdict === 'FADE') {
             if (object.pick_type !== 'total') {
                 const tNorm = (object.pick_team || '').toLowerCase().replace(/[^a-z]/g, '');
                 const hNorm = (context.home_team || '').toLowerCase().replace(/[^a-z]/g, '');
                 const aNorm = (context.away_team || '').toLowerCase().replace(/[^a-z]/g, '');
-
-                // Fuzzy match fallback if exact match failed but AI implies it
                 let matchedTeam = null;
                 if (tNorm.includes(hNorm) || hNorm.includes(tNorm)) matchedTeam = context.home_team;
                 else if (tNorm.includes(aNorm) || aNorm.includes(tNorm)) matchedTeam = context.away_team;
-
-                if (matchedTeam) object.pick_team = matchedTeam; // Auto-correct
-                else if (!object.pick_team) {
-                    // Critical failure for team bet without team
-                    return [];
-                }
+                if (matchedTeam) object.pick_team = matchedTeam;
+                else if (!object.pick_team) return [];
             }
         }
-
-        return [object]; // Return as array to maintain interface compatibility
-    } catch (e) {
-        console.error("Structured Extraction Failed:", e);
-        return [];
-    }
+        return [object];
+    } catch (e) { return []; }
 }
 
 async function persistRun(runId, map, gate, context, convoId, modelId) {
@@ -203,34 +182,18 @@ async function persistRun(runId, map, gate, context, convoId, modelId) {
     }, { onConflict: 'id' });
 
     if (gate.approved && map.verdict && map.verdict !== 'PASS') {
-        const structuralPicks = await extractPickStructured(map.verdict, context); // Now passing full text really (map.verdict usually contains snippet)
-
+        const structuralPicks = await extractPickStructured(map.verdict, context);
         if (structuralPicks.length > 0) {
             await supabase.from('ai_chat_picks').insert(structuralPicks.map(p => {
-                // Adapter: Map 2.0 Schema to DB Columns
                 let side = p.pick_team;
-                if (p.pick_type === 'total') {
-                    side = p.pick_direction ? p.pick_direction.toUpperCase() : 'UNKNOWN';
-                }
-
+                if (p.pick_type === 'total') side = p.pick_direction ? p.pick_direction.toUpperCase() : 'UNKNOWN';
                 return {
-                    run_id: runId,
-                    conversation_id: convoId,
-                    match_id: context?.match_id,
-                    home_team: context?.home_team,
-                    away_team: context?.away_team,
-                    league: context?.league, // If available
-                    game_start_time: context?.start_time || context?.game_start_time,
-
-                    pick_type: p.pick_type,
-                    pick_side: side,
-                    pick_line: p.pick_line,
-                    ai_confidence: p.confidence || map.confidence,
-                    model_id: modelId,
-
-                    // Audit columns (new)
-                    reasoning_summary: p.reasoning_summary,
-                    extraction_method: 'structured_v2_gemini'
+                    run_id: runId, conversation_id: convoId, match_id: context?.match_id,
+                    home_team: context?.home_team, away_team: context?.away_team,
+                    league: context?.league, game_start_time: context?.start_time || context?.game_start_time,
+                    pick_type: p.pick_type, pick_side: side, pick_line: p.pick_line,
+                    ai_confidence: p.confidence || map.confidence, model_id: modelId,
+                    reasoning_summary: p.reasoning_summary, extraction_method: 'structured_v2_gemini'
                 };
             }));
         }
@@ -256,7 +219,7 @@ export default async function handler(req, res) {
         const hasImage = Array.isArray(lastMsg.content) && lastMsg.content.some(c => c.type === 'image');
         const INTENT = detectIntent(userQuery, hasImage);
 
-        // Live Sentinel Logic
+        // --- LIVE SENTINEL LOGIC ---
         let activeContext = gameContext;
         const liveScan = await scanForLiveGame(userQuery);
         let isLive = false;
@@ -265,13 +228,14 @@ export default async function handler(req, res) {
             activeContext = { ...activeContext, ...d, match_id: d.id, clock: d.display_clock, status: d.game_status, current_odds: d.odds };
             isLive = true;
         } else if (isContextStale(activeContext)) {
-            // Fallback logic
+            // Logic to handle stale context could go here
         }
         isLive = isLive || (activeContext?.status || '').includes('IN_PROGRESS');
 
         const evidence = await buildEvidencePacket(activeContext);
         if (evidence.liveState) activeContext = { ...activeContext, ...evidence.liveState, current_odds: evidence.liveState.odds };
 
+        // --- CITADEL PROTOCOL SYSTEM PROMPT ---
         const systemInstruction = `
 <temporal>TODAY: ${new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' })} | TIME: ${new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York' })} ET</temporal>
 <context>
@@ -281,43 +245,76 @@ ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}
 INJURIES: ${safeJsonStringify(evidence.injuries, 800)}
 ${evidence.temporal.t60 ? `T-60 ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 400)}` : ''}
 </context>
+
+<prime_directive>
+You are "The Obsidian Ledger," a forensic sports analyst.
+**RULE #1: ZERO HALLUCINATION.**
+- You have NO internal knowledge of today's specific props/lines beyond the provided context.
+- **MANDATORY:** You MUST use the 'googleSearch' tool to verify every single stat, spread, injury news, or trend you cite.
+- **CITATION:** Every claim (Score, Spread, Trend, ROI) must be immediately backed by a search result.
+- **NULL HYPOTHESIS:** If the search tool does not return data for a specific prop/line, state "Data Unavailable". DO NOT GUESS.
+</prime_directive>
+
 ${INTENT === 'STRICT_PICK' ? `
-<role>The Obsidian Ledger. Strict. Cynical.</role>
 <output_rules>
 FORMAT IS NON-NEGOTIABLE:
 **Analytical Walkthrough**
-1. **Market Dynamics**
-2. **Sentiment Signal**
-3. **Structural Assessment**
+(Break down the matchup using ONLY verified stats found via Search.)
+**Market Dynamics**
+**Sentiment Signal** (What is the public/sharp split? Cite sources.)
+**Structural Assessment** (Injuries & Lineups. Cite sources.)
 **WHAT TO WATCH LIVE** [Triggers]
 **Triple Confluence Evaluation**
 **VERDICT:** [Pick] OR [PASS]
 **CONFIDENCE:** [High/Med/Low]
 **THE RULE:** [Principle]
-</output_rules>` : `<role>Field Reporter. Direct, factual.</role>`}
-<citations>Cite sources [1].</citations>
+</output_rules>` : `<role>Field Reporter. Direct, factual, cited.</role>`}
 `;
 
-        const geminiHistory = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: JSON.stringify(m.content) }] }));
+        const geminiHistory = messages.map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }]
+        }));
+
         const result = await genAI.models.generateContentStream({
-            model: CONFIG.MODEL_ID, contents: geminiHistory.slice(-8),
-            config: { systemInstruction: { parts: [{ text: systemInstruction }] }, thinkingConfig: CONFIG.THINKING_CONFIG, tools: [{ googleSearch: {} }] }
+            model: CONFIG.MODEL_ID,
+            contents: geminiHistory.slice(-8),
+            config: {
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+                thinkingConfig: CONFIG.THINKING_CONFIG,
+                tools: CONFIG.TOOLS // Enable Search
+            }
         });
 
         res.setHeader('Content-Type', 'text/event-stream');
-        let fullText = "", rawThoughts = "", sources = [];
+
+        let fullText = "";
+        let rawThoughts = "";
+        let finalMetadata = null; // Store grounding metadata
 
         for await (const chunk of result) {
+            // 1. Capture Grounding Metadata (Evidence)
+            // This is the key change: we capture the evidence package from Google
+            if (chunk.candidates?.[0]?.groundingMetadata) {
+                finalMetadata = chunk.candidates[0].groundingMetadata;
+                // Stream evidence to frontend immediately
+                res.write(`data: ${JSON.stringify({ type: 'grounding', metadata: finalMetadata })}\n\n`);
+            }
+
+            // 2. Capture Content
             const p = chunk.candidates?.[0]?.content?.parts?.[0];
             if (p?.text) {
-                if (p.thought) { rawThoughts += p.text; res.write(`data: ${JSON.stringify({ type: 'thought', content: p.text })}\n\n`); }
-                else { fullText += p.text; res.write(`data: ${JSON.stringify({ type: 'text', content: p.text })}\n\n`); }
-            }
-            if (chunk.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-                sources = [...sources, ...chunk.candidates[0].groundingMetadata.groundingChunks.map(c => ({ title: c.web?.title, uri: c.web?.uri })).filter(s => s.uri)];
+                if (p.thought) {
+                    rawThoughts += p.text;
+                    res.write(`data: ${JSON.stringify({ type: 'thought', content: p.text })}\n\n`);
+                } else {
+                    fullText += p.text;
+                    res.write(`data: ${JSON.stringify({ type: 'text', content: p.text })}\n\n`);
+                }
             }
         }
 
+        // --- POST-RUN AUDIT & STORAGE ---
         if (INTENT === 'STRICT_PICK') {
             const map = buildClaimMap(fullText, rawThoughts);
             const gate = gateDecision(map, true);
@@ -325,16 +322,30 @@ FORMAT IS NON-NEGOTIABLE:
         }
 
         if (conversation_id) {
-            // FIXED: Variable name corrected
-            const uniqueSources = Array.from(new Map(sources.map(s => [s.uri, s])).values());
+            // Flatten sources for database storage
+            const sources = finalMetadata?.groundingChunks?.map(c => ({
+                title: c.web?.title,
+                uri: c.web?.uri
+            })).filter(s => s.uri) || [];
+
             await supabase.from('conversations').update({
-                messages: [...messages, { role: 'assistant', content: fullText, thoughts: rawThoughts, sources: uniqueSources, model: CONFIG.MODEL_ID }].slice(-40),
+                messages: [...messages, {
+                    role: 'assistant',
+                    content: fullText,
+                    thoughts: rawThoughts,
+                    groundingMetadata: finalMetadata, // Store the raw proof for playback
+                    sources: sources, // Clean list
+                    model: CONFIG.MODEL_ID
+                }].slice(-40),
                 last_message_at: new Date().toISOString()
             }).eq('id', conversation_id);
         }
 
-        res.write(`data: ${JSON.stringify({ done: true, model: CONFIG.MODEL_ID, sources })}`);
+        res.write(`data: ${JSON.stringify({ done: true, model: CONFIG.MODEL_ID })}`);
         res.end();
 
-    } catch (e) { res.write(`data: ${JSON.stringify({ type: 'error', content: e.message })}`); res.end(); }
+    } catch (e) {
+        res.write(`data: ${JSON.stringify({ type: 'error', content: e.message })}`);
+        res.end();
+    }
 }

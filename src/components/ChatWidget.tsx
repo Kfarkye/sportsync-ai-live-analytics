@@ -1,9 +1,7 @@
 /* ============================================================================
    ChatWidget.tsx
-   "Obsidian Weissach" — Production Master (v19.2 Fixed)
-   
-   FIXES:
-   ├─ TYPES: Added FC, ReactNode, ChangeEvent, KeyboardEvent, RefObject imports.
+   "Obsidian Weissach" — Production Master (v20.2 Citadel)
+   - Features: Full UI Kit + Forensic Citation Injection + Grounding Chips
 ============================================================================ */
 
 import React, {
@@ -18,7 +16,10 @@ import { twMerge } from 'tailwind-merge';
 import { supabase } from '../lib/supabase';
 import { useChatContext } from '../hooks/useChatContext';
 import { useAppStore } from '../store/appStore';
-import { X, Plus, ArrowUp, Copy, CheckCircle2, Minimize2, Mic, MicOff, StopCircle, Image as ImageIcon, AlertTriangle, Zap, Activity, ChevronRight } from 'lucide-react';
+import {
+  X, Plus, ArrowUp, Copy, CheckCircle2, Minimize2, Mic, MicOff, StopCircle,
+  Image as ImageIcon, Zap, Activity, ChevronRight, ShieldCheck, Globe, ExternalLink
+} from 'lucide-react';
 
 // --- 1. WEISSACH DESIGN SYSTEM ---
 const SYSTEM = {
@@ -41,56 +42,57 @@ const SYSTEM = {
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 function generateId() { return crypto.randomUUID(); }
 function triggerHaptic() { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(4); }
-function tryParseJson<T = unknown>(str: string): T | null { try { return JSON.parse(str); } catch { return null; } }
 
 interface Message { id: string; role: 'user' | 'assistant'; content: any; thoughts?: string; sources?: any[]; groundingMetadata?: any; isStreaming?: boolean; timestamp: string; }
-interface Attachment { file: File; base64: string; mimeType: string; storageUrl?: string; }
+interface Attachment { file: File; base64: string; mimeType: string; }
 interface ChatWidgetProps { currentMatch?: any; inline?: boolean; }
 declare global { interface Window { webkitSpeechRecognition?: any; SpeechRecognition?: any; } }
 
+// --- 2. FORENSIC CITATION ENGINE ---
 function extractTextContent(content: any): string {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) return content.find(c => c.type === 'text')?.text ?? '';
   return '';
 }
 
-function injectCitations(text: string, metadata?: any): string {
+/**
+ * Maps Google Grounding Metadata indices to Markdown links.
+ * Returns text with [1](url) injected.
+ */
+function injectForensicCitations(text: string, metadata?: any): string {
   if (!metadata?.groundingSupports || !metadata?.groundingChunks) return text;
-  const sorted = [...metadata.groundingSupports].sort((a: any, b: any) => b.segment.endIndex - a.segment.endIndex);
-  let result = text;
-  for (const s of sorted) {
-    if (s.segment.endIndex > result.length) continue;
-    const links = s.groundingChunkIndices.filter((i: number) => metadata.groundingChunks[i]?.web?.uri)
-      .map((i: number) => `[${i + 1}](${metadata.groundingChunks[i].web.uri})`).join('');
-    if (links) result = result.slice(0, s.segment.endIndex) + ` ${links}` + result.slice(s.segment.endIndex);
-  }
-  return result;
+
+  // Sort supports descending by index to prevent drift during injection
+  const sortedSupports = [...metadata.groundingSupports].sort((a: any, b: any) =>
+    (b.segment?.endIndex || 0) - (a.segment?.endIndex || 0)
+  );
+
+  let verifiedText = text;
+
+  sortedSupports.forEach((support: any) => {
+    const { endIndex } = support.segment;
+    if (!support.groundingChunkIndices || endIndex > verifiedText.length) return;
+
+    const citationMarkdown = support.groundingChunkIndices
+      .map((idx: number) => {
+        const chunk = metadata.groundingChunks[idx];
+        // ID used for display (idx + 1), Url used for href
+        return chunk?.web?.uri ? ` [${idx + 1}](${chunk.web.uri})` : '';
+      })
+      .join('');
+
+    if (citationMarkdown) {
+      verifiedText = verifiedText.slice(0, endIndex) + citationMarkdown + verifiedText.slice(endIndex);
+    }
+  });
+
+  return verifiedText;
 }
 
 function extractSources(metadata?: any): any[] {
   if (!metadata?.groundingChunks) return [];
   return metadata.groundingChunks.filter((c: any) => c.web?.uri).map((c: any) => ({ title: c.web.title, uri: c.web.uri }));
 }
-
-const edgeService = {
-  async chat(messages: any[], context: any, onChunk: (c: any) => void, signal?: AbortSignal): Promise<void> {
-    const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages, ...context }), signal });
-    if (!res.ok) throw new Error('Stream failed');
-    const reader = res.body?.getReader();
-    const decoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await reader!.read();
-      if (done) break;
-      const lines = decoder.decode(value).split('\n');
-      for (const line of lines) {
-        const t = line.trim();
-        if (t.startsWith('data:')) {
-          try { onChunk(JSON.parse(t.slice(5))); } catch { }
-        }
-      }
-    }
-  },
-};
 
 // --- 3. PREMIUM VISUALS ---
 const FilmGrain = memo(() => (
@@ -104,6 +106,28 @@ const OrbitalRadar = memo(() => (
   </div>
 ));
 
+const CitationChip: FC<{ href?: string; children: ReactNode }> = ({ href, children }) => {
+  const id = String(children).replace(/[\[\]]/g, '');
+  return (
+    <span className="inline-flex items-center align-middle relative group z-10 mx-0.5 -translate-y-[1px]">
+      <a href={href} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-[4px] bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500 hover:text-black text-[9px] font-bold font-mono text-emerald-400 transition-all duration-200 no-underline shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] select-none cursor-pointer">
+        {id}
+      </a>
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[240px] opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none translate-y-2 group-hover:translate-y-0 z-50">
+        <div className="p-3 bg-[#0A0A0B] border border-white/10 rounded-xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+          <div className="flex items-center gap-1.5 mb-1.5 pb-1.5 border-b border-white/5">
+            <ShieldCheck size={10} className="text-emerald-500" /><span className="text-[9px] font-mono text-emerald-500 uppercase tracking-wider">Verified Source</span>
+          </div>
+          <div className="text-[11px] font-medium text-white mb-0.5 max-w-[200px] truncate">{href ? new URL(href).hostname.replace('www.', '') : 'External Source'}</div>
+          <div className="flex items-center gap-1 text-[9px] text-emerald-400/80"><Globe size={10} /><span>Click to open evidence</span></div>
+        </div>
+        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#0A0A0B] border-r border-b border-white/10 rotate-45" />
+      </div>
+    </span>
+  );
+};
+
+// --- 4. INTELLIGENCE ARTIFACTS ---
 const ToastContext = createContext<{ showToast: (m: string) => void }>({ showToast: () => { } });
 const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [toast, setToast] = useState<{ id: string; message: string } | null>(null);
@@ -135,7 +159,6 @@ const CopyButton: FC<{ content: string }> = memo(({ content }) => {
   );
 });
 
-// --- 4. INTELLIGENCE ARTIFACTS ---
 const VerdictTicket: FC<{ content: string }> = memo(({ content }) => (
   <motion.div layout initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SYSTEM.anim.fluid}
     className={cn("my-6 relative overflow-hidden rounded-[18px] bg-[#0A0A0B] shadow-2xl group select-none", SYSTEM.surface.milled)}>
@@ -149,7 +172,10 @@ const VerdictTicket: FC<{ content: string }> = memo(({ content }) => (
     </div>
     <div className="relative p-6 flex items-start gap-4">
       <div className="flex-1">
-        <div className="text-2xl md:text-3xl font-medium text-white tracking-tight leading-none mb-1 tabular-nums">{content}</div>
+        <div className="text-2xl md:text-3xl font-medium text-white tracking-tight leading-none mb-1 tabular-nums">
+          {/* Render markdown citations inside the ticket */}
+          <ReactMarkdown components={{ a: ({ href, children }) => <CitationChip href={href}>{children}</CitationChip> }}>{content}</ReactMarkdown>
+        </div>
         <div className="text-[10px] text-emerald-500/60 uppercase tracking-wider font-mono mt-3">Confidence Verified</div>
       </div>
       <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center bg-white/[0.02]">
@@ -167,14 +193,16 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => (
         <Zap size={14} className="text-amber-400 fill-amber-400/20" />
         <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Live Triggers</span>
       </div>
-      <div className="text-[14px] text-amber-100/90 leading-[1.6] font-medium tracking-wide">{content}</div>
+      <div className="text-[14px] text-amber-100/90 leading-[1.6] font-medium tracking-wide">
+        <ReactMarkdown components={{ a: ({ href, children }) => <CitationChip href={href}>{children}</CitationChip> }}>{content}</ReactMarkdown>
+      </div>
     </div>
   </motion.div>
 ));
 
 const ThinkingPill: FC<{ onStop?: () => void; status?: string }> = memo(({ onStop, status = 'thinking' }) => {
   const [idx, setIdx] = useState(0);
-  const text = status === 'streaming' ? 'LIVE FEED' : status === 'grounding' ? 'SOURCING' : ['CHECKING LINES', 'SCANNING', 'GRADING EDGE', 'VERIFYING'][idx];
+  const text = status === 'streaming' ? 'LIVE FEED' : status === 'grounding' ? 'VERIFYING SOURCES' : ['CHECKING LINES', 'SCANNING', 'GRADING EDGE', 'VERIFYING'][idx];
   useEffect(() => { if (status === 'thinking') { const i = setInterval(() => setIdx(p => (p + 1) % 4), 2200); return () => clearInterval(i); } }, [status]);
   return (
     <motion.div layout initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} transition={SYSTEM.anim.fluid}
@@ -203,15 +231,26 @@ const SmartChips: FC<{ onSelect: (t: string) => void; hasMatch: boolean }> = mem
   );
 });
 
-// --- 5. MESSAGE BUBBLE ---
+// --- 5. MESSAGE BUBBLE (FORENSIC) ---
 const MessageBubble: FC<{ message: Message; isLast: boolean; onAction: (t: string) => void }> = memo(({ message }) => {
   const isUser = message.role === 'user';
-  const textContent = useMemo(() => { const raw = extractTextContent(message.content); return isUser ? raw : injectCitations(raw, message.groundingMetadata); }, [message.content, message.groundingMetadata, isUser]);
+
+  // THE INJECTION: Apply forensic citations to the raw text
+  const verifiedContent = useMemo(() => {
+    if (isUser) return typeof message.content === 'string' ? message.content : '';
+    return injectForensicCitations(message.content, message.groundingMetadata);
+  }, [message.content, message.groundingMetadata, isUser]);
+
   const sources = useMemo(() => extractSources(message.groundingMetadata), [message.groundingMetadata]);
 
   return (
     <motion.div layout="position" initial={{ opacity: 0, y: 20, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={SYSTEM.anim.fluid} className={cn('flex flex-col mb-10 w-full relative group', isUser ? 'items-end' : 'items-start')}>
-      {!isUser && (message.isStreaming || textContent) && <div className="flex items-center gap-2 mb-2 ml-1"><div className="w-[3px] h-[3px] bg-zinc-600 rounded-full" /><span className={SYSTEM.type.mono}>Obsidian</span></div>}
+      {!isUser && (
+        <div className="flex items-center gap-2 mb-2 ml-1 select-none">
+          <div className={cn("w-1.5 h-1.5 rounded-full", sources.length > 0 ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-zinc-600")} />
+          <span className={cn(SYSTEM.type.mono, sources.length > 0 ? "text-emerald-500" : "text-zinc-500")}>{sources.length > 0 ? "OBSIDIAN // VERIFIED" : "OBSIDIAN"}</span>
+        </div>
+      )}
       <div className={cn('relative max-w-[92%] md:max-w-[88%]', isUser ? 'bg-white text-black rounded-[20px] rounded-tr-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5' : 'bg-transparent text-white px-0')}>
         <div className={cn("prose prose-invert max-w-none", isUser && "prose-p:text-black/90")}>
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
@@ -229,28 +268,32 @@ const MessageBubble: FC<{ message: Message; isLast: boolean; onAction: (t: strin
               return <strong className="font-semibold text-white">{children}</strong>;
             },
             a: ({ href, children }) => {
-              const t = String(children);
-              if (/^\[?\d+\]?$/.test(t.trim())) return <a href={href} target="_blank" rel="noopener" className="inline-flex items-center justify-center ml-0.5 -mt-1 w-3.5 h-3.5 rounded-[3px] bg-white/10 hover:bg-emerald-500 hover:text-white text-[8px] font-bold text-white/50 transition-all no-underline select-none">{t.replace(/[\[\]]/g, '')}</a>;
+              const text = String(children);
+              // Intercept numeric links [1] and render as Chip
+              if (/^\d+$/.test(text)) return <CitationChip href={href}>{children}</CitationChip>;
               return <a href={href} target="_blank" rel="noopener" className="text-emerald-400 hover:text-emerald-300 underline decoration-emerald-500/20 underline-offset-4 transition-colors">{children}</a>;
             },
             ul: ({ children }) => <ul className="space-y-2 mb-4 ml-1">{children}</ul>,
             li: ({ children }) => <li className="flex gap-3 items-start pl-1"><span className="mt-2 w-1 h-1 bg-zinc-700 rounded-full shrink-0" /><span className={SYSTEM.type.body}>{children}</span></li>
-          }}>{textContent}</ReactMarkdown>
+          }}>{verifiedContent}</ReactMarkdown>
         </div>
-        {!isUser && !message.isStreaming && textContent && <div className="absolute -right-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity delay-75"><CopyButton content={textContent} /></div>}
       </div>
 
       {!isUser && !message.isStreaming && sources.length > 0 && (
         <div className="mt-4 ml-1 w-full max-w-[85%]">
           <details className="group/sources">
             <summary className={cn('list-none cursor-pointer flex items-center gap-2 select-none opacity-60 hover:opacity-100 transition-opacity duration-300', SYSTEM.type.mono)}>
-              <ChevronRight size={10} className="group-open/sources:rotate-90 transition-transform duration-200" /><span>SOURCES_VERIFIED [{sources.length}]</span>
+              <ChevronRight size={10} className="group-open/sources:rotate-90 transition-transform duration-200" /><span>EVIDENCE_LEDGER [{sources.length}]</span>
             </summary>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 pl-2 border-l border-white/5">
               {sources.map((s: any, i: number) => (
-                <a key={i} href={s.uri} target="_blank" rel="noopener" className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 hover:border-white/10 transition-all group/link max-w-[200px]">
-                  <span className="text-[9px] font-bold text-zinc-500 group-hover/link:text-emerald-400 transition-colors">{i + 1}</span>
-                  <span className="text-[10px] text-zinc-500 group-hover/link:text-zinc-300 truncate">{s.title}</span>
+                <a key={i} href={s.uri} target="_blank" rel="noopener" className="flex items-center gap-3 p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-transparent hover:border-emerald-500/20 transition-all group/link">
+                  <div className="w-5 h-5 rounded flex items-center justify-center bg-white/5 text-[10px] font-mono text-zinc-500 group-hover/link:text-emerald-400 border border-white/5">{i + 1}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[11px] text-zinc-300 truncate font-medium group-hover/link:text-emerald-100">{s.title || 'Verified Source'}</div>
+                    <div className="text-[9px] text-zinc-600 truncate font-mono">{new URL(s.uri).hostname}</div>
+                  </div>
+                  <ExternalLink size={10} className="text-zinc-600 group-hover/link:text-emerald-400 opacity-0 group-hover/link:opacity-100" />
                 </a>
               ))}
             </div>
@@ -261,11 +304,10 @@ const MessageBubble: FC<{ message: Message; isLast: boolean; onAction: (t: strin
   );
 });
 
-// --- 6. INPUT DECK (Voice + Upload) ---
+// --- 6. INPUT DECK ---
 const InputDeck: FC<{ value: string; onChange: (v: string) => void; onSend: () => void; onStop: () => void; attachments: Attachment[]; onAttach: (a: Attachment[]) => void; isProcessing: boolean; isVoiceMode: boolean; onVoiceModeChange: (v: boolean) => void; inputRef: RefObject<HTMLTextAreaElement | null>; fileInputRef: RefObject<HTMLInputElement | null>; }> = memo(({ value, onChange, onSend, onStop, attachments, onAttach, isProcessing, isVoiceMode, onVoiceModeChange, inputRef, fileInputRef }) => {
   const recognitionRef = useRef<any>(null);
   const handleKeyDown = (e: ReactKeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (value.trim() || attachments.length) onSend(); } };
-
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
       const f = e.target.files[0];
@@ -275,7 +317,6 @@ const InputDeck: FC<{ value: string; onChange: (v: string) => void; onSend: () =
     }
     e.target.value = '';
   };
-
   const toggleVoice = () => {
     const API = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!API) return;
@@ -298,7 +339,6 @@ const InputDeck: FC<{ value: string; onChange: (v: string) => void; onSend: () =
           ))}
         </motion.div>
       )}</AnimatePresence>
-
       <div className="flex items-end gap-2">
         <button onClick={() => fileInputRef.current?.click()} className="p-3.5 rounded-[18px] text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"><Plus size={20} strokeWidth={1.5} /></button>
         <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept="image/*,application/pdf" />
@@ -316,17 +356,40 @@ const InputDeck: FC<{ value: string; onChange: (v: string) => void; onSend: () =
   );
 });
 
-// --- 7. MAIN WIDGET ---
+// --- 7. MAIN LOGIC (EDGE SERVICE) ---
+const edgeService = {
+  async chat(messages: any[], context: any, onChunk: (c: any) => void, signal?: AbortSignal): Promise<void> {
+    const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages, ...context }), signal });
+    if (!res.ok) throw new Error('Stream failed');
+    const reader = res.body?.getReader();
+    const decoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader!.read();
+      if (done) break;
+      const lines = decoder.decode(value).split('\n');
+      for (const line of lines) {
+        const t = line.trim();
+        if (t.startsWith('data:')) {
+          try { onChunk(JSON.parse(t.slice(5))); } catch { }
+        }
+      }
+    }
+  },
+};
+
+// --- 8. ERROR BOUNDARY ---
 class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
   static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(e: Error, i: React.ErrorInfo) { console.error('ChatWidget Error:', e, i); }
-  render() { if (this.state.hasError) return <div className={cn('p-6 text-rose-400 font-mono text-xs')}>System Error</div>; return this.props.children; }
+  render() {
+    if (this.state.hasError) return <div className="p-6 text-center text-zinc-500">Chat unavailable</div>;
+    return this.props.children;
+  }
 }
 
-const InnerChatWidget: FC<ChatWidgetProps & { isMinimized?: boolean; setIsMinimized?: (v: boolean) => void }> = ({ currentMatch, inline, isMinimized, setIsMinimized }) => {
+const InnerChatWidget: FC<any & { isMinimized?: boolean; setIsMinimized?: (v: boolean) => void }> = ({ currentMatch, inline, isMinimized, setIsMinimized }) => {
   const { toggleGlobalChat } = useAppStore();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -336,9 +399,9 @@ const InnerChatWidget: FC<ChatWidgetProps & { isMinimized?: boolean; setIsMinimi
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef(messages);
+  const { session_id, conversation_id } = useChatContext({ match: currentMatch });
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
-  const { session_id, conversation_id } = useChatContext({ match: currentMatch });
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages, isProcessing]);
 
   const handleSend = useCallback(async (q?: string) => {
@@ -357,15 +420,16 @@ const InnerChatWidget: FC<ChatWidgetProps & { isMinimized?: boolean; setIsMinimi
         wireMessages[wireMessages.length - 1].content = [{ type: 'text', text: text || 'Analyze this.' }, ...attachments.map(a => ({ type: a.mimeType.startsWith('image') ? 'image' : 'file', source: { type: 'base64', media_type: a.mimeType, data: a.base64 } }))];
         setAttachments([]);
       }
-      const context = { session_id, conversation_id, current_match: currentMatch, run_id: generateId() };
+      const context = { session_id, conversation_id, gameContext: currentMatch, run_id: generateId() };
       abortRef.current = new AbortController();
-      let fullText = '', fullThought = '', grounding: any;
+      let fullText = '', fullThought = '', grounding: any = null;
 
       await edgeService.chat(wireMessages, context, (chunk) => {
-        if (chunk.type === 'text') { fullText += chunk.content || ''; setMessages(p => p.map(m => m.id === aiMsgId ? { ...m, content: fullText } : m)); }
+        if (chunk.type === 'text') { fullText += chunk.content || ''; setMessages(p => p.map(m => m.id === aiMsgId ? { ...m, content: fullText, groundingMetadata: grounding || m.groundingMetadata } : m)); }
         if (chunk.type === 'thought') { fullThought += chunk.content || ''; setMessages(p => p.map(m => m.id === aiMsgId ? { ...m, thoughts: fullThought } : m)); }
-        if (chunk.type === 'grounding') grounding = chunk.groundingMetadata;
-        if (chunk.type === 'done') setMessages(p => p.map(m => m.id === aiMsgId ? { ...m, isStreaming: false, sources: chunk.sources, groundingMetadata: chunk.groundingMetadata ?? grounding } : m));
+        // HYDRATION: Capture metadata instantly
+        if (chunk.type === 'grounding') { grounding = chunk.metadata; setMessages(p => p.map(m => m.id === aiMsgId ? { ...m, groundingMetadata: chunk.metadata } : m)); }
+        if (chunk.done) setMessages(p => p.map(m => m.id === aiMsgId ? { ...m, isStreaming: false } : m));
       }, abortRef.current.signal);
     } catch (e: any) {
       if (e.name !== 'AbortError') setMessages(p => p.map(m => m.id === aiMsgId ? { ...m, content: 'Connection interrupted.', isStreaming: false } : m));
@@ -388,7 +452,7 @@ const InnerChatWidget: FC<ChatWidgetProps & { isMinimized?: boolean; setIsMinimi
   );
 };
 
-const ChatWidget: FC<ChatWidgetProps> = (props) => {
+const ChatWidget: FC<any> = (props) => {
   const { isGlobalChatOpen } = useAppStore();
   const [isMinimized, setIsMinimized] = useState(false);
   if (props.inline) return <InnerChatWidget {...props} inline />;
