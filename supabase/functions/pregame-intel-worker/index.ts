@@ -544,16 +544,9 @@ Based on the context above:
         intel.briefing = summary; // Replace technical briefing with professional analyst summary
     }
 
-    // Calculate SIGNED spread for the picked side (critical for grading accuracy)
-    // HOME picks use the home spread as-is
-    // AWAY picks use the negated home spread (away line = -home line)
-    const pickedSide = intel?.grading_metadata?.side;
+    // STANDARD: analyzed_spread is ALWAYS the HOME spread.
+    // The grader calculates the Away line by negating this value.
     const homeSpreadNum = typeof p.current_spread === 'number' ? p.current_spread : null;
-    let signedSpread = homeSpreadNum;
-    if (pickedSide === 'AWAY' && homeSpreadNum !== null) {
-        signedSpread = -homeSpreadNum; // AWAY spread is opposite of home spread
-        console.log(`[${requestId}] 📐 [SPREAD-SIGN] Pick is AWAY, flipping spread: ${homeSpreadNum} → ${signedSpread}`);
-    }
 
     const dossier = {
         match_id: dbId,
@@ -565,7 +558,7 @@ Based on the context above:
         ...intel,
         sources: sources,
         generated_at: new Date().toISOString(),
-        analyzed_spread: signedSpread, // SIGNED spread for the picked side
+        analyzed_spread: homeSpreadNum, // ALWAYS Home Spread (Standard Convention)
         analyzed_total: p.current_total,
         spread_juice: spread_juice,
         total_juice: total_juice,
