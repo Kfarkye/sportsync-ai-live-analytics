@@ -24,6 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_sharp_intel_graded_at ON sharp_intel(graded_at);
 CREATE INDEX IF NOT EXISTS idx_sharp_intel_match_side ON sharp_intel(match_id, pick_side); -- Helps identify duplicate picks
 
 -- 3. Enhanced Performance View (ROI & CLV Tracking)
+DROP VIEW IF EXISTS sharp_intel_record;
 CREATE OR REPLACE VIEW sharp_intel_record AS
 WITH stats AS (
     SELECT 

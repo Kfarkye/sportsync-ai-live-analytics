@@ -173,6 +173,77 @@ function extractTextContent(content: any): string {
 }
 
 // =============================================================================
+// CITATION UX (v26.2 ChatGPT-style pills)
+// =============================================================================
+
+/**
+ * Clean verdict content for MARKET READ card.
+ * Removes all citation links, raw brackets, and confidence text.
+ */
+function cleanVerdictContent(text: string): string {
+  if (!text) return "";
+
+  return text
+    // Remove hydrated markdown links: [1.5](https://...)
+    .replace(/\s*\[\d+(?:\.\d+)?\]\([^)]+\)/g, "")
+    // Remove raw bracket citations: [1.5]
+    .replace(/\s*\[\d+(?:\.\d+)?\]/g, "")
+    // Remove confidence text: (Confidence: High/Medium/Low)
+    .replace(/\s*\(Confidence:\s*\w+\)/gi, "")
+    // Clean up double spaces and trim
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/**
+ * Sports-focused brand mapping for citation pills.
+ */
+const BRAND_MAP: Record<string, string> = {
+  "espn.com": "ESPN",
+  "covers.com": "Covers",
+  "actionnetwork.com": "Action",
+  "draftkings.com": "DK",
+  "fanduel.com": "FanDuel",
+  "rotowire.com": "RotoWire",
+  "basketball-reference.com": "BBRef",
+  "sports-reference.com": "SportsRef",
+  "pro-football-reference.com": "PFRef",
+  "github.com": "GitHub",
+  "x.com": "X",
+  "twitter.com": "X",
+  "google.com": "Google",
+  "ai.google.dev": "Google AI",
+  "nba.com": "NBA",
+  "nfl.com": "NFL",
+  "mlb.com": "MLB",
+  "nhl.com": "NHL",
+  "cbssports.com": "CBS",
+  "yahoo.com": "Yahoo",
+  "bleacherreport.com": "BR",
+  "theathletic.com": "Athletic",
+};
+
+/**
+ * Convert hostname to readable brand name.
+ */
+function hostnameToBrand(hostname: string): string {
+  const h = hostname.replace(/^www\./, "").toLowerCase();
+  return BRAND_MAP[h] || h.split(".")[0].charAt(0).toUpperCase() + h.split(".")[0].slice(1);
+}
+
+/**
+ * Safely extract hostname from URL.
+ */
+function getHostname(href?: string): string {
+  if (!href) return "Source";
+  try {
+    return new URL(href).hostname.replace(/^www\./, "");
+  } catch {
+    return "Source";
+  }
+}
+
+// =============================================================================
 // WEISSACH DESIGN SYSTEM
 // =============================================================================
 
@@ -382,55 +453,93 @@ const OrbitalRadar = memo(() => (
 ));
 
 /**
- * Citation Chip - Interactive evidence link with hover tooltip.
+ * InlineCitationPill - ChatGPT-style tap-toggle citation with domain branding.
+ * Single active popover controlled by parent state.
  */
-const CitationChip: FC<{ href?: string; children: ReactNode }> = ({ href, children }) => {
-  const id = flattenText(children).replace(/[\[\]]/g, "");
+type InlineCitationPillProps = {
+  id: string;
+  href?: string;
+  indexLabel: string;
+  active: boolean;
+  onToggle: (id: string) => void;
+};
 
-  // Safely parse hostname
-  let hostname = "External Source";
-  if (href) {
-    try {
-      hostname = new URL(href).hostname.replace("www.", "");
-    } catch {
-      hostname = "External Source";
-    }
-  }
+const InlineCitationPill: FC<InlineCitationPillProps> = memo(({ id, href, indexLabel, active, onToggle }) => {
+  const hostname = getHostname(href);
+  const brand = hostnameToBrand(hostname);
 
   return (
-    <span className="inline-flex items-center align-middle relative group z-10 mx-0.5 -translate-y-[1px]">
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-[4px] bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500 hover:text-black text-[9px] font-bold font-mono text-emerald-400 transition-all duration-200 no-underline shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] select-none cursor-pointer"
+    <span className="inline-flex items-center align-middle relative mx-0.5 -translate-y-[1px]">
+      <button
+        type="button"
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          triggerHaptic();
+          onToggle(id);
+        }}
+        className={cn(
+          "inline-flex items-center gap-1 h-[18px] px-2 rounded-full border transition-all select-none cursor-pointer",
+          active
+            ? "bg-emerald-500/15 border-emerald-500/35 text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.18)]"
+            : "bg-white/[0.03] border-white/[0.08] text-zinc-400 hover:bg-white/[0.05] hover:border-emerald-500/20 hover:text-zinc-300"
+        )}
+        aria-expanded={active}
+        aria-controls={`cite-popover-${id}`}
       >
-        {id}
-      </a>
+        <span className="text-[10px] font-medium tracking-wide">{brand}</span>
+      </button>
 
-      {/* Holographic Tooltip */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[240px] opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none translate-y-2 group-hover:translate-y-0 z-50">
-        <div className="p-3 bg-[#0A0A0B] border border-white/10 rounded-xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.8)] backdrop-blur-xl">
-          <div className="flex items-center gap-1.5 mb-1.5 pb-1.5 border-b border-white/5">
-            <ShieldCheck size={10} className="text-emerald-500" />
-            <span className="text-[9px] font-mono text-emerald-500 uppercase tracking-wider">
-              Verified Source
-            </span>
-          </div>
-          <div className="text-[11px] font-medium text-white mb-0.5 max-w-[200px] truncate">
-            {hostname}
-          </div>
-          <div className="flex items-center gap-1 text-[9px] text-emerald-400/80">
-            <Globe size={10} />
-            <span>Click to open evidence</span>
-          </div>
-        </div>
-        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#0A0A0B] border-r border-b border-white/10 rotate-45" />
-      </div>
+      <AnimatePresence>
+        {active && (
+          <motion.div
+            id={`cite-popover-${id}`}
+            initial={{ opacity: 0, y: 6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.98 }}
+            transition={SYSTEM.anim.fluid}
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[240px] z-50"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div className="p-3 bg-[#0A0A0B] border border-white/10 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/5">
+                <ShieldCheck size={12} className="text-emerald-500" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-medium text-white truncate">{brand}</div>
+                  <div className="text-[9px] font-mono text-zinc-500 truncate">{hostname}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400/80 uppercase tracking-wider">
+                  <Globe size={10} />
+                  <span>Source {indexLabel}</span>
+                </div>
+
+                {href ? (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-[10px] font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span>Open</span>
+                    <ExternalLink size={10} />
+                  </a>
+                ) : (
+                  <span className="text-[10px] font-mono text-zinc-600">No link</span>
+                )}
+              </div>
+            </div>
+
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#0A0A0B] border-r border-b border-white/10 rotate-45" />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </span>
   );
-};
+});
 
 // =============================================================================
 // TOAST SYSTEM
@@ -513,140 +622,132 @@ const CopyButton: FC<{ content: string }> = memo(({ content }) => {
   );
 });
 
-const VerdictTicket: FC<{ content: string }> = memo(({ content }) => (
-  <motion.div
-    layout
-    initial={{ scale: 0.98, opacity: 0 }}
-    animate={{ scale: 1, opacity: 1 }}
-    transition={SYSTEM.anim.fluid}
-    className={cn(
-      "my-6 relative overflow-hidden rounded-[18px] bg-[#0A0A0B] shadow-2xl group select-none",
-      SYSTEM.surface.milled
-    )}
-  >
-    {/* Shimmer Effect */}
-    <div className="absolute inset-0 bg-[linear-gradient(115deg,transparent_40%,rgba(255,255,255,0.03)_45%,transparent_50%)] bg-[length:200%_100%] animate-[shimmer_5s_infinite_linear] pointer-events-none" />
+const VerdictTicket: FC<{ content: string }> = memo(({ content }) => {
+  // Strip all citations and confidence text for clean display
+  const cleanContent = useMemo(() => cleanVerdictContent(content), [content]);
 
-    {/* Header */}
-    <div className="px-6 py-3.5 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
-      <span className={SYSTEM.type.mono}>Market Read</span>
-      <div className="flex items-center gap-2 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-        <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="text-[9px] font-bold text-emerald-500 tracking-wider uppercase">
-          Live
-        </span>
+  return (
+    <motion.div
+      layout
+      initial={{ scale: 0.98, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={SYSTEM.anim.fluid}
+      className={cn(
+        "my-6 relative overflow-hidden rounded-[18px] bg-[#0A0A0B] shadow-2xl group select-none",
+        SYSTEM.surface.milled
+      )}
+    >
+      {/* Shimmer Effect */}
+      <div className="absolute inset-0 bg-[linear-gradient(115deg,transparent_40%,rgba(255,255,255,0.03)_45%,transparent_50%)] bg-[length:200%_100%] animate-[shimmer_5s_infinite_linear] pointer-events-none" />
+
+      {/* Header */}
+      <div className="px-6 py-3.5 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+        <span className={SYSTEM.type.mono}>Market Read</span>
+        <div className="flex items-center gap-2 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+          <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[9px] font-bold text-emerald-500 tracking-wider uppercase">
+            Live
+          </span>
+        </div>
       </div>
-    </div>
 
-    {/* Content */}
-    <div className="relative p-6 flex items-start gap-4">
-      <div className="flex-1">
-        <div className="text-2xl md:text-3xl font-medium text-white tracking-tight leading-none mb-1 tabular-nums">
-          <ReactMarkdown
-            components={{
-              a: ({ href, children }) => <CitationChip href={href}>{children}</CitationChip>
-            }}
+      {/* Content - Clean plain text, no citations */}
+      <div className="relative p-6 flex items-start gap-4">
+        <div className="flex-1">
+          <div className="text-2xl md:text-3xl font-medium text-white tracking-tight leading-tight tabular-nums">
+            {cleanContent}
+          </div>
+        </div>
+
+        {/* Checkmark Icon */}
+        <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center bg-white/[0.02] flex-shrink-0">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="text-emerald-400"
           >
-            {content}
-          </ReactMarkdown>
-        </div>
-        <div className="text-[10px] text-emerald-500/60 uppercase tracking-wider font-mono mt-3">
-          Confidence Verified
+            <motion.path
+              d="M20 6L9 17l-5-5"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={SYSTEM.anim.draw}
+            />
+          </svg>
         </div>
       </div>
-
-      {/* Checkmark Icon */}
-      <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center bg-white/[0.02]">
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className="text-emerald-400"
-        >
-          <motion.path
-            d="M20 6L9 17l-5-5"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={SYSTEM.anim.draw}
-          />
-        </svg>
-      </div>
-    </div>
-  </motion.div>
-));
+    </motion.div>
+  );
+});
 
 /**
  * TacticalHUD - Live Triggers card with premium subtle styling.
  * Typography-driven design, no icons.
  */
-const TacticalHUD: FC<{ content: string }> = memo(({ content }) => (
-  <motion.div
-    layout
-    initial={{ x: -5, opacity: 0 }}
-    animate={{ x: 0, opacity: 1 }}
-    transition={SYSTEM.anim.fluid}
-    className={cn(
-      "my-6 relative overflow-hidden",
-      "rounded-r-[12px] border-l-[2px] border-l-amber-500/60",
-      "bg-[linear-gradient(135deg,rgba(245,158,11,0.04)_0%,transparent_60%)]"
-    )}
-  >
-    <div className="py-4 px-5">
-      {/* Header: Typography-only, no icon */}
-      <div className="mb-3 font-mono text-[10px] font-semibold tracking-[0.1em] uppercase text-amber-500">
-        Live Triggers
+const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
+  const cleanContent = useMemo(() => cleanVerdictContent(content), [content]);
+
+  return (
+    <motion.div
+      layout
+      initial={{ x: -5, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={SYSTEM.anim.fluid}
+      className={cn(
+        "my-6 relative overflow-hidden",
+        "rounded-r-[12px] border-l-[2px] border-l-amber-500/60",
+        "bg-[linear-gradient(135deg,rgba(245,158,11,0.04)_0%,transparent_60%)]"
+      )}
+    >
+      <div className="py-4 px-5">
+        {/* Header: Typography-only, no icon */}
+        <div className="mb-3 font-mono text-[10px] font-semibold tracking-[0.1em] uppercase text-amber-500">
+          Live Triggers
+        </div>
+        {/* Body: Clean text, no citations */}
+        <div className="text-[15px] leading-[1.6] tracking-[-0.01em] text-zinc-300">
+          {cleanContent}
+        </div>
       </div>
-      {/* Body: Neutral zinc for readability */}
-      <div className="text-[15px] leading-[1.6] tracking-[-0.01em] text-zinc-300">
-        <ReactMarkdown
-          components={{
-            a: ({ href, children }) => <CitationChip href={href}>{children}</CitationChip>
-          }}
-        >
-          {content}
-        </ReactMarkdown>
-      </div>
-    </div>
-  </motion.div>
-));
+    </motion.div>
+  );
+});
 
 /**
  * InvalidationAlert - Exit condition card with premium subtle styling.
  * Typography-driven design, no icons.
  */
-const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => (
-  <motion.div
-    layout
-    initial={{ x: -5, opacity: 0 }}
-    animate={{ x: 0, opacity: 1 }}
-    transition={SYSTEM.anim.fluid}
-    className={cn(
-      "my-6 relative overflow-hidden",
-      "rounded-r-[12px] border-l-[2px] border-l-red-500/50",
-      "bg-[linear-gradient(135deg,rgba(239,68,68,0.04)_0%,transparent_60%)]"
-    )}
-  >
-    <div className="py-4 px-5">
-      {/* Header: Typography-only, no icon */}
-      <div className="mb-3 font-mono text-[10px] font-semibold tracking-[0.1em] uppercase text-red-500">
-        Invalidation
+const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => {
+  const cleanContent = useMemo(() => cleanVerdictContent(content), [content]);
+
+  return (
+    <motion.div
+      layout
+      initial={{ x: -5, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={SYSTEM.anim.fluid}
+      className={cn(
+        "my-6 relative overflow-hidden",
+        "rounded-r-[12px] border-l-[2px] border-l-red-500/50",
+        "bg-[linear-gradient(135deg,rgba(239,68,68,0.04)_0%,transparent_60%)]"
+      )}
+    >
+      <div className="py-4 px-5">
+        {/* Header: Typography-only, no icon */}
+        <div className="mb-3 font-mono text-[10px] font-semibold tracking-[0.1em] uppercase text-red-500">
+          Invalidation
+        </div>
+        {/* Body: Clean text, no citations */}
+        <div className="text-[15px] leading-[1.6] tracking-[-0.01em] text-zinc-300">
+          {cleanContent}
+        </div>
       </div>
-      {/* Body: Neutral zinc for readability */}
-      <div className="text-[15px] leading-[1.6] tracking-[-0.01em] text-zinc-300">
-        <ReactMarkdown
-          components={{
-            a: ({ href, children }) => <CitationChip href={href}>{children}</CitationChip>
-          }}
-        >
-          {content}
-        </ReactMarkdown>
-      </div>
-    </div>
-  </motion.div>
-));
+    </motion.div>
+  );
+});
 
 const ThinkingPill: FC<{ onStop?: () => void; status?: string }> = memo(({ onStop, status = "thinking" }) => {
   const [idx, setIdx] = useState(0);
@@ -757,13 +858,16 @@ const MessageBubble: FC<{
   message: Message;
   isLast: boolean;
   onAction: (t: string) => void;
-}> = memo(({ message }) => {
+  activeCitation: string | null;
+  setActiveCitation: (id: string | null) => void;
+}> = memo(({ message, activeCitation, setActiveCitation }) => {
   const isUser = message.role === "user";
 
   // Apply hydration to convert [1] anchors to [1](url) links
   const verifiedContent = useMemo(() => {
-    if (isUser) return extractTextContent(message.content);
-    return hydrateCitations(extractTextContent(message.content), message.groundingMetadata);
+    const textContent = extractTextContent(message.content);
+    if (isUser) return textContent;
+    return hydrateCitations(textContent, message.groundingMetadata);
   }, [message.content, message.groundingMetadata, isUser]);
 
   const sources = useMemo(
@@ -885,11 +989,20 @@ const MessageBubble: FC<{
               },
 
               a: ({ href, children }) => {
-                const text = flattenText(children);
+                const label = flattenText(children).trim();
 
-                // FIX: Regex updated to allow decimals [1.1]
-                if (/^[\d.]+$/.test(text)) {
-                  return <CitationChip href={href}>{children}</CitationChip>;
+                // Strict numeric detection for citations: 1, 1.5, etc.
+                if (/^\d+(?:\.\d+)?$/.test(label)) {
+                  const pillId = `${message.id}:${label}:${href || "nolink"}`;
+                  return (
+                    <InlineCitationPill
+                      id={pillId}
+                      href={href}
+                      indexLabel={label}
+                      active={activeCitation === pillId}
+                      onToggle={(id) => setActiveCitation(activeCitation === id ? null : id)}
+                    />
+                  );
                 }
 
                 // Regular links
@@ -1299,6 +1412,9 @@ const InnerChatWidget: FC<
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
 
+  // Citation popover state - single active popover across all messages
+  const [activeCitation, setActiveCitation] = useState<string | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1312,34 +1428,29 @@ const InnerChatWidget: FC<
     messagesRef.current = messages;
   }, [messages]);
 
-  // ---------------------------------------------------------------------------
-  // INTELLIGENT SCROLL: Stick-to-Bottom Logic
-  // Only auto-scroll if user is already near the bottom (respects reading position)
-  // ---------------------------------------------------------------------------
-  const isNearBottomRef = useRef(true);
-  const SCROLL_THRESHOLD = 150; // pixels from bottom to consider "at bottom"
+  // Citation popover: Close on outside click (capture phase) and Escape key
+  useEffect(() => {
+    const closePopover = () => setActiveCitation(null);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closePopover();
+    };
 
-  // Track user's scroll position
-  const handleScroll = useCallback(() => {
-    if (!scrollRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    isNearBottomRef.current = distanceFromBottom < SCROLL_THRESHOLD;
+    // Capture phase ensures we close even if nested content stops bubbling
+    document.addEventListener("pointerdown", closePopover, true);
+    document.addEventListener("keydown", handleKey);
+
+    return () => {
+      document.removeEventListener("pointerdown", closePopover, true);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, []);
 
-  // Auto-scroll only when appropriate
+  // Auto-scroll on new messages
   useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-
-    // Only scroll if user is near bottom (not reading history)
-    if (isNearBottomRef.current) {
-      // Check for reduced motion preference (accessibility)
-      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior: prefersReducedMotion ? "auto" : "smooth"
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: "smooth"
       });
     }
   }, [messages, isProcessing]);
@@ -1388,13 +1499,12 @@ const InnerChatWidget: FC<
 
         // Handle attachments
         if (attachments.length > 0) {
-          // Type assertion for API compatibility (API accepts looser types)
           wireMessages[wireMessages.length - 1].content = [
-            { type: "text" as const, text: text || "Analyze this." },
+            { type: "text", text: text || "Analyze this." },
             ...attachments.map((a) => ({
-              type: (a.mimeType.startsWith("image") ? "image" : "file") as "image",
+              type: a.mimeType.startsWith("image") ? "image" : "file",
               source: {
-                type: "base64" as const,
+                type: "base64",
                 media_type: a.mimeType,
                 data: a.base64
               }
@@ -1541,7 +1651,6 @@ const InnerChatWidget: FC<
           {/* Messages Area */}
           <div
             ref={scrollRef}
-            onScroll={handleScroll}
             className="relative flex-1 overflow-y-auto px-6 pt-4 pb-44 scroll-smooth no-scrollbar z-10"
           >
             <AnimatePresence mode="popLayout">
@@ -1563,6 +1672,8 @@ const InnerChatWidget: FC<
                     message={msg}
                     isLast={i === messages.length - 1}
                     onAction={handleSend}
+                    activeCitation={activeCitation}
+                    setActiveCitation={setActiveCitation}
                   />
                 ))
               )}

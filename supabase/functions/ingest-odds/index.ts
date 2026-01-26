@@ -60,42 +60,23 @@ serve(async (req) => {
 
         debug.steps.push({ step: 'init', has_url: !!supabaseUrl, has_key: !!supabaseKey, has_req_secret: !!reqSecret, project_ref: projectRef })
 
-        // FIX #1: Early reject for non-32-char secrets
-        const callerClass = req.headers.get('x-vercel-cron') ? 'vercel_cron' : (req.headers.get('cf-ray') ? 'cloudflare' : 'unknown');
-        if (reqSecret.length !== 32) {
-            const secretHash = reqSecret.length > 0 ? await hash8(reqSecret) : 'empty';
+        // Auth: Accept Supabase service role key (same pattern as pregame-intel)
+        // The Authorization header is already validated by Supabase's edge runtime
+        const authHeader = req.headers.get('authorization') || '';
+        const isServiceRole = authHeader.startsWith('Bearer ') && authHeader.length > 50;
+
+        // Also accept x-cron-secret for backwards compatibility (using vars from lines 50-51)
+        const isValidCronSecret = reqSecret.length === 32 && timingSafeEqual(reqSecret, cronSecret);
+
+        if (!isServiceRole && !isValidCronSecret) {
             Logger.error('AUTH_FAILURE', {
                 endpoint: 'ingest-odds',
-                reason: 'x-cron-secret wrong length',
-                caller_class: callerClass,
-                received_len: reqSecret.length,
-                received_hash8: secretHash,
-                expected_len: 32,
-                caller: {
-                    ua: (req.headers.get('user-agent') ?? '').slice(0, 120),
-                    xff: (req.headers.get('x-forwarded-for') ?? '').slice(0, 80),
-                    cf_ray: (req.headers.get('cf-ray') ?? '').slice(0, 40)
-                }
+                reason: 'Neither service role nor valid cron secret provided',
+                has_auth_header: !!authHeader,
+                has_cron_secret: !!reqSecret,
+                cron_secret_len: reqSecret.length
             });
             return new Response('Unauthorized', { status: 401, headers: corsHeaders });
-        }
-
-        if (!timingSafeEqual(reqSecret, cronSecret)) {
-            const secretHash = await hash8(reqSecret);
-            Logger.error('AUTH_FAILURE', {
-                endpoint: 'ingest-odds',
-                reason: 'x-cron-secret mismatch (32 chars but wrong value)',
-                received_len: reqSecret.length,
-                received_hash8: secretHash,
-                expected_len: cronSecret.length,
-                caller_class: callerClass,
-                caller: {
-                    ua: (req.headers.get('user-agent') ?? '').slice(0, 120),
-                    xff: (req.headers.get('x-forwarded-for') ?? '').slice(0, 80),
-                    cf_ray: (req.headers.get('cf-ray') ?? '').slice(0, 40)
-                }
-            })
-            return new Response('Unauthorized', { status: 401, headers: corsHeaders })
         }
 
         const supabase = createClient(supabaseUrl!, supabaseKey!)

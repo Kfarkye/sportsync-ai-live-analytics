@@ -38,6 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_sharp_intel_result ON sharp_intel(pick_result);
 CREATE INDEX IF NOT EXISTS idx_sharp_intel_generated ON sharp_intel(generated_at);
 
 -- View for sharp intel performance tracking
+DROP VIEW IF EXISTS sharp_intel_record;
 CREATE OR REPLACE VIEW sharp_intel_record AS
 SELECT 
     COUNT(*) FILTER (WHERE pick_result = 'WIN') as wins,
