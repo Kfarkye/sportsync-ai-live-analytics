@@ -622,66 +622,79 @@ const CopyButton: FC<{ content: string }> = memo(({ content }) => {
   );
 });
 
-const VerdictTicket: FC<{ content: string }> = memo(({ content }) => {
-  // Strip all citations and confidence text for clean display
+/**
+ * EdgeVerdictCard - "The Edge" primary pick card.
+ * Premium typography-driven design aligned with TacticalHUD pattern.
+ * 
+ * Features:
+ * - Left accent bar (emerald) matching TacticalHUD/InvalidationAlert
+ * - Conditional LIVE badge (only when isLive prop is true)
+ * - No icons - typography-only for clean hierarchy
+ * - Proper text wrapping for long picks/parlays
+ */
+type EdgeVerdictCardProps = {
+  content: string;
+  isLive?: boolean;
+  meta?: string; // Optional: "Spread • FanDuel • 2:14 PM"
+};
+
+const EdgeVerdictCard: FC<EdgeVerdictCardProps> = memo(({ content, isLive = false, meta }) => {
+  // Strip all citations, brackets, and confidence text for clean display
   const cleanContent = useMemo(() => cleanVerdictContent(content), [content]);
 
   return (
     <motion.div
       layout
-      initial={{ scale: 0.98, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
+      initial={{ x: -5, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
       transition={SYSTEM.anim.fluid}
       className={cn(
-        "my-6 relative overflow-hidden rounded-[18px] bg-[#0A0A0B] shadow-2xl group select-none",
-        SYSTEM.surface.milled
+        "my-6 relative overflow-hidden",
+        "rounded-r-[12px] border-l-[3px] border-l-emerald-500",
+        "bg-[linear-gradient(135deg,rgba(16,185,129,0.06)_0%,transparent_50%)]"
       )}
     >
-      {/* Shimmer Effect */}
-      <div className="absolute inset-0 bg-[linear-gradient(115deg,transparent_40%,rgba(255,255,255,0.03)_45%,transparent_50%)] bg-[length:200%_100%] animate-[shimmer_5s_infinite_linear] pointer-events-none" />
-
-      {/* Header */}
-      <div className="px-6 py-3.5 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
-        <span className={SYSTEM.type.mono}>Market Read</span>
-        <div className="flex items-center gap-2 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-          <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[9px] font-bold text-emerald-500 tracking-wider uppercase">
-            Live
-          </span>
-        </div>
-      </div>
-
-      {/* Content - Clean plain text, no citations */}
-      <div className="relative p-6 flex items-start gap-4">
-        <div className="flex-1">
-          <div className="text-2xl md:text-3xl font-medium text-white tracking-tight leading-tight tabular-nums">
-            {cleanContent}
+      <div className="py-5 px-5">
+        {/* Header Row: "THE EDGE" + Conditional LIVE badge */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]" />
+            <span className="font-mono text-[10px] font-medium tracking-[0.15em] uppercase text-zinc-500">
+              The Edge
+            </span>
           </div>
+
+          {/* Conditional LIVE Badge - Only show when truly live */}
+          {isLive && (
+            <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+              <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[9px] font-bold text-emerald-500 tracking-wider uppercase">
+                Live
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Checkmark Icon */}
-        <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center bg-white/[0.02] flex-shrink-0">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="text-emerald-400"
-          >
-            <motion.path
-              d="M20 6L9 17l-5-5"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: 1 }}
-              transition={SYSTEM.anim.draw}
-            />
-          </svg>
+        {/* Hero Pick - Primary focal point */}
+        <div className="text-2xl md:text-[28px] font-medium text-white tracking-tight leading-tight break-words line-clamp-3">
+          {cleanContent}
         </div>
+
+        {/* Optional Meta Line - Market type, book, timestamp */}
+        {meta && (
+          <div className="mt-3 pt-3 border-t border-white/5">
+            <span className="text-[11px] font-mono text-zinc-500 tracking-wide">
+              {meta}
+            </span>
+          </div>
+        )}
       </div>
     </motion.div>
   );
 });
+
+// Alias for backward compatibility and semantic clarity
+const VerdictTicket = EdgeVerdictCard;
 
 /**
  * TacticalHUD - Live Triggers card with premium subtle styling.
