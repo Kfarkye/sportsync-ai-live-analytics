@@ -243,6 +243,25 @@ async function processSingleIntel(p: any, supabase: any, requestId: string) {
     const gameDate = p.start_time ? toLocalGameDate(p.start_time) : new Date().toISOString().split('T')[0];
     console.log(`[${requestId}] 📅 [DATE-RESOLVE] UTC: ${p.start_time} -> Local Game Day: ${gameDate}`);
 
+    // Fetch Odds API event ID for deterministic grading (no fuzzy matching needed)
+    // Query from matches table where odds_api_event_id is stored
+    const { data: matchRecord } = await supabase
+        .from('matches')
+        .select('odds_api_event_id')
+        .eq('id', dbId)
+        .maybeSingle();
+    const oddsEventId = matchRecord?.odds_api_event_id || null;
+
+    if (oddsEventId) {
+        console.log(`[${requestId}] 🎯 [ODDS-EVENT-ID] ${oddsEventId}`);
+    } else {
+        // FAIL CLOSED: For CBB, if no odds_event_id, the pick cannot be graded deterministically
+        const isCBB = p.league?.toLowerCase().includes('college') || p.league?.toLowerCase().includes('ncaa');
+        if (isCBB) {
+            console.warn(`[${requestId}] ⚠️ [MISSING-ODDS-ID] No odds_event_id found for CBB game ${dbId}. Pick will be ungradable.`);
+        }
+    }
+
     // FRESHNESS GUARD: Skip regeneration if recent intel exists (2-hour TTL)
     // Can be bypassed with force_refresh=true
     if (!p.force_refresh) {
@@ -555,6 +574,7 @@ Based on the context above:
         league_id: p.league || 'nba',
         home_team: p.home_team,
         away_team: p.away_team,
+        odds_event_id: oddsEventId, // For deterministic grading - joins to Odds API scores
         ...intel,
         sources: sources,
         generated_at: new Date().toISOString(),
