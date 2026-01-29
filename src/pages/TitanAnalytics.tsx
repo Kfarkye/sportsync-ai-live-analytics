@@ -228,10 +228,7 @@ const categoryDisplayName: Record<string, string> = {
     // Tennis
     'FAVORITE': 'Tennis (Fav)',
     'UNDERDOG': 'Tennis (Dog)',
-    // Other
-    'MONEYLINE': 'Moneyline',
-    'PICK_EM': 'Pick\'em',
-    'UNCATEGORIZED': 'Moneyline',
+    // Totals
     'OVER': 'Total Over',
     'UNDER': 'Total Under',
 };

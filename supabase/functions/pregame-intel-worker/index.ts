@@ -77,7 +77,7 @@ const INTEL_OUTPUT_SCHEMA = {
             type: Type.OBJECT,
             properties: {
                 side: { type: Type.STRING, enum: ["HOME", "AWAY", "OVER", "UNDER"] },
-                type: { type: Type.STRING, enum: ["SPREAD", "TOTAL", "MONEYLINE"] },
+                type: { type: Type.STRING, enum: ["SPREAD", "TOTAL"] },
                 selection: { type: Type.STRING }
             },
             required: ["side", "type", "selection"]
@@ -336,9 +336,13 @@ Use search to ADD context. The baseline data is already verified.
 <output_format>
 See INTEL_OUTPUT_SCHEMA.
 RULES FOR PICK FORMATTING:
-1. DO NOT include odds (like -110 or -150) in the "recommended_pick" text.
-2. If picking a winner straight up, use type: "MONEYLINE".
-3. If picking a spread of 0 or PK, treat it as a spread of 0.
+1. ALWAYS prefer SPREAD picks when spread data is available. Do NOT use MONEYLINE.
+2. DO NOT include odds (like -110 or -150) in the "recommended_pick" text.
+3. DO NOT output "Team 0" or "Team -0" - these are invalid formats.
+4. DO NOT output "Team ML" or "Team Moneyline" - always make a spread pick when spread is available.
+5. DO NOT output "Team PK" or "Team Pick'em" - use the actual spread number (even if 0).
+6. FORMAT: "Team Name +/-X.X" for spreads, "OVER/UNDER X.X" for totals.
+7. The recommended_pick MUST contain a valid number (spread value or total line).
 </output_format>`;
 
     const synthesisPrompt = `<context>
