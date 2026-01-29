@@ -481,26 +481,50 @@ export default function TitanAnalytics() {
                 <div className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-3 pl-1">Performance Splits</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
 
-                    {/* Category Heatmap */}
+                    {/* Category Heatmap - Aggregated by category */}
                     <div className="bg-[#0A0A0A] border border-[#222] rounded-lg overflow-hidden">
                         <div className="px-4 py-3 bg-[#111] border-b border-[#222] text-[11px] font-semibold text-zinc-500">
                             CATEGORY
                         </div>
                         {heatmap.length === 0 ? (
                             <div className="px-4 py-6 text-xs text-zinc-600 text-center">No data</div>
-                        ) : (
-                            heatmap.map((h) => (
+                        ) : (() => {
+                            // Aggregate heatmap by category (combine all buckets)
+                            const categoryStats: Record<string, { wins: number; losses: number }> = {};
+                            heatmap.forEach((h) => {
+                                const cat = h.category;
+                                if (!categoryStats[cat]) {
+                                    categoryStats[cat] = { wins: 0, losses: 0 };
+                                }
+                                categoryStats[cat].wins += h.wins ?? 0;
+                                categoryStats[cat].losses += h.losses ?? 0;
+                            });
+
+                            // Convert to array, calculate win rate, sort by volume
+                            const aggregated = Object.entries(categoryStats)
+                                .map(([category, stats]) => ({
+                                    category,
+                                    ...stats,
+                                    winRate: stats.wins + stats.losses > 0
+                                        ? (stats.wins / (stats.wins + stats.losses)) * 100
+                                        : 0,
+                                }))
+                                .sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses));
+
+                            return aggregated.map((h) => (
                                 <div key={h.category} className="flex justify-between px-4 py-3 border-b border-[#222] last:border-0 hover:bg-white/[0.02]">
-                                    <span className="text-xs font-medium">{h.category}</span>
+                                    <span className="text-xs font-medium">
+                                        {categoryDisplayName[h.category] || h.category}
+                                    </span>
                                     <div className="text-xs font-mono flex gap-4 min-w-[140px] justify-end">
                                         <span className="text-zinc-400">{fmt.record(h.wins, h.losses)}</span>
-                                        <span className={(h.win_rate ?? 0) >= 52.4 ? 'text-emerald-400' : 'text-zinc-400'}>
-                                            {fmt.pct(h.win_rate)}
+                                        <span className={h.winRate >= 52.4 ? 'text-emerald-400' : 'text-zinc-400'}>
+                                            {fmt.pct(h.winRate)}
                                         </span>
                                     </div>
                                 </div>
-                            ))
-                        )}
+                            ));
+                        })()}
                     </div>
 
                     {/* Leagues */}
