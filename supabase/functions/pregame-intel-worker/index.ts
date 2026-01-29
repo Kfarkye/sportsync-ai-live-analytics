@@ -70,18 +70,9 @@ const RequestSchema = z.object({
 const INTEL_OUTPUT_SCHEMA = {
     type: Type.OBJECT,
     properties: {
-        recommended_pick: { type: Type.STRING },
+        selected_offer_id: { type: Type.STRING }, // AI selects from pre-validated menu
         headline: { type: Type.STRING },
         briefing: { type: Type.STRING },
-        grading_metadata: {
-            type: Type.OBJECT,
-            properties: {
-                side: { type: Type.STRING, enum: ["HOME", "AWAY", "OVER", "UNDER"] },
-                type: { type: Type.STRING, enum: ["SPREAD", "TOTAL"] },
-                selection: { type: Type.STRING }
-            },
-            required: ["side", "type", "selection"]
-        },
         cards: {
             type: Type.ARRAY,
             minItems: 2,
@@ -107,7 +98,97 @@ const INTEL_OUTPUT_SCHEMA = {
         },
         pick_summary: { type: Type.STRING }
     },
-    required: ["recommended_pick", "headline", "briefing", "cards", "grading_metadata", "logic_group", "confidence_tier", "pick_summary"]
+    // AI outputs selected_offer_id; server reconstructs grading_metadata and recommended_pick
+    required: ["selected_offer_id", "headline", "briefing", "cards", "logic_group", "confidence_tier", "pick_summary"]
+};
+
+// -------------------------------------------------------------------------
+// MARKET SNAPSHOT: Deterministic Menu of Valid Bets
+// -------------------------------------------------------------------------
+type MarketOffer = {
+    id: string;
+    type: "SPREAD" | "TOTAL" | "MONEYLINE";
+    side: "HOME" | "AWAY" | "OVER" | "UNDER";
+    selection: string;
+    line: number | null;
+    price: string;
+    label: string; // What the AI sees
+};
+
+const buildMarketSnapshot = (p: any, odds: any): MarketOffer[] => {
+    const offers: MarketOffer[] = [];
+    const safeJuice = (v: any) => (v ? String(v) : "-110");
+    const hTeam = p.home_team || "Home";
+    const aTeam = p.away_team || "Away";
+
+    // 1. SPREAD OFFERS
+    if (typeof p.current_spread === 'number') {
+        const spread = p.current_spread;
+
+        // Home Spread
+        offers.push({
+            id: "spread_home",
+            type: "SPREAD", side: "HOME", selection: hTeam,
+            line: spread,
+            price: safeJuice(p.spread_juice || odds?.homeSpreadOdds || odds?.spread_best?.home?.price),
+            label: `${hTeam} ${spread > 0 ? '+' : ''}${spread}`
+        });
+
+        // Away Spread (Calculated Inversion)
+        const awaySpread = spread * -1;
+        offers.push({
+            id: "spread_away",
+            type: "SPREAD", side: "AWAY", selection: aTeam,
+            line: awaySpread,
+            price: safeJuice(odds?.awaySpreadOdds || odds?.spread_best?.away?.price),
+            label: `${aTeam} ${awaySpread > 0 ? '+' : ''}${awaySpread}`
+        });
+    }
+
+    // 2. TOTAL OFFERS
+    if (typeof p.current_total === 'number') {
+        offers.push({
+            id: "total_over",
+            type: "TOTAL", side: "OVER", selection: "OVER",
+            line: p.current_total,
+            price: safeJuice(p.total_juice || odds?.overOdds || odds?.total_best?.over?.price),
+            label: `OVER ${p.current_total}`
+        });
+        offers.push({
+            id: "total_under",
+            type: "TOTAL", side: "UNDER", selection: "UNDER",
+            line: p.current_total,
+            price: safeJuice(odds?.underOdds || odds?.total_best?.under?.price),
+            label: `UNDER ${p.current_total}`
+        });
+    }
+
+    // 3. MONEYLINE OFFERS (Always available when ML odds exist)
+    if (p.home_ml || p.away_ml || odds?.homeWin || odds?.awayWin) {
+        offers.push({
+            id: "ml_home", type: "MONEYLINE", side: "HOME", selection: hTeam,
+            line: null,
+            price: safeJuice(p.home_ml || odds?.homeWin || odds?.home_ml),
+            label: `${hTeam} Moneyline`
+        });
+        offers.push({
+            id: "ml_away", type: "MONEYLINE", side: "AWAY", selection: aTeam,
+            line: null,
+            price: safeJuice(p.away_ml || odds?.awayWin || odds?.away_ml),
+            label: `${aTeam} Moneyline`
+        });
+    }
+
+    return offers;
+};
+
+const formatPick = (o: MarketOffer): string => {
+    if (o.type === 'MONEYLINE') return `${o.selection} ML`;
+    if (o.type === 'TOTAL') return `${o.side} ${o.line}`;
+    // Handle PK (spread of 0)
+    if (o.line !== null && Math.abs(o.line) < 0.25) return `${o.selection} PK`;
+    // Handle +/- spread
+    return `${o.selection} ${o.line! > 0 ? '+' : ''}${o.line}`;
 };
 
 // @ts-ignore: Deno is global
@@ -304,56 +385,49 @@ async function processSingleIntel(p: any, supabase: any, requestId: string) {
     const total_juice = p.total_juice || (odds.overOdds ? String(odds.overOdds) : (odds.total_best?.over?.price ? (odds.total_best.over.price > 0 ? '+' + Math.round(odds.total_best.over.price) : String(Math.round(odds.total_best.over.price))) : '-110'));
 
     // -------------------------------------------------------------------------
-    // SYSTEM INSTRUCTION DEFINITION (FIXED)
+    // BUILD MARKET SNAPSHOT (Pre-validated menu)
+    // -------------------------------------------------------------------------
+    const marketOffers = buildMarketSnapshot(p, odds);
+    const marketMenu = marketOffers.map(o => `- ID: "${o.id}" | ${o.label} (Odds: ${o.price})`).join('\n');
+
+    // -------------------------------------------------------------------------
+    // SYSTEM INSTRUCTION (Selection-based)
     // -------------------------------------------------------------------------
     const systemInstruction = `<role>
 You are a senior sports betting analyst with access to Google Search.
-You analyze matchup data and generate structured betting intel cards.
 </role>
 
 <temporal_context>
-For time-sensitive queries, you MUST follow the provided current time when formulating search queries.
 TODAY IS: ${gameDate} (It is currently January 2026, in the 2025-26 ${p.sport === 'football' ? 'NFL' : (p.league || 'Sports')} season)
 Your knowledge cutoff date is January 2025. Use Google Search to get current information.
 </temporal_context>
 
 <constraints>
-1. Trust the VERIFIED MARKET DATA in the user prompt as your baseline
-2. Use Google Search to find current injuries/status, news, and line movements
-3. If search finds MAJOR discrepancies (e.g. key injury/withdrawal we missed), adjust your analysis
-4. Output must be valid JSON - no markdown, no asterisks, no formatting
-5. Every stat must include a NUMBER or PERCENTAGE
+1. You MUST select exactly ONE "selected_offer_id" from the MARKET SNAPSHOT list provided.
+2. The ID must match exactly. Do not invent new IDs.
+3. PREFER SPREAD/TOTAL markets if a clear edge exists.
+4. Use MONEYLINE only if the spread is risky or unavailable.
+5. Trust the verified market data provided in the snapshot.
+6. Use Google Search to find current injuries/status, news, and line movements.
+7. Output must be valid JSON - no markdown, no asterisks, no formatting.
 </constraints>
-
-<search_strategy>
-Search to enhance and validate:
-1. Current injury/availability reports for both ${p.sport === 'tennis' ? 'players' : 'teams'}
-2. Recent performance and betting trends
-3. Line movement and sharp money signals
-Use search to ADD context. The baseline data is already verified.
-</search_strategy>
 
 <output_format>
 See INTEL_OUTPUT_SCHEMA.
-RULES FOR PICK FORMATTING:
-1. ALWAYS prefer SPREAD picks when spread data is available. Do NOT use MONEYLINE.
-2. DO NOT include odds (like -110 or -150) in the "recommended_pick" text.
-3. DO NOT output "Team 0" or "Team -0" - these are invalid formats.
-4. DO NOT output "Team ML" or "Team Moneyline" - always make a spread pick when spread is available.
-5. DO NOT output "Team PK" or "Team Pick'em" - use the actual spread number (even if 0).
-6. FORMAT: "Team Name +/-X.X" for spreads, "OVER/UNDER X.X" for totals.
-7. The recommended_pick MUST contain a valid number (spread value or total line).
 </output_format>`;
 
     const synthesisPrompt = `<context>
 ${p.away_team} @ ${p.home_team} | ${gameDate} | ${leagueDisplay}
-SPREAD: ${p.home_team} ${p.current_spread ?? 'N/A'} (Juice: ${spread_juice})
-TOTAL: ${p.current_total ?? 'N/A'} (Juice: ${total_juice})
-MONEYLINE: ${home_ml} / ${away_ml}
-MODEL FAIR: ${fairLine.toFixed(1)}
+MODEL FAIR LINE: ${fairLine.toFixed(1)}
+MODEL EDGE: ${edge} points
+
+=== MARKET SNAPSHOT (SELECT ONE ID) ===
+${marketMenu || 'NO MARKETS AVAILABLE'}
+=======================================
 </context>
 <task>
-Synthesize analysis and output JSON.
+Analyze the matchup and select the best 'selected_offer_id' from the MARKET SNAPSHOT.
+Output: JSON with selected_offer_id, headline, briefing, cards, logic_group, confidence_tier, pick_summary.
 </task>`;
 
     const { text, sources, thoughts } = await executeAnalyticalQuery(synthesisPrompt, {
@@ -373,30 +447,34 @@ Synthesize analysis and output JSON.
     const intel = safeJsonParse(text);
     if (intel && summary) intel.briefing = summary;
 
-    // DETERMINISTIC NORMALIZATION (Phase 1.2)
-    if (intel && intel.recommended_pick) {
-        let pick = intel.recommended_pick;
-        pick = pick.replace(/\s*\((?:[+-]?\d+(?:\.\d+)?|Ev|even|Eve|[-+]\d{3,}).*?\)/gi, '');
-        pick = pick.replace(/\s*\+0(\.0)?\s*$/i, ' PK');
-        pick = pick.replace(/\s*-0(\.0)?\s*$/i, ' PK');
-        pick = pick.replace(/\s+0\s*$/i, ' PK');
-        pick = pick.replace(/\s*Draw No Bet\s*/i, ' PK');
-        pick = pick.replace(/\s*DNB\s*/i, ' PK');
-        intel.recommended_pick = pick.trim();
+    // -------------------------------------------------------------------------
+    // MARKET SNAPSHOT RESOLUTION: Server-side reconstruction
+    // -------------------------------------------------------------------------
 
-        if (intel.grading_metadata) {
-            const lowerPick = pick.toLowerCase();
-            if (lowerPick.includes('moneyline') || lowerPick.includes(' ml') || lowerPick.match(/ml\s*\(/i)) {
-                intel.grading_metadata.type = 'MONEYLINE';
-            } else if (lowerPick.includes('over') || lowerPick.includes('under')) {
-                intel.grading_metadata.type = 'TOTAL';
-                if (lowerPick.includes('over')) intel.grading_metadata.side = 'OVER';
-                if (lowerPick.includes('under')) intel.grading_metadata.side = 'UNDER';
-            } else if (/[+-]\d/.test(pick) || lowerPick.includes('pk')) {
-                intel.grading_metadata.type = 'SPREAD';
-            }
-        }
-        console.log(`[${requestId}] 🧹 [NORMALIZE] Pick: "${intel.recommended_pick}" | Type: ${intel.grading_metadata?.type}`);
+    // 1. Resolve the Selection
+    let selectedOffer = marketOffers.find(o => o.id === intel?.selected_offer_id);
+
+    // 2. Fallback (If AI hallucinated an ID, default to Model Logic)
+    if (!selectedOffer && marketOffers.length > 0) {
+        console.warn(`[${requestId}] ⚠️ Invalid ID "${intel?.selected_offer_id}". Using Fallback.`);
+        const fallbackId = fairLine < (p.current_spread || 0) ? 'spread_home' : 'spread_away';
+        selectedOffer = marketOffers.find(o => o.id === fallbackId) || marketOffers[0];
+    }
+
+    // 3. Generate Perfect Output Strings (No more "Boston Bruins" or "Fake Zero")
+    if (selectedOffer) {
+        intel.recommended_pick = formatPick(selectedOffer);
+        intel.grading_metadata = {
+            type: selectedOffer.type,
+            side: selectedOffer.side,
+            selection: selectedOffer.selection
+        };
+        console.log(`[${requestId}] 🛡️ [VERIFIED] Pick: "${intel.recommended_pick}" | Type: ${selectedOffer.type} | Price: ${selectedOffer.price}`);
+    } else {
+        // No market offers available - log but continue with empty pick
+        console.warn(`[${requestId}] ⚠️ No market offers available for this game`);
+        intel.recommended_pick = 'NO MARKET DATA';
+        intel.grading_metadata = { type: 'SPREAD', side: 'HOME', selection: p.home_team };
     }
 
     const dossier = {
@@ -410,33 +488,18 @@ Synthesize analysis and output JSON.
         ...intel,
         sources: sources,
         generated_at: new Date().toISOString(),
-        // SPREAD HIERARCHY (in order of authority):
-        // 1. Odds API via current_spread (from pregame-intel-cron: odds_home_spread_safe)
-        // 2. ESPN/Feeds via current_spread (from pregame-intel-cron: current_odds.homeSpread)
-        // 3. AI recommendation text (last resort fallback, grounded to what AI cited)
-        analyzed_spread: (() => {
-            // Priority 1 & 2: current_spread already contains Odds API -> ESPN fallback from cron
-            if (typeof p.current_spread === 'number') return p.current_spread;
 
-            // Priority 3: Extract from AI's recommended_pick (e.g., "Team +5.5 Games")
-            const pickText = intel?.recommended_pick || '';
-            const spreadMatch = pickText.match(/([+-]\d+\.?\d*)/);
-            if (spreadMatch) {
-                const num = parseFloat(spreadMatch[1]);
-                if (!isNaN(num) && Math.abs(num) < 50) return num;
-            }
+        // ACCURATE DATA MAPPING from selected offer
+        analyzed_spread: selectedOffer?.type === 'SPREAD' ? selectedOffer.line : (typeof p.current_spread === 'number' ? p.current_spread : null),
+        analyzed_total: selectedOffer?.type === 'TOTAL' ? selectedOffer.line : p.current_total,
 
-            // Check for Pick'em
-            if (/pk|pick'?em/i.test(pickText)) return 0;
+        // PERFECT JUICE MAPPING - bound to the specific selection
+        spread_juice: selectedOffer?.type === 'SPREAD' ? selectedOffer.price : spread_juice,
+        total_juice: selectedOffer?.type === 'TOTAL' ? selectedOffer.price : total_juice,
+        home_ml: home_ml,
+        away_ml: away_ml,
 
-            return null;
-        })(),
-        analyzed_total: p.current_total,
-        home_ml: home_ml, // Restored
-        away_ml: away_ml, // Restored
-        spread_juice: spread_juice, // Restored
-        total_juice: total_juice, // Restored
-        logic_authority: `${pickTeam} ${fairLine.toFixed(1)} | ${edge}-pt edge`,
+        logic_authority: selectedOffer ? `${selectedOffer.label} (${selectedOffer.price}) | ${edge}-pt edge` : `${pickTeam} ${fairLine.toFixed(1)} | ${edge}-pt edge`,
         kernel_trace: `[ARCHITECT TRACE]\n${thoughts}`
     };
 
