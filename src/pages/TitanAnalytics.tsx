@@ -220,16 +220,20 @@ const leagueDisplayName: Record<string, string> = {
 
 /** Map internal category names to user-friendly display names */
 const categoryDisplayName: Record<string, string> = {
-    'UNCATEGORIZED': 'Moneyline',
-    'PICK_EM': 'Pick\'em',
-    'HOME_FAV': 'Home Favorite',
-    'HOME_DOG': 'Home Dog',
-    'ROAD_FAV': 'Road Favorite',
-    'ROAD_DOG': 'Road Dog',
-    'FAVORITE': 'Favorite',
-    'UNDERDOG': 'Underdog',
-    'OVER': 'Over',
-    'UNDER': 'Under',
+    // Spread bets by location
+    'HOME_FAV': '🏠 Home -Spread',
+    'HOME_DOG': '🏠 Home +Spread',
+    'ROAD_FAV': '✈️ Away -Spread',
+    'ROAD_DOG': '✈️ Away +Spread',
+    // Tennis spread bets
+    'FAVORITE': '🎾 Tennis Fav',
+    'UNDERDOG': '🎾 Tennis Dog',
+    // Other bet types
+    'MONEYLINE': '💰 Moneyline',
+    'PICK_EM': '⚖️ Pick\'em',
+    'UNCATEGORIZED': '💰 Moneyline',
+    'OVER': '📈 Over',
+    'UNDER': '📉 Under',
 };
 
 // ============================================================================
