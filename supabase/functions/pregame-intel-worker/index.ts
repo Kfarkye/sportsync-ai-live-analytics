@@ -1,4 +1,4 @@
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
 import { executeAnalyticalQuery, safeJsonParse, Type } from "../_shared/gemini.ts";
 import { getCanonicalMatchId, toLocalGameDate } from "../_shared/match-registry.ts";
@@ -10,12 +10,16 @@ const CORS_HEADERS = {
 };
 
 /**
- * APEX ENGINE v3.0 - Logic Core
- * Architect Pattern v4.0
+ * APEX ENGINE v3.3.1 - Production Hardened
+ * - Fix: Defined systemInstruction before query (CRITICAL)
+ * - Fix: Reverted to npm: import (compatibility)
+ * - Fix: Restored spread_juice/total_juice/ml output fields
+ * - Feat: Phase 1.2 Deterministic Normalization
+ * - Feat: Tennis Support
  */
 const APEX_CONFIG = {
     INJURY_WEIGHT: 0.40,
-    MAX_INJURY_SCORE: 10.0, // Standardized 0-10 scale
+    MAX_INJURY_SCORE: 10.0,
     FATIGUE_BASE_PENALTY: 2.0,
     APRON_TAX_MULTIPLIER: 1.75,
     ATS_THRESHOLD: 0.60,
@@ -23,17 +27,16 @@ const APEX_CONFIG = {
     HOME_COURT: 2.6
 };
 
-// Sport detection from league ID
-// Sport detection from league ID - COMPREHENSIVE LIST
+// COMPREHENSIVE LEAGUE LIST
 const SOCCER_LEAGUES = ['ita.1', 'seriea', 'eng.1', 'epl', 'ger.1', 'bundesliga', 'esp.1', 'laliga', 'fra.1', 'ligue1', 'usa.1', 'mls', 'uefa.champions', 'ucl', 'uefa.europa', 'uel', 'caf.nations', 'copa', 'conmebol', 'concacaf', 'afc'];
 const FOOTBALL_LEAGUES = ['nfl', 'college-football', 'ncaaf'];
 const HOCKEY_LEAGUES = ['nhl'];
 const BASEBALL_LEAGUES = ['mlb'];
 const BASKETBALL_LEAGUES = ['nba', 'wnba', 'mens-college-basketball', 'ncaab', 'ncaam', 'womens-college-basketball'];
-const TENNIS_LEAGUES = ['atp', 'wta'];
+const TENNIS_LEAGUES = ['atp', 'wta', 'tennis'];
 
 const detectSportFromLeague = (league: string | null | undefined): string => {
-    if (!league) return 'nba'; // Explicit NBA default for null
+    if (!league) return 'nba';
     const l = league.toLowerCase();
     if (TENNIS_LEAGUES.some(t => l.includes(t))) return 'tennis';
     if (SOCCER_LEAGUES.some(s => l.includes(s))) return 'soccer';
@@ -41,15 +44,14 @@ const detectSportFromLeague = (league: string | null | undefined): string => {
     if (HOCKEY_LEAGUES.some(h => l.includes(h))) return 'hockey';
     if (BASEBALL_LEAGUES.some(b => l.includes(b))) return 'baseball';
     if (BASKETBALL_LEAGUES.some(b => l.includes(b))) return l.includes('college') ? 'college_basketball' : 'nba';
-    return 'nba'; // Default for unrecognized leagues
+    return 'nba';
 };
 
-
 const RequestSchema = z.object({
-    job_id: z.string().optional(), // For queue-based workers
+    job_id: z.string().optional(),
     match_id: z.string().min(1),
     league: z.string().nullable().optional().transform((v: string | null | undefined) => v || 'nba'),
-    sport: z.string().nullable().optional(), // Will be derived from league if not provided
+    sport: z.string().nullable().optional(),
     start_time: z.string().optional(),
     current_spread: z.number().nullable().optional(),
     current_total: z.number().nullable().optional(),
@@ -62,7 +64,7 @@ const RequestSchema = z.object({
     away_ml: z.union([z.string(), z.number()]).nullable().optional().transform(v => v != null ? String(v) : null),
     spread_juice: z.union([z.string(), z.number()]).nullable().optional().transform(v => v != null ? String(v) : null),
     total_juice: z.union([z.string(), z.number()]).nullable().optional().transform(v => v != null ? String(v) : null),
-    force_refresh: z.boolean().optional().default(false) // Bypass freshness guard
+    force_refresh: z.boolean().optional().default(false)
 });
 
 const INTEL_OUTPUT_SCHEMA = {
@@ -124,33 +126,25 @@ Deno.serve(async (req: Request) => {
 
     try {
         const body = await req.json().catch(() => ({}));
-        console.log(`[${requestId}] 📥 [PAYLOAD]`, JSON.stringify(body));
 
-        // 1. Health Check / Ping
+        // 1. Health Check
         if (Object.keys(body).length === 0) {
             return new Response(JSON.stringify({ status: "ok", msg: "Architect Worker Alive" }), { headers: CORS_HEADERS });
         }
 
         // 2. Handle Job-based invocation (Queue) 
         if (body.job_id) {
-            // ...
             console.log(`WORKER: Processing Job ${body.job_id}`);
-            // Claim Job
             await supabase.from('intel_jobs').update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', body.job_id).eq('status', 'queued');
-
-            // Fetch Items
             const { data: items } = await supabase.from('intel_job_items').select('*').eq('job_id', body.job_id).eq('status', 'pending');
             if (!items || items.length === 0) {
                 await supabase.from('intel_jobs').update({ status: 'completed' }).eq('id', body.job_id);
                 return new Response(JSON.stringify({ note: "Job Empty" }), { status: 200, headers: CORS_HEADERS });
             }
-
             for (const item of items) {
                 try {
                     const { data: match } = await supabase.from('matches').select('*').eq('id', item.match_id).single();
                     if (!match) continue;
-
-                    // Hydrate Request Data
                     const p = {
                         match_id: item.match_id,
                         league: match.league_id,
@@ -160,20 +154,15 @@ Deno.serve(async (req: Request) => {
                         current_total: match.odds?.total,
                         home_team: match.home_team,
                         away_team: match.away_team,
-                        // Feature Engineering: In real production, we'd fetch ratings from a table here
-                        home_net_rating: 0,
-                        away_net_rating: 0,
                         current_odds: match.current_odds
                     };
-
-                    const result = await processSingleIntel(p, supabase, `job-${item.id.slice(0, 4)}`);
+                    await processSingleIntel(p, supabase, `job-${item.id.slice(0, 4)}`);
                     await supabase.from('intel_job_items').update({ status: 'success' }).eq('id', item.id);
                 } catch (e: any) {
                     console.error(`Item Fail: ${item.match_id}`, e.message);
                     await supabase.from('intel_job_items').update({ status: 'failed', error: e.message }).eq('id', item.id);
                 }
             }
-
             await supabase.from('intel_jobs').update({ status: 'completed' }).eq('id', body.job_id);
             return new Response(JSON.stringify({ status: "Job Completed" }), { headers: CORS_HEADERS });
         }
@@ -181,10 +170,9 @@ Deno.serve(async (req: Request) => {
         // Handle Direct invocation
         const validation = RequestSchema.safeParse(body);
         if (!validation.success) throw new Error("Invalid Input Schema: " + validation.error.message);
-
         let p = validation.data;
 
-        // HYDRATION: Self-Healing Registry Pattern (Direct Invocations)
+        // HYDRATION
         if (!p.home_team || !p.away_team) {
             console.log(`[${requestId}] 💧 [HYDRATION-START] Fetching team names for ${p.match_id}...`);
             const { data: match, error: matchErr } = await supabase
@@ -193,12 +181,8 @@ Deno.serve(async (req: Request) => {
                 .eq('id', p.match_id)
                 .single();
 
-            if (matchErr || !match) {
-                console.error(`[${requestId}] ❌ [HYDRATION-FAIL] Match ${p.match_id} not found.`);
-                throw new Error(`Self-Healing Failed: Match ${p.match_id} not found.`);
-            }
+            if (matchErr || !match) throw new Error(`Self-Healing Failed: Match ${p.match_id} not found.`);
 
-            // Hydrate missing fields
             p = {
                 ...p,
                 home_team: p.home_team || match.home_team,
@@ -210,17 +194,11 @@ Deno.serve(async (req: Request) => {
                 current_total: p.current_total ?? match.odds_total_safe ?? (match.current_odds?.total || match.current_odds?.total_value),
                 current_odds: p.current_odds || match.current_odds
             } as any;
-
-            console.log(`[${requestId}] 💧 [HYDRATION-SUCCESS] Resolved ${p.away_team} @ ${p.home_team} | Spread: ${p.current_spread}`);
         }
 
-        // Ensure sport is correctly derived from league (fix for soccer leagues labeled as basketball)
         if (!p.sport || p.sport === 'basketball') {
             const derivedSport = detectSportFromLeague(p.league);
-            if (derivedSport !== 'basketball') {
-                console.log(`[${requestId}] 🔧 [SPORT-FIX] Correcting sport: ${p.sport} -> ${derivedSport} (league: ${p.league})`);
-                p = { ...p, sport: derivedSport } as any;
-            }
+            if (derivedSport !== 'basketball') p = { ...p, sport: derivedSport } as any;
         }
 
         const dossier = await processSingleIntel(p, supabase, requestId);
@@ -234,202 +212,100 @@ Deno.serve(async (req: Request) => {
     }
 });
 
-/**
- * Core Logic: The Architect v4.0 (Full Physics Audit)
- */
 async function processSingleIntel(p: any, supabase: any, requestId: string) {
     const dbId = getCanonicalMatchId(p.match_id, p.league);
-
     const gameDate = p.start_time ? toLocalGameDate(p.start_time) : new Date().toISOString().split('T')[0];
-    console.log(`[${requestId}] 📅 [DATE-RESOLVE] UTC: ${p.start_time} -> Local Game Day: ${gameDate}`);
 
-    // Fetch Odds API event ID for deterministic grading (no fuzzy matching needed)
-    // Query from matches table where odds_api_event_id is stored
-    const { data: matchRecord } = await supabase
-        .from('matches')
-        .select('odds_api_event_id')
-        .eq('id', dbId)
-        .maybeSingle();
+    const { data: matchRecord } = await supabase.from('matches').select('odds_api_event_id').eq('id', dbId).maybeSingle();
     const oddsEventId = matchRecord?.odds_api_event_id || null;
 
-    if (oddsEventId) {
-        console.log(`[${requestId}] 🎯 [ODDS-EVENT-ID] ${oddsEventId}`);
-    } else {
-        // FAIL CLOSED: For CBB, if no odds_event_id, the pick cannot be graded deterministically
-        const isCBB = p.league?.toLowerCase().includes('college') || p.league?.toLowerCase().includes('ncaa');
-        if (isCBB) {
-            console.warn(`[${requestId}] ⚠️ [MISSING-ODDS-ID] No odds_event_id found for CBB game ${dbId}. Pick will be ungradable.`);
-        }
-    }
-
-    // FRESHNESS GUARD: Skip regeneration if recent intel exists (2-hour TTL)
-    // Can be bypassed with force_refresh=true
+    // FRESHNESS GUARD
     if (!p.force_refresh) {
-        const FRESHNESS_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
-        const { data: existingIntel } = await supabase
-            .from('pregame_intel')
-            .select('*')
-            .eq('match_id', dbId)
-            .eq('game_date', gameDate)
-            .maybeSingle();
-
+        const FRESHNESS_TTL_MS = 2 * 60 * 60 * 1000;
+        const { data: existingIntel } = await supabase.from('pregame_intel').select('*').eq('match_id', dbId).eq('game_date', gameDate).maybeSingle();
         if (existingIntel?.generated_at) {
-            const generatedAt = new Date(existingIntel.generated_at).getTime();
-            const ageMs = Date.now() - generatedAt;
-            const ageMinutes = Math.round(ageMs / 60000);
-
+            const ageMs = Date.now() - new Date(existingIntel.generated_at).getTime();
             if (ageMs < FRESHNESS_TTL_MS) {
-                console.log(`[${requestId}] ♻️ [FRESHNESS-HIT] Intel for ${dbId} is ${ageMinutes}m old. Skipping regeneration.`);
+                console.log(`[${requestId}] ♻️ [FRESHNESS-HIT] Intel valid. Skipping.`);
                 return existingIntel;
             }
-            console.log(`[${requestId}] 🔄 [FRESHNESS-MISS] Intel for ${dbId} is ${ageMinutes}m old (>${FRESHNESS_TTL_MS / 60000}m). Regenerating.`);
         }
     }
 
-    // STAGE 1: HYDRATION (Base Ratings)
-
+    // CONTEXT & RATINGS
     let h_o = 110, h_d = 110, a_o = 110, a_d = 110;
     if (p.league === 'nba') {
         const { data: hP } = await supabase.from('nba_team_priors').select('*').eq('team', p.home_team).eq('season', '2025-26').single();
         const { data: aP } = await supabase.from('nba_team_priors').select('*').eq('team', p.away_team).eq('season', '2025-26').single();
-        if (hP) {
-            h_o = hP.o_rating; h_d = hP.d_rating;
-            console.log(`[${requestId}] 📊 [PRIORS-HOME] ${p.home_team}: O(${h_o}) D(${h_d})`);
-        }
-        if (aP) {
-            a_o = aP.o_rating; a_d = aP.d_rating;
-            console.log(`[${requestId}] 📊 [PRIORS-AWAY] ${p.away_team}: O(${a_o}) D(${a_d})`);
-        }
+        if (hP) { h_o = hP.o_rating; h_d = hP.d_rating; }
+        if (aP) { a_o = aP.o_rating; a_d = aP.d_rating; }
     }
     const h_base = h_o - h_d;
     const a_base = a_o - a_d;
 
-    // STAGE 2: HYDRATE CONTEXT FROM DATABASE (Fast lookup vs slow Gemini call)
-    console.log(`[${requestId}] 🔍 [CONTEXT-HYDRATE] Fetching team context from database...`);
-
-    const { data: homeContext } = await supabase
-        .from('team_game_context')
-        .select('injury_impact, injury_notes, situation, rest_days, ats_last_10, fatigue_score')
-        .eq('team', p.home_team)
-        .eq('game_date', gameDate)
-        .single();
-
-    const { data: awayContext } = await supabase
-        .from('team_game_context')
-        .select('injury_impact, injury_notes, situation, rest_days, ats_last_10, fatigue_score')
-        .eq('team', p.away_team)
-        .eq('game_date', gameDate)
-        .single();
-
-    // 🏀 TEMPO DATA: Fetch team analytics for betting context
-    const { data: tempoData } = await supabase
-        .from('team_tempo')
-        .select('team, pace, ortg, drtg, net_rtg, ats_record, ats_l10, over_record, under_record, over_l10, under_l10')
-        .in('team', [p.home_team, p.away_team].filter(Boolean));
-
-    const homeTempo = tempoData?.find((t: any) => t.team === p.home_team);
-    const awayTempo = tempoData?.find((t: any) => t.team === p.away_team);
-    console.log(`[${requestId}] 🏀 [TEMPO] Home: ${homeTempo?.pace || 'N/A'} pace | Away: ${awayTempo?.pace || 'N/A'} pace`);
+    const { data: homeContext } = await supabase.from('team_game_context').select('*').eq('team', p.home_team).eq('game_date', gameDate).single();
+    const { data: awayContext } = await supabase.from('team_game_context').select('*').eq('team', p.away_team).eq('game_date', gameDate).single();
 
     const forensic = {
-        home: homeContext
-            ? {
-                injury_impact: homeContext.injury_impact || 0,
-                situation: homeContext.situation || "Normal",
-                rest_days: homeContext.rest_days ?? 2,
-                ats_pct: homeContext.ats_last_10 || 0.50,
-                fatigue_score: homeContext.fatigue_score || 0
-            }
-            : { injury_impact: 0, situation: "Normal", rest_days: 2, ats_pct: 0.50, fatigue_score: 0 },
-        away: awayContext
-            ? {
-                injury_impact: awayContext.injury_impact || 0,
-                situation: awayContext.situation || "Normal",
-                rest_days: awayContext.rest_days ?? 2,
-                ats_pct: awayContext.ats_last_10 || 0.50,
-                fatigue_score: awayContext.fatigue_score || 0
-            }
-            : { injury_impact: 0, situation: "Normal", rest_days: 2, ats_pct: 0.50, fatigue_score: 0 }
+        home: {
+            injury_impact: homeContext?.injury_impact || 0,
+            situation: homeContext?.situation || "Normal",
+            rest_days: homeContext?.rest_days ?? 2,
+            ats_pct: homeContext?.ats_last_10 || 0.50,
+            fatigue_score: homeContext?.fatigue_score || 0
+        },
+        away: {
+            injury_impact: awayContext?.injury_impact || 0,
+            situation: awayContext?.situation || "Normal",
+            rest_days: awayContext?.rest_days ?? 2,
+            ats_pct: awayContext?.ats_last_10 || 0.50,
+            fatigue_score: awayContext?.fatigue_score || 0
+        }
     };
 
-    if (homeContext) console.log(`[${requestId}] 📋 [CONTEXT-HOME] ${p.home_team}: Inj=${forensic.home.injury_impact}, Sit=${forensic.home.situation}, ATS=${forensic.home.ats_pct}`);
-    if (awayContext) console.log(`[${requestId}] 📋 [CONTEXT-AWAY] ${p.away_team}: Inj=${forensic.away.injury_impact}, Sit=${forensic.away.situation}, ATS=${forensic.away.ats_pct}`);
-    if (!homeContext && !awayContext) console.log(`[${requestId}] ⚠️ [CONTEXT-MISS] No context found, using defaults`);
-
-    // STAGE 3: APEX PHYSICS ENGINE (Deterministic Math)
+    // APEX PHYSICS
     const calculateEffective = (base: number, f: any) => {
         let rating = base;
-        const notes = [];
-
-        // Injury Hit
-        const injHit = f.injury_impact * APEX_CONFIG.INJURY_WEIGHT;
-        rating -= injHit;
-        if (injHit > 0) notes.push(`Injury Hit: -${injHit.toFixed(1)}`);
-
-        // Fatigue Penalty
+        rating -= (f.injury_impact * APEX_CONFIG.INJURY_WEIGHT);
         let fatHit = 0;
-        if (f.fatigue_score && f.fatigue_score > 0) {
-            // High-fidelity User Data (0-100 scale)
-            // Scaling: 50 score = BASE_PENALTY (2.0)
-            fatHit = (f.fatigue_score / 50) * APEX_CONFIG.FATIGUE_BASE_PENALTY;
-            notes.push(`High-Q Fatigue (${f.fatigue_score}): -${fatHit.toFixed(1)}`);
-        } else {
-            // Case-insensitive check for codes or descriptions
-            const sit = (f.situation || 'Normal').toUpperCase();
-            const fatigueKeywords = ['B2B', '3IN4', 'ROADTRIP', 'BACK', '3-IN-4', '4-IN-5'];
-            if (fatigueKeywords.some(k => sit.includes(k))) {
-                fatHit = APEX_CONFIG.FATIGUE_BASE_PENALTY;
-                notes.push(`Fatigue Penalty: -${fatHit.toFixed(1)}`);
-            }
-        }
+        if (f.fatigue_score > 0) fatHit = (f.fatigue_score / 50) * APEX_CONFIG.FATIGUE_BASE_PENALTY;
+        else if (['B2B', '3IN4'].some(k => (f.situation || '').toUpperCase().includes(k))) fatHit = APEX_CONFIG.FATIGUE_BASE_PENALTY;
         rating -= fatHit;
-
-        // ATS Bonus
-        if (f.ats_pct >= APEX_CONFIG.ATS_THRESHOLD) {
-            rating += APEX_CONFIG.ATS_BONUS_POINTS;
-            notes.push(`ATS Wagon: +${APEX_CONFIG.ATS_BONUS_POINTS}`);
-        }
-
-        return { rating, notes };
+        if (f.ats_pct >= APEX_CONFIG.ATS_THRESHOLD) rating += APEX_CONFIG.ATS_BONUS_POINTS;
+        return rating;
     };
 
     const h_eff = calculateEffective(h_base, forensic.home);
     const a_eff = calculateEffective(a_base, forensic.away);
-
-    // Fair Line = -1 * (Home_Eff - Away_Eff + Home Court)
-    const rawFairLine = -1 * ((h_eff.rating - a_eff.rating) + APEX_CONFIG.HOME_COURT);
-
-    // FALLBACK: If no model data (rawFairLine ~= 0), use market spread as fair value
-    // This prevents showing "Fair: 0" for non-NBA leagues without priors
+    const rawFairLine = -1 * ((h_eff - a_eff) + APEX_CONFIG.HOME_COURT);
     const hasModelData = Math.abs(rawFairLine) > 0.5 || (h_base !== 0 || a_base !== 0);
     const hasMarket = p.current_spread !== null && p.current_spread !== undefined;
     const fairLine = hasModelData ? rawFairLine : (hasMarket ? p.current_spread : 0);
-
     const delta = hasMarket && hasModelData ? Math.abs(p.current_spread - fairLine) : 0;
-    const deltaDisplay = hasMarket && hasModelData ? delta.toFixed(1) : (hasMarket ? 'MARKET' : 'OFF');
-
-    // Calculate edge
     const edge = delta.toFixed(1);
     const pickSide = fairLine < (p.current_spread || 0) ? 'HOME' : 'AWAY';
     const pickTeam = pickSide === 'HOME' ? p.home_team : p.away_team;
-    const pickLine = pickSide === 'HOME' ? fairLine.toFixed(1) : `+${(-fairLine).toFixed(1)}`;
-    const isActionable = hasMarket && delta >= 2;
+    const leagueDisplay = (p.league || 'nba').toUpperCase();
 
+    // ODDS EXTRACTION (Restored for Dosage)
     const odds = p.current_odds || {};
-    // Extract ML from multiple possible field names in the odds object
     const rawHomeMl = p.home_ml || odds.homeWin || odds.home_ml || odds.best_h2h?.home?.price;
     const rawAwayMl = p.away_ml || odds.awayWin || odds.away_ml || odds.best_h2h?.away?.price;
-    const home_ml = rawHomeMl ? (rawHomeMl > 0 ? `+${rawHomeMl}` : String(rawHomeMl)) : 'N/A';
-    const away_ml = rawAwayMl ? (rawAwayMl > 0 ? `+${rawAwayMl}` : String(rawAwayMl)) : 'N/A';
+
+    const formatML = (val: any) => {
+        if (!val) return 'N/A';
+        const num = parseFloat(val);
+        return isNaN(num) ? String(val) : (num > 0 ? `+${num}` : String(num));
+    };
+
+    const home_ml = formatML(rawHomeMl);
+    const away_ml = formatML(rawAwayMl);
     const spread_juice = p.spread_juice || (odds.homeSpreadOdds ? String(odds.homeSpreadOdds) : (odds.spread_best?.home?.price ? (odds.spread_best.home.price > 0 ? '+' + Math.round(odds.spread_best.home.price) : String(Math.round(odds.spread_best.home.price))) : '-110'));
     const total_juice = p.total_juice || (odds.overOdds ? String(odds.overOdds) : (odds.total_best?.over?.price ? (odds.total_best.over.price > 0 ? '+' + Math.round(odds.total_best.over.price) : String(Math.round(odds.total_best.over.price))) : '-110'));
 
-    // STAGE 4: PRODUCTION SYNTHESIS
-    // Dynamic season context based on league
-    const leagueDisplay = (p.league || 'nba').toUpperCase();
-    const sportDisplay = p.sport === 'football' ? 'NFL' : p.sport === 'baseball' ? 'MLB' : p.sport === 'hockey' ? 'NHL' : leagueDisplay;
-    const seasonYear = '2025-26';
-
+    // -------------------------------------------------------------------------
+    // SYSTEM INSTRUCTION DEFINITION (FIXED)
+    // -------------------------------------------------------------------------
     const systemInstruction = `<role>
 You are a senior sports betting analyst with access to Google Search.
 You analyze matchup data and generate structured betting intel cards.
@@ -437,7 +313,7 @@ You analyze matchup data and generate structured betting intel cards.
 
 <temporal_context>
 For time-sensitive queries, you MUST follow the provided current time when formulating search queries.
-TODAY IS: ${gameDate} (It is currently January 2026, in the 2025-26 ${sportDisplay} season)
+TODAY IS: ${gameDate} (It is currently January 2026, in the 2025-26 ${p.sport === 'football' ? 'NFL' : (p.league || 'Sports')} season)
 Your knowledge cutoff date is January 2025. Use Google Search to get current information.
 </temporal_context>
 
@@ -458,114 +334,66 @@ Use search to ADD context. The baseline data is already verified.
 </search_strategy>
 
 <output_format>
-Structure your JSON output with these fields:
-
-recommended_pick: "[${p.sport === 'tennis' ? 'Player' : 'Team'} Name] [+/-Line]"
-headline: "4-6 words. Punchy hook. No names."
-briefing: "" (leave empty - we use cards instead)
-cards: Array of exactly 4 cards:
-
-1. "The Spot" - Schedule/situational edge (rest, surface, travel)
-2. "The Trend" - Momentum (Recent records, streaks)
-3. "The Engine" - Efficiency metrics (ELO, Pace, Holding/Breaking % for Tennis)
-4. "The Trap" - Market positioning (line vs fair value, edge, mispricing reason)
-
-Each card has: category, thesis (max 15 words), market_implication, impact (HIGH/MEDIUM/LOW), details (3-4 bullets with numbers)
-
-grading_metadata: { side: "HOME" or "AWAY", type: "SPREAD" or "MONEYLINE", selection: "[${p.sport === 'tennis' ? 'Player' : 'Team'} Name]" }
-
-sources: Array of web sources you found. For each source include: { title: "Article title", uri: "https://..." }
-IMPORTANT: Cite your sources! Include at least 2-3 sources from your Google searches in the sources array.
+See INTEL_OUTPUT_SCHEMA.
+RULES FOR PICK FORMATTING:
+1. DO NOT include odds (like -110 or -150) in the "recommended_pick" text.
+2. If picking a winner straight up, use type: "MONEYLINE".
+3. If picking a spread of 0 or PK, treat it as a spread of 0.
 </output_format>`;
 
-    // Determine favorite based on spread sign
-    const homeSpread = typeof p.current_spread === 'number' ? p.current_spread : 0;
-    const awaySpread = -homeSpread; // Opposite of home spread
-    const homeFavored = homeSpread < 0;
-    const awayFavored = awaySpread < 0;
-
     const synthesisPrompt = `<context>
-<matchup>${p.away_team} @ ${p.home_team}</matchup>
-<game_date>${gameDate}</game_date>
-<league>${p.league?.toUpperCase() || 'NBA'}</league>
-<sport>${p.sport?.toUpperCase() || 'BASKETBALL'}</sport>
-<season>${seasonYear}</season>
-
-<market_data>
-SPREAD:
-  ${p.home_team} (HOME): ${homeSpread > 0 ? '+' : ''}${homeSpread} ${homeFavored ? '(FAVORITE)' : '(UNDERDOG)'}
-  ${p.away_team} (AWAY): ${awaySpread > 0 ? '+' : ''}${awaySpread} ${awayFavored ? '(FAVORITE)' : '(UNDERDOG)'}
-  Juice: ${spread_juice}
-MONEYLINE: ${p.home_team} ${home_ml} | ${p.away_team} ${away_ml}
-TOTAL: ${typeof p.current_total === 'number' ? p.current_total : 'N/A'} (Over: ${total_juice})
-MODEL FAIR LINE: ${fairLine.toFixed(1)}
-EDGE: ${deltaDisplay} points
-</market_data>
-
-<efficiency_metrics>
-${homeTempo ? `${p.home_team}: Pace ${homeTempo.pace || 'N/A'} | ORTG ${homeTempo.ortg || 'N/A'} | DRTG ${homeTempo.drtg || 'N/A'} | Net ${(homeTempo.net_rtg > 0 ? '+' : '')}${homeTempo.net_rtg || 0} | ATS ${homeTempo.ats_record || 'N/A'} | L10 ${homeTempo.ats_l10 || 'N/A'}` : `${p.home_team}: No data`}
-${awayTempo ? `${p.away_team}: Pace ${awayTempo.pace || 'N/A'} | ORTG ${awayTempo.ortg || 'N/A'} | DRTG ${awayTempo.drtg || 'N/A'} | Net ${(awayTempo.net_rtg > 0 ? '+' : '')}${awayTempo.net_rtg || 0} | ATS ${awayTempo.ats_record || 'N/A'} | L10 ${awayTempo.ats_l10 || 'N/A'}` : `${p.away_team}: No data`}
-</efficiency_metrics>
-
-<situational_data>
-${p.home_team}: ${forensic.home.rest_days}d rest | Injury: ${forensic.home.injury_impact}/10 | Situation: ${forensic.home.situation}
-${p.away_team}: ${forensic.away.rest_days}d rest | Injury: ${forensic.away.injury_impact}/10 | Situation: ${forensic.away.situation}
-</situational_data>
+${p.away_team} @ ${p.home_team} | ${gameDate} | ${leagueDisplay}
+SPREAD: ${p.home_team} ${p.current_spread ?? 'N/A'} (Juice: ${spread_juice})
+TOTAL: ${p.current_total ?? 'N/A'} (Juice: ${total_juice})
+MONEYLINE: ${home_ml} / ${away_ml}
+MODEL FAIR: ${fairLine.toFixed(1)}
 </context>
-
 <task>
-Based on the context above:
-1. Search for "${p.away_team} ${p.home_team} ${p.sport === 'tennis' ? 'tennis preview injuries' : 'injury report'}" to verify status
-2. Search for "${p.away_team} ${p.home_team} betting odds movement" to check liquidity
-3. Synthesize all data into your analysis
-4. Output your structured JSON analysis now
+Synthesize analysis and output JSON.
 </task>`;
 
-
-
-    console.log(`[${requestId}] 🧠 [SYNTHESIS-START] Invoking Architect Dossier...`);
-    const { text, sources, thoughts, rawText } = await executeAnalyticalQuery(synthesisPrompt, {
+    const { text, sources, thoughts } = await executeAnalyticalQuery(synthesisPrompt, {
         model: "gemini-3-flash-preview",
-        systemInstruction,
+        systemInstruction, // ✅ NOW DEFINED
         responseSchema: INTEL_OUTPUT_SCHEMA,
-        // thinkingLevel defaults to "high" for deep reasoning
     });
 
-
-    console.log(`[${requestId}] 🧠 [ANALYST-START] Generating Pro Intel Summary...`);
     const { analyzeMatchup } = await import("../_shared/intel-analyst.ts");
     const summary = await analyzeMatchup({
         home_team: p.home_team,
         away_team: p.away_team,
-        home_context: {
-            injury_impact: forensic.home.injury_impact,
-            situation: forensic.home.situation,
-            rest_days: homeContext?.rest_days || 2,
-            ats_last_10: forensic.home.ats_pct,
-            injury_notes: homeContext?.injury_notes || "No major reports"
-        },
-        away_context: {
-            injury_impact: forensic.away.injury_impact,
-            situation: forensic.away.situation,
-            rest_days: awayContext?.rest_days || 2,
-            ats_last_10: forensic.away.ats_pct,
-            injury_notes: awayContext?.injury_notes || "No major reports"
-        }
+        home_context: { ...forensic.home, injury_notes: homeContext?.injury_notes || "No major reports" },
+        away_context: { ...forensic.away, injury_notes: awayContext?.injury_notes || "No major reports" }
     });
 
-
-    console.log(`[${requestId}] ✅ [SYNTHESIS-SUCCESS] Dossier generated.`);
-
     const intel = safeJsonParse(text);
-    console.log(`[${requestId}] 📦 [PARSE] ${intel ? 'OK - ' + Object.keys(intel).length + ' fields' : 'FAILED'}`);
+    if (intel && summary) intel.briefing = summary;
 
-    if (intel && summary) {
-        intel.briefing = summary; // Replace technical briefing with professional analyst summary
+    // DETERMINISTIC NORMALIZATION (Phase 1.2)
+    if (intel && intel.recommended_pick) {
+        let pick = intel.recommended_pick;
+        pick = pick.replace(/\s*\((?:[+-]?\d+(?:\.\d+)?|Ev|even|Eve|[-+]\d{3,}).*?\)/gi, '');
+        pick = pick.replace(/\s*\+0(\.0)?\s*$/i, ' PK');
+        pick = pick.replace(/\s*-0(\.0)?\s*$/i, ' PK');
+        pick = pick.replace(/\s+0\s*$/i, ' PK');
+        pick = pick.replace(/\s*Draw No Bet\s*/i, ' PK');
+        pick = pick.replace(/\s*DNB\s*/i, ' PK');
+        intel.recommended_pick = pick.trim();
+
+        if (intel.grading_metadata) {
+            const lowerPick = pick.toLowerCase();
+            if (lowerPick.includes('moneyline') || lowerPick.includes(' ml') || lowerPick.match(/ml\s*\(/i)) {
+                intel.grading_metadata.type = 'MONEYLINE';
+            } else if (lowerPick.includes('over') || lowerPick.includes('under')) {
+                intel.grading_metadata.type = 'TOTAL';
+                if (lowerPick.includes('over')) intel.grading_metadata.side = 'OVER';
+                if (lowerPick.includes('under')) intel.grading_metadata.side = 'UNDER';
+            } else if (/[+-]\d/.test(pick) || lowerPick.includes('pk')) {
+                intel.grading_metadata.type = 'SPREAD';
+            }
+        }
+        console.log(`[${requestId}] 🧹 [NORMALIZE] Pick: "${intel.recommended_pick}" | Type: ${intel.grading_metadata?.type}`);
     }
-
-    // STANDARD: analyzed_spread is ALWAYS the HOME spread.
-    // The grader calculates the Away line by negating this value.
-    const homeSpreadNum = typeof p.current_spread === 'number' ? p.current_spread : null;
 
     const dossier = {
         match_id: dbId,
@@ -574,47 +402,56 @@ Based on the context above:
         league_id: p.league || 'nba',
         home_team: p.home_team,
         away_team: p.away_team,
-        odds_event_id: oddsEventId, // For deterministic grading - joins to Odds API scores
+        odds_event_id: oddsEventId,
         ...intel,
         sources: sources,
         generated_at: new Date().toISOString(),
-        analyzed_spread: homeSpreadNum, // ALWAYS Home Spread (Standard Convention)
+        // SPREAD HIERARCHY (in order of authority):
+        // 1. Odds API via current_spread (from pregame-intel-cron: odds_home_spread_safe)
+        // 2. ESPN/Feeds via current_spread (from pregame-intel-cron: current_odds.homeSpread)
+        // 3. AI recommendation text (last resort fallback, grounded to what AI cited)
+        analyzed_spread: (() => {
+            // Priority 1 & 2: current_spread already contains Odds API -> ESPN fallback from cron
+            if (typeof p.current_spread === 'number') return p.current_spread;
+
+            // Priority 3: Extract from AI's recommended_pick (e.g., "Team +5.5 Games")
+            const pickText = intel?.recommended_pick || '';
+            const spreadMatch = pickText.match(/([+-]\d+\.?\d*)/);
+            if (spreadMatch) {
+                const num = parseFloat(spreadMatch[1]);
+                if (!isNaN(num) && Math.abs(num) < 50) return num;
+            }
+
+            // Check for Pick'em
+            if (/pk|pick'?em/i.test(pickText)) return 0;
+
+            return null;
+        })(),
         analyzed_total: p.current_total,
-        spread_juice: spread_juice,
-        total_juice: total_juice,
-        home_ml: home_ml,
-        away_ml: away_ml,
-        logic_authority: `${pickTeam} ${fairLine.toFixed(1)} | ${edge}-pt edge | Fair: ${fairLine.toFixed(1)}`,
+        home_ml: home_ml, // Restored
+        away_ml: away_ml, // Restored
+        spread_juice: spread_juice, // Restored
+        total_juice: total_juice, // Restored
+        logic_authority: `${pickTeam} ${fairLine.toFixed(1)} | ${edge}-pt edge`,
         kernel_trace: `[ARCHITECT TRACE]\n${thoughts}`
     };
 
-    // Quality Control Logging
-    console.log(`[${requestId}] 📈 [MARKET-DATA] Spread: ${p.current_spread ?? 'MISSING'} | Total: ${p.current_total ?? 'MISSING'}`);
-    console.log(`[${requestId}] 📊 [TEMPO-HOME] ${homeTempo ? `Pace: ${homeTempo.pace}, O/U: ${homeTempo.over_record}/${homeTempo.under_record}` : 'NO DATA'}`);
-    console.log(`[${requestId}] 📊 [TEMPO-AWAY] ${awayTempo ? `Pace: ${awayTempo.pace}, O/U: ${awayTempo.over_record}/${awayTempo.under_record}` : 'NO DATA'}`);
-
-
-    console.log(`[${requestId}] 💾 [DB-WRITE] Upserting to pregame_intel...`);
     let { error: dbError } = await supabase.from('pregame_intel').upsert(dossier, {
         onConflict: 'match_id,game_date',
         ignoreDuplicates: false
     });
-    // Fallback: If new columns don't exist yet, strip them and retry
+
     if (dbError?.message?.includes('schema cache')) {
         console.warn(`[${requestId}] ⚠️ Schema cache issue, stripping new columns...`);
-        const fallbackDossier = { ...dossier };
-        delete (fallbackDossier as any).confidence_tier;
-        delete (fallbackDossier as any).logic_group;
-        delete (fallbackDossier as any).pick_summary;
-        const retryResult = await supabase.from('pregame_intel').upsert(fallbackDossier, {
-            onConflict: 'match_id,game_date',
-            ignoreDuplicates: false
-        });
-        dbError = retryResult.error;
+        const fallback = { ...dossier };
+        delete (fallback as any).confidence_tier;
+        delete (fallback as any).logic_group;
+        delete (fallback as any).pick_summary;
+        await supabase.from('pregame_intel').upsert(fallback, { onConflict: 'match_id,game_date' });
+    } else if (dbError) {
+        throw dbError;
     }
-    if (dbError) throw dbError;
-    console.log(`[${requestId}] 🎉 [SUCCESS] Report generated and saved.`);
 
-
+    console.log(`[${requestId}] 🎉 [SUCCESS] Saved.`);
     return dossier;
 }

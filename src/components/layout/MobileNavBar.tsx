@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Home, Zap, Bot } from 'lucide-react';
+import { Home, Zap, Bot, BarChart3 } from 'lucide-react';
 import { useAppStore, ViewType } from '../../store/appStore';
 import { ESSENCE } from '../../lib/essence';
 import { clsx, type ClassValue } from 'clsx';
@@ -31,6 +31,7 @@ export const MobileNavBar = () => {
     const TABS = [
         { id: 'FEED', label: 'Home', icon: Home },
         { id: 'LIVE', label: 'Live', icon: Zap },
+        { id: 'TITAN', label: 'Titan', icon: BarChart3 },
     ];
 
     return (

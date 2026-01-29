@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware';
 import { Sport, Match } from '../types';
 import { getInitialSportContext, getInitialDateContext } from '../utils/matchUtils';
 
-export type ViewType = 'FEED' | 'LIVE' | 'NBA';
+export type ViewType = 'FEED' | 'LIVE' | 'NBA' | 'TITAN';
 export type LiveTabType = 'LIVE' | 'NEXT' | 'ENDED';
 export type LiveLayoutType = 'LIST' | 'GRID';
 

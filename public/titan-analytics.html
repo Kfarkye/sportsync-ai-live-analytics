@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TITAN</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --bg: #050505;
+      --card: #0A0A0A;
+      --border: #222;
+      --text: #EDEDED;
+      --muted: #666;
+      --green: #10B981;
+      --red: #EF4444;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+      padding: 40px;
+    }
+
+    /* Grid System */
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .cell {
+      background: var(--card);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100px;
+    }
+
+    /* Typography */
+    .lbl {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: auto;
+    }
+
+    .val {
+      font-size: 24px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Data Colors */
+    .pos {
+      color: var(--green);
+    }
+
+    .neg {
+      color: var(--red);
+    }
+
+    /* Tables */
+    .table {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--card);
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .row:last-child {
+      border-bottom: none;
+    }
+
+    .row-key {
+      font-weight: 500;
+      font-size: 12px;
+    }
+
+    .row-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      display: flex;
+      gap: 16px;
+      min-width: 140px;
+      justify-content: flex-end;
+    }
+
+    /* Charts */
+    .chart {
+      height: 60px;
+      width: 100%;
+      opacity: 0.8;
+      margin-top: 12px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .status {
+      font-family: 'JetBrains Mono';
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* Section Headers */
+    .sec-head {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+      padding-left: 2px;
+    }
+
+    /* Utilities */
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="app"></div>
+
+  <script>
+    const CLIENT = supabase.createClient(
+      'https://qffzvrnbzabcokqqrwbv.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZnp2cm5iemFiY29rcXFyd2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTc2NjgsImV4cCI6MjA3MDkzMzY2OH0.PCSnC5E7sG7FvasHy_9DdwiN61xW0GzFROLzZ0bTVnc'
+    );
+
+    const fmt = {
+      usd: n => `${n > 0 ? '+' : ''}${parseFloat(n).toFixed(2)}u`,
+      pct: n => `${parseFloat(n).toFixed(1)}%`,
+      int: n => parseInt(n).toLocaleString(),
+    };
+
+    const cls = n => n > 0 ? 'pos' : 'neg';
+
+    function render(data) {
+      const s = data.summary || {};
+      const ud = s.underdogs || {};
+      const fav = s.favorites || {};
+
+      const d_trend = (data.trends || []).map(t => t.cumulativeDog);
+      const f_trend = (data.trends || []).map(t => t.cumulativeFav);
+
+      document.getElementById('app').innerHTML = `
+         <header>
+           <h1>TITAN V3</h1>
+           <div class="status mono">LIVE // ${new Date().toISOString().split('T')[1].split('.')[0]}</div>
+         </header>
+
+         <!-- PERFORMANCE KPI GRID -->
+         <div class="sec-head">Performance Summary</div>
+         <div class="grid-4">
+           <div class="cell">
+             <div class="lbl">TOTAL VOL</div>
+             <div class="val">${fmt.int(s.meta?.totalVolume || 0)}</div>
+             <div class="sub">GRADED</div>
+           </div>
+           
+           <div class="cell">
+             <div class="lbl">DOG NET</div>
+             <div class="val ${cls(ud.units)}">${fmt.usd(ud.units)}</div>
+             <div class="sub">${ud.record}</div>
+           </div>
+           
+           <div class="cell">
+             <div class="lbl">FAV NET</div>
+             <div class="val ${cls(fav.units)}">${fmt.usd(fav.units)}</div>
+             <div class="sub">${fav.record}</div>
+           </div>
+           
+           <div class="cell">
+             <div class="lbl">ROI</div>
+             <div class="val text-muted" style="color:#888">--</div>
+             <div class="sub">--</div>
+           </div>
+         </div>
+
+         <!-- TREND GRID -->
+         <div class="sec-head">Trends</div>
+         <div class="grid-2">
+           <div class="table">
+              <div style="padding: 16px; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-end;">
+                 <div>
+                   <div class="lbl">DOG TREND</div>
+                   <div class="val ${cls(d_trend[d_trend.length - 1])}">${fmt.usd(d_trend[d_trend.length - 1])}</div>
+                 </div>
+                 <div class="chart">${sparkline(d_trend, '#10B981')}</div>
+              </div>
+           </div>
+           
+           <div class="table">
+              <div style="padding: 16px; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-end;">
+                 <div>
+                   <div class="lbl">FAV TREND</div>
+                   <div class="val ${cls(f_trend[f_trend.length - 1])}">${fmt.usd(f_trend[f_trend.length - 1])}</div>
+                 </div>
+                 <div class="chart">${sparkline(f_trend, '#3B82F6')}</div>
+              </div>
+           </div>
+         </div>
+
+         <!-- SPLITS -->
+         <div class="sec-head">Data Splits</div>
+         <div class="grid-2">
+            <!-- CATEGORIES -->
+            <div class="table">
+               <div style="padding: 12px 16px; background: #111; border-bottom: 1px solid var(--border);">
+                 <span class="lbl">Category</span>
+               </div>
+               ${(data.heatmap || []).map(h => `
+                 <div class="row">
+                   <span class="row-key">${h.category}</span>
+                   <div class="row-val">
+                      <span>${fmt.pct(h.winRate)}</span>
+                      <span class="${cls(h.units)}">${fmt.usd(h.units)}</span>
+                   </div>
+                 </div>
+               `).join('')}
+            </div>
+            
+            <!-- LEAGUES -->
+            <div class="table">
+               <div style="padding: 12px 16px; background: #111; border-bottom: 1px solid var(--border);">
+                 <span class="lbl">League (Dog / Fav)</span>
+               </div>
+               ${(data.leagues || []).slice(0, 8).map(l => `
+                 <div class="row">
+                   <span class="row-key">${l.league.toUpperCase().replace(/-/g, ' ')}</span>
+                   <div class="row-val">
+                      <span class="${cls(l.underdog.units)}">${fmt.usd(l.underdog.units)}</span>
+                      <span style="color:#333">|</span>
+                      <span class="${cls(l.favorite.units)}">${fmt.usd(l.favorite.units)}</span>
+                   </div>
+                 </div>
+               `).join('')}
+            </div>
+         </div>
+
+         <!-- SPREAD BUCKETS -->
+         <div class="sec-head">Spread Analysis</div>
+         <div class="grid-4" style="background:transparent; border:none; gap: 12px;">
+            ${(data.buckets || []).map(b => `
+               <div class="table">
+                  <div style="padding:12px; border-bottom:1px solid var(--border); font-size:11px; font-weight:600; color:#888;">${b.bucket.toUpperCase()}</div>
+                  <div style="padding:12px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:12px;">
+                       <span>Dog</span>
+                       <span class="${cls(b.underdog.units)} mono">${fmt.usd(b.underdog.units)}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px;">
+                       <span>Fav</span>
+                       <span class="${cls(b.favorite.units)} mono">${fmt.usd(b.favorite.units)}</span>
+                    </div>
+                  </div>
+               </div>
+            `).join('')}
+         </div>
+       `;
+    }
+
+    function sparkline(data, color) {
+      if (!data.length) return '';
+      const min = Math.min(...data), max = Math.max(...data), r = max - min || 1;
+      const pts = data.map((d, i) => {
+        const x = (i / (data.length - 1)) * 100;
+        const y = 100 - ((d - min) / r) * 100;
+        return `${x},${y}`;
+      }).join(' ');
+
+      return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:100%"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" /></svg>`;
+    }
+
+    async function tick() {
+      const { data } = await CLIENT.from('vw_titan_api_gateway').select('payload').single();
+      if (data) render(data.payload);
+    }
+
+    tick();
+    setInterval(tick, 30000);
+  </script>
+</body>
+
+</html>

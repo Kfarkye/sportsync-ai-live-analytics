@@ -17,6 +17,7 @@ const AuthModal = lazy(() => import('../modals/AuthModal'));
 const PricingModal = lazy(() => import('../modals/PricingModal'));
 const MobileSportDrawer = lazy(() => import('./MobileSportDrawer'));
 const RankingsDrawer = lazy(() => import('../modals/RankingsDrawer'));
+const TitanAnalytics = lazy(() => import('../../pages/TitanAnalytics'));
 
 const MotionMain = motion.main as any;
 const MotionDiv = motion.div as any;
@@ -141,6 +142,14 @@ const AppShell: FC = () => {
             {activeView === 'LIVE' && (
               <MotionDiv key="live" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
                 <LiveDashboard matches={matches} onSelectMatch={setSelectedMatch} isMatchLive={(m) => isGameInProgress(m.status)} pinnedMatchIds={pinnedSet} onTogglePin={togglePin} />
+              </MotionDiv>
+            )}
+
+            {activeView === 'TITAN' && (
+              <MotionDiv key="titan" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
+                <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="w-6 h-6 border-2 border-white/20 border-t-emerald-500 rounded-full animate-spin" /></div>}>
+                  <TitanAnalytics />
+                </Suspense>
               </MotionDiv>
             )}
 
