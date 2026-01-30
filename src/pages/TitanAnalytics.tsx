@@ -19,7 +19,6 @@ interface TitanSummary {
     best_category_win_rate: number | null;
     best_category: string | null;
 
-    // Optional (recommended): add to vw_titan_summary for clean accounting.
     // total_pushes?: number | null;
 }
 
@@ -70,7 +69,6 @@ const CATEGORY_LABELS: Record<string, string> = {
     ROAD_DOG: "Away Spread (Dog)",
     OVER: "Total Over",
     UNDER: "Total Under",
-    // Hidden from KPIs but labeled if shown
     INTEGRITY_ARTIFACT: "Ingestion Artifact",
 };
 
@@ -138,7 +136,6 @@ const safe = (n: number | null | undefined): number =>
     n === null || n === undefined || Number.isNaN(n) ? 0 : n;
 
 // Treat 0–1 as fraction, 0–100 as percent.
-// This removes the most common “100× wrong” dashboard failure.
 const normalizePct = (n: number | null | undefined): number => {
     const v = safe(n);
     if (v <= 1 && v > 0) return v * 100;
@@ -229,55 +226,26 @@ export default function TitanAnalytics() {
         };
     }, []);
 
-    // Loading
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-10 h-10 border-2 border-zinc-700 border-t-purple-500 rounded-full animate-spin" />
-                    <span className="text-zinc-500 text-sm">Loading analytics...</span>
-                </div>
-            </div>
-        );
-    }
-
-    // Error
-    if (error) {
-        return (
-            <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-                <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-6 max-w-md">
-                    <div className="text-rose-400 font-semibold mb-2">Failed to load data</div>
-                    <div className="text-zinc-400 text-sm">{error}</div>
-                </div>
-            </div>
-        );
-    }
-
     // ========================================================================
-    // DERIVED METRICS (memoized)
+    // DERIVED METRICS (ALL HOOKS MUST RUN BEFORE ANY EARLY RETURN)
     // ========================================================================
 
     const totalWins = safe(summary?.total_wins);
     const totalLosses = safe(summary?.total_losses);
     const totalPicks = safe(summary?.total_picks);
 
-    // Pushes derived from totals (clamped) to prevent negative display.
     const totalPushes = Math.max(0, totalPicks - (totalWins + totalLosses));
 
-    // Normalize summary rates to %.
     const globalRatePct = normalizePct(summary?.global_win_rate);
     const bestCategoryRatePct = normalizePct(summary?.best_category_win_rate);
-
     const delta = globalRatePct - BASELINE;
 
     const categories = useMemo(() => {
-        // Categories to hide from performance KPIs
-        const HIDDEN_CATEGORIES = ['INTEGRITY_ARTIFACT', 'PICK_EM', 'MONEYLINE', 'UNCATEGORIZED'];
+        const HIDDEN_CATEGORIES = ["INTEGRITY_ARTIFACT", "PICK_EM", "MONEYLINE", "UNCATEGORIZED"];
         const categoryMap: Record<string, { wins: number; losses: number }> = {};
 
         for (const row of heatmap) {
             const cat = row.category;
-            // Skip hidden categories
             if (HIDDEN_CATEGORIES.includes(cat)) continue;
             if (!categoryMap[cat]) categoryMap[cat] = { wins: 0, losses: 0 };
             categoryMap[cat].wins += safe(row.wins);
@@ -306,7 +274,6 @@ export default function TitanAnalytics() {
         yesterdayDate.setDate(now.getDate() - 1);
         const yesterday = formatLocalYYYYMMDD(yesterdayDate);
 
-        // Week start (Sunday). If you want Monday start, shift logic here.
         const dayOfWeek = now.getDay();
         const weekStart = new Date(now);
         weekStart.setDate(now.getDate() - dayOfWeek);
@@ -331,17 +298,43 @@ export default function TitanAnalytics() {
         return { todayRecord, yesterdayRecord, weekRecord };
     }, [trends]);
 
-    // ========================================================================
-    // RENDER
-    // ========================================================================
-
     const lastUpdatedLabel =
         lastUpdatedAt?.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) || "—";
 
     const bestCategoryLabel =
         CATEGORY_LABELS[summary?.best_category || ""] || summary?.best_category || "—";
 
-    const showIntegrityNotice = totalPicks !== totalWins + totalLosses; // pushes or mismatch
+    const showIntegrityNotice = totalPicks !== totalWins + totalLosses;
+
+    // ========================================================================
+    // EARLY RETURNS (SAFE NOW: ALL HOOKS ABOVE)
+    // ========================================================================
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-10 h-10 border-2 border-zinc-700 border-t-purple-500 rounded-full animate-spin" />
+                    <span className="text-zinc-500 text-sm">Loading analytics...</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+                <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-6 max-w-md">
+                    <div className="text-rose-400 font-semibold mb-2">Failed to load data</div>
+                    <div className="text-zinc-400 text-sm">{error}</div>
+                </div>
+            </div>
+        );
+    }
+
+    // ========================================================================
+    // RENDER
+    // ========================================================================
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white">
@@ -376,17 +369,16 @@ export default function TitanAnalytics() {
                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 mb-6">
                         <div className="text-amber-300 text-sm font-semibold mb-1">Data Integrity Notice</div>
                         <div className="text-zinc-400 text-xs">
-                            Total Picks = {totalPicks.toLocaleString()} includes pushes. Record W+L = {(totalWins + totalLosses).toLocaleString()}. Pushes ={" "}
-                            {totalPushes.toLocaleString()}.
+                            Total Picks = {totalPicks.toLocaleString()} includes pushes. Record W+L = {(totalWins + totalLosses).toLocaleString()}
+                            . Pushes = {totalPushes.toLocaleString()}.
                         </div>
                     </div>
                 )}
 
                 {/* Data Quality Panel - Surface hidden ingestion artifacts */}
                 {(() => {
-                    // Count PICK_EM and other hidden categories from heatmap
-                    const hiddenCats = heatmap.filter(r =>
-                        ['PICK_EM', 'MONEYLINE', 'INTEGRITY_ARTIFACT', 'UNCATEGORIZED'].includes(r.category)
+                    const hiddenCats = heatmap.filter((r) =>
+                        ["PICK_EM", "MONEYLINE", "INTEGRITY_ARTIFACT", "UNCATEGORIZED"].includes(r.category)
                     );
                     const totalHiddenW = hiddenCats.reduce((sum, r) => sum + safe(r.wins), 0);
                     const totalHiddenL = hiddenCats.reduce((sum, r) => sum + safe(r.losses), 0);
@@ -400,9 +392,7 @@ export default function TitanAnalytics() {
                             <div className="text-zinc-400 text-sm font-semibold mb-1">Data Quality</div>
                             <div className="text-zinc-500 text-xs">
                                 Ingestion artifacts detected: {formatRecord(totalHiddenW, totalHiddenL)} ({formatPct(hiddenRate)} win rate).
-                                <span className="text-zinc-600 ml-1">
-                                    These are picks with missing/invalid market data. Hidden from Category Performance.
-                                </span>
+                                <span className="text-zinc-600 ml-1">Hidden from Category Performance.</span>
                             </div>
                         </div>
                     );
@@ -435,7 +425,9 @@ export default function TitanAnalytics() {
 
                     <div className="bg-[#111] p-8 hover:bg-[#161618] transition-colors">
                         <div className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Best Category</div>
-                        <div className="text-4xl font-bold tracking-tight mb-1 text-emerald-400">{formatPct(bestCategoryRatePct)}</div>
+                        <div className="text-4xl font-bold tracking-tight mb-1 text-emerald-400">
+                            {formatPct(bestCategoryRatePct)}
+                        </div>
                         <div className="text-sm text-zinc-500">{bestCategoryLabel}</div>
                     </div>
                 </div>
@@ -490,7 +482,9 @@ export default function TitanAnalytics() {
                                     </div>
                                 </div>
 
-                                <span className={`text-sm font-semibold tabular-nums text-right ${rateClass(c.rate)}`}>{formatPct(c.rate)}</span>
+                                <span className={`text-sm font-semibold tabular-nums text-right ${rateClass(c.rate)}`}>
+                                    {formatPct(c.rate)}
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -518,7 +512,9 @@ export default function TitanAnalytics() {
                                         >
                                             <span className="text-sm font-medium">{BUCKET_LABELS[b.bucket_id] || b.bucket_id}</span>
                                             <span className="text-sm text-zinc-400 tabular-nums">{formatRecord(w, l)}</span>
-                                            <span className={`text-sm font-semibold tabular-nums text-right ${rateClass(rate)}`}>{formatPct(rate)}</span>
+                                            <span className={`text-sm font-semibold tabular-nums text-right ${rateClass(rate)}`}>
+                                                {formatPct(rate)}
+                                            </span>
                                         </div>
                                     );
                                 })}
