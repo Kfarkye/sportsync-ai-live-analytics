@@ -61,8 +61,8 @@ const CATEGORY_LABELS: Record<string, string> = {
     'ROAD_DOG': 'Away Spread (Dog)',
     'OVER': 'Total Over',
     'UNDER': 'Total Under',
-    'PICK_EM': 'Moneyline',
-    'MONEYLINE': 'Moneyline'
+    'PICK_EM': 'Tennis (Moneyline)',
+    'MONEYLINE': 'Tennis (Moneyline)'
 };
 
 const BUCKET_LABELS: Record<string, string> = {
@@ -214,12 +214,9 @@ export default function TitanAnalytics() {
     }
 
     // Calculate aggregated categories from heatmap
-    // Filter out PICK_EM/MONEYLINE - these are uncategorized garbage data
-    const EXCLUDED_CATEGORIES = ['PICK_EM', 'MONEYLINE'];
     const categoryMap: Record<string, { wins: number; losses: number }> = {};
     heatmap.forEach(row => {
         const cat = row.category;
-        if (EXCLUDED_CATEGORIES.includes(cat)) return; // Skip garbage categories
         if (!categoryMap[cat]) categoryMap[cat] = { wins: 0, losses: 0 };
         categoryMap[cat].wins += safe(row.wins);
         categoryMap[cat].losses += safe(row.losses);
@@ -407,7 +404,6 @@ export default function TitanAnalytics() {
                         </div>
                         <div>
                             {buckets
-                                .filter((b) => b.bucket_id !== '5_Moneyline') // Exclude garbage bucket
                                 .sort((a, b) => (a.bucket_id || '').localeCompare(b.bucket_id || ''))
                                 .map((b) => {
                                     const rate = winRate(safe(b.wins), safe(b.losses));
