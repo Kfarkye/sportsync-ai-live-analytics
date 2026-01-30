@@ -65,6 +65,53 @@ const BUCKET_LABELS: Record<string, string> = {
     '5_Moneyline': 'Moneyline Only'
 };
 
+const LEAGUE_LABELS: Record<string, string> = {
+    // Basketball
+    'nba': 'NBA',
+    'mens-college-basketball': 'NCAAB',
+    'wnba': 'WNBA',
+    'womens-college-basketball': 'NCAAW',
+    // Football
+    'nfl': 'NFL',
+    'college-football': 'NCAAF',
+    'cfl': 'CFL',
+    'xfl': 'XFL',
+    'ufl': 'UFL',
+    // Hockey
+    'nhl': 'NHL',
+    // Tennis
+    'atp': 'ATP',
+    'wta': 'WTA',
+    'tennis': 'Tennis',
+    // Baseball
+    'mlb': 'MLB',
+    // Soccer - Top 5 Leagues
+    'eng.1': 'Premier League',
+    'esp.1': 'La Liga',
+    'ger.1': 'Bundesliga',
+    'ita.1': 'Serie A',
+    'fra.1': 'Ligue 1',
+    'mls': 'MLS',
+    'liga-mx': 'Liga MX',
+    'epl': 'Premier League',
+    'bundesliga': 'Bundesliga',
+    'ligue1': 'Ligue 1',
+    'serie-a': 'Serie A',
+    'la-liga': 'La Liga',
+    // UEFA Competitions
+    'uefa.champions': 'Champions League',
+    'uefa.europa': 'Europa League',
+    'uefa.nations': 'Nations League',
+    // Other
+    'caf.nations': 'AFCON',
+    'world-cup': 'World Cup',
+    'euro': 'Euro',
+    'ufc': 'UFC',
+    'mma': 'MMA',
+    'pga': 'PGA',
+    'golf': 'Golf',
+};
+
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -321,7 +368,8 @@ export default function TitanAnalytics() {
                                 .sort((a, b) => safe(b.total_picks) - safe(a.total_picks))
                                 .map((lg) => {
                                     const rate = winRate(safe(lg.wins), safe(lg.losses));
-                                    const name = (lg.league_id || '').toUpperCase().replace('MENS-COLLEGE-BASKETBALL', 'NCAAB');
+                                    const leagueId = (lg.league_id || '').toLowerCase();
+                                    const name = LEAGUE_LABELS[leagueId] || lg.league_id?.toUpperCase() || 'Unknown';
                                     return (
                                         <div
                                             key={lg.league_id}
