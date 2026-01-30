@@ -83,6 +83,102 @@ WITH cleaned_data AS (
         AND NOT pi.recommended_pick ~* 'moneyline'  -- "Team Moneyline"
         AND NOT pi.recommended_pick ~* ' pk$'       -- "Team PK"
         AND NOT pi.recommended_pick ~* 'pick.?em'   -- "Team Pick'em"
+),
+categorized_data AS (
+    SELECT 
+        intel_id,
+        match_id,
+        game_date,
+        league_id,
+        pick_side,
+        spread,
+        pick_result,
+        final_home_score,
+        final_away_score,
+        pick_type,
+        pick_odds,
+
+        CASE 
+            -- ================================================================
+            -- TENNIS: Must NEVER use spread/home/road logic. 
+            -- Categorize by odds only. PICK_EM/HOME_*/ROAD_* are invalid for tennis.
+            -- ================================================================
+            WHEN league_id IN ('atp', 'wta', 'tennis') THEN
+                CASE
+                    -- Use pick_odds (american format: negative = favorite)
+                    WHEN pick_odds IS NOT NULL AND pick_odds < 0 THEN 'FAVORITE'
+                    WHEN pick_odds IS NOT NULL AND pick_odds >= 0 THEN 'UNDERDOG'
+                    -- Fallback: use spread sign if available (for GAMES_SPREAD picks)
+                    WHEN spread IS NOT NULL AND spread < 0 THEN 'FAVORITE'
+                    WHEN spread IS NOT NULL AND spread > 0 THEN 'UNDERDOG'
+                    -- No odds, no spread = ingestion artifact
+                    ELSE 'INTEGRITY_ARTIFACT'
+                END
+
+            -- ================================================================
+            -- NON-TENNIS: Standard spread/home/road logic
+            -- ================================================================
+            
+            -- Tennis GAMES_SPREAD with valid spread (handled above, but keep for other sports)
+            WHEN pick_type IN ('GAMES_SPREAD', 'SETS_SPREAD') THEN
+                CASE
+                    WHEN spread < 0 THEN 'FAVORITE'
+                    WHEN spread > 0 THEN 'UNDERDOG'
+                    ELSE 'UNCATEGORIZED'
+                END
+                
+            -- Moneyline without spread: use odds
+            WHEN spread IS NULL AND pick_odds IS NOT NULL THEN
+                CASE
+                    WHEN pick_odds < 0 THEN 'FAVORITE'
+                    ELSE 'UNDERDOG'
+                END
+
+            -- Standard spread logic (NBA, NFL, NHL, etc.)
+            WHEN pick_side = 'HOME' AND spread > 0 THEN 'HOME_DOG'
+            WHEN pick_side = 'HOME' AND spread <= 0 THEN 'HOME_FAV'
+            WHEN pick_side = 'AWAY' AND spread > 0 THEN 'ROAD_FAV'
+            WHEN pick_side = 'AWAY' AND spread <= 0 THEN 'ROAD_DOG'
+
+            -- TOTAL picks
+            WHEN pick_side IN ('OVER', 'UNDER') THEN pick_side
+            
+            ELSE 'UNCATEGORIZED'
+        END AS category,
+
+        CASE 
+            -- Tennis: use odds to determine underdog status
+            WHEN league_id IN ('atp', 'wta', 'tennis') THEN
+                CASE
+                    WHEN pick_odds IS NOT NULL THEN (pick_odds >= 0)
+                    WHEN spread IS NOT NULL THEN (spread > 0)
+                    ELSE NULL
+                END
+            -- Non-tennis
+            WHEN pick_type IN ('GAMES_SPREAD', 'SETS_SPREAD') THEN (spread > 0)
+            WHEN spread IS NULL AND pick_odds IS NOT NULL THEN (pick_odds > 0)
+            WHEN pick_side = 'HOME' AND spread > 0 THEN TRUE
+            WHEN pick_side = 'AWAY' AND spread <= 0 THEN TRUE
+            ELSE FALSE
+        END AS is_underdog,
+
+        CASE 
+            WHEN spread IS NULL THEN '5_Moneyline'
+            WHEN ABS(spread) <= 3 THEN '1_Tight (0-3)'
+            WHEN ABS(spread) <= 7 THEN '2_Key (3.5-7)'
+            WHEN ABS(spread) <= 10 THEN '3_Medium (7.5-10)'
+            ELSE '4_Blowout (10+)'
+        END AS bucket_id,
+
+        CASE 
+            WHEN final_home_score IS NULL OR final_away_score IS NULL THEN NULL
+            WHEN league_id IN ('atp', 'wta', 'tennis') THEN NULL
+            WHEN pick_side = 'HOME' THEN (final_home_score + COALESCE(spread,0)) - final_away_score
+            WHEN pick_side = 'AWAY' THEN (final_away_score + COALESCE(spread,0)*-1) - final_home_score 
+            ELSE NULL
+        END AS cover_margin
+
+    FROM cleaned_data
 )
 SELECT 
     intel_id,
@@ -94,61 +190,11 @@ SELECT
     pick_result,
     final_home_score,
     final_away_score,
-
-    CASE 
-        -- Tennis GAMES_SPREAD: use spread sign to determine fav/dog
-        WHEN pick_type IN ('GAMES_SPREAD', 'SETS_SPREAD') THEN
-            CASE
-                WHEN spread < 0 THEN 'FAVORITE'
-                WHEN spread > 0 THEN 'UNDERDOG'
-                ELSE 'PICK_EM'
-            END
-            
-        -- Moneyline without spread: use odds (shouldn't happen now but keep for safety)
-        WHEN spread IS NULL AND pick_odds IS NOT NULL THEN
-            CASE
-                WHEN pick_odds < 0 THEN 'FAVORITE'
-                WHEN pick_odds > 0 THEN 'UNDERDOG'
-                ELSE 'PICK_EM'
-            END
-
-        -- Standard spread logic
-        WHEN pick_side = 'HOME' AND spread > 0 THEN 'HOME_DOG'
-        WHEN pick_side = 'HOME' AND spread <= 0 THEN 'HOME_FAV'
-        WHEN pick_side = 'AWAY' AND spread > 0 THEN 'ROAD_FAV'
-        WHEN pick_side = 'AWAY' AND spread <= 0 THEN 'ROAD_DOG'
-
-        -- TOTAL picks
-        WHEN pick_side IN ('OVER', 'UNDER') THEN pick_side
-        
-        ELSE 'UNCATEGORIZED'
-    END AS category,
-
-    CASE 
-        WHEN pick_type IN ('GAMES_SPREAD', 'SETS_SPREAD') THEN (spread > 0)
-        WHEN spread IS NULL AND pick_odds IS NOT NULL THEN (pick_odds > 0)
-        WHEN pick_side = 'HOME' AND spread > 0 THEN TRUE
-        WHEN pick_side = 'AWAY' AND spread <= 0 THEN TRUE
-        ELSE FALSE
-    END AS is_underdog,
-
-    CASE 
-        WHEN spread IS NULL THEN '5_Moneyline'
-        WHEN ABS(spread) <= 3 THEN '1_Tight (0-3)'
-        WHEN ABS(spread) <= 7 THEN '2_Key (3.5-7)'
-        WHEN ABS(spread) <= 10 THEN '3_Medium (7.5-10)'
-        ELSE '4_Blowout (10+)'
-    END AS bucket_id,
-
-    CASE 
-        WHEN final_home_score IS NULL OR final_away_score IS NULL THEN NULL
-        WHEN league_id IN ('atp', 'wta', 'tennis') THEN NULL
-        WHEN pick_side = 'HOME' THEN (final_home_score + COALESCE(spread,0)) - final_away_score
-        WHEN pick_side = 'AWAY' THEN (final_away_score + COALESCE(spread,0)*-1) - final_home_score 
-        ELSE NULL
-    END AS cover_margin
-
-FROM cleaned_data
+    category,
+    is_underdog,
+    bucket_id,
+    cover_margin
+FROM categorized_data
 -- FINAL FILTER: Only include picks where we could categorize them
 WHERE category != 'UNCATEGORIZED';
 

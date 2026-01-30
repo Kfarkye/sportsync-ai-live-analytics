@@ -62,17 +62,16 @@ interface TitanTrend {
 const BASELINE = 50; // % baseline used for coloring
 
 const CATEGORY_LABELS: Record<string, string> = {
-    FAVORITE: "Tennis (Favorites)",
-    UNDERDOG: "Tennis (Underdog)",
+    FAVORITE: "Favorites",
+    UNDERDOG: "Underdogs",
     HOME_FAV: "Home Spread (Fav)",
     HOME_DOG: "Home Spread (Dog)",
     ROAD_FAV: "Away Spread (Fav)",
     ROAD_DOG: "Away Spread (Dog)",
     OVER: "Total Over",
     UNDER: "Total Under",
-    // Fixed labels to prevent "Two Moneyline" confusion
-    PICK_EM: "Tennis (Moneyline)",
-    MONEYLINE: "Tennis (Moneyline)",
+    // Hidden from KPIs but labeled if shown
+    INTEGRITY_ARTIFACT: "Ingestion Artifact",
 };
 
 const BUCKET_LABELS: Record<string, string> = {
@@ -272,10 +271,14 @@ export default function TitanAnalytics() {
     const delta = globalRatePct - BASELINE;
 
     const categories = useMemo(() => {
+        // Categories to hide from performance KPIs
+        const HIDDEN_CATEGORIES = ['INTEGRITY_ARTIFACT', 'PICK_EM', 'MONEYLINE', 'UNCATEGORIZED'];
         const categoryMap: Record<string, { wins: number; losses: number }> = {};
 
         for (const row of heatmap) {
             const cat = row.category;
+            // Skip hidden categories
+            if (HIDDEN_CATEGORIES.includes(cat)) continue;
             if (!categoryMap[cat]) categoryMap[cat] = { wins: 0, losses: 0 };
             categoryMap[cat].wins += safe(row.wins);
             categoryMap[cat].losses += safe(row.losses);
