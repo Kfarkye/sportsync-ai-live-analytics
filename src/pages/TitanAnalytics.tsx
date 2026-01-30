@@ -382,6 +382,32 @@ export default function TitanAnalytics() {
                     </div>
                 )}
 
+                {/* Data Quality Panel - Surface hidden ingestion artifacts */}
+                {(() => {
+                    // Count PICK_EM and other hidden categories from heatmap
+                    const hiddenCats = heatmap.filter(r =>
+                        ['PICK_EM', 'MONEYLINE', 'INTEGRITY_ARTIFACT', 'UNCATEGORIZED'].includes(r.category)
+                    );
+                    const totalHiddenW = hiddenCats.reduce((sum, r) => sum + safe(r.wins), 0);
+                    const totalHiddenL = hiddenCats.reduce((sum, r) => sum + safe(r.losses), 0);
+                    const totalHiddenCount = totalHiddenW + totalHiddenL;
+                    const hiddenRate = winRatePct(totalHiddenW, totalHiddenL);
+
+                    if (totalHiddenCount === 0) return null;
+
+                    return (
+                        <div className="bg-zinc-800/30 border border-zinc-700/50 rounded-xl p-4 mb-6">
+                            <div className="text-zinc-400 text-sm font-semibold mb-1">Data Quality</div>
+                            <div className="text-zinc-500 text-xs">
+                                Ingestion artifacts detected: {formatRecord(totalHiddenW, totalHiddenL)} ({formatPct(hiddenRate)} win rate).
+                                <span className="text-zinc-600 ml-1">
+                                    These are picks with missing/invalid market data. Hidden from Category Performance.
+                                </span>
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 {/* Hero Stats */}
                 <div className="grid grid-cols-4 gap-px bg-zinc-800/50 rounded-2xl overflow-hidden mb-8">
                     <div className="bg-[#111] p-8 hover:bg-[#161618] transition-colors">
