@@ -38,6 +38,14 @@ interface TitanHeatmap {
     win_rate: number | null;
 }
 
+interface TitanTrend {
+    game_date: string;
+    daily_picks: number | null;
+    daily_wins: number | null;
+    daily_losses: number | null;
+    daily_pushes: number | null;
+}
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -141,28 +149,32 @@ export default function TitanAnalytics() {
     const [leagues, setLeagues] = useState<TitanLeague[]>([]);
     const [buckets, setBuckets] = useState<TitanBucket[]>([]);
     const [heatmap, setHeatmap] = useState<TitanHeatmap[]>([]);
+    const [trends, setTrends] = useState<TitanTrend[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchData() {
             try {
-                const [summaryRes, leaguesRes, bucketsRes, heatmapRes] = await Promise.all([
+                const [summaryRes, leaguesRes, bucketsRes, heatmapRes, trendsRes] = await Promise.all([
                     supabase.from('vw_titan_summary').select('*').single(),
                     supabase.from('vw_titan_leagues').select('*'),
                     supabase.from('vw_titan_buckets').select('*'),
-                    supabase.from('vw_titan_heatmap').select('*')
+                    supabase.from('vw_titan_heatmap').select('*'),
+                    supabase.from('vw_titan_trends').select('*')
                 ]);
 
                 if (summaryRes.error) throw summaryRes.error;
                 if (leaguesRes.error) throw leaguesRes.error;
                 if (bucketsRes.error) throw bucketsRes.error;
                 if (heatmapRes.error) throw heatmapRes.error;
+                if (trendsRes.error) throw trendsRes.error;
 
                 setSummary(summaryRes.data);
                 setLeagues(leaguesRes.data || []);
                 setBuckets(bucketsRes.data || []);
                 setHeatmap(heatmapRes.data || []);
+                setTrends(trendsRes.data || []);
                 setError(null);
             } catch (e) {
                 console.error('[TITAN] Fetch error:', e);
@@ -295,6 +307,56 @@ export default function TitanAnalytics() {
                         </div>
                     </div>
                 </div>
+
+                {/* Quick View - Today, Yesterday, This Week */}
+                {(() => {
+                    const formatLocalDate = (date: Date): string => {
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        return `${year}-${month}-${day}`;
+                    };
+
+                    const now = new Date();
+                    const today = formatLocalDate(now);
+                    const yesterdayDate = new Date(now);
+                    yesterdayDate.setDate(now.getDate() - 1);
+                    const yesterday = formatLocalDate(yesterdayDate);
+                    const dayOfWeek = now.getDay();
+                    const weekStart = new Date(now);
+                    weekStart.setDate(now.getDate() - dayOfWeek);
+                    const weekStartStr = formatLocalDate(weekStart);
+
+                    const todayData = trends.find(t => t.game_date === today);
+                    const yesterdayData = trends.find(t => t.game_date === yesterday);
+                    const weekData = trends.filter(t => t.game_date >= weekStartStr);
+
+                    const todayRecord = todayData ? formatRecord(safe(todayData.daily_wins), safe(todayData.daily_losses)) : '—';
+                    const yesterdayRecord = yesterdayData ? formatRecord(safe(yesterdayData.daily_wins), safe(yesterdayData.daily_losses)) : '—';
+                    const weekWins = weekData.reduce((sum, t) => sum + safe(t.daily_wins), 0);
+                    const weekLosses = weekData.reduce((sum, t) => sum + safe(t.daily_losses), 0);
+                    const weekRecord = weekData.length > 0 ? formatRecord(weekWins, weekLosses) : '—';
+
+                    return (
+                        <div className="mb-8">
+                            <div className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">Quick View</div>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="bg-[#111] border border-zinc-800 rounded-xl p-5">
+                                    <div className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Today</div>
+                                    <div className="text-2xl font-bold tabular-nums">{todayRecord}</div>
+                                </div>
+                                <div className="bg-[#111] border border-zinc-800 rounded-xl p-5">
+                                    <div className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Yesterday</div>
+                                    <div className="text-2xl font-bold tabular-nums">{yesterdayRecord}</div>
+                                </div>
+                                <div className="bg-[#111] border border-zinc-800 rounded-xl p-5">
+                                    <div className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">This Week</div>
+                                    <div className="text-2xl font-bold tabular-nums">{weekRecord}</div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* Category Performance */}
                 <div className="mb-8">
