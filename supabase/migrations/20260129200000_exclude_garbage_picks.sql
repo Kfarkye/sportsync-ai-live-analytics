@@ -1,17 +1,11 @@
 -- ============================================================
--- TITANIUM ANALYTICS v3.7: EXCLUDE GARBAGE PICKS
--- Description: Exclude picks with invalid formats from analytics
--- 
--- WHAT WE LEARNED:
--- 1. AI sometimes outputs "Team 0" or "Team -0" instead of real spread
--- 2. AI sometimes outputs "Team ML" or "Team Moneyline" even when spread was available
--- 3. AI sometimes outputs "Player PK" for Tennis which is not a real bet type
--- 4. These 92 picks pollute the analytics and can't be trusted
---
--- CONSTRAINTS GOING FORWARD:
--- 1. Picks must have extractable spread OR be explicitly TOTAL type
--- 2. MONEYLINE type picks are excluded (AI should make spread picks when spread available)
--- 3. Picks ending in " 0", " -0", " ML", " PK" without real spread are excluded
+-- TITANIUM ANALYTICS v3.7: EXCLUDE GARBAGE PICKS (PATCHED)
+-- Fixes:
+-- 1) Totals no longer hijacked by (spread NULL + odds) rule
+-- 2) Away spread category signs corrected (ROAD_FAV/ROAD_DOG)
+-- 3) Away cover_margin corrected (away + spread - home)
+-- 4) bucket_id no longer labels TOTAL as moneyline; buckets filtered to 1-4 in vw_titan_buckets
+-- 5) Safe numeric parsing for odds to avoid view runtime cast failures
 -- ============================================================
 
 BEGIN;
@@ -33,56 +27,69 @@ WITH cleaned_data AS (
         pi.intel_id,
         pi.match_id,
         pi.game_date,
-        pi.league_id,
-        COALESCE(
-            pi.grading_metadata->>'side', 
-            pi.grading_metadata->>'player', 
-            pi.grading_metadata->>'team',
-            'UNKNOWN'
+        lower(pi.league_id) AS league_id,
+
+        -- Normalize side/team/player label for comparisons downstream
+        upper(
+          COALESCE(
+              pi.grading_metadata->>'side', 
+              pi.grading_metadata->>'player', 
+              pi.grading_metadata->>'team',
+              'UNKNOWN'
+          )
         ) AS pick_side,
-        
-        (pi.grading_metadata->>'odds')::numeric AS pick_odds,
-        
-        pi.pick_result,
+
+        -- Safe parse: only numeric strings become numeric (prevents runtime cast errors)
+        CASE
+          WHEN trim(COALESCE(pi.grading_metadata->>'odds','')) ~ '^[-+]?\d+(\.\d+)?$'
+          THEN (trim(pi.grading_metadata->>'odds'))::numeric
+          ELSE NULL::numeric
+        END AS pick_odds,
+
+        upper(pi.pick_result) AS pick_result,
         pi.final_home_score,
         pi.final_away_score,
-        
-        -- Extract spread from recommended_pick if analyzed_spread is null
+
+        -- Extract spread from analyzed_spread first, else from recommended_pick.
+        -- Hard-excludes exact 0 / PK artifacts; 0 spreads are treated as garbage in this analytics layer.
         CASE 
-            -- First try analyzed_spread
             WHEN pi.analyzed_spread IS NOT NULL THEN
                 CASE 
-                    WHEN pi.analyzed_spread::text = 'PK' THEN 0::numeric
+                    WHEN upper(pi.analyzed_spread::text) = 'PK' THEN NULL::numeric
+                    WHEN trim(pi.analyzed_spread::text) ~ '^[-+]?\d+(\.\d+)?$' THEN
+                         NULLIF(trim(pi.analyzed_spread::text), '')::numeric
                     WHEN pi.analyzed_spread::text ~ '[^0-9.-]' THEN 
                          NULLIF(regexp_replace(pi.analyzed_spread::text, '[^0-9.-]', '', 'g'), '')::numeric
-                    ELSE NULLIF(pi.analyzed_spread::text, '')::numeric
+                    ELSE NULL::numeric
                 END
-            -- Fallback: Extract from recommended_pick (e.g., "Team +5.5" or "Team -3.5 Games")
-            -- Only extract if there's an actual non-zero number
-            WHEN pi.recommended_pick ~ '[+-]\d+\.?\d*' 
-                 AND NOT pi.recommended_pick ~ ' -?0$'  -- Exclude "Team 0" or "Team -0"
-                 THEN (regexp_match(pi.recommended_pick, '([+-]?\d+\.?\d*)'))[1]::numeric
+
+            -- Fallback: Extract signed number from recommended_pick
+            WHEN pi.recommended_pick ~ '[+-]\d+\.?\d*'
+                 AND NOT pi.recommended_pick ~ ' -?0$'
+            THEN (regexp_match(pi.recommended_pick, '([+-]?\d+\.?\d*)'))[1]::numeric
+
             ELSE NULL::numeric
         END AS spread,
 
-        (pi.grading_metadata->>'type') AS pick_type,
-        pi.recommended_pick
-        
+        upper(COALESCE(pi.grading_metadata->>'type','')) AS pick_type,
+        COALESCE(pi.recommended_pick,'') AS recommended_pick
+
     FROM pregame_intel pi
     WHERE 
         (
-             (pi.grading_metadata->>'type') IN ('SPREAD', 'GAMES_SPREAD', 'SETS_SPREAD', 'TOTAL')
+             upper(COALESCE(pi.grading_metadata->>'type','')) IN ('SPREAD', 'GAMES_SPREAD', 'SETS_SPREAD', 'TOTAL')
              OR 
              (pi.grading_metadata->>'type' IS NULL AND (pi.analyzed_spread IS NOT NULL OR pi.grading_metadata->>'odds' IS NOT NULL))
         )
-        -- EXCLUDE: MONEYLINE type picks (AI should've made spread picks when spread was available)
-        AND COALESCE(pi.grading_metadata->>'type', '') != 'MONEYLINE'
+        -- EXCLUDE: MONEYLINE type picks
+        AND upper(COALESCE(pi.grading_metadata->>'type','')) <> 'MONEYLINE'
+
         -- EXCLUDE: Picks ending in garbage formats
-        AND NOT pi.recommended_pick ~ ' -?0$'       -- "Team 0" or "Team -0"
-        AND NOT pi.recommended_pick ~* ' ml$'       -- "Team ML"
-        AND NOT pi.recommended_pick ~* 'moneyline'  -- "Team Moneyline"
-        AND NOT pi.recommended_pick ~* ' pk$'       -- "Team PK"
-        AND NOT pi.recommended_pick ~* 'pick.?em'   -- "Team Pick'em"
+        AND NOT COALESCE(pi.recommended_pick,'') ~ ' -?0$'       -- "Team 0" or "Team -0"
+        AND NOT COALESCE(pi.recommended_pick,'') ~* ' ml$'       -- "Team ML"
+        AND NOT COALESCE(pi.recommended_pick,'') ~* 'moneyline'  -- "Team Moneyline"
+        AND NOT COALESCE(pi.recommended_pick,'') ~* ' pk$'       -- "Team PK"
+        AND NOT COALESCE(pi.recommended_pick,'') ~* 'pick.?em'   -- "Team Pick'em"
 ),
 categorized_data AS (
     SELECT 
@@ -100,70 +107,72 @@ categorized_data AS (
 
         CASE 
             -- ================================================================
-            -- TENNIS: Must NEVER use spread/home/road logic. 
-            -- Categorize by odds only. PICK_EM/HOME_*/ROAD_* are invalid for tennis.
+            -- TENNIS: Must NEVER use home/road buckets.
+            -- Categorize by odds first, else by spread sign, else artifact.
             -- ================================================================
             WHEN league_id IN ('atp', 'wta', 'tennis') THEN
                 CASE
-                    -- Use pick_odds (american format: negative = favorite)
                     WHEN pick_odds IS NOT NULL AND pick_odds < 0 THEN 'FAVORITE'
                     WHEN pick_odds IS NOT NULL AND pick_odds >= 0 THEN 'UNDERDOG'
-                    -- Fallback: use spread sign if available (for GAMES_SPREAD picks)
                     WHEN spread IS NOT NULL AND spread < 0 THEN 'FAVORITE'
                     WHEN spread IS NOT NULL AND spread > 0 THEN 'UNDERDOG'
-                    -- No odds, no spread = ingestion artifact
                     ELSE 'INTEGRITY_ARTIFACT'
                 END
 
             -- ================================================================
-            -- NON-TENNIS: Standard spread/home/road logic
+            -- TOTALS: Must be OVER/UNDER before any (spread NULL + odds) logic.
             -- ================================================================
-            
-            -- Tennis GAMES_SPREAD with valid spread (handled above, but keep for other sports)
+            WHEN pick_type = 'TOTAL' OR pick_side IN ('OVER','UNDER') THEN
+                CASE
+                    WHEN pick_side IN ('OVER','UNDER') THEN pick_side
+                    ELSE 'INTEGRITY_ARTIFACT'
+                END
+
+            -- ================================================================
+            -- GAMES/SETS spread (non-tennis)
+            -- ================================================================
             WHEN pick_type IN ('GAMES_SPREAD', 'SETS_SPREAD') THEN
                 CASE
                     WHEN spread < 0 THEN 'FAVORITE'
                     WHEN spread > 0 THEN 'UNDERDOG'
-                    ELSE 'UNCATEGORIZED'
-                END
-                
-            -- Moneyline without spread: use odds
-            WHEN spread IS NULL AND pick_odds IS NOT NULL THEN
-                CASE
-                    WHEN pick_odds < 0 THEN 'FAVORITE'
-                    ELSE 'UNDERDOG'
+                    ELSE 'INTEGRITY_ARTIFACT'
                 END
 
+            -- ================================================================
             -- Standard spread logic (NBA, NFL, NHL, etc.)
+            -- IMPORTANT: Away sign rules corrected.
+            -- ================================================================
             WHEN pick_side = 'HOME' AND spread > 0 THEN 'HOME_DOG'
-            WHEN pick_side = 'HOME' AND spread <= 0 THEN 'HOME_FAV'
-            WHEN pick_side = 'AWAY' AND spread > 0 THEN 'ROAD_FAV'
-            WHEN pick_side = 'AWAY' AND spread <= 0 THEN 'ROAD_DOG'
+            WHEN pick_side = 'HOME' AND spread < 0 THEN 'HOME_FAV'
+            WHEN pick_side = 'AWAY' AND spread > 0 THEN 'ROAD_DOG'
+            WHEN pick_side = 'AWAY' AND spread < 0 THEN 'ROAD_FAV'
 
-            -- TOTAL picks
-            WHEN pick_side IN ('OVER', 'UNDER') THEN pick_side
-            
-            ELSE 'UNCATEGORIZED'
+            ELSE 'INTEGRITY_ARTIFACT'
         END AS category,
 
         CASE 
-            -- Tennis: use odds to determine underdog status
             WHEN league_id IN ('atp', 'wta', 'tennis') THEN
                 CASE
                     WHEN pick_odds IS NOT NULL THEN (pick_odds >= 0)
                     WHEN spread IS NOT NULL THEN (spread > 0)
                     ELSE NULL
                 END
-            -- Non-tennis
+
+            WHEN pick_type = 'TOTAL' OR pick_side IN ('OVER','UNDER') THEN NULL
+
             WHEN pick_type IN ('GAMES_SPREAD', 'SETS_SPREAD') THEN (spread > 0)
-            WHEN spread IS NULL AND pick_odds IS NOT NULL THEN (pick_odds > 0)
+
             WHEN pick_side = 'HOME' AND spread > 0 THEN TRUE
-            WHEN pick_side = 'AWAY' AND spread <= 0 THEN TRUE
-            ELSE FALSE
+            WHEN pick_side = 'AWAY' AND spread > 0 THEN TRUE
+            WHEN pick_side IN ('HOME','AWAY') AND spread < 0 THEN FALSE
+
+            ELSE NULL
         END AS is_underdog,
 
-        CASE 
-            WHEN spread IS NULL THEN '5_Moneyline'
+        CASE
+            -- Totals get their own bucket label; spread buckets remain 1-4.
+            WHEN pick_type = 'TOTAL' OR pick_side IN ('OVER','UNDER') THEN '0_Total'
+            WHEN spread IS NULL THEN '5_NoSpread'
             WHEN ABS(spread) <= 3 THEN '1_Tight (0-3)'
             WHEN ABS(spread) <= 7 THEN '2_Key (3.5-7)'
             WHEN ABS(spread) <= 10 THEN '3_Medium (7.5-10)'
@@ -173,8 +182,9 @@ categorized_data AS (
         CASE 
             WHEN final_home_score IS NULL OR final_away_score IS NULL THEN NULL
             WHEN league_id IN ('atp', 'wta', 'tennis') THEN NULL
+            WHEN pick_type = 'TOTAL' OR pick_side IN ('OVER','UNDER') THEN NULL
             WHEN pick_side = 'HOME' THEN (final_home_score + COALESCE(spread,0)) - final_away_score
-            WHEN pick_side = 'AWAY' THEN (final_away_score + COALESCE(spread,0)*-1) - final_home_score 
+            WHEN pick_side = 'AWAY' THEN (final_away_score + COALESCE(spread,0)) - final_home_score
             ELSE NULL
         END AS cover_margin
 
@@ -195,8 +205,8 @@ SELECT
     bucket_id,
     cover_margin
 FROM categorized_data
--- FINAL FILTER: Only include picks where we could categorize them
-WHERE category != 'UNCATEGORIZED';
+-- FINAL FILTER: only trustworthy categories
+WHERE category NOT IN ('UNCATEGORIZED', 'INTEGRITY_ARTIFACT');
 
 -- LEAGUES
 CREATE VIEW vw_titan_leagues AS
@@ -215,7 +225,7 @@ SELECT *,
     ROUND((wins::numeric / NULLIF(wins + losses, 0)) * 100, 1) as win_rate
 FROM league_stats;
 
--- BUCKETS
+-- BUCKETS (only spread buckets 1-4)
 CREATE VIEW vw_titan_buckets AS
 WITH bucket_stats AS (
     SELECT 
@@ -226,6 +236,7 @@ WITH bucket_stats AS (
         COUNT(*) FILTER (WHERE pick_result = 'PUSH') as pushes
     FROM vw_titan_master
     WHERE pick_result IN ('WIN', 'LOSS', 'PUSH')
+      AND bucket_id ~ '^[1-4]_'
     GROUP BY bucket_id
 )
 SELECT *,

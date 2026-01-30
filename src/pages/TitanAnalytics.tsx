@@ -75,12 +75,12 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const BUCKET_LABELS: Record<string, string> = {
+    "0_Total": "Totals (O/U)",
     "1_Tight (0-3)": "Tight (0-3)",
     "2_Key (3.5-7)": "Key Number (3.5-7)",
     "3_Medium (7.5-10)": "Medium (7.5-10)",
     "4_Blowout (10+)": "Blowout (10+)",
-    // Fixed label to differentiate from category
-    "5_Moneyline": "No Spread Data",
+    "5_NoSpread": "No Spread Data",
 };
 
 const LEAGUE_LABELS: Record<string, string> = {
