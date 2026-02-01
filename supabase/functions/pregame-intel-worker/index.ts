@@ -4,6 +4,7 @@ import { z } from "npm:zod@3.23.8";
 import { executeAnalyticalQuery, safeJsonParse, Type } from "../_shared/gemini.ts";
 import { getCanonicalMatchId, toLocalGameDate } from "../_shared/match-registry.ts";
 import { normalizeTennisOdds } from "../_shared/tennis-odds-normalizer.ts";
+import { normalizeSoccerOdds } from "../_shared/soccer-odds-normalizer.ts";
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -574,6 +575,19 @@ Deno.serve(async (req: Request) => {
                 away_ml: (p.away_ml ?? n.awayMl) as any,
             };
             console.log(`[${requestId}] 🎾 [TENNIS] Normalized: spread=${p.current_spread}, total=${p.current_total}, ML=${n.homeMl}/${n.awayMl}`);
+        }
+
+        // SOCCER NORMALIZATION: Map soccer-specific odds keys (Bundesliga, Liga MX, etc.)
+        if ((p.sport || "").toLowerCase() === "soccer") {
+            const n = normalizeSoccerOdds(p.current_odds || {});
+            p = {
+                ...p,
+                current_spread: p.current_spread ?? n.spread,
+                current_total: p.current_total ?? n.total,
+                home_ml: (p.home_ml ?? n.homeMl) as any,
+                away_ml: (p.away_ml ?? n.awayMl) as any,
+            };
+            console.log(`[${requestId}] ⚽ [SOCCER] Normalized: spread=${p.current_spread}, total=${p.current_total}, ML=${n.homeMl}/${n.awayMl}`);
         }
 
         const dossier = await processSingleIntel(p, supabase, requestId);
