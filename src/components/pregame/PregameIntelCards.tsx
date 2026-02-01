@@ -370,7 +370,7 @@ export const PregameIntelCards = ({
             {intel.recommended_pick && (
                 <PickDisplay
                     pick={intel.recommended_pick}
-                    juice={(intel as any).spread_juice}
+                    juice={(intel as any).grading_metadata?.price || (intel as any).spread_juice}
                     startTime={typeof match.startTime === 'string' ? match.startTime : match.startTime?.toISOString()}
                 />
             )}
