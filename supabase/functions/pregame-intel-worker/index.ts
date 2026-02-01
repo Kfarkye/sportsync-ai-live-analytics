@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
 import { executeAnalyticalQuery, safeJsonParse, Type } from "../_shared/gemini.ts";
 import { getCanonicalMatchId, toLocalGameDate } from "../_shared/match-registry.ts";
+import { normalizeTennisOdds } from "../_shared/tennis-odds-normalizer.ts";
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -560,6 +561,19 @@ Deno.serve(async (req: Request) => {
         if (!p.sport || p.sport === "basketball") {
             const derived = detectSportFromLeague(p.league);
             if (derived !== "basketball") p = { ...p, sport: derived };
+        }
+
+        // TENNIS NORMALIZATION: Map tennis-specific odds keys to standard fields
+        if ((p.sport || "").toLowerCase() === "tennis") {
+            const n = normalizeTennisOdds(p.current_odds || {});
+            p = {
+                ...p,
+                current_spread: p.current_spread ?? n.spread,
+                current_total: p.current_total ?? n.total,
+                home_ml: (p.home_ml ?? n.homeMl) as any,
+                away_ml: (p.away_ml ?? n.awayMl) as any,
+            };
+            console.log(`[${requestId}] 🎾 [TENNIS] Normalized: spread=${p.current_spread}, total=${p.current_total}, ML=${n.homeMl}/${n.awayMl}`);
         }
 
         const dossier = await processSingleIntel(p, supabase, requestId);
