@@ -132,15 +132,26 @@ const SOCCER_LEAGUES = [
     "ligue1",
     "usa.1",
     "mls",
+    "mex.1",        // Liga MX
+    "liga_mx",
+    "bra.1",        // Brasileirao
+    "arg.1",        // Argentina Primera
+    "por.1",        // Primeira Liga
+    "ned.1",        // Eredivisie
+    "bel.1",        // Belgian Pro League
+    "tur.1",        // Turkish Super Lig
+    "sco.1",        // Scottish Premiership
     "uefa.champions",
     "ucl",
     "uefa.europa",
     "uel",
+    "uefa.conference",
     "caf.nations",
     "copa",
     "conmebol",
     "concacaf",
     "afc",
+    "soccer",       // Generic fallback
 ];
 const FOOTBALL_LEAGUES = ["nfl", "college-football", "ncaaf"];
 const HOCKEY_LEAGUES = ["nhl"];
