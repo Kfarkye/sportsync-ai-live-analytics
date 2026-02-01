@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
 import { executeAnalyticalQuery, safeJsonParse, Type } from "../_shared/gemini.ts";
@@ -10,18 +11,6 @@ const CORS_HEADERS = {
         "Content-Type, Authorization, x-client-info, apikey, x-client-timeout, x-trace-id",
 };
 
-/**
- * APEX ENGINE v3.5.3 - ELITE PRODUCTION (AUDIT PERFECTED)
- * -------------------------------------------------------------------------
- * ARCHITECTURE: Snapshot-Selection + Dynamic Schema Injection
- * -------------------------------------------------------------------------
- * GUARANTEES:
- * 1. 100% Valid Syntax: AI selects an ID; Server builds the string.
- * 2. 100% Verified Juice: Prices are bound to IDs (Injective).
- * 3. 100% Input Safety: Strict decimal/string coercion guards.
- * 4. Zero Hallucination: Schema Enum is dynamically restricted.
- * 5. Strict Data Integrity: No fake edges, preserved Zeros, strict odds parsing.
- */
 const APEX_CONFIG = {
     INJURY_WEIGHT: 0.4,
     MAX_INJURY_SCORE: 10.0,
@@ -32,17 +21,135 @@ const APEX_CONFIG = {
     HOME_COURT: 2.6,
 };
 
-// COMPREHENSIVE LEAGUE LIST
+// -------------------------------------------------------------------------
+// MODULE: INTEL GUARDS (SERVER-SIDE EDITOR)
+// -------------------------------------------------------------------------
+namespace IntelGuards {
+    const NERD_WORDS = [
+        "fair line",
+        "delta",
+        "dislocation",
+        "priors",
+        "projected",
+        "expected value",
+        "expected",
+        "ev",
+        "clv",
+        "regression",
+        "algorithm",
+        "kernel",
+        "confidence",
+        "system",
+        "framework",
+        "variance",
+        "model",
+        "probability",
+        "pricing",
+        "signal",
+    ];
+
+    const HEADLINE_FALLBACKS = [
+        "Prime spot for {team} tonight",
+        "Setup favors {team} in this matchup",
+        "Why the value is on {team} today",
+        "{team} set up well in this spot",
+        "Points look mispriced on {team}",
+        "Lean: {team} in this matchup",
+    ];
+
+    function escapeRegexLiteral(input: string): string {
+        return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    // Sort by length DESC so "expected value" matches before "expected"
+    const SORTED_TERMS = [...NERD_WORDS].sort((a, b) => b.length - a.length);
+    const NERD_REGEX = new RegExp(
+        `\\b(${SORTED_TERMS.map(escapeRegexLiteral).join("|")})\\b`,
+        "gi"
+    );
+
+    function getStableIndex(str: string, max: number): number {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) hash += str.charCodeAt(i);
+        return Math.abs(hash) % max;
+    }
+
+    function polishGrammar(input: string): string {
+        return input
+            .replace(/\s+/g, " ")
+            .replace(/\s([,.!?;:])/g, "$1")
+            .replace(/\.{2,}/g, ".")
+            .replace(/,\s*,+/g, ",")
+            .trim();
+    }
+
+    export function cleanHeadline(raw: string, team: string): string {
+        if (!raw) return "";
+
+        NERD_REGEX.lastIndex = 0;
+        const isContaminated = NERD_REGEX.test(raw);
+        const isTooLong = raw.length > 85;
+        const hasColon = raw.includes(":");
+
+        if (isContaminated || isTooLong || hasColon) {
+            const index = getStableIndex(team || "team", HEADLINE_FALLBACKS.length);
+            return HEADLINE_FALLBACKS[index].replace("{team}", team || "this side");
+        }
+
+        return raw.replace(/["']/g, "").trim();
+    }
+
+    export function cleanCardThesis(category: string, thesis: string): string {
+        if (!thesis) return "";
+
+        // Safe zone for math/engine terms
+        if (category === "The Engine") return thesis;
+
+        let clean = thesis.replace(NERD_REGEX, "");
+        clean = polishGrammar(clean);
+
+        if (clean.length < 15) return "The numbers favor this side.";
+
+        return clean.charAt(0).toUpperCase() + clean.slice(1);
+    }
+}
+
+// -------------------------------------------------------------------------
+// LEAGUE & SPORT DEFINITIONS
+// -------------------------------------------------------------------------
 const SOCCER_LEAGUES = [
-    "ita.1", "seriea", "eng.1", "epl", "ger.1", "bundesliga", "esp.1", "laliga",
-    "fra.1", "ligue1", "usa.1", "mls", "uefa.champions", "ucl", "uefa.europa",
-    "uel", "caf.nations", "copa", "conmebol", "concacaf", "afc",
+    "ita.1",
+    "seriea",
+    "eng.1",
+    "epl",
+    "ger.1",
+    "bundesliga",
+    "esp.1",
+    "laliga",
+    "fra.1",
+    "ligue1",
+    "usa.1",
+    "mls",
+    "uefa.champions",
+    "ucl",
+    "uefa.europa",
+    "uel",
+    "caf.nations",
+    "copa",
+    "conmebol",
+    "concacaf",
+    "afc",
 ];
 const FOOTBALL_LEAGUES = ["nfl", "college-football", "ncaaf"];
 const HOCKEY_LEAGUES = ["nhl"];
 const BASEBALL_LEAGUES = ["mlb"];
 const BASKETBALL_LEAGUES = [
-    "nba", "wnba", "mens-college-basketball", "ncaab", "ncaam", "womens-college-basketball",
+    "nba",
+    "wnba",
+    "mens-college-basketball",
+    "ncaab",
+    "ncaam",
+    "womens-college-basketball",
 ];
 const TENNIS_LEAGUES = ["atp", "wta", "tennis"];
 
@@ -60,14 +167,15 @@ const detectSportFromLeague = (league: string | null | undefined): string => {
 };
 
 // -------------------------------------------------------------------------
-// INPUT SCHEMA HARDENING (Strict Coercion)
+// INPUT SCHEMA
 // -------------------------------------------------------------------------
 const coerceNullableNumber = () =>
     z.preprocess((v: any) => {
         if (v === null || v === undefined) return null;
         if (typeof v === "string") {
             const s = v.trim().toLowerCase();
-            if (s === "" || s === "null" || s === "undefined" || s === "na" || s === "n/a") return null;
+            if (s === "" || s === "null" || s === "undefined" || s === "na" || s === "n/a")
+                return null;
         }
         const n = Number(v);
         return Number.isFinite(n) ? n : null;
@@ -79,16 +187,12 @@ const RequestSchema = z.object({
     league: z.string().nullable().optional().transform((v: any) => v || "nba"),
     sport: z.string().nullable().optional(),
     start_time: z.string().optional(),
-
-    // Strict coercion applied
     current_spread: coerceNullableNumber().optional(),
     current_total: coerceNullableNumber().optional(),
-
     home_team: z.string().optional(),
     away_team: z.string().optional(),
     home_net_rating: coerceNullableNumber().optional().default(0),
     away_net_rating: coerceNullableNumber().optional().default(0),
-
     current_odds: z.any().optional(),
     home_ml: z.union([z.string(), z.number()]).nullable().optional().transform((v: any) => (v != null ? String(v) : null)),
     away_ml: z.union([z.string(), z.number()]).nullable().optional().transform((v: any) => (v != null ? String(v) : null)),
@@ -97,11 +201,13 @@ const RequestSchema = z.object({
     force_refresh: z.boolean().optional().default(false),
 });
 
-// OUTPUT SCHEMA BASE (Enum injected dynamically at runtime)
+// -------------------------------------------------------------------------
+// OUTPUT SCHEMA (KEEP SHAPE; DO NOT PRUNE FIELDS)
+// -------------------------------------------------------------------------
 const INTEL_OUTPUT_SCHEMA_BASE = {
     type: Type.OBJECT,
     properties: {
-        selected_offer_id: { type: Type.STRING }, // <--- Dynamic Enum injected here
+        selected_offer_id: { type: Type.STRING }, // enum injected dynamically
         headline: { type: Type.STRING },
         briefing: { type: Type.STRING },
         cards: {
@@ -116,11 +222,16 @@ const INTEL_OUTPUT_SCHEMA_BASE = {
                         enum: ["The Spot", "The Trend", "The Engine", "The Trap", "X-Factor"],
                     },
                     thesis: { type: Type.STRING },
-                    market_implication: { type: Type.STRING },
                     impact: { type: Type.STRING, enum: ["HIGH", "MEDIUM", "LOW"] },
-                    details: { type: Type.ARRAY, items: { type: Type.STRING } },
+
+                    // keep legacy shape
+                    market_implication: { type: Type.STRING },
+                    details: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING },
+                    },
                 },
-                required: ["category", "thesis", "market_implication", "impact", "details"],
+                required: ["category", "thesis", "impact"],
             },
         },
         logic_group: {
@@ -134,30 +245,19 @@ const INTEL_OUTPUT_SCHEMA_BASE = {
 };
 
 // -------------------------------------------------------------------------
-// HELPERS: NUMERIC HARDENING & ANTI-CORRUPTION
+// ODDS HELPERS (Preserving Original Math)
 // -------------------------------------------------------------------------
 const isFiniteNumber = (v: any): v is number => typeof v === "number" && Number.isFinite(v);
-
-// Helper for NO_MARKET dossier to preserve 0
 const safeNumOrNull = (x: any) => (isFiniteNumber(x) ? x : null);
 
-// PATCH 1: Fixed parseAmericanOdds
-// - Correctly parses integer-with-.0+ strings (110.0 => 110)
-// - Rejects mixed decimal strings (1.91, 1.91 (-110))
 const parseAmericanOdds = (v: any): number | null => {
     if (v == null) return null;
-
     const raw = typeof v === "number" ? String(v) : String(v).trim();
     if (!raw) return null;
-
     const lowered = raw.trim().toLowerCase();
     if (["n/a", "na", "none", "null", "-", "undefined"].includes(lowered)) return null;
-
-    // EV/EVEN -> +100
     if (["ev", "even", "evens"].includes(lowered)) return 100;
 
-    // If a dot exists, only allow integer-with-optional-.0+ (optionally wrapped in parentheses).
-    // This rejects "1.91" and "1.91 (-110)" but allows "110.0" and "(-110.00)".
     if (raw.includes(".")) {
         const m = raw.match(/^\(?([+\-]?\d+)(?:\.0+)?\)?$/);
         if (!m) return null;
@@ -169,22 +269,17 @@ const parseAmericanOdds = (v: any): number | null => {
         return n;
     }
 
-    // Non-decimal path: keep permissive cleanup for strings like "(-110)", "-110 (FD)".
     const cleaned = raw.replace(/[^\d+\-]/g, "");
     if (!cleaned) return null;
-
     const n = parseInt(cleaned, 10);
     if (!Number.isFinite(n)) return null;
-
     if (n === 0) return null;
     if (Math.abs(n) < 100) return null;
     if (Math.abs(n) > 20000) return null;
-
     return n;
 };
 
 const fmtAmerican = (n: number): string => (n > 0 ? `+${n}` : `${n}`);
-
 const fmtLine = (n: number): string => {
     if (Object.is(n, -0)) return "0";
     if (Number.isInteger(n)) return n.toFixed(0);
@@ -192,14 +287,13 @@ const fmtLine = (n: number): string => {
     if (Math.abs(n * 4 - q) < 1e-9) return (q / 4).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
     return n.toFixed(1);
 };
-
 const safeJuiceFmt = (val: any): string | null => {
     const n = parseAmericanOdds(val);
     return n !== null ? fmtAmerican(n) : null;
 };
 
 // -------------------------------------------------------------------------
-// MARKET SNAPSHOT ARCHITECTURE
+// MARKET SNAPSHOT
 // -------------------------------------------------------------------------
 type MarketOffer = {
     id: string;
@@ -212,9 +306,6 @@ type MarketOffer = {
     label: string;
 };
 
-// PATCH 2: Fixed makeOfferId injectivity
-// - Preserves sign for spread lines (HOME -3 vs HOME +3 become distinct IDs)
-// - Keeps "near-zero => 0" normalization consistent with pick formatting
 const lineKey = (line: number | null): string => {
     if (line == null) return "na";
     const normalized = Math.abs(line) < 0.25 ? 0 : line;
@@ -241,7 +332,6 @@ const buildMarketSnapshot = (p: any, odds: any): MarketOffer[] => {
     const homeMlRaw = p.home_ml ?? odds?.homeWin ?? odds?.home_ml ?? odds?.best_h2h?.home?.price;
     const awayMlRaw = p.away_ml ?? odds?.awayWin ?? odds?.away_ml ?? odds?.best_h2h?.away?.price;
 
-    // 1. SPREAD OFFERS
     if (isFiniteNumber(p.current_spread)) {
         const spread = p.current_spread;
         const homePriceA = parseAmericanOdds(homeSpreadRaw);
@@ -251,25 +341,31 @@ const buildMarketSnapshot = (p: any, odds: any): MarketOffer[] => {
             const isPk = Math.abs(spread) < 0.25;
             offers.push({
                 id: makeOfferId("SPREAD", "HOME", spread, homePriceA),
-                type: "SPREAD", side: "HOME", selection: hTeam, line: spread,
-                price_american: homePriceA, price: fmtAmerican(homePriceA),
+                type: "SPREAD",
+                side: "HOME",
+                selection: hTeam,
+                line: spread,
+                price_american: homePriceA,
+                price: fmtAmerican(homePriceA),
                 label: `${hTeam} ${isPk ? "Pick'em" : (spread > 0 ? "+" : "") + fmtLine(spread)} (${fmtAmerican(homePriceA)})`,
             });
         }
-
         if (awayPriceA != null) {
             const line = spread * -1;
             const isPk = Math.abs(line) < 0.25;
             offers.push({
                 id: makeOfferId("SPREAD", "AWAY", line, awayPriceA),
-                type: "SPREAD", side: "AWAY", selection: aTeam, line: line,
-                price_american: awayPriceA, price: fmtAmerican(awayPriceA),
+                type: "SPREAD",
+                side: "AWAY",
+                selection: aTeam,
+                line,
+                price_american: awayPriceA,
+                price: fmtAmerican(awayPriceA),
                 label: `${aTeam} ${isPk ? "Pick'em" : (line > 0 ? "+" : "") + fmtLine(line)} (${fmtAmerican(awayPriceA)})`,
             });
         }
     }
 
-    // 2. TOTAL OFFERS
     if (isFiniteNumber(p.current_total)) {
         const total = p.current_total;
         const overA = parseAmericanOdds(overRaw);
@@ -278,38 +374,53 @@ const buildMarketSnapshot = (p: any, odds: any): MarketOffer[] => {
         if (overA != null) {
             offers.push({
                 id: makeOfferId("TOTAL", "OVER", total, overA),
-                type: "TOTAL", side: "OVER", selection: "OVER", line: total,
-                price_american: overA, price: fmtAmerican(overA),
+                type: "TOTAL",
+                side: "OVER",
+                selection: "OVER",
+                line: total,
+                price_american: overA,
+                price: fmtAmerican(overA),
                 label: `OVER ${fmtLine(total)} (${fmtAmerican(overA)})`,
             });
         }
         if (underA != null) {
             offers.push({
                 id: makeOfferId("TOTAL", "UNDER", total, underA),
-                type: "TOTAL", side: "UNDER", selection: "UNDER", line: total,
-                price_american: underA, price: fmtAmerican(underA),
+                type: "TOTAL",
+                side: "UNDER",
+                selection: "UNDER",
+                line: total,
+                price_american: underA,
+                price: fmtAmerican(underA),
                 label: `UNDER ${fmtLine(total)} (${fmtAmerican(underA)})`,
             });
         }
     }
 
-    // 3. MONEYLINE OFFERS
     const homeMlA = parseAmericanOdds(homeMlRaw);
     const awayMlA = parseAmericanOdds(awayMlRaw);
 
     if (homeMlA != null) {
         offers.push({
             id: makeOfferId("MONEYLINE", "HOME", null, homeMlA),
-            type: "MONEYLINE", side: "HOME", selection: hTeam, line: null,
-            price_american: homeMlA, price: fmtAmerican(homeMlA),
+            type: "MONEYLINE",
+            side: "HOME",
+            selection: hTeam,
+            line: null,
+            price_american: homeMlA,
+            price: fmtAmerican(homeMlA),
             label: `${hTeam} Moneyline (${fmtAmerican(homeMlA)})`,
         });
     }
     if (awayMlA != null) {
         offers.push({
             id: makeOfferId("MONEYLINE", "AWAY", null, awayMlA),
-            type: "MONEYLINE", side: "AWAY", selection: aTeam, line: null,
-            price_american: awayMlA, price: fmtAmerican(awayMlA),
+            type: "MONEYLINE",
+            side: "AWAY",
+            selection: aTeam,
+            line: null,
+            price_american: awayMlA,
+            price: fmtAmerican(awayMlA),
             label: `${aTeam} Moneyline (${fmtAmerican(awayMlA)})`,
         });
     }
@@ -317,13 +428,10 @@ const buildMarketSnapshot = (p: any, odds: any): MarketOffer[] => {
     return offers;
 };
 
-// NUMERIC OUTPUT (No "PK" syntax)
 const formatPick = (o: MarketOffer): string => {
     if (o.type === "MONEYLINE") return `${o.selection} ML`;
     if (o.type === "TOTAL") return `${o.side} ${fmtLine(o.line ?? 0)}`;
-
     const line = o.line ?? 0;
-    // Always numeric. Map small near-zero lines to 0 for explicit downstream handling.
     const numericLine = Math.abs(line) < 0.25 ? 0 : line;
     return `${o.selection} ${numericLine >= 0 ? "+" : ""}${fmtLine(numericLine)}`;
 };
@@ -384,7 +492,7 @@ Deno.serve(async (req: Request) => {
             return new Response(JSON.stringify({ status: "ok", msg: "Architect Alive" }), { headers: CORS_HEADERS });
         }
 
-        // JOB QUEUE PROCESSING
+        // JOB QUEUE
         if (body.job_id) {
             console.log(`WORKER: Processing Job ${body.job_id}`);
             await supabase.from("intel_jobs").update({ status: "running", updated_at: new Date().toISOString() }).eq("id", body.job_id);
@@ -424,9 +532,9 @@ Deno.serve(async (req: Request) => {
         // DIRECT REQUEST
         const validation = RequestSchema.safeParse(body);
         if (!validation.success) throw new Error("Invalid Schema: " + validation.error.message);
-        let p = validation.data;
+        let p = validation.data as any;
 
-        // SELF-HEALING HYDRATION
+        // HYDRATION
         if (!p.home_team || !p.away_team) {
             console.log(`[${requestId}] 💧 [HYDRATION] Fetching details...`);
             const { data: match, error: matchErr } = await supabase
@@ -446,33 +554,31 @@ Deno.serve(async (req: Request) => {
                 current_spread: p.current_spread ?? match.odds_home_spread_safe ?? match.current_odds?.homeSpread ?? match.current_odds?.spread_home_value,
                 current_total: p.current_total ?? match.odds_total_safe ?? match.current_odds?.total ?? match.current_odds?.total_value,
                 current_odds: p.current_odds || match.current_odds,
-            } as any;
+            };
         }
 
         if (!p.sport || p.sport === "basketball") {
             const derived = detectSportFromLeague(p.league);
-            if (derived !== "basketball") p = { ...p, sport: derived } as any;
+            if (derived !== "basketball") p = { ...p, sport: derived };
         }
 
         const dossier = await processSingleIntel(p, supabase, requestId);
         return new Response(JSON.stringify(dossier), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
-
     } catch (err: any) {
-        console.error(`[${requestId}] ❌ FATAL:`, err.message);
+        console.error(`[${crypto.randomUUID().slice(0, 8)}] ❌ FATAL:`, err.message);
         return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: CORS_HEADERS });
     }
 });
 
 // -------------------------------------------------------------------------
-// CORE ENGINE
+// CORE ENGINE (Design-Aware)
 // -------------------------------------------------------------------------
 async function processSingleIntel(p: any, supabase: any, requestId: string) {
     const dbId = getCanonicalMatchId(p.match_id, p.league);
     const gameDate = p.start_time ? toLocalGameDate(p.start_time) : new Date().toISOString().split("T")[0];
     const league = String(p.league || "nba").toLowerCase();
 
-    // PATCH 3: Freshness check FIRST (cheap path - 1 query)
-    // This avoids 5-6 DB reads per request when we're just going to skip anyway
+    // 1. FRESHNESS CHECK
     let existingIntel: any = null;
     if (!p.force_refresh) {
         existingIntel = await supabase
@@ -483,30 +589,41 @@ async function processSingleIntel(p: any, supabase: any, requestId: string) {
             .maybeSingle()
             .then((r: any) => r.data);
     }
-
     if (existingIntel?.generated_at) {
         const ageMs = Date.now() - new Date(existingIntel.generated_at).getTime();
         if (ageMs < 2 * 60 * 60 * 1000) {
-            console.log(`[${requestId}] ♻️ Freshness Hit. Skipping.`);
+            console.log(`[${requestId}] ♻️ Freshness Hit.`);
             return existingIntel;
         }
     }
 
-    // Phase 2: Heavy reads only when we will actually compute
+    // 2. DATA FETCH & MATH
     const [matchRecord, homeContext, awayContext, hP, aP] = await Promise.all([
         supabase.from("matches").select("odds_api_event_id").eq("id", dbId).maybeSingle().then((r: any) => r.data),
         supabase.from("team_game_context").select("*").eq("team", p.home_team).eq("game_date", gameDate).single().then((r: any) => r.data),
         supabase.from("team_game_context").select("*").eq("team", p.away_team).eq("game_date", gameDate).single().then((r: any) => r.data),
-        league === "nba" ? supabase.from("nba_team_priors").select("*").eq("team", p.home_team).eq("season", "2025-26").single().then((r: any) => r.data) : Promise.resolve(null),
-        league === "nba" ? supabase.from("nba_team_priors").select("*").eq("team", p.away_team).eq("season", "2025-26").single().then((r: any) => r.data) : Promise.resolve(null),
+        league === "nba"
+            ? supabase.from("nba_team_priors").select("*").eq("team", p.home_team).eq("season", "2025-26").single().then((r: any) => r.data)
+            : Promise.resolve(null),
+        league === "nba"
+            ? supabase.from("nba_team_priors").select("*").eq("team", p.away_team).eq("season", "2025-26").single().then((r: any) => r.data)
+            : Promise.resolve(null),
     ]);
 
     const oddsEventId = matchRecord?.odds_api_event_id || null;
 
-    // RATINGS & CONTEXT
-    let h_o = 110, h_d = 110, a_o = 110, a_d = 110;
-    if (hP) { h_o = hP.o_rating; h_d = hP.d_rating; }
-    if (aP) { a_o = aP.o_rating; a_d = aP.d_rating; }
+    let h_o = 110,
+        h_d = 110,
+        a_o = 110,
+        a_d = 110;
+    if (hP) {
+        h_o = hP.o_rating;
+        h_d = hP.d_rating;
+    }
+    if (aP) {
+        a_o = aP.o_rating;
+        a_d = aP.d_rating;
+    }
 
     const forensic = {
         home: {
@@ -516,7 +633,7 @@ async function processSingleIntel(p: any, supabase: any, requestId: string) {
             ats_pct: homeContext?.ats_last_10 || 0.5,
             fatigue_score: homeContext?.fatigue_score || 0,
             injury_notes: homeContext?.injury_notes || "None",
-            ats_last_10: homeContext?.ats_last_10 || 0.5
+            ats_last_10: homeContext?.ats_last_10 || 0.5,
         },
         away: {
             injury_impact: awayContext?.injury_impact || 0,
@@ -525,16 +642,17 @@ async function processSingleIntel(p: any, supabase: any, requestId: string) {
             ats_pct: awayContext?.ats_last_10 || 0.5,
             fatigue_score: awayContext?.fatigue_score || 0,
             injury_notes: awayContext?.injury_notes || "None",
-            ats_last_10: awayContext?.ats_last_10 || 0.5
+            ats_last_10: awayContext?.ats_last_10 || 0.5,
         },
     };
 
     const calcEff = (o: number, d: number, f: any) => {
         let r = o - d;
         r -= f.injury_impact * APEX_CONFIG.INJURY_WEIGHT;
-        // FIX: Case-Insensitive Situation Logic
         const sit = (f.situation || "").toUpperCase();
-        r -= (f.fatigue_score > 0 ? f.fatigue_score / 50 : (["B2B", "3IN4"].some(k => sit.includes(k)) ? 1 : 0)) * APEX_CONFIG.FATIGUE_BASE_PENALTY;
+        r -=
+            (f.fatigue_score > 0 ? f.fatigue_score / 50 : ["B2B", "3IN4"].some((k) => sit.includes(k)) ? 1 : 0) *
+            APEX_CONFIG.FATIGUE_BASE_PENALTY;
         if (f.ats_pct >= APEX_CONFIG.ATS_THRESHOLD) r += APEX_CONFIG.ATS_BONUS_POINTS;
         return r;
     };
@@ -542,107 +660,90 @@ async function processSingleIntel(p: any, supabase: any, requestId: string) {
     const h_eff = calcEff(h_o, h_d, forensic.home);
     const a_eff = calcEff(a_o, a_d, forensic.away);
 
-    // FIX: FAKE EDGE PREVENTION
-    // Only calculate edge if we actually have model priors (NBA). 
-    // Otherwise, set Fair Line = Market Line (Edge 0) to avoid fake "value" in College/Tennis.
     const hasModelPriors = p.league === "nba" && !!hP && !!aP;
     const rawFairLine = -1 * ((h_eff - a_eff) + APEX_CONFIG.HOME_COURT);
     const hasMarket = isFiniteNumber(p.current_spread);
 
-    const fairLine = hasModelPriors ? rawFairLine : (hasMarket ? p.current_spread : 0);
-    const delta = (hasMarket && hasModelPriors) ? Math.abs(p.current_spread - fairLine) : 0;
+    // Core behavior: non-NBA or missing priors anchors fairLine to market
+    const fairLine = hasModelPriors ? rawFairLine : hasMarket ? p.current_spread : 0;
+    const delta = hasMarket && hasModelPriors ? Math.abs(p.current_spread - fairLine) : 0;
     const edge = delta.toFixed(1);
 
-    // ODDS NORMALIZATION
     const odds = p.current_odds || {};
     const home_ml = safeJuiceFmt(p.home_ml ?? odds.homeWin ?? odds.home_ml ?? odds.best_h2h?.home?.price);
     const away_ml = safeJuiceFmt(p.away_ml ?? odds.awayWin ?? odds.away_ml ?? odds.best_h2h?.away?.price);
 
-    // BUILD MARKET SNAPSHOT
     const marketOffers = buildMarketSnapshot(p, odds);
 
-    // DIAGNOSTIC: Log what we received when NO offers are built
+    // LOCK: No market
     if (!marketOffers.length) {
-        console.warn(`[${requestId}] 🔍 NO_MARKET DIAGNOSIS:`, JSON.stringify({
-            match_id: dbId,
-            current_spread: p.current_spread,
-            current_total: p.current_total,
-            spread_juice: p.spread_juice,
-            total_juice: p.total_juice,
-            home_ml: p.home_ml,
-            away_ml: p.away_ml,
-            odds_keys: Object.keys(odds),
-            odds_homeSpreadOdds: odds?.homeSpreadOdds,
-            odds_overOdds: odds?.overOdds,
-            odds_spread_best: odds?.spread_best,
-            odds_total_best: odds?.total_best
-        }));
-    }
-
-    // ABORT IF NO VERIFIED DATA (INTEGRITY LOCK)
-    if (!marketOffers.length) {
-        console.warn(`[${requestId}] ⚠️ No verified market offers. Persisting NO_MARKET.`);
+        console.warn(`[${requestId}] ⚠️ No market offers. LOCKING.`);
         const noMarketDossier = {
-            match_id: dbId, game_date: gameDate, sport: p.sport, league_id: p.league,
-            home_team: p.home_team, away_team: p.away_team, odds_event_id: oddsEventId,
-            selected_offer_id: "NO_MARKET", headline: `${p.away_team} @ ${p.home_team}`,
+            match_id: dbId,
+            game_date: gameDate,
+            sport: p.sport,
+            league_id: p.league,
+            home_team: p.home_team,
+            away_team: p.away_team,
+            odds_event_id: oddsEventId,
+            selected_offer_id: "NO_MARKET",
+            headline: `${p.away_team} @ ${p.home_team}`,
             briefing: "Market data incomplete. Analysis paused.",
-            cards: [{ category: "The Engine", thesis: "Missing Data", market_implication: "No Action", impact: "LOW", details: ["No verified prices."] }, { category: "The Trap", thesis: "Integrity Lock", market_implication: "Pass", impact: "LOW", details: ["Prices unavailable."] }],
-            logic_group: "SITUATIONAL", confidence_tier: "LOW", pick_summary: "NO_MARKET", recommended_pick: "NO_MARKET", grading_metadata: null,
+            cards: [{ category: "The Engine", thesis: "Missing Data", impact: "LOW" }],
+            logic_group: "SITUATIONAL",
+            confidence_tier: "LOW",
+            pick_summary: "NO_MARKET",
+            recommended_pick: "NO_MARKET",
             generated_at: new Date().toISOString(),
-            // FIX: Phantom Zero Prevention using safeNumOrNull
             analyzed_spread: safeNumOrNull(p.current_spread),
             analyzed_total: safeNumOrNull(p.current_total),
-            spread_juice: null, total_juice: null, home_ml, away_ml,
-            logic_authority: "NO_MARKET", kernel_trace: "ABORT_NO_OFFERS"
+            spread_juice: null,
+            total_juice: null,
+            home_ml,
+            away_ml,
+            logic_authority: "NO_MARKET",
+            kernel_trace: "ABORT_NO_OFFERS",
         };
-        const noMarketResult = await stripUnknownColumnsAndRetryUpsert(supabase, "pregame_intel", noMarketDossier, { onConflict: "match_id,game_date", ignoreDuplicates: false });
-        if (!noMarketResult.ok) {
-            console.error(`[${requestId}] ❌ NO_MARKET UPSERT FAILED: ${noMarketResult.error?.message}`);
-        }
+        await stripUnknownColumnsAndRetryUpsert(supabase, "pregame_intel", noMarketDossier, {
+            onConflict: "match_id,game_date",
+            ignoreDuplicates: false,
+        });
         return noMarketDossier;
     }
 
-    const marketMenu = marketOffers.map(o => `- ID: "${o.id}" | ${o.label}`).join("\n");
+    const marketMenu = marketOffers.map((o) => `- ID: "${o.id}" | ${o.label}`).join("\n");
 
-    // AI SYNTHESIS WITH DYNAMIC SCHEMA INJECTION
-    const systemInstruction = `<role>Senior Analyst</role>
+    // 3. AI PROMPT (keep constraints; bettor-facing headline rules)
+    const systemInstruction = `<role>Institutional Investment Strategist</role>
 <constraints>
-1. Select EXACTLY ONE "selected_offer_id" from the Market Snapshot.
-2. PREFER SPREAD if edge > 1.0. Else consider TOTAL/ML.
+1. Select EXACTLY ONE "selected_offer_id" from the Snapshot.
+2. Prefer SPREAD when the pricing feels off; otherwise consider TOTAL/ML.
 3. Trust Snapshot prices.
 4. Output valid JSON.
 </constraints>
 
 <headline_rules>
-The "headline" field is bettor-facing. NO technical language.
-BANNED: model, fair line, delta, edge, dislocation, priors, projected, expected, EV, CLV, regression, algorithm, kernel, confidence, system, framework, signal, pricing, probability, variance
-Max 80 characters. One sentence. No colons.
-GOOD: "Healthy Knicks Smash Tanking Rival" | "Perfect Bounce-Back Spot After Blowout"
-BAD: "Model Shows 3.2 Point Edge" | "Fair Line Delta Creates Value"
+- Target: bettor-facing. punchy. 1 sentence.
+- Banned words: model, fair line, delta, edge, dislocation, priors, projected, expected, ev, clv, regression, algorithm, kernel, confidence, system, framework, signal, variance.
+- No colons.
 </headline_rules>
 
 <card_rules>
-Produce 3-5 insight cards. Engine words (model, projected, fair line, delta, EV, CLV) are ONLY allowed in "The Engine" category.
-"The Spot", "The Trend", "The Trap", "X-Factor" must use plain English.
-Order: The Spot -> The Trend -> The Engine -> The Trap -> X-Factor
-Confidence belongs in confidence_tier field, never in headline.
-</card_rules>
-
-<output_format>See Schema.</output_format>`;
+- "The Engine": technical is allowed here.
+- Other cards: plain English only.
+</card_rules>`;
 
     const synthesisPrompt = `<context>
 ${p.away_team} @ ${p.home_team}
 Fair Line: ${fairLine.toFixed(2)} | Edge: ${edge}
-=== MARKET SNAPSHOT (SELECT ONE) ===
+=== MARKET SNAPSHOT ===
 ${marketMenu}
-====================================
+=======================
 </context>
-<task>Select the best offer ID.</task>`;
+<task>Select best offer.</task>`;
 
-    // DYNAMICALLY INJECT ENUM TO PREVENT HALLUCINATION
-    const dynamicSchema = JSON.parse(JSON.stringify(INTEL_OUTPUT_SCHEMA_BASE));
-    dynamicSchema.properties.selected_offer_id.enum = marketOffers.map(o => o.id);
+    const dynamicSchema: any = JSON.parse(JSON.stringify(INTEL_OUTPUT_SCHEMA_BASE));
+    dynamicSchema.properties.selected_offer_id.enum = marketOffers.map((o) => o.id);
 
     const { text, sources, thoughts } = await executeAnalyticalQuery(synthesisPrompt, {
         model: "gemini-3-flash-preview",
@@ -652,51 +753,65 @@ ${marketMenu}
 
     const { analyzeMatchup } = await import("../_shared/intel-analyst.ts");
     const summary = await analyzeMatchup({
-        home_team: p.home_team, away_team: p.away_team,
+        home_team: p.home_team,
+        away_team: p.away_team,
         home_context: forensic.home,
-        away_context: forensic.away
+        away_context: forensic.away,
     });
 
     const intel = safeJsonParse(text) || {
         selected_offer_id: "FALLBACK",
-        headline: "Automated Analysis", briefing: "Parse failed. Fallback applied.",
-        cards: [], logic_group: "SITUATIONAL", confidence_tier: "LOW", pick_summary: "Fallback"
+        headline: "Automated Analysis",
+        briefing: "Parse failed.",
+        cards: [],
+        logic_group: "SITUATIONAL",
+        confidence_tier: "LOW",
+        pick_summary: "Fallback",
     };
+
     if (intel && summary) intel.briefing = summary;
 
-    // RESOLUTION & FALLBACK
-    let selectedOffer = marketOffers.find(o => o.id === intel.selected_offer_id);
+    // 4. RESOLUTION (deterministic safety)
+    let selectedOffer = marketOffers.find((o) => o.id === intel.selected_offer_id);
     let method = "AI_SELECTION";
 
     if (!selectedOffer) {
-        console.warn(`[${requestId}] ⚠️ ID Mismatch "${intel.selected_offer_id}". Fallback.`);
         selectedOffer = pickFallbackOffer(marketOffers, fairLine, p.current_spread) || marketOffers[0];
         method = "DETERMINISTIC_FALLBACK";
     }
 
-    // RECONSTRUCT PICK
     const pickString = formatPick(selectedOffer);
     const gradingMeta = {
         type: selectedOffer.type,
         side: selectedOffer.side,
         selection: selectedOffer.selection,
         line: selectedOffer.line,
-        price: selectedOffer.price
+        price: selectedOffer.price,
     };
 
-    // BIND JUICE (Strict: No Fallback)
+    // 5. SANITIZATION (AFTER offer resolution so team fallback is correct)
+    // This guarantees hero headline fallbacks reference the picked team.
+    const teamForFallback = selectedOffer?.selection || p.home_team || "this side";
+    intel.headline = IntelGuards.cleanHeadline(intel.headline, teamForFallback);
+
+    if (Array.isArray(intel.cards)) {
+        intel.cards = intel.cards.map((c: any) => ({
+            ...c,
+            thesis: IntelGuards.cleanCardThesis(c.category, c.thesis),
+        }));
+    }
+
+    // 6. Bind juice fields to selected offer where applicable
     const spreadJuiceRaw = parseAmericanOdds(p.spread_juice || odds.homeSpreadOdds || odds.spread_best?.home?.price);
     const totalJuiceRaw = parseAmericanOdds(p.total_juice || odds.overOdds || odds.total_best?.over?.price);
 
-    const bound_spread_juice = selectedOffer.type === "SPREAD"
-        ? selectedOffer.price
-        : (isFiniteNumber(p.current_spread) && spreadJuiceRaw !== null ? fmtAmerican(spreadJuiceRaw) : null);
+    const bound_spread_juice =
+        selectedOffer.type === "SPREAD" ? selectedOffer.price : isFiniteNumber(p.current_spread) && spreadJuiceRaw !== null ? fmtAmerican(spreadJuiceRaw) : null;
 
-    const bound_total_juice = selectedOffer.type === "TOTAL"
-        ? selectedOffer.price
-        : (isFiniteNumber(p.current_total) && totalJuiceRaw !== null ? fmtAmerican(totalJuiceRaw) : null);
+    const bound_total_juice =
+        selectedOffer.type === "TOTAL" ? selectedOffer.price : isFiniteNumber(p.current_total) && totalJuiceRaw !== null ? fmtAmerican(totalJuiceRaw) : null;
 
-    // PRE-STRIP: Remove AI fields that don't map to DB columns (keep confidence_tier + logic_group)
+    // remove the AI-only selected_offer_id & pick_summary from stored surface object (your choice)
     const { selected_offer_id, pick_summary, ...cleanIntel } = intel as any;
 
     const dossier = {
@@ -707,9 +822,11 @@ ${marketMenu}
         home_team: p.home_team,
         away_team: p.away_team,
         odds_event_id: oddsEventId,
+
         ...cleanIntel,
-        recommended_pick: pickString, // Deterministic
-        grading_metadata: gradingMeta, // Deterministic
+
+        recommended_pick: pickString,
+        grading_metadata: gradingMeta,
         sources: sources || [],
         generated_at: new Date().toISOString(),
 
@@ -722,16 +839,21 @@ ${marketMenu}
 
         confidence_tier: intel.confidence_tier || null,
         logic_group: intel.logic_group || null,
+
+        // Keep this internal; UI should not display it.
         logic_authority: `${selectedOffer.label} | ${edge} edge`,
-        kernel_trace: `[METHOD:${method}]\n${thoughts || ""}`
+        kernel_trace: `[METHOD:${method}]\n${thoughts || ""}`,
     };
 
-    const upsertResult = await stripUnknownColumnsAndRetryUpsert(supabase, "pregame_intel", dossier, { onConflict: "match_id,game_date", ignoreDuplicates: false });
+    const upsertResult = await stripUnknownColumnsAndRetryUpsert(supabase, "pregame_intel", dossier, {
+        onConflict: "match_id,game_date",
+        ignoreDuplicates: false,
+    });
+
     if (!upsertResult.ok) {
-        const errMsg = upsertResult.error?.message || "Unknown upsert error";
-        console.error(`[${requestId}] ❌ UPSERT FAILED: ${errMsg}`);
-        throw new Error(`Upsert failed: ${errMsg}`);
+        throw new Error(`Upsert failed: ${upsertResult.error?.message}`);
     }
+
     console.log(`[${requestId}] 🎉 Saved: ${dossier.recommended_pick} (${selectedOffer.price})`);
     return dossier;
 }
