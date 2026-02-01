@@ -214,7 +214,26 @@ Deno.serve(async (req: Request) => {
     try {
         trace.push(`[boot] Grade Picks Cron v2.3.1 Started: ${batchId}`);
 
-        const sports = ['basketball_ncaab', 'basketball_nba', 'soccer_epl', 'soccer_italy_serie_a', 'soccer_germany_bundesliga', 'soccer_france_ligue_one', 'icehockey_nhl', 'tennis_atp', 'tennis_wta'];
+        const sports = [
+            // Basketball
+            'basketball_ncaab', 'basketball_nba',
+            // Soccer - Major European
+            'soccer_epl', 'soccer_italy_serie_a', 'soccer_germany_bundesliga',
+            'soccer_france_ligue_one', 'soccer_spain_la_liga',
+            // Soccer - Other European
+            'soccer_portugal_primeira_liga', 'soccer_netherlands_eredivisie',
+            'soccer_belgium_first_div', 'soccer_turkey_super_league',
+            'soccer_scotland_premiership',
+            // Soccer - Americas
+            'soccer_mexico_ligamx', 'soccer_brazil_serie_a', 'soccer_argentina_primera',
+            'soccer_usa_mls',
+            // Soccer - Cups
+            'soccer_uefa_champs_league', 'soccer_uefa_europa_league',
+            // Hockey
+            'icehockey_nhl',
+            // Tennis
+            'tennis_atp', 'tennis_wta'
+        ];
 
         const allScores = new Map<string, OddsAPIScore>();
         await Promise.all(sports.map(async (sport) => {
