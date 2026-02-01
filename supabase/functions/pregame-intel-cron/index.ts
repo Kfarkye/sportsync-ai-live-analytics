@@ -307,7 +307,7 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
         if (slate?.length) {
             const { data: existingIntel, error: intelErr } = await supabase
                 .from("pregame_intel")
-                .select("match_id, generated_at, freshness, analyzed_spread, analyzed_total")
+                .select("match_id, game_date, generated_at, freshness, analyzed_spread, analyzed_total")
                 .in("match_id", (slate as any[]).map(s => s.id))
                 .order("generated_at", { ascending: true });
 
@@ -394,6 +394,7 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
                         const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
                         const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
+                        const odds = (game as any).current_odds || {};
                         const workerPayload = {
                             match_id: game.id,
                             home_team: game.home_team,
@@ -401,11 +402,14 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
                             sport: game.sport,
                             league: game.league_id,
                             start_time: game.start_time,
-                            current_spread: (game as any).odds_home_spread_safe ?? (game as any).current_odds?.homeSpread ?? null,
-                            current_total: (game as any).odds_total_safe ?? (game as any).current_odds?.total ?? null,
-                            current_odds: (game as any).current_odds,
-                            home_ml: (game as any).current_odds?.homeWin || (game as any).current_odds?.home_ml,
-                            away_ml: (game as any).current_odds?.awayWin || (game as any).current_odds?.away_ml,
+                            current_spread: (game as any).odds_home_spread_safe ?? odds?.homeSpread ?? odds?.spread ?? null,
+                            current_total: (game as any).odds_total_safe ?? odds?.total ?? odds?.overUnder ?? null,
+                            current_odds: odds,
+                            // CRITICAL: Pass spread/total juice (American odds) for market offer construction
+                            spread_juice: odds?.homeSpreadOdds ?? odds?.spread_best?.home?.price ?? odds?.spreadHomeOdds ?? null,
+                            total_juice: odds?.overOdds ?? odds?.total_best?.over?.price ?? odds?.totalOverOdds ?? null,
+                            home_ml: odds?.homeWin ?? odds?.home_ml ?? odds?.best_h2h?.home?.price ?? null,
+                            away_ml: odds?.awayWin ?? odds?.away_ml ?? odds?.best_h2h?.away?.price ?? null,
                             force_refresh: isForce
                         };
 

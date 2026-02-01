@@ -429,14 +429,36 @@ export const getBaseId = (id: string): string => {
 
 /**
  * US Game Day Translation: Standardizes the "Game Day" for lookups.
- * Maps UTC overnight games (e.g., 02:30 UTC Jan 15) to their local US date (Jan 14).
- * Subtracts 7 hours from the UTC start time.
+ * Uses Pacific Time (America/Los_Angeles) with proper DST handling.
+ * Applies "3 AM Rule": games from 12AM-3AM belong to the previous day's betting slate.
+ * This MUST match the frontend's getBettingSlateDate() for UI/DB parity.
  */
 export const toLocalGameDate = (isoStr: string | Date): string => {
-    const d = new Date(isoStr);
+    const d = new Date(typeof isoStr === 'string' ? isoStr.replace(' ', 'T') : isoStr);
     if (isNaN(d.getTime())) return new Date().toISOString().split('T')[0];
-    d.setHours(d.getHours() - 7);
-    return d.toISOString().split('T')[0];
+
+    // Use Intl.DateTimeFormat for reliable Pacific Time conversion (handles DST)
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Los_Angeles',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: 'numeric',
+        hour12: false
+    }).formatToParts(d);
+
+    const find = (t: string) => parts.find(p => p.type === t)?.value;
+    const dateStr = `${find('year')}-${find('month')}-${find('day')}`;
+    const hour = parseInt(find('hour') || '0', 10);
+
+    // 3 AM Rule: Games played 12AM-3AM Pacific belong to previous day's slate
+    if (hour < 3) {
+        const adjusted = new Date(dateStr);
+        adjusted.setDate(adjusted.getDate() - 1);
+        return adjusted.toISOString().split('T')[0];
+    }
+
+    return dateStr;
 };
 
 

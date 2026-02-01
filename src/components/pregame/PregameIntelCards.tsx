@@ -5,10 +5,11 @@
 
 import React, { useState, useEffect, Component } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, ExternalLink, ChevronDown, Loader2 } from 'lucide-react';
+import { ShieldCheck, ExternalLink, ChevronDown, Loader2, Target, TrendingUp, Cpu, AlertOctagon, Zap } from 'lucide-react';
 import { cn } from '../../lib/essence';
 import { Match } from '../../types';
 import { pregameIntelService, PregameIntelResponse, IntelCard } from '../../services/pregameIntelService';
+import { cleanHeadline, cleanCardThesis } from '../../lib/intel-guards';
 
 // ─────────────────────────────────────────────────────────────────
 // 🎨 DESIGN TOKENS (Apple HIG + Google Material 3)
@@ -16,6 +17,20 @@ import { pregameIntelService, PregameIntelResponse, IntelCard } from '../../serv
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 30 };
 const STAGGER_CHILDREN = { staggerChildren: 0.08, delayChildren: 0.1 };
+
+// Section visual identity - icons and colors for each card type
+type CardCategory = "The Spot" | "The Trend" | "The Engine" | "The Trap" | "X-Factor";
+const SECTION_CONFIG: Record<CardCategory, {
+    icon: React.ComponentType<{ size?: number; className?: string }>;
+    color: string;
+    border: string;
+}> = {
+    "The Spot": { icon: Target, color: "text-zinc-100", border: "border-l-zinc-500" },
+    "The Trend": { icon: TrendingUp, color: "text-blue-400", border: "border-l-blue-500" },
+    "The Engine": { icon: Cpu, color: "text-emerald-400", border: "border-l-emerald-500" },
+    "The Trap": { icon: AlertOctagon, color: "text-amber-500", border: "border-l-amber-500" },
+    "X-Factor": { icon: Zap, color: "text-purple-400", border: "border-l-purple-500" },
+};
 
 // Strip markdown for pristine display
 const stripMarkdown = (text: string): string => {
@@ -156,24 +171,42 @@ const PickDisplay = ({ pick, juice, startTime }: { pick: string; juice?: string;
 );
 
 // THE THESIS - Headline Only (Cards provide detail)
-const ThesisDisplay = ({ headline }: { headline: string }) => (
-    <motion.div variants={headlineVariants} className="mb-12">
-        <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight leading-snug">
-            {stripMarkdown(headline)}
-        </h2>
-    </motion.div>
-);
+const ThesisDisplay = ({ headline, teamName }: { headline: string; teamName: string }) => {
+    // GUARD: Clean the headline before display
+    const displayHeadline = cleanHeadline(headline, teamName);
+    return (
+        <motion.div variants={headlineVariants} className="mb-12">
+            <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight leading-snug">
+                {stripMarkdown(displayHeadline)}
+            </h2>
+        </motion.div>
+    );
+};
 
 // INSIGHT CARD - 30-Second Read (Progressive Disclosure)
-const InsightCard = ({ card, index, isEdge }: { card: IntelCard; index: number; isEdge: boolean }) => {
-    const [expanded, setExpanded] = useState(false);
+const InsightCard = ({ card, index, isEdge, confidenceTier }: { card: IntelCard; index: number; isEdge: boolean; confidenceTier?: string }) => {
+    // Cast category to string for flexible comparison (handles both old and new category enums)
+    const categoryStr = String(card.category);
+    const [expanded, setExpanded] = useState(categoryStr === "The Spot"); // The Spot starts expanded
+
+    // Get section config (fallback to The Spot if unknown category)
+    const config = SECTION_CONFIG[categoryStr as CardCategory] || SECTION_CONFIG["The Spot"];
+    const IconComponent = config.icon;
+
+    // GUARD: Clean the thesis before display
+    const displayThesis = cleanCardThesis(categoryStr, card.thesis);
+
+    // Check if this is The Engine card (for confidence display)
+    const isEngineCard = categoryStr === "The Engine";
 
     return (
         <motion.div
             variants={cardVariants}
             className={cn(
                 "relative py-8 group cursor-pointer",
-                index > 0 && "border-t border-white/[0.03]"
+                index > 0 && "border-t border-white/[0.03]",
+                config.border,
+                "border-l-[3px] pl-4"
             )}
             onClick={() => setExpanded(!expanded)}
         >
@@ -184,17 +217,20 @@ const InsightCard = ({ card, index, isEdge }: { card: IntelCard; index: number; 
 
             <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                    {/* Category Label */}
-                    <span className={cn(
-                        "text-[9px] font-bold uppercase tracking-[0.25em] mb-3 block",
-                        isEdge ? "text-emerald-500/70" : "text-amber-500/50"
-                    )}>
-                        {card.category}
-                    </span>
+                    {/* Category Label with Icon */}
+                    <div className="flex items-center gap-2 mb-3">
+                        <IconComponent size={12} className={config.color} />
+                        <span className={cn(
+                            "text-[9px] font-bold uppercase tracking-[0.25em]",
+                            config.color
+                        )}>
+                            {categoryStr}
+                        </span>
+                    </div>
 
-                    {/* Thesis - Primary Content */}
+                    {/* Thesis - Primary Content (GUARDED) */}
                     <h4 className="text-[16px] font-semibold text-white leading-snug mb-2 group-hover:text-zinc-300 transition-colors">
-                        {stripMarkdown(card.thesis)}
+                        {stripMarkdown(displayThesis)}
                     </h4>
 
                     {/* Market Implication - Secondary */}
@@ -235,6 +271,24 @@ const InsightCard = ({ card, index, isEdge }: { card: IntelCard; index: number; 
                                 </div>
                             ))}
                         </div>
+
+                        {/* Confidence - ONLY inside "The Engine" */}
+                        {isEngineCard && confidenceTier && (
+                            <div className="mt-4 pt-3 border-t border-white/5 flex items-center gap-2">
+                                <ShieldCheck
+                                    size={14}
+                                    className={cn(
+                                        confidenceTier === "HIGH" && "text-emerald-500",
+                                        confidenceTier === "MEDIUM" && "text-amber-500",
+                                        confidenceTier === "LOW" && "text-zinc-500"
+                                    )}
+                                />
+                                <span className="text-[10px] font-mono text-zinc-500 uppercase">
+                                    Signal Strength:{" "}
+                                    <span className="text-zinc-300 font-bold">{confidenceTier}</span>
+                                </span>
+                            </div>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -322,7 +376,7 @@ export const PregameIntelCards = ({
             )}
 
             {/* THE THESIS - Quick Context */}
-            <ThesisDisplay headline={intel.headline} />
+            <ThesisDisplay headline={intel.headline} teamName={intel.recommended_pick?.split(' ')[0] || 'Team'} />
 
             {/* INSIGHT CARDS - Deep Analysis */}
             <div className="mb-8">
@@ -331,7 +385,8 @@ export const PregameIntelCards = ({
                         key={idx}
                         card={card}
                         index={idx}
-                        isEdge={card.category?.toLowerCase().includes('edge') || idx === 0}
+                        isEdge={String(card.category) === 'The Engine' || idx === 0}
+                        confidenceTier={(intel as any).confidence_tier}
                     />
                 ))}
             </div>
