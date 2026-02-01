@@ -3,49 +3,95 @@
 // ARCHITECTURE: "SOTA Production" • Apple/Google Quality Standards
 // ===================================================================
 
-import React, { useState, useEffect, Component } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, ExternalLink, ChevronDown, Loader2, Target, TrendingUp, Cpu, AlertOctagon, Zap } from 'lucide-react';
+import React, { useState, useEffect, useMemo, Component } from 'react';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import {
+    ShieldCheck, ExternalLink, ChevronDown,
+    Target, TrendingUp, Cpu, AlertOctagon, Zap
+} from 'lucide-react';
 import { cn } from '../../lib/essence';
 import { Match } from '../../types';
 import { pregameIntelService, PregameIntelResponse, IntelCard } from '../../services/pregameIntelService';
 import { cleanHeadline, cleanCardThesis } from '../../lib/intel-guards';
 
 // ─────────────────────────────────────────────────────────────────
-// 🎨 DESIGN TOKENS (Apple HIG + Google Material 3)
+// 🎨 DESIGN TOKENS
 // ─────────────────────────────────────────────────────────────────
 
-const SPRING = { type: "spring" as const, stiffness: 400, damping: 30 };
-const STAGGER_CHILDREN = { staggerChildren: 0.08, delayChildren: 0.1 };
+const SPRING = { type: "spring", stiffness: 450, damping: 35 };
+const STAGGER = { staggerChildren: 0.08, delayChildren: 0.05 };
 
-// Section visual identity - icons and colors for each card type
-type CardCategory = "The Spot" | "The Trend" | "The Engine" | "The Trap" | "X-Factor";
-const SECTION_CONFIG: Record<CardCategory, {
+const SORT_ORDER = ["The Spot", "The Trend", "The Engine", "The Trap", "X-Factor"];
+
+const SECTION_CONFIG: Record<string, {
     icon: React.ComponentType<{ size?: number; className?: string }>;
     color: string;
     border: string;
+    bg: string;
 }> = {
-    "The Spot": { icon: Target, color: "text-zinc-100", border: "border-l-zinc-500" },
-    "The Trend": { icon: TrendingUp, color: "text-blue-400", border: "border-l-blue-500" },
-    "The Engine": { icon: Cpu, color: "text-emerald-400", border: "border-l-emerald-500" },
-    "The Trap": { icon: AlertOctagon, color: "text-amber-500", border: "border-l-amber-500" },
-    "X-Factor": { icon: Zap, color: "text-purple-400", border: "border-l-purple-500" },
+    "The Spot": { icon: Target, color: "text-zinc-100", border: "border-l-zinc-500", bg: "bg-zinc-500/10" },
+    "The Trend": { icon: TrendingUp, color: "text-blue-400", border: "border-l-blue-500", bg: "bg-blue-500/10" },
+    "The Engine": { icon: Cpu, color: "text-emerald-400", border: "border-l-emerald-500", bg: "bg-emerald-500/10" },
+    "The Trap": { icon: AlertOctagon, color: "text-amber-500", border: "border-l-amber-500", bg: "bg-amber-500/10" },
+    "X-Factor": { icon: Zap, color: "text-purple-400", border: "border-l-purple-500", bg: "bg-purple-500/10" },
 };
 
-// Strip markdown for pristine display
-const stripMarkdown = (text: string): string => {
-    if (!text) return '';
-    return text
-        .replace(/#{1,6}\s*/g, '')
-        .replace(/\*\*([^*]+)\*\*/g, '$1')
-        .replace(/\*([^*]+)\*/g, '$1')
-        .replace(/__([^_]+)__/g, '$1')
-        .replace(/_([^_]+)_/g, '$1')
-        .replace(/`([^`]+)`/g, '$1')
-        .replace(/^\s*[-*+]\s+/gm, '')
-        .replace(/^\s*\d+\.\s+/gm, '')
-        .trim();
-};
+const RenderRichText = React.memo(({ text, className }: { text: string; className?: string }) => {
+    if (!text) return null;
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return (
+        <span className={className}>
+            {parts.map((part, i) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                    return <strong key={i} className="font-bold text-white">{part.slice(2, -2)}</strong>;
+                }
+                return <React.Fragment key={i}>{part}</React.Fragment>;
+            })}
+        </span>
+    );
+});
+
+// ─────────────────────────────────────────────────────────────────
+// 🧠 HELPERS
+// ─────────────────────────────────────────────────────────────────
+
+function toISOOrNull(v: any): string | null {
+    if (!v) return null;
+    if (typeof v === 'string') {
+        const d = new Date(v);
+        return Number.isNaN(d.getTime()) ? null : d.toISOString();
+    }
+    if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v.toISOString();
+    return null;
+}
+
+// Extract team name from pick string without breaking multi-word teams.
+// Examples:
+// "Indiana Pacers +1.5" -> "Indiana Pacers"
+// "Los Angeles Lakers ML" -> "Los Angeles Lakers"
+// "OVER 219.5" -> "OVER"
+function extractTeamFromPick(pick?: string | null): string {
+    if (!pick) return "Team";
+    const s = pick.trim();
+    if (!s) return "Team";
+
+    // totals
+    if (/^(over|under)\b/i.test(s)) return s.split(/\s+/).slice(0, 1).join(' ').toUpperCase();
+
+    // moneyline marker
+    const mlIdx = s.toLowerCase().lastIndexOf(' ml');
+    const core = mlIdx > 0 ? s.slice(0, mlIdx).trim() : s;
+
+    // stop before first token that looks like a number/spread (e.g., +2.5, -110, 219.5)
+    const tokens = core.split(/\s+/);
+    const out: string[] = [];
+    for (const t of tokens) {
+        if (/^[+\-]?\d+(\.\d+)?$/.test(t)) break;
+        if (/^\(?[+\-]?\d{3,5}\)?$/.test(t)) break; // odds-like
+        out.push(t);
+    }
+    return out.length ? out.join(' ') : tokens[0];
+}
 
 // ─────────────────────────────────────────────────────────────────
 // 🪝 DATA LAYER
@@ -63,232 +109,186 @@ const useIntelQuery = (match: Match, externalIntel?: PregameIntelResponse | null
         const fetchData = async () => {
             setStatus('LOADING');
             try {
-                const timeoutId = setTimeout(() => controller.abort(), 12000);
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const startTimeISO = toISOOrNull((match as any).startTime);
+
                 const result = await pregameIntelService.fetchIntel(
-                    match.id, match.homeTeam.name, match.awayTeam.name, match.sport, match.leagueId,
-                    typeof match.startTime === 'string' ? match.startTime : match.startTime?.toISOString(),
-                    match.current_odds?.homeSpread, match.current_odds?.total
+                    (match as any).id,
+                    (match as any).homeTeam?.name,
+                    (match as any).awayTeam?.name,
+                    (match as any).sport,
+                    (match as any).leagueId,
+                    startTimeISO || undefined,
+                    (match as any).current_odds?.homeSpread,
+                    (match as any).current_odds?.total
                 );
+
                 clearTimeout(timeoutId);
                 if (!controller.signal.aborted && result) { setData(result); setStatus('SUCCESS'); }
-            } catch { if (!controller.signal.aborted) setStatus('ERROR'); }
+            } catch {
+                if (!controller.signal.aborted) setStatus('ERROR');
+            }
         };
+
         fetchData();
         return () => controller.abort();
-    }, [match.id, externalIntel, retryCount]);
+    }, [externalIntel, retryCount, (match as any).id]);
 
     return { data, status, retry: () => setRetryCount(c => c + 1) };
 };
 
 // ─────────────────────────────────────────────────────────────────
-// 🎭 MOTION VARIANTS (Staggered Orchestration)
+// 🏗️ SUB-COMPONENTS
 // ─────────────────────────────────────────────────────────────────
 
-const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: STAGGER_CHILDREN }
-};
+const SignalMeter = ({ tier }: { tier: string }) => {
+    const level = tier === "HIGH" ? 3 : tier === "MEDIUM" ? 2 : 1;
+    const color = tier === "HIGH" ? "bg-emerald-500" : tier === "MEDIUM" ? "bg-amber-500" : "bg-zinc-600";
 
-const pickVariants = {
-    hidden: { opacity: 0, y: -20, scale: 0.95 },
-    visible: { opacity: 1, y: 0, scale: 1, transition: { ...SPRING, delay: 0 } }
-};
-
-const headlineVariants = {
-    hidden: { opacity: 0, y: 15 },
-    visible: { opacity: 1, y: 0, transition: { ...SPRING, delay: 0.15 } }
-};
-
-const cardVariants = {
-    hidden: { opacity: 0, x: -10 },
-    visible: { opacity: 1, x: 0, transition: SPRING }
-};
-
-// ─────────────────────────────────────────────────────────────────
-// 📊 CONFIDENCE GLOW (Semantic Color Theory)
-// ─────────────────────────────────────────────────────────────────
-
-const getConfidenceGlow = (score?: number): string => {
-    if (!score || score < 60) return '';
-    if (score >= 80) return 'before:absolute before:inset-0 before:bg-gradient-to-br before:from-emerald-500/[0.03] before:to-transparent before:rounded-3xl before:pointer-events-none';
-    if (score >= 70) return 'before:absolute before:inset-0 before:bg-gradient-to-br before:from-blue-500/[0.02] before:to-transparent before:rounded-3xl before:pointer-events-none';
-    return '';
-};
-
-// ─────────────────────────────────────────────────────────────────
-// 🏗️ COMPONENTS
-// ─────────────────────────────────────────────────────────────────
-
-const LoadingState = () => (
-    <div className="py-32 flex flex-col items-center justify-center gap-8">
-        <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-        >
-            <Loader2 size={18} className="text-zinc-700" />
-        </motion.div>
-        <span className="text-[10px] font-medium text-zinc-700 uppercase tracking-[0.25em]">
-            Analyzing
-        </span>
-    </div>
-);
-
-// --- HELPER: Date Awareness ---
-const getEdgeLabel = (startTime: string | Date): string => {
-    const start = new Date(startTime);
-    const now = new Date();
-
-    // Reset times to compare dates specifically
-    const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    const diffDays = Math.round((startDate.getTime() - nowDate.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return "Today's Edge";
-    if (diffDays === 1) return "Tomorrow's Edge";
-
-    return start.toLocaleDateString('en-US', { weekday: 'long' }) + "'s Edge";
-};
-
-// THE PICK - 1-Second Read (Magazine Cover Style)
-const PickDisplay = ({ pick, juice, startTime }: { pick: string; juice?: string; startTime: string | Date }) => (
-    <motion.div variants={pickVariants} className="mb-12">
-        <div className="flex items-center gap-2 mb-3">
-            <motion.div
-                className="w-2 h-2 rounded-full bg-emerald-500"
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-            />
-            <span className="text-[9px] font-semibold uppercase tracking-[0.3em] text-emerald-500/60">
-                {getEdgeLabel(startTime)}
-            </span>
-        </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight leading-none">
-            {pick}
-            <span className="text-zinc-600 text-xl font-medium ml-3">{juice || '−110'}</span>
-        </h1>
-    </motion.div>
-);
-
-// THE THESIS - Headline Only (Cards provide detail)
-const ThesisDisplay = ({ headline, teamName }: { headline: string; teamName: string }) => {
-    // GUARD: Clean the headline before display
-    const displayHeadline = cleanHeadline(headline, teamName);
     return (
-        <motion.div variants={headlineVariants} className="mb-12">
-            <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight leading-snug">
-                {stripMarkdown(displayHeadline)}
-            </h2>
-        </motion.div>
+        <div className="flex items-center gap-1.5" title={`Signal Strength: ${tier}`}>
+            {[1, 2, 3].map(i => (
+                <div
+                    key={i}
+                    className={cn(
+                        "h-1.5 w-3 rounded-[1px] transition-all duration-500",
+                        i <= level ? color : "bg-zinc-800"
+                    )}
+                />
+            ))}
+        </div>
     );
 };
 
-// INSIGHT CARD - 30-Second Read (Progressive Disclosure)
-const InsightCard = ({ card, index, isEdge, confidenceTier }: { card: IntelCard; index: number; isEdge: boolean; confidenceTier?: string }) => {
-    // Cast category to string for flexible comparison (handles both old and new category enums)
-    const categoryStr = String(card.category);
-    const [expanded, setExpanded] = useState(categoryStr === "The Spot"); // The Spot starts expanded
+const EdgeLabel = ({ startTimeISO }: { startTimeISO: string | null }) => {
+    const [label, setLabel] = useState<string>("");
 
-    // Get section config (fallback to The Spot if unknown category)
-    const config = SECTION_CONFIG[categoryStr as CardCategory] || SECTION_CONFIG["The Spot"];
-    const IconComponent = config.icon;
+    useEffect(() => {
+        if (!startTimeISO) { setLabel("Upcoming Intel"); return; }
 
-    // GUARD: Clean the thesis before display
-    const displayThesis = cleanCardThesis(categoryStr, card.thesis);
+        const start = new Date(startTimeISO);
+        if (Number.isNaN(start.getTime())) { setLabel("Upcoming Intel"); return; }
 
-    // Check if this is The Engine card (for confidence display)
-    const isEngineCard = categoryStr === "The Engine";
+        const now = new Date();
+        const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const diffDays = Math.round((startDate.getTime() - nowDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) setLabel("Today's Edge");
+        else if (diffDays === 1) setLabel("Tomorrow's Edge");
+        else setLabel("Upcoming Intel");
+    }, [startTimeISO]);
+
+    if (!label) return null;
+
+    return (
+        <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 mb-3 backdrop-blur-sm">
+            <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+            </span>
+            <span className="text-[9px] font-bold tracking-widest text-emerald-500 uppercase">
+                {label}
+            </span>
+        </div>
+    );
+};
+
+const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: number; confidenceTier?: string }) => {
+    const category = String((card as any).category);
+
+    const hasDetails = Array.isArray((card as any).details) && (card as any).details.length > 0;
+    const isEngine = category === "The Engine";
+
+    // Expand state must react if details appear after refresh
+    const [expanded, setExpanded] = useState<boolean>(hasDetails && category === "The Spot");
+    useEffect(() => {
+        if (!hasDetails) setExpanded(false);
+        else if (category === "The Spot") setExpanded(true);
+    }, [hasDetails, category]);
+
+    const config = SECTION_CONFIG[category] || SECTION_CONFIG["The Spot"];
+    const Icon = config.icon;
+
+    const displayThesis = cleanCardThesis(category, String((card as any).thesis || ""));
 
     return (
         <motion.div
-            variants={cardVariants}
+            layout
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             className={cn(
-                "relative py-8 group cursor-pointer",
-                index > 0 && "border-t border-white/[0.03]",
+                "group relative border-l-[3px] py-5 transition-colors duration-300",
                 config.border,
-                "border-l-[3px] pl-4"
+                index !== 0 && "border-t border-white/[0.04]",
+                hasDetails && expanded ? "bg-white/[0.02]" : "hover:bg-white/[0.01]",
+                hasDetails ? "cursor-pointer" : "cursor-default"
             )}
-            onClick={() => setExpanded(!expanded)}
+            onClick={() => hasDetails && setExpanded(v => !v)}
         >
-            {/* Ambient glow for edge cards */}
-            {isEdge && (
-                <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-12 bg-gradient-to-b from-transparent via-emerald-500/20 to-transparent rounded-full" />
-            )}
-
-            <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                    {/* Category Label with Icon */}
-                    <div className="flex items-center gap-2 mb-3">
-                        <IconComponent size={12} className={config.color} />
-                        <span className={cn(
-                            "text-[9px] font-bold uppercase tracking-[0.25em]",
-                            config.color
-                        )}>
-                            {categoryStr}
+            <div className="flex items-start justify-between gap-4 px-4">
+                <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-3">
+                        <div className={cn("p-1 rounded-md", config.bg)}>
+                            <Icon size={12} className={config.color} />
+                        </div>
+                        <span className={cn("text-[9px] font-bold uppercase tracking-[0.2em]", config.color)}>
+                            {category}
                         </span>
+
+                        {isEngine && confidenceTier && (
+                            <div className="ml-auto mr-2"><SignalMeter tier={confidenceTier} /></div>
+                        )}
                     </div>
 
-                    {/* Thesis - Primary Content (GUARDED) */}
-                    <h4 className="text-[16px] font-semibold text-white leading-snug mb-2 group-hover:text-zinc-300 transition-colors">
-                        {stripMarkdown(displayThesis)}
-                    </h4>
-
-                    {/* Market Implication - Secondary */}
-                    <p className="text-[13px] text-zinc-600 leading-relaxed">
-                        {stripMarkdown(card.market_implication)}
-                    </p>
+                    <div className={cn(
+                        "text-[15px] leading-snug transition-colors duration-300 font-medium pr-6",
+                        isEngine ? "font-mono text-[13px] text-zinc-300" : "text-zinc-200 group-hover:text-white"
+                    )}>
+                        {isEngine && <span className="text-emerald-500 mr-2">{'>'}</span>}
+                        <RenderRichText text={displayThesis} />
+                        {isEngine && <span className="inline-block w-1.5 h-3 ml-1 bg-emerald-500/50 animate-pulse align-middle" />}
+                    </div>
                 </div>
 
-                {/* Expand Indicator */}
-                {card.details && card.details.length > 0 && (
+                {hasDetails && (
                     <motion.div
                         animate={{ rotate: expanded ? 180 : 0 }}
-                        className="text-zinc-700 mt-1"
+                        className="text-zinc-600 mt-1"
                     >
-                        <ChevronDown size={16} />
+                        <ChevronDown size={14} />
                     </motion.div>
                 )}
             </div>
 
-            {/* Expanded Details - Deep Intel */}
             <AnimatePresence>
-                {expanded && card.details && card.details.length > 0 && (
+                {expanded && hasDetails && (
                     <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
+                        transition={SPRING}
                         className="overflow-hidden"
                     >
-                        <div className="pt-6 space-y-3">
-                            {card.details.map((detail: string, dIdx: number) => (
-                                <div
-                                    key={dIdx}
-                                    className="flex items-start gap-3 text-[12px] text-zinc-500"
-                                >
-                                    <div className="w-1 h-1 rounded-full bg-zinc-700 mt-2 shrink-0" />
-                                    <span>{stripMarkdown(detail)}</span>
+                        <div className="px-4 pb-2 pt-3 ml-1">
+                            {(card as any).market_implication && (
+                                <div className="mb-3 pl-3 border-l-2 border-zinc-800">
+                                    <p className="text-xs text-zinc-500 italic">
+                                        <RenderRichText text={String((card as any).market_implication)} />
+                                    </p>
                                 </div>
-                            ))}
-                        </div>
+                            )}
 
-                        {/* Confidence - ONLY inside "The Engine" */}
-                        {isEngineCard && confidenceTier && (
-                            <div className="mt-4 pt-3 border-t border-white/5 flex items-center gap-2">
-                                <ShieldCheck
-                                    size={14}
-                                    className={cn(
-                                        confidenceTier === "HIGH" && "text-emerald-500",
-                                        confidenceTier === "MEDIUM" && "text-amber-500",
-                                        confidenceTier === "LOW" && "text-zinc-500"
-                                    )}
-                                />
-                                <span className="text-[10px] font-mono text-zinc-500 uppercase">
-                                    Signal Strength:{" "}
-                                    <span className="text-zinc-300 font-bold">{confidenceTier}</span>
-                                </span>
+                            <div className="space-y-2">
+                                {(card as any).details?.map((detail: any, i: number) => (
+                                    <div key={i} className="flex gap-3 text-xs text-zinc-400 font-light leading-relaxed">
+                                        <span className="w-1 h-1 rounded-full bg-zinc-700 mt-1.5 shrink-0" />
+                                        <RenderRichText text={String(detail)} />
+                                    </div>
+                                ))}
                             </div>
-                        )}
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -296,30 +296,18 @@ const InsightCard = ({ card, index, isEdge, confidenceTier }: { card: IntelCard;
     );
 };
 
-// SOURCES FOOTER - Attribution (Gemini Style)
-const SourcesFooter = ({ sources }: { sources: any[] }) => (
-    <motion.div
-        variants={cardVariants}
-        className="pt-8 mt-8 border-t border-white/[0.02]"
-    >
-        <span className="text-[9px] font-medium uppercase tracking-[0.2em] text-zinc-700 block mb-4">
-            Sources
-        </span>
-        <div className="flex flex-wrap gap-2">
-            {sources.slice(0, 3).map((source: any, i: number) => (
-                <a
-                    key={i}
-                    href={source.uri || source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium text-zinc-600 hover:text-zinc-400 transition-colors"
-                >
-                    <ExternalLink size={10} />
-                    {source.title ? (source.title.length > 30 ? source.title.substring(0, 30) + '…' : source.title) : 'Source'}
-                </a>
+const IntelSkeleton = () => (
+    <div className="space-y-8 animate-pulse px-1 opacity-60">
+        <div className="space-y-3">
+            <div className="h-2 w-16 bg-zinc-800 rounded-full" />
+            <div className="h-8 w-3/4 bg-zinc-800 rounded-lg" />
+        </div>
+        <div className="space-y-px rounded-xl overflow-hidden border border-zinc-800/50">
+            {[1, 2, 3].map((i) => (
+                <div key={i} className="h-20 w-full bg-zinc-900/30 border-b border-white/5" />
             ))}
         </div>
-    </motion.div>
+    </div>
 );
 
 // ─────────────────────────────────────────────────────────────────
@@ -333,20 +321,36 @@ export const PregameIntelCards = ({
 }: {
     match: Match;
     hideFooter?: boolean;
-    intel?: PregameIntelResponse | null
+    intel?: PregameIntelResponse | null;
 }) => {
-    const { data: intel, status, retry } = useIntelQuery(match, externalIntel);
+    const { data: rawIntel, status, retry } = useIntelQuery(match, externalIntel);
 
-    if (status === 'LOADING') return <LoadingState />;
+    const startTimeISO = useMemo(() => toISOOrNull((match as any).startTime), [(match as any).startTime]);
 
-    if (status === 'ERROR' || !intel || !intel.cards?.length) {
+    const processedData = useMemo(() => {
+        if (!rawIntel) return null;
+
+        // If backend already scrubbed, this is a safe second-pass polish only.
+        const teamName = extractTeamFromPick((rawIntel as any).recommended_pick);
+        const headline = cleanHeadline(String((rawIntel as any).headline || ""), teamName);
+
+        const sortedCards = [...(((rawIntel as any).cards) || [])].sort((a: any, b: any) =>
+            SORT_ORDER.indexOf(String(a.category)) - SORT_ORDER.indexOf(String(b.category))
+        );
+
+        return { ...(rawIntel as any), headline, cards: sortedCards };
+    }, [rawIntel]);
+
+    if (status === 'LOADING') return <IntelSkeleton />;
+
+    if (status === 'ERROR' || !processedData || !processedData.cards?.length) {
         return (
-            <div className="py-24 flex flex-col items-center justify-center gap-6">
-                <ShieldCheck size={20} className="text-zinc-800" />
-                <span className="text-[11px] text-zinc-700">Intel Unavailable</span>
+            <div className="py-16 text-center border border-dashed border-zinc-800 rounded-xl bg-zinc-900/20">
+                <ShieldCheck size={20} className="mx-auto text-zinc-700 mb-2" />
+                <p className="text-xs text-zinc-600 mb-4">Analysis Unavailable</p>
                 <button
                     onClick={retry}
-                    className="text-[10px] font-semibold text-zinc-600 hover:text-white transition-colors uppercase tracking-widest"
+                    className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-widest px-4 py-2 bg-zinc-800 rounded hover:bg-zinc-700 transition-colors"
                 >
                     Retry
                 </button>
@@ -354,56 +358,89 @@ export const PregameIntelCards = ({
         );
     }
 
-    const confidenceScore = (intel as any).confidence_score;
+    const confidenceTier = String((processedData as any).confidence_tier || "");
+    const recommendedPick = String((processedData as any).recommended_pick || "");
+
+    // FIX: Use grading_metadata.price as source of truth for juice display
+    // Falls back to spread_juice only if grading_metadata is missing
+    const displayJuice = (processedData as any).grading_metadata?.price
+        || (processedData as any).spread_juice;
 
     return (
-        <motion.div
-            className={cn(
-                "relative px-1",
-                getConfidenceGlow(confidenceScore)
-            )}
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-        >
-            {/* THE PICK - Immediate Visual Impact */}
-            {intel.recommended_pick && (
-                <PickDisplay
-                    pick={intel.recommended_pick}
-                    juice={(intel as any).grading_metadata?.price || (intel as any).spread_juice}
-                    startTime={typeof match.startTime === 'string' ? match.startTime : match.startTime?.toISOString()}
-                />
-            )}
+        <LayoutGroup>
+            <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{ visible: { transition: STAGGER } }}
+                className="w-full max-w-md mx-auto px-1"
+            >
+                {/* HERO */}
+                <div className="mb-8">
+                    <EdgeLabel startTimeISO={startTimeISO} />
 
-            {/* THE THESIS - Quick Context */}
-            <ThesisDisplay headline={intel.headline} teamName={intel.recommended_pick?.split(' ')[0] || 'Team'} />
+                    <motion.div variants={{ hidden: { opacity: 0, y: 5 }, visible: { opacity: 1, y: 0 } }}>
+                        <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tighter leading-none mb-1">
+                            {recommendedPick}
+                        </h1>
 
-            {/* INSIGHT CARDS - Deep Analysis */}
-            <div className="mb-8">
-                {intel.cards.map((card: IntelCard, idx: number) => (
-                    <InsightCard
-                        key={idx}
-                        card={card}
-                        index={idx}
-                        isEdge={String(card.category) === 'The Engine' || idx === 0}
-                        confidenceTier={(intel as any).confidence_tier}
-                    />
-                ))}
-            </div>
+                        {displayJuice && (
+                            <div className="text-lg font-mono text-zinc-500 font-medium">
+                                {displayJuice}
+                            </div>
+                        )}
 
-            {/* SOURCES - Trust Layer */}
-            {!hideFooter && intel.sources && intel.sources.length > 0 && (
-                <SourcesFooter sources={intel.sources} />
-            )}
-        </motion.div>
+                        {/* HARD RULE: no Confidence in hero */}
+                    </motion.div>
+                </div>
+
+                {/* HEADLINE */}
+                <motion.div
+                    variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
+                    className="mb-10 pl-4 border-l-2 border-white/10"
+                >
+                    <p className="text-lg text-zinc-300 font-light leading-snug text-pretty">
+                        <RenderRichText text={String((processedData as any).headline || "")} />
+                    </p>
+                </motion.div>
+
+                {/* CARDS LIST */}
+                <div className="space-y-1">
+                    {(processedData as any).cards.map((card: any, idx: number) => (
+                        <InsightCard
+                            key={`${idx}-${String(card.category)}`}
+                            card={card}
+                            index={idx}
+                            confidenceTier={confidenceTier}
+                        />
+                    ))}
+                </div>
+
+                {/* FOOTER */}
+                {!hideFooter && Array.isArray((processedData as any).sources) && (processedData as any).sources.length > 0 && (
+                    <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="mt-12 pt-6 border-t border-white/5">
+                        <div className="flex flex-wrap gap-x-4 gap-y-2">
+                            {(processedData as any).sources.slice(0, 3).map((s: any, i: number) => (
+                                <a
+                                    key={i}
+                                    href={s.url || s.uri}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex items-center gap-1.5 text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors uppercase tracking-wider"
+                                >
+                                    <ExternalLink size={9} />
+                                    {s.title ? (String(s.title).length > 20 ? String(s.title).slice(0, 20) + '…' : String(s.title)) : 'Source'}
+                                </a>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </motion.div>
+        </LayoutGroup>
     );
 };
 
-// ─────────────────────────────────────────────────────────────────
-// 🛡️ ERROR BOUNDARY
-// ─────────────────────────────────────────────────────────────────
-
-class IntelErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
+// 🛡️ Error Boundary for production safety
+class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
     state = { hasError: false };
     static getDerivedStateFromError() { return { hasError: true }; }
     render() {
@@ -414,8 +451,8 @@ class IntelErrorBoundary extends Component<{ children: React.ReactNode }, { hasE
 
 export default function SafePregameIntelCards(props: any) {
     return (
-        <IntelErrorBoundary>
+        <ErrorBoundary>
             <PregameIntelCards {...props} />
-        </IntelErrorBoundary>
+        </ErrorBoundary>
     );
 }
