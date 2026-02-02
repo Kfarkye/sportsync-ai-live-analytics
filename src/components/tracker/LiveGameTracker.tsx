@@ -236,16 +236,30 @@ const pickWindSpeed = (m: ExtendedMatch): number => {
 
 const stableStatsFingerprint = (stats: TeamStats | null | undefined): string => {
     if (!stats) return '';
-    // Tracks both advanced and basic keys to ensure AI model updates on any stat change
-    const keys = ['pace', 'ortg', 'efg', 'tov', 'reb', 'pts', 'yards', 'fg_pct'] as const;
+    // Variant groups cover snake_case, camelCase, and common API alternates
+    const groups: Record<string, string[]> = {
+        pace: ['pace', 'possessions', 'poss', 'POSS'],
+        ortg: ['ortg', 'off_rtg', 'offRating', 'off_rating', 'ORtg'],
+        drtg: ['drtg', 'def_rtg', 'defRating', 'def_rating', 'DRtg'],
+        efg: ['efg', 'efg_pct', 'eFG%', 'efgPercent'],
+        tov: ['tov', 'tov_pct', 'turnovers', 'turnover_pct'],
+        reb: ['reb', 'reb_pct', 'rebounds', 'total_reb', 'tot_reb'],
+        pts: ['pts', 'points'],
+        yards: ['yards', 'total_yards', 'net_yards', 'totalYards', 'netYards'],
+        fg_pct: ['fg_pct', 'fg%', 'field_goal_pct'],
+    };
+
     const parts: string[] = [];
-    for (const k of keys) {
-        // Check explicit key and uppercase variant
-        const raw = stats[k] ?? stats[k.toUpperCase()];
-        if (!hasValue(raw)) continue;
-        const n = safeNumber(raw, NaN);
+    for (const [label, keys] of Object.entries(groups)) {
+        let v: unknown = undefined;
+        for (const k of keys) {
+            v = (stats as Record<string, unknown>)[k] ?? (stats as Record<string, unknown>)[String(k).toUpperCase()];
+            if (hasValue(v)) break;
+        }
+        if (!hasValue(v)) continue;
+        const n = safeNumber(v, NaN);
         if (!Number.isFinite(n)) continue;
-        parts.push(`${k}:${n.toFixed(3)}`);
+        parts.push(`${label}:${n.toFixed(3)}`);
     }
     return parts.join(',');
 };
@@ -286,7 +300,15 @@ function normalizeMatch(raw: RawMatch | undefined): Match | null {
     const situationRaw = raw.situation;
     const situation: Match['situation'] | undefined = situationRaw
         ? {
-            yardLine: safeNumber(situationRaw.yardLine, 50),
+            yardLine: (() => {
+                const v = situationRaw.yardLine;
+                if (typeof v === 'number') return Math.max(0, Math.min(100, v));
+                if (typeof v === 'string') {
+                    const n = parseInt(v.replace(/\D/g, ''), 10);
+                    return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 50;
+                }
+                return 50;
+            })(),
             down: safeNumber(situationRaw.down, 1),
             distance: safeNumber(situationRaw.distance, 10),
             possessionId: situationRaw.possessionId ? String(situationRaw.possessionId) : undefined,
@@ -319,6 +341,9 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
         if (!match) return 'null';
         const curTotal = match.current_odds?.total ?? match.odds?.total ?? match.live_odds?.total;
         const curSpread = match.current_odds?.spread ?? match.odds?.spread ?? match.live_odds?.spread;
+        const openTotal = match.opening_odds?.total ?? match.opening_odds?.overUnder;
+        const srsHome = match.homeTeam?.srs;
+        const srsAway = match.awayTeam?.srs;
         const wind = pickWindSpeed(match);
         const indoor = !!match.venue?.is_indoor;
         const statsHome = stableStatsFingerprint(match.homeTeamStats);
@@ -328,24 +353,29 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
             match.sport, match.league, match.status, match.displayClock, match.period,
             match.homeScore, match.awayScore, match.situation?.possessionId,
             match.closing_odds?.total, match.closing_odds?.spread,
-            curTotal, curSpread, indoor ? '1' : '0',
-            Number.isFinite(wind) ? wind.toFixed(2) : '', statsHome, statsAway
+            curTotal, curSpread, openTotal, srsHome, srsAway,
+            indoor ? '1' : '0', Number.isFinite(wind) ? wind.toFixed(2) : '',
+            statsHome, statsAway
         ].join('|');
     }, [
         match?.sport, match?.league, match?.status, match?.displayClock, match?.period,
         match?.homeScore, match?.awayScore, match?.situation?.possessionId,
         match?.current_odds, match?.odds, match?.live_odds, match?.closing_odds,
+        match?.opening_odds?.total, match?.opening_odds?.overUnder,
+        match?.homeTeam?.srs, match?.awayTeam?.srs,
         match?.venue, match?.weather_info, match?.homeTeamStats, match?.awayTeamStats
     ]);
 
     const normalized = useMemo(() => normalizeMatch(match), [signalsKey]);
 
     const signals = useMemo(() => {
-        return normalized ? computeAISignals(normalized) : computeAISignals({} as Match);
-    }, [normalized, signalsKey]);
+        if (!normalized) return null;
+        return computeAISignals(normalized);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [signalsKey]);
 
     return useMemo(() => {
-        if (!match || !match.homeTeam || !match.awayTeam || !normalized) return null;
+        if (!match || !match.homeTeam || !match.awayTeam || !normalized || !signals) return null;
 
         const homeScore = safeNumber(match.homeScore);
         const awayScore = safeNumber(match.awayScore);
@@ -555,7 +585,7 @@ const CourtSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
         };
     }, [gameplay.situation, gameplay.possession, teams]);
 
-    if (!state) return <ObsidianPanel className="aspect-[2.2/1] md:aspect-[2.6/1]" />;
+    if (!state) return <ObsidianPanel className="aspect-[2.2/1] md:aspect-[2.6/1]"><></></ObsidianPanel>;
 
     return (
         <div className="relative w-full aspect-[2.2/1] md:aspect-[2.6/1] bg-[#100c0a] border-b border-white/[0.04] overflow-hidden select-none">
@@ -704,13 +734,21 @@ const BoxScoreCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
                 { label: 'Yards/Play', keys: ['yards_per_play', 'yds_play'] },
             ];
         } else {
-            // Basketball/Default Config (Standard + Advanced Fallbacks)
+            // Basketball/Default Config: Advanced first, then basics fallback
             config = [
-                { label: 'FG%', keys: ['fg_pct', 'field_goal_pct', 'efg', 'efg_pct'], format: '%' },
-                { label: '3P%', keys: ['fg3_pct', 'three_point_pct', 'tpp'], format: '%' },
+                // Advanced metrics (preferred)
+                { label: 'Pace', keys: ['pace', 'possessions', 'poss'] },
+                { label: 'ORtg', keys: ['ortg', 'off_rtg', 'offRating', 'off_rating'] },
+                { label: 'DRtg', keys: ['drtg', 'def_rtg', 'defRating', 'def_rating'] },
+                { label: 'eFG%', keys: ['efg', 'efg_pct', 'efgPercent'], format: '%' },
+                { label: 'TOV%', keys: ['tov_pct', 'turnover_pct'], format: '%' },
+                { label: 'REB', keys: ['reb', 'rebounds', 'tot_reb'] },
+                // Basic fallbacks
+                { label: 'PTS', keys: ['pts', 'points'] },
+                { label: 'AST', keys: ['ast', 'assists'] },
+                { label: 'FG%', keys: ['fg_pct', 'field_goal_pct'], format: '%' },
+                { label: '3P%', keys: ['fg3_pct', 'three_point_pct'], format: '%' },
                 { label: 'FT%', keys: ['ft_pct', 'free_throw_pct'], format: '%' },
-                { label: 'Rebounds', keys: ['reb', 'rebounds', 'tot_reb'] },
-                { label: 'Assists', keys: ['ast', 'assists'] },
                 { label: 'TOV', keys: ['tov', 'turnovers'] },
             ];
         }
@@ -726,9 +764,14 @@ const BoxScoreCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
             const fmt = (n: number) => {
                 if (Number.isNaN(n)) return '—';
                 // Handle percentages that might come as 0.45 or 45
-                if (format === '%' && n <= 1 && n > 0 && label !== 'Y/Play') return (n * 100).toFixed(0) + '%';
+                if (format === '%' && n <= 1 && n > 0) return (n * 100).toFixed(0) + '%';
                 if (format === '%') return n.toFixed(1) + '%';
-                return n.toFixed(label === 'TO' ? 0 : 1);
+                // Football: integers for yards/turnovers, 1 decimal for Y/P
+                if (label.includes('Yds') || label === 'Turnovers') return n.toFixed(0);
+                if (label === 'Yards/Play') return n.toFixed(1);
+                // Basketball: integers for counting stats
+                if (['PTS', 'AST', 'REB', 'TOV'].includes(label)) return n.toFixed(0);
+                return n.toFixed(1);
             };
 
             return { label, home: fmt(h), away: fmt(a) };
