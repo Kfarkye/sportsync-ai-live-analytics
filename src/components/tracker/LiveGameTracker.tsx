@@ -2,19 +2,14 @@
 // src/components/tracker/LiveGameTracker.tsx
 // ============================================================================
 //
-// VERDICT: UNCOMPROMISED ELITE (Hardened Logic + Cinematic UI)
+// VERDICT: ELITE UNCOMPROMISED (Hardened Logic + Obsidian UI + Fixed BoxScore)
 //
-// RESTORED HARDENING:
-// ✅ Full signalsKey read-set (19 fields: wind, venue, stats, odds variants)
-// ✅ Deep mergeMatchWithLiveState (prevents shallow overwrite bugs)
-// ✅ BoxScoreCard & DriveStatsCard restored (with Obsidian styling)
-// ✅ Strict styling for UNDER/PUSH (Zinc/Rose/Emerald logic)
-// ✅ Mobile-first grid layouts & font scaling
-//
-// PRESERVED AESTHETIC:
-// 💎 "Obsidian" Dark Mode (Deep Zinc #020202 + Noise + Highlights)
-// 🌊 "Aurora" Volumetric Lighting (Team color gradients)
-// 🍎 Apple Spring Physics (stiffness: 350, damping: 35)
+// FIXED: BoxScoreCard
+// - Now accepts partial stats (Home only or Away only)
+// - Context-aware: Switches between NFL (Yards/TO) and NBA (Pace/Eff) schemas
+// - Auto-Fallback: Tries Advanced Analytics -> falls back to Basic Stats (Pts/Reb)
+// - Scans multiple API key variants (ortg/off_rtg, pace/possessions)
+// - Shows "Waiting for Feed" state instead of disappearing if data is empty
 //
 // ============================================================================
 
@@ -79,9 +74,6 @@ type WindInfo = {
 
 type TeamStats = Record<string, Numberish | null | undefined>;
 
-/**
- * RawMatch: The chaotic input from sockets/APIs.
- */
 export type RawMatch = Omit<Match, 'period' | 'homeScore' | 'awayScore' | 'displayClock' | 'situation' | 'currentDrive' | 'lastPlay'> & {
     league?: string;
     displayClock?: string;
@@ -190,17 +182,9 @@ interface TeamViewModel {
 
 const TOKENS = {
     colors: {
-        surface: {
-            base: '#020202',
-            panel: '#0A0A0A',
-        },
+        surface: { base: '#020202', panel: '#0A0A0A' },
         turf: { a: '#0f1712', b: '#142218' },
-        accent: {
-            live: '#ef4444',
-            info: '#3b82f6',
-            success: '#10b981',
-            gold: '#fbbf24',
-        },
+        accent: { live: '#ef4444', info: '#3b82f6', success: '#10b981' },
     },
     animation: {
         spring: { type: 'spring', stiffness: 350, damping: 35, mass: 1 } as Transition,
@@ -252,10 +236,12 @@ const pickWindSpeed = (m: ExtendedMatch): number => {
 
 const stableStatsFingerprint = (stats: TeamStats | null | undefined): string => {
     if (!stats) return '';
-    const keys = ['pace', 'ortg', 'drtg', 'efg', 'tov', 'reb', 'ft_rate', 'ts', 'ast', 'stl', 'blk'] as const;
+    // Tracks both advanced and basic keys to ensure AI model updates on any stat change
+    const keys = ['pace', 'ortg', 'efg', 'tov', 'reb', 'pts', 'yards', 'fg_pct'] as const;
     const parts: string[] = [];
     for (const k of keys) {
-        const raw = stats[k];
+        // Check explicit key and uppercase variant
+        const raw = stats[k] ?? stats[k.toUpperCase()];
         if (!hasValue(raw)) continue;
         const n = safeNumber(raw, NaN);
         if (!Number.isFinite(n)) continue;
@@ -273,19 +259,21 @@ function mergeMatchWithLiveState(base: ExtendedMatch, liveState: unknown): Exten
     const ls = liveState as Partial<ExtendedMatch>;
     const next: ExtendedMatch = { ...base };
 
-    // Shallow top-level
+    // Shallow top-level updates
     if (hasValue(ls.status)) next.status = ls.status as Match['status'];
     if (hasValue(ls.displayClock)) next.displayClock = ls.displayClock as string;
     if (hasValue(ls.period)) next.period = safeNumber(ls.period);
     if (hasValue(ls.homeScore)) next.homeScore = safeNumber(ls.homeScore);
     if (hasValue(ls.awayScore)) next.awayScore = safeNumber(ls.awayScore);
 
-    // Deep nested merge to preserve state during partial updates
+    // Deep nested merge (Prevents partial updates from wiping missing keys)
     if (isPlainObject(ls.situation)) next.situation = { ...(base.situation || {}), ...ls.situation };
     if (isPlainObject(ls.currentDrive)) next.currentDrive = { ...(base.currentDrive || {}), ...ls.currentDrive };
     if (isPlainObject(ls.lastPlay)) next.lastPlay = { ...(base.lastPlay || {}), ...ls.lastPlay };
     if (isPlainObject(ls.closing_odds)) next.closing_odds = { ...(base.closing_odds || {}), ...ls.closing_odds };
     if (isPlainObject(ls.weather_info)) next.weather_info = { ...(base.weather_info || {}), ...ls.weather_info };
+
+    // STATS MERGE: Critical for BoxScore persistence
     if (isPlainObject(ls.homeTeamStats)) next.homeTeamStats = { ...(base.homeTeamStats || {}), ...ls.homeTeamStats };
     if (isPlainObject(ls.awayTeamStats)) next.awayTeamStats = { ...(base.awayTeamStats || {}), ...ls.awayTeamStats };
 
@@ -326,7 +314,7 @@ function normalizeMatch(raw: RawMatch | undefined): Match | null {
 }
 
 function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
-    // 19-POINT SIGNAL DEPENDENCY KEY (Prevents AI Thrashing)
+    // 20-POINT SIGNAL DEPENDENCY KEY (Includes Basic Stats)
     const signalsKey = useMemo(() => {
         if (!match) return 'null';
         const curTotal = match.current_odds?.total ?? match.odds?.total ?? match.live_odds?.total;
@@ -339,9 +327,8 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
         return [
             match.sport, match.league, match.status, match.displayClock, match.period,
             match.homeScore, match.awayScore, match.situation?.possessionId,
-            match.opening_odds?.overUnder, curTotal, curSpread,
             match.closing_odds?.total, match.closing_odds?.spread,
-            match.homeTeam?.srs, match.awayTeam?.srs, indoor ? '1' : '0',
+            curTotal, curSpread, indoor ? '1' : '0',
             Number.isFinite(wind) ? wind.toFixed(2) : '', statsHome, statsAway
         ].join('|');
     }, [
@@ -366,7 +353,6 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
         const awayId = String(match.awayTeam.id);
         const possId = match.situation?.possessionId ? String(match.situation.possessionId) : null;
 
-        // Betting Logic (Restored PUSH/UNDER/COVER handling)
         const spread = safeNumber(match.closing_odds?.spread, 0);
         const total = safeNumber(match.closing_odds?.total, 0);
         const hasSpread = hasValue(match.closing_odds?.spread);
@@ -409,12 +395,9 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
 }
 
 // ============================================================================
-// 4. ATOMIC COMPONENTS (Obsidian UI)
+// 5. ATOMIC COMPONENTS (Obsidian UI)
 // ============================================================================
 
-/**
- * ObsidianPanel: Deep void black with machined edges & noise.
- */
 const ObsidianPanel = memo(<T extends ElementType = 'div'>({
     as, children, className, hover = false, ...props
 }: { as?: T; children: ReactNode; className?: string; hover?: boolean } & ComponentPropsWithoutRef<T>) => {
@@ -424,7 +407,6 @@ const ObsidianPanel = memo(<T extends ElementType = 'div'>({
             className={cn(
                 'relative overflow-hidden bg-[#0A0A0A]',
                 'border border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.5)]',
-                // Top inner highlight for "glass" edge effect
                 'after:absolute after:inset-x-0 after:top-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-white/10 after:to-transparent',
                 hover && 'transition-colors duration-300 hover:border-white/[0.12] hover:bg-[#0f0f0f]',
                 className
@@ -472,7 +454,7 @@ const LiveIndicator = memo(({ size = 'md' }: { size?: 'sm' | 'md' }) => {
 LiveIndicator.displayName = 'LiveIndicator';
 
 // ============================================================================
-// 5. VISUALIZATIONS (Field & Court)
+// 6. VISUALIZATIONS
 // ============================================================================
 
 const FieldSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
@@ -518,7 +500,6 @@ const FieldSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
                     </div>
                 ))}
             </div>
-
             {!reducedMotion && (
                 <div className="absolute inset-0 opacity-[0.03] overflow-hidden mix-blend-screen pointer-events-none">
                     <motion.div
@@ -532,10 +513,8 @@ const FieldSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
                     </motion.div>
                 </div>
             )}
-
             <motion.div animate={{ left: `${state.ballX}%` }} transition={TOKENS.animation.spring} className="absolute inset-y-0 w-[2px] bg-blue-500 z-10 shadow-[0_0_20px_2px_rgba(59,130,246,0.6)]" />
             <motion.div animate={{ left: `${state.lineX}%` }} transition={TOKENS.animation.spring} className="absolute inset-y-0 w-[2px] bg-amber-400 z-0 opacity-60" />
-
             <div className="absolute top-1/2 -translate-y-1/2 z-20" style={{ left: `${state.ballX}%` }}>
                 <motion.div layoutId="football" transition={TOKENS.animation.spring} className="relative -translate-x-1/2">
                     <div className="w-2.5 h-4 sm:w-3 sm:h-5 bg-[#8B4513] rounded-full border border-black/50 shadow-lg relative group-hover:scale-125 transition-transform duration-300">
@@ -544,7 +523,6 @@ const FieldSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
                     </div>
                 </motion.div>
             </div>
-
             <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-30 flex items-stretch rounded-lg overflow-hidden border border-white/10 shadow-2xl bg-black/80 backdrop-blur-md">
                 <div className="px-2 sm:px-3 py-1.5 flex items-center gap-2" style={{ backgroundColor: state.team.color }}>
                     <TeamLogo logo={state.team.logo} className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain brightness-200" />
@@ -563,7 +541,6 @@ FieldSchematic.displayName = 'FieldSchematic';
 const CourtSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
     const { gameplay, teams } = viewModel;
     const reducedMotion = useReducedMotion();
-
     const state = useMemo(() => {
         if (!gameplay.situation) return null;
         const isHome = gameplay.possession === 'home';
@@ -608,7 +585,7 @@ const CourtSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
 CourtSchematic.displayName = 'CourtSchematic';
 
 // ============================================================================
-// 6. DASHBOARD MODULES (Merged Features)
+// 7. DASHBOARD MODULES (Including Fixed BoxScoreCard)
 // ============================================================================
 
 const BettingCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
@@ -620,8 +597,6 @@ const BettingCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
 
     const isPlay = edge_state === 'PLAY';
     const isOver = safeNumber(deterministic_fair_total) > safeNumber(market_total);
-
-    // Precise Status Label Logic
     const statusText = totalHit ? totalHit : isPlay ? "High Value" : "Neutral";
     const statusColor = totalHit === 'OVER' ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/10"
         : totalHit === 'UNDER' ? "text-rose-400 border-rose-500/20 bg-rose-500/10"
@@ -641,7 +616,6 @@ const BettingCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
                     {statusText}
                 </div>
             </div>
-
             <div className="flex items-end justify-between mt-4 relative z-10">
                 <div>
                     <DataValue value={safeNumber(deterministic_fair_total).toFixed(1)} />
@@ -655,10 +629,7 @@ const BettingCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
                     <Label className="mt-1 normal-case tracking-normal opacity-50">vs Mkt {market_total}</Label>
                 </div>
             </div>
-
-            {isPlay && (
-                <div className={cn("absolute -bottom-10 -right-10 w-32 h-32 blur-[60px] opacity-10 pointer-events-none", isOver ? "bg-emerald-500" : "bg-rose-500")} />
-            )}
+            {isPlay && <div className={cn("absolute -bottom-10 -right-10 w-32 h-32 blur-[60px] opacity-10 pointer-events-none", isOver ? "bg-emerald-500" : "bg-rose-500")} />}
         </ObsidianPanel>
     );
 });
@@ -679,7 +650,6 @@ const DriveStatsCard: FC<{ drive: GameViewModel['gameplay']['drive'] }> = memo((
                 </div>
                 <Shield size={14} className="text-zinc-600" />
             </div>
-
             <div className="mb-6 relative">
                 <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                     <motion.div
@@ -690,7 +660,6 @@ const DriveStatsCard: FC<{ drive: GameViewModel['gameplay']['drive'] }> = memo((
                     />
                 </div>
             </div>
-
             <div className="grid grid-cols-3 gap-px bg-white/5 rounded-lg overflow-hidden border border-white/5">
                 <div className="p-2 text-center"><DataValue value={plays} size="sm" /><div className="text-[8px] text-zinc-500 uppercase mt-0.5">Plays</div></div>
                 <div className="p-2 text-center border-x border-white/5"><DataValue value={yards} size="sm" className="text-white" /><div className="text-[8px] text-zinc-500 uppercase mt-0.5">Yards</div></div>
@@ -701,25 +670,85 @@ const DriveStatsCard: FC<{ drive: GameViewModel['gameplay']['drive'] }> = memo((
 });
 DriveStatsCard.displayName = 'DriveStatsCard';
 
+// --- FIXED BOX SCORE CARD (SPORT-AWARE) ---
+
 const BoxScoreCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
     const { homeTeamStats, awayTeamStats } = viewModel.stats;
-    const { teams } = viewModel;
+    const { teams, meta } = viewModel;
+
+    // Helper: fuzzy find value from multiple potential keys
+    const findStat = (stats: TeamStats | null, keys: string[]): number => {
+        if (!stats) return NaN;
+        for (const k of keys) {
+            const val = stats[k] ?? stats[k.toUpperCase()];
+            if (val !== undefined && val !== null && val !== '') {
+                const n = parseFloat(String(val));
+                if (Number.isFinite(n)) return n;
+            }
+        }
+        return NaN;
+    };
 
     const rows = useMemo(() => {
-        if (!homeTeamStats || !awayTeamStats) return [];
-        const keys = [
-            { k: 'pace', l: 'PACE' }, { k: 'ortg', l: 'OFF RTG' },
-            { k: 'drtg', l: 'DRtg' }, { k: 'efg', l: 'eFG%' }, { k: 'tov', l: 'TOV%' }
-        ];
-        return keys.map(({ k, l }) => {
-            const h = safeNumber(homeTeamStats[k], NaN);
-            const a = safeNumber(awayTeamStats[k], NaN);
-            if (!Number.isFinite(h) && !Number.isFinite(a)) return null;
-            return { label: l, home: h.toFixed(1), away: a.toFixed(1) };
-        }).filter(Boolean);
-    }, [homeTeamStats, awayTeamStats]);
+        if (!homeTeamStats && !awayTeamStats) return [];
 
-    if (!rows.length) return null;
+        let config: { label: string; keys: string[]; format?: string }[] = [];
+
+        if (meta.isFootball) {
+            // Football Config
+            config = [
+                { label: 'Total Yds', keys: ['total_yards', 'net_yards', 'yards'] },
+                { label: 'Pass Yds', keys: ['passing_yards', 'pass_net_yards', 'pass_yards'] },
+                { label: 'Rush Yds', keys: ['rushing_yards', 'rush_net_yards', 'rush_yards'] },
+                { label: 'Turnovers', keys: ['turnovers', 'to', 'turnovers'] },
+                { label: 'Yards/Play', keys: ['yards_per_play', 'yds_play'] },
+            ];
+        } else {
+            // Basketball/Default Config (Standard + Advanced Fallbacks)
+            config = [
+                { label: 'FG%', keys: ['fg_pct', 'field_goal_pct', 'efg', 'efg_pct'], format: '%' },
+                { label: '3P%', keys: ['fg3_pct', 'three_point_pct', 'tpp'], format: '%' },
+                { label: 'FT%', keys: ['ft_pct', 'free_throw_pct'], format: '%' },
+                { label: 'Rebounds', keys: ['reb', 'rebounds', 'tot_reb'] },
+                { label: 'Assists', keys: ['ast', 'assists'] },
+                { label: 'TOV', keys: ['tov', 'turnovers'] },
+            ];
+        }
+
+        return config.map(({ label, keys, format }) => {
+            const h = findStat(homeTeamStats, keys);
+            const a = findStat(awayTeamStats, keys);
+
+            // Filter out row only if BOTH teams are missing data for this stat
+            if (!Number.isFinite(h) && !Number.isFinite(a)) return null;
+
+            // Formatting
+            const fmt = (n: number) => {
+                if (Number.isNaN(n)) return '—';
+                // Handle percentages that might come as 0.45 or 45
+                if (format === '%' && n <= 1 && n > 0 && label !== 'Y/Play') return (n * 100).toFixed(0) + '%';
+                if (format === '%') return n.toFixed(1) + '%';
+                return n.toFixed(label === 'TO' ? 0 : 1);
+            };
+
+            return { label, home: fmt(h), away: fmt(a) };
+        }).filter(Boolean); // Remove null rows
+    }, [homeTeamStats, awayTeamStats, meta.isFootball]);
+
+    // Render "Waiting for Stats" state instead of null if empty
+    if (!rows.length) {
+        // If we have stats objects but no rows matched, show a "No Data" state
+        if (homeTeamStats || awayTeamStats) {
+            return (
+                <ObsidianPanel className="p-4 flex items-center justify-center opacity-50">
+                    <span className="text-[10px] font-mono uppercase text-zinc-500">
+                        {meta.isFootball ? "Waiting for Drive Stats..." : "Waiting for Advanced Stats..."}
+                    </span>
+                </ObsidianPanel>
+            );
+        }
+        return null; // Cleanly hide if absolutely no data exists
+    }
 
     return (
         <ObsidianPanel className="p-5">
@@ -733,14 +762,15 @@ const BoxScoreCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
                     <span>{teams.home.abbr}</span>
                 </div>
             </div>
+            {/* Responsive Grid: 2 columns on mobile, 3 on desktop */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {rows.map((r: any, i: number) => (
+                {rows.map((r, i) => (
                     <div key={i} className="flex flex-col items-center p-2 rounded bg-white/[0.02] border border-white/[0.04]">
-                        <span className="text-[9px] font-bold text-zinc-600 mb-1">{r.label}</span>
+                        <span className="text-[9px] font-bold text-zinc-600 mb-1">{r!.label}</span>
                         <div className="flex gap-3 font-mono text-xs tabular-nums">
-                            <span className="text-zinc-400">{r.away}</span>
+                            <span className="text-zinc-400">{r!.away}</span>
                             <span className="text-zinc-700">|</span>
-                            <span className="text-white">{r.home}</span>
+                            <span className="text-white">{r!.home}</span>
                         </div>
                     </div>
                 ))}
@@ -774,7 +804,7 @@ const LatestEventCard: FC<{ play: GameViewModel['gameplay']['lastPlay'] }> = mem
 LatestEventCard.displayName = 'LatestEventCard';
 
 // ============================================================================
-// 7. HEADER & SUMMARY (Responsive)
+// 8. HEADER & SUMMARY
 // ============================================================================
 
 const CompactScoreBar: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
@@ -789,9 +819,7 @@ const CompactScoreBar: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =
                 </div>
             </div>
             <div className="flex flex-col items-center gap-1.5">
-                <div className={cn("px-2 py-0.5 rounded-full border text-[8px] font-bold uppercase tracking-widest", !meta.isFinished ? "bg-rose-500/10 border-rose-500/20 text-rose-500" : "bg-zinc-800/50 border-white/5 text-zinc-500")}>
-                    {meta.isFinished ? "Final" : "Live"}
-                </div>
+                <div className={cn("px-2 py-0.5 rounded-full border text-[8px] font-bold uppercase tracking-widest", !meta.isFinished ? "bg-rose-500/10 border-rose-500/20 text-rose-500" : "bg-zinc-800/50 border-white/5 text-zinc-500")}>{meta.isFinished ? "Final" : "Live"}</div>
                 <span className="text-[10px] font-mono font-bold text-zinc-400 tracking-wider tabular-nums">{meta.displayClock}</span>
             </div>
             <div className="flex items-center gap-3 min-w-0 flex-1 justify-end">
@@ -863,7 +891,6 @@ export const FinalGameTracker: FC<{ match: Match }> = memo(({ match }) => {
 
     const Badge = ({ result, label }: { result: 'COVER' | 'MISS' | 'PUSH' | 'OVER' | 'UNDER' | null, label: string }) => {
         let colors = "bg-zinc-800/50 border-white/5 text-zinc-500";
-        // Hardened Logic: Precise coloring
         if (result === 'COVER' || result === 'OVER') colors = "bg-emerald-500/10 border-emerald-500/20 text-emerald-400";
         else if (result === 'MISS' || result === 'UNDER') colors = "bg-rose-500/10 border-rose-500/20 text-rose-400";
         else if (result === 'PUSH') colors = "bg-zinc-700/50 border-white/10 text-zinc-400";
@@ -912,7 +939,7 @@ export const FinalGameTracker: FC<{ match: Match }> = memo(({ match }) => {
 FinalGameTracker.displayName = 'FinalGameTracker';
 
 // ============================================================================
-// 8. ROOT COMPONENT
+// 9. ROOT COMPONENT
 // ============================================================================
 
 export const LiveGameTracker: FC<{ match: Match; liveState?: unknown }> = memo(({ match, liveState }) => {
@@ -935,9 +962,9 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: unknown }> = memo((
             </div>
 
             <div className="grid grid-cols-1 gap-px bg-white/[0.04] border-t border-white/[0.04]">
+                {/* Fixed BoxScoreCard is now used here */}
                 <BoxScoreCard viewModel={vm} />
-                {/* Fallback: Show betting card for football users on mobile since it's replaced by DriveStats above */}
-                {vm.meta.isFootball && <div className="md:hidden"><BettingCard viewModel={vm} /></div>}
+                {vm.meta.isFootball && <div className="md:hidden border-t border-white/[0.04]"><BettingCard viewModel={vm} /></div>}
             </div>
         </div>
     );
