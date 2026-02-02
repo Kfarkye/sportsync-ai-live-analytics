@@ -620,6 +620,10 @@ CourtSchematic.displayName = 'CourtSchematic';
 
 const BettingCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
     const { signals, totalHit } = viewModel.betting;
+
+    // Guard: signals can be null if normalized data isn't ready
+    if (!signals) return <ObsidianPanel className="p-6 flex flex-col items-center justify-center min-h-[160px]"><Activity className="text-zinc-600 animate-spin mb-2" /><Label>Loading Signals...</Label></ObsidianPanel>;
+
     const { edge_state, edge_points, deterministic_fair_total, market_total, status_reason } = signals;
 
     const isSyncing = typeof status_reason === 'string' && status_reason.includes('Critical');
@@ -1014,7 +1018,12 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: unknown }> = memo((
 });
 LiveGameTracker.displayName = 'LiveGameTracker';
 
-// Backward compatibility export
-export const LiveTotalCard = BettingCard;
+// Backward compatibility export - accepts match prop, creates viewModel internally
+export const LiveTotalCard: FC<{ match: Match }> = memo(({ match }) => {
+    const vm = useGameViewModel(match as ExtendedMatch);
+    if (!vm) return <ObsidianPanel className="p-6 flex flex-col items-center justify-center min-h-[160px]"><Activity className="text-zinc-600 animate-spin mb-2" /><Label>Loading...</Label></ObsidianPanel>;
+    return <BettingCard viewModel={vm} />;
+});
+LiveTotalCard.displayName = 'LiveTotalCard';
 
 export default LiveGameTracker;
