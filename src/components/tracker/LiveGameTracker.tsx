@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 // Internal imports — Replace with your actual project structure
-import { type Match } from '../../types';
+import { type Match, type StatItem } from '../../types';
 import TeamLogo from '../shared/TeamLogo';
 import { cn } from '../../lib/essence';
 import { isGameFinished } from '../../utils/matchUtils';
@@ -778,7 +778,9 @@ ClosingLinesTable.displayName = 'ClosingLinesTable';
 
 const BoxScoreCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
     const { homeTeamStats, awayTeamStats } = viewModel.stats;
-    const { meta } = viewModel;
+    const { meta, normalized } = viewModel;
+    const fallbackStats: StatItem[] = normalized.stats || [];
+    const sportKey = String(normalized.sport || '').toUpperCase();
 
     const findStat = (stats: TeamStats | null | undefined, keys: readonly string[]) => {
         if (!stats) return 0;
@@ -789,33 +791,92 @@ const BoxScoreCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
     };
 
     const rows = useMemo(() => {
-        if (!homeTeamStats && !awayTeamStats) return [];
-        const config = meta.isFootball
-            ? [
-                  { l: 'Tot Yds', k: ['yards', 'total_yards'] },
-                  { l: 'Pass Yds', k: ['passing_yards'] },
-                  { l: 'Rush Yds', k: ['rushing_yards'] },
-                  { l: 'TO', k: ['turnovers', 'to'] },
-              ]
-            : [
-                  { l: 'FG%', k: ['fg_pct'], f: '%' },
-                  { l: '3P%', k: ['fg3_pct'], f: '%' },
-                  { l: 'FT%', k: ['ft_pct'], f: '%' },
-                  { l: 'REB', k: ['reb', 'rebounds'] },
-                  { l: 'AST', k: ['ast', 'assists'] },
-                  { l: 'TO', k: ['tov', 'turnovers'] },
-              ];
+        const statsAvailable = !!homeTeamStats || !!awayTeamStats;
+        const hasFallback = fallbackStats.length > 0;
 
-        return config.map(({ l, k, f }) => {
-            const h = findStat(homeTeamStats, k);
-            const a = findStat(awayTeamStats, k);
-            const fmt = (n: number) =>
-                f === '%'
-                    ? (n <= 1 ? n * 100 : n).toFixed(n <= 1 ? 0 : 1) + '%'
-                    : n.toFixed(0);
-            return { label: l, home: fmt(h), away: fmt(a) };
-        });
-    }, [homeTeamStats, awayTeamStats, meta.isFootball]);
+        const formatPercent = (n: number) =>
+            (n <= 1 ? n * 100 : n).toFixed(n <= 1 ? 0 : 1) + '%';
+
+        const buildFromTeamStats = (config: { l: string; k: string[]; f?: '%' }[]) =>
+            config.map(({ l, k, f }) => {
+                const h = findStat(homeTeamStats, k);
+                const a = findStat(awayTeamStats, k);
+                const fmt = (n: number) => (f === '%' ? formatPercent(n) : n.toFixed(0));
+                return { label: l, home: fmt(h), away: fmt(a) };
+            });
+
+        const buildFromFallback = () =>
+            fallbackStats.slice(0, 8).map((s) => ({
+                label: s.label,
+                home: s.homeValue,
+                away: s.awayValue,
+            }));
+
+        if (meta.isFootball && statsAvailable) {
+            return buildFromTeamStats([
+                { l: 'Tot Yds', k: ['yards', 'total_yards', 'totalYards'] },
+                { l: 'Pass Yds', k: ['passing_yards', 'passYards'] },
+                { l: 'Rush Yds', k: ['rushing_yards', 'rushYards'] },
+                { l: 'TO', k: ['turnovers', 'to'] },
+            ]);
+        }
+
+        if (meta.isBasketball && statsAvailable) {
+            return buildFromTeamStats([
+                { l: 'FG%', k: ['fg_pct', 'fieldGoalPct', 'fieldGoalsPct'], f: '%' },
+                { l: '3P%', k: ['fg3_pct', 'threePointPct', 'threePointFieldGoalsPct'], f: '%' },
+                { l: 'FT%', k: ['ft_pct', 'freeThrowPct', 'freeThrowsPct'], f: '%' },
+                { l: 'REB', k: ['reb', 'rebounds', 'totalRebounds'] },
+                { l: 'AST', k: ['ast', 'assists'] },
+                { l: 'TO', k: ['tov', 'turnovers'] },
+            ]);
+        }
+
+        if (statsAvailable && ['HOCKEY', 'NHL'].some((s) => sportKey.includes(s))) {
+            return buildFromTeamStats([
+                { l: 'Shots', k: ['shots', 'shotsOnGoal', 'sog'] },
+                { l: 'Hits', k: ['hits'] },
+                { l: 'PIM', k: ['pim', 'penaltyMinutes'] },
+                { l: 'PPG', k: ['powerPlayGoals', 'ppg'] },
+                { l: 'FO%', k: ['faceoffPct', 'faceoffWinPct'], f: '%' },
+            ]);
+        }
+
+        if (statsAvailable && ['BASEBALL', 'MLB'].some((s) => sportKey.includes(s))) {
+            return buildFromTeamStats([
+                { l: 'H', k: ['hits', 'h'] },
+                { l: 'HR', k: ['homeRuns', 'hr'] },
+                { l: 'RBI', k: ['rbi'] },
+                { l: 'BB', k: ['walks', 'bb'] },
+                { l: 'SO', k: ['strikeouts', 'so'] },
+            ]);
+        }
+
+        if (statsAvailable && ['SOCCER', 'MLS', 'FUTBOL'].some((s) => sportKey.includes(s))) {
+            return buildFromTeamStats([
+                { l: 'Shots', k: ['shots'] },
+                { l: 'SOT', k: ['shotsOnTarget', 'shotsOnGoal'] },
+                { l: 'Poss', k: ['possession', 'possessionPct'], f: '%' },
+                { l: 'Fouls', k: ['fouls'] },
+                { l: 'YC', k: ['yellowCards', 'yellow'] },
+                { l: 'RC', k: ['redCards', 'red'] },
+            ]);
+        }
+
+        if (statsAvailable && ['TENNIS'].some((s) => sportKey.includes(s))) {
+            return buildFromTeamStats([
+                { l: 'Aces', k: ['aces'] },
+                { l: 'DF', k: ['doubleFaults', 'doubleFault'] },
+                { l: '1st%', k: ['firstServePct', 'firstServe'], f: '%' },
+                { l: 'BP', k: ['breakPointsWon', 'breakPoints'] },
+                { l: 'Winners', k: ['winners'] },
+                { l: 'UE', k: ['unforcedErrors', 'unforced'] },
+            ]);
+        }
+
+        if (hasFallback) return buildFromFallback();
+        return [];
+    }, [homeTeamStats, awayTeamStats, meta.isFootball, meta.isBasketball, fallbackStats, sportKey]);
 
     if (!rows.length) return null;
 
@@ -918,6 +979,10 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
         const centerBlockPaddingTop = isEmbedded ? 'pt-1' : 'pt-4';
         const gridMarginTop = isEmbedded ? 'mt-8' : 'mt-16';
         const gridMarginBottom = isEmbedded ? 'mb-6' : 'mb-10';
+        const period = safeNumber(vm.normalized.period, 0);
+        const regulation = safeNumber(vm.normalized.regulationPeriods, 0);
+        const hasOvertime = regulation > 0 && period > regulation;
+        const statusLabel = meta.isFinished ? (hasOvertime ? 'FINAL/OT' : 'FINAL') : 'LIVE';
 
         return (
             <header
@@ -1042,11 +1107,15 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-3 text-[11px] font-medium tracking-[0.2em] uppercase">
-                                    <span className="text-white/40">{meta.isFinished ? 'Final' : 'Live'}</span>
-                                    <span className="w-1 h-1 rounded-full bg-amber-400/80" />
-                                    <span className="text-amber-400 font-mono tracking-widest tabular-nums">
-                                        {meta.displayClock}
-                                    </span>
+                                    <span className="text-white/40">{statusLabel}</span>
+                                    {!meta.isFinished && (
+                                        <>
+                                            <span className="w-1 h-1 rounded-full bg-amber-400/80" />
+                                            <span className="text-amber-400 font-mono tracking-widest tabular-nums">
+                                                {meta.displayClock}
+                                            </span>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}

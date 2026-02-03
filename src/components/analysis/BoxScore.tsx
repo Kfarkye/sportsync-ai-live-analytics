@@ -18,25 +18,74 @@ interface LineScoreGridProps {
  * LineScoreGrid - Period by period breakdown with elite polish
  */
 export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive }) => {
-  const isTennis = match.sport === Sport.TENNIS || (match.leagueId && ['atp', 'wta'].includes(match.leagueId.toLowerCase()));
+  const sportKey = String(match.sport || '').toUpperCase();
+  const leagueKey = match.leagueId?.toLowerCase() || '';
+  const isTennis = match.sport === Sport.TENNIS || ['atp', 'wta'].includes(leagueKey);
+  const isBaseball = sportKey.includes('BASEBALL') || leagueKey.includes('mlb');
+  const isSoccer = sportKey.includes('SOCCER') || leagueKey.includes('mls');
+  const isHockey = sportKey.includes('HOCKEY') || leagueKey.includes('nhl');
+  const isBasketball = sportKey.includes('BASKETBALL') || leagueKey.includes('nba') || leagueKey.includes('wnba');
+  const isFootball = sportKey.includes('FOOTBALL') || leagueKey.includes('nfl') || leagueKey.includes('cfb');
 
   const periods = useMemo(() => {
-    if (isTennis) {
-      // Tennis uses sets (usually 3 max for singles, 5 for majors)
-      const homeLen = match.homeTeam.linescores?.length || 0;
-      const awayLen = match.awayTeam.linescores?.length || 0;
-      return Math.max(homeLen, awayLen, 3);
-    }
     const homeLen = match.homeTeam.linescores?.length || 0;
     const awayLen = match.awayTeam.linescores?.length || 0;
-    return Math.max(homeLen, awayLen, match.regulationPeriods || 4);
-  }, [match.homeTeam.linescores, match.awayTeam.linescores, match.regulationPeriods, isTennis]);
+    const regulation = (() => {
+      if (isTennis) return Math.max(homeLen, awayLen, 3);
+      if (typeof match.regulationPeriods === 'number' && match.regulationPeriods > 0) {
+        return match.regulationPeriods;
+      }
+      if (isSoccer) return 2;
+      if (isHockey) return 3;
+      if (isBaseball) return 9;
+      if (isFootball) return 4;
+      if (isBasketball) return 4;
+      return 4;
+    })();
+    return Math.max(homeLen, awayLen, regulation);
+  }, [
+    match.homeTeam.linescores,
+    match.awayTeam.linescores,
+    match.regulationPeriods,
+    isTennis,
+    isSoccer,
+    isHockey,
+    isBaseball,
+    isFootball,
+    isBasketball,
+  ]);
 
   const periodRange = Array.from({ length: periods }, (_, i) => i + 1);
 
   const getScore = (team: Team, period: number) => {
     const ls = team.linescores?.find(l => l.period === period);
-    return ls?.value ?? '-';
+    if (!ls) return '-';
+    const raw = ls.value;
+    if (isTennis && raw !== undefined && raw !== null && typeof ls.tiebreak === 'number') {
+      return `${raw}(${ls.tiebreak})`;
+    }
+    return raw !== undefined && raw !== null ? String(raw) : '-';
+  };
+  const getPeriodLabel = (period: number) => {
+    const label =
+      match.homeTeam.linescores?.find(l => l.period === period)?.label ||
+      match.awayTeam.linescores?.find(l => l.period === period)?.label;
+    if (label) return String(label).toUpperCase();
+    if (isTennis) return `S${period}`;
+    if (isBaseball) return String(period);
+    const regulation = typeof match.regulationPeriods === 'number' && match.regulationPeriods > 0
+      ? match.regulationPeriods
+      : (isSoccer ? 2 : isHockey ? 3 : isFootball || isBasketball ? 4 : 4);
+    if (isSoccer && period > regulation) {
+      if (period === regulation + 1) return 'ET';
+      if (period === regulation + 2) return 'PEN';
+      return `ET${period - regulation}`;
+    }
+    if (period > regulation) {
+      const otIndex = period - regulation;
+      return otIndex <= 1 ? 'OT' : `OT${otIndex}`;
+    }
+    return String(period);
   };
 
   // Determine winner for total highlight
@@ -76,7 +125,7 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
             {periodRange.map(p => (
               <th key={p} className="py-3 px-3 text-center">
                 <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">
-                  {isTennis ? `S${p}` : (p > (match.regulationPeriods || 4) ? 'OT' : p)}
+                  {getPeriodLabel(p)}
                 </span>
               </th>
             ))}
