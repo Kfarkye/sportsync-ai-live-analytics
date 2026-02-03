@@ -89,6 +89,13 @@ export let SYSTEM_GATES = {
         P3_INFLATION: 1.25,
         PROACTIVE_EN_WEIGHT: 0.45,
     },
+
+    // v6.7: Data Integrity Gates (Hallucination Prevention)
+    INTEGRITY: {
+        MAX_PPM_BASKETBALL: 10,  // Impossible pace threshold (normal ~5-6)
+        MAX_PPM_FOOTBALL: 6,     // Impossible pace threshold (normal ~2-3)
+        MAX_PPM_HOCKEY: 4,       // Impossible pace threshold (normal ~1.5-2)
+    },
 };
 
 export const updateSystemGates = (overrides: any) => {
@@ -105,11 +112,4 @@ export const REGEX = {
     STAT_OF: /^(\d+(\.\d+)?)\s*(of)\s*(\d+(\.\d+)?)$/,
     CLEAN_STAT: /[,%]|mph|km\/h|kts/gi,
     POWER_PLAY: /\b(pp|power\s*play|man\s*advantage|5\s*v\s*4|5\s*on\s*4|4\s*on\s*3)\b/i
-
-    // v6.7: Data Integrity Gates (Hallucination Prevention)
-    INTEGRITY: {
-        MAX_PPM_BASKETBALL: 10,  // Impossible pace threshold (normal ~5-6)
-        MAX_PPM_FOOTBALL: 6,     // Impossible pace threshold (normal ~2-3)
-        MAX_PPM_HOCKEY: 4,       // Impossible pace threshold (normal ~1.5-2)
-    },
 };
