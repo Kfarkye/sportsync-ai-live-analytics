@@ -31,6 +31,7 @@ import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 
 import type { Match } from '../../types';
 import { cn } from '../../lib/essence';
+import { getMatchDisplayStats } from '../../utils/statDisplay';
 
 // Services
 import { fetchMatchDetailsExtended, fetchTeamLastFive } from '../../services/espnService';
@@ -865,6 +866,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const isLive = isGameInProgress(match.status);
   const homeColor = useMemo(() => normalizeColor(match?.homeTeam?.color, '#3B82F6'), [match.homeTeam]);
   const awayColor = useMemo(() => normalizeColor(match?.awayTeam?.color, '#EF4444'), [match.awayTeam]);
+  const displayStats = useMemo(() => getMatchDisplayStats(match, 8), [match]);
 
   const [activeTab, setActiveTab] = useState(isSched ? 'DETAILS' : 'OVERVIEW');
   const [propView, setPropView] = useState<'classic' | 'cinematic'>('cinematic');
@@ -936,14 +938,23 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     <CinematicGameTracker match={match} liveState={liveState || { lastPlay: match.lastPlay as any }} />
                     <div className="mt-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /></div>
                   </section>
-                  {!isGameFinal(match.status) && (<div className="lg:hidden"><SectionHeader compact>Team Stats</SectionHeader>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={(match as any).stats || []} match={match} colors={{ home: homeColor, away: awayColor }} />}</div>)}
+                  {!isGameFinal(match.status) && (
+                    <div className="lg:hidden">
+                      <SectionHeader compact>Team Stats</SectionHeader>
+                      {isInitialLoad ? (
+                        <StatsGridSkeleton />
+                      ) : (
+                        <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />
+                      )}
+                    </div>
+                  )}
                   {liveState?.ai_analysis && <LiveAIInsight match={match} />}
                 </div>
                 <aside className="lg:col-span-4 space-y-6 hidden lg:block">
                   {isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}
                   {match.sport === 'HOCKEY' && <GoalieMatchup matchId={match.id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />}
                   {match.context && <MatchupContextPills {...match.context} sport={match.sport} />}
-                  {isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={(match as any).stats || []} match={match} colors={{ home: homeColor, away: awayColor }} />}
+                  {isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}
                 </aside>
               </div>
             )}
@@ -961,7 +972,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     {/* 3. Team Stats Comparison */}
                     <div>
                       <SectionHeader compact>Head to Head</SectionHeader>
-                      {isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={(match as any).stats || []} match={match} colors={{ home: homeColor, away: awayColor }} />}
+                      {isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}
                     </div>
 
                     {/* 4. Recent Form */}
@@ -999,7 +1010,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                 <SafePregameIntelCards match={match} />
                 <ForecastHistoryTable matchId={match.id} />
                 <BoxScore match={match} />
-                {isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={(match as any).stats || []} match={match} colors={{ home: homeColor, away: awayColor }} />}
+                {isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}
               </div>
             )}
 

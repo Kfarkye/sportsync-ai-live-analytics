@@ -4,6 +4,7 @@ import { User, Target } from 'lucide-react';
 import { Match, StatItem, Team, PlayerPropBet, Sport } from '../../types';
 import TeamLogo from '../shared/TeamLogo';
 import { cn, ESSENCE } from '../../lib/essence';
+import { getMatchDisplayStats, hasLineScoreData } from '../../utils/statDisplay';
 
 // ============================================================================
 // 1. LINE SCORE GRID - ELITE EDITION
@@ -87,6 +88,60 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
     }
     return String(period);
   };
+
+  const hasLines = hasLineScoreData(match);
+
+  if (!hasLines) {
+    const homeTotal = match.homeScore ?? 0;
+    const awayTotal = match.awayScore ?? 0;
+    const isHomeWinning = homeTotal > awayTotal;
+    const isAwayWinning = awayTotal > homeTotal;
+    const isTied = homeTotal === awayTotal;
+
+    return (
+      <div className="w-full overflow-x-auto no-scrollbar">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="border-b border-white/[0.06]">
+              <th className="py-3 text-left w-28 px-1">
+                <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Team</span>
+              </th>
+              <th className="py-3 px-3 text-center w-16 bg-white/[0.03] rounded-t-lg">
+                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Tot</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {[match.awayTeam, match.homeTeam].map((team, idx) => {
+              const isWinning = idx === 0 ? isAwayWinning : isHomeWinning;
+              const totalScore = idx === 0 ? awayTotal : homeTotal;
+              return (
+                <tr key={team.id} className="group transition-colors hover:bg-white/[0.015]">
+                  <td className="py-4 px-1">
+                    <div className="flex items-center gap-2.5">
+                      <TeamLogo logo={team.logo} className="w-6 h-6 opacity-80 group-hover:opacity-100 transition-opacity" />
+                      <span className="text-[10px] font-black text-zinc-400 group-hover:text-zinc-200 transition-colors uppercase tracking-widest">
+                        {team.abbreviation || team.shortName}
+                      </span>
+                    </div>
+                  </td>
+                  <td className={cn("py-4 px-3 text-center bg-white/[0.03] border-l border-white/[0.04]", idx === 1 && "rounded-b-lg")}>
+                    <span className={cn(
+                      "font-mono text-[18px] font-black tabular-nums tracking-tighter",
+                      isWinning ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" : "text-zinc-400",
+                      isTied && "text-zinc-300"
+                    )}>
+                      {totalScore}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
 
   // Determine winner for total highlight
   const homeTotal = match.homeScore ?? 0;
@@ -201,7 +256,7 @@ export const TeamStatsGrid: React.FC<TeamStatsGridProps> = memo(({ stats, colors
 
   return (
     <div className="relative">
-      <div className="space-y-6">
+      <div className="space-y-5">
         {stats.map((stat, i) => {
           const parseStat = (val: any) => {
             if (typeof val !== 'string' && typeof val !== 'number') return 0;
@@ -218,17 +273,17 @@ export const TeamStatsGrid: React.FC<TeamStatsGridProps> = memo(({ stats, colors
           return (
             <div key={i} className="space-y-2">
               <div className="flex justify-between items-end">
-                <span className="text-[13px] font-mono font-bold text-white tabular-nums">{stat.awayValue}</span>
-                <span className={ESSENCE.tier.t2Header}>{stat.label}</span>
-                <span className="text-[13px] font-mono font-bold text-white tabular-nums">{stat.homeValue}</span>
+                <span className="text-[12px] font-mono font-semibold text-white/90 tabular-nums">{stat.awayValue}</span>
+                <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.2em]">{stat.label}</span>
+                <span className="text-[12px] font-mono font-semibold text-white/90 tabular-nums">{stat.homeValue}</span>
               </div>
-              <div className="h-1 w-full bg-white/[0.03] rounded-full overflow-hidden flex">
+              <div className="h-1.5 w-full bg-white/[0.03] rounded-full overflow-hidden flex">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${aPct}%` }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
                   className="h-full"
-                  style={{ backgroundColor: colors.away }}
+                  style={{ backgroundColor: colors.away, boxShadow: `0 0 12px ${colors.away}30` }}
                 />
                 <div className="w-px h-full bg-black/40" />
                 <motion.div
@@ -236,7 +291,7 @@ export const TeamStatsGrid: React.FC<TeamStatsGridProps> = memo(({ stats, colors
                   animate={{ width: `${hPct}%` }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
                   className="h-full"
-                  style={{ backgroundColor: colors.home }}
+                  style={{ backgroundColor: colors.home, boxShadow: `0 0 12px ${colors.home}30` }}
                 />
               </div>
             </div>
@@ -381,13 +436,49 @@ ClassicPlayerProps.displayName = 'ClassicPlayerProps';
 // 4. MAIN BOX SCORE COMPONENT
 // ============================================================================
 
+const normalizeColor = (color: string | undefined, fallback: string): string => {
+  if (!color) return fallback;
+  const c = color.trim();
+  if (c.startsWith('#')) return c;
+  return `#${c}`;
+};
+
 /**
- * BoxScore - Primary statistical overview for a match
- * NOTE: Match Aggregates section removed - component returns null until real data is available
+ * BoxScore - Primary statistical overview for a match (all sports)
  */
-const BoxScore: React.FC<{ match: Match }> = memo(({ match: _match }) => {
-  // Component preserved for future Box Score data integration
-  return null;
+const BoxScore: React.FC<{ match: Match }> = memo(({ match }) => {
+  const stats = useMemo(() => getMatchDisplayStats(match, 8), [match]);
+  const homeColor = normalizeColor(match.homeTeam?.color, '#3B82F6');
+  const awayColor = normalizeColor(match.awayTeam?.color, '#EF4444');
+
+  if (!stats.length && !hasLineScoreData(match)) return null;
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Line Score</span>
+          </div>
+          <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">
+            {(match.leagueId || match.sport || '').toString().toUpperCase()}
+          </span>
+        </div>
+        <LineScoreGrid match={match} />
+      </div>
+
+      {stats.length > 0 && (
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Team Stats</span>
+          </div>
+          <TeamStatsGrid stats={stats} match={match} colors={{ home: homeColor, away: awayColor }} />
+        </div>
+      )}
+    </div>
+  );
 });
 
 BoxScore.displayName = 'BoxScore';
