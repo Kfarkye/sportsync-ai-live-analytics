@@ -372,7 +372,7 @@ export const PregameIntelCards = ({
                 initial="hidden"
                 animate="visible"
                 variants={{ visible: { transition: STAGGER } }}
-                className="w-full max-w-md mx-auto px-1"
+                className="w-full px-2 md:px-6"
             >
                 {/* HERO */}
                 <div className="mb-8">

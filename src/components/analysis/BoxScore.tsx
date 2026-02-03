@@ -33,14 +33,14 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
     const awayLen = match.awayTeam.linescores?.length || 0;
     const regulation = (() => {
       if (isTennis) return Math.max(homeLen, awayLen, 3);
-      if (typeof match.regulationPeriods === 'number' && match.regulationPeriods > 0) {
-        return match.regulationPeriods;
-      }
       if (isSoccer) return 2;
       if (isHockey) return 3;
       if (isBaseball) return 9;
       if (isFootball) return 4;
       if (isBasketball) return 4;
+      if (typeof match.regulationPeriods === 'number' && match.regulationPeriods > 0) {
+        return match.regulationPeriods;
+      }
       return 4;
     })();
     return Math.max(homeLen, awayLen, regulation);
@@ -59,13 +59,18 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
   const periodRange = Array.from({ length: periods }, (_, i) => i + 1);
 
   const getScore = (team: Team, period: number) => {
-    const ls = team.linescores?.find(l => l.period === period);
-    if (!ls) return '-';
-    const raw = ls.value;
-    if (isTennis && raw !== undefined && raw !== null && typeof ls.tiebreak === 'number') {
-      return `${raw}(${ls.tiebreak})`;
+    const list = team.linescores || [];
+    const byPeriod = list.find(l => l.period === period);
+    const byIndex = list[period - 1];
+    const entry = byPeriod || byIndex;
+    if (!entry) return '-';
+    const raw = entry.value;
+    if (isTennis && raw !== undefined && raw !== null && typeof entry.tiebreak === 'number') {
+      return `${raw}(${entry.tiebreak})`;
     }
-    return raw !== undefined && raw !== null ? String(raw) : '-';
+    if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
+    if (typeof raw === 'string' && raw.trim().length > 0) return raw;
+    return '-';
   };
   const getPeriodLabel = (period: number) => {
     const label =
@@ -73,10 +78,10 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
       match.awayTeam.linescores?.find(l => l.period === period)?.label;
     if (label) return String(label).toUpperCase();
     if (isTennis) return `S${period}`;
+    if (isSoccer && period <= 2) return `H${period}`;
     if (isBaseball) return String(period);
-    const regulation = typeof match.regulationPeriods === 'number' && match.regulationPeriods > 0
-      ? match.regulationPeriods
-      : (isSoccer ? 2 : isHockey ? 3 : isFootball || isBasketball ? 4 : 4);
+    const regulation = isSoccer ? 2 : isHockey ? 3 : isBaseball ? 9 : (isFootball || isBasketball) ? 4
+      : (typeof match.regulationPeriods === 'number' && match.regulationPeriods > 0 ? match.regulationPeriods : 4);
     if (isSoccer && period > regulation) {
       if (period === regulation + 1) return 'ET';
       if (period === regulation + 2) return 'PEN';
@@ -91,7 +96,7 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
 
   const hasLines = hasLineScoreData(match);
 
-  if (!hasLines) {
+  if (!hasLines && !isSoccer) {
     const homeTotal = match.homeScore ?? 0;
     const awayTotal = match.awayScore ?? 0;
     const isHomeWinning = homeTotal > awayTotal;

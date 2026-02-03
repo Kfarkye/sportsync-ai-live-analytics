@@ -84,7 +84,12 @@ const detectSportKey = (match: Match): string => {
 export const hasLineScoreData = (match: Match): boolean => {
   const home = match.homeTeam?.linescores || [];
   const away = match.awayTeam?.linescores || [];
-  const hasValue = (ls: any) => ls && ls.value !== undefined && ls.value !== null;
+  const hasValue = (ls: any) => {
+    if (!ls) return false;
+    if (typeof ls.value === 'number') return Number.isFinite(ls.value);
+    if (typeof ls.value === 'string') return ls.value.trim().length > 0;
+    return false;
+  };
   return home.some(hasValue) || away.some(hasValue);
 };
 

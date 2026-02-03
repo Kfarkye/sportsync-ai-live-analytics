@@ -383,7 +383,7 @@ const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, o
             {/* --- DATA TAB (Edge - AI Intelligence) --- */}
             {activeTab === 'DATA' && (
                 <DebugBoundary>
-                    <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700">
+                    <div className="w-full animate-in fade-in slide-in-from-bottom-6 duration-700">
                         {/* AI Intelligence Cards - The Core Value */}
                         <PregameIntelCards match={match} hideFooter={true} intel={intel} />
                     </div>

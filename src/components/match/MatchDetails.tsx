@@ -718,6 +718,11 @@ function useMatchPolling(initialMatch: Match) {
         if ((db.home_score || 0) > (nextMatch.homeScore || 0)) nextMatch.homeScore = db.home_score;
         if ((db.away_score || 0) > (nextMatch.awayScore || 0)) nextMatch.awayScore = db.away_score;
       }
+      if (db) {
+        if (db.closing_odds) nextMatch.closing_odds = db.closing_odds;
+        if (db.opening_odds) nextMatch.opening_odds = db.opening_odds;
+        if (db.odds) nextMatch.odds = db.odds;
+      }
 
       if (props?.length) {
         nextMatch.dbProps = props.map((p: any) => ({

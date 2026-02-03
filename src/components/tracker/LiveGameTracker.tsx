@@ -149,6 +149,7 @@ interface GameViewModel {
         spreadResult: 'COVER' | 'MISS' | 'PUSH' | null;
         totalHit: 'OVER' | 'UNDER' | 'PUSH' | null;
         matchupStr: string;
+        linesLabel: string;
     };
     stats: {
         homeTeamStats: TeamStats | null;
@@ -377,10 +378,94 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
         const possId = match.situation?.possessionId
             ? String(match.situation.possessionId)
             : null;
-        const spread = safeNumber(match.closing_odds?.spread, 0);
-        const total = safeNumber(match.closing_odds?.total, 0);
-        const hasSpread = hasValue(match.closing_odds?.spread);
-        const hasTotal = hasValue(match.closing_odds?.total) && total > 0;
+        const hasAnyOdds = (o: any) =>
+            !!o &&
+            Object.values(o).some((v) => v !== null && v !== undefined && `${v}`.trim() !== '');
+
+        const parseNumeric = (val: any): number | null => {
+            if (val === null || val === undefined || val === '') return null;
+            const n = Number(String(val).replace(/[^\d.\-]/g, ''));
+            return Number.isFinite(n) ? n : null;
+        };
+
+        const extractSpread = (o: any): number | null => {
+            if (!o) return null;
+            if (o.homeSpread !== undefined) return parseNumeric(o.homeSpread);
+            if (o.spread !== undefined) return parseNumeric(o.spread);
+            return null;
+        };
+
+        const extractTotal = (o: any): number | null => {
+            if (!o) return null;
+            if (o.total !== undefined) return parseNumeric(o.total);
+            if (o.overUnder !== undefined) return parseNumeric(o.overUnder);
+            if (o.over_under !== undefined) return parseNumeric(o.over_under);
+            return null;
+        };
+
+        const extractMoneyline = (o: any) => {
+            if (!o) return { home: '-', away: '-' };
+            const home =
+                o.moneylineHome ?? o.homeWin ?? o.homeMoneyline ?? o.home_ml ?? o.home_ml_price;
+            const away =
+                o.moneylineAway ?? o.awayWin ?? o.awayMoneyline ?? o.away_ml ?? o.away_ml_price;
+            return {
+                home: home !== undefined ? String(home) : '-',
+                away: away !== undefined ? String(away) : '-',
+            };
+        };
+
+        const sameLine = (a: any, b: any) => {
+            if (!a || !b) return false;
+            return extractSpread(a) === extractSpread(b) && extractTotal(a) === extractTotal(b);
+        };
+
+        const isFinal = isGameFinished(match.status);
+        const isLive =
+            !isFinal && match.status !== 'SCHEDULED' && match.status !== 'PREGAME';
+        const closingLooksLive =
+            match.closing_odds &&
+            match.current_odds &&
+            sameLine(match.closing_odds, match.current_odds);
+
+        const resolveLineSource = () => {
+            if (isFinal) {
+                if (match.closing_odds && !closingLooksLive)
+                    return { data: match.closing_odds, label: 'Closing Lines' };
+                if (match.odds && hasAnyOdds(match.odds))
+                    return { data: match.odds, label: 'Closing Lines' };
+                if (match.opening_odds && hasAnyOdds(match.opening_odds))
+                    return { data: match.opening_odds, label: 'Opening Lines' };
+                if (match.closing_odds && hasAnyOdds(match.closing_odds))
+                    return { data: match.closing_odds, label: 'Closing Lines' };
+                if (match.current_odds && hasAnyOdds(match.current_odds))
+                    return { data: match.current_odds, label: 'Latest Lines' };
+                return { data: null, label: 'Closing Lines' };
+            }
+            if (isLive) {
+                if (match.current_odds && hasAnyOdds(match.current_odds))
+                    return { data: match.current_odds, label: 'Live Lines' };
+                if (match.odds && hasAnyOdds(match.odds))
+                    return { data: match.odds, label: 'Market Lines' };
+                if (match.opening_odds && hasAnyOdds(match.opening_odds))
+                    return { data: match.opening_odds, label: 'Opening Lines' };
+                return { data: null, label: 'Live Lines' };
+            }
+            if (match.odds && hasAnyOdds(match.odds))
+                return { data: match.odds, label: 'Market Lines' };
+            if (match.current_odds && hasAnyOdds(match.current_odds))
+                return { data: match.current_odds, label: 'Market Lines' };
+            if (match.opening_odds && hasAnyOdds(match.opening_odds))
+                return { data: match.opening_odds, label: 'Opening Lines' };
+            return { data: null, label: 'Market Lines' };
+        };
+
+        const lineSource = resolveLineSource();
+        const spread = extractSpread(lineSource.data) ?? 0;
+        const total = extractTotal(lineSource.data) ?? 0;
+        const hasSpread = extractSpread(lineSource.data) !== null;
+        const hasTotal = (extractTotal(lineSource.data) ?? 0) > 0;
+        const moneyline = extractMoneyline(lineSource.data);
 
         const margin = homeScore - awayScore;
         const totalScore = homeScore + awayScore;
@@ -400,7 +485,7 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
         const windSpd = pickWindSpeed(match);
         const league = String(match.league || match.sport || '').toUpperCase();
         const isPregame =
-            !isGameFinished(match.status) &&
+            !isFinal &&
             (match.status === 'SCHEDULED' ||
                 match.status === 'PREGAME' ||
                 !match.period ||
@@ -415,7 +500,7 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
                 isBasketball: ['NBA', 'CBB', 'NCAAB'].some((s) =>
                     league.includes(s)
                 ),
-                isFinished: isGameFinished(match.status),
+                isFinished: isFinal,
                 isPregame,
                 displayClock:
                     match.displayClock || (isPregame ? formatTime(match.date) : DEFAULT_CLOCK),
@@ -470,10 +555,8 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
                 spreadResult,
                 totalHit,
                 matchupStr,
-                moneyline: {
-                    home: String(match.closing_odds?.moneylineHome ?? '-'),
-                    away: String(match.closing_odds?.moneylineAway ?? '-'),
-                },
+                moneyline,
+                linesLabel: lineSource.label,
             },
             stats: {
                 homeTeamStats: match.homeTeamStats || null,
@@ -721,7 +804,7 @@ const ClosingLinesTable: FC<{ viewModel: GameViewModel }> = memo(({ viewModel })
             <div className="flex items-center gap-2 mb-5">
                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
                 <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-                    Closing Lines
+                    {betting.linesLabel || 'Closing Lines'}
                 </span>
             </div>
 
