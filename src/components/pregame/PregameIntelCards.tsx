@@ -219,9 +219,8 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className={cn(
-                "group relative border-l-[3px] py-7 transition-[color,background-color,transform] duration-300 hover:-translate-y-[1px]",
-                config.border,
-                index !== 0 && "border-t border-white/[0.04]",
+                "group relative py-7 transition-[color,background-color,transform] duration-300 hover:-translate-y-[1px]",
+                index !== 0 && "border-t border-white/[0.05]",
                 hasDetails && expanded ? "bg-gradient-to-b from-white/[0.03] via-white/[0.015] to-transparent" : "hover:bg-white/[0.015]",
                 hasDetails ? "cursor-pointer" : "cursor-default"
             )}
@@ -273,7 +272,7 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
                     >
                         <div className="px-4 pb-3 pt-4 ml-1">
                             {(card as any).market_implication && (
-                                <div className="mb-3 pl-3 border-l-2 border-zinc-800">
+                                <div className="mb-3 pt-2 border-t border-white/[0.06]">
                                     <p className="text-[12px] text-zinc-500 italic leading-relaxed">
                                         <RenderRichText text={String((card as any).market_implication)} />
                                     </p>
@@ -399,7 +398,7 @@ export const PregameIntelCards = ({
                 {/* HEADLINE */}
                 <motion.div
                     variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-                    className="mb-14 pl-5 border-l border-white/10"
+                    className="mb-14 pt-6 border-t border-white/10"
                 >
                     <p className="text-[16px] md:text-[17px] text-zinc-300/80 font-light leading-[1.7] text-pretty">
                         <RenderRichText text={String((processedData as any).headline || "")} />
