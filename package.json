@@ -10,7 +10,8 @@
     "seed:fatigue": "export $(grep SUPABASE_SERVICE_ROLE_KEY .env | xargs) && npx tsx scripts/seed_master_schedule.ts",
     "seed:roster": "export $(grep SUPABASE_SERVICE_ROLE_KEY .env | xargs) && npx tsx scripts/seed_roster.ts",
     "seed:injuries": "export $(grep SUPABASE_SERVICE_ROLE_KEY .env | xargs) && npx tsx scripts/seed_injury_report.ts",
-    "sync:shared": "node scripts/sync_shared.js"
+    "sync:shared": "node scripts/sync_shared.js",
+    "verify:ssot": "node scripts/verify_ssot.js"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.13",

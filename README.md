@@ -59,6 +59,13 @@ npm install
 npm run dev
 ```
 
+## SSOT & Shared Code
+
+- Canonical source of truth lives in `packages/shared/src`
+- App imports should use `@shared/*` (local `src/` files are re-export shims)
+- Supabase `functions/_shared` is generated via `npm run sync:shared`
+- Run `npm run verify:ssot` to validate sync + build + parity
+
 ## Production Build
 
 ```bash

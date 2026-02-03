@@ -24,8 +24,9 @@
 * **STYLE**: Maintain the "Apple TV / DraftKings" aesthetic—high saturation, glassmorphism, and bold typography.
 * **TERMINOLOGY**: Use sports-betting specific language ("Market Edge", "Pace Dislocation", "Fair Value") rather than clinical/legal language ("Forensic Audit", "Deterministic Baseline").
 
-## 3. SSOT & Shared Code
-* **Single Source of Truth (SSOT)** lives in `packages/shared`.
-* **Do not edit** duplicated copies in `src/` or `supabase/functions/_shared/` directly.
-* Run `npm run sync:shared` after changes in `packages/shared`.
-* Root shims (`types.ts`, `constants.ts`, `lib/essence.ts`) exist for legacy imports.
+## 6. SSOT & Shared Code
+* **Canonical SSOT** lives in `packages/shared/src`.
+* **App code** must import from `@shared/*` (re-export shims in `src/` are not editable).
+* **Supabase `_shared`** is generated via `npm run sync:shared` — never edit directly.
+* Run `npm run verify:ssot` before merge to ensure sync + build + parity.
+* Root shims (`types.ts`, `constants.ts`, `lib/essence.ts`) exist only for legacy imports.

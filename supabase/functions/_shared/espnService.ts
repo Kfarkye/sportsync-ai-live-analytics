@@ -253,7 +253,18 @@ export const fetchLeagueMatches = async (
             };
 
         }).filter((m: any | null): m is any => m !== null)
-            .map(m => ({ ...m, ai_signals: computeAISignals(m) }));
+            .map(m => {
+                try {
+                    return { ...m, ai_signals: computeAISignals(m) };
+                } catch (e) {
+                    Logger.warn('ESPNService', 'computeAISignals failed', {
+                        leagueId: league.id,
+                        matchId: m.id,
+                        error: String(e)
+                    });
+                    return { ...m, ai_signals: null };
+                }
+            });
 
     } catch (e) {
         Logger.debug('ESPNService', `fetchLeagueMatches failed: ${e}`);
