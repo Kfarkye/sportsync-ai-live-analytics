@@ -23,3 +23,9 @@
 ## 5. Branding & Verbiage
 * **STYLE**: Maintain the "Apple TV / DraftKings" aesthetic—high saturation, glassmorphism, and bold typography.
 * **TERMINOLOGY**: Use sports-betting specific language ("Market Edge", "Pace Dislocation", "Fair Value") rather than clinical/legal language ("Forensic Audit", "Deterministic Baseline").
+
+## 3. SSOT & Shared Code
+* **Single Source of Truth (SSOT)** lives in `packages/shared`.
+* **Do not edit** duplicated copies in `src/` or `supabase/functions/_shared/` directly.
+* Run `npm run sync:shared` after changes in `packages/shared`.
+* Root shims (`types.ts`, `constants.ts`, `lib/essence.ts`) exist for legacy imports.

@@ -16,7 +16,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     resolve: {
       alias: [
-        { find: '@', replacement: path.resolve(cwd, 'src') }
+        { find: '@', replacement: path.resolve(cwd, 'src') },
+        { find: '@shared', replacement: path.resolve(cwd, 'packages/shared/src') }
       ]
     }
   };

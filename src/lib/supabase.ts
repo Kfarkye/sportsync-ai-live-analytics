@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // ====================================================================================
@@ -13,12 +12,15 @@ const supabaseAnonKey = storedKey || (import.meta as any).env.VITE_SUPABASE_ANON
 
 // Debug Logging
 const isKeyValid = supabaseAnonKey && supabaseAnonKey.length > 20 && !supabaseAnonKey.startsWith('Missing');
+const hasConfig = !!(supabaseUrl && isKeyValid);
 
+// Initialize Client (fall back to a safe local URL when not configured)
+const clientUrl = hasConfig ? supabaseUrl : 'http://localhost';
+const clientKey = hasConfig ? supabaseAnonKey : 'public-anon-key-not-set';
 
-// Initialize Client
 export const supabase = createClient(
-  supabaseUrl || 'https://qffzvrnbzabcokqqrwbv.supabase.co',
-  supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZnp2cm5iemFiY29rcXFyd2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTc2NjgsImV4cCI6MjA3MDkzMzY2OH0.PCSnC5E7sG7FvasHy_9DdwiN61xW0GzFROLzZ0bTVnc',
+  clientUrl,
+  clientKey,
   {
     auth: {
       persistSession: true,
@@ -32,7 +34,7 @@ export const supabase = createClient(
 );
 
 export const isSupabaseConfigured = () => {
-  return !!(supabaseUrl && isKeyValid);
+  return hasConfig;
 };
 
 export const setSupabaseKey = (key: string) => {
