@@ -895,8 +895,10 @@ PredictionCard.displayName = 'PredictionCard';
 // 8. HEADER (Unified & Context-Aware)
 // ============================================================================
 
-export const ScoreHeader: FC<{ match: Match; onBack?: () => void }> = memo(
-    ({ match, onBack }) => {
+type ScoreHeaderVariant = 'full' | 'embedded';
+
+export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: ScoreHeaderVariant }> = memo(
+    ({ match, onBack, variant = 'full' }) => {
         const vm = useGameViewModel(match as ExtendedMatch);
         const [activeTab, setActiveTab] = useState<TabKey>(TABS[0]);
         const reduceMotion = useReducedMotion();
@@ -906,47 +908,64 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void }> = memo(
 
         const { teams, meta, betting } = vm;
         const isPregame = meta.isPregame;
+        const isEmbedded = variant === 'embedded';
+        const showTopBar = !isEmbedded;
+        const showTabs = !isEmbedded;
+        const logoSize = isEmbedded ? 'w-16 h-16 sm:w-20 sm:h-20' : 'w-20 h-20 sm:w-24 sm:h-24';
+        const logoImgSize = isEmbedded ? 'w-10 h-10 sm:w-14 sm:h-14' : 'w-12 h-12 sm:w-16 sm:h-16';
+        const nameText = isEmbedded ? 'text-[14px] sm:text-[18px]' : 'text-[15px] sm:text-[20px]';
+        const scoreText = isEmbedded ? 'text-4xl sm:text-6xl' : 'text-5xl sm:text-8xl';
+        const centerBlockPaddingTop = isEmbedded ? 'pt-1' : 'pt-4';
+        const gridMarginTop = isEmbedded ? 'mt-8' : 'mt-16';
+        const gridMarginBottom = isEmbedded ? 'mb-6' : 'mb-10';
 
         return (
-            <header className="relative w-full bg-[#000000] flex flex-col items-center pt-6 overflow-hidden select-none border-b border-white/[0.08]">
+            <header
+                className={cn(
+                    'relative w-full flex flex-col items-center overflow-hidden select-none',
+                    isEmbedded ? 'bg-[#050506] pt-4' : 'bg-[#050506] pt-6 border-b border-white/[0.08]'
+                )}
+            >
                 {/* Top Status Bar: [Back] [Date/League] [Dot] */}
-                <div className="absolute top-2 flex items-center justify-between w-full px-6 z-20 py-3">
-                    <button
-                        type="button"
-                        onClick={onBack}
-                        disabled={!onBack}
-                        aria-label="Back"
-                        className={cn(
-                            'flex items-center gap-2 text-zinc-500 transition-colors',
-                            onBack ? 'hover:text-white cursor-pointer' : 'opacity-50 cursor-default'
-                        )}
-                    >
-                        <ArrowLeft size={14} strokeWidth={3} />
-                        <span className="text-[10px] font-bold tracking-widest uppercase">BACK</span>
-                    </button>
-                    <div className="flex flex-col items-center">
-                        <span className="text-[10px] font-black text-zinc-400 tracking-widest uppercase">
-                            {meta.league || 'LIVE'}
-                        </span>
-                        {isPregame && (
-                            <span className="text-[9px] font-bold text-zinc-600 tracking-wide mt-0.5">
-                                {meta.displayDate}
+                {showTopBar && (
+                    <div className="absolute top-2 flex items-center justify-between w-full px-6 z-20 py-3">
+                        <button
+                            type="button"
+                            onClick={onBack}
+                            disabled={!onBack}
+                            aria-label="Back"
+                            className={cn(
+                                'flex items-center gap-2 text-zinc-500 transition-colors',
+                                onBack ? 'hover:text-white cursor-pointer' : 'opacity-50 cursor-default'
+                            )}
+                        >
+                            <ArrowLeft size={14} strokeWidth={3} />
+                            <span className="text-[10px] font-bold tracking-widest uppercase">BACK</span>
+                        </button>
+                        <div className="flex flex-col items-center">
+                            <span className="text-[10px] font-black text-zinc-400 tracking-widest uppercase">
+                                {meta.league || 'LIVE'}
                             </span>
-                        )}
+                            {isPregame && (
+                                <span className="text-[9px] font-bold text-zinc-600 tracking-wide mt-0.5">
+                                    {meta.displayDate}
+                                </span>
+                            )}
+                        </div>
+                        <div
+                            className={cn(
+                                'w-2 h-2 rounded-full',
+                                meta.isFinished || isPregame
+                                    ? 'bg-zinc-800'
+                                    : 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
+                            )}
+                            aria-hidden="true"
+                        />
                     </div>
-                    <div
-                        className={cn(
-                            'w-2 h-2 rounded-full',
-                            meta.isFinished || isPregame
-                                ? 'bg-zinc-800'
-                                : 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
-                        )}
-                        aria-hidden="true"
-                    />
-                </div>
+                )}
 
                 {/* Cinematic Atmosphere */}
-                <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
                     <div className="absolute top-[10%] left-1/2 -translate-x-1/2 w-[120%] h-[60%] bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.03)_0%,transparent_70%)] blur-[60px]" />
                     <div
                         className="absolute top-[30%] -left-[20%] w-[80%] h-[80%] blur-[120px] opacity-20"
@@ -956,61 +975,76 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void }> = memo(
                         className="absolute top-[30%] -right-[20%] w-[80%] h-[80%] blur-[120px] opacity-20"
                         style={{ background: teams.home.color }}
                     />
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050506]/40 to-[#050506]" />
                 </div>
 
                 {/* Horizontal Face-Off (Grid for Precision Center) */}
-                <div className="relative z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-8 w-full max-w-5xl px-4 sm:px-8 mt-16 mb-10">
+                <div
+                    className={cn(
+                        'relative z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-8 w-full max-w-5xl px-4 sm:px-8',
+                        gridMarginTop,
+                        gridMarginBottom
+                    )}
+                >
                     {/* Away Team */}
-                    <div className="flex flex-col items-center gap-4">
-                        <div className="w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center bg-white/[0.02] rounded-full border border-white/[0.05]">
+                    <div className="flex flex-col items-center gap-3 text-center">
+                        <div className="relative mb-2">
+                            <div
+                                className="absolute inset-[-10px] rounded-full blur-2xl opacity-20"
+                                style={{ background: teams.away.color }}
+                            />
+                            <div className={cn('flex items-center justify-center bg-white/[0.02] rounded-full border border-white/[0.05]', logoSize)}>
                             <TeamLogo
                                 logo={teams.away.logo}
-                                className="w-12 h-12 sm:w-16 sm:h-16 object-contain drop-shadow-2xl opacity-90"
+                                className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
                             />
+                        </div>
                         </div>
                         <div className="text-center">
                             {/* Name on Pregame, Abbr on Live */}
-                            <h2 className="text-sm sm:text-lg font-black text-white tracking-tight uppercase leading-tight max-w-[100px] sm:max-w-none">
-                                {isPregame ? teams.away.name : teams.away.abbr}
+                            <h2 className={cn(nameText, 'font-bold text-white tracking-tight leading-tight')}>
+                                <span className="hidden sm:inline">{teams.away.name}</span>
+                                <span className="sm:hidden">{isPregame ? teams.away.name : teams.away.abbr}</span>
                             </h2>
-                            {/* Extra Context Line */}
                             {isPregame && (
-                                <h2 className="text-[10px] font-bold text-zinc-400 tracking-widest uppercase mt-1">
+                                <div className="text-[10px] font-bold text-zinc-400 tracking-widest uppercase mt-1">
                                     {teams.away.abbr}
-                                </h2>
+                                </div>
                             )}
-                            <span className="text-[9px] sm:text-[10px] font-mono text-zinc-600 tracking-wider mt-1">
+                            <span className="mt-1 text-[11px] font-semibold text-white/35 tabular-nums tracking-wide font-mono">
                                 {teams.away.record}
                             </span>
                         </div>
                     </div>
 
                     {/* Center Stage: Score vs Pregame Time */}
-                    <div className="flex flex-col items-center justify-start pt-4 min-w-[140px]">
+                    <div className={cn('flex flex-col items-center justify-start min-w-[140px]', centerBlockPaddingTop)}>
                         {isPregame ? (
                             <div className="flex flex-col items-center gap-2">
-                                <span className="text-5xl sm:text-7xl font-light text-white tracking-tighter tabular-nums">
+                                <span className="text-[38px] sm:text-[52px] font-medium tracking-[-0.04em] tabular-nums text-white">
                                     {meta.displayClock}
                                 </span>
-                                <span className="text-[10px] font-bold text-zinc-500 tracking-widest uppercase">
+                                <span className="text-[10px] font-medium text-white/40 uppercase tracking-[0.15em]">
                                     Tip-Off
                                 </span>
-                                <span className="text-[10px] font-mono text-zinc-600 tracking-widest">
+                                <span className="text-[11px] font-mono font-medium text-zinc-500 tracking-wide">
                                     {betting.matchupStr}
                                 </span>
                             </div>
                         ) : (
                             <div className="flex flex-col items-center gap-4">
-                                <div className="flex items-baseline gap-6 sm:gap-10">
-                                    <span className="text-5xl sm:text-8xl font-light text-white tabular-nums tracking-tighter drop-shadow-lg">
+                                <div className="flex items-baseline gap-6 sm:gap-12">
+                                    <span className={cn(scoreText, 'font-light text-white tabular-nums tracking-tighter drop-shadow-lg')}>
                                         {teams.away.score}
                                     </span>
-                                    <span className="text-5xl sm:text-8xl font-light text-white tabular-nums tracking-tighter drop-shadow-lg">
+                                    <span className={cn(scoreText, 'font-light text-white tabular-nums tracking-tighter drop-shadow-lg')}>
                                         {teams.home.score}
                                     </span>
                                 </div>
-                                <div className="px-4 py-1.5 rounded-full border border-white/[0.08] bg-black/40 backdrop-blur-md">
-                                    <span className="text-[10px] sm:text-[11px] font-medium text-amber-500 tracking-widest tabular-nums">
+                                <div className="flex items-center gap-3 text-[11px] font-medium tracking-[0.2em] uppercase">
+                                    <span className="text-white/40">{meta.isFinished ? 'Final' : 'Live'}</span>
+                                    <span className="w-1 h-1 rounded-full bg-amber-400/80" />
+                                    <span className="text-amber-400 font-mono tracking-widest tabular-nums">
                                         {meta.displayClock}
                                     </span>
                                 </div>
@@ -1019,23 +1053,30 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void }> = memo(
                     </div>
 
                     {/* Home Team */}
-                    <div className="flex flex-col items-center gap-4">
-                        <div className="w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center bg-white/[0.02] rounded-full border border-white/[0.05]">
+                    <div className="flex flex-col items-center gap-3 text-center">
+                        <div className="relative mb-2">
+                            <div
+                                className="absolute inset-[-10px] rounded-full blur-2xl opacity-20"
+                                style={{ background: teams.home.color }}
+                            />
+                            <div className={cn('flex items-center justify-center bg-white/[0.02] rounded-full border border-white/[0.05]', logoSize)}>
                             <TeamLogo
                                 logo={teams.home.logo}
-                                className="w-12 h-12 sm:w-16 sm:h-16 object-contain drop-shadow-2xl opacity-90"
+                                className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
                             />
                         </div>
+                        </div>
                         <div className="text-center">
-                            <h2 className="text-sm sm:text-lg font-black text-white tracking-tight uppercase leading-tight max-w-[100px] sm:max-w-none">
-                                {isPregame ? teams.home.name : teams.home.abbr}
+                            <h2 className={cn(nameText, 'font-bold text-white tracking-tight leading-tight')}>
+                                <span className="hidden sm:inline">{teams.home.name}</span>
+                                <span className="sm:hidden">{isPregame ? teams.home.name : teams.home.abbr}</span>
                             </h2>
                             {isPregame && (
-                                <h2 className="text-[10px] font-bold text-zinc-400 tracking-widest uppercase mt-1">
+                                <div className="text-[10px] font-bold text-zinc-400 tracking-widest uppercase mt-1">
                                     {teams.home.abbr}
-                                </h2>
+                                </div>
                             )}
-                            <span className="text-[9px] sm:text-[10px] font-mono text-zinc-600 tracking-wider mt-1">
+                            <span className="mt-1 text-[11px] font-semibold text-white/35 tabular-nums tracking-wide font-mono">
                                 {teams.home.record}
                             </span>
                         </div>
@@ -1043,31 +1084,33 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void }> = memo(
                 </div>
 
                 {/* Navigation Tabs */}
-                <div className="w-full flex items-center justify-center gap-8 border-b border-white/[0.08] pb-0 overflow-x-auto no-scrollbar px-4">
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab}
-                            type="button"
-                            onClick={() => handleTabClick(tab)}
-                            aria-pressed={activeTab === tab}
-                            className={cn(
-                                'text-[10px] sm:text-[11px] font-bold tracking-[0.15em] transition-colors pb-4 relative shrink-0',
-                                activeTab === tab
-                                    ? 'text-white'
-                                    : 'text-zinc-600 hover:text-zinc-400'
-                            )}
-                        >
-                            {tab}
-                            {activeTab === tab && (
-                                <motion.div
-                                    layoutId="tab"
-                                    transition={reduceMotion ? { duration: 0 } : TOKENS.animation.spring}
-                                    className="absolute bottom-0 left-0 right-0 h-[2px] bg-white"
-                                />
-                            )}
-                        </button>
-                    ))}
-                </div>
+                {showTabs && (
+                    <div className="w-full flex items-center justify-center gap-8 border-b border-white/[0.08] pb-0 overflow-x-auto no-scrollbar px-4">
+                        {TABS.map((tab) => (
+                            <button
+                                key={tab}
+                                type="button"
+                                onClick={() => handleTabClick(tab)}
+                                aria-pressed={activeTab === tab}
+                                className={cn(
+                                    'text-[10px] sm:text-[11px] font-bold tracking-[0.15em] transition-colors pb-4 relative shrink-0',
+                                    activeTab === tab
+                                        ? 'text-white'
+                                        : 'text-zinc-600 hover:text-zinc-400'
+                                )}
+                            >
+                                {tab}
+                                {activeTab === tab && (
+                                    <motion.div
+                                        layoutId="tab"
+                                        transition={reduceMotion ? { duration: 0 } : TOKENS.animation.spring}
+                                        className="absolute bottom-0 left-0 right-0 h-[2px] bg-white"
+                                    />
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </header>
         );
     }
@@ -1078,8 +1121,8 @@ ScoreHeader.displayName = 'ScoreHeader';
 // 9. ROOT COMPONENT
 // ============================================================================
 
-export const LiveGameTracker: FC<{ match: Match; liveState?: unknown; onBack?: () => void }> = memo(
-    ({ match, liveState, onBack }) => {
+export const LiveGameTracker: FC<{ match: Match; liveState?: unknown; onBack?: () => void; showHeader?: boolean; headerVariant?: ScoreHeaderVariant }> = memo(
+    ({ match, liveState, onBack, showHeader = true, headerVariant = 'full' }) => {
         const mergedMatch = useMemo(
             () => mergeMatchWithLiveState(match as ExtendedMatch, liveState),
             [match, liveState]
@@ -1095,8 +1138,13 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: unknown; onBack?: (
             );
 
         return (
-            <div className="flex flex-col w-full bg-[#000000] min-h-screen overflow-x-hidden font-sans">
-                <ScoreHeader match={vm.normalized} onBack={onBack} />
+            <div
+                className={cn(
+                    'flex flex-col w-full bg-[#000000] overflow-x-hidden font-sans',
+                    showHeader ? 'min-h-screen' : 'min-h-0'
+                )}
+            >
+                {showHeader && <ScoreHeader match={vm.normalized} onBack={onBack} variant={headerVariant} />}
 
                 {/* Main Content */}
                 <div className={cn('w-full', !reduceMotion && 'animate-in fade-in duration-700')}>

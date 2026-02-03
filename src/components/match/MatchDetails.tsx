@@ -327,7 +327,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: Match; liveSta
         </Gridiron>
       );
     }
-    return <LiveGameTracker match={match} liveState={liveState} />;
+    return <LiveGameTracker match={match} liveState={liveState} showHeader={false} headerVariant="embedded" />;
   };
 
   return (
@@ -828,7 +828,18 @@ const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: any) => {
     <motion.div style={{ x }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={(_, i) => { if (i.offset.x > 100) onSwipe(-1); else if (i.offset.x < -100) onSwipe(1); }} className="pb-2 px-2 cursor-grab active:cursor-grabbing">
       <AnimatePresence mode="wait">
         <motion.div key={match.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          {isScheduled ? <MatchupHeader matchId={match.id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} startTime={match.startTime} sport={match.sport} currentOdds={match.current_odds} /> : <ScoreHeader match={match} />}
+          {isScheduled ? (
+            <MatchupHeader
+              matchId={match.id}
+              homeTeam={match.homeTeam}
+              awayTeam={match.awayTeam}
+              startTime={match.startTime}
+              sport={match.sport}
+              currentOdds={match.current_odds}
+            />
+          ) : (
+            <ScoreHeader match={match} variant="embedded" />
+          )}
         </motion.div>
       </AnimatePresence>
     </motion.div>
