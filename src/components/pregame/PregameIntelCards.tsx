@@ -183,12 +183,12 @@ const EdgeLabel = ({ startTimeISO }: { startTimeISO: string | null }) => {
     if (!label) return null;
 
     return (
-        <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 mb-3 backdrop-blur-sm">
-            <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/[0.03] border border-white/10 mb-4 backdrop-blur-sm">
+            <span className="relative flex h-1 w-1">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-40" />
+                <span className="relative inline-flex rounded-full h-1 w-1 bg-emerald-400/70" />
             </span>
-            <span className="text-[9px] font-bold tracking-widest text-emerald-500 uppercase">
+            <span className="text-[9px] font-semibold tracking-[0.22em] text-emerald-300/80 uppercase">
                 {label}
             </span>
         </div>
@@ -219,7 +219,7 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className={cn(
-                "group relative border-l-[3px] py-5 transition-colors duration-300",
+                "group relative border-l-[3px] py-6 transition-[color,background-color,transform] duration-300 hover:-translate-y-[1px]",
                 config.border,
                 index !== 0 && "border-t border-white/[0.04]",
                 hasDetails && expanded ? "bg-white/[0.02]" : "hover:bg-white/[0.01]",
@@ -230,10 +230,10 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
             <div className="flex items-start justify-between gap-4 px-4">
                 <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-3">
-                        <div className={cn("p-1 rounded-md", config.bg)}>
-                            <Icon size={12} className={config.color} />
+                        <div className={cn("p-1 rounded-md opacity-70", config.bg)}>
+                            <Icon size={11} className={config.color} />
                         </div>
-                        <span className={cn("text-[9px] font-bold uppercase tracking-[0.2em]", config.color)}>
+                        <span className={cn("text-[9px] font-semibold uppercase tracking-[0.24em] opacity-80", config.color)}>
                             {category}
                         </span>
 
@@ -243,7 +243,7 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
                     </div>
 
                     <div className={cn(
-                        "text-[15px] leading-snug transition-colors duration-300 font-medium pr-6",
+                        "text-[15px] md:text-[16px] leading-[1.5] transition-colors duration-300 font-normal tracking-[-0.01em] pr-6",
                         isEngine ? "font-mono text-[13px] text-zinc-300" : "text-zinc-200 group-hover:text-white"
                     )}>
                         {isEngine && <span className="text-emerald-500 mr-2">{'>'}</span>}
@@ -271,10 +271,10 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
                         transition={SPRING}
                         className="overflow-hidden"
                     >
-                        <div className="px-4 pb-2 pt-3 ml-1">
+                        <div className="px-4 pb-3 pt-4 ml-1">
                             {(card as any).market_implication && (
                                 <div className="mb-3 pl-3 border-l-2 border-zinc-800">
-                                    <p className="text-xs text-zinc-500 italic">
+                                    <p className="text-[12px] text-zinc-500 italic leading-relaxed">
                                         <RenderRichText text={String((card as any).market_implication)} />
                                     </p>
                                 </div>
@@ -282,7 +282,7 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
 
                             <div className="space-y-2">
                                 {(card as any).details?.map((detail: any, i: number) => (
-                                    <div key={i} className="flex gap-3 text-xs text-zinc-400 font-light leading-relaxed">
+                                    <div key={i} className="flex gap-3 text-[12px] text-zinc-400 font-light leading-relaxed">
                                         <span className="w-1 h-1 rounded-full bg-zinc-700 mt-1.5 shrink-0" />
                                         <RenderRichText text={String(detail)} />
                                     </div>
@@ -375,36 +375,39 @@ export const PregameIntelCards = ({
                 className="w-full px-2 md:px-6"
             >
                 {/* HERO */}
-                <div className="mb-8">
-                    <EdgeLabel startTimeISO={startTimeISO} />
+                <div className="relative mb-12 pt-2">
+                    <div className="absolute -top-6 left-0 right-0 h-24 bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.08)_0%,_transparent_70%)] opacity-60 pointer-events-none" />
+                    <div className="relative">
+                        <EdgeLabel startTimeISO={startTimeISO} />
 
-                    <motion.div variants={{ hidden: { opacity: 0, y: 5 }, visible: { opacity: 1, y: 0 } }}>
-                        <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tighter leading-none mb-1">
-                            {recommendedPick}
-                        </h1>
+                        <motion.div variants={{ hidden: { opacity: 0, y: 5 }, visible: { opacity: 1, y: 0 } }}>
+                            <h1 className="text-5xl md:text-6xl font-semibold text-white tracking-[-0.03em] leading-[0.92] mb-2">
+                                {recommendedPick}
+                            </h1>
 
-                        {displayJuice && (
-                            <div className="text-lg font-mono text-zinc-500 font-medium">
-                                {displayJuice}
-                            </div>
-                        )}
+                            {displayJuice && (
+                                <div className="text-[12px] md:text-[13px] font-mono text-zinc-500 font-medium tracking-[0.3em] uppercase">
+                                    {displayJuice}
+                                </div>
+                            )}
 
-                        {/* HARD RULE: no Confidence in hero */}
-                    </motion.div>
+                            {/* HARD RULE: no Confidence in hero */}
+                        </motion.div>
+                    </div>
                 </div>
 
                 {/* HEADLINE */}
                 <motion.div
                     variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-                    className="mb-10 pl-4 border-l-2 border-white/10"
+                    className="mb-12 pl-5 border-l border-white/10"
                 >
-                    <p className="text-lg text-zinc-300 font-light leading-snug text-pretty">
+                    <p className="text-[17px] md:text-[18px] text-zinc-300/90 font-light leading-[1.65] text-pretty">
                         <RenderRichText text={String((processedData as any).headline || "")} />
                     </p>
                 </motion.div>
 
                 {/* CARDS LIST */}
-                <div className="space-y-1">
+                <div className="space-y-4">
                     {(processedData as any).cards.map((card: any, idx: number) => (
                         <InsightCard
                             key={`${idx}-${String(card.category)}`}
