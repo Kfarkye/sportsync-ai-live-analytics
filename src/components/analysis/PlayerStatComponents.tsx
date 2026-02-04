@@ -73,7 +73,7 @@ export const getPlayerStatValue = (match: Match, playerName: string, betType: st
                 else if (bt === 'assists') idx = labels.indexOf('AST');
                 else if (bt === 'steals') idx = labels.indexOf('STL');
                 else if (bt === 'blocks') idx = labels.indexOf('BLK');
-                else if (bt === 'threes_made' || bt === '3pm') idx = labels.indexOf('3PM');
+                else if (bt === 'threes' || bt === 'threes_made' || bt === '3pm' || bt === '3pt') idx = labels.indexOf('3PM');
                 else if (bt === 'passing_yards' && category.name.toLowerCase().includes('passing')) idx = labels.indexOf('YDS');
                 else if (bt === 'rushing_yards' && category.name.toLowerCase().includes('rushing')) idx = labels.indexOf('YDS');
                 else if (bt === 'receiving_yards' && category.name.toLowerCase().includes('receiving')) idx = labels.indexOf('YDS');
@@ -135,6 +135,7 @@ export const ApplePlayerCard: React.FC<{
     const liveVal = currentProp.main.resultValue ?? getPlayerStatValue(match, group.playerName, currentProp.main.betType);
     const currentValue = liveVal ?? (showResults ? 0 : null);
     const line = currentProp.main.lineValue;
+    const lineDisplay = Number.isFinite(line) ? (Number.isInteger(line) ? line.toFixed(0) : line.toFixed(1)) : String(line);
     const progress = currentValue !== null ? Math.min((currentValue / line) * 100, 100) : 0;
     const diff = currentValue !== null ? line - currentValue : 0;
 
@@ -169,9 +170,9 @@ export const ApplePlayerCard: React.FC<{
             />
 
             {/* Content Container */}
-            <div className="relative px-7 pt-8 pb-7 z-10">
+            <div className="relative px-6 pt-7 pb-6 z-10">
                 {/* Identity Row */}
-                <div className="flex items-center gap-5 mb-8">
+                <div className="flex items-center gap-4 mb-7">
                     {/* Avatar with Gradient Ring */}
                     <div className="relative group/avatar">
                         <div
@@ -203,12 +204,12 @@ export const ApplePlayerCard: React.FC<{
                     <div className="flex-1 min-w-0">
                         <motion.h3
                             layout
-                            className="text-[22px] font-semibold text-white tracking-[-0.03em] truncate leading-tight"
+                            className="text-[21px] font-semibold text-white tracking-[-0.02em] truncate leading-tight"
                         >
                             {group.playerName}
                         </motion.h3>
                         {group.team && (
-                            <p className="text-[10px] font-black text-zinc-500 mt-1 uppercase tracking-widest">
+                            <p className="text-[9px] font-semibold text-zinc-500 mt-1 uppercase tracking-[0.22em]">
                                 {group.team}
                             </p>
                         )}
@@ -224,18 +225,18 @@ export const ApplePlayerCard: React.FC<{
                             className="text-right"
                         >
                             <div className={cn(
-                                "text-[42px] font-bold tabular-nums leading-none tracking-tighter filter drop-shadow-sm",
+                                "text-[40px] font-bold tabular-nums leading-none tracking-tighter filter drop-shadow-sm",
                                 isFinal ? (isTargetMet ? "text-emerald-400" : "text-rose-400") : (isBusted ? "text-rose-400" : "text-white")
                             )}>
                                 {currentValue}
                             </div>
-                            <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-1">Live</div>
+                            <div className="text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.25em] mt-1">ACTUAL</div>
                         </motion.div>
                     )}
                 </div>
 
                 {/* Stat Type Selector — iOS Native Segmented Feel */}
-                <div className="flex items-center justify-between gap-2 mb-8 bg-white/[0.03] p-1 rounded-2xl ring-1 ring-white/[0.05]">
+                <div className="flex items-center justify-between gap-2 mb-7 bg-white/[0.03] p-1 rounded-2xl ring-1 ring-white/[0.05]">
                     {hasMultipleProps && (
                         <button
                             onClick={prevProp}
@@ -253,7 +254,7 @@ export const ApplePlayerCard: React.FC<{
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 1.1, y: -4 }}
                                 transition={ESSENCE.transition.spring}
-                                className="text-[13px] font-black text-zinc-300 tracking-widest uppercase"
+                                className="text-[12px] font-semibold text-zinc-300 tracking-[0.26em] uppercase"
                             >
                                 {formatMarketLabel(currentProp.main.betType, currentProp.main.marketLabel)}
                             </motion.span>
@@ -281,20 +282,20 @@ export const ApplePlayerCard: React.FC<{
                             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                         >
                             <span
-                                className="text-[88px] font-black tabular-nums leading-none tracking-tighter"
+                                className="text-[84px] font-black tabular-nums leading-none tracking-tighter"
                                 style={{
                                     color: '#fff',
                                     textShadow: '0 0 40px rgba(255,255,255,0.1)'
                                 }}
                             >
-                                {line}
+                                {lineDisplay}
                             </span>
                         </motion.div>
                     </AnimatePresence>
 
                     {/* Perspective Label */}
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-black text-zinc-700 uppercase tracking-[0.4em]">
-                        Projected Line
+                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.36em]">
+                        Line
                     </div>
                 </div>
 
@@ -322,9 +323,9 @@ export const ApplePlayerCard: React.FC<{
                         </div>
 
                         {/* Status Labeling */}
-                        <div className="flex justify-between items-center text-[11px] font-bold uppercase tracking-wider">
+                        <div className="flex justify-between items-center text-[11px] font-semibold uppercase tracking-[0.2em]">
                             <span className="text-zinc-600 tabular-nums">
-                                Progress: <span className="text-zinc-400">{currentValue} / {line}</span>
+                                LIVE <span className="text-zinc-400">{currentValue}</span> • LINE <span className="text-zinc-400">{lineDisplay}</span>
                             </span>
                             <span className={cn(
                                 "py-1 px-3 rounded-full",

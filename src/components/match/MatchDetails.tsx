@@ -619,7 +619,18 @@ function stableSerialize(value: Serializable | Date | undefined, seen = new Weak
 function hashStable(value: Serializable | Date | undefined): string { return fnv1a32(stableSerialize(value)).toString(16); }
 
 function computeMatchSignature(m: ExtendedMatch): string {
-  return [m.id, m.status ?? '', String(m.period ?? ''), String(m.displayClock ?? ''), String(m.homeScore ?? ''), String(m.awayScore ?? ''), m.lastPlay?.text || '', hashStable(m.current_odds ?? null), hashStable(m.stats ?? null)].join('|');
+  return [
+    m.id,
+    m.status ?? '',
+    String(m.period ?? ''),
+    String(m.displayClock ?? ''),
+    String(m.homeScore ?? ''),
+    String(m.awayScore ?? ''),
+    m.lastPlay?.text || '',
+    hashStable(m.current_odds ?? null),
+    hashStable(m.stats ?? null),
+    hashStable(m.playerStats ?? null)
+  ].join('|');
 }
 
 async function failSafe<T>(p: PromiseLike<SupabaseResponse<T>>): Promise<T | null> {
@@ -775,14 +786,26 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
       if (db) { if (db.closing_odds) nextMatch.closing_odds = db.closing_odds; if (db.opening_odds) nextMatch.opening_odds = db.opening_odds; if (db.odds) nextMatch.odds = db.odds; }
       if (props?.length) {
         const normalizePropType = (value?: string | null): PropBetType => {
-          const v = (value || '').toLowerCase() as PropBetType;
+          const raw = (value || '').toLowerCase();
+          const v = raw
+            .replace(/\s+/g, '_')
+            .replace(/3pt|3p|3pm|threes/g, 'threes_made');
           const allowed: PropBetType[] = [
-            'points', 'rebounds', 'assists', 'threes', 'blocks', 'steals',
+            'points', 'rebounds', 'assists', 'threes_made', 'blocks', 'steals',
             'pra', 'pr', 'pa', 'ra', 'points_rebounds', 'points_assists', 'rebounds_assists',
             'passing_yards', 'rushing_yards', 'receiving_yards', 'touchdowns', 'receptions', 'tackles', 'sacks', 'hits',
             'shots_on_goal', 'goals', 'saves', 'custom'
           ];
-          return allowed.includes(v) ? v : 'custom';
+          return allowed.includes(v as PropBetType) ? (v as PropBetType) : 'custom';
+        };
+
+        const inferSide = (label?: string | null, betType?: string | null): PlayerPropBet['side'] => {
+          const raw = `${label || ''} ${betType || ''}`.toLowerCase();
+          if (/\bover\b/.test(raw)) return 'over';
+          if (/\bunder\b/.test(raw)) return 'under';
+          if (/\byes\b/.test(raw)) return 'yes';
+          if (/\bno\b/.test(raw)) return 'no';
+          return 'line';
         };
 
         const toPropBet = (p: DbPlayerPropRow): PlayerPropBet => ({
@@ -795,7 +818,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           headshotUrl: p.headshot_url || undefined,
           betType: normalizePropType(p.bet_type),
           marketLabel: p.market_label || undefined,
-          side: 'over',
+          side: inferSide(p.market_label, p.bet_type),
           lineValue: Number(p.line_value ?? 0),
           sportsbook: 'market',
           oddsAmerican: Number(p.odds_american ?? 0),

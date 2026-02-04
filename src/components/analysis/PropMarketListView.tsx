@@ -86,7 +86,8 @@ interface PlayerProp {
     betType: string;
     lineValue: number;
     oddsAmerican: number;
-    side: 'OVER' | 'UNDER';
+    side?: string;
+    marketLabel?: string;
     playerName: string;
     headshotUrl?: string;
     team?: string;
@@ -167,6 +168,15 @@ function formatOdds(odds: number): string {
     return odds > 0 ? `+${odds}` : String(odds);
 }
 
+function formatSide(side?: string): string {
+    const v = (side || '').toLowerCase();
+    if (v.includes('over')) return 'OVER';
+    if (v.includes('under')) return 'UNDER';
+    if (v.includes('yes')) return 'YES';
+    if (v.includes('no')) return 'NO';
+    return 'LINE';
+}
+
 function createPlayerKey(name: string): string {
     return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
@@ -202,7 +212,7 @@ const PlayerCard: FC<PlayerCardProps> = memo(({ player, match, category, teamCol
         : 0;
 
     const initials = getInitials(player.playerName);
-    const side = prop.side?.toUpperCase() || 'OVER';
+    const sideLabel = formatSide(prop.side);
 
     return (
         <motion.div
@@ -243,12 +253,12 @@ const PlayerCard: FC<PlayerCardProps> = memo(({ player, match, category, teamCol
                     </div>
 
                     <div className="min-w-0 flex flex-col justify-center">
-                        <span className="text-[13px] font-medium text-zinc-200 tracking-tight truncate group-hover:text-white transition-colors">
+                        <span className="text-[14px] font-semibold text-zinc-200 tracking-tight truncate group-hover:text-white transition-colors">
                             {player.playerName}
                         </span>
                         <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest font-mono">
-                                {side}
+                            <span className="text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.22em] font-mono">
+                                {sideLabel}
                             </span>
                             <span className="text-[9px] font-mono text-zinc-600 tabular-nums">
                                 {formatOdds(prop.oddsAmerican)}
@@ -260,9 +270,10 @@ const PlayerCard: FC<PlayerCardProps> = memo(({ player, match, category, teamCol
                 {/* 2. Telemetry */}
                 <div className="text-right shrink-0">
                     <div className="flex flex-col items-end">
-                        <span className="text-[20px] font-light text-white tabular-nums tracking-tighter leading-none">
+                        <span className="text-[18px] font-light text-white tabular-nums tracking-tighter leading-none">
                             {Number.isInteger(displayLine) ? displayLine : displayLine.toFixed(1)}
                         </span>
+                        <span className="text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.22em] mt-1">Line</span>
                         {hasLiveStats && (
                             <motion.span
                                 key={liveValue}
