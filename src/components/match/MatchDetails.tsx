@@ -538,7 +538,7 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn("group relative border-t border-white/[0.08] transition-all duration-500", collapsible ? "cursor-pointer" : "cursor-default")} onClick={() => collapsible && setIsOpen(!isOpen)}>
       <div className={cn("absolute -top-[1px] left-0 h-[1px] bg-white transition-all duration-500 ease-out z-10 shadow-[0_0_10px_rgba(255,255,255,0.4)]", effectiveOpen ? "w-full opacity-100" : "w-0 opacity-0")} />
-      <div className="py-8 flex flex-col md:flex-row md:items-start gap-6 md:gap-0">
+      <div className="py-6 flex flex-col md:flex-row md:items-start gap-5 md:gap-0">
         <div className="w-full md:w-[140px] shrink-0 flex items-center justify-between md:block select-none">
           <span className={cn("text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-300 font-mono block", effectiveOpen ? "text-zinc-50" : "text-zinc-600 group-hover:text-zinc-400")}>{label}</span>
           {collapsible && <div className="md:hidden block"><ToggleSwitch expanded={effectiveOpen} /></div>}
@@ -564,9 +564,10 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
 
 const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'connecting' }) => {
   const base = "flex items-center gap-2 px-3 py-1 bg-white/[0.03] border border-white/5 rounded-full backdrop-blur-sm";
-  if (status === 'connected') return (<div className={base}><span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span></span><span className="text-[9px] font-bold text-emerald-500/90 tracking-[0.2em]">CONNECTED</span></div>);
-  if (status === 'connecting') return (<div className={base}><span className="block h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" /><span className="text-[9px] font-bold text-amber-500/90 tracking-[0.2em]">SYNCING</span></div>);
-  return (<div className={base}><span className="block h-1.5 w-1.5 rounded-full bg-red-500" /><span className="text-[9px] font-bold text-red-500/90 tracking-[0.2em]">OFFLINE</span></div>);
+  const label = "text-[9px] font-black tracking-[0.25em]";
+  if (status === 'connected') return (<div className={base}><span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span></span><span className={cn(label, "text-emerald-500/90")}>CONNECTED</span></div>);
+  if (status === 'connecting') return (<div className={base}><span className="block h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" /><span className={cn(label, "text-amber-500/90")}>SYNCING</span></div>);
+  return (<div className={base}><span className="block h-1.5 w-1.5 rounded-full bg-red-500" /><span className={cn(label, "text-red-500/90")}>OFFLINE</span></div>);
 });
 
 const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: { match: ExtendedMatch; isScheduled: boolean; onSwipe: (dir: number) => void }) => {
@@ -907,7 +908,15 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         {error && (<motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2"><div className="bg-red-900/10 border border-red-500/20 text-red-400 text-[10px] uppercase font-mono py-1 px-3 text-center">Data Stream Interrupted • Displaying Cached Telemetry</div></motion.div>)}
         <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
         <nav className="flex justify-center gap-8 md:gap-12 pb-0 mt-2 border-t border-white/[0.04]">
-          {TABS.map(tab => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className="relative py-4 group outline-none"><span className={cn("text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-300", activeTab === tab.id ? "text-white" : "text-zinc-600 group-hover:text-zinc-400")}>{tab.label}</span>{activeTab === tab.id && (<motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-px bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />)}</button>))}
+          {TABS.map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="relative py-4 group outline-none">
+              {activeTab === tab.id && (
+                <span className="absolute -left-3 top-1/2 -translate-y-1/2 h-4 w-px bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
+              )}
+              <span className={cn("text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-300", activeTab === tab.id ? "text-white" : "text-zinc-600 group-hover:text-zinc-400")}>{tab.label}</span>
+              {activeTab === tab.id && (<motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-px bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />)}
+            </button>
+          ))}
         </nav>
       </header>
 

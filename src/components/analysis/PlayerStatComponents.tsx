@@ -149,11 +149,16 @@ export const ApplePlayerCard: React.FC<{
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.02, y: -2 }}
             transition={{ delay: index * 0.05, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="group relative rounded-[32px] overflow-hidden transition-all duration-500 hover:scale-[1.01]"
+            className={cn(
+                "group relative rounded-[32px] overflow-hidden transition-all duration-500 transform-gpu",
+                "bg-[#050505]/80 backdrop-blur-[24px] border-[0.5px] border-white/10",
+                "shadow-[0_0_0_1px_rgba(255,255,255,0.04),_0_20px_50px_-12px_rgba(0,0,0,0.55)]",
+                "after:content-[''] after:absolute after:inset-0 after:opacity-[0.03] after:pointer-events-none",
+                "after:bg-[url('data:image/svg+xml,%3Csvg viewBox=%270 0 256 256%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.8%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27 opacity=%270.05%27/%3E%3C/svg%3E')]"
+            )}
             style={{
-                background: 'rgba(255, 255, 255, 0.01)',
-                backdropFilter: 'blur(24px)',
                 boxShadow: '0 0 0 1px rgba(255,255,255,0.05), 0 20px 50px -12px rgba(0,0,0,0.5)'
             }}
         >
@@ -214,7 +219,8 @@ export const ApplePlayerCard: React.FC<{
                         <motion.div
                             key={currentValue}
                             initial={{ opacity: 0, scale: 0.9, y: 5 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            animate={{ opacity: 1, scale: [1, 1.1, 1], y: 0 }}
+                            transition={{ duration: 0.6, ease: "easeOut" }}
                             className="text-right"
                         >
                             <div className={cn(

@@ -210,7 +210,15 @@ const PlayerCard: FC<PlayerCardProps> = memo(({ player, match, category, teamCol
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="group relative py-4 px-2 transition-colors duration-300 hover:bg-white/[0.02] border-t border-white/[0.04] first:border-t-0"
+            whileHover={{ scale: 1.02, y: -2 }}
+            transition={{ type: "spring", stiffness: 260, damping: 24 }}
+            className={cn(
+                "group relative py-4 px-3 transition-all duration-300 border-t border-white/[0.04] first:border-t-0",
+                "bg-[#050505]/80 backdrop-blur-[24px] border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.35)]",
+                "hover:shadow-[0_40px_40px_rgba(0,0,0,0.45)] transform-gpu",
+                "after:content-[''] after:absolute after:inset-0 after:opacity-[0.035] after:pointer-events-none",
+                "after:bg-[url('data:image/svg+xml,%3Csvg viewBox=%270 0 256 256%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.8%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27 opacity=%270.06%27/%3E%3C/svg%3E')]"
+            )}
         >
             {/* Active Laser Line (Left Edge) */}
             <div className={cn(
@@ -256,12 +264,17 @@ const PlayerCard: FC<PlayerCardProps> = memo(({ player, match, category, teamCol
                             {Number.isInteger(displayLine) ? displayLine : displayLine.toFixed(1)}
                         </span>
                         {hasLiveStats && (
-                            <span className={cn(
-                                "text-[10px] font-mono font-bold mt-1 tracking-wider tabular-nums",
-                                isHitting ? "text-emerald-400" : "text-zinc-500"
-                            )}>
+                            <motion.span
+                                key={liveValue}
+                                animate={{ scale: [1, 1.1, 1] }}
+                                transition={{ duration: 0.6, ease: "easeOut" }}
+                                className={cn(
+                                    "text-[10px] font-mono font-bold mt-1 tracking-wider tabular-nums",
+                                    isHitting ? "text-emerald-400" : "text-zinc-500"
+                                )}
+                            >
                                 {liveValue} ACT
-                            </span>
+                            </motion.span>
                         )}
                     </div>
                 </div>

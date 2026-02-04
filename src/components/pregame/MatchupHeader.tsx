@@ -87,7 +87,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
     }, [startTime]);
 
     return (
-        <div className="relative w-full overflow-hidden bg-[#050506]">
+        <div className="relative w-full overflow-hidden bg-[#050505]">
             {/* CINEMATIC DEPTH: Animated Mesh Gradients - "Battleground" Momentum */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
                 {/* Away Team Primary Glow (Shared Layout) */}
@@ -123,7 +123,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
 
                 {/* Context Bar (Date + Broadcast) - Vibrant */}
                 <div className="flex items-center gap-3 mb-6">
-                    <span className={cn("text-[10px] font-bold text-white tracking-[0.15em]", ESSENCE.interactions.vibrancy)}>
+                    <span className={cn("text-[10px] font-black text-white tracking-[0.2em]", ESSENCE.interactions.vibrancy)}>
                         {dayStr}
                     </span>
                     {broadcast && (
@@ -202,7 +202,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
                                 />
                             )}
                         </motion.div>
-                        <span className="mt-2 text-[10px] font-medium text-white/30 uppercase tracking-[0.15em]">
+                        <span className="mt-1.5 text-[10px] font-semibold text-white/30 uppercase tracking-[0.25em]">
                             {startLabel}
                         </span>
 

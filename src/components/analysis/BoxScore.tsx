@@ -282,7 +282,8 @@ export const TeamStatsGrid: React.FC<TeamStatsGridProps> = memo(({ stats, colors
                 <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.2em]">{stat.label}</span>
                 <span className="text-[12px] font-mono font-semibold text-white/90 tabular-nums">{stat.homeValue}</span>
               </div>
-              <div className="h-1.5 w-full bg-white/[0.03] rounded-full overflow-hidden flex">
+              <div className="relative h-1.5 w-full bg-white/[0.03] rounded-full overflow-hidden flex">
+                <div className="absolute left-0 top-0 bottom-0 w-px bg-white/10" />
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${aPct}%` }}
