@@ -11,7 +11,7 @@ const PROXIES = [
     (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
 ];
 
-async function fetchWithFallback(url: string): Promise<any> {
+async function fetchWithFallback(url: string): Promise<unknown> {
     // Try direct first
     try {
         const res = await fetch(url);
@@ -39,11 +39,17 @@ export const fetchNhlGameDetails = async (homeTeamName: string, awayTeamName: st
     const dateStr = date.toISOString().split('T')[0];
     
     // 1. Fetch Schedule for the date to find the Game ID
-    const scheduleData = await fetchWithFallback(`${BASE_URL}/score/${dateStr}`);
+    const scheduleData = await fetchWithFallback(`${BASE_URL}/score/${dateStr}`) as {
+      games?: Array<{
+        id: number;
+        homeTeam: { name: { default: string }; id: number; abbrev: string };
+        awayTeam: { name: { default: string }; id: number; abbrev: string };
+      }>;
+    } | null;
 
     if (!scheduleData || !scheduleData.games) return null;
 
-    const game = scheduleData.games.find((g: unknown) => {
+    const game = scheduleData.games.find((g) => {
       const h = normalize(g.homeTeam.name.default);
       const a = normalize(g.awayTeam.name.default);
       const targetH = normalize(homeTeamName);
@@ -57,13 +63,26 @@ export const fetchNhlGameDetails = async (homeTeamName: string, awayTeamName: st
     }
 
     // 2. Fetch Play-by-Play Data for coordinates
-    const pbpData = await fetchWithFallback(`${BASE_URL}/gamecenter/${game.id}/play-by-play`);
+    const pbpData = await fetchWithFallback(`${BASE_URL}/gamecenter/${game.id}/play-by-play`) as {
+      plays?: Array<{
+        eventId: number;
+        typeDescKey: string;
+        details?: {
+          xCoord?: number;
+          yCoord?: number;
+          eventOwnerTeamId?: number;
+          shootingPlayerId?: number;
+        };
+        periodDescriptor?: { number: number };
+        timeInPeriod?: string;
+      }>;
+    } | null;
 
     const shots: ShotEvent[] = [];
 
     // Parse plays
-    if (pbpData.plays) {
-        pbpData.plays.forEach((play: unknown) => {
+    if (pbpData?.plays) {
+        pbpData.plays.forEach((play) => {
             const type = play.typeDescKey;
             if (['goal', 'shot-on-goal', 'missed-shot', 'blocked-shot'].includes(type)) {
                 if (play.details && typeof play.details.xCoord === 'number' && typeof play.details.yCoord === 'number') {
@@ -73,8 +92,8 @@ export const fetchNhlGameDetails = async (homeTeamName: string, awayTeamName: st
                         y: play.details.yCoord,
                         type: type === 'goal' ? 'goal' : 'shot',
                         teamId: play.details.eventOwnerTeamId === game.homeTeam.id ? 'home' : 'away',
-                        period: play.periodDescriptor.number,
-                        timeInPeriod: play.timeInPeriod,
+                        period: play.periodDescriptor?.number || 1,
+                        timeInPeriod: play.timeInPeriod || '',
                         shooterName: play.details.shootingPlayerId ? `Player ${play.details.shootingPlayerId}` : 'Unknown'
                     });
                 }

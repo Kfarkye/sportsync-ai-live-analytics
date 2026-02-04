@@ -45,7 +45,9 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function safeStringify(value: unknown): string {
+type Serializable = string | number | boolean | null | undefined | Serializable[] | { [key: string]: Serializable };
+
+function safeStringify(value: Serializable): string {
   try {
     return JSON.stringify(value);
   } catch {

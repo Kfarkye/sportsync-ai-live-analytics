@@ -139,6 +139,23 @@ export interface Linescore {
   winner?: boolean;   // Tennis: whether this set was won
 }
 
+export interface RecentFormOpponent {
+  id?: string;
+  name?: string;
+  shortName?: string;
+  logo?: string;
+  score?: string | number;
+}
+
+export interface RecentFormGame {
+  id?: string;
+  date?: string;
+  opponent?: RecentFormOpponent;
+  teamScore?: string | number;
+  result?: 'W' | 'L' | 'D' | string;
+  isHome?: boolean;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -160,6 +177,7 @@ export interface Team {
 export interface MatchOdds {
   provider?: string;
   hasOdds?: boolean;
+  fairValue?: number;
   homeWin?: string | number;
   awayWin?: string | number;
   draw?: string | number;
@@ -218,8 +236,9 @@ export interface RosterPlayer {
   jersey?: string;
   headshot?: string;
   status?: string;
-  [key: string]: unknown;
 }
+
+export type TraceEntry = JsonRecord;
 
 export interface TopPerformer {
   name?: string;
@@ -460,8 +479,8 @@ export interface Match {
   last_updated?: string;
   home_score?: number;
   away_score?: number;
-  ingest_trace?: unknown[];
-  logic_trace?: unknown[];
+  ingest_trace?: TraceEntry[];
+  logic_trace?: TraceEntry[];
   last_ingest_error?: string;
   // Tennis-specific fields
   round?: string;       // e.g., "Quarterfinal", "Round of 128"
@@ -751,6 +770,49 @@ export interface MatchNews {
   };
   generatedAt: string;
   expiresAt: string;
+}
+
+export type SharpSide = 'PASS' | 'AVOID' | 'OVER' | 'UNDER' | 'HOME' | 'AWAY' | 'DRAW' | string;
+
+export interface SharpRecommendation {
+  side?: SharpSide;
+  market_type?: 'TOTAL' | 'SPREAD' | 'MONEYLINE' | 'OTHER' | string;
+  unit_size?: string;
+}
+
+export interface SharpData {
+  recommendation?: SharpRecommendation;
+  confidence_level?: number;
+}
+
+export interface LiveAIAnalysis {
+  sharp_data?: SharpData;
+  generated_at?: string;
+  thought_trace?: string;
+  sources?: Array<{ title?: string; url?: string; uri?: string }>;
+}
+
+export interface LiveMatchState {
+  id: string;
+  league_id: string;
+  sport: string;
+  game_status: string;
+  period: number;
+  clock: string;
+  home_score: number;
+  away_score: number;
+  situation?: Situation;
+  last_play?: LastPlay;
+  current_drive?: Drive;
+  deterministic_signals?: AISignals;
+  ai_analysis?: LiveAIAnalysis;
+  opening_odds?: MatchOdds;
+  odds?: {
+    current?: MatchOdds;
+    opening?: MatchOdds;
+  };
+  updated_at: string;
+  created_at?: string;
 }
 
 export interface MatchAngle {

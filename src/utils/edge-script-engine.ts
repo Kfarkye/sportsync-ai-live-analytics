@@ -17,6 +17,12 @@ export interface InjuryItem {
     status: string;
 }
 
+export interface EdgeSource {
+    title?: string;
+    url?: string;
+    uri?: string;
+}
+
 export interface PredictionContract {
     predictionId: string;
     timestamp: number;
@@ -49,7 +55,7 @@ export interface EdgeResult {
     confidence: number;
 
     implications: string[];
-    sources?: unknown[];
+    sources?: EdgeSource[];
     keyInjuries: { name: string; status: string }[];
 
     trace: {
@@ -58,7 +64,7 @@ export interface EdgeResult {
         possessions: number;
         pace_impact: number;
         rate_impact: number;
-        [key: string]: unknown;
+        [key: string]: number;
     };
 }
 

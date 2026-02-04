@@ -28,12 +28,14 @@ export interface CacheResult<T> {
   isStale: boolean;
 }
 
+type DbValue = string | number | boolean | null | DbValue[] | { [key: string]: DbValue };
+
 export interface DailyAngleRecord {
   id: string;
   date: string;
   match_id: string;
   headline: string;
-  content: unknown; // MatchAngle type
+  content: DbValue; // MatchAngle type
 }
 
 export interface TeamMetrics {
@@ -78,7 +80,7 @@ export async function getCachedData<T>(
 export async function cacheData(
   table: string,
   conflictField: string,
-  payload: Record<string, any>
+  payload: Record<string, DbValue>
 ): Promise<void> {
   await supabase
     .from(table)
@@ -96,7 +98,7 @@ export const dbService = {
   // Venue Intel
   getVenueData: (matchId: string) =>
     getCachedData('venue_intel', 'match_id', matchId, CACHE_TTL.VENUE),
-  cacheVenueData: (matchId: string, venue: unknown) =>
+  cacheVenueData: (matchId: string, venue: DbValue) =>
     cacheData('venue_intel', 'match_id', { match_id: matchId, content: venue }),
 
   // Stadium Lookups (Canonical)
@@ -116,7 +118,7 @@ export const dbService = {
     const cacheKey = `${homeTeam}-${awayTeam}`.toLowerCase().replace(/\s+/g, '-');
     return getCachedData('news_intel', 'cache_key', cacheKey, CACHE_TTL.NEWS);
   },
-  cacheTeamNews: (homeTeam: string, awayTeam: string, news: unknown) => {
+  cacheTeamNews: (homeTeam: string, awayTeam: string, news: DbValue) => {
     const cacheKey = `${homeTeam}-${awayTeam}`.toLowerCase().replace(/\s+/g, '-');
     return cacheData('news_intel', 'cache_key', {
       cache_key: cacheKey,
@@ -217,35 +219,35 @@ export const dbService = {
       isStale,
     };
   },
-  cacheRefIntel: (matchId: string, intel: unknown) =>
+  cacheRefIntel: (matchId: string, intel: DbValue) =>
     cacheData('ref_intel', 'match_id', { match_id: matchId, content: intel }),
 
   // Match Angle (Specific Match - generated on demand)
   getMatchAngle: (matchId: string) =>
     getCachedData('match_thesis', 'match_id', matchId, CACHE_TTL.ANGLE),
-  cacheMatchAngle: (matchId: string, angle: unknown) =>
+  cacheMatchAngle: (matchId: string, angle: DbValue) =>
     cacheData('match_thesis', 'match_id', { match_id: matchId, content: angle }),
 
   // Narrative Intel
   getNarrativeIntel: (matchId: string) =>
     getCachedData('narrative_intel', 'match_id', matchId, CACHE_TTL.NARRATIVE),
-  cacheNarrativeIntel: (matchId: string, intel: unknown) =>
+  cacheNarrativeIntel: (matchId: string, intel: DbValue) =>
     cacheData('narrative_intel', 'match_id', { match_id: matchId, content: intel }),
 
   // Edge Analysis
   getEdgeAnalysis: (matchId: string) =>
     getCachedData('edge_analysis', 'match_id', matchId, CACHE_TTL.EDGE),
-  cacheEdgeAnalysis: (matchId: string, edge: unknown) =>
+  cacheEdgeAnalysis: (matchId: string, edge: DbValue) =>
     cacheData('edge_analysis', 'match_id', { match_id: matchId, content: edge }),
 
   // Deep Intel (JSON mode analysis)
   getCachedIntel: (matchId: string) =>
     getCachedData('deep_intel', 'match_id', matchId, CACHE_TTL.EDGE),
-  cacheIntel: (matchId: string, intel: unknown) =>
+  cacheIntel: (matchId: string, intel: DbValue) =>
     cacheData('deep_intel', 'match_id', { match_id: matchId, content: intel }),
 
   // Versioned AISignals (Write-Once)
-  storeAISignalSnapshot: async (matchId: string, signals: unknown) => {
+  storeAISignalSnapshot: async (matchId: string, signals: DbValue) => {
     await supabase
       .from('ai_signal_snapshots')
       .insert({
@@ -259,7 +261,7 @@ export const dbService = {
   // Box Score
   getBoxScore: (matchId: string) =>
     getCachedData('box_scores', 'match_id', matchId, CACHE_TTL.BOX_SCORE),
-  cacheBoxScore: (matchId: string, boxScore: unknown) =>
+  cacheBoxScore: (matchId: string, boxScore: DbValue) =>
     cacheData('box_scores', 'match_id', { match_id: matchId, content: boxScore }),
 
   // Daily Angle (Cron Generated - Global)

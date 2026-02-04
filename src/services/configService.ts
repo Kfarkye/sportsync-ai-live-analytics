@@ -24,7 +24,7 @@ export const configService = {
             if (error) throw error;
 
             if (data) {
-                const overrides: unknown = {};
+                const overrides: JsonValue = {};
 
                 // Map DB keys to System Gate keys
                 // DB: NHL_GATES -> Engine: NHL
@@ -58,7 +58,7 @@ export const configService = {
                 (payload) => {
                     console.log('[Remote Config] Hot-swap update received!', payload);
                     const row = payload.new;
-                    const overrides: unknown = {};
+                    const overrides: JsonValue = {};
                     if (row.key === 'NHL_GATES') overrides.NHL = row.value;
                     if (row.key === 'NBA_GATES') overrides.NBA = row.value;
                     if (row.key === 'NFL_GATES') overrides.NFL = row.value;

@@ -27,6 +27,7 @@ import { twMerge } from "tailwind-merge";
 import { useChatContext } from "../hooks/useChatContext";
 import { useAppStore } from "../store/appStore";
 import { X, Plus, ArrowUp, Copy, CheckCircle2, Minimize2, Mic, MicOff, StopCircle, Image as ImageIcon, Activity, ChevronRight, ShieldCheck, Globe, ExternalLink } from "lucide-react";
+import type { MatchOdds } from "../types";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 0. STATIC CONFIG & REGEX (Hoisted for Performance)
@@ -162,7 +163,15 @@ type MessagePart = TextContent | ImageContent | FileContent;
 type MessageContent = string | MessagePart[];
 interface Message { id: string; role: "user" | "assistant"; content: MessageContent; thoughts?: string; groundingMetadata?: GroundingMetadata; isStreaming?: boolean; timestamp: string }
 interface Attachment { file: File; base64: string; mimeType: string }
-interface GameContext { match_id?: string; home_team?: string; away_team?: string; league?: string; start_time?: string; status?: string; current_odds?: Record<string, unknown> }
+interface GameContext {
+  match_id?: string;
+  home_team?: string;
+  away_team?: string;
+  league?: string;
+  start_time?: string;
+  status?: string;
+  current_odds?: MatchOdds;
+}
 interface ChatWidgetProps { currentMatch?: GameContext; inline?: boolean }
 interface StreamChunk { type: "text" | "thought" | "grounding" | "error"; content?: string; metadata?: GroundingMetadata; done?: boolean }
 
@@ -381,8 +390,16 @@ const InputDeck: FC<{ value: string; onChange: (v: string) => void; onSend: () =
 // 7. EDGE SERVICE & ERROR BOUNDARY
 // ═══════════════════════════════════════════════════════════════════════════
 
+type WireMessage = { role: "user" | "assistant"; content: MessageContent };
+type ChatContextPayload = {
+  session_id?: string | null;
+  conversation_id?: string | null;
+  gameContext?: GameContext | null;
+  run_id: string;
+};
+
 const edgeService = {
-  async chat(messages: Array<{ role: string; content: unknown }>, context: unknown, onChunk: (c: StreamChunk | { done: true }) => void, signal?: AbortSignal): Promise<void> {
+  async chat(messages: WireMessage[], context: ChatContextPayload, onChunk: (c: StreamChunk | { done: true }) => void, signal?: AbortSignal): Promise<void> {
     const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages, ...context }), signal });
     if (!res.ok) throw new Error(`Stream failed: ${res.status}`);
     const reader = res.body?.getReader(); if (!reader) throw new Error("No body");
@@ -437,7 +454,7 @@ const InnerChatWidget: FC<ChatWidgetProps & { isMinimized?: boolean; setIsMinimi
         if (chunk.type === "grounding") { groundingData = chunk.metadata || null; setMessages((p) => p.map((m) => (m.id === aiMsgId ? { ...m, groundingMetadata: groundingData || undefined } : m))); }
         if (chunk.done) setMessages((p) => p.map((m) => (m.id === aiMsgId ? { ...m, isStreaming: false } : m)));
       }, abortRef.current.signal);
-    } catch (e: unknown) { if (!mountedRef.current) return; if (e?.name === "AbortError") { setMessages((p) => p.map((m) => (m.id === aiMsgId ? { ...m, isStreaming: false } : m))); return; } setMessages((p) => p.map((m) => (m.id === aiMsgId ? { ...m, content: "Connection interrupted. Please try again.", isStreaming: false } : m))); }
+    } catch (e: Error | DOMException) { if (!mountedRef.current) return; if (e?.name === "AbortError") { setMessages((p) => p.map((m) => (m.id === aiMsgId ? { ...m, isStreaming: false } : m))); return; } setMessages((p) => p.map((m) => (m.id === aiMsgId ? { ...m, content: "Connection interrupted. Please try again.", isStreaming: false } : m))); }
     finally { if (mountedRef.current) { setIsProcessing(false); abortRef.current = null; } }
   }, [input, attachments, isProcessing, session_id, conversation_id, currentMatch]);
 

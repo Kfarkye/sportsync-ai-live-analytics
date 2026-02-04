@@ -2,31 +2,10 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { getDbMatchId } from '../utils/matchUtils';
-
-export interface LiveGameState {
-    id: string;
-    league_id: string;
-    sport: string;
-    game_status: string;
-    period: number;
-    clock: string;
-    home_score: number;
-    away_score: number;
-    situation: unknown;
-    last_play: unknown;
-    current_drive: unknown;
-    deterministic_signals: unknown;
-    ai_analysis: unknown;
-    opening_odds?: unknown;
-    odds?: {
-        current?: unknown;
-        opening?: unknown;
-    };
-    updated_at: string;
-}
+import type { LiveMatchState } from '../types';
 
 export function useLiveGameState(matchId: string | undefined, leagueId?: string) {
-    const [state, setState] = useState<LiveGameState | null>(null);
+    const [state, setState] = useState<LiveMatchState | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -58,9 +37,10 @@ export function useLiveGameState(matchId: string | undefined, leagueId?: string)
                 } else {
                     setState(data);
                 }
-            } catch (err: unknown) {
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'Network or Parse Error';
                 console.error('Network or Parse Error:', err);
-                setError(err.message);
+                setError(message);
             } finally {
                 setLoading(false);
             }
@@ -81,7 +61,7 @@ export function useLiveGameState(matchId: string | undefined, leagueId?: string)
                 },
                 (payload) => {
                     if (payload.new) {
-                        setState(payload.new as LiveGameState);
+                        setState(payload.new as LiveMatchState);
                     }
                 }
             )

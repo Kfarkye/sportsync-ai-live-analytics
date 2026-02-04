@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
+import type { ComponentType } from 'react';
 import { Match } from '../../types';
 import { computeSharpSignal, SharpSignal } from '../../services/sharpSignalService';
 import { TrendingUp, DollarSign, Users, Target, Zap, AlertTriangle } from 'lucide-react';
@@ -17,7 +18,7 @@ const GaugeBar = ({
     label: string,
     pct: number,
     color: string,
-    icon: unknown
+    icon: ComponentType<{ size?: number; className?: string }>
 }) => {
     return (
         <div className="flex flex-col gap-1.5">

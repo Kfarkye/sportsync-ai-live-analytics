@@ -4,7 +4,7 @@
  */
 
 export function sanitizeFloat(
-    val: unknown,
+    val: string | number | null | undefined,
     min: number,
     max: number,
     defaultValue: number,
@@ -35,7 +35,7 @@ export function sanitizeFloat(
 }
 
 export function sanitizeInt(
-    val: unknown,
+    val: string | number | null | undefined,
     min: number,
     max: number,
     defaultValue: number

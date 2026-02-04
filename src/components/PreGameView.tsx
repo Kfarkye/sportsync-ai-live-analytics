@@ -200,7 +200,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
             // Reload from DB
             await fetchNews(false);
-        } catch (e: unknown) {
+        } catch (e: Error) {
             console.error("Generation failed:", e);
             alert(`Failed to generate report: ${e.message}`);
         } finally {
@@ -247,11 +247,11 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
             {/* 0. Executive Match Report (Top Priority) */}
             {news.report && (() => {
-                let structured: unknown = null;
+                let structured: JsonRecord | null = null;
                 try {
                     const parsed = JSON.parse(news.report);
                     if (parsed && typeof parsed === 'object') {
-                        structured = parsed;
+                        structured = parsed as JsonRecord;
                     }
                 } catch { }
 

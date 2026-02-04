@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { X, Check } from 'lucide-react';
 import { Sport } from '../../types';
 
@@ -149,7 +149,7 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
     Object.values(liveCounts).reduce((a, b) => a + b, 0),
     [liveCounts]);
 
-  const onDragEnd = (_: unknown, info: unknown) => {
+  const onDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.y > 100 || info.velocity.y > 500) {
       onClose();
     }

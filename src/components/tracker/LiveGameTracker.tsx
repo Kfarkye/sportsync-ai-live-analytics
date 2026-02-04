@@ -35,12 +35,32 @@ import { computeAISignals } from '../../services/gameStateEngine';
 // ============================================================================
 
 type Numberish = number | string;
+type NumberishValue = Numberish | null | undefined;
 
 type OddsLine = {
     spread?: Numberish;
     total?: Numberish;
     overUnder?: Numberish;
     moneyline?: Numberish;
+};
+
+type OddsLike = {
+    spread?: Numberish;
+    total?: Numberish;
+    overUnder?: Numberish;
+    over_under?: Numberish;
+    homeSpread?: Numberish;
+    awaySpread?: Numberish;
+    moneylineHome?: Numberish;
+    moneylineAway?: Numberish;
+    homeWin?: Numberish;
+    awayWin?: Numberish;
+    homeMoneyline?: Numberish;
+    awayMoneyline?: Numberish;
+    home_ml?: Numberish;
+    away_ml?: Numberish;
+    home_ml_price?: Numberish;
+    away_ml_price?: Numberish;
 };
 
 type VenueInfo = {
@@ -197,7 +217,7 @@ type TabKey = (typeof TABS)[number];
 // 3. UTILITIES
 // ============================================================================
 
-const safeNumber = (val: unknown, fallback = 0): number => {
+const safeNumber = (val: NumberishValue, fallback = 0): number => {
     if (typeof val === 'number' && Number.isFinite(val)) return val;
     if (typeof val === 'string') {
         const n = parseFloat(val);
@@ -206,7 +226,7 @@ const safeNumber = (val: unknown, fallback = 0): number => {
     return fallback;
 };
 
-const hasValue = (v: unknown): boolean =>
+const hasValue = (v: NumberishValue | boolean): boolean =>
     v !== null && v !== undefined && `${v}`.trim().length > 0;
 
 const normalizeColor = (color: string | undefined, fallback: string): string => {
@@ -223,7 +243,7 @@ const getOrdinal = (n: number) => {
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
-const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+const isPlainObject = (v: object | null | undefined): v is Record<string, unknown> =>
     !!v && typeof v === 'object' && !Array.isArray(v);
 
 const pickWindSpeed = (m: ExtendedMatch): number => {
@@ -275,9 +295,9 @@ const formatMatchupStr = (match: ExtendedMatch): string => {
 // 4. LOGIC KERNEL
 // ============================================================================
 
-function mergeMatchWithLiveState(base: ExtendedMatch, liveState: unknown): ExtendedMatch {
-    if (!isPlainObject(liveState)) return base;
-    const ls = liveState as Partial<ExtendedMatch>;
+function mergeMatchWithLiveState(base: ExtendedMatch, liveState: Partial<ExtendedMatch> | null | undefined): ExtendedMatch {
+    if (!liveState || !isPlainObject(liveState as object)) return base;
+    const ls: Partial<ExtendedMatch> = liveState;
     const next: ExtendedMatch = { ...base };
 
     if (hasValue(ls.status)) next.status = ls.status as Match['status'];
@@ -378,24 +398,24 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
         const possId = match.situation?.possessionId
             ? String(match.situation.possessionId)
             : null;
-        const hasAnyOdds = (o: unknown) =>
+        const hasAnyOdds = (o: OddsLike) =>
             !!o &&
             Object.values(o).some((v) => v !== null && v !== undefined && `${v}`.trim() !== '');
 
-        const parseNumeric = (val: unknown): number | null => {
+        const parseNumeric = (val: NumberishValue): number | null => {
             if (val === null || val === undefined || val === '') return null;
             const n = Number(String(val).replace(/[^\d.\-]/g, ''));
             return Number.isFinite(n) ? n : null;
         };
 
-        const extractSpread = (o: unknown): number | null => {
+        const extractSpread = (o: OddsLike | null | undefined): number | null => {
             if (!o) return null;
             if (o.homeSpread !== undefined) return parseNumeric(o.homeSpread);
             if (o.spread !== undefined) return parseNumeric(o.spread);
             return null;
         };
 
-        const extractTotal = (o: unknown): number | null => {
+        const extractTotal = (o: OddsLike | null | undefined): number | null => {
             if (!o) return null;
             if (o.total !== undefined) return parseNumeric(o.total);
             if (o.overUnder !== undefined) return parseNumeric(o.overUnder);
@@ -403,7 +423,7 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
             return null;
         };
 
-        const extractMoneyline = (o: unknown) => {
+        const extractMoneyline = (o: OddsLike | null | undefined) => {
             if (!o) return { home: '-', away: '-' };
             const home =
                 o.moneylineHome ?? o.homeWin ?? o.homeMoneyline ?? o.home_ml ?? o.home_ml_price;
@@ -415,7 +435,7 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
             };
         };
 
-        const sameLine = (a: unknown, b: unknown) => {
+        const sameLine = (a: OddsLike, b: OddsLike) => {
             if (!a || !b) return false;
             return extractSpread(a) === extractSpread(b) && extractTotal(a) === extractTotal(b);
         };
@@ -1273,7 +1293,7 @@ ScoreHeader.displayName = 'ScoreHeader';
 // 9. ROOT COMPONENT
 // ============================================================================
 
-export const LiveGameTracker: FC<{ match: Match; liveState?: unknown; onBack?: () => void; showHeader?: boolean; headerVariant?: ScoreHeaderVariant }> = memo(
+export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMatch> | null; onBack?: () => void; showHeader?: boolean; headerVariant?: ScoreHeaderVariant }> = memo(
     ({ match, liveState, onBack, showHeader = true, headerVariant = 'full' }) => {
         const mergedMatch = useMemo(
             () => mergeMatchWithLiveState(match as ExtendedMatch, liveState),

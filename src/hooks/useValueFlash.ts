@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
+import type { Variants } from 'framer-motion';
 
 /**
  * useValueFlash - Core institutional hook for "Value-at-Risk" highlighting.
  * Returns a variant name for Framer Motion to animate a pulse when values change.
  */
-export const useValueFlash = (value: unknown, duration = 1500) => {
+export const useValueFlash = <T,>(value: T, duration = 1500) => {
     const [isFlashing, setIsFlashing] = useState(false);
     const prevValue = useRef(value);
 
@@ -24,7 +25,7 @@ export const useValueFlash = (value: unknown, duration = 1500) => {
 /**
  * Institutional Flash Animation Variants
  */
-export const institutionalFlashVariants: unknown = {
+export const institutionalFlashVariants: Variants = {
     initial: { backgroundColor: 'transparent' },
     flash: (color = 'rgba(52, 211, 153, 0.4)') => ({
         backgroundColor: [

@@ -175,24 +175,26 @@ export const GoalieMatchup: React.FC<GoalieMatchupProps> = ({ matchId, homeTeam,
         .maybeSingle();
 
       if (dbData) {
-        const parseStats = (raw: unknown) => {
-          let s = raw;
+        type GoalieStatsRaw = string | { wins?: number; losses?: number; otl?: number; gaa?: number | string; savePercentage?: number | string; svPct?: number | string; reasoning?: string; bettingInsight?: string } | null | undefined;
+        const parseStats = (raw: GoalieStatsRaw) => {
+          let s: GoalieStatsRaw = raw;
           if (typeof raw === 'string') {
-            try { s = JSON.parse(raw); } catch (e) { s = {}; }
+            try { s = JSON.parse(raw); } catch { s = {}; }
           }
-          if (!s) s = {};
+          if (!s || typeof s !== 'object') s = {};
+          const stats = s as { wins?: number; losses?: number; otl?: number; gaa?: number | string; savePercentage?: number | string; svPct?: number | string; reasoning?: string; bettingInsight?: string };
 
-          const w = s.wins ?? 0;
-          const l = s.losses ?? 0;
-          const ot = s.otl ?? 0;
+          const w = stats.wins ?? 0;
+          const l = stats.losses ?? 0;
+          const ot = stats.otl ?? 0;
           const rec = `${w}-${l}-${ot}`;
 
           return {
-            gaa: s.gaa ? Number(s.gaa).toFixed(2) : '0.00',
-            svPct: s.savePercentage || s.svPct ? (Number(s.savePercentage || s.svPct)).toFixed(3) : '.000',
+            gaa: stats.gaa ? Number(stats.gaa).toFixed(2) : '0.00',
+            svPct: stats.savePercentage || stats.svPct ? (Number(stats.savePercentage || stats.svPct)).toFixed(3) : '.000',
             record: rec === '0-0-0' ? '---' : rec,
-            reasoning: s.reasoning,
-            bettingInsight: s.bettingInsight
+            reasoning: stats.reasoning,
+            bettingInsight: stats.bettingInsight
           };
         };
 

@@ -136,18 +136,19 @@ export const useLineMovement = ({
                     });
 
                     if (!error && data?.data?.[0]?.bookmakers?.[0]) {
-                        const event = data.data.find((e: unknown) => e.id === eventId);
+                        const events: OddsApiEvent[] = data.data || [];
+                        const event = events.find((e) => e.id === eventId);
                         if (event?.bookmakers?.[0]) {
                             const book = event.bookmakers[0];
-                            const spreads = book.markets.find((m: unknown) => m.key === 'spreads');
-                            const totals = book.markets.find((m: unknown) => m.key === 'totals');
-                            const h2h = book.markets.find((m: unknown) => m.key === 'h2h');
+                            const spreads = book.markets.find((m) => m.key === 'spreads');
+                            const totals = book.markets.find((m) => m.key === 'totals');
+                            const h2h = book.markets.find((m) => m.key === 'h2h');
 
                             movements.push({
                                 timestamp: timestamp.toISOString(),
                                 homeSpread: spreads?.outcomes?.[0]?.point || 0,
                                 awaySpread: spreads?.outcomes?.[1]?.point || 0,
-                                total: totals?.outcomes?.find((o: unknown) => o.name === 'Over')?.point || 0,
+                                total: totals?.outcomes?.find((o) => o.name === 'Over')?.point || 0,
                                 homeML: h2h?.outcomes?.[0]?.price || 0,
                                 awayML: h2h?.outcomes?.[1]?.price || 0,
                                 bookmaker: book.title

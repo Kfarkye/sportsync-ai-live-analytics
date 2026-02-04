@@ -132,14 +132,14 @@ const VenueSplitsSection = ({ match }: { match: Match }) => {
 };
 
 // Fix: Add generic type constraints to properly inherit this.props
-class DebugBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean, error: unknown }> {
+class DebugBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
     public state = { hasError: false, error: null };
 
-    public static getDerivedStateFromError(error: unknown) {
+    public static getDerivedStateFromError(error: Error) {
         return { hasError: true, error };
     }
 
-    public componentDidCatch(error: unknown) {
+    public componentDidCatch(error: Error) {
         console.error('COMPONENT CRASH:', error);
     }
 

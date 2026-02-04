@@ -1,6 +1,6 @@
 
 import React, { useMemo, memo } from 'react';
-import { Team, Sport } from '../../types';
+import { Team, Sport, MatchOdds } from '../../types';
 import TeamLogo from '../shared/TeamLogo';
 import { motion } from 'framer-motion';
 import { cn, ESSENCE } from '../../lib/essence';
@@ -15,7 +15,7 @@ interface MatchupHeaderProps {
     broadcast?: string;
     startTime: string | Date;
     sport?: Sport;
-    currentOdds?: unknown;
+    currentOdds?: MatchOdds;
 }
 
 /**

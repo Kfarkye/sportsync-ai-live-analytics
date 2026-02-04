@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { Match, Sport } from '../types';
+import { Match, Sport, RecentFormGame } from '../types';
 import { fetchTeamLastFive } from '../services/espnService';
 import TeamLogo from './shared/TeamLogo';
 import { Flame, ShieldAlert, TrendingUp, Check, X, Minus, Activity, Lock, AlertCircle } from 'lucide-react';
@@ -19,7 +19,7 @@ interface Streak {
 
 // --- Logic: Streak Calculator ---
 
-const calculateStreaks = (games: unknown[], teamId: string, sport: Sport): Streak[] => {
+const calculateStreaks = (games: RecentFormGame[], teamId: string, sport: Sport): Streak[] => {
   if (!games || games.length === 0) return [];
 
   const streaks: Streak[] = [];

@@ -139,6 +139,23 @@ export interface Linescore {
   winner?: boolean;   // Tennis: whether this set was won
 }
 
+export interface RecentFormOpponent {
+  id?: string;
+  name?: string;
+  shortName?: string;
+  logo?: string;
+  score?: string | number;
+}
+
+export interface RecentFormGame {
+  id?: string;
+  date?: string;
+  opponent?: RecentFormOpponent;
+  teamScore?: string | number;
+  result?: 'W' | 'L' | 'D' | string;
+  isHome?: boolean;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -160,6 +177,7 @@ export interface Team {
 export interface MatchOdds {
   provider?: string;
   hasOdds?: boolean;
+  fairValue?: number;
   homeWin?: string | number;
   awayWin?: string | number;
   draw?: string | number;
@@ -186,6 +204,48 @@ export interface MatchOdds {
 
   winProbability?: number;
   draftkingsLink?: string;
+}
+
+export interface WeatherInfo {
+  temp?: number | string;
+  condition?: string;
+  wind?: string;
+  wind_speed?: number | string;
+  humidity?: string;
+  pressure?: string;
+  impact?: string;
+}
+
+export type TeamStatLine = {
+  name?: string;
+  label?: string;
+  value?: string | number;
+  displayValue?: string | number;
+};
+
+export type TeamStatValue = number | string | null | undefined | TeamStatLine[];
+
+export type TeamStats = Record<string, TeamStatValue>;
+
+export interface RosterPlayer {
+  id?: string;
+  name?: string;
+  displayName?: string;
+  shortName?: string;
+  position?: string | { abbreviation?: string };
+  jersey?: string;
+  headshot?: string;
+  status?: string;
+}
+
+export type TraceEntry = JsonRecord;
+
+export interface TopPerformer {
+  name?: string;
+  team?: string;
+  statLine?: string;
+  value?: number | string;
+  category?: string;
 }
 
 export interface OddsSnapshot {
@@ -385,23 +445,23 @@ export interface Match {
   lastPlay?: LastPlay;
   regulationPeriods?: number;
   win_probability?: { home: number; away: number };
-  weather_info?: any;
-  current_odds?: any;
-  opening_odds?: any;
+  weather_info?: WeatherInfo;
+  current_odds?: MatchOdds;
+  opening_odds?: MatchOdds;
   closing_odds?: MatchOdds;
   goalies?: GoalieMatchupData;
   dbProps?: PlayerPropBet[];
-  injuries?: any[];
+  injuries?: InjuryReport[];
   weather_forecast?: {
     wind_speed?: number | string;
     condition?: string;
     temp?: number | string;
   };
-  homeTeamStats?: any;
-  awayTeamStats?: any;
+  homeTeamStats?: TeamStats;
+  awayTeamStats?: TeamStats;
   rosters?: {
-    home: any[];
-    away: any[];
+    home: RosterPlayer[];
+    away: RosterPlayer[];
   };
   // Game Context Fields (for Intel tab)
   seasonType?: number;       // 1=Pre, 2=Regular, 3=Post, 4=Off
@@ -419,8 +479,8 @@ export interface Match {
   last_updated?: string;
   home_score?: number;
   away_score?: number;
-  ingest_trace?: any[];
-  logic_trace?: any[];
+  ingest_trace?: TraceEntry[];
+  logic_trace?: TraceEntry[];
   last_ingest_error?: string;
   // Tennis-specific fields
   round?: string;       // e.g., "Quarterfinal", "Round of 128"
@@ -451,7 +511,7 @@ export interface Game extends Match {
   league: string;
   time: string;
   venue: string;
-  topPerformers?: any[];
+  topPerformers?: TopPerformer[];
 }
 
 export interface League {
@@ -712,6 +772,49 @@ export interface MatchNews {
   expiresAt: string;
 }
 
+export type SharpSide = 'PASS' | 'AVOID' | 'OVER' | 'UNDER' | 'HOME' | 'AWAY' | 'DRAW' | string;
+
+export interface SharpRecommendation {
+  side?: SharpSide;
+  market_type?: 'TOTAL' | 'SPREAD' | 'MONEYLINE' | 'OTHER' | string;
+  unit_size?: string;
+}
+
+export interface SharpData {
+  recommendation?: SharpRecommendation;
+  confidence_level?: number;
+}
+
+export interface LiveAIAnalysis {
+  sharp_data?: SharpData;
+  generated_at?: string;
+  thought_trace?: string;
+  sources?: Array<{ title?: string; url?: string; uri?: string }>;
+}
+
+export interface LiveMatchState {
+  id: string;
+  league_id: string;
+  sport: string;
+  game_status: string;
+  period: number;
+  clock: string;
+  home_score: number;
+  away_score: number;
+  situation?: Situation;
+  last_play?: LastPlay;
+  current_drive?: Drive;
+  deterministic_signals?: AISignals;
+  ai_analysis?: LiveAIAnalysis;
+  opening_odds?: MatchOdds;
+  odds?: {
+    current?: MatchOdds;
+    opening?: MatchOdds;
+  };
+  updated_at: string;
+  created_at?: string;
+}
+
 export interface MatchAngle {
   summary: string;
   keyFactors: { title: string; description: string; impact: 'high' | 'medium' | 'low' }[];
@@ -907,8 +1010,11 @@ export interface AISignals {
   narrative?: PublicNarrative;
 
   // v4.5: UI Data Feeds (Deterministic)
-  unified_report?: { stats: any; efficiency: any };
-  efficiency_matrix?: any;
+  unified_report?: {
+    stats: Record<string, number | string | null | undefined>;
+    efficiency: Record<string, number | string | null | undefined>;
+  };
+  efficiency_matrix?: Record<string, number | string | null | undefined> | null;
   // v5.0: PPM with invariant-safe implied_total
   ppm?: {
     observed: number;        // Raw observed PPM
@@ -943,7 +1049,7 @@ export interface AISignals {
 
   // v6.0: Structured Observability
   trace_id?: string;
-  trace_dump?: Record<string, any>;
+  trace_dump?: Record<string, unknown>;
 }
 
 export interface PublicNarrative {

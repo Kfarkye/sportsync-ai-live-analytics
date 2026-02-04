@@ -1,4 +1,5 @@
-export type RawOdds = Record<string, any> | null | undefined;
+type Primitive = string | number | null | undefined;
+export type RawOdds = Record<string, Primitive> | null | undefined;
 
 export type NormalizedOdds = {
   source: string | null;
@@ -18,10 +19,10 @@ export type NormalizedOdds = {
   spread_home_value: string | null; // numeric-as-string (ex "-1.5")
 };
 
-const isFiniteNumber = (n: unknown): n is number =>
+const isFiniteNumber = (n: Primitive): n is number =>
   typeof n === "number" && Number.isFinite(n);
 
-const toStr = (v: unknown): string | null => {
+const toStr = (v: Primitive): string | null => {
   if (v === null || v === undefined) return null;
   if (typeof v === "string") {
     const s = v.trim();
@@ -31,7 +32,7 @@ const toStr = (v: unknown): string | null => {
   return null;
 };
 
-const normalizeAmerican = (v: unknown): string | null => {
+const normalizeAmerican = (v: Primitive): string | null => {
   const s = toStr(v);
   if (!s) return null;
   // accept "+110", "-130", "110"
@@ -59,7 +60,7 @@ const looksLikeMoneylineInSpreadField = (spread: string): boolean => {
 };
 
 export const normalizeOdds = (raw: RawOdds): NormalizedOdds => {
-  const o = (raw ?? {}) as Record<string, any>;
+  const o = (raw ?? {}) as Record<string, Primitive>;
 
   const source = toStr(o.source);
   const provider = toStr(o.provider);

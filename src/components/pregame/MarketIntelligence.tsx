@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ComponentType } from 'react';
 import { TrendingUp, Users, Trophy, Activity } from 'lucide-react';
 
 interface MarketIntelligenceProps {
@@ -18,7 +19,19 @@ interface MarketIntelligenceProps {
     isLive?: boolean;
 }
 
-const IntelligenceMetric = ({ label, value, subValue, icon: Icon, colorClass = "text-zinc-400" }: { label: string, value: string, subValue: string, icon: unknown, colorClass?: string }) => (
+const IntelligenceMetric = ({
+    label,
+    value,
+    subValue,
+    icon: Icon,
+    colorClass = "text-zinc-400"
+}: {
+    label: string;
+    value: string;
+    subValue: string;
+    icon: ComponentType<{ size?: number; className?: string }>;
+    colorClass?: string;
+}) => (
     <div className="flex flex-col gap-1.5 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-colors">
         <div className="flex items-center gap-2">
             <Icon size={12} className={colorClass} />

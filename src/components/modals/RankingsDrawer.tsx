@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { X, TrendingUp, TrendingDown, Minus, Trophy, Loader2 } from 'lucide-react';
 import { RankingItem, Sport } from '../../types';
 import { fetchRankings } from '../../services/espnService';
@@ -88,7 +88,7 @@ const RankingsDrawer: React.FC<RankingsDrawerProps> = ({ isOpen, onClose, sport,
     }, [isOpen, sport, leagueId]);
 
     // Drag to dismiss
-    const onDragEnd = (event: unknown, info: unknown) => {
+    const onDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
         if (info.offset.y > 100 || info.velocity.y > 500) {
             onClose();
         }

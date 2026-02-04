@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/essence';
 import { Match } from '../../types';
-import { pregameIntelService, PregameIntelResponse, IntelCard } from '../../services/pregameIntelService';
+import { pregameIntelService, PregameIntelResponse, IntelCard, IntelSource } from '../../services/pregameIntelService';
 import { cleanHeadline, cleanCardThesis } from '../../lib/intel-guards';
 
 // ─────────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ const RenderRichText = React.memo(({ text, className }: { text: string; classNam
 // 🧠 HELPERS
 // ─────────────────────────────────────────────────────────────────
 
-function toISOOrNull(v: unknown): string | null {
+function toISOOrNull(v: string | number | Date | null | undefined): string | null {
     if (!v) return null;
     if (typeof v === 'string') {
         const d = new Date(v);
@@ -271,7 +271,7 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
                             )}
 
                             <div className="space-y-2.5">
-                                {(card as any).details?.map((detail: unknown, i: number) => (
+                                {(card as any).details?.map((detail: string, i: number) => (
                                     <div key={i} className="flex gap-3 text-[12px] text-zinc-400/90 font-light leading-relaxed">
                                         <span className="w-1 h-1 rounded-full bg-white/15 mt-1.5 shrink-0" />
                                         <RenderRichText text={String(detail)} />
@@ -324,7 +324,7 @@ export const PregameIntelCards = ({
         const teamName = extractTeamFromPick((rawIntel as any).recommended_pick);
         const headline = cleanHeadline(String((rawIntel as any).headline || ""), teamName);
 
-        const sortedCards = [...(((rawIntel as any).cards) || [])].sort((a: unknown, b: unknown) =>
+        const sortedCards = [...(((rawIntel as any).cards) || [])].sort((a: IntelCard, b: IntelCard) =>
             SORT_ORDER.indexOf(String(a.category)) - SORT_ORDER.indexOf(String(b.category))
         );
 
@@ -401,7 +401,7 @@ export const PregameIntelCards = ({
 
                 {/* CARDS LIST */}
                 <div className="space-y-6">
-                    {(processedData as any).cards.map((card: unknown, idx: number) => (
+                    {(processedData as any).cards.map((card: IntelCard, idx: number) => (
                         <InsightCard
                             key={`${idx}-${String(card.category)}`}
                             card={card}
@@ -415,7 +415,7 @@ export const PregameIntelCards = ({
                 {!hideFooter && Array.isArray((processedData as any).sources) && (processedData as any).sources.length > 0 && (
                     <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="mt-12 pt-6 border-t border-white/5">
                         <div className="flex flex-wrap gap-x-4 gap-y-2">
-                            {(processedData as any).sources.slice(0, 3).map((s: unknown, i: number) => (
+                            {(processedData as any).sources.slice(0, 3).map((s: IntelSource, i: number) => (
                                 <a
                                     key={i}
                                     href={s.url || s.uri}

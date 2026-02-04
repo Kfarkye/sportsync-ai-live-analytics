@@ -8,7 +8,7 @@ import TeamLogo from '../shared/TeamLogo';
 /*                            HELPER FUNCTIONS                                */
 /* -------------------------------------------------------------------------- */
 
-const safeParse = (val: unknown): number | undefined => {
+const safeParse = (val: string | number | null | undefined): number | undefined => {
     if (val === undefined || val === null) return undefined;
     if (typeof val === 'number') return val;
     if (typeof val === 'string') {

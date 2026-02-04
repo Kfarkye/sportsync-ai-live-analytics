@@ -49,10 +49,11 @@ export const useScoringSplits = ({
           setData(responseData);
         }
 
-      } catch (err: unknown) {
+      } catch (err: Error | { message?: string } | string) {
         console.error('Failed to fetch scoring splits:', err);
         if (isMounted) {
-          setError(err.message || 'Failed to load real-time splits.');
+          const msg = typeof err === 'string' ? err : err?.message;
+          setError(msg || 'Failed to load real-time splits.');
           // We do NOT fall back to fallback data here to ensure "Real Data" integrity.
           // If the API fails, the UI will show the error state.
         }

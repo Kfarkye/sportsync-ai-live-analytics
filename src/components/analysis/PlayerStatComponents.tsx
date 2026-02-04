@@ -2,7 +2,7 @@
 import React, { useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Target, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Match, PlayerPropBet, Team } from '../../types';
+import { Match, PlayerPropBet, Team, InjuryReport, RosterPlayer } from '../../types';
 import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { ESSENCE } from '../../lib/essence';
 
@@ -376,11 +376,11 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
 
         // 1. Identify "OUT" players to suppress
         const injuredOutNames = new Set<string>();
-        const injData = (match as any).injuries;
-        const rostersData = (match as any).rosters;
+        const injData = (match as Match & { injuries?: { home?: InjuryReport[]; away?: InjuryReport[] } }).injuries;
+        const rostersData = match.rosters;
 
         if (injData) {
-            [...(injData.home || []), ...(injData.away || [])].forEach((inj: unknown) => {
+            [...(injData.home || []), ...(injData.away || [])].forEach((inj: InjuryReport) => {
                 if (inj.status === 'OUT') {
                     injuredOutNames.add(normalize(inj.name || inj.player));
                 }
@@ -422,8 +422,8 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
 
             // PRIORITY 1: Use roster data as the source of truth
             if (rostersData) {
-                const isOnHomeRoster = rostersData.home?.some((p: unknown) => normalize(p.name || p.displayName) === normP);
-                const isOnAwayRoster = rostersData.away?.some((p: unknown) => normalize(p.name || p.displayName) === normP);
+                const isOnHomeRoster = rostersData.home?.some((p: RosterPlayer) => normalize(p.name || p.displayName) === normP);
+                const isOnAwayRoster = rostersData.away?.some((p: RosterPlayer) => normalize(p.name || p.displayName) === normP);
 
                 // If we definitively find the player on one roster, use that
                 if (isOnHomeRoster && !isOnAwayRoster) return isHomeCheck;
@@ -543,4 +543,3 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
 };
 
 export const PropCard = ApplePlayerCard;
-

@@ -8,16 +8,18 @@ import { cn } from '../lib/essence';
 import { getCanonicalMatchId } from '../utils/matchRegistry';
 
 
+type DebugValue = string | number | boolean | null | DebugValue[] | { [key: string]: DebugValue };
+
 interface DebugState {
-    matchInDb: unknown;
-    canonicalGame: unknown;
-    marketFeed: unknown;
-    liveGameState: unknown;
+    matchInDb: DebugValue;
+    canonicalGame: DebugValue;
+    marketFeed: DebugValue;
+    liveGameState: DebugValue;
     lastIngestStatus: 'idle' | 'loading' | 'success' | 'error';
     lastIngestError?: string;
-    lastIngestDebug?: unknown;
-    pregameIntel?: unknown;
-    activeConversation?: unknown;
+    lastIngestDebug?: DebugValue;
+    pregameIntel?: DebugValue;
+    activeConversation?: DebugValue;
 }
 
 export const TechnicalDebugView = ({ match }: { match: Match }) => {
@@ -106,8 +108,9 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                 }));
                 refreshDebugData();
             }
-        } catch (e: unknown) {
-            setDebugData(prev => ({ ...prev, lastIngestStatus: 'error', lastIngestError: e.message }));
+        } catch (e: Error | { message?: string } | string) {
+            const msg = typeof e === 'string' ? e : e?.message;
+            setDebugData(prev => ({ ...prev, lastIngestStatus: 'error', lastIngestError: msg }));
         }
     };
 

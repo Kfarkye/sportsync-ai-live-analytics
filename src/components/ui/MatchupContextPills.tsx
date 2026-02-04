@@ -1,5 +1,6 @@
 
 import React, { memo } from 'react';
+import type { ComponentType } from 'react';
 import { cn, ESSENCE } from '../../lib/essence';
 import {
     MapPin,
@@ -21,7 +22,15 @@ interface MatchupContextPillsProps {
     className?: string;
 }
 
-const ContextPill = ({ icon: Icon, value, color = "text-zinc-500" }: { icon: unknown, value: string, color?: string }) => (
+const ContextPill = ({
+    icon: Icon,
+    value,
+    color = "text-zinc-500"
+}: {
+    icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+    value: string;
+    color?: string;
+}) => (
     <div className="flex items-center gap-1.5">
         <Icon size={11} className={color} strokeWidth={2} />
         <span className="text-[10px] font-medium text-zinc-500 tracking-tight whitespace-nowrap">{value}</span>

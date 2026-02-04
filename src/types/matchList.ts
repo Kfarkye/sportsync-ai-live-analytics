@@ -10,7 +10,7 @@ export interface MatchRowProps {
     isPinned?: boolean;
     isLive?: boolean;
     isFinal?: boolean;
-    onTogglePin?: (e: unknown) => void;
+    onTogglePin?: (e: Event) => void;
 }
 
 export interface WeekOption {

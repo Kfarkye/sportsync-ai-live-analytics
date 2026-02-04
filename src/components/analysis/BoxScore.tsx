@@ -263,7 +263,7 @@ export const TeamStatsGrid: React.FC<TeamStatsGridProps> = memo(({ stats, colors
     <div className="relative">
       <div className="space-y-5">
         {stats.map((stat, i) => {
-          const parseStat = (val: unknown) => {
+          const parseStat = (val: string | number | null | undefined) => {
             if (typeof val !== 'string' && typeof val !== 'number') return 0;
             const parsed = parseFloat(String(val).replace(/[^0-9.]/g, ''));
             return isNaN(parsed) ? 0 : parsed;

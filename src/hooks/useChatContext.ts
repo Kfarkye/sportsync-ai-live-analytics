@@ -8,6 +8,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { pregameIntelService } from '../services/pregameIntelService';
+import type { Match } from '../types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -28,7 +29,13 @@ interface MatchContext {
     away_score?: number;
     clock?: string;
     period?: number;
-    pregame_intel?: unknown;
+    pregame_intel?: {
+        headline?: string;
+        pick?: string;
+        summary?: string;
+        logic_audit?: string;
+        key_factors?: Array<{ thesis: string; impact: string }>;
+    };
 }
 
 interface ChatContextState {
@@ -110,7 +117,24 @@ export const useChatContextStore = create<ChatContextState>()(
 
 interface UseChatContextOptions {
     /** Current match the user is viewing (from MatchDetails page) */
-    match?: unknown;
+    match?: MatchLike;
+}
+
+type MatchLike = Match & {
+    home_team_name?: string;
+    away_team_name?: string;
+    home_team?: string;
+    away_team?: string;
+    league_id?: string;
+    league?: string;
+    start_time?: string;
+    home_score?: number;
+    away_score?: number;
+    display_clock?: string;
+};
+
+interface ChatContextResponse {
+    conversation_id?: string;
 }
 
 export function useChatContext(options: UseChatContextOptions = {}) {
@@ -200,7 +224,7 @@ export function useChatContext(options: UseChatContextOptions = {}) {
         };
     }, [store.session_id, store.conversation_id, store.current_match, match]);
 
-    const handleChatResponse = useCallback((response: unknown) => {
+    const handleChatResponse = useCallback((response: ChatContextResponse) => {
         if (response.conversation_id && response.conversation_id !== store.conversation_id) {
             store.setConversationId(response.conversation_id);
         }

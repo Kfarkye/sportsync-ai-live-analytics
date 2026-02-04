@@ -51,7 +51,7 @@ const SportAwareTensionWidget = ({
   intel
 }: {
   match: Match,
-  signals: unknown,
+  signals: AISignals,
   intel?: MatchIntelligence
 }) => {
   const blueprint = match.ai_signals?.blueprint;
@@ -125,7 +125,7 @@ const SportAwareTensionWidget = ({
           <span className={cn("text-2xl font-mono-ledger font-black tabular-nums tracking-tighter",
             edgeState === 'NEUTRAL' ? "text-zinc-400" : "text-emerald-400"
           )}>
-            {blueprint?.model_number?.toFixed(1) || match.ai_signals?.deterministic_fair_total?.toFixed(1) || (match.current_odds as any)?.fairValue || '—'}
+            {blueprint?.model_number?.toFixed(1) || match.ai_signals?.deterministic_fair_total?.toFixed(1) || match.current_odds?.fairValue || '—'}
           </span>
         </div>
         <div className="p-4 bg-black/40 border border-white/5 rounded-lg flex flex-col gap-1">
@@ -148,7 +148,7 @@ const SportAwareTensionWidget = ({
 };
 
 const PPMTracker = ({ ppm, edgeState, edgePoints, context, sport }: {
-  ppm?: unknown,
+  ppm?: AISignals['ppm'] | null,
   edgeState?: 'PLAY' | 'LEAN' | 'NEUTRAL',
   edgePoints?: number,
   context?: { elapsed_mins: number; remaining_mins: number; current_score: string; period: number; clock: string },
@@ -237,7 +237,7 @@ const PPMTracker = ({ ppm, edgeState, edgePoints, context, sport }: {
   );
 };
 
-const DraftKingsAnchor = ({ odds }: { odds?: unknown }) => {
+const DraftKingsAnchor = ({ odds }: { odds?: Match['odds'] | null }) => {
   if (!odds?.draftkingsLink) return null;
   return (
     <a href={odds.draftkingsLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-1.5 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/20 rounded-full transition-all group no-underline">
@@ -250,7 +250,7 @@ const DraftKingsAnchor = ({ odds }: { odds?: unknown }) => {
   );
 };
 
-const OddsAnchorGrid: React.FC<{ match: Match, signals: unknown }> = ({ match, signals }) => {
+const OddsAnchorGrid: React.FC<{ match: Match, signals: AISignals }> = ({ match, signals }) => {
   const s = analyzeSpread(match);
   const t = analyzeTotal(match);
   const m = analyzeMoneyline(match);
@@ -263,7 +263,7 @@ const OddsAnchorGrid: React.FC<{ match: Match, signals: unknown }> = ({ match, s
     return vig > 0 ? `+${vig}` : String(vig);
   };
 
-  const fmtSpread = (val: unknown, price?: number) => {
+  const fmtSpread = (val: string | number | null | undefined, price?: number) => {
     const num = getOddsValue(val, 'spread');
     if (num === null) return '—';
     const disp = num === 0 ? 'PK' : (num > 0 ? `+${num}` : String(num));
@@ -275,7 +275,7 @@ const OddsAnchorGrid: React.FC<{ match: Match, signals: unknown }> = ({ match, s
     );
   };
 
-  const fmtTotal = (val: unknown, price?: number) => {
+  const fmtTotal = (val: string | number | null | undefined, price?: number) => {
     const num = getOddsValue(val, 'total');
     if (num === null) return '—';
     return (
@@ -286,7 +286,7 @@ const OddsAnchorGrid: React.FC<{ match: Match, signals: unknown }> = ({ match, s
     );
   };
 
-  const fmtML = (val: unknown) => {
+  const fmtML = (val: string | number | null | undefined) => {
     const num = getOddsValue(val, 'price');
     if (num === null) return '—';
     return num > 0 ? `+${num}` : String(num);
@@ -356,7 +356,7 @@ const OddsAnchorGrid: React.FC<{ match: Match, signals: unknown }> = ({ match, s
 
 const QuantitativeSignature: React.FC<{ signals: AISignals }> = ({ signals }) => {
   if (!signals) return null;
-  const constraints = (signals.constraints || {}) as any;
+  const constraints = signals.constraints;
 
   return (
     <div className="mb-8 p-6 bg-white/[0.02] border border-white/[0.06] rounded-xl">

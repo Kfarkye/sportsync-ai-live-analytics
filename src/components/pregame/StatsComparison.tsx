@@ -68,7 +68,6 @@ const MetricRow = ({
     deltaLabel: string;
     awayName: string;
     homeName: string;
-    key?: unknown; // Added key to props type
 }) => {
     // Calculate bar percentages (normalized to max of both values)
     const maxVal = Math.max(awayValue, homeValue);

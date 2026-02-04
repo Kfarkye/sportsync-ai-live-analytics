@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Terminal, Link as LinkIcon, Timer, ArrowUp } from 'lucide-react';
-import { Match } from '../../types';
+import { Match, AISignals, LiveAIAnalysis, SharpData } from '../../types';
 import { isGameInProgress, isGameFinished, getPeriodDisplay, getDbMatchId } from '../../utils/matchUtils';
 import { cn } from '../../lib/essence';
 import { useLiveGameState } from '../../hooks/useLiveGameState';
@@ -11,11 +11,24 @@ interface LiveAIInsightProps {
     match: Match;
 }
 
+interface AnalysisSource {
+    title?: string;
+    uri?: string;
+    url?: string;
+}
+
+interface OnDemandAnalysis {
+    success?: boolean;
+    sharp_data?: SharpData;
+    thought_trace?: string;
+    sources?: AnalysisSource[];
+}
+
 
 
 export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
     const { state: liveState, loading: liveLoading } = useLiveGameState(match?.id || '', match?.leagueId || '');
-    const [onDemandAnalysis, setOnDemandAnalysis] = useState<any>(null);
+    const [onDemandAnalysis, setOnDemandAnalysis] = useState<OnDemandAnalysis | null>(null);
     const [showTrace, setShowTrace] = useState(false);
     const [showFullRead, setShowFullRead] = useState(false);
     const attemptRef = useRef<string | null>(null);
@@ -23,7 +36,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
     const isLive = isGameInProgress(match?.status);
     const isFinal = isGameFinished(match?.status);
 
-    const ai_analysis = liveState?.ai_analysis || (onDemandAnalysis?.sharp_data ? {
+    const ai_analysis: LiveAIAnalysis | null = liveState?.ai_analysis || (onDemandAnalysis?.sharp_data ? {
         sharp_data: onDemandAnalysis.sharp_data,
         generated_at: new Date().toISOString(),
         thought_trace: onDemandAnalysis.thought_trace,
@@ -313,7 +326,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                 {/* Footer Component: Grounded Sources */}
                 {ai_analysis?.sources && ai_analysis.sources.length > 0 && (
                     <div className="flex flex-wrap gap-3 pt-6 relative z-10">
-                        {ai_analysis.sources.slice(0, 3).map((s: unknown, i: number) => (
+                        {ai_analysis.sources.slice(0, 3).map((s: AnalysisSource, i: number) => (
                             <a
                                 key={i}
                                 href={s.uri || s.url}

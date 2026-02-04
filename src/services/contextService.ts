@@ -1,14 +1,17 @@
 
 import { supabase } from '../lib/supabase';
 
+type OddsHistoryRow = Record<string, string | number | boolean | null | undefined>;
+type ScheduleRow = { team_id?: string } & Record<string, string | number | boolean | null | undefined>;
+
 export interface ContextData {
   oddsHistory?: {
-    open: unknown;
-    current: unknown;
+    open: OddsHistoryRow;
+    current: OddsHistoryRow;
   };
   schedule?: {
-    home: unknown;
-    away: unknown;
+    home: ScheduleRow;
+    away: ScheduleRow;
   };
 }
 
