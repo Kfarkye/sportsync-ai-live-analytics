@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Match, MatchNews, FatigueMetrics, OfficialStats, PregameContext } from '../types';
 import { supabase } from '../lib/supabase';
 import {
@@ -17,6 +17,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import PregameWatchTags from './pregame/PregameWatchTags';
+import InsightCard, { toInsightCard } from './analysis/InsightCard';
 
 // ============================================================================
 // Types
@@ -118,6 +119,51 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
     const [contextLoading, setContextLoading] = useState(true);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
+    const insightCardData = useMemo(() => {
+        const prop = match.dbProps?.[0];
+        if (!prop) return null;
+
+        const norm = (s?: string) => (s || '').toLowerCase();
+        const homeKeys = [match.homeTeam.abbreviation, match.homeTeam.shortName, match.homeTeam.name].map(norm);
+        const awayKeys = [match.awayTeam.abbreviation, match.awayTeam.shortName, match.awayTeam.name].map(norm);
+        const propTeam = norm(prop.team);
+
+        const isHome = propTeam && homeKeys.some((k) => k && propTeam.includes(k));
+        const isAway = propTeam && awayKeys.some((k) => k && propTeam.includes(k));
+
+        const teamLabel = prop.team || match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name;
+        const opponentLabel = isHome
+            ? (match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name)
+            : isAway
+                ? (match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name)
+                : (match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name);
+
+        const statType = (prop.marketLabel || prop.betType || 'Stat')
+            .toString()
+            .replace(/_/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        return toInsightCard({
+            id: prop.id,
+            playerName: prop.playerName,
+            team: teamLabel,
+            opponent: opponentLabel,
+            headshotUrl: prop.headshotUrl,
+            side: (prop.side || 'OVER').toString().toUpperCase(),
+            line: prop.lineValue,
+            statType,
+            bestOdds: prop.oddsAmerican,
+            bestBook: prop.sportsbook,
+            affiliateLink: undefined,
+            dvpRank: 0,
+            edge: news?.sharp_data?.quant_math?.edge_percent ?? 0,
+            probability: news?.sharp_data?.quant_math?.fair_win_prob ? (news.sharp_data.quant_math.fair_win_prob * 100) : 50,
+            aiAnalysis: news?.sharp_data?.analysis || news?.report || 'Intelligence unavailable.',
+            l5Results: [],
+            l5HitRate: 0
+        });
+    }, [match, news]);
 
     const parseNewsStatus = (value?: string | null): MatchNews['status'] => {
         if (value === 'pending' || value === 'ready' || value === 'failed' || value === 'generating') return value;
@@ -335,6 +381,17 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
             {/* 1. Pregame Watch Tags (Gemini-Powered Context) */}
             <PregameWatchTags context={pregameContext} loading={contextLoading} />
+
+            {/* 1.5 Shareable Insight Card */}
+            {insightCardData && (
+                <div className="bg-[#09090B] border border-white/10 rounded-2xl p-4 md:p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                        <CheckCircle2 size={12} className="text-emerald-400" />
+                        <span className="text-[10px] font-bold text-white uppercase tracking-widest">Shareable Insight</span>
+                    </div>
+                    <InsightCard data={insightCardData} />
+                </div>
+            )}
 
             {/* 2. Qualitative Context Grid */}
             <div className="grid md:grid-cols-2 gap-4">
