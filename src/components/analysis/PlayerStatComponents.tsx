@@ -282,7 +282,7 @@ export const ApplePlayerCard: React.FC<{
                             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                         >
                             <span
-                                className="text-[84px] font-black tabular-nums leading-none tracking-tighter"
+                                className="text-[80px] font-black tabular-nums leading-[0.92] tracking-[-0.02em]"
                                 style={{
                                     color: '#fff',
                                     textShadow: '0 0 40px rgba(255,255,255,0.1)'
@@ -294,7 +294,7 @@ export const ApplePlayerCard: React.FC<{
                     </AnimatePresence>
 
                     {/* Perspective Label */}
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.36em]">
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] font-semibold text-zinc-600 uppercase tracking-[0.34em]">
                         Line
                     </div>
                 </div>
