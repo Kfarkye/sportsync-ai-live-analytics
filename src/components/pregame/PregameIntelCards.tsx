@@ -6,8 +6,7 @@
 import React, { useState, useEffect, useMemo, Component } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import {
-    ShieldCheck, ExternalLink, ChevronDown,
-    Target, TrendingUp, Cpu, AlertOctagon, Zap
+    ShieldCheck, ExternalLink, ChevronDown
 } from 'lucide-react';
 import { cn } from '../../lib/essence';
 import { Match } from '../../types';
@@ -24,16 +23,13 @@ const STAGGER = { staggerChildren: 0.08, delayChildren: 0.05 };
 const SORT_ORDER = ["The Spot", "The Trend", "The Engine", "The Trap", "X-Factor"];
 
 const SECTION_CONFIG: Record<string, {
-    icon: React.ComponentType<{ size?: number; className?: string }>;
     color: string;
-    border: string;
-    bg: string;
 }> = {
-    "The Spot": { icon: Target, color: "text-zinc-100", border: "border-l-zinc-500", bg: "bg-zinc-500/10" },
-    "The Trend": { icon: TrendingUp, color: "text-blue-400", border: "border-l-blue-500", bg: "bg-blue-500/10" },
-    "The Engine": { icon: Cpu, color: "text-emerald-400", border: "border-l-emerald-500", bg: "bg-emerald-500/10" },
-    "The Trap": { icon: AlertOctagon, color: "text-amber-500", border: "border-l-amber-500", bg: "bg-amber-500/10" },
-    "X-Factor": { icon: Zap, color: "text-purple-400", border: "border-l-purple-500", bg: "bg-purple-500/10" },
+    "The Spot": { color: "text-zinc-100" },
+    "The Trend": { color: "text-blue-300" },
+    "The Engine": { color: "text-emerald-300" },
+    "The Trap": { color: "text-amber-300" },
+    "X-Factor": { color: "text-purple-300" },
 };
 
 const RenderRichText = React.memo(({ text, className }: { text: string; className?: string }) => {
@@ -209,8 +205,6 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
     }, [hasDetails, category]);
 
     const config = SECTION_CONFIG[category] || SECTION_CONFIG["The Spot"];
-    const Icon = config.icon;
-
     const displayThesis = cleanCardThesis(category, String((card as any).thesis || ""));
 
     return (
@@ -229,10 +223,7 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
             <div className="flex items-start justify-between gap-4 px-4">
                 <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2">
-                        <div className={cn("hidden", config.bg)}>
-                            <Icon size={10} className={config.color} />
-                        </div>
-                        <span className={cn("text-[9px] font-semibold uppercase tracking-[0.26em] opacity-80", config.color)}>
+                        <span className={cn("text-[9px] font-semibold uppercase tracking-[0.28em] opacity-80", config.color)}>
                             {category}
                         </span>
 
@@ -380,12 +371,12 @@ export const PregameIntelCards = ({
                         <EdgeLabel startTimeISO={startTimeISO} />
 
                         <motion.div variants={{ hidden: { opacity: 0, y: 5 }, visible: { opacity: 1, y: 0 } }}>
-                            <h1 className="text-[42px] md:text-[64px] font-medium text-white tracking-[-0.04em] leading-[0.9] mb-2">
+                            <h1 className="text-[42px] md:text-[66px] font-medium text-white tracking-[-0.045em] leading-[0.88] mb-2">
                                 {recommendedPick}
                             </h1>
 
                             {displayJuice && (
-                                <div className="text-[11px] md:text-[12px] font-mono text-zinc-500/80 font-medium tracking-[0.35em] uppercase">
+                                <div className="text-[11px] md:text-[12px] font-mono text-zinc-500/70 font-medium tracking-[0.38em] uppercase">
                                     {displayJuice}
                                 </div>
                             )}
@@ -400,7 +391,7 @@ export const PregameIntelCards = ({
                     variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
                     className="mb-14 pt-6 border-t border-white/10"
                 >
-                    <p className="text-[16px] md:text-[17px] text-zinc-300/80 font-light leading-[1.7] text-pretty">
+                    <p className="text-[16px] md:text-[17px] text-zinc-300/75 font-light leading-[1.72] text-pretty">
                         <RenderRichText text={String((processedData as any).headline || "")} />
                     </p>
                 </motion.div>
