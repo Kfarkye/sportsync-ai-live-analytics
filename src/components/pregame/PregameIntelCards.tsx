@@ -17,7 +17,7 @@ import { cleanHeadline, cleanCardThesis } from '../../lib/intel-guards';
 // 🎨 DESIGN TOKENS
 // ─────────────────────────────────────────────────────────────────
 
-const SPRING = { type: "spring", stiffness: 450, damping: 35 };
+const SPRING = { type: "spring", stiffness: 420, damping: 40 };
 const STAGGER = { staggerChildren: 0.08, delayChildren: 0.05 };
 
 const SORT_ORDER = ["The Spot", "The Trend", "The Engine", "The Trap", "X-Factor"];
@@ -179,12 +179,12 @@ const EdgeLabel = ({ startTimeISO }: { startTimeISO: string | null }) => {
     if (!label) return null;
 
     return (
-        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/[0.02] border border-white/5 mb-5 backdrop-blur-sm">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.015] border border-white/5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset] mb-6 backdrop-blur-sm">
             <span className="relative flex h-1 w-1">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-30" />
                 <span className="relative inline-flex rounded-full h-1 w-1 bg-emerald-300/70" />
             </span>
-            <span className="text-[9px] font-semibold tracking-[0.28em] text-emerald-300/70 uppercase">
+            <span className="text-[9px] font-medium tracking-[0.34em] text-emerald-200/70 uppercase">
                 {label}
             </span>
         </div>
@@ -213,9 +213,9 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className={cn(
-                "group relative py-7 transition-[color,background-color,transform] duration-300 hover:-translate-y-[1px]",
-                index !== 0 && "border-t border-white/[0.05]",
-                hasDetails && expanded ? "bg-gradient-to-b from-white/[0.03] via-white/[0.015] to-transparent" : "hover:bg-white/[0.015]",
+                "group relative py-8 transition-[color,background-color,transform,box-shadow] duration-300 hover:-translate-y-[0.5px] first:rounded-t-2xl last:rounded-b-2xl",
+                index !== 0 && "border-t border-white/[0.06]",
+                hasDetails && expanded ? "bg-gradient-to-b from-white/[0.03] via-white/[0.015] to-transparent" : "hover:bg-white/[0.018] hover:shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]",
                 hasDetails ? "cursor-pointer" : "cursor-default"
             )}
             onClick={() => hasDetails && setExpanded(v => !v)}
@@ -233,7 +233,7 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
                     </div>
 
                     <div className={cn(
-                        "text-[15px] md:text-[16px] leading-[1.6] transition-colors duration-300 font-normal tracking-[-0.01em] pr-6",
+                        "text-[15px] md:text-[16px] leading-[1.62] transition-colors duration-300 font-normal tracking-[-0.012em] pr-6",
                         isEngine ? "font-mono text-[13px] text-zinc-300" : "text-zinc-200 group-hover:text-white"
                     )}>
                         {isEngine && <span className="text-emerald-500 mr-2">{'>'}</span>}
@@ -245,7 +245,7 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
                 {hasDetails && (
                     <motion.div
                         animate={{ rotate: expanded ? 180 : 0 }}
-                        className="text-zinc-600/60 mt-1 opacity-0 group-hover:opacity-60 transition-opacity duration-300"
+                        className="text-zinc-600/60 mt-1 opacity-0 group-hover:opacity-50 transition-opacity duration-300"
                     >
                         <ChevronDown size={14} />
                     </motion.div>
@@ -261,19 +261,19 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
                         transition={SPRING}
                         className="overflow-hidden"
                     >
-                        <div className="px-4 pb-3 pt-4 ml-1">
+                        <div className="px-4 pb-4 pt-5 ml-1">
                             {(card as any).market_implication && (
-                                <div className="mb-3 pt-2 border-t border-white/[0.06]">
-                                    <p className="text-[12px] text-zinc-500 italic leading-relaxed">
+                                <div className="mb-4 pt-3 border-t border-white/[0.06]">
+                                    <p className="text-[12px] text-zinc-500/90 italic leading-relaxed">
                                         <RenderRichText text={String((card as any).market_implication)} />
                                     </p>
                                 </div>
                             )}
 
-                            <div className="space-y-2">
+                            <div className="space-y-2.5">
                                 {(card as any).details?.map((detail: any, i: number) => (
-                                    <div key={i} className="flex gap-3 text-[12px] text-zinc-400 font-light leading-relaxed">
-                                        <span className="w-1 h-1 rounded-full bg-zinc-700 mt-1.5 shrink-0" />
+                                    <div key={i} className="flex gap-3 text-[12px] text-zinc-400/90 font-light leading-relaxed">
+                                        <span className="w-1 h-1 rounded-full bg-white/15 mt-1.5 shrink-0" />
                                         <RenderRichText text={String(detail)} />
                                     </div>
                                 ))}
@@ -362,24 +362,27 @@ export const PregameIntelCards = ({
                 initial="hidden"
                 animate="visible"
                 variants={{ visible: { transition: STAGGER } }}
-                className="w-full px-2 md:px-6"
+                className="w-full px-3 md:px-8"
             >
                 {/* HERO */}
-                <div className="relative mb-14 pt-2">
-                    <div className="absolute -top-6 left-0 right-0 h-24 bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.07)_0%,_transparent_70%)] opacity-50 pointer-events-none" />
+                <div className="relative mb-16 pt-2">
+                    <div className="absolute -top-8 left-0 right-0 h-28 bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.08)_0%,_transparent_70%)] opacity-50 pointer-events-none" />
+                    <div className="absolute -bottom-8 left-0 right-0 h-16 bg-[linear-gradient(90deg,rgba(255,255,255,0.06)_0%,transparent_60%)] opacity-50 pointer-events-none" />
                     <div className="relative">
                         <EdgeLabel startTimeISO={startTimeISO} />
 
                         <motion.div variants={{ hidden: { opacity: 0, y: 5 }, visible: { opacity: 1, y: 0 } }}>
-                            <h1 className="text-[42px] md:text-[66px] font-medium text-white tracking-[-0.045em] leading-[0.88] mb-2">
+                            <h1 className="text-[42px] md:text-[66px] font-medium text-white tracking-[-0.05em] leading-[0.9] mb-3 drop-shadow-[0_4px_30px_rgba(0,0,0,0.45)]">
                                 {recommendedPick}
                             </h1>
 
                             {displayJuice && (
-                                <div className="text-[11px] md:text-[12px] font-mono text-zinc-500/70 font-medium tracking-[0.38em] uppercase">
+                                <div className="text-[11px] md:text-[12px] font-mono text-zinc-500/75 font-medium tracking-[0.4em] uppercase">
                                     {displayJuice}
                                 </div>
                             )}
+
+                            <div className="mt-5 h-px w-24 bg-gradient-to-r from-white/40 via-white/10 to-transparent" />
 
                             {/* HARD RULE: no Confidence in hero */}
                         </motion.div>
@@ -389,15 +392,15 @@ export const PregameIntelCards = ({
                 {/* HEADLINE */}
                 <motion.div
                     variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-                    className="mb-14 pt-6 border-t border-white/10"
+                    className="mb-16 pt-6 border-t border-white/10"
                 >
-                    <p className="text-[16px] md:text-[17px] text-zinc-300/75 font-light leading-[1.72] text-pretty">
+                    <p className="text-[16px] md:text-[17px] text-zinc-300/80 font-light leading-[1.75] text-pretty max-w-[72ch]">
                         <RenderRichText text={String((processedData as any).headline || "")} />
                     </p>
                 </motion.div>
 
                 {/* CARDS LIST */}
-                <div className="space-y-5">
+                <div className="space-y-6">
                     {(processedData as any).cards.map((card: any, idx: number) => (
                         <InsightCard
                             key={`${idx}-${String(card.category)}`}
