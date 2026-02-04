@@ -58,8 +58,10 @@ interface ProcessedIntelData extends Omit<PregameIntelResponse, 'cards'> {
 // ─────────────────────────────────────────────────────────────────
 
 // "Aluminum Switch" Physics: High stiffness, critical damping for mechanical precision
-const PHYSICS_SWITCH = { type: "spring", stiffness: 380, damping: 35, mass: 0.8 };
+const PHYSICS_SWITCH = { type: "spring", stiffness: 400, damping: 40, mass: 0.5 };
+const SPATIAL_SPRING = { type: "spring", stiffness: 400, damping: 40, mass: 0.5 };
 const STAGGER_DELAY = 0.08;
+const GLASS_NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E")`;
 
 const SORT_ORDER = ["The Spot", "The Trend", "The Engine", "The Trap", "X-Factor"];
 
@@ -130,15 +132,21 @@ const EdgeLabel = ({ startTimeISO }: { startTimeISO: string | null }) => {
     if (!label) return null;
 
     return (
-        <div className="inline-flex items-center gap-2 mb-6 select-none opacity-80 hover:opacity-100 transition-opacity duration-500">
-            <div className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-40" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+        <motion.div
+            layoutId="dynamic-island-anchor"
+            className="relative inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#050505]/80 border-[0.5px] border-white/10 backdrop-blur-[40px] shadow-[0_10px_40px_rgba(0,0,0,0.45)] overflow-hidden select-none"
+            transition={SPATIAL_SPRING}
+        >
+            <div className="absolute inset-0 opacity-[0.15] pointer-events-none" style={{ backgroundImage: GLASS_NOISE }} />
+            <div className="relative flex h-2.5 w-2.5">
+                <span className="absolute inset-0 rounded-full bg-emerald-400/30 blur-[2px]" />
+                <span className="absolute inset-0 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)]" />
+                <span className="absolute inset-[2px] rounded-full bg-emerald-200/90 shadow-[0_0_4px_rgba(16,185,129,0.8)]" />
             </div>
-            <span className="text-[9px] font-bold tracking-[0.25em] text-emerald-400/90 uppercase font-mono">
+            <span className="text-[9px] font-black tracking-[0.25em] text-emerald-400/90 uppercase font-mono">
                 {label}
             </span>
-        </div>
+        </motion.div>
     );
 };
 
@@ -253,19 +261,25 @@ const InsightCard = ({ card, confidenceTier }: { card: ExtendedIntelCard; confid
             layout
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            whileTap={{ scale: 0.985, boxShadow: '0 24px 60px -24px rgba(0,0,0,0.65)' }}
+            transition={SPATIAL_SPRING}
             className={cn(
-                "group relative border-t border-white/[0.08] transition-all duration-500",
+                "group relative border-t border-white/[0.08] transition-all duration-500 overflow-hidden",
+                "rounded-2xl md:rounded-none",
+                "bg-[#050505]/80 md:bg-transparent backdrop-blur-[40px] md:backdrop-blur-0",
+                "border-[0.5px] border-white/10 md:border-0 shadow-[0_12px_40px_rgba(0,0,0,0.35)] md:shadow-none",
                 hasDetails ? "cursor-pointer" : "cursor-default"
             )}
             onClick={() => hasDetails && setExpanded(v => !v)}
         >
+            <div className="absolute inset-0 opacity-[0.15] pointer-events-none" style={{ backgroundImage: GLASS_NOISE }} />
             {/* Active Laser Line (Left Edge) */}
             <div className={cn(
                 "absolute -top-[1px] left-0 h-[1px] bg-white transition-all duration-500 ease-out z-10 shadow-[0_0_10px_rgba(255,255,255,0.4)]",
                 expanded ? "w-full opacity-100" : "w-0 opacity-0"
             )} />
 
-            <div className="py-7 flex items-baseline gap-4 md:gap-0">
+            <div className="py-6 md:py-7 flex items-baseline gap-4 md:gap-0 relative z-10">
 
                 {/* 1. Technical Label (Desktop: Left Col / Mobile: Hidden) */}
                 <div className="hidden md:flex w-[140px] shrink-0 flex-col gap-2 select-none">
@@ -310,7 +324,7 @@ const InsightCard = ({ card, confidenceTier }: { card: ExtendedIntelCard; confid
                         {expanded && hasDetails && (
                             <motion.div
                                 initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                                animate={{ height: "auto", opacity: 1, marginTop: 24 }}
+                                animate={{ height: "auto", opacity: 1, marginTop: 20 }}
                                 exit={{ height: 0, opacity: 0, marginTop: 0 }}
                                 transition={PHYSICS_SWITCH}
                                 className="overflow-hidden"
@@ -393,12 +407,15 @@ export const PregameIntelCards = ({
             <div className="py-32 text-center">
                 <div className="inline-flex flex-col items-center gap-4">
                     <span className="text-[10px] uppercase tracking-[0.25em] text-zinc-600">Signal Interrupted</span>
-                    <button
+                    <motion.button
                         onClick={retry}
-                        className="px-0 py-1 border-b border-zinc-800 text-[10px] font-bold text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all uppercase tracking-widest"
+                        whileTap={{ scale: 0.985 }}
+                        transition={SPATIAL_SPRING}
+                        className="relative px-0 py-1 border-b border-zinc-800 text-[10px] font-bold text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all uppercase tracking-widest overflow-hidden group"
                     >
+                        <span className="absolute inset-0 opacity-0 group-active:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                         Retry Connection
-                    </button>
+                    </motion.button>
                 </div>
             </div>
         );
@@ -416,11 +433,13 @@ export const PregameIntelCards = ({
                 initial="hidden"
                 animate="visible"
                 variants={{ visible: { transition: { staggerChildren: STAGGER_DELAY } } }}
-                className="w-full max-w-[840px] mx-auto px-4 md:px-0 py-12 font-sans antialiased"
+                className="w-full max-w-[840px] mx-auto pl-[calc(env(safe-area-inset-left)+16px)] pr-[calc(env(safe-area-inset-right)+16px)] sm:px-4 md:px-0 py-12 pb-[calc(env(safe-area-inset-bottom)+32px)] font-sans antialiased"
             >
                 {/* 1. HERO SECTION (Steve Jobs Keynote Style) */}
-                <div className="mb-24 relative">
-                    <EdgeLabel startTimeISO={startTimeISO} />
+                <div className="mb-16 md:mb-24 relative pt-[calc(env(safe-area-inset-top)+12px)]">
+                    <div className="mb-6 flex justify-center">
+                        <EdgeLabel startTimeISO={startTimeISO} />
+                    </div>
 
                     <motion.div variants={{ hidden: { opacity: 0, y: 15 }, visible: { opacity: 1, y: 0 } }}>
                         {/* The Pick - Massive, confident typography */}
@@ -446,9 +465,9 @@ export const PregameIntelCards = ({
 
                 {/* 2. SPEC SHEET (Cards) */}
                 <div className="space-y-0">
-                    <div className="flex items-center gap-4 mb-6 opacity-40 select-none">
+                    <div className="flex items-center gap-4 mb-4 opacity-50 select-none">
                         <div className="h-px w-8 bg-zinc-500" />
-                        <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.3em]">Technical Breakdown</span>
+                        <span className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.35em]">Technical Breakdown</span>
                     </div>
 
                     {processedData.cards.map((card, idx) => (
