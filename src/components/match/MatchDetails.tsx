@@ -946,8 +946,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           </button>
           <div className="flex items-center gap-4">
             <span className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase hidden md:block">{match.leagueId?.toUpperCase()} // {match.id.slice(-4)}</span>
-            {isLive && edgeState && <EdgeStateBadge edgeState={edgeState} />}
-            {isLive && forecastHistory.length >= 2 && <div className="hidden md:block"><ForecastSparkline points={forecastHistory} /></div>}
             <ConnectionBadge status={connectionStatus} />
           </div>
         </div>
