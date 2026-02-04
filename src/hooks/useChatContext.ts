@@ -28,7 +28,7 @@ interface MatchContext {
     away_score?: number;
     clock?: string;
     period?: number;
-    pregame_intel?: any;
+    pregame_intel?: unknown;
 }
 
 interface ChatContextState {
@@ -110,7 +110,7 @@ export const useChatContextStore = create<ChatContextState>()(
 
 interface UseChatContextOptions {
     /** Current match the user is viewing (from MatchDetails page) */
-    match?: any;
+    match?: unknown;
 }
 
 export function useChatContext(options: UseChatContextOptions = {}) {
@@ -200,7 +200,7 @@ export function useChatContext(options: UseChatContextOptions = {}) {
         };
     }, [store.session_id, store.conversation_id, store.current_match, match]);
 
-    const handleChatResponse = useCallback((response: any) => {
+    const handleChatResponse = useCallback((response: unknown) => {
         if (response.conversation_id && response.conversation_id !== store.conversation_id) {
             store.setConversationId(response.conversation_id);
         }

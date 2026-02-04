@@ -49,7 +49,7 @@ export interface EdgeResult {
     confidence: number;
 
     implications: string[];
-    sources?: any[];
+    sources?: unknown[];
     keyInjuries: { name: string; status: string }[];
 
     trace: {
@@ -58,7 +58,7 @@ export interface EdgeResult {
         possessions: number;
         pace_impact: number;
         rate_impact: number;
-        [key: string]: any;
+        [key: string]: unknown;
     };
 }
 

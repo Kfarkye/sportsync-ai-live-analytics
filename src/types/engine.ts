@@ -3,7 +3,7 @@
 // ENGINE TYPES
 // =============================================================================
 
-import { Match, Sport, Team, MarketEfficiency } from "./index.ts";
+import { Match, Sport, Team, MarketEfficiency, TeamStats } from "./index.ts";
 
 export interface WeatherInfo {
     wind_speed: string | number;
@@ -17,10 +17,7 @@ export interface TeamMetadata {
 }
 
 // Flexible container for raw stats to avoid 'any' while handling dirty feeds
-export interface UnifiedStatContainer {
-    [key: string]: any;
-    statistics?: Array<{ name?: string; label?: string; value?: string | number }>;
-}
+export type UnifiedStatContainer = TeamStats;
 
 
 export interface ExtendedMatch extends Match {

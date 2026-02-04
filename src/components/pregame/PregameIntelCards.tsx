@@ -51,7 +51,7 @@ const RenderRichText = React.memo(({ text, className }: { text: string; classNam
 // 🧠 HELPERS
 // ─────────────────────────────────────────────────────────────────
 
-function toISOOrNull(v: any): string | null {
+function toISOOrNull(v: unknown): string | null {
     if (!v) return null;
     if (typeof v === 'string') {
         const d = new Date(v);
@@ -271,7 +271,7 @@ const InsightCard = ({ card, index, confidenceTier }: { card: IntelCard; index: 
                             )}
 
                             <div className="space-y-2.5">
-                                {(card as any).details?.map((detail: any, i: number) => (
+                                {(card as any).details?.map((detail: unknown, i: number) => (
                                     <div key={i} className="flex gap-3 text-[12px] text-zinc-400/90 font-light leading-relaxed">
                                         <span className="w-1 h-1 rounded-full bg-white/15 mt-1.5 shrink-0" />
                                         <RenderRichText text={String(detail)} />
@@ -324,7 +324,7 @@ export const PregameIntelCards = ({
         const teamName = extractTeamFromPick((rawIntel as any).recommended_pick);
         const headline = cleanHeadline(String((rawIntel as any).headline || ""), teamName);
 
-        const sortedCards = [...(((rawIntel as any).cards) || [])].sort((a: any, b: any) =>
+        const sortedCards = [...(((rawIntel as any).cards) || [])].sort((a: unknown, b: unknown) =>
             SORT_ORDER.indexOf(String(a.category)) - SORT_ORDER.indexOf(String(b.category))
         );
 
@@ -366,8 +366,8 @@ export const PregameIntelCards = ({
             >
                 {/* HERO */}
                 <div className="relative mb-16 pt-2">
-                    <div className="absolute -top-8 left-0 right-0 h-28 bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.08)_0%,_transparent_70%)] opacity-50 pointer-events-none" />
-                    <div className="absolute -bottom-8 left-0 right-0 h-16 bg-[linear-gradient(90deg,rgba(255,255,255,0.06)_0%,transparent_60%)] opacity-50 pointer-events-none" />
+                    <div className="absolute -top-8 left-0 right-0 h-28 bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.08)_0%,_transparent_70%)] opacity-40 pointer-events-none" />
+                    <div className="absolute -bottom-8 left-0 right-0 h-16 bg-[linear-gradient(90deg,rgba(255,255,255,0.06)_0%,transparent_60%)] opacity-40 pointer-events-none" />
                     <div className="relative">
                         <EdgeLabel startTimeISO={startTimeISO} />
 
@@ -394,14 +394,14 @@ export const PregameIntelCards = ({
                     variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
                     className="mb-16 pt-6 border-t border-white/10"
                 >
-                    <p className="text-[16px] md:text-[17px] text-zinc-300/80 font-light leading-[1.75] text-pretty max-w-[72ch]">
+                    <p className="text-[16px] md:text-[17px] text-zinc-300/85 font-normal leading-[1.75] text-pretty max-w-[72ch]">
                         <RenderRichText text={String((processedData as any).headline || "")} />
                     </p>
                 </motion.div>
 
                 {/* CARDS LIST */}
                 <div className="space-y-6">
-                    {(processedData as any).cards.map((card: any, idx: number) => (
+                    {(processedData as any).cards.map((card: unknown, idx: number) => (
                         <InsightCard
                             key={`${idx}-${String(card.category)}`}
                             card={card}
@@ -415,7 +415,7 @@ export const PregameIntelCards = ({
                 {!hideFooter && Array.isArray((processedData as any).sources) && (processedData as any).sources.length > 0 && (
                     <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="mt-12 pt-6 border-t border-white/5">
                         <div className="flex flex-wrap gap-x-4 gap-y-2">
-                            {(processedData as any).sources.slice(0, 3).map((s: any, i: number) => (
+                            {(processedData as any).sources.slice(0, 3).map((s: unknown, i: number) => (
                                 <a
                                     key={i}
                                     href={s.url || s.uri}
@@ -445,7 +445,9 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError:
     }
 }
 
-export default function SafePregameIntelCards(props: any) {
+export default function SafePregameIntelCards(
+    props: React.ComponentProps<typeof PregameIntelCards>
+) {
     return (
         <ErrorBoundary>
             <PregameIntelCards {...props} />

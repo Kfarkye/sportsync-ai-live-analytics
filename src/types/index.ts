@@ -188,6 +188,47 @@ export interface MatchOdds {
   draftkingsLink?: string;
 }
 
+export interface WeatherInfo {
+  temp?: number | string;
+  condition?: string;
+  wind?: string;
+  wind_speed?: number | string;
+  humidity?: string;
+  pressure?: string;
+  impact?: string;
+}
+
+export type TeamStatLine = {
+  name?: string;
+  label?: string;
+  value?: string | number;
+  displayValue?: string | number;
+};
+
+export type TeamStatValue = number | string | null | undefined | TeamStatLine[];
+
+export type TeamStats = Record<string, TeamStatValue>;
+
+export interface RosterPlayer {
+  id?: string;
+  name?: string;
+  displayName?: string;
+  shortName?: string;
+  position?: string | { abbreviation?: string };
+  jersey?: string;
+  headshot?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface TopPerformer {
+  name?: string;
+  team?: string;
+  statLine?: string;
+  value?: number | string;
+  category?: string;
+}
+
 export interface OddsSnapshot {
   open: {
     spread: number;
@@ -385,23 +426,23 @@ export interface Match {
   lastPlay?: LastPlay;
   regulationPeriods?: number;
   win_probability?: { home: number; away: number };
-  weather_info?: any;
-  current_odds?: any;
-  opening_odds?: any;
+  weather_info?: WeatherInfo;
+  current_odds?: MatchOdds;
+  opening_odds?: MatchOdds;
   closing_odds?: MatchOdds;
   goalies?: GoalieMatchupData;
   dbProps?: PlayerPropBet[];
-  injuries?: any[];
+  injuries?: InjuryReport[];
   weather_forecast?: {
     wind_speed?: number | string;
     condition?: string;
     temp?: number | string;
   };
-  homeTeamStats?: any;
-  awayTeamStats?: any;
+  homeTeamStats?: TeamStats;
+  awayTeamStats?: TeamStats;
   rosters?: {
-    home: any[];
-    away: any[];
+    home: RosterPlayer[];
+    away: RosterPlayer[];
   };
   // Game Context Fields (for Intel tab)
   seasonType?: number;       // 1=Pre, 2=Regular, 3=Post, 4=Off
@@ -419,8 +460,8 @@ export interface Match {
   last_updated?: string;
   home_score?: number;
   away_score?: number;
-  ingest_trace?: any[];
-  logic_trace?: any[];
+  ingest_trace?: unknown[];
+  logic_trace?: unknown[];
   last_ingest_error?: string;
   // Tennis-specific fields
   round?: string;       // e.g., "Quarterfinal", "Round of 128"
@@ -451,7 +492,7 @@ export interface Game extends Match {
   league: string;
   time: string;
   venue: string;
-  topPerformers?: any[];
+  topPerformers?: TopPerformer[];
 }
 
 export interface League {
@@ -907,8 +948,11 @@ export interface AISignals {
   narrative?: PublicNarrative;
 
   // v4.5: UI Data Feeds (Deterministic)
-  unified_report?: { stats: any; efficiency: any };
-  efficiency_matrix?: any;
+  unified_report?: {
+    stats: Record<string, number | string | null | undefined>;
+    efficiency: Record<string, number | string | null | undefined>;
+  };
+  efficiency_matrix?: Record<string, number | string | null | undefined> | null;
   // v5.0: PPM with invariant-safe implied_total
   ppm?: {
     observed: number;        // Raw observed PPM
@@ -943,7 +987,7 @@ export interface AISignals {
 
   // v6.0: Structured Observability
   trace_id?: string;
-  trace_dump?: Record<string, any>;
+  trace_dump?: Record<string, unknown>;
 }
 
 export interface PublicNarrative {

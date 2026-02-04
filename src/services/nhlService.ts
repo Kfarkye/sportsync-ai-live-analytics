@@ -43,7 +43,7 @@ export const fetchNhlGameDetails = async (homeTeamName: string, awayTeamName: st
 
     if (!scheduleData || !scheduleData.games) return null;
 
-    const game = scheduleData.games.find((g: any) => {
+    const game = scheduleData.games.find((g: unknown) => {
       const h = normalize(g.homeTeam.name.default);
       const a = normalize(g.awayTeam.name.default);
       const targetH = normalize(homeTeamName);
@@ -63,7 +63,7 @@ export const fetchNhlGameDetails = async (homeTeamName: string, awayTeamName: st
 
     // Parse plays
     if (pbpData.plays) {
-        pbpData.plays.forEach((play: any) => {
+        pbpData.plays.forEach((play: unknown) => {
             const type = play.typeDescKey;
             if (['goal', 'shot-on-goal', 'missed-shot', 'blocked-shot'].includes(type)) {
                 if (play.details && typeof play.details.xCoord === 'number' && typeof play.details.yCoord === 'number') {

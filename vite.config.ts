@@ -19,6 +19,27 @@ export default defineConfig(({ mode }) => {
         { find: '@', replacement: path.resolve(cwd, 'src') },
         { find: '@shared', replacement: path.resolve(cwd, 'packages/shared/src') }
       ]
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-motion': ['framer-motion'],
+            'vendor-icons': ['lucide-react'],
+            'vendor-supabase': ['@supabase/supabase-js'],
+            'vendor-md': ['react-markdown', 'remark-gfm', 'rehype-sanitize'],
+            'vendor-charts': ['recharts'],
+            'vendor-query': [
+              '@tanstack/react-query',
+              '@tanstack/react-query-persist-client',
+              '@tanstack/query-sync-storage-persister'
+            ],
+            'vendor-state': ['zustand'],
+            'vendor-utils': ['clsx', 'tailwind-merge']
+          }
+        }
+      }
     }
   };
 });

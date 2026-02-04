@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 const ai = new GoogleGenAI({ apiKey: (process.env as any).API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY });
 
 class InstitutionalKernel {
-  private cache = new Map<string, { data: any; ts: number }>();
+  private cache = new Map<string, { data: unknown; ts: number }>();
   private readonly PERSIST_KEY = 'SHARPEDGE_KERNEL_CACHE_V3_PRO';
 
   constructor() {
@@ -93,7 +93,7 @@ class InstitutionalKernel {
       this.cache.set(cacheKey, { data: result, ts: Date.now() });
       this.hibernate();
       return result;
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(`[Kernel-Fault] Pipeline failure: ${e.message}`);
       return {
         summary: "Link Calibrating",

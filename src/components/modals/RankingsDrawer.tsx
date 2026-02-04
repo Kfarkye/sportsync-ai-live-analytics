@@ -88,7 +88,7 @@ const RankingsDrawer: React.FC<RankingsDrawerProps> = ({ isOpen, onClose, sport,
     }, [isOpen, sport, leagueId]);
 
     // Drag to dismiss
-    const onDragEnd = (event: any, info: any) => {
+    const onDragEnd = (event: unknown, info: unknown) => {
         if (info.offset.y > 100 || info.velocity.y > 500) {
             onClose();
         }

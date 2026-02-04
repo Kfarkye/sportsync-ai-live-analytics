@@ -19,7 +19,7 @@ interface Streak {
 
 // --- Logic: Streak Calculator ---
 
-const calculateStreaks = (games: any[], teamId: string, sport: Sport): Streak[] => {
+const calculateStreaks = (games: unknown[], teamId: string, sport: Sport): Streak[] => {
   if (!games || games.length === 0) return [];
 
   const streaks: Streak[] = [];

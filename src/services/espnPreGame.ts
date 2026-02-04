@@ -72,7 +72,7 @@ export interface TeamStats {
     record: string;
     streak: string;
     stats: { label: string; value: string; rank?: number }[];
-    last5?: any[];
+    last5?: unknown[];
 }
 
 export interface RosterPlayer {
@@ -125,7 +125,7 @@ export interface PreGameData {
         home: RosterPlayer[];
         away: RosterPlayer[];
     };
-    leaders?: any[];
+    leaders?: unknown[];
     prediction?: {
         homeWinPct: number;
         awayWinPct: number;
@@ -144,7 +144,7 @@ export interface PreGameData {
         name: string;
         position: string;
     }[];
-    refIntel?: any;
+    refIntel?: unknown;
     marketIntel?: {
         spread?: { home: number; away: number };
         total?: { over: number; under: number };
@@ -170,7 +170,7 @@ export interface PreGameData {
     };
 }
 
-const safeGet = (obj: any, path: string, def: any = undefined) => {
+const safeGet = (obj: unknown, path: string, def: unknown = undefined) => {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj) || def;
 };
 
@@ -234,20 +234,20 @@ const fetchTeamRoster = async (teamId: string, sport: Sport, leagueId: string): 
         if (!res.ok) return [];
         const data = await res.json();
 
-        let athletes: any[] = [];
+        let athletes: unknown[] = [];
 
         // Handle different roster structures
         if (data.athletes) {
             athletes = data.athletes;
         } else if (data.groups) {
             // NFL often nests players in 'groups' (Offense, Defense, Special Teams)
-            data.groups.forEach((g: any) => {
+            data.groups.forEach((g: unknown) => {
                 if (g.athletes) athletes = [...athletes, ...g.athletes];
             });
         }
 
         // Take top players (usually starters are listed first)
-        return safeSlice(athletes, 0, 10).map((athlete: any) => {
+        return safeSlice(athletes, 0, 10).map((athlete: unknown) => {
             const pos = athlete.position?.abbreviation || '';
             return {
                 id: athlete.id,
@@ -390,15 +390,15 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
             };
         }
 
-        const officials = (gameInfo.officials || []).map((off: any) => ({
+        const officials = (gameInfo.officials || []).map((off: unknown) => ({
             name: off.displayName,
             position: off.position?.name || off.position?.abbreviation || 'Official'
         }));
 
         // 2. Teams
         const competitors = safeGet(data, 'header.competitions.0.competitors', []);
-        const homeComp = competitors.find((c: any) => c.homeAway === 'home');
-        const awayComp = competitors.find((c: any) => c.homeAway === 'away');
+        const homeComp = competitors.find((c: unknown) => c.homeAway === 'home');
+        const awayComp = competitors.find((c: unknown) => c.homeAway === 'away');
 
         // Fetch team metrics from Supabase (Pace, ORtg, DRtg)
         // Tennis-aware resolution: athlete or team
@@ -412,21 +412,21 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
             dbService.getTeamMetrics(awayTeamName)
         ]);
 
-        const formatStats = (teamId: string, last5: any[]): TeamStats => {
+        const formatStats = (teamId: string, last5: unknown[]): TeamStats => {
             // Defensive lookup for Tennis where .team might be missing
-            const tm = data.boxscore?.teams?.find((t: any) => (t.team?.id || t.id) === teamId);
-            const comp = competitors.find((c: any) => c.id === teamId);
+            const tm = data.boxscore?.teams?.find((t: unknown) => (t.team?.id || t.id) === teamId);
+            const comp = competitors.find((c: unknown) => c.id === teamId);
 
             const rawRecords = comp?.records || comp?.record;
             let record = '0-0';
             if (Array.isArray(rawRecords) && rawRecords.length > 0) {
-                const totalRec = rawRecords.find((r: any) => r.type === 'total') || rawRecords[0];
+                const totalRec = rawRecords.find((r: unknown) => r.type === 'total') || rawRecords[0];
                 if (totalRec?.summary) record = totalRec.summary;
             }
 
             const statsList: { label: string; value: string }[] = [];
             if (tm?.statistics) {
-                tm.statistics.forEach((s: any) => {
+                tm.statistics.forEach((s: unknown) => {
                     statsList.push({ label: s.label || s.name, value: String(s.displayValue || s.value || '-') });
                 });
             }
@@ -446,10 +446,10 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
 
         // 3. Injuries
         const parseInjuries = (teamId: string): InjuryReport[] => {
-            const teamInjuries = data.injuries?.find((t: any) => (t.team?.id || t.athlete?.id || t.id) === teamId);
+            const teamInjuries = data.injuries?.find((t: unknown) => (t.team?.id || t.athlete?.id || t.id) === teamId);
             if (!teamInjuries?.injuries) return [];
 
-            const mapped = teamInjuries.injuries.map((inj: any) => ({
+            const mapped = teamInjuries.injuries.map((inj: unknown) => ({
                 id: inj.athlete.id,
                 name: inj.athlete.displayName,
                 player: inj.athlete.displayName, // v7 Alias
@@ -469,13 +469,13 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
 
         // 4. Rosters (Primary: Summary, Fallback: Roster Endpoint)
         const parseRosterFromSummary = (teamId: string): RosterPlayer[] => {
-            const leaders = data.leaders?.find((t: any) => t.team.id === teamId)?.leaders;
-            const boxPlayers = data.boxscore?.teams?.find((t: any) => t.team.id === teamId)?.players;
+            const leaders = data.leaders?.find((t: unknown) => t.team.id === teamId)?.leaders;
+            const boxPlayers = data.boxscore?.teams?.find((t: unknown) => t.team.id === teamId)?.players;
 
             const players: RosterPlayer[] = [];
             const seen = new Set<string>();
 
-            const pushPlayer = (athlete: any, statVal: string, statLabel: string) => {
+            const pushPlayer = (athlete: unknown, statVal: string, statLabel: string) => {
                 if (!athlete || seen.has(athlete.id)) return;
                 seen.add(athlete.id);
 
@@ -494,12 +494,12 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
             };
 
             if (leaders) {
-                leaders.forEach((l: any) => pushPlayer(l.athlete, l.displayValue, 'Avg'));
+                leaders.forEach((l: unknown) => pushPlayer(l.athlete, l.displayValue, 'Avg'));
             }
 
             if (players.length < 5 && boxPlayers) {
-                boxPlayers.forEach((grp: any) => {
-                    grp.athletes?.forEach((a: any) => {
+                boxPlayers.forEach((grp: unknown) => {
+                    grp.athletes?.forEach((a: unknown) => {
                         if (players.length >= 8) return;
                         const val = a.stats?.[0] || '0';
                         pushPlayer(a.athlete, val, 'Avg');
@@ -538,9 +538,9 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
 
         // 6. Last Meetings
         const rawMeetings = safeGet(data, 'header.competitions.0.previousMeetings', []);
-        const meetingsMapped = rawMeetings.map((m: any) => {
-            const mHome = m.teams?.find((t: any) => t.homeAway === 'home') || m.homeTeam;
-            const mAway = m.teams?.find((t: any) => t.homeAway === 'away') || m.awayTeam;
+        const meetingsMapped = rawMeetings.map((m: unknown) => {
+            const mHome = m.teams?.find((t: unknown) => t.homeAway === 'home') || m.homeTeam;
+            const mAway = m.teams?.find((t: unknown) => t.homeAway === 'away') || m.awayTeam;
 
             const homeScore = parseInt(mHome?.score?.displayValue || mHome?.score || '0');
             const awayScore = parseInt(mAway?.score?.displayValue || mAway?.score || '0');
@@ -563,7 +563,7 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
 
         // 7. Market Intelligence (Consensus Splits) - Find main market, skip 1H/1P
         const pickcenterArr = data.pickcenter || [];
-        const mainPick = pickcenterArr.find((p: any) =>
+        const mainPick = pickcenterArr.find((p: unknown) =>
             p.provider?.name?.toLowerCase().includes('consensus') ||
             (sport === Sport.HOCKEY && (p.overUnder || 0) > 4) ||
             (sport === Sport.NBA && (p.overUnder || 0) > 150) ||
@@ -588,8 +588,8 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
         } : undefined;
 
         // 8. Coaches
-        const homeCoachObj = data.boxscore?.teams?.find((t: any) => t.team.id === homeComp?.id)?.coaches?.[0];
-        const awayCoachObj = data.boxscore?.teams?.find((t: any) => t.team.id === awayComp?.id)?.coaches?.[0];
+        const homeCoachObj = data.boxscore?.teams?.find((t: unknown) => t.team.id === homeComp?.id)?.coaches?.[0];
+        const awayCoachObj = data.boxscore?.teams?.find((t: unknown) => t.team.id === awayComp?.id)?.coaches?.[0];
 
         const coaches = {
             home: homeCoachObj ? {
@@ -608,16 +608,16 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
         const currentSpread = parseFloat(currentSpreadDetails);
 
         // Helper to find specific stats in the ESPN response
-        const findStatValue = (teamBox: any, labels: string[]) => {
+        const findStatValue = (teamBox: unknown, labels: string[]) => {
             if (!teamBox?.statistics) return 0;
-            const stat = teamBox.statistics.find((s: any) =>
+            const stat = teamBox.statistics.find((s: unknown) =>
                 labels.some(l => s.label?.toLowerCase() === l.toLowerCase() || s.name?.toLowerCase() === l.toLowerCase())
             );
             return parseFloat(stat?.displayValue || stat?.value || '0');
         };
 
-        const homeBox = data.boxscore?.teams?.find((t: any) => t.team.id === homeComp?.id);
-        const awayBox = data.boxscore?.teams?.find((t: any) => t.team.id === awayComp?.id);
+        const homeBox = data.boxscore?.teams?.find((t: unknown) => t.team.id === homeComp?.id);
+        const awayBox = data.boxscore?.teams?.find((t: unknown) => t.team.id === awayComp?.id);
 
         // EXTRACTION: Baseline Physics
         // For NBA/NCAA: "Avg Points", "Pace"

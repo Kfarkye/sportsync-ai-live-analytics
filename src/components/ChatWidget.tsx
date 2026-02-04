@@ -382,7 +382,7 @@ const InputDeck: FC<{ value: string; onChange: (v: string) => void; onSend: () =
 // ═══════════════════════════════════════════════════════════════════════════
 
 const edgeService = {
-  async chat(messages: Array<{ role: string; content: any }>, context: any, onChunk: (c: StreamChunk | { done: true }) => void, signal?: AbortSignal): Promise<void> {
+  async chat(messages: Array<{ role: string; content: unknown }>, context: unknown, onChunk: (c: StreamChunk | { done: true }) => void, signal?: AbortSignal): Promise<void> {
     const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages, ...context }), signal });
     if (!res.ok) throw new Error(`Stream failed: ${res.status}`);
     const reader = res.body?.getReader(); if (!reader) throw new Error("No body");
@@ -437,7 +437,7 @@ const InnerChatWidget: FC<ChatWidgetProps & { isMinimized?: boolean; setIsMinimi
         if (chunk.type === "grounding") { groundingData = chunk.metadata || null; setMessages((p) => p.map((m) => (m.id === aiMsgId ? { ...m, groundingMetadata: groundingData || undefined } : m))); }
         if (chunk.done) setMessages((p) => p.map((m) => (m.id === aiMsgId ? { ...m, isStreaming: false } : m)));
       }, abortRef.current.signal);
-    } catch (e: any) { if (!mountedRef.current) return; if (e?.name === "AbortError") { setMessages((p) => p.map((m) => (m.id === aiMsgId ? { ...m, isStreaming: false } : m))); return; } setMessages((p) => p.map((m) => (m.id === aiMsgId ? { ...m, content: "Connection interrupted. Please try again.", isStreaming: false } : m))); }
+    } catch (e: unknown) { if (!mountedRef.current) return; if (e?.name === "AbortError") { setMessages((p) => p.map((m) => (m.id === aiMsgId ? { ...m, isStreaming: false } : m))); return; } setMessages((p) => p.map((m) => (m.id === aiMsgId ? { ...m, content: "Connection interrupted. Please try again.", isStreaming: false } : m))); }
     finally { if (mountedRef.current) { setIsProcessing(false); abortRef.current = null; } }
   }, [input, attachments, isProcessing, session_id, conversation_id, currentMatch]);
 

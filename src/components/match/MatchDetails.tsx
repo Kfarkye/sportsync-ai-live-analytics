@@ -302,7 +302,7 @@ const Gridiron = memo(({ children }: { children?: ReactNode }) => (
   </svg>
 ));
 
-const CinematicGameTracker = memo(({ match, liveState }: { match: Match; liveState: any }) => {
+const CinematicGameTracker = memo(({ match, liveState }: { match: Match; liveState: unknown }) => {
   const sport = match.sport?.toUpperCase() || 'UNKNOWN';
   const ballPos = useMemo(() =>
     parseCoordinate(liveState?.lastPlay?.coordinate, liveState?.lastPlay?.text || '', sport),
@@ -386,7 +386,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: Match; liveSta
 // SECTION 6: UI COMPONENTS (Edge, Sparkline, Skeletons)
 // ============================================================================
 
-const EdgeStateBadge = memo(({ edgeState }: { edgeState: any }) => {
+const EdgeStateBadge = memo(({ edgeState }: { edgeState: unknown }) => {
   if (!edgeState || edgeState.state === 'NEUTRAL') return null;
   const isPlay = edgeState.state === 'PLAY';
   const bgClass = isPlay ? 'bg-emerald-500/15 border-emerald-500/30' : 'bg-amber-500/15 border-amber-500/30';
@@ -413,7 +413,7 @@ const EdgeStateBadge = memo(({ edgeState }: { edgeState: any }) => {
   );
 });
 
-const ForecastSparkline = memo(({ points }: { points: any[] }) => {
+const ForecastSparkline = memo(({ points }: { points: unknown[] }) => {
   if (points.length < 2) return null;
   const values = points.map(p => p.fairTotal);
   const min = Math.min(...values);
@@ -471,7 +471,7 @@ const StatsGridSkeleton = memo(() => (
 // SECTION 7: DATA LOGIC (FAULT TOLERANT)
 // ============================================================================
 
-function stableSerialize(value: any, seen = new WeakSet<object>()): string {
+function stableSerialize(value: unknown, seen = new WeakSet<object>()): string {
   if (value === null) return 'null';
   const t = typeof value;
   if (t === 'string') return JSON.stringify(value);
@@ -489,7 +489,7 @@ function stableSerialize(value: any, seen = new WeakSet<object>()): string {
   }
   return '"__unsupported__"';
 }
-function hashStable(value: any): string { return fnv1a32(stableSerialize(value)).toString(16); }
+function hashStable(value: unknown): string { return fnv1a32(stableSerialize(value)).toString(16); }
 
 function computeMatchSignature(m: Match): string {
   return [
@@ -500,7 +500,7 @@ function computeMatchSignature(m: Match): string {
 }
 
 // FAIL-SAFE FETCHER: Swallows errors for non-critical data.
-async function failSafe<T>(p: PromiseLike<{ data: T; error: any }> | any): Promise<T | null> {
+async function failSafe<T>(p: PromiseLike<{ data: T; error: unknown }> | any): Promise<T | null> {
   try {
     const { data, error } = await p;
     if (error) {
@@ -514,14 +514,14 @@ async function failSafe<T>(p: PromiseLike<{ data: T; error: any }> | any): Promi
 }
 
 // CRITICAL FETCHER: Strict, throws on error.
-async function sbData<T>(p: PromiseLike<{ data: T; error: any }> | any): Promise<T> {
+async function sbData<T>(p: PromiseLike<{ data: T; error: unknown }> | any): Promise<T> {
   const { data, error } = await p;
   if (error) throw error;
   return data;
 }
 
 // HELPER: Strict Timestamp Parsing
-function parseTsMs(v: any, fallbackMs: number): number {
+function parseTsMs(v: unknown, fallbackMs: number): number {
   if (!v) return fallbackMs;
   const t = new Date(v).getTime();
   return Number.isFinite(t) ? t : fallbackMs;
@@ -551,7 +551,7 @@ function useMatchPolling(initialMatch: Match) {
   const nhlLastKeyRef = useRef<string>('');
   const isSocketActiveRef = useRef(false);
 
-  const processLiveState = useCallback((live: any) => {
+  const processLiveState = useCallback((live: unknown) => {
     if (!live) { setEdgeState(null); return; }
     setLiveState(live);
 
@@ -661,7 +661,7 @@ function useMatchPolling(initialMatch: Match) {
     nhlLastKeyRef.current = key;
     try {
       const d = await fetchNhlGameDetails(m.homeTeam.name, m.awayTeam.name, new Date(m.startTime));
-      if (d?.shots) setNhlShots(d.shots.map((s: any) => ({ ...s, team: s.teamId, time: s.timeInPeriod })));
+      if (d?.shots) setNhlShots(d.shots.map((s: unknown) => ({ ...s, team: s.teamId, time: s.timeInPeriod })));
     } catch { }
   }, []);
 
@@ -725,7 +725,7 @@ function useMatchPolling(initialMatch: Match) {
       }
 
       if (props?.length) {
-        nextMatch.dbProps = props.map((p: any) => ({
+        nextMatch.dbProps = props.map((p: unknown) => ({
           playerName: p.player_name, betType: p.bet_type, lineValue: Number(p.line_value),
           oddsAmerican: Number(p.odds_american), marketLabel: p.market_label, headshotUrl: p.headshot_url
         })) as any;
@@ -828,7 +828,7 @@ const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'con
   return (<div className={cn(base, "bg-red-500/10 text-red-400")}> <span>OFFLINE</span> </div>);
 });
 
-const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: any) => {
+const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: unknown) => {
   const x = useMotionValue(0);
   return (
     <motion.div style={{ x }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={(_, i) => { if (i.offset.x > 100) onSwipe(-1); else if (i.offset.x < -100) onSwipe(1); }} className="pb-2 px-2 cursor-grab active:cursor-grabbing">

@@ -1,4 +1,11 @@
-import type { Match, StatItem } from '../types';
+import type { Linescore, Match, StatItem, TeamStatLine } from '../types';
+
+type RawTeamStat = TeamStatLine;
+
+type RawTeamStatContainer = {
+  statistics?: RawTeamStat[];
+  stats?: RawTeamStat[];
+};
 
 const normalizeLabel = (value?: string): string =>
   (value || '').toLowerCase().replace(/[^a-z0-9%]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -84,7 +91,7 @@ const detectSportKey = (match: Match): string => {
 export const hasLineScoreData = (match: Match): boolean => {
   const home = match.homeTeam?.linescores || [];
   const away = match.awayTeam?.linescores || [];
-  const hasValue = (ls: any) => {
+  const hasValue = (ls: Linescore | null | undefined) => {
     if (!ls) return false;
     if (typeof ls.value === 'number') return Number.isFinite(ls.value);
     if (typeof ls.value === 'string') return ls.value.trim().length > 0;
@@ -93,7 +100,10 @@ export const hasLineScoreData = (match: Match): boolean => {
   return home.some(hasValue) || away.some(hasValue);
 };
 
-export const buildStatsFromTeamStats = (homeStats: any, awayStats: any): StatItem[] => {
+export const buildStatsFromTeamStats = (
+  homeStats: RawTeamStatContainer | null | undefined,
+  awayStats: RawTeamStatContainer | null | undefined
+): StatItem[] => {
   const homeArr = homeStats?.statistics || homeStats?.stats || [];
   const awayArr = awayStats?.statistics || awayStats?.stats || [];
   if (!Array.isArray(homeArr) || !Array.isArray(awayArr) || homeArr.length === 0) return [];
@@ -102,9 +112,9 @@ export const buildStatsFromTeamStats = (homeStats: any, awayStats: any): StatIte
     (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
   return homeArr
-    .map((h: any) => {
+    .map((h) => {
       const key = normalizeKey(h.name || h.label);
-      const a = awayArr.find((s: any) => normalizeKey(s.name || s.label) === key);
+      const a = awayArr.find((s) => normalizeKey(s.name || s.label) === key);
       if (!a) return null;
       return {
         label: String(h.label || h.name || '').toUpperCase(),

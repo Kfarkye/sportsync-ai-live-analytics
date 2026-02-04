@@ -378,24 +378,24 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
         const possId = match.situation?.possessionId
             ? String(match.situation.possessionId)
             : null;
-        const hasAnyOdds = (o: any) =>
+        const hasAnyOdds = (o: unknown) =>
             !!o &&
             Object.values(o).some((v) => v !== null && v !== undefined && `${v}`.trim() !== '');
 
-        const parseNumeric = (val: any): number | null => {
+        const parseNumeric = (val: unknown): number | null => {
             if (val === null || val === undefined || val === '') return null;
             const n = Number(String(val).replace(/[^\d.\-]/g, ''));
             return Number.isFinite(n) ? n : null;
         };
 
-        const extractSpread = (o: any): number | null => {
+        const extractSpread = (o: unknown): number | null => {
             if (!o) return null;
             if (o.homeSpread !== undefined) return parseNumeric(o.homeSpread);
             if (o.spread !== undefined) return parseNumeric(o.spread);
             return null;
         };
 
-        const extractTotal = (o: any): number | null => {
+        const extractTotal = (o: unknown): number | null => {
             if (!o) return null;
             if (o.total !== undefined) return parseNumeric(o.total);
             if (o.overUnder !== undefined) return parseNumeric(o.overUnder);
@@ -403,7 +403,7 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
             return null;
         };
 
-        const extractMoneyline = (o: any) => {
+        const extractMoneyline = (o: unknown) => {
             if (!o) return { home: '-', away: '-' };
             const home =
                 o.moneylineHome ?? o.homeWin ?? o.homeMoneyline ?? o.home_ml ?? o.home_ml_price;
@@ -415,7 +415,7 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
             };
         };
 
-        const sameLine = (a: any, b: any) => {
+        const sameLine = (a: unknown, b: unknown) => {
             if (!a || !b) return false;
             return extractSpread(a) === extractSpread(b) && extractTotal(a) === extractTotal(b);
         };

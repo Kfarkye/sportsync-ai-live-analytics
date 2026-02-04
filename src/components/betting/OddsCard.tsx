@@ -14,7 +14,7 @@ import { useValueFlash, institutionalFlashVariants } from '../../hooks/useValueF
 /* -------------------------------------------------------------------------- */
 
 const useStableOdds = (match: Match) => {
-    const cache = useRef<{ spread: any; total: any; ml: any; provider: string; ts: number } | null>(null);
+    const cache = useRef<{ spread: unknown; total: unknown; ml: unknown; provider: string; ts: number } | null>(null);
 
     const currentSpread = useMemo(() => analyzeSpread(match), [match]);
     const currentTotal = useMemo(() => analyzeTotal(match), [match]);
@@ -32,7 +32,7 @@ const useStableOdds = (match: Match) => {
             return cache.current;
         }
 
-        const simplified = (d: any) => JSON.stringify({
+        const simplified = (d: unknown) => JSON.stringify({
             s: d.spread.display,
             t: d.total.display,
             m: d.ml.home, ma: d.ml.away

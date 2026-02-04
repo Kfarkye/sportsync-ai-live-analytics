@@ -15,6 +15,20 @@ interface RecentFormProps {
   awayColor?: string;
 }
 
+interface RecentOpponent {
+  score?: string | number;
+  logo?: string;
+  shortName?: string;
+  name?: string;
+}
+
+interface RecentGame {
+  result?: 'W' | 'L' | 'D' | string;
+  teamScore?: string | number;
+  date?: string;
+  opponent?: RecentOpponent;
+}
+
 /**
  * RecentForm v3.0 — Jony Ive Redesign
  * 
@@ -27,7 +41,7 @@ interface RecentFormProps {
  */
 
 // Streak Timeline: Proportional dots, no shadows
-const StreakTimeline = ({ games, teamColor }: { games: any[]; teamColor?: string }) => {
+const StreakTimeline = ({ games, teamColor }: { games: RecentGame[]; teamColor?: string }) => {
   return (
     <div className="flex items-center gap-1">
       {games.map((g, i) => {
@@ -53,7 +67,7 @@ const StreakTimeline = ({ games, teamColor }: { games: any[]; teamColor?: string
 };
 
 // Minimal Game Row: Pure restraint
-const GameRow = ({ game, align = 'left', teamColor }: { game: any; align?: 'left' | 'right'; teamColor?: string }) => {
+const GameRow = ({ game, align = 'left', teamColor }: { game: RecentGame; align?: 'left' | 'right'; teamColor?: string }) => {
   const result = (game.result as 'W' | 'L' | 'D') || 'D';
   const teamScore = parseInt(game.teamScore) || 0;
   const oppScore = parseInt(game.opponent?.score) || 0;
@@ -113,8 +127,8 @@ const GameRow = ({ game, align = 'left', teamColor }: { game: any; align?: 'left
 };
 
 const RecentForm: React.FC<RecentFormProps> = ({ homeTeam, awayTeam, homeName, awayName, homeColor, awayColor }) => {
-  const awayGames = awayTeam?.last5 || [];
-  const homeGames = homeTeam?.last5 || [];
+  const awayGames = (awayTeam?.last5 || []) as RecentGame[];
+  const homeGames = (homeTeam?.last5 || []) as RecentGame[];
 
   if (!homeTeam && !awayTeam) return null;
 
@@ -134,7 +148,7 @@ const RecentForm: React.FC<RecentFormProps> = ({ homeTeam, awayTeam, homeName, a
             <StreakTimeline games={awayGames} teamColor={awayColor} />
           </div>
           <div className="space-y-1">
-            {awayGames.map((g: any, i: number) => (
+            {awayGames.map((g, i) => (
               <GameRow key={i} game={g} align="left" teamColor={awayColor} />
             ))}
           </div>
@@ -152,7 +166,7 @@ const RecentForm: React.FC<RecentFormProps> = ({ homeTeam, awayTeam, homeName, a
             <StreakTimeline games={homeGames} teamColor={homeColor} />
           </div>
           <div className="space-y-1">
-            {homeGames.map((g: any, i: number) => (
+            {homeGames.map((g, i) => (
               <GameRow key={i} game={g} align="right" teamColor={homeColor} />
             ))}
           </div>

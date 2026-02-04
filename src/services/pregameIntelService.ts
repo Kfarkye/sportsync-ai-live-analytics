@@ -75,12 +75,19 @@ const CACHE_CONFIG = {
 
 type Subscriber = (data: PregameIntelResponse) => void;
 
+type CacheEntry = {
+    data: PregameIntelResponse;
+    timestamp: number;
+    freshUntil: number;
+    staleUntil: number;
+};
+
 // ===================================================================
 // 🛡️ Optimized Cache Manager (Non-Blocking + Observable)
 // ===================================================================
 
 class IntelCacheManager {
-    private cache = new Map<string, any>();
+    private cache = new Map<string, CacheEntry>();
     private inflight = new Map<string, Promise<PregameIntelResponse | null>>();
     private subscribers = new Map<string, Set<Subscriber>>();
     private hydrationPromise: Promise<void>;
@@ -97,11 +104,13 @@ class IntelCacheManager {
         try {
             const raw = localStorage.getItem(CACHE_CONFIG.STORAGE_KEY);
             if (raw) {
-                const data = JSON.parse(raw);
+                const data = JSON.parse(raw) as Record<string, CacheEntry>;
                 const now = Date.now();
-                Object.entries(data).forEach(([key, entry]: [string, any]) => {
+                Object.entries(data).forEach(([key, entry]) => {
                     // LRU/TTL Pruning on load
-                    if (entry.staleUntil > now) this.cache.set(key, entry);
+                    if (entry && typeof entry.staleUntil === 'number' && entry.staleUntil > now) {
+                        this.cache.set(key, entry);
+                    }
                 });
             }
         } catch (e) {
@@ -364,6 +373,10 @@ export const pregameIntelService = {
     }
 };
 
-function mapDbResponse(row: any, id: string): PregameIntelResponse {
-    return { ...row, match_id: row.match_id || id, freshness: row.freshness || 'RECENT' };
+function mapDbResponse(row: Partial<PregameIntelResponse> & Record<string, unknown>, id: string): PregameIntelResponse {
+    return {
+        ...row,
+        match_id: row.match_id || id,
+        freshness: row.freshness || 'RECENT'
+    } as PregameIntelResponse;
 }

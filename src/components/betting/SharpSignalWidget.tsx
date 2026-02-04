@@ -17,7 +17,7 @@ const GaugeBar = ({
     label: string,
     pct: number,
     color: string,
-    icon: any
+    icon: unknown
 }) => {
     return (
         <div className="flex flex-col gap-1.5">

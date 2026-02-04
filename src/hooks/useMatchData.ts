@@ -17,7 +17,7 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 const toLocalDateKey = (d: Date) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
-const isLiveStatus = (s: any) =>
+const isLiveStatus = (s: unknown) =>
   s === MatchStatus.LIVE ||
   s === MatchStatus.HALFTIME ||
   s === "LIVE" ||
@@ -143,7 +143,7 @@ export const useMatchData = (leagues: League[], date: Date): UseMatchDataResult 
         if (!document.hidden) fetchWithFallback("refresh");
         else scheduleNextPoll(pollMs, () => fetchWithFallback("refresh")); // self-heal
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       // 2) Fallback to client-side ESPN scores only
       try {
         const fallback = await fetchAllMatches(leagues, date);

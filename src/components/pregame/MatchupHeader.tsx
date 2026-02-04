@@ -15,7 +15,7 @@ interface MatchupHeaderProps {
     broadcast?: string;
     startTime: string | Date;
     sport?: Sport;
-    currentOdds?: any;
+    currentOdds?: unknown;
 }
 
 /**

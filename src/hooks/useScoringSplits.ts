@@ -49,7 +49,7 @@ export const useScoringSplits = ({
           setData(responseData);
         }
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch scoring splits:', err);
         if (isMounted) {
           setError(err.message || 'Failed to load real-time splits.');

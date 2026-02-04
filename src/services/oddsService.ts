@@ -23,13 +23,13 @@ const CONFIG = {
 
 // --- CACHE STATE ---
 const MEMORY_CACHE = {
-  feeds: null as { data: any[], timestamp: number } | null,
+  feeds: null as { data: unknown[], timestamp: number } | null,
   processed: new Map<string, { data: Match, timestamp: number }>()
 };
 
 // --- LOGGING ---
 const Logger = {
-  emit: (level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR', msg: string, meta?: any, contextKey?: string) => {
+  emit: (level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR', msg: string, meta?: unknown, contextKey?: string) => {
     if (!CONFIG.ENABLE_LOGGING) return;
     const entry = { timestamp: new Date().toISOString(), level, context: 'OddsService', message: msg, ...(contextKey ? { matchKey: contextKey } : {}), ...meta };
     if (typeof window !== 'undefined') {
@@ -39,10 +39,10 @@ const Logger = {
       console.log(JSON.stringify(entry));
     }
   },
-  debug: (msg: string, ctxKey?: string, meta?: any) => Logger.emit('DEBUG', msg, meta, ctxKey),
-  info: (msg: string, ctxKey?: string, meta?: any) => Logger.emit('INFO', msg, meta, ctxKey),
-  warn: (msg: string, ctxKey?: string, meta?: any) => Logger.emit('WARN', msg, meta, ctxKey),
-  error: (msg: string, err?: any, ctxKey?: string) => Logger.emit('ERROR', msg, { error: err }, ctxKey),
+  debug: (msg: string, ctxKey?: string, meta?: unknown) => Logger.emit('DEBUG', msg, meta, ctxKey),
+  info: (msg: string, ctxKey?: string, meta?: unknown) => Logger.emit('INFO', msg, meta, ctxKey),
+  warn: (msg: string, ctxKey?: string, meta?: unknown) => Logger.emit('WARN', msg, meta, ctxKey),
+  error: (msg: string, err?: unknown, ctxKey?: string) => Logger.emit('ERROR', msg, { error: err }, ctxKey),
   timer: (label: string) => {
     const start = performance.now();
     return () => {
@@ -69,7 +69,7 @@ interface MarketFeed {
 interface CachedFeed extends MarketFeed {
   _homeNorm: string; _awayNorm: string; _homeMascot: string; _awayMascot: string;
   _matchKey: string; _timestamp: number; _books: Bookmaker[];
-  _bestSpread?: any; _bestH2h?: any; _bestTotal?: any; _isLive?: boolean;
+  _bestSpread?: unknown; _bestH2h?: unknown; _bestTotal?: unknown; _isLive?: boolean;
 }
 
 // --- NORMALIZATION HELPERS ---

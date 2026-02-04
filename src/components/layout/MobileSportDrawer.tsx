@@ -149,7 +149,7 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
     Object.values(liveCounts).reduce((a, b) => a + b, 0),
     [liveCounts]);
 
-  const onDragEnd = (_: any, info: any) => {
+  const onDragEnd = (_: unknown, info: unknown) => {
     if (info.offset.y > 100 || info.velocity.y > 500) {
       onClose();
     }

@@ -313,7 +313,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                 {/* Footer Component: Grounded Sources */}
                 {ai_analysis?.sources && ai_analysis.sources.length > 0 && (
                     <div className="flex flex-wrap gap-3 pt-6 relative z-10">
-                        {ai_analysis.sources.slice(0, 3).map((s: any, i: number) => (
+                        {ai_analysis.sources.slice(0, 3).map((s: unknown, i: number) => (
                             <a
                                 key={i}
                                 href={s.uri || s.url}

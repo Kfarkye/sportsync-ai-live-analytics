@@ -21,7 +21,7 @@ const EASING_APPLE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const TRANSITION_DURATION = 1.6;
 const EASING_SPRING_CTA = { type: 'spring', stiffness: 400, damping: 17 } as const;
 
-const entranceVariants: any = {
+const entranceVariants: unknown = {
   hidden: { opacity: 0, y: 25 },
   visible: {
     opacity: 1,

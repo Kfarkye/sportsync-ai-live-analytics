@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
+    "lint:types": "grep -RIn ': any\\b' src --include='*.ts' --include='*.tsx' | wc -l",
     "seed:fatigue": "export $(grep SUPABASE_SERVICE_ROLE_KEY .env | xargs) && npx tsx scripts/seed_master_schedule.ts",
     "seed:roster": "export $(grep SUPABASE_SERVICE_ROLE_KEY .env | xargs) && npx tsx scripts/seed_roster.ts",
     "seed:injuries": "export $(grep SUPABASE_SERVICE_ROLE_KEY .env | xargs) && npx tsx scripts/seed_injury_report.ts",
@@ -36,11 +38,14 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.41.0",
     "@types/node": "^22.14.0",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.23",
+    "eslint": "^9.36.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.8.2",

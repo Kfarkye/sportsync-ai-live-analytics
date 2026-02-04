@@ -7,7 +7,7 @@ interface MatchupErrorProps {
     className?: string;
     title?: string;
     message?: string;
-    error?: any;
+    error?: unknown;
 }
 
 export const MatchupError: React.FC<MatchupErrorProps> = ({

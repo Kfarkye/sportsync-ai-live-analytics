@@ -3,12 +3,12 @@ import { supabase } from '../lib/supabase';
 
 export interface ContextData {
   oddsHistory?: {
-    open: any;
-    current: any;
+    open: unknown;
+    current: unknown;
   };
   schedule?: {
-    home: any;
-    away: any;
+    home: unknown;
+    away: unknown;
   };
 }
 

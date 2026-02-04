@@ -175,7 +175,7 @@ export const GoalieMatchup: React.FC<GoalieMatchupProps> = ({ matchId, homeTeam,
         .maybeSingle();
 
       if (dbData) {
-        const parseStats = (raw: any) => {
+        const parseStats = (raw: unknown) => {
           let s = raw;
           if (typeof raw === 'string') {
             try { s = JSON.parse(raw); } catch (e) { s = {}; }

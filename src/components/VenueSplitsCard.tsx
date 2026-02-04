@@ -24,7 +24,7 @@ const MetricRow = ({
   value: number,
   max: number,
   barColor: string,
-  icon: any,
+  icon: unknown,
   delay?: number
 }) => {
   const widthPct = max > 0 ? Math.max((value / max) * 100, 2) : 0; // Min 2% width if val > 0

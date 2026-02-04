@@ -12,15 +12,15 @@ export interface LiveGameState {
     clock: string;
     home_score: number;
     away_score: number;
-    situation: any;
-    last_play: any;
-    current_drive: any;
-    deterministic_signals: any;
-    ai_analysis: any;
-    opening_odds?: any;
+    situation: unknown;
+    last_play: unknown;
+    current_drive: unknown;
+    deterministic_signals: unknown;
+    ai_analysis: unknown;
+    opening_odds?: unknown;
     odds?: {
-        current?: any;
-        opening?: any;
+        current?: unknown;
+        opening?: unknown;
     };
     updated_at: string;
 }
@@ -58,7 +58,7 @@ export function useLiveGameState(matchId: string | undefined, leagueId?: string)
                 } else {
                     setState(data);
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error('Network or Parse Error:', err);
                 setError(err.message);
             } finally {

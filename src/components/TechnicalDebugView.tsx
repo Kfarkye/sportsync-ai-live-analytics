@@ -9,15 +9,15 @@ import { getCanonicalMatchId } from '../utils/matchRegistry';
 
 
 interface DebugState {
-    matchInDb: any;
-    canonicalGame: any;
-    marketFeed: any;
-    liveGameState: any;
+    matchInDb: unknown;
+    canonicalGame: unknown;
+    marketFeed: unknown;
+    liveGameState: unknown;
     lastIngestStatus: 'idle' | 'loading' | 'success' | 'error';
     lastIngestError?: string;
-    lastIngestDebug?: any;
-    pregameIntel?: any;
-    activeConversation?: any;
+    lastIngestDebug?: unknown;
+    pregameIntel?: unknown;
+    activeConversation?: unknown;
 }
 
 export const TechnicalDebugView = ({ match }: { match: Match }) => {
@@ -106,7 +106,7 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                 }));
                 refreshDebugData();
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             setDebugData(prev => ({ ...prev, lastIngestStatus: 'error', lastIngestError: e.message }));
         }
     };

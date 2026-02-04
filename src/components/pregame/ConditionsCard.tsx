@@ -44,7 +44,7 @@ const WeatherIcon = ({ condition }: { condition: string }) => {
     return <Sun size={18} className="text-zinc-500" />;
 };
 
-const HUDMetric = ({ label, value, subValue, icon: Icon, color = "text-zinc-500" }: { label: string, value: string, subValue?: string, icon: any, color?: string }) => (
+const HUDMetric = ({ label, value, subValue, icon: Icon, color = "text-zinc-500" }: { label: string, value: string, subValue?: string, icon: unknown, color?: string }) => (
     <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-colors group/metric">
         <div className="flex items-center gap-2">
             <Icon size={12} className={color} />

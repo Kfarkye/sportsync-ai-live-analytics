@@ -380,7 +380,7 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
         const rostersData = (match as any).rosters;
 
         if (injData) {
-            [...(injData.home || []), ...(injData.away || [])].forEach((inj: any) => {
+            [...(injData.home || []), ...(injData.away || [])].forEach((inj: unknown) => {
                 if (inj.status === 'OUT') {
                     injuredOutNames.add(normalize(inj.name || inj.player));
                 }
@@ -422,8 +422,8 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
 
             // PRIORITY 1: Use roster data as the source of truth
             if (rostersData) {
-                const isOnHomeRoster = rostersData.home?.some((p: any) => normalize(p.name || p.displayName) === normP);
-                const isOnAwayRoster = rostersData.away?.some((p: any) => normalize(p.name || p.displayName) === normP);
+                const isOnHomeRoster = rostersData.home?.some((p: unknown) => normalize(p.name || p.displayName) === normP);
+                const isOnAwayRoster = rostersData.away?.some((p: unknown) => normalize(p.name || p.displayName) === normP);
 
                 // If we definitively find the player on one roster, use that
                 if (isOnHomeRoster && !isOnAwayRoster) return isHomeCheck;

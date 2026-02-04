@@ -51,7 +51,7 @@ const SportAwareTensionWidget = ({
   intel
 }: {
   match: Match,
-  signals: any,
+  signals: unknown,
   intel?: MatchIntelligence
 }) => {
   const blueprint = match.ai_signals?.blueprint;
@@ -148,7 +148,7 @@ const SportAwareTensionWidget = ({
 };
 
 const PPMTracker = ({ ppm, edgeState, edgePoints, context, sport }: {
-  ppm?: any,
+  ppm?: unknown,
   edgeState?: 'PLAY' | 'LEAN' | 'NEUTRAL',
   edgePoints?: number,
   context?: { elapsed_mins: number; remaining_mins: number; current_score: string; period: number; clock: string },
@@ -237,7 +237,7 @@ const PPMTracker = ({ ppm, edgeState, edgePoints, context, sport }: {
   );
 };
 
-const DraftKingsAnchor = ({ odds }: { odds?: any }) => {
+const DraftKingsAnchor = ({ odds }: { odds?: unknown }) => {
   if (!odds?.draftkingsLink) return null;
   return (
     <a href={odds.draftkingsLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-1.5 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/20 rounded-full transition-all group no-underline">
@@ -250,7 +250,7 @@ const DraftKingsAnchor = ({ odds }: { odds?: any }) => {
   );
 };
 
-const OddsAnchorGrid: React.FC<{ match: Match, signals: any }> = ({ match, signals }) => {
+const OddsAnchorGrid: React.FC<{ match: Match, signals: unknown }> = ({ match, signals }) => {
   const s = analyzeSpread(match);
   const t = analyzeTotal(match);
   const m = analyzeMoneyline(match);
@@ -263,7 +263,7 @@ const OddsAnchorGrid: React.FC<{ match: Match, signals: any }> = ({ match, signa
     return vig > 0 ? `+${vig}` : String(vig);
   };
 
-  const fmtSpread = (val: any, price?: number) => {
+  const fmtSpread = (val: unknown, price?: number) => {
     const num = getOddsValue(val, 'spread');
     if (num === null) return '—';
     const disp = num === 0 ? 'PK' : (num > 0 ? `+${num}` : String(num));
@@ -275,7 +275,7 @@ const OddsAnchorGrid: React.FC<{ match: Match, signals: any }> = ({ match, signa
     );
   };
 
-  const fmtTotal = (val: any, price?: number) => {
+  const fmtTotal = (val: unknown, price?: number) => {
     const num = getOddsValue(val, 'total');
     if (num === null) return '—';
     return (
@@ -286,7 +286,7 @@ const OddsAnchorGrid: React.FC<{ match: Match, signals: any }> = ({ match, signa
     );
   };
 
-  const fmtML = (val: any) => {
+  const fmtML = (val: unknown) => {
     const num = getOddsValue(val, 'price');
     if (num === null) return '—';
     return num > 0 ? `+${num}` : String(num);
