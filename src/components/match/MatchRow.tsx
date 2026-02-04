@@ -51,11 +51,21 @@ const MatchRow: React.FC<MatchRowProps> = ({
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.985 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       onClick={() => onSelect(match)}
-      className="relative flex items-center justify-between px-5 py-4 cursor-pointer border-b border-white/[0.04] bg-[#000000] hover:bg-white/[0.02] transition-colors duration-300 active:bg-white/[0.04] group tap-feedback"
+      className={cn(
+        "relative flex items-center justify-between px-5 py-4 cursor-pointer bg-[#000000] hover:bg-white/[0.02]",
+        "transition-colors duration-300 active:bg-white/[0.04] group tap-feedback transform-gpu",
+        "after:content-[''] after:absolute after:left-5 after:right-5 after:bottom-0 after:h-px after:scale-y-[0.5] after:origin-bottom",
+        "after:bg-gradient-to-r after:from-transparent after:via-white/10 after:to-transparent"
+      )}
     >
+      {/* Hover Edge Glow (Non-pinned) */}
+      {!isPinned && (
+        <div className="absolute left-0 top-0 bottom-0 w-px bg-white/0 group-hover:bg-white/40 transition-colors duration-300 shadow-[0_0_10px_rgba(255,255,255,0.4)]" />
+      )}
       {/* Active Selection Indicator */}
       {isPinned && (
         <motion.div
@@ -77,20 +87,20 @@ const MatchRow: React.FC<MatchRowProps> = ({
             <div key={team.id} className="flex items-center gap-4">
               <motion.div
                 layoutId={`logo-${match.id}-${team.id}`}
-                className="relative"
+                className="relative w-6 h-6 shrink-0"
               >
                 {isTennis && team.flag ? (
                   // Tennis: Show country flag
                   <img
                     src={team.flag}
                     alt=""
-                    className="w-5 h-4 object-cover rounded-[2px]"
+                    className="w-6 h-4 object-cover rounded-[2px]"
                   />
                 ) : (
                   // Other sports: Show team logo
                   <>
                     <div className="absolute inset-0 blur-md opacity-20" style={{ backgroundColor: team.color ? (team.color.startsWith('#') ? team.color : `#${team.color}`) : '#333' }} />
-                    <TeamLogo logo={team.logo} className="w-5 h-5 relative z-10 grayscale-[0.3] group-hover:grayscale-0 transition-all duration-300" />
+                    <TeamLogo logo={team.logo} className="w-full h-full object-contain relative z-10 grayscale-[0.3] group-hover:grayscale-0 transition-all duration-300" />
                   </>
                 )}
               </motion.div>
@@ -130,7 +140,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
         ) : isFinal ? (
           <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Final</span>
         ) : (
-          <span className="text-[13px] font-mono-ledger font-bold text-zinc-400 tabular-nums">
+          <span className="text-[13px] font-mono-ledger font-bold text-zinc-300 tabular-nums tracking-[0.04em]">
             {new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(' ', '')}
           </span>
         )}
