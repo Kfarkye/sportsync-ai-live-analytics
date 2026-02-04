@@ -736,6 +736,61 @@ export interface OfficialStats {
   keyTendency: string;
 }
 
+export interface RefIntelContent {
+  crew?: string[];
+  crewChief?: string;
+  summary?: string;
+  bettingTip?: string;
+  recommendation?: string;
+  crewName?: string;
+  biasScore?: number;
+  confidence?: number;
+  homeTeamCompatibility?: number;
+  awayTeamCompatibility?: number;
+  overUnderTendency?: number;
+  keyInsights?: string[];
+  stats?: {
+    foulRate?: string;
+    underPct?: string;
+    overPct?: string;
+    homeWinPct?: string;
+    pointsPerGame?: string;
+    homeWinPctDiff?: string;
+  };
+  tendencies?: Array<{
+    name: string;
+    impact: string;
+  }>;
+}
+
+export interface PregameInjuryEntry {
+  team: string;
+  player: string;
+  status: 'OUT' | 'DOUBTFUL' | 'QUESTIONABLE' | 'PROBABLE' | 'IN';
+  impact: 'USAGE' | 'DEFENSE' | 'PACE' | 'MINUTES' | 'UNKNOWN';
+  note: string;
+}
+
+export interface PregameTravelEntry {
+  team: string;
+  flag: 'B2B' | '3IN4' | '4IN6' | 'TIMEZONE' | 'ALTITUDE' | 'REST_ADV';
+  note: string;
+}
+
+export interface PregameMarketSignals {
+  sharp: Array<{ signal: 'RLM' | 'STEAM' | 'BUYBACK'; note: string }>;
+  public: Array<{ signal: 'PUBLIC_HEAVY' | 'HANDLE_HEAVY'; note: string }>;
+}
+
+export interface PregameContext {
+  match_id: string;
+  generated_at: string;
+  injuries: PregameInjuryEntry[];
+  travel: PregameTravelEntry[];
+  market_signals: PregameMarketSignals;
+  context_notes: string[];
+}
+
 export interface TeamNews {
   text: string;
   sources?: { title: string; uri: string }[];
@@ -1049,7 +1104,7 @@ export interface AISignals {
 
   // v6.0: Structured Observability
   trace_id?: string;
-  trace_dump?: Record<string, unknown>;
+  trace_dump?: Record<string, TraceValue>;
 }
 
 export interface PublicNarrative {
@@ -1062,6 +1117,14 @@ export interface PublicNarrative {
 }
 
 export type BetResult = 'won' | 'lost' | 'push' | 'pending' | null;
+
+export type TraceValue =
+  | string
+  | number
+  | boolean
+  | null
+  | TraceValue[]
+  | { [key: string]: TraceValue };
 
 export interface SpreadAnalysis {
   state: 'open' | 'live' | 'settled';

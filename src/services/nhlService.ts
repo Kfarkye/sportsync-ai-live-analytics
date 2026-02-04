@@ -11,11 +11,36 @@ const PROXIES = [
     (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
 ];
 
-async function fetchWithFallback(url: string): Promise<unknown> {
+type NhlScheduleResponse = {
+  games?: Array<{
+    id: number;
+    homeTeam: { name: { default: string }; id: number; abbrev: string };
+    awayTeam: { name: { default: string }; id: number; abbrev: string };
+  }>;
+};
+
+type NhlPlayByPlayResponse = {
+  plays?: Array<{
+    eventId: number;
+    typeDescKey: string;
+    details?: {
+      xCoord?: number;
+      yCoord?: number;
+      eventOwnerTeamId?: number;
+      shootingPlayerId?: number;
+    };
+    periodDescriptor?: { number: number };
+    timeInPeriod?: string;
+  }>;
+};
+
+type NhlApiResponse = NhlScheduleResponse | NhlPlayByPlayResponse;
+
+async function fetchWithFallback(url: string): Promise<NhlApiResponse> {
     // Try direct first
     try {
         const res = await fetch(url);
-        if (res.ok) return await res.json();
+        if (res.ok) return (await res.json()) as NhlApiResponse;
     } catch (e) {
         // Fall through to proxies
     }
@@ -25,7 +50,7 @@ async function fetchWithFallback(url: string): Promise<unknown> {
         try {
             const proxyUrl = proxy(url);
             const res = await fetch(proxyUrl);
-            if (res.ok) return await res.json();
+            if (res.ok) return (await res.json()) as NhlApiResponse;
         } catch (e) {
             continue;
         }
@@ -39,13 +64,7 @@ export const fetchNhlGameDetails = async (homeTeamName: string, awayTeamName: st
     const dateStr = date.toISOString().split('T')[0];
     
     // 1. Fetch Schedule for the date to find the Game ID
-    const scheduleData = await fetchWithFallback(`${BASE_URL}/score/${dateStr}`) as {
-      games?: Array<{
-        id: number;
-        homeTeam: { name: { default: string }; id: number; abbrev: string };
-        awayTeam: { name: { default: string }; id: number; abbrev: string };
-      }>;
-    } | null;
+    const scheduleData = await fetchWithFallback(`${BASE_URL}/score/${dateStr}`) as NhlScheduleResponse;
 
     if (!scheduleData || !scheduleData.games) return null;
 
@@ -63,20 +82,7 @@ export const fetchNhlGameDetails = async (homeTeamName: string, awayTeamName: st
     }
 
     // 2. Fetch Play-by-Play Data for coordinates
-    const pbpData = await fetchWithFallback(`${BASE_URL}/gamecenter/${game.id}/play-by-play`) as {
-      plays?: Array<{
-        eventId: number;
-        typeDescKey: string;
-        details?: {
-          xCoord?: number;
-          yCoord?: number;
-          eventOwnerTeamId?: number;
-          shootingPlayerId?: number;
-        };
-        periodDescriptor?: { number: number };
-        timeInPeriod?: string;
-      }>;
-    } | null;
+    const pbpData = await fetchWithFallback(`${BASE_URL}/gamecenter/${game.id}/play-by-play`) as NhlPlayByPlayResponse;
 
     const shots: ShotEvent[] = [];
 

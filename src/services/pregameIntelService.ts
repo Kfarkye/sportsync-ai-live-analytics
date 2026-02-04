@@ -373,7 +373,9 @@ export const pregameIntelService = {
     }
 };
 
-function mapDbResponse(row: Partial<PregameIntelResponse> & Record<string, unknown>, id: string): PregameIntelResponse {
+type PregameDbValue = string | number | boolean | null | PregameDbValue[] | { [key: string]: PregameDbValue };
+
+function mapDbResponse(row: Partial<PregameIntelResponse> & Record<string, PregameDbValue>, id: string): PregameIntelResponse {
     return {
         ...row,
         match_id: row.match_id || id,

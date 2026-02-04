@@ -1,13 +1,29 @@
 import { GoogleGenAI } from "@google/genai";
-import { Match, MatchIntelligence, MatchAngle, NarrativeIntel } from "../types";
+import { Match, MatchIntelligence, MatchAngle, NarrativeIntel, UnifiedConfidence, ConfidenceTier } from "../types";
 import { getDbMatchId } from "../utils/matchUtils";
 import { supabase } from '../lib/supabase';
 
+type CacheEntry = { data: MatchIntelligence; ts: number };
+type PersistedCache = Record<string, CacheEntry>;
+type WindowWithWebkitAudio = Window & { webkitAudioContext?: typeof AudioContext };
+
+const resolveApiKey = () => {
+  const nodeKey = typeof process !== 'undefined' ? process.env?.API_KEY : undefined;
+  const viteKey = import.meta.env?.VITE_GEMINI_API_KEY;
+  return nodeKey || viteKey || '';
+};
+
+const buildConfidence = (score: number, tier: ConfidenceTier, label?: string): UnifiedConfidence => {
+  const actionState: UnifiedConfidence['actionState'] =
+    tier === 'ELITE' || tier === 'STRONG' ? 'BUY' : tier === 'LEAN' ? 'LEAN' : 'READ';
+  return { score, tier, label: label || tier, actionState };
+};
+
 // Always use process.env.API_KEY with named parameter as per guidelines
-const ai = new GoogleGenAI({ apiKey: (process.env as any).API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: resolveApiKey() });
 
 class InstitutionalKernel {
-  private cache = new Map<string, { data: JsonValue; ts: number }>();
+  private cache = new Map<string, CacheEntry>();
   private readonly PERSIST_KEY = 'SHARPEDGE_KERNEL_CACHE_V3_PRO';
 
   constructor() {
@@ -19,11 +35,11 @@ class InstitutionalKernel {
     try {
       const raw = localStorage.getItem(this.PERSIST_KEY);
       if (raw) {
-        const data = JSON.parse(raw);
+        const data = JSON.parse(raw) as PersistedCache;
         const now = Date.now();
         // Hydrate only items from last 1 hour
-        Object.entries(data).forEach(([key, entry]: [string, any]) => {
-          if (now - entry.ts < 1000 * 60 * 60) {
+        Object.entries(data).forEach(([key, entry]) => {
+          if (entry && typeof entry.ts === 'number' && now - entry.ts < 1000 * 60 * 60) {
             this.cache.set(key, entry);
           }
         });
@@ -63,9 +79,9 @@ class InstitutionalKernel {
             score: `${match.awayScore}-${match.homeScore}`,
             clock: match.displayClock || "0:00",
             market_total: match.current_odds?.total || match.odds?.overUnder || 0,
-            fair_total: (match as any).ai_signals?.deterministic_fair_total || 0
+            fair_total: match.ai_signals?.deterministic_fair_total || 0
           },
-          ai_signals: (match as any).ai_signals
+          ai_signals: match.ai_signals
         }
       });
 
@@ -81,8 +97,9 @@ class InstitutionalKernel {
           confidence: {
             score: data.sharp_data.confidence_level || 70,
             label: 'STRONG',
-            tier: 'STRONG'
-          } as any,
+            tier: 'STRONG',
+            actionState: 'BUY'
+          },
           reasoning: data.sharp_data.executive_bullets?.driver || "Audit Complete.",
           betType: data.sharp_data.recommendation?.market_type || "TOTAL"
         },
@@ -93,18 +110,19 @@ class InstitutionalKernel {
       this.cache.set(cacheKey, { data: result, ts: Date.now() });
       this.hibernate();
       return result;
-    } catch (e: JsonValue) {
-      console.error(`[Kernel-Fault] Pipeline failure: ${e.message}`);
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      console.error(`[Kernel-Fault] Pipeline failure: ${err.message}`);
       return {
         summary: "Link Calibrating",
         tacticalAnalysis: "The Live AI Kernel is currently synchronizing with the data feed.",
         prediction: {
           pick: "NEUTRAL",
-          confidence: { score: 0, label: 'WAITING', tier: 'PASS' } as any,
+          confidence: buildConfidence(0, 'PASS', 'WAITING'),
           reasoning: "Sync in progress.",
           betType: "TOTAL"
         },
-        thought_trace: "Pipeline Error: " + e.message
+        thought_trace: "Pipeline Error: " + err.message
       };
     }
   }
@@ -131,7 +149,9 @@ class InstitutionalKernel {
       if (error) throw error;
 
       if (data?.audio) {
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        const AudioCtor = window.AudioContext || (window as WindowWithWebkitAudio).webkitAudioContext;
+        if (!AudioCtor) return;
+        const audioCtx = new AudioCtor({ sampleRate: 24000 });
         const buffer = await this.decodeAudioData(this.base64ToUint8Array(data.audio), audioCtx);
         const source = audioCtx.createBufferSource();
         source.buffer = buffer;
@@ -167,7 +187,7 @@ class InstitutionalKernel {
         {
           label: intel.prediction.pick,
           odds: "OFF",
-          confidence: intel.prediction.confidence as any
+          confidence: intel.prediction.confidence
         }
       ]
     };
@@ -182,7 +202,7 @@ class InstitutionalKernel {
       analogies: [],
       blazingPick: {
         selection: intel.prediction.pick,
-        confidence: intel.prediction.confidence as any,
+        confidence: intel.prediction.confidence,
         reason: intel.prediction.reasoning
       }
     };

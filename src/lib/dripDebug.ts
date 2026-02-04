@@ -16,7 +16,7 @@ export type DripLogEntry = {
   scope: string;           // "useMatchData"
   event: string;           // "edge.invoke.start", "edge.invoke.end", etc.
   message?: string;
-  meta?: Record<string, unknown>;
+  meta?: Record<string, DripMetaValue>;
 };
 
 type DripSpan = {
@@ -25,7 +25,7 @@ type DripSpan = {
   scope: string;
   start: number;
   startIso: string;
-  meta?: Record<string, unknown>;
+  meta?: Record<string, DripMetaValue>;
 };
 
 type DripLoggerOptions = {
@@ -45,7 +45,8 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-type Serializable = string | number | boolean | null | undefined | Serializable[] | { [key: string]: Serializable };
+type DripMetaValue = string | number | boolean | null | DripMetaValue[] | { [key: string]: DripMetaValue };
+type Serializable = DripMetaValue | undefined;
 
 function safeStringify(value: Serializable): string {
   try {
@@ -200,7 +201,7 @@ export class DripLogger {
     if (this.persist) persistLogs(this.persistKey, this.logs);
   }
 
-  log(level: DripLogLevel, event: string, message?: string, meta?: Record<string, unknown>) {
+  log(level: DripLogLevel, event: string, message?: string, meta?: Record<string, DripMetaValue>) {
     if (!this.enabled) return;
 
     const entry: DripLogEntry = {
@@ -219,7 +220,7 @@ export class DripLogger {
     if (this.consoleEcho) consoleEmit(entry);
   }
 
-  groupCollapsed(title: string, meta?: Record<string, unknown>) {
+  groupCollapsed(title: string, meta?: Record<string, DripMetaValue>) {
     if (!this.enabled) return;
     try {
       console.groupCollapsed(title);
@@ -238,7 +239,7 @@ export class DripLogger {
     }
   }
 
-  startSpan(name: string, meta?: Record<string, unknown>) {
+  startSpan(name: string, meta?: Record<string, DripMetaValue>) {
     const id = `${name}:${Math.random().toString(16).slice(2)}`;
     const span: DripSpan = {
       id,
@@ -253,7 +254,7 @@ export class DripLogger {
     return id;
   }
 
-  endSpan(spanId: string, meta?: Record<string, unknown>) {
+  endSpan(spanId: string, meta?: Record<string, DripMetaValue>) {
     const span = this.spans.get(spanId);
     if (!span) {
       this.log('warn', 'span.end.missing', 'Span not found', { spanId, ...meta });

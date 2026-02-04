@@ -13,7 +13,7 @@
  */
 
 import {
-    League, Match, Sport, RankingItem, Team, MatchOdds
+    League, Match, Sport, RankingItem, Team, MatchOdds, RecentFormGame
 } from './types.ts';
 import { generateCanonicalGameId } from './match-registry.ts';
 import { debugManager } from './debug.ts';
@@ -382,7 +382,7 @@ export const fetchTeamLastFive = async (
     teamId: string,
     sport: Sport,
     leagueId: string
-): Promise<any[]> => {
+): Promise<RecentFormGame[]> => {
     const apiPath = getApiPath(leagueId, sport);
 
     // Tennis players are athletes, others are teams

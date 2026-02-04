@@ -25,7 +25,7 @@ import { motion, AnimatePresence, useMotionValue, LayoutGroup } from 'framer-mot
 // SECTION 1: IMPORTS
 // ============================================================================
 
-import type { Match } from '../../types';
+import type { Match, RecentFormGame, ShotEvent, PlayerPropBet, PropBetType } from '../../types';
 import { cn } from '../../lib/essence';
 import { getMatchDisplayStats } from '../../utils/statDisplay';
 
@@ -63,13 +63,22 @@ import { TechnicalDebugView } from '../TechnicalDebugView';
 // SECTION 2: STRICT TYPE DEFINITIONS (AUDIT FIX)
 // ============================================================================
 
-interface PlayerProp {
-  player_name: string;
-  bet_type: string;
-  line_value: number;
-  odds_american: number;
-  market_label: string;
-  headshot_url: string;
+interface DbPlayerPropRow {
+  player_name?: string | null;
+  bet_type?: string | null;
+  line_value?: number | string | null;
+  odds_american?: number | string | null;
+  market_label?: string | null;
+  headshot_url?: string | null;
+}
+
+interface DbMatchRow {
+  current_odds?: Match['current_odds'];
+  closing_odds?: Match['closing_odds'];
+  opening_odds?: Match['opening_odds'];
+  odds?: Match['odds'];
+  home_score?: number;
+  away_score?: number;
 }
 
 interface LiveState {
@@ -94,18 +103,26 @@ interface LiveState {
   created_at?: string;
 }
 
+type ContextValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ContextValue[]
+  | { [key: string]: ContextValue };
+
 // Extends base Match type to safely handle dynamic/upstream props without 'as any'
 interface ExtendedMatch extends Match {
   possession?: string;
   displayClock?: string;
-  context?: Record<string, unknown>;
-  closing_odds?: unknown;
-  opening_odds?: unknown;
-  dbProps?: PlayerProp[];
-  stats?: any[];
+  context?: Record<string, ContextValue>;
+  closing_odds?: Match['closing_odds'];
+  opening_odds?: Match['opening_odds'];
+  dbProps?: Match['dbProps'];
+  stats?: Match['stats'];
   // Strictly typed extensions for sub-objects to avoid casting in assignments
-  homeTeam: Match['homeTeam'] & { last5?: any[] };
-  awayTeam: Match['awayTeam'] & { last5?: any[] };
+  homeTeam: Match['homeTeam'] & { last5?: RecentFormGame[] };
+  awayTeam: Match['awayTeam'] & { last5?: RecentFormGame[] };
 }
 
 interface ForecastPoint {
@@ -302,12 +319,14 @@ function normalizeRawToDims(rawX: number, rawY: number, dims: SportDims): PlayCo
   return { x: rawX, y: rawY };
 }
 
-function parseCoordinate(raw: unknown, playText: string, sport: string): PlayCoordinate {
+type CoordinateInput = { x?: number | string; y?: number | string } | string | null | undefined;
+
+function parseCoordinate(raw: CoordinateInput, playText: string, sport: string): PlayCoordinate {
   const sportKey = (sport || '').toUpperCase();
   const dims = getSportDims(sportKey);
 
   if (raw && typeof raw === 'object') {
-    const c = raw as { x?: unknown; y?: unknown };
+    const c = raw as { x?: number | string; y?: number | string };
     const rx = typeof c.x === 'number' ? c.x : (typeof c.x === 'string' ? Number(c.x) : NaN);
     const ry = typeof c.y === 'number' ? c.y : (typeof c.y === 'string' ? Number(c.y) : NaN);
 
@@ -563,7 +582,17 @@ const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: { match: Extended
 // SECTION 7: DATA LOGIC (STRICTLY TYPED)
 // ============================================================================
 
-function stableSerialize(value: unknown, seen = new WeakSet<object>()): string {
+type Serializable =
+  | string
+  | number
+  | boolean
+  | null
+  | Serializable[]
+  | { [key: string]: Serializable };
+
+type SupabaseResponse<T> = { data: T; error: Error | null };
+
+function stableSerialize(value: Serializable | Date | undefined, seen = new WeakSet<object>()): string {
   if (value === null) return 'null';
   const t = typeof value;
   if (t === 'string') return JSON.stringify(value);
@@ -576,36 +605,49 @@ function stableSerialize(value: unknown, seen = new WeakSet<object>()): string {
   if (t === 'object') {
     if (seen.has(value as object)) return '"__circular__"';
     seen.add(value as object);
-    const keys = Object.keys(value as object).sort();
-    return `{${keys.map(k => `${JSON.stringify(k)}:${stableSerialize((value as any)[k], seen)}`).join(',')}}`;
+    const record = value as Record<string, Serializable>;
+    const keys = Object.keys(record).sort();
+    return `{${keys.map(k => `${JSON.stringify(k)}:${stableSerialize(record[k], seen)}`).join(',')}}`;
   }
   return '"__unsupported__"';
 }
-function hashStable(value: unknown): string { return fnv1a32(stableSerialize(value)).toString(16); }
+function hashStable(value: Serializable | Date | undefined): string { return fnv1a32(stableSerialize(value)).toString(16); }
 
 function computeMatchSignature(m: ExtendedMatch): string {
   return [m.id, m.status ?? '', String(m.period ?? ''), String(m.displayClock ?? ''), String(m.homeScore ?? ''), String(m.awayScore ?? ''), m.lastPlay?.text || '', hashStable(m.current_odds ?? null), hashStable(m.stats ?? null)].join('|');
 }
 
-async function failSafe<T>(p: PromiseLike<{ data: T; error: unknown }> | any): Promise<T | null> {
-  try { const { data, error } = await p; if (error) { if (process.env.NODE_ENV === 'development') console.warn('Non-critical fetch failed:', error); return null; } return data; } catch (e) { return null; }
+async function failSafe<T>(p: PromiseLike<SupabaseResponse<T>>): Promise<T | null> {
+  try {
+    const { data, error } = await p;
+    if (error) {
+      if (process.env.NODE_ENV === 'development') console.warn('Non-critical fetch failed:', error);
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
 }
 
-async function sbData<T>(p: PromiseLike<{ data: T; error: unknown }> | any): Promise<T> {
-  const { data, error } = await p; if (error) throw error; return data;
+async function sbData<T>(p: PromiseLike<SupabaseResponse<T>>): Promise<T> {
+  const { data, error } = await p;
+  if (error) throw error;
+  return data;
 }
 
-function parseTsMs(v: unknown, fallbackMs: number): number {
+function parseTsMs(v: string | number | Date | null | undefined, fallbackMs: number): number {
   if (!v) return fallbackMs;
   if (typeof v === 'number') return v;
   if (typeof v === 'string') { const t = new Date(v).getTime(); return Number.isFinite(t) ? t : fallbackMs; }
+  if (v instanceof Date) { const t = v.getTime(); return Number.isFinite(t) ? t : fallbackMs; }
   return fallbackMs;
 }
 
 function useMatchPolling(initialMatch: ExtendedMatch) {
   const [match, setMatch] = useState<ExtendedMatch>(initialMatch);
   const [liveState, setLiveState] = useState<LiveState | null>(null);
-  const [nhlShots, setNhlShots] = useState<any[]>([]);
+  const [nhlShots, setNhlShots] = useState<ShotEvent[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error' | 'connecting'>('connecting');
   const [error, setError] = useState<Error | null>(null);
   const [forecastHistory, setForecastHistory] = useState<ForecastPoint[]>([]);
@@ -666,7 +708,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
         if (payload.new) {
           isSocketActiveRef.current = true;
           const receivedAt = Date.now();
-          const newLive = payload.new as unknown as LiveState;
+          const newLive = payload.new as LiveState;
           const createdAt = parseTsMs(newLive.created_at, receivedAt);
           if (createdAt <= lastLiveCreatedAtRef.current) return;
           lastLiveCreatedAtRef.current = createdAt; lastLiveReceivedAtRef.current = receivedAt;
@@ -688,7 +730,10 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
     const key = `${m.id}|${m.homeTeam?.name ?? ''}|${m.awayTeam?.name ?? ''}|${m.startTime ?? ''}`;
     if (key === nhlLastKeyRef.current && now - nhlLastFetchAtRef.current < CONFIG.nhlShots.MIN_MS) return;
     nhlLastFetchAtRef.current = now; nhlLastKeyRef.current = key;
-    try { const d = await fetchNhlGameDetails(m.homeTeam.name, m.awayTeam.name, new Date(m.startTime)); if (d?.shots) setNhlShots(d.shots.map((s: any) => ({ ...s, team: s.teamId, time: s.timeInPeriod }))); } catch { }
+    try {
+      const d = await fetchNhlGameDetails(m.homeTeam.name, m.awayTeam.name, new Date(m.startTime));
+      if (d?.shots) setNhlShots(d.shots);
+    } catch { }
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -703,8 +748,8 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
       const socketFresh = isSocketActiveRef.current && shouldFetchLive && (Date.now() - lastLiveReceivedAtRef.current) < CONFIG.polling.SOCKET_FRESH_MS;
       setConnectionStatus(prev => (prev === 'connected' ? 'connected' : 'connecting'));
       const espnPromise = fetchMatchDetailsExtended(cur.id, cur.sport, cur.leagueId).catch(e => { console.warn('ESPN Fail:', e); return null; });
-      const dbPromise = sbData<any>(supabase.from('matches').select('*').eq('id', dbId).maybeSingle()).catch(e => { console.warn('DB Fail:', e); return null; });
-      const propsPromise = failSafe<any[]>(supabase.from('player_prop_bets').select('*').ilike('match_id', `%${cur.id}%`).order('player_name'));
+      const dbPromise = sbData<DbMatchRow>(supabase.from('matches').select('*').eq('id', dbId).maybeSingle()).catch(e => { console.warn('DB Fail:', e); return null; });
+      const propsPromise = failSafe<DbPlayerPropRow[]>(supabase.from('player_prop_bets').select('*').ilike('match_id', `%${cur.id}%`).order('player_name'));
       const livePromise = (shouldFetchLive && !socketFresh) ? failSafe<LiveState>(supabase.from('live_match_states').select('*').eq('match_id', dbId).maybeSingle()) : Promise.resolve(null);
       const [espn, db, props, live] = await Promise.all([espnPromise, dbPromise, propsPromise, livePromise]);
       if (seq !== fetchSeqRef.current) return;
@@ -713,7 +758,38 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
       if (espn) { nextMatch = { ...nextMatch, ...(espn as Partial<ExtendedMatch>), stats: (espn as any).stats || (espn as any).statistics || nextMatch.stats || [], homeScore: Math.max(espn.homeScore || 0, nextMatch.homeScore || 0), awayScore: Math.max(espn.awayScore || 0, nextMatch.awayScore || 0) } as ExtendedMatch; }
       if (db && !isGameFinal(nextMatch.status)) { nextMatch.current_odds = db.current_odds; if ((db.home_score || 0) > (nextMatch.homeScore || 0)) nextMatch.homeScore = db.home_score; if ((db.away_score || 0) > (nextMatch.awayScore || 0)) nextMatch.awayScore = db.away_score; }
       if (db) { if (db.closing_odds) nextMatch.closing_odds = db.closing_odds; if (db.opening_odds) nextMatch.opening_odds = db.opening_odds; if (db.odds) nextMatch.odds = db.odds; }
-      if (props?.length) { nextMatch.dbProps = props.map((p: any) => ({ playerName: p.player_name, betType: p.bet_type, lineValue: Number(p.line_value), oddsAmerican: Number(p.odds_american), marketLabel: p.market_label, headshotUrl: p.headshot_url })) as any; } else if (props !== null) nextMatch.dbProps = [];
+      if (props?.length) {
+        const normalizePropType = (value?: string | null): PropBetType => {
+          const v = (value || '').toLowerCase() as PropBetType;
+          const allowed: PropBetType[] = [
+            'points', 'rebounds', 'assists', 'threes', 'blocks', 'steals',
+            'pra', 'pr', 'pa', 'ra', 'points_rebounds', 'points_assists', 'rebounds_assists',
+            'passing_yards', 'rushing_yards', 'receiving_yards', 'touchdowns', 'receptions', 'tackles', 'sacks', 'hits',
+            'shots_on_goal', 'goals', 'saves', 'custom'
+          ];
+          return allowed.includes(v) ? v : 'custom';
+        };
+
+        const toPropBet = (p: DbPlayerPropRow): PlayerPropBet => ({
+          id: `${cur.id}:${p.player_name || 'player'}:${p.bet_type || 'prop'}:${p.line_value ?? ''}`,
+          userId: 'system',
+          matchId: cur.id,
+          eventDate: new Date(cur.startTime).toISOString(),
+          league: cur.leagueId,
+          playerName: p.player_name || '',
+          headshotUrl: p.headshot_url || undefined,
+          betType: normalizePropType(p.bet_type),
+          marketLabel: p.market_label || undefined,
+          side: 'over',
+          lineValue: Number(p.line_value ?? 0),
+          sportsbook: 'market',
+          oddsAmerican: Number(p.odds_american ?? 0),
+          stakeAmount: 0,
+          result: 'pending'
+        });
+
+        nextMatch.dbProps = props.map(toPropBet);
+      } else if (props !== null) nextMatch.dbProps = [];
       const nextSig = computeMatchSignature(nextMatch);
       if (nextSig !== matchSigRef.current) { matchRef.current = nextMatch; matchSigRef.current = nextSig; setMatch(nextMatch); }
       if (live) { const receivedAt = Date.now(); const createdAt = parseTsMs(live.created_at, receivedAt); if (createdAt > lastLiveCreatedAtRef.current) { lastLiveCreatedAtRef.current = createdAt; lastLiveReceivedAtRef.current = receivedAt; const nextLiveSig = hashStable(live); if (nextLiveSig !== liveSigRef.current) { liveSigRef.current = nextLiveSig; processLiveState(live); } } }

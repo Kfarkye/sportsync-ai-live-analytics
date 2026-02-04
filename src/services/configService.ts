@@ -8,6 +8,10 @@ import { updateSystemGates } from '../config/gates';
  * This allows tuning physics constants (like Hockey P3 Inflation) without redeploying code.
  */
 
+type GatePrimitive = number | string | boolean | null;
+type GateValue = GatePrimitive | GateValue[] | { [key: string]: GateValue };
+type GateOverrides = Partial<Record<'NHL' | 'NBA' | 'NFL', GateValue>>;
+
 export const configService = {
 
     /**
@@ -24,7 +28,7 @@ export const configService = {
             if (error) throw error;
 
             if (data) {
-                const overrides: JsonValue = {};
+                const overrides: GateOverrides = {};
 
                 // Map DB keys to System Gate keys
                 // DB: NHL_GATES -> Engine: NHL
@@ -58,7 +62,7 @@ export const configService = {
                 (payload) => {
                     console.log('[Remote Config] Hot-swap update received!', payload);
                     const row = payload.new;
-                    const overrides: JsonValue = {};
+                    const overrides: GateOverrides = {};
                     if (row.key === 'NHL_GATES') overrides.NHL = row.value;
                     if (row.key === 'NBA_GATES') overrides.NBA = row.value;
                     if (row.key === 'NFL_GATES') overrides.NFL = row.value;

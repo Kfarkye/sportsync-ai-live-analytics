@@ -160,7 +160,7 @@ const ToggleSwitch = ({ expanded }: { expanded: boolean }) => (
 // 🧠 LOGIC KERNEL (STRICT)
 // ─────────────────────────────────────────────────────────────────
 
-function toISOOrNull(v: unknown): string | null {
+function toISOOrNull(v: string | number | Date | null | undefined): string | null {
     if (!v) return null;
     if (typeof v === 'string') {
         const d = new Date(v);
@@ -362,20 +362,16 @@ export const PregameIntelCards = ({
     const processedData = useMemo<ProcessedIntelData | null>(() => {
         if (!rawIntel) return null;
 
-        // Single "Trust" cast to bridge service type to UI type
-        // This is safe because we check properties or provide defaults below
-        const safeIntel = rawIntel as unknown as ProcessedIntelData;
-
-        const teamName = extractTeamFromPick(safeIntel.recommended_pick);
-        const headline = cleanHeadline(String(safeIntel.headline || ""), teamName);
+        const teamName = extractTeamFromPick(rawIntel.recommended_pick);
+        const headline = cleanHeadline(String(rawIntel.headline || ""), teamName);
 
         // Strict deterministic sort
-        const sortedCards = [...(safeIntel.cards || [])].sort((a, b) =>
+        const sortedCards = [...(rawIntel.cards || [])].sort((a, b) =>
             SORT_ORDER.indexOf(String(a.category)) - SORT_ORDER.indexOf(String(b.category))
         );
 
         return {
-            ...safeIntel,
+            ...rawIntel,
             headline,
             cards: sortedCards
         };

@@ -1,5 +1,5 @@
 
-import { Sport, PlayerPropBet } from '../types';
+import { Sport, PlayerPropBet, MatchLeader, RecentFormGame, RefIntelContent } from '../types';
 import { MatchInsight } from '../types/historicalIntel';
 import { LEAGUES } from '../constants';
 import { fetchTeamLastFive, fetchWithFallback } from './espnService';
@@ -8,6 +8,94 @@ import { safeSlice } from '../utils/oddsUtils';
 import { executeAudit, MarketType, PredictionContract } from '../utils/edge-script-engine';
 
 const BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports';
+
+type EspnRecord = { type?: string; summary?: string };
+type EspnHeadshot = { href?: string };
+type EspnPosition = { abbreviation?: string; name?: string };
+type EspnAthlete = {
+    id?: string;
+    displayName?: string;
+    fullName?: string;
+    shortName?: string;
+    position?: EspnPosition;
+    jersey?: string;
+    headshot?: EspnHeadshot;
+};
+type EspnTeamRef = {
+    id?: string;
+    displayName?: string;
+    name?: string;
+    shortDisplayName?: string;
+    abbreviation?: string;
+    logo?: string;
+    logos?: Array<{ href?: string }>;
+};
+type EspnCompetitor = {
+    id?: string;
+    homeAway?: 'home' | 'away';
+    team?: EspnTeamRef;
+    athlete?: EspnAthlete;
+    records?: EspnRecord[];
+    record?: EspnRecord | EspnRecord[];
+    curatedRank?: { current?: number };
+    score?: { displayValue?: string } | string | number;
+    winner?: boolean;
+};
+type EspnStat = { label?: string; name?: string; displayValue?: string | number; value?: string | number };
+type EspnBoxAthleteEntry = { athlete?: EspnAthlete; stats?: Array<string | number> };
+type EspnBoxPlayerGroup = { athletes?: EspnBoxAthleteEntry[] };
+type EspnCoach = { displayName?: string; record?: string; athlete?: { displayName?: string } };
+type EspnTeamBox = {
+    id?: string;
+    team?: { id?: string };
+    homeAway?: string;
+    statistics?: EspnStat[];
+    players?: EspnBoxPlayerGroup[];
+    coaches?: EspnCoach[];
+};
+type EspnLeaderEntry = { athlete?: EspnAthlete; displayValue?: string };
+type EspnLeaderGroup = { team?: { id?: string }; leaders?: EspnLeaderEntry[] };
+type EspnInjuryEntry = { athlete?: EspnAthlete; status?: string; shortComment?: string; longComment?: string };
+type EspnInjuryGroup = { team?: { id?: string }; athlete?: { id?: string }; id?: string; injuries?: EspnInjuryEntry[] };
+type EspnVenue = {
+    id?: string;
+    fullName?: string;
+    address?: { city?: string; state?: string };
+    capacity?: number;
+    indoor?: boolean;
+    images?: Array<{ href?: string }>;
+};
+type EspnWeather = { temperature?: string; condition?: string; wind?: string; humidity?: string };
+type EspnOfficial = { displayName?: string; position?: { name?: string; abbreviation?: string } };
+type EspnGameInfo = { venue?: EspnVenue; weather?: EspnWeather; officials?: EspnOfficial[] };
+type EspnBroadcast = { names?: string[] };
+type EspnMeeting = { date?: string; teams?: EspnCompetitor[]; homeTeam?: EspnCompetitor; awayTeam?: EspnCompetitor };
+type EspnCompetition = { competitors?: EspnCompetitor[]; previousMeetings?: EspnMeeting[]; broadcasts?: EspnBroadcast[] };
+type EspnHeader = { competitions?: EspnCompetition[] };
+type EspnBoxscore = { teams?: EspnTeamBox[] };
+type EspnPickcenter = {
+    provider?: { name?: string };
+    public?: {
+        spread?: { homeTeam?: { money?: number }; awayTeam?: { money?: number } };
+        total?: { over?: { money?: number }; under?: { money?: number } };
+        moneyLine?: { homeTeam?: { money?: number }; awayTeam?: { money?: number } };
+    };
+    overUnder?: number | string;
+    details?: string;
+};
+type EspnPredictor = { homeTeam?: { gameProjection?: string } };
+type EspnSummaryResponse = {
+    gameInfo?: EspnGameInfo;
+    header?: EspnHeader;
+    boxscore?: EspnBoxscore;
+    injuries?: EspnInjuryGroup[];
+    leaders?: Array<MatchLeader | EspnLeaderGroup>;
+    pickcenter?: EspnPickcenter[];
+    predictor?: EspnPredictor;
+};
+type EspnRosterAthlete = { id?: string; displayName?: string; fullName?: string; position?: EspnPosition; jersey?: string; headshot?: EspnHeadshot };
+type EspnRosterGroup = { athletes?: EspnRosterAthlete[] };
+type EspnRosterResponse = { athletes?: EspnRosterAthlete[]; groups?: EspnRosterGroup[] };
 
 // Strip DB suffix from match ID for ESPN API calls
 const stripSuffix = (id: string): string => {
@@ -72,7 +160,7 @@ export interface TeamStats {
     record: string;
     streak: string;
     stats: { label: string; value: string; rank?: number }[];
-    last5?: JsonValue[];
+    last5?: RecentFormGame[];
 }
 
 export interface RosterPlayer {
@@ -125,7 +213,7 @@ export interface PreGameData {
         home: RosterPlayer[];
         away: RosterPlayer[];
     };
-    leaders?: JsonValue[];
+    leaders?: MatchLeader[];
     prediction?: {
         homeWinPct: number;
         awayWinPct: number;
@@ -144,7 +232,7 @@ export interface PreGameData {
         name: string;
         position: string;
     }[];
-    refIntel?: JsonValue;
+    refIntel?: RefIntelContent | null;
     marketIntel?: {
         spread?: { home: number; away: number };
         total?: { over: number; under: number };
@@ -169,10 +257,6 @@ export interface PreGameData {
         away?: { name: string; record: string };
     };
 }
-
-const safeGet = (obj: JsonValue, path: string, def: JsonValue = undefined) => {
-    return path.split('.').reduce((acc, part) => acc && acc[part], obj) || def;
-};
 
 // Generate a realistic prop line based on stats or sport/position context
 const generateProp = (statVal: string, sport: Sport, position?: string) => {
@@ -232,29 +316,29 @@ const fetchTeamRoster = async (teamId: string, sport: Sport, leagueId: string): 
 
         const res = await fetch(url);
         if (!res.ok) return [];
-        const data = await res.json();
+        const data = (await res.json()) as EspnRosterResponse;
 
-        let athletes: JsonValue[] = [];
+        let athletes: EspnRosterAthlete[] = [];
 
         // Handle different roster structures
         if (data.athletes) {
             athletes = data.athletes;
         } else if (data.groups) {
             // NFL often nests players in 'groups' (Offense, Defense, Special Teams)
-            data.groups.forEach((g: JsonValue) => {
+            data.groups.forEach((g) => {
                 if (g.athletes) athletes = [...athletes, ...g.athletes];
             });
         }
 
         // Take top players (usually starters are listed first)
-        return safeSlice(athletes, 0, 10).map((athlete: JsonValue) => {
+        return safeSlice(athletes, 0, 10).map((athlete) => {
             const pos = athlete.position?.abbreviation || '';
             return {
-                id: athlete.id,
-                name: athlete.displayName || athlete.fullName,
+                id: athlete.id || '',
+                name: athlete.displayName || athlete.fullName || '',
                 position: pos,
                 jersey: athlete.jersey || '',
-                headshot: buildHeadshotUrl(athlete.id, sport, athlete.headshot?.href),
+                headshot: buildHeadshotUrl(athlete.id || '', sport, athlete.headshot?.href),
                 rating: 7.0 + Math.random() * 2,
                 stats: { label: 'Proj', value: '-' },
                 prop: generateProp('0', sport, pos)
@@ -360,26 +444,27 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
             console.error(`[espnPreGame] API Error: ${response.status}`, { espnId, sport, leagueId });
             throw new Error('Failed to fetch match summary');
         }
-        const data = await response.json();
+        const data = (await response.json()) as EspnSummaryResponse;
         console.log(`[espnPreGame] Successfully fetched summary for ${espnId}`);
 
         // 1. Venue & Weather
-        const gameInfo = data.gameInfo || {};
-        const espnVenueId = safeGet(gameInfo, 'venue.id');
+        const gameInfo = data.gameInfo;
+        const competition = data.header?.competitions?.[0];
+        const espnVenueId = gameInfo?.venue?.id;
 
         // Fetch canonical stadium data if available
         const stadium = espnVenueId ? await dbService.getStadiumByEspnId(parseInt(espnVenueId)) : null;
 
         const venue = {
-            name: safeGet(gameInfo, 'venue.fullName', 'Unknown Venue'),
-            city: safeGet(gameInfo, 'venue.address.city', ''),
-            state: safeGet(gameInfo, 'venue.address.state', ''),
-            capacity: safeGet(gameInfo, 'venue.capacity'),
-            indoor: !!safeGet(gameInfo, 'venue.indoor', false),
-            image: safeGet(gameInfo, 'venue.images.0.href'),
+            name: gameInfo?.venue?.fullName || 'Unknown Venue',
+            city: gameInfo?.venue?.address?.city || '',
+            state: gameInfo?.venue?.address?.state || '',
+            capacity: gameInfo?.venue?.capacity,
+            indoor: !!gameInfo?.venue?.indoor,
+            image: gameInfo?.venue?.images?.[0]?.href,
         };
 
-        const weatherRaw = gameInfo.weather;
+        const weatherRaw = gameInfo?.weather;
         let weather = null;
         if (weatherRaw) {
             weather = {
@@ -390,15 +475,15 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
             };
         }
 
-        const officials = (gameInfo.officials || []).map((off: JsonValue) => ({
-            name: off.displayName,
+        const officials = (gameInfo?.officials || []).map((off) => ({
+            name: off.displayName || '',
             position: off.position?.name || off.position?.abbreviation || 'Official'
         }));
 
         // 2. Teams
-        const competitors = safeGet(data, 'header.competitions.0.competitors', []);
-        const homeComp = competitors.find((c: JsonValue) => c.homeAway === 'home');
-        const awayComp = competitors.find((c: JsonValue) => c.homeAway === 'away');
+        const competitors = competition?.competitors || [];
+        const homeComp = competitors.find((c) => c.homeAway === 'home');
+        const awayComp = competitors.find((c) => c.homeAway === 'away');
 
         // Fetch team metrics from Supabase (Pace, ORtg, DRtg)
         // Tennis-aware resolution: athlete or team
@@ -406,28 +491,34 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
         const awayTeamName = awayComp?.team?.displayName || awayComp?.team?.name || awayComp?.athlete?.displayName || '';
 
         const [homeLast5, awayLast5, homeMetrics, awayMetrics] = await Promise.all([
-            homeComp ? fetchTeamLastFive(homeComp.id, sport, leagueId) : Promise.resolve([]),
-            awayComp ? fetchTeamLastFive(awayComp.id, sport, leagueId) : Promise.resolve([]),
+            homeComp?.id ? fetchTeamLastFive(homeComp.id, sport, leagueId) : Promise.resolve([] as RecentFormGame[]),
+            awayComp?.id ? fetchTeamLastFive(awayComp.id, sport, leagueId) : Promise.resolve([] as RecentFormGame[]),
             dbService.getTeamMetrics(homeTeamName),
             dbService.getTeamMetrics(awayTeamName)
         ]);
 
-        const formatStats = (teamId: string, last5: JsonValue[]): TeamStats => {
+        const formatStats = (teamId: string, last5: RecentFormGame[]): TeamStats => {
             // Defensive lookup for Tennis where .team might be missing
-            const tm = data.boxscore?.teams?.find((t: JsonValue) => (t.team?.id || t.id) === teamId);
-            const comp = competitors.find((c: JsonValue) => c.id === teamId);
+            const tm = data.boxscore?.teams?.find((t) => (t.team?.id || t.id) === teamId);
+            const comp = competitors.find((c) => c.id === teamId);
 
-            const rawRecords = comp?.records || comp?.record;
+            const rawRecords = Array.isArray(comp?.records)
+                ? comp?.records
+                : Array.isArray(comp?.record)
+                    ? comp?.record
+                    : comp?.record
+                        ? [comp?.record]
+                        : [];
             let record = '0-0';
-            if (Array.isArray(rawRecords) && rawRecords.length > 0) {
-                const totalRec = rawRecords.find((r: JsonValue) => r.type === 'total') || rawRecords[0];
+            if (rawRecords.length > 0) {
+                const totalRec = rawRecords.find((r) => r.type === 'total') || rawRecords[0];
                 if (totalRec?.summary) record = totalRec.summary;
             }
 
             const statsList: { label: string; value: string }[] = [];
             if (tm?.statistics) {
-                tm.statistics.forEach((s: JsonValue) => {
-                    statsList.push({ label: s.label || s.name, value: String(s.displayValue || s.value || '-') });
+                tm.statistics.forEach((s) => {
+                    statsList.push({ label: s.label || s.name || '-', value: String(s.displayValue ?? s.value ?? '-') });
                 });
             }
 
@@ -437,26 +528,26 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
                 record,
                 streak: '',
                 stats: statsList,
-                last5: last5
+                last5
             };
         };
 
-        const homeTeamStats = formatStats(homeComp?.id, homeLast5);
-        const awayTeamStats = formatStats(awayComp?.id, awayLast5);
+        const homeTeamStats = formatStats(homeComp?.id || '', homeLast5);
+        const awayTeamStats = formatStats(awayComp?.id || '', awayLast5);
 
         // 3. Injuries
         const parseInjuries = (teamId: string): InjuryReport[] => {
-            const teamInjuries = data.injuries?.find((t: JsonValue) => (t.team?.id || t.athlete?.id || t.id) === teamId);
+            const teamInjuries = data.injuries?.find((t) => (t.team?.id || t.athlete?.id || t.id) === teamId);
             if (!teamInjuries?.injuries) return [];
 
-            const mapped = teamInjuries.injuries.map((inj: JsonValue) => ({
-                id: inj.athlete.id,
-                name: inj.athlete.displayName,
-                player: inj.athlete.displayName, // v7 Alias
-                position: inj.athlete.position?.abbreviation || '',
-                status: inj.status,
-                description: inj.shortComment || inj.longComment || inj.status,
-                headshot: inj.athlete.headshot?.href
+            const mapped = teamInjuries.injuries.map((inj) => ({
+                id: inj.athlete?.id || '',
+                name: inj.athlete?.displayName || '',
+                player: inj.athlete?.displayName || '', // v7 Alias
+                position: inj.athlete?.position?.abbreviation || '',
+                status: inj.status || '',
+                description: inj.shortComment || inj.longComment || inj.status || '',
+                headshot: inj.athlete?.headshot?.href
             }));
 
             return safeSlice(mapped, 0, 5);
@@ -469,21 +560,26 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
 
         // 4. Rosters (Primary: Summary, Fallback: Roster Endpoint)
         const parseRosterFromSummary = (teamId: string): RosterPlayer[] => {
-            const leaders = data.leaders?.find((t: JsonValue) => t.team.id === teamId)?.leaders;
-            const boxPlayers = data.boxscore?.teams?.find((t: JsonValue) => t.team.id === teamId)?.players;
+            const leadersPayload = data.leaders || [];
+            const leadersByTeam = (leadersPayload.length > 0 && 'team' in leadersPayload[0])
+                ? (leadersPayload as EspnLeaderGroup[])
+                : [];
+
+            const leaders = leadersByTeam.find((t) => t.team?.id === teamId)?.leaders;
+            const boxPlayers = data.boxscore?.teams?.find((t) => t.team?.id === teamId)?.players;
 
             const players: RosterPlayer[] = [];
             const seen = new Set<string>();
 
-            const pushPlayer = (athlete: JsonValue, statVal: string, statLabel: string) => {
-                if (!athlete || seen.has(athlete.id)) return;
+            const pushPlayer = (athlete: EspnAthlete | undefined, statVal: string, statLabel: string) => {
+                if (!athlete?.id || seen.has(athlete.id)) return;
                 seen.add(athlete.id);
 
                 const pos = athlete.position?.abbreviation || '';
 
                 players.push({
                     id: athlete.id,
-                    name: athlete.displayName,
+                    name: athlete.displayName || athlete.fullName || '',
                     position: pos,
                     jersey: athlete.jersey || '',
                     headshot: buildHeadshotUrl(athlete.id, sport, athlete.headshot?.href),
@@ -494,15 +590,15 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
             };
 
             if (leaders) {
-                leaders.forEach((l: JsonValue) => pushPlayer(l.athlete, l.displayValue, 'Avg'));
+                leaders.forEach((l) => pushPlayer(l.athlete, l.displayValue || '0', 'Avg'));
             }
 
             if (players.length < 5 && boxPlayers) {
-                boxPlayers.forEach((grp: JsonValue) => {
-                    grp.athletes?.forEach((a: JsonValue) => {
+                boxPlayers.forEach((grp) => {
+                    grp.athletes?.forEach((a) => {
                         if (players.length >= 8) return;
-                        const val = a.stats?.[0] || '0';
-                        pushPlayer(a.athlete, val, 'Avg');
+                        const val = a.stats?.[0];
+                        pushPlayer(a.athlete, typeof val === 'number' ? String(val) : (val || '0'), 'Avg');
                     });
                 });
             }
@@ -537,24 +633,24 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
         }
 
         // 6. Last Meetings
-        const rawMeetings = safeGet(data, 'header.competitions.0.previousMeetings', []);
-        const meetingsMapped = rawMeetings.map((m: JsonValue) => {
-            const mHome = m.teams?.find((t: JsonValue) => t.homeAway === 'home') || m.homeTeam;
-            const mAway = m.teams?.find((t: JsonValue) => t.homeAway === 'away') || m.awayTeam;
+        const rawMeetings = competition?.previousMeetings || [];
+        const meetingsMapped = rawMeetings.map((m) => {
+            const mHome = m.teams?.find((t) => t.homeAway === 'home') || m.homeTeam;
+            const mAway = m.teams?.find((t) => t.homeAway === 'away') || m.awayTeam;
 
-            const homeScore = parseInt(mHome?.score?.displayValue || mHome?.score || '0');
-            const awayScore = parseInt(mAway?.score?.displayValue || mAway?.score || '0');
+            const homeScore = parseInt(String((mHome as EspnCompetitor | undefined)?.score?.displayValue ?? (mHome as EspnCompetitor | undefined)?.score ?? '0'));
+            const awayScore = parseInt(String((mAway as EspnCompetitor | undefined)?.score?.displayValue ?? (mAway as EspnCompetitor | undefined)?.score ?? '0'));
 
             let winnerId = '0';
-            if (homeScore > awayScore) winnerId = mHome?.team?.id || mHome?.id;
-            else if (awayScore > homeScore) winnerId = mAway?.team?.id || mAway?.id;
+            if (homeScore > awayScore) winnerId = (mHome as EspnCompetitor | undefined)?.team?.id || (mHome as EspnCompetitor | undefined)?.id || '0';
+            else if (awayScore > homeScore) winnerId = (mAway as EspnCompetitor | undefined)?.team?.id || (mAway as EspnCompetitor | undefined)?.id || '0';
 
             return {
-                date: m.date,
+                date: m.date || '',
                 homeScore,
                 awayScore,
-                homeTeamId: mHome?.team?.id || mHome?.id,
-                awayTeamId: mAway?.team?.id || mAway?.id,
+                homeTeamId: (mHome as EspnCompetitor | undefined)?.team?.id || (mHome as EspnCompetitor | undefined)?.id || '',
+                awayTeamId: (mAway as EspnCompetitor | undefined)?.team?.id || (mAway as EspnCompetitor | undefined)?.id || '',
                 winnerId
             };
         });
@@ -563,14 +659,14 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
 
         // 7. Market Intelligence (Consensus Splits) - Find main market, skip 1H/1P
         const pickcenterArr = data.pickcenter || [];
-        const mainPick = pickcenterArr.find((p: JsonValue) =>
+        const mainPick = pickcenterArr.find((p) =>
             p.provider?.name?.toLowerCase().includes('consensus') ||
-            (sport === Sport.HOCKEY && (p.overUnder || 0) > 4) ||
-            (sport === Sport.NBA && (p.overUnder || 0) > 150) ||
-            (sport === Sport.NFL && (p.overUnder || 0) > 30)
-        ) || pickcenterArr[0] || {};
+            (sport === Sport.HOCKEY && Number(p.overUnder || 0) > 4) ||
+            (sport === Sport.NBA && Number(p.overUnder || 0) > 150) ||
+            (sport === Sport.NFL && Number(p.overUnder || 0) > 30)
+        ) || pickcenterArr[0];
 
-        const marketIntel = mainPick.public ? {
+        const marketIntel = mainPick?.public ? {
             spread: {
                 home: mainPick.public.spread?.homeTeam?.money || 50,
                 away: mainPick.public.spread?.awayTeam?.money || 50
@@ -584,12 +680,12 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
                 away: mainPick.public.moneyLine?.awayTeam?.money || 50
             },
             openingLine: mainPick.details,
-            openingTotal: mainPick.overUnder?.toString()
+            openingTotal: mainPick.overUnder !== undefined ? String(mainPick.overUnder) : undefined
         } : undefined;
 
         // 8. Coaches
-        const homeCoachObj = data.boxscore?.teams?.find((t: JsonValue) => t.team.id === homeComp?.id)?.coaches?.[0];
-        const awayCoachObj = data.boxscore?.teams?.find((t: JsonValue) => t.team.id === awayComp?.id)?.coaches?.[0];
+        const homeCoachObj = data.boxscore?.teams?.find((t) => t.team?.id === homeComp?.id)?.coaches?.[0];
+        const awayCoachObj = data.boxscore?.teams?.find((t) => t.team?.id === awayComp?.id)?.coaches?.[0];
 
         const coaches = {
             home: homeCoachObj ? {
@@ -603,21 +699,21 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
         };
 
         // v7 Integration: Construct Prediction Contract using REAL STATS
-        const currentTotal = parseFloat(mainPick.overUnder?.toString() || '0');
-        const currentSpreadDetails = mainPick.details?.split(' ')?.find((s: string) => s.includes('-') || s.includes('+')) || '0';
+        const currentTotal = parseFloat(String(mainPick?.overUnder ?? '0'));
+        const currentSpreadDetails = mainPick?.details?.split(' ')?.find((s: string) => s.includes('-') || s.includes('+')) || '0';
         const currentSpread = parseFloat(currentSpreadDetails);
 
         // Helper to find specific stats in the ESPN response
-        const findStatValue = (teamBox: JsonValue, labels: string[]) => {
+        const findStatValue = (teamBox: EspnTeamBox | undefined, labels: string[]) => {
             if (!teamBox?.statistics) return 0;
-            const stat = teamBox.statistics.find((s: JsonValue) =>
+            const stat = teamBox.statistics.find((s) =>
                 labels.some(l => s.label?.toLowerCase() === l.toLowerCase() || s.name?.toLowerCase() === l.toLowerCase())
             );
-            return parseFloat(stat?.displayValue || stat?.value || '0');
+            return parseFloat(String(stat?.displayValue ?? stat?.value ?? '0'));
         };
 
-        const homeBox = data.boxscore?.teams?.find((t: JsonValue) => t.team.id === homeComp?.id);
-        const awayBox = data.boxscore?.teams?.find((t: JsonValue) => t.team.id === awayComp?.id);
+        const homeBox = data.boxscore?.teams?.find((t) => t.team?.id === homeComp?.id);
+        const awayBox = data.boxscore?.teams?.find((t) => t.team?.id === awayComp?.id);
 
         // EXTRACTION: Baseline Physics
         // For NBA/NCAA: "Avg Points", "Pace"
@@ -679,6 +775,10 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
             currentSpread
         };
 
+        const leadersForUi = Array.isArray(data.leaders) && data.leaders.length > 0 && 'displayName' in data.leaders[0]
+            ? (data.leaders as MatchLeader[])
+            : undefined;
+
         return {
             venue,
             stadium,
@@ -689,13 +789,13 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
             rosters,
             prediction,
             lastMeetings,
-            broadcast: safeGet(data, 'header.competitions.0.broadcasts.0.names.0'),
+            broadcast: competition?.broadcasts?.[0]?.names?.[0],
             insights: insights || [],
             officials,
             refIntel: refIntelResult?.data,
             marketIntel,
             coaches,
-            leaders: data.leaders,
+            leaders: leadersForUi,
             projections: {
                 total: edgeResult.modelLine,
                 pace: edgeResult.trace.pace,

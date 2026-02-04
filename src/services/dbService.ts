@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { MatchNews, PlayerPropBet } from '../types';
+import { MatchNews, PlayerPropBet, RefIntelContent } from '../types';
 import { MatchInsight, TeamTrend } from '../types/historicalIntel';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -191,17 +191,50 @@ export const dbService = {
 
     if (error || !data) return [];
 
-    // Convert DB numeric types to number if needed (Postgres numeric comes as string/number)
+    const normalizePropType = (value?: string | null) => {
+      const v = (value || '').toLowerCase() as PlayerPropBet['betType'];
+      const allowed: PlayerPropBet['betType'][] = [
+        'points', 'rebounds', 'assists', 'threes', 'blocks', 'steals',
+        'pra', 'pr', 'pa', 'ra', 'points_rebounds', 'points_assists', 'rebounds_assists',
+        'passing_yards', 'rushing_yards', 'receiving_yards', 'touchdowns', 'receptions', 'tackles', 'sacks', 'hits',
+        'shots_on_goal', 'goals', 'saves', 'custom'
+      ];
+      return allowed.includes(v) ? v : 'custom';
+    };
+
     return data.map(d => ({
-      ...d,
-      lineValue: Number(d.line_value),
-      oddsAmerican: Number(d.odds_american),
-      marketLabel: d.market_label || d.bet_type // Fallback
-    })) as unknown as PlayerPropBet[];
+      id: d.id || `${matchId}:${d.player_name || 'player'}:${d.bet_type || 'prop'}`,
+      userId: d.user_id || 'system',
+      matchId,
+      eventDate: d.event_date || new Date().toISOString(),
+      league: d.league || '',
+      team: d.team || undefined,
+      opponent: d.opponent || undefined,
+      playerName: d.player_name || '',
+      playerId: d.player_id || undefined,
+      headshotUrl: d.headshot_url || undefined,
+      betType: normalizePropType(d.bet_type),
+      marketLabel: d.market_label || d.bet_type || undefined,
+      side: (d.side || 'over') as PlayerPropBet['side'],
+      lineValue: Number(d.line_value ?? 0),
+      sportsbook: d.sportsbook || 'market',
+      oddsAmerican: Number(d.odds_american ?? 0),
+      oddsDecimal: d.odds_decimal ? Number(d.odds_decimal) : undefined,
+      stakeAmount: Number(d.stake_amount ?? 0),
+      potentialPayout: d.potential_payout ? Number(d.potential_payout) : undefined,
+      impliedProbPct: d.implied_prob_pct ? Number(d.implied_prob_pct) : undefined,
+      result: (d.result || 'pending') as PlayerPropBet['result'],
+      resultValue: d.result_value ? Number(d.result_value) : undefined,
+      settledAt: d.settled_at || undefined,
+      settledPnl: d.settled_pnl ? Number(d.settled_pnl) : undefined,
+      openLine: d.open_line ? Number(d.open_line) : undefined,
+      currentLine: d.current_line ? Number(d.current_line) : undefined,
+      lineMovement: d.line_movement ? Number(d.line_movement) : undefined
+    }));
   },
 
   // Referee Intel
-  getRefIntel: async (matchId: string): Promise<CacheResult<any> | null> => {
+  getRefIntel: async (matchId: string): Promise<CacheResult<RefIntelContent> | null> => {
     // We use ILIKE and % to handle cases where the DB ID might have a sport suffix (e.g. 401810228_nba)
     const { data, error } = await supabase
       .from('ref_intel')
@@ -215,11 +248,11 @@ export const dbService = {
     const isStale = Date.now() - fetchedAt > CACHE_TTL.REF;
 
     return {
-      data: data.content,
+      data: data.content as RefIntelContent,
       isStale,
     };
   },
-  cacheRefIntel: (matchId: string, intel: DbValue) =>
+  cacheRefIntel: (matchId: string, intel: RefIntelContent) =>
     cacheData('ref_intel', 'match_id', { match_id: matchId, content: intel }),
 
   // Match Angle (Specific Match - generated on demand)

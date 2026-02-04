@@ -14,38 +14,11 @@ import {
     Clock,
     Activity
 } from 'lucide-react';
+import type { PregameContext } from '../../types';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════════
-
-interface InjuryEntry {
-    team: string;
-    player: string;
-    status: "OUT" | "DOUBTFUL" | "QUESTIONABLE" | "PROBABLE" | "IN";
-    impact: "USAGE" | "DEFENSE" | "PACE" | "MINUTES" | "UNKNOWN";
-    note: string;
-}
-
-interface TravelEntry {
-    team: string;
-    flag: "B2B" | "3IN4" | "4IN6" | "TIMEZONE" | "ALTITUDE" | "REST_ADV";
-    note: string;
-}
-
-interface MarketSignals {
-    sharp: Array<{ signal: "RLM" | "STEAM" | "BUYBACK"; note: string }>;
-    public: Array<{ signal: "PUBLIC_HEAVY" | "HANDLE_HEAVY"; note: string }>;
-}
-
-interface PregameContext {
-    match_id: string;
-    generated_at: string;
-    injuries: InjuryEntry[];
-    travel: TravelEntry[];
-    market_signals: MarketSignals;
-    context_notes: string[];
-}
 
 interface PregameWatchTagsProps {
     context: PregameContext | null;

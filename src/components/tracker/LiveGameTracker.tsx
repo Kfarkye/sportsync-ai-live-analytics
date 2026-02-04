@@ -243,7 +243,9 @@ const getOrdinal = (n: number) => {
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
-const isPlainObject = (v: object | null | undefined): v is Record<string, unknown> =>
+type PlainValue = string | number | boolean | null | PlainValue[] | { [key: string]: PlainValue };
+
+const isPlainObject = (v: object | null | undefined): v is Record<string, PlainValue> =>
     !!v && typeof v === 'object' && !Array.isArray(v);
 
 const pickWindSpeed = (m: ExtendedMatch): number => {

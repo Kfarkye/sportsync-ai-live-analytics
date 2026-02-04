@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Match, MatchNews, FatigueMetrics, OfficialStats } from '../types';
+import { Match, MatchNews, FatigueMetrics, OfficialStats, PregameContext } from '../types';
 import { supabase } from '../lib/supabase';
 import {
     RefreshCw,
@@ -114,10 +114,15 @@ const OfficiatingCard: React.FC<{ stats: OfficialStats }> = ({ stats }) => (
 
 const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
     const [news, setNews] = useState<MatchNews | null>(null);
-    const [pregameContext, setPregameContext] = useState<any>(null);
+    const [pregameContext, setPregameContext] = useState<PregameContext | null>(null);
     const [contextLoading, setContextLoading] = useState(true);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
+
+    const parseNewsStatus = (value?: string | null): MatchNews['status'] => {
+        if (value === 'pending' || value === 'ready' || value === 'failed' || value === 'generating') return value;
+        return 'pending';
+    };
 
     const fetchNews = useCallback(async (isInitialLoad = true) => {
         if (isInitialLoad) setLoading(true);
@@ -139,7 +144,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
                     fatigue: data.fatigue || undefined,
                     officials: data.officials || undefined,
                     sources: data.sources || [],
-                    status: data.status as any,
+                    status: parseNewsStatus(data.status),
                     generatedAt: data.generated_at,
                     expiresAt: data.expires_at,
                     sharp_data: data.sharp_data || undefined
@@ -191,7 +196,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
                     venue: match.context?.venue?.name || 'Unknown Venue',
                     odds: {
                         spread: match.odds?.spread || match.odds?.homeSpread || 'N/A',
-                        overUnder: match.odds?.overUnder || (match.odds as any)?.total || 'N/A'
+                        overUnder: match.odds?.overUnder || match.odds?.total || 'N/A'
                     }
                 }
             });
