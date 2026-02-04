@@ -1,20 +1,8 @@
-/* ============================================================================
-   PropMarketListView.tsx
-   Player Props Market Interface — Internal Systems Grade
-   
-   Architecture:
-   ├─ Sport-adaptive category system with semantic color mapping
-   ├─ Dual-mode display: H2H comparison vs. single-team focus
-   ├─ Real-time progress tracking with animated indicators
-   ├─ Collapsible sections with sticky headers for scroll context
-   └─ Responsive grid layouts optimized for mobile-first
-   
-   Performance:
-   ├─ Memoized category filtering and player grouping
-   ├─ Virtualization-ready data structures
-   ├─ Optimized re-render boundaries via memo()
-   └─ Layout animations using transform (GPU-accelerated)
-============================================================================ */
+// ============================================================================
+// PropMarketListView.tsx
+// ARCHITECTURE: "SOTA Production" • Apple/Google Quality Standards
+// AESTHETIC: Porsche Luxury • Jony Ive Minimalism • Jobs Narrative
+// ============================================================================
 
 import React, {
     useMemo,
@@ -23,11 +11,66 @@ import React, {
     memo,
     type FC,
 } from 'react';
-import { motion, AnimatePresence, type Transition } from 'framer-motion';
-import { TrendingUp, ChevronDown, User } from 'lucide-react';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { cn } from '../../lib/essence';
 import { getPlayerStatValue } from './PlayerStatComponents';
 import type { Match } from '../../types';
+
+// ============================================================================
+// 🎨 DESIGN TOKENS & PHYSICS
+// ============================================================================
+
+const PHYSICS_SWITCH = { type: "spring", stiffness: 380, damping: 35, mass: 0.8 };
+
+const TOKENS = {
+    z: {
+        sticky: 30,
+        categoryHeader: 20,
+        teamLabel: 10,
+    },
+    sticky: {
+        // Precise offsets to stack below MatchDetails header (approx 110px)
+        nav: 'top-[112px] md:top-[132px]',
+        categoryOpen: 'top-[168px] md:top-[188px]',
+        teamLabel: 'top-[220px] md:top-[240px]',
+    },
+};
+
+// ============================================================================
+// 💎 MICRO-COMPONENTS (PURE GEOMETRY)
+// ============================================================================
+
+// Pure CSS Plus/Minus Toggle
+const ToggleSwitch = ({ expanded }: { expanded: boolean }) => (
+    <div className="relative w-2.5 h-2.5 flex items-center justify-center opacity-40 group-hover:opacity-100 transition-opacity duration-300">
+        <span className={cn(
+            "absolute w-full h-[1px] bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+            expanded ? "rotate-180" : "rotate-0"
+        )} />
+        <span className={cn(
+            "absolute w-full h-[1px] bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+            expanded ? "rotate-180 opacity-0" : "rotate-90 opacity-100"
+        )} />
+    </div>
+);
+
+// High-Precision Progress Line
+const PrecisionProgress = memo(({ progress, isHitting, color }: { progress: number; isHitting: boolean; color: string }) => (
+    <div className="h-[2px] w-full bg-white/[0.06] mt-3 relative overflow-hidden">
+        <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min(progress, 100)}%` }}
+            transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }} // Custom easing
+            className={cn(
+                "absolute top-0 left-0 h-full transition-colors duration-500",
+                isHitting ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.6)]" : "bg-zinc-500"
+            )}
+        />
+        {/* Target Marker */}
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-2 bg-white/20" />
+    </div>
+));
+PrecisionProgress.displayName = 'PrecisionProgress';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -36,7 +79,7 @@ import type { Match } from '../../types';
 interface Category {
     id: string;
     label: string;
-    color: string;
+    accent: string;
 }
 
 interface PlayerProp {
@@ -70,129 +113,40 @@ interface PropMarketListViewProps {
     match: Match;
 }
 
-interface CategoryCardProps {
-    category: Category;
-    match: Match;
-    activeTeamId: string;
-    props: PlayerProp[];
-    teams: Team[];
-    defaultOpen: boolean;
-}
-
-interface PolishedPlayerCardProps {
-    player: GroupedPlayer;
-    match: Match;
-    category: string;
-    teamColor: string;
-    isComparison?: boolean;
+// Local Type Supremacy: Handle dynamic props safely
+interface ExtendedMatch extends Match {
+    dbProps?: PlayerProp[];
 }
 
 // ============================================================================
-// DESIGN TOKENS
-// ============================================================================
-
-const tokens = {
-    // Animation presets
-    spring: {
-        snappy: { type: 'spring', stiffness: 400, damping: 30 } as Transition,
-        gentle: { type: 'spring', stiffness: 280, damping: 26 } as Transition,
-        smooth: { duration: 0.4, ease: [0.32, 0.72, 0, 1] } as Transition,
-    },
-
-    // Z-index layers
-    z: {
-        sticky: 30,
-        categoryHeader: 20,
-        teamLabel: 10,
-    },
-
-    // Sticky positions (cascading)
-    sticky: {
-        nav: 'top-[186px]',
-        categoryOpen: 'top-[234px]',
-        teamLabel: 'top-[278px]',
-    },
-} as const;
-
-// ============================================================================
-// SPORT CATEGORY CONFIGURATION
+// SPORT CONFIGURATION (Minimalist Colors)
 // ============================================================================
 
 const CATEGORIES_BY_SPORT: Record<string, Category[]> = {
-    // Basketball
     NBA: [
-        { id: 'POINTS', label: 'Points', color: 'from-amber-500 to-orange-600' },
-        { id: 'REBOUNDS', label: 'Rebounds', color: 'from-emerald-500 to-teal-600' },
-        { id: 'ASSISTS', label: 'Assists', color: 'from-cyan-500 to-blue-600' },
-        { id: 'THREES_MADE', label: '3-PT Made', color: 'from-violet-500 to-purple-600' },
+        { id: 'POINTS', label: 'POINTS', accent: 'text-amber-200' },
+        { id: 'REBOUNDS', label: 'REBOUNDS', accent: 'text-emerald-200' },
+        { id: 'ASSISTS', label: 'ASSISTS', accent: 'text-blue-200' },
+        { id: 'THREES_MADE', label: '3PM', accent: 'text-purple-200' },
     ],
-    WNBA: [
-        { id: 'POINTS', label: 'Points', color: 'from-amber-500 to-orange-600' },
-        { id: 'REBOUNDS', label: 'Rebounds', color: 'from-emerald-500 to-teal-600' },
-        { id: 'ASSISTS', label: 'Assists', color: 'from-cyan-500 to-blue-600' },
-    ],
-    COLLEGE_BASKETBALL: [
-        { id: 'POINTS', label: 'Points', color: 'from-amber-500 to-orange-600' },
-        { id: 'REBOUNDS', label: 'Rebounds', color: 'from-emerald-500 to-teal-600' },
-        { id: 'ASSISTS', label: 'Assists', color: 'from-cyan-500 to-blue-600' },
-    ],
-
-    // Hockey
-    NHL: [
-        { id: 'GOALS', label: 'Goals', color: 'from-rose-500 to-red-600' },
-        { id: 'ASSISTS', label: 'Assists', color: 'from-cyan-500 to-blue-600' },
-        { id: 'SHOTS_ON_GOAL', label: 'Shots on Goal', color: 'from-zinc-500 to-slate-600' },
-        { id: 'POINTS', label: 'Total Points', color: 'from-amber-500 to-orange-600' },
-    ],
-    HOCKEY: [
-        { id: 'GOALS', label: 'Goals', color: 'from-rose-500 to-red-600' },
-        { id: 'ASSISTS', label: 'Assists', color: 'from-cyan-500 to-blue-600' },
-        { id: 'SHOTS_ON_GOAL', label: 'Shots on Goal', color: 'from-zinc-500 to-slate-600' },
-        { id: 'POINTS', label: 'Total Points', color: 'from-amber-500 to-orange-600' },
-    ],
-
-    // Football
     NFL: [
-        { id: 'PASSING_YARDS', label: 'Pass Yds', color: 'from-blue-500 to-indigo-600' },
-        { id: 'RUSHING_YARDS', label: 'Rush Yds', color: 'from-emerald-500 to-teal-600' },
-        { id: 'RECEIVING_YARDS', label: 'Rec Yds', color: 'from-amber-500 to-orange-600' },
-        { id: 'ANYTIME_TD', label: 'Touchdowns', color: 'from-rose-500 to-red-600' },
+        { id: 'PASSING_YARDS', label: 'PASS YDS', accent: 'text-blue-200' },
+        { id: 'RUSHING_YARDS', label: 'RUSH YDS', accent: 'text-emerald-200' },
+        { id: 'RECEIVING_YARDS', label: 'REC YDS', accent: 'text-amber-200' },
+        { id: 'ANYTIME_TD', label: 'TDs', accent: 'text-rose-200' },
     ],
-    FOOTBALL: [
-        { id: 'PASSING_YARDS', label: 'Pass Yds', color: 'from-blue-500 to-indigo-600' },
-        { id: 'RUSHING_YARDS', label: 'Rush Yds', color: 'from-emerald-500 to-teal-600' },
-        { id: 'RECEIVING_YARDS', label: 'Rec Yds', color: 'from-amber-500 to-orange-600' },
-        { id: 'ANYTIME_TD', label: 'Touchdowns', color: 'from-rose-500 to-red-600' },
-    ],
-    COLLEGE_FOOTBALL: [
-        { id: 'PASSING_YARDS', label: 'Pass Yds', color: 'from-blue-500 to-indigo-600' },
-        { id: 'RUSHING_YARDS', label: 'Rush Yds', color: 'from-emerald-500 to-teal-600' },
-        { id: 'RECEIVING_YARDS', label: 'Rec Yds', color: 'from-amber-500 to-orange-600' },
-        { id: 'ANYTIME_TD', label: 'Touchdowns', color: 'from-rose-500 to-red-600' },
-    ],
-
-    // Baseball
     MLB: [
-        { id: 'STRIKEOUTS', label: 'Strikeouts', color: 'from-blue-500 to-indigo-600' },
-        { id: 'HITS', label: 'Hits', color: 'from-emerald-500 to-teal-600' },
-        { id: 'TOTAL_BASES', label: 'Total Bases', color: 'from-amber-500 to-orange-600' },
+        { id: 'STRIKEOUTS', label: 'Ks', accent: 'text-blue-200' },
+        { id: 'HITS', label: 'HITS', accent: 'text-emerald-200' },
+        { id: 'TOTAL_BASES', label: 'BASES', accent: 'text-amber-200' },
     ],
-    BASEBALL: [
-        { id: 'STRIKEOUTS', label: 'Strikeouts', color: 'from-blue-500 to-indigo-600' },
-        { id: 'HITS', label: 'Hits', color: 'from-emerald-500 to-teal-600' },
-        { id: 'TOTAL_BASES', label: 'Total Bases', color: 'from-amber-500 to-orange-600' },
+    NHL: [
+        { id: 'GOALS', label: 'GOALS', accent: 'text-rose-200' },
+        { id: 'ASSISTS', label: 'ASSISTS', accent: 'text-cyan-200' },
+        { id: 'SHOTS_ON_GOAL', label: 'SHOTS', accent: 'text-zinc-200' },
     ],
-
-    // Soccer
-    SOCCER: [
-        { id: 'GOALS', label: 'Goals', color: 'from-rose-500 to-red-600' },
-        { id: 'ASSISTS', label: 'Assists', color: 'from-cyan-500 to-blue-600' },
-        { id: 'SHOTS_ON_GOAL', label: 'Shots', color: 'from-zinc-500 to-slate-600' },
-    ],
-
-    // Fallback
     DEFAULT: [
-        { id: 'POINTS', label: 'Points', color: 'from-amber-500 to-orange-600' },
+        { id: 'POINTS', label: 'POINTS', accent: 'text-zinc-200' },
     ],
 };
 
@@ -200,693 +154,409 @@ const CATEGORIES_BY_SPORT: Record<string, Category[]> = {
 // UTILITY FUNCTIONS
 // ============================================================================
 
-/**
- * Normalizes team color to hex format
- */
 function normalizeColor(color?: string): string {
-    if (!color) return '#6366f1';
+    if (!color) return '#71717a';
     return color.startsWith('#') ? color : `#${color}`;
 }
 
-/**
- * Extracts initials from player name
- */
 function getInitials(name: string): string {
-    return name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
-/**
- * Formats line value for display
- */
-function formatLine(value: number): string {
-    return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
-
-/**
- * Formats odds for display
- */
 function formatOdds(odds: number): string {
     return odds > 0 ? `+${odds}` : String(odds);
 }
 
-/**
- * Creates a normalized key for player deduplication
- */
 function createPlayerKey(name: string): string {
     return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 // ============================================================================
-// SUBCOMPONENTS
+// PLAYER CARD (SPEC SHEET ROW)
 // ============================================================================
 
-/**
- * Progress bar with animated fill
- */
-interface ProgressBarProps {
-    progress: number;
-    isHitting: boolean;
-}
-
-const ProgressBar: FC<ProgressBarProps> = memo(({ progress, isHitting }) => (
-    <div className="h-1 w-full bg-zinc-800/40 rounded-full overflow-hidden">
-        <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${Math.min(progress, 100)}%` }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            className={cn(
-                'h-full rounded-full',
-                isHitting ? 'bg-emerald-500' : 'bg-zinc-600'
-            )}
-        />
-    </div>
-));
-
-ProgressBar.displayName = 'ProgressBar';
-
-/**
- * Player avatar with team color accent
- */
-interface PlayerAvatarProps {
-    headshotUrl?: string;
-    initials: string;
+interface PlayerCardProps {
+    player: GroupedPlayer;
+    match: Match;
+    category: string;
     teamColor: string;
 }
 
-const PlayerAvatar: FC<PlayerAvatarProps> = memo(({ headshotUrl, initials, teamColor }) => (
-    <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-zinc-900 shrink-0 border border-white/[0.05]">
-        {headshotUrl ? (
-            <img
-                src={headshotUrl}
-                alt=""
-                className="w-full h-full object-cover object-top"
-                loading="lazy"
-            />
-        ) : (
-            <div className="w-full h-full flex items-center justify-center">
-                <span className="text-[10px] font-bold text-zinc-500">{initials}</span>
-            </div>
-        )}
-        <div
-            className="absolute bottom-0 left-0 right-0 h-0.5"
-            style={{ backgroundColor: teamColor }}
-            aria-hidden="true"
-        />
-    </div>
-));
+const PlayerCard: FC<PlayerCardProps> = memo(({ player, match, category, teamColor }) => {
+    // 1. Data derivation
+    const prop = useMemo(() =>
+        player.props.find((p) => p.betType?.toUpperCase() === category) || player.props[0]
+        , [player.props, category]);
 
-PlayerAvatar.displayName = 'PlayerAvatar';
+    const liveValue = useMemo(() =>
+        getPlayerStatValue(match, player.playerName, category)
+        , [match, player.playerName, category]);
 
-/**
- * Team filter button
- */
-interface TeamButtonProps {
-    team: Team;
-    isActive: boolean;
-    onClick: () => void;
-}
+    if (!prop) return null;
 
-const TeamButton: FC<TeamButtonProps> = memo(({ team, isActive, onClick }) => (
-    <button
-        onClick={onClick}
-        className={cn(
-            'relative flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-300',
-            isActive
-                ? 'bg-white/10 text-white'
-                : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
-        )}
-        aria-pressed={isActive}
-    >
-        {team.logo && (
-            <img
-                src={team.logo}
-                alt=""
-                className={cn(
-                    'w-4 h-4 sm:w-5 sm:h-5 object-contain transition-all duration-300',
-                    isActive ? 'opacity-100 scale-110' : 'opacity-40 grayscale'
-                )}
-            />
-        )}
-        <span className="text-[12px] sm:text-[14px] font-bold tracking-tight hidden xs:inline">
-            {team.abbreviation || team.shortName || team.name}
-        </span>
-    </button>
-));
+    const displayLine = prop.lineValue;
+    const hasLiveStats = liveValue !== null && liveValue !== undefined;
+    const isHitting = hasLiveStats && Number(liveValue) >= Number(displayLine);
+    const progress = hasLiveStats
+        ? Math.min((Number(liveValue) / Number(displayLine)) * 100, 150)
+        : 0;
 
-TeamButton.displayName = 'TeamButton';
+    const initials = getInitials(player.playerName);
+    const side = prop.side?.toUpperCase() || 'OVER';
 
-/**
- * Show more button
- */
-interface ShowMoreButtonProps {
-    count: number;
-    onClick: () => void;
-}
-
-const ShowMoreButton: FC<ShowMoreButtonProps> = memo(({ count, onClick }) => (
-    <div className="mt-6 flex justify-center">
-        <button
-            onClick={onClick}
-            className={cn(
-                'group flex items-center gap-2 px-6 py-2.5 rounded-full',
-                'bg-emerald-500/10 border border-emerald-500/20',
-                'hover:bg-emerald-500/20 hover:border-emerald-500/30',
-                'transition-all duration-200'
-            )}
+    return (
+        <motion.div
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="group relative py-4 px-2 transition-colors duration-300 hover:bg-white/[0.02] border-t border-white/[0.04] first:border-t-0"
         >
-            <span
-                className={cn(
-                    'text-[10px] font-bold uppercase tracking-[0.15em]',
-                    'text-emerald-400 group-hover:text-emerald-300',
-                    'transition-colors'
-                )}
-            >
-                +{count} More
-            </span>
-        </button>
-    </div>
-));
+            {/* Active Laser Line (Left Edge) */}
+            <div className={cn(
+                "absolute left-0 top-0 bottom-0 w-[2px] bg-white scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-center opacity-0 group-hover:opacity-100 shadow-[0_0_10px_rgba(255,255,255,0.4)]"
+            )} />
 
-ShowMoreButton.displayName = 'ShowMoreButton';
+            <div className="flex items-start gap-4">
 
-// ============================================================================
-// PLAYER CARD COMPONENT
-// ============================================================================
-
-const PolishedPlayerCard: FC<PolishedPlayerCardProps> = memo(
-    ({ player, match, category, teamColor }) => {
-        // Find the relevant prop for this category
-        const prop = useMemo(() => {
-            return (
-                player.props.find((p) => p.betType?.toUpperCase() === category) ||
-                player.props[0]
-            );
-        }, [player.props, category]);
-
-        // Get live stat value
-        const liveValue = useMemo(
-            () => getPlayerStatValue(match, player.playerName, category),
-            [match, player.playerName, category]
-        );
-
-        if (!prop) return null;
-
-        const displayLine = prop.lineValue;
-        const hasLiveStats = liveValue !== null && liveValue !== undefined;
-        const isHitting = hasLiveStats && Number(liveValue) >= Number(displayLine);
-        const progress = hasLiveStats
-            ? Math.min((Number(liveValue) / Number(displayLine)) * 100, 150)
-            : 0;
-
-        const color = normalizeColor(teamColor);
-        const initials = getInitials(player.playerName);
-        const odds = prop.oddsAmerican;
-        const side = prop.side?.toUpperCase() || 'OVER';
-
-        return (
-            <motion.article
-                layout
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-                className="group relative pt-5 pb-4 border-b border-white/[0.04] last:border-b-0"
-            >
-                {/* Top Row: Identity & Line */}
-                <div className="flex items-start justify-between gap-4">
-                    {/* Player Identity */}
-                    <div className="flex items-center gap-3 min-w-0">
-                        <PlayerAvatar
-                            headshotUrl={player.headshotUrl}
-                            initials={initials}
-                            teamColor={color}
-                        />
-
-                        <div className="min-w-0">
-                            <h4 className="text-[13px] sm:text-[14px] font-bold text-white tracking-tight leading-none mb-1 whitespace-normal break-words">
-                                {player.playerName}
-                            </h4>
-                        </div>
+                {/* 1. Identity Matrix */}
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                    {/* Minimalist Avatar */}
+                    <div className="relative w-9 h-9 shrink-0 bg-zinc-900 border border-white/10 grayscale group-hover:grayscale-0 transition-all duration-500">
+                        {player.headshotUrl ? (
+                            <img src={player.headshotUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[10px] font-mono text-zinc-500">
+                                {initials}
+                            </div>
+                        )}
+                        {/* Team Indicator Bar */}
+                        <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ backgroundColor: teamColor }} />
                     </div>
 
-                    {/* Line Display */}
-                    <div className="flex flex-col items-end shrink-0">
-                        <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1 leading-none">
-                            Line
+                    <div className="min-w-0 flex flex-col justify-center">
+                        <span className="text-[13px] font-medium text-zinc-200 tracking-tight truncate group-hover:text-white transition-colors">
+                            {player.playerName}
                         </span>
-                        <div className="flex items-baseline gap-1.5">
-                            <span className="text-[20px] sm:text-[24px] font-black text-white tabular-nums leading-none tracking-tighter">
-                                {formatLine(displayLine)}
+                        <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest font-mono">
+                                {side}
                             </span>
-                            <span className="text-[10px] font-bold text-zinc-500 tabular-nums">
-                                {side === 'OVER' ? 'O' : 'U'} {formatOdds(odds)}
+                            <span className="text-[9px] font-mono text-zinc-600 tabular-nums">
+                                {formatOdds(prop.oddsAmerican)}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                {/* Bottom Row: Live Progress (only if live) */}
-                {hasLiveStats && (
-                    <div className="mt-4 flex items-center gap-4">
-                        {/* Progress Bar */}
-                        <div className="flex-1 max-w-[120px]">
-                            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1.5 leading-none block">
-                                Live Progress
-                            </span>
-                            <ProgressBar progress={progress} isHitting={isHitting} />
-                        </div>
-
-                        {/* Live Value */}
-                        <div className="flex items-baseline gap-2 ml-auto">
-                            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest leading-none">
-                                Live
-                            </span>
-                            <div
-                                className={cn(
-                                    'text-[20px] font-black tabular-nums leading-none flex items-center gap-1',
-                                    isHitting ? 'text-emerald-400' : 'text-zinc-500'
-                                )}
-                            >
-                                {isHitting && (
-                                    <TrendingUp size={12} strokeWidth={3} aria-hidden="true" />
-                                )}
-                                <span aria-label={`Current value: ${liveValue}`}>{liveValue}</span>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </motion.article>
-        );
-    }
-);
-
-PolishedPlayerCard.displayName = 'PolishedPlayerCard';
-
-// ============================================================================
-// CATEGORY CARD COMPONENT
-// ============================================================================
-
-const CategoryCard: FC<CategoryCardProps> = memo(
-    ({ category, match, activeTeamId, props, teams, defaultOpen }) => {
-        const [isOpen, setIsOpen] = useState(defaultOpen);
-        const [showAll, setShowAll] = useState(false);
-
-        // Toggle handler
-        const handleToggle = useCallback(() => {
-            setIsOpen((prev) => !prev);
-        }, []);
-
-        // Show all handler
-        const handleShowAll = useCallback(() => {
-            setShowAll(true);
-        }, []);
-
-        // Filter props for this category
-        const categoryProps = useMemo(() => {
-            return props.filter((p) => p.betType?.toUpperCase() === category.id);
-        }, [props, category.id]);
-
-        // Group players by team and sort
-        const { groupedPlayers, teamOrder, totalItems } = useMemo(() => {
-            // Build player map (deduplicated)
-            const playerMap = new Map<string, GroupedPlayer>();
-
-            categoryProps.forEach((prop) => {
-                const key = createPlayerKey(prop.playerName);
-                if (!playerMap.has(key)) {
-                    playerMap.set(key, {
-                        playerName: prop.playerName,
-                        headshotUrl: prop.headshotUrl,
-                        team: prop.team || 'Unknown',
-                        props: [],
-                    });
-                }
-                playerMap.get(key)!.props.push(prop);
-            });
-
-            // Group by team
-            const byTeam = new Map<string, GroupedPlayer[]>();
-            const players = Array.from(playerMap.values());
-
-            players.forEach((p) => {
-                if (!byTeam.has(p.team)) {
-                    byTeam.set(p.team, []);
-                }
-                byTeam.get(p.team)!.push(p);
-            });
-
-            // Filter by selected team if not ALL
-            if (activeTeamId !== 'ALL') {
-                const selectedTeamName = teams.find((t) => t.id === activeTeamId)?.name;
-                const keys = Array.from(byTeam.keys());
-                keys.forEach((k) => {
-                    if (k !== selectedTeamName) {
-                        byTeam.delete(k);
-                    }
-                });
-            }
-
-            // Sort players within each team by line value (descending)
-            byTeam.forEach((list) => {
-                list.sort((a, b) => {
-                    const valA = parseFloat(String(a.props[0]?.lineValue || 0));
-                    const valB = parseFloat(String(b.props[0]?.lineValue || 0));
-                    return valB - valA;
-                });
-            });
-
-            // Order teams (away first, then home)
-            const teamsPresent = Array.from(byTeam.keys());
-            const homeTeam = match.homeTeam?.name;
-            const awayTeam = match.awayTeam?.name;
-
-            const orderedTeams = teamsPresent.sort((a, b) => {
-                if (a === awayTeam) return -1;
-                if (b === awayTeam) return 1;
-                if (a === homeTeam) return -1;
-                if (b === homeTeam) return 1;
-                return a.localeCompare(b);
-            });
-
-            // Calculate total items
-            const total = Array.from(byTeam.values()).reduce(
-                (acc, list) => acc + list.length,
-                0
-            );
-
-            return {
-                groupedPlayers: byTeam,
-                teamOrder: orderedTeams,
-                totalItems: total,
-            };
-        }, [categoryProps, activeTeamId, match.homeTeam?.name, match.awayTeam?.name, teams]);
-
-        // Don't render if no players
-        if (teamOrder.length === 0) return null;
-
-        // Determine threshold and whether to show button
-        const threshold = activeTeamId === 'ALL' ? 8 : 6;
-        const shouldShowButton = totalItems > threshold && !showAll;
-        const remainingCount = totalItems - threshold;
-
-        // Get players for a team (with optional limit)
-        const getPlayersForTeam = (teamName: string, limit?: number) => {
-            const players = groupedPlayers.get(teamName) || [];
-            return limit ? players.slice(0, limit) : players;
-        };
-
-        // Find team by name (handles both name and shortName)
-        const findTeamName = (matchTeam?: { name?: string; shortName?: string }) => {
-            if (!matchTeam) return '';
-            return teamOrder.find(
-                (name) => name === matchTeam.name || name === matchTeam.shortName
-            ) || '';
-        };
-
-        return (
-            <section className="overflow-hidden" aria-labelledby={`category-${category.id}`}>
-                {/* Header Toggle */}
-                <button
-                    id={`category-${category.id}`}
-                    onClick={handleToggle}
-                    aria-expanded={isOpen}
-                    aria-controls={`category-content-${category.id}`}
-                    className={cn(
-                        'w-full flex items-center justify-between py-4 group transition-all duration-300',
-                        'border-b border-white/[0.04]',
-                        isOpen && `sticky ${tokens.sticky.categoryOpen} z-${tokens.z.categoryHeader} bg-[#050505]/98 backdrop-blur-xl px-1`
-                    )}
-                >
-                    <div className="flex items-center gap-2">
-                        <div
-                            className={cn(
-                                'w-1.5 h-1.5 rounded-full transition-all duration-300',
-                                isOpen ? 'bg-white' : 'bg-zinc-700'
-                            )}
-                            aria-hidden="true"
-                        />
-                        <span
-                            className={cn(
-                                'text-[11px] font-bold uppercase tracking-[0.15em] transition-colors duration-200',
-                                isOpen ? 'text-white' : 'text-zinc-500'
-                            )}
-                        >
-                            {category.label}
+                {/* 2. Telemetry */}
+                <div className="text-right shrink-0">
+                    <div className="flex flex-col items-end">
+                        <span className="text-[20px] font-light text-white tabular-nums tracking-tighter leading-none">
+                            {Number.isInteger(displayLine) ? displayLine : displayLine.toFixed(1)}
                         </span>
-                        {!isOpen && (
-                            <span className="text-[10px] text-zinc-600 font-mono ml-1.5">
-                                {totalItems}
+                        {hasLiveStats && (
+                            <span className={cn(
+                                "text-[10px] font-mono font-bold mt-1 tracking-wider tabular-nums",
+                                isHitting ? "text-emerald-400" : "text-zinc-500"
+                            )}>
+                                {liveValue} ACT
                             </span>
                         )}
                     </div>
+                </div>
+            </div>
 
-                    <ChevronDown
-                        size={12}
-                        strokeWidth={2}
-                        className={cn(
-                            'text-zinc-600 transition-transform duration-300',
-                            isOpen && 'rotate-180 text-zinc-400'
-                        )}
-                        aria-hidden="true"
-                    />
-                </button>
+            {/* 3. Progress Line (Live Only) */}
+            {hasLiveStats && (
+                <PrecisionProgress progress={progress} isHitting={isHitting} color={teamColor} />
+            )}
+        </motion.div>
+    );
+});
+PlayerCard.displayName = 'PlayerCard';
 
-                {/* Collapsible Content */}
-                <AnimatePresence initial={false}>
-                    {isOpen && (
-                        <motion.div
-                            id={`category-content-${category.id}`}
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={tokens.spring.smooth}
-                        >
-                            <div className="pb-8">
-                                {activeTeamId === 'ALL' ? (
-                                    /* H2H Mode - Two columns on desktop */
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2 px-1">
-                                        {/* Away Team Column */}
-                                        <div className="space-y-0 relative">
-                                            <div
-                                                className={cn(
-                                                    `sticky ${tokens.sticky.teamLabel} z-${tokens.z.teamLabel}`,
-                                                    'py-1.5 mb-2 bg-[#080808]/95 backdrop-blur-sm',
-                                                    'border-b border-white/[0.02]'
-                                                )}
-                                            >
-                                                <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">
-                                                    {match.awayTeam?.shortName || match.awayTeam?.name}
-                                                </span>
-                                            </div>
-                                            {getPlayersForTeam(findTeamName(match.awayTeam), showAll ? undefined : 4).map(
-                                                (player) => (
-                                                    <PolishedPlayerCard
-                                                        key={player.playerName}
-                                                        player={player}
-                                                        match={match}
-                                                        category={category.id}
-                                                        teamColor={match.awayTeam?.color || 'fff'}
-                                                        isComparison
-                                                    />
-                                                )
-                                            )}
-                                        </div>
+// ============================================================================
+// CATEGORY CARD (SPEC SHEET ROW)
+// ============================================================================
 
-                                        {/* Home Team Column */}
-                                        <div className="space-y-0 relative mt-8 md:mt-0">
-                                            <div
-                                                className={cn(
-                                                    `sticky ${tokens.sticky.teamLabel} z-${tokens.z.teamLabel}`,
-                                                    'py-1.5 mb-2 bg-[#080808]/95 backdrop-blur-sm',
-                                                    'border-b border-white/[0.02]'
-                                                )}
-                                            >
-                                                <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">
-                                                    {match.homeTeam?.shortName || match.homeTeam?.name}
-                                                </span>
-                                            </div>
-                                            {getPlayersForTeam(findTeamName(match.homeTeam), showAll ? undefined : 4).map(
-                                                (player) => (
-                                                    <PolishedPlayerCard
-                                                        key={player.playerName}
-                                                        player={player}
-                                                        match={match}
-                                                        category={category.id}
-                                                        teamColor={match.homeTeam?.color || 'fff'}
-                                                        isComparison
-                                                    />
-                                                )
-                                            )}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    /* Single Team Mode - Responsive grid */
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-2 px-1">
-                                        {teamOrder.map((teamName) => {
-                                            const players = getPlayersForTeam(teamName, showAll ? undefined : 6);
-                                            const isHome =
-                                                teamName === match.homeTeam?.name ||
-                                                teamName === match.homeTeam?.shortName;
-                                            const isAway =
-                                                teamName === match.awayTeam?.name ||
-                                                teamName === match.awayTeam?.shortName;
-                                            const teamColor = isHome
-                                                ? match.homeTeam?.color
-                                                : isAway
-                                                    ? match.awayTeam?.color
-                                                    : 'fff';
+interface CategoryCardProps {
+    category: Category;
+    index: number;
+    match: Match;
+    activeTeamId: string;
+    props: PlayerProp[];
+    teams: Team[];
+    defaultOpen: boolean;
+}
 
-                                            return (
-                                                <React.Fragment key={teamName}>
-                                                    {players.map((player) => (
-                                                        <PolishedPlayerCard
-                                                            key={player.playerName}
-                                                            player={player}
-                                                            match={match}
-                                                            category={category.id}
-                                                            teamColor={teamColor || 'fff'}
-                                                        />
-                                                    ))}
-                                                </React.Fragment>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+const CategoryCard: FC<CategoryCardProps> = memo(({ category, index, match, activeTeamId, props, teams, defaultOpen }) => {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+    const [showAll, setShowAll] = useState(false);
 
-                                {/* Show More Button */}
-                                {shouldShowButton && (
-                                    <ShowMoreButton count={remainingCount} onClick={handleShowAll} />
-                                )}
-                            </div>
-                        </motion.div>
+    // Filter Logic
+    const { groupedPlayers, teamOrder, totalItems } = useMemo(() => {
+        const catProps = props.filter((p) => p.betType?.toUpperCase() === category.id);
+        const playerMap = new Map<string, GroupedPlayer>();
+
+        catProps.forEach((prop) => {
+            const key = createPlayerKey(prop.playerName);
+            if (!playerMap.has(key)) {
+                playerMap.set(key, { playerName: prop.playerName, headshotUrl: prop.headshotUrl, team: prop.team || 'Unknown', props: [] });
+            }
+            playerMap.get(key)!.props.push(prop);
+        });
+
+        const byTeam = new Map<string, GroupedPlayer[]>();
+        Array.from(playerMap.values()).forEach((p) => {
+            if (!byTeam.has(p.team)) byTeam.set(p.team, []);
+            byTeam.get(p.team)!.push(p);
+        });
+
+        if (activeTeamId !== 'ALL') {
+            const selectedName = teams.find((t) => t.id === activeTeamId)?.name;
+            Array.from(byTeam.keys()).forEach((k) => { if (k !== selectedName) byTeam.delete(k); });
+        }
+
+        byTeam.forEach((list) => {
+            list.sort((a, b) => parseFloat(String(b.props[0]?.lineValue || 0)) - parseFloat(String(a.props[0]?.lineValue || 0)));
+        });
+
+        const orderedTeams = Array.from(byTeam.keys()).sort((a, b) => {
+            if (a === match.awayTeam?.name) return -1;
+            if (b === match.awayTeam?.name) return 1;
+            return 0;
+        });
+
+        return {
+            groupedPlayers: byTeam,
+            teamOrder: orderedTeams,
+            totalItems: Array.from(byTeam.values()).reduce((acc, list) => acc + list.length, 0)
+        };
+    }, [props, category.id, activeTeamId, match, teams]);
+
+    if (teamOrder.length === 0) return null;
+
+    const threshold = activeTeamId === 'ALL' ? 8 : 6;
+    const shouldShowButton = totalItems > threshold && !showAll;
+    const remainingCount = totalItems - threshold;
+    const formattedIndex = (index + 1).toString().padStart(2, '0');
+
+    return (
+        <div className="relative border-t border-white/[0.08]">
+            {/* Active Laser (Vertical) */}
+            <div className={cn(
+                "absolute top-0 bottom-0 left-0 w-[2px] bg-white transition-all duration-500 ease-out z-10 shadow-[0_0_10px_rgba(255,255,255,0.4)]",
+                isOpen ? "h-full opacity-100" : "h-0 opacity-0"
+            )} />
+
+            {/* Header */}
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={cn(
+                    'w-full flex items-center justify-between py-6 group transition-all duration-300 px-4 md:px-0',
+                    isOpen && `sticky ${TOKENS.sticky.categoryOpen} z-${TOKENS.z.categoryHeader} bg-[#050505]/95 backdrop-blur-xl border-b border-white/[0.08]`
+                )}
+            >
+                <div className="flex items-center gap-4 pl-4">
+                    <span className={cn(
+                        "text-[10px] font-bold tracking-[0.2em] uppercase font-mono transition-colors duration-300",
+                        isOpen ? "text-white" : "text-zinc-600 group-hover:text-zinc-400"
+                    )}>
+                        {formattedIndex} // {category.label}
+                    </span>
+                    {!isOpen && (
+                        <span className="text-[9px] font-mono text-zinc-600 bg-white/5 px-1.5 py-0.5 rounded">
+                            {totalItems}
+                        </span>
                     )}
-                </AnimatePresence>
-            </section>
-        );
-    }
-);
+                </div>
 
+                <div className="opacity-40 group-hover:opacity-100 transition-opacity pr-4 md:pr-0">
+                    <ToggleSwitch expanded={isOpen} />
+                </div>
+            </button>
+
+            {/* Drawer */}
+            <AnimatePresence initial={false}>
+                {isOpen && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={PHYSICS_SWITCH}
+                        className="overflow-hidden"
+                    >
+                        <div className="pb-12 px-4 md:px-0">
+                            <div className={cn(
+                                "grid gap-x-16 gap-y-8",
+                                activeTeamId === 'ALL' ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                            )}>
+                                {teamOrder.map((teamName) => {
+                                    const players = groupedPlayers.get(teamName) || [];
+                                    const visiblePlayers = showAll ? players : players.slice(0, activeTeamId === 'ALL' ? 4 : 6);
+                                    const isHome = teamName === match.homeTeam?.name || teamName === match.homeTeam?.shortName;
+                                    const isAway = teamName === match.awayTeam?.name || teamName === match.awayTeam?.shortName;
+                                    const teamColor = isHome ? match.homeTeam?.color : isAway ? match.awayTeam?.color : '#fff';
+
+                                    return (
+                                        <div key={teamName} className="relative">
+                                            {/* Sub-header */}
+                                            <div className={cn(
+                                                `sticky ${TOKENS.sticky.teamLabel} z-${TOKENS.z.teamLabel}`,
+                                                "py-2 mb-2 bg-[#050505]/95 backdrop-blur-sm border-b border-white/[0.04] flex items-center justify-between"
+                                            )}>
+                                                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] font-mono">
+                                                    {teamName}
+                                                </span>
+                                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: normalizeColor(teamColor) }} />
+                                            </div>
+
+                                            <div className="space-y-0">
+                                                {visiblePlayers.map((player) => (
+                                                    <PlayerCard
+                                                        key={player.playerName}
+                                                        player={player}
+                                                        match={match}
+                                                        category={category.id}
+                                                        teamColor={teamColor || '#fff'}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {shouldShowButton && (
+                                <div className="mt-8 flex justify-center">
+                                    <button
+                                        onClick={() => setShowAll(true)}
+                                        className="px-6 py-2 border-b border-zinc-800 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 hover:text-white hover:border-zinc-500 transition-all duration-300"
+                                    >
+                                        Load Full Roster ({remainingCount}+)
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+});
 CategoryCard.displayName = 'CategoryCard';
 
 // ============================================================================
-// MAIN COMPONENT
+// 🏛️ MAIN COMPONENT
 // ============================================================================
 
-export const PropMarketListView: FC<PropMarketListViewProps> = ({ match }) => {
+export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatch }) => {
+    // Cast to ExtendedMatch for type safety
+    const match = rawMatch as ExtendedMatch;
     const [activeTeamId, setActiveTeamId] = useState<'ALL' | string>('ALL');
 
-    // Get categories for this sport
     const categories = useMemo(() => {
         const sport = match.sport?.toUpperCase() || 'DEFAULT';
         return CATEGORIES_BY_SPORT[sport] || CATEGORIES_BY_SPORT['DEFAULT'];
     }, [match.sport]);
 
-    // Build teams list
     const teams = useMemo<Team[]>(() => {
         const list: Team[] = [];
-        if (match.awayTeam) {
-            list.push({
-                ...match.awayTeam,
-                id: match.awayTeam.id || 'away',
-                name: match.awayTeam.name || 'Away',
-                side: 'AWAY',
-            } as Team);
-        }
-        if (match.homeTeam) {
-            list.push({
-                ...match.homeTeam,
-                id: match.homeTeam.id || 'home',
-                name: match.homeTeam.name || 'Home',
-                side: 'HOME',
-            } as Team);
-        }
+        if (match.awayTeam) list.push({ ...match.awayTeam, id: match.awayTeam.id || 'away', name: match.awayTeam.name || 'Away', side: 'AWAY' } as Team);
+        if (match.homeTeam) list.push({ ...match.homeTeam, id: match.homeTeam.id || 'home', name: match.homeTeam.name || 'Home', side: 'HOME' } as Team);
         return list;
     }, [match.homeTeam, match.awayTeam]);
 
-    // Get props data
-    const dbProps = (match.dbProps || []) as PlayerProp[];
+    const dbProps = match.dbProps || [];
 
-    // Team filter handlers
-    const handleTeamSelect = useCallback((teamId: string) => {
-        setActiveTeamId(teamId);
-    }, []);
-
-    const handleAllSelect = useCallback(() => {
-        setActiveTeamId('ALL');
-    }, []);
-
-    // Split teams by side
-    const awayTeams = useMemo(() => teams.filter((t) => t.side === 'AWAY'), [teams]);
-    const homeTeams = useMemo(() => teams.filter((t) => t.side === 'HOME'), [teams]);
+    if (!dbProps.length) return (
+        <div className="py-32 text-center border border-dashed border-zinc-800 rounded-xl opacity-50 mt-12 mx-4">
+            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-600">
+                Market Data Unavailable
+            </span>
+        </div>
+    );
 
     return (
         <div className="w-full min-h-[400px]">
-            {/* Sticky Navigation */}
-            <nav
-                className={cn(
-                    `sticky ${tokens.sticky.nav} z-${tokens.z.sticky}`,
-                    'bg-[#050505]/98 backdrop-blur-xl',
-                    'border-b border-white/[0.06] shadow-2xl py-2'
-                )}
-                aria-label="Team filter"
-            >
-                <div className="flex items-center justify-center px-6 h-10 gap-4 sm:gap-8">
-                    {/* Away Team(s) */}
-                    {awayTeams.map((team) => (
-                        <TeamButton
-                            key={team.id}
-                            team={team}
-                            isActive={activeTeamId === team.id}
-                            onClick={() => handleTeamSelect(team.id)}
-                        />
+            {/* Sticky Filter Deck */}
+            <nav className={cn(
+                `sticky ${TOKENS.sticky.nav} z-${TOKENS.z.sticky}`,
+                "bg-[#050505]/95 backdrop-blur-xl border-b border-white/[0.06] py-3"
+            )}>
+                <div className="flex items-center justify-center gap-6 md:gap-12 px-4">
+                    {/* Away */}
+                    {teams.filter(t => t.side === 'AWAY').map(t => (
+                        <button
+                            key={t.id}
+                            onClick={() => setActiveTeamId(t.id)}
+                            className={cn(
+                                "relative py-2 group outline-none transition-colors duration-300",
+                                activeTeamId === t.id ? "text-white" : "text-zinc-600 hover:text-zinc-400"
+                            )}
+                        >
+                            <span className="text-[10px] font-bold tracking-[0.2em] uppercase">
+                                {t.abbreviation || t.shortName}
+                            </span>
+                            {activeTeamId === t.id && (
+                                <motion.div layoutId="propFilter" className="absolute bottom-0 left-0 right-0 h-px bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+                            )}
+                        </button>
                     ))}
 
-                    {/* H2H Toggle */}
+                    {/* H2H */}
                     <button
-                        onClick={handleAllSelect}
-                        aria-pressed={activeTeamId === 'ALL'}
+                        onClick={() => setActiveTeamId('ALL')}
                         className={cn(
-                            'relative flex items-center px-4 py-1.5 rounded-lg transition-all duration-300',
-                            activeTeamId === 'ALL'
-                                ? 'bg-white/10 text-white'
-                                : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+                            "relative py-2 group outline-none transition-colors duration-300",
+                            activeTeamId === 'ALL' ? "text-white" : "text-zinc-600 hover:text-zinc-400"
                         )}
                     >
-                        <span className="text-[11px] sm:text-[13px] font-black tracking-[0.1em] uppercase">
-                            H2H
-                        </span>
+                        <span className="text-[10px] font-bold tracking-[0.2em] uppercase">ALL MARKETS</span>
+                        {activeTeamId === 'ALL' && (
+                            <motion.div layoutId="propFilter" className="absolute bottom-0 left-0 right-0 h-px bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+                        )}
                     </button>
 
-                    {/* Home Team(s) */}
-                    {homeTeams.map((team) => (
-                        <TeamButton
-                            key={team.id}
-                            team={team}
-                            isActive={activeTeamId === team.id}
-                            onClick={() => handleTeamSelect(team.id)}
-                        />
+                    {/* Home */}
+                    {teams.filter(t => t.side === 'HOME').map(t => (
+                        <button
+                            key={t.id}
+                            onClick={() => setActiveTeamId(t.id)}
+                            className={cn(
+                                "relative py-2 group outline-none transition-colors duration-300",
+                                activeTeamId === t.id ? "text-white" : "text-zinc-600 hover:text-zinc-400"
+                            )}
+                        >
+                            <span className="text-[10px] font-bold tracking-[0.2em] uppercase">
+                                {t.abbreviation || t.shortName}
+                            </span>
+                            {activeTeamId === t.id && (
+                                <motion.div layoutId="propFilter" className="absolute bottom-0 left-0 right-0 h-px bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+                            )}
+                        </button>
                     ))}
                 </div>
             </nav>
 
-            {/* Category Cards */}
-            <div className="py-2 pb-24 space-y-px">
-                {categories.map((cat, index) => (
-                    <CategoryCard
-                        key={cat.id}
-                        category={cat}
-                        match={match}
-                        activeTeamId={activeTeamId}
-                        props={dbProps}
-                        teams={teams}
-                        defaultOpen={index === 0}
-                    />
-                ))}
+            {/* Spec Sheet Stacks */}
+            <div className="pb-24 pt-4 px-1 md:px-0">
+                <LayoutGroup>
+                    {categories.map((cat, index) => (
+                        <CategoryCard
+                            key={cat.id}
+                            index={index}
+                            category={cat}
+                            match={match}
+                            activeTeamId={activeTeamId}
+                            props={dbProps}
+                            teams={teams}
+                            defaultOpen={index === 0}
+                        />
+                    ))}
+                </LayoutGroup>
+                <div className="w-full h-px bg-white/[0.08] mt-8" />
             </div>
         </div>
     );
