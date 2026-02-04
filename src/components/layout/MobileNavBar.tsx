@@ -11,7 +11,7 @@ function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 // Inline pulse indicator (replaces NeuralPulse)
 const EdgePulse = () => (

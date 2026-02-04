@@ -9,8 +9,8 @@ import { SPORT_CONFIG, LEAGUES } from '../../constants';
 import { Sport } from '../../types';
 import { cn, ESSENCE } from '../../lib/essence';
 
-const MotionSpan = motion.span as any;
-const MotionDiv = motion.div as any;
+const MotionSpan = motion.span;
+const MotionDiv = motion.div;
 
 export const UnifiedHeader: FC = () => {
     const {

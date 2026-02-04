@@ -7,7 +7,7 @@ import { TrendingUp, DollarSign, Users, Target, Zap, AlertTriangle } from 'lucid
 import { motion } from 'framer-motion';
 import { cn } from '../../lib/essence';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 const GaugeBar = ({
     label,

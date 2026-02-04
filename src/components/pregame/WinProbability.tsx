@@ -5,7 +5,7 @@ import { cn, ESSENCE } from '../../lib/essence';
 import { CardHeader } from '../ui/SectionHeader';
 import { StatusChip } from '../ui/StatusChip';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 interface WinProbabilityProps {
     homeWinPct: number;

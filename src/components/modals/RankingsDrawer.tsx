@@ -7,7 +7,7 @@ import { fetchRankings } from '../../services/espnService';
 import TeamLogo from '../shared/TeamLogo';
 import { ESSENCE, cn } from '../../lib/essence';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 interface RankingsDrawerProps {
   isOpen: boolean;

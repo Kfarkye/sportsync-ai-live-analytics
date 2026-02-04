@@ -4,7 +4,7 @@ import { Team } from '../../types';
 import { dbService, TeamMetrics } from '../../services/dbService';
 import { cn } from '../../lib/essence';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 interface StatsComparisonProps {
     homeTeam: Team;

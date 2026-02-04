@@ -19,8 +19,8 @@ const MobileSportDrawer = lazy(() => import('./MobileSportDrawer'));
 const RankingsDrawer = lazy(() => import('../modals/RankingsDrawer'));
 const TitanAnalytics = lazy(() => import('../../pages/TitanAnalytics'));
 
-const MotionMain = motion.main as any;
-const MotionDiv = motion.div as any;
+const MotionMain = motion.main;
+const MotionDiv = motion.div;
 
 const AppShell: FC = () => {
   const {

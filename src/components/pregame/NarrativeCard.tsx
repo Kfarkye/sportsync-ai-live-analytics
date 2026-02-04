@@ -7,7 +7,7 @@ import { Match, NarrativeIntel } from '../../types';
 import { Loader2, AlertTriangle, Flame, Quote, Zap, RefreshCw, Mic2, ExternalLink, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 export const NarrativeCard = ({ match }: { match: Match }) => {
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Check, Zap, Target, Crown, Shield, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 interface PricingModalProps {
   isOpen: boolean;

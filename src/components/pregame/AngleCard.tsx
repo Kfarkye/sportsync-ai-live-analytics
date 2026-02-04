@@ -7,7 +7,7 @@ import { Match, MatchAngle } from '../../types';
 import { Loader2, AlertTriangle, Target, RefreshCw, Layers, ExternalLink, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 export const AngleCard = ({ match }: { match: Match }) => {
 

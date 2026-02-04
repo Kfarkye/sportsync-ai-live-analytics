@@ -9,7 +9,7 @@ interface PropViewToggleProps {
     className?: string;
 }
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 export const PropViewToggle: React.FC<PropViewToggleProps> = ({ view, onChange, className }) => {
     return (

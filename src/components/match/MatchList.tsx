@@ -19,7 +19,7 @@ interface MatchListProps {
     onOpenPricing: () => void;
 }
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 // ============================================================================
 // WIDGETS
@@ -173,6 +173,7 @@ const MatchList: React.FC<MatchListProps> = ({
     onOpenPricing,
 }) => {
     const { selectedSport } = useAppStore();
+    const selectedSportKey = String(selectedSport);
 
     const { favorites, groupedMatches, featuredMatch, featuredMatches } = useMemo(() => {
         const favs: Match[] = [];
@@ -305,7 +306,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                             transition={{ delay: groupIndex * 0.05 }}
                                         >
                                             {/* Pure Typography League Header */}
-                                            {(selectedSport as any) === 'all' && (
+                                            {selectedSportKey === 'all' && (
                                                 <div className="px-4 pt-8 pb-3 flex items-baseline justify-between">
                                                     <div className="flex items-baseline gap-3">
                                                         <h3 className="text-xs font-medium text-white/90 tracking-wide uppercase">

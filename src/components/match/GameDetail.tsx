@@ -8,8 +8,17 @@ interface GameDetailProps {
     game: Game;
 }
 
+const TABS = [
+    { id: 'AI', label: 'Gemini Insights', icon: Sparkles },
+    { id: 'OVERVIEW', label: 'Match Center', icon: Activity },
+    { id: 'STATS', label: 'Box Score', icon: Shield },
+    { id: 'ODDS', label: 'Betting', icon: DollarSign },
+] as const;
+
+type TabId = typeof TABS[number]['id'];
+
 const GameDetail: React.FC<GameDetailProps> = ({ game }) => {
-    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'STATS' | 'ODDS' | 'AI'>('AI');
+    const [activeTab, setActiveTab] = useState<TabId>('AI');
     const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
     const [loadingAi, setLoadingAi] = useState(false);
 
@@ -60,15 +69,10 @@ const GameDetail: React.FC<GameDetailProps> = ({ game }) => {
 
             {/* Tab Navigation */}
             <div className="flex border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-20">
-                {[
-                    { id: 'AI', label: 'Gemini Insights', icon: Sparkles },
-                    { id: 'OVERVIEW', label: 'Match Center', icon: Activity },
-                    { id: 'STATS', label: 'Box Score', icon: Shield },
-                    { id: 'ODDS', label: 'Betting', icon: DollarSign },
-                ].map((tab) => (
+                {TABS.map((tab) => (
                     <button
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id as any)}
+                        onClick={() => setActiveTab(tab.id)}
                         className={`flex-1 py-4 flex items-center justify-center gap-2 text-sm font-semibold transition-colors relative ${activeTab === tab.id ? 'text-emerald-400' : 'text-slate-400 hover:text-slate-200'
                             }`}
                     >

@@ -59,7 +59,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                 market_total: match.current_odds?.total || match.odds?.total,
                 fair_total: liveState?.deterministic_signals?.deterministic_fair_total,
                 deterministic_signals: liveState?.deterministic_signals,
-                last_play: liveState?.last_play || (match as any).lastPlay,
+                last_play: liveState?.last_play || match.lastPlay,
                 sport: match.sport,
                 league_id: match.leagueId
             };

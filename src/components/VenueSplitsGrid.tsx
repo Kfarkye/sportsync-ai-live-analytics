@@ -6,7 +6,7 @@ import { Filter, ArrowUpDown, Loader2, MapPin } from 'lucide-react';
 import { SortOption, SortOrder } from '../types/venue';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 const LEAGUES = [
   { id: 'nba', label: 'NBA' },

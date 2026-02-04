@@ -6,7 +6,6 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { TeamStats } from '../../services/espnPreGame';
 import TeamLogo from '../shared/TeamLogo';
 import { cn } from '../../lib/essence';
 
@@ -22,9 +21,13 @@ const STAGGER_DELAY = 0.05;
 // 🧩 TYPES
 // ─────────────────────────────────────────────────────────────────
 
+interface RecentFormTeam {
+  last5?: RecentGame[];
+}
+
 interface RecentFormProps {
-  homeTeam: TeamStats;
-  awayTeam: TeamStats;
+  homeTeam: RecentFormTeam | null | undefined;
+  awayTeam: RecentFormTeam | null | undefined;
   homeName: string;
   awayName: string;
   homeLogo?: string;
@@ -168,8 +171,8 @@ const GameRow = ({
 const RecentForm: React.FC<RecentFormProps> = ({
   homeTeam, awayTeam, homeName, awayName, homeColor, awayColor
 }) => {
-  const awayGames = (awayTeam?.last5 || []) as RecentGame[];
-  const homeGames = (homeTeam?.last5 || []) as RecentGame[];
+  const awayGames = awayTeam?.last5 ?? [];
+  const homeGames = homeTeam?.last5 ?? [];
 
   if (!homeTeam && !awayTeam) return null;
 

@@ -35,7 +35,11 @@ const GoalieCard = ({
   const hasValidId = goalie.id && goalie.id !== '0' && goalie.id !== 'null';
   const headshotUrl = goalie.headshot || (hasValidId ? `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/full/${goalie.id}.png&w=120&h=120&scale=crop` : null);
 
-  const { gaa, svPct, record, reasoning, bettingInsight } = goalie.stats || {} as any;
+  const gaa = goalie.stats?.gaa;
+  const svPct = goalie.stats?.svPct;
+  const record = goalie.stats?.record;
+  const reasoning = goalie.stats?.reasoning;
+  const bettingInsight = goalie.stats?.bettingInsight;
 
   return (
     <div className={cn(

@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { getLeagueDisplayName } from '../../constants';
 import { analyzeSpread, analyzeMoneyline } from '../../utils/oddsUtils';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 /**
  * ────────────────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import React from 'react';
 import { Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const MotionButton = motion.button as any;
+const MotionButton = motion.button;
 
 interface AnalysisTriggerProps {
   title: string;

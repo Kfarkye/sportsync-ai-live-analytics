@@ -8,7 +8,7 @@ import MatchCard from '../match/MatchCard';
 import { useAppStore } from '../../store/appStore';
 import { LiveTotalCard } from './Gamecast';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 // ============================================================================
 // MAIN COMPONENT
@@ -200,7 +200,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                     {/* Live Forecast Panel - Shows first live match's forecast */}
                     {live.length > 0 && (
                         <div className="rounded-[20px] overflow-hidden">
-                            <LiveTotalCard match={live[0] as any} />
+                            <LiveTotalCard match={live[0]} />
                         </div>
                     )}
 

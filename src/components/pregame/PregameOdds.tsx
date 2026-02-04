@@ -109,7 +109,8 @@ const OddsCell = ({
 /* -------------------------------------------------------------------------- */
 
 const PregameOdds = ({ match }: { match: Match }) => {
-    const isFinal = [MatchStatus.FINISHED, "FINAL", "STATUS_FINAL", "STATUS_FINAL_OT", "COMPLETED"].includes(match.status as any);
+    const status = String(match.status);
+    const isFinal = [MatchStatus.FINISHED, "FINAL", "STATUS_FINAL", "STATUS_FINAL_OT", "COMPLETED"].includes(status);
 
     // Priority: match.closing_odds (if final) -> match.current_odds (DB) -> match.odds (API)
     const current = (isFinal && match.closing_odds) ? match.closing_odds : (match.current_odds || match.odds || {});
@@ -207,7 +208,7 @@ const PregameOdds = ({ match }: { match: Match }) => {
     const provider = current.provider || opening.provider || 'Consensus';
 
     // Detect game state
-    const isLive = [MatchStatus.LIVE, MatchStatus.HALFTIME, 'IN_PROGRESS', 'LIVE', 'HALFTIME', 'IN PROGRESS', 'FIRST_HALF', 'SECOND_HALF', 'STATUS_FIRST_HALF', 'STATUS_SECOND_HALF'].includes(match.status as any);
+    const isLive = [MatchStatus.LIVE, MatchStatus.HALFTIME, 'IN_PROGRESS', 'LIVE', 'HALFTIME', 'IN PROGRESS', 'FIRST_HALF', 'SECOND_HALF', 'STATUS_FIRST_HALF', 'STATUS_SECOND_HALF'].includes(status);
 
     // Check if we actually have live odds data (fetched from The Odds API in real-time)
     const hasLiveOdds = current.isLive || current.provider === 'Live';

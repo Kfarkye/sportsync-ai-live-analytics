@@ -6,7 +6,7 @@ import TeamLogo from './shared/TeamLogo';
 import { ArrowUpRight, ArrowDownRight, Home, Plane, Activity, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 interface VenueSplitsCardProps {
   data: TeamSplitData;

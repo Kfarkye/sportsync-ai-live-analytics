@@ -3,11 +3,11 @@ import { motion, type Variants } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import TypeWriter from '../shared/TypeWriter';
 
-const MotionMain = motion.main as any;
-const MotionDiv = motion.div as any;
-const MotionH1 = motion.h1 as any;
-const MotionButton = motion.button as any;
-const MotionFooter = motion.footer as any;
+const MotionMain = motion.main;
+const MotionDiv = motion.div;
+const MotionH1 = motion.h1;
+const MotionButton = motion.button;
+const MotionFooter = motion.footer;
 
 interface LandingPageProps {
   onEnter: () => void;

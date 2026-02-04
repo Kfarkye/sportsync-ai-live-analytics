@@ -81,7 +81,11 @@ interface DbMatchRow {
   away_score?: number;
 }
 
-interface LiveState {
+type EspnExtendedMatch = Partial<ExtendedMatch> & {
+  statistics?: Match['stats'];
+};
+
+interface LiveState extends Partial<ExtendedMatch> {
   lastPlay?: {
     text?: string;
     coordinate?: { x: number; y: number } | string;
@@ -478,7 +482,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
         </Gridiron>
       );
     }
-    return <LiveGameTracker match={match} liveState={liveState as any} showHeader={false} headerVariant="embedded" />;
+    return <LiveGameTracker match={match} liveState={liveState} showHeader={false} headerVariant="embedded" />;
   };
 
   return (
@@ -747,7 +751,8 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
       const shouldFetchLive = isGameInProgress(cur.status);
       const socketFresh = isSocketActiveRef.current && shouldFetchLive && (Date.now() - lastLiveReceivedAtRef.current) < CONFIG.polling.SOCKET_FRESH_MS;
       setConnectionStatus(prev => (prev === 'connected' ? 'connected' : 'connecting'));
-      const espnPromise = fetchMatchDetailsExtended(cur.id, cur.sport, cur.leagueId).catch(e => { console.warn('ESPN Fail:', e); return null; });
+      const espnPromise: Promise<EspnExtendedMatch | null> = fetchMatchDetailsExtended(cur.id, cur.sport, cur.leagueId)
+        .catch(e => { console.warn('ESPN Fail:', e); return null; });
       const dbPromise = sbData<DbMatchRow>(supabase.from('matches').select('*').eq('id', dbId).maybeSingle()).catch(e => { console.warn('DB Fail:', e); return null; });
       const propsPromise = failSafe<DbPlayerPropRow[]>(supabase.from('player_prop_bets').select('*').ilike('match_id', `%${cur.id}%`).order('player_name'));
       const livePromise = (shouldFetchLive && !socketFresh) ? failSafe<LiveState>(supabase.from('live_match_states').select('*').eq('match_id', dbId).maybeSingle()) : Promise.resolve(null);
@@ -755,7 +760,16 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
       if (seq !== fetchSeqRef.current) return;
       if (!espn && !db) { if (matchRef.current.homeTeam) setConnectionStatus('connecting'); else throw new Error('Unable to connect to game feed.'); setIsInitialLoad(false); return; }
       let nextMatch: ExtendedMatch = { ...matchRef.current };
-      if (espn) { nextMatch = { ...nextMatch, ...(espn as Partial<ExtendedMatch>), stats: (espn as any).stats || (espn as any).statistics || nextMatch.stats || [], homeScore: Math.max(espn.homeScore || 0, nextMatch.homeScore || 0), awayScore: Math.max(espn.awayScore || 0, nextMatch.awayScore || 0) } as ExtendedMatch; }
+      if (espn) {
+        const stats = espn.stats || espn.statistics || nextMatch.stats || [];
+        nextMatch = {
+          ...nextMatch,
+          ...espn,
+          stats,
+          homeScore: Math.max(espn.homeScore ?? 0, nextMatch.homeScore ?? 0),
+          awayScore: Math.max(espn.awayScore ?? 0, nextMatch.awayScore ?? 0)
+        };
+      }
       if (db && !isGameFinal(nextMatch.status)) { nextMatch.current_odds = db.current_odds; if ((db.home_score || 0) > (nextMatch.homeScore || 0)) nextMatch.homeScore = db.home_score; if ((db.away_score || 0) > (nextMatch.awayScore || 0)) nextMatch.awayScore = db.away_score; }
       if (db) { if (db.closing_odds) nextMatch.closing_odds = db.closing_odds; if (db.opening_odds) nextMatch.opening_odds = db.opening_odds; if (db.odds) nextMatch.odds = db.odds; }
       if (props?.length) {
@@ -866,6 +880,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     ? [{ id: 'DETAILS', label: 'Matchup' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }]
     : [{ id: 'OVERVIEW', label: 'Game' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }];
 
+  const fallbackLiveState: LiveState | undefined = match.lastPlay
+    ? { lastPlay: { text: match.lastPlay.text, type: { text: match.lastPlay.type } } }
+    : undefined;
+
   return (
     <div className="min-h-screen bg-[#050505] text-white relative overflow-y-auto font-sans">
       <div className="fixed inset-0 pointer-events-none z-0">
@@ -899,7 +917,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             <motion.div key={activeTab} {...ANIMATION.slideUp}>
               {activeTab === 'OVERVIEW' && (
                 <div className="space-y-0">
-                  <SpecSheetRow label="01 // BROADCAST" defaultOpen={true} collapsible={false}><CinematicGameTracker match={match} liveState={liveState || { lastPlay: match.lastPlay as any }} /></SpecSheetRow>
+                  <SpecSheetRow label="01 // BROADCAST" defaultOpen={true} collapsible={false}><CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} /></SpecSheetRow>
                   <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-white/[0.08]" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
                   {liveState?.ai_analysis && <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={true}><LiveAIInsight match={match} /></SpecSheetRow>}
                   <div className="w-full h-px bg-white/[0.08]" />
@@ -911,7 +929,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   <div className="mt-8">
                     <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>{isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}</SpecSheetRow>
                     <SpecSheetRow label="05 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
-                    <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam as any} awayTeam={match.awayTeam as any} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
+                    <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
                     <SpecSheetRow label="07 // CONTEXT" defaultOpen={true}>{match.context ? <MatchupContextPills {...match.context} sport={match.sport} /> : <div className="text-zinc-500 italic text-xs">No context available.</div>}</SpecSheetRow>
                     <div className="w-full h-px bg-white/[0.08]" />
                   </div>

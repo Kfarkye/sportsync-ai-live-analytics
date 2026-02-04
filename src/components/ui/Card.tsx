@@ -2,7 +2,7 @@ import React from "react";
 import { cn, ESSENCE } from "../../lib/essence";
 import { motion } from "framer-motion";
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
     children?: React.ReactNode;

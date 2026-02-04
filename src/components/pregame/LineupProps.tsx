@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/essence';
 import TeamLogo from '../shared/TeamLogo';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 interface LineupPropsProps {
     homeRoster: RosterPlayer[];

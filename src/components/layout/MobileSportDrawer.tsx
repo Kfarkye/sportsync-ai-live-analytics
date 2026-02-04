@@ -4,13 +4,15 @@ import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { X, Check } from 'lucide-react';
 import { Sport } from '../../types';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
+
+type SportFilter = Sport | 'all';
 
 interface MobileSportDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (sport: Sport) => void;
-  selectedSport: Sport;
+  onSelect: (sport: SportFilter) => void;
+  selectedSport: SportFilter;
   liveCounts: Record<string, number>;
   orderedSports: Sport[];
   sportConfig: Record<string, { label: string; icon: string }>;
@@ -31,7 +33,7 @@ const SPORT_CATEGORIES: Record<string, string[]> = {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const SportCard: React.FC<{
-  sport: Sport;
+  sport: SportFilter;
   config: { label: string; icon: string };
   isSelected: boolean;
   liveCount: number;
@@ -232,12 +234,12 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
                     <div className="flex-1 h-px bg-white/[0.03]" />
                   </div>
                   <SportCard
-                    sport={'all' as any}
+                    sport={'all'}
                     config={{ label: 'All Sports', icon: '🌎' }}
-                    isSelected={(selectedSport as any) === 'all'}
+                    isSelected={selectedSport === 'all'}
                     liveCount={totalLive}
                     onSelect={() => {
-                      onSelect('all' as any);
+                      onSelect('all');
                       onClose();
                     }}
                   />
