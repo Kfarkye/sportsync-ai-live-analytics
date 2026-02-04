@@ -563,11 +563,35 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
 // ============================================================================
 
 const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'connecting' }) => {
-  const base = "flex items-center gap-2 px-3 py-1 bg-white/[0.03] border border-white/5 rounded-full backdrop-blur-sm";
-  const label = "text-[9px] font-black tracking-[0.25em]";
-  if (status === 'connected') return (<div className={base}><span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span></span><span className={cn(label, "text-emerald-500/90")}>CONNECTED</span></div>);
-  if (status === 'connecting') return (<div className={base}><span className="block h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" /><span className={cn(label, "text-amber-500/90")}>SYNCING</span></div>);
-  return (<div className={base}><span className="block h-1.5 w-1.5 rounded-full bg-red-500" /><span className={cn(label, "text-red-500/90")}>OFFLINE</span></div>);
+  const base = "flex items-center justify-center w-7 h-7 bg-white/[0.03] border border-white/5 rounded-full backdrop-blur-sm";
+  if (status === 'connected') {
+    return (
+      <div className={base}>
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400/60 blur-[6px]" />
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+        </span>
+      </div>
+    );
+  }
+  if (status === 'connecting') {
+    return (
+      <div className={base}>
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400/50 blur-[6px] animate-pulse" />
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className={base}>
+      <span className="relative flex h-1.5 w-1.5">
+        <span className="absolute inline-flex h-full w-full rounded-full bg-red-500/50 blur-[6px]" />
+        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+      </span>
+    </div>
+  );
 });
 
 const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: { match: ExtendedMatch; isScheduled: boolean; onSwipe: (dir: number) => void }) => {
@@ -917,9 +941,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
       <header className="sticky top-0 z-50 bg-[#050505]/95 backdrop-blur-xl border-b border-white/[0.06] pt-safe shadow-2xl">
         <div className="flex items-center justify-between px-6 py-4">
-          <button onClick={onBack} className="group flex items-center gap-2 pl-2 pr-4 py-2 hover:bg-white/5 rounded-full transition-all duration-300">
+          <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-white/5 rounded-full transition-all duration-300">
             <BackArrow />
-            <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-zinc-500 group-hover:text-white transition-colors">RETURN</span>
           </button>
           <div className="flex items-center gap-4">
             <span className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase hidden md:block">{match.leagueId?.toUpperCase()} // {match.id.slice(-4)}</span>
