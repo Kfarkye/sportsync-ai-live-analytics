@@ -1,37 +1,32 @@
-import React, { Component, useMemo, useEffect, useState } from 'react';
+// ===================================================================
+// PreGameCard.tsx
+// ARCHITECTURE: "SOTA Production" • Apple/Google Quality Standards
+// AESTHETIC: Porsche Luxury • Jony Ive Minimalism • Jobs Narrative
+// ===================================================================
+
+import React, { Component, useMemo, useState } from 'react';
 import { Match, Sport } from '../../types';
 import { usePreGameData } from '../../hooks/usePreGameData';
 import { useScoringSplits } from '../../hooks/useScoringSplits';
-import { AlertTriangle, Loader2, Sparkles, ChevronDown } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn, ESSENCE } from '../../lib/essence';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { cn } from '../../lib/essence';
 import {
-    SectionHeader as UnifiedSectionHeader,
-    Card,
-    CardShell,
-    PropViewToggle,
     MatchupLoader,
     MatchupError,
     MatchupContextPills
 } from '../ui';
 import { extractGameContext } from './GameContextCard';
 import { useMatchupCoaches } from '../../hooks/useCoach';
-import { dbService } from '../../services/dbService';
 import RecentForm from './RecentForm';
 import PregameOdds from './PregameOdds';
 import OfficialIntelligence from './OfficialIntelligence';
 import InjuryList from './InjuryList';
-import { EdgeAnalysisCard, EdgeResult, EdgeDirection } from '../analysis/EdgeAnalysisCard';
 import VenueSplitsCard from '../VenueSplitsCard';
 import { GoalieMatchup } from '../GoalieMatchup';
-import InsightPills from './InsightPills';
 import { PregameIntelCards } from './PregameIntelCards';
 import { usePregameIntel } from '../../hooks/usePregameIntel';
-
 import SofaStats from './SofaStats';
-import StatLeaders from './StatLeaders';
 import { PropMarketListView } from '../analysis/PropMarketListView';
-import { MarketType, PredictionContract } from '../../utils/edge-script-engine';
 
 export type PreGameTabId = 'DETAILS' | 'PROPS' | 'DATA' | 'CHAT';
 
@@ -42,69 +37,134 @@ interface PreGameCardProps {
     onPropViewChange?: (view: 'classic' | 'cinematic') => void;
 }
 
-// --- Premium Section Header using Unified Component ---
-const SectionHeader = ({ title, action }: { title: string; action?: string }) => (
-    <UnifiedSectionHeader
-        compact
-        className="px-1"
-        rightAccessory={action ? (
-            <button className="text-[10px] font-bold text-zinc-600 hover:text-white transition-colors duration-300">
-                {action}
-            </button>
-        ) : undefined}
-    >
-        {title}
-    </UnifiedSectionHeader>
+// ─────────────────────────────────────────────────────────────────
+// 🎨 DESIGN TOKENS & PHYSICS
+// ─────────────────────────────────────────────────────────────────
+
+// "Aluminum Switch" Physics: High stiffness, critical damping
+const PHYSICS_SWITCH = { type: "spring", stiffness: 380, damping: 35, mass: 0.8 };
+const STAGGER_DELAY = 0.05;
+
+// ─────────────────────────────────────────────────────────────────
+// 💎 MICRO-COMPONENTS (PURE GEOMETRY)
+// ─────────────────────────────────────────────────────────────────
+
+// Pure CSS Animated Plus/Minus Toggle (Jony Ive Reduction - No SVGs)
+const ToggleSwitch = ({ expanded }: { expanded: boolean }) => (
+    <div className="relative w-2.5 h-2.5 flex items-center justify-center opacity-40 group-hover:opacity-100 transition-opacity duration-300">
+        <span className={cn(
+            "absolute w-full h-[1px] bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+            expanded ? "rotate-180" : "rotate-0"
+        )} />
+        <span className={cn(
+            "absolute w-full h-[1px] bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+            expanded ? "rotate-180 opacity-0" : "rotate-90 opacity-100"
+        )} />
+    </div>
 );
 
-// --- Collapsible Section for Progressive Disclosure ---
+// ─────────────────────────────────────────────────────────────────
+// 🏗️ SPEC SHEET ROW (THE LAYOUT ENGINE)
+// ─────────────────────────────────────────────────────────────────
 
-const CollapsibleSection = ({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) => {
+interface SpecSheetRowProps {
+    label: string;
+    children: React.ReactNode;
+    defaultOpen?: boolean;
+    collapsible?: boolean;
+    rightAccessory?: React.ReactNode;
+}
+
+const SpecSheetRow = ({
+    label,
+    children,
+    defaultOpen = false,
+    collapsible = true,
+    rightAccessory
+}: SpecSheetRowProps) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
+    // If not collapsible, force open state
+    const effectiveOpen = collapsible ? isOpen : true;
+
     return (
-        <div>
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center justify-between py-3 group transition-all duration-200"
-            >
-                <div className="flex items-center gap-2">
-                    <div className={cn(
-                        "w-1 h-1 rounded-full transition-colors duration-300",
-                        isOpen ? "bg-white" : "bg-zinc-700"
-                    )} />
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className={cn(
+                "group relative border-t border-white/[0.08] transition-all duration-500",
+                collapsible ? "cursor-pointer" : "cursor-default"
+            )}
+            onClick={() => collapsible && setIsOpen(!isOpen)}
+        >
+            {/* Active Laser Line (Left Edge) */}
+            <div className={cn(
+                "absolute -top-[1px] left-0 h-[1px] bg-white transition-all duration-500 ease-out z-10 shadow-[0_0_10px_rgba(255,255,255,0.4)]",
+                effectiveOpen ? "w-full opacity-100" : "w-0 opacity-0"
+            )} />
+
+            <div className="py-8 flex flex-col md:flex-row md:items-start gap-6 md:gap-0">
+
+                {/* 1. Technical Label (Desktop: Left Col / Mobile: Top) */}
+                <div className="w-full md:w-[140px] shrink-0 flex items-center justify-between md:block select-none">
                     <span className={cn(
-                        "text-[10px] font-bold uppercase tracking-[0.15em] transition-colors duration-200",
-                        isOpen ? "text-zinc-300" : "text-zinc-600"
+                        "text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-300 font-mono block",
+                        effectiveOpen ? "text-zinc-50" : "text-zinc-600 group-hover:text-zinc-400"
                     )}>
-                        {title}
+                        {label}
                     </span>
-                </div>
-                <ChevronDown size={12} strokeWidth={2} className={cn(
-                    "text-zinc-600 transition-transform duration-300",
-                    isOpen && "rotate-180 text-zinc-400"
-                )} />
-            </button>
-            <AnimatePresence initial={false}>
-                {isOpen && (
-                    <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-                    >
-                        <div className="pb-4">
-                            {children}
+
+                    {/* Mobile Toggle */}
+                    {collapsible && (
+                        <div className="md:hidden block">
+                            <ToggleSwitch expanded={effectiveOpen} />
                         </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
+                    )}
+                </div>
+
+                {/* 2. Content Body */}
+                <div className="flex-1 min-w-0 relative">
+                    {/* Desktop Toggle (Absolute Right) */}
+                    {collapsible && (
+                        <div className="hidden md:block absolute right-0 top-1">
+                            <ToggleSwitch expanded={effectiveOpen} />
+                        </div>
+                    )}
+
+                    {rightAccessory && (
+                        <div className="mb-6">
+                            {rightAccessory}
+                        </div>
+                    )}
+
+                    <AnimatePresence initial={false}>
+                        {effectiveOpen && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={PHYSICS_SWITCH}
+                                className="overflow-hidden"
+                            >
+                                <div className={cn(
+                                    "text-zinc-200 font-light leading-relaxed",
+                                    // Add minor delay to content fade-in for sophistication
+                                    "animate-in fade-in duration-700 fill-mode-forwards"
+                                )}>
+                                    {children}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </div>
+        </motion.div>
     );
 };
 
-// Use integrated UI component
-
+// ─────────────────────────────────────────────────────────────────
+// 🏗️ SUB-SECTIONS
+// ─────────────────────────────────────────────────────────────────
 
 const VenueSplitsSection = ({ match }: { match: Match }) => {
     const { data: leagueSplits, isLoading, error } = useScoringSplits({
@@ -120,54 +180,39 @@ const VenueSplitsSection = ({ match }: { match: Match }) => {
         return { homeSplit, awaySplit };
     }, [leagueSplits, match.homeTeam.id, match.awayTeam.id]);
 
-    if (isLoading) return <MatchupLoader className="h-48" />;
+    if (isLoading) return <MatchupLoader className="h-32 opacity-50" />;
     if (error || !matchedSplits) return null;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
             <VenueSplitsCard data={matchedSplits.awaySplit} teamColor={match.awayTeam.color} />
             <VenueSplitsCard data={matchedSplits.homeSplit} teamColor={match.homeTeam.color} />
         </div>
     );
 };
 
-// Fix: Add generic type constraints to properly inherit this.props
+// 🛡️ Error Boundary for production safety
 class DebugBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
     public state = { hasError: false, error: null };
-
-    public static getDerivedStateFromError(error: Error) {
-        return { hasError: true, error };
-    }
-
-    public componentDidCatch(error: Error) {
-        console.error('COMPONENT CRASH:', error);
-    }
-
+    public static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
+    public componentDidCatch(error: Error) { console.error('COMPONENT CRASH:', error); }
     public render() {
-        if (this.state.hasError) {
-            return <MatchupError error={this.state.error} />;
-        }
-        // Fix: Inherit props access
+        if (this.state.hasError) return <MatchupError error={this.state.error} />;
         return this.props.children;
     }
 }
 
-// --- HELPER: Reserved for Future Expansion ---
+// ─────────────────────────────────────────────────────────────────
+// 🏛️ MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────
 
 const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, onPropViewChange }) => {
     const { data, isLoading, error } = usePreGameData(match.id, match.sport, match.leagueId);
-    const [aiImplications, setAiImplications] = useState<string[]>([]);
-    const [aiSources, setAiSources] = useState<any[]>([]);
-    const [aiReport, setAiReport] = useState<string | null>(null);
-    const [isAiLoading, setIsAiLoading] = useState(false);
 
     // Fetch coaching data for the context row
     const { data: coachData } = useMatchupCoaches(match.homeTeam.id, match.awayTeam.id, match.sport);
 
-    const {
-        intel,
-        loading: intelLoading
-    } = usePregameIntel(
+    const { intel } = usePregameIntel(
         match.id,
         match.homeTeam.name,
         match.awayTeam.name,
@@ -176,236 +221,173 @@ const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, o
         typeof match.startTime === 'string' ? match.startTime : match.startTime?.toISOString()
     );
 
-
-    // --- TRANSFORM: Edge Analysis Data ---
-    const edgeResult: EdgeResult | undefined = useMemo(() => {
-        if (!data?.projections || !data?.market) return undefined;
-
-        const modelTotal = typeof data.projections.total === 'number' ? data.projections.total : null;
-        const marketTotal = typeof data.market.currentTotal === 'number' ? data.market.currentTotal : null;
-
-        if (modelTotal == null || marketTotal == null || marketTotal <= 0) return undefined;
-
-        const rawDiff = modelTotal - marketTotal;
-        const edgeMagnitude = Math.abs(rawDiff);
-        const direction: EdgeDirection = rawDiff > 0 ? 'OVER' : 'UNDER';
-        const percent = (edgeMagnitude / marketTotal) * 100;
-
-        // Extract key injuries for the ledger
-        // Flatten home/away, filter non-impact status, take top 3
-        const allInjuries = [
-            ...(data.injuries?.home || []).map(i => ({ name: i.player || i.name, status: i.status || '' })),
-            ...(data.injuries?.away || []).map(i => ({ name: i.player || i.name, status: i.status || '' }))
-        ].filter(i => i.status && ['OUT', 'GTD', 'DOUBTFUL', 'SUSPENDED'].includes(i.status)).slice(0, 3);
-
-        // Map status strings to strict types for badge rendering
-        const typedInjuries = allInjuries.map(i => ({
-            name: i.name,
-            status: ((i.status && i.status.includes('OUT')) ? 'OUT' : 'GTD') as 'OUT' | 'GTD'
-        }));
-
-        // implications: Deterministic rules are now purged in favor of Sharp Report (AI)
-        const implications: string[] = [];
-
-        // v7 Optimization: The engine already produces high-precision normalized units.
-        // No further division required.
-        const efficiency = data.projections.efficiency;
-
-        return {
-            type: 'TOTAL' as const,
-            impliedLine: marketTotal,
-            modelLine: modelTotal,
-            edgePoints: edgeMagnitude,
-            edgePercent: percent,
-            edgeDirection: direction,
-            confidence: data.projections.confidence || 0.68,
-            trace: {
-                pace: data.projections.pace,
-                efficiency: efficiency,
-                possessions: data.projections.possessions || data.projections.pace
-            },
-            implications,
-            keyInjuries: typedInjuries
-        } as EdgeResult;
-    }, [data, match]);
-
-    // NOTE: AI Synthesis for pregame is now handled exclusively by PregameIntelCards.
-    // The previous `fetchAiSynthesis` effect was removed as it was redundantly calling
-    // `geminiService.getMatchIntelligence` (which hits `analyze-match`), wasting API calls.
-
-    // Merge AI implications into EdgeResult
-    const finalEdgeResult = useMemo(() => {
-        if (!edgeResult) return undefined;
-        if (aiImplications.length === 0) return edgeResult;
-        return {
-            ...edgeResult,
-            implications: aiImplications,
-            sources: aiSources
-        };
-    }, [edgeResult, aiImplications, aiSources]);
-
-
-
-    // --- UI HELPERS ---
-    const isProcessing = aiReport === 'PROCESSING_LOCK';
-
-    const narrativeText = useMemo(() => {
-        if (isProcessing) return null;
-        return aiReport?.trim() ? aiReport : null;
-    }, [aiReport, isProcessing]);
-
+    // --- LOADING & ERROR STATES ---
     if (isLoading && !data) {
-        return <MatchupLoader className="py-40" />;
+        return (
+            <div className="w-full h-[600px] flex flex-col items-center justify-center space-y-6 opacity-40">
+                <div className="h-px w-32 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 animate-pulse" />
+                <div className="text-[9px] tracking-[0.4em] uppercase text-zinc-500 font-mono">Loading Schematics</div>
+            </div>
+        );
     }
 
     if (error || !data) return (
         <MatchupError
-            title="Intel Unavailable"
-            message="We couldn't retrieve the tactical data for this matchup."
+            title="Schematic Error"
+            message="Tactical data unavailable for this coordinate."
         />
     );
 
-    // Determine if Game Environment section has any data worth showing
-    const hasVenueData = data.venue?.name && data.venue.name !== 'Unknown Venue';
-    const hasWeatherData = data.weather && (data.weather.temp !== 0 || data.weather.condition);
-    const hasBroadcast = !!data.broadcast;
-    const hasConditionsData = hasVenueData || hasWeatherData || hasBroadcast;
+    // Data Availability Checks
     const hasInjuries = (data.injuries?.home?.length || 0) > 0 || (data.injuries?.away?.length || 0) > 0;
     const hasOfficialsData = (data.officials && data.officials.length > 0) || !!data.refIntel;
+    const hasStats = data.homeTeam?.stats?.length > 0 && data.awayTeam?.stats?.length > 0;
+    const hasForm = data.homeTeam?.last5?.length > 0 && data.awayTeam?.last5?.length > 0;
 
     return (
-        <div className="py-6 animate-in fade-in slide-in-from-bottom-6 duration-700">
+        <LayoutGroup>
+            <div className="w-full max-w-[840px] mx-auto min-h-screen">
 
-            {/* --- DETAILS TAB (Matchup) --- */}
-            {activeTab === 'DETAILS' && (
-                <div className="space-y-10 pb-12">
-                    {/* 1. Odds Section (Primary Decision Surface) */}
-                    <section>
-                        <PregameOdds match={match} />
-                    </section>
+                {/* --- DETAILS TAB (The "Spec Sheet") --- */}
+                {activeTab === 'DETAILS' && (
+                    <motion.div
+                        initial="hidden"
+                        animate="visible"
+                        variants={{ visible: { transition: { staggerChildren: STAGGER_DELAY } } }}
+                        className="pb-24"
+                    >
+                        {/* 01 // MARKET (Odds - Always Open, No Collapse) */}
+                        <SpecSheetRow label="01 // MARKET" defaultOpen={true} collapsible={false}>
+                            <PregameOdds match={match} />
+                        </SpecSheetRow>
 
-                    {/* 2. Matchup Context Row (Collapsed Density) */}
-                    <section className="px-1">
-                        <MatchupContextPills
-                            venue={data.venue}
-                            weather={data.weather}
-                            broadcast={data.broadcast}
-                            gameContext={extractGameContext(match).primary}
-                            coaches={coachData ? {
-                                home: coachData.homeCoach?.coach_name || '',
-                                away: coachData.awayCoach?.coach_name || ''
-                            } : undefined}
-                            sport={match.sport}
-                        />
-                    </section>
-
-                    {/* 3. Performance Comparison - Moved from Edge Tab */}
-                    {data.homeTeam?.stats?.length > 0 && data.awayTeam?.stats?.length > 0 && (
-                        <CollapsibleSection title="Performance Comparison" defaultOpen={true}>
-                            <SofaStats
-                                homeTeam={{
-                                    id: match.homeTeam.id,
-                                    name: match.homeTeam.name,
-                                    shortName: match.homeTeam.shortName || match.homeTeam.name,
-                                    logo: match.homeTeam.logo,
-                                    color: match.homeTeam.color || '#EF4444',
-                                    stats: data.homeTeam.stats.map(s => ({ label: s.label, value: String(s.value) }))
-                                }}
-                                awayTeam={{
-                                    id: match.awayTeam.id,
-                                    name: match.awayTeam.name,
-                                    shortName: match.awayTeam.shortName || match.awayTeam.name,
-                                    logo: match.awayTeam.logo,
-                                    color: match.awayTeam.color || '#3B82F6',
-                                    stats: data.awayTeam.stats.map(s => ({ label: s.label, value: String(s.value) }))
-                                }}
+                        {/* 02 // CONDITIONS (Context) */}
+                        <SpecSheetRow label="02 // CONDITIONS" defaultOpen={true}>
+                            <MatchupContextPills
+                                venue={data.venue}
+                                weather={data.weather}
+                                broadcast={data.broadcast}
+                                gameContext={extractGameContext(match).primary}
+                                coaches={coachData ? {
+                                    home: coachData.homeCoach?.coach_name || '',
+                                    away: coachData.awayCoach?.coach_name || ''
+                                } : undefined}
+                                sport={match.sport}
                             />
-                        </CollapsibleSection>
-                    )}
+                        </SpecSheetRow>
 
-                    {/* 4. Recent Form - Moved from Edge Tab */}
-                    {data.homeTeam?.last5?.length > 0 && data.awayTeam?.last5?.length > 0 && (
-                        <CollapsibleSection title="Recent Form" defaultOpen={false}>
-                            <RecentForm
-                                homeTeam={data.homeTeam}
-                                awayTeam={data.awayTeam}
-                                homeName={match.homeTeam.shortName || match.homeTeam.name}
-                                awayName={match.awayTeam.shortName || match.awayTeam.name}
-                                homeLogo={match.homeTeam.logo}
-                                awayLogo={match.awayTeam.logo}
-                                homeColor={match.homeTeam.color}
-                                awayColor={match.awayTeam.color}
-                            />
-                        </CollapsibleSection>
-                    )}
+                        {/* 03 // METRICS (Performance) */}
+                        {hasStats && (
+                            <SpecSheetRow label="03 // METRICS" defaultOpen={true}>
+                                <SofaStats
+                                    homeTeam={{
+                                        id: match.homeTeam.id,
+                                        name: match.homeTeam.name,
+                                        shortName: match.homeTeam.shortName || match.homeTeam.name,
+                                        logo: match.homeTeam.logo,
+                                        color: match.homeTeam.color || '#EF4444',
+                                        stats: data.homeTeam.stats.map(s => ({ label: s.label, value: String(s.value) }))
+                                    }}
+                                    awayTeam={{
+                                        id: match.awayTeam.id,
+                                        name: match.awayTeam.name,
+                                        shortName: match.awayTeam.shortName || match.awayTeam.name,
+                                        logo: match.awayTeam.logo,
+                                        color: match.awayTeam.color || '#3B82F6',
+                                        stats: data.awayTeam.stats.map(s => ({ label: s.label, value: String(s.value) }))
+                                    }}
+                                />
+                            </SpecSheetRow>
+                        )}
 
-                    {/* 5. Venue Edge */}
-                    <CollapsibleSection title="Venue Edge" defaultOpen={false}>
-                        <VenueSplitsSection match={match} />
-                    </CollapsibleSection>
+                        {/* 04 // TRAJECTORY (Form) */}
+                        {hasForm && (
+                            <SpecSheetRow label="04 // TRAJECTORY" defaultOpen={false}>
+                                <RecentForm
+                                    homeTeam={data.homeTeam}
+                                    awayTeam={data.awayTeam}
+                                    homeName={match.homeTeam.shortName || match.homeTeam.name}
+                                    awayName={match.awayTeam.shortName || match.awayTeam.name}
+                                    homeLogo={match.homeTeam.logo}
+                                    awayLogo={match.awayTeam.logo}
+                                    homeColor={match.homeTeam.color}
+                                    awayColor={match.awayTeam.color}
+                                />
+                            </SpecSheetRow>
+                        )}
 
-                    {/* 6. High-Signal Tactical Intel (Officials + Injuries) */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Officials */}
+                        {/* 05 // VENUE (Splits) */}
+                        <SpecSheetRow label="05 // VENUE" defaultOpen={false}>
+                            <VenueSplitsSection match={match} />
+                        </SpecSheetRow>
+
+                        {/* 06 // AUTHORITY (Officials) */}
                         {hasOfficialsData && (
-                            <CollapsibleSection title="Officiating" defaultOpen={false}>
+                            <SpecSheetRow label="06 // AUTHORITY" defaultOpen={false}>
                                 <OfficialIntelligence
                                     officials={data.officials}
                                     intel={data.refIntel}
                                 />
-                            </CollapsibleSection>
+                            </SpecSheetRow>
                         )}
 
-                        {/* Injuries */}
+                        {/* 07 // ROSTER (Injuries) */}
                         {hasInjuries && (
-                            <CollapsibleSection title="Injury Report" defaultOpen={true}>
+                            <SpecSheetRow label="07 // ROSTER" defaultOpen={true}>
                                 <InjuryList
                                     homeInjuries={data.injuries.home}
                                     awayInjuries={data.injuries.away}
                                     homeTeamName={match.homeTeam.shortName}
                                     awayTeamName={match.awayTeam.shortName}
                                 />
-                            </CollapsibleSection>
+                            </SpecSheetRow>
                         )}
-                    </div>
-                </div>
-            )}
 
-            {/* --- PROPS TAB --- */}
-            {activeTab === 'PROPS' && (
-                <section className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        {/* 08 // NETMINDER (Hockey Only) */}
+                        {match.sport === Sport.HOCKEY && (
+                            <SpecSheetRow label="08 // NETMINDER" defaultOpen={true}>
+                                <GoalieMatchup
+                                    matchId={match.id}
+                                    homeTeam={match.homeTeam}
+                                    awayTeam={match.awayTeam}
+                                />
+                            </SpecSheetRow>
+                        )}
+
+                        {/* Closing Hairline */}
+                        <div className="w-full h-px bg-white/[0.08]" />
+                    </motion.div>
+                )}
+
+                {/* --- PROPS TAB --- */}
+                {activeTab === 'PROPS' && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="pb-24"
+                    >
+                        <SpecSheetRow label="01 // MARKETS" defaultOpen={true} collapsible={false}>
+                            <DebugBoundary>
+                                <PropMarketListView match={match} />
+                            </DebugBoundary>
+                        </SpecSheetRow>
+                        <div className="w-full h-px bg-white/[0.08]" />
+                    </motion.div>
+                )}
+
+                {/* --- DATA TAB (Intel Cards) --- */}
+                {activeTab === 'DATA' && (
                     <DebugBoundary>
-                        <PropMarketListView match={match} />
-                    </DebugBoundary>
-                </section>
-            )}
-
-            {/* --- DATA TAB (Edge - AI Intelligence) --- */}
-            {activeTab === 'DATA' && (
-                <DebugBoundary>
-                    <div className="w-full animate-in fade-in slide-in-from-bottom-6 duration-700">
-                        {/* AI Intelligence Cards - The Core Value */}
+                        {/* 
+                            PregameIntelCards already has its own Hero/Layout structure 
+                            that matches this aesthetic perfectly. We render it directly
+                            without wrapping in a SpecSheetRow to avoid visual redundancy.
+                        */}
                         <PregameIntelCards match={match} hideFooter={true} intel={intel} />
-                    </div>
-                </DebugBoundary>
-            )}
-
-            {/* Hockey Goalies Section (Keep as key personnel data) */}
-            {match.sport === Sport.HOCKEY && (
-                <section className="mt-16">
-                    <SectionHeader title="Netminder Context" />
-                    <GoalieMatchup
-                        matchId={match.id}
-                        homeTeam={match.homeTeam}
-                        awayTeam={match.awayTeam}
-                    />
-                </section>
-            )}
-
-            <div className="flex flex-col items-center justify-center py-16 opacity-20">
-                <div className="h-px w-16 bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+                    </DebugBoundary>
+                )}
             </div>
-        </div>
+        </LayoutGroup>
     );
 };
 
