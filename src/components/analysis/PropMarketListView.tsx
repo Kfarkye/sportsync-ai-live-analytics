@@ -364,11 +364,13 @@ const CategoryCard: FC<CategoryCardProps> = memo(({ category, index, match, acti
             )} />
 
             {/* Header */}
-            <button
+            <motion.button
                 onClick={() => setIsOpen(!isOpen)}
+                whileTap={{ scale: 0.985 }}
+                transition={SPRING_IN}
                 className={cn(
                     'w-full flex items-center justify-between py-6 group transition-all duration-300 px-4 md:px-0',
-                    isOpen && `sticky ${TOKENS.sticky.categoryOpen} z-${TOKENS.z.categoryHeader} bg-[#050505]/95 backdrop-blur-xl border-b border-white/[0.08]`
+                    isOpen && `sticky ${TOKENS.sticky.categoryOpen} z-${TOKENS.z.categoryHeader} bg-[#050505]/60 backdrop-blur-[40px] saturate-[180%] border-b border-white/[0.08]`
                 )}
             >
                 <div className="flex items-center gap-4 pl-4">
@@ -388,7 +390,7 @@ const CategoryCard: FC<CategoryCardProps> = memo(({ category, index, match, acti
                 <div className="opacity-40 group-hover:opacity-100 transition-opacity pr-4 md:pr-0">
                     <ToggleSwitch expanded={isOpen} />
                 </div>
-            </button>
+            </motion.button>
 
             {/* Drawer */}
             <AnimatePresence initial={false}>
@@ -468,6 +470,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
     // Cast to ExtendedMatch for type safety
     const match = rawMatch as ExtendedMatch;
     const [activeTeamId, setActiveTeamId] = useState<'ALL' | string>('ALL');
+    const SPRING_IN = { type: "spring", stiffness: 400, damping: 28, mass: 0.6 };
 
     const categories = useMemo(() => {
         const sport = match.sport?.toUpperCase() || 'DEFAULT';
@@ -492,18 +495,20 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
     );
 
     return (
-        <div className="w-full min-h-[400px]">
-            {/* Sticky Filter Deck */}
+        <div className="w-full min-h-[400px] antialiased">
+            {/* Sticky Filter Deck (Desktop) */}
             <nav className={cn(
-                `sticky ${TOKENS.sticky.nav} z-${TOKENS.z.sticky}`,
-                "bg-[#050505]/95 backdrop-blur-xl border-b border-white/[0.06] py-3"
+                `hidden md:flex sticky ${TOKENS.sticky.nav} z-${TOKENS.z.sticky}`,
+                "bg-[#050505]/60 backdrop-blur-[40px] saturate-[180%] border-b border-white/[0.06] py-3"
             )}>
-                <div className="flex items-center justify-center gap-6 md:gap-12 px-4">
+                <div className="flex items-center justify-center gap-6 md:gap-12 px-4 w-full">
                     {/* Away */}
                     {teams.filter(t => t.side === 'AWAY').map(t => (
-                        <button
+                        <motion.button
                             key={t.id}
                             onClick={() => setActiveTeamId(t.id)}
+                            whileTap={{ scale: 0.985 }}
+                            transition={SPRING_IN}
                             className={cn(
                                 "relative py-2 group outline-none transition-colors duration-300",
                                 activeTeamId === t.id ? "text-white" : "text-zinc-600 hover:text-zinc-400"
@@ -515,12 +520,14 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                             {activeTeamId === t.id && (
                                 <motion.div layoutId="propFilter" className="absolute bottom-0 left-0 right-0 h-px bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
                             )}
-                        </button>
+                        </motion.button>
                     ))}
 
                     {/* H2H */}
-                    <button
+                    <motion.button
                         onClick={() => setActiveTeamId('ALL')}
+                        whileTap={{ scale: 0.985 }}
+                        transition={SPRING_IN}
                         className={cn(
                             "relative py-2 group outline-none transition-colors duration-300",
                             activeTeamId === 'ALL' ? "text-white" : "text-zinc-600 hover:text-zinc-400"
@@ -530,13 +537,15 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                         {activeTeamId === 'ALL' && (
                             <motion.div layoutId="propFilter" className="absolute bottom-0 left-0 right-0 h-px bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
                         )}
-                    </button>
+                    </motion.button>
 
                     {/* Home */}
                     {teams.filter(t => t.side === 'HOME').map(t => (
-                        <button
+                        <motion.button
                             key={t.id}
                             onClick={() => setActiveTeamId(t.id)}
+                            whileTap={{ scale: 0.985 }}
+                            transition={SPRING_IN}
                             className={cn(
                                 "relative py-2 group outline-none transition-colors duration-300",
                                 activeTeamId === t.id ? "text-white" : "text-zinc-600 hover:text-zinc-400"
@@ -548,13 +557,69 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                             {activeTeamId === t.id && (
                                 <motion.div layoutId="propFilter" className="absolute bottom-0 left-0 right-0 h-px bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
                             )}
-                        </button>
+                        </motion.button>
                     ))}
                 </div>
             </nav>
 
+            {/* Arc Navigation (Mobile) */}
+            <motion.nav
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={SPRING_IN}
+                className="md:hidden fixed left-3 right-3 z-[60] bottom-[calc(env(safe-area-inset-bottom)+12px)] px-3 py-2 rounded-full bg-[#050505]/60 backdrop-blur-[40px] saturate-[180%] border-[0.5px] border-white/10 shadow-[0_16px_60px_rgba(0,0,0,0.45)]"
+            >
+                <div className="flex items-center justify-between gap-2">
+                    {teams.filter(t => t.side === 'AWAY').map(t => (
+                        <motion.button
+                            key={t.id}
+                            onClick={() => setActiveTeamId(t.id)}
+                            whileTap={{ scale: 0.985 }}
+                            transition={SPRING_IN}
+                            className={cn(
+                                "flex-1 py-2 rounded-full text-center transition-colors duration-300",
+                                activeTeamId === t.id ? "text-white" : "text-zinc-500"
+                            )}
+                        >
+                            <span className="text-[9px] font-bold tracking-[0.22em] uppercase">
+                                {t.abbreviation || t.shortName}
+                            </span>
+                        </motion.button>
+                    ))}
+
+                    <motion.button
+                        onClick={() => setActiveTeamId('ALL')}
+                        whileTap={{ scale: 0.985 }}
+                        transition={SPRING_IN}
+                        className={cn(
+                            "flex-1 py-2 rounded-full text-center transition-colors duration-300",
+                            activeTeamId === 'ALL' ? "text-white" : "text-zinc-500"
+                        )}
+                    >
+                        <span className="text-[9px] font-bold tracking-[0.22em] uppercase">ALL</span>
+                    </motion.button>
+
+                    {teams.filter(t => t.side === 'HOME').map(t => (
+                        <motion.button
+                            key={t.id}
+                            onClick={() => setActiveTeamId(t.id)}
+                            whileTap={{ scale: 0.985 }}
+                            transition={SPRING_IN}
+                            className={cn(
+                                "flex-1 py-2 rounded-full text-center transition-colors duration-300",
+                                activeTeamId === t.id ? "text-white" : "text-zinc-500"
+                            )}
+                        >
+                            <span className="text-[9px] font-bold tracking-[0.22em] uppercase">
+                                {t.abbreviation || t.shortName}
+                            </span>
+                        </motion.button>
+                    ))}
+                </div>
+            </motion.nav>
+
             {/* Spec Sheet Stacks */}
-            <div className="pb-24 pt-4 px-1 md:px-0">
+            <div className="pb-[calc(env(safe-area-inset-bottom)+120px)] pt-4 px-1 md:px-0">
                 <LayoutGroup>
                     {categories.map((cat, index) => (
                         <CategoryCard

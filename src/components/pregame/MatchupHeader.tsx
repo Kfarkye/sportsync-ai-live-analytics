@@ -87,7 +87,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
     }, [startTime]);
 
     return (
-        <div className="relative w-full overflow-hidden bg-[#050505]">
+        <div className="relative w-full overflow-hidden bg-[#050505]/60 backdrop-blur-[40px] saturate-[180%]">
             {/* CINEMATIC DEPTH: Animated Mesh Gradients - "Battleground" Momentum */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
                 {/* Away Team Primary Glow (Shared Layout) */}
@@ -119,7 +119,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
             </div>
 
             {/* Content */}
-            <div className="relative z-10 flex flex-col items-center py-7 px-4">
+            <div className="relative z-10 flex flex-col items-center pt-[calc(env(safe-area-inset-top)+16px)] pb-7 px-4">
 
                 {/* Context Bar (Date + Broadcast) - Vibrant */}
                 <div className="flex items-center gap-3 mb-6">
@@ -173,7 +173,10 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
 
 
                     {/* Time Block - Peak Apple Typography */}
-                    <div className="flex flex-col items-center justify-center">
+                    <motion.div
+                        layoutId="dynamic-island-clock"
+                        className="flex flex-col items-center justify-center px-4 py-2 rounded-full bg-[#050505]/60 border-[0.5px] border-white/10 backdrop-blur-[40px] saturate-[180%] shadow-[0_10px_40px_rgba(0,0,0,0.45)]"
+                    >
                         <motion.div
                             className="relative flex items-baseline gap-0.5"
                             animate={isUrgent ? { scale: [1, 1.02, 1] } : {}}
@@ -202,7 +205,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
                                 />
                             )}
                         </motion.div>
-                        <span className="mt-1.5 text-[10px] font-semibold text-white/30 uppercase tracking-[0.25em]">
+                        <span className="mt-1 text-[10px] font-semibold text-white/30 uppercase tracking-[0.25em]">
                             {startLabel}
                         </span>
 
@@ -242,7 +245,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
 
 
 
-                    </div>
+                    </motion.div>
 
                     {/* Home Team */}
                     <div className="flex flex-col items-center text-center group">

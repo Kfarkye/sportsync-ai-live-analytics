@@ -266,7 +266,7 @@ const InsightCard = ({ card, confidenceTier }: { card: ExtendedIntelCard; confid
             className={cn(
                 "group relative border-t border-white/[0.08] transition-all duration-500 overflow-hidden",
                 "rounded-2xl md:rounded-none",
-                "bg-[#050505]/80 md:bg-transparent backdrop-blur-[40px] md:backdrop-blur-0",
+                "bg-[#050505]/80 md:bg-transparent backdrop-blur-[40px] saturate-[180%] md:backdrop-blur-0",
                 "border-[0.5px] border-white/10 md:border-0 shadow-[0_12px_40px_rgba(0,0,0,0.35)] md:shadow-none",
                 hasDetails ? "cursor-pointer" : "cursor-default"
             )}
