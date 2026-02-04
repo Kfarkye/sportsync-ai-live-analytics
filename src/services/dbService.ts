@@ -50,6 +50,18 @@ export interface TeamMetrics {
   updated_at: string | null;
 }
 
+export interface PlayerPropStreak {
+  id: string;
+  player_name: string;
+  team: string;
+  prop_type: string;
+  streak_type: 'OVER' | 'UNDER';
+  streak_count: number;
+  threshold: number;
+  avg_value: number;
+  last_game_date: string;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // CORE CACHE FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -365,7 +377,7 @@ export const dbService = {
   },
 
   // Player Prop Streaks
-  getPlayerPropStreaks: async (teamName?: string): Promise<any[]> => {
+  getPlayerPropStreaks: async (teamName?: string): Promise<PlayerPropStreak[]> => {
     let query = supabase
       .from('player_prop_streaks')
       .select('*')

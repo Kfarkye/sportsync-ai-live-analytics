@@ -21,7 +21,7 @@ export const isGameInProgress = (status: MatchStatus | string): boolean => {
     'HALFTIME',
     'IN_PROGRESS'
   ];
-  return inProgressStatuses.includes(status as any);
+  return inProgressStatuses.includes(String(status));
 };
 
 /**
@@ -36,7 +36,7 @@ export const isGameScheduled = (status: MatchStatus | string): boolean => {
  */
 export const isGameInBreak = (status: MatchStatus | string): boolean => {
   const breakStatuses = ['STATUS_HALFTIME', 'STATUS_END_PERIOD', 'HALFTIME', 'END_PERIOD'];
-  return breakStatuses.includes(status as any);
+  return breakStatuses.includes(String(status));
 };
 
 /**
@@ -55,7 +55,7 @@ export const isGameFinished = (status: MatchStatus | string): boolean => {
     'AET',
     'PK'
   ];
-  return finishedStatuses.includes(status as any);
+  return finishedStatuses.includes(String(status));
 };
 
 /**

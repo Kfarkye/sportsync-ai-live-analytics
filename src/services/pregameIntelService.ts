@@ -82,6 +82,14 @@ type CacheEntry = {
     staleUntil: number;
 };
 
+type SupabaseSingle<T> = { data: T | null; error: unknown };
+type AbortableQuery = { abortSignal: (signal: AbortSignal) => Promise<unknown> };
+
+// TRUST BOUNDARY: Supabase response
+const awaitSingle = async <T>(query: AbortableQuery, signal: AbortSignal): Promise<SupabaseSingle<T>> => {
+    return query.abortSignal(signal) as SupabaseSingle<T>;
+};
+
 // ===================================================================
 // 🛡️ Optimized Cache Manager (Non-Blocking + Observable)
 // ===================================================================
@@ -135,8 +143,11 @@ class IntelCacheManager {
             }
         };
 
-        if ('requestIdleCallback' in window) {
-            (window as any).requestIdleCallback(saveTask, { timeout: 2000 });
+        const idleWindow = window as Window & {
+            requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+        };
+        if (typeof idleWindow.requestIdleCallback === 'function') {
+            idleWindow.requestIdleCallback(saveTask, { timeout: 2000 });
         } else {
             setTimeout(saveTask, 1000); // Fallback
         }
@@ -312,27 +323,29 @@ export const pregameIntelService = {
                 // Identity Resolution Bridge (Phase 3 Preservation)
                 let resolvedTrueNorthId = trueNorthId;
                 if (dbMatchId.includes('_') && !dbMatchId.startsWith('20')) {
-                    const { data: mapping } = await (supabase
+                    const mappingQuery = supabase
                         .from('entity_mappings')
                         .select('canonical_id')
                         .eq('external_id', dbMatchId)
                         .eq('provider', 'ESPN')
-                        .maybeSingle() as any)
-                        .abortSignal(sig);
+                        .maybeSingle();
+
+                    const { data: mapping } = await awaitSingle<{ canonical_id: string }>(mappingQuery, sig);
 
                     if (mapping) {
                         resolvedTrueNorthId = mapping.canonical_id;
                     }
                 }
 
-                const { data: idMatch } = await (supabase
+                const intelQuery = supabase
                     .from('pregame_intel')
                     .select('*')
                     .or(`match_id.eq.${dbMatchId},match_id.eq.${resolvedTrueNorthId}`)
                     .eq('game_date', gameDate)
                     .limit(1)
-                    .maybeSingle() as any)
-                    .abortSignal(sig);      // ⚡ Cancel DB query if user leaves
+                    .maybeSingle();
+
+                const { data: idMatch } = await awaitSingle<PregameIntelResponse & Record<string, PregameDbValue>>(intelQuery, sig);
 
                 if (idMatch) {
                     console.log('[PregameIntel] DB Cache Hit:', dbMatchId);

@@ -134,7 +134,7 @@ export const useMatchData = (leagues: League[], date: Date): UseMatchDataResult 
       const edgeMatches = await fetchFromEdge(dateStr, seq);
       setDataSafely(seq, edgeMatches, null);
 
-      const hasLive = edgeMatches.some((m) => isLiveStatus((m as any)?.status));
+      const hasLive = edgeMatches.some((m) => isLiveStatus(m.status));
       lastHasLiveRef.current = hasLive;
 
       // Dynamic polling based on today/future/past and whether anything is live
@@ -149,7 +149,7 @@ export const useMatchData = (leagues: League[], date: Date): UseMatchDataResult 
         const fallback = await fetchAllMatches(leagues, date);
         setDataSafely(seq, fallback, null);
 
-        const hasLive = (fallback || []).some((m) => isLiveStatus((m as any)?.status));
+        const hasLive = (fallback || []).some((m) => isLiveStatus(m.status));
         lastHasLiveRef.current = hasLive;
 
         const pollMs = computePollMs(dateKey, todayKey, hasLive);
