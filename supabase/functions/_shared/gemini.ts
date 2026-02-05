@@ -40,7 +40,7 @@ export async function executeAnalyticalQuery(prompt: string | any[], options: an
                 googleSearch: {
                     dynamicRetrievalConfig: {
                         mode: "MODE_DYNAMIC",
-                        dynamicThreshold: 0.3 // Aggressive grounding
+                    dynamicThreshold: 0.0 // Force grounding whenever possible
                     }
                 }
             },
