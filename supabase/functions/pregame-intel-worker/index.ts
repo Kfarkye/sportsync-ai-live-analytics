@@ -33,7 +33,7 @@ const coerceNullableNumber = () =>
 const RequestSchema = z.object({
     job_id: z.string().optional(),
     match_id: z.string().min(1),
-    league: z.string().nullable().optional().transform((v: any) => v || "nba"),
+    league: z.string().nullable().optional().transform((v: any) => (v == null || v === "" ? null : v)),
     sport: z.string().nullable().optional(),
     start_time: z.string().optional(),
     current_spread: coerceNullableNumber().optional(),
@@ -341,7 +341,7 @@ Deno.serve(async (req: Request) => {
         let p = validation.data as any;
 
         // HYDRATION
-        if (!p.home_team || !p.away_team) {
+        if (!p.home_team || !p.away_team || !p.league) {
             console.log(`[${requestId}] 💧 [HYDRATION] Fetching details...`);
             const { data: match, error: matchErr } = await supabase
                 .from("matches")
