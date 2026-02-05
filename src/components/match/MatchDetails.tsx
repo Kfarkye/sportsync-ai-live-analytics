@@ -50,6 +50,7 @@ import BoxScore, {
   LineScoreGrid,
 } from '../analysis/BoxScore';
 import { CinematicPlayerProps } from '../analysis/PlayerStatComponents';
+import InsightCard, { toInsightCard } from '../analysis/InsightCard';
 import MatchupHeader from '../pregame/MatchupHeader';
 import RecentForm from '../pregame/RecentForm';
 import SafePregameIntelCards from '../pregame/PregameIntelCards';
@@ -932,6 +933,52 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     ? { lastPlay: { text: match.lastPlay.text, type: { text: match.lastPlay.type } } }
     : undefined;
 
+  const insightCardData = useMemo(() => {
+    const prop = match.dbProps?.[0];
+    if (!prop) return null;
+
+    const norm = (s?: string) => (s || '').toLowerCase();
+    const homeKeys = [match.homeTeam.abbreviation, match.homeTeam.shortName, match.homeTeam.name].map(norm);
+    const awayKeys = [match.awayTeam.abbreviation, match.awayTeam.shortName, match.awayTeam.name].map(norm);
+    const propTeam = norm(prop.team);
+
+    const isHome = propTeam && homeKeys.some((k) => k && propTeam.includes(k));
+    const isAway = propTeam && awayKeys.some((k) => k && propTeam.includes(k));
+
+    const teamLabel = prop.team || match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name;
+    const opponentLabel = isHome
+      ? (match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name)
+      : isAway
+        ? (match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name)
+        : (match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name);
+
+    const statType = (prop.marketLabel || prop.betType || 'Stat')
+      .toString()
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    return toInsightCard({
+      id: prop.id,
+      playerName: prop.playerName,
+      team: teamLabel,
+      opponent: opponentLabel,
+      headshotUrl: prop.headshotUrl,
+      side: (prop.side || 'OVER').toString().toUpperCase(),
+      line: prop.lineValue,
+      statType,
+      bestOdds: prop.oddsAmerican,
+      bestBook: prop.sportsbook,
+      affiliateLink: undefined,
+      dvpRank: 0,
+      edge: 0,
+      probability: 50,
+      aiAnalysis: 'Intelligence pending.',
+      l5Results: [],
+      l5HitRate: 0
+    });
+  }, [match]);
+
   return (
     <div className="min-h-screen bg-[#050505] text-white relative overflow-y-auto font-sans">
       <div className="fixed inset-0 pointer-events-none z-0">
@@ -978,6 +1025,15 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
               )}
               {activeTab === 'DETAILS' && (
                 <div className="space-y-0">
+                  {insightCardData && (
+                    <div className="mb-8">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-1 h-1 rounded-full bg-emerald-400" />
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Shareable Insight</span>
+                      </div>
+                      <InsightCard data={insightCardData} />
+                    </div>
+                  )}
                   <SafePregameIntelCards match={match} />
                   <div className="mt-8">
                     <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>{isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}</SpecSheetRow>
