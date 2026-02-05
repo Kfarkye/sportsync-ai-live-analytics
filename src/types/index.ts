@@ -126,6 +126,16 @@ export interface PlayerPropBet {
   sourceAttribution?: string;
   provider?: string;
 
+  // Intelligence Enrichment (optional)
+  espnPlayerId?: string;
+  analysisStatus?: string;
+  l5HitRate?: number;
+  l5Values?: number[];
+  avgL5?: number;
+  fantasyDvpRank?: number;
+  aiRationale?: string;
+  analysisTs?: string;
+
   notes?: string;
   createdAt: string;
   updatedAt: string;

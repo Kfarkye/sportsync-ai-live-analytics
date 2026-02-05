@@ -72,6 +72,22 @@ interface DbPlayerPropRow {
   odds_american?: number | string | null;
   market_label?: string | null;
   headshot_url?: string | null;
+  team?: string | null;
+  opponent?: string | null;
+  sportsbook?: string | null;
+  provider?: string | null;
+  side?: string | null;
+  player_id?: string | null;
+  espn_player_id?: string | null;
+  fantasy_dvp_rank?: number | null;
+  l5_hit_rate?: number | null;
+  l5_values?: number[] | null;
+  avg_l5?: number | null;
+  ai_rationale?: string | null;
+  analysis_status?: string | null;
+  analysis_ts?: string | null;
+  implied_prob_pct?: number | null;
+  confidence_score?: number | null;
 }
 
 interface DbMatchRow {
@@ -840,16 +856,29 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           matchId: cur.id,
           eventDate: new Date(cur.startTime).toISOString(),
           league: cur.leagueId,
+          team: p.team || undefined,
+          opponent: p.opponent || undefined,
           playerName: p.player_name || '',
+          playerId: p.player_id || undefined,
+          espnPlayerId: p.espn_player_id || undefined,
           headshotUrl: p.headshot_url || undefined,
           betType: normalizePropType(p.bet_type),
           marketLabel: p.market_label || undefined,
-          side: inferSide(p.market_label, p.bet_type),
+          side: (p.side || inferSide(p.market_label, p.bet_type)) as PlayerPropBet['side'],
           lineValue: Number(p.line_value ?? 0),
-          sportsbook: 'market',
+          sportsbook: p.sportsbook || p.provider || 'market',
           oddsAmerican: Number(p.odds_american ?? 0),
           stakeAmount: 0,
-          result: 'pending'
+          result: 'pending',
+          impliedProbPct: p.implied_prob_pct ? Number(p.implied_prob_pct) : undefined,
+          confidenceScore: p.confidence_score ? Number(p.confidence_score) : undefined,
+          fantasyDvpRank: p.fantasy_dvp_rank ? Number(p.fantasy_dvp_rank) : undefined,
+          l5HitRate: p.l5_hit_rate ? Number(p.l5_hit_rate) : undefined,
+          l5Values: Array.isArray(p.l5_values) ? p.l5_values.map(v => Number(v)) : undefined,
+          avgL5: p.avg_l5 ? Number(p.avg_l5) : undefined,
+          aiRationale: p.ai_rationale || undefined,
+          analysisStatus: p.analysis_status || undefined,
+          analysisTs: p.analysis_ts || undefined
         });
 
         nextMatch.dbProps = props.map(toPropBet);
@@ -961,7 +990,28 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           match.current_odds?.total ? Number(match.current_odds.total) : undefined,
           controller.signal
         );
-        if (active) setPregameIntel(intel);
+        if (intel) {
+          if (active) setPregameIntel(intel);
+          return;
+        }
+
+        const leagueKey = match.leagueId?.toLowerCase() || '';
+        const canonicalId = getDbMatchId(match.id, leagueKey);
+        const orFilter = canonicalId && canonicalId !== match.id
+          ? `match_id.ilike.%${match.id}%,match_id.ilike.%${canonicalId}%`
+          : `match_id.ilike.%${match.id}%`;
+
+        const { data: fallback } = await supabase
+          .from('pregame_intel')
+          .select('*')
+          .or(orFilter)
+          .order('generated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (active) {
+          setPregameIntel(fallback ? { ...(fallback as PregameIntelResponse), match_id: (fallback as any).match_id || match.id, freshness: (fallback as any).freshness || 'RECENT' } : null);
+        }
       } catch {
         if (active) setPregameIntel(null);
       }
@@ -1001,6 +1051,26 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       .replace(/\s+/g, ' ')
       .trim();
 
+    const lineValue = Number(propRow.lineValue ?? 0);
+    const side = ((propRow.side as string) || 'OVER').toString().toLowerCase();
+    const l5Values = Array.isArray(propRow.l5Values) ? propRow.l5Values.map(v => Number(v)) : [];
+    const l5Results = l5Values
+      .map((value) => {
+        if (!Number.isFinite(value)) return 'MISS';
+        if (side === 'under') return value < lineValue ? 'HIT' : value > lineValue ? 'MISS' : 'PUSH';
+        if (side === 'over') return value > lineValue ? 'HIT' : value < lineValue ? 'MISS' : 'PUSH';
+        return 'MISS';
+      })
+      .slice(0, 5);
+
+    const impliedProb = typeof propRow.impliedProbPct === 'number'
+      ? propRow.impliedProbPct
+      : (typeof propRow.confidenceScore === 'number' ? propRow.confidenceScore * 100 : 50);
+
+    const hitRate = typeof propRow.l5HitRate === 'number'
+      ? propRow.l5HitRate
+      : (l5Results.length ? Math.round((l5Results.filter(r => r === 'HIT').length / l5Results.length) * 100) : 0);
+
     return toInsightCard({
       id: (propRow.id as string) || match.id,
       playerName: propRow.playerName as string,
@@ -1008,18 +1078,18 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       opponent: opponentLabel,
       matchup: `${match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name} @ ${match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name}`,
       headshotUrl: propRow.headshotUrl as string,
-      side: ((propRow.side as string) || 'OVER').toString().toUpperCase(),
-      line: propRow.lineValue as number,
+      side: side.toUpperCase(),
+      line: lineValue,
       statType,
       bestOdds: propRow.oddsAmerican as number,
-      bestBook: propRow.sportsbook as string,
+      bestBook: (propRow.sportsbook as string) || (propRow.provider as string) || 'market',
       affiliateLink: undefined,
-      dvpRank: 0,
+      dvpRank: typeof propRow.fantasyDvpRank === 'number' ? propRow.fantasyDvpRank : 0,
       edge: 0,
-      probability: 50,
-      aiAnalysis: 'Intelligence pending.',
-      l5Results: [],
-      l5HitRate: 0
+      probability: impliedProb,
+      aiAnalysis: (propRow.aiRationale as string) || 'Intelligence pending.',
+      l5Results,
+      l5HitRate: hitRate
     });
   }, [isEdgeTab, match]);
 
