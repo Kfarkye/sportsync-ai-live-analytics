@@ -192,11 +192,12 @@ export function toInsightCard(input: unknown): InsightCardData {
 // ─────────────────────────────────────────────────────────────────
 
 const PHYSICS_HOVER = { type: "spring", stiffness: 400, damping: 25 } as const;
+const NOISE_TEXTURE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E")`;
 
 function metricColor(type: "DVP" | "EDGE" | "PROB", value: number) {
-  if (type === "DVP") return value > 0 && value <= 10 ? "text-emerald-400" : value >= 20 ? "text-rose-400" : "text-blue-400";
-  if (type === "EDGE") return value >= 3 ? "text-emerald-400" : value > 0 ? "text-blue-400" : "text-zinc-400";
-  if (type === "PROB") return value >= 55 ? "text-emerald-400" : value >= 50 ? "text-blue-400" : "text-zinc-400";
+  if (type === "DVP") return value > 0 && value <= 10 ? "text-emerald-400" : value >= 20 ? "text-rose-400" : "text-blue-300";
+  if (type === "EDGE") return value >= 3 ? "text-emerald-400" : value > 0 ? "text-blue-300" : "text-zinc-400";
+  if (type === "PROB") return value >= 55 ? "text-emerald-400" : value >= 50 ? "text-blue-300" : "text-zinc-400";
   return "text-white";
 }
 
@@ -239,25 +240,25 @@ const DripMark = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const BookLogo = ({ book }: { book: string }) => {
-  const b = (book || "").toLowerCase();
-  let style = "bg-zinc-700 text-white";
-  let label = "B";
-
-  if (b.includes("fanduel")) { style = "bg-[#00A3E0] text-white"; label = "FD"; }
-  else if (b.includes("draftkings")) { style = "bg-[#53903f] text-black"; label = "DK"; }
-  else if (b.includes("mgm")) { style = "bg-[#d4af37] text-black"; label = "MGM"; }
-  else if (b.includes("caesars")) { style = "bg-[#0a4d46] text-white"; label = "CZR"; }
-
-  return (
-    <div className={cn("w-4 h-4 rounded-[3px] flex items-center justify-center", style)} title={book}>
-      <span className="text-[9px] font-black leading-none tracking-tighter">{label}</span>
-    </div>
-  );
+const getFaviconUrl = (book: string) => {
+  const domainMap: Record<string, string> = {
+    fanduel: "fanduel.com",
+    draftkings: "draftkings.com",
+    betmgm: "betmgm.com",
+    caesars: "caesars.com",
+    betrivers: "betrivers.com",
+    pointsbet: "pointsbet.com",
+    bovada: "bovada.lv",
+  };
+  const key = Object.keys(domainMap).find((k) => book.toLowerCase().includes(k));
+  const domain = key ? domainMap[key] : `${book.toLowerCase().replace(/\s/g, "")}.com`;
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
 };
 
-const BookChip = ({ offer }: { offer: BookOffer }) => {
+const BookFavicon = ({ offer }: { offer: BookOffer }) => {
   const isBest = Boolean(offer.isBest);
+  const [hasError, setHasError] = useState(false);
+  const fallbackLetter = (offer.book || "B").trim().charAt(0).toUpperCase();
   return (
     <button
       type="button"
@@ -267,44 +268,79 @@ const BookChip = ({ offer }: { offer: BookOffer }) => {
       }}
       disabled={!offer.deepLink}
       className={cn(
-        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors",
-        offer.deepLink ? "bg-zinc-900 hover:bg-zinc-800 border-white/[0.08] text-zinc-200" : "bg-zinc-900/40 border-white/5 text-zinc-500",
-        isBest && "border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.25)]"
+        "relative w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300",
+        offer.deepLink ? "opacity-60 grayscale hover:opacity-100 hover:grayscale-0 hover:scale-110" : "opacity-40",
+        isBest && "opacity-100 grayscale-0"
       )}
       aria-label={`Open ${offer.book} odds ${offer.odds}`}
+      title={offer.book}
     >
-      <span className="text-[11px] font-mono font-bold tabular-nums">{offer.odds}</span>
-      <BookLogo book={offer.book} />
+      {hasError ? (
+        <div className="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center">
+          <span className="text-[8px] font-bold text-zinc-500">{fallbackLetter}</span>
+        </div>
+      ) : (
+        <img
+          src={getFaviconUrl(offer.book)}
+          alt=""
+          className="w-5 h-5 object-contain"
+          onError={() => setHasError(true)}
+        />
+      )}
+      {isBest && (
+        <span className="absolute -bottom-1 -right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+      )}
     </button>
   );
 };
 
+const BookTicker = ({ offers, bestOdds }: { offers: BookOffer[]; bestOdds: string }) => (
+  <div className="flex flex-col items-end gap-2">
+    <div className="px-2.5 py-1 rounded-lg border border-white/[0.08] bg-white/[0.02]">
+      <span className="text-[13px] font-mono font-bold text-white tabular-nums">{bestOdds}</span>
+    </div>
+    <div className="flex items-center gap-3">
+      {offers.map((offer, i) => (
+        <BookFavicon key={`${offer.book}-${i}`} offer={offer} />
+      ))}
+    </div>
+  </div>
+);
+
+const SpecLabel = ({ label }: { label: string }) => (
+  <div className="flex items-center gap-3 mb-3 opacity-50 select-none">
+    <div className="h-px w-5 bg-white" />
+    <span className="text-[9px] font-bold text-white uppercase tracking-[0.3em] font-mono">{label}</span>
+  </div>
+);
+
 const SmartChip = ({ label, value, colorClass }: { label: string; value: string; colorClass: string }) => (
-  <div className="flex flex-col items-center justify-center py-2.5 rounded-xl bg-[#09090b] border border-white/[0.08] shadow-sm relative overflow-hidden group/chip">
-    <div className="absolute inset-0 bg-white/[0.02] opacity-0 group-hover/chip:opacity-100 transition-opacity" />
-    <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-0.5">{label}</span>
-    <span className={cn("text-[14px] font-bold tabular-nums tracking-tight", colorClass)}>{value}</span>
+  <div className="flex flex-col justify-center px-4 py-3 rounded-lg bg-[#0A0A0C] border border-white/[0.06] shadow-[0_2px_10px_rgba(0,0,0,0.3)] relative overflow-hidden group/chip">
+    <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent opacity-50 pointer-events-none" />
+    <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-1 opacity-80">{label}</span>
+    <span className={cn("text-[16px] font-mono font-medium tabular-nums tracking-tight leading-none", colorClass)}>{value}</span>
+    <div className={cn("absolute bottom-0 left-0 right-0 h-[2px] opacity-20 bg-current", colorClass)} />
   </div>
 );
 
 const L5Strip = ({ outcomes, hitRate }: { outcomes: InsightOutcome[]; hitRate: number }) => (
-  <div className="flex items-center justify-between mt-5 pt-4 border-t border-white/[0.06]">
-    <div className="flex items-baseline gap-1.5">
-      <span className="text-[12px] font-medium text-zinc-400">Hit</span>
-      <span className={cn("text-[13px] font-bold tabular-nums", hitRate >= 60 ? "text-emerald-400" : hitRate <= 40 ? "text-rose-400" : "text-zinc-200")}>
-        {hitRate}%
+  <div className="mt-6 pt-5 border-t border-white/[0.06] flex items-center justify-between">
+    <div className="flex items-baseline gap-2">
+      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Trajectory</span>
+      <span className={cn("text-[14px] font-mono font-bold tabular-nums", hitRate >= 60 ? "text-emerald-400" : hitRate <= 40 ? "text-rose-400" : "text-zinc-300")}>
+        {hitRate}% <span className="text-[10px] text-zinc-600 font-normal ml-0.5">L5</span>
       </span>
-      <span className="text-[12px] font-medium text-zinc-400">in L5 Games</span>
     </div>
 
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-[2px]">
       {outcomes.slice(0, 5).map((res, i) => (
         <div
           key={`${res}-${i}`}
           className={cn(
-            "w-8 h-1.5 rounded-full transition-all duration-300",
-            res === "HIT" ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" :
-            res === "PUSH" ? "bg-zinc-600" : "bg-rose-500/90 shadow-[0_0_10px_rgba(239,68,68,0.25)]"
+            "h-2 rounded-[1px] transition-all duration-300",
+            i === 0 ? "w-8" : "w-5",
+            res === "HIT" ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]" :
+            res === "PUSH" ? "bg-zinc-700" : "bg-rose-500/80 shadow-[0_0_10px_rgba(239,68,68,0.3)]"
           )}
         />
       ))}
@@ -495,83 +531,81 @@ export const InsightCard = memo(({ data }: { data: InsightCardData }) => {
         whileHover={!isExporting ? { y: -4, backgroundColor: "rgba(255,255,255,0.02)" } : {}}
         transition={PHYSICS_HOVER}
         data-exporting={isExporting ? "true" : "false"}
-        className="relative w-full bg-[#1a1a1a] rounded-2xl border border-white/[0.08] p-6 shadow-2xl overflow-hidden cursor-default select-none"
+        className="relative w-full bg-[#050505] rounded-2xl border border-white/[0.08] p-6 shadow-2xl overflow-hidden cursor-default select-none"
       >
+        {/* Background Noise Texture */}
+        <div className="absolute inset-0 opacity-40 pointer-events-none mix-blend-overlay" style={{ backgroundImage: NOISE_TEXTURE }} />
+
         {/* Active Edge Accent */}
         <div
           className={cn(
-            "absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-current to-transparent opacity-80",
+            "absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-60",
             isOver ? "text-emerald-500" : "text-rose-500"
           )}
         />
 
         {/* 1) HEADER ROW */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className="relative w-12 h-12 rounded-full bg-zinc-900 border border-white/10 overflow-hidden shrink-0 shadow-lg">
-              {player.headshotUrl ? (
-                <img
-                  src={player.headshotUrl}
-                  crossOrigin="anonymous"
-                  alt={player.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-[12px] font-bold text-zinc-500">
-                  {initials(player.name)}
-                </div>
-              )}
-              <div className="absolute bottom-0 right-0 px-1.5 py-0.5 bg-black rounded-tl-md border-t border-l border-zinc-800">
-                <span className="text-[8px] font-black text-zinc-300 block leading-none">{player.team}</span>
+        <div className="relative flex items-start justify-between mb-6 z-10">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="relative w-12 h-12 shrink-0">
+              <div className="absolute inset-0 rounded-xl border border-white/10 bg-zinc-900/50 overflow-hidden">
+                {player.headshotUrl ? (
+                  <img
+                    src={player.headshotUrl}
+                    crossOrigin="anonymous"
+                    alt={player.name}
+                    className="w-full h-full object-cover grayscale-[0.2]"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-zinc-600">
+                    {initials(player.name)}
+                  </div>
+                )}
+              </div>
+              <div className="absolute -bottom-1 -right-1 px-1.5 py-0.5 bg-black border border-white/10 rounded-[4px]">
+                <span className="text-[8px] font-black text-zinc-400 block leading-none tracking-tighter">{player.team}</span>
               </div>
             </div>
 
             <div className="flex flex-col justify-center min-w-0">
               <div className="flex items-baseline gap-2 min-w-0">
-                <h3 className="text-[16px] font-bold text-white tracking-tight leading-none truncate">
+                <h3 className="text-[18px] font-bold text-white tracking-tight leading-none truncate">
                   {player.name}
                 </h3>
                 {matchupText && (
-                  <span className="text-[11px] font-medium text-zinc-500 font-mono shrink-0">
+                  <span className="text-[10px] font-medium text-zinc-600 font-mono shrink-0 tracking-wide">
                     • {matchupText}
                   </span>
                 )}
               </div>
 
-              <div className={cn("text-[14px] font-bold tracking-wide mt-1.5 uppercase", selectionColor)}>
+              <div className={cn("text-[13px] font-bold tracking-wide mt-1.5 uppercase font-mono", selectionColor)}>
                 {bet.segment}
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-2">
-              <div className="px-2.5 py-1 rounded-lg border border-white/[0.08] bg-zinc-900">
-                <span className="text-[14px] font-mono font-bold text-white tabular-nums">{bestOffer.odds}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              {bookOffers.map((offer, i) => (
-                <BookChip key={`${offer.book}-${i}`} offer={offer} />
-              ))}
-            </div>
-          </div>
+          <BookTicker offers={bookOffers} bestOdds={bestOffer.odds} />
         </div>
 
         {/* 2) ANALYSIS BLOCK */}
-        <div className="mb-7 pl-1">
-          <div className="relative pl-4 border-l-[3px] border-white/10">
-            <p className="text-[16px] leading-[1.6] text-zinc-300 font-normal text-pretty tracking-tight">
+        <div className="relative mb-8 pl-1 z-10">
+          <SpecLabel label="01 // INTELLIGENCE" />
+          <div className="relative pl-4 border-l-[2px] border-white/10">
+            <p className="text-[14px] leading-[1.6] text-zinc-300 font-light text-pretty tracking-wide">
               {analysis.rationale}
             </p>
           </div>
         </div>
 
         {/* 3) TRUTH ROW */}
-        <div className="grid grid-cols-3 gap-3 mb-1">
-          <SmartChip label="DVP" value={dvpText} colorClass={metricColor("DVP", metrics.dvpRank)} />
-          <SmartChip label="EDGE" value={edgeText} colorClass={metricColor("EDGE", metrics.edgePercent)} />
-          <SmartChip label="PROB" value={probText} colorClass={metricColor("PROB", metrics.probPercent)} />
+        <div className="relative z-10">
+          <SpecLabel label="02 // TELEMETRY" />
+          <div className="grid grid-cols-3 gap-3 mb-1">
+            <SmartChip label="DVP Rank" value={dvpText} colorClass={metricColor("DVP", metrics.dvpRank)} />
+            <SmartChip label="Edge" value={edgeText} colorClass={metricColor("EDGE", metrics.edgePercent)} />
+            <SmartChip label="Win Prob" value={probText} colorClass={metricColor("PROB", metrics.probPercent)} />
+          </div>
         </div>
 
         {/* 4) FOOTER STRIP */}
