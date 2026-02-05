@@ -576,6 +576,9 @@ ${marketMenu}
         const durationMs = Date.now() - aiStart;
         console.log(`[Intel:${requestId}] Gemini call: ${durationMs}ms`);
         sources = aiResult.sources || [];
+        if (sources.length === 0) {
+            console.warn(`[Intel:${requestId}] ⚠️ No grounding sources returned. Fact claims may be ungrounded.`);
+        }
         thoughts = aiResult.thoughts || "";
         intel = safeJsonParse(aiResult.text);
         if (!intel) throw new Error("Invalid JSON from AI");
