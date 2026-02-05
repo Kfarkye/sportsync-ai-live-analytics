@@ -386,6 +386,10 @@ export const pregameIntelService = {
                 });
 
                 if (error) throw error;
+                if (!data || data.status === 'queued' || data.status === 'overloaded') {
+                    console.warn('[PregameIntel] Worker deferred:', data?.status);
+                    return null;
+                }
                 return { ...data, match_id: dbMatchId, freshness: 'LIVE' };
             } catch (e) {
                 console.warn('Intel Fetch Failed', e);
@@ -405,8 +409,12 @@ type PregameDbValue = string | number | boolean | null | PregameDbValue[] | { [k
 
 function mapDbResponse(row: Partial<PregameIntelResponse> & Record<string, PregameDbValue>, id: string): PregameIntelResponse {
     return {
-        ...row,
         match_id: row.match_id || id,
-        freshness: row.freshness || 'RECENT'
-    } as PregameIntelResponse;
+        generated_at: row.generated_at || new Date().toISOString(),
+        headline: row.headline || 'Intel Loading',
+        cards: Array.isArray(row.cards) ? row.cards : [],
+        sources: Array.isArray(row.sources) ? row.sources : [],
+        freshness: row.freshness || 'RECENT',
+        ...row,
+    };
 }
