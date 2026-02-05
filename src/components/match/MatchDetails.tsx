@@ -871,7 +871,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
     return () => window.clearInterval(interval);
   }, [fetchData, match.status]);
 
-  return { match, liveState, nhlShots, connectionStatus, error, forecastHistory, edgeState, isInitialLoad };
+  return { match, liveState, nhlShots, connectionStatus, error, forecastHistory, edgeState, pregameIntel, isInitialLoad };
 }
 
 function useKeyboardNavigation(matches: Match[], currentMatchId: string, onSelectMatch?: (match: Match) => void) {
@@ -901,7 +901,7 @@ export interface MatchDetailsProps {
 }
 
 const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matches = [], onSelectMatch }) => {
-  const { match, liveState, nhlShots, connectionStatus, error, forecastHistory, edgeState, isInitialLoad } = useMatchPolling(initialMatch as ExtendedMatch);
+  const { match, liveState, nhlShots, connectionStatus, error, forecastHistory, edgeState, pregameIntel, isInitialLoad } = useMatchPolling(initialMatch as ExtendedMatch);
   useKeyboardNavigation(matches, match.id, onSelectMatch);
 
   const isSched = useMemo(() => isGameScheduled(match?.status), [match?.status]);
