@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Sport } from '@/types';
 import { WeekOption } from '@/types/matchList';
+import { formatLocalDate } from '@/utils/dateUtils';
 
 /**
  * NFL 2025-26 Season
@@ -70,7 +71,7 @@ export const useWeekNavigation = (selectedDate: Date | string, sport: Sport) => 
 
                 options.push({
                     label: getWeekLabel(weekNum),
-                    value: weekDate.toISOString(),
+                    value: formatLocalDate(weekDate),
                     isCurrent: i === 0,
                 });
             }
@@ -93,7 +94,7 @@ export const useWeekNavigation = (selectedDate: Date | string, sport: Sport) => 
 
                 options.push({
                     label,
-                    value: d.toISOString(),
+                    value: formatLocalDate(d),
                     isCurrent: i === 0,
                 });
             }

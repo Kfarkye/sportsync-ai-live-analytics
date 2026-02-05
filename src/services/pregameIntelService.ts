@@ -352,6 +352,21 @@ export const pregameIntelService = {
                     return mapDbResponse(idMatch, dbMatchId);
                 }
 
+                // Fallback: tolerate game_date mismatches (timezone edge) by resolving latest row by match_id only.
+                const fallbackQuery = supabase
+                    .from('pregame_intel')
+                    .select('*')
+                    .or(`match_id.eq.${dbMatchId},match_id.eq.${resolvedTrueNorthId}`)
+                    .order('generated_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                const { data: fallbackMatch } = await awaitSingle<PregameIntelResponse & Record<string, PregameDbValue>>(fallbackQuery, sig);
+                if (fallbackMatch) {
+                    console.log('[PregameIntel] DB Fallback Hit:', dbMatchId);
+                    return mapDbResponse(fallbackMatch, dbMatchId);
+                }
+
                 // 2. CLOUD GENERATION
                 const { data, error } = await supabase.functions.invoke('pregame-intel', {
                     body: {

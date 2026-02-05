@@ -12,6 +12,19 @@ import { cn, ESSENCE } from '@/lib/essence';
 const MotionSpan = motion.span;
 const MotionDiv = motion.div;
 
+const parseWeekValue = (value: string): Date => {
+    // Preferred: YYYY-MM-DD local date string (avoid UTC shift)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [y, m, d] = value.split('-').map(Number);
+        return new Date(y, m - 1, d, 12, 0, 0, 0); // noon local for stability
+    }
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric) && value.trim() !== '') {
+        return new Date(numeric);
+    }
+    return new Date(value);
+};
+
 export const UnifiedHeader: FC = () => {
     const {
         selectedSport,
@@ -52,7 +65,7 @@ export const UnifiedHeader: FC = () => {
     }, [weekOptions, activeView]);
 
     const handleWeekSelect = useCallback((isoValue: string) => {
-        const date = new Date(isoValue);
+        const date = parseWeekValue(isoValue);
         if (!isNaN(date.getTime())) setSelectedDate(date);
     }, [setSelectedDate]);
 
@@ -259,4 +272,3 @@ export const UnifiedHeader: FC = () => {
         </header>
     );
 };
-
