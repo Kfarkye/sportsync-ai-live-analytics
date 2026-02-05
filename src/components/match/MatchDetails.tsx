@@ -974,41 +974,42 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
   const insightCardData = useMemo(() => {
     const prop = match.dbProps?.[0];
-    if (!prop) return null;
+    if (!prop || typeof prop !== 'object') return null;
+    const propRow = prop as Partial<PlayerPropBet> & Record<string, unknown>;
 
     const norm = (s?: string) => (s || '').toLowerCase();
     const homeKeys = [match.homeTeam.abbreviation, match.homeTeam.shortName, match.homeTeam.name].map(norm);
     const awayKeys = [match.awayTeam.abbreviation, match.awayTeam.shortName, match.awayTeam.name].map(norm);
-    const propTeam = norm(prop.team);
+    const propTeam = norm(propRow.team as string | undefined);
 
     const isHome = propTeam && homeKeys.some((k) => k && propTeam.includes(k));
     const isAway = propTeam && awayKeys.some((k) => k && propTeam.includes(k));
 
-    const teamLabel = prop.team || match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name;
+    const teamLabel = (propRow.team as string | undefined) || match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name;
     const opponentLabel = isHome
       ? (match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name)
       : isAway
         ? (match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name)
         : (match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name);
 
-    const statType = (prop.marketLabel || prop.betType || 'Stat')
+    const statType = ((propRow.marketLabel as string | undefined) || (propRow.betType as string | undefined) || 'Stat')
       .toString()
       .replace(/_/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
 
     return toInsightCard({
-      id: prop.id,
-      playerName: prop.playerName,
+      id: (propRow.id as string) || match.id,
+      playerName: propRow.playerName as string,
       team: teamLabel,
       opponent: opponentLabel,
       matchup: `${match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name} @ ${match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name}`,
-      headshotUrl: prop.headshotUrl,
-      side: (prop.side || 'OVER').toString().toUpperCase(),
-      line: prop.lineValue,
+      headshotUrl: propRow.headshotUrl as string,
+      side: ((propRow.side as string) || 'OVER').toString().toUpperCase(),
+      line: propRow.lineValue as number,
       statType,
-      bestOdds: prop.oddsAmerican,
-      bestBook: prop.sportsbook,
+      bestOdds: propRow.oddsAmerican as number,
+      bestBook: propRow.sportsbook as string,
       affiliateLink: undefined,
       dvpRank: 0,
       edge: 0,
@@ -1020,7 +1021,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   }, [match]);
 
   const gameEdgeCardData = useMemo(() => {
-    if (!pregameIntel) return null;
+    if (!pregameIntel || !match.homeTeam || !match.awayTeam) return null;
 
     const pick = pregameIntel.recommended_pick || pregameIntel.grading_metadata?.selection || '';
     const pickText = (pick || '').trim();
