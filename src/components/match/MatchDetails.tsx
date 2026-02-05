@@ -941,8 +941,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
   }, [match.startTime]);
 
+  const isEdgeTab = activeTab === 'DATA';
+
   useEffect(() => {
-    if (!isSched) return;
+    if (!isSched || !isEdgeTab) return;
     const controller = new AbortController();
     let active = true;
 
@@ -970,9 +972,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       active = false;
       controller.abort();
     };
-  }, [isSched, match.id, match.homeTeam?.name, match.awayTeam?.name, match.sport, match.leagueId, startTimeISO, match.current_odds?.homeSpread, match.current_odds?.total]);
+  }, [isSched, isEdgeTab, match.id, match.homeTeam?.name, match.awayTeam?.name, match.sport, match.leagueId, startTimeISO, match.current_odds?.homeSpread, match.current_odds?.total]);
 
   const insightCardData = useMemo(() => {
+    if (!isEdgeTab) return null;
     const prop = match.dbProps?.[0];
     if (!prop || typeof prop !== 'object') return null;
     const propRow = prop as Partial<PlayerPropBet> & Record<string, unknown>;
@@ -1018,10 +1021,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       l5Results: [],
       l5HitRate: 0
     });
-  }, [match]);
+  }, [isEdgeTab, match]);
 
   const gameEdgeCardData = useMemo(() => {
-    if (!pregameIntel || !match.homeTeam || !match.awayTeam) return null;
+    if (!isEdgeTab || !pregameIntel || !match.homeTeam || !match.awayTeam) return null;
 
     const pick = pregameIntel.recommended_pick || pregameIntel.grading_metadata?.selection || '';
     const pickText = (pick || '').trim();
@@ -1121,7 +1124,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       l5Results: [],
       l5HitRate: 0
     });
-  }, [match, pregameIntel]);
+  }, [isEdgeTab, match, pregameIntel]);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white relative overflow-y-auto font-sans">
