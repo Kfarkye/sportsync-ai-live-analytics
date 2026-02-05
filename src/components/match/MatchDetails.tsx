@@ -33,6 +33,7 @@ import { getMatchDisplayStats } from '../../utils/statDisplay';
 import { fetchMatchDetailsExtended, fetchTeamLastFive } from '../../services/espnService';
 import { fetchNhlGameDetails } from '../../services/nhlService';
 import { supabase } from '../../lib/supabase';
+import { pregameIntelService, type PregameIntelResponse } from '../../services/pregameIntelService';
 import {
   isGameInProgress,
   isGameFinished as isGameFinal,
@@ -693,6 +694,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
   const [error, setError] = useState<Error | null>(null);
   const [forecastHistory, setForecastHistory] = useState<ForecastPoint[]>([]);
   const [edgeState, setEdgeState] = useState<EdgeState | null>(null);
+  const [pregameIntel, setPregameIntel] = useState<PregameIntelResponse | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const matchRef = useRef<ExtendedMatch>(initialMatch);
@@ -933,6 +935,43 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     ? { lastPlay: { text: match.lastPlay.text, type: { text: match.lastPlay.type } } }
     : undefined;
 
+  const startTimeISO = useMemo(() => {
+    if (!match.startTime) return undefined;
+    const date = new Date(match.startTime);
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+  }, [match.startTime]);
+
+  useEffect(() => {
+    if (!isSched) return;
+    const controller = new AbortController();
+    let active = true;
+
+    const fetchIntel = async () => {
+      try {
+        const intel = await pregameIntelService.fetchIntel(
+          match.id,
+          match.homeTeam?.name || '',
+          match.awayTeam?.name || '',
+          match.sport || '',
+          match.leagueId || '',
+          startTimeISO,
+          match.current_odds?.homeSpread ? Number(match.current_odds.homeSpread) : undefined,
+          match.current_odds?.total ? Number(match.current_odds.total) : undefined,
+          controller.signal
+        );
+        if (active) setPregameIntel(intel);
+      } catch {
+        if (active) setPregameIntel(null);
+      }
+    };
+
+    fetchIntel();
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [isSched, match.id, match.homeTeam?.name, match.awayTeam?.name, match.sport, match.leagueId, startTimeISO, match.current_odds?.homeSpread, match.current_odds?.total]);
+
   const insightCardData = useMemo(() => {
     const prop = match.dbProps?.[0];
     if (!prop) return null;
@@ -963,6 +1002,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       playerName: prop.playerName,
       team: teamLabel,
       opponent: opponentLabel,
+      matchup: `${match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name} @ ${match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name}`,
       headshotUrl: prop.headshotUrl,
       side: (prop.side || 'OVER').toString().toUpperCase(),
       line: prop.lineValue,
@@ -978,6 +1018,109 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       l5HitRate: 0
     });
   }, [match]);
+
+  const gameEdgeCardData = useMemo(() => {
+    if (!pregameIntel) return null;
+
+    const pick = pregameIntel.recommended_pick || pregameIntel.grading_metadata?.selection || '';
+    const pickText = (pick || '').trim();
+
+    const norm = (s?: string) => (s || '').toLowerCase();
+    const homeLabel = match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name;
+    const awayLabel = match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name;
+    const matchup = `${awayLabel} @ ${homeLabel}`;
+
+    const homeKeys = [match.homeTeam.abbreviation, match.homeTeam.shortName, match.homeTeam.name].map(norm);
+    const awayKeys = [match.awayTeam.abbreviation, match.awayTeam.shortName, match.awayTeam.name].map(norm);
+
+    const extractTeamFromPick = (value?: string | null) => {
+      if (!value) return '';
+      const s = value.trim();
+      if (!s) return '';
+      if (/^(over|under)\b/i.test(s)) return s.split(/\s+/).slice(0, 1).join(' ').toUpperCase();
+      const mlIdx = s.toLowerCase().lastIndexOf(' ml');
+      const core = mlIdx > 0 ? s.slice(0, mlIdx).trim() : s;
+      const tokens = core.split(/\s+/);
+      const out: string[] = [];
+      for (const t of tokens) {
+        if (/^[+\-]?\d+(\.\d+)?$/.test(t)) break;
+        if (/^\(?[+\-]?\d{3,5}\)?$/.test(t)) break;
+        out.push(t);
+      }
+      return out.length ? out.join(' ') : tokens[0];
+    };
+
+    const pickTeam = extractTeamFromPick(pickText);
+    const pickNorm = norm(pickTeam);
+
+    let teamName = match.homeTeam.name || homeLabel;
+    let opponentName = match.awayTeam.name || awayLabel;
+    let teamAbbr = match.homeTeam.abbreviation || homeLabel;
+    let teamLogoUrl = match.homeTeam.logo;
+
+    if (pickNorm && homeKeys.some((k) => k && pickNorm.includes(k))) {
+      teamName = match.homeTeam.name || homeLabel;
+      opponentName = match.awayTeam.name || awayLabel;
+      teamAbbr = match.homeTeam.abbreviation || homeLabel;
+      teamLogoUrl = match.homeTeam.logo;
+    } else if (pickNorm && awayKeys.some((k) => k && pickNorm.includes(k))) {
+      teamName = match.awayTeam.name || awayLabel;
+      opponentName = match.homeTeam.name || homeLabel;
+      teamAbbr = match.awayTeam.abbreviation || awayLabel;
+      teamLogoUrl = match.awayTeam.logo;
+    } else if (/^(over|under)\b/i.test(pickText)) {
+      teamName = `${homeLabel} vs ${awayLabel}`;
+      opponentName = '';
+      teamAbbr = 'TOTAL';
+      teamLogoUrl = undefined;
+    }
+
+    const meta = pregameIntel.grading_metadata;
+    const oddsMarket = match.current_odds;
+    let bestOdds: string | number | undefined;
+
+    if (meta?.type === 'TOTAL') {
+      bestOdds = meta.side === 'OVER'
+        ? (oddsMarket?.overOdds ?? oddsMarket?.over ?? oddsMarket?.totalOver)
+        : (oddsMarket?.underOdds ?? oddsMarket?.under);
+    } else if (meta?.type === 'SPREAD') {
+      bestOdds = meta.side === 'HOME'
+        ? (oddsMarket?.homeSpreadOdds ?? oddsMarket?.homeSpread)
+        : (oddsMarket?.awaySpreadOdds ?? oddsMarket?.awaySpread);
+    } else if (meta?.type === 'MONEYLINE') {
+      bestOdds = meta.side === 'HOME'
+        ? (oddsMarket?.moneylineHome ?? oddsMarket?.home_ml)
+        : (oddsMarket?.moneylineAway ?? oddsMarket?.away_ml);
+    }
+
+    const confidence = pregameIntel.confidence_score;
+    const probability = typeof confidence === 'number'
+      ? (confidence <= 1 ? confidence * 100 : confidence)
+      : 50;
+
+    return toInsightCard({
+      id: `${match.id}-game-edge`,
+      headerMode: 'team',
+      teamName,
+      teamAbbr,
+      opponentName,
+      teamLogoUrl,
+      matchup,
+      customSegment: pickText || 'Game Edge',
+      side: pickText.toUpperCase().startsWith('UNDER') ? 'UNDER' : 'OVER',
+      line: 0,
+      statType: 'Edge',
+      bestOdds,
+      bestBook: oddsMarket?.provider || 'Market',
+      affiliateLink: undefined,
+      dvpRank: 0,
+      edge: 0,
+      probability,
+      aiAnalysis: pregameIntel.briefing || pregameIntel.headline || 'Intelligence pending.',
+      l5Results: [],
+      l5HitRate: 0
+    });
+  }, [match, pregameIntel]);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white relative overflow-y-auto font-sans">
@@ -1025,15 +1168,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
               )}
               {activeTab === 'DETAILS' && (
                 <div className="space-y-0">
-                  {insightCardData && (
-                    <div className="mb-8">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Shareable Insight</span>
-                      </div>
-                      <InsightCard data={insightCardData} />
-                    </div>
-                  )}
                   <SafePregameIntelCards match={match} />
                   <div className="mt-8">
                     <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>{isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}</SpecSheetRow>
@@ -1053,6 +1187,26 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
               )}
               {activeTab === 'DATA' && (
                 <div className="space-y-0">
+                  {(gameEdgeCardData || insightCardData) && (
+                    <div className="mb-12 space-y-6">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1 h-1 rounded-full bg-emerald-400" />
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Shareable Insights</span>
+                      </div>
+                      {gameEdgeCardData && (
+                        <div className="space-y-3">
+                          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Game Edge</span>
+                          <InsightCard data={gameEdgeCardData} />
+                        </div>
+                      )}
+                      {insightCardData && (
+                        <div className="space-y-3">
+                          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Player Prop</span>
+                          <InsightCard data={insightCardData} />
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="mb-12"><ForecastHistoryTable matchId={match.id} /></div>
                   <SpecSheetRow label="01 // BOX SCORE" defaultOpen={true}><BoxScore match={match} /></SpecSheetRow>
                   <SpecSheetRow label="02 // ANALYSIS" defaultOpen={false}><SafePregameIntelCards match={match} /></SpecSheetRow>

@@ -38,10 +38,12 @@ export interface BookOffer {
 
 export interface InsightCardData {
   id: string;
+  headerMode?: "player" | "team";
   player: {
     name: string;
     team: string; // "CLE"
     opponent: string; // "LAC"
+    matchup?: string; // "DAL @ HOU"
     headshotUrl?: string;
   };
   bet: {
@@ -104,10 +106,21 @@ export function toInsightCard(input: unknown): InsightCardData {
   const line = toFiniteNumber(prop["line"], 0);
   const statType = asString(prop["statType"], "Stat");
 
+  const headerModeRaw = asString(prop["headerMode"], "player").toLowerCase();
+  const headerMode: InsightCardData["headerMode"] = headerModeRaw === "team" ? "team" : "player";
+
   const playerName = asString(prop["playerName"], "Unknown");
   const team = asString(prop["team"], "UNK");
   const opponent = asString(prop["opponent"], "UNK");
-  const headshotUrl = asOptionalString(prop["headshotUrl"]);
+  const matchupOverride = asOptionalString(prop["matchup"]);
+  const derivedMatchup = matchupOverride || (team && opponent ? `${team} @ ${opponent}` : undefined);
+
+  const teamName = asString(prop["teamName"], playerName);
+  const opponentName = asString(prop["opponentName"], opponent);
+  const teamLogoUrl = asOptionalString(prop["teamLogoUrl"]);
+  const headshotUrl = headerMode === "team"
+    ? (teamLogoUrl || asOptionalString(prop["headshotUrl"]))
+    : asOptionalString(prop["headshotUrl"]);
 
   const bestBook = asString(prop["bestBook"], "Generic");
   const affiliateLink = asOptionalString(prop["affiliateLink"]);
@@ -138,17 +151,20 @@ export function toInsightCard(input: unknown): InsightCardData {
 
   const finalBooks = books.length ? books : [fallbackBook];
   const bestOffer = finalBooks.find((b) => b.isBest) || finalBooks[0];
+  const customSegment = asOptionalString(prop["customSegment"]);
 
   return {
     id,
+    headerMode,
     player: {
-      name: playerName,
-      team,
-      opponent,
+      name: headerMode === "team" ? teamName : playerName,
+      team: headerMode === "team" ? asString(prop["teamAbbr"], team) : team,
+      opponent: headerMode === "team" ? opponentName : opponent,
+      matchup: derivedMatchup,
       headshotUrl,
     },
     bet: {
-      segment: `${side === "OVER" ? "Over" : "Under"} ${formatLine(line)} ${statType}`,
+      segment: customSegment || `${side === "OVER" ? "Over" : "Under"} ${formatLine(line)} ${statType}`,
       line,
       side,
       odds: bestOffer.odds,
@@ -317,10 +333,11 @@ export const InsightCard = memo(({ data }: { data: InsightCardData }) => {
   const accentColor = isOver ? "text-emerald-500" : "text-rose-500";
 
   const matchupText = useMemo(() => {
+    if (player.matchup) return player.matchup;
     if (player.team && player.opponent) return `${player.team} @ ${player.opponent}`;
     if (player.opponent) return `@ ${player.opponent}`;
     return player.team || "";
-  }, [player.team, player.opponent]);
+  }, [player.matchup, player.team, player.opponent]);
 
   const bookOffers = bet.books?.length ? bet.books : [{ book: bet.book, odds: bet.odds, deepLink: bet.deepLink, isBest: true }];
   const bestOffer = bookOffers.find((b) => b.isBest) || bookOffers[0];
