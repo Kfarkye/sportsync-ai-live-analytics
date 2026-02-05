@@ -367,6 +367,26 @@ export const pregameIntelService = {
                     return mapDbResponse(fallbackMatch, dbMatchId);
                 }
 
+                // Final fallback: resolve by team matchup + league + game_date (handles ID drift).
+                if (homeTeam && awayTeam && league) {
+                    const teamQuery = supabase
+                        .from('pregame_intel')
+                        .select('*')
+                        .eq('league_id', league)
+                        .eq('game_date', gameDate)
+                        .eq('home_team', homeTeam)
+                        .eq('away_team', awayTeam)
+                        .order('generated_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                    const { data: teamMatch } = await awaitSingle<PregameIntelResponse & Record<string, PregameDbValue>>(teamQuery, sig);
+                    if (teamMatch) {
+                        console.log('[PregameIntel] DB Team Fallback Hit:', dbMatchId);
+                        return mapDbResponse(teamMatch, dbMatchId);
+                    }
+                }
+
                 // 2. CLOUD GENERATION
                 const { data, error } = await supabase.functions.invoke('pregame-intel', {
                     body: {
