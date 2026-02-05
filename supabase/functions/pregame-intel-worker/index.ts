@@ -1,8 +1,10 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
-import { executeAnalyticalQuery, safeJsonParse, Type } from "../_shared/gemini.ts";
-import { getCanonicalMatchId, toLocalGameDate } from "../_shared/match-registry.ts";
+import { executeAnalyticalQuery, safeJsonParse } from "../_shared/gemini.ts";
+import { buildMatchDossier, detectSportFromLeague } from "../_shared/match-dossier.ts";
+import { cleanHeadline, cleanCardThesis } from "../_shared/intel-guards.ts";
+import { PREGAME_INTEL_SCHEMA_BASE, PREGAME_INTEL_SYSTEM_INSTRUCTION } from "../_shared/prompts/pregame-intel-v1.ts";
 import { normalizeTennisOdds } from "../_shared/tennis-odds-normalizer.ts";
 import { normalizeSoccerOdds } from "../_shared/soccer-odds-normalizer.ts";
 
@@ -11,172 +13,6 @@ const CORS_HEADERS = {
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers":
         "Content-Type, Authorization, x-client-info, apikey, x-client-timeout, x-trace-id",
-};
-
-const APEX_CONFIG = {
-    INJURY_WEIGHT: 0.4,
-    MAX_INJURY_SCORE: 10.0,
-    FATIGUE_BASE_PENALTY: 2.0,
-    APRON_TAX_MULTIPLIER: 1.75,
-    ATS_THRESHOLD: 0.6,
-    ATS_BONUS_POINTS: 3.0,
-    HOME_COURT: 2.6,
-};
-
-// -------------------------------------------------------------------------
-// MODULE: INTEL GUARDS (SERVER-SIDE EDITOR)
-// -------------------------------------------------------------------------
-namespace IntelGuards {
-    const NERD_WORDS = [
-        "fair line",
-        "delta",
-        "dislocation",
-        "priors",
-        "projected",
-        "expected value",
-        "expected",
-        "ev",
-        "clv",
-        "regression",
-        "algorithm",
-        "kernel",
-        "confidence",
-        "system",
-        "framework",
-        "variance",
-        "model",
-        "probability",
-        "pricing",
-        "signal",
-    ];
-
-    const HEADLINE_FALLBACKS = [
-        "Prime spot for {team} tonight",
-        "Setup favors {team} in this matchup",
-        "Why the value is on {team} today",
-        "{team} set up well in this spot",
-        "Points look mispriced on {team}",
-        "Lean: {team} in this matchup",
-    ];
-
-    function escapeRegexLiteral(input: string): string {
-        return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    }
-
-    // Sort by length DESC so "expected value" matches before "expected"
-    const SORTED_TERMS = [...NERD_WORDS].sort((a, b) => b.length - a.length);
-    const NERD_REGEX = new RegExp(
-        `\\b(${SORTED_TERMS.map(escapeRegexLiteral).join("|")})\\b`,
-        "gi"
-    );
-
-    function getStableIndex(str: string, max: number): number {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) hash += str.charCodeAt(i);
-        return Math.abs(hash) % max;
-    }
-
-    function polishGrammar(input: string): string {
-        return input
-            .replace(/\s+/g, " ")
-            .replace(/\s([,.!?;:])/g, "$1")
-            .replace(/\.{2,}/g, ".")
-            .replace(/,\s*,+/g, ",")
-            .trim();
-    }
-
-    export function cleanHeadline(raw: string, team: string): string {
-        if (!raw) return "";
-
-        NERD_REGEX.lastIndex = 0;
-        const isContaminated = NERD_REGEX.test(raw);
-        const isTooLong = raw.length > 85;
-        const hasColon = raw.includes(":");
-
-        if (isContaminated || isTooLong || hasColon) {
-            const index = getStableIndex(team || "team", HEADLINE_FALLBACKS.length);
-            return HEADLINE_FALLBACKS[index].replace("{team}", team || "this side");
-        }
-
-        return raw.replace(/["']/g, "").trim();
-    }
-
-    export function cleanCardThesis(category: string, thesis: string): string {
-        if (!thesis) return "";
-
-        // Safe zone for math/engine terms
-        if (category === "The Engine") return thesis;
-
-        let clean = thesis.replace(NERD_REGEX, "");
-        clean = polishGrammar(clean);
-
-        if (clean.length < 15) return "The numbers favor this side.";
-
-        return clean.charAt(0).toUpperCase() + clean.slice(1);
-    }
-}
-
-// -------------------------------------------------------------------------
-// LEAGUE & SPORT DEFINITIONS
-// -------------------------------------------------------------------------
-const SOCCER_LEAGUES = [
-    "ita.1",
-    "seriea",
-    "eng.1",
-    "epl",
-    "ger.1",
-    "bundesliga",
-    "esp.1",
-    "laliga",
-    "fra.1",
-    "ligue1",
-    "usa.1",
-    "mls",
-    "mex.1",        // Liga MX
-    "liga_mx",
-    "bra.1",        // Brasileirao
-    "arg.1",        // Argentina Primera
-    "por.1",        // Primeira Liga
-    "ned.1",        // Eredivisie
-    "bel.1",        // Belgian Pro League
-    "tur.1",        // Turkish Super Lig
-    "sco.1",        // Scottish Premiership
-    "uefa.champions",
-    "ucl",
-    "uefa.europa",
-    "uel",
-    "uefa.conference",
-    "caf.nations",
-    "copa",
-    "conmebol",
-    "concacaf",
-    "afc",
-    "soccer",       // Generic fallback
-];
-const FOOTBALL_LEAGUES = ["nfl", "college-football", "ncaaf"];
-const HOCKEY_LEAGUES = ["nhl"];
-const BASEBALL_LEAGUES = ["mlb"];
-const BASKETBALL_LEAGUES = [
-    "nba",
-    "wnba",
-    "mens-college-basketball",
-    "ncaab",
-    "ncaam",
-    "womens-college-basketball",
-];
-const TENNIS_LEAGUES = ["atp", "wta", "tennis"];
-
-const detectSportFromLeague = (league: string | null | undefined): string => {
-    if (!league) return "nba";
-    const l = league.toLowerCase();
-    if (TENNIS_LEAGUES.some((t) => l.includes(t))) return "tennis";
-    if (SOCCER_LEAGUES.some((s) => l.includes(s))) return "soccer";
-    if (FOOTBALL_LEAGUES.some((f) => l.includes(f))) return "football";
-    if (HOCKEY_LEAGUES.some((h) => l.includes(h))) return "hockey";
-    if (BASEBALL_LEAGUES.some((b) => l.includes(b))) return "baseball";
-    if (BASKETBALL_LEAGUES.some((b) => l.includes(b)))
-        return l.includes("college") ? "college_basketball" : "nba";
-    return "nba";
 };
 
 // -------------------------------------------------------------------------
@@ -213,49 +49,6 @@ const RequestSchema = z.object({
     total_juice: z.union([z.string(), z.number()]).nullable().optional().transform((v: any) => (v != null ? String(v) : null)),
     force_refresh: z.boolean().optional().default(false),
 });
-
-// -------------------------------------------------------------------------
-// OUTPUT SCHEMA (KEEP SHAPE; DO NOT PRUNE FIELDS)
-// -------------------------------------------------------------------------
-const INTEL_OUTPUT_SCHEMA_BASE = {
-    type: Type.OBJECT,
-    properties: {
-        selected_offer_id: { type: Type.STRING }, // enum injected dynamically
-        headline: { type: Type.STRING },
-        briefing: { type: Type.STRING },
-        cards: {
-            type: Type.ARRAY,
-            minItems: 3,
-            maxItems: 5,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    category: {
-                        type: Type.STRING,
-                        enum: ["The Spot", "The Trend", "The Engine", "The Trap", "X-Factor"],
-                    },
-                    thesis: { type: Type.STRING },
-                    impact: { type: Type.STRING, enum: ["HIGH", "MEDIUM", "LOW"] },
-
-                    // keep legacy shape
-                    market_implication: { type: Type.STRING },
-                    details: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING },
-                    },
-                },
-                required: ["category", "thesis", "impact"],
-            },
-        },
-        logic_group: {
-            type: Type.STRING,
-            enum: ["SCHEDULE_SPOT", "MARKET_DISLOCATION", "KEY_INJURY", "MODEL_EDGE", "SITUATIONAL"],
-        },
-        confidence_tier: { type: Type.STRING, enum: ["HIGH", "MEDIUM", "LOW"] },
-        pick_summary: { type: Type.STRING },
-    },
-    required: ["selected_offer_id", "headline", "briefing", "cards", "logic_group", "confidence_tier", "pick_summary"],
-};
 
 // -------------------------------------------------------------------------
 // ODDS HELPERS (Preserving Original Math)
@@ -612,10 +405,52 @@ Deno.serve(async (req: Request) => {
 // -------------------------------------------------------------------------
 // CORE ENGINE (Design-Aware)
 // -------------------------------------------------------------------------
+function buildFallbackIntel(dossier: { home_team: string; away_team: string }) {
+    return {
+        selected_offer_id: "FALLBACK",
+        headline: `${dossier.away_team} @ ${dossier.home_team}`,
+        briefing: "Intelligence unavailable. Displaying market data only.",
+        cards: [
+            {
+                category: "The Engine",
+                thesis: "AI offline. Market snapshot only.",
+                impact: "LOW",
+                market_implication: "N/A",
+                details: [],
+            },
+        ],
+        logic_group: "SITUATIONAL",
+        confidence_tier: "LOW",
+        pick_summary: "Fallback",
+    };
+}
+
 async function processSingleIntel(p: any, supabase: any, requestId: string) {
-    const dbId = getCanonicalMatchId(p.match_id, p.league);
-    const gameDate = p.start_time ? toLocalGameDate(p.start_time) : new Date().toISOString().split("T")[0];
-    const league = String(p.league || "nba").toLowerCase();
+    const dossier = await buildMatchDossier(
+        p.match_id,
+        supabase,
+        {
+            league: p.league,
+            league_id: p.league,
+            sport: p.sport,
+            start_time: p.start_time,
+            home_team: p.home_team,
+            away_team: p.away_team,
+            current_spread: p.current_spread ?? null,
+            current_total: p.current_total ?? null,
+            current_odds: p.current_odds ?? null,
+            home_ml: p.home_ml ?? null,
+            away_ml: p.away_ml ?? null,
+            spread_juice: p.spread_juice ?? null,
+            total_juice: p.total_juice ?? null,
+        },
+        { season: "2025-26" }
+    );
+
+    console.log(`[Context:${requestId}] Dossier assembled: ${dossier.match_id}`);
+
+    const dbId = dossier.match_id;
+    const gameDate = dossier.game_date;
 
     // 1. FRESHNESS CHECK
     let existingIntel: any = null;
@@ -636,83 +471,23 @@ async function processSingleIntel(p: any, supabase: any, requestId: string) {
         }
     }
 
-    // 2. DATA FETCH & MATH
-    const [matchRecord, homeContext, awayContext, hP, aP] = await Promise.all([
-        supabase.from("matches").select("odds_api_event_id").eq("id", dbId).maybeSingle().then((r: any) => r.data),
-        supabase.from("team_game_context").select("*").eq("team", p.home_team).eq("game_date", gameDate).single().then((r: any) => r.data),
-        supabase.from("team_game_context").select("*").eq("team", p.away_team).eq("game_date", gameDate).single().then((r: any) => r.data),
-        league === "nba"
-            ? supabase.from("nba_team_priors").select("*").eq("team", p.home_team).eq("season", "2025-26").single().then((r: any) => r.data)
-            : Promise.resolve(null),
-        league === "nba"
-            ? supabase.from("nba_team_priors").select("*").eq("team", p.away_team).eq("season", "2025-26").single().then((r: any) => r.data)
-            : Promise.resolve(null),
-    ]);
-
-    const oddsEventId = matchRecord?.odds_api_event_id || null;
-
-    let h_o = 110,
-        h_d = 110,
-        a_o = 110,
-        a_d = 110;
-    if (hP) {
-        h_o = hP.o_rating;
-        h_d = hP.d_rating;
-    }
-    if (aP) {
-        a_o = aP.o_rating;
-        a_d = aP.d_rating;
-    }
-
-    const forensic = {
-        home: {
-            injury_impact: homeContext?.injury_impact || 0,
-            situation: homeContext?.situation || "Normal",
-            rest_days: homeContext?.rest_days ?? 2,
-            ats_pct: homeContext?.ats_last_10 || 0.5,
-            fatigue_score: homeContext?.fatigue_score || 0,
-            injury_notes: homeContext?.injury_notes || "None",
-            ats_last_10: homeContext?.ats_last_10 || 0.5,
-        },
-        away: {
-            injury_impact: awayContext?.injury_impact || 0,
-            situation: awayContext?.situation || "Normal",
-            rest_days: awayContext?.rest_days ?? 2,
-            ats_pct: awayContext?.ats_last_10 || 0.5,
-            fatigue_score: awayContext?.fatigue_score || 0,
-            injury_notes: awayContext?.injury_notes || "None",
-            ats_last_10: awayContext?.ats_last_10 || 0.5,
-        },
-    };
-
-    const calcEff = (o: number, d: number, f: any) => {
-        let r = o - d;
-        r -= f.injury_impact * APEX_CONFIG.INJURY_WEIGHT;
-        const sit = (f.situation || "").toUpperCase();
-        r -=
-            (f.fatigue_score > 0 ? f.fatigue_score / 50 : ["B2B", "3IN4"].some((k) => sit.includes(k)) ? 1 : 0) *
-            APEX_CONFIG.FATIGUE_BASE_PENALTY;
-        if (f.ats_pct >= APEX_CONFIG.ATS_THRESHOLD) r += APEX_CONFIG.ATS_BONUS_POINTS;
-        return r;
-    };
-
-    const h_eff = calcEff(h_o, h_d, forensic.home);
-    const a_eff = calcEff(a_o, a_d, forensic.away);
-
-    const hasModelPriors = p.league === "nba" && !!hP && !!aP;
-    const rawFairLine = -1 * ((h_eff - a_eff) + APEX_CONFIG.HOME_COURT);
-    const hasMarket = isFiniteNumber(p.current_spread);
-
-    // Core behavior: non-NBA or missing priors anchors fairLine to market
-    const fairLine = hasModelPriors ? rawFairLine : hasMarket ? p.current_spread : 0;
-    const delta = hasMarket && hasModelPriors ? Math.abs(p.current_spread - fairLine) : 0;
-    const edge = delta.toFixed(1);
-
     const odds = p.current_odds || {};
-    const home_ml = safeJuiceFmt(p.home_ml ?? odds.homeWin ?? odds.home_ml ?? odds.best_h2h?.home?.price);
-    const away_ml = safeJuiceFmt(p.away_ml ?? odds.awayWin ?? odds.away_ml ?? odds.best_h2h?.away?.price);
+    const marketInput = {
+        ...p,
+        home_team: dossier.home_team,
+        away_team: dossier.away_team,
+        current_spread: dossier.market_snapshot.spread,
+        current_total: dossier.market_snapshot.total,
+        spread_juice: dossier.market_snapshot.spread_juice,
+        total_juice: dossier.market_snapshot.total_juice,
+        home_ml: dossier.market_snapshot.home_ml,
+        away_ml: dossier.market_snapshot.away_ml,
+    };
 
-    const marketOffers = buildMarketSnapshot(p, odds);
+    const home_ml = safeJuiceFmt(marketInput.home_ml ?? odds.homeWin ?? odds.home_ml ?? odds.best_h2h?.home?.price);
+    const away_ml = safeJuiceFmt(marketInput.away_ml ?? odds.awayWin ?? odds.away_ml ?? odds.best_h2h?.away?.price);
+
+    const marketOffers = buildMarketSnapshot(marketInput, odds);
 
     // LOCK: No market
     if (!marketOffers.length) {
@@ -720,13 +495,13 @@ async function processSingleIntel(p: any, supabase: any, requestId: string) {
         const noMarketDossier = {
             match_id: dbId,
             game_date: gameDate,
-            sport: p.sport,
-            league_id: p.league,
-            home_team: p.home_team,
-            away_team: p.away_team,
-            odds_event_id: oddsEventId,
+            sport: dossier.sport,
+            league_id: dossier.league_id,
+            home_team: dossier.home_team,
+            away_team: dossier.away_team,
+            odds_event_id: dossier.odds_event_id,
             selected_offer_id: "NO_MARKET",
-            headline: `${p.away_team} @ ${p.home_team}`,
+            headline: `${dossier.away_team} @ ${dossier.home_team}`,
             briefing: "Market data incomplete. Analysis paused.",
             cards: [{ category: "The Engine", thesis: "Missing Data", impact: "LOW" }],
             logic_group: "SITUATIONAL",
@@ -734,8 +509,8 @@ async function processSingleIntel(p: any, supabase: any, requestId: string) {
             pick_summary: "NO_MARKET",
             recommended_pick: "NO_MARKET",
             generated_at: new Date().toISOString(),
-            analyzed_spread: safeNumOrNull(p.current_spread),
-            analyzed_total: safeNumOrNull(p.current_total),
+            analyzed_spread: safeNumOrNull(marketInput.current_spread),
+            analyzed_total: safeNumOrNull(marketInput.current_total),
             spread_juice: null,
             total_juice: null,
             home_ml,
@@ -751,71 +526,71 @@ async function processSingleIntel(p: any, supabase: any, requestId: string) {
     }
 
     const marketMenu = marketOffers.map((o) => `- ID: "${o.id}" | ${o.label}`).join("\n");
+    const edge = Number.isFinite(dossier.valuation.delta) ? dossier.valuation.delta.toFixed(1) : "0.0";
 
-    // 3. AI PROMPT (keep constraints; bettor-facing headline rules)
-    const systemInstruction = `<role>Institutional Investment Strategist</role>
-<constraints>
-1. Select EXACTLY ONE "selected_offer_id" from the Snapshot.
-2. Prefer SPREAD when the pricing feels off; otherwise consider TOTAL/ML.
-3. Trust Snapshot prices.
-4. Output valid JSON.
-</constraints>
-
-<headline_rules>
-- Target: bettor-facing. punchy. 1 sentence.
-- Banned words: model, fair line, delta, edge, dislocation, priors, projected, expected, ev, clv, regression, algorithm, kernel, confidence, system, framework, signal, variance.
-- No colons.
-</headline_rules>
-
-<card_rules>
-- "The Engine": technical is allowed here.
-- Other cards: plain English only.
-</card_rules>`;
-
-    const synthesisPrompt = `<context>
-${p.away_team} @ ${p.home_team}
-Fair Line: ${fairLine.toFixed(2)} | Edge: ${edge}
-=== MARKET SNAPSHOT ===
+    // 3. AI PROMPT (single call)
+    const systemInstruction = PREGAME_INTEL_SYSTEM_INSTRUCTION(dossier.current_date, dossier.game_date);
+    const synthesisPrompt = `<matchup>${dossier.away_team} @ ${dossier.home_team}</matchup>
+<forensic_context>
+HOME (${dossier.home_team}):
+- Situation: ${dossier.forensic.home.situation}
+- Rest: ${dossier.forensic.home.rest_days} days
+- Injury Score: ${dossier.forensic.home.injury_score}/10
+- Notes: ${dossier.forensic.home.notes}
+AWAY (${dossier.away_team}):
+- Situation: ${dossier.forensic.away.situation}
+- Rest: ${dossier.forensic.away.rest_days} days
+- Injury Score: ${dossier.forensic.away.injury_score}/10
+- Notes: ${dossier.forensic.away.notes}
+</forensic_context>
+<valuation>
+Market Spread: ${dossier.market_snapshot.spread ?? "N/A"}
+Fair Line: ${dossier.valuation.fair_line}
+Delta: ${dossier.valuation.delta}
+</valuation>
+<market_snapshot>
+Spread: ${dossier.market_snapshot.spread ?? "N/A"}
+Total: ${dossier.market_snapshot.total ?? "N/A"}
+Home ML: ${dossier.market_snapshot.home_ml ?? "N/A"}
+Away ML: ${dossier.market_snapshot.away_ml ?? "N/A"}
+</market_snapshot>
+<market_offers>
 ${marketMenu}
-=======================
-</context>
-<task>Select best offer.</task>`;
+</market_offers>
+<task>Select the best offer. Justify using the forensic context.</task>`;
 
-    const dynamicSchema: any = JSON.parse(JSON.stringify(INTEL_OUTPUT_SCHEMA_BASE));
+    const dynamicSchema: any = JSON.parse(JSON.stringify(PREGAME_INTEL_SCHEMA_BASE));
     dynamicSchema.properties.selected_offer_id.enum = marketOffers.map((o) => o.id);
 
-    const { text, sources, thoughts } = await executeAnalyticalQuery(synthesisPrompt, {
-        model: "gemini-3-flash-preview",
-        systemInstruction,
-        responseSchema: dynamicSchema,
-    });
+    let intel: any;
+    let sources: any[] = [];
+    let thoughts = "";
 
-    const { analyzeMatchup } = await import("../_shared/intel-analyst.ts");
-    const summary = await analyzeMatchup({
-        home_team: p.home_team,
-        away_team: p.away_team,
-        home_context: forensic.home,
-        away_context: forensic.away,
-    });
-
-    const intel = safeJsonParse(text) || {
-        selected_offer_id: "FALLBACK",
-        headline: "Automated Analysis",
-        briefing: "Parse failed.",
-        cards: [],
-        logic_group: "SITUATIONAL",
-        confidence_tier: "LOW",
-        pick_summary: "Fallback",
-    };
-
-    if (intel && summary) intel.briefing = summary;
+    try {
+        const aiStart = Date.now();
+        const aiResult = await executeAnalyticalQuery(synthesisPrompt, {
+            model: "gemini-3-flash-preview",
+            systemInstruction,
+            responseSchema: dynamicSchema,
+        });
+        const durationMs = Date.now() - aiStart;
+        console.log(`[Intel:${requestId}] Gemini call: ${durationMs}ms`);
+        sources = aiResult.sources || [];
+        thoughts = aiResult.thoughts || "";
+        intel = safeJsonParse(aiResult.text);
+        if (!intel) throw new Error("Invalid JSON from AI");
+    } catch (err: any) {
+        const reason = err?.message || "AI failure";
+        console.error(`[Intel:${requestId}] Fallback triggered: ${reason}`);
+        intel = buildFallbackIntel(dossier);
+    }
 
     // 4. RESOLUTION (deterministic safety)
     let selectedOffer = marketOffers.find((o) => o.id === intel.selected_offer_id);
     let method = "AI_SELECTION";
 
     if (!selectedOffer) {
-        selectedOffer = pickFallbackOffer(marketOffers, fairLine, p.current_spread) || marketOffers[0];
+        selectedOffer = pickFallbackOffer(marketOffers, dossier.valuation.fair_line, marketInput.current_spread) || marketOffers[0];
         method = "DETERMINISTIC_FALLBACK";
     }
 
@@ -829,38 +604,45 @@ ${marketMenu}
     };
 
     // 5. SANITIZATION (AFTER offer resolution so team fallback is correct)
-    // This guarantees hero headline fallbacks reference the picked team.
-    const teamForFallback = selectedOffer?.selection || p.home_team || "this side";
-    intel.headline = IntelGuards.cleanHeadline(intel.headline, teamForFallback);
+    const teamForFallback = selectedOffer?.selection || dossier.home_team || "this side";
+    intel.headline = cleanHeadline(intel.headline, teamForFallback);
 
     if (Array.isArray(intel.cards)) {
         intel.cards = intel.cards.map((c: any) => ({
             ...c,
-            thesis: IntelGuards.cleanCardThesis(c.category, c.thesis),
+            thesis: cleanCardThesis(c.category, c.thesis),
         }));
     }
 
     // 6. Bind juice fields to selected offer where applicable
-    const spreadJuiceRaw = parseAmericanOdds(p.spread_juice || odds.homeSpreadOdds || odds.spread_best?.home?.price);
-    const totalJuiceRaw = parseAmericanOdds(p.total_juice || odds.overOdds || odds.total_best?.over?.price);
+    const spreadJuiceRaw = parseAmericanOdds(marketInput.spread_juice || odds.homeSpreadOdds || odds.spread_best?.home?.price);
+    const totalJuiceRaw = parseAmericanOdds(marketInput.total_juice || odds.overOdds || odds.total_best?.over?.price);
 
     const bound_spread_juice =
-        selectedOffer.type === "SPREAD" ? selectedOffer.price : isFiniteNumber(p.current_spread) && spreadJuiceRaw !== null ? fmtAmerican(spreadJuiceRaw) : null;
+        selectedOffer.type === "SPREAD"
+            ? selectedOffer.price
+            : isFiniteNumber(marketInput.current_spread) && spreadJuiceRaw !== null
+            ? fmtAmerican(spreadJuiceRaw)
+            : null;
 
     const bound_total_juice =
-        selectedOffer.type === "TOTAL" ? selectedOffer.price : isFiniteNumber(p.current_total) && totalJuiceRaw !== null ? fmtAmerican(totalJuiceRaw) : null;
+        selectedOffer.type === "TOTAL"
+            ? selectedOffer.price
+            : isFiniteNumber(marketInput.current_total) && totalJuiceRaw !== null
+            ? fmtAmerican(totalJuiceRaw)
+            : null;
 
     // remove the AI-only selected_offer_id & pick_summary from stored surface object (your choice)
     const { selected_offer_id, pick_summary, ...cleanIntel } = intel as any;
 
-    const dossier = {
+    const output = {
         match_id: dbId,
         game_date: gameDate,
-        sport: p.sport || "basketball",
-        league_id: p.league || "nba",
-        home_team: p.home_team,
-        away_team: p.away_team,
-        odds_event_id: oddsEventId,
+        sport: dossier.sport,
+        league_id: dossier.league_id,
+        home_team: dossier.home_team,
+        away_team: dossier.away_team,
+        odds_event_id: dossier.odds_event_id,
 
         ...cleanIntel,
 
@@ -869,8 +651,8 @@ ${marketMenu}
         sources: sources || [],
         generated_at: new Date().toISOString(),
 
-        analyzed_spread: selectedOffer.type === "SPREAD" ? selectedOffer.line : safeNumOrNull(p.current_spread),
-        analyzed_total: selectedOffer.type === "TOTAL" ? selectedOffer.line : safeNumOrNull(p.current_total),
+        analyzed_spread: selectedOffer.type === "SPREAD" ? selectedOffer.line : safeNumOrNull(marketInput.current_spread),
+        analyzed_total: selectedOffer.type === "TOTAL" ? selectedOffer.line : safeNumOrNull(marketInput.current_total),
         spread_juice: bound_spread_juice,
         total_juice: bound_total_juice,
         home_ml,
@@ -884,7 +666,7 @@ ${marketMenu}
         kernel_trace: `[METHOD:${method}]\n${thoughts || ""}`,
     };
 
-    const upsertResult = await stripUnknownColumnsAndRetryUpsert(supabase, "pregame_intel", dossier, {
+    const upsertResult = await stripUnknownColumnsAndRetryUpsert(supabase, "pregame_intel", output, {
         onConflict: "match_id,game_date",
         ignoreDuplicates: false,
     });
@@ -893,6 +675,6 @@ ${marketMenu}
         throw new Error(`Upsert failed: ${upsertResult.error?.message}`);
     }
 
-    console.log(`[${requestId}] 🎉 Saved: ${dossier.recommended_pick} (${selectedOffer.price})`);
-    return dossier;
+    console.log(`[${requestId}] 🎉 Saved: ${output.recommended_pick} (${selectedOffer.price})`);
+    return output;
 }

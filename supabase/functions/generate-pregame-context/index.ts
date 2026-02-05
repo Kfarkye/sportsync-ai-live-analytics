@@ -13,6 +13,7 @@ declare const Deno: any;
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { executeAnalyticalQuery, safeJsonParse } from "../_shared/gemini.ts";
+export { buildMatchDossier } from "../_shared/match-dossier.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SCHEMA DEFINITION
@@ -123,7 +124,8 @@ const CORS_HEADERS = {
     "Content-Type": "application/json"
 };
 
-Deno.serve(async (req: Request) => {
+if (import.meta.main) {
+    Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response(null, { headers: CORS_HEADERS });
     }
@@ -220,3 +222,4 @@ Deno.serve(async (req: Request) => {
         return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: CORS_HEADERS });
     }
 });
+}
