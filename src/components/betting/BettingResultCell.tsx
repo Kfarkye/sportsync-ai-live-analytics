@@ -1,5 +1,5 @@
 import React, { memo, useState, useEffect, useRef } from 'react';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 import { motion } from 'framer-motion';
 
 interface Props {

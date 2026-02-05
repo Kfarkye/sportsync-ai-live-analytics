@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { Match, Sport, RecentFormGame } from '../types';
+import { Match, Sport, RecentFormGame } from '@/types';
 import { fetchTeamLastFive } from '../services/espnService';
 import TeamLogo from './shared/TeamLogo';
 import { Flame, ShieldAlert, TrendingUp, Check, X, Minus, Activity, Lock, AlertCircle } from 'lucide-react';

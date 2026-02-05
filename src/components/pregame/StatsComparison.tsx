@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Team } from '../../types';
+import { Team } from '@/types';
 import { dbService, TeamMetrics } from '../../services/dbService';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 
 const MotionDiv = motion.div;
 

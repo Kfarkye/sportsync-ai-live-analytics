@@ -12,8 +12,8 @@ import {
     CloudSnow,
     Sun
 } from 'lucide-react';
-import { Stadium } from '../../types/venueIntel';
-import { Sport } from '../../types';
+import { Stadium } from '@/types/venueIntel';
+import { Sport } from '@/types';
 
 interface ConditionsCardProps {
     venue: {

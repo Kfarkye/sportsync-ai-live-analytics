@@ -3,8 +3,8 @@
  * Determines if a team covered the spread and if the total score went Over/Under.
  */
 
-import { Match, MatchOdds, MatchStatus } from '../types';
-import { BettingResult, SpreadResult, TotalResult } from '../types/matchList';
+import { Match, MatchOdds, MatchStatus } from '@/types';
+import { BettingResult, SpreadResult, TotalResult } from '@/types/matchList';
 
 // MARK: - Constants
 

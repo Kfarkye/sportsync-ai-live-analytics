@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Game, AIAnalysis } from '../../types';
+import { Game, AIAnalysis } from '@/types';
 import { getMatchAnalysis } from '../../services/geminiService';
 import { ResponsiveContainer, XAxis, YAxis, Tooltip, AreaChart, Area, CartesianGrid } from 'recharts';
 import { Sparkles, Activity, Shield, DollarSign, RefreshCw, TrendingUp } from 'lucide-react';

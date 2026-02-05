@@ -2,10 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { X, TrendingUp, TrendingDown, Minus, Trophy, Loader2 } from 'lucide-react';
-import { RankingItem, Sport } from '../../types';
+import { RankingItem, Sport } from '@/types';
 import { fetchRankings } from '../../services/espnService';
 import TeamLogo from '../shared/TeamLogo';
-import { ESSENCE, cn } from '../../lib/essence';
+import { ESSENCE, cn } from '@/lib/essence';
 
 const MotionDiv = motion.div;
 

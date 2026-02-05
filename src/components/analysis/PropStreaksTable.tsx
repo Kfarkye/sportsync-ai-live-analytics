@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { dbService } from '../../services/dbService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, Flame, ChevronRight, Target } from 'lucide-react';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 
 interface PropStreak {
     id: string;

@@ -5,9 +5,9 @@ import { Trophy, ChevronDown, Calendar, ChevronLeft, ChevronRight, Search, Grid3
 import { useAppStore } from '../../store/appStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeekNavigation } from '../../hooks/useWeekNavigation';
-import { SPORT_CONFIG, LEAGUES } from '../../constants';
-import { Sport } from '../../types';
-import { cn, ESSENCE } from '../../lib/essence';
+import { SPORT_CONFIG, LEAGUES } from '@/constants';
+import { Sport } from '@/types';
+import { cn, ESSENCE } from '@/lib/essence';
 
 const MotionSpan = motion.span;
 const MotionDiv = motion.div;

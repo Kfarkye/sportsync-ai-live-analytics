@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Match, MatchStatus } from '../../types';
+import { Match, MatchStatus } from '@/types';
 import { TrendingUp, TrendingDown, Lock } from 'lucide-react';
 import TeamLogo from '../shared/TeamLogo';
 

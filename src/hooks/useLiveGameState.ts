@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { getDbMatchId } from '../utils/matchUtils';
-import type { LiveMatchState } from '../types';
+import type { LiveMatchState } from '@/types';
 
 export function useLiveGameState(matchId: string | undefined, leagueId?: string) {
     const [state, setState] = useState<LiveMatchState | null>(null);

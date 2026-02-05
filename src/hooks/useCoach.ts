@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { Sport } from '../types';
+import { Sport } from '@/types';
 
 interface Coach {
     id: string;

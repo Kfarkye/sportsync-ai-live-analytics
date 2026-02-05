@@ -1,9 +1,9 @@
 
 import React, { useMemo, memo } from 'react';
-import { Team, Sport, MatchOdds } from '../../types';
+import { Team, Sport, MatchOdds } from '@/types';
 import TeamLogo from '../shared/TeamLogo';
 import { motion } from 'framer-motion';
-import { cn, ESSENCE } from '../../lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import { useValueFlash } from '../../hooks/useValueFlash';
 
 interface MatchupHeaderProps {

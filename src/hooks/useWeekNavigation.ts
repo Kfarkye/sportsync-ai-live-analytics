@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { Sport } from '../types';
-import { WeekOption } from '../types/matchList';
+import { Sport } from '@/types';
+import { WeekOption } from '@/types/matchList';
 
 /**
  * NFL 2025-26 Season

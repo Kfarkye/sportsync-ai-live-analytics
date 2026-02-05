@@ -1,9 +1,9 @@
 
 import React, { useMemo } from 'react';
-import { Match, MatchStatus } from '../../types';
+import { Match, MatchStatus } from '@/types';
 import { Radio } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { ESSENCE, cn } from '../../lib/essence';
+import { ESSENCE, cn } from '@/lib/essence';
 import MatchCard from '../match/MatchCard';
 import { useAppStore } from '../../store/appStore';
 import { LiveTotalCard } from './Gamecast';

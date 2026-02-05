@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, memo } from 'react';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 
 interface TeamLogoProps {
   logo?: string;

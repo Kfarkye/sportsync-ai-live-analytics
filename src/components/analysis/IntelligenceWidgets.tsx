@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Match } from '../../types';
-import { cn, ESSENCE } from '../../lib/essence';
+import { Match } from '@/types';
+import { cn, ESSENCE } from '@/lib/essence';
 import { CardHeader } from '../ui/SectionHeader';
 
 /**

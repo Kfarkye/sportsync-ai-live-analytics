@@ -1,9 +1,9 @@
 import React, { useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
 import { User, Target } from 'lucide-react';
-import { Match, StatItem, Team, PlayerPropBet, Sport } from '../../types';
+import { Match, StatItem, Team, PlayerPropBet, Sport } from '@/types';
 import TeamLogo from '../shared/TeamLogo';
-import { cn, ESSENCE } from '../../lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import { getMatchDisplayStats, hasLineScoreData } from '../../utils/statDisplay';
 
 // ============================================================================

@@ -1,5 +1,5 @@
 
-import { ShotEvent, HockeyGameData } from '../types';
+import { ShotEvent, HockeyGameData } from '@/types';
 
 const BASE_URL = 'https://api-web.nhle.com/v1';
 

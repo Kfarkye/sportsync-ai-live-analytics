@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Newspaper, BrainCircuit, Activity, ChevronRight, Zap } from 'lucide-react';
-import { BadgeType } from '../types/matchList';
+import { BadgeType } from '@/types/matchList';
 
 interface InlineNewsBadgeProps {
   type: BadgeType;

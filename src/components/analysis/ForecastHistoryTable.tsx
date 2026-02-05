@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface ForecastSnapshot {

@@ -8,7 +8,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { pregameIntelService } from '../services/pregameIntelService';
-import type { Match } from '../types';
+import type { Match } from '@/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES

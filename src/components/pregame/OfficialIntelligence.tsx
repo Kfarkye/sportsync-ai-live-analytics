@@ -6,8 +6,8 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { cn } from '../../lib/essence';
-import type { RefIntelContent } from '../../types';
+import { cn } from '@/lib/essence';
+import type { RefIntelContent } from '@/types';
 
 interface Official {
     name: string;

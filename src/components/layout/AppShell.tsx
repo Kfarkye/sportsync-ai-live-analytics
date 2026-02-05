@@ -10,7 +10,7 @@ import ChatWidget from '../ChatWidget';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
 import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
-import { LAYOUT, ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '../../constants';
+import { LAYOUT, ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
 
 const CommandPalette = lazy(() => import('../modals/CommandPalette'));
 const AuthModal = lazy(() => import('../modals/AuthModal'));

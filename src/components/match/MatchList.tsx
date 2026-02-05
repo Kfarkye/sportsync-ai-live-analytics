@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
-import { Match, MatchStatus } from '../../types';
-import { LEAGUES } from '../../constants';
+import { Match, MatchStatus } from '@/types';
+import { LEAGUES } from '@/constants';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
 import { LayoutGroup, motion } from 'framer-motion';

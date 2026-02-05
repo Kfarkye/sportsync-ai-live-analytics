@@ -1,5 +1,5 @@
 import React from 'react';
-import { Match, Sport, Team } from '../../types';
+import { Match, Sport, Team } from '@/types';
 
 interface GameContextCardProps {
     match: Match;

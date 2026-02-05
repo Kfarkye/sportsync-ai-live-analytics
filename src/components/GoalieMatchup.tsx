@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { GoalieMatchupData, GoalieProfile, Team } from '../types';
+import { GoalieMatchupData, GoalieProfile, Team } from '@/types';
 import { Shield, CheckCircle2, AlertCircle, TrendingUp, Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import TeamLogo from './shared/TeamLogo';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '../lib/essence';
+import { cn } from '@/lib/essence';
 
 interface GoalieMatchupProps {
   matchId: string;

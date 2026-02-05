@@ -12,7 +12,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { Sport, RankingItem } from '../types';
+import { Sport, RankingItem } from '@/types';
 import {
     fetchTeamLastFive,
     fetchTeamInjuries,

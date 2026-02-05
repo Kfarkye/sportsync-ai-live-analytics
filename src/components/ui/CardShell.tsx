@@ -1,6 +1,6 @@
 
 import React, { memo } from "react";
-import { cn, ESSENCE } from "../../lib/essence";
+import { cn, ESSENCE } from "@/lib/essence";
 
 interface Props extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;

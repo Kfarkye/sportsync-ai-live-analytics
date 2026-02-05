@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Match, MatchNews, FatigueMetrics, OfficialStats, PregameContext } from '../types';
+import { Match, MatchNews, FatigueMetrics, OfficialStats, PregameContext } from '@/types';
 import { supabase } from '../lib/supabase';
 import {
     RefreshCw,

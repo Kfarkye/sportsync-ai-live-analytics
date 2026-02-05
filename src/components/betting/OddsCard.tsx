@@ -1,7 +1,7 @@
 
 import React, { useMemo, useRef, memo } from 'react';
-import { Match, Sport } from '../../types';
-import { cn, ESSENCE } from '../../lib/essence';
+import { Match, Sport } from '@/types';
+import { cn, ESSENCE } from '@/lib/essence';
 import { analyzeSpread, analyzeTotal, analyzeMoneyline } from '../../utils/oddsUtils';
 import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { TrendingUp, TrendingDown } from 'lucide-react';

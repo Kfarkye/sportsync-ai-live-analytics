@@ -25,8 +25,8 @@ import { motion, AnimatePresence, useMotionValue, LayoutGroup } from 'framer-mot
 // SECTION 1: IMPORTS
 // ============================================================================
 
-import type { Match, RecentFormGame, ShotEvent, PlayerPropBet, PropBetType } from '../../types';
-import { cn } from '../../lib/essence';
+import type { Match, RecentFormGame, ShotEvent, PlayerPropBet, PropBetType } from '@/types';
+import { cn } from '@/lib/essence';
 import { getMatchDisplayStats } from '../../utils/statDisplay';
 
 // Services

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 
 interface Athlete {
     id: string;

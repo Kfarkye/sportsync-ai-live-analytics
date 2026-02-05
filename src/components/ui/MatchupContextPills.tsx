@@ -1,7 +1,7 @@
 
 import React, { memo } from 'react';
 import type { ComponentType } from 'react';
-import { cn, ESSENCE } from '../../lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import {
     MapPin,
     Thermometer,
@@ -10,7 +10,7 @@ import {
     Users,
     Info
 } from 'lucide-react';
-import { Sport } from '../../types';
+import { Sport } from '@/types';
 
 interface MatchupContextPillsProps {
     venue?: { name: string; city: string; state: string };

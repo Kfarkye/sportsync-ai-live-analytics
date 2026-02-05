@@ -1,7 +1,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Sport, Match } from '../types';
+import { Sport, Match } from '@/types';
 import { getInitialSportContext, getInitialDateContext } from '../utils/matchUtils';
 
 export type ViewType = 'FEED' | 'LIVE' | 'NBA' | 'TITAN';

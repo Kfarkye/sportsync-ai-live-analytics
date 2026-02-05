@@ -1,5 +1,5 @@
 import React from "react";
-import { cn, ESSENCE } from "../../lib/essence";
+import { cn, ESSENCE } from "@/lib/essence";
 import { motion } from "framer-motion";
 
 const MotionDiv = motion.div;

@@ -2,9 +2,9 @@
 import React, { useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Target, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Match, PlayerPropBet, Team, InjuryReport, RosterPlayer } from '../../types';
+import { Match, PlayerPropBet, Team, InjuryReport, RosterPlayer } from '@/types';
 import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
-import { ESSENCE } from '../../lib/essence';
+import { ESSENCE } from '@/lib/essence';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // UTILITIES

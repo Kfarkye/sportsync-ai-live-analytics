@@ -1,8 +1,8 @@
 
 import { dbService } from "./dbService";
 import { supabase } from '../lib/supabase';
-import { Match } from '../types';
-import { LEAGUES } from '../constants';
+import { Match } from '@/types';
+import { LEAGUES } from '@/constants';
 import { normalizeOpeningLines, normalizeClosingLines, isMatchFinal, getOddsValue, normalizeEnhancedOdds } from '../utils/oddsUtils';
 import { getCanonicalMatchId } from '../utils/matchRegistry';
 import { debugManager } from '../lib/debug';

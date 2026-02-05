@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 import { Activity, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Bot } from 'lucide-react';
-import { Sport } from '../../types';
+import { Sport } from '@/types';
 
 /**
  * THE EDGE SCRIPT CONTRACT

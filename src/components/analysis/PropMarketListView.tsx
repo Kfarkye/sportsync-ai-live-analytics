@@ -12,9 +12,9 @@ import React, {
     type FC,
 } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 import { getPlayerStatValue } from './PlayerStatComponents';
-import type { Match } from '../../types';
+import type { Match } from '@/types';
 
 // ============================================================================
 // 🎨 DESIGN TOKENS & PHYSICS

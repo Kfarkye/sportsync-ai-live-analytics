@@ -27,7 +27,7 @@ import { twMerge } from "tailwind-merge";
 import { useChatContext } from "../hooks/useChatContext";
 import { useAppStore } from "../store/appStore";
 import { X, Plus, ArrowUp, Copy, CheckCircle2, Minimize2, Mic, MicOff, StopCircle, Image as ImageIcon, Activity, ChevronRight, ShieldCheck, Globe, ExternalLink } from "lucide-react";
-import type { MatchOdds } from "../types";
+import type { MatchOdds } from "@/types";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 0. STATIC CONFIG & REGEX (Hoisted for Performance)

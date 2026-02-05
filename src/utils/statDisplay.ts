@@ -1,4 +1,4 @@
-import type { Linescore, Match, StatItem, TeamStatLine } from '../types';
+import type { Linescore, Match, StatItem, TeamStatLine } from '@/types';
 
 type RawTeamStat = TeamStatLine;
 

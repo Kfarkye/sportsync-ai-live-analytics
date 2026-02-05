@@ -1,6 +1,6 @@
 
 import React, { memo } from 'react';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 
 /**
  * StatusChip - Unified Status Indicator System

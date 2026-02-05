@@ -1,7 +1,7 @@
 
 import React, { memo, ReactNode } from 'react';
 import { LucideIcon } from 'lucide-react';
-import { cn, ESSENCE } from '../../lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 
 /**
  * SectionHeader - Unified Section Header System

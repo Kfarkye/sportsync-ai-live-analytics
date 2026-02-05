@@ -1,6 +1,6 @@
 // hooks/useMatchData.ts (paste-and-go)
 import { useEffect, useMemo, useRef, useState } from "react";
-import { League, Match, MatchStatus } from "../types";
+import { League, Match, MatchStatus } from "@/types";
 import { supabase } from "../lib/supabase";
 import { fetchAllMatches } from "../services/espnService";
 

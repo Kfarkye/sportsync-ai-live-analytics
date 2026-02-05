@@ -7,8 +7,8 @@
 
 import React, { useState, useEffect, useMemo, Component } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { cn } from '../../lib/essence';
-import { Match } from '../../types';
+import { cn } from '@/lib/essence';
+import { Match } from '@/types';
 import { pregameIntelService, PregameIntelResponse, IntelCard } from '../../services/pregameIntelService';
 import { cleanHeadline, cleanCardThesis } from '../../lib/intel-guards';
 

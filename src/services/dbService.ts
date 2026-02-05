@@ -1,7 +1,7 @@
 
 import { supabase } from '../lib/supabase';
-import { MatchNews, PlayerPropBet, RefIntelContent } from '../types';
-import { MatchInsight, TeamTrend } from '../types/historicalIntel';
+import { MatchNews, PlayerPropBet, RefIntelContent } from '@/types';
+import { MatchInsight, TeamTrend } from '@/types/historicalIntel';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CACHE TTL CONFIGURATION

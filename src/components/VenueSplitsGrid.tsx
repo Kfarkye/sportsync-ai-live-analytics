@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useScoringSplits } from '../hooks/useScoringSplits';
 import VenueSplitsCard from './VenueSplitsCard';
 import { Filter, ArrowUpDown, Loader2, MapPin } from 'lucide-react';
-import { SortOption, SortOrder } from '../types/venue';
+import { SortOption, SortOrder } from '@/types/venue';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MotionDiv = motion.div;

@@ -1,8 +1,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { computeAISignals } from './gameStateEngine';
-import { Match, Sport } from '../types';
-import { ExtendedMatch } from '../types/engine';
+import { Match, Sport } from '@/types';
+import { ExtendedMatch } from '@/types/engine';
 
 // Helper to construct a base mock match
 function createMockMatch(sport: Sport, homeScore: number, awayScore: number, clock: string, period: number): ExtendedMatch {

@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Match } from '../types';
+import { Match } from '@/types';
 import { CardShell } from './ui/CardShell';
 import { Activity, Database, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { cn } from '../lib/essence';
+import { cn } from '@/lib/essence';
 import { getCanonicalMatchId } from '../utils/matchRegistry';
 
 

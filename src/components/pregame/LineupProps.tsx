@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
 import { RosterPlayer } from '../../services/espnPreGame';
-import { Team, Sport } from '../../types';
+import { Team, Sport } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 import TeamLogo from '../shared/TeamLogo';
 
 const MotionDiv = motion.div;

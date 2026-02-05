@@ -7,11 +7,11 @@
 
 import React, { useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
-import { MatchRowProps } from '../../types/matchList';
+import { MatchRowProps } from '@/types/matchList';
 import TeamLogo from '../shared/TeamLogo';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 import { getPeriodDisplay } from '../../utils/matchUtils';
-import { Sport, Linescore } from '../../types';
+import { Sport, Linescore } from '@/types';
 
 // ─────────────────────────────────────────────────────────────────
 // 🎨 DESIGN TOKENS & PHYSICS

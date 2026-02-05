@@ -1,5 +1,5 @@
 
-import { Match, MatchStatus, Sport, Drive } from '../types';
+import { Match, MatchStatus, Sport, Drive } from '@/types';
 import { getCanonicalMatchId } from './matchRegistry';
 
 /**

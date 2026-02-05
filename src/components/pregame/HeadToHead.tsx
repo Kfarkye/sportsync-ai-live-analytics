@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Team } from '../../types';
+import { Team } from '@/types';
 import { Trophy } from 'lucide-react';
 
 interface Meeting {

@@ -153,9 +153,7 @@ export class DripLogger {
     }
 
     // Expose a global handle for quick inspection in devtools.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).__DRIP_DEBUG__ = (window as any).__DRIP_DEBUG__ ?? {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const root = (window as any).__DRIP_DEBUG__;
     root.getLogs = () => this.getLogs();
     root.clearLogs = () => this.clear();

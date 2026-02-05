@@ -10,13 +10,13 @@
 
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Sport } from '../types';
+import { Sport } from '@/types';
 import type {
     PlayerProp,
     LineMovementPoint,
     OddsApiEvent
-} from '../types/odds';
-import { LEAGUES } from '../constants';
+} from '@/types/odds';
+import { LEAGUES } from '@/constants';
 
 // ============================================================================
 // HELPERS

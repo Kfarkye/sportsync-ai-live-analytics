@@ -1,4 +1,4 @@
-import { Sport } from '../types';
+import { Sport } from '@/types';
 
 /**
  * THE EDGE SCRIPT (v7) - TYPESCRIPT IMPLEMENTATION

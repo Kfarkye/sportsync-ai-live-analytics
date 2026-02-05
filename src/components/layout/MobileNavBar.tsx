@@ -3,7 +3,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Home, Zap, Bot, BarChart3 } from 'lucide-react';
 import { useAppStore, ViewType } from '../../store/appStore';
-import { ESSENCE } from '../../lib/essence';
+import { ESSENCE } from '@/lib/essence';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 

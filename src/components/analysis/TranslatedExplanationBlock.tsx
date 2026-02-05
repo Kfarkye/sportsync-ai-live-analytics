@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { TranslatedExplanation } from '../../types';
+import { TranslatedExplanation } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface TranslatedExplanationBlockProps {

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 
 interface OddsCellProps {
   label: string;

@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { fetchPreGameData, PreGameData } from '../services/espnPreGame.ts';
-import { Sport } from '../types';
+import { Sport } from '@/types';
 
 // In-memory cache
 const PREGAME_CACHE = new Map<string, { data: PreGameData; timestamp: number }>();

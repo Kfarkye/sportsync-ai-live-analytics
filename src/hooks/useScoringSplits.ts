@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { ScoringSplitsResponse, SortOption, SortOrder } from '../types/venue';
+import { ScoringSplitsResponse, SortOption, SortOrder } from '@/types/venue';
 import { supabase } from '../lib/supabase';
 
 interface UseScoringSplitsProps {

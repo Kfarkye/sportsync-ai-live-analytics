@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { MatchOdds, Team, Sport } from '../../types';
+import { MatchOdds, Team, Sport } from '@/types';
 import { ArrowUpRight, TrendingUp, Percent } from 'lucide-react';
 
 interface BettingSnapshotProps {

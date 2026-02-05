@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { Match, MatchIntelligence } from '../../types';
+import { Match, MatchIntelligence } from '@/types';
 import { geminiService } from '../../services/geminiService';
 import { computeAISignals } from '../../services/gameStateEngine';
 import { useDbFirst } from '../../hooks/useDbFirst';
@@ -8,7 +8,7 @@ import { dbService, CacheResult } from '../../services/dbService';
 import { isGameInProgress } from '../../utils/matchUtils';
 import { TranslatedExplanationBlock } from './TranslatedExplanationBlock';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn, ESSENCE } from '../../lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import { Sparkles, ChevronDown, ChevronUp, Activity, Target, ShieldCheck, Bot } from 'lucide-react';
 import { EdgeAnalysisCard, EdgeResult } from './EdgeAnalysisCard';
 

@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
-import { Match, Sport } from '../../types';
+import { Match, Sport } from '@/types';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 import { motion } from 'framer-motion';
-import { getLeagueDisplayName } from '../../constants';
+import { getLeagueDisplayName } from '@/constants';
 import { analyzeSpread, analyzeMoneyline } from '../../utils/oddsUtils';
 
 const MotionDiv = motion.div;

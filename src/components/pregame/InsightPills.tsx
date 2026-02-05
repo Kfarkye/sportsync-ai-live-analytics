@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { TrendingUp, Zap, History, ShieldCheck } from 'lucide-react';
-import { MatchInsight } from '../../types/historicalIntel';
+import { MatchInsight } from '@/types/historicalIntel';
 
 interface InsightPillsProps {
     insights: MatchInsight[];

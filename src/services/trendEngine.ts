@@ -1,7 +1,7 @@
 
 import { dbService } from './dbService';
 import { supabase } from '../lib/supabase';
-import { MatchInsight, TeamTrend } from '../types/historicalIntel';
+import { MatchInsight, TeamTrend } from '@/types/historicalIntel';
 
 /**
  * The Trend Engine is responsible for identifying statistical anomalies 

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import type { ComponentType } from 'react';
-import { TeamSplitData } from '../types/venue';
+import { TeamSplitData } from '@/types/venue';
 import TeamLogo from './shared/TeamLogo';
 import { ArrowUpRight, ArrowDownRight, Home, Plane, Activity, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';

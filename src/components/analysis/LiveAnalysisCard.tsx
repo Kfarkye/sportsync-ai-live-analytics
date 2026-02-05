@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Match, EnhancedEdgeAnalysis, Sport, DeepIntel, AISignals, SharpOrigin, MatchIntelligence } from '../../types';
+import { Match, EnhancedEdgeAnalysis, Sport, DeepIntel, AISignals, SharpOrigin, MatchIntelligence } from '@/types';
 import { geminiService } from '../../services/geminiService';
 import { dbService, CacheResult } from '../../services/dbService';
 import { computeAISignals } from '../../services/gameStateEngine';
 import { useDbFirst } from '../../hooks/useDbFirst';
 import { getDbMatchId, isGameInProgress } from '../../utils/matchUtils';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 import {
   Sparkles, ShieldCheck, AlertTriangle,
   Activity, Lock, Ban, Swords, ShieldAlert,

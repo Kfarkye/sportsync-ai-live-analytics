@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Zap } from 'lucide-react';
-import { cn, ESSENCE } from '../../lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import { CardHeader } from '../ui/SectionHeader';
 import { StatusChip } from '../ui/StatusChip';
 

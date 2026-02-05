@@ -3,7 +3,7 @@ import React from 'react';
 import { geminiService } from '../../services/geminiService';
 import { dbService, CacheResult } from '../../services/dbService';
 import { useDbFirst } from '../../hooks/useDbFirst';
-import { Match, MatchAngle } from '../../types';
+import { Match, MatchAngle } from '@/types';
 import { Loader2, AlertTriangle, Target, RefreshCw, Layers, ExternalLink, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 

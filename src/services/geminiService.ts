@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { Match, MatchIntelligence, MatchAngle, NarrativeIntel, UnifiedConfidence, ConfidenceTier } from "../types";
+import { Match, MatchIntelligence, MatchAngle, NarrativeIntel, UnifiedConfidence, ConfidenceTier } from "@/types";
 import { getDbMatchId } from "../utils/matchUtils";
 import { supabase } from '../lib/supabase';
 

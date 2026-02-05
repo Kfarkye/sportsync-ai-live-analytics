@@ -14,7 +14,7 @@ import {
     Clock,
     Activity
 } from 'lucide-react';
-import type { PregameContext } from '../../types';
+import type { PregameContext } from '@/types';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES

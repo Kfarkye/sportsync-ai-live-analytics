@@ -1,7 +1,7 @@
 
-import { Sport, PlayerPropBet, MatchLeader, RecentFormGame, RefIntelContent } from '../types';
-import { MatchInsight } from '../types/historicalIntel';
-import { LEAGUES } from '../constants';
+import { Sport, PlayerPropBet, MatchLeader, RecentFormGame, RefIntelContent } from '@/types';
+import { MatchInsight } from '@/types/historicalIntel';
+import { LEAGUES } from '@/constants';
 import { fetchTeamLastFive, fetchWithFallback } from './espnService';
 import { dbService } from './dbService';
 import { safeSlice } from '../utils/oddsUtils';
@@ -183,7 +183,7 @@ export interface RosterPlayer {
 }
 
 
-import { Stadium } from '../types/venueIntel';
+import { Stadium } from '@/types/venueIntel';
 
 export interface PreGameData {
     venue: {

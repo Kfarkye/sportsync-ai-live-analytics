@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 
 interface MatchupErrorProps {
     className?: string;

@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { Sport } from '../types';
+import { Sport } from '@/types';
 
 export interface PropBet {
     label: string;     

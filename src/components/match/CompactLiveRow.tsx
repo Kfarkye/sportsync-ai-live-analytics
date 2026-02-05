@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Match, MatchStatus } from '../../types';
+import { Match, MatchStatus } from '@/types';
 import { analyzeSpread, analyzeTotal } from '../../utils/oddsUtils';
 
 interface CompactLiveRowProps {

@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState, useRef, useMemo, useCallback, KeyboardEvent } from 'react';
 import { Search, Bot, Command, CornerDownLeft, ArrowRight } from 'lucide-react';
-import { Match, MatchStatus, Team } from '../../types';
+import { Match, MatchStatus, Team } from '@/types';
 import TeamLogo from '../shared/TeamLogo';
-import { cn, ESSENCE } from '../../lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 
 interface CommandPaletteProps {
   matches: Match[];

@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { formatLocalDate, safeParseDate } from '../utils/dateUtils';
 import { fetchAllMatches } from '../services/espnService'; // Fallback
-import { Match } from '../types';
-import { LEAGUES } from '../constants';
+import { Match } from '@/types';
+import { LEAGUES } from '@/constants';
 
 const fetchMatches = async (date: Date): Promise<Match[]> => {
   // Defensive check for Safari/Mobile hangs

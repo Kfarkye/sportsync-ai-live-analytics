@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Match } from '../../types';
+import { Match } from '@/types';
 import TeamLogo from '../shared/TeamLogo';
 import { analyzeSpread, analyzeTotal } from '../../utils/oddsUtils';
 import { Check, X } from 'lucide-react';

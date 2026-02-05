@@ -24,9 +24,9 @@ import {
 } from 'lucide-react';
 
 // Internal imports — Replace with your actual project structure
-import { type Match, type StatItem } from '../../types';
+import { type Match, type StatItem } from '@/types';
 import TeamLogo from '../shared/TeamLogo';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 import { isGameFinished } from '../../utils/matchUtils';
 import { computeAISignals } from '../../services/gameStateEngine';
 

@@ -5,11 +5,11 @@
 // ===================================================================
 
 import React, { Component, useMemo, useState } from 'react';
-import { Match, Sport } from '../../types';
+import { Match, Sport } from '@/types';
 import { usePreGameData } from '../../hooks/usePreGameData';
 import { useScoringSplits } from '../../hooks/useScoringSplits';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 import {
     MatchupLoader,
     MatchupError,

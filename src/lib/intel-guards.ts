@@ -174,7 +174,6 @@ export function validateCardThesis(card: IntelCard): boolean {
 
     if (contaminated) {
         if (process.env.NODE_ENV === "development") {
-            // eslint-disable-next-line no-console
             console.warn(`[Guard] Engine contamination in "${card.category}":`, card.thesis);
         }
         return false;

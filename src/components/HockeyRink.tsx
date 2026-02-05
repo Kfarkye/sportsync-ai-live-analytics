@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ShotEvent, Team } from '../types';
+import { ShotEvent, Team } from '@/types';
 
 interface HockeyRinkProps {
   shots: ShotEvent[];

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMatchupCoaches } from '../../hooks/useCoach';
-import { Sport } from '../../types';
+import { Sport } from '@/types';
 
 interface CoachCardProps {
     homeTeamId: string;

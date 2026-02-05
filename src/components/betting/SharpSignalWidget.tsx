@@ -1,11 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
-import { Match } from '../../types';
+import { Match } from '@/types';
 import { computeSharpSignal, SharpSignal } from '../../services/sharpSignalService';
 import { TrendingUp, DollarSign, Users, Target, Zap, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 
 const MotionDiv = motion.div;
 

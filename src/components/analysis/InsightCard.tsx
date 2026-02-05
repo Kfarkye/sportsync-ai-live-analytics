@@ -17,7 +17,7 @@
 
 import React, { memo, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "../../lib/essence";
+import { cn } from "@/lib/essence";
 
 // Lazy import type for the export engine
 type HtmlToImageModule = typeof import("html-to-image");

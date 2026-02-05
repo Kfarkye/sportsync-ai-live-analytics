@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { X, Check } from 'lucide-react';
-import { Sport } from '../../types';
+import { Sport } from '@/types';
 
 const MotionDiv = motion.div;
 

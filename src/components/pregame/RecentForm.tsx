@@ -7,7 +7,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import TeamLogo from '../shared/TeamLogo';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 
 // ─────────────────────────────────────────────────────────────────
 // 🎨 DESIGN TOKENS & PHYSICS

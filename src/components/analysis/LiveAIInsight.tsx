@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Terminal, Link as LinkIcon, Timer, ArrowUp } from 'lucide-react';
-import { Match, AISignals, LiveAIAnalysis, SharpData } from '../../types';
+import { Match, AISignals, LiveAIAnalysis, SharpData } from '@/types';
 import { isGameInProgress, isGameFinished, getPeriodDisplay, getDbMatchId } from '../../utils/matchUtils';
-import { cn } from '../../lib/essence';
+import { cn } from '@/lib/essence';
 import { useLiveGameState } from '../../hooks/useLiveGameState';
 import { supabase } from '../../lib/supabase';
 
