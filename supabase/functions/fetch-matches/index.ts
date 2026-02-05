@@ -131,65 +131,67 @@ Deno.serve(async (req: Request) => {
         let feedsCount = 0;
         let oldestDataAt = new Date().toISOString();
         let keysToFetch: string[] = [];
-        if (ODDS_API_KEY) {
-            try {
-                if (oddsSportKey && oddsSportKey !== 'all') {
-                    keysToFetch = [oddsSportKey];
-                } else {
-                    keysToFetch = leagues.map((l: any) => l.oddsKey).filter((k: any) => k);
-                }
-                keysToFetch = [...new Set(keysToFetch)];
-
-                if (keysToFetch.length > 0) {
-                    // Fetch from market_feeds which is the active ingestion table
-                    const { data: feeds } = await supabase
-                        .from('market_feeds')
-                        .select('home_team, away_team, raw_bookmakers, last_updated, sport_key, best_spread, best_total, best_h2h')
-                        .in('sport_key', keysToFetch)
-                        .gte('commence_time', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-                        .order('last_updated', { ascending: false });
-
-                    if (feeds && feeds.length > 0) {
-                        feedsCount = feeds.length;
-                        oldestDataAt = feeds[feeds.length - 1].last_updated;
-                        oddsData = feeds.map((f: any) => ({
-                            home_team: f.home_team,
-                            away_team: f.away_team,
-                            sport_key: f.sport_key,
-                            bookmakers: typeof f.raw_bookmakers === 'string' ? JSON.parse(f.raw_bookmakers) : f.raw_bookmakers,
-                            best_spread: f.best_spread,
-                            best_total: f.best_total,
-                            best_h2h: f.best_h2h,
-                            last_updated: f.last_updated
-                        }));
-                    }
-                }
-
-                // --- IMPROVED STALE CHECK: Check PER SPORT ---
-                const STALE_THRESHOLD_MS = 30 * 1000; // Lowered to 30s for real-time responsiveness
-                const sportsToRefresh = [];
-                for (const key of keysToFetch) {
-                    const sportFeeds = oddsData.filter(o => o.sport_key === key);
-                    // CRITICAL: Use Math.min to ensure that if even ONE game in the sport is stale, 
-                    // we trigger a refresh. Taking the max (newest) can hide stale games for the rest of the league.
-                    const oldestForSport = sportFeeds.length > 0
-                        ? Math.min(...sportFeeds.map(o => new Date(o.last_updated).getTime()))
-                        : 0;
-
-                    if (oldestForSport < Date.now() - STALE_THRESHOLD_MS) {
-                        sportsToRefresh.push(key);
-                    }
-                }
-
-                if (sportsToRefresh.length > 0) {
-                    console.log(`[Odds] Refreshing ${sportsToRefresh.length} stale sports: ${sportsToRefresh.join(', ')}`);
-                    supabase.functions.invoke('ingest-odds', {
-                        body: { sport_keys: sportsToRefresh }
-                    }).catch((e: any) => console.error("Sync trigger failed", e));
-                }
-            } catch (e) {
-                console.error("Odds feed fetch failed", e);
+        try {
+            if (!ODDS_API_KEY) {
+                console.warn("[Odds] ODDS_API_KEY missing in fetch-matches env; will still request ingest-odds refresh.");
             }
+
+            if (oddsSportKey && oddsSportKey !== 'all') {
+                keysToFetch = [oddsSportKey];
+            } else {
+                keysToFetch = leagues.map((l: any) => l.oddsKey).filter((k: any) => k);
+            }
+            keysToFetch = [...new Set(keysToFetch)];
+
+            if (keysToFetch.length > 0) {
+                // Fetch from market_feeds which is the active ingestion table
+                const { data: feeds } = await supabase
+                    .from('market_feeds')
+                    .select('home_team, away_team, raw_bookmakers, last_updated, sport_key, best_spread, best_total, best_h2h')
+                    .in('sport_key', keysToFetch)
+                    .gte('commence_time', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+                    .order('last_updated', { ascending: false });
+
+                if (feeds && feeds.length > 0) {
+                    feedsCount = feeds.length;
+                    oldestDataAt = feeds[feeds.length - 1].last_updated;
+                    oddsData = feeds.map((f: any) => ({
+                        home_team: f.home_team,
+                        away_team: f.away_team,
+                        sport_key: f.sport_key,
+                        bookmakers: typeof f.raw_bookmakers === 'string' ? JSON.parse(f.raw_bookmakers) : f.raw_bookmakers,
+                        best_spread: f.best_spread,
+                        best_total: f.best_total,
+                        best_h2h: f.best_h2h,
+                        last_updated: f.last_updated
+                    }));
+                }
+            }
+
+            // --- IMPROVED STALE CHECK: Check PER SPORT ---
+            const STALE_THRESHOLD_MS = 30 * 1000; // Lowered to 30s for real-time responsiveness
+            const sportsToRefresh = [];
+            for (const key of keysToFetch) {
+                const sportFeeds = oddsData.filter(o => o.sport_key === key);
+                // CRITICAL: Use Math.min to ensure that if even ONE game in the sport is stale, 
+                // we trigger a refresh. Taking the max (newest) can hide stale games for the rest of the league.
+                const oldestForSport = sportFeeds.length > 0
+                    ? Math.min(...sportFeeds.map(o => new Date(o.last_updated).getTime()))
+                    : 0;
+
+                if (oldestForSport < Date.now() - STALE_THRESHOLD_MS) {
+                    sportsToRefresh.push(key);
+                }
+            }
+
+            if (sportsToRefresh.length > 0) {
+                console.log(`[Odds] Refreshing ${sportsToRefresh.length} stale sports: ${sportsToRefresh.join(', ')}`);
+                supabase.functions.invoke('ingest-odds', {
+                    body: { sport_keys: sportsToRefresh }
+                }).catch((e: any) => console.error("Sync trigger failed", e));
+            }
+        } catch (e) {
+            console.error("Odds feed fetch failed", e);
         }
 
         // 4. Merge Data
