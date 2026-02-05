@@ -125,8 +125,8 @@ const EdgeLabel = ({ startTimeISO }: { startTimeISO: string | null }) => {
 
     return (
         <div className="inline-flex items-center justify-center relative">
-             <div className="absolute inset-0 bg-emerald-500/20 blur-[24px] rounded-full opacity-50" />
-             <div className="relative px-4 py-1.5 rounded-full bg-black/40 border border-white/10 shadow-2xl backdrop-blur-xl flex items-center gap-2.5">
+            <div className="absolute inset-0 bg-emerald-500/20 blur-[24px] rounded-full opacity-50" />
+            <div className="relative px-4 py-1.5 rounded-full bg-black/40 border border-white/10 shadow-2xl backdrop-blur-xl flex items-center gap-2.5">
                 <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
@@ -134,7 +134,7 @@ const EdgeLabel = ({ startTimeISO }: { startTimeISO: string | null }) => {
                 <span className="text-[10px] font-bold tracking-[0.25em] text-white uppercase font-mono">
                     {label}
                 </span>
-             </div>
+            </div>
         </div>
     );
 };
@@ -170,10 +170,10 @@ function extractTeamFromPick(pick?: string | null): string {
     if (!pick) return "Team";
     const s = pick.trim();
     if (!s) return "Team";
-    
+
     // If Total, return semantic token for upstream logic to handle
     if (/^(over|under)\b/i.test(s)) return "TOTAL_PICK";
-    
+
     const mlIdx = s.toLowerCase().lastIndexOf(' ml');
     const core = mlIdx > 0 ? s.slice(0, mlIdx).trim() : s;
     const tokens = core.split(/\s+/);
@@ -209,7 +209,7 @@ const useIntelQuery = (match: ExtendedMatch, externalIntel?: PregameIntelRespons
             setStatus('LOADING');
             try {
                 const timeoutId = setTimeout(() => controller.abort(), 10000);
-                
+
                 const result = await pregameIntelService.fetchIntel(
                     matchId,
                     home,
@@ -220,7 +220,7 @@ const useIntelQuery = (match: ExtendedMatch, externalIntel?: PregameIntelRespons
                     oddsHome,
                     oddsTotal
                 );
-                
+
                 clearTimeout(timeoutId);
                 if (!controller.signal.aborted && result) { setData(result); setStatus('SUCCESS'); }
             } catch {
@@ -269,14 +269,14 @@ const InsightRow = ({ card, confidenceTier, isLast }: { card: ExtendedIntelCard;
                VOLUMETRIC LIGHT WASH:
                Full-width radial glow that activates on expand. Infinite Plane concept.
             */}
-            <div 
+            <div
                 className={cn(
                     "absolute inset-0 -z-10 opacity-0 transition-opacity duration-700 pointer-events-none",
                     expanded ? "opacity-100" : "opacity-0"
                 )}
-                style={{ 
-                    background: `radial-gradient(circle at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 70%)` 
-                }} 
+                style={{
+                    background: `radial-gradient(circle at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 70%)`
+                }}
             />
 
             {/* Divider: Full-Bleed Gradient Hairline */}
@@ -290,7 +290,7 @@ const InsightRow = ({ card, confidenceTier, isLast }: { card: ExtendedIntelCard;
                 )} />
 
                 <div className="py-8 md:py-10 px-6 md:px-0 flex flex-col md:flex-row md:items-baseline gap-6 md:gap-0 z-10">
-                    
+
                     {/* 1. Technical Label (Floating in Margin on Desktop) */}
                     <div className="hidden md:flex w-[160px] shrink-0 flex-col gap-3 select-none pt-1">
                         <span className={cn("text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-300 font-mono",
@@ -316,8 +316,8 @@ const InsightRow = ({ card, confidenceTier, isLast }: { card: ExtendedIntelCard;
                         <div className="flex items-start justify-between gap-8">
                             <div className={cn(
                                 "text-[16px] md:text-[18px] leading-[1.6] font-light tracking-wide transition-colors duration-500 text-pretty max-w-[80ch]",
-                                isEngine 
-                                    ? "font-mono text-[13px] text-zinc-300/90 tracking-normal leading-[1.8]" 
+                                isEngine
+                                    ? "font-mono text-[13px] text-zinc-300/90 tracking-normal leading-[1.8]"
                                     : (expanded ? "text-white" : "text-zinc-400 group-hover:text-zinc-200")
                             )}>
                                 <RenderRichText text={displayThesis} />
@@ -351,7 +351,7 @@ const InsightRow = ({ card, confidenceTier, isLast }: { card: ExtendedIntelCard;
                                         )}
                                         <div className="space-y-4">
                                             {details.map((detail: string, i: number) => (
-                                                <motion.div 
+                                                <motion.div
                                                     key={i}
                                                     initial={{ opacity: 0, y: 10 }}
                                                     animate={{ opacity: 1, y: 0 }}
@@ -373,7 +373,7 @@ const InsightRow = ({ card, confidenceTier, isLast }: { card: ExtendedIntelCard;
                     </div>
                 </div>
             </div>
-            
+
             {/* Bottom Hairline for Last Item */}
             {isLast && <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />}
         </motion.div>
@@ -460,9 +460,9 @@ export const PregameIntelCards = ({
             >
                 {/* 1. HERO SECTION (THE VOID) */}
                 <div className="mb-32 relative w-full max-w-[1200px] mx-auto px-6 md:px-12">
-                     <div className="absolute inset-0 pointer-events-none opacity-40 mix-blend-overlay" style={{ backgroundImage: NOISE_TEXTURE }} />
-                     
-                     <div className="relative z-10 flex flex-col items-center text-center md:items-start md:text-left md:pl-[160px]">
+                    <div className="absolute inset-0 pointer-events-none opacity-40 mix-blend-overlay" style={{ backgroundImage: NOISE_TEXTURE }} />
+
+                    <div className="relative z-10 flex flex-col items-center text-center md:items-start md:text-left md:pl-[160px]">
                         <div className="mb-10">
                             <EdgeLabel startTimeISO={startTimeISO} />
                         </div>
@@ -485,15 +485,15 @@ export const PregameIntelCards = ({
                                 </p>
                             </div>
                         </motion.div>
-                     </div>
+                    </div>
                 </div>
 
                 {/* 2. SPEC SHEET (EDGE-TO-EDGE) */}
                 <div className="relative w-full">
                     <div className="max-w-[1200px] mx-auto px-6 md:px-12 mb-8 select-none">
                         <div className="flex items-center gap-6 opacity-40 md:pl-[160px]">
-                             <div className="h-px w-12 bg-white" />
-                             <span className="text-[10px] font-bold text-white uppercase tracking-[0.3em]">Vector Analysis</span>
+                            <div className="h-px w-12 bg-white" />
+                            <span className="text-[10px] font-bold text-white uppercase tracking-[0.3em]">Vector Analysis</span>
                         </div>
                     </div>
 
@@ -505,7 +505,7 @@ export const PregameIntelCards = ({
                             isLast={idx === processedData.cards.length - 1}
                         />
                     ))}
-                    
+
                     {/* Closing Fade */}
                     <div className="w-full h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
                 </div>
@@ -554,4 +554,3 @@ export default function SafePregameIntelCards(props: React.ComponentProps<typeof
         </ErrorBoundary>
     );
 }
-

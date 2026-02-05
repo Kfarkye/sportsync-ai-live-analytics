@@ -1,31 +1,34 @@
 /* ============================================================================
    ChatWidget.tsx
-   "Obsidian Weissach" — Production Release (v28.3)
+   "Obsidian Weissach" — Production Release (v29.1)
 
    Architecture:
    ├─ Core: useReducer message store, Map-indexed updates, stable refs
    ├─ Network: Retry w/ exponential backoff, connection health, guarded SSE
-   ├─ UI: Decoupled citation state, LRU hydration cache, 60fps scroll
+   ├─ UI: "Jewel" Citation System, Evidence Deck, LRU hydration cache, 60fps scroll
    ├─ Design: iOS 26 liquid glass, hardware-edge cards, confidence gradient bars
    ├─ Retention: Verdict tracking, adaptive chips, scoped keyboard shortcuts
    ├─ Reliability: Debounced send, abort safety, RAF-batched streaming
    ├─ Ops: Pluggable telemetry layer, structured error reporting
    ├─ A11y: aria-live regions, focus management, reduced-motion, timestamps
 
-   Changelog v28.3 (Design Language — Liquid Glass):
-   ── Pass 1: Receipt Redesign ──
-   - REDESIGN: EdgeVerdictCard — full hardware-radius glass card, no left border
-   - ADD: ConfidenceBar — animated gradient bar replacing text confidence labels
-   - ADD: extractConfidence() parser — extracts High/Medium/Low before content clean
-   - ADD: Confidence-aware color system (emerald/amber/zinc gradient mapping)
-   - REDESIGN: Verdict tracking buttons — glass pill style, centered layout
-   ── Pass 2: Design Language Unification ──
-   - REDESIGN: TacticalHUD — full-radius glass, ambient amber inner glow
-   - REDESIGN: InvalidationAlert — full-radius glass, ambient red inner glow
-   - REDESIGN: Section headers — lighter weight, subtle divider treatment
-   - UPDATE: All artifact cards use consistent hardware-edge + glass vocabulary
+   Changelog v29.1 (Weissach — Merged from v29.0 into v28.3 base):
+   ── Citation System ──
+   - REDESIGN: InlineCitationPill → CitationJewel — favicon glass pills via Google S2
+   - ADD: SourceIcon — S2 favicon (64px) with milled monogram fallback
+   - ADD: EvidenceDeck — horizontal inertia-scroll tray with gradient fade masks
+   ── Materials ──
+   - UPGRADE: Liquid Glass 2.0 — 24px blur, 180% saturation, specular edge lighting
+   - ADD: SYSTEM.surface tokens centralized (glass, hud, alert, milled)
+   - ADD: SYSTEM.anim.snap — stiffer spring for popovers
+   - ADD: SYSTEM.type.label — 9px bold uppercase token
+   ── Preserved from v28.2–28.3 ──
+   - KEPT: NeuralPulse export, ConnectionBadge, sr-only live region
+   - KEPT: role="log" + aria-relevant="additions" + aria-busy on scroll
+   - KEPT: All 20 aria-label attributes, Toast role="status"
+   - KEPT: Full 9-header section list, RAF batching, LRU cache
 
-   CSP Requirement: `img-src data:` for FilmGrain SVG background.
+   CSP Requirement: `img-src data: https://www.google.com;`
 ============================================================================ */
 
 import React, {
@@ -72,9 +75,7 @@ import {
   StopCircle,
   Image as ImageIcon,
   Activity,
-  ChevronRight,
   ShieldCheck,
-  Globe,
   ExternalLink,
   RotateCcw,
   WifiOff,
@@ -177,21 +178,24 @@ const SMART_CHIP_QUERIES: Record<string, string> = {
 const SYSTEM = {
   anim: {
     fluid: { type: "spring", damping: 30, stiffness: 380, mass: 0.8 } as Transition,
+    snap: { type: "spring", damping: 22, stiffness: 450 } as Transition,
     draw: { duration: 0.6, ease: "circOut" } as Transition,
     morph: { type: "spring", damping: 25, stiffness: 280 } as Transition,
   },
   surface: {
     void: "bg-[#050505]",
     panel: "bg-[#080808] border border-white/[0.06]",
-    glass: "bg-white/[0.02] backdrop-blur-[20px] border border-white/[0.05]",
-    hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20",
+    /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
+    glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+    hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20 shadow-[inset_0_1px_0_rgba(245,158,11,0.1)]",
     milled: "border-t border-white/[0.08] border-b border-black/50 border-x border-white/[0.04]",
-    alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20",
+    alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20 shadow-[inset_0_1px_0_rgba(225,29,72,0.1)]",
   },
   type: {
     mono: "font-mono text-[10px] tracking-[0.1em] uppercase text-zinc-500 tabular-nums",
     body: "text-[15px] leading-[1.65] tracking-[-0.01em] text-[#A1A1AA]",
     h1: "text-[13px] font-medium tracking-[-0.02em] text-white",
+    label: "text-[9px] font-bold tracking-[0.05em] uppercase text-zinc-500",
   },
   geo: { pill: "rounded-full", card: "rounded-[22px]", input: "rounded-[24px]" },
 } as const;
@@ -497,6 +501,15 @@ function hostnameToBrand(hostname: string): string {
 function getHostname(href?: string): string {
   if (!href) return "Source";
   try { return new URL(href).hostname.replace(/^www\./, ""); } catch { return "Source"; }
+}
+
+/**
+ * Google S2 High-Res Favicon Service.
+ * sz=64 ensures crisp rendering on Retina displays even at small icon sizes.
+ * CSP: Requires `img-src https://www.google.com`.
+ */
+function getFaviconUrl(href: string): string {
+  try { const domain = new URL(href).hostname; return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`; } catch { return ""; }
 }
 
 function buildWireContent(text: string, attachments: Attachment[]): MessageContent {
@@ -932,6 +945,27 @@ const CopyButton: FC<{ content: string }> = memo(({ content }) => {
 CopyButton.displayName = "CopyButton";
 
 /**
+ * Weissach Source Icon:
+ * 1. Tries to fetch a high-fidelity Google S2 favicon (64px).
+ * 2. If it fails, seamlessly renders a "Milled Letter Chip" (Monogram).
+ * 3. Default is grayscale for "Quiet Luxury", blooms to color on interaction.
+ */
+const SourceIcon: FC<{ url?: string; fallbackLetter: string; className?: string }> = memo(({ url, fallbackLetter, className }) => {
+  const [error, setError] = useState(false);
+  const faviconUrl = useMemo(() => url ? getFaviconUrl(url) : null, [url]);
+
+  if (error || !faviconUrl) {
+    return (
+      <div className={cn("flex items-center justify-center bg-white/[0.08] border border-white/10 text-zinc-400 font-mono font-bold shadow-inner", className)}>
+        {fallbackLetter.charAt(0).toUpperCase()}
+      </div>
+    );
+  }
+  return <img src={faviconUrl} alt="" onError={() => setError(true)} className={cn("object-contain bg-white/[0.03]", className)} loading="lazy" />;
+});
+SourceIcon.displayName = "SourceIcon";
+
+/**
  * Animated confidence gradient bar — replaces text labels.
  * Renders a horizontal bar with emerald/amber/zinc gradient based on level.
  */
@@ -1326,7 +1360,12 @@ const CitationProvider: FC<{ children: ReactNode }> = ({ children }) => {
   return <CitationContext.Provider value={value}>{children}</CitationContext.Provider>;
 };
 
-const InlineCitationPill: FC<{ id: string; href?: string; indexLabel: string }> = memo(({ id, href, indexLabel }) => {
+/**
+ * "The Jewel" — Inline Citation Complication.
+ * Replaces bracket tokens with a glass pill housing the source's favicon.
+ * Preserves full aria: expanded, controls, label, tooltip role.
+ */
+const CitationJewel: FC<{ id: string; href?: string; indexLabel: string }> = memo(({ id, href, indexLabel }) => {
   const { activeCitation, setActiveCitation } = useContext(CitationContext);
   const active = activeCitation === id;
   const hostname = getHostname(href);
@@ -1338,16 +1377,19 @@ const InlineCitationPill: FC<{ id: string; href?: string; indexLabel: string }> 
         type="button"
         onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); triggerHaptic(); setActiveCitation(active ? null : id); }}
         className={cn(
-          "inline-flex items-center gap-1 h-[18px] px-2 rounded-full border transition-all select-none cursor-pointer",
+          "group inline-flex items-center gap-1.5 h-[18px] pl-0.5 pr-2 rounded-full border transition-all duration-300 select-none cursor-pointer overflow-hidden backdrop-blur-md",
           active
-            ? "bg-emerald-500/15 border-emerald-500/35 text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.18)]"
-            : "bg-white/[0.03] border-white/[0.08] text-zinc-400 hover:bg-white/[0.05] hover:border-emerald-500/20 hover:text-zinc-300",
+            ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+            : "bg-white/[0.04] border-white/[0.08] text-zinc-400 hover:bg-white/[0.08] hover:border-white/[0.15] hover:text-zinc-200",
         )}
         aria-expanded={active}
         aria-controls={`cite-popover-${id}`}
         aria-label={`Source ${indexLabel} from ${brand}`}
       >
-        <span className="text-[10px] font-medium tracking-wide">{brand}</span>
+        <div className="w-3.5 h-3.5 rounded-full bg-[#050505] border border-white/10 flex items-center justify-center overflow-hidden shadow-sm">
+          <SourceIcon url={href} fallbackLetter={brand} className="w-2.5 h-2.5 rounded-full opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300" />
+        </div>
+        <span className="text-[9px] font-mono font-medium tracking-tight leading-none translate-y-[0.5px]">{indexLabel}</span>
       </button>
 
       <AnimatePresence>
@@ -1356,31 +1398,33 @@ const InlineCitationPill: FC<{ id: string; href?: string; indexLabel: string }> 
             data-cite-scope="true"
             id={`cite-popover-${id}`}
             role="tooltip"
-            initial={{ opacity: 0, y: 6, scale: 0.98 }}
+            initial={{ opacity: 0, y: 8, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 6, scale: 0.98 }}
-            transition={SYSTEM.anim.fluid}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[240px] z-[60]"
+            exit={{ opacity: 0, y: 4, scale: 0.98 }}
+            transition={SYSTEM.anim.snap}
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 w-[240px] z-[60]"
             onPointerDown={(e) => e.stopPropagation()}
           >
-            <div className="p-3 bg-[#0A0A0B] border border-white/10 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.8)] backdrop-blur-xl">
-              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/5">
-                <ShieldCheck size={12} className="text-emerald-500" />
+            <div className={cn("p-3.5 rounded-[20px] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.9)]", SYSTEM.surface.glass)}>
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-8 h-8 rounded-[10px] bg-black/40 border border-white/10 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
+                  <SourceIcon url={href} fallbackLetter={brand} className="w-5 h-5 rounded" />
+                </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[11px] font-medium text-white truncate">{brand}</div>
-                  <div className="text-[9px] font-mono text-zinc-500 truncate">{hostname}</div>
+                  <div className="text-[12px] font-medium text-white truncate leading-tight mb-0.5">{brand}</div>
+                  <div className="text-[10px] font-mono text-zinc-500 truncate">{hostname}</div>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400/80 uppercase tracking-wider">
-                  <Globe size={10} /><span>Source {indexLabel}</span>
+              <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                <div className="flex items-center gap-1.5 text-[9px] font-mono text-emerald-400/90 uppercase tracking-widest">
+                  <ShieldCheck size={10} /><span>Verified</span>
                 </div>
                 {href ? (
                   <a
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-[10px] font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
+                    className="flex items-center gap-1 text-[10px] font-medium text-zinc-300 hover:text-white transition-colors"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <span>Open</span><ExternalLink size={10} />
@@ -1390,14 +1434,71 @@ const InlineCitationPill: FC<{ id: string; href?: string; indexLabel: string }> 
                 )}
               </div>
             </div>
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#0A0A0B] border-r border-b border-white/10 rotate-45" />
+            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0A0A0B] border-r border-b border-white/10 rotate-45 rounded-[1px]" />
           </motion.div>
         )}
       </AnimatePresence>
     </span>
   );
 });
-InlineCitationPill.displayName = "InlineCitationPill";
+CitationJewel.displayName = "CitationJewel";
+
+/**
+ * "The Evidence Deck" — Horizontal Inertia-Scroll Tray.
+ * Replaces the vertical details/summary with a dashboard-style component.
+ * Gradient fade masks soften the scroll edges into the void.
+ */
+const EvidenceDeck: FC<{ sources: Array<{ title: string; uri: string }> }> = memo(({ sources }) => {
+  if (!sources.length) return null;
+  return (
+    <div className="mt-6 w-full max-w-full overflow-hidden relative group/deck">
+      <div className="flex items-center gap-2 mb-3 px-1 opacity-80">
+        <div className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_4px_rgba(16,185,129,0.8)]" />
+        <span className={SYSTEM.type.label}>Evidence Ledger</span>
+        <span className="text-[9px] font-mono text-zinc-600 ml-auto">[{sources.length}]</span>
+      </div>
+      <div className="relative w-full">
+        {/* Gradient Fade Masks — content fades into the void */}
+        <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#050505] to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#050505] to-transparent z-10 pointer-events-none" />
+
+        <div className="flex gap-2.5 overflow-x-auto pb-4 px-4 scrollbar-hide snap-x">
+          {sources.map((source, i) => {
+            const hostname = getHostname(source.uri);
+            const brand = hostnameToBrand(hostname);
+            return (
+              <motion.a
+                key={i}
+                href={source.uri}
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05, ...SYSTEM.anim.fluid }}
+                className={cn(
+                  "flex-none w-[150px] snap-start group relative flex flex-col justify-between p-3 h-[84px] rounded-2xl transition-all duration-300",
+                  "bg-white/[0.025] border border-white/[0.06] hover:bg-white/[0.05] hover:border-emerald-500/20 shadow-sm",
+                )}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="w-5 h-5 rounded bg-white/[0.05] border border-white/[0.05] flex items-center justify-center overflow-hidden">
+                    <SourceIcon url={source.uri} fallbackLetter={brand} className="w-3 h-3 rounded opacity-70 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all" />
+                  </div>
+                  <span className="text-[9px] font-mono text-zinc-600 group-hover:text-emerald-500/80 transition-colors">0{i + 1}</span>
+                </div>
+                <div>
+                  <div className="text-[11px] font-medium text-zinc-300 truncate leading-tight group-hover:text-white transition-colors">{source.title || brand}</div>
+                  <div className="text-[9px] text-zinc-600 truncate mt-0.5 font-mono">{hostname}</div>
+                </div>
+              </motion.a>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+});
+EvidenceDeck.displayName = "EvidenceDeck";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1476,7 +1577,7 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
         a: ({ href, children }) => {
           const label = flattenText(children).trim();
           if (REGEX_CITATION_LABEL.test(label)) {
-            return <InlineCitationPill id={`${message.id}:${label}:${href || "nolink"}`} href={href} indexLabel={label} />;
+            return <CitationJewel id={`${message.id}:${label}:${href || "nolink"}`} href={href} indexLabel={label} />;
           }
           return (
             <a
@@ -1547,38 +1648,7 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
         )}
 
         {!isUser && !message.isStreaming && sources.length > 0 && (
-          <div className="mt-4 ml-1 w-full max-w-[85%]">
-            <details className="group/sources">
-              <summary className={cn("list-none cursor-pointer flex items-center gap-2 select-none opacity-60 hover:opacity-100 transition-opacity duration-300", SYSTEM.type.mono)}>
-                <ChevronRight size={10} className="group-open/sources:rotate-90 transition-transform duration-200" />
-                <span>EVIDENCE_LEDGER [{sources.length}]</span>
-              </summary>
-              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 pl-2 border-l border-white/5">
-                {sources.map((source, i) => {
-                  let h = "source";
-                  try { h = new URL(source.uri).hostname; } catch { /* fallback */ }
-                  return (
-                    <a
-                      key={i}
-                      href={source.uri}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-transparent hover:border-emerald-500/20 transition-all group/link"
-                    >
-                      <div className="w-5 h-5 rounded flex items-center justify-center bg-white/5 text-[10px] font-mono text-zinc-500 group-hover/link:text-emerald-400 border border-white/5">
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[11px] text-zinc-300 truncate font-medium group-hover/link:text-emerald-100">{source.title || "Verified Source"}</div>
-                        <div className="text-[9px] text-zinc-600 truncate font-mono">{h}</div>
-                      </div>
-                      <ExternalLink size={10} className="text-zinc-600 group-hover/link:text-emerald-400 opacity-0 group-hover/link:opacity-100" />
-                    </a>
-                  );
-                })}
-              </div>
-            </details>
-          </div>
+          <EvidenceDeck sources={sources} />
         )}
       </motion.div>
     );
