@@ -16,6 +16,64 @@ const CORS_HEADERS = {
 };
 
 // -------------------------------------------------------------------------
+// GLOBAL CONCURRENCY GUARD (Queue + Lease)
+// -------------------------------------------------------------------------
+const INTEL_CONCURRENCY = Number(Deno.env.get("PREGAME_INTEL_MAX_CONCURRENCY") ?? "2");
+const INTEL_LEASE_TTL_SEC = Number(Deno.env.get("PREGAME_INTEL_LEASE_TTL_SEC") ?? "150");
+const INTEL_MAX_WAIT_MS = Number(Deno.env.get("PREGAME_INTEL_MAX_WAIT_MS") ?? "8000");
+const INTEL_WAIT_STEP_MS = Number(Deno.env.get("PREGAME_INTEL_WAIT_STEP_MS") ?? "1200");
+const INTEL_PRIMARY_MODEL = Deno.env.get("PREGAME_INTEL_MODEL") ?? "gemini-3-flash-preview";
+const INTEL_FALLBACK_MODEL = Deno.env.get("PREGAME_INTEL_FALLBACK_MODEL") ?? "gemini-2.0-flash";
+
+class QueueFullError extends Error {}
+class OverloadedError extends Error {}
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+const isOverloadedError = (err: any) => {
+    const msg = String(err?.message || "");
+    return msg.includes("UNAVAILABLE") || msg.includes("503") || msg.toLowerCase().includes("overloaded");
+};
+
+async function acquireIntelLeaseWithBackoff(supabase: any, requestId: string) {
+    const start = Date.now();
+    let attempts = 0;
+
+    while (Date.now() - start < INTEL_MAX_WAIT_MS) {
+        const { data, error } = await supabase.rpc("acquire_intel_lease", {
+            p_request_id: requestId,
+            p_limit: INTEL_CONCURRENCY,
+            p_ttl_seconds: INTEL_LEASE_TTL_SEC,
+        });
+
+        if (error) {
+            const msg = String(error.message || "");
+            if (msg.includes("acquire_intel_lease") && msg.includes("does not exist")) {
+                console.warn(`[Intel:${requestId}] Lease RPC missing. Bypassing concurrency guard until migration applied.`);
+                return { leaseId: null, bypass: true };
+            }
+            console.warn(`[Intel:${requestId}] Lease RPC error: ${msg}`);
+        } else if (data) {
+            return { leaseId: data as string, bypass: false };
+        }
+
+        attempts += 1;
+        const jitter = Math.floor(Math.random() * 250);
+        const waitMs = Math.min(INTEL_WAIT_STEP_MS * attempts + jitter, 2500);
+        await sleep(waitMs);
+    }
+
+    return { leaseId: null, bypass: false };
+}
+
+async function releaseIntelLease(supabase: any, leaseId: string, requestId: string) {
+    const { error } = await supabase.rpc("release_intel_lease", { p_lease_id: leaseId });
+    if (error) {
+        console.warn(`[Intel:${requestId}] Lease release error: ${error.message}`);
+    }
+}
+
+// -------------------------------------------------------------------------
 // INPUT SCHEMA
 // -------------------------------------------------------------------------
 const coerceNullableNumber = () =>
@@ -324,9 +382,14 @@ Deno.serve(async (req: Request) => {
                         away_team: match.away_team,
                         current_odds: match.current_odds,
                     };
-                    await processSingleIntel(p, supabase, `job-${item.id.slice(0, 4)}`);
+                    await processSingleIntel(p, supabase, `job-${item.id.slice(0, 4)}`, { mode: "job" });
                     await supabase.from("intel_job_items").update({ status: "success" }).eq("id", item.id);
                 } catch (e: any) {
+                    if (e instanceof QueueFullError || e instanceof OverloadedError) {
+                        console.warn(`Item Deferred: ${item.match_id} (${e.message})`);
+                        // Leave status as pending so dispatcher can retry later.
+                        continue;
+                    }
                     console.error(`Item Fail: ${item.match_id}`, e.message);
                     await supabase.from("intel_job_items").update({ status: "failed", error: e.message }).eq("id", item.id);
                 }
@@ -394,8 +457,26 @@ Deno.serve(async (req: Request) => {
             console.log(`[${requestId}] ⚽ [SOCCER] Normalized: spread=${p.current_spread}, total=${p.current_total}, ML=${n.homeMl}/${n.awayMl}`);
         }
 
-        const dossier = await processSingleIntel(p, supabase, requestId);
-        return new Response(JSON.stringify(dossier), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
+        try {
+            const dossier = await processSingleIntel(p, supabase, requestId, { mode: "direct" });
+            return new Response(JSON.stringify(dossier), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
+        } catch (err: any) {
+            if (err instanceof QueueFullError) {
+                console.warn(`[Intel:${requestId}] Queue full. Deferring request.`);
+                return new Response(JSON.stringify({ status: "queued", match_id: p.match_id }), {
+                    status: 429,
+                    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+                });
+            }
+            if (err instanceof OverloadedError) {
+                console.warn(`[Intel:${requestId}] Model overloaded. Deferring request.`);
+                return new Response(JSON.stringify({ status: "overloaded", match_id: p.match_id }), {
+                    status: 503,
+                    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+                });
+            }
+            throw err;
+        }
     } catch (err: any) {
         console.error(`[${crypto.randomUUID().slice(0, 8)}] ❌ FATAL:`, err.message);
         return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: CORS_HEADERS });
@@ -425,7 +506,12 @@ function buildFallbackIntel(dossier: { home_team: string; away_team: string }) {
     };
 }
 
-async function processSingleIntel(p: any, supabase: any, requestId: string) {
+async function processSingleIntel(
+    p: any,
+    supabase: any,
+    requestId: string,
+    opts: { mode: "job" | "direct" } = { mode: "direct" }
+) {
     const dossier = await buildMatchDossier(
         p.match_id,
         supabase,
@@ -525,6 +611,13 @@ async function processSingleIntel(p: any, supabase: any, requestId: string) {
         return noMarketDossier;
     }
 
+    // GLOBAL CONCURRENCY GUARD: Acquire lease before any AI call
+    const leaseAttempt = await acquireIntelLeaseWithBackoff(supabase, requestId);
+    if (!leaseAttempt.bypass && !leaseAttempt.leaseId) {
+        throw new QueueFullError("Queue full");
+    }
+    const leaseId = leaseAttempt.leaseId;
+
     const marketMenu = marketOffers.map((o) => `- ID: "${o.id}" | ${o.label}`).join("\n");
     const edge = Number.isFinite(dossier.valuation.delta) ? dossier.valuation.delta.toFixed(1) : "0.0";
 
@@ -567,25 +660,62 @@ ${marketMenu}
     let thoughts = "";
 
     try {
-        const aiStart = Date.now();
-        const aiResult = await executeAnalyticalQuery(synthesisPrompt, {
-            model: "gemini-3-flash-preview",
-            systemInstruction,
-            responseSchema: dynamicSchema,
-        });
-        const durationMs = Date.now() - aiStart;
-        console.log(`[Intel:${requestId}] Gemini call: ${durationMs}ms`);
+        const runGemini = async (modelName: string, thinkingLevel: string) => {
+            const aiStart = Date.now();
+            const aiResult = await executeAnalyticalQuery(synthesisPrompt, {
+                model: modelName,
+                systemInstruction,
+                responseSchema: dynamicSchema,
+                thinkingLevel,
+                maxOutputTokens: 12000,
+            });
+            const durationMs = Date.now() - aiStart;
+            console.log(`[Intel:${requestId}] Gemini call (${modelName}): ${durationMs}ms`);
+            return aiResult;
+        };
+
+        let aiResult = await runGemini(INTEL_PRIMARY_MODEL, "high");
         sources = aiResult.sources || [];
         if (sources.length === 0) {
             console.warn(`[Intel:${requestId}] ⚠️ No grounding sources returned. Fact claims may be ungrounded.`);
         }
         thoughts = aiResult.thoughts || "";
         intel = safeJsonParse(aiResult.text);
-        if (!intel) throw new Error("Invalid JSON from AI");
+
+        if (!intel) {
+            throw new Error("Invalid JSON from AI");
+        }
     } catch (err: any) {
-        const reason = err?.message || "AI failure";
-        console.error(`[Intel:${requestId}] Fallback triggered: ${reason}`);
-        intel = buildFallbackIntel(dossier);
+        if (isOverloadedError(err)) {
+            try {
+                console.warn(`[Intel:${requestId}] Gemini overloaded. Retrying with fallback model.`);
+                const retryResult = await executeAnalyticalQuery(synthesisPrompt, {
+                    model: INTEL_FALLBACK_MODEL,
+                    systemInstruction,
+                    responseSchema: dynamicSchema,
+                    thinkingLevel: "medium",
+                    maxOutputTokens: 8000,
+                });
+                const retrySources = retryResult.sources || [];
+                if (retrySources.length === 0) {
+                    console.warn(`[Intel:${requestId}] ⚠️ No grounding sources returned (fallback).`);
+                }
+                sources = retrySources;
+                thoughts = retryResult.thoughts || "";
+                intel = safeJsonParse(retryResult.text);
+                if (!intel) throw new Error("Invalid JSON from fallback AI");
+            } catch (fallbackErr: any) {
+                throw new OverloadedError(fallbackErr?.message || "AI overloaded");
+            }
+        } else {
+            const reason = err?.message || "AI failure";
+            console.error(`[Intel:${requestId}] Fallback triggered: ${reason}`);
+            intel = buildFallbackIntel(dossier);
+        }
+    } finally {
+        if (leaseId) {
+            await releaseIntelLease(supabase, leaseId, requestId);
+        }
     }
 
     // 4. RESOLUTION (deterministic safety)

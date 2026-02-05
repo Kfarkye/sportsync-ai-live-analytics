@@ -96,7 +96,7 @@ Enclose your JSON in \`\`\`json ... \`\`\` blocks. Output ONLY the JSON object a
                 tools, // Tools are NOW ENABLED even for JSON tasks
 
                 temperature: options.temperature ?? 0.1,
-                maxOutputTokens: 65536, // Maximize tokens for long thoughts
+                maxOutputTokens: options.maxOutputTokens ?? 65536, // Allow caller override for latency control
 
                 responseMimeType,
                 // responseSchema: undefined, // Explicitly OMITTED to allow Thinking
