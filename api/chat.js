@@ -61,6 +61,40 @@ function safeJsonStringify(obj, maxLen = 1200) {
 }
 
 /**
+ * Safe JSON recovery for LLM output.
+ * - Strips ```json fences
+ * - Trims leading chatter before first { or [
+ * - Trims trailing content after last } or ]
+ * @param {string} raw
+ * @returns {{ success: boolean, data?: any, raw?: string }}
+ */
+function safeParseJSON(raw) {
+    if (!raw || typeof raw !== "string") return { success: false, raw };
+    let text = raw.trim();
+
+    // Extract fenced JSON if present
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced && fenced[1]) {
+        text = fenced[1].trim();
+    }
+
+    const start = text.search(/[\{\[]/);
+    if (start > 0) text = text.slice(start);
+    if (start === -1) return { success: false, raw };
+
+    const lastBrace = text.lastIndexOf("}");
+    const lastBracket = text.lastIndexOf("]");
+    const end = Math.max(lastBrace, lastBracket);
+    if (end !== -1) text = text.slice(0, end + 1);
+
+    try {
+        return { success: true, data: JSON.parse(text) };
+    } catch {
+        return { success: false, raw };
+    }
+}
+
+/**
  * Detect operating mode based on query content.
  * @param {string} query - User's message
  * @param {boolean} hasImage - Whether message contains an image
@@ -538,11 +572,10 @@ ${text}
         });
 
         const raw = result.content || "";
-        const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) throw new Error("No JSON object found");
-        const parsed = JSON.parse(match[0]);
+        const parsed = safeParseJSON(raw);
+        if (!parsed.success) throw new Error("No JSON object found");
 
-        const validated = BettingPickSchema.safeParse(parsed);
+        const validated = BettingPickSchema.safeParse(parsed.data);
         if (!validated.success) {
             console.warn("[Pick Extraction] Schema validation failed:", validated.error?.message);
             return [];
