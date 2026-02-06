@@ -119,7 +119,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
             </div>
 
             {/* Content */}
-            <div className="relative z-10 flex flex-col items-center pt-[calc(env(safe-area-inset-top)+16px)] pb-7 px-4">
+            <div className="relative z-10 flex flex-col items-center pt-[calc(env(safe-area-inset-top)+12px)] pb-7 px-4">
 
                 {/* Context Bar (Date + Broadcast) - Vibrant */}
                 <div className="flex items-center gap-3 mb-6">
@@ -281,6 +281,9 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
 
                 </div>
             </div>
+
+            {/* Bottom hairline — optical separation into tabs */}
+            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         </div>
     );
 });

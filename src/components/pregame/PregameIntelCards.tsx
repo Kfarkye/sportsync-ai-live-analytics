@@ -657,8 +657,13 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
         <MotionConfig reducedMotion="user">
             <CitationProvider>
                 <LayoutGroup>
-                    <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.06 } } }} className="w-full py-16 font-sans antialiased relative">
-                    <div className="mb-32 relative w-full max-w-[1200px] mx-auto px-6 md:px-12">
+                    <motion.div
+                        initial="hidden"
+                        animate="visible"
+                        variants={{ visible: { transition: { staggerChildren: 0.06 } } }}
+                        className="w-full py-14 md:py-16 font-sans antialiased relative"
+                    >
+                    <div className="mb-24 md:mb-32 relative w-full max-w-[1200px] mx-auto px-6 md:px-12">
                         <FilmGrain />
                         <div className="relative z-10 flex flex-col items-center text-center md:items-start md:text-left md:pl-[160px]">
                             <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="mb-10">
@@ -666,7 +671,7 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
                             </motion.div>
                             <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
                                 <div className="flex flex-col md:flex-row md:items-baseline md:gap-8 mb-8">
-                                    <h1 className="text-[56px] md:text-[100px] font-semibold text-white tracking-tighter leading-[0.85] drop-shadow-2xl break-words max-w-5xl">{recommendedPick}</h1>
+                                    <h1 className="text-[42px] sm:text-[56px] md:text-[100px] font-semibold text-white tracking-tighter leading-[0.85] drop-shadow-2xl break-words max-w-5xl text-balance">{recommendedPick}</h1>
                                     {displayJuice && <span className="text-[16px] md:text-[20px] font-mono text-zinc-500 font-medium tracking-[0.15em] mt-4 md:mt-0">{displayJuice}</span>}
                                 </div>
                                 <div className="max-w-3xl border-l-2 border-white/10 pl-8 py-2 mx-auto md:mx-0">

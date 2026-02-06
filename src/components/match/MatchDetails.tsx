@@ -554,10 +554,18 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
   const effectiveOpen = collapsible ? isOpen : true;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn("group relative border-t border-white/[0.08] transition-all duration-500", collapsible ? "cursor-pointer" : "cursor-default")} onClick={() => collapsible && setIsOpen(!isOpen)}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className={cn(
+        "group relative border-t border-white/[0.06] transition-all duration-500",
+        collapsible ? "cursor-pointer" : "cursor-default"
+      )}
+      onClick={() => collapsible && setIsOpen(!isOpen)}
+    >
       <div className={cn("absolute -top-[1px] left-0 h-[1px] bg-white transition-all duration-500 ease-out z-10 shadow-[0_0_10px_rgba(255,255,255,0.4)]", effectiveOpen ? "w-full opacity-100" : "w-0 opacity-0")} />
       <div className="py-6 flex flex-col md:flex-row md:items-start gap-5 md:gap-0">
-        <div className="w-full md:w-[140px] shrink-0 flex items-center justify-between md:block select-none">
+        <div className="w-full md:w-[160px] shrink-0 flex items-center justify-between md:block select-none">
           <span className={cn("text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-300 font-mono block", effectiveOpen ? "text-zinc-50" : "text-zinc-600 group-hover:text-zinc-400")}>{label}</span>
           {collapsible && <div className="md:hidden block"><ToggleSwitch expanded={effectiveOpen} /></div>}
         </div>

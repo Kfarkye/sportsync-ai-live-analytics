@@ -25,15 +25,15 @@ interface MatchupContextPillsProps {
 const ContextPill = ({
     icon: Icon,
     value,
-    color = "text-zinc-500"
+    color = "text-zinc-400"
 }: {
     icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
     value: string;
     color?: string;
 }) => (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.06] backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <Icon size={11} className={color} strokeWidth={2} />
-        <span className="text-[10px] font-medium text-zinc-500 tracking-tight whitespace-nowrap">{value}</span>
+        <span className="text-[10px] font-semibold text-zinc-300 tracking-tight whitespace-nowrap tabular-nums">{value}</span>
     </div>
 );
 
