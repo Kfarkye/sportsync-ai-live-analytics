@@ -1,6 +1,6 @@
 /* ============================================================================
    ChatWidget.tsx
-   "Obsidian Weissach" — Production Release (v29.1)
+   "Obsidian Weissach" — Production Release (v29.5)
 
    Architecture:
    ├─ Core: useReducer message store, Map-indexed updates, stable refs
@@ -12,11 +12,42 @@
    ├─ Ops: Pluggable telemetry layer, structured error reporting
    ├─ A11y: aria-live regions, focus management, reduced-motion, timestamps
 
-   Changelog v29.1 (Weissach — Merged from v29.0 into v28.3 base):
+   Changelog v29.5 (Weissach — Citation Hardening):
+   ── Citations ──
+   - GUARD: Code fence protection — ```fenced blocks``` skip hydration entirely
+     Prevents bracket tokens inside code snippets from being stripped as citations
+   - FIX: Paragraph-only citations return suffix directly (no leading space)
+   - BUST: LRU cache key prefix eop2 → eop3
+
+   Changelog v29.4 (Weissach — Citation Toggle):
+   ── Citations ──
+   - ADD: Eye/EyeOff toggle in header bar — citations on/off
+     Hides: end-of-paragraph jewel clusters + EvidenceDeck source tray
+     Preserves: raw prose content (no layout shift when toggling)
+     Default: on (emerald). Off state: muted zinc icon.
+   - Gate: hydrateCitations() skipped entirely when off (no wasted compute)
+
+   Changelog v29.3 (Weissach — Contextual Scroll Anchor + Citation Sort Fix):
+   ── Scroll Anchor ──
+   - FIX: LATEST pill no longer floats permanently on any scroll
+     Now appears only at two moments:
+     1. New message arrives while user is scrolled up
+     2. Streaming completes while user is scrolled up
+     Auto-dismisses after 4 seconds. Scroll to bottom clears immediately.
+   - CHANGE: Scroll threshold 100px → 200px (reduces false triggers on mobile)
+   ── Citations ──
+   - FIX: Sort key uses major*1000+minor instead of parseFloat
+     1.10 now correctly sorts after 1.9 (was collapsing to 1.1)
+   - BUST: LRU cache key prefix eop → eop2 (invalidates stale sort order)
+
+   Changelog v29.2 (Weissach — End-of-Paragraph Citations):
    ── Citation System ──
-   - REDESIGN: InlineCitationPill → CitationJewel — favicon glass pills via Google S2
-   - ADD: SourceIcon — S2 favicon (64px) with milled monogram fallback
-   - ADD: EvidenceDeck — horizontal inertia-scroll tray with gradient fade masks
+   - REDESIGN: Inline → End-of-Paragraph citation placement
+     Citations stripped from mid-sentence, deduplicated, sorted numerically,
+     and clustered at paragraph boundary. Uninterrupted reading flow.
+   - KEPT: CitationJewel rendering (favicon glass pills via Google S2)
+   - KEPT: SourceIcon — S2 favicon (64px) with milled monogram fallback
+   - KEPT: EvidenceDeck — horizontal inertia-scroll tray with gradient fade masks
    ── Materials ──
    - UPGRADE: Liquid Glass 2.0 — 24px blur, 180% saturation, specular edge lighting
    - ADD: SYSTEM.surface tokens centralized (glass, hud, alert, milled)
@@ -81,6 +112,8 @@ import {
   WifiOff,
   Check,
   XCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import type { MatchOdds } from "@/types";
 
@@ -418,30 +451,88 @@ class LRUCache<K, V> {
 
 const hydrationCache = new LRUCache<string, string>(256);
 
+/**
+ * End-of-Paragraph Citation Hydration.
+ *
+ * Collects all bracket citation tokens ([1], [1.1], [1, 2]) within each
+ * paragraph, strips them from their inline positions, deduplicates, and
+ * appends the full set as markdown links at the paragraph's trailing edge.
+ *
+ * Before: "Price fell to $15K [1.1] [1.10]. Erased all gains [1.1] [1.9]."
+ * After:  "Price fell to $15K. Erased all gains. [1.1] [1.9] [1.10]"
+ *
+ * The `a` component override in MessageBubble still renders each link as
+ * a CitationJewel — this function only controls placement, not appearance.
+ */
 function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
   if (!text || !metadata?.groundingChunks?.length) return text;
   const chunks = metadata.groundingChunks;
-  const cacheKey = `${text.length}:${text.slice(0, 64)}:${chunks.length}:${chunkFingerprint(chunks)}`;
+  const cacheKey = `eop3:${text.length}:${text.slice(0, 64)}:${chunks.length}:${chunkFingerprint(chunks)}`;
   const cached = hydrationCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
   const maxIndex = chunks.length;
-  const result = text.replace(REGEX_CITATION_PLACEHOLDER, (match, inner: string) => {
-    const parts = inner.split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
-    const links = parts.reduce<string[]>((acc, part) => {
-      const num = parseFloat(part);
-      if (Number.isNaN(num)) return acc;
-      const index = Math.floor(num) - 1;
-      if (index < 0 || index >= maxIndex) return acc;
-      const uri = chunks[index]?.web?.uri;
-      if (uri) acc.push(`[${part}](${uri})`);
-      return acc;
-    }, []);
-    return links.length ? ` ${links.join(" ")}` : match;
-  });
 
-  hydrationCache.set(cacheKey, result);
-  return result;
+  // Guard: Split on fenced code blocks — only hydrate prose segments.
+  // Code fences (``` ... ```) are preserved verbatim to avoid stripping
+  // bracket tokens that are actual code, not citations.
+  const CODE_FENCE = /(```[\s\S]*?```)/g;
+  const segments = text.split(CODE_FENCE);
+
+  const hydrated = segments.map((segment) => {
+    // Code block — return untouched
+    if (segment.startsWith("```")) return segment;
+
+    // Prose segment — hydrate citations per paragraph
+    const paragraphs = segment.split(/\n\n+/);
+
+    return paragraphs.map((paragraph) => {
+      const collected: Array<{ label: string; uri: string; sortKey: number }> = [];
+      const seen = new Set<string>();
+
+      // Pass 1: Extract every citation from this paragraph, record its label + URI.
+      const stripped = paragraph.replace(REGEX_CITATION_PLACEHOLDER, (_match, inner: string) => {
+        const parts = inner.split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
+        for (const part of parts) {
+          const trimmed = part.trim();
+          const num = parseFloat(trimmed);
+          if (Number.isNaN(num)) continue;
+          const index = Math.floor(num) - 1;
+          if (index < 0 || index >= maxIndex) continue;
+          const uri = chunks[index]?.web?.uri;
+          if (uri && !seen.has(trimmed)) {
+            seen.add(trimmed);
+            const [major, minor = "0"] = trimmed.split(".");
+            collected.push({ label: trimmed, uri, sortKey: Number(major) * 1000 + Number(minor) });
+          }
+        }
+        return ""; // Remove the inline token
+      });
+
+      // No citations found — return paragraph unchanged.
+      if (collected.length === 0) return paragraph;
+
+      // Pass 2: Clean up orphaned whitespace / double spaces / trailing dots-space.
+      const cleaned = stripped
+        .replace(/\s+\./g, ".")   // " ." → "."
+        .replace(/\s+,/g, ",")    // " ," → ","
+        .replace(REGEX_MULTI_SPACE, " ")
+        .trim();
+
+      // Pass 3: Sort citations numerically (1.1 before 1.9 before 1.10) and
+      // append as markdown links at the paragraph boundary.
+      const suffix = collected
+        .sort((a, b) => a.sortKey - b.sortKey)
+        .map((c) => `[${c.label}](${c.uri})`)
+        .join(" ");
+
+      // Edge: paragraph was only citations — return suffix directly, no leading space.
+      return cleaned ? `${cleaned} ${suffix}` : suffix;
+    }).join("\n\n");
+  }).join("");
+
+  hydrationCache.set(cacheKey, hydrated);
+  return hydrated;
 }
 
 /** Type-guard filter — eliminates non-null assertion. */
@@ -1517,13 +1608,13 @@ EvidenceDeck.displayName = "EvidenceDeck";
 // §12  MESSAGE BUBBLE
 // ═══════════════════════════════════════════════════════════════════════════
 
-const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcome: VerdictOutcome) => void }> = memo(
-  ({ message, onTrackVerdict }) => {
+const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcome: VerdictOutcome) => void; showCitations?: boolean }> = memo(
+  ({ message, onTrackVerdict, showCitations = true }) => {
     const isUser = message.role === "user";
     const verifiedContent = useMemo(() => {
       const t = extractTextContent(message.content);
-      return isUser ? t : hydrateCitations(t, message.groundingMetadata);
-    }, [message.content, message.groundingMetadata, isUser]);
+      return isUser ? t : showCitations ? hydrateCitations(t, message.groundingMetadata) : t;
+    }, [message.content, message.groundingMetadata, isUser, showCitations]);
 
     const sources = useMemo(() => extractSources(message.groundingMetadata), [message.groundingMetadata]);
     const formattedTime = useMemo(() => formatTimestamp(message.timestamp), [message.timestamp]);
@@ -1659,7 +1750,7 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
           </div>
         )}
 
-        {!isUser && !message.isStreaming && sources.length > 0 && (
+        {showCitations && !isUser && !message.isStreaming && sources.length > 0 && (
           <EvidenceDeck sources={sources} />
         )}
       </motion.div>
@@ -1931,6 +2022,11 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [hasUnseenContent, setHasUnseenContent] = useState(false);
+  const [showCitations, setShowCitations] = useState(true);
+  const unseenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevMsgCountRef = useRef(0);
+  const wasStreamingRef = useRef(false);
   const [retryCount, setRetryCount] = useState(0);
   const [srAnnouncement, setSrAnnouncement] = useState("");
 
@@ -1968,11 +2064,33 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     if (!el) return;
     const onScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = el;
-      setShouldAutoScroll(scrollHeight - scrollTop - clientHeight < 100);
+      const nearBottom = scrollHeight - scrollTop - clientHeight < 200;
+      setShouldAutoScroll(nearBottom);
+      if (nearBottom) setHasUnseenContent(false);
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Show LATEST only at opportune moments:
+  // 1. A new message appears while user is scrolled up
+  // 2. Streaming finishes while user is scrolled up
+  useEffect(() => {
+    const msgCount = msgState.ordered.length;
+    const newMessage = msgCount > prevMsgCountRef.current;
+    const streamingJustEnded = wasStreamingRef.current && !isProcessing;
+
+    prevMsgCountRef.current = msgCount;
+    wasStreamingRef.current = isProcessing;
+
+    if (shouldAutoScroll || msgCount === 0) return;
+    if (!newMessage && !streamingJustEnded) return;
+
+    setHasUnseenContent(true);
+    if (unseenTimerRef.current) clearTimeout(unseenTimerRef.current);
+    unseenTimerRef.current = setTimeout(() => setHasUnseenContent(false), 4000);
+    return () => { if (unseenTimerRef.current) clearTimeout(unseenTimerRef.current); };
+  }, [msgState.ordered.length, isProcessing, shouldAutoScroll]);
 
   useLayoutEffect(() => {
     if (!shouldAutoScroll || !scrollRef.current) return;
@@ -1989,6 +2107,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     setShouldAutoScroll(true);
+    setHasUnseenContent(false);
   }, []);
 
   // Verdict tracking
@@ -2197,6 +2316,14 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                 </div>
                 <div className="flex items-center gap-2">
                   <AnimatePresence><ConnectionBadge status={connectionStatus} /></AnimatePresence>
+                  <button
+                    onClick={() => setShowCitations(prev => !prev)}
+                    className={cn("p-2 transition-colors", showCitations ? "text-emerald-400 hover:text-emerald-300" : "text-zinc-600 hover:text-zinc-400")}
+                    aria-label={showCitations ? "Hide citations" : "Show citations"}
+                    title={showCitations ? "Citations on" : "Citations off"}
+                  >
+                    {showCitations ? <Eye size={14} /> : <EyeOff size={14} />}
+                  </button>
                   <button onClick={() => setIsMinimized?.(true)} className="p-2 text-zinc-600 hover:text-white transition-colors" aria-label="Minimize chat">
                     <Minimize2 size={16} />
                   </button>
@@ -2228,13 +2355,13 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                     <p className={SYSTEM.type.mono}>System Ready</p>
                   </motion.div>
                 ) : (
-                  messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} />)
+                  messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} showCitations={showCitations} />)
                 )}
               </AnimatePresence>
             </div>
 
             {/* Scroll anchor — visible when user has scrolled up */}
-            <ScrollAnchor visible={!shouldAutoScroll && messages.length > 0} onClick={scrollToBottom} />
+            <ScrollAnchor visible={hasUnseenContent} onClick={scrollToBottom} />
 
             <footer className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#030303] via-[#030303]/95 to-transparent pointer-events-none">
               <div className="pointer-events-auto relative">
