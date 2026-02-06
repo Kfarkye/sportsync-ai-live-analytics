@@ -92,7 +92,7 @@ const SpecSheetRow = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className={cn(
-                "group relative border-t border-white/[0.08] transition-all duration-500",
+                "group relative border-t border-white/[0.06] transition-all duration-500",
                 collapsible ? "cursor-pointer" : "cursor-default"
             )}
             onClick={() => collapsible && setIsOpen(!isOpen)}
@@ -106,7 +106,7 @@ const SpecSheetRow = ({
             <div className="py-8 flex flex-col md:flex-row md:items-start gap-6 md:gap-0">
 
                 {/* 1. Technical Label (Desktop: Left Col / Mobile: Top) */}
-                <div className="w-full md:w-[140px] shrink-0 flex items-center justify-between md:block select-none">
+                <div className="w-full md:w-[160px] shrink-0 flex items-center justify-between md:block select-none">
                     <span className={cn(
                         "text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-300 font-mono block",
                         effectiveOpen ? "text-zinc-50" : "text-zinc-600 group-hover:text-zinc-400"
