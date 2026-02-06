@@ -969,6 +969,8 @@ const SourceIcon: FC<{ url?: string; fallbackLetter: string; className?: string 
       className={cn("object-contain bg-white/[0.03]", className)}
       loading="lazy"
       decoding="async"
+      fetchPriority="low"
+      draggable={false}
       referrerPolicy="no-referrer"
     />
   );

@@ -169,6 +169,8 @@ const SourceIcon: React.FC<{ url?: string; fallbackLetter: string; className?: s
             className={cn("object-contain bg-white/[0.03]", className)}
             loading="lazy"
             decoding="async"
+            fetchPriority="low"
+            draggable={false}
             referrerPolicy="no-referrer"
         />
     );
@@ -265,11 +267,11 @@ const EvidenceDeck: React.FC<{ sources: Array<IntelSource> }> = memo(({ sources 
                 <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#050505] to-transparent z-10 pointer-events-none md:hidden" />
                 <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#050505] to-transparent z-10 pointer-events-none" />
 
-                <div className="flex gap-3 overflow-x-auto pb-6 px-6 md:px-0 scrollbar-hide snap-x">
+                <div className="flex gap-3 overflow-x-auto pb-6 px-6 md:px-0 scrollbar-hide snap-x" role="list" aria-label="Evidence sources">
                     {uniqueSources.map((s, i) => {
                         const uri = s.url || s.uri || ""; const hostname = getHostname(uri); const brand = hostnameToBrand(hostname);
                         return (
-                            <motion.a key={i} href={uri} target="_blank" rel="noopener noreferrer" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05, ...SYSTEM.anim.fluid }} whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }} onClick={() => triggerHaptic()} className={cn("flex-none w-[150px] snap-start group relative flex flex-col justify-between p-3.5 h-[84px] rounded-[18px] transition-all duration-300", SYSTEM.surface.glass, "hover:bg-white/[0.05] hover:border-emerald-500/20")}>
+                            <motion.a key={i} href={uri} target="_blank" rel="noopener noreferrer" role="listitem" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05, ...SYSTEM.anim.fluid }} whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }} onClick={() => triggerHaptic()} className={cn("flex-none w-[150px] snap-start group relative flex flex-col justify-between p-3.5 h-[84px] rounded-[18px] transition-all duration-300", SYSTEM.surface.glass, "hover:bg-white/[0.05] hover:border-emerald-500/20")}>
                                 <div className="flex items-start justify-between">
                                     <div className="w-5 h-5 rounded-[6px] bg-white/[0.05] border border-white/[0.05] flex items-center justify-center overflow-hidden shadow-sm"><SourceIcon url={uri} fallbackLetter={brand} className="w-3.5 h-3.5 rounded-sm opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all" /></div>
                                     <span className="text-[9px] font-mono text-zinc-600 group-hover:text-emerald-500/80 transition-colors">0{i + 1}</span>
