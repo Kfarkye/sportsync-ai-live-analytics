@@ -12,17 +12,14 @@
    ├─ PROMPT: Softened Entity Firewall (status claims only)
    └─ PROMPT: Added colon to INVALIDATION for UI parsing
 ============================================================================ */
-import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
-import { generateObject } from "ai";
-import { google } from "@ai-sdk/google";
 import { BettingPickSchema } from "../lib/schemas/picks.js";
+import { orchestrate, orchestrateStream } from "../lib/ai-provider.ts";
 
 // =============================================================================
 // INITIALIZATION
 // =============================================================================
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY });
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -30,14 +27,16 @@ const supabase = createClient(
 
 const CONFIG = {
     MODEL_ID: "gemini-3-flash-preview",
-    THINKING_CONFIG: { includeThoughts: true, thinkingLevel: "high" },
     ANALYSIS_TRIGGERS: [
         "edge", "best bet", "should i bet", "picks", "prediction",
         "analyze", "analysis", "spread", "over", "under", "moneyline",
         "verdict", "play", "handicap", "sharp", "odds", "line",
         "lean", "lock", "parlay", "action", "value", "bet", "pick"
     ],
-    TOOLS: [{ googleSearch: {} }],
+    GROUNDING_TRIGGERS: [
+        "odds", "line", "spread", "total", "score", "live", "today",
+        "tonight", "injury", "status", "current", "slate", "updates"
+    ],
     STALE_THRESHOLD_MS: 15 * 60 * 1000,  // 15 minutes
     INJURY_CACHE_TTL_MS: 5 * 60 * 1000   // 5 minutes
 };
@@ -72,6 +71,22 @@ function detectMode(query, hasImage) {
     if (!query) return "CONVERSATION";
     const q = query.toLowerCase();
     return CONFIG.ANALYSIS_TRIGGERS.some((t) => q.includes(t)) ? "ANALYSIS" : "CONVERSATION";
+}
+
+/**
+ * Classify task type for orchestration.
+ * Prioritize grounding when live/odds signals are present.
+ * @param {string} query - User's message
+ * @param {boolean} hasImage - Whether message contains an image
+ * @returns {"grounding" | "analysis" | "chat"}
+ */
+function detectTaskType(query, hasImage) {
+    if (hasImage) return "analysis";
+    if (!query) return "chat";
+    const q = query.toLowerCase();
+    if (CONFIG.GROUNDING_TRIGGERS.some((t) => q.includes(t))) return "grounding";
+    if (CONFIG.ANALYSIS_TRIGGERS.some((t) => q.includes(t))) return "analysis";
+    return "chat";
 }
 
 /**
@@ -477,31 +492,63 @@ async function extractPickStructured(text, context) {
     if (!context || !context.home_team || !context.away_team) return [];
 
     const extractionPrompt = `
+You are a structured betting pick extractor. Return JSON ONLY.
+
 GAME CONTEXT:
 - Home Team: "${context.home_team}"
 - Away Team: "${context.away_team}"
 - League: ${context.league || "Unknown"}
 
-TASK: Extract the betting verdict from the analysis below.
+OUTPUT JSON SCHEMA (STRICT):
+{
+  "verdict": "PASS" | "BET" | "FADE",
+  "pick_type": "spread" | "moneyline" | "total" | "prop" | null,
+  "pick_team": "HOME_TEAM_NAME" | "AWAY_TEAM_NAME" | null,
+  "pick_direction": "home" | "away" | "over" | "under" | null,
+  "pick_line": number | null,
+  "confidence": "low" | "medium" | "high",
+  "reasoning_summary": "string (<=300 chars)",
+  "edge_factors": ["string", ...]
+}
 
-STRICT RULES:
-1. "pick_team" MUST exactly match one of: "${context.home_team}" or "${context.away_team}" (use null for Totals only)
-2. If verdict is "PASS" or "NO BET", set verdict="PASS"
-3. For Totals: pick_type="total", pick_direction="over" or "under"
-4. For Spreads: pick_type="spread", pick_team=team name, pick_line=spread value
-5. For Moneyline: pick_type="moneyline", pick_team=team name
+RULES:
+1. "pick_team" MUST exactly match one of: "${context.home_team}" or "${context.away_team}" (use null for Totals only).
+2. If verdict is "PASS" or "NO BET", set verdict="PASS" and all pick_* fields null.
+3. Totals: pick_type="total", pick_direction="over" or "under", pick_team=null.
+4. Spreads: pick_type="spread", pick_team=team name, pick_direction="home" or "away", pick_line=spread value.
+5. Moneyline: pick_type="moneyline", pick_team=team name, pick_direction="home" or "away", pick_line=null.
+6. Return valid JSON only. No prose.
 
 ANALYSIS TEXT:
 ${text}
 `;
 
     try {
-        const { object } = await generateObject({
-            model: google(CONFIG.MODEL_ID),
-            schema: BettingPickSchema,
-            prompt: extractionPrompt,
-            mode: "json"
+        const result = await orchestrate("analysis", [
+            { role: "system", content: "You extract structured betting picks. Output JSON only." },
+            { role: "user", content: extractionPrompt }
+        ], {
+            gameContext: {
+                home_team: context.home_team,
+                away_team: context.away_team,
+                league: context.league || "Unknown"
+            },
+            temperature: 0.2,
+            maxTokens: 600
         });
+
+        const raw = result.content || "";
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (!match) throw new Error("No JSON object found");
+        const parsed = JSON.parse(match[0]);
+
+        const validated = BettingPickSchema.safeParse(parsed);
+        if (!validated.success) {
+            console.warn("[Pick Extraction] Schema validation failed:", validated.error?.message);
+            return [];
+        }
+
+        const object = validated.data;
 
         // Validate and normalize team names
         if (object.verdict === "BET" || object.verdict === "FADE") {
@@ -613,6 +660,7 @@ export default async function handler(req, res) {
         const hasImage = Array.isArray(lastMsg.content) && lastMsg.content.some((c) => c.type === "image");
 
         const MODE = detectMode(userQuery, hasImage);
+        const taskType = detectTaskType(userQuery, hasImage);
 
         // --- LIVE SENTINEL CHECK ---
         const liveScan = await scanForLiveGame(userQuery);
@@ -741,22 +789,17 @@ Role: Field Reporter. Direct, factual, concise.
 `}
 `;
 
-        // --- BUILD GEMINI HISTORY ---
-        const geminiHistory = messages.map((m) => ({
-            role: m.role === "assistant" ? "model" : "user",
-            parts: [{
-                text: typeof m.content === "string" ? m.content : JSON.stringify(m.content)
-            }]
-        }));
+        // --- ORCHESTRATED STREAM (Multi-Provider) ---
+        const recentMessages = messages.slice(-8);
+        const abortController = new AbortController();
+        req.on("close", () => abortController.abort());
 
-        // --- STREAM RESPONSE ---
-        const result = await genAI.models.generateContentStream({
-            model: CONFIG.MODEL_ID,
-            contents: geminiHistory.slice(-8),
-            config: {
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-                thinkingConfig: CONFIG.THINKING_CONFIG,
-                tools: CONFIG.TOOLS
+        const stream = await orchestrateStream(taskType, recentMessages, {
+            gameContext: activeContext,
+            systemPrompt: systemInstruction,
+            signal: abortController.signal,
+            onFallback: (from, to, reason) => {
+                console.warn(`[${currentRunId}] Fallback: ${from.provider}/${from.model} → ${to.provider}/${to.model}: ${reason}`);
             }
         });
 
@@ -767,34 +810,54 @@ Role: Field Reporter. Direct, factual, concise.
         let fullText = "";
         let rawThoughts = "";
         let finalMetadata = null;
+        let servedModel = null;
 
-        for await (const chunk of result) {
-            // Capture grounding metadata
-            if (chunk.candidates?.[0]?.groundingMetadata) {
-                finalMetadata = chunk.candidates[0].groundingMetadata;
-                res.write(`data: ${JSON.stringify({ type: "grounding", metadata: finalMetadata })}\n\n`);
-            }
+        const reader = stream.getReader();
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = value;
+                if (!chunk) continue;
 
-            // FIX: Iterate ALL parts in the chunk (prevents data loss)
-            const parts = chunk.candidates?.[0]?.content?.parts || [];
-            for (const part of parts) {
-                if (part.text) {
-                    if (part.thought) {
-                        rawThoughts += part.text;
-                        res.write(`data: ${JSON.stringify({ type: "thought", content: part.text })}\n\n`);
-                    } else {
-                        fullText += part.text;
-                        res.write(`data: ${JSON.stringify({ type: "text", content: part.text })}\n\n`);
-                    }
+                if (!servedModel && chunk.model) servedModel = chunk.model;
+
+                if (chunk.type === "grounding" && chunk.metadata) {
+                    finalMetadata = chunk.metadata;
+                    res.write(`data: ${JSON.stringify({ type: "grounding", metadata: finalMetadata })}\n\n`);
+                    continue;
+                }
+                if (chunk.type === "thought") {
+                    const content = chunk.content || "";
+                    rawThoughts += content;
+                    res.write(`data: ${JSON.stringify({ type: "thought", content })}\n\n`);
+                    continue;
+                }
+                if (chunk.type === "text") {
+                    const content = chunk.content || "";
+                    fullText += content;
+                    res.write(`data: ${JSON.stringify({ type: "text", content })}\n\n`);
+                    continue;
+                }
+                if (chunk.type === "error") {
+                    res.write(`data: ${JSON.stringify({ type: "error", content: chunk.content || "Stream error" })}\n\n`);
+                    continue;
+                }
+                if (chunk.type === "done") {
+                    break;
                 }
             }
+        } finally {
+            try { reader.releaseLock(); } catch { /* */ }
         }
+
+        const modelId = servedModel || CONFIG.MODEL_ID;
 
         // --- POST-RUN PROCESSING ---
         if (MODE === "ANALYSIS") {
             const map = buildClaimMap(fullText, rawThoughts);
             const gate = gateDecision(map, true);  // Strict mode with score >= 2
-            await persistRun(currentRunId, map, gate, activeContext, conversation_id, CONFIG.MODEL_ID);
+            await persistRun(currentRunId, map, gate, activeContext, conversation_id, modelId);
         }
 
         // --- PERSIST CONVERSATION ---
@@ -812,14 +875,15 @@ Role: Field Reporter. Direct, factual, concise.
                         thoughts: rawThoughts,
                         groundingMetadata: finalMetadata,
                         sources,
-                        model: CONFIG.MODEL_ID
+                        model: modelId
                     }
                 ].slice(-40),
                 last_message_at: new Date().toISOString()
             }).eq("id", conversation_id);
         }
 
-        res.write(`data: ${JSON.stringify({ done: true, model: CONFIG.MODEL_ID })}\n\n`);
+        res.write(`data: ${JSON.stringify({ done: true, model: modelId })}\n\n`);
+        res.write("data: [DONE]\n\n");
         res.end();
 
     } catch (e) {
