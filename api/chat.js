@@ -573,7 +573,10 @@ ${text}
 
         const raw = result.content || "";
         const parsed = safeParseJSON(raw);
-        if (!parsed.success) throw new Error("No JSON object found");
+        if (!parsed.success) {
+            console.warn(`[Pick Extraction] JSON parse failed (provider=${result.servedBy || "unknown"})`);
+            throw new Error("No JSON object found");
+        }
 
         const validated = BettingPickSchema.safeParse(parsed.data);
         if (!validated.success) {

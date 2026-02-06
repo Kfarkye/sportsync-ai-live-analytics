@@ -63,13 +63,17 @@ You MUST configure these environment variables in Vercel:
 
 | Variable Name | Value | Environment |
 |---------------|-------|-------------|
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Your Gemini API key | Production |
+| `GEMINI_API_KEY` | Your Gemini API key | Production |
+| `OPENAI_API_KEY` | Your OpenAI API key | Production |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key | Production |
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase URL | Production |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key | Production |
 
 ### Via Vercel CLI:
 ```bash
-vercel env add GOOGLE_GENERATIVE_AI_API_KEY production
+vercel env add GEMINI_API_KEY production
+vercel env add OPENAI_API_KEY production
+vercel env add ANTHROPIC_API_KEY production
 vercel env add NEXT_PUBLIC_SUPABASE_URL production
 vercel env add SUPABASE_SERVICE_ROLE_KEY production
 ```
