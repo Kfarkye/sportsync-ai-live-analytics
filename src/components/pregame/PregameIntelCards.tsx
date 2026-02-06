@@ -5,12 +5,14 @@
 // ===================================================================
 
 import React, { useState, useEffect, useMemo, memo, Component } from 'react';
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence, LayoutGroup, MotionConfig, type Transition } from 'framer-motion';
 import { cn } from '@/lib/essence';
 import { Match } from '@/types';
 import { pregameIntelService, PregameIntelResponse, IntelCard } from '../../services/pregameIntelService';
 import { cleanHeadline, cleanCardThesis } from '../../lib/intel-guards';
-import { Activity, Zap, TrendingUp, AlertTriangle, Crosshair } from 'lucide-react';
+import { Activity, Zap, TrendingUp, AlertTriangle, Crosshair, ShieldCheck, ExternalLink } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────
 // §0  WEISSACH SYSTEM TOKENS & PHYSICS
@@ -43,6 +45,20 @@ const SECTION_CONFIG: Record<string, { color: string; label: string; icon: React
     "The Trap": { color: "text-amber-300", label: "04 // THE TRAP", icon: AlertTriangle },
     "X-Factor": { color: "text-purple-300", label: "05 // X-FACTOR", icon: Zap },
 };
+
+// ─────────────────────────────────────────────────────────────────
+// §0.1  CITATION REGEX (Hoisted — Zero Allocation at Runtime)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Matches bracket citation tokens: [1], [1, 2], [1.1]
+ * Negative lookahead (?!\() prevents matching markdown links [text](url).
+ */
+const REGEX_CITATION_PLACEHOLDER =
+    /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
+const REGEX_CITATION_LABEL = /^\d+(?:\.\d+)?$/;
+const REGEX_SPLIT_COMMA = /[,\s]+/;
+const REGEX_MULTI_SPACE = /\s{2,}/g;
 
 // ─────────────────────────────────────────────────────────────────
 // §1  STRICT TYPES
@@ -84,6 +100,15 @@ interface ProcessedIntelData extends Omit<PregameIntelResponse, 'cards'> {
 
 function triggerHaptic(): void { try { if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(4); } catch { /* */ } }
 
+function flattenText(children: React.ReactNode): string {
+    return React.Children.toArray(children).reduce<string>((acc, child) => {
+        if (typeof child === "string") return acc + child;
+        if (typeof child === "number") return acc + String(child);
+        if (React.isValidElement<{ children?: React.ReactNode }>(child)) return acc + flattenText(child.props.children);
+        return acc;
+    }, "");
+}
+
 function getHostname(href?: string): string {
     if (!href) return "Source";
     try { return new URL(href).hostname.replace(/^www\./, ""); } catch { return "Source"; }
@@ -99,6 +124,60 @@ function hostnameToBrand(hostname: string): string {
 
 function getFaviconUrl(href: string): string {
     try { const domain = new URL(href).hostname; return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`; } catch { return ""; }
+}
+
+/**
+ * End-of-Paragraph Citation Hydration (Pregame).
+ * Converts bracket tokens into end-of-paragraph markdown links, preserving reading flow.
+ * Guards fenced code blocks so bracket tokens in code are untouched.
+ */
+function hydrateCitations(text: string, sources?: IntelSource[]): string {
+    if (!text || !sources?.length) return text;
+    const uris = sources.map((s) => s.url || s.uri || "");
+    const maxIndex = uris.length;
+    const CODE_FENCE = /(```[\s\S]*?```)/g;
+    const segments = text.split(CODE_FENCE);
+
+    return segments.map((segment) => {
+        if (segment.startsWith("```")) return segment;
+        const paragraphs = segment.split(/\n\n+/);
+        return paragraphs.map((paragraph) => {
+            const collected: Array<{ label: string; uri: string; sortKey: number }> = [];
+            const seen = new Set<string>();
+            const stripped = paragraph.replace(REGEX_CITATION_PLACEHOLDER, (_match, inner: string) => {
+                const parts = inner.split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
+                for (const part of parts) {
+                    const trimmed = part.trim();
+                    const num = parseFloat(trimmed);
+                    if (Number.isNaN(num)) continue;
+                    const index = Math.floor(num) - 1;
+                    if (index < 0 || index >= maxIndex) continue;
+                    const uri = uris[index];
+                    if (uri && !seen.has(trimmed)) {
+                        seen.add(trimmed);
+                        const [major, minor = "0"] = trimmed.split(".");
+                        collected.push({ label: trimmed, uri, sortKey: Number(major) * 1000 + Number(minor) });
+                    }
+                }
+                return "";
+            });
+
+            if (collected.length === 0) return paragraph;
+
+            const cleaned = stripped
+                .replace(/\s+\./g, ".")
+                .replace(/\s+,/g, ",")
+                .replace(REGEX_MULTI_SPACE, " ")
+                .trim();
+
+            const suffix = collected
+                .sort((a, b) => a.sortKey - b.sortKey)
+                .map((c) => `[${c.label}](${c.uri})`)
+                .join(" ");
+
+            return cleaned ? `${cleaned} ${suffix}` : suffix;
+        }).join("\n\n");
+    }).join("");
 }
 
 function toISOOrNull(v: string | number | Date | null | undefined): string | null {
@@ -134,17 +213,136 @@ const FilmGrain = memo(() => (
 ));
 FilmGrain.displayName = "FilmGrain";
 
-const RenderRichText = React.memo(({ text, className }: { text: string; className?: string }) => {
+const CitationContext = React.createContext<{ activeCitation: string | null; setActiveCitation: (id: string | null) => void }>({
+    activeCitation: null,
+    setActiveCitation: () => { },
+});
+
+const CitationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [activeCitation, setActiveCitation] = useState<string | null>(null);
+
+    useEffect(() => {
+        const onPointer = (e: globalThis.PointerEvent) => {
+            const t = e.target as HTMLElement | null;
+            if (!t) { setActiveCitation(null); return; }
+            if (typeof t.closest === "function" && t.closest('[data-cite-scope="true"]')) return;
+            setActiveCitation(null);
+        };
+        const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") setActiveCitation(null); };
+        document.addEventListener("pointerdown", onPointer, true);
+        document.addEventListener("keydown", onKey);
+        return () => {
+            document.removeEventListener("pointerdown", onPointer, true);
+            document.removeEventListener("keydown", onKey);
+        };
+    }, []);
+
+    const value = useMemo(() => ({ activeCitation, setActiveCitation }), [activeCitation]);
+    return <CitationContext.Provider value={value}>{children}</CitationContext.Provider>;
+};
+
+const CitationJewel: React.FC<{ id: string; href?: string; indexLabel: string }> = memo(({ id, href, indexLabel }) => {
+    const { activeCitation, setActiveCitation } = React.useContext(CitationContext);
+    const active = activeCitation === id;
+    const hostname = getHostname(href);
+    const brand = hostnameToBrand(hostname);
+
+    return (
+        <span data-cite-scope="true" className="inline-flex items-center align-middle relative mx-0.5 -translate-y-[1px] isolate z-10">
+            <button
+                type="button"
+                onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); triggerHaptic(); setActiveCitation(active ? null : id); }}
+                className={cn(
+                    "group inline-flex items-center gap-1.5 h-[18px] pl-0.5 pr-2 rounded-full border transition-all duration-300 select-none cursor-pointer overflow-hidden backdrop-blur-md",
+                    active
+                        ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+                        : "bg-white/[0.04] border-white/[0.08] text-zinc-400 hover:bg-white/[0.08] hover:border-white/[0.15] hover:text-zinc-200",
+                )}
+                aria-expanded={active}
+                aria-controls={`cite-popover-${id}`}
+                aria-label={`Source ${indexLabel} from ${brand}`}
+            >
+                <div className="w-3.5 h-3.5 rounded-full bg-[#050505] border border-white/10 flex items-center justify-center overflow-hidden shadow-sm">
+                    <SourceIcon url={href} fallbackLetter={brand} className="w-2.5 h-2.5 rounded-full opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300" />
+                </div>
+                <span className="text-[9px] font-mono font-medium tracking-tight leading-none translate-y-[0.5px]">{indexLabel}</span>
+            </button>
+
+            <AnimatePresence>
+                {active && (
+                    <motion.div
+                        data-cite-scope="true"
+                        id={`cite-popover-${id}`}
+                        role="tooltip"
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                        transition={SYSTEM.anim.snap}
+                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 w-[240px] z-[60]"
+                        onPointerDown={(e) => e.stopPropagation()}
+                    >
+                        <div className={cn("p-3.5 rounded-[20px] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.9)]", SYSTEM.surface.glass)}>
+                            <div className="flex items-start gap-3 mb-3">
+                                <div className="w-8 h-8 rounded-[10px] bg-black/40 border border-white/10 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
+                                    <SourceIcon url={href} fallbackLetter={brand} className="w-5 h-5 rounded" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="text-[12px] font-medium text-white truncate leading-tight mb-0.5">{brand}</div>
+                                    <div className="text-[10px] font-mono text-zinc-500 truncate">{hostname}</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                                <div className="flex items-center gap-1.5 text-[9px] font-mono text-emerald-400/90 uppercase tracking-widest">
+                                    <ShieldCheck size={10} /><span>Verified</span>
+                                </div>
+                                {href ? (
+                                    <a
+                                        href={href}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1 text-[10px] font-medium text-zinc-300 hover:text-white transition-colors"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <span>Open</span><ExternalLink size={10} />
+                                    </a>
+                                ) : (
+                                    <span className="text-[10px] font-mono text-zinc-600">No link</span>
+                                )}
+                            </div>
+                        </div>
+                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0A0A0B] border-r border-b border-white/10 rotate-45 rounded-[1px]" />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </span>
+    );
+});
+CitationJewel.displayName = "CitationJewel";
+
+const RenderRichText = React.memo(({ text, sources, className }: { text: string; sources?: IntelSource[]; className?: string }) => {
     if (!text) return null;
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    const hydrated = useMemo(() => hydrateCitations(text, sources), [text, sources]);
+    const components: Components = useMemo(() => ({
+        p: ({ children }) => <span>{children}</span>,
+        strong: ({ children }) => <strong className="font-semibold text-white tracking-tight">{children}</strong>,
+        a: ({ href, children }) => {
+            const label = flattenText(children).trim();
+            if (REGEX_CITATION_LABEL.test(label)) {
+                return <CitationJewel id={`${label}:${href || "nolink"}`} href={href} indexLabel={label} />;
+            }
+            return (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline decoration-emerald-500/20 underline-offset-4 transition-colors">
+                    {children}
+                </a>
+            );
+        },
+    }), []);
+
     return (
         <span className={className}>
-            {parts.map((part, i) => {
-                if (part.startsWith('**') && part.endsWith('**')) {
-                    return <strong key={i} className="font-semibold text-white tracking-tight">{part.slice(2, -2)}</strong>;
-                }
-                return <React.Fragment key={i}>{part}</React.Fragment>;
-            })}
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+                {hydrated}
+            </ReactMarkdown>
         </span>
     );
 });
@@ -294,7 +492,7 @@ EvidenceDeck.displayName = "EvidenceDeck";
 // §4  INSIGHT ROWS (Restored Logic)
 // ─────────────────────────────────────────────────────────────────
 
-const InsightRow = ({ card, confidenceTier, isLast }: { card: ExtendedIntelCard; confidenceTier?: string; isLast: boolean }) => {
+const InsightRow = ({ card, confidenceTier, isLast, sources }: { card: ExtendedIntelCard; confidenceTier?: string; isLast: boolean; sources?: IntelSource[] }) => {
     const category = String(card.category);
     const details = card.details || [];
     const hasDetails = details.length > 0;
@@ -340,7 +538,7 @@ const InsightRow = ({ card, confidenceTier, isLast }: { card: ExtendedIntelCard;
 
                         <div className="flex items-start justify-between gap-8">
                             <div className={cn("text-[16px] md:text-[18px] leading-[1.6] font-light tracking-wide transition-colors duration-500 text-pretty max-w-[80ch]", isEngine ? "font-mono text-[13px] text-zinc-300/90 tracking-normal leading-[1.8]" : (expanded ? "text-white" : "text-zinc-400 group-hover:text-zinc-200"))}>
-                                <RenderRichText text={displayThesis} />
+                                <RenderRichText text={displayThesis} sources={sources} />
                             </div>
 
                             {/* Restored Toggle Interaction */}
@@ -358,14 +556,14 @@ const InsightRow = ({ card, confidenceTier, isLast }: { card: ExtendedIntelCard;
                                         {card.market_implication && (
                                             <div className="pl-0 md:pl-6 md:border-l border-white/10">
                                                 <div className="flex items-center gap-2 mb-2 text-emerald-400/80 md:hidden"><Activity size={10} /><span className={SYSTEM.type.label}>Market Implication</span></div>
-                                                <p className="text-[14px] text-zinc-400/90 italic leading-relaxed font-light"><RenderRichText text={String(card.market_implication)} /></p>
+                                                <p className="text-[14px] text-zinc-400/90 italic leading-relaxed font-light"><RenderRichText text={String(card.market_implication)} sources={sources} /></p>
                                             </div>
                                         )}
                                         <div className="space-y-4">
                                             {details.map((detail, i) => (
                                                 <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + (i * 0.04) }} className="flex gap-4 group/item items-baseline">
                                                     <span className="block w-1 h-1 bg-zinc-700 rounded-full mt-2 shrink-0 group-hover/item:bg-white transition-colors duration-500" />
-                                                    <p className="text-[14px] text-zinc-400 font-light leading-relaxed group-hover/item:text-zinc-200 transition-colors duration-500"><RenderRichText text={detail} /></p>
+                                                    <p className="text-[14px] text-zinc-400 font-light leading-relaxed group-hover/item:text-zinc-200 transition-colors duration-500"><RenderRichText text={detail} sources={sources} /></p>
                                                 </motion.div>
                                             ))}
                                         </div>
@@ -457,8 +655,9 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
 
     return (
         <MotionConfig reducedMotion="user">
-            <LayoutGroup>
-                <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.06 } } }} className="w-full py-16 font-sans antialiased relative">
+            <CitationProvider>
+                <LayoutGroup>
+                    <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.06 } } }} className="w-full py-16 font-sans antialiased relative">
                     <div className="mb-32 relative w-full max-w-[1200px] mx-auto px-6 md:px-12">
                         <FilmGrain />
                         <div className="relative z-10 flex flex-col items-center text-center md:items-start md:text-left md:pl-[160px]">
@@ -471,7 +670,7 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
                                     {displayJuice && <span className="text-[16px] md:text-[20px] font-mono text-zinc-500 font-medium tracking-[0.15em] mt-4 md:mt-0">{displayJuice}</span>}
                                 </div>
                                 <div className="max-w-3xl border-l-2 border-white/10 pl-8 py-2 mx-auto md:mx-0">
-                                    <p className="text-[20px] md:text-[24px] text-zinc-300 font-light leading-[1.5] tracking-tight text-pretty"><RenderRichText text={String(processedData.headline || "")} /></p>
+                                    <p className="text-[20px] md:text-[24px] text-zinc-300 font-light leading-[1.5] tracking-tight text-pretty"><RenderRichText text={String(processedData.headline || "")} sources={processedData.sources} /></p>
                                 </div>
                             </motion.div>
                         </div>
@@ -486,7 +685,7 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
                         </div>
 
                         {processedData.cards.map((card, idx) => (
-                            <InsightRow key={`${idx}-${String(card.category)}`} card={card} confidenceTier={confidenceTier} isLast={idx === processedData.cards.length - 1} />
+                            <InsightRow key={`${idx}-${String(card.category)}`} card={card} confidenceTier={confidenceTier} isLast={idx === processedData.cards.length - 1} sources={processedData.sources} />
                         ))}
 
                         {/* Closing Fade */}
@@ -498,8 +697,9 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
                             <EvidenceDeck sources={processedData.sources} />
                         </motion.div>
                     )}
-                </motion.div>
-            </LayoutGroup>
+                    </motion.div>
+                </LayoutGroup>
+            </CitationProvider>
         </MotionConfig>
     );
 };
