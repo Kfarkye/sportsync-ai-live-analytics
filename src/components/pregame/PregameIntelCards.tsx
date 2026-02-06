@@ -161,7 +161,17 @@ const SourceIcon: React.FC<{ url?: string; fallbackLetter: string; className?: s
             </div>
         );
     }
-    return <img src={faviconUrl} alt="" onError={() => setError(true)} className={cn("object-contain bg-white/[0.03]", className)} loading="lazy" />;
+    return (
+        <img
+            src={faviconUrl}
+            alt=""
+            onError={() => setError(true)}
+            className={cn("object-contain bg-white/[0.03]", className)}
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+        />
+    );
 });
 SourceIcon.displayName = "SourceIcon";
 
@@ -234,11 +244,11 @@ const EdgeLabel = ({ startTimeISO }: { startTimeISO: string | null }) => {
 
 // EVIDENCE DECK (Horizontal Scroll)
 const EvidenceDeck: React.FC<{ sources: Array<IntelSource> }> = memo(({ sources }) => {
-    if (!sources || !sources.length) return null;
+    const safeSources = sources ?? [];
     const uniqueSources = useMemo(() => {
         const seen = new Set<string>();
-        return sources.filter(s => { const u = s.url || s.uri; if (!u || seen.has(u)) return false; seen.add(u); return true; });
-    }, [sources]);
+        return safeSources.filter(s => { const u = s.url || s.uri; if (!u || seen.has(u)) return false; seen.add(u); return true; });
+    }, [safeSources]);
     if (uniqueSources.length === 0) return null;
 
     return (

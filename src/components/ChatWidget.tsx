@@ -961,7 +961,17 @@ const SourceIcon: FC<{ url?: string; fallbackLetter: string; className?: string 
       </div>
     );
   }
-  return <img src={faviconUrl} alt="" onError={() => setError(true)} className={cn("object-contain bg-white/[0.03]", className)} loading="lazy" />;
+  return (
+    <img
+      src={faviconUrl}
+      alt=""
+      onError={() => setError(true)}
+      className={cn("object-contain bg-white/[0.03]", className)}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+    />
+  );
 });
 SourceIcon.displayName = "SourceIcon";
 
