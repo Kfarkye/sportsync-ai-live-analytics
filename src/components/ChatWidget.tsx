@@ -1,63 +1,31 @@
 /* ============================================================================
    ChatWidget.tsx
-   "Obsidian Weissach" — Production Release (v29.5)
+   "Obsidian Weissach" — Production Release (v30.1 - The Receipt)
 
    Architecture:
    ├─ Core: useReducer message store, Map-indexed updates, stable refs
    ├─ Network: Retry w/ exponential backoff, connection health, guarded SSE
-   ├─ UI: "Jewel" Citation System, Evidence Deck, LRU hydration cache, 60fps scroll
-   ├─ Design: iOS 26 liquid glass, hardware-edge cards, confidence gradient bars
-   ├─ Retention: Verdict tracking, adaptive chips, scoped keyboard shortcuts
+   ├─ UI: "Jewel" Citation System, Evidence Deck, LRU hydration cache
+   ├─ Design: "Phantom Slab" Receipt, Neon Filament, Smart Odds Highlighting
    ├─ Reliability: Debounced send, abort safety, RAF-batched streaming
    ├─ Ops: Pluggable telemetry layer, structured error reporting
-   ├─ A11y: aria-live regions, focus management, reduced-motion, timestamps
 
-   Changelog v29.5 (Weissach — Citation Hardening):
-   ── Citations ──
-   - GUARD: Code fence protection — ```fenced blocks``` skip hydration entirely
-     Prevents bracket tokens inside code snippets from being stripped as citations
-   - FIX: Paragraph-only citations return suffix directly (no leading space)
-   - BUST: LRU cache key prefix eop2 → eop3
+   Changelog v30.1 (Weissach — Bug Sweep):
+   ── Fixes ──
+   - FIX: ScrollAnchor triggers when messages arrive while scrolled up
+   - FIX: AbortController wired — Stop button truly aborts stream
+   - FIX: Thoughts accumulation uses dedicated accumulator
+   - FIX: Attachments cleared after send
+   - FIX: Section numbering sequential (§0–§13)
 
-   Changelog v29.4 (Weissach — Citation Toggle):
-   ── Citations ──
-   - ADD: Eye/EyeOff toggle in header bar — citations on/off
-     Hides: end-of-paragraph jewel clusters + EvidenceDeck source tray
-     Preserves: raw prose content (no layout shift when toggling)
-     Default: on (emerald). Off state: muted zinc icon.
-   - Gate: hydrateCitations() skipped entirely when off (no wasted compute)
-
-   Changelog v29.3 (Weissach — Contextual Scroll Anchor + Citation Sort Fix):
-   ── Scroll Anchor ──
-   - FIX: LATEST pill no longer floats permanently on any scroll
-     Now appears only at two moments:
-     1. New message arrives while user is scrolled up
-     2. Streaming completes while user is scrolled up
-     Auto-dismisses after 4 seconds. Scroll to bottom clears immediately.
-   - CHANGE: Scroll threshold 100px → 200px (reduces false triggers on mobile)
-   ── Citations ──
-   - FIX: Sort key uses major*1000+minor instead of parseFloat
-     1.10 now correctly sorts after 1.9 (was collapsing to 1.1)
-   - BUST: LRU cache key prefix eop → eop2 (invalidates stale sort order)
-
-   Changelog v29.2 (Weissach — End-of-Paragraph Citations):
-   ── Citation System ──
-   - REDESIGN: Inline → End-of-Paragraph citation placement
-     Citations stripped from mid-sentence, deduplicated, sorted numerically,
-     and clustered at paragraph boundary. Uninterrupted reading flow.
-   - KEPT: CitationJewel rendering (favicon glass pills via Google S2)
-   - KEPT: SourceIcon — S2 favicon (64px) with milled monogram fallback
-   - KEPT: EvidenceDeck — horizontal inertia-scroll tray with gradient fade masks
-   ── Materials ──
-   - UPGRADE: Liquid Glass 2.0 — 24px blur, 180% saturation, specular edge lighting
-   - ADD: SYSTEM.surface tokens centralized (glass, hud, alert, milled)
-   - ADD: SYSTEM.anim.snap — stiffer spring for popovers
-   - ADD: SYSTEM.type.label — 9px bold uppercase token
-   ── Preserved from v28.2–28.3 ──
-   - KEPT: NeuralPulse export, ConnectionBadge, sr-only live region
-   - KEPT: role="log" + aria-relevant="additions" + aria-busy on scroll
-   - KEPT: All 20 aria-label attributes, Toast role="status"
-   - KEPT: Full 9-header section list, RAF batching, LRU cache
+   Changelog v30.0 (The Receipt Redesign):
+   ── EdgeVerdictCard ──
+   - AESTHETIC: Borderless "Phantom Slab" — deep void background, top specular light
+   - FEATURE: Smart Odds Detection — auto-highlights (+1300, -110, u22.5)
+   - LAYOUT: Hero-class typography (30px) with maximal negative space
+   - UI: "Neon Filament" confidence bar — 3px with intense glow
+   - UX: Command strip footer for Hit/Miss validation
+   - ADD: Watermark + Share action for screenshot readiness
 
    CSP Requirement: `img-src data: https://www.google.com;`
 ============================================================================ */
@@ -114,6 +82,8 @@ import {
   XCircle,
   Eye,
   EyeOff,
+  Share2,
+  Trophy,
 } from "lucide-react";
 import type { MatchOdds } from "@/types";
 
@@ -150,6 +120,9 @@ const REGEX_CLEAN_REF = /\s*\[\d+(?:\.\d+)?\]/g;
 const REGEX_CLEAN_CONF = /\s*\(Confidence:\s*\w+\)/gi;
 /** Extracts confidence level from verdict text before cleaning. */
 const REGEX_EXTRACT_CONF = /\(Confidence:\s*(\w+)\)/i;
+// Smart Odds Detection: +1300, -115, -7.5, u212.5, o55.5, etc.
+const REGEX_ODDS_TOKEN = /([+-]\d+(?:\.\d+)?|[uo]\d+(?:\.\d+)?)\b/gi;
+const REGEX_ODDS_EXACT = /^([+-]\d+(?:\.\d+)?|[uo]\d+(?:\.\d+)?)$/i;
 
 const BRAND_MAP: Record<string, string> = {
   "espn.com": "ESPN",
@@ -1069,50 +1042,34 @@ const SourceIcon: FC<{ url?: string; fallbackLetter: string; className?: string 
 SourceIcon.displayName = "SourceIcon";
 
 /**
- * Animated confidence gradient bar — replaces text labels.
- * Renders a horizontal bar with emerald/amber/zinc gradient based on level.
+ * "Neon Filament" Confidence Bar
+ * Ultra-thin (3px) with intense glow.
  */
-const ConfidenceBar: FC<{ level: ConfidenceLevel }> = memo(({ level }) => {
+const NeonFilamentBar: FC<{ level: ConfidenceLevel }> = memo(({ level }) => {
   const percent = confidenceToPercent(level);
-  const gradientMap: Record<ConfidenceLevel, string> = {
-    high: "from-emerald-500 via-emerald-400 to-emerald-300",
-    medium: "from-amber-500 via-amber-400 to-amber-300",
-    low: "from-zinc-500 via-zinc-400 to-zinc-300",
-  };
-  const glowMap: Record<ConfidenceLevel, string> = {
-    high: "shadow-[0_0_20px_rgba(16,185,129,0.35)]",
-    medium: "shadow-[0_0_20px_rgba(245,158,11,0.25)]",
-    low: "shadow-[0_0_12px_rgba(161,161,170,0.15)]",
-  };
-  const labelMap: Record<ConfidenceLevel, string> = {
-    high: "text-emerald-400",
-    medium: "text-amber-400",
-    low: "text-zinc-400",
-  };
-
+  const color = level === "high" ? "bg-emerald-400" : level === "medium" ? "bg-amber-400" : "bg-zinc-400";
+  const glow = level === "high" ? "shadow-[0_0_12px_#34d399]" : level === "medium" ? "shadow-[0_0_12px_#fbbf24]" : "";
   return (
-    <div className="flex items-center gap-3" role="meter" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={`Confidence: ${level}`}>
-      <div className="flex-1 h-[6px] rounded-full bg-white/[0.06] overflow-hidden backdrop-blur-sm">
+    <div className="w-full flex items-center gap-4 mt-2" role="meter" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={`Confidence: ${level}`}>
+      <div className="flex-1 h-[3px] bg-white/[0.08] rounded-full overflow-hidden backdrop-blur-sm">
         <motion.div
-          className={cn("h-full rounded-full bg-gradient-to-r", gradientMap[level], glowMap[level])}
           initial={{ width: 0 }}
           animate={{ width: `${percent}%` }}
-          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+          transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+          className={cn("h-full rounded-full", color, glow)}
         />
       </div>
-      <span className={cn("text-[10px] font-mono font-medium uppercase tracking-widest tabular-nums min-w-[28px] text-right", labelMap[level])}>
+      <span className={cn("text-[11px] font-mono font-bold tracking-widest tabular-nums", level === "high" ? "text-emerald-400" : level === "medium" ? "text-amber-400" : "text-zinc-400")}>
         {percent}%
       </span>
     </div>
   );
 });
-ConfidenceBar.displayName = "ConfidenceBar";
+NeonFilamentBar.displayName = "NeonFilamentBar";
 
 /**
- * EdgeVerdictCard — "The Receipt"
- * iOS 26 liquid glass: full hardware radius, no left-border accent.
- * Confidence visualized as an animated gradient bar, not text.
- * Designed to screenshot as premium marketing material.
+ * "The Phantom Receipt" — EdgeVerdictCard v3
+ * Borderless slab with top specular highlight and smart odds detection.
  */
 const EdgeVerdictCard: FC<{
   content: string;
@@ -1124,124 +1081,147 @@ const EdgeVerdictCard: FC<{
   onTrack?: (id: string, outcome: VerdictOutcome) => void;
 }> = memo(({ content, confidence = "high", isLive = false, meta, messageId, outcome, onTrack }) => {
   const cleanContent = useMemo(() => cleanVerdictContent(content), [content]);
+  const { showToast } = useToast();
+
+  const renderedContent = useMemo(() => {
+    if (!cleanContent) return null;
+    REGEX_ODDS_TOKEN.lastIndex = 0;
+    const parts = cleanContent.split(REGEX_ODDS_TOKEN);
+    return parts.map((part, i) => {
+      if (REGEX_ODDS_EXACT.test(part)) {
+        return (
+          <span
+            key={`odds-${i}`}
+            className="inline-flex items-center justify-center mx-1 px-2 py-0.5 rounded-[6px] bg-white/[0.06] border border-white/[0.1] text-emerald-300 font-mono text-[0.85em] font-bold tracking-tight align-middle shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
+          >
+            {part}
+          </span>
+        );
+      }
+      return <React.Fragment key={`txt-${i}`}>{part}</React.Fragment>;
+    });
+  }, [cleanContent]);
+
+  const handleShare = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(`${cleanContent}\n\nConfidence: ${confidence.toUpperCase()}`);
+      triggerHaptic();
+      showToast("Receipt copied to clipboard");
+    } catch {
+      showToast("Failed to copy receipt");
+    }
+  }, [cleanContent, confidence, showToast]);
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      initial={{ opacity: 0, y: 16, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ ...SYSTEM.anim.fluid, delay: 0.05 }}
+      transition={SYSTEM.anim.fluid}
       className={cn(
-        "my-8 relative overflow-hidden",
-        "rounded-[20px]",
-        "bg-white/[0.03] backdrop-blur-xl",
-        "border border-white/[0.08]",
-        "shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)]",
+        "my-10 relative overflow-hidden group rounded-[32px] select-none",
+        "bg-[#030303]",
+        "shadow-[0_30px_60px_-12px_rgba(0,0,0,1)]",
       )}
     >
-      {/* Ambient inner glow — maps to confidence */}
+      {/* Top Specular Highlight */}
+      <div className="absolute inset-0 rounded-[32px] ring-1 ring-white/[0.08] pointer-events-none z-20" />
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50" />
+
+      {/* Volumetric confidence wash */}
       <div
         className={cn(
-          "absolute inset-0 pointer-events-none opacity-40",
-          confidence === "high" && "bg-[radial-gradient(ellipse_at_top_left,rgba(16,185,129,0.08)_0%,transparent_60%)]",
-          confidence === "medium" && "bg-[radial-gradient(ellipse_at_top_left,rgba(245,158,11,0.06)_0%,transparent_60%)]",
-          confidence === "low" && "bg-[radial-gradient(ellipse_at_top_left,rgba(161,161,170,0.04)_0%,transparent_60%)]",
+          "absolute inset-0 opacity-20 pointer-events-none transition-colors duration-700 z-0",
+          confidence === "high" && "bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.15)_0%,transparent_70%)]",
+          confidence === "medium" && "bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12)_0%,transparent_70%)]",
+          confidence === "low" && "bg-[radial-gradient(circle_at_top,rgba(161,161,170,0.08)_0%,transparent_70%)]",
         )}
       />
 
-      <div className="relative z-10 p-6">
-        {/* Header row */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-5 h-5 rounded-[7px] bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+      <div className="relative z-10 p-8 md:p-10 flex flex-col gap-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-zinc-400">
+              <Trophy size={14} strokeWidth={2.5} />
             </div>
-            <span className="font-mono text-[10px] font-semibold tracking-[0.15em] uppercase text-zinc-400">The Edge</span>
+            <span className="text-[10px] font-bold tracking-[0.2em] text-zinc-500 uppercase font-mono">The Edge</span>
           </div>
-          {isLive && (
-            <div className="flex items-center gap-1.5 bg-emerald-500/8 px-2.5 py-1 rounded-full border border-emerald-500/15">
-              <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[9px] font-bold text-emerald-400 tracking-wider uppercase">Live</span>
-            </div>
-          )}
+          <div className="flex items-center gap-4">
+            {isLive && (
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                </span>
+                <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest">Live</span>
+              </div>
+            )}
+            <button onClick={handleShare} className="text-zinc-600 hover:text-white transition-colors p-1" aria-label="Copy receipt">
+              <Share2 size={14} />
+            </button>
+          </div>
         </div>
 
-        {/* Verdict text — the hero */}
-        <div className="text-[22px] md:text-[26px] font-semibold text-white tracking-[-0.02em] leading-[1.25] break-words mb-6">
-          {cleanContent}
+        <div className="text-[26px] md:text-[32px] font-medium leading-[1.1] tracking-tight text-white/95 text-balance drop-shadow-sm">
+          {renderedContent}
         </div>
 
-        {/* Confidence bar */}
-        <div className="mb-1">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[9px] font-mono font-medium tracking-[0.15em] uppercase text-zinc-500">Confidence</span>
+        <div className="space-y-2">
+          <div className="flex justify-between items-end text-[9px] font-bold tracking-[0.15em] text-zinc-600 uppercase font-mono">
+            <span>Confidence Model</span>
           </div>
-          <ConfidenceBar level={confidence} />
+          <NeonFilamentBar level={confidence} />
         </div>
 
-        {meta && (
-          <div className="mt-5 pt-4 border-t border-white/[0.06]">
-            <span className="text-[10px] font-mono text-zinc-500 tracking-wide">{meta}</span>
-          </div>
-        )}
-
-        {/* Verdict tracking */}
         {onTrack && (
-          <div className="mt-5 pt-4 border-t border-white/[0.06]">
+          <div className="pt-8 mt-2 border-t border-white/[0.04] flex flex-col gap-4">
             {!outcome ? (
-              <div className="flex flex-col items-center gap-3">
-                <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Did this hit?</span>
-                <div className="flex items-center gap-2.5" role="group" aria-label="Track verdict outcome">
-                  <button
-                    onClick={() => { triggerHaptic(); trackAction("verdict.hit", { messageId }); onTrack(messageId, "hit"); }}
-                    className={cn(
-                      "flex items-center gap-2 px-5 py-2.5",
-                      "rounded-full",
-                      "bg-emerald-500/8 border border-emerald-500/15",
-                      "text-emerald-400 hover:bg-emerald-500/15 hover:border-emerald-500/25",
-                      "transition-all duration-200",
-                    )}
-                    aria-label="Mark as hit"
-                  >
-                    <Check size={12} />
-                    <span className="text-[11px] font-semibold uppercase tracking-wider">Hit</span>
-                  </button>
-                  <button
-                    onClick={() => { triggerHaptic(); trackAction("verdict.miss", { messageId }); onTrack(messageId, "miss"); }}
-                    className={cn(
-                      "flex items-center gap-2 px-5 py-2.5",
-                      "rounded-full",
-                      "bg-red-500/8 border border-red-500/15",
-                      "text-red-400 hover:bg-red-500/15 hover:border-red-500/25",
-                      "transition-all duration-200",
-                    )}
-                    aria-label="Mark as miss"
-                  >
-                    <XCircle size={12} />
-                    <span className="text-[11px] font-semibold uppercase tracking-wider">Miss</span>
-                  </button>
-                </div>
+              <div className="flex items-center gap-3 w-full" role="group" aria-label="Track verdict outcome">
+                <button
+                  onClick={() => { triggerHaptic(); trackAction("verdict.hit", { messageId }); onTrack(messageId, "hit"); }}
+                  className="flex-1 h-11 rounded-full bg-white/[0.02] border border-white/[0.06] hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] transition-all flex items-center justify-center gap-2 group"
+                >
+                  <Check size={14} className="text-zinc-500 group-hover:text-emerald-400 transition-colors" />
+                  <span className="text-[10px] font-bold text-zinc-400 group-hover:text-emerald-100 uppercase tracking-widest">Hit</span>
+                </button>
+                <button
+                  onClick={() => { triggerHaptic(); trackAction("verdict.miss", { messageId }); onTrack(messageId, "miss"); }}
+                  className="flex-1 h-11 rounded-full bg-white/[0.02] border border-white/[0.06] hover:bg-red-500/10 hover:border-red-500/30 hover:shadow-[0_0_20px_-5px_rgba(239,68,68,0.3)] transition-all flex items-center justify-center gap-2 group"
+                >
+                  <XCircle size={14} className="text-zinc-500 group-hover:text-red-400 transition-colors" />
+                  <span className="text-[10px] font-bold text-zinc-400 group-hover:text-red-100 uppercase tracking-widest">Miss</span>
+                </button>
               </div>
             ) : (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={cn("w-1.5 h-1.5 rounded-full", outcome === "hit" ? "bg-emerald-500" : "bg-red-500")} />
-                  <span className={cn("text-[11px] font-mono font-medium uppercase tracking-wider", outcome === "hit" ? "text-emerald-400" : "text-red-400")}>
-                    Tracked as {outcome === "hit" ? "Hit" : "Miss"}
+              <div className="w-full flex items-center justify-between h-11 bg-white/[0.02] rounded-full border border-white/[0.04] px-4">
+                <div className="flex items-center gap-2.5">
+                  <div className={cn("w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor]", outcome === "hit" ? "bg-emerald-500 text-emerald-500" : "bg-red-500 text-red-500")} />
+                  <span className={cn("text-[10px] font-bold uppercase tracking-wider", outcome === "hit" ? "text-emerald-400" : "text-red-400")}>
+                    Tracked: {outcome === "hit" ? "Hit" : "Miss"}
                   </span>
                 </div>
                 <button
-                  onClick={() => { triggerHaptic(); onTrack(messageId, null); }}
-                  className="flex items-center gap-1.5 text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors"
+                  onClick={() => onTrack(messageId, null)}
+                  className="text-[10px] font-bold tracking-widest uppercase text-zinc-600 hover:text-zinc-300 transition-colors flex items-center gap-1.5"
                   aria-label="Undo verdict tracking"
                 >
-                  <RotateCcw size={10} />
-                  <span className="font-medium uppercase tracking-wider">Undo</span>
+                  <RotateCcw size={10} /> Undo
                 </button>
               </div>
             )}
           </div>
         )}
+
+        {meta && !onTrack && (
+          <div className="pt-6 border-t border-white/[0.04]">
+            <span className="text-[10px] font-mono text-zinc-600">{meta}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Watermark */}
+      <div className="absolute bottom-4 right-6 text-[8px] font-mono uppercase tracking-[0.3em] text-white/10">
+        OBSIDIAN RECEIPT
       </div>
     </motion.div>
   );
@@ -2024,9 +2004,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [hasUnseenContent, setHasUnseenContent] = useState(false);
   const [showCitations, setShowCitations] = useState(true);
-  const unseenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevMsgCountRef = useRef(0);
-  const wasStreamingRef = useRef(false);
   const [retryCount, setRetryCount] = useState(0);
   const [srAnnouncement, setSrAnnouncement] = useState("");
 
@@ -2072,25 +2050,15 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Show LATEST only at opportune moments:
-  // 1. A new message appears while user is scrolled up
-  // 2. Streaming finishes while user is scrolled up
+  // Show LATEST pill when new messages arrive while user is scrolled up.
   useEffect(() => {
     const msgCount = msgState.ordered.length;
-    const newMessage = msgCount > prevMsgCountRef.current;
-    const streamingJustEnded = wasStreamingRef.current && !isProcessing;
-
+    const prevCount = prevMsgCountRef.current;
     prevMsgCountRef.current = msgCount;
-    wasStreamingRef.current = isProcessing;
-
-    if (shouldAutoScroll || msgCount === 0) return;
-    if (!newMessage && !streamingJustEnded) return;
-
-    setHasUnseenContent(true);
-    if (unseenTimerRef.current) clearTimeout(unseenTimerRef.current);
-    unseenTimerRef.current = setTimeout(() => setHasUnseenContent(false), 4000);
-    return () => { if (unseenTimerRef.current) clearTimeout(unseenTimerRef.current); };
-  }, [msgState.ordered.length, isProcessing, shouldAutoScroll]);
+    if (msgCount > prevCount && !shouldAutoScroll) {
+      setHasUnseenContent(true);
+    }
+  }, [msgState.ordered.length, shouldAutoScroll]);
 
   useLayoutEffect(() => {
     if (!shouldAutoScroll || !scrollRef.current) return;
@@ -2128,11 +2096,10 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     sendingRef.current = true;
     const sendStart = Date.now();
 
-    // Close the abort-null window with a sentinel controller
-    const prevController = abortRef.current;
-    const sentinelController = new AbortController();
-    abortRef.current = sentinelController;
-    try { prevController?.abort(); } catch { /* */ }
+    // Abort any in-flight request, then install a fresh controller
+    try { abortRef.current?.abort(); } catch { /* */ }
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     setIsProcessing(true);
     setInput("");
@@ -2146,17 +2113,19 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     const aiMsgId = generateId();
     const now = new Date().toISOString();
 
+    // Snapshot + clear attachments before async work
+    const currentAttachments = [...attachments];
+    setAttachments([]);
+
     const userMsg: Message = {
       id: userMsgId,
       role: "user",
-      content: attachments.length > 0 ? buildWireContent(text || "Analyze this.", attachments) : text || "Analyze this.",
+      content: currentAttachments.length > 0 ? buildWireContent(text || "Analyze this.", currentAttachments) : text || "Analyze this.",
       timestamp: now,
     };
     const aiMsg: Message = { id: aiMsgId, role: "assistant", content: "", isStreaming: true, timestamp: now };
 
     dispatch({ type: "APPEND_BATCH", messages: [userMsg, aiMsg] });
-    const currentAttachments = [...attachments];
-    setAttachments([]);
     trackAction("message.send", { hasAttachments: currentAttachments.length > 0, hasMatch: !!currentMatch });
 
     // ── RAF batching: coalesces streaming updates to one dispatch per animation frame ──
@@ -2192,11 +2161,8 @@ const InnerChatWidget: FC<ChatWidgetProps & {
         session_id, conversation_id, gameContext: currentMatch, run_id: generateId(),
       };
 
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      let fullText = "";
-      let fullThought = "";
+      let accumulatedText = "";
+      let accumulatedThoughts = "";
       let groundingData: GroundingMetadata | null = null;
 
       await edgeService.chat(
@@ -2206,12 +2172,12 @@ const InnerChatWidget: FC<ChatWidgetProps & {
           if (!mountedRef.current) return;
 
           if (chunk.type === "text") {
-            fullText += chunk.content || "";
-            enqueuePatch({ content: fullText, groundingMetadata: groundingData || undefined });
+            accumulatedText += chunk.content ?? "";
+            enqueuePatch({ content: accumulatedText, groundingMetadata: groundingData || undefined });
           }
           if (chunk.type === "thought") {
-            fullThought += chunk.content || "";
-            enqueuePatch({ thoughts: fullThought });
+            accumulatedThoughts += chunk.content ?? "";
+            enqueuePatch({ thoughts: accumulatedThoughts });
           }
           if (chunk.type === "grounding") {
             groundingData = chunk.metadata || null;
@@ -2252,7 +2218,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
       if (mountedRef.current) {
         setIsProcessing(false);
         setRetryCount(0);
-        abortRef.current = null;
+        if (abortRef.current === controller) abortRef.current = null;
       }
       sendingRef.current = false;
     }
