@@ -14,7 +14,7 @@
 ============================================================================ */
 import { createClient } from "@supabase/supabase-js";
 import { BettingPickSchema } from "../lib/schemas/picks.js";
-import { orchestrate, orchestrateStream } from "../lib/ai-provider.ts";
+import { orchestrate, orchestrateStream, getProviderHealth } from "../lib/ai-provider.js";
 
 // =============================================================================
 // INITIALIZATION
@@ -688,6 +688,14 @@ export default async function handler(req, res) {
     try {
         const { messages, session_id, conversation_id, gameContext, run_id } = req.body;
         const currentRunId = run_id || crypto.randomUUID();
+
+        const health = getProviderHealth();
+        console.info("[AI:Health]", {
+            run_id: currentRunId,
+            enabled: health.enabled,
+            circuits: health.circuits,
+            costCeiling: health.costCeiling
+        });
 
         // Initialize context
         let activeContext = gameContext || {};
