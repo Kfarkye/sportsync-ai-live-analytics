@@ -118,26 +118,22 @@ Deno.serve(async (req: Request) => {
 
           // Collect Match
           const status = mapStatus(event.status.type.name);
-          matchUpserts.set(matchId, {
-            id: matchId,
-            league_id: league,
-            leagueId: league,
-            home_team_id: hId,
-            away_team_id: aId,
-            home_team: home.team.displayName,
-            away_team: away.team.displayName,
-            homeTeam: home.team,
-            awayTeam: away.team,
-            start_time: event.date,
-            startTime: event.date,
-            status: status,
-            period: event.status.period,
-            display_clock: event.status.displayClock,
-            home_score: parseInt(home.score || '0'),
-            away_score: parseInt(away.score || '0'),
-            last_updated: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
+      matchUpserts.set(matchId, {
+        id: matchId,
+        league_id: league,
+        home_team_id: hId,
+        away_team_id: aId,
+        home_team: home.team.displayName,
+        away_team: away.team.displayName,
+        start_time: event.date,
+        status: status,
+        period: event.status.period,
+        display_clock: event.status.displayClock,
+        home_score: parseInt(home.score || '0'),
+        away_score: parseInt(away.score || '0'),
+        last_updated: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
         });
         logs.push({ league, count: events.length });
       } catch (e: any) {
