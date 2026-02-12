@@ -15,6 +15,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { BettingPickSchema } from "../lib/schemas/picks.js";
 import { orchestrate, orchestrateStream, getProviderHealth } from "../lib/ai-provider.js";
+import { googleClient } from "../lib/ai-provider.js";
+import { FUNCTION_DECLARATIONS, TOOL_CONFIG, TOOL_ENABLED_TASK_TYPES } from "../lib/tool-registry.js";
+import { ToolResultCache } from "../lib/tool-result-cache.js";
+import { createToolCallingStream } from "../lib/tool-calling-stream.js";
 
 // =============================================================================
 // INITIALIZATION
@@ -38,7 +42,10 @@ const CONFIG = {
         "tonight", "injury", "status", "current", "slate", "updates"
     ],
     STALE_THRESHOLD_MS: 15 * 60 * 1000,  // 15 minutes
-    INJURY_CACHE_TTL_MS: 5 * 60 * 1000   // 5 minutes
+    INJURY_CACHE_TTL_MS: 5 * 60 * 1000,   // 5 minutes
+    // Tool-calling is ON by default — the pipeline is fully built and tested.
+    // Set ENABLE_TOOL_CALLING=false in env to revert to legacy evidence-packet path.
+    ENABLE_TOOL_CALLING: process.env.ENABLE_TOOL_CALLING !== "false"
 };
 
 // =============================================================================
@@ -786,9 +793,11 @@ You are "The Obsidian Ledger," a forensic sports analyst.
 - Place citations IMMEDIATELY after the fact they support.
 - Do NOT use footnotes.
 
-**RULE 3 (ZERO HALLUCINATION):**
-- You have NO internal knowledge of today's specific lines, scores, or results.
-- **MANDATORY:** Use 'googleSearch' to verify current event claims.
+**RULE 3 (ZERO HALLUCINATION — TOOL-FIRST):**
+- You MUST use your available tools to fetch today's games, lines, scores, and results.
+- **MANDATORY:** Call get_schedule() to discover today's slate. Call get_live_odds(match_id) for current and opening lines. Call get_team_injuries() and get_team_tempo() before any matchup analysis.
+- NEVER guess or fabricate game data. If a tool returns an error, acknowledge the data gap honestly.
+- Use 'googleSearch' grounding to verify current event claims when tools are insufficient.
 </prime_directive>
 
 ${MODE === "ANALYSIS" ? `
@@ -833,19 +842,84 @@ Role: Field Reporter. Direct, factual, concise.
 `}
 `;
 
-        // --- ORCHESTRATED STREAM (Multi-Provider) ---
+        // --- ORCHESTRATED STREAM (Tool-Calling or Legacy) ---
         const recentMessages = messages.slice(-8);
         const abortController = new AbortController();
         req.on("close", () => abortController.abort());
+        const requestStartTime = Date.now();
 
-        const stream = await orchestrateStream(taskType, recentMessages, {
-            gameContext: activeContext,
-            systemPrompt: systemInstruction,
-            signal: abortController.signal,
-            onFallback: (from, to, reason) => {
-                console.warn(`[${currentRunId}] Fallback: ${from.provider}/${from.model} → ${to.provider}/${to.model}: ${reason}`);
-            }
-        });
+        // Feature flag + task type gate: only enable tool-calling for eligible task types.
+        const useToolCalling = CONFIG.ENABLE_TOOL_CALLING
+            && TOOL_ENABLED_TASK_TYPES.includes(taskType);
+
+        // Request-scoped tool result cache
+        const toolCache = new ToolResultCache();
+
+        let stream;
+
+        if (useToolCalling) {
+            console.log(`[${currentRunId}] Tool-calling enabled for taskType=${taskType}`);
+
+            const toolGuidance = `\n<tool_guidance>\nYou have access to data tools. When you need current schedule, injury, tempo, or odds data:\n1. Call get_schedule to find today's games and get match IDs.\n2. Call get_team_injuries for injury/rest/fatigue data before any matchup analysis.\n3. Call get_team_tempo for pace, efficiency, ATS/O-U trends.\n4. Call get_live_odds with a match_id to get current and opening odds.\nDo NOT guess data. If a tool returns an error, acknowledge the data gap.\nYou may call multiple tools per turn. Always call tools before generating analysis.\n</tool_guidance>`;
+
+            const systemWithTools = systemInstruction + toolGuidance;
+
+            const initialContents = recentMessages
+                .filter(m => m.role !== "system")
+                .map(m => ({
+                    role: m.role === "assistant" ? "model" : "user",
+                    parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }]
+                }));
+
+            const providerConfig = { provider: "google", model: CONFIG.MODEL_ID, supportsGrounding: true };
+
+            const toolContext = {
+                supabase,
+                matchId: activeContext?.match_id || null,
+                signal: abortController.signal,
+                requestId: currentRunId,
+            };
+
+            const thinkingLevel = taskType === "analysis" ? "HIGH" : "MEDIUM";
+
+            const chatStreamFn = async (contents) => {
+                return googleClient.chatStreamRaw(contents, {
+                    model: CONFIG.MODEL_ID,
+                    messages: [],
+                    temperature: 0.7,
+                    maxTokens: 8192,
+                    signal: abortController.signal,
+                    enableGrounding: taskType === "grounding",
+                    tools: {
+                        functionDeclarations: FUNCTION_DECLARATIONS,
+                        enableGrounding: taskType === "grounding",
+                    },
+                    toolConfig: TOOL_CONFIG,
+                    thinkingLevel,
+                    systemInstruction: systemWithTools,
+                });
+            };
+
+            stream = createToolCallingStream(
+                chatStreamFn,
+                [...initialContents],
+                providerConfig,
+                toolCache,
+                toolContext,
+                requestStartTime,
+                currentRunId,
+            );
+        } else {
+            // Legacy path: orchestrateStream (no tool-calling)
+            stream = await orchestrateStream(taskType, recentMessages, {
+                gameContext: activeContext,
+                systemPrompt: systemInstruction,
+                signal: abortController.signal,
+                onFallback: (from, to, reason) => {
+                    console.warn(`[${currentRunId}] Fallback: ${from.provider}/${from.model} → ${to.provider}/${to.model}: ${reason}`);
+                }
+            });
+        }
 
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
