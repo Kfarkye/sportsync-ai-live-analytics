@@ -866,9 +866,38 @@ Role: Field Reporter. Direct, factual, concise.
             console.log(`[${currentRunId}] Tool-calling enabled for taskType=${taskType}`);
 
             try {
-                const toolGuidance = `\n<tool_guidance>\nYou have access to data tools. When you need current schedule, injury, tempo, or odds data:\n1. Call get_schedule to find today's games and get match IDs.\n2. Call get_team_injuries for injury/rest/fatigue data before any matchup analysis.\n3. Call get_team_tempo for pace, efficiency, ATS/O-U trends.\n4. Call get_live_odds with a match_id to get current and opening odds.\nDo NOT guess data. If a tool returns an error, acknowledge the data gap.\nYou may call multiple tools per turn. Always call tools before generating analysis.\n</tool_guidance>`;
+                // Detect if we have real game context or just empty stubs.
+                // If empty, the model must call tools to get data — don't let it
+                // see TBD/undefined context and think data was provided.
+                const hasRealContext = Boolean(
+                    activeContext?.home_team
+                    && activeContext.home_team !== "TBD"
+                    && activeContext?.away_team
+                    && activeContext.away_team !== "TBD"
+                );
 
-                const systemWithTools = systemInstruction + toolGuidance;
+                let toolSystemPrompt;
+                if (hasRealContext) {
+                    // Game context pre-loaded — model has data, tools supplement it
+                    const toolGuidance = `\n<tool_guidance>\nYou have access to data tools. When you need current schedule, injury, tempo, or odds data:\n1. Call get_schedule to find today's games and get match IDs.\n2. Call get_team_injuries for injury/rest/fatigue data before any matchup analysis.\n3. Call get_team_tempo for pace, efficiency, ATS/O-U trends.\n4. Call get_live_odds with a match_id to get current and opening odds.\nDo NOT guess data. If a tool returns an error, acknowledge the data gap.\nYou may call multiple tools per turn. Always call tools before generating analysis.\n</tool_guidance>`;
+                    toolSystemPrompt = systemInstruction + toolGuidance;
+                } else {
+                    // NO game context — strip empty <context> block, tell model it MUST call tools.
+                    // Remove the misleading TBD/empty context so model knows it has nothing.
+                    const strippedPrompt = systemInstruction.replace(
+                        /<context>[\s\S]*?<\/context>/,
+                        `<context>\nNO GAME CONTEXT LOADED. You MUST call tools to get data.\nStart by calling get_schedule() to discover today's games.\n</context>`
+                    );
+                    const toolGuidance = `\n<tool_guidance>\n** CRITICAL: No game data is pre-loaded. You MUST call tools before responding. **\n1. FIRST: Call get_schedule() to discover today's games and get match IDs.\n2. Then call get_live_odds(match_id) for specific games the user asks about.\n3. Call get_team_injuries(team) and get_team_tempo(teams) before any matchup analysis.\nDo NOT generate any analysis or slate summary without calling tools first.\nDo NOT guess or fabricate game data under any circumstances.\n</tool_guidance>`;
+                    toolSystemPrompt = strippedPrompt + toolGuidance;
+                    console.log(`[${currentRunId}] No game context — forcing tool-first mode`);
+                }
+
+                // When no context exists, use ANY mode to force at least one tool call.
+                // With context, use AUTO — model may choose to supplement with tools.
+                const effectiveToolConfig = hasRealContext
+                    ? TOOL_CONFIG
+                    : { functionCallingConfig: { mode: "ANY" } };
 
                 const initialContents = recentMessages
                     .filter(m => m.role !== "system")
@@ -888,7 +917,14 @@ Role: Field Reporter. Direct, factual, concise.
 
                 const thinkingLevel = taskType === "analysis" ? "HIGH" : "MEDIUM";
 
+                // Track round for toolConfig progression: ANY on round 1, AUTO after.
+                let toolRound = 0;
                 const chatStreamFn = async (contents) => {
+                    toolRound++;
+                    // First round uses effectiveToolConfig (ANY if no context).
+                    // Subsequent rounds always use AUTO — model has tool results now.
+                    const roundToolConfig = toolRound === 1 ? effectiveToolConfig : TOOL_CONFIG;
+
                     return googleClient.chatStreamRaw(contents, {
                         model: CONFIG.MODEL_ID,
                         messages: [],
@@ -900,9 +936,9 @@ Role: Field Reporter. Direct, factual, concise.
                             functionDeclarations: FUNCTION_DECLARATIONS,
                             enableGrounding: taskType === "grounding",
                         },
-                        toolConfig: TOOL_CONFIG,
+                        toolConfig: roundToolConfig,
                         thinkingLevel,
-                        systemInstruction: systemWithTools,
+                        systemInstruction: toolSystemPrompt,
                     });
                 };
 
