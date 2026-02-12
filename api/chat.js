@@ -14,8 +14,7 @@
 ============================================================================ */
 import { createClient } from "@supabase/supabase-js";
 import { BettingPickSchema } from "../lib/schemas/picks.js";
-import { orchestrate, orchestrateStream, getProviderHealth } from "../lib/ai-provider.js";
-import { googleClient } from "../lib/ai-provider.js";
+import { orchestrate, orchestrateStream, getProviderHealth, googleClient } from "../lib/ai-provider.js";
 import { FUNCTION_DECLARATIONS, TOOL_CONFIG, TOOL_ENABLED_TASK_TYPES } from "../lib/tool-registry.js";
 import { ToolResultCache } from "../lib/tool-result-cache.js";
 import { createToolCallingStream } from "../lib/tool-calling-stream.js";
@@ -855,60 +854,80 @@ Role: Field Reporter. Direct, factual, concise.
         // Request-scoped tool result cache
         const toolCache = new ToolResultCache();
 
+        // Task-appropriate settings (match orchestrateStream defaults)
+        const TASK_TEMPS = { grounding: 0.3, analysis: 0.5, chat: 0.7, vision: 0.2, code: 0.3, recruiting: 0.5 };
+        const TASK_TOKENS = { grounding: 4000, analysis: 8000, chat: 2000, vision: 2000, code: 8000, recruiting: 4000 };
+        const temperature = TASK_TEMPS[taskType] ?? 0.5;
+        const maxTokens = TASK_TOKENS[taskType] ?? 4000;
+
         let stream;
 
         if (useToolCalling) {
             console.log(`[${currentRunId}] Tool-calling enabled for taskType=${taskType}`);
 
-            const toolGuidance = `\n<tool_guidance>\nYou have access to data tools. When you need current schedule, injury, tempo, or odds data:\n1. Call get_schedule to find today's games and get match IDs.\n2. Call get_team_injuries for injury/rest/fatigue data before any matchup analysis.\n3. Call get_team_tempo for pace, efficiency, ATS/O-U trends.\n4. Call get_live_odds with a match_id to get current and opening odds.\nDo NOT guess data. If a tool returns an error, acknowledge the data gap.\nYou may call multiple tools per turn. Always call tools before generating analysis.\n</tool_guidance>`;
+            try {
+                const toolGuidance = `\n<tool_guidance>\nYou have access to data tools. When you need current schedule, injury, tempo, or odds data:\n1. Call get_schedule to find today's games and get match IDs.\n2. Call get_team_injuries for injury/rest/fatigue data before any matchup analysis.\n3. Call get_team_tempo for pace, efficiency, ATS/O-U trends.\n4. Call get_live_odds with a match_id to get current and opening odds.\nDo NOT guess data. If a tool returns an error, acknowledge the data gap.\nYou may call multiple tools per turn. Always call tools before generating analysis.\n</tool_guidance>`;
 
-            const systemWithTools = systemInstruction + toolGuidance;
+                const systemWithTools = systemInstruction + toolGuidance;
 
-            const initialContents = recentMessages
-                .filter(m => m.role !== "system")
-                .map(m => ({
-                    role: m.role === "assistant" ? "model" : "user",
-                    parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }]
-                }));
+                const initialContents = recentMessages
+                    .filter(m => m.role !== "system")
+                    .map(m => ({
+                        role: m.role === "assistant" ? "model" : "user",
+                        parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }]
+                    }));
 
-            const providerConfig = { provider: "google", model: CONFIG.MODEL_ID, supportsGrounding: true };
+                const providerConfig = { provider: "google", model: CONFIG.MODEL_ID, supportsGrounding: true };
 
-            const toolContext = {
-                supabase,
-                matchId: activeContext?.match_id || null,
-                signal: abortController.signal,
-                requestId: currentRunId,
-            };
-
-            const thinkingLevel = taskType === "analysis" ? "HIGH" : "MEDIUM";
-
-            const chatStreamFn = async (contents) => {
-                return googleClient.chatStreamRaw(contents, {
-                    model: CONFIG.MODEL_ID,
-                    messages: [],
-                    temperature: 0.7,
-                    maxTokens: 8192,
+                const toolContext = {
+                    supabase,
+                    matchId: activeContext?.match_id || null,
                     signal: abortController.signal,
-                    enableGrounding: taskType === "grounding",
-                    tools: {
-                        functionDeclarations: FUNCTION_DECLARATIONS,
-                        enableGrounding: taskType === "grounding",
-                    },
-                    toolConfig: TOOL_CONFIG,
-                    thinkingLevel,
-                    systemInstruction: systemWithTools,
-                });
-            };
+                    requestId: currentRunId,
+                };
 
-            stream = createToolCallingStream(
-                chatStreamFn,
-                [...initialContents],
-                providerConfig,
-                toolCache,
-                toolContext,
-                requestStartTime,
-                currentRunId,
-            );
+                const thinkingLevel = taskType === "analysis" ? "HIGH" : "MEDIUM";
+
+                const chatStreamFn = async (contents) => {
+                    return googleClient.chatStreamRaw(contents, {
+                        model: CONFIG.MODEL_ID,
+                        messages: [],
+                        temperature,
+                        maxTokens,
+                        signal: abortController.signal,
+                        enableGrounding: taskType === "grounding",
+                        tools: {
+                            functionDeclarations: FUNCTION_DECLARATIONS,
+                            enableGrounding: taskType === "grounding",
+                        },
+                        toolConfig: TOOL_CONFIG,
+                        thinkingLevel,
+                        systemInstruction: systemWithTools,
+                    });
+                };
+
+                stream = createToolCallingStream(
+                    chatStreamFn,
+                    [...initialContents],
+                    providerConfig,
+                    toolCache,
+                    toolContext,
+                    requestStartTime,
+                    currentRunId,
+                );
+            } catch (toolErr) {
+                // Graceful fallback: if tool-calling setup fails (e.g. Google auth/rate limit),
+                // degrade to legacy multi-provider orchestrateStream.
+                console.warn(`[${currentRunId}] Tool-calling failed, falling back to legacy: ${toolErr.message}`);
+                stream = await orchestrateStream(taskType, recentMessages, {
+                    gameContext: activeContext,
+                    systemPrompt: systemInstruction,
+                    signal: abortController.signal,
+                    onFallback: (from, to, reason) => {
+                        console.warn(`[${currentRunId}] Fallback: ${from.provider}/${from.model} → ${to.provider}/${to.model}: ${reason}`);
+                    }
+                });
+            }
         } else {
             // Legacy path: orchestrateStream (no tool-calling)
             stream = await orchestrateStream(taskType, recentMessages, {
@@ -955,6 +974,10 @@ Role: Field Reporter. Direct, factual, concise.
                     const content = chunk.content || "";
                     fullText += content;
                     res.write(`data: ${JSON.stringify({ type: "text", content })}\n\n`);
+                    continue;
+                }
+                if (chunk.type === "tool_status") {
+                    res.write(`data: ${JSON.stringify({ type: "tool_status", tools: chunk.tools, status: chunk.status })}\n\n`);
                     continue;
                 }
                 if (chunk.type === "error") {
