@@ -97,6 +97,7 @@ interface LineMovement {
 
 const CONFIG = {
     MODEL_ID: "gemini-3-flash-preview",
+    HANDLER_TIMEOUT_MS: 90_000,
     ANALYSIS_TRIGGERS: [
         "edge", "best bet", "should i bet", "picks", "prediction", "analyze",
         "analysis", "spread", "over", "under", "moneyline", "verdict", "play",
@@ -171,27 +172,33 @@ class SSEWriter {
         res.setHeader("X-Accel-Buffering", "no");
     }
 
+    private get writable(): boolean {
+        return (
+            !this.res.writableEnded &&
+            !this.res.writableFinished &&
+            !(this.res as unknown as { closed?: boolean }).closed &&
+            !this.res.destroyed
+        );
+    }
+
     writeEvent(type: string, data: Record<string, unknown>): void {
-        if (!this.res.writableEnded && !(this.res as unknown as { closed: boolean }).closed && !this.res.destroyed) {
-            this.res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
-            this.flush();
-        }
+        if (!this.writable) return;
+        this.res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
+        this.flush();
     }
 
     writeDone(modelId?: string): void {
-        if (!this.res.writableEnded && !(this.res as unknown as { closed: boolean }).closed && !this.res.destroyed) {
-            if (modelId) this.res.write(`data: ${JSON.stringify({ done: true, model: modelId })}\n\n`);
-            this.res.write("data: [DONE]\n\n");
-            this.flush();
-        }
+        if (!this.writable) return;
+        if (modelId) this.res.write(`data: ${JSON.stringify({ done: true, model: modelId })}\n\n`);
+        this.res.write("data: [DONE]\n\n");
+        this.flush();
     }
 
     writeError(message: string): void {
-        if (!this.res.writableEnded && !(this.res as unknown as { closed: boolean }).closed && !this.res.destroyed) {
-            this.res.write(`data: ${JSON.stringify({ type: "error", content: message })}\n\n`);
-            this.res.write("data: [DONE]\n\n");
-            this.flush();
-        }
+        if (!this.writable) return;
+        this.res.write(`data: ${JSON.stringify({ type: "error", content: message })}\n\n`);
+        this.res.write("data: [DONE]\n\n");
+        this.flush();
     }
 
     private flush() {
@@ -440,9 +447,9 @@ function extractAllTeamHints(query: string): string[] {
     return query
         .toLowerCase()
         .split(/[^a-z0-9]+/)
-        .filter((t) => t.length >= 4)
+        .filter((t) => t.length >= 3)
         .sort((a, b) => b.length - a.length)
-        .slice(0, 3);
+        .slice(0, 4);
 }
 
 async function scanForLiveGame(userQuery: string, signal?: AbortSignal) {
@@ -681,6 +688,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const sse = new SSEWriter(res);
     const abortController = new AbortController();
+    const handlerTimeout = setTimeout(() => {
+        log.warn("[Chat] Handler timeout reached", {
+            run_id: currentRunId,
+            timeoutMs: CONFIG.HANDLER_TIMEOUT_MS,
+        });
+        abortController.abort();
+    }, CONFIG.HANDLER_TIMEOUT_MS);
 
     const onSocketClose = () => abortController.abort();
     req.on("close", onSocketClose);
@@ -1012,6 +1026,7 @@ Role: Field Reporter. Direct, factual, concise.
             sse.writeError(e.message || "An unexpected error occurred.");
         }
     } finally {
+        clearTimeout(handlerTimeout);
         req.removeListener("close", onSocketClose);
         if (!(res as unknown as { writableEnded: boolean }).writableEnded) res.end();
     }
