@@ -33,11 +33,11 @@ import { createToolCallingStream } from "../lib/tool-calling-stream.js";
 const ChatRequestSchema = z.object({
     messages: z.array(z.object({
         role: z.enum(["system", "user", "assistant"]),
-        content: z.union([z.string(), z.array(z.record(z.unknown()))])
+        content: z.union([z.string(), z.array(z.record(z.string(), z.unknown()))])
     })).min(1),
     session_id: z.string().optional(),
     conversation_id: z.string().optional(),
-    gameContext: z.record(z.unknown()).optional().nullable(),
+    gameContext: z.record(z.string(), z.unknown()).optional().nullable(),
     run_id: z.string().optional()
 });
 
