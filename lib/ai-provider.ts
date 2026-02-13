@@ -665,7 +665,13 @@ export const googleClient = {
     if (req.toolConfig) body.toolConfig = req.toolConfig;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${req.model}:streamGenerateContent?alt=sse`;
-    const res = await fetchWithRetry(url, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey }, body: JSON.stringify(body), signal: req.signal }, 30000, 3, "google");
+    const res = await fetchWithRetry(
+      url,
+      { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey }, body: JSON.stringify(body), signal: req.signal },
+      30000,
+      req.retries ?? 1,
+      "google"
+    );
     if (!res.ok) throw new ProviderError("google", `${res.status}: ${await readErrorBody(res)}`, classifyHttpError(res.status));
     if (!res.body) throw new ProviderError("google", "Empty body", "server");
     return res.body;

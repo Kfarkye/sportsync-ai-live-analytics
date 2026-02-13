@@ -244,6 +244,60 @@ function detectTaskType(query: string, hasImage: boolean): TaskType {
     return "chat";
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === "object" && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : {};
+}
+
+function pickString(...values: unknown[]): string | undefined {
+    for (const value of values) {
+        if (typeof value === "string" && value.trim()) return value;
+    }
+    return undefined;
+}
+
+function pickNumber(...values: unknown[]): number | undefined {
+    for (const value of values) {
+        if (typeof value === "number" && Number.isFinite(value)) return value;
+    }
+    return undefined;
+}
+
+function normalizeIncomingGameContext(input: unknown): GameContext {
+    const raw = asRecord(input);
+    const homeTeam = asRecord(raw.homeTeam);
+    const awayTeam = asRecord(raw.awayTeam);
+
+    const startRaw = raw.start_time ?? raw.startTime ?? raw.game_start_time;
+    const startTime =
+        typeof startRaw === "string"
+            ? startRaw
+            : startRaw instanceof Date
+                ? startRaw.toISOString()
+                : undefined;
+
+    return {
+        ...raw,
+        match_id: pickString(raw.match_id, raw.id),
+        home_team: pickString(raw.home_team, homeTeam.name),
+        away_team: pickString(raw.away_team, awayTeam.name),
+        league: pickString(raw.league, raw.leagueId, raw.league_id),
+        sport: pickString(raw.sport),
+        start_time: startTime,
+        status: pickString(raw.status, raw.game_status),
+        game_status: pickString(raw.game_status, raw.status),
+        period: pickNumber(raw.period),
+        clock: pickString(raw.clock, raw.displayClock, raw.display_clock),
+        display_clock: pickString(raw.display_clock, raw.displayClock, raw.clock),
+        home_score: pickNumber(raw.home_score, raw.homeScore),
+        away_score: pickNumber(raw.away_score, raw.awayScore),
+        current_odds: asRecord(raw.current_odds).spread !== undefined || asRecord(raw.current_odds).total !== undefined
+            ? asRecord(raw.current_odds)
+            : (asRecord(raw.odds).spread !== undefined || asRecord(raw.odds).total !== undefined ? asRecord(raw.odds) : undefined),
+    };
+}
+
 function getMarketPhase(match: GameContext | null): string {
     if (!match) return "UNKNOWN";
     const status = (match.status as string || match.game_status as string || "").toUpperCase();
@@ -563,7 +617,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const health = getProviderHealth();
         log.info("[AI:Health]", { run_id: currentRunId, enabled: health.enabled, circuits: health.circuits, costCeiling: health.costCeiling });
 
-        let activeContext: GameContext = (gameContext as GameContext) || {};
+        let activeContext: GameContext = normalizeIncomingGameContext(gameContext);
         const lastMsg = messages[messages.length - 1];
         const userQuery = typeof lastMsg?.content === "string" ? lastMsg.content : "";
         const hasImage = Array.isArray(lastMsg?.content) && lastMsg.content.some((c: Record<string, unknown>) => c.type === "image");
@@ -667,6 +721,7 @@ Role: Field Reporter. Direct, factual, concise.
         // 4. Configure & Initialize Stream
         const recentMessages = messages.slice(-8);
         const isGoogleAvailable = !circuitBreaker.isOpen("google");
+        let hadRealContext = Boolean(activeContext?.home_team && activeContext.home_team !== "TBD");
         const useToolCalling = CONFIG.ENABLE_TOOL_CALLING
             && TOOL_ENABLED_TASK_TYPES.includes(taskType as typeof TOOL_ENABLED_TASK_TYPES[number])
             && isGoogleAvailable;
@@ -674,10 +729,9 @@ Role: Field Reporter. Direct, factual, concise.
 
         if (useToolCalling) {
             try {
-                const hasRealContext = Boolean(activeContext?.home_team && activeContext.home_team !== "TBD");
                 let toolSystemPrompt: string;
 
-                if (hasRealContext) {
+                if (hadRealContext) {
                     toolSystemPrompt = systemInstruction + `\n<tool_guidance>\nYou have access to data tools. Call get_schedule, get_live_odds, get_team_injuries as needed. Do NOT guess data.\n</tool_guidance>`;
                 } else {
                     toolSystemPrompt = systemInstruction.replace(/<context>[\s\S]*?<\/context>/, `<context>\nNO GAME CONTEXT LOADED. You MUST call tools to get data.\n</context>`)
@@ -705,9 +759,10 @@ Role: Field Reporter. Direct, factual, concise.
                             temperature: taskType === "analysis" ? 0.5 : 0.7,
                             maxTokens: taskType === "analysis" ? 8000 : 2000,
                             signal: abortController.signal,
+                            retries: 1,
                             enableGrounding: taskType === "grounding",
                             tools: { functionDeclarations: FUNCTION_DECLARATIONS, enableGrounding: taskType === "grounding" },
-                            toolConfig: toolRound === 1 && !hasRealContext ? { functionCallingConfig: { mode: "ANY" } } : TOOL_CONFIG,
+                            toolConfig: toolRound === 1 && !hadRealContext ? { functionCallingConfig: { mode: "ANY" } } : TOOL_CONFIG,
                             thinkingLevel: taskType === "analysis" ? "HIGH" : "MEDIUM",
                             systemInstruction: toolSystemPrompt,
                         });
@@ -769,11 +824,17 @@ Role: Field Reporter. Direct, factual, concise.
         if (streamErrorOnly && useToolCalling && !fullText) {
             log.warn("Tool stream error-only, executing multi-provider orchestrateStream fallback", { run_id: currentRunId });
             streamErrorOnly = false;
+            const fallbackTaskType = (!hadRealContext && taskType === "analysis") ? "grounding" : taskType;
             const fallbackSystemPrompt = `${systemInstruction}
 <tool_guidance>
 [SYSTEM ALERT: Internal data tools are unavailable for this request. Use native web search/grounding only and do not fabricate internal tool outputs.]
+[REQUIRED: If matchup context is missing, first identify today's relevant game from web search, then continue with concrete teams/odds.]
 </tool_guidance>`;
-            const fallbackStream = await orchestrateStream(taskType, recentMessages as Array<{ role: "system" | "user" | "assistant"; content: string | Array<Record<string, unknown>> }>, { gameContext: activeContext, systemPrompt: fallbackSystemPrompt, signal: abortController.signal }) as unknown as ReadableStream<Record<string, unknown>>;
+            const fallbackStream = await orchestrateStream(
+                fallbackTaskType as TaskType,
+                recentMessages as Array<{ role: "system" | "user" | "assistant"; content: string | Array<Record<string, unknown>> }>,
+                { gameContext: activeContext, systemPrompt: fallbackSystemPrompt, signal: abortController.signal }
+            ) as unknown as ReadableStream<Record<string, unknown>>;
             await consumeStream(fallbackStream);
         }
 

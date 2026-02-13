@@ -285,9 +285,17 @@ interface GameContext {
   home_team?: string;
   away_team?: string;
   league?: string;
+  sport?: string;
   start_time?: string;
   status?: string;
+  period?: number;
+  clock?: string;
+  home_score?: number;
+  away_score?: number;
   current_odds?: MatchOdds;
+  opening_odds?: MatchOdds;
+  closing_odds?: MatchOdds;
+  [key: string]: unknown;
 }
 
 interface ChatWidgetProps { currentMatch?: GameContext; inline?: boolean }
@@ -378,6 +386,62 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function toStringOrUndefined(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function toNumberOrUndefined(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeGameContext(
+  currentMatch?: GameContext | null,
+  storedMatch?: Record<string, unknown> | null,
+): GameContext | null {
+  const raw = (currentMatch || {}) as Record<string, unknown>;
+  const store = (storedMatch || {}) as Record<string, unknown>;
+
+  const homeTeam = (raw.homeTeam as Record<string, unknown> | undefined)?.name;
+  const awayTeam = (raw.awayTeam as Record<string, unknown> | undefined)?.name;
+
+  const startRaw = raw.start_time ?? raw.startTime ?? store.start_time;
+  const startIso =
+    typeof startRaw === "string"
+      ? startRaw
+      : startRaw instanceof Date
+        ? startRaw.toISOString()
+        : undefined;
+
+  const normalized: GameContext = {
+    ...store,
+    match_id: toStringOrUndefined(store.match_id) || toStringOrUndefined(raw.match_id) || toStringOrUndefined(raw.id),
+    home_team: toStringOrUndefined(store.home_team) || toStringOrUndefined(raw.home_team) || toStringOrUndefined(homeTeam),
+    away_team: toStringOrUndefined(store.away_team) || toStringOrUndefined(raw.away_team) || toStringOrUndefined(awayTeam),
+    league: toStringOrUndefined(store.league) || toStringOrUndefined(raw.league) || toStringOrUndefined(raw.leagueId),
+    sport: toStringOrUndefined(store.sport) || toStringOrUndefined(raw.sport),
+    start_time: startIso,
+    status: toStringOrUndefined(raw.status) || toStringOrUndefined(raw.game_status) || toStringOrUndefined(store.status),
+    period: toNumberOrUndefined(raw.period),
+    clock: toStringOrUndefined(raw.displayClock) || toStringOrUndefined(raw.display_clock) || toStringOrUndefined(raw.clock) || toStringOrUndefined(store.clock),
+    home_score: toNumberOrUndefined(raw.homeScore) ?? toNumberOrUndefined(raw.home_score),
+    away_score: toNumberOrUndefined(raw.awayScore) ?? toNumberOrUndefined(raw.away_score),
+    current_odds: (raw.current_odds as MatchOdds | undefined) || (raw.odds as MatchOdds | undefined) || (store.current_odds as MatchOdds | undefined),
+    opening_odds: (raw.opening_odds as MatchOdds | undefined) || (store.opening_odds as MatchOdds | undefined),
+    closing_odds: (raw.closing_odds as MatchOdds | undefined) || (store.closing_odds as MatchOdds | undefined),
+  };
+
+  const hasSignal = Boolean(
+    normalized.match_id ||
+      normalized.home_team ||
+      normalized.away_team ||
+      normalized.current_odds ||
+      normalized.home_score !== undefined ||
+      normalized.away_score !== undefined,
+  );
+
+  return hasSignal ? normalized : null;
 }
 
 /** DJB2 hash of chunk URIs for collision-safe cache keys. */
@@ -2016,7 +2080,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   const sendingRef = useRef(false);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  const { session_id, conversation_id } = useChatContext({ match: currentMatch });
+  const { session_id, conversation_id, current_match } = useChatContext({ match: currentMatch as any });
   const connectionStatus = useConnectionHealth();
   const canSend = useSendGuard();
 
@@ -2158,7 +2222,10 @@ const InnerChatWidget: FC<ChatWidgetProps & {
       }
 
       const context: ChatContextPayload = {
-        session_id, conversation_id, gameContext: currentMatch, run_id: generateId(),
+        session_id,
+        conversation_id,
+        gameContext: normalizeGameContext(currentMatch, (current_match as Record<string, unknown> | null) || null),
+        run_id: generateId(),
       };
 
       let accumulatedText = "";
