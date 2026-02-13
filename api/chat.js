@@ -984,48 +984,79 @@ Role: Field Reporter. Direct, factual, concise.
         let rawThoughts = "";
         let finalMetadata = null;
         let servedModel = null;
+        let streamErrorOnly = false;
 
-        const reader = stream.getReader();
-        try {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                const chunk = value;
-                if (!chunk) continue;
+        // Helper: read chunks from a ReadableStream and write SSE events
+        async function consumeStream(readableStream) {
+            const reader = readableStream.getReader();
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = value;
+                    if (!chunk) continue;
 
-                if (!servedModel && chunk.model) servedModel = chunk.model;
+                    if (!servedModel && chunk.model) servedModel = chunk.model;
 
-                if (chunk.type === "grounding" && chunk.metadata) {
-                    finalMetadata = chunk.metadata;
-                    res.write(`data: ${JSON.stringify({ type: "grounding", metadata: finalMetadata })}\n\n`);
-                    continue;
+                    if (chunk.type === "grounding" && chunk.metadata) {
+                        finalMetadata = chunk.metadata;
+                        res.write(`data: ${JSON.stringify({ type: "grounding", metadata: finalMetadata })}\n\n`);
+                        continue;
+                    }
+                    if (chunk.type === "thought") {
+                        const content = chunk.content || "";
+                        rawThoughts += content;
+                        res.write(`data: ${JSON.stringify({ type: "thought", content })}\n\n`);
+                        continue;
+                    }
+                    if (chunk.type === "text") {
+                        const content = chunk.content || "";
+                        fullText += content;
+                        res.write(`data: ${JSON.stringify({ type: "text", content })}\n\n`);
+                        continue;
+                    }
+                    if (chunk.type === "tool_status") {
+                        res.write(`data: ${JSON.stringify({ type: "tool_status", tools: chunk.tools, status: chunk.status })}\n\n`);
+                        continue;
+                    }
+                    if (chunk.type === "error") {
+                        // If we have no content yet, mark as error-only for fallback
+                        if (!fullText && !rawThoughts) {
+                            streamErrorOnly = true;
+                        }
+                        // Don't write the error to client yet — we may fall back
+                        continue;
+                    }
+                    if (chunk.type === "done") {
+                        break;
+                    }
                 }
-                if (chunk.type === "thought") {
-                    const content = chunk.content || "";
-                    rawThoughts += content;
-                    res.write(`data: ${JSON.stringify({ type: "thought", content })}\n\n`);
-                    continue;
-                }
-                if (chunk.type === "text") {
-                    const content = chunk.content || "";
-                    fullText += content;
-                    res.write(`data: ${JSON.stringify({ type: "text", content })}\n\n`);
-                    continue;
-                }
-                if (chunk.type === "tool_status") {
-                    res.write(`data: ${JSON.stringify({ type: "tool_status", tools: chunk.tools, status: chunk.status })}\n\n`);
-                    continue;
-                }
-                if (chunk.type === "error") {
-                    res.write(`data: ${JSON.stringify({ type: "error", content: chunk.content || "Stream error" })}\n\n`);
-                    continue;
-                }
-                if (chunk.type === "done") {
-                    break;
-                }
+            } finally {
+                try { reader.releaseLock(); } catch { /* */ }
             }
-        } finally {
-            try { reader.releaseLock(); } catch { /* */ }
+        }
+
+        await consumeStream(stream);
+
+        // Fallback: if tool-calling stream produced only errors (e.g. Google 429),
+        // try the multi-provider legacy path (Anthropic/OpenAI).
+        if (streamErrorOnly && useToolCalling && !fullText) {
+            console.warn(`[${currentRunId}] Tool-calling stream error-only, falling back to orchestrateStream`);
+            streamErrorOnly = false;
+            const fallbackStream = await orchestrateStream(taskType, recentMessages, {
+                gameContext: activeContext,
+                systemPrompt: systemInstruction,
+                signal: abortController.signal,
+                onFallback: (from, to, reason) => {
+                    console.warn(`[${currentRunId}] Fallback: ${from.provider}/${from.model} → ${to.provider}/${to.model}: ${reason}`);
+                }
+            });
+            await consumeStream(fallbackStream);
+        }
+
+        // If still no content after fallback, write error to client
+        if (!fullText && !rawThoughts) {
+            res.write(`data: ${JSON.stringify({ type: "error", content: "All providers unavailable. Please retry shortly." })}\n\n`);
         }
 
         const modelId = servedModel || CONFIG.MODEL_ID;
