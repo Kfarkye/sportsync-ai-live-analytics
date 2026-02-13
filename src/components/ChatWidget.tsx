@@ -73,7 +73,6 @@ import {
   MicOff,
   StopCircle,
   Image as ImageIcon,
-  Activity,
   ShieldCheck,
   ExternalLink,
   RotateCcw,
@@ -83,7 +82,6 @@ import {
   Eye,
   EyeOff,
   Share2,
-  Trophy,
 } from "lucide-react";
 import type { MatchOdds } from "@/types";
 
@@ -199,7 +197,7 @@ const SYSTEM = {
   },
   type: {
     mono: "font-mono text-[10px] tracking-[0.1em] uppercase text-zinc-500 tabular-nums",
-    body: "text-[15px] leading-[1.65] tracking-[-0.01em] text-[#A1A1AA]",
+    body: "text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300",
     h1: "text-[13px] font-medium tracking-[-0.02em] text-white",
     label: "text-[9px] font-bold tracking-[0.05em] uppercase text-zinc-500",
   },
@@ -1201,15 +1199,16 @@ const EdgeVerdictCard: FC<{
           confidence === "low" && "bg-[radial-gradient(circle_at_top,rgba(161,161,170,0.08)_0%,transparent_70%)]",
         )}
       />
+      <motion.div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none z-0 bg-[radial-gradient(120%_60%_at_50%_0%,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_60%)]"
+        animate={{ opacity: [0.08, 0.16, 0.08] }}
+        transition={{ duration: 8, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+      />
 
       <div className="relative z-10 p-8 md:p-10 flex flex-col gap-8">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-zinc-400">
-              <Trophy size={14} strokeWidth={2.5} />
-            </div>
-            <span className="text-[10px] font-bold tracking-[0.2em] text-zinc-500 uppercase font-mono">The Edge</span>
-          </div>
+          <span className="text-[10px] font-semibold tracking-[0.18em] text-zinc-500 uppercase font-mono">The Edge</span>
           <div className="flex items-center gap-4">
             {isLive && (
               <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
@@ -1226,7 +1225,7 @@ const EdgeVerdictCard: FC<{
           </div>
         </div>
 
-        <div className="text-[26px] md:text-[32px] font-medium leading-[1.1] tracking-tight text-white/95 text-balance drop-shadow-sm">
+        <div className="text-[28px] md:text-[34px] font-medium leading-[1.08] tracking-[-0.02em] text-white/95 text-balance drop-shadow-sm">
           {renderedContent}
         </div>
 
@@ -1693,7 +1692,7 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
           }
 
           return (
-            <div className={cn(SYSTEM.type.body, isUser ? "text-[#1a1a1a]" : "text-[#A1A1AA]", "mb-5 last:mb-0")}>
+            <div className={cn(SYSTEM.type.body, isUser ? "text-[#1a1a1a]" : "text-zinc-300", "mb-6 last:mb-0")}>
               {children}
             </div>
           );
@@ -1709,11 +1708,8 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
 
           if (headers.some((h) => text.includes(h))) {
             return (
-              <div className="mt-8 mb-3 flex items-center gap-2.5">
-                <div className="w-4 h-4 rounded-[5px] bg-emerald-500/8 border border-emerald-500/12 flex items-center justify-center">
-                  <Activity size={9} className="text-emerald-500" />
-                </div>
-                <span className="text-[10px] font-mono font-medium text-zinc-400 uppercase tracking-[0.12em]">{children}</span>
+              <div className="mt-10 mb-4 border-t border-white/[0.08] pt-3">
+                <span className="text-[10px] font-mono font-semibold text-zinc-400 uppercase tracking-[0.14em]">{children}</span>
               </div>
             );
           }
@@ -1738,11 +1734,11 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
           );
         },
 
-        ul: ({ children }) => <ul className="space-y-2 mb-4 ml-1">{children}</ul>,
+        ul: ({ children }) => <ul className="space-y-2.5 mb-5 ml-0.5">{children}</ul>,
         li: ({ children }) => (
-          <li className="flex gap-3 items-start pl-1">
-            <span className="mt-2 w-1 h-1 bg-zinc-700 rounded-full shrink-0" />
-            <span className={cn(SYSTEM.type.body, isUser ? "text-[#1a1a1a]" : "text-[#A1A1AA]")}>{children}</span>
+          <li className="grid grid-cols-[10px_1fr] gap-2.5 items-start pl-1">
+            <span className="mt-[0.6rem] w-[5px] h-[5px] bg-zinc-600 rounded-full shrink-0" />
+            <span className={cn(SYSTEM.type.body, isUser ? "text-[#1a1a1a]" : "text-zinc-300")}>{children}</span>
           </li>
         ),
       }),
