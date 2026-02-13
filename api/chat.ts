@@ -530,6 +530,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const parsedReq = ChatRequestSchema.safeParse(req.body);
     if (!parsedReq.success) {
+        const rawBody = req.body as unknown;
+        const bodyKeys =
+            rawBody && typeof rawBody === "object" && !Array.isArray(rawBody)
+                ? Object.keys(rawBody as Record<string, unknown>).slice(0, 20)
+                : [];
+        const issuePreview = parsedReq.error.issues.slice(0, 5).map((issue) => ({
+            path: issue.path.join("."),
+            code: issue.code,
+            message: issue.message,
+        }));
+        log.warn("[Chat] Invalid payload format", {
+            contentType: req.headers["content-type"] || "",
+            bodyType: rawBody === null ? "null" : Array.isArray(rawBody) ? "array" : typeof rawBody,
+            bodyKeys,
+            issueCount: parsedReq.error.issues.length,
+            issuePreview,
+        });
         return res.status(400).json({ error: "Invalid payload format", details: parsedReq.error.format() });
     }
 
