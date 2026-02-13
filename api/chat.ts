@@ -298,6 +298,78 @@ function normalizeIncomingGameContext(input: unknown): GameContext {
     };
 }
 
+const LIVE_ODDS_KEYS = [
+    "spread",
+    "homeSpread",
+    "awaySpread",
+    "total",
+    "overUnder",
+    "homeML",
+    "awayML",
+    "moneylineHome",
+    "moneylineAway",
+    "homeSpreadOdds",
+    "awaySpreadOdds",
+    "overOdds",
+    "underOdds",
+] as const;
+
+function buildLiveOddsSnapshot(currentOdds: Record<string, unknown> | undefined): Record<string, string | number> {
+    if (!currentOdds) return {};
+    const snapshot: Record<string, string | number> = {};
+    for (const key of LIVE_ODDS_KEYS) {
+        const value = currentOdds[key];
+        if (typeof value === "string" && value.trim()) snapshot[key] = value.trim();
+        if (typeof value === "number" && Number.isFinite(value)) snapshot[key] = value;
+    }
+    return snapshot;
+}
+
+function buildLiveLineTokens(snapshot: Record<string, string | number>): string[] {
+    const tokens = new Set<string>();
+    for (const value of Object.values(snapshot)) {
+        if (typeof value === "number") {
+            const base = String(value);
+            tokens.add(base.toLowerCase());
+            if (value > 0) tokens.add(`+${base}`.toLowerCase());
+            continue;
+        }
+        const raw = value.toLowerCase().replace(/\s+/g, "");
+        tokens.add(raw);
+        const numeric = raw.replace(/^[ou]\s*/i, "");
+        if (numeric !== raw) {
+            tokens.add(numeric);
+            if (numeric.startsWith("+")) tokens.add(numeric.slice(1));
+        }
+        if (raw.startsWith("+")) tokens.add(raw.slice(1));
+    }
+    return [...tokens];
+}
+
+function responseContainsLockedLine(text: string, lineTokens: string[]): boolean {
+    if (!text || lineTokens.length === 0) return false;
+    const normalized = text.toLowerCase().replace(/\s+/g, "");
+    return lineTokens.some((token) => token && normalized.includes(token));
+}
+
+function buildLineGuardMessage(
+    activeContext: GameContext,
+    liveOddsSnapshot: Record<string, string | number>,
+    reason: "NO_LIVE_ODDS" | "LINE_MISMATCH",
+): string {
+    const matchup = `${activeContext.away_team || "AWAY"} @ ${activeContext.home_team || "HOME"}`;
+    const clock = activeContext.clock || activeContext.display_clock || "LIVE";
+    const board = Object.keys(liveOddsSnapshot).length > 0
+        ? safeJsonStringify(liveOddsSnapshot, 600)
+        : "UNAVAILABLE";
+
+    if (reason === "NO_LIVE_ODDS") {
+        return `VERDICT: LINE_UNAVAILABLE\n\nLive analysis blocked for ${matchup} (${clock}) because current odds were not present in trusted context. Refresh odds feed and retry.`;
+    }
+
+    return `VERDICT: LINE_UNAVAILABLE\n\nLive line guard blocked output for ${matchup} (${clock}) because generated pricing did not match locked live board.\n\nLOCKED_LIVE_BOARD: ${board}`;
+}
+
 function getMarketPhase(match: GameContext | null): string {
     if (!match) return "UNKNOWN";
     const status = (match.status as string || match.game_status as string || "").toUpperCase();
@@ -642,6 +714,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         const isLive = ((activeContext?.status as string) || (activeContext?.game_status as string) || "").toUpperCase().includes("IN_PROGRESS") || liveScan.ok;
         const marketPhase = getMarketPhase(activeContext);
+        const liveOddsSnapshot = buildLiveOddsSnapshot(activeContext.current_odds);
+        const liveLineTokens = buildLiveLineTokens(liveOddsSnapshot);
+        const hasLockedLiveOdds = Object.keys(liveOddsSnapshot).length > 0;
+        const enforceLiveLineGuard = MODE === "ANALYSIS" && isLive;
+
+        if (enforceLiveLineGuard && !hasLockedLiveOdds) {
+            log.warn("[LineGuard] Missing locked live odds", {
+                run_id: currentRunId,
+                match_id: activeContext.match_id || null,
+                home_team: activeContext.home_team || null,
+                away_team: activeContext.away_team || null,
+            });
+            sse.writeEvent("text", {
+                content: buildLineGuardMessage(activeContext, liveOddsSnapshot, "NO_LIVE_ODDS"),
+            });
+            sse.writeDone(CONFIG.MODEL_ID);
+            return;
+        }
 
         const lineMovement = calculateLineMovement(activeContext.current_odds, activeContext.t60_snapshot);
         const lineMovementIntel = lineMovement.available && lineMovement.movements
@@ -670,6 +760,16 @@ INJURIES_AWAY: ${safeJsonStringify(awayInjuries.injuries, 400)}
 ${activeContext.t60_snapshot ? `T-60_ODDS: ${safeJsonStringify(activeContext.t60_snapshot.odds, 300)}` : ""}
 ${staleWarning}
 </context>
+
+${enforceLiveLineGuard && hasLockedLiveOdds ? `
+<line_lock>
+LOCKED_LIVE_BOARD: ${safeJsonStringify(liveOddsSnapshot, 600)}
+ALLOWED_LINE_TOKENS: ${liveLineTokens.join(", ")}
+HARD RULE:
+- In VERDICT and MARKET DYNAMICS, ONLY use line/price values present in LOCKED_LIVE_BOARD.
+- If you cannot map your recommendation to those exact values, output VERDICT: LINE_UNAVAILABLE.
+</line_lock>
+` : ""}
 
 <prime_directive>
 You are "The Obsidian Ledger," a forensic sports analyst.
@@ -804,10 +904,10 @@ Role: Field Reporter. Direct, factual, concise.
                         sse.writeEvent("grounding", { metadata: finalMetadata });
                     } else if (value.type === "thought") {
                         rawThoughts += (value.content as string) || "";
-                        sse.writeEvent("thought", { content: value.content });
+                        if (!enforceLiveLineGuard) sse.writeEvent("thought", { content: value.content });
                     } else if (value.type === "text") {
                         fullText += (value.content as string) || "";
-                        sse.writeEvent("text", { content: value.content });
+                        if (!enforceLiveLineGuard) sse.writeEvent("text", { content: value.content });
                     } else if (value.type === "tool_status") {
                         sse.writeEvent("tool_status", { tools: value.tools, status: value.status });
                     } else if (value.type === "error") {
@@ -836,6 +936,21 @@ Role: Field Reporter. Direct, factual, concise.
                 { gameContext: activeContext, systemPrompt: fallbackSystemPrompt, signal: abortController.signal }
             ) as unknown as ReadableStream<Record<string, unknown>>;
             await consumeStream(fallbackStream);
+        }
+
+        if (enforceLiveLineGuard && fullText) {
+            const lineMatched = responseContainsLockedLine(fullText, liveLineTokens);
+            if (!lineMatched) {
+                log.warn("[LineGuard] Generated line mismatch", {
+                    run_id: currentRunId,
+                    match_id: activeContext.match_id || null,
+                    lockedLines: liveOddsSnapshot,
+                });
+                fullText = buildLineGuardMessage(activeContext, liveOddsSnapshot, "LINE_MISMATCH");
+                rawThoughts = "";
+                finalMetadata = null;
+            }
+            sse.writeEvent("text", { content: fullText });
         }
 
         if (!fullText && !rawThoughts) {
