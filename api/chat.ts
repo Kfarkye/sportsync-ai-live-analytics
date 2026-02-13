@@ -20,11 +20,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import crypto from "crypto";
 
-import { BettingPickSchema } from "../lib/schemas/picks";
-import { orchestrate, orchestrateStream, getProviderHealth, googleClient, circuitBreaker } from "../lib/ai-provider";
-import { FUNCTION_DECLARATIONS, TOOL_CONFIG, TOOL_ENABLED_TASK_TYPES } from "../lib/tool-registry";
-import { ToolResultCache } from "../lib/tool-result-cache";
-import { createToolCallingStream } from "../lib/tool-calling-stream";
+import { BettingPickSchema } from "../lib/schemas/picks.js";
+import { orchestrate, orchestrateStream, getProviderHealth, googleClient, circuitBreaker } from "../lib/ai-provider.js";
+import { FUNCTION_DECLARATIONS, TOOL_CONFIG, TOOL_ENABLED_TASK_TYPES } from "../lib/tool-registry.js";
+import { ToolResultCache } from "../lib/tool-result-cache.js";
+import { createToolCallingStream } from "../lib/tool-calling-stream.js";
 
 // =============================================================================
 // 1. TYPES & SCHEMAS
