@@ -575,6 +575,10 @@ function splitSystemPrompt(messages: Message[]) {
   return { systemPrompt: extractSystemText(messages), messages: messages.filter((m) => m.role !== "system") };
 }
 
+function modelSupportsThinkingLevel(model: string): boolean {
+  return /^gemini-3(?:-|$)/i.test(model);
+}
+
 function toGeminiFormat(messages: Message[]) {
   return messages.filter((m) => m.role !== "system").map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
@@ -654,9 +658,17 @@ export const googleClient = {
   },
   async chatStreamRaw(contents: Array<Record<string, unknown>>, req: ChatRequest) {
     const apiKey = requireKey("google");
+    const generationConfig: Record<string, unknown> = {
+      temperature: req.temperature,
+      maxOutputTokens: req.maxTokens,
+    };
+    // Guard against parameter bleed: Gemini 2.5 doesn't support thinkingLevel.
+    if (req.thinkingLevel && modelSupportsThinkingLevel(req.model)) {
+      generationConfig.thinkingConfig = { thinkingLevel: req.thinkingLevel };
+    }
     const body: Record<string, unknown> = {
       contents,
-      generationConfig: { temperature: req.temperature, maxOutputTokens: req.maxTokens, ...(req.thinkingLevel ? { thinkingConfig: { thinkingLevel: req.thinkingLevel } } : {}) }
+      generationConfig,
     };
     if (req.systemInstruction) body.systemInstruction = { parts: [{ text: req.systemInstruction }] };
 

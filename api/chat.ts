@@ -98,6 +98,10 @@ interface LineMovement {
 const TOOL_CALLING_COMPAT_MODEL_ID = process.env.GEMINI_TOOL_MODEL_COMPAT_ID || "gemini-2.5-flash";
 const TOOL_CALLING_ENABLE_GOOGLE_SEARCH = process.env.TOOL_CALLING_ENABLE_GOOGLE_SEARCH === "true";
 
+function isGemini3Model(model: string): boolean {
+    return /^gemini-3(?:-|$)/i.test(model);
+}
+
 const CONFIG = {
     MODEL_ID: "gemini-3-flash-preview",
     TOOL_CALLING_MODEL_ID: process.env.GEMINI_TOOL_MODEL_ID || TOOL_CALLING_COMPAT_MODEL_ID,
@@ -983,7 +987,11 @@ Role: Field Reporter. Direct, factual, concise.
                                 enableGrounding: TOOL_CALLING_ENABLE_GOOGLE_SEARCH && taskType === "grounding",
                             },
                             toolConfig: toolRound === 1 && !hadRealContext ? { functionCallingConfig: { mode: "ANY" } } : TOOL_CONFIG,
-                            thinkingLevel: taskType === "analysis" ? "HIGH" : "MEDIUM",
+                            // Gemini 2.5 rejects thinkingLevel (expects thinkingBudget).
+                            // Gate by model family to prevent parameter bleed on fallback models.
+                            thinkingLevel: isGemini3Model(model)
+                                ? (taskType === "analysis" ? "HIGH" : "MEDIUM")
+                                : undefined,
                             systemInstruction: toolSystemPrompt,
                         });
 
