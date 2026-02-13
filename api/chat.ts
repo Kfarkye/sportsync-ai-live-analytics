@@ -95,9 +95,11 @@ interface LineMovement {
 // 2. CONFIGURATION & INFRASTRUCTURE
 // =============================================================================
 
+const TOOL_CALLING_COMPAT_MODEL_ID = process.env.GEMINI_TOOL_MODEL_COMPAT_ID || "gemini-2.5-flash";
+
 const CONFIG = {
     MODEL_ID: "gemini-3-flash-preview",
-    TOOL_CALLING_MODEL_ID: process.env.GEMINI_TOOL_MODEL_ID || "gemini-3-flash-preview",
+    TOOL_CALLING_MODEL_ID: process.env.GEMINI_TOOL_MODEL_ID || TOOL_CALLING_COMPAT_MODEL_ID,
     HANDLER_TIMEOUT_MS: 90_000,
     ANALYSIS_TRIGGERS: [
         "edge", "best bet", "should i bet", "picks", "prediction", "analyze",
@@ -945,19 +947,27 @@ Role: Field Reporter. Direct, factual, concise.
                         throw new Error("Google tool-calling circuit is open");
                     }
                     toolRound++;
-                    const callStartMs = Date.now();
-                    log.info("model_selected", {
-                        trace: currentRunId,
-                        ms: callStartMs - requestStartMs,
-                        event: "model_selected",
-                        model: CONFIG.TOOL_CALLING_MODEL_ID,
-                        intent: taskType,
-                        isFallback: false,
-                        reason: "primary",
-                    });
-                    try {
+
+                    const executeWithModel = async (
+                        model: string,
+                        isFallback: boolean,
+                        reason: string,
+                        primaryModel?: string,
+                    ) => {
+                        const callStartMs = Date.now();
+                        log.info("model_selected", {
+                            trace: currentRunId,
+                            ms: callStartMs - requestStartMs,
+                            event: "model_selected",
+                            model,
+                            intent: taskType,
+                            isFallback,
+                            primaryModel,
+                            reason,
+                        });
+
                         const res = await googleClient.chatStreamRaw(contents, {
-                            model: CONFIG.TOOL_CALLING_MODEL_ID,
+                            model,
                             messages: [],
                             temperature: taskType === "analysis" ? 0.5 : 0.7,
                             maxTokens: taskType === "analysis" ? 8000 : 2000,
@@ -969,24 +979,65 @@ Role: Field Reporter. Direct, factual, concise.
                             thinkingLevel: taskType === "analysis" ? "HIGH" : "MEDIUM",
                             systemInstruction: toolSystemPrompt,
                         });
+
                         log.info("model_response_received", {
                             trace: currentRunId,
                             ms: Date.now() - requestStartMs,
                             event: "model_response_received",
-                            model: CONFIG.TOOL_CALLING_MODEL_ID,
+                            model,
                             intent: taskType,
                             inputTokens: null,
                             outputTokens: null,
                             latencyMs: Date.now() - callStartMs,
                         });
-                        circuitBreaker.recordSuccess("google");
+
                         return res;
-                    } catch (e: unknown) {
-                        const errorType = typeof e === "object" && e !== null && "errorType" in e
-                            ? String((e as { errorType?: unknown }).errorType)
+                    };
+
+                    const isFunctionCallingUnsupported = (error: unknown): boolean => {
+                        const message = error instanceof Error ? error.message : String(error);
+                        return /tool use with function calling is unsupported by the model/i.test(message)
+                            || /function calling is unsupported by the model/i.test(message);
+                    };
+
+                    try {
+                        const primaryRes = await executeWithModel(CONFIG.TOOL_CALLING_MODEL_ID, false, "primary");
+                        circuitBreaker.recordSuccess("google");
+                        return primaryRes;
+                    } catch (primaryError: unknown) {
+                        if (
+                            CONFIG.TOOL_CALLING_MODEL_ID !== TOOL_CALLING_COMPAT_MODEL_ID
+                            && isFunctionCallingUnsupported(primaryError)
+                        ) {
+                            log.warn("tool_model_incompatible_fallback", {
+                                trace: currentRunId,
+                                primaryModel: CONFIG.TOOL_CALLING_MODEL_ID,
+                                fallbackModel: TOOL_CALLING_COMPAT_MODEL_ID,
+                            });
+
+                            try {
+                                const fallbackRes = await executeWithModel(
+                                    TOOL_CALLING_COMPAT_MODEL_ID,
+                                    true,
+                                    "primary_model_tool_unsupported",
+                                    CONFIG.TOOL_CALLING_MODEL_ID,
+                                );
+                                circuitBreaker.recordSuccess("google");
+                                return fallbackRes;
+                            } catch (fallbackError: unknown) {
+                                const fallbackErrorType = typeof fallbackError === "object" && fallbackError !== null && "errorType" in fallbackError
+                                    ? String((fallbackError as { errorType?: unknown }).errorType)
+                                    : undefined;
+                                circuitBreaker.recordFailure("google", fallbackErrorType);
+                                throw fallbackError;
+                            }
+                        }
+
+                        const primaryErrorType = typeof primaryError === "object" && primaryError !== null && "errorType" in primaryError
+                            ? String((primaryError as { errorType?: unknown }).errorType)
                             : undefined;
-                        circuitBreaker.recordFailure("google", errorType);
-                        throw e;
+                        circuitBreaker.recordFailure("google", primaryErrorType);
+                        throw primaryError;
                     }
                 };
 
