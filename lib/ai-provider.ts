@@ -1,1281 +1,162 @@
-/* ============================================================================
-   ai-provider.ts
-   "Iron Curtain" — Multi-Provider AI Orchestration Layer (v1.0)
+/**
+ * @fileoverview Elite AI Orchestration Layer
+ * Features: Multi-provider fallback, Circuit Breaking, Cost Tracking, 
+ * Robust SSE Parsing, Full Jitter Backoff, and Strict TypeScript Safety.
+ */
 
-   Architecture:
-   ├─ §0  Config & Types — Canonical shapes, provider registry, chain definitions
-   ├─ §1  Provider Clients — Unified interface over Gemini, OpenAI, Anthropic
-   ├─ §2  Response Normalization — Map every provider to one canonical shape
-   ├─ §3  Prompt Shaping — Provider-specific system prompt adaptation
-   ├─ §4  Fallback Engine — Sequential cascade with abort, timeout, classification
-   ├─ §5  Observability — Cost tracking, latency, circuit breakers
-   ├─ §6  Exports — Public API surface
+// ============================================================================
+// 1. TYPES & INTERFACES
+// ============================================================================
 
-   Design Principles:
-   - Zero UI coupling. This module returns data, never React elements.
-   - Provider-agnostic at the boundary. Consumers see NormalizedResponse only.
-   - Fail-open with degradation, not fail-closed with errors.
-   - Every provider call is metered, timed, and logged.
-   - Streaming and non-streaming through the same interface.
+export type Provider = "google" | "openai" | "anthropic";
+export type TaskType = "grounding" | "analysis" | "chat" | "vision" | "code" | "recruiting";
+export type Role = "system" | "user" | "assistant";
 
-   Usage:
-     import { orchestrate, orchestrateStream } from "@/lib/ai-provider";
-
-     // Non-streaming (recruiting app, background jobs)
-     const result = await orchestrate("analysis", messages, { gameContext });
-
-     // Streaming (The Drip chat, real-time UI)
-     const stream = await orchestrateStream("grounding", messages, {
-       gameContext,
-       signal: abortController.signal,
-       onFallback: (from, to, reason) => console.warn(`${from} → ${to}: ${reason}`),
-     });
-
-   Requirements:
-     Environment variables: GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
-     At least ONE provider key must be set. Module degrades gracefully per-provider.
-
-   CSP: Requires fetch access to:
-     - generativelanguage.googleapis.com
-     - api.openai.com
-     - api.anthropic.com
-============================================================================ */
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// §0  CONFIG & TYPES
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ── Provider Registry ────────────────────────────────────────────────────
-
-export type ProviderName = "google" | "openai" | "anthropic";
-
-export type TaskType =
-  | "grounding"    // Live data: scores, odds, stats (Gemini primary — has search grounding)
-  | "analysis"     // Edge detection, reasoning (Gemini primary — policy: Gemini-first)
-  | "chat"         // General conversation, low-latency (Flash/mini primary)
-  | "vision"       // Image classification, screenshots (Claude primary — best vision)
-  | "code"         // Code generation, refactoring (Claude primary)
-  | "recruiting";  // Candidate sourcing, market analysis (GPT-5 primary — broad knowledge)
-
-export interface ProviderConfig {
-  provider: ProviderName;
-  model: string;
-  /** Max time before this provider is considered failed (ms). */
-  timeoutMs: number;
-  /** Cost per 1K input tokens (USD). */
-  costPer1kInput: number;
-  /** Cost per 1K output tokens (USD). */
-  costPer1kOutput: number;
-  /** Whether this provider supports native search grounding. */
-  supportsGrounding: boolean;
-  /** Whether this provider supports streaming. */
-  supportsStreaming: boolean;
-}
-
-export interface WireMessage {
-  role: "system" | "user" | "assistant";
-  content: string | MessagePart[];
+export interface MessageSource {
+  media_type: string;
+  data: string;
 }
 
 export interface MessagePart {
-  type: "text" | "image" | "file";
+  type: "text" | "image";
   text?: string;
-  source?: { type: "base64"; media_type: string; data: string };
+  source?: MessageSource;
 }
 
-// ── Gemini REST Conversation Format (Section 5.4) ────────────────────────
-// Used for function call/response multi-turn conversations.
-// Only "user" and "model" roles — NO "function" role in REST API.
-
-/**
- * Gemini REST API conversation content format.
- * 
- * For tool-calling, functionResponse parts MUST be in a role: "user" turn.
- * thoughtSignature is at the PART level (sibling of functionCall), NOT inside it.
- * 
- * Implements: Spec Lockdown 2, 3, 4.
- */
-export interface GeminiContent {
-  role: "user" | "model";
-  parts: Array<
-    | { text: string }
-    | { functionCall: { name: string; args: Record<string, unknown> }; thoughtSignature?: string }
-    | { functionResponse: { name: string; response: Record<string, unknown> } }
-    | Record<string, unknown>  // Other part types (inlineData, etc.)
-  >;
+export interface Message {
+  role: Role;
+  content: string | MessagePart[];
 }
 
-/**
- * Captured function call from a Gemini response.
- * 
- * rawPart stores the ENTIRE part object including thoughtSignature at the part level.
- * When replaying in conversation history, use rawPart directly to preserve
- * all metadata (especially thoughtSignature which is a SIBLING of functionCall).
- * 
- * Implements: Spec Section 3, Gap 1 + Lockdown 3, 4.
- */
-export interface CapturedFunctionCall {
-  /** Function name (e.g., "get_schedule"). */
-  name: string;
-  /** Parsed function arguments. */
-  args: Record<string, unknown>;
-  /** 
-   * Entire raw part object from the model response. 
-   * Preserves { functionCall: {...}, thoughtSignature: "..." } intact.
-   * CRITICAL: thoughtSignature is a SIBLING of functionCall at the part level,
-   * NOT inside functionCall. Store the raw part, replay the raw part.
-   */
-  rawPart: any;
-}
-
-// ── Canonical Response Shape ─────────────────────────────────────────────
-// Every provider response is normalized to this before reaching consumers.
-
-export interface NormalizedResponse {
-  /** The text content of the response. */
-  content: string;
-  /** Grounding metadata (Gemini-native, synthesized for others). */
-  groundingMetadata: GroundingMetadata | null;
-  /** Thinking/reasoning content (Anthropic-native, null for others). */
-  thoughts: string | null;
-  /** Which provider actually served this request. */
-  servedBy: ProviderName;
-  /** Which model specifically. */
+export interface ProviderConfig {
+  provider: Provider;
   model: string;
-  /** Whether this was a fallback (not the primary provider). */
-  isFallback: boolean;
-  /** Position in the chain (0 = primary). */
-  chainPosition: number;
-  /** Latency of the successful call (ms). */
-  latencyMs: number;
-  /** Estimated cost of this call (USD). */
-  estimatedCostUsd: number;
+  timeoutMs: number;
+  costPer1kInput: number;
+  costPer1kOutput: number;
+  supportsGrounding: boolean;
+  supportsStreaming: boolean;
+  maxRetries: number;
 }
 
-/**
- * Normalized stream chunk emitted from any provider stream.
- * 
- * Extended with function_call and tool_status types for tool-calling support.
- * Implements: Spec Section 3, Gap 1.
- */
-export interface NormalizedStreamChunk {
-  type: "text" | "thought" | "grounding" | "done" | "error" | "function_call" | "tool_status";
-  content?: string;
-  metadata?: GroundingMetadata;
-  servedBy?: ProviderName;
-  model?: string;
-  isFallback?: boolean;
-  /** Present when type === "function_call". Contains captured function calls with raw parts. */
-  functionCalls?: CapturedFunctionCall[];
-  /** Present when type === "tool_status". Aggregated tool names being called. */
-  tools?: string[];
-  /** Present when type === "tool_status". Phase of tool execution. */
-  status?: "calling" | "complete";
+export interface OrchestrationOptions {
+  systemPrompt?: string;
+  gameContext?: Record<string, unknown>;
+  temperature?: number;
+  maxTokens?: number;
+  signal?: AbortSignal;
+  forceProvider?: Provider;
+  onFallback?: (failedConfig: ProviderConfig, nextConfig: ProviderConfig, error: string) => void;
 }
 
 export interface GroundingMetadata {
-  groundingChunks?: Array<{ web?: { uri: string; title?: string } }>;
-  searchEntryPoint?: { renderedContent: string };
+  groundingChunks?: Array<{ web?: { uri: string; title: string } }>;
   webSearchQueries?: string[];
 }
 
-// ── Orchestration Options ────────────────────────────────────────────────
-
-export interface OrchestrateOptions {
-  /** Game context for sports betting tasks. */
-  gameContext?: Record<string, unknown> | null;
-  /** Abort signal for cancellation. */
-  signal?: AbortSignal;
-  /** Custom system prompt override (skips prompt shaping if provided). */
-  systemPrompt?: string;
-  /** Callback when fallback occurs. */
-  onFallback?: (from: ProviderConfig, to: ProviderConfig, reason: string) => void;
-  /** Temperature override (default: per-task). */
-  temperature?: number;
-  /** Max output tokens override (default: per-task). */
-  maxTokens?: number;
-  /** Force a specific provider (bypasses chain). */
-  forceProvider?: ProviderName;
+export interface StreamChunk {
+  type: "text" | "thought" | "grounding" | "function_call" | "error" | "done";
+  content?: string;
+  metadata?: GroundingMetadata;
+  functionCalls?: Array<{ name: string; args: Record<string, unknown> }>;
+  servedBy?: Provider;
+  model?: string;
+  isFallback?: boolean;
 }
 
-// ── Internal Types ───────────────────────────────────────────────────────
-
-interface ProviderClient {
-  chat(request: ProviderRequest): Promise<ProviderRawResponse>;
-  chatStream(request: ProviderRequest): Promise<ReadableStream<Uint8Array>>;
-  /** 
-   * Stream with raw GeminiContent[] (for multi-turn function call/response cycles).
-   * Only implemented for Google provider.
-   */
-  chatStreamRaw?(contents: GeminiContent[], request: ProviderRequest): Promise<ReadableStream<Uint8Array>>;
-}
-
-/**
- * Request to a provider. Extended with tools and toolConfig for function calling.
- * 
- * All field names are camelCase — the interface IS the wire format for
- * generativelanguage.googleapis.com. No serializer needed.
- * 
- * Implements: Spec Section 3, Gap 2.
- */
-interface ProviderRequest {
+export interface NormalizedResponse {
+  content: string;
+  thoughts: string | null;
+  groundingMetadata: GroundingMetadata | null;
+  servedBy: Provider;
   model: string;
-  messages: WireMessage[];
-  temperature: number;
-  maxTokens: number;
+  isFallback: boolean;
+  chainPosition: number;
+  latencyMs: number;
+  estimatedCostUsd: number;
+}
+
+export interface ChatRequest {
+  model: string;
+  messages: Message[];
+  temperature?: number;
+  maxTokens?: number;
   signal?: AbortSignal;
   enableGrounding?: boolean;
-  /** 
-   * Tool capabilities. enableGrounding/enableCodeExecution control built-in tools.
-   * functionDeclarations are custom tool schemas.
-   * CRITICAL: codeExecution and functionDeclarations are mutually exclusive (400 error).
-   */
-  tools?: {
-    functionDeclarations?: import('./tool-registry.js').FunctionDeclaration[];
-    enableGrounding?: boolean;
-    enableCodeExecution?: boolean;
-  };
-  /** 
-   * Tool configuration. camelCase keys match wire format directly.
-   * Mode values are UPPERCASE strings: "AUTO", "ANY", "NONE".
-   */
-  toolConfig?: {
-    functionCallingConfig: {
-      mode: "AUTO" | "ANY" | "NONE";
-    };
-  };
-  /**
-   * Thinking level control. Maps to generationConfig.thinkingConfig.thinkingLevel.
-   * Without this, every request pays full "HIGH" thinking token cost.
-   * Values: "LOW" | "MEDIUM" | "HIGH" | "NONE" (UPPERCASE, matches wire format).
-   */
-  thinkingLevel?: "NONE" | "LOW" | "MEDIUM" | "HIGH";
-  /**
-   * System instruction for Gemini REST API.
-   * Injected as body.systemInstruction.parts[0].text.
-   * NOT placed inside contents[] — that's a different pattern.
-   */
+  retries?: number;
+  thinkingLevel?: string;
   systemInstruction?: string;
+  tools?: {
+    functionDeclarations?: Array<Record<string, unknown>>;
+    enableGrounding?: boolean;
+  };
+  toolConfig?: Record<string, unknown>;
 }
 
-interface ProviderRawResponse {
-  content: string;
-  groundingMetadata?: GroundingMetadata;
-  thoughts?: string;
-  inputTokens: number;
-  outputTokens: number;
-}
+// ============================================================================
+// 2. CONFIGURATION & CONSTANTS
+// ============================================================================
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-// §0.1  PROVIDER DEFINITIONS & FALLBACK CHAINS
-// ═══════════════════════════════════════════════════════════════════════════
-
-// Models — update these as providers release new versions.
-// Single source of truth. No model strings scattered across the codebase.
-
-const MODELS = {
-  google: {
-    primary: "gemini-3-flash-preview",
-    fast: "gemini-3-flash-preview",
-  },
-  openai: {
-    primary: "gpt-5",
-    fast: "gpt-5-mini",
-  },
-  anthropic: {
-    primary: "claude-sonnet-4-5-20250929",
-    fast: "claude-haiku-4-5",
-    deep: "claude-opus-4-6",
-  },
+export const MODELS = {
+  google: { primary: "gemini-3-pro", fast: "gemini-3-flash" },
+  openai: { primary: "gpt-5", fast: "gpt-5-mini" },
+  anthropic: { primary: "claude-sonnet-4-5-20250929", fast: "claude-haiku-4-5", deep: "claude-opus-4-6" }
 } as const;
 
-function makeConfig(
-  provider: ProviderName,
-  model: string,
-  overrides: Partial<ProviderConfig> = {}
-): ProviderConfig {
-  const defaults: Record<ProviderName, Omit<ProviderConfig, "provider" | "model">> = {
-    google: {
-      timeoutMs: 30_000,
-      costPer1kInput: 0.00125,
-      costPer1kOutput: 0.005,
-      supportsGrounding: true,
-      supportsStreaming: true,
-    },
-    openai: {
-      timeoutMs: 60_000,
-      costPer1kInput: 0.003,
-      costPer1kOutput: 0.015,
-      supportsGrounding: false,
-      supportsStreaming: true,
-    },
-    anthropic: {
-      timeoutMs: 60_000,
-      costPer1kInput: 0.003,
-      costPer1kOutput: 0.015,
-      supportsGrounding: false,
-      supportsStreaming: true,
-    },
-  };
-  return { provider, model, ...defaults[provider], ...overrides };
-}
-
-/**
- * Fallback chains per task type.
- *
- * Order matters. First entry is primary. Each subsequent entry is tried
- * only if all previous entries failed (timeout, 5xx, rate limit).
- *
- * Design rationale:
- * - grounding: Gemini is the only provider with native search grounding.
- *   Falling back to OpenAI/Claude loses grounding but keeps the response alive.
- * - analysis: Gemini 3 primary (policy: Gemini-first). Claude/OpenAI as fallbacks.
- * - chat: Latency matters most. Flash/mini variants first.
- * - vision: Gemini 3 primary (policy: Gemini-first). Claude/OpenAI as fallbacks.
- * - code: Gemini 3 primary (policy: Gemini-first). Claude/OpenAI as fallbacks.
- * - recruiting: GPT-5 has broadest general knowledge for candidate analysis.
- */
-const FALLBACK_CHAINS: Record<TaskType, ProviderConfig[]> = {
-  grounding: [
-    makeConfig("google", MODELS.google.primary),
-    makeConfig("openai", MODELS.openai.primary),
-    makeConfig("anthropic", MODELS.anthropic.primary),
-  ],
-  analysis: [
-    makeConfig("google", MODELS.google.primary),
-    makeConfig("anthropic", MODELS.anthropic.primary),
-    makeConfig("openai", MODELS.openai.primary),
-  ],
-  chat: [
-    makeConfig("google", MODELS.google.fast, { timeoutMs: 15_000 }),
-    makeConfig("openai", MODELS.openai.fast, { timeoutMs: 20_000 }),
-    makeConfig("anthropic", MODELS.anthropic.fast, { timeoutMs: 20_000 }),
-  ],
-  vision: [
-    makeConfig("google", MODELS.google.primary),
-    makeConfig("anthropic", MODELS.anthropic.primary),
-    makeConfig("openai", MODELS.openai.primary),
-  ],
-  code: [
-    makeConfig("google", MODELS.google.primary),
-    makeConfig("anthropic", MODELS.anthropic.primary),
-    makeConfig("openai", MODELS.openai.primary),
-  ],
-  recruiting: [
-    makeConfig("openai", MODELS.openai.primary),
-    makeConfig("anthropic", MODELS.anthropic.primary),
-    makeConfig("google", MODELS.google.primary),
-  ],
+const PROVIDER_DEFAULTS: Record<Provider, Omit<ProviderConfig, "provider" | "model">> = {
+  google: { timeoutMs: 30000, costPer1kInput: 0.00125, costPer1kOutput: 0.005, supportsGrounding: true, supportsStreaming: true, maxRetries: 1 },
+  openai: { timeoutMs: 60000, costPer1kInput: 0.003, costPer1kOutput: 0.015, supportsGrounding: true, supportsStreaming: true, maxRetries: 1 },
+  anthropic: { timeoutMs: 60000, costPer1kInput: 0.003, costPer1kOutput: 0.015, supportsGrounding: true, supportsStreaming: true, maxRetries: 1 }
 };
 
-/** Default temperatures per task. */
-const TASK_TEMPERATURES: Record<TaskType, number> = {
-  grounding: 0.3,    // Factual, low creativity
-  analysis: 0.5,     // Balanced reasoning
-  chat: 0.7,         // Conversational
-  vision: 0.2,       // Classification needs precision
-  code: 0.3,         // Code needs determinism
-  recruiting: 0.5,   // Balanced
+function makeConfig(provider: Provider, model: string, overrides: Partial<ProviderConfig> = {}): ProviderConfig {
+  return Object.freeze({ provider, model, ...PROVIDER_DEFAULTS[provider], ...overrides });
+}
+
+export const FALLBACK_CHAINS: Record<TaskType, ProviderConfig[]> = {
+  grounding: [makeConfig("google", MODELS.google.primary), makeConfig("openai", MODELS.openai.primary), makeConfig("anthropic", MODELS.anthropic.primary)],
+  analysis: [makeConfig("google", MODELS.google.primary), makeConfig("anthropic", MODELS.anthropic.primary), makeConfig("openai", MODELS.openai.primary)],
+  chat: [makeConfig("google", MODELS.google.fast, { timeoutMs: 15000 }), makeConfig("openai", MODELS.openai.fast, { timeoutMs: 20000 }), makeConfig("anthropic", MODELS.anthropic.fast, { timeoutMs: 20000 })],
+  vision: [makeConfig("anthropic", MODELS.anthropic.primary), makeConfig("openai", MODELS.openai.primary), makeConfig("google", MODELS.google.primary)],
+  code: [makeConfig("anthropic", MODELS.anthropic.primary), makeConfig("openai", MODELS.openai.primary), makeConfig("google", MODELS.google.primary)],
+  recruiting: [makeConfig("openai", MODELS.openai.primary), makeConfig("anthropic", MODELS.anthropic.primary), makeConfig("google", MODELS.google.primary)]
 };
 
-/** Default max tokens per task. */
-const TASK_MAX_TOKENS: Record<TaskType, number> = {
-  grounding: 4000,
-  analysis: 8000,
-  chat: 2000,
-  vision: 2000,
-  code: 8000,
-  recruiting: 4000,
+export const TASK_TEMPERATURES: Record<TaskType, number> = { grounding: 0.3, analysis: 0.5, chat: 0.7, vision: 0.2, code: 0.3, recruiting: 0.5 };
+export const TASK_MAX_TOKENS: Record<TaskType, number> = { grounding: 4000, analysis: 8000, chat: 2000, vision: 2000, code: 8000, recruiting: 4000 };
+
+const COST_CEILING_PER_HOUR = 50.00;
+const ANTHROPIC_WEB_SEARCH_BETA = "web-search-2025-03-05";
+
+// ============================================================================
+// 3. INFRASTRUCTURE: LOGGING, PERSISTENCE, & METRICS
+// ============================================================================
+
+export interface ILogger {
+  info(event: string, data?: Record<string, unknown>): void;
+  warn(event: string, data?: Record<string, unknown>): void;
+  error(event: string, data?: Record<string, unknown>): void;
+}
+
+export let log: ILogger = {
+  info: (event, data) => console.log(JSON.stringify({ level: "INFO", event, ts: new Date().toISOString(), ...data })),
+  warn: (event, data) => console.warn(JSON.stringify({ level: "WARN", event, ts: new Date().toISOString(), ...data })),
+  error: (event, data) => console.error(JSON.stringify({ level: "ERROR", event, ts: new Date().toISOString(), ...data }))
 };
 
-/**
- * Default thinking levels per task.
- * Controls token cost of Gemini's thinking/reasoning.
- * Without this, every request defaults to "HIGH" — expensive for greetings.
- * Values: UPPERCASE strings matching generativelanguage.googleapis.com wire format.
- */
-const TASK_THINKING_LEVELS: Record<TaskType, "NONE" | "LOW" | "MEDIUM" | "HIGH"> = {
-  grounding: "MEDIUM",   // Needs some reasoning for source evaluation
-  analysis: "HIGH",      // Full reasoning for edge detection
-  chat: "LOW",           // Greetings don't need deep thought
-  vision: "MEDIUM",      // Classification needs moderate reasoning
-  code: "HIGH",          // Code generation benefits from full reasoning
-  recruiting: "MEDIUM",  // Balanced
-};
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// §1  PROVIDER CLIENTS
-// ═══════════════════════════════════════════════════════════════════════════
-
-// Environment variable access — works in both Node.js and Edge Runtime.
-
-function env(key: string): string | undefined {
-  if (typeof process !== "undefined" && process.env) return process.env[key];
-  return undefined;
+export interface IPersistence {
+  incrHourlyCost(costUsd: number, ttlMs: number): Promise<void>;
+  setCircuitFailures(provider: Provider, failures: number, ttlMs?: number): Promise<void>;
 }
 
-/**
- * Resolve the Gemini API key from any of the 3 env var names.
- * Priority: GEMINI_API_KEY > GOOGLE_GENERATIVE_AI_API_KEY > VITE_GEMINI_API_KEY
- * This exists because Vercel, local dev, and the Gemini SDK all use different names.
- * TODO: Consolidate to a single GEMINI_API_KEY once Vercel env is cleaned up.
- */
-function geminiApiKey(): string | undefined {
-  return env("GEMINI_API_KEY") || env("GOOGLE_GENERATIVE_AI_API_KEY") || env("VITE_GEMINI_API_KEY");
+export let persistence: IPersistence | null = null;
+export function installPersistence(adapter: IPersistence): void {
+  persistence = adapter;
+  log.info("persistence_installed", { adapter: adapter.constructor?.name ?? "custom" });
 }
 
-function isProviderEnabled(provider: ProviderName): boolean {
-  if (provider === "google") return !!geminiApiKey();
-  const keys: Record<string, string> = {
-    openai: "OPENAI_API_KEY",
-    anthropic: "ANTHROPIC_API_KEY",
-  };
-  return !!env(keys[provider]);
-}
-
-// ── Google (Gemini) ──────────────────────────────────────────────────────
-
-const googleClient: ProviderClient = {
-  async chat(req) {
-    const apiKey = geminiApiKey();
-    if (!apiKey) throw new ProviderError("google", "Gemini API key not set (checked GEMINI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, VITE_GEMINI_API_KEY)", "auth");
-
-    const body: Record<string, unknown> = {
-      contents: convertToGeminiFormat(req.messages),
-      generationConfig: {
-        temperature: req.temperature,
-        maxOutputTokens: req.maxTokens,
-        ...(req.thinkingLevel ? { thinkingConfig: { thinkingLevel: req.thinkingLevel } } : {}),
-      },
-    };
-
-    // Inject system instruction (ISSUE 3 fix: system prompt was stripped by
-    // convertToGeminiFormat but never reinjected as body.systemInstruction)
-    if (req.systemInstruction) {
-      body.systemInstruction = { parts: [{ text: req.systemInstruction }] };
-    }
-
-    // Build single merged tool object (Spec Section 3, Gap 3)
-    // CRITICAL: codeExecution and functionDeclarations are mutually exclusive (400 error)
-    // googleSearch CAN coexist with functionDeclarations
-    buildGeminiToolsObject(req, body);
-
-    // VERIFIED: URL hits generativelanguage.googleapis.com (NOT aiplatform.googleapis.com)
-    // Casing: camelCase keys (resolved via Gemini Deep Think Pass 3)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${req.model}:generateContent?key=${apiKey}`;
-    const res = await fetchWithTimeout(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: req.signal,
-    }, 30_000);
-
-    if (!res.ok) {
-      const errorBody = await res.text().catch(() => "");
-      throw new ProviderError("google", `${res.status}: ${errorBody}`, classifyHttpError(res.status));
-    }
-
-    const data = await res.json();
-    const candidate = data.candidates?.[0];
-    const content = candidate?.content?.parts?.map((p: { text?: string }) => p.text || "").join("") || "";
-    const metadata = candidate?.groundingMetadata || data.groundingMetadata || null;
-    const usage = data.usageMetadata || {};
-
-    return {
-      content,
-      groundingMetadata: metadata,
-      inputTokens: usage.promptTokenCount || estimateTokens(req.messages),
-      outputTokens: usage.candidatesTokenCount || estimateTokens(content),
-    };
-  },
-
-  async chatStream(req) {
-    const apiKey = geminiApiKey();
-    if (!apiKey) throw new ProviderError("google", "Gemini API key not set (checked GEMINI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, VITE_GEMINI_API_KEY)", "auth");
-
-    const body: Record<string, unknown> = {
-      contents: convertToGeminiFormat(req.messages),
-      generationConfig: {
-        temperature: req.temperature,
-        maxOutputTokens: req.maxTokens,
-        ...(req.thinkingLevel ? { thinkingConfig: { thinkingLevel: req.thinkingLevel } } : {}),
-      },
-    };
-
-    // Inject system instruction
-    if (req.systemInstruction) {
-      body.systemInstruction = { parts: [{ text: req.systemInstruction }] };
-    }
-
-    // Build single merged tool object (Spec Section 3, Gap 3)
-    buildGeminiToolsObject(req, body);
-
-    // VERIFIED: URL hits generativelanguage.googleapis.com — SSE framing (alt=sse)
-    // NOT aiplatform.googleapis.com (which uses snake_case)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${req.model}:streamGenerateContent?alt=sse&key=${apiKey}`;
-    const res = await fetchWithTimeout(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: req.signal,
-    }, 30_000);
-
-    if (!res.ok) {
-      const errorBody = await res.text().catch(() => "");
-      throw new ProviderError("google", `${res.status}: ${errorBody}`, classifyHttpError(res.status));
-    }
-
-    if (!res.body) throw new ProviderError("google", "No response body", "server");
-    return res.body;
-  },
-
-  /**
-   * Stream with raw GeminiContent[] for multi-turn function call/response cycles.
-   * 
-   * After a tool round, the conversation history includes functionCall and functionResponse
-   * parts that cannot be represented as WireMessage[]. This method accepts the raw
-   * GeminiContent[] format directly.
-   * 
-   * Implements: Spec Section 3, Gap 5.
-   * 
-   * @param contents - Full conversation history in GeminiContent format
-   * @param req - Provider request with model, tools, toolConfig, etc.
-   * @returns Raw byte stream (SSE framing)
-   */
-  async chatStreamRaw(contents: GeminiContent[], req: ProviderRequest): Promise<ReadableStream<Uint8Array>> {
-    const apiKey = geminiApiKey();
-    if (!apiKey) throw new ProviderError("google", "Gemini API key not set (checked GEMINI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, VITE_GEMINI_API_KEY)", "auth");
-
-    const body: Record<string, unknown> = {
-      contents,
-      generationConfig: {
-        temperature: req.temperature,
-        maxOutputTokens: req.maxTokens,
-        ...(req.thinkingLevel ? { thinkingConfig: { thinkingLevel: req.thinkingLevel } } : {}),
-      },
-    };
-
-    // Inject system instruction — CRITICAL for chatStreamRaw path.
-    // The tool-calling stream builds GeminiContent[] from scratch;
-    // the system prompt must be injected as body.systemInstruction,
-    // NOT as a contents[] turn.
-    if (req.systemInstruction) {
-      body.systemInstruction = { parts: [{ text: req.systemInstruction }] };
-    }
-
-    // Build single merged tool object
-    buildGeminiToolsObject(req, body);
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${req.model}:streamGenerateContent?alt=sse&key=${apiKey}`;
-    const res = await fetchWithTimeout(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: req.signal,
-    }, 30_000);
-
-    if (!res.ok) {
-      const errorBody = await res.text().catch(() => "");
-      throw new ProviderError("google", `${res.status}: ${errorBody}`, classifyHttpError(res.status));
-    }
-
-    if (!res.body) throw new ProviderError("google", "No response body", "server");
-    return res.body;
-  },
-};
-
-/**
- * Build the single merged Gemini tools object.
- * 
- * CRITICAL RULES (Spec Section 3, Gap 3, Lockdown 1, 11):
- * - functionDeclarations and googleSearch go in ONE object: tools: [{ functionDeclarations: [...], googleSearch: {} }]
- * - codeExecution and functionDeclarations are MUTUALLY EXCLUSIVE (400 INVALID_ARGUMENT)
- * - codeExecution + googleSearch is fine
- * - toolConfig goes as a sibling of tools in the request body, camelCase
- * - All keys are camelCase, all enum values are UPPERCASE
- */
-function buildGeminiToolsObject(req: ProviderRequest, body: Record<string, unknown>): void {
-  const toolObj: Record<string, unknown> = {};
-  let hasTools = false;
-
-  // Google Search grounding (compatible with functionDeclarations)
-  if (req.enableGrounding || req.tools?.enableGrounding) {
-    toolObj.googleSearch = {};
-    hasTools = true;
-  }
-
-  // Custom function declarations
-  if (req.tools?.functionDeclarations && req.tools.functionDeclarations.length > 0) {
-    toolObj.functionDeclarations = req.tools.functionDeclarations;
-    hasTools = true;
-    // CRITICAL: codeExecution is mutually exclusive with functionDeclarations.
-    // Do NOT add codeExecution when custom functions are active.
-    // Capability regression: model loses Python sandbox during tool-calling conversations.
-  } else if (req.tools?.enableCodeExecution) {
-    // Only add codeExecution when NO custom functions
-    toolObj.codeExecution = {};
-    hasTools = true;
-  }
-
-  if (hasTools) {
-    body.tools = [toolObj];  // Single merged object in array
-  }
-
-  // Tool config — camelCase, UPPERCASE enum values
-  if (req.toolConfig) {
-    body.toolConfig = req.toolConfig;
-  }
-}
-
-// ── OpenAI ───────────────────────────────────────────────────────────────
-
-const openaiClient: ProviderClient = {
-  async chat(req) {
-    const apiKey = env("OPENAI_API_KEY");
-    if (!apiKey) throw new ProviderError("openai", "OPENAI_API_KEY not set", "auth");
-
-    const res = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: req.model,
-        messages: convertToOpenAIFormat(req.messages),
-        temperature: req.temperature,
-        max_tokens: req.maxTokens,
-        stream: false,
-      }),
-      signal: req.signal,
-    }, 60_000);
-
-    if (!res.ok) {
-      const errorBody = await res.text().catch(() => "");
-      throw new ProviderError("openai", `${res.status}: ${errorBody}`, classifyHttpError(res.status));
-    }
-
-    const data = await res.json();
-    const choice = data.choices?.[0];
-    const usage = data.usage || {};
-
-    return {
-      content: choice?.message?.content || "",
-      inputTokens: usage.prompt_tokens || estimateTokens(req.messages),
-      outputTokens: usage.completion_tokens || estimateTokens(choice?.message?.content || ""),
-    };
-  },
-
-  async chatStream(req) {
-    const apiKey = env("OPENAI_API_KEY");
-    if (!apiKey) throw new ProviderError("openai", "OPENAI_API_KEY not set", "auth");
-
-    const res = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: req.model,
-        messages: convertToOpenAIFormat(req.messages),
-        temperature: req.temperature,
-        max_tokens: req.maxTokens,
-        stream: true,
-      }),
-      signal: req.signal,
-    }, 60_000);
-
-    if (!res.ok) {
-      const errorBody = await res.text().catch(() => "");
-      throw new ProviderError("openai", `${res.status}: ${errorBody}`, classifyHttpError(res.status));
-    }
-
-    if (!res.body) throw new ProviderError("openai", "No response body", "server");
-    return res.body;
-  },
-};
-
-// ── Anthropic ────────────────────────────────────────────────────────────
-
-const anthropicClient: ProviderClient = {
-  async chat(req) {
-    const apiKey = env("ANTHROPIC_API_KEY");
-    if (!apiKey) throw new ProviderError("anthropic", "ANTHROPIC_API_KEY not set", "auth");
-
-    const { systemPrompt, messages } = extractSystemPrompt(req.messages);
-
-    const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: req.model,
-        system: systemPrompt,
-        messages: convertToAnthropicFormat(messages),
-        temperature: req.temperature,
-        max_tokens: req.maxTokens,
-      }),
-      signal: req.signal,
-    }, 60_000);
-
-    if (!res.ok) {
-      const errorBody = await res.text().catch(() => "");
-      throw new ProviderError("anthropic", `${res.status}: ${errorBody}`, classifyHttpError(res.status));
-    }
-
-    const data = await res.json();
-    const content = data.content
-      ?.filter((b: { type: string }) => b.type === "text")
-      .map((b: { text: string }) => b.text)
-      .join("") || "";
-    const thoughts = data.content
-      ?.filter((b: { type: string }) => b.type === "thinking")
-      .map((b: { thinking: string }) => b.thinking)
-      .join("") || null;
-    const usage = data.usage || {};
-
-    return {
-      content,
-      thoughts: thoughts || undefined,
-      inputTokens: usage.input_tokens || estimateTokens(req.messages),
-      outputTokens: usage.output_tokens || estimateTokens(content),
-    };
-  },
-
-  async chatStream(req) {
-    const apiKey = env("ANTHROPIC_API_KEY");
-    if (!apiKey) throw new ProviderError("anthropic", "ANTHROPIC_API_KEY not set", "auth");
-
-    const { systemPrompt, messages } = extractSystemPrompt(req.messages);
-
-    const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: req.model,
-        system: systemPrompt,
-        messages: convertToAnthropicFormat(messages),
-        temperature: req.temperature,
-        max_tokens: req.maxTokens,
-        stream: true,
-      }),
-      signal: req.signal,
-    }, 60_000);
-
-    if (!res.ok) {
-      const errorBody = await res.text().catch(() => "");
-      throw new ProviderError("anthropic", `${res.status}: ${errorBody}`, classifyHttpError(res.status));
-    }
-
-    if (!res.body) throw new ProviderError("anthropic", "No response body", "server");
-    return res.body;
-  },
-};
-
-// ── Client Registry ──────────────────────────────────────────────────────
-
-const CLIENTS: Record<ProviderName, ProviderClient> = {
-  google: googleClient,
-  openai: openaiClient,
-  anthropic: anthropicClient,
-};
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// §2  RESPONSE NORMALIZATION
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Normalize a raw provider response into the canonical shape.
- *
- * Key behavior:
- * - Gemini: groundingMetadata passes through natively.
- * - OpenAI/Claude: groundingMetadata is null. The UI layer handles this
- *   gracefully (EvidenceDeck doesn't render, citations don't hydrate).
- * - Claude: thoughts field passes through. Others return null.
- * - Cost is estimated from token counts and provider pricing.
- */
-function normalizeResponse(
-  raw: ProviderRawResponse,
-  config: ProviderConfig,
-  chainPosition: number,
-  latencyMs: number,
-): NormalizedResponse {
-  const inputCost = (raw.inputTokens / 1000) * config.costPer1kInput;
-  const outputCost = (raw.outputTokens / 1000) * config.costPer1kOutput;
-
-  return {
-    content: raw.content,
-    groundingMetadata: raw.groundingMetadata || null,
-    thoughts: raw.thoughts || null,
-    servedBy: config.provider,
-    model: config.model,
-    isFallback: chainPosition > 0,
-    chainPosition,
-    latencyMs,
-    estimatedCostUsd: inputCost + outputCost,
-  };
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// §3  PROMPT SHAPING
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Adapt the system prompt based on which provider is serving.
- *
- * Critical for correctness:
- * - Gemini with grounding: Can reference live data, include "search for current" instructions.
- * - OpenAI/Claude without grounding: Must NOT include grounding instructions.
- *   These providers will hallucinate live data if told to "search for current odds."
- *   Instead, inject context from gameContext directly into the system prompt.
- *
- * This function mutates nothing. Returns a new message array.
- */
-function shapePrompt(
-  messages: WireMessage[],
-  config: ProviderConfig,
-  taskType: TaskType,
-  options: OrchestrateOptions,
-): WireMessage[] {
-  // If caller provided a custom system prompt, use it directly
-  if (options.systemPrompt) {
-    return [{ role: "system", content: options.systemPrompt }, ...messages.filter(m => m.role !== "system")];
-  }
-
-  const existing = messages.find(m => m.role === "system");
-  const nonSystem = messages.filter(m => m.role !== "system");
-  let systemContent = typeof existing?.content === "string" ? existing.content : "";
-
-  // Strip grounding-specific instructions for providers that don't support it
-  if (!config.supportsGrounding && taskType === "grounding") {
-    systemContent = stripGroundingInstructions(systemContent);
-
-    // Inject game context as static data since we can't ground
-    if (options.gameContext) {
-      const contextBlock = [
-        "\n\n--- CURRENT GAME CONTEXT (injected, not live) ---",
-        JSON.stringify(options.gameContext, null, 2),
-        "--- END CONTEXT ---",
-        "\nNote: This data was provided at request time and may not reflect real-time changes.",
-      ].join("\n");
-      systemContent += contextBlock;
-    }
-  }
-
-  // Provider-specific formatting hints
-  if (config.provider === "anthropic") {
-    // Claude responds better with explicit JSON formatting instructions
-    if (taskType === "vision" || taskType === "analysis") {
-      systemContent += "\n\nWhen providing structured analysis, use clear section headers and maintain consistent formatting.";
-    }
-  }
-
-  return [{ role: "system", content: systemContent }, ...nonSystem];
-}
-
-/** Remove grounding-specific instructions that would cause hallucination on non-grounding providers. */
-function stripGroundingInstructions(prompt: string): string {
-  const GROUNDING_PATTERNS = [
-    /search (?:for |the )?(?:current|latest|live|real[- ]time)\b[^.]*\./gi,
-    /use (?:google )?search (?:grounding|to find)\b[^.]*\./gi,
-    /look up (?:current|latest|live)\b[^.]*\./gi,
-    /verify (?:with|using|via) (?:search|grounding|google)\b[^.]*\./gi,
-  ];
-
-  let result = prompt;
-  for (const pattern of GROUNDING_PATTERNS) {
-    result = result.replace(pattern, "");
-  }
-  return result.replace(/\n{3,}/g, "\n\n").trim();
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// §4  FALLBACK ENGINE
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Execute a request against the fallback chain for a given task type.
- *
- * Behavior:
- * 1. Resolve the chain (filter disabled providers, apply forceProvider).
- * 2. Try each provider sequentially.
- * 3. On success: normalize response, record metrics, return.
- * 4. On failure: classify error, decide whether to fallback or throw.
- * 5. If all providers fail: throw the last error.
- *
- * Never runs providers in parallel. Parallel would waste tokens/money
- * and complicate abort handling.
- */
-export async function orchestrate(
-  taskType: TaskType,
-  messages: WireMessage[],
-  options: OrchestrateOptions = {},
-): Promise<NormalizedResponse> {
-  const chain = resolveChain(taskType, options);
-  if (chain.length === 0) throw new Error("No AI providers are enabled. Set at least one API key.");
-
-  let lastError: Error | null = null;
-  const temperature = options.temperature ?? TASK_TEMPERATURES[taskType];
-  const maxTokens = options.maxTokens ?? TASK_MAX_TOKENS[taskType];
-
-  for (let i = 0; i < chain.length; i++) {
-    const config = chain[i];
-    if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-
-    // Circuit breaker check
-    if (circuitBreaker.isOpen(config.provider)) {
-      metrics.record(config, taskType, "circuit_open", 0, 0);
-      if (i > 0) options.onFallback?.(chain[i - 1], config, "circuit open, skipping");
-      continue;
-    }
-
-    // Cost ceiling check
-    if (metrics.isOverBudget()) {
-      throw new Error(`Cost ceiling reached ($${COST_CEILING_PER_HOUR}/hr). Degrading to prevent overrun.`);
-    }
-
-    const shaped = shapePrompt(messages, config, taskType, options);
-    const start = Date.now();
-
-    try {
-      const client = CLIENTS[config.provider];
-      const raw = await client.chat({
-        model: config.model,
-        messages: shaped,
-        temperature,
-        maxTokens,
-        signal: options.signal,
-        enableGrounding: config.supportsGrounding && taskType === "grounding",
-      });
-
-      const latency = Date.now() - start;
-      const normalized = normalizeResponse(raw, config, i, latency);
-
-      // Record success
-      metrics.record(config, taskType, "success", latency, normalized.estimatedCostUsd);
-      circuitBreaker.recordSuccess(config.provider);
-
-      return normalized;
-
-    } catch (err) {
-      const latency = Date.now() - start;
-      lastError = err instanceof Error ? err : new Error(String(err));
-
-      // Record failure
-      const errorType = err instanceof ProviderError ? err.errorType : "unknown";
-      metrics.record(config, taskType, errorType, latency, 0);
-      circuitBreaker.recordFailure(config.provider);
-
-      // Don't fallback on user-initiated abort
-      if (err instanceof DOMException && err.name === "AbortError") throw err;
-
-      // Log and notify
-      if (i < chain.length - 1) {
-        options.onFallback?.(config, chain[i + 1], lastError.message);
-      }
-
-      continue;
-    }
-  }
-
-  throw lastError ?? new Error("All providers failed");
-}
-
-/**
- * Streaming variant of orchestrate.
- *
- * Returns a ReadableStream of NormalizedStreamChunk objects.
- * The consumer (ChatWidget, API route) reads chunks and dispatches to the UI.
- *
- * Fallback in streaming is trickier: if the primary starts streaming then dies
- * mid-response, we DON'T fall back (partial data already sent to the user).
- * Fallback only happens on connection-level failures (timeout, 5xx before first byte).
- */
-export async function orchestrateStream(
-  taskType: TaskType,
-  messages: WireMessage[],
-  options: OrchestrateOptions = {},
-): Promise<ReadableStream<NormalizedStreamChunk>> {
-  const chain = resolveChain(taskType, options);
-  if (chain.length === 0) throw new Error("No AI providers are enabled.");
-
-  let lastError: Error | null = null;
-  const temperature = options.temperature ?? TASK_TEMPERATURES[taskType];
-  const maxTokens = options.maxTokens ?? TASK_MAX_TOKENS[taskType];
-
-  for (let i = 0; i < chain.length; i++) {
-    const config = chain[i];
-    if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    if (circuitBreaker.isOpen(config.provider)) continue;
-    if (metrics.isOverBudget()) throw new Error("Cost ceiling reached.");
-
-    const shaped = shapePrompt(messages, config, taskType, options);
-    const start = Date.now();
-
-    try {
-      const client = CLIENTS[config.provider];
-      const rawStream = await client.chatStream({
-        model: config.model,
-        messages: shaped,
-        temperature,
-        maxTokens,
-        signal: options.signal,
-        enableGrounding: config.supportsGrounding && taskType === "grounding",
-      });
-
-      // Connection succeeded — wrap the raw stream in a normalizing transformer.
-      // From this point, NO fallback. If the stream dies mid-response, error propagates.
-      circuitBreaker.recordSuccess(config.provider);
-
-      return createNormalizingStream(rawStream, config, i, start);
-
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      circuitBreaker.recordFailure(config.provider);
-
-      if (err instanceof DOMException && err.name === "AbortError") throw err;
-      if (i < chain.length - 1) {
-        options.onFallback?.(config, chain[i + 1], lastError.message);
-      }
-      continue;
-    }
-  }
-
-  throw lastError ?? new Error("All providers failed");
-}
-
-/**
- * Wrap a raw provider stream in a TransformStream that emits NormalizedStreamChunks.
- *
- * Each provider has a different SSE format:
- * - Gemini: JSON objects with candidates[0].content.parts
- * - OpenAI: SSE with data: {"choices": [{"delta": {"content": "..."}}]}
- * - Anthropic: SSE with event types (content_block_delta, etc.)
- *
- * This normalizer handles all three.
- */
-function createNormalizingStream(
-  rawStream: ReadableStream<Uint8Array>,
-  config: ProviderConfig,
-  chainPosition: number,
-  startMs: number,
-): ReadableStream<NormalizedStreamChunk> {
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  return new ReadableStream<NormalizedStreamChunk>({
-    async start(controller) {
-      const reader = rawStream.getReader();
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split(/\r?\n/);
-          buffer = lines.pop() ?? "";
-
-          for (const line of lines) {
-            const chunk = parseProviderSSELine(line, config.provider);
-            if (chunk) {
-              chunk.servedBy = config.provider;
-              chunk.model = config.model;
-              chunk.isFallback = chainPosition > 0;
-              controller.enqueue(chunk);
-            }
-          }
-        }
-
-        // Flush remaining buffer
-        if (buffer.trim()) {
-          const chunk = parseProviderSSELine(buffer, config.provider);
-          if (chunk) {
-            chunk.servedBy = config.provider;
-            chunk.model = config.model;
-            chunk.isFallback = chainPosition > 0;
-            controller.enqueue(chunk);
-          }
-        }
-
-        // Emit done chunk with timing
-        const latency = Date.now() - startMs;
-        metrics.record(config, "chat", "success", latency, 0);
-        controller.enqueue({ type: "done" });
-        controller.close();
-
-      } catch (err) {
-        const latency = Date.now() - startMs;
-        metrics.record(config, "chat", "stream_error", latency, 0);
-        controller.enqueue({ type: "error", content: err instanceof Error ? err.message : "Stream error" });
-        controller.close();
-      } finally {
-        try { reader.releaseLock(); } catch { /* */ }
-      }
-    },
-  });
-}
-
-/**
- * Parse a Gemini SSE payload into a NormalizedStreamChunk.
- * 
- * THIS IS THE SINGLE SOURCE OF TRUTH for Gemini SSE parsing.
- * Used by BOTH createNormalizingStream() (legacy) and createToolCallingStream() (new).
- * One parser. No drift. Lockdown 6.
- * 
- * Key behaviors:
- * - Iterates ALL parts (not break after first)
- * - Detects functionCall by inspecting parts, NOT by checking finishReason
- *   (finishReason is ALWAYS "STOP" for function calls — Lockdown 18)
- * - Preserves the entire raw part object when functionCall is present
- *   (this captures thoughtSignature at the part level — Lockdown 3, 4)
- * 
- * @param parsed - Parsed JSON object from SSE data: payload
- * @returns NormalizedStreamChunk or null if no useful content
- */
-export function parseGeminiSSEPayload(parsed: any): NormalizedStreamChunk | null {
-  const candidate = parsed?.candidates?.[0];
-  if (!candidate) return null;
-
-  const parts = candidate?.content?.parts || [];
-  const textParts: string[] = [];
-  const thoughtParts: string[] = [];
-  const functionCalls: CapturedFunctionCall[] = [];
-  let groundingMetadata = null;
-
-  // Iterate ALL parts — do not break after first (Spec Section 3, Gap 4)
-  for (const part of parts) {
-    if (part.text !== undefined && part.text !== null) {
-      // Check if this is a thought part (Gemini may use a flag)
-      if (part.thought) {
-        thoughtParts.push(part.text);
-      } else {
-        textParts.push(part.text);
-      }
-    }
-
-    // Detect functionCall by inspecting parts, NOT by checking finishReason
-    // finishReason is ALWAYS "STOP" for function calls (Lockdown 18)
-    if (part.functionCall) {
-      functionCalls.push({
-        name: part.functionCall.name,
-        args: part.functionCall.args || {},
-        rawPart: part,  // Preserves { functionCall: {...}, thoughtSignature: "..." } intact
-      });
-    }
-  }
-
-  // Check for grounding metadata at the candidate level
-  if (candidate.groundingMetadata) {
-    groundingMetadata = candidate.groundingMetadata;
-  }
-
-  // Priority: function_call > (text+grounding) > thought > text > grounding-only
-  // Function calls take priority because they determine round behavior.
-  // ISSUE 2 FIX: When grounding metadata accompanies text (common in Gemini's
-  // final chunk), return text with metadata attached instead of silently dropping text.
-  if (functionCalls.length > 0) {
-    return { type: "function_call", functionCalls };
-  }
-  if (textParts.length > 0) {
-    // Text present — return it, and attach grounding metadata if also present.
-    // This prevents the silent text-drop bug where grounding metadata was
-    // prioritized over text, swallowing the model's actual response content.
-    return {
-      type: "text",
-      content: textParts.join(""),
-      ...(groundingMetadata ? { metadata: groundingMetadata } : {}),
-    };
-  }
-  if (groundingMetadata) {
-    // Grounding-only chunk (no text) — e.g., early grounding metadata before text starts.
-    return { type: "grounding", metadata: groundingMetadata };
-  }
-  if (thoughtParts.length > 0) {
-    return { type: "thought", content: thoughtParts.join("") };
-  }
-
-  return null;
-}
-
-/** Parse a single SSE line from any provider into a NormalizedStreamChunk. */
-function parseProviderSSELine(line: string, provider: ProviderName): NormalizedStreamChunk | null {
-  const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith(":")) return null;
-
-  // Handle SSE data: prefix
-  let payload = trimmed;
-  if (trimmed.startsWith("data:")) {
-    payload = trimmed.slice(5).trim();
-    if (payload === "[DONE]") return { type: "done" };
-  }
-
-  // Handle Anthropic event: prefix (skip, we process data: lines)
-  if (trimmed.startsWith("event:")) return null;
-
-  try {
-    const data = JSON.parse(payload);
-
-    switch (provider) {
-      case "google": {
-        // Delegate to shared parser — Lockdown 6: single source of truth
-        return parseGeminiSSEPayload(data);
-      }
-
-      case "openai": {
-        const delta = data.choices?.[0]?.delta;
-        if (delta?.content) return { type: "text", content: delta.content };
-        if (data.choices?.[0]?.finish_reason === "stop") return { type: "done" };
-        return null;
-      }
-
-      case "anthropic": {
-        if (data.type === "content_block_delta") {
-          if (data.delta?.type === "text_delta") return { type: "text", content: data.delta.text };
-          if (data.delta?.type === "thinking_delta") return { type: "thought", content: data.delta.thinking };
-        }
-        if (data.type === "message_stop") return { type: "done" };
-        return null;
-      }
-
-      default:
-        return null;
-    }
-  } catch {
-    return null;
-  }
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// §5  OBSERVABILITY — Metrics, Cost Tracking, Circuit Breakers
-// ═══════════════════════════════════════════════════════════════════════════
-
-/** Hourly cost ceiling in USD. Prevents runaway spend during outages. */
-const COST_CEILING_PER_HOUR = 50;
-
-/** Circuit breaker: open after N consecutive failures, half-open after cooldown. */
-const CIRCUIT_BREAKER_THRESHOLD = 3;
-const CIRCUIT_BREAKER_COOLDOWN_MS = 60_000; // 1 minute
-
-// ── Metrics Singleton ────────────────────────────────────────────────────
-
-interface MetricEntry {
-  provider: ProviderName;
+interface MetricsEntry {
+  provider: Provider;
   model: string;
   taskType: TaskType;
   status: string;
@@ -1285,338 +166,917 @@ interface MetricEntry {
 }
 
 class MetricsCollector {
-  private entries: MetricEntry[] = [];
+  private capacity: number;
+  private cursor = 0;
+  private count = 0;
   private hourlyCost = 0;
   private lastHourReset = Date.now();
+  private ring: (MetricsEntry | null)[];
 
-  record(
-    config: ProviderConfig,
-    taskType: TaskType | string,
-    status: string,
-    latencyMs: number,
-    costUsd: number,
-  ): void {
-    const now = Date.now();
+  constructor(capacity = 1000) {
+    this.capacity = capacity;
+    this.ring = new Array(capacity).fill(null);
+  }
 
-    // Reset hourly counter
-    if (now - this.lastHourReset > 3_600_000) {
-      this.hourlyCost = 0;
-      this.lastHourReset = now;
-    }
-
+  record(config: ProviderConfig, taskType: TaskType, status: string, latencyMs: number, costUsd: number): void {
+    this.resetHourIfStale();
     this.hourlyCost += costUsd;
 
-    const entry: MetricEntry = {
-      provider: config.provider,
-      model: config.model,
-      taskType: taskType as TaskType,
-      status,
-      latencyMs,
-      costUsd,
-      timestamp: now,
-    };
-
-    this.entries.push(entry);
-
-    // Keep last 1000 entries in memory
-    if (this.entries.length > 1000) {
-      this.entries = this.entries.slice(-500);
+    if (persistence && costUsd > 0) {
+      persistence.incrHourlyCost(costUsd, 3600000).catch(e => log.warn("persistence_cost_write_failed", { error: String(e) }));
     }
 
-    // Emit to external telemetry if available
-    if (typeof globalThis !== "undefined" && (globalThis as Record<string, unknown>).__aiProviderTelemetry) {
-      const tel = (globalThis as Record<string, unknown>).__aiProviderTelemetry as {
-        emit?: (entry: MetricEntry) => void;
-      };
-      tel.emit?.(entry);
-    }
+    this.ring[this.cursor] = { provider: config.provider, model: config.model, taskType, status, latencyMs, costUsd, timestamp: Date.now() };
+    this.cursor = (this.cursor + 1) % this.capacity;
+    if (this.count < this.capacity) this.count++;
   }
 
   isOverBudget(): boolean {
-    if (Date.now() - this.lastHourReset > 3_600_000) {
-      this.hourlyCost = 0;
-      this.lastHourReset = Date.now();
-    }
+    this.resetHourIfStale();
     return this.hourlyCost > COST_CEILING_PER_HOUR;
   }
 
-  /** Get summary stats for the last N minutes. */
-  getSummary(windowMinutes = 60): {
-    totalCost: number;
-    totalRequests: number;
-    byProvider: Record<string, { requests: number; failures: number; avgLatencyMs: number; cost: number }>;
-  } {
-    const cutoff = Date.now() - windowMinutes * 60_000;
-    const recent = this.entries.filter(e => e.timestamp > cutoff);
+  getSummary(windowMinutes = 60) {
+    const cutoff = Date.now() - windowMinutes * 60000;
+    const byProvider: Record<string, { requests: number; failures: number; avgLatencyMs: number; costUsd: number }> = {};
+    let totalCostUsd = 0;
+    let totalRequests = 0;
 
-    const byProvider: Record<string, { requests: number; failures: number; totalLatency: number; cost: number }> = {};
+    for (let i = 0; i < this.count; i++) {
+      const entry = this.ring[i];
+      if (!entry || entry.timestamp <= cutoff) continue;
 
-    for (const entry of recent) {
-      const key = entry.provider;
-      if (!byProvider[key]) byProvider[key] = { requests: 0, failures: 0, totalLatency: 0, cost: 0 };
-      byProvider[key].requests++;
-      if (entry.status !== "success") byProvider[key].failures++;
-      byProvider[key].totalLatency += entry.latencyMs;
-      byProvider[key].cost += entry.costUsd;
+      totalRequests++;
+      totalCostUsd += entry.costUsd;
+
+      if (!byProvider[entry.provider]) {
+        byProvider[entry.provider] = { requests: 0, failures: 0, avgLatencyMs: 0, costUsd: 0 };
+      }
+
+      const p = byProvider[entry.provider];
+      p.avgLatencyMs = Math.round(((p.avgLatencyMs * p.requests) + entry.latencyMs) / (p.requests + 1));
+      p.requests++;
+      if (entry.status !== "success") p.failures++;
+      p.costUsd += entry.costUsd;
     }
+    return { totalCostUsd, totalRequests, byProvider };
+  }
 
-    const summary: Record<string, { requests: number; failures: number; avgLatencyMs: number; cost: number }> = {};
-    for (const [key, val] of Object.entries(byProvider)) {
-      summary[key] = {
-        requests: val.requests,
-        failures: val.failures,
-        avgLatencyMs: val.requests > 0 ? Math.round(val.totalLatency / val.requests) : 0,
-        cost: Math.round(val.cost * 10000) / 10000,
-      };
+  private resetHourIfStale(): void {
+    if (Date.now() - this.lastHourReset > 3600000) {
+      this.hourlyCost = 0;
+      this.lastHourReset = Date.now();
     }
-
-    return {
-      totalCost: Math.round(recent.reduce((s, e) => s + e.costUsd, 0) * 10000) / 10000,
-      totalRequests: recent.length,
-      byProvider: summary,
-    };
   }
 }
-
-const metrics = new MetricsCollector();
-
-// ── Circuit Breaker ──────────────────────────────────────────────────────
 
 class CircuitBreakerManager {
   private failures: Record<string, number> = {};
   private lastFailure: Record<string, number> = {};
+  private halfOpenProbe: Record<string, boolean> = {};
 
-  recordSuccess(provider: ProviderName): void {
+  recordSuccess(provider: Provider): void {
     this.failures[provider] = 0;
+    this.halfOpenProbe[provider] = false;
+    persistence?.setCircuitFailures(provider, 0).catch(() => { });
   }
 
-  recordFailure(provider: ProviderName): void {
-    this.failures[provider] = (this.failures[provider] || 0) + 1;
+  recordFailure(provider: Provider): void {
+    this.failures[provider] = (this.failures[provider] ?? 0) + 1;
     this.lastFailure[provider] = Date.now();
+    this.halfOpenProbe[provider] = false;
+    persistence?.setCircuitFailures(provider, this.failures[provider], 120000).catch(() => { });
   }
 
-  isOpen(provider: ProviderName): boolean {
-    const fails = this.failures[provider] || 0;
-    if (fails < CIRCUIT_BREAKER_THRESHOLD) return false;
+  isOpen(provider: Provider): boolean {
+    const fails = this.failures[provider] ?? 0;
+    if (fails < 3) return false;
 
-    // Check if cooldown has elapsed (half-open state)
-    const lastFail = this.lastFailure[provider] || 0;
-    if (Date.now() - lastFail > CIRCUIT_BREAKER_COOLDOWN_MS) {
-      // Allow one attempt (half-open)
-      return false;
+    if (Date.now() - (this.lastFailure[provider] ?? 0) >= 60000) {
+      if (!this.halfOpenProbe[provider]) {
+        this.halfOpenProbe[provider] = true;
+        return false;
+      }
+      return true;
     }
-
     return true;
   }
 
-  getStatus(): Record<ProviderName, "closed" | "open" | "half-open"> {
-    const result: Record<string, "closed" | "open" | "half-open"> = {};
-    for (const provider of ["google", "openai", "anthropic"] as ProviderName[]) {
-      const fails = this.failures[provider] || 0;
-      if (fails < CIRCUIT_BREAKER_THRESHOLD) {
-        result[provider] = "closed";
-      } else {
-        const lastFail = this.lastFailure[provider] || 0;
-        result[provider] = Date.now() - lastFail > CIRCUIT_BREAKER_COOLDOWN_MS ? "half-open" : "open";
-      }
+  getStatus(): Record<string, string> {
+    const s: Record<string, string> = {};
+    for (const p of ["google", "openai", "anthropic"] as Provider[]) {
+      if ((this.failures[p] ?? 0) < 3) s[p] = "closed";
+      else s[p] = Date.now() - (this.lastFailure[p] ?? 0) >= 60000 ? "half-open" : "open";
     }
-    return result as Record<ProviderName, "closed" | "open" | "half-open">;
+    return s;
   }
 }
 
-const circuitBreaker = new CircuitBreakerManager();
+export const metrics = new MetricsCollector();
+export const circuitBreaker = new CircuitBreakerManager();
 
+// ============================================================================
+// 4. UTILS & RESILIENT FETCH
+// ============================================================================
 
-// ═══════════════════════════════════════════════════════════════════════════
-// §6  INTERNAL UTILITIES
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ── Error Classification ─────────────────────────────────────────────────
-
-type ProviderErrorType = "auth" | "rate_limit" | "server" | "timeout" | "unknown";
-
-class ProviderError extends Error {
-  constructor(
-    public readonly provider: ProviderName,
-    message: string,
-    public readonly errorType: ProviderErrorType,
-  ) {
+export class ProviderError extends Error {
+  constructor(public provider: Provider, message: string, public errorType: string) {
     super(`[${provider}] ${message}`);
     this.name = "ProviderError";
   }
 }
 
-function classifyHttpError(status: number): ProviderErrorType {
+function env(key: string): string | undefined {
+  if (typeof process !== "undefined" && process.env) return process.env[key];
+  if (typeof globalThis !== "undefined" && (globalThis as Record<string, unknown>).Deno) {
+    return ((globalThis as Record<string, unknown>).Deno as Record<string, { get: (k: string) => string | undefined }>).env.get(key);
+  }
+  return undefined;
+}
+
+const ENV_KEYS: Record<Provider, string> = { google: "GEMINI_API_KEY", openai: "OPENAI_API_KEY", anthropic: "ANTHROPIC_API_KEY" };
+const ENV_ALIASES: Partial<Record<Provider, string>> = { google: "GOOGLE_GENERATIVE_AI_API_KEY" };
+
+export function isProviderEnabled(provider: Provider): boolean {
+  return !!(env(ENV_KEYS[provider]) || env(ENV_ALIASES[provider] ?? ""));
+}
+
+function requireKey(provider: Provider): string {
+  const key = env(ENV_KEYS[provider]) || env(ENV_ALIASES[provider] ?? "");
+  if (!key) throw new ProviderError(provider, `API Key not set for ${provider}`, "auth");
+  return key;
+}
+
+function classifyHttpError(status: number): string {
   if (status === 401 || status === 403) return "auth";
   if (status === 429) return "rate_limit";
   if (status >= 500) return "server";
   return "unknown";
 }
 
-function isAuthError(err: unknown): boolean {
-  return err instanceof ProviderError && err.errorType === "auth";
+async function sleepWithSignal(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new DOMException("Aborted", "AbortError"));
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
-function isRateLimitError(err: unknown): boolean {
-  return err instanceof ProviderError && err.errorType === "rate_limit";
-}
-
-// ── Fetch with Timeout ───────────────────────────────────────────────────
-
-async function fetchWithTimeout(
-  url: string,
-  init: RequestInit,
-  timeoutMs: number,
-): Promise<Response> {
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number, provider: Provider): Promise<Response> {
   const controller = new AbortController();
   const externalSignal = init.signal;
-
-  // Combine external abort signal with timeout
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+  const onExternalAbort = () => controller.abort();
   if (externalSignal) {
     if (externalSignal.aborted) {
       clearTimeout(timeoutId);
       throw new DOMException("Aborted", "AbortError");
     }
-    externalSignal.addEventListener("abort", () => controller.abort(), { once: true });
+    externalSignal.addEventListener("abort", onExternalAbort, { once: true });
   }
 
   try {
     return await fetch(url, { ...init, signal: controller.signal });
-  } catch (err) {
+  } catch (err: unknown) {
     if (controller.signal.aborted && !externalSignal?.aborted) {
-      throw new ProviderError("google", `Timeout after ${timeoutMs}ms`, "timeout");
+      throw new ProviderError(provider, `Timeout after ${timeoutMs}ms`, "timeout");
     }
     throw err;
   } finally {
     clearTimeout(timeoutId);
+    if (externalSignal) externalSignal.removeEventListener("abort", onExternalAbort);
   }
 }
 
-// ── Message Format Converters ────────────────────────────────────────────
+async function fetchWithRetry(url: string, options: RequestInit, timeoutMs: number, retries = 3, provider: Provider): Promise<Response> {
+  const maxAttempts = typeof retries === "number" && Number.isFinite(retries) ? Math.min(retries, 5) : 3;
+  let attempt = 0;
 
-function convertToGeminiFormat(messages: WireMessage[]): Array<{ role: string; parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> }> {
-  return messages
-    .filter(m => m.role !== "system") // Gemini handles system via systemInstruction, not in contents
-    .map(m => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: typeof m.content === "string"
-        ? [{ text: m.content }]
-        : m.content.map(part => {
-          if (part.type === "text") return { text: part.text || "" };
-          if ((part.type === "image" || part.type === "file") && part.source) {
-            return { inlineData: { mimeType: part.source.media_type, data: part.source.data } };
-          }
-          return { text: "" };
-        }),
-    }));
+  while (true) {
+    try {
+      const res = await fetchWithTimeout(url, options, timeoutMs, provider);
+
+      if (res.status === 429 && attempt < maxAttempts) {
+        const retryAfter = res.headers.get("Retry-After");
+        let delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : Math.min(1000 * Math.pow(2, attempt), 5000);
+        delay = (delay / 2) + (Math.random() * (delay / 2));
+        log.warn("fetch_retry", { provider, attempt, status: res.status, delayMs: Math.round(delay) });
+        await sleepWithSignal(delay, options.signal ?? undefined);
+        attempt++;
+        continue;
+      }
+
+      if (res.ok || (res.status >= 400 && res.status < 429 && res.status !== 408)) {
+        return res;
+      }
+      if (attempt >= maxAttempts) return res;
+
+      const baseDelay = Math.min(1000 * Math.pow(2, attempt), 5000);
+      const delay = (baseDelay / 2) + (Math.random() * (baseDelay / 2));
+
+      log.warn("fetch_retry", { provider, attempt, status: res.status, delayMs: Math.round(delay) });
+      await sleepWithSignal(delay, options.signal ?? undefined);
+      attempt++;
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") throw err;
+      if (attempt >= maxAttempts) throw err;
+
+      const delay = 500 + Math.random() * 1000;
+      log.warn("fetch_retry_error", { provider, attempt, error: err instanceof Error ? err.message : String(err) });
+      await sleepWithSignal(delay, options.signal ?? undefined);
+      attempt++;
+    }
+  }
 }
 
-function convertToOpenAIFormat(messages: WireMessage[]): Array<{ role: string; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }> {
-  return messages.map(m => {
-    if (typeof m.content === "string") return { role: m.role, content: m.content };
-    return {
-      role: m.role,
-      content: m.content.map(part => {
-        if (part.type === "text") return { type: "text" as const, text: part.text || "" };
-        if (part.type === "image" && part.source) {
-          return { type: "image_url" as const, image_url: { url: `data:${part.source.media_type};base64,${part.source.data}` } };
-        }
-        return { type: "text" as const, text: "[unsupported content]" };
-      }),
-    };
-  });
+export function safeParseJSON(raw: string): { success: boolean; data?: unknown; raw: string } {
+  if (!raw) return { success: false, raw: "" };
+  let text = raw.trim().replace(/^`+(?:json)?/i, "").replace(/`+$/i, "").trim();
+  const first = text.search(/[\[{]/);
+  if (first > 0) text = text.slice(first);
+  const last = Math.max(text.lastIndexOf("}"), text.lastIndexOf("]"));
+  if (last >= 0) text = text.slice(0, last + 1);
+  try {
+    return { success: true, data: JSON.parse(text), raw };
+  } catch {
+    return { success: false, raw };
+  }
 }
 
-function convertToAnthropicFormat(messages: WireMessage[]): Array<{ role: string; content: string | Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string } }> }> {
-  return messages
-    .filter(m => m.role !== "system")
-    .map(m => {
-      if (typeof m.content === "string") return { role: m.role, content: m.content };
-      return {
-        role: m.role,
-        content: m.content.map(part => {
-          if (part.type === "text") return { type: "text" as const, text: part.text || "" };
-          if (part.type === "image" && part.source) {
-            return { type: "image" as const, source: { type: "base64", media_type: part.source.media_type, data: part.source.data } };
-          }
-          return { type: "text" as const, text: "[unsupported content]" };
-        }),
-      };
-    });
+async function readErrorBody(res: Response): Promise<string> {
+  try {
+    return (await res.text()).slice(0, 512);
+  } catch {
+    return "";
+  }
 }
 
-function extractSystemPrompt(messages: WireMessage[]): { systemPrompt: string; messages: WireMessage[] } {
-  const system = messages.find(m => m.role === "system");
-  const rest = messages.filter(m => m.role !== "system");
+// ============================================================================
+// 5. SSE PARSING (Spec Compliant Buffer)
+// ============================================================================
+
+export function parseGeminiSSEPayload(parsed: Record<string, unknown>): StreamChunk | null {
+  const candidates = parsed?.candidates as Array<Record<string, unknown>> | undefined;
+  const candidate = candidates?.[0];
+  if (!candidate) return null;
+
+  const content = candidate.content as Record<string, unknown> | undefined;
+  const parts = (content?.parts as Array<Record<string, unknown>>) || [];
+  const textParts: string[] = [];
+  const thoughtParts: string[] = [];
+  const functionCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  const metadata = (candidate.groundingMetadata as GroundingMetadata) || null;
+
+  for (const part of parts) {
+    if (part.text !== undefined && part.text !== null) {
+      if (part.thought || part.executableCode) thoughtParts.push(part.text as string);
+      else textParts.push(part.text as string);
+    }
+    if (part.functionCall) {
+      const fc = part.functionCall as { name: string; args?: Record<string, unknown> };
+      functionCalls.push({ name: fc.name, args: fc.args || {} });
+    }
+  }
+
+  if (functionCalls.length > 0) return { type: "function_call", functionCalls };
+  if (textParts.length > 0) return { type: "text", content: textParts.join(""), ...(metadata ? { metadata } : {}) };
+  if (metadata) return { type: "grounding", metadata };
+  if (thoughtParts.length > 0) return { type: "thought", content: thoughtParts.join("") };
+
+  return null;
+}
+
+function parseEventBlock(block: string, provider: Provider): StreamChunk | null {
+  const lines = block.split(/\r?\n/);
+  const dataLines = lines.filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim());
+  if (!dataLines.length) return null;
+
+  const payload = dataLines.join("\n").trim();
+  if (payload === "[DONE]") return { type: "done" };
+
+  try {
+    const data = JSON.parse(payload);
+    if (provider === "google") return parseGeminiSSEPayload(data);
+
+    if (provider === "openai") {
+      if (data.type?.startsWith("response.")) {
+        if (data.type === "response.output_text.delta") return { type: "text", content: data.delta };
+        if (data.type === "response.completed") return { type: "done" };
+        return null;
+      }
+      const delta = data.choices?.[0]?.delta;
+      if (delta?.reasoning_content) return { type: "thought", content: delta.reasoning_content };
+      if (delta?.content) return { type: "text", content: delta.content };
+      return null;
+    }
+
+    if (provider === "anthropic") {
+      if (data.type === "content_block_delta") {
+        if (data.delta?.type === "text_delta") return { type: "text", content: data.delta.text };
+        if (data.delta?.type === "thinking_delta") return { type: "thought", content: data.delta.thinking };
+      }
+      if (data.type === "content_block_start" && data.content_block?.type === "web_search_tool_result") {
+        const urls = data.content_block.content
+          ?.filter((r: Record<string, unknown>) => r.type === "web_search_result")
+          .map((r: Record<string, string>) => ({ web: { uri: r.url, title: r.title } }));
+        if (urls?.length) return { type: "grounding", metadata: { groundingChunks: urls, webSearchQueries: [] } };
+      }
+      if (data.type === "message_stop") return { type: "done" };
+      return null;
+    }
+  } catch {
+    // Malformed JSON — safe to ignore due to TCP bounds
+  }
+  return null;
+}
+
+class SSEParser {
+  private buffer = "";
+
+  parse(chunk: string): string[] {
+    this.buffer += chunk;
+    const events: string[] = [];
+    let index: number;
+    while ((index = this.buffer.indexOf("\n\n")) !== -1) {
+      events.push(this.buffer.slice(0, index));
+      this.buffer = this.buffer.slice(index + 2);
+    }
+    return events;
+  }
+
+  flush(): string[] {
+    if (this.buffer.trim()) {
+      const event = this.buffer;
+      this.buffer = "";
+      return [event];
+    }
+    return [];
+  }
+}
+
+// ============================================================================
+// 6. FORMATTERS & CLIENTS
+// ============================================================================
+
+function extractSystemText(messages: Message[]): string {
+  const system = messages.find((m) => m.role === "system");
+  return typeof system?.content === "string" ? system.content : "";
+}
+
+function splitSystemPrompt(messages: Message[]) {
+  return { systemPrompt: extractSystemText(messages), messages: messages.filter((m) => m.role !== "system") };
+}
+
+function toGeminiFormat(messages: Message[]) {
+  return messages.filter((m) => m.role !== "system").map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: typeof m.content === "string" ? [{ text: m.content }] : m.content.map(
+      (p) => p.type === "text" ? { text: p.text } : { inlineData: { mimeType: p.source!.media_type, data: p.source!.data } }
+    )
+  }));
+}
+
+function toOpenAIFormat(messages: Message[]) {
+  return messages.map((m) => ({
+    role: m.role,
+    content: typeof m.content === "string" ? m.content : m.content.map(
+      (p) => p.type === "text" ? { type: "text" as const, text: p.text } : { type: "image_url" as const, image_url: { url: `data:${p.source!.media_type};base64,${p.source!.data}` } }
+    )
+  }));
+}
+
+function toOpenAIResponsesInput(messages: Message[]) {
+  return messages.filter((m) => m.role !== "system").map((m) => ({
+    role: m.role === "assistant" ? "assistant" as const : "user" as const,
+    content: typeof m.content === "string" ? m.content : m.content.map(
+      (p) => p.type === "text" ? { type: "input_text" as const, text: p.text } : { type: "input_image" as const, image_url: `data:${p.source!.media_type};base64,${p.source!.data}` }
+    )
+  }));
+}
+
+function buildOpenAIChatBody(req: ChatRequest, stream: boolean) {
   return {
-    systemPrompt: typeof system?.content === "string" ? system.content : "",
-    messages: rest,
+    model: req.model,
+    messages: toOpenAIFormat(req.messages),
+    temperature: req.temperature,
+    max_completion_tokens: req.maxTokens,
+    stream
   };
 }
 
-// ── Token Estimation ─────────────────────────────────────────────────────
-
-function estimateTokens(input: string | WireMessage[]): number {
-  if (typeof input === "string") return Math.ceil(input.length / 4);
-  return input.reduce((sum, m) => {
-    if (typeof m.content === "string") return sum + Math.ceil(m.content.length / 4);
-    return sum + m.content.reduce((s, p) => s + (p.text?.length || 200) / 4, 0);
-  }, 0);
+function toAnthropicFormat(messages: Message[]) {
+  return messages.filter((m) => m.role !== "system").map((m) => ({
+    role: m.role,
+    content: typeof m.content === "string" ? m.content : m.content.map(
+      (p) => p.type === "text" ? { type: "text" as const, text: p.text } : { type: "image" as const, source: p.source }
+    )
+  }));
 }
 
-// ── Chain Resolution ─────────────────────────────────────────────────────
+export const googleClient = {
+  async chat(req: ChatRequest) {
+    const apiKey = requireKey("google");
+    const body: Record<string, unknown> = { contents: toGeminiFormat(req.messages), generationConfig: { temperature: req.temperature, maxOutputTokens: req.maxTokens } };
+    const sys = extractSystemText(req.messages);
+    if (sys) body.systemInstruction = { parts: [{ text: sys }] };
+    if (req.enableGrounding) body.tools = [{ googleSearch: {} }];
 
-function resolveChain(taskType: TaskType, options: OrchestrateOptions): ProviderConfig[] {
-  // Force a specific provider
-  if (options.forceProvider) {
-    const chain = FALLBACK_CHAINS[taskType];
-    const forced = chain.find(c => c.provider === options.forceProvider);
-    if (forced && isProviderEnabled(forced.provider)) return [forced];
-    // If forced provider not in chain or disabled, fall through to full chain
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${req.model}:generateContent`;
+    const res = await fetchWithRetry(url, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey }, body: JSON.stringify(body), signal: req.signal }, 30000, req.retries ?? 3, "google");
+    if (!res.ok) throw new ProviderError("google", `${res.status}: ${await readErrorBody(res)}`, classifyHttpError(res.status));
+
+    const data = await res.json();
+    const candidate = data.candidates?.[0];
+    const content = candidate?.content?.parts?.map((p: Record<string, string>) => p.text ?? "").join("") ?? "";
+    if (!content && candidate?.finishReason === "SAFETY") throw new ProviderError("google", "Safety filter triggered", "safety_block");
+    return { content, groundingMetadata: candidate?.groundingMetadata ?? data.groundingMetadata ?? null, inputTokens: data.usageMetadata?.promptTokenCount ?? 0, outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0 };
+  },
+  async chatStream(req: ChatRequest) {
+    const apiKey = requireKey("google");
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${req.model}:streamGenerateContent?alt=sse`;
+    const body: Record<string, unknown> = { contents: toGeminiFormat(req.messages), generationConfig: { temperature: req.temperature, maxOutputTokens: req.maxTokens } };
+    const sys = extractSystemText(req.messages);
+    if (sys) body.systemInstruction = { parts: [{ text: sys }] };
+    if (req.enableGrounding) body.tools = [{ googleSearch: {} }];
+
+    const res = await fetchWithRetry(url, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey }, body: JSON.stringify(body), signal: req.signal }, 30000, req.retries ?? 3, "google");
+    if (!res.ok) throw new ProviderError("google", `${res.status}: ${await readErrorBody(res)}`, classifyHttpError(res.status));
+    if (!res.body) throw new ProviderError("google", "Empty body", "server");
+    return res.body;
+  },
+  async chatStreamRaw(contents: Array<Record<string, unknown>>, req: ChatRequest) {
+    const apiKey = requireKey("google");
+    const body: Record<string, unknown> = {
+      contents,
+      generationConfig: { temperature: req.temperature, maxOutputTokens: req.maxTokens, ...(req.thinkingLevel ? { thinkingConfig: { thinkingLevel: req.thinkingLevel } } : {}) }
+    };
+    if (req.systemInstruction) body.systemInstruction = { parts: [{ text: req.systemInstruction }] };
+
+    const toolObj: Record<string, unknown> = {};
+    let hasTools = false;
+    if (req.enableGrounding || req.tools?.enableGrounding) { toolObj.googleSearch = {}; hasTools = true; }
+    if (req.tools?.functionDeclarations && req.tools.functionDeclarations.length > 0) { toolObj.functionDeclarations = req.tools.functionDeclarations; hasTools = true; }
+    if (hasTools) body.tools = [toolObj];
+    if (req.toolConfig) body.toolConfig = req.toolConfig;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${req.model}:streamGenerateContent?alt=sse`;
+    const res = await fetchWithRetry(url, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey }, body: JSON.stringify(body), signal: req.signal }, 30000, 3, "google");
+    if (!res.ok) throw new ProviderError("google", `${res.status}: ${await readErrorBody(res)}`, classifyHttpError(res.status));
+    if (!res.body) throw new ProviderError("google", "Empty body", "server");
+    return res.body;
+  }
+};
+
+export const openaiClient = {
+  async chat(req: ChatRequest) {
+    const apiKey = requireKey("openai");
+    if (req.enableGrounding) {
+      const body: Record<string, unknown> = { model: req.model, input: toOpenAIResponsesInput(req.messages), tools: [{ type: "web_search" }], stream: false, store: false };
+      const sys = extractSystemText(req.messages);
+      if (sys) body.instructions = sys;
+
+      const res = await fetchWithRetry("https://api.openai.com/v1/responses", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify(body), signal: req.signal }, 60000, req.retries ?? 3, "openai");
+      if (!res.ok) throw new ProviderError("openai", `${res.status}: ${await readErrorBody(res)}`, classifyHttpError(res.status));
+
+      const data = await res.json();
+      const textBlock = data.output?.find((o: Record<string, string>) => o.type === "message")?.content?.find((c: Record<string, string>) => c.type === "output_text");
+      const urls = textBlock?.annotations?.filter((a: Record<string, string>) => a.type === "url_citation").map((a: Record<string, string>) => ({ web: { uri: a.url, title: a.title } })) ?? [];
+      return { content: textBlock?.text ?? "", groundingMetadata: urls.length ? { groundingChunks: urls, webSearchQueries: [] } : null, inputTokens: data.usage?.input_tokens ?? 0, outputTokens: data.usage?.output_tokens ?? 0, _searchCost: (data.output?.filter((o: Record<string, string>) => o.type === "web_search_call").length ?? 0) * 0.01 };
+    }
+    const res = await fetchWithRetry("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify(buildOpenAIChatBody(req, false)), signal: req.signal }, 60000, req.retries ?? 3, "openai");
+    if (!res.ok) throw new ProviderError("openai", `${res.status}: ${await readErrorBody(res)}`, classifyHttpError(res.status));
+    const data = await res.json();
+    return { content: data.choices?.[0]?.message?.content ?? "", inputTokens: data.usage?.prompt_tokens ?? 0, outputTokens: data.usage?.completion_tokens ?? 0 };
+  },
+  async chatStream(req: ChatRequest) {
+    const apiKey = requireKey("openai");
+    const isGrounding = req.enableGrounding;
+    const endpoint = isGrounding ? "https://api.openai.com/v1/responses" : "https://api.openai.com/v1/chat/completions";
+    let body: Record<string, unknown>;
+    if (isGrounding) {
+      body = { model: req.model, input: toOpenAIResponsesInput(req.messages), tools: [{ type: "web_search" }], stream: true, store: false };
+      const sys = extractSystemText(req.messages);
+      if (sys) body.instructions = sys;
+    } else {
+      body = buildOpenAIChatBody(req, true);
+    }
+    const res = await fetchWithRetry(endpoint, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify(body), signal: req.signal }, 60000, req.retries ?? 3, "openai");
+    if (!res.ok) throw new ProviderError("openai", `${res.status}: ${await readErrorBody(res)}`, classifyHttpError(res.status));
+    if (!res.body) throw new ProviderError("openai", "Empty body", "server");
+    return res.body;
+  }
+};
+
+export const anthropicClient = {
+  async chat(req: ChatRequest) {
+    const apiKey = requireKey("anthropic");
+    const { systemPrompt, messages } = splitSystemPrompt(req.messages);
+    const headers: Record<string, string> = { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" };
+    const body: Record<string, unknown> = { model: req.model, system: systemPrompt, messages: toAnthropicFormat(messages), temperature: req.temperature, max_tokens: req.maxTokens };
+    if (req.enableGrounding) {
+      headers["anthropic-beta"] = ANTHROPIC_WEB_SEARCH_BETA;
+      body.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }];
+    }
+    const res = await fetchWithRetry("https://api.anthropic.com/v1/messages", { method: "POST", headers, body: JSON.stringify(body), signal: req.signal }, 60000, req.retries ?? 3, "anthropic");
+    if (!res.ok) throw new ProviderError("anthropic", `${res.status}: ${await readErrorBody(res)}`, classifyHttpError(res.status));
+    const data = await res.json();
+
+    const textBlocks = data.content?.filter((b: Record<string, string>) => b.type === "text") ?? [];
+    const thinkBlocks = data.content?.filter((b: Record<string, string>) => b.type === "thinking") ?? [];
+    const urls: Array<{ web: { uri: string; title: string } }> = [];
+    if (req.enableGrounding) {
+      data.content?.forEach((block: Record<string, unknown>) => {
+        if (block.type === "web_search_tool_result" && block.content) {
+          (block.content as Array<Record<string, string>>).forEach((r) => { if (r.url) urls.push({ web: { uri: r.url, title: r.title } }); });
+        }
+        if (block.type === "text" && block.citations) {
+          (block.citations as Array<Record<string, string>>).forEach((c) => { if (c.url) urls.push({ web: { uri: c.url, title: c.title } }); });
+        }
+      });
+    }
+    return {
+      content: textBlocks.map((b: Record<string, string>) => b.text ?? "").join(""),
+      thoughts: thinkBlocks.length > 0 ? thinkBlocks.map((b: Record<string, string>) => b.thinking ?? "").join("") : null,
+      groundingMetadata: urls.length ? { groundingChunks: urls, webSearchQueries: [] } : null,
+      inputTokens: data.usage?.input_tokens ?? 0, outputTokens: data.usage?.output_tokens ?? 0,
+      _searchCost: (data.usage?.server_tool_use?.web_search_requests ?? 0) * 0.01
+    };
+  },
+  async chatStream(req: ChatRequest) {
+    const apiKey = requireKey("anthropic");
+    const { systemPrompt, messages } = splitSystemPrompt(req.messages);
+    const headers: Record<string, string> = { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" };
+    const body: Record<string, unknown> = { model: req.model, system: systemPrompt, messages: toAnthropicFormat(messages), temperature: req.temperature, max_tokens: req.maxTokens, stream: true };
+    if (req.enableGrounding) {
+      headers["anthropic-beta"] = ANTHROPIC_WEB_SEARCH_BETA;
+      body.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }];
+    }
+    const res = await fetchWithRetry("https://api.anthropic.com/v1/messages", { method: "POST", headers, body: JSON.stringify(body), signal: req.signal }, 60000, req.retries ?? 3, "anthropic");
+    if (!res.ok) throw new ProviderError("anthropic", `${res.status}: ${await readErrorBody(res)}`, classifyHttpError(res.status));
+    if (!res.body) throw new ProviderError("anthropic", "Empty body", "server");
+    return res.body;
+  }
+};
+
+export const CLIENTS: Record<Provider, typeof googleClient | typeof openaiClient | typeof anthropicClient> = { google: googleClient, openai: openaiClient, anthropic: anthropicClient };
+
+// ============================================================================
+// 7. ORCHESTRATION & ROUTING
+// ============================================================================
+
+const GROUNDING_PATTERNS = [
+  /search (?:for |the )?(?:current|latest|live|real[- ]time)\b[^.]*./gi,
+  /use (?:google )?search (?:grounding|to find)\b[^.]*./gi,
+  /look up (?:current|latest|live)\b[^.]*./gi,
+  /verify (?:with|using|via) (?:search|grounding|google)\b[^.]*./gi
+];
+
+function shapePrompt(messages: Message[], config: ProviderConfig, taskType: TaskType, options: OrchestrationOptions): Message[] {
+  let systemContent = options.systemPrompt ?? extractSystemText(messages);
+  const nonSystem = messages.filter((m) => m.role !== "system");
+
+  if (!config.supportsGrounding && taskType === "grounding") {
+    GROUNDING_PATTERNS.forEach(p => systemContent = systemContent.replace(p, ""));
+    systemContent = systemContent.replace(/\n{3,}/g, "\n\n").trim();
+    if (options.gameContext) {
+      systemContent += `\n\n--- CURRENT GAME CONTEXT (injected, not live) ---\n${JSON.stringify(options.gameContext, null, 2)}\n--- END CONTEXT ---\nNote: This data was provided at request time and may not reflect real-time changes.`;
+    }
   }
 
-  // Filter to enabled providers only
+  if (config.provider === "anthropic" && (taskType === "vision" || taskType === "analysis")) {
+    systemContent += "\n\nWhen providing structured analysis, use clear section headers and maintain consistent formatting.";
+  }
+  if (config.provider === "google" && taskType === "grounding") systemContent += "\n\nCite your sources. Include specific numbers, timestamps, and data points from search results.";
+  if (config.provider === "openai" && taskType === "analysis") systemContent += "\n\nBe precise with numerical claims. Structure your reasoning step by step.";
+
+  return [{ role: "system", content: systemContent }, ...nonSystem];
+}
+
+function resolveChain(taskType: TaskType, options: OrchestrationOptions): ProviderConfig[] {
+  if (options.forceProvider) {
+    const forced = FALLBACK_CHAINS[taskType].find(c => c.provider === options.forceProvider);
+    if (forced && isProviderEnabled(forced.provider)) return [forced];
+  }
   return FALLBACK_CHAINS[taskType].filter(c => isProviderEnabled(c.provider));
 }
 
+function normalizeResponse(raw: Record<string, unknown>, config: ProviderConfig, chainPosition: number, latencyMs: number): NormalizedResponse {
+  const inputCost = ((raw.inputTokens as number) / 1000) * config.costPer1kInput;
+  const outputCost = ((raw.outputTokens as number) / 1000) * config.costPer1kOutput;
+  return {
+    content: raw.content as string,
+    groundingMetadata: (raw.groundingMetadata as GroundingMetadata) ?? null,
+    thoughts: (raw.thoughts as string) ?? null,
+    servedBy: config.provider,
+    model: config.model,
+    isFallback: chainPosition > 0,
+    chainPosition,
+    latencyMs,
+    estimatedCostUsd: inputCost + outputCost + ((raw._searchCost as number) ?? 0)
+  };
+}
 
-// ═══════════════════════════════════════════════════════════════════════════
-// §7  PUBLIC API
-// ═══════════════════════════════════════════════════════════════════════════
+export async function orchestrate(taskType: TaskType, messages: Message[], options: OrchestrationOptions = {}): Promise<NormalizedResponse> {
+  const chain = resolveChain(taskType, options);
+  if (!chain.length) throw new Error("No active providers enabled. Set at least one API key.");
 
-export {
-  metrics,
-  circuitBreaker,
-  FALLBACK_CHAINS,
-  MODELS,
-  TASK_TEMPERATURES,
-  TASK_MAX_TOKENS,
-  TASK_THINKING_LEVELS,
-  ProviderError,
-  googleClient,
-};
+  let lastError: Error | null = null;
+  const defaults = { temperature: TASK_TEMPERATURES[taskType], maxTokens: TASK_MAX_TOKENS[taskType] };
 
-/** Convenience: get a health snapshot for dashboards or debugging. */
-export function getProviderHealth(): {
-  circuits: Record<ProviderName, "closed" | "open" | "half-open">;
-  enabled: Record<ProviderName, boolean>;
-  metrics: ReturnType<MetricsCollector["getSummary"]>;
-  costCeiling: { limit: number; currentHourlySpend: number; isOverBudget: boolean };
-} {
+  for (let i = 0; i < chain.length; i++) {
+    const config = chain[i];
+    if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    if (circuitBreaker.isOpen(config.provider)) {
+      log.info("circuit_open_skip", { provider: config.provider, taskType });
+      continue;
+    }
+
+    if (metrics.isOverBudget()) throw new Error(`Cost ceiling ($${COST_CEILING_PER_HOUR}/hr) reached.`);
+
+    const shaped = shapePrompt(messages, config, taskType, options);
+    const start = performance.now();
+
+    try {
+      const raw = await CLIENTS[config.provider].chat({
+        model: config.model,
+        messages: shaped,
+        temperature: options.temperature ?? defaults.temperature,
+        maxTokens: options.maxTokens ?? defaults.maxTokens,
+        signal: options.signal,
+        enableGrounding: config.supportsGrounding && taskType === "grounding",
+        retries: config.maxRetries
+      });
+
+      const latencyMs = Math.round(performance.now() - start);
+      const normalized = normalizeResponse(raw as unknown as Record<string, unknown>, config, i, latencyMs);
+
+      metrics.record(config, taskType, "success", latencyMs, normalized.estimatedCostUsd);
+      circuitBreaker.recordSuccess(config.provider);
+      return normalized;
+    } catch (err: unknown) {
+      const latencyMs = Math.round(performance.now() - start);
+      lastError = err instanceof Error ? err : new Error(String(err));
+      const errorType = err instanceof ProviderError ? err.errorType : "unknown";
+
+      metrics.record(config, taskType, errorType, latencyMs, 0);
+      if (errorType !== "safety_block") circuitBreaker.recordFailure(config.provider);
+
+      if (err instanceof DOMException && err.name === "AbortError") throw err;
+      if (i < chain.length - 1) options.onFallback?.(config, chain[i + 1], lastError?.message || "");
+    }
+  }
+  throw lastError ?? new Error("All providers failed.");
+}
+
+export async function orchestrateStream(taskType: TaskType, messages: Message[], options: OrchestrationOptions = {}): Promise<ReadableStream<StreamChunk>> {
+  const chain = resolveChain(taskType, options);
+  if (!chain.length) throw new Error("No active providers enabled.");
+
+  let lastError: Error | null = null;
+  const defaults = { temperature: TASK_TEMPERATURES[taskType], maxTokens: TASK_MAX_TOKENS[taskType] };
+
+  for (let i = 0; i < chain.length; i++) {
+    const config = chain[i];
+    if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    if (circuitBreaker.isOpen(config.provider)) continue;
+    if (metrics.isOverBudget()) throw new Error("Cost ceiling reached.");
+
+    const shaped = shapePrompt(messages, config, taskType, options);
+    const start = performance.now();
+
+    try {
+      const rawStream = await CLIENTS[config.provider].chatStream({
+        model: config.model,
+        messages: shaped,
+        temperature: options.temperature ?? defaults.temperature,
+        maxTokens: options.maxTokens ?? defaults.maxTokens,
+        signal: options.signal,
+        enableGrounding: config.supportsGrounding && taskType === "grounding",
+        retries: config.maxRetries
+      });
+
+      circuitBreaker.recordSuccess(config.provider);
+      return createNormalizingStream(rawStream, config, i, start, taskType);
+    } catch (err: unknown) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      circuitBreaker.recordFailure(config.provider);
+      if (err instanceof DOMException && err.name === "AbortError") throw err;
+      if (i < chain.length - 1) options.onFallback?.(config, chain[i + 1], lastError.message);
+    }
+  }
+  throw lastError ?? new Error("All providers failed.");
+}
+
+function createNormalizingStream(rawStream: ReadableStream<Uint8Array>, config: ProviderConfig, chainPosition: number, startMs: number, taskType: TaskType): ReadableStream<StreamChunk> {
+  let charCount = 0;
+
+  return new ReadableStream({
+    async start(controller) {
+      const reader = rawStream.getReader();
+      const decoder = new TextDecoder("utf-8");
+      const parser = new SSEParser();
+
+      const processEventBlocks = (blocks: string[]) => {
+        for (const block of blocks) {
+          const chunk = parseEventBlock(block, config.provider);
+          if (chunk) {
+            chunk.servedBy = config.provider;
+            chunk.model = config.model;
+            chunk.isFallback = chainPosition > 0;
+            if (chunk.type === "text" && chunk.content) charCount += chunk.content.length;
+            controller.enqueue(chunk);
+          }
+        }
+      };
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const decoded = decoder.decode(value, { stream: true });
+          processEventBlocks(parser.parse(decoded));
+        }
+        processEventBlocks(parser.flush());
+
+        const latencyMs = Math.round(performance.now() - startMs);
+        const estCost = (Math.ceil(charCount / 4) / 1000) * config.costPer1kOutput;
+        metrics.record(config, taskType, "success", latencyMs, estCost);
+
+        controller.enqueue({ type: "done", servedBy: config.provider, model: config.model, isFallback: chainPosition > 0 });
+      } catch (err: unknown) {
+        metrics.record(config, taskType, "stream_error", Math.round(performance.now() - startMs), 0);
+        controller.enqueue({ type: "error", content: err instanceof Error ? err.message : "Stream interrupted." });
+      } finally {
+        reader.releaseLock();
+        controller.close();
+      }
+    },
+    cancel(reason) {
+      rawStream.cancel(reason).catch(() => { });
+    }
+  });
+}
+
+// ============================================================================
+// 8. EDGE / SERVERLESS EXPORTS
+// ============================================================================
+
+const GROUNDING_LEXICON: [string, number][] = [["odds", 3], ["score", 3], ["line", 2], ["spread", 3], ["moneyline", 3], ["live", 2], ["current", 2], ["right now", 3]];
+const ANALYSIS_LEXICON: [string, number][] = [["edge", 3], ["analyze", 3], ["sharp", 2], ["value", 2], ["expected value", 3], ["ev", 2], ["roi", 2], ["clv", 3], ["model", 2], ["handicap", 2]];
+const CODE_LEXICON: [string, number][] = [["code", 3], ["function", 2], ["debug", 3], ["error", 1], ["bug", 2], ["typescript", 3], ["sql", 3], ["react", 2], ["regex", 3]];
+
+function scoreText(text: string, lexicon: [string, number][]): number {
+  const lower = text.toLowerCase();
+  let score = 0;
+  for (const [term, weight] of lexicon) { if (lower.includes(term)) score += weight; }
+  return score;
+}
+
+export function detectTaskType(messages: Message[]): TaskType {
+  const lastMsg = messages[messages.length - 1];
+  if (!lastMsg) return "chat";
+
+  let text = "";
+  if (typeof lastMsg.content === "string") text = lastMsg.content;
+  else if (Array.isArray(lastMsg.content)) text = lastMsg.content.filter((p) => p.type === "text").map((p) => p.text).join(" ");
+  if (!text) return Array.isArray(lastMsg.content) && lastMsg.content.some((p) => p.type === "image") ? "vision" : "chat";
+
+  const scores = { grounding: scoreText(text, GROUNDING_LEXICON), analysis: scoreText(text, ANALYSIS_LEXICON), code: scoreText(text, CODE_LEXICON) };
+  const winner = (Object.entries(scores) as [TaskType, number][]).reduce((a, b) => a[1] >= b[1] ? a : b);
+  return winner[1] >= 3 ? winner[0] : "chat";
+}
+
+export async function extractPickStructured(args: { prompt: string; systemPrompt?: string; gameContext?: Record<string, unknown>; signal?: AbortSignal }) {
+  const messages: Message[] = [...(args.systemPrompt ? [{ role: "system" as const, content: args.systemPrompt }] : []), { role: "user" as const, content: args.prompt }];
+  const result = await orchestrate("analysis", messages, { gameContext: args.gameContext, signal: args.signal });
+  const parsed = safeParseJSON(result.content);
+  return { ok: parsed.success, data: parsed.data, raw: result.content, provider: result.servedBy, model: result.model };
+}
+
+export function getProviderHealth() {
+  const summary = metrics.getSummary(60);
   return {
     circuits: circuitBreaker.getStatus(),
-    enabled: {
-      google: isProviderEnabled("google"),
-      openai: isProviderEnabled("openai"),
-      anthropic: isProviderEnabled("anthropic"),
-    },
-    metrics: metrics.getSummary(),
-    costCeiling: {
-      limit: COST_CEILING_PER_HOUR,
-      currentHourlySpend: metrics.getSummary(60).totalCost,
-      isOverBudget: metrics.isOverBudget(),
-    },
+    enabled: { google: isProviderEnabled("google"), openai: isProviderEnabled("openai"), anthropic: isProviderEnabled("anthropic") },
+    metrics: summary,
+    costCeiling: { limitPerHour: COST_CEILING_PER_HOUR, currentHourlySpend: summary.totalCostUsd, isOverBudget: metrics.isOverBudget() }
   };
+}
+
+/** Web Standard Fetch Request Handler (Next.js App Router, Cloudflare Workers) */
+export async function POST(req: Request) {
+  const body = await req.json().catch(() => ({}));
+  const taskType: TaskType = body.mode ?? body.task ?? detectTaskType(body.messages || []);
+
+  if (taskType === ("pick" as TaskType) || taskType === ("extract_pick" as TaskType)) {
+    try {
+      const out = await extractPickStructured({ prompt: body.prompt, systemPrompt: body.systemPrompt, gameContext: body.gameContext, signal: req.signal });
+      return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json" } });
+    } catch (e: unknown) {
+      return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), { status: 500, headers: { "Content-Type": "application/json" } });
+    }
+  }
+
+  const enc = new TextEncoder();
+  try {
+    const stream = await orchestrateStream(taskType, body.messages ?? [], {
+      gameContext: body.gameContext,
+      systemPrompt: body.systemPrompt,
+      signal: req.signal
+    });
+
+    const sse = new ReadableStream({
+      async start(ctl) {
+        const reader = stream.getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            ctl.enqueue(enc.encode(`data: ${JSON.stringify({ ...value, done: false })}\n\n`));
+          }
+          ctl.enqueue(enc.encode("data: [DONE]\n\n"));
+        } catch (e: unknown) {
+          log.error("edge_stream_error", { error: e instanceof Error ? e.message : String(e) });
+          ctl.enqueue(enc.encode(`data: ${JSON.stringify({ type: "error", content: e instanceof Error ? e.message : String(e) })}\n\ndata: [DONE]\n\n`));
+        } finally {
+          reader.releaseLock();
+          ctl.close();
+        }
+      }
+    });
+
+    return new Response(sse, {
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" }
+    });
+  } catch (e: unknown) {
+    log.error("edge_orchestrate_error", { error: e instanceof Error ? e.message : String(e) });
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), { status: 500, headers: { "Content-Type": "application/json" } });
+  }
+}
+
+/** Classic Node.js (Express / HTTP Module) Handler */
+export default async function handler(req: { method: string; on: (event: string, cb: () => void) => void; removeListener: (event: string, cb: () => void) => void;[Symbol.asyncIterator](): AsyncIterableIterator<Uint8Array> }, res: { statusCode: number; setHeader: (k: string, v: string) => void; write: (data: string) => void; end: (data?: string) => void }) {
+  if (req.method !== "POST") {
+    res.statusCode = 405;
+    return res.end();
+  }
+
+  const decoder = new TextDecoder();
+  let bodyText = "";
+  for await (const chunk of req) {
+    bodyText += decoder.decode(chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk as ArrayBuffer), { stream: true });
+  }
+  bodyText += decoder.decode();
+
+  const body = JSON.parse(bodyText || "{}");
+  const taskType: TaskType = body.mode || body.task || detectTaskType(body.messages || []);
+
+  if (taskType === ("pick" as TaskType) || taskType === ("extract_pick" as TaskType)) {
+    try {
+      const out = await extractPickStructured({ prompt: body.prompt, systemPrompt: body.systemPrompt, gameContext: body.gameContext });
+      res.setHeader("Content-Type", "application/json");
+      return res.end(JSON.stringify(out));
+    } catch (e: unknown) {
+      res.statusCode = 500;
+      return res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }));
+    }
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const controller = new AbortController();
+  const onSocketClose = () => controller.abort();
+  req.on("close", onSocketClose);
+
+  try {
+    const stream = await orchestrateStream(taskType, body.messages || [], {
+      gameContext: body.gameContext,
+      systemPrompt: body.systemPrompt,
+      signal: controller.signal
+    });
+
+    const reader = stream.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(`data: ${JSON.stringify({ ...value, done: value.type === "done" })}\n\n`);
+    }
+    res.write("data: [DONE]\n\n");
+  } catch (e: unknown) {
+    log.error("node_stream_error", { error: e instanceof Error ? e.message : String(e) });
+    res.write(`data: ${JSON.stringify({ type: "error", content: e instanceof Error ? e.message : String(e) })}\n\ndata: [DONE]\n\n`);
+  } finally {
+    req.removeListener("close", onSocketClose);
+    res.end();
+  }
 }
