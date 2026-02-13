@@ -21,7 +21,7 @@ import { z } from "zod";
 import crypto from "crypto";
 
 import { BettingPickSchema } from "../lib/schemas/picks";
-import { orchestrate, orchestrateStream, getProviderHealth, googleClient } from "../lib/ai-provider";
+import { orchestrate, orchestrateStream, getProviderHealth, googleClient, circuitBreaker } from "../lib/ai-provider";
 import { FUNCTION_DECLARATIONS, TOOL_CONFIG, TOOL_ENABLED_TASK_TYPES } from "../lib/tool-registry";
 import { ToolResultCache } from "../lib/tool-result-cache";
 import { createToolCallingStream } from "../lib/tool-calling-stream";
@@ -649,7 +649,10 @@ Role: Field Reporter. Direct, factual, concise.
 
         // 4. Configure & Initialize Stream
         const recentMessages = messages.slice(-8);
-        const useToolCalling = CONFIG.ENABLE_TOOL_CALLING && TOOL_ENABLED_TASK_TYPES.includes(taskType as typeof TOOL_ENABLED_TASK_TYPES[number]);
+        const isGoogleAvailable = !circuitBreaker.isOpen("google");
+        const useToolCalling = CONFIG.ENABLE_TOOL_CALLING
+            && TOOL_ENABLED_TASK_TYPES.includes(taskType as typeof TOOL_ENABLED_TASK_TYPES[number])
+            && isGoogleAvailable;
         let stream: ReadableStream<Record<string, unknown>>;
 
         if (useToolCalling) {
@@ -674,19 +677,32 @@ Role: Field Reporter. Direct, factual, concise.
 
                 let toolRound = 0;
                 const chatStreamFn = async (contents: Array<Record<string, unknown>>) => {
+                    if (circuitBreaker.isOpen("google")) {
+                        throw new Error("Google tool-calling circuit is open");
+                    }
                     toolRound++;
-                    return googleClient.chatStreamRaw(contents, {
-                        model: CONFIG.MODEL_ID,
-                        messages: [],
-                        temperature: taskType === "analysis" ? 0.5 : 0.7,
-                        maxTokens: taskType === "analysis" ? 8000 : 2000,
-                        signal: abortController.signal,
-                        enableGrounding: taskType === "grounding",
-                        tools: { functionDeclarations: FUNCTION_DECLARATIONS, enableGrounding: taskType === "grounding" },
-                        toolConfig: toolRound === 1 && !hasRealContext ? { functionCallingConfig: { mode: "ANY" } } : TOOL_CONFIG,
-                        thinkingLevel: taskType === "analysis" ? "HIGH" : "MEDIUM",
-                        systemInstruction: toolSystemPrompt,
-                    });
+                    try {
+                        const res = await googleClient.chatStreamRaw(contents, {
+                            model: CONFIG.MODEL_ID,
+                            messages: [],
+                            temperature: taskType === "analysis" ? 0.5 : 0.7,
+                            maxTokens: taskType === "analysis" ? 8000 : 2000,
+                            signal: abortController.signal,
+                            enableGrounding: taskType === "grounding",
+                            tools: { functionDeclarations: FUNCTION_DECLARATIONS, enableGrounding: taskType === "grounding" },
+                            toolConfig: toolRound === 1 && !hasRealContext ? { functionCallingConfig: { mode: "ANY" } } : TOOL_CONFIG,
+                            thinkingLevel: taskType === "analysis" ? "HIGH" : "MEDIUM",
+                            systemInstruction: toolSystemPrompt,
+                        });
+                        circuitBreaker.recordSuccess("google");
+                        return res;
+                    } catch (e: unknown) {
+                        const errorType = typeof e === "object" && e !== null && "errorType" in e
+                            ? String((e as { errorType?: unknown }).errorType)
+                            : undefined;
+                        circuitBreaker.recordFailure("google", errorType);
+                        throw e;
+                    }
                 };
 
                 stream = createToolCallingStream(chatStreamFn, initialContents, { provider: "google", model: CONFIG.MODEL_ID, supportsGrounding: true } as Record<string, unknown>, toolCache, toolContext, Date.now(), currentRunId) as ReadableStream<Record<string, unknown>>;
@@ -736,7 +752,11 @@ Role: Field Reporter. Direct, factual, concise.
         if (streamErrorOnly && useToolCalling && !fullText) {
             log.warn("Tool stream error-only, executing multi-provider orchestrateStream fallback", { run_id: currentRunId });
             streamErrorOnly = false;
-            const fallbackStream = await orchestrateStream(taskType, recentMessages as Array<{ role: "system" | "user" | "assistant"; content: string | Array<Record<string, unknown>> }>, { gameContext: activeContext, systemPrompt: systemInstruction, signal: abortController.signal }) as unknown as ReadableStream<Record<string, unknown>>;
+            const fallbackSystemPrompt = `${systemInstruction}
+<tool_guidance>
+[SYSTEM ALERT: Internal data tools are unavailable for this request. Use native web search/grounding only and do not fabricate internal tool outputs.]
+</tool_guidance>`;
+            const fallbackStream = await orchestrateStream(taskType, recentMessages as Array<{ role: "system" | "user" | "assistant"; content: string | Array<Record<string, unknown>> }>, { gameContext: activeContext, systemPrompt: fallbackSystemPrompt, signal: abortController.signal }) as unknown as ReadableStream<Record<string, unknown>>;
             await consumeStream(fallbackStream);
         }
 

@@ -234,25 +234,34 @@ class CircuitBreakerManager {
   private failures: Record<string, number> = {};
   private lastFailure: Record<string, number> = {};
   private halfOpenProbe: Record<string, boolean> = {};
+  private lockoutDuration: Record<string, number> = {};
 
   recordSuccess(provider: Provider): void {
     this.failures[provider] = 0;
     this.halfOpenProbe[provider] = false;
-    persistence?.setCircuitFailures(provider, 0).catch(() => { });
+    this.lockoutDuration[provider] = 60000;
+    persistence?.setCircuitFailures(provider, 0, this.lockoutDuration[provider]).catch(() => { });
   }
 
-  recordFailure(provider: Provider): void {
+  recordFailure(provider: Provider, errorType?: string): void {
     this.failures[provider] = (this.failures[provider] ?? 0) + 1;
     this.lastFailure[provider] = Date.now();
     this.halfOpenProbe[provider] = false;
-    persistence?.setCircuitFailures(provider, this.failures[provider], 120000).catch(() => { });
+    if (errorType === "quota_exhausted") {
+      this.failures[provider] = Math.max(this.failures[provider], 3);
+      this.lockoutDuration[provider] = 300000;
+    } else {
+      this.lockoutDuration[provider] = 60000;
+    }
+    persistence?.setCircuitFailures(provider, this.failures[provider], this.lockoutDuration[provider]).catch(() => { });
   }
 
   isOpen(provider: Provider): boolean {
     const fails = this.failures[provider] ?? 0;
     if (fails < 3) return false;
 
-    if (Date.now() - (this.lastFailure[provider] ?? 0) >= 60000) {
+    const lockout = this.lockoutDuration[provider] ?? 60000;
+    if (Date.now() - (this.lastFailure[provider] ?? 0) >= lockout) {
       if (!this.halfOpenProbe[provider]) {
         this.halfOpenProbe[provider] = true;
         return false;
@@ -266,7 +275,10 @@ class CircuitBreakerManager {
     const s: Record<string, string> = {};
     for (const p of ["google", "openai", "anthropic"] as Provider[]) {
       if ((this.failures[p] ?? 0) < 3) s[p] = "closed";
-      else s[p] = Date.now() - (this.lastFailure[p] ?? 0) >= 60000 ? "half-open" : "open";
+      else {
+        const lockout = this.lockoutDuration[p] ?? 60000;
+        s[p] = Date.now() - (this.lastFailure[p] ?? 0) >= lockout ? "half-open" : "open";
+      }
     }
     return s;
   }
@@ -364,14 +376,38 @@ async function fetchWithRetry(url: string, options: RequestInit, timeoutMs: numb
     try {
       const res = await fetchWithTimeout(url, options, timeoutMs, provider);
 
-      if (res.status === 429 && attempt < maxAttempts) {
-        const retryAfter = res.headers.get("Retry-After");
-        let delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : Math.min(1000 * Math.pow(2, attempt), 5000);
-        delay = (delay / 2) + (Math.random() * (delay / 2));
-        log.warn("fetch_retry", { provider, attempt, status: res.status, delayMs: Math.round(delay) });
-        await sleepWithSignal(delay, options.signal ?? undefined);
-        attempt++;
-        continue;
+      if (res.status === 429) {
+        const clonedRes = res.clone();
+        const errorText = await clonedRes.text().catch(() => "");
+        let isHardQuota = false;
+
+        try {
+          const parsed = JSON.parse(errorText) as { error?: { status?: string; message?: string; code?: number } };
+          const status = parsed?.error?.status?.toUpperCase?.() ?? "";
+          const message = parsed?.error?.message ?? "";
+          isHardQuota = status === "RESOURCE_EXHAUSTED"
+            || message.includes("insufficient_quota")
+            || message.includes("exceeded your current quota");
+        } catch {
+          isHardQuota = errorText.includes("RESOURCE_EXHAUSTED")
+            || errorText.includes("insufficient_quota")
+            || errorText.includes("exceeded your current quota");
+        }
+
+        if (isHardQuota) {
+          log.warn("hard_quota_exhausted", { provider, error: errorText.slice(0, 160) });
+          throw new ProviderError(provider, `Quota exhausted: ${errorText.slice(0, 120)}`, "quota_exhausted");
+        }
+
+        if (attempt < maxAttempts) {
+          const retryAfter = res.headers.get("Retry-After");
+          let delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : Math.min(1000 * Math.pow(2, attempt), 5000);
+          delay = (delay / 2) + (Math.random() * (delay / 2));
+          log.warn("fetch_retry", { provider, attempt, status: res.status, delayMs: Math.round(delay) });
+          await sleepWithSignal(delay, options.signal ?? undefined);
+          attempt++;
+          continue;
+        }
       }
 
       if (res.ok || (res.status >= 400 && res.status < 429 && res.status !== 408)) {
@@ -387,6 +423,7 @@ async function fetchWithRetry(url: string, options: RequestInit, timeoutMs: numb
       attempt++;
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") throw err;
+      if (err instanceof ProviderError && err.errorType === "quota_exhausted") throw err;
       if (attempt >= maxAttempts) throw err;
 
       const delay = 500 + Math.random() * 1000;
@@ -827,7 +864,7 @@ export async function orchestrate(taskType: TaskType, messages: Message[], optio
       const errorType = err instanceof ProviderError ? err.errorType : "unknown";
 
       metrics.record(config, taskType, errorType, latencyMs, 0);
-      if (errorType !== "safety_block") circuitBreaker.recordFailure(config.provider);
+      if (errorType !== "safety_block") circuitBreaker.recordFailure(config.provider, errorType);
 
       if (err instanceof DOMException && err.name === "AbortError") throw err;
       if (i < chain.length - 1) options.onFallback?.(config, chain[i + 1], lastError?.message || "");
@@ -867,7 +904,8 @@ export async function orchestrateStream(taskType: TaskType, messages: Message[],
       return createNormalizingStream(rawStream, config, i, start, taskType);
     } catch (err: unknown) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      circuitBreaker.recordFailure(config.provider);
+      const errorType = err instanceof ProviderError ? err.errorType : "unknown";
+      circuitBreaker.recordFailure(config.provider, errorType);
       if (err instanceof DOMException && err.name === "AbortError") throw err;
       if (i < chain.length - 1) options.onFallback?.(config, chain[i + 1], lastError.message);
     }
