@@ -104,7 +104,7 @@ function isGemini3Model(model: string): boolean {
 
 const CONFIG = {
     MODEL_ID: "gemini-3-flash-preview",
-    TOOL_CALLING_MODEL_ID: process.env.GEMINI_TOOL_MODEL_ID || TOOL_CALLING_COMPAT_MODEL_ID,
+    TOOL_CALLING_MODEL_ID: process.env.GEMINI_TOOL_MODEL_ID || "gemini-3-flash-preview",
     HANDLER_TIMEOUT_MS: 90_000,
     ANALYSIS_TRIGGERS: [
         "edge", "best bet", "should i bet", "picks", "prediction", "analyze",
