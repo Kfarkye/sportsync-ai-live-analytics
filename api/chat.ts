@@ -96,6 +96,7 @@ interface LineMovement {
 // =============================================================================
 
 const TOOL_CALLING_COMPAT_MODEL_ID = process.env.GEMINI_TOOL_MODEL_COMPAT_ID || "gemini-2.5-flash";
+const TOOL_CALLING_ENABLE_GOOGLE_SEARCH = process.env.TOOL_CALLING_ENABLE_GOOGLE_SEARCH === "true";
 
 const CONFIG = {
     MODEL_ID: "gemini-3-flash-preview",
@@ -918,6 +919,7 @@ Role: Field Reporter. Direct, factual, concise.
             useToolCalling,
             googleCircuit: health.circuits.google,
             toolCallingModel: CONFIG.TOOL_CALLING_MODEL_ID,
+            toolCallingGoogleSearch: TOOL_CALLING_ENABLE_GOOGLE_SEARCH,
             reasons: toolRoutingReasons.length > 0 ? toolRoutingReasons : ["primary"],
         });
         let stream: ReadableStream<Record<string, unknown>>;
@@ -973,8 +975,13 @@ Role: Field Reporter. Direct, factual, concise.
                             maxTokens: taskType === "analysis" ? 8000 : 2000,
                             signal: abortController.signal,
                             retries: 1,
-                            enableGrounding: taskType === "grounding",
-                            tools: { functionDeclarations: FUNCTION_DECLARATIONS, enableGrounding: taskType === "grounding" },
+                            // Function-calling + Google Search is not stable across all Gemini model/endpoints.
+                            // Default to function-only tool turns; grounding search remains available in fallback path.
+                            enableGrounding: TOOL_CALLING_ENABLE_GOOGLE_SEARCH && taskType === "grounding",
+                            tools: {
+                                functionDeclarations: FUNCTION_DECLARATIONS,
+                                enableGrounding: TOOL_CALLING_ENABLE_GOOGLE_SEARCH && taskType === "grounding",
+                            },
                             toolConfig: toolRound === 1 && !hadRealContext ? { functionCallingConfig: { mode: "ANY" } } : TOOL_CONFIG,
                             thinkingLevel: taskType === "analysis" ? "HIGH" : "MEDIUM",
                             systemInstruction: toolSystemPrompt,

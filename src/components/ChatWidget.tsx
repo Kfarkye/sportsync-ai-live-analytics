@@ -275,6 +275,7 @@ interface Message {
   content: MessageContent;
   thoughts?: string;
   groundingMetadata?: GroundingMetadata;
+  toolVerified?: boolean;
   isStreaming?: boolean;
   timestamp: string;
   verdictOutcome?: VerdictOutcome;
@@ -303,9 +304,11 @@ interface GameContext {
 interface ChatWidgetProps { currentMatch?: GameContext; inline?: boolean }
 
 interface StreamChunk {
-  type: "text" | "thought" | "grounding" | "error";
+  type: "text" | "thought" | "grounding" | "tool_status" | "error";
   content?: string;
   metadata?: GroundingMetadata;
+  tools?: unknown;
+  status?: string;
   done?: boolean;
 }
 
@@ -2005,6 +2008,17 @@ const MessageBubble: FC<{
 
     const sources = useMemo(() => extractSources(message.groundingMetadata), [message.groundingMetadata]);
     const edgeSynopses = useMemo(() => extractEdgeSynopses(verifiedContent), [verifiedContent]);
+    const hasSourceEvidence = sources.length > 0;
+    const hasToolEvidence = Boolean(message.toolVerified);
+    const evidenceLabel = hasSourceEvidence
+      ? "OBSIDIAN // VERIFIED"
+      : hasToolEvidence
+        ? "OBSIDIAN // TOOL VERIFIED"
+        : "OBSIDIAN // NO SOURCES";
+    const evidenceTone = hasSourceEvidence || hasToolEvidence ? "text-emerald-500" : "text-zinc-500";
+    const evidenceDotTone = hasSourceEvidence || hasToolEvidence
+      ? "bg-emerald-500 shadow-[0_0_8px_#10b981]"
+      : "bg-zinc-600";
     const formattedTime = useMemo(() => formatTimestamp(message.timestamp), [message.timestamp]);
 
     const components: Components = useMemo(
@@ -2107,9 +2121,9 @@ const MessageBubble: FC<{
       >
         {!isUser && (
           <div className="flex items-center gap-2 mb-2 ml-1 select-none">
-            <div className={cn("w-1.5 h-1.5 rounded-full", sources.length > 0 ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-zinc-600")} />
-            <span className={cn(SYSTEM.type.mono, sources.length > 0 ? "text-emerald-500" : "text-zinc-500")}>
-              {sources.length > 0 ? "OBSIDIAN // VERIFIED" : "OBSIDIAN // NO SOURCES"}
+            <div className={cn("w-1.5 h-1.5 rounded-full", evidenceDotTone)} />
+            <span className={cn(SYSTEM.type.mono, evidenceTone)}>
+              {evidenceLabel}
             </span>
           </div>
         )}
@@ -2698,6 +2712,9 @@ const InnerChatWidget: FC<ChatWidgetProps & {
           if (chunk.type === "grounding") {
             groundingData = chunk.metadata || null;
             enqueuePatch({ groundingMetadata: groundingData || undefined });
+          }
+          if (chunk.type === "tool_status") {
+            enqueuePatch({ toolVerified: true });
           }
         },
         () => {
