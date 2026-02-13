@@ -25,7 +25,8 @@ import { orchestrate, orchestrateStream, getProviderHealth, googleClient, circui
 import { FUNCTION_DECLARATIONS, TOOL_CONFIG, TOOL_ENABLED_TASK_TYPES } from "../lib/tool-registry.js";
 import { ToolResultCache } from "../lib/tool-result-cache.js";
 import { createToolCallingStream } from "../lib/tool-calling-stream.js";
-import { PRIMARY_CHAT_MODEL, type PickProvenance } from "../supabase/functions/_shared/model-registry.ts";
+import { PRIMARY_CHAT_MODEL } from "../lib/model-registry.js";
+import type { PickProvenance } from "../lib/model-registry.ts";
 
 // =============================================================================
 // 1. TYPES & SCHEMAS
