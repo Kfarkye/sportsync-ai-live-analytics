@@ -25,6 +25,7 @@ import { orchestrate, orchestrateStream, getProviderHealth, googleClient, circui
 import { FUNCTION_DECLARATIONS, TOOL_CONFIG, TOOL_ENABLED_TASK_TYPES } from "../lib/tool-registry.js";
 import { ToolResultCache } from "../lib/tool-result-cache.js";
 import { createToolCallingStream } from "../lib/tool-calling-stream.js";
+import { PRIMARY_CHAT_MODEL, type PickProvenance } from "../supabase/functions/_shared/model-registry.ts";
 
 // =============================================================================
 // 1. TYPES & SCHEMAS
@@ -103,8 +104,8 @@ function isGemini3Model(model: string): boolean {
 }
 
 const CONFIG = {
-    MODEL_ID: "gemini-3-flash-preview",
-    TOOL_CALLING_MODEL_ID: process.env.GEMINI_TOOL_MODEL_ID || "gemini-3-flash-preview",
+    MODEL_ID: PRIMARY_CHAT_MODEL,
+    TOOL_CALLING_MODEL_ID: process.env.GEMINI_TOOL_MODEL_ID || PRIMARY_CHAT_MODEL,
     HANDLER_TIMEOUT_MS: 90_000,
     ANALYSIS_TRIGGERS: [
         "edge", "best bet", "should i bet", "picks", "prediction", "analyze",
@@ -195,9 +196,10 @@ class SSEWriter {
         this.flush();
     }
 
-    writeDone(modelId?: string): void {
+    writeDone(payload?: Record<string, unknown>): void {
         if (!this.writable) return;
-        if (modelId) this.res.write(`data: ${JSON.stringify({ done: true, model: modelId })}\n\n`);
+        const data = payload ? { done: true, event: "done", ...payload } : { done: true, event: "done" };
+        this.res.write(`data: ${JSON.stringify(data)}\n\n`);
         this.res.write("data: [DONE]\n\n");
         this.flush();
     }
@@ -744,6 +746,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { messages, conversation_id, gameContext, run_id } = parsedReq.data;
     const currentRunId = run_id || crypto.randomUUID();
     const requestStartMs = Date.now();
+    const provenance: PickProvenance = {
+        model_id: PRIMARY_CHAT_MODEL,
+        is_fallback: false,
+        fallback_reason: null,
+        primary_model: null,
+        extraction_version: "regex-v1",
+    };
+    const { extraction_version: _extractionVersion, ...chatProvenance } = provenance;
 
     const sse = new SSEWriter(res);
     const abortController = new AbortController();
@@ -802,7 +812,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             sse.writeEvent("text", {
                 content: buildLineGuardMessage(activeContext, liveOddsSnapshot, "NO_LIVE_ODDS"),
             });
-            sse.writeDone(CONFIG.MODEL_ID);
+            sse.writeDone({ model_id: provenance.model_id, is_fallback: provenance.is_fallback, model: provenance.model_id });
             return;
         }
 
@@ -1178,7 +1188,7 @@ Role: Field Reporter. Direct, factual, concise.
         if (!fullText && !rawThoughts) {
             sse.writeError("All providers unavailable. Please retry shortly.");
         } else {
-            sse.writeDone(servedModel || CONFIG.MODEL_ID);
+            sse.writeDone({ model_id: provenance.model_id, is_fallback: provenance.is_fallback, model: provenance.model_id });
         }
 
         // 6. Concurrent Non-Blocking Teardown & Persistence
@@ -1204,7 +1214,8 @@ Role: Field Reporter. Direct, factual, concise.
                                 home_team: activeContext?.home_team, away_team: activeContext?.away_team, league: activeContext?.league,
                                 pick_type: p.pick_type, pick_side: p.pick_type === "total" ? (p.pick_direction as string)?.toUpperCase() : p.pick_team,
                                 pick_line: p.pick_line, ai_confidence: p.confidence || map.confidence,
-                                model_id: servedModel || CONFIG.MODEL_ID, reasoning_summary: p.reasoning_summary, extraction_method: "structured_v26_enhanced"
+                                reasoning_summary: p.reasoning_summary, extraction_method: "structured_v26_enhanced",
+                                ...chatProvenance
                             })));
                         }
                     }

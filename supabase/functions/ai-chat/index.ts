@@ -3,7 +3,7 @@ declare const Deno: any;
 
 import { createClient } from "@supabase/supabase-js";
 import { executeStreamingAnalyticalQuery, executeAnalyticalQuery, executeEmbeddingQuery, safeJsonParse } from "../_shared/gemini.ts";
-import { getActiveModel, getFallbackModel, ModelConfig } from "../_shared/model-registry.ts";
+import { getActiveModel, getFallbackModel, ModelConfig, PRIMARY_CHAT_MODEL, type PickProvenance, type FallbackReason } from "../_shared/model-registry.ts";
 import { LLMRequest } from "../_shared/llm-adapter.ts";
 import { executeGPT52StreamingQuery } from "../_shared/openai.ts";
 
@@ -11,6 +11,14 @@ import { executeGPT52StreamingQuery } from "../_shared/openai.ts";
 const CONFIG = {
   TIMEOUT_MS: 55000, // 55s - leaves 5s grace before Edge Function hard limit
   DEADLINE_GRACE_MS: 3000 // Time reserved for cleanup/persistence
+};
+
+const inferFallbackReason = (error: unknown): FallbackReason => {
+  const msg = String((error as any)?.message || error || "").toLowerCase();
+  if (msg.includes("quota") || msg.includes("exceeded")) return "quota_exceeded";
+  if (msg.includes("rate limit") || msg.includes("429")) return "rate_limited";
+  if (msg.includes("timeout") || msg.includes("timed out")) return "primary_timeout";
+  return "primary_error";
 };
 
 // Strict Schema for Picks (Shared by Gemini & GPT-5.2)
@@ -837,6 +845,13 @@ Apply the full analytical framework. If the edge isn't structural, PASS.
           let activeModel = getActiveModel();
           let modelUsedID = activeModel.id;
           let streamGen: any;
+          let provenance: PickProvenance = {
+            model_id: modelUsedID,
+            is_fallback: false,
+            fallback_reason: null,
+            primary_model: null,
+            extraction_version: 'regex-v1'
+          };
 
           // 1. Prepare Request
           const llmRequest: LLMRequest = {
@@ -897,6 +912,13 @@ Apply the full analytical framework. If the edge isn't structural, PASS.
               logger.warn("FAILOVER_ENGAGED", { from: activeModel.id, to: fallbackModel.id });
               activeModel = fallbackModel;
               modelUsedID = fallbackModel.id;
+              provenance = {
+                model_id: fallbackModel.id,
+                is_fallback: true,
+                fallback_reason: inferFallbackReason(primaryError),
+                primary_model: PRIMARY_CHAT_MODEL,
+                extraction_version: 'regex-v1'
+              };
 
               // Update Request for Fallback
               llmRequest.model = fallbackModel.id;
@@ -938,6 +960,13 @@ Apply the full analytical framework. If the edge isn't structural, PASS.
                 if (lastResort && lastResort.apiProvider === 'openai') {
                   logger.warn("LAST_RESORT_ENGAGED", { to: lastResort.id });
                   modelUsedID = lastResort.id;
+                  provenance = {
+                    model_id: lastResort.id,
+                    is_fallback: true,
+                    fallback_reason: inferFallbackReason(fallbackError),
+                    primary_model: PRIMARY_CHAT_MODEL,
+                    extraction_version: 'regex-v1'
+                  };
                   llmRequest.model = lastResort.id;
                   llmRequest.systemPrompt = lastResort.systemPromptOverride || systemInstruction;
 
@@ -1045,6 +1074,7 @@ Apply the full analytical framework. If the edge isn't structural, PASS.
               const extractedPicks = extractPicksFromResponse(fullReply, rawThoughts || "");
 
               if (extractedPicks.length > 0) {
+                const { extraction_version, ...chatProvenance } = provenance;
                 const openingSpread = dbOdds?.opening?.homeSpread ?? dbOdds?.opening?.spread ?? null;
                 const openingTotal = dbOdds?.opening?.overUnder ?? null;
                 const currentSpread = dbOdds?.current?.homeSpread ?? null;
@@ -1084,7 +1114,8 @@ Apply the full analytical framework. If the edge isn't structural, PASS.
                     result: 'pending',
                     opening_line: relevantOpening,
                     implied_probability: pick.pick_type === 'spread' ? calcImpliedProb(pick.pick_line) : null,
-                    market_alpha: lineMovement
+                    market_alpha: lineMovement,
+                    ...chatProvenance
                   };
                 });
 
@@ -1094,7 +1125,6 @@ Apply the full analytical framework. If the edge isn't structural, PASS.
 
                 // === ALSO SAVE TO llm_model_picks FOR MODEL PERFORMANCE TRACKING ===
                 const llmModelPicks = extractedPicks.map(pick => ({
-                  model_id: modelUsedID, // <-- KEY: Track which model made this pick
                   session_id: body.session_id || 'unknown',
                   // Note: conversation_id omitted to avoid FK constraint issues
                   match_id: matchId,
@@ -1109,7 +1139,8 @@ Apply the full analytical framework. If the edge isn't structural, PASS.
                   ai_confidence: pick.ai_confidence,
                   reasoning_summary: pick.reasoning_summary?.substring(0, 500),
                   game_start_time: current_match.start_time || null,
-                  pick_result: 'PENDING'
+                  pick_result: 'PENDING',
+                  ...provenance
                 }));
 
                 const { error: llmPickError } = await supabase.from('llm_model_picks').insert(llmModelPicks);

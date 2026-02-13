@@ -6,13 +6,22 @@ declare const Deno: any;
 
 import { createClient } from "@supabase/supabase-js";
 import { executeStreamingAnalyticalQuery, executeAnalyticalQuery, executeEmbeddingQuery, safeJsonParse } from "../_shared/gemini.ts";
+import { PRIMARY_WORKER_MODEL, type PickProvenance } from "../_shared/model-registry.ts";
 
 const CONFIG = {
     TIMEOUT_MS: 45000,
     MODELS: {
-        PRIMARY: "gemini-3-flash-preview",
-        FALLBACK: "gemini-3-flash-preview"
+        PRIMARY: PRIMARY_WORKER_MODEL,
+        FALLBACK: PRIMARY_WORKER_MODEL
     }
+};
+
+const provenance: PickProvenance = {
+    model_id: PRIMARY_WORKER_MODEL,
+    is_fallback: false,
+    fallback_reason: null,
+    primary_model: null,
+    extraction_version: 'regex-v1'
 };
 
 // 🔒 SECURITY: Gate thought streaming to prevent leaking the "Logic Waterfall"
@@ -455,6 +464,7 @@ Apply the **Triple Confluence Gate**. If the edge isn't structural, PASS.
                                     const home_team = current_match.home_team || current_match.homeTeam || 'Unknown';
                                     const away_team = current_match.away_team || current_match.awayTeam || 'Unknown';
                                     const league = current_match.league || current_match.league_id || 'Unknown';
+                                    const { extraction_version, ...chatProvenance } = provenance;
 
                                     const insertData = picks.map(p => ({
                                         session_id: session_id || 'unknown',
@@ -472,7 +482,8 @@ Apply the **Triple Confluence Gate**. If the edge isn't structural, PASS.
                                         reasoning_summary: p.reasoning_summary,
                                         ai_confidence: p.ai_confidence,
                                         game_start_time: current_match.start_time || current_match.startTime || current_match.commence_time,
-                                        result: 'pending'
+                                        result: 'pending',
+                                        ...chatProvenance
                                     }));
 
                                     const { error: insertErr } = await supabase.from('ai_chat_picks').insert(insertData);
