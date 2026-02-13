@@ -97,6 +97,7 @@ interface LineMovement {
 
 const CONFIG = {
     MODEL_ID: "gemini-3-flash-preview",
+    TOOL_CALLING_MODEL_ID: process.env.GEMINI_TOOL_MODEL_ID || "gemini-3-flash-preview",
     HANDLER_TIMEOUT_MS: 90_000,
     ANALYSIS_TRIGGERS: [
         "edge", "best bet", "should i bet", "picks", "prediction", "analyze",
@@ -321,6 +322,8 @@ const LIVE_ODDS_KEYS = [
     "underOdds",
 ] as const;
 
+const REGEX_CITATION_TOKEN = /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
+
 function buildLiveOddsSnapshot(currentOdds: Record<string, unknown> | undefined): Record<string, string | number> {
     if (!currentOdds) return {};
     const snapshot: Record<string, string | number> = {};
@@ -375,6 +378,54 @@ function buildLineGuardMessage(
     }
 
     return `VERDICT: LINE_UNAVAILABLE\n\nLive line guard blocked output for ${matchup} (${clock}) because generated pricing did not match locked live board.\n\nLOCKED_LIVE_BOARD: ${board}`;
+}
+
+function sanitizeCitationsForAvailableSources(
+    text: string,
+    metadata: Record<string, unknown> | null,
+): { text: string; hadCitations: boolean; changed: boolean; sourceCount: number } {
+    if (!text) return { text, hadCitations: false, changed: false, sourceCount: 0 };
+
+    const groundingChunks = Array.isArray(metadata?.groundingChunks)
+        ? metadata.groundingChunks as Array<Record<string, unknown>>
+        : [];
+    const sourceCount = groundingChunks.filter((chunk) => {
+        const web = chunk.web as Record<string, unknown> | undefined;
+        return typeof web?.uri === "string" && web.uri.length > 0;
+    }).length;
+
+    let hadCitations = false;
+    const sanitized = text.replace(REGEX_CITATION_TOKEN, (_match, inner: string) => {
+        hadCitations = true;
+
+        // No grounded source ledger available: strip bracket tokens entirely.
+        if (sourceCount === 0) return "";
+
+        const validIds = inner
+            .split(/[,\s]+/)
+            .map((part) => part.trim())
+            .filter(Boolean)
+            .filter((part) => {
+                const id = Math.floor(Number.parseFloat(part));
+                return Number.isFinite(id) && id >= 1 && id <= sourceCount;
+            });
+
+        if (validIds.length === 0) return "";
+        return `[${Array.from(new Set(validIds)).join(", ")}]`;
+    });
+
+    const cleaned = sanitized
+        .replace(/\s+\./g, ".")
+        .replace(/\s+,/g, ",")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+
+    return {
+        text: cleaned,
+        hadCitations,
+        changed: cleaned !== text,
+        sourceCount,
+    };
 }
 
 function getMarketPhase(match: GameContext | null): string {
@@ -685,6 +736,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { messages, conversation_id, gameContext, run_id } = parsedReq.data;
     const currentRunId = run_id || crypto.randomUUID();
+    const requestStartMs = Date.now();
 
     const sse = new SSEWriter(res);
     const abortController = new AbortController();
@@ -793,10 +845,14 @@ You are "The Obsidian Ledger," a forensic sports analyst.
 - **FALLBACK:** If you cannot verify a player's STATUS, use their role (e.g., "The starting PG") instead of their name. NO GUESSING.
 
 **RULE 2 (CITATION PROTOCOL):**
-- Use high-density decimal citations [1.1], [1.2] immediately after facts.
+- Use high-density decimal citations [1.1], [1.2] only when the claim is backed by a verifiable source URL in this run.
+- NEVER invent citation IDs.
+- If sources are unavailable for a claim, write "Unverified" and do not emit [n.n] tokens.
 
 **RULE 3 (ZERO HALLUCINATION — TOOL-FIRST):**
 - Call get_schedule() to discover today's slate. Call get_live_odds(match_id) for current and opening lines.
+- For MARKET DYNAMICS, use get_live_odds().line_movement/open/current fields directly.
+- If opening data is unavailable, state "Opening line unavailable" and do NOT infer causes.
 - NEVER guess game data. If a tool returns an error, acknowledge the data gap.
 </prime_directive>
 
@@ -813,7 +869,7 @@ ${MODE === "ANALYSIS" ? `
 - [Factor 1] [1.x]
 
 **MARKET DYNAMICS**
-(Line movement direction, opening vs current, sharp splits. Cite [1.x].)
+(Use get_live_odds line_movement/open/current values only. If unavailable, explicitly state it. Cite [1.x].)
 
 **WHAT TO WATCH LIVE**
 IF [Trigger Condition] → THEN [Action/Adjustment]
@@ -828,17 +884,40 @@ IF [Trigger Condition] → THEN [Action/Adjustment]
 ` : `
 <mode_conversation>
 Role: Field Reporter. Direct, factual, concise.
-- Answer the question directly. Cite facts [1.x].
+- Answer the question directly.
+- Cite only source-backed facts with [1.x]; otherwise mark the claim as Unverified.
 </mode_conversation>
 `}`;
 
         // 4. Configure & Initialize Stream
         const recentMessages = messages.slice(-8);
         const isGoogleAvailable = !circuitBreaker.isOpen("google");
-        let hadRealContext = Boolean(activeContext?.home_team && activeContext.home_team !== "TBD");
+        let hadRealContext = Boolean(
+            activeContext?.match_id
+            || (
+                activeContext?.home_team
+                && activeContext?.away_team
+                && activeContext.home_team !== "TBD"
+                && activeContext.away_team !== "TBD"
+            )
+        );
         const useToolCalling = CONFIG.ENABLE_TOOL_CALLING
             && TOOL_ENABLED_TASK_TYPES.includes(taskType as typeof TOOL_ENABLED_TASK_TYPES[number])
             && isGoogleAvailable;
+        const toolRoutingReasons: string[] = [];
+        if (!CONFIG.ENABLE_TOOL_CALLING) toolRoutingReasons.push("feature_flag_disabled");
+        if (!TOOL_ENABLED_TASK_TYPES.includes(taskType as typeof TOOL_ENABLED_TASK_TYPES[number])) toolRoutingReasons.push("task_type_not_enabled");
+        if (!isGoogleAvailable) toolRoutingReasons.push("google_circuit_open");
+        log.info("routing_to_chat_handler", {
+            trace: currentRunId,
+            ms: Date.now() - requestStartMs,
+            taskType,
+            mode: MODE,
+            useToolCalling,
+            googleCircuit: health.circuits.google,
+            toolCallingModel: CONFIG.TOOL_CALLING_MODEL_ID,
+            reasons: toolRoutingReasons.length > 0 ? toolRoutingReasons : ["primary"],
+        });
         let stream: ReadableStream<Record<string, unknown>>;
 
         if (useToolCalling) {
@@ -846,7 +925,7 @@ Role: Field Reporter. Direct, factual, concise.
                 let toolSystemPrompt: string;
 
                 if (hadRealContext) {
-                    toolSystemPrompt = systemInstruction + `\n<tool_guidance>\nYou have access to data tools. Call get_schedule, get_live_odds, get_team_injuries as needed. Do NOT guess data.\n</tool_guidance>`;
+                    toolSystemPrompt = systemInstruction + `\n<tool_guidance>\nYou have access to data tools.\n- Match context is already loaded for this request. PRIORITIZE this matchup first.\n- If match_id is present, call get_live_odds(match_id) directly before any broad slate discovery.\n- Use get_team_injuries/get_team_tempo for the same two teams in context.\n- Do NOT call get_schedule() first unless matchup context is missing or ambiguous.\n- Do NOT guess data.\n</tool_guidance>`;
                 } else {
                     toolSystemPrompt = systemInstruction.replace(/<context>[\s\S]*?<\/context>/, `<context>\nNO GAME CONTEXT LOADED. You MUST call tools to get data.\n</context>`)
                         + `\n<tool_guidance>\n** CRITICAL: No game data is pre-loaded. You MUST call tools before responding. **\n1. FIRST: Call get_schedule() to discover today's games.\n</tool_guidance>`;
@@ -866,9 +945,19 @@ Role: Field Reporter. Direct, factual, concise.
                         throw new Error("Google tool-calling circuit is open");
                     }
                     toolRound++;
+                    const callStartMs = Date.now();
+                    log.info("model_selected", {
+                        trace: currentRunId,
+                        ms: callStartMs - requestStartMs,
+                        event: "model_selected",
+                        model: CONFIG.TOOL_CALLING_MODEL_ID,
+                        intent: taskType,
+                        isFallback: false,
+                        reason: "primary",
+                    });
                     try {
                         const res = await googleClient.chatStreamRaw(contents, {
-                            model: CONFIG.MODEL_ID,
+                            model: CONFIG.TOOL_CALLING_MODEL_ID,
                             messages: [],
                             temperature: taskType === "analysis" ? 0.5 : 0.7,
                             maxTokens: taskType === "analysis" ? 8000 : 2000,
@@ -879,6 +968,16 @@ Role: Field Reporter. Direct, factual, concise.
                             toolConfig: toolRound === 1 && !hadRealContext ? { functionCallingConfig: { mode: "ANY" } } : TOOL_CONFIG,
                             thinkingLevel: taskType === "analysis" ? "HIGH" : "MEDIUM",
                             systemInstruction: toolSystemPrompt,
+                        });
+                        log.info("model_response_received", {
+                            trace: currentRunId,
+                            ms: Date.now() - requestStartMs,
+                            event: "model_response_received",
+                            model: CONFIG.TOOL_CALLING_MODEL_ID,
+                            intent: taskType,
+                            inputTokens: null,
+                            outputTokens: null,
+                            latencyMs: Date.now() - callStartMs,
                         });
                         circuitBreaker.recordSuccess("google");
                         return res;
@@ -891,16 +990,31 @@ Role: Field Reporter. Direct, factual, concise.
                     }
                 };
 
-                stream = createToolCallingStream(chatStreamFn, initialContents, { provider: "google", model: CONFIG.MODEL_ID, supportsGrounding: true } as Record<string, unknown>, toolCache, toolContext, Date.now(), currentRunId) as ReadableStream<Record<string, unknown>>;
+                stream = createToolCallingStream(chatStreamFn, initialContents, { provider: "google", model: CONFIG.TOOL_CALLING_MODEL_ID, supportsGrounding: true } as Record<string, unknown>, toolCache, toolContext, Date.now(), currentRunId) as ReadableStream<Record<string, unknown>>;
             } catch (toolErr) {
                 log.warn("Tool setup failed, falling back", { error: String(toolErr) });
-                stream = await orchestrateStream(taskType, recentMessages as Array<{ role: "system" | "user" | "assistant"; content: string | Array<Record<string, unknown>> }>, { gameContext: activeContext, systemPrompt: systemInstruction, signal: abortController.signal }) as unknown as ReadableStream<Record<string, unknown>>;
+                stream = await orchestrateStream(taskType, recentMessages as Array<{ role: "system" | "user" | "assistant"; content: string | Array<Record<string, unknown>> }>, {
+                    gameContext: activeContext,
+                    systemPrompt: systemInstruction,
+                    signal: abortController.signal,
+                    traceId: currentRunId,
+                    intent: taskType,
+                    requestStartMs,
+                }) as unknown as ReadableStream<Record<string, unknown>>;
             }
         } else {
-            stream = await orchestrateStream(taskType, recentMessages as Array<{ role: "system" | "user" | "assistant"; content: string | Array<Record<string, unknown>> }>, { gameContext: activeContext, systemPrompt: systemInstruction, signal: abortController.signal }) as unknown as ReadableStream<Record<string, unknown>>;
+            stream = await orchestrateStream(taskType, recentMessages as Array<{ role: "system" | "user" | "assistant"; content: string | Array<Record<string, unknown>> }>, {
+                gameContext: activeContext,
+                systemPrompt: systemInstruction,
+                signal: abortController.signal,
+                traceId: currentRunId,
+                intent: taskType,
+                requestStartMs,
+            }) as unknown as ReadableStream<Record<string, unknown>>;
         }
 
         // 5. Stream Consumption
+        const deferTextFlush = MODE === "ANALYSIS" || enforceLiveLineGuard;
         let fullText = "", rawThoughts = "", finalMetadata: Record<string, unknown> | null = null, servedModel: string | null = null, streamErrorOnly = false;
 
         async function consumeStream(readableStream: ReadableStream<Record<string, unknown>>) {
@@ -921,7 +1035,7 @@ Role: Field Reporter. Direct, factual, concise.
                         if (!enforceLiveLineGuard) sse.writeEvent("thought", { content: value.content });
                     } else if (value.type === "text") {
                         fullText += (value.content as string) || "";
-                        if (!enforceLiveLineGuard) sse.writeEvent("text", { content: value.content });
+                        if (!deferTextFlush) sse.writeEvent("text", { content: value.content });
                     } else if (value.type === "tool_status") {
                         sse.writeEvent("tool_status", { tools: value.tools, status: value.status });
                     } else if (value.type === "error") {
@@ -942,14 +1056,39 @@ Role: Field Reporter. Direct, factual, concise.
             const fallbackSystemPrompt = `${systemInstruction}
 <tool_guidance>
 [SYSTEM ALERT: Internal data tools are unavailable for this request. Use native web search/grounding only and do not fabricate internal tool outputs.]
+[CITATION CONTRACT: Use [n.n] only for claims backed by real source URLs in this response. If not source-backed, mark as Unverified and omit bracket citations.]
 [REQUIRED: If matchup context is missing, first identify today's relevant game from web search, then continue with concrete teams/odds.]
 </tool_guidance>`;
             const fallbackStream = await orchestrateStream(
                 fallbackTaskType as TaskType,
                 recentMessages as Array<{ role: "system" | "user" | "assistant"; content: string | Array<Record<string, unknown>> }>,
-                { gameContext: activeContext, systemPrompt: fallbackSystemPrompt, signal: abortController.signal }
+                {
+                    gameContext: activeContext,
+                    systemPrompt: fallbackSystemPrompt,
+                    signal: abortController.signal,
+                    traceId: currentRunId,
+                    intent: fallbackTaskType,
+                    requestStartMs,
+                }
             ) as unknown as ReadableStream<Record<string, unknown>>;
             await consumeStream(fallbackStream);
+        }
+
+        if (fullText) {
+            const citationIntegrity = sanitizeCitationsForAvailableSources(fullText, finalMetadata);
+            if (citationIntegrity.hadCitations && citationIntegrity.sourceCount === 0) {
+                log.warn("[CitationGuard] Removed bracket citations due to missing source ledger", {
+                    run_id: currentRunId,
+                    model: servedModel || CONFIG.MODEL_ID,
+                });
+            } else if (citationIntegrity.changed) {
+                log.warn("[CitationGuard] Removed out-of-range citation IDs", {
+                    run_id: currentRunId,
+                    model: servedModel || CONFIG.MODEL_ID,
+                    sourceCount: citationIntegrity.sourceCount,
+                });
+            }
+            fullText = citationIntegrity.text;
         }
 
         if (enforceLiveLineGuard && fullText) {
@@ -964,6 +1103,9 @@ Role: Field Reporter. Direct, factual, concise.
                 rawThoughts = "";
                 finalMetadata = null;
             }
+        }
+
+        if (deferTextFlush && fullText) {
             sse.writeEvent("text", { content: fullText });
         }
 

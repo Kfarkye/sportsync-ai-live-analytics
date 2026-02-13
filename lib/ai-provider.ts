@@ -47,6 +47,9 @@ export interface OrchestrationOptions {
   signal?: AbortSignal;
   forceProvider?: Provider;
   onFallback?: (failedConfig: ProviderConfig, nextConfig: ProviderConfig, error: string) => void;
+  traceId?: string;
+  intent?: string;
+  requestStartMs?: number;
 }
 
 export interface GroundingMetadata {
@@ -98,9 +101,9 @@ export interface ChatRequest {
 // ============================================================================
 
 export const MODELS = {
-  google: { primary: "gemini-3-pro", fast: "gemini-3-flash" },
-  openai: { primary: "gpt-5", fast: "gpt-5-mini" },
-  anthropic: { primary: "claude-sonnet-4-5-20250929", fast: "claude-haiku-4-5", deep: "claude-opus-4-6" }
+  google: { primary: "gemini-3-flash-preview", fast: "gemini-3-flash-preview" },
+  openai: { primary: "gpt-5.2", fast: "gpt-5.2" },
+  anthropic: { primary: "claude-opus-4-6", fast: "claude-opus-4-6", deep: "claude-opus-4-6" }
 } as const;
 
 const PROVIDER_DEFAULTS: Record<Provider, Omit<ProviderConfig, "provider" | "model">> = {
@@ -794,11 +797,9 @@ function shapePrompt(messages: Message[], config: ProviderConfig, taskType: Task
     }
   }
 
-  if (config.provider === "anthropic" && (taskType === "vision" || taskType === "analysis")) {
-    systemContent += "\n\nWhen providing structured analysis, use clear section headers and maintain consistent formatting.";
+  if (taskType === "analysis" || taskType === "grounding" || taskType === "chat") {
+    systemContent += "\n\nUNIFIED OUTPUT CONTRACT:\n- Preserve section order and formatting from the system prompt.\n- Keep claims concise, numerical, and non-speculative.\n- Emit [n.n] citations only for source-backed claims from this run.\n- If a claim is not source-backed, mark it Unverified and omit bracket citations.";
   }
-  if (config.provider === "google" && taskType === "grounding") systemContent += "\n\nCite your sources. Include specific numbers, timestamps, and data points from search results.";
-  if (config.provider === "openai" && taskType === "analysis") systemContent += "\n\nBe precise with numerical claims. Structure your reasoning step by step.";
 
   return [{ role: "system", content: systemContent }, ...nonSystem];
 }
@@ -809,6 +810,18 @@ function resolveChain(taskType: TaskType, options: OrchestrationOptions): Provid
     if (forced && isProviderEnabled(forced.provider)) return [forced];
   }
   return FALLBACK_CHAINS[taskType].filter(c => isProviderEnabled(c.provider));
+}
+
+function mapErrorTypeToSelectionReason(errorType: string): string {
+  switch (errorType) {
+    case "quota_exhausted": return "quota_exceeded";
+    case "rate_limit": return "rate_limited";
+    case "timeout": return "primary_timeout";
+    case "network": return "network_error";
+    case "server": return "server_error";
+    case "safety_block": return "safety_block";
+    default: return "provider_error";
+  }
 }
 
 function normalizeResponse(raw: Record<string, unknown>, config: ProviderConfig, chainPosition: number, latencyMs: number): NormalizedResponse {
@@ -833,12 +846,16 @@ export async function orchestrate(taskType: TaskType, messages: Message[], optio
 
   let lastError: Error | null = null;
   const defaults = { temperature: TASK_TEMPERATURES[taskType], maxTokens: TASK_MAX_TOKENS[taskType] };
+  const orchestrationStart = performance.now();
+  const primaryModel = chain[0]?.model;
+  let nextSelectionReason = "primary";
 
   for (let i = 0; i < chain.length; i++) {
     const config = chain[i];
     if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
     if (circuitBreaker.isOpen(config.provider)) {
       log.info("circuit_open_skip", { provider: config.provider, taskType });
+      nextSelectionReason = "circuit_open";
       continue;
     }
 
@@ -846,6 +863,16 @@ export async function orchestrate(taskType: TaskType, messages: Message[], optio
 
     const shaped = shapePrompt(messages, config, taskType, options);
     const start = performance.now();
+    log.info("model_selected", {
+      trace: options.traceId,
+      ms: options.requestStartMs ? Date.now() - options.requestStartMs : Math.round(performance.now() - orchestrationStart),
+      model: config.model,
+      provider: config.provider,
+      intent: options.intent ?? taskType,
+      isFallback: i > 0,
+      primaryModel: i > 0 ? primaryModel : undefined,
+      reason: i === 0 ? "primary" : nextSelectionReason
+    });
 
     try {
       const raw = await CLIENTS[config.provider].chat({
@@ -860,6 +887,16 @@ export async function orchestrate(taskType: TaskType, messages: Message[], optio
 
       const latencyMs = Math.round(performance.now() - start);
       const normalized = normalizeResponse(raw as unknown as Record<string, unknown>, config, i, latencyMs);
+      log.info("model_response_received", {
+        trace: options.traceId,
+        ms: options.requestStartMs ? Date.now() - options.requestStartMs : Math.round(performance.now() - orchestrationStart),
+        model: config.model,
+        provider: config.provider,
+        intent: options.intent ?? taskType,
+        inputTokens: (raw as Record<string, unknown>)?.inputTokens ?? null,
+        outputTokens: (raw as Record<string, unknown>)?.outputTokens ?? null,
+        latencyMs
+      });
 
       metrics.record(config, taskType, "success", latencyMs, normalized.estimatedCostUsd);
       circuitBreaker.recordSuccess(config.provider);
@@ -873,6 +910,7 @@ export async function orchestrate(taskType: TaskType, messages: Message[], optio
       if (errorType !== "safety_block") circuitBreaker.recordFailure(config.provider, errorType);
 
       if (err instanceof DOMException && err.name === "AbortError") throw err;
+      nextSelectionReason = mapErrorTypeToSelectionReason(errorType);
       if (i < chain.length - 1) options.onFallback?.(config, chain[i + 1], lastError?.message || "");
     }
   }
@@ -885,15 +923,32 @@ export async function orchestrateStream(taskType: TaskType, messages: Message[],
 
   let lastError: Error | null = null;
   const defaults = { temperature: TASK_TEMPERATURES[taskType], maxTokens: TASK_MAX_TOKENS[taskType] };
+  const orchestrationStart = performance.now();
+  const primaryModel = chain[0]?.model;
+  let nextSelectionReason = "primary";
 
   for (let i = 0; i < chain.length; i++) {
     const config = chain[i];
     if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    if (circuitBreaker.isOpen(config.provider)) continue;
+    if (circuitBreaker.isOpen(config.provider)) {
+      log.info("circuit_open_skip", { provider: config.provider, taskType });
+      nextSelectionReason = "circuit_open";
+      continue;
+    }
     if (metrics.isOverBudget()) throw new Error("Cost ceiling reached.");
 
     const shaped = shapePrompt(messages, config, taskType, options);
     const start = performance.now();
+    log.info("model_selected", {
+      trace: options.traceId,
+      ms: options.requestStartMs ? Date.now() - options.requestStartMs : Math.round(performance.now() - orchestrationStart),
+      model: config.model,
+      provider: config.provider,
+      intent: options.intent ?? taskType,
+      isFallback: i > 0,
+      primaryModel: i > 0 ? primaryModel : undefined,
+      reason: i === 0 ? "primary" : nextSelectionReason
+    });
 
     try {
       const rawStream = await CLIENTS[config.provider].chatStream({
@@ -905,6 +960,17 @@ export async function orchestrateStream(taskType: TaskType, messages: Message[],
         enableGrounding: config.supportsGrounding && taskType === "grounding",
         retries: config.maxRetries
       });
+      const latencyMs = Math.round(performance.now() - start);
+      log.info("model_response_received", {
+        trace: options.traceId,
+        ms: options.requestStartMs ? Date.now() - options.requestStartMs : Math.round(performance.now() - orchestrationStart),
+        model: config.model,
+        provider: config.provider,
+        intent: options.intent ?? taskType,
+        inputTokens: null,
+        outputTokens: null,
+        latencyMs
+      });
 
       circuitBreaker.recordSuccess(config.provider);
       return createNormalizingStream(rawStream, config, i, start, taskType);
@@ -913,6 +979,7 @@ export async function orchestrateStream(taskType: TaskType, messages: Message[],
       const errorType = err instanceof ProviderError ? err.errorType : "unknown";
       circuitBreaker.recordFailure(config.provider, errorType);
       if (err instanceof DOMException && err.name === "AbortError") throw err;
+      nextSelectionReason = mapErrorTypeToSelectionReason(errorType);
       if (i < chain.length - 1) options.onFallback?.(config, chain[i + 1], lastError.message);
     }
   }

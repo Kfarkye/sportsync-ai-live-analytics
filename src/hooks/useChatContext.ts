@@ -194,7 +194,10 @@ export function useChatContext(options: UseChatContextOptions = {}) {
                     });
                 }
             }).catch(() => null);
-        } else {
+        } else if (match && !match.id) {
+            // Explicit invalid match object — clear context.
+            // NOTE: when match is undefined, preserve the last attached game so
+            // global chat can stay context-aware after navigation.
             store.setCurrentMatch(null);
         }
 

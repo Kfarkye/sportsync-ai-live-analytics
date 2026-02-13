@@ -64,7 +64,6 @@ import { useAppStore } from "../store/appStore";
 import {
   X,
   Plus,
-  ArrowUp,
   ArrowDown,
   Copy,
   CheckCircle2,
@@ -77,11 +76,8 @@ import {
   ExternalLink,
   RotateCcw,
   WifiOff,
-  Check,
-  XCircle,
   Eye,
   EyeOff,
-  Share2,
 } from "lucide-react";
 import type { MatchOdds } from "@/types";
 
@@ -90,14 +86,14 @@ import type { MatchOdds } from "@/types";
 // §0  STATIC CONFIG & REGEX (Hoisted — Zero Allocation at Runtime)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const REGEX_VERDICT_PREFIX = /^\*{0,2}verdict:\*{0,2}\s*/i;
-const REGEX_VERDICT_MATCH = /^\*{0,2}verdict:/i;
+const REGEX_VERDICT_MATCH = /\bverdict\s*:/i;
 
 const REGEX_WATCH_PREFIX = /.*what to watch live.*?:\s*/i;
 const REGEX_WATCH_MATCH = /what to watch live/i;
 
 const REGEX_INVALID_PREFIX = /^\*{0,2}invalidation:\*{0,2}\s*/i;
 const REGEX_INVALID_MATCH = /^\*{0,2}invalidation:/i;
+const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH LIVE|INVALIDATION|TRIPLE CONFLUENCE|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
 
 /**
  * Matches bracket citation tokens: [1], [1, 2], [1.1]
@@ -121,6 +117,11 @@ const REGEX_EXTRACT_CONF = /\(Confidence:\s*(\w+)\)/i;
 // Smart Odds Detection: +1300, -115, -7.5, u212.5, o55.5, etc.
 const REGEX_ODDS_TOKEN = /([+-]\d+(?:\.\d+)?|[uo]\d+(?:\.\d+)?)\b/gi;
 const REGEX_ODDS_EXACT = /^([+-]\d+(?:\.\d+)?|[uo]\d+(?:\.\d+)?)$/i;
+const REGEX_SIGNED_NUMERIC = /[+-]\d+(?:\.\d+)?/g;
+const EDGE_CARD_STAGE_DELAYS_MS = [0, 120, 220, 300, 480] as const;
+const EDGE_CARD_STAGGER_PER_CARD_MS = 150;
+const EDGE_CARD_SPRING = "cubic-bezier(0.16, 1, 0.3, 1)";
+const EDGE_CARD_EASE_OUT = "cubic-bezier(0.0, 0.0, 0.2, 1)";
 
 const BRAND_MAP: Record<string, string> = {
   "espn.com": "ESPN",
@@ -163,7 +164,7 @@ const SMART_CHIP_QUERIES: Record<string, string> = {
   "Live Games": "Which games are live right now with edge?",
   "In-Play Edge": "What are the best in-play opportunities?",
   Recap: "Recap tonight's results.",
-  "What Hit": "Which of my edges hit tonight?",
+  "What Tailed / Faded": "Which positions should I tail or fade based on tonight's outcomes?",
   "Tomorrow Slate": "Preview tomorrow's slate.",
   Bankroll: "How's my bankroll looking?",
   "New Slate": "What's on the slate today?",
@@ -173,6 +174,9 @@ const SMART_CHIP_QUERIES: Record<string, string> = {
   Futures: "Any futures with value right now?",
   "Sharp Money": "Where is the sharp money flowing?",
 };
+
+const LIVE_STATUS_TOKENS = ["IN_PROGRESS", "LIVE", "HALFTIME", "END_PERIOD", "Q1", "Q2", "Q3", "Q4", "OT"];
+const FINAL_STATUS_TOKENS = ["FINAL", "FINISHED", "COMPLETE"];
 
 /**
  * Design system tokens — single source of truth.
@@ -187,7 +191,7 @@ const SYSTEM = {
     morph: { type: "spring", damping: 25, stiffness: 280 } as Transition,
   },
   surface: {
-    void: "bg-[#050505]",
+    void: "bg-[#08080A]",
     panel: "bg-[#080808] border border-white/[0.06]",
     /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
     glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
@@ -263,7 +267,7 @@ interface ImageContent { type: "image"; source: { type: "base64"; media_type: st
 interface FileContent { type: "file"; source: { type: "base64"; media_type: string; data: string } }
 type MessagePart = TextContent | ImageContent | FileContent;
 type MessageContent = string | MessagePart[];
-type VerdictOutcome = "hit" | "miss" | null;
+type VerdictOutcome = "tail" | "fade" | null;
 
 interface Message {
   id: string;
@@ -596,7 +600,28 @@ function cleanVerdictContent(text: string): string {
     .trim();
 }
 
+/**
+ * Removes bracket citation placeholders when no source metadata is available.
+ * Prevents fake fallback citations like [1.1] from rendering as trusted evidence.
+ */
+function stripUnlinkedCitations(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(REGEX_CITATION_PLACEHOLDER, "")
+    .replace(/\s+\./g, ".")
+    .replace(/\s+,/g, ",")
+    .replace(REGEX_MULTI_SPACE, " ")
+    .trim();
+}
+
 type ConfidenceLevel = "high" | "medium" | "low";
+
+interface ParsedEdgeVerdict {
+  teamName: string;
+  spread: string;
+  odds: string;
+  summaryLabel: string;
+}
 
 /** Extract confidence level from raw verdict text before it gets cleaned. */
 function extractConfidence(text: string): ConfidenceLevel {
@@ -615,6 +640,146 @@ function confidenceToPercent(level: ConfidenceLevel): number {
     case "medium": return 58;
     case "low": return 30;
   }
+}
+
+function resolveConfidenceValue(level: ConfidenceLevel, rawText?: string): number {
+  const explicit = rawText?.match(/\b(\d{1,3})%\b/);
+  if (explicit) {
+    const numeric = Number(explicit[1]);
+    if (Number.isFinite(numeric)) {
+      return Math.max(0, Math.min(100, numeric));
+    }
+  }
+  return confidenceToPercent(level);
+}
+
+function parseEdgeVerdict(rawVerdict: string): ParsedEdgeVerdict {
+  const cleaned = cleanVerdictContent(rawVerdict)
+    .replace(/^\*+|\*+$/g, "")
+    .trim();
+
+  if (!cleaned) {
+    return {
+      teamName: "No Edge",
+      spread: "N/A",
+      odds: "N/A",
+      summaryLabel: "",
+    };
+  }
+
+  const signedMatches = Array.from(cleaned.matchAll(REGEX_SIGNED_NUMERIC));
+  const totalMatch = cleaned.match(/^(.*?)\b(over|under)\s*(\d+(?:\.\d+)?)/i);
+  if (signedMatches.length === 0) {
+    if (totalMatch) {
+      const prefix = (totalMatch[1] || "")
+        .replace(/[—:-]+$/g, "")
+        .trim();
+      return {
+        teamName: prefix || "Total",
+        spread: `${totalMatch[2].charAt(0).toUpperCase()}${totalMatch[3]}`,
+        odds: "N/A",
+        summaryLabel: cleaned,
+      };
+    }
+    return {
+      teamName: cleaned,
+      spread: /\bML\b/i.test(cleaned) ? "ML" : "N/A",
+      odds: "N/A",
+      summaryLabel: cleaned,
+    };
+  }
+
+  if (totalMatch) {
+    const prefix = (totalMatch[1] || "")
+      .replace(/[—:-]+$/g, "")
+      .trim();
+    const lastSigned = signedMatches[signedMatches.length - 1][0];
+    return {
+      teamName: prefix || "Total",
+      spread: `${totalMatch[2].charAt(0).toUpperCase()}${totalMatch[3]}`,
+      odds: lastSigned,
+      summaryLabel: cleaned,
+    };
+  }
+
+  if (/\bML\b/i.test(cleaned) && signedMatches.length >= 1) {
+    const firstSigned = signedMatches[0];
+    const teamRaw = cleaned
+      .slice(0, firstSigned.index)
+      .replace(/\bML\b/i, "")
+      .replace(/[(@-]+$/g, "")
+      .trim();
+    const odds = signedMatches[signedMatches.length - 1][0];
+    return {
+      teamName: teamRaw || cleaned,
+      spread: "ML",
+      odds,
+      summaryLabel: cleaned,
+    };
+  }
+
+  const firstSigned = signedMatches[0];
+  const lastSigned = signedMatches[signedMatches.length - 1];
+  const teamRaw = cleaned
+    .slice(0, firstSigned.index)
+    .replace(/\bML\b/i, "")
+    .replace(/[(@-]+$/g, "")
+    .trim();
+
+  const spread = signedMatches.length >= 2
+    ? firstSigned[0]
+    : /\bML\b/i.test(cleaned)
+      ? "ML"
+      : firstSigned[0];
+
+  const odds = signedMatches.length >= 2 ? lastSigned[0] : firstSigned[0];
+
+  return {
+    teamName: teamRaw || cleaned,
+    spread,
+    odds,
+    summaryLabel: cleaned,
+  };
+}
+
+function extractEdgeSynopses(rawText: string): string[] {
+  if (!rawText) return [];
+
+  const lines = rawText.split(/\r?\n/);
+  const synopses: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]?.trim() || "";
+    if (!REGEX_VERDICT_MATCH.test(line)) continue;
+
+    let synopsis = "";
+    for (let j = i + 1; j < lines.length; j++) {
+      const nextLine = (lines[j] || "").trim();
+      if (!nextLine) continue;
+      if (REGEX_VERDICT_MATCH.test(nextLine)) break;
+      if (REGEX_EDGE_SECTION_HEADER.test(nextLine)) continue;
+
+      const cleanedLine = stripUnlinkedCitations(nextLine)
+        .replace(/^[-*•]\s*/, "")
+        .replace(/\*+/g, "")
+        .trim();
+
+      if (!cleanedLine) continue;
+      synopsis = cleanedLine;
+      break;
+    }
+
+    synopses.push(synopsis);
+  }
+
+  return synopses;
+}
+
+function extractVerdictPayload(text: string): string {
+  if (!text) return "";
+  const verdictIdx = text.toLowerCase().indexOf("verdict:");
+  if (verdictIdx === -1) return text.trim();
+  return text.slice(verdictIdx + "verdict:".length).trim();
 }
 
 function hostnameToBrand(hostname: string): string {
@@ -662,6 +827,33 @@ function getTimePhase(): "pregame" | "live" | "postgame" {
   if (hour < 16) return "pregame";
   if (hour < 23) return "live";
   return "postgame";
+}
+
+function deriveGamePhase(gameContext?: GameContext | null): "pregame" | "live" | "postgame" {
+  if (!gameContext) return getTimePhase();
+
+  const status = String(gameContext.status || "").toUpperCase();
+  if (LIVE_STATUS_TOKENS.some((token) => status.includes(token))) return "live";
+  if (FINAL_STATUS_TOKENS.some((token) => status.includes(token))) return "postgame";
+
+  if (gameContext.start_time) {
+    const kickoff = new Date(gameContext.start_time).getTime();
+    if (Number.isFinite(kickoff)) {
+      const deltaMs = kickoff - Date.now();
+      if (deltaMs <= -2 * 60 * 60 * 1000) return "postgame";
+      if (deltaMs <= 0) return "live";
+    }
+  }
+
+  return "pregame";
+}
+
+function getMatchupLabel(gameContext?: GameContext | null): string {
+  const home = gameContext?.home_team;
+  const away = gameContext?.away_team;
+  if (home && away) return `${away} @ ${home}`;
+  if (home || away) return `${away || home}`;
+  return "this game";
 }
 
 
@@ -1103,188 +1295,272 @@ const SourceIcon: FC<{ url?: string; fallbackLetter: string; className?: string 
 });
 SourceIcon.displayName = "SourceIcon";
 
-/**
- * "Neon Filament" Confidence Bar
- * Ultra-thin (3px) with intense glow.
- */
-const NeonFilamentBar: FC<{ level: ConfidenceLevel }> = memo(({ level }) => {
-  const percent = confidenceToPercent(level);
-  const color = level === "high" ? "bg-emerald-400" : level === "medium" ? "bg-amber-400" : "bg-zinc-400";
-  const glow = level === "high" ? "shadow-[0_0_12px_#34d399]" : level === "medium" ? "shadow-[0_0_12px_#fbbf24]" : "";
+const EdgeCardNoiseFilter: FC<{ filterId: string }> = memo(({ filterId }) => (
+  <svg style={{ position: "absolute", width: 0, height: 0 }} aria-hidden="true">
+    <defs>
+      <filter id={filterId}>
+        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+        <feColorMatrix type="saturate" values="0" />
+      </filter>
+    </defs>
+  </svg>
+));
+EdgeCardNoiseFilter.displayName = "EdgeCardNoiseFilter";
+
+const ConfidenceRing: FC<{
+  value: number;
+  size?: number;
+  startDelayMs?: number;
+}> = memo(({ value, size = 48, startDelayMs = 0 }) => {
+  const [animatedValue, setAnimatedValue] = useState(0);
+  const gradientIdRef = useRef(`confidenceGrad-${Math.random().toString(36).slice(2, 9)}`);
+  const radius = (size - 5) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clampedValue = Math.max(0, Math.min(100, value));
+  const strokeDashoffset = circumference - (animatedValue / 100) * circumference;
+
+  const colors = useMemo(() => {
+    if (clampedValue >= 70) return { from: "#34D399", to: "#6EE7B7" };
+    if (clampedValue >= 50) return { from: "#D4A853", to: "#E8C778" };
+    return { from: "#EF4444", to: "#F87171" };
+  }, [clampedValue]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAnimatedValue(clampedValue), 500 + startDelayMs);
+    return () => window.clearTimeout(timer);
+  }, [clampedValue, startDelayMs]);
+
   return (
-    <div className="w-full flex items-center gap-4 mt-2" role="meter" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={`Confidence: ${level}`}>
-      <div className="flex-1 h-[3px] bg-white/[0.08] rounded-full overflow-hidden backdrop-blur-sm">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${percent}%` }}
-          transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-          className={cn("h-full rounded-full", color, glow)}
+    <div style={{ position: "relative", width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="rgba(255,255,255,0.035)"
+          strokeWidth="3"
         />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={`url(#${gradientIdRef.current})`}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          style={{ transition: `stroke-dashoffset 1.4s ${EDGE_CARD_SPRING}` }}
+        />
+        <defs>
+          <linearGradient id={gradientIdRef.current} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={colors.from} />
+            <stop offset="100%" stopColor={colors.to} />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span
+          style={{
+            fontSize: 14,
+            fontWeight: 700,
+            fontFeatureSettings: "'tnum'",
+            color: colors.from,
+            letterSpacing: "-0.03em",
+            opacity: animatedValue > 0 ? 1 : 0,
+            transition: "opacity 0.4s ease 0.8s",
+          }}
+        >
+          {clampedValue}
+        </span>
       </div>
-      <span className={cn("text-[11px] font-mono font-bold tracking-widest tabular-nums", level === "high" ? "text-emerald-400" : level === "medium" ? "text-amber-400" : "text-zinc-400")}>
-        {percent}%
-      </span>
     </div>
   );
 });
-NeonFilamentBar.displayName = "NeonFilamentBar";
+ConfidenceRing.displayName = "ConfidenceRing";
 
-/**
- * "The Phantom Receipt" — EdgeVerdictCard v3
- * Borderless slab with top specular highlight and smart odds detection.
- */
+const EdgeActionButton: FC<{
+  label: "Tail" | "Fade";
+  active: boolean;
+  onClick: () => void;
+}> = memo(({ label, active, onClick }) => {
+  const palette = label === "Tail"
+    ? {
+        color: "#34D399",
+        bg: "rgba(52,211,153,0.1)",
+        border: "rgba(52,211,153,0.25)",
+      }
+    : {
+        color: "#EF4444",
+        bg: "rgba(239,68,68,0.08)",
+        border: "rgba(239,68,68,0.2)",
+      };
+
+  return (
+    <button
+      onClick={onClick}
+      className="flex-1 active:scale-[0.965]"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 7,
+        padding: "14px 0",
+        borderRadius: 14,
+        cursor: "pointer",
+        fontSize: 12.5,
+        fontWeight: 650,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        fontFamily: "inherit",
+        WebkitTapHighlightColor: "transparent",
+        transition: `all 0.25s ${EDGE_CARD_SPRING}`,
+        background: active ? palette.bg : "rgba(255,255,255,0.018)",
+        color: active ? palette.color : "rgba(255,255,255,0.28)",
+        border: active ? `1.5px solid ${palette.border}` : "1px solid rgba(255,255,255,0.045)",
+        transform: active ? "scale(0.985)" : "scale(1)",
+        boxShadow: active
+          ? `0 0 20px ${palette.bg}, inset 0 1px 0 rgba(255,255,255,0.04)`
+          : "inset 0 1px 0 rgba(255,255,255,0.02)",
+      }}
+      aria-pressed={active}
+      aria-label={label}
+    >
+      {active && (
+        label === "Tail"
+          ? (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            )
+          : (
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            )
+      )}
+      {label}
+    </button>
+  );
+});
+EdgeActionButton.displayName = "EdgeActionButton";
+
 const EdgeVerdictCard: FC<{
   content: string;
   confidence?: ConfidenceLevel;
-  isLive?: boolean;
-  meta?: string;
-  messageId: string;
+  synopsis?: string;
+  trackingKey: string;
+  cardIndex?: number;
   outcome?: VerdictOutcome;
-  onTrack?: (id: string, outcome: VerdictOutcome) => void;
-}> = memo(({ content, confidence = "high", isLive = false, meta, messageId, outcome, onTrack }) => {
-  const cleanContent = useMemo(() => cleanVerdictContent(content), [content]);
-  const { showToast } = useToast();
+  onTrack?: (trackingKey: string, outcome: VerdictOutcome) => void;
+}> = memo(({
+  content,
+  confidence = "high",
+  synopsis,
+  trackingKey,
+  cardIndex = 0,
+  outcome,
+  onTrack,
+}) => {
+  const parsedVerdict = useMemo(() => parseEdgeVerdict(content), [content]);
+  const confidenceValue = useMemo(
+    () => resolveConfidenceValue(confidence, content),
+    [confidence, content],
+  );
+  const [entered, setEntered] = useState(false);
+  const grainId = useMemo(
+    () => `edge-card-grain-${trackingKey.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+    [trackingKey],
+  );
 
-  const renderedContent = useMemo(() => {
-    if (!cleanContent) return null;
-    REGEX_ODDS_TOKEN.lastIndex = 0;
-    const parts = cleanContent.split(REGEX_ODDS_TOKEN);
-    return parts.map((part, i) => {
-      if (REGEX_ODDS_EXACT.test(part)) {
-        return (
-          <span
-            key={`odds-${i}`}
-            className="inline-flex items-center justify-center mx-1 px-2 py-0.5 rounded-[6px] bg-white/[0.06] border border-white/[0.1] text-emerald-300 font-mono text-[0.85em] font-bold tracking-tight align-middle shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
-          >
-            {part}
-          </span>
-        );
-      }
-      return <React.Fragment key={`txt-${i}`}>{part}</React.Fragment>;
+  useEffect(() => {
+    const timer = window.setTimeout(() => setEntered(true), 80);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const stageStyle = useCallback((baseDelayMs: number): React.CSSProperties => {
+    const effectiveDelay = (baseDelayMs + cardIndex * EDGE_CARD_STAGGER_PER_CARD_MS) / 1000;
+    return {
+      opacity: entered ? 1 : 0,
+      transform: entered ? "translateY(0)" : "translateY(16px)",
+      transition: `opacity 0.55s ${EDGE_CARD_EASE_OUT} ${effectiveDelay}s, transform 0.7s ${EDGE_CARD_SPRING} ${effectiveDelay}s`,
+    };
+  }, [cardIndex, entered]);
+
+  const resolvedSynopsis = synopsis && synopsis.length > 0
+    ? synopsis
+    : "Current market construction supports the edge, with spread and price still in a playable range.";
+
+  const handleToggle = useCallback((selection: "tail" | "fade") => {
+    const next = outcome === selection ? null : selection;
+    trackAction(`verdict.${selection}`, {
+      trackingKey,
+      selected: next === selection,
+      cardIndex,
     });
-  }, [cleanContent]);
-
-  const handleShare = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(`${cleanContent}\n\nConfidence: ${confidence.toUpperCase()}`);
-      triggerHaptic();
-      showToast("Receipt copied to clipboard");
-    } catch {
-      showToast("Failed to copy receipt");
-    }
-  }, [cleanContent, confidence, showToast]);
+    onTrack?.(trackingKey, next);
+  }, [cardIndex, onTrack, outcome, trackingKey]);
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 16, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={SYSTEM.anim.fluid}
-      className={cn(
-        "my-10 relative overflow-hidden group rounded-[32px] select-none",
-        "bg-[#030303]",
-        "shadow-[0_30px_60px_-12px_rgba(0,0,0,1)]",
-      )}
-    >
-      {/* Top Specular Highlight */}
-      <div className="absolute inset-0 rounded-[32px] ring-1 ring-white/[0.08] pointer-events-none z-20" />
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50" />
+    <motion.div layout className="relative overflow-hidden mb-3 rounded-[20px]">
+      <EdgeCardNoiseFilter filterId={grainId} />
 
-      {/* Volumetric confidence wash */}
-      <div
-        className={cn(
-          "absolute inset-0 opacity-20 pointer-events-none transition-colors duration-700 z-0",
-          confidence === "high" && "bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.15)_0%,transparent_70%)]",
-          confidence === "medium" && "bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12)_0%,transparent_70%)]",
-          confidence === "low" && "bg-[radial-gradient(circle_at_top,rgba(161,161,170,0.08)_0%,transparent_70%)]",
-        )}
-      />
-      <motion.div
-        aria-hidden
-        className="absolute inset-0 pointer-events-none z-0 bg-[radial-gradient(120%_60%_at_50%_0%,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_60%)]"
-        animate={{ opacity: [0.08, 0.16, 0.08] }}
-        transition={{ duration: 8, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-      />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(168deg, #151517 0%, #121214 40%, #0E0E10 100%)" }} />
+      <div style={{ position: "absolute", inset: 0, borderRadius: 20, border: "1px solid rgba(255,255,255,0.055)", pointerEvents: "none", zIndex: 2 }} />
+      <div style={{ position: "absolute", inset: 0, opacity: 0.018, filter: `url(#${grainId})`, pointerEvents: "none", zIndex: 1 }} />
+      <div style={{ position: "absolute", top: 0, left: "8%", right: "8%", height: "1px", background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.09) 40%, rgba(255,255,255,0.09) 60%, transparent 100%)", pointerEvents: "none", zIndex: 3 }} />
+      <div style={{ position: "absolute", top: -40, left: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(212,168,83,0.025) 0%, transparent 70%)", pointerEvents: "none", zIndex: 1 }} />
 
-      <div className="relative z-10 p-8 md:p-10 flex flex-col gap-8">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-semibold tracking-[0.18em] text-zinc-500 uppercase font-mono">The Edge</span>
-          <div className="flex items-center gap-4">
-            {isLive && (
-              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                </span>
-                <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest">Live</span>
-              </div>
-            )}
-            <button onClick={handleShare} className="text-zinc-600 hover:text-white transition-colors p-1" aria-label="Copy receipt">
-              <Share2 size={14} />
-            </button>
+      <div style={{ position: "relative", zIndex: 2, padding: "26px 24px 22px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0]) }}>
+          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.24)" }}>The Edge</span>
+        </div>
+
+        <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[1])}>
+          <h2 style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: "-0.03em", color: "#FAFAFA", lineHeight: 1.05 }}>{parsedVerdict.teamName}</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", padding: "7px 15px", borderRadius: 10, background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.14)", boxShadow: "inset 0 1px 0 rgba(52,211,153,0.04)" }}>
+              <span style={{ fontSize: 17, fontWeight: 700, fontFeatureSettings: "'tnum'", letterSpacing: "-0.02em", color: "#34D399" }}>{parsedVerdict.spread}</span>
+            </div>
+            <span style={{ fontSize: 16, color: "rgba(255,255,255,0.14)", fontWeight: 300, marginLeft: 2, marginRight: -2 }}>(</span>
+            <div style={{ display: "inline-flex", alignItems: "center", padding: "7px 15px", borderRadius: 10, background: "rgba(212,168,83,0.05)", border: "1px solid rgba(212,168,83,0.12)", boxShadow: "inset 0 1px 0 rgba(212,168,83,0.03)" }}>
+              <span style={{ fontSize: 17, fontWeight: 700, fontFeatureSettings: "'tnum'", letterSpacing: "-0.02em", color: "#D4A853" }}>{parsedVerdict.odds}</span>
+            </div>
+            <span style={{ fontSize: 16, color: "rgba(255,255,255,0.14)", fontWeight: 300, marginLeft: -2 }}>)</span>
           </div>
         </div>
 
-        <div className="text-[28px] md:text-[34px] font-medium leading-[1.08] tracking-[-0.02em] text-white/95 text-balance drop-shadow-sm">
-          {renderedContent}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 24, padding: "18px 0 16px", borderTop: "1px solid rgba(255,255,255,0.04)", ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2]) }}>
+          <ConfidenceRing
+            value={confidenceValue}
+            size={48}
+            startDelayMs={cardIndex * EDGE_CARD_STAGGER_PER_CARD_MS}
+          />
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: "rgba(255,255,255,0.7)", letterSpacing: "-0.01em" }}>Confidence</span>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex justify-between items-end text-[9px] font-bold tracking-[0.15em] text-zinc-600 uppercase font-mono">
-            <span>Confidence Model</span>
-          </div>
-          <NeonFilamentBar level={confidence} />
+        <div style={{ padding: "13px 15px", borderRadius: 12, background: "rgba(255,255,255,0.018)", border: "1px solid rgba(255,255,255,0.03)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.15)", marginTop: 2, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[3]) }}>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.42)", letterSpacing: "-0.005em" }}>
+            {resolvedSynopsis}
+          </p>
         </div>
 
         {onTrack && (
-          <div className="pt-8 mt-2 border-t border-white/[0.04] flex flex-col gap-4">
-            {!outcome ? (
-              <div className="flex items-center gap-3 w-full" role="group" aria-label="Track verdict outcome">
-                <button
-                  onClick={() => { triggerHaptic(); trackAction("verdict.hit", { messageId }); onTrack(messageId, "hit"); }}
-                  className="flex-1 h-11 rounded-full bg-white/[0.02] border border-white/[0.06] hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] transition-all flex items-center justify-center gap-2 group"
-                >
-                  <Check size={14} className="text-zinc-500 group-hover:text-emerald-400 transition-colors" />
-                  <span className="text-[10px] font-bold text-zinc-400 group-hover:text-emerald-100 uppercase tracking-widest">Hit</span>
-                </button>
-                <button
-                  onClick={() => { triggerHaptic(); trackAction("verdict.miss", { messageId }); onTrack(messageId, "miss"); }}
-                  className="flex-1 h-11 rounded-full bg-white/[0.02] border border-white/[0.06] hover:bg-red-500/10 hover:border-red-500/30 hover:shadow-[0_0_20px_-5px_rgba(239,68,68,0.3)] transition-all flex items-center justify-center gap-2 group"
-                >
-                  <XCircle size={14} className="text-zinc-500 group-hover:text-red-400 transition-colors" />
-                  <span className="text-[10px] font-bold text-zinc-400 group-hover:text-red-100 uppercase tracking-widest">Miss</span>
-                </button>
-              </div>
-            ) : (
-              <div className="w-full flex items-center justify-between h-11 bg-white/[0.02] rounded-full border border-white/[0.04] px-4">
-                <div className="flex items-center gap-2.5">
-                  <div className={cn("w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor]", outcome === "hit" ? "bg-emerald-500 text-emerald-500" : "bg-red-500 text-red-500")} />
-                  <span className={cn("text-[10px] font-bold uppercase tracking-wider", outcome === "hit" ? "text-emerald-400" : "text-red-400")}>
-                    Tracked: {outcome === "hit" ? "Hit" : "Miss"}
-                  </span>
-                </div>
-                <button
-                  onClick={() => onTrack(messageId, null)}
-                  className="text-[10px] font-bold tracking-widest uppercase text-zinc-600 hover:text-zinc-300 transition-colors flex items-center gap-1.5"
-                  aria-label="Undo verdict tracking"
-                >
-                  <RotateCcw size={10} /> Undo
-                </button>
-              </div>
-            )}
+          <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4])}>
+            <div style={{ height: "1px", background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)", margin: "20px 0 18px" }} />
+            <div style={{ display: "flex", gap: 10 }} role="group" aria-label="Track verdict outcome">
+              <EdgeActionButton label="Tail" active={outcome === "tail"} onClick={() => handleToggle("tail")} />
+              <EdgeActionButton label="Fade" active={outcome === "fade"} onClick={() => handleToggle("fade")} />
+            </div>
           </div>
         )}
 
-        {meta && !onTrack && (
-          <div className="pt-6 border-t border-white/[0.04]">
-            <span className="text-[10px] font-mono text-zinc-600">{meta}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Watermark */}
-      <div className="absolute bottom-4 right-6 text-[8px] font-mono uppercase tracking-[0.3em] text-white/10">
-        OBSIDIAN RECEIPT
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+          <span style={{ fontSize: 9.5, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.13)", padding: "4px 0" }}>
+            Obsidian Receipt
+          </span>
+        </div>
       </div>
     </motion.div>
   );
@@ -1408,45 +1684,105 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
 );
 ThinkingPill.displayName = "ThinkingPill";
 
-const SmartChips: FC<{ onSelect: (t: string) => void; hasMatch: boolean; messageCount: number }> = memo(
-  ({ onSelect, hasMatch, messageCount }) => {
-    const phase = getTimePhase();
-    const chips = useMemo(() => {
-      if (hasMatch) {
-        switch (phase) {
-          case "live": return ["Live Edge", "Sharp Report", "Momentum", "Cash Out?"];
-          case "postgame": return ["Recap", "What Hit", "Tomorrow Slate", "Bankroll"];
-          default: return ["Sharp Report", "Best Bet", "Public Fade", "Player Props"];
-        }
-      }
-      if (messageCount > 5) return ["New Slate", "My Record", "Best Edge", "Promos"];
-      switch (phase) {
-        case "live": return ["Live Games", "In-Play Edge", "Line Moves", "Injury News"];
-        case "postgame": return ["Tomorrow Slate", "Futures", "My Record", "Sharp Money"];
-        default: return ["Edge Today", "Line Moves", "Public Splits", "Injury News"];
-      }
-    }, [hasMatch, phase, messageCount]);
+const SmartChips: FC<{
+  onSelect: (t: string) => void;
+  hasMatch: boolean;
+  messageCount: number;
+  gameContext?: GameContext | null;
+}> = memo(({ onSelect, hasMatch, messageCount, gameContext }) => {
+  const phase = deriveGamePhase(gameContext);
+  const matchup = getMatchupLabel(gameContext);
 
-    return (
-      <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide px-6" role="group" aria-label="Quick actions">
-        {chips.map((chip, i) => (
-          <motion.button
-            key={chip}
-            onClick={() => { triggerHaptic(); onSelect(SMART_CHIP_QUERIES[chip] ?? chip); }}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04, ...SYSTEM.anim.fluid }}
-            whileHover={{ scale: 1.02, y: -1, backgroundColor: "rgba(255,255,255,0.06)" }}
-            whileTap={{ scale: 0.98 }}
-            className={cn("px-3.5 py-2 bg-white/[0.03] border border-white/[0.08] transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
-          >
-            <span className="text-[10px] font-medium text-zinc-300 tracking-wide uppercase whitespace-nowrap">{chip}</span>
-          </motion.button>
-        ))}
-      </div>
-    );
-  },
-);
+  const chips = useMemo(() => {
+    if (hasMatch) {
+      switch (phase) {
+        case "live":
+          return ["Live Edge", "Live Total Reprice", "Momentum Shift", "Hedge / Cash Out"];
+        case "postgame":
+          return ["Game Recap", "What Tailed / Faded", "CLV Check", "Next Spot"];
+        default:
+          return ["Best Bet This Matchup", "Line Move Since Open", "Injury Impact", "Props Value"];
+      }
+    }
+
+    if (messageCount > 5) return ["New Slate", "My Record", "Best Edge", "Promos"];
+    switch (phase) {
+      case "live":
+        return ["Live Games", "In-Play Edge", "Line Moves", "Injury News"];
+      case "postgame":
+        return ["Tomorrow Slate", "Futures", "My Record", "Sharp Money"];
+      default:
+        return ["Edge Today", "Line Moves", "Public Splits", "Injury News"];
+    }
+  }, [hasMatch, phase, messageCount]);
+
+  const resolveQuery = useCallback(
+    (chip: string): string => {
+      if (!hasMatch) return SMART_CHIP_QUERIES[chip] ?? chip;
+
+      switch (chip) {
+        case "Live Edge":
+          return `For ${matchup}, give me the best live edge right now using score, clock, and current odds.`;
+        case "Live Total Reprice":
+          return `For ${matchup}, reprice the live total using current pace and game state.`;
+        case "Momentum Shift":
+          return `For ${matchup}, identify momentum shifts by quarter/clock and actionable in-play angles.`;
+        case "Hedge / Cash Out":
+          return `For ${matchup}, should I hedge or cash out based on current game state and price?`;
+        case "Game Recap":
+          return `Recap ${matchup}: what happened versus market expectation?`;
+        case "What Tailed / Faded":
+          return `For ${matchup}, break down what to tail versus fade and why.`;
+        case "CLV Check":
+          return `For ${matchup}, compare opening/current/close to evaluate CLV quality.`;
+        case "Next Spot":
+          return `Based on ${matchup}, identify the next exploitable spot for each team.`;
+        case "Best Bet This Matchup":
+          return `Give me the best bet for ${matchup} with current line and confidence.`;
+        case "Line Move Since Open":
+          return `For ${matchup}, show opening vs current line movement and sharp/public interpretation.`;
+        case "Injury Impact":
+          return `For ${matchup}, quantify injury impact on side and total pricing.`;
+        case "Props Value":
+          return `For ${matchup}, surface the best player props with rationale and fair price.`;
+        default:
+          return SMART_CHIP_QUERIES[chip] ?? chip;
+      }
+    },
+    [hasMatch, matchup],
+  );
+
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide px-6" role="group" aria-label="Quick actions">
+      {chips.map((chip, i) => (
+        <motion.button
+          key={chip}
+          onClick={() => {
+            const query = resolveQuery(chip);
+            triggerHaptic();
+            trackAction("smart_chip.click", {
+              chipLabel: chip,
+              phase,
+              hasMatch,
+              matchId: gameContext?.match_id || null,
+              gameStatus: gameContext?.status || null,
+              query,
+            });
+            onSelect(query);
+          }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.04, ...SYSTEM.anim.fluid }}
+          whileHover={{ scale: 1.02, y: -1, backgroundColor: "rgba(255,255,255,0.06)" }}
+          whileTap={{ scale: 0.98 }}
+          className={cn("px-3.5 py-2 bg-white/[0.03] border border-white/[0.08] transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
+        >
+          <span className="text-[10px] font-medium text-zinc-300 tracking-wide uppercase whitespace-nowrap">{chip}</span>
+        </motion.button>
+      ))}
+    </div>
+  );
+});
 SmartChips.displayName = "SmartChips";
 
 const ConnectionBadge: FC<{ status: ConnectionStatus }> = memo(({ status }) => {
@@ -1651,31 +1987,46 @@ EvidenceDeck.displayName = "EvidenceDeck";
 // §12  MESSAGE BUBBLE
 // ═══════════════════════════════════════════════════════════════════════════
 
-const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcome: VerdictOutcome) => void; showCitations?: boolean }> = memo(
-  ({ message, onTrackVerdict, showCitations = true }) => {
+const MessageBubble: FC<{
+  message: Message;
+  onTrackVerdict?: (trackingKey: string, outcome: VerdictOutcome) => void;
+  verdictOutcomes?: Record<string, VerdictOutcome>;
+  showCitations?: boolean;
+}> = memo(
+  ({ message, onTrackVerdict, verdictOutcomes = {}, showCitations = true }) => {
     const isUser = message.role === "user";
     const verifiedContent = useMemo(() => {
       const t = extractTextContent(message.content);
-      return isUser ? t : showCitations ? hydrateCitations(t, message.groundingMetadata) : t;
+      if (isUser) return t;
+      if (!showCitations) return stripUnlinkedCitations(t);
+      const hasSources = extractSources(message.groundingMetadata).length > 0;
+      return hasSources ? hydrateCitations(t, message.groundingMetadata) : stripUnlinkedCitations(t);
     }, [message.content, message.groundingMetadata, isUser, showCitations]);
 
     const sources = useMemo(() => extractSources(message.groundingMetadata), [message.groundingMetadata]);
+    const edgeSynopses = useMemo(() => extractEdgeSynopses(verifiedContent), [verifiedContent]);
     const formattedTime = useMemo(() => formatTimestamp(message.timestamp), [message.timestamp]);
 
     const components: Components = useMemo(
-      () => ({
+      () => {
+        let verdictCardIndex = -1;
+        return ({
         p: ({ children }) => {
           const text = flattenText(children);
 
           if (REGEX_VERDICT_MATCH.test(text)) {
-            const rawVerdictContent = text.replace(REGEX_VERDICT_PREFIX, "").trim();
+            verdictCardIndex += 1;
+            const rawVerdictContent = extractVerdictPayload(text);
             const confidence = extractConfidence(rawVerdictContent);
+            const trackingKey = `${message.id}:verdict:${verdictCardIndex}`;
             return (
               <EdgeVerdictCard
                 content={rawVerdictContent}
                 confidence={confidence}
-                messageId={message.id}
-                outcome={message.verdictOutcome}
+                synopsis={edgeSynopses[verdictCardIndex]}
+                trackingKey={trackingKey}
+                cardIndex={verdictCardIndex}
+                outcome={verdictOutcomes[trackingKey] ?? null}
                 onTrack={onTrackVerdict}
               />
             );
@@ -1741,8 +2092,9 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
             <span className={cn(SYSTEM.type.body, isUser ? "text-[#1a1a1a]" : "text-zinc-300")}>{children}</span>
           </li>
         ),
-      }),
-      [isUser, message.id, message.verdictOutcome, onTrackVerdict],
+      });
+      },
+      [edgeSynopses, isUser, message.id, onTrackVerdict, verdictOutcomes],
     );
 
     return (
@@ -1757,7 +2109,7 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
           <div className="flex items-center gap-2 mb-2 ml-1 select-none">
             <div className={cn("w-1.5 h-1.5 rounded-full", sources.length > 0 ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-zinc-600")} />
             <span className={cn(SYSTEM.type.mono, sources.length > 0 ? "text-emerald-500" : "text-zinc-500")}>
-              {sources.length > 0 ? "OBSIDIAN // VERIFIED" : "OBSIDIAN"}
+              {sources.length > 0 ? "OBSIDIAN // VERIFIED" : "OBSIDIAN // NO SOURCES"}
             </span>
           </div>
         )}
@@ -1897,18 +2249,34 @@ const InputDeck: FC<{
     triggerHaptic();
   };
 
-  const canSend = (value.trim() || attachments.length > 0) && !isOffline;
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const hasInput = (value.trim() || attachments.length > 0);
+  const canSend = hasInput && !isOffline;
+  const showSendArrow = canSend && !isProcessing;
+
+  const handlePrimaryAction = () => {
+    if (isProcessing) {
+      onStop();
+      return;
+    }
+    if (canSend) {
+      onSend();
+      return;
+    }
+    if (!isOffline) {
+      toggleVoice();
+    }
+  };
 
   return (
     <motion.div
       layout
-      className={cn(
-        "flex flex-col gap-2 p-1.5 relative overflow-hidden transition-colors duration-500 will-change-transform",
-        SYSTEM.geo.input, "bg-[#0A0A0B] shadow-2xl",
-        isVoiceMode
-          ? "border-emerald-500/30 shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)]"
-          : isOffline ? "border-red-500/20" : SYSTEM.surface.milled,
-      )}
+      className="flex flex-col gap-2 relative overflow-hidden rounded-[16px] bg-[#0A0A0B] border border-white/[0.04] transition-all duration-300"
+      style={{
+        boxShadow: isInputFocused
+          ? "0 0 0 3px rgba(255,255,255,0.015), inset 0 1px 3px rgba(0,0,0,0.25)"
+          : "inset 0 1px 2px rgba(0,0,0,0.15)",
+      }}
       transition={SYSTEM.anim.fluid}
     >
       <AnimatePresence>
@@ -1917,7 +2285,7 @@ const InputDeck: FC<{
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="flex gap-2 overflow-x-auto p-2 mb-1 scrollbar-hide"
+            className="flex gap-2 overflow-x-auto px-3 pt-2 scrollbar-hide"
           >
             {attachments.map((a, i) => (
               <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.05] rounded-lg border border-white/[0.05]">
@@ -1936,14 +2304,14 @@ const InputDeck: FC<{
         )}
       </AnimatePresence>
 
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-3 px-4 py-3.5">
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="p-3.5 rounded-[18px] text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
+          className="w-6 h-6 rounded-[8px] bg-white/[0.03] flex items-center justify-center text-white/25 hover:text-white/45 transition-colors shrink-0"
           aria-label="Attach file"
           disabled={isOffline}
         >
-          <Plus size={20} strokeWidth={1.5} />
+          <Plus size={13} strokeWidth={2} />
         </button>
         <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept="image/*,application/pdf" aria-hidden="true" />
 
@@ -1961,47 +2329,82 @@ const InputDeck: FC<{
             placeholder={isOffline ? "Offline -- waiting for connection..." : "Ask for edge, splits, or props..."}
             rows={1}
             disabled={isOffline}
+            onFocus={() => setIsInputFocused(true)}
+            onBlur={() => setIsInputFocused(false)}
             aria-label="Message input"
             className={cn(
-              "flex-1 bg-transparent border-none outline-none resize-none py-4 min-h-[52px] max-h-[120px]",
-              SYSTEM.type.body, "text-white placeholder:text-zinc-600 disabled:opacity-40",
+              "flex-1 bg-transparent border-none outline-none resize-none min-h-[52px] max-h-[120px] py-3",
+              SYSTEM.type.body,
+              "text-white placeholder:text-white/22 disabled:opacity-40",
             )}
+            style={{
+              caretColor: "#D4A853",
+              fontFamily: "'SF Pro Display', 'SF Pro Text', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+              letterSpacing: "-0.01em",
+            }}
           />
         )}
 
-        <div className="flex items-center gap-1 pb-1.5 pr-1">
-          {!value && !attachments.length && (
-            <button
-              onClick={toggleVoice}
-              className={cn(
-                "p-3 rounded-[18px]",
-                isVoiceMode ? "text-rose-400 bg-rose-500/10" : "text-zinc-500 hover:bg-white/5 hover:text-white transition-colors",
-              )}
-              aria-label={isVoiceMode ? "Stop voice input" : "Start voice input"}
-              aria-pressed={isVoiceMode}
-            >
-              {isVoiceMode ? <MicOff size={18} /> : <Mic size={18} />}
-            </button>
-          )}
-
-          {(canSend || isProcessing) && (
-            <motion.button
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              whileTap={{ scale: 0.92 }}
-              onClick={() => (isProcessing ? onStop() : onSend())}
-              className={cn(
-                "p-3 rounded-[18px] transition-all duration-300",
-                canSend || isProcessing
-                  ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                  : "bg-white/5 text-zinc-600",
-              )}
-              aria-label={isProcessing ? "Stop processing" : "Send message"}
-            >
-              {isProcessing ? <StopCircle size={18} className="animate-pulse" /> : <ArrowUp size={18} strokeWidth={2.5} />}
-            </motion.button>
-          )}
-        </div>
+        <motion.button
+          initial={{ scale: 0.95 }}
+          animate={{ scale: 1 }}
+          whileTap={{ scale: 0.94 }}
+          onClick={handlePrimaryAction}
+          className="w-[30px] h-[30px] rounded-[10px] flex items-center justify-center shrink-0 transition-all duration-300"
+          style={{
+            background: showSendArrow
+              ? "rgba(212,168,83,0.12)"
+              : isInputFocused
+                ? "rgba(255,255,255,0.05)"
+                : "rgba(255,255,255,0.025)",
+            border: showSendArrow
+              ? "1px solid rgba(212,168,83,0.18)"
+              : "1px solid rgba(255,255,255,0.04)",
+          }}
+          aria-label={isProcessing ? "Stop processing" : showSendArrow ? "Send message" : isVoiceMode ? "Stop voice input" : "Start voice input"}
+          aria-pressed={isVoiceMode && !showSendArrow}
+          disabled={isOffline && !isProcessing}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {isProcessing ? (
+              <motion.span
+                key="stop"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.16 }}
+                className="flex"
+              >
+                <StopCircle size={13} className="text-[#D4A853] animate-pulse" />
+              </motion.span>
+            ) : showSendArrow ? (
+              <motion.span
+                key="send"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.16 }}
+                className="flex"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D4A853" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M22 2L11 13" />
+                  <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+                </svg>
+              </motion.span>
+            ) : (
+              <motion.span
+                key={isVoiceMode ? "mic-off" : "mic-on"}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.16 }}
+                className="flex"
+              >
+                {isVoiceMode ? <MicOff size={13} className="text-rose-400" /> : <Mic size={13} className="text-white/25" />}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.button>
       </div>
     </motion.div>
   );
@@ -2064,6 +2467,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [hasUnseenContent, setHasUnseenContent] = useState(false);
   const [showCitations, setShowCitations] = useState(true);
+  const [verdictOutcomes, setVerdictOutcomes] = useState<Record<string, VerdictOutcome>>({});
   const prevMsgCountRef = useRef(0);
   const [retryCount, setRetryCount] = useState(0);
   const [srAnnouncement, setSrAnnouncement] = useState("");
@@ -2077,8 +2481,45 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const { session_id, conversation_id, current_match } = useChatContext({ match: currentMatch as any });
+  const attachedGameContext = useMemo(
+    () => normalizeGameContext(currentMatch, (current_match as unknown as Record<string, unknown> | null) || null),
+    [currentMatch, current_match],
+  );
+  const hasAttachedGame = Boolean(attachedGameContext?.match_id || (attachedGameContext?.home_team && attachedGameContext?.away_team));
   const connectionStatus = useConnectionHealth();
   const canSend = useSendGuard();
+  const verdictStorageKey = useMemo(
+    () => `obsidian-verdicts:${session_id}:${conversation_id || "global"}`,
+    [conversation_id, session_id],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(verdictStorageKey);
+      if (!raw) {
+        setVerdictOutcomes({});
+        return;
+      }
+      const parsed = JSON.parse(raw) as Record<string, VerdictOutcome>;
+      if (parsed && typeof parsed === "object") {
+        setVerdictOutcomes(parsed);
+      } else {
+        setVerdictOutcomes({});
+      }
+    } catch {
+      setVerdictOutcomes({});
+    }
+  }, [verdictStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(verdictStorageKey, JSON.stringify(verdictOutcomes));
+    } catch {
+      // Best effort only; telemetry still captures interaction.
+    }
+  }, [verdictOutcomes, verdictStorageKey]);
 
   // Focus management
   useAutoFocus(inputRef, !isMinimized && !inline);
@@ -2139,9 +2580,17 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   }, []);
 
   // Verdict tracking
-  const handleTrackVerdict = useStableCallback((id: string, outcome: VerdictOutcome) => {
-    dispatch({ type: "SET_VERDICT", id, outcome });
-    trackAction("verdict.track", { id, outcome });
+  const handleTrackVerdict = useStableCallback((trackingKey: string, outcome: VerdictOutcome) => {
+    setVerdictOutcomes((prev) => {
+      const next = { ...prev };
+      if (outcome === null) {
+        delete next[trackingKey];
+      } else {
+        next[trackingKey] = outcome;
+      }
+      return next;
+    });
+    trackAction("verdict.track", { trackingKey, outcome });
   });
 
   // NOTE: Keyboard shortcuts registered ONLY in outer ChatWidget (§16) — not here.
@@ -2186,7 +2635,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     const aiMsg: Message = { id: aiMsgId, role: "assistant", content: "", isStreaming: true, timestamp: now };
 
     dispatch({ type: "APPEND_BATCH", messages: [userMsg, aiMsg] });
-    trackAction("message.send", { hasAttachments: currentAttachments.length > 0, hasMatch: !!currentMatch });
+    trackAction("message.send", { hasAttachments: currentAttachments.length > 0, hasMatch: hasAttachedGame });
 
     // ── RAF batching: coalesces streaming updates to one dispatch per animation frame ──
     let batchRaf: number | null = null;
@@ -2217,12 +2666,8 @@ const InnerChatWidget: FC<ChatWidgetProps & {
         wireMessages[wireMessages.length - 1].content = buildWireContent(text || "Analyze this.", currentAttachments);
       }
 
-      const normalizedContext = normalizeGameContext(
-        currentMatch,
-        (current_match as Record<string, unknown> | null) || null,
-      );
-      const gameContextWithSnapshot = normalizedContext
-        ? { ...normalizedContext, context_snapshot_ts: Date.now() }
+      const gameContextWithSnapshot = attachedGameContext
+        ? { ...attachedGameContext, context_snapshot_ts: Date.now() }
         : null;
 
       const context: ChatContextPayload = {
@@ -2337,6 +2782,11 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                   SYSTEM.surface.void,
                 ),
             )}
+            style={{
+              fontFamily: "'SF Pro Display', 'SF Pro Text', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+              WebkitFontSmoothing: "antialiased",
+              MozOsxFontSmoothing: "grayscale",
+            }}
           >
             <FilmGrain />
 
@@ -2392,7 +2842,15 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                     <p className={SYSTEM.type.mono}>System Ready</p>
                   </motion.div>
                 ) : (
-                  messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} showCitations={showCitations} />)
+                  messages.map((msg) => (
+                    <MessageBubble
+                      key={msg.id}
+                      message={msg}
+                      onTrackVerdict={handleTrackVerdict}
+                      verdictOutcomes={verdictOutcomes}
+                      showCitations={showCitations}
+                    />
+                  ))
                 )}
               </AnimatePresence>
             </div>
@@ -2409,7 +2867,12 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                 <AnimatePresence>
                   {messages.length < 2 && !isProcessing && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-4">
-                      <SmartChips onSelect={handleSend} hasMatch={!!currentMatch} messageCount={messages.length} />
+                      <SmartChips
+                        onSelect={handleSend}
+                        hasMatch={hasAttachedGame}
+                        messageCount={messages.length}
+                        gameContext={attachedGameContext}
+                      />
                     </motion.div>
                   )}
                 </AnimatePresence>
