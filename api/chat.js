@@ -1,537 +1,324 @@
-/* ============================================================================
-   api/chat.js
-   "Obsidian Citadel" — Production Backend (v26.1 Enhanced)
-   
-   Engine: Gemini 3 Flash Preview
-   Protocol: Dual-Mode + Verdict First + Entity Firewall
-   
-   ENHANCEMENTS (v26.1 Enhanced):
-   ├─ LOGIC: Corrected spread delta sign calculation (preserves direction)
-   ├─ STREAM: Iterates ALL parts per chunk (prevents data loss)
-   ├─ GATE: Restored score < 2 for strict confluence filtering
-   ├─ PROMPT: Softened Entity Firewall (status claims only)
-   └─ PROMPT: Added colon to INVALIDATION for UI parsing
-============================================================================ */
+// api/chat.ts
 import { createClient } from "@supabase/supabase-js";
-import { BettingPickSchema } from "../lib/schemas/picks.js";
-import { orchestrate, orchestrateStream, getProviderHealth, googleClient } from "../lib/ai-provider.js";
-import { FUNCTION_DECLARATIONS, TOOL_CONFIG, TOOL_ENABLED_TASK_TYPES } from "../lib/tool-registry.js";
-import { ToolResultCache } from "../lib/tool-result-cache.js";
-import { createToolCallingStream } from "../lib/tool-calling-stream.js";
-
-// =============================================================================
-// INITIALIZATION
-// =============================================================================
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-const CONFIG = {
-    MODEL_ID: "gemini-3-flash-preview",
-    ANALYSIS_TRIGGERS: [
-        "edge", "best bet", "should i bet", "picks", "prediction",
-        "analyze", "analysis", "spread", "over", "under", "moneyline",
-        "verdict", "play", "handicap", "sharp", "odds", "line",
-        "lean", "lock", "parlay", "action", "value", "bet", "pick"
-    ],
-    GROUNDING_TRIGGERS: [
-        "odds", "line", "spread", "total", "score", "live", "today",
-        "tonight", "injury", "status", "current", "slate", "updates"
-    ],
-    STALE_THRESHOLD_MS: 15 * 60 * 1000,  // 15 minutes
-    INJURY_CACHE_TTL_MS: 5 * 60 * 1000,   // 5 minutes
-    // Tool-calling is ON by default — the pipeline is fully built and tested.
-    // Set ENABLE_TOOL_CALLING=false in env to revert to legacy evidence-packet path.
-    ENABLE_TOOL_CALLING: process.env.ENABLE_TOOL_CALLING !== "false"
+import { z } from "zod";
+import crypto from "crypto";
+import { BettingPickSchema } from "../lib/schemas/picks";
+import { orchestrate, orchestrateStream, getProviderHealth, googleClient } from "../lib/ai-provider";
+import { FUNCTION_DECLARATIONS, TOOL_CONFIG, TOOL_ENABLED_TASK_TYPES } from "../lib/tool-registry";
+import { ToolResultCache } from "../lib/tool-result-cache";
+import { createToolCallingStream } from "../lib/tool-calling-stream";
+var ChatRequestSchema = z.object({
+  messages: z.array(z.object({
+    role: z.enum(["system", "user", "assistant"]),
+    content: z.union([z.string(), z.array(z.record(z.unknown()))])
+  })).min(1),
+  session_id: z.string().optional(),
+  conversation_id: z.string().optional(),
+  gameContext: z.record(z.unknown()).optional().nullable(),
+  run_id: z.string().optional()
+});
+var CONFIG = {
+  MODEL_ID: "gemini-3-flash-preview",
+  ANALYSIS_TRIGGERS: [
+    "edge",
+    "best bet",
+    "should i bet",
+    "picks",
+    "prediction",
+    "analyze",
+    "analysis",
+    "spread",
+    "over",
+    "under",
+    "moneyline",
+    "verdict",
+    "play",
+    "handicap",
+    "sharp",
+    "odds",
+    "line",
+    "lean",
+    "lock",
+    "parlay",
+    "action",
+    "value",
+    "bet",
+    "pick"
+  ],
+  GROUNDING_TRIGGERS: [
+    "odds",
+    "line",
+    "spread",
+    "total",
+    "score",
+    "live",
+    "today",
+    "tonight",
+    "injury",
+    "status",
+    "current",
+    "slate",
+    "updates"
+  ],
+  STALE_THRESHOLD_MS: 15 * 60 * 1e3,
+  INJURY_CACHE_TTL_MS: 5 * 60 * 1e3,
+  ENABLE_TOOL_CALLING: process.env.ENABLE_TOOL_CALLING !== "false"
 };
+var supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+var supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+var supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false }
+});
+var log = {
+  info: (msg, data) => console.log(JSON.stringify({ level: "INFO", msg, ...data, ts: (/* @__PURE__ */ new Date()).toISOString() })),
+  warn: (msg, data) => console.warn(JSON.stringify({ level: "WARN", msg, ...data, ts: (/* @__PURE__ */ new Date()).toISOString() })),
+  error: (msg, data) => console.error(JSON.stringify({ level: "ERROR", msg, ...data, ts: (/* @__PURE__ */ new Date()).toISOString() }))
+};
+var BoundedTTLMemoryCache = class {
+  constructor(maxSize = 500) {
+    this.maxSize = maxSize;
+    this.cache = /* @__PURE__ */ new Map();
+    this.inflight = /* @__PURE__ */ new Map();
+  }
+  async getOrFetch(key, ttlMs, fetcher) {
+    const now = Date.now();
+    const cached = this.cache.get(key);
+    if (cached && cached.expiresAt > now) {
+      return cached.data;
+    }
+    if (this.inflight.has(key)) return this.inflight.get(key);
+    const promise = fetcher().then((data) => {
+      if (this.cache.size >= this.maxSize) {
+        const firstKey = this.cache.keys().next().value;
+        if (firstKey) this.cache.delete(firstKey);
+      }
+      this.cache.set(key, { data, expiresAt: Date.now() + ttlMs });
+      return data;
+    }).finally(() => {
+      this.inflight.delete(key);
+    });
+    this.inflight.set(key, promise);
+    return promise;
+  }
+};
+var INJURY_CACHE = new BoundedTTLMemoryCache(500);
+var SSEWriter = class {
+  constructor(res) {
+    this.res = res;
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+  }
+  writeEvent(type, data) {
+    if (!this.res.writableEnded && !this.res.closed && !this.res.destroyed) {
+      this.res.write(`data: ${JSON.stringify({ type, ...data })}
 
-// =============================================================================
-// UTILITIES
-// =============================================================================
+`);
+      this.flush();
+    }
+  }
+  writeDone(modelId) {
+    if (!this.res.writableEnded && !this.res.closed && !this.res.destroyed) {
+      if (modelId) this.res.write(`data: ${JSON.stringify({ done: true, model: modelId })}
 
-/**
- * Safely stringify an object with truncation.
- * @param {any} obj - Object to stringify
- * @param {number} maxLen - Maximum character length
- * @returns {string}
- */
+`);
+      this.res.write("data: [DONE]\n\n");
+      this.flush();
+    }
+  }
+  writeError(message) {
+    if (!this.res.writableEnded && !this.res.closed && !this.res.destroyed) {
+      this.res.write(`data: ${JSON.stringify({ type: "error", content: message })}
+
+`);
+      this.res.write("data: [DONE]\n\n");
+      this.flush();
+    }
+  }
+  flush() {
+    if (typeof this.res.flush === "function") {
+      this.res.flush();
+    }
+  }
+};
 function safeJsonStringify(obj, maxLen = 1200) {
-    try {
-        const str = JSON.stringify(obj);
-        return str.length > maxLen ? str.slice(0, maxLen) + "…" : str;
-    } catch {
-        return "";
-    }
+  try {
+    const str = JSON.stringify(obj);
+    return str.length > maxLen ? str.slice(0, maxLen) + "\u2026" : str;
+  } catch {
+    return "";
+  }
 }
-
-/**
- * Safe JSON recovery for LLM output.
- * - Strips ```json fences
- * - Trims leading chatter before first { or [
- * - Trims trailing content after last } or ]
- * @param {string} raw
- * @returns {{ success: boolean, data?: any, raw?: string }}
- */
 function safeParseJSON(raw) {
-    if (!raw || typeof raw !== "string") return { success: false, raw };
-    let text = raw.trim();
-
-    // Extract fenced JSON if present
-    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenced && fenced[1]) {
-        text = fenced[1].trim();
-    }
-
-    const start = text.search(/[\{\[]/);
-    if (start > 0) text = text.slice(start);
-    if (start === -1) return { success: false, raw };
-
-    const lastBrace = text.lastIndexOf("}");
-    const lastBracket = text.lastIndexOf("]");
-    const end = Math.max(lastBrace, lastBracket);
-    if (end !== -1) text = text.slice(0, end + 1);
-
-    try {
-        return { success: true, data: JSON.parse(text) };
-    } catch {
-        return { success: false, raw };
-    }
+  if (!raw || typeof raw !== "string") return { success: false, raw };
+  let text = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
+  const start = text.search(/[\{\[]/);
+  if (start === -1) return { success: false, raw };
+  const end = Math.max(text.lastIndexOf("}"), text.lastIndexOf("]"));
+  if (end !== -1) text = text.slice(start, end + 1);
+  try {
+    return { success: true, data: JSON.parse(text) };
+  } catch {
+    return { success: false, raw };
+  }
 }
-
-/**
- * Detect operating mode based on query content.
- * @param {string} query - User's message
- * @param {boolean} hasImage - Whether message contains an image
- * @returns {'ANALYSIS' | 'CONVERSATION'}
- */
 function detectMode(query, hasImage) {
-    if (hasImage) return "ANALYSIS";
-    if (!query) return "CONVERSATION";
-    const q = query.toLowerCase();
-    return CONFIG.ANALYSIS_TRIGGERS.some((t) => q.includes(t)) ? "ANALYSIS" : "CONVERSATION";
+  if (hasImage) return "ANALYSIS";
+  if (!query) return "CONVERSATION";
+  const q = query.toLowerCase();
+  return CONFIG.ANALYSIS_TRIGGERS.some((t) => q.includes(t)) ? "ANALYSIS" : "CONVERSATION";
 }
-
-/**
- * Classify task type for orchestration.
- * Prioritize grounding when live/odds signals are present.
- * @param {string} query - User's message
- * @param {boolean} hasImage - Whether message contains an image
- * @returns {"grounding" | "analysis" | "chat"}
- */
 function detectTaskType(query, hasImage) {
-    if (hasImage) return "analysis";
-    if (!query) return "chat";
-    const q = query.toLowerCase();
-    if (CONFIG.GROUNDING_TRIGGERS.some((t) => q.includes(t))) return "grounding";
-    if (CONFIG.ANALYSIS_TRIGGERS.some((t) => q.includes(t))) return "analysis";
-    return "chat";
+  if (hasImage) return "analysis";
+  if (!query) return "chat";
+  const q = query.toLowerCase();
+  if (CONFIG.GROUNDING_TRIGGERS.some((t) => q.includes(t))) return "grounding";
+  if (CONFIG.ANALYSIS_TRIGGERS.some((t) => q.includes(t))) return "analysis";
+  return "chat";
 }
-
-/**
- * Determine the market phase based on game status and timing.
- * @param {object} match - Match context object
- * @returns {string} Human-readable market phase
- */
 function getMarketPhase(match) {
-    if (!match) return "UNKNOWN";
-
-    const status = (match.status || match.game_status || "").toUpperCase();
-
-    // Live game states
-    if (status.includes("IN_PROGRESS") || status.includes("LIVE") || status.includes("HALFTIME")) {
-        return `🔴 LIVE_IN_PLAY [${match.clock || match.display_clock || "Active"}]`;
-    }
-
-    // Final states
-    if (status.includes("FINAL") || status.includes("FINISHED") || status.includes("COMPLETE")) {
-        return "🏁 FINAL_SCORE";
-    }
-
-    // Time-based phases
-    if (match.start_time) {
-        const hoursUntilStart = (new Date(match.start_time).getTime() - Date.now()) / 3.6e6;
-
-        if (hoursUntilStart < 0 && hoursUntilStart > -4) return "🔴 LIVE_IN_PLAY (Inferred)";
-        if (hoursUntilStart <= -4) return "🏁 FINAL_SCORE";
-        if (hoursUntilStart < 1) return "⚡ CLOSING_LINE";
-        if (hoursUntilStart < 6) return "🎯 SHARP_WINDOW";
-        if (hoursUntilStart < 24) return "🌊 DAY_OF_GAME";
-    }
-
-    return "🔭 OPENING_MARKET";
+  if (!match) return "UNKNOWN";
+  const status = (match.status || match.game_status || "").toUpperCase();
+  if (["IN_PROGRESS", "LIVE", "HALFTIME", "END_PERIOD"].some((s) => status.includes(s))) {
+    return `\u{1F534} LIVE_IN_PLAY [${match.clock || match.display_clock || "Active"}]`;
+  }
+  if (["FINAL", "FINISHED", "COMPLETE"].some((s) => status.includes(s))) {
+    return "\u{1F3C1} FINAL_SCORE";
+  }
+  if (match.start_time || match.game_start_time) {
+    const hrs = (new Date(match.start_time || match.game_start_time).getTime() - Date.now()) / 36e5;
+    if (hrs < 0 && hrs > -4) return "\u{1F534} LIVE_IN_PLAY (Inferred)";
+    if (hrs <= -4) return "\u{1F3C1} FINAL_SCORE";
+    if (hrs < 1) return "\u26A1 CLOSING_LINE";
+    if (hrs < 6) return "\u{1F3AF} SHARP_WINDOW";
+    if (hrs < 24) return "\u{1F30A} DAY_OF_GAME";
+  }
+  return "\u{1F52D} OPENING_MARKET";
 }
-
-/**
- * Check if the provided context data is stale.
- * @param {object} context - Game context
- * @returns {boolean}
- */
-function isContextStale(context) {
-    if (!context?.start_time) return false;
-
-    const gameStart = new Date(context.start_time);
-    const now = new Date();
-    const status = (context.status || context.game_status || "").toUpperCase();
-
-    const timeSinceStart = now - gameStart;
-    const activeStatuses = ["IN_PROGRESS", "LIVE", "HALFTIME", "FINAL", "FINISHED"];
-
-    if (timeSinceStart > CONFIG.STALE_THRESHOLD_MS && !activeStatuses.some(s => status.includes(s))) {
-        return true;
-    }
-
-    return false;
-}
-
-/**
- * Calculate line movement preserving directional sign.
- * 
- * Assumes standard US convention: spread is relative to Home team.
- * - Negative spread = Home favored (e.g., Home -5.5)
- * - Positive spread = Home underdog (e.g., Home +3.0)
- * 
- * Delta Interpretation:
- * - Delta < 0: Line moved LEFT (e.g., -3 → -4) = HOME steam (money on favorite)
- * - Delta > 0: Line moved RIGHT (e.g., -3 → -2) = AWAY steam (money on underdog)
- * 
- * @param {object} currentOdds - Current odds object
- * @param {object} t60Snapshot - T-60 snapshot with odds
- * @returns {object} Line movement analysis
- */
 function calculateLineMovement(currentOdds, t60Snapshot) {
-    if (!currentOdds || !t60Snapshot?.odds) {
-        return { available: false, signal: null };
+  if (!currentOdds || !t60Snapshot?.odds) return { available: false, signal: "STABLE_MARKET", movements: [] };
+  const current = currentOdds;
+  const opening = t60Snapshot.odds;
+  const movements = [];
+  if (typeof current.spread === "number" && typeof opening.spread === "number") {
+    const spreadDelta = current.spread - opening.spread;
+    if (Math.abs(spreadDelta) >= 0.5) {
+      movements.push({
+        type: "SPREAD",
+        delta: Math.abs(spreadDelta).toFixed(1),
+        direction: spreadDelta < 0 ? "HOME" : "AWAY",
+        signal: Math.abs(spreadDelta) >= 1.5 ? "\u{1F6A8} SHARP_STEAM" : "\u{1F4CA} LINE_MOVE"
+      });
     }
-
-    const current = currentOdds;
-    const opening = t60Snapshot.odds;
-    const movements = [];
-
-    // Spread movement analysis (preserves algebraic sign)
-    if (current.spread !== undefined && opening.spread !== undefined) {
-        const spreadDelta = current.spread - opening.spread;
-
-        if (Math.abs(spreadDelta) >= 0.5) {
-            // Negative delta = moved left (more negative) = HOME steam
-            // Positive delta = moved right (less negative/more positive) = AWAY steam
-            const direction = spreadDelta < 0 ? "HOME" : "AWAY";
-            movements.push({
-                type: "SPREAD",
-                delta: Math.abs(spreadDelta).toFixed(1),
-                direction,
-                signal: Math.abs(spreadDelta) >= 1.5 ? "🚨 SHARP_STEAM" : "📊 LINE_MOVE"
-            });
-        }
+  }
+  if (typeof current.total === "number" && typeof opening.total === "number") {
+    const totalDelta = current.total - opening.total;
+    if (Math.abs(totalDelta) >= 1) {
+      movements.push({
+        type: "TOTAL",
+        delta: Math.abs(totalDelta).toFixed(1),
+        direction: totalDelta > 0 ? "UP" : "DOWN",
+        signal: Math.abs(totalDelta) >= 2.5 ? "\u{1F6A8} SHARP_STEAM" : "\u{1F4CA} LINE_MOVE"
+      });
     }
-
-    // Total movement analysis
-    if (current.total !== undefined && opening.total !== undefined) {
-        const totalDelta = current.total - opening.total;
-
-        if (Math.abs(totalDelta) >= 1) {
-            const direction = totalDelta > 0 ? "UP" : "DOWN";
-            movements.push({
-                type: "TOTAL",
-                delta: Math.abs(totalDelta).toFixed(1),
-                direction,
-                signal: Math.abs(totalDelta) >= 2.5 ? "🚨 SHARP_STEAM" : "📊 LINE_MOVE"
-            });
-        }
-    }
-
-    if (movements.length === 0) {
-        return { available: true, signal: "STABLE_MARKET", movements: [] };
-    }
-
-    return {
-        available: true,
-        movements,
-        signal: movements.some(m => m.signal === "🚨 SHARP_STEAM") ? "SHARP_ACTION_DETECTED" : "MODERATE_MOVEMENT"
-    };
+  }
+  if (movements.length === 0) return { available: true, signal: "STABLE_MARKET", movements: [] };
+  return {
+    available: true,
+    movements,
+    signal: movements.some((m) => m.signal === "\u{1F6A8} SHARP_STEAM") ? "SHARP_ACTION_DETECTED" : "MODERATE_MOVEMENT"
+  };
 }
-
-// =============================================================================
-// LIVE SENTINEL
-// =============================================================================
-
-/**
- * Extract team name hints from user query for live game matching.
- * @param {string} query - User query
- * @returns {string[]} Team hint tokens
- */
 function extractAllTeamHints(query) {
-    if (!query) return [];
-
-    const tokens = query
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter((t) => t.length >= 4);
-
-    return tokens.sort((a, b) => b.length - a.length).slice(0, 3);
+  if (!query) return [];
+  return query.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 4).sort((a, b) => b.length - a.length).slice(0, 3);
 }
-
-/**
- * Scan live_game_state for active games matching user query.
- * @param {string} userQuery - User's message
- * @returns {Promise<{ok: boolean, data?: object, isLiveOverride?: boolean}>}
- */
-async function scanForLiveGame(userQuery) {
-    const hints = extractAllTeamHints(userQuery);
-    if (!hints.length) return { ok: false };
-
-    try {
-        const orClauses = hints.map((h) => `home_team.ilike.%${h}%,away_team.ilike.%${h}%`).join(",");
-
-        const { data, error } = await supabase
-            .from("live_game_state")
-            .select("*")
-            .in("game_status", ["IN_PROGRESS", "HALFTIME", "END_PERIOD", "LIVE"])
-            .or(orClauses)
-            .order("updated_at", { ascending: false })
-            .limit(1);
-
-        if (error) throw error;
-        if (data?.[0]) return { ok: true, data: data[0], isLiveOverride: true };
-
-        return { ok: false };
-    } catch (e) {
-        console.error("[Live Sentinel] Scan failed:", e.message);
-        return { ok: false };
-    }
+async function scanForLiveGame(userQuery, signal) {
+  const hints = extractAllTeamHints(userQuery);
+  if (!hints.length) return { ok: false };
+  try {
+    const orClauses = hints.map((h) => `home_team.ilike.%${h}%,away_team.ilike.%${h}%`).join(",");
+    const query = supabase.from("live_game_state").select("*").in("game_status", ["IN_PROGRESS", "HALFTIME", "END_PERIOD", "LIVE"]).or(orClauses).order("updated_at", { ascending: false }).limit(1);
+    if (signal) query.abortSignal(signal);
+    const { data, error } = await query;
+    if (error) throw error;
+    if (data && data.length > 0) return { ok: true, data: data[0], isLiveOverride: true };
+    return { ok: false };
+  } catch (e) {
+    if (e instanceof Error && e.name !== "AbortError") log.warn("[Live Sentinel] Scan failed", { error: e.message });
+    return { ok: false };
+  }
 }
-
-// =============================================================================
-// DATA FETCHERS
-// =============================================================================
-
-const INJURY_CACHE = new Map();
-
-/**
- * Fetch injuries from ESPN API with caching.
- * @param {string} teamId - ESPN team ID
- * @param {string} sportKey - Sport identifier (NBA, NFL, NHL, NCAAB, CBB)
- * @returns {Promise<{injuries: object[], cached?: boolean}>}
- */
-async function fetchESPNInjuries(teamId, sportKey) {
-    if (!teamId) return { injuries: [] };
-
-    const cacheKey = `${sportKey}_${teamId}`;
-    const cached = INJURY_CACHE.get(cacheKey);
-
-    if (cached && Date.now() - cached.timestamp < CONFIG.INJURY_CACHE_TTL_MS) {
-        return { ...cached.data, cached: true };
-    }
-
+async function fetchESPNInjuries(teamId, sportKey, signal) {
+  if (!teamId) return { injuries: [] };
+  const cacheKey = `${sportKey || "NBA"}_${teamId}`;
+  return INJURY_CACHE.getOrFetch(cacheKey, CONFIG.INJURY_CACHE_TTL_MS, async () => {
     const sportConfig = {
-        NBA: { sport: "basketball", league: "nba" },
-        NFL: { sport: "football", league: "nfl" },
-        NHL: { sport: "hockey", league: "nhl" },
-        NCAAB: { sport: "basketball", league: "mens-college-basketball" },
-        CBB: { sport: "basketball", league: "mens-college-basketball" }
-    }[sportKey] || { sport: "basketball", league: "nba" };
-
-    try {
-        const url = `https://site.api.espn.com/apis/site/v2/sports/${sportConfig.sport}/${sportConfig.league}/teams/${teamId}?enable=injuries`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-
-        if (!res.ok) throw new Error(`ESPN API ${res.status}`);
-
-        const data = await res.json();
-        const injuries = (data.team?.injuries || [])
-            .map((i) => ({
-                name: i.athlete?.displayName,
-                status: i.status?.toUpperCase(),
-                position: i.athlete?.position?.abbreviation
-            }))
-            .filter((i) => i.name && i.status)
-            .slice(0, 8);
-
-        const result = { injuries };
-        INJURY_CACHE.set(cacheKey, { data: result, timestamp: Date.now() });
-
-        return result;
-    } catch (e) {
-        console.error(`[Injury Fetch] ${sportKey}/${teamId}:`, e.message);
-        return { injuries: [] };
-    }
-}
-
-/**
- * Fetch live game state from database.
- * @param {string} matchId - Match UUID
- * @returns {Promise<{ok: boolean, data?: object}>}
- */
-async function fetchLiveState(matchId) {
-    if (!matchId) return { ok: false };
-
-    try {
-        const { data, error } = await supabase
-            .from("live_game_state")
-            .select("*")
-            .eq("id", matchId)
-            .maybeSingle();
-
-        if (error) throw error;
-        return data ? { ok: true, data } : { ok: false };
-    } catch (e) {
-        console.error("[Live State] Fetch failed:", e.message);
-        return { ok: false };
-    }
-}
-
-// =============================================================================
-// EVIDENCE PACKET BUILDER
-// =============================================================================
-
-/**
- * Build comprehensive evidence packet for AI context.
- * @param {object} context - Game context
- * @returns {Promise<object>}
- */
-async function buildEvidencePacket(context) {
-    const packet = {
-        injuries: { home: [], away: [] },
-        liveState: null,
-        temporal: { t60: null, t0: null },
-        lineMovement: null
+      NBA: { sport: "basketball", league: "nba" },
+      NFL: { sport: "football", league: "nfl" },
+      NHL: { sport: "hockey", league: "nhl" },
+      NCAAB: { sport: "basketball", league: "mens-college-basketball" },
+      CBB: { sport: "basketball", league: "mens-college-basketball" }
     };
-
-    const promises = [];
-
-    // Parallel injury fetches
-    if (context?.home_team_id && context?.away_team_id) {
-        promises.push(
-            Promise.all([
-                fetchESPNInjuries(context.home_team_id, context.sport || context.league),
-                fetchESPNInjuries(context.away_team_id, context.sport || context.league)
-            ]).then(([homeData, awayData]) => {
-                packet.injuries.home = homeData.injuries;
-                packet.injuries.away = awayData.injuries;
-            })
-        );
+    const cfg = sportConfig[(sportKey || "NBA").toUpperCase()] || sportConfig.NBA;
+    try {
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 4e3);
+      const onExternalAbort = () => ctrl.abort();
+      if (signal) signal.addEventListener("abort", onExternalAbort, { once: true });
+      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${cfg.sport}/${cfg.league}/teams/${teamId}?enable=injuries`, { signal: ctrl.signal });
+      clearTimeout(timeoutId);
+      if (signal) signal.removeEventListener("abort", onExternalAbort);
+      if (!res.ok) throw new Error(`ESPN API ${res.status}`);
+      const data = await res.json();
+      const injuries = (data.team?.injuries || []).map((i) => ({
+        name: i.athlete?.displayName ?? "",
+        status: (i.status ?? "").toUpperCase(),
+        position: i.athlete?.position?.abbreviation ?? ""
+      })).filter((i) => Boolean(i.name && i.status)).slice(0, 8);
+      return { injuries };
+    } catch (e) {
+      if (e instanceof Error && e.name !== "AbortError") log.warn(`[Injury Fetch] ${cacheKey} failed`, { error: e.message });
+      return { injuries: [] };
     }
-
-    // Live state fetch
-    if (context?.match_id) {
-        promises.push(
-            fetchLiveState(context.match_id).then(({ ok, data }) => {
-                if (ok && data) {
-                    packet.liveState = {
-                        score: { home: data.home_score, away: data.away_score },
-                        clock: data.display_clock,
-                        period: data.period,
-                        status: data.game_status,
-                        odds: data.odds
-                    };
-                    packet.temporal.t60 = data.t60_snapshot;
-                    packet.temporal.t0 = data.t0_snapshot;
-
-                    // Calculate line movement with corrected sign logic
-                    if (data.odds && data.t60_snapshot) {
-                        packet.lineMovement = calculateLineMovement(data.odds, data.t60_snapshot);
-                    }
-                }
-            })
-        );
-    }
-
-    await Promise.allSettled(promises);
-    return packet;
+  });
 }
-
-// =============================================================================
-// STRUCTURAL ANALYSIS
-// =============================================================================
-
-/**
- * Build claim map from AI response for confluence evaluation.
- * Enhanced regex handles markdown formatting.
- * @param {string} response - AI response text
- * @param {string} thoughts - AI thinking text
- * @returns {object}
- */
 function buildClaimMap(response, thoughts) {
-    const combinedText = (response + " " + thoughts).toLowerCase();
-
-    const map = {
-        verdict: null,
-        confidence: "medium",
-        confluence: {
-            price: false,
-            sentiment: false,
-            structure: false
-        }
-    };
-
-    // Enhanced regex: handles **VERDICT:** markdown syntax
-    const verdictPatterns = [
-        /\*\*verdict[:\s*]*\*\*\s*(.+?)(?:\n|$)/i,     // **VERDICT:** text
-        /verdict[:\s*]+\*\*(.+?)\*\*/i,                 // VERDICT: **text**
-        /verdict[:\s*]+(.+?)(?:\n|$)/i                  // VERDICT: text
-    ];
-
-    for (const pattern of verdictPatterns) {
-        const match = response.match(pattern);
-        if (match) {
-            const extracted = match[1].trim().replace(/\*+/g, "").trim();
-            map.verdict = extracted.toLowerCase().includes("pass") ? "PASS" : extracted;
-            break;
-        }
+  const combinedText = (response + " " + thoughts).toLowerCase();
+  const map = { verdict: null, confidence: "medium", confluence: { price: false, sentiment: false, structure: false } };
+  const verdictPatterns = [
+    /\*\*verdict[:\s*]*\*\*\s*(.+?)(?:\n|$)/i,
+    /verdict[:\s*]+\*\*(.+?)\*\*/i,
+    /verdict[:\s*]+(.+?)(?:\n|$)/i
+  ];
+  for (const pattern of verdictPatterns) {
+    const match = response.match(pattern);
+    if (match && match[1]) {
+      const extracted = match[1].trim().replace(/\*+/g, "").trim();
+      map.verdict = extracted.toLowerCase().includes("pass") ? "PASS" : extracted;
+      break;
     }
-
-    // Confidence detection
-    if (combinedText.includes("high confidence") || combinedText.includes("confidence: high") || combinedText.includes("(high)")) {
-        map.confidence = "high";
-    } else if (combinedText.includes("low confidence") || combinedText.includes("confidence: low") || combinedText.includes("(low)")) {
-        map.confidence = "low";
-    }
-
-    // Confluence signal detection
-    map.confluence.price = /(market|price|clv|delta|line move|steam|reverse|closing)/i.test(combinedText);
-    map.confluence.sentiment = /(sentiment|sharp|public|split|money|ticket|fade|action)/i.test(combinedText);
-    map.confluence.structure = /(structural|injury|rotation|rest|b2b|travel|revenge|matchup)/i.test(combinedText);
-
-    return map;
+  }
+  if (combinedText.includes("high confidence") || combinedText.includes("confidence: high") || combinedText.includes("(high)")) {
+    map.confidence = "high";
+  } else if (combinedText.includes("low confidence") || combinedText.includes("confidence: low") || combinedText.includes("(low)")) {
+    map.confidence = "low";
+  }
+  map.confluence.price = /(market|price|clv|delta|line move|steam|reverse|closing)/i.test(combinedText);
+  map.confluence.sentiment = /(sentiment|sharp|public|split|money|ticket|fade|action)/i.test(combinedText);
+  map.confluence.structure = /(structural|injury|rotation|rest|b2b|travel|revenge|matchup)/i.test(combinedText);
+  return map;
 }
-
-/**
- * Gate decision based on confluence score.
- * RESTORED: Requires score >= 2 for strict quality filtering.
- * @param {object} map - Claim map
- * @param {boolean} strict - Whether to enforce minimum confluence
- * @returns {{approved: boolean, reason: string, score: number}}
- */
 function gateDecision(map, strict) {
-    const score = Object.values(map.confluence).filter(Boolean).length;
-
-    if (map.verdict === "PASS") {
-        return { approved: true, reason: "INTENTIONAL_PASS", score };
-    }
-
-    // RESTORED: Require 2+ confluence factors for approval
-    if (strict && score < 2) {
-        return { approved: false, reason: `WEAK_CONFLUENCE (${score}/3)`, score };
-    }
-
-    return { approved: true, reason: "APPROVED", score };
+  const score = Object.values(map.confluence).filter(Boolean).length;
+  if (map.verdict === "PASS") return { approved: true, reason: "INTENTIONAL_PASS", score };
+  if (strict && score < 2) return { approved: false, reason: `WEAK_CONFLUENCE (${score}/3)`, score };
+  return { approved: true, reason: "APPROVED", score };
 }
-
-// =============================================================================
-// PICK EXTRACTION & PERSISTENCE
-// =============================================================================
-
-/**
- * Extract structured pick from AI response using Gemini.
- * @param {string} text - AI response containing verdict
- * @param {object} context - Game context
- * @returns {Promise<object[]>}
- */
 async function extractPickStructured(text, context) {
-    if (!context || !context.home_team || !context.away_team) return [];
-
-    const extractionPrompt = `
+  if (!context || !context.home_team || !context.away_team) return [];
+  const extractionPrompt = `
 You are a structured betting pick extractor. Return JSON ONLY.
 
 GAME CONTEXT:
@@ -547,8 +334,7 @@ OUTPUT JSON SCHEMA (STRICT):
   "pick_direction": "home" | "away" | "over" | "under" | null,
   "pick_line": number | null,
   "confidence": "low" | "medium" | "high",
-  "reasoning_summary": "string (<=300 chars)",
-  "edge_factors": ["string", ...]
+  "reasoning_summary": "string (<=300 chars)"
 }
 
 RULES:
@@ -562,219 +348,107 @@ RULES:
 ANALYSIS TEXT:
 ${text}
 `;
-
-    try {
-        const result = await orchestrate("analysis", [
-            { role: "system", content: "You extract structured betting picks. Output JSON only." },
-            { role: "user", content: extractionPrompt }
-        ], {
-            gameContext: {
-                home_team: context.home_team,
-                away_team: context.away_team,
-                league: context.league || "Unknown"
-            },
-            temperature: 0.2,
-            maxTokens: 600
-        });
-
-        const raw = result.content || "";
-        const parsed = safeParseJSON(raw);
-        if (!parsed.success) {
-            console.warn(`[Pick Extraction] JSON parse failed (provider=${result.servedBy || "unknown"})`);
-            throw new Error("No JSON object found");
-        }
-
-        const validated = BettingPickSchema.safeParse(parsed.data);
-        if (!validated.success) {
-            console.warn("[Pick Extraction] Schema validation failed:", validated.error?.message);
-            return [];
-        }
-
-        const object = validated.data;
-
-        // Validate and normalize team names
-        if (object.verdict === "BET" || object.verdict === "FADE") {
-            if (object.pick_type !== "total" && object.pick_team) {
-                const pickNorm = (object.pick_team || "").toLowerCase().replace(/[^a-z]/g, "");
-                const homeNorm = (context.home_team || "").toLowerCase().replace(/[^a-z]/g, "");
-                const awayNorm = (context.away_team || "").toLowerCase().replace(/[^a-z]/g, "");
-
-                let matchedTeam = null;
-
-                if (pickNorm.includes(homeNorm) || homeNorm.includes(pickNorm)) {
-                    matchedTeam = context.home_team;
-                } else if (pickNorm.includes(awayNorm) || awayNorm.includes(pickNorm)) {
-                    matchedTeam = context.away_team;
-                }
-
-                if (matchedTeam) {
-                    object.pick_team = matchedTeam;
-                } else if (!object.pick_team) {
-                    console.warn("[Pick Extraction] Could not normalize team:", object.pick_team);
-                    return [];
-                }
-            }
-        }
-
-        return [object];
-    } catch (e) {
-        console.error("[Pick Extraction] Failed:", e.message);
-        return [];
+  try {
+    const result = await orchestrate("analysis", [
+      { role: "system", content: "You extract structured betting picks. Output JSON only." },
+      { role: "user", content: extractionPrompt }
+    ], {
+      gameContext: { home_team: context.home_team, away_team: context.away_team, league: context.league || "Unknown" },
+      temperature: 0.2,
+      maxTokens: 600
+    });
+    const parsed = safeParseJSON(result.content);
+    if (!parsed.success) {
+      log.warn("[Pick Extraction] JSON parse failed", { provider: result.servedBy });
+      return [];
     }
+    const validated = BettingPickSchema.safeParse(parsed.data);
+    if (!validated.success) {
+      log.warn("[Pick Extraction] Schema validation failed", { error: validated.error.message });
+      return [];
+    }
+    const object = validated.data;
+    if (object.verdict === "BET" || object.verdict === "FADE") {
+      if (object.pick_type !== "total" && object.pick_team) {
+        const pickNorm = (object.pick_team || "").toLowerCase().replace(/[^a-z]/g, "");
+        const homeNorm = (context.home_team || "").toLowerCase().replace(/[^a-z]/g, "");
+        const awayNorm = (context.away_team || "").toLowerCase().replace(/[^a-z]/g, "");
+        let matchedTeam = null;
+        if (pickNorm.includes(homeNorm) || homeNorm.includes(pickNorm)) {
+          matchedTeam = context.home_team;
+        } else if (pickNorm.includes(awayNorm) || awayNorm.includes(pickNorm)) {
+          matchedTeam = context.away_team;
+        }
+        if (matchedTeam) {
+          object.pick_team = matchedTeam;
+        } else if (!object.pick_team) {
+          log.warn("[Pick Extraction] Could not normalize team", { team: String(object.pick_team) });
+          return [];
+        }
+      }
+    }
+    return [object];
+  } catch (e) {
+    log.error("[Pick Extraction] Failed", { error: e instanceof Error ? e.message : String(e) });
+    return [];
+  }
 }
-
-/**
- * Persist AI chat run and extracted picks to database.
- */
-async function persistRun(runId, map, gate, context, convoId, modelId) {
-    try {
-        // Upsert run record
-        await supabase.from("ai_chat_runs").upsert(
-            {
-                id: runId,
-                conversation_id: convoId,
-                confluence_met: gate.approved,
-                confluence_score: gate.score,
-                verdict: map.verdict,
-                confidence: map.confidence,
-                gate_reason: gate.reason,
-                match_context: context
-                    ? { id: context.match_id, home: context.home_team, away: context.away_team }
-                    : null
-            },
-            { onConflict: "id" }
-        );
-
-        // Extract and persist picks if approved
-        if (gate.approved && map.verdict && map.verdict !== "PASS") {
-            const structuralPicks = await extractPickStructured(map.verdict, context);
-
-            if (structuralPicks.length > 0) {
-                const pickRecords = structuralPicks.map((p) => {
-                    let side = p.pick_team;
-                    if (p.pick_type === "total") {
-                        side = p.pick_direction ? p.pick_direction.toUpperCase() : "UNKNOWN";
-                    }
-
-                    return {
-                        run_id: runId,
-                        conversation_id: convoId,
-                        match_id: context?.match_id,
-                        home_team: context?.home_team,
-                        away_team: context?.away_team,
-                        league: context?.league,
-                        game_start_time: context?.start_time || context?.game_start_time,
-                        pick_type: p.pick_type,
-                        pick_side: side,
-                        pick_line: p.pick_line,
-                        ai_confidence: p.confidence || map.confidence,
-                        model_id: modelId,
-                        reasoning_summary: p.reasoning_summary,
-                        extraction_method: "structured_v26_enhanced"
-                    };
-                });
-
-                await supabase.from("ai_chat_picks").insert(pickRecords);
-            }
-        }
-    } catch (e) {
-        console.error("[Persist Run] Failed:", e.message);
+async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  const parsedReq = ChatRequestSchema.safeParse(req.body);
+  if (!parsedReq.success) {
+    return res.status(400).json({ error: "Invalid payload format", details: parsedReq.error.format() });
+  }
+  const { messages, conversation_id, gameContext, run_id } = parsedReq.data;
+  const currentRunId = run_id || crypto.randomUUID();
+  const sse = new SSEWriter(res);
+  const abortController = new AbortController();
+  const onSocketClose = () => abortController.abort();
+  req.on("close", onSocketClose);
+  try {
+    const health = getProviderHealth();
+    log.info("[AI:Health]", { run_id: currentRunId, enabled: health.enabled, circuits: health.circuits, costCeiling: health.costCeiling });
+    let activeContext = gameContext || {};
+    const lastMsg = messages[messages.length - 1];
+    const userQuery = typeof lastMsg?.content === "string" ? lastMsg.content : "";
+    const hasImage = Array.isArray(lastMsg?.content) && lastMsg.content.some((c) => c.type === "image");
+    const MODE = detectMode(userQuery, hasImage);
+    const taskType = detectTaskType(userQuery, hasImage);
+    const [liveScan, homeInjuries, awayInjuries] = await Promise.all([
+      scanForLiveGame(userQuery, abortController.signal),
+      activeContext.home_team_id ? fetchESPNInjuries(activeContext.home_team_id, activeContext.sport || activeContext.league, abortController.signal) : Promise.resolve({ injuries: [] }),
+      activeContext.away_team_id ? fetchESPNInjuries(activeContext.away_team_id, activeContext.sport || activeContext.league, abortController.signal) : Promise.resolve({ injuries: [] })
+    ]);
+    if (liveScan.ok && liveScan.data) {
+      activeContext = {
+        ...activeContext,
+        ...liveScan.data,
+        match_id: liveScan.data.id,
+        clock: liveScan.data.display_clock,
+        current_odds: liveScan.data.odds
+      };
     }
-}
-
-// =============================================================================
-// MAIN HANDLER
-// =============================================================================
-
-export default async function handler(req, res) {
-    if (req.method !== "POST") {
-        return res.status(405).json({ error: "Method not allowed" });
-    }
-
-    try {
-        const { messages, session_id, conversation_id, gameContext, run_id } = req.body;
-        const currentRunId = run_id || crypto.randomUUID();
-
-        const health = getProviderHealth();
-        console.info("[AI:Health]", {
-            run_id: currentRunId,
-            enabled: health.enabled,
-            circuits: health.circuits,
-            costCeiling: health.costCeiling
-        });
-
-        // Initialize context
-        let activeContext = gameContext || {};
-        const lastMsg = messages[messages.length - 1];
-        const userQuery = typeof lastMsg.content === "string" ? lastMsg.content : "";
-        const hasImage = Array.isArray(lastMsg.content) && lastMsg.content.some((c) => c.type === "image");
-
-        const MODE = detectMode(userQuery, hasImage);
-        const taskType = detectTaskType(userQuery, hasImage);
-
-        // --- LIVE SENTINEL CHECK ---
-        const liveScan = await scanForLiveGame(userQuery);
-        let isLive = false;
-
-        if (liveScan.ok) {
-            const liveData = liveScan.data;
-            activeContext = {
-                ...activeContext,
-                ...liveData,
-                match_id: liveData.id,
-                clock: liveData.display_clock,
-                status: liveData.game_status,
-                current_odds: liveData.odds
-            };
-            isLive = true;
-        }
-
-        isLive = isLive || (activeContext?.status || "").toUpperCase().includes("IN_PROGRESS");
-
-        // --- BUILD EVIDENCE PACKET ---
-        const evidence = await buildEvidencePacket(activeContext);
-
-        if (evidence.liveState) {
-            activeContext = {
-                ...activeContext,
-                ...evidence.liveState,
-                current_odds: evidence.liveState.odds
-            };
-        }
-
-        // Determine market phase
-        const marketPhase = getMarketPhase(activeContext);
-
-        // Format line movement for prompt
-        let lineMovementIntel = "";
-        if (evidence.lineMovement?.available && evidence.lineMovement.movements?.length > 0) {
-            lineMovementIntel = evidence.lineMovement.movements
-                .map((m) => `${m.signal} ${m.type}: ${m.direction} ${m.delta}pts`)
-                .join(" | ");
-        }
-
-        // Stale context warning
-        const staleWarning = isContextStale(activeContext)
-            ? "\n⚠️ DATA WARNING: Context may be stale. Verify with Search."
-            : "";
-
-        // --- SYSTEM PROMPT: VERDICT FIRST + ENTITY FIREWALL (SOFTENED) ---
-        const systemInstruction = `
+    const isLive = (activeContext?.status || activeContext?.game_status || "").toUpperCase().includes("IN_PROGRESS") || liveScan.ok;
+    const marketPhase = getMarketPhase(activeContext);
+    const lineMovement = calculateLineMovement(activeContext.current_odds, activeContext.t60_snapshot);
+    const lineMovementIntel = lineMovement.available && lineMovement.movements ? lineMovement.movements.map((m) => `${m.signal} ${m.type}: ${m.direction} ${m.delta}pts`).join(" | ") : "";
+    const staleWarning = activeContext.start_time && Date.now() - new Date(activeContext.start_time).getTime() > CONFIG.STALE_THRESHOLD_MS && !isLive ? "\n\u26A0\uFE0F DATA WARNING: Context may be stale. Verify with Search." : "";
+    const systemInstruction = `
 <temporal>
-TODAY: ${new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" })}
-TIME: ${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET
+TODAY: ${(/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { timeZone: "America/New_York" })}
+TIME: ${(/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET
 MARKET_PHASE: ${marketPhase}
 MODE: ${MODE}
 </temporal>
 
 <context>
 MATCHUP: ${activeContext?.away_team || "TBD"} @ ${activeContext?.home_team || "TBD"}
-${isLive ? `🔴 LIVE: ${activeContext?.away_score || 0}-${activeContext?.home_score || 0} | ${activeContext?.clock || ""}` : ""}
+${isLive ? `\u{1F534} LIVE: ${activeContext?.away_score ?? 0}-${activeContext?.home_score ?? 0} | ${activeContext?.clock || ""}` : ""}
 ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}
 ${lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : ""}
-INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}
-INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}
-${evidence.temporal.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : ""}
+INJURIES_HOME: ${safeJsonStringify(homeInjuries.injuries, 400)}
+INJURIES_AWAY: ${safeJsonStringify(awayInjuries.injuries, 400)}
+${activeContext.t60_snapshot ? `T-60_ODDS: ${safeJsonStringify(activeContext.t60_snapshot.odds, 300)}` : ""}
 ${staleWarning}
 </context>
 
@@ -783,20 +457,14 @@ You are "The Obsidian Ledger," a forensic sports analyst.
 
 **RULE 1 (ENTITY FIREWALL - STATUS CLAIMS ONLY):**
 - For **injury/availability/status claims**, you MUST cite a source [1.x].
-- **FALLBACK:** If you cannot verify a player's STATUS (playing, doubtful, out), use their role (e.g., "The starting PG", "The backup center") instead of their name.
-- For general performance stats/impact discussion, verification is encouraged but not strictly required.
-- **NO GUESSING on injury/availability.**
+- **FALLBACK:** If you cannot verify a player's STATUS, use their role (e.g., "The starting PG") instead of their name. NO GUESSING.
 
 **RULE 2 (CITATION PROTOCOL):**
-- Use high-density decimal citations [1.1], [1.2], [2.1] for every factual claim.
-- Place citations IMMEDIATELY after the fact they support.
-- Do NOT use footnotes.
+- Use high-density decimal citations [1.1], [1.2] immediately after facts.
 
-**RULE 3 (ZERO HALLUCINATION — TOOL-FIRST):**
-- You MUST use your available tools to fetch today's games, lines, scores, and results.
-- **MANDATORY:** Call get_schedule() to discover today's slate. Call get_live_odds(match_id) for current and opening lines. Call get_team_injuries() and get_team_tempo() before any matchup analysis.
-- NEVER guess or fabricate game data. If a tool returns an error, acknowledge the data gap honestly.
-- Use 'googleSearch' grounding to verify current event claims when tools are insufficient.
+**RULE 3 (ZERO HALLUCINATION \u2014 TOOL-FIRST):**
+- Call get_schedule() to discover today's slate. Call get_live_odds(match_id) for current and opening lines.
+- NEVER guess game data. If a tool returns an error, acknowledge the data gap.
 </prime_directive>
 
 ${MODE === "ANALYSIS" ? `
@@ -810,293 +478,181 @@ ${MODE === "ANALYSIS" ? `
 
 **KEY FACTORS**
 - [Factor 1] [1.x]
-- [Factor 2] [1.x]
-- [Factor 3] [1.x]
 
 **MARKET DYNAMICS**
-(Line movement direction, opening vs current, sharp vs public splits. Cite [1.x].)
+(Line movement direction, opening vs current, sharp splits. Cite [1.x].)
 
 **WHAT TO WATCH LIVE**
-IF [Trigger Condition] → THEN [Action/Adjustment]
+IF [Trigger Condition] \u2192 THEN [Action/Adjustment]
 
 **INVALIDATION:** [Exit condition that would void this pick]
 
 **TRIPLE CONFLUENCE**
-• Price: [Present/Absent] - [Brief reason]
-• Sentiment: [Present/Absent] - [Brief reason]
-• Structure: [Present/Absent] - [Brief reason]
-
-**STYLE RULES:**
-- HEADERS: ALL CAPS with colons.
-- Be ASSERTIVE. No "I think" or "It seems".
-- Verdict must include exact line/price when available.
+\u2022 Price: [Present/Absent] - [Reason]
+\u2022 Sentiment: [Present/Absent] - [Reason]
+\u2022 Structure: [Present/Absent] - [Reason]
 </mode_analysis>
 ` : `
 <mode_conversation>
 Role: Field Reporter. Direct, factual, concise.
-- Answer the question directly.
-- Cite all factual claims with [1.x].
-- Keep responses focused and efficient.
+- Answer the question directly. Cite facts [1.x].
 </mode_conversation>
-`}
-`;
-
-        // --- ORCHESTRATED STREAM (Tool-Calling or Legacy) ---
-        const recentMessages = messages.slice(-8);
-        const abortController = new AbortController();
-        req.on("close", () => abortController.abort());
-        const requestStartTime = Date.now();
-
-        // Feature flag + task type gate: only enable tool-calling for eligible task types.
-        const useToolCalling = CONFIG.ENABLE_TOOL_CALLING
-            && TOOL_ENABLED_TASK_TYPES.includes(taskType);
-
-        // Request-scoped tool result cache
-        const toolCache = new ToolResultCache();
-
-        // Task-appropriate settings (match orchestrateStream defaults)
-        const TASK_TEMPS = { grounding: 0.3, analysis: 0.5, chat: 0.7, vision: 0.2, code: 0.3, recruiting: 0.5 };
-        const TASK_TOKENS = { grounding: 4000, analysis: 8000, chat: 2000, vision: 2000, code: 8000, recruiting: 4000 };
-        const temperature = TASK_TEMPS[taskType] ?? 0.5;
-        const maxTokens = TASK_TOKENS[taskType] ?? 4000;
-
-        let stream;
-
-        if (useToolCalling) {
-            console.log(`[${currentRunId}] Tool-calling enabled for taskType=${taskType}`);
-
-            try {
-                // Detect if we have real game context or just empty stubs.
-                // If empty, the model must call tools to get data — don't let it
-                // see TBD/undefined context and think data was provided.
-                const hasRealContext = Boolean(
-                    activeContext?.home_team
-                    && activeContext.home_team !== "TBD"
-                    && activeContext?.away_team
-                    && activeContext.away_team !== "TBD"
-                );
-
-                let toolSystemPrompt;
-                if (hasRealContext) {
-                    // Game context pre-loaded — model has data, tools supplement it
-                    const toolGuidance = `\n<tool_guidance>\nYou have access to data tools. When you need current schedule, injury, tempo, or odds data:\n1. Call get_schedule to find today's games and get match IDs.\n2. Call get_team_injuries for injury/rest/fatigue data before any matchup analysis.\n3. Call get_team_tempo for pace, efficiency, ATS/O-U trends.\n4. Call get_live_odds with a match_id to get current and opening odds.\nDo NOT guess data. If a tool returns an error, acknowledge the data gap.\nYou may call multiple tools per turn. Always call tools before generating analysis.\n</tool_guidance>`;
-                    toolSystemPrompt = systemInstruction + toolGuidance;
-                } else {
-                    // NO game context — strip empty <context> block, tell model it MUST call tools.
-                    // Remove the misleading TBD/empty context so model knows it has nothing.
-                    const strippedPrompt = systemInstruction.replace(
-                        /<context>[\s\S]*?<\/context>/,
-                        `<context>\nNO GAME CONTEXT LOADED. You MUST call tools to get data.\nStart by calling get_schedule() to discover today's games.\n</context>`
-                    );
-                    const toolGuidance = `\n<tool_guidance>\n** CRITICAL: No game data is pre-loaded. You MUST call tools before responding. **\n1. FIRST: Call get_schedule() to discover today's games and get match IDs.\n2. Then call get_live_odds(match_id) for specific games the user asks about.\n3. Call get_team_injuries(team) and get_team_tempo(teams) before any matchup analysis.\nDo NOT generate any analysis or slate summary without calling tools first.\nDo NOT guess or fabricate game data under any circumstances.\n</tool_guidance>`;
-                    toolSystemPrompt = strippedPrompt + toolGuidance;
-                    console.log(`[${currentRunId}] No game context — forcing tool-first mode`);
-                }
-
-                // When no context exists, use ANY mode to force at least one tool call.
-                // With context, use AUTO — model may choose to supplement with tools.
-                const effectiveToolConfig = hasRealContext
-                    ? TOOL_CONFIG
-                    : { functionCallingConfig: { mode: "ANY" } };
-
-                const initialContents = recentMessages
-                    .filter(m => m.role !== "system")
-                    .map(m => ({
-                        role: m.role === "assistant" ? "model" : "user",
-                        parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }]
-                    }));
-
-                const providerConfig = { provider: "google", model: CONFIG.MODEL_ID, supportsGrounding: true };
-
-                const toolContext = {
-                    supabase,
-                    matchId: activeContext?.match_id || null,
-                    signal: abortController.signal,
-                    requestId: currentRunId,
-                };
-
-                const thinkingLevel = taskType === "analysis" ? "HIGH" : "MEDIUM";
-
-                // Track round for toolConfig progression: ANY on round 1, AUTO after.
-                let toolRound = 0;
-                const chatStreamFn = async (contents) => {
-                    toolRound++;
-                    // First round uses effectiveToolConfig (ANY if no context).
-                    // Subsequent rounds always use AUTO — model has tool results now.
-                    const roundToolConfig = toolRound === 1 ? effectiveToolConfig : TOOL_CONFIG;
-
-                    return googleClient.chatStreamRaw(contents, {
-                        model: CONFIG.MODEL_ID,
-                        messages: [],
-                        temperature,
-                        maxTokens,
-                        signal: abortController.signal,
-                        enableGrounding: taskType === "grounding",
-                        tools: {
-                            functionDeclarations: FUNCTION_DECLARATIONS,
-                            enableGrounding: taskType === "grounding",
-                        },
-                        toolConfig: roundToolConfig,
-                        thinkingLevel,
-                        systemInstruction: toolSystemPrompt,
-                    });
-                };
-
-                stream = createToolCallingStream(
-                    chatStreamFn,
-                    [...initialContents],
-                    providerConfig,
-                    toolCache,
-                    toolContext,
-                    requestStartTime,
-                    currentRunId,
-                );
-            } catch (toolErr) {
-                // Graceful fallback: if tool-calling setup fails (e.g. Google auth/rate limit),
-                // degrade to legacy multi-provider orchestrateStream.
-                console.warn(`[${currentRunId}] Tool-calling failed, falling back to legacy: ${toolErr.message}`);
-                stream = await orchestrateStream(taskType, recentMessages, {
-                    gameContext: activeContext,
-                    systemPrompt: systemInstruction,
-                    signal: abortController.signal,
-                    onFallback: (from, to, reason) => {
-                        console.warn(`[${currentRunId}] Fallback: ${from.provider}/${from.model} → ${to.provider}/${to.model}: ${reason}`);
-                    }
-                });
-            }
+`}`;
+    const recentMessages = messages.slice(-8);
+    const useToolCalling = CONFIG.ENABLE_TOOL_CALLING && TOOL_ENABLED_TASK_TYPES.includes(taskType);
+    let stream;
+    if (useToolCalling) {
+      try {
+        const hasRealContext = Boolean(activeContext?.home_team && activeContext.home_team !== "TBD");
+        let toolSystemPrompt;
+        if (hasRealContext) {
+          toolSystemPrompt = systemInstruction + `
+<tool_guidance>
+You have access to data tools. Call get_schedule, get_live_odds, get_team_injuries as needed. Do NOT guess data.
+</tool_guidance>`;
         } else {
-            // Legacy path: orchestrateStream (no tool-calling)
-            stream = await orchestrateStream(taskType, recentMessages, {
-                gameContext: activeContext,
-                systemPrompt: systemInstruction,
-                signal: abortController.signal,
-                onFallback: (from, to, reason) => {
-                    console.warn(`[${currentRunId}] Fallback: ${from.provider}/${from.model} → ${to.provider}/${to.model}: ${reason}`);
-                }
-            });
+          toolSystemPrompt = systemInstruction.replace(/<context>[\s\S]*?<\/context>/, `<context>
+NO GAME CONTEXT LOADED. You MUST call tools to get data.
+</context>`) + `
+<tool_guidance>
+** CRITICAL: No game data is pre-loaded. You MUST call tools before responding. **
+1. FIRST: Call get_schedule() to discover today's games.
+</tool_guidance>`;
         }
-
-        res.setHeader("Content-Type", "text/event-stream");
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Connection", "keep-alive");
-
-        let fullText = "";
-        let rawThoughts = "";
-        let finalMetadata = null;
-        let servedModel = null;
-        let streamErrorOnly = false;
-
-        // Helper: read chunks from a ReadableStream and write SSE events
-        async function consumeStream(readableStream) {
-            const reader = readableStream.getReader();
-            try {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    const chunk = value;
-                    if (!chunk) continue;
-
-                    if (!servedModel && chunk.model) servedModel = chunk.model;
-
-                    if (chunk.type === "grounding" && chunk.metadata) {
-                        finalMetadata = chunk.metadata;
-                        res.write(`data: ${JSON.stringify({ type: "grounding", metadata: finalMetadata })}\n\n`);
-                        continue;
-                    }
-                    if (chunk.type === "thought") {
-                        const content = chunk.content || "";
-                        rawThoughts += content;
-                        res.write(`data: ${JSON.stringify({ type: "thought", content })}\n\n`);
-                        continue;
-                    }
-                    if (chunk.type === "text") {
-                        const content = chunk.content || "";
-                        fullText += content;
-                        res.write(`data: ${JSON.stringify({ type: "text", content })}\n\n`);
-                        continue;
-                    }
-                    if (chunk.type === "tool_status") {
-                        res.write(`data: ${JSON.stringify({ type: "tool_status", tools: chunk.tools, status: chunk.status })}\n\n`);
-                        continue;
-                    }
-                    if (chunk.type === "error") {
-                        // If we have no content yet, mark as error-only for fallback
-                        if (!fullText && !rawThoughts) {
-                            streamErrorOnly = true;
-                        }
-                        // Don't write the error to client yet — we may fall back
-                        continue;
-                    }
-                    if (chunk.type === "done") {
-                        break;
-                    }
-                }
-            } finally {
-                try { reader.releaseLock(); } catch { /* */ }
-            }
-        }
-
-        await consumeStream(stream);
-
-        // Fallback: if tool-calling stream produced only errors (e.g. Google 429),
-        // try the multi-provider legacy path (Anthropic/OpenAI).
-        if (streamErrorOnly && useToolCalling && !fullText) {
-            console.warn(`[${currentRunId}] Tool-calling stream error-only, falling back to orchestrateStream`);
-            streamErrorOnly = false;
-            const fallbackStream = await orchestrateStream(taskType, recentMessages, {
-                gameContext: activeContext,
-                systemPrompt: systemInstruction,
-                signal: abortController.signal,
-                onFallback: (from, to, reason) => {
-                    console.warn(`[${currentRunId}] Fallback: ${from.provider}/${from.model} → ${to.provider}/${to.model}: ${reason}`);
-                }
-            });
-            await consumeStream(fallbackStream);
-        }
-
-        // If still no content after fallback, write error to client
-        if (!fullText && !rawThoughts) {
-            res.write(`data: ${JSON.stringify({ type: "error", content: "All providers unavailable. Please retry shortly." })}\n\n`);
-        }
-
-        const modelId = servedModel || CONFIG.MODEL_ID;
-
-        // --- POST-RUN PROCESSING ---
-        if (MODE === "ANALYSIS") {
-            const map = buildClaimMap(fullText, rawThoughts);
-            const gate = gateDecision(map, true);  // Strict mode with score >= 2
-            await persistRun(currentRunId, map, gate, activeContext, conversation_id, modelId);
-        }
-
-        // --- PERSIST CONVERSATION ---
-        if (conversation_id) {
-            const sources = finalMetadata?.groundingChunks
-                ?.map((c) => ({ title: c.web?.title, uri: c.web?.uri }))
-                .filter((s) => s.uri) || [];
-
-            await supabase.from("conversations").update({
-                messages: [
-                    ...messages,
-                    {
-                        role: "assistant",
-                        content: fullText,
-                        thoughts: rawThoughts,
-                        groundingMetadata: finalMetadata,
-                        sources,
-                        model: modelId
-                    }
-                ].slice(-40),
-                last_message_at: new Date().toISOString()
-            }).eq("id", conversation_id);
-        }
-
-        res.write(`data: ${JSON.stringify({ done: true, model: modelId })}\n\n`);
-        res.write("data: [DONE]\n\n");
-        res.end();
-
-    } catch (e) {
-        console.error("[Chat Handler] Error:", e);
-        res.write(`data: ${JSON.stringify({ type: "error", content: e.message })}\n\n`);
-        res.end();
+        const initialContents = recentMessages.filter((m) => m.role !== "system").map((m) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }]
+        }));
+        const toolContext = { supabase, matchId: activeContext?.match_id || null, signal: abortController.signal, requestId: currentRunId };
+        const toolCache = new ToolResultCache();
+        let toolRound = 0;
+        const chatStreamFn = async (contents) => {
+          toolRound++;
+          return googleClient.chatStreamRaw(contents, {
+            model: CONFIG.MODEL_ID,
+            messages: [],
+            temperature: taskType === "analysis" ? 0.5 : 0.7,
+            maxTokens: taskType === "analysis" ? 8e3 : 2e3,
+            signal: abortController.signal,
+            enableGrounding: taskType === "grounding",
+            tools: { functionDeclarations: FUNCTION_DECLARATIONS, enableGrounding: taskType === "grounding" },
+            toolConfig: toolRound === 1 && !hasRealContext ? { functionCallingConfig: { mode: "ANY" } } : TOOL_CONFIG,
+            thinkingLevel: taskType === "analysis" ? "HIGH" : "MEDIUM",
+            systemInstruction: toolSystemPrompt
+          });
+        };
+        stream = createToolCallingStream(chatStreamFn, initialContents, { provider: "google", model: CONFIG.MODEL_ID, supportsGrounding: true }, toolCache, toolContext, Date.now(), currentRunId);
+      } catch (toolErr) {
+        log.warn("Tool setup failed, falling back", { error: String(toolErr) });
+        stream = await orchestrateStream(taskType, recentMessages, { gameContext: activeContext, systemPrompt: systemInstruction, signal: abortController.signal });
+      }
+    } else {
+      stream = await orchestrateStream(taskType, recentMessages, { gameContext: activeContext, systemPrompt: systemInstruction, signal: abortController.signal });
     }
+    let fullText = "", rawThoughts = "", finalMetadata = null, servedModel = null, streamErrorOnly = false;
+    async function consumeStream(readableStream) {
+      const reader = readableStream.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (!value) continue;
+          if (!servedModel && value.model) servedModel = value.model;
+          if (value.type === "grounding" && value.metadata) {
+            finalMetadata = value.metadata;
+            sse.writeEvent("grounding", { metadata: finalMetadata });
+          } else if (value.type === "thought") {
+            rawThoughts += value.content || "";
+            sse.writeEvent("thought", { content: value.content });
+          } else if (value.type === "text") {
+            fullText += value.content || "";
+            sse.writeEvent("text", { content: value.content });
+          } else if (value.type === "tool_status") {
+            sse.writeEvent("tool_status", { tools: value.tools, status: value.status });
+          } else if (value.type === "error") {
+            if (!fullText && !rawThoughts) streamErrorOnly = true;
+          }
+        }
+      } finally {
+        try {
+          reader.releaseLock();
+        } catch {
+        }
+      }
+    }
+    await consumeStream(stream);
+    if (streamErrorOnly && useToolCalling && !fullText) {
+      log.warn("Tool stream error-only, executing multi-provider orchestrateStream fallback", { run_id: currentRunId });
+      streamErrorOnly = false;
+      const fallbackStream = await orchestrateStream(taskType, recentMessages, { gameContext: activeContext, systemPrompt: systemInstruction, signal: abortController.signal });
+      await consumeStream(fallbackStream);
+    }
+    if (!fullText && !rawThoughts) {
+      sse.writeError("All providers unavailable. Please retry shortly.");
+    } else {
+      sse.writeDone(servedModel || CONFIG.MODEL_ID);
+    }
+    const backgroundTasks = [];
+    if (MODE === "ANALYSIS" && fullText) {
+      const map = buildClaimMap(fullText, rawThoughts);
+      const gate = gateDecision(map, true);
+      backgroundTasks.push(
+        (async () => {
+          await supabase.from("ai_chat_runs").upsert({
+            id: currentRunId,
+            conversation_id,
+            confluence_met: gate.approved,
+            confluence_score: gate.score,
+            verdict: map.verdict,
+            confidence: map.confidence,
+            gate_reason: gate.reason,
+            match_context: activeContext?.match_id ? { id: activeContext.match_id, home: activeContext.home_team, away: activeContext.away_team } : null
+          }, { onConflict: "id" });
+          if (gate.approved && map.verdict && map.verdict !== "PASS") {
+            const picks = await extractPickStructured(fullText, activeContext);
+            if (picks.length > 0) {
+              await supabase.from("ai_chat_picks").insert(picks.map((p) => ({
+                run_id: currentRunId,
+                conversation_id,
+                match_id: activeContext?.match_id,
+                home_team: activeContext?.home_team,
+                away_team: activeContext?.away_team,
+                league: activeContext?.league,
+                pick_type: p.pick_type,
+                pick_side: p.pick_type === "total" ? p.pick_direction?.toUpperCase() : p.pick_team,
+                pick_line: p.pick_line,
+                ai_confidence: p.confidence || map.confidence,
+                model_id: servedModel || CONFIG.MODEL_ID,
+                reasoning_summary: p.reasoning_summary,
+                extraction_method: "structured_v26_enhanced"
+              })));
+            }
+          }
+        })()
+      );
+    }
+    if (conversation_id && fullText) {
+      const sources = (finalMetadata?.groundingChunks || []).map((c) => ({ title: c.web?.title, uri: c.web?.uri })).filter((s) => s.uri) || [];
+      backgroundTasks.push(
+        supabase.from("conversations").update({
+          messages: [...messages, { role: "assistant", content: fullText, thoughts: rawThoughts, groundingMetadata: finalMetadata, sources, model: servedModel || CONFIG.MODEL_ID }].slice(-40),
+          last_message_at: (/* @__PURE__ */ new Date()).toISOString()
+        }).eq("id", conversation_id)
+      );
+    }
+    if (backgroundTasks.length > 0) {
+      await Promise.allSettled(backgroundTasks);
+    }
+  } catch (e) {
+    if (e instanceof Error && e.name !== "AbortError") {
+      log.error("[Chat Handler] Critical Error:", { error: e.message });
+      sse.writeError(e.message || "An unexpected error occurred.");
+    }
+  } finally {
+    req.removeListener("close", onSocketClose);
+    if (!res.writableEnded) res.end();
+  }
 }
+export {
+  handler as default
+};
