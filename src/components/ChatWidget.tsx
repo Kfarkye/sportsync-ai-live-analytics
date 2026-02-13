@@ -2221,10 +2221,18 @@ const InnerChatWidget: FC<ChatWidgetProps & {
         wireMessages[wireMessages.length - 1].content = buildWireContent(text || "Analyze this.", currentAttachments);
       }
 
+      const normalizedContext = normalizeGameContext(
+        currentMatch,
+        (current_match as Record<string, unknown> | null) || null,
+      );
+      const gameContextWithSnapshot = normalizedContext
+        ? { ...normalizedContext, context_snapshot_ts: Date.now() }
+        : null;
+
       const context: ChatContextPayload = {
         session_id,
         conversation_id,
-        gameContext: normalizeGameContext(currentMatch, (current_match as Record<string, unknown> | null) || null),
+        gameContext: gameContextWithSnapshot,
         run_id: generateId(),
       };
 
