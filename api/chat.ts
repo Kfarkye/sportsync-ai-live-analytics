@@ -35,10 +35,10 @@ const ChatRequestSchema = z.object({
         role: z.enum(["system", "user", "assistant"]),
         content: z.union([z.string(), z.array(z.record(z.string(), z.unknown()))])
     })).min(1),
-    session_id: z.string().optional(),
-    conversation_id: z.string().optional(),
+    session_id: z.string().nullish(),
+    conversation_id: z.string().nullish(),
     gameContext: z.record(z.string(), z.unknown()).optional().nullable(),
-    run_id: z.string().optional()
+    run_id: z.string().nullish()
 });
 
 export type TaskType = "grounding" | "analysis" | "chat" | "vision" | "code" | "recruiting";
