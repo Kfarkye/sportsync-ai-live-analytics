@@ -1269,17 +1269,14 @@ const OW_BOOKS: Record<string, { name: string; color: string }> = {
   pointsbet:  { name: "PointsBet",   color: "#ED1C24" },
 };
 
-/** Extract sportsbook key from verdict/synopsis text */
-function detectBook(text: string): { name: string; color: string } {
+/** Extract sportsbook key from verdict/synopsis text — returns null when undetected */
+function detectBook(text: string): { name: string; color: string } | null {
   const lower = text.toLowerCase();
   for (const [key, book] of Object.entries(OW_BOOKS)) {
     if (lower.includes(key) || lower.includes(book.name.toLowerCase())) return book;
   }
-  return OW_BOOKS.draftkings; // default
+  return null;
 }
-
-/** Game-state word for the system line */
-const OW_STATE_WORDS: Record<string, string> = { pregame: "pregame", live: "live", postgame: "postgame" };
 
 /**
  * ConfidenceRing — Obsidian Weissach SVG radial gauge.
@@ -1362,16 +1359,16 @@ const MetricsPanel: FC<{
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <ConfidenceRing value={confidence} on={ringOn} />
             <span style={{
-              fontFamily: OW.mono, fontSize: 9, fontWeight: 500,
-              letterSpacing: "0.08em", textTransform: "uppercase", color: OW.t4,
+              fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
+              letterSpacing: "0.12em", textTransform: "uppercase", color: OW.t4,
             }}>Conf</span>
           </div>
           <div style={{ width: 1, height: 24, background: OW.border, flexShrink: 0 }} />
           {edge != null && (
             <div>
               <div style={{
-                fontFamily: OW.mono, fontSize: 9, fontWeight: 500,
-                letterSpacing: "0.08em", textTransform: "uppercase",
+                fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
+                letterSpacing: "0.12em", textTransform: "uppercase",
                 color: OW.t4, marginBottom: 4,
               }}>Edge</div>
               <div style={{
@@ -1385,8 +1382,8 @@ const MetricsPanel: FC<{
               <div style={{ width: 1, height: 24, background: OW.border, flexShrink: 0 }} />
               <div>
                 <div style={{
-                  fontFamily: OW.mono, fontSize: 9, fontWeight: 500,
-                  letterSpacing: "0.08em", textTransform: "uppercase",
+                  fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
+                  letterSpacing: "0.12em", textTransform: "uppercase",
                   color: OW.t4, marginBottom: 4,
                 }}>Win</div>
                 <div style={{
@@ -1441,7 +1438,6 @@ const EdgeVerdictCard: FC<{
   // Derive game phase and sportsbook from content
   const gamePhase = useMemo(() => getTimePhase(), []);
   const isLive = gamePhase === "live";
-  const phaseWord = OW_STATE_WORDS[gamePhase] || "pregame";
 
   const book = useMemo(() => {
     const combined = `${content} ${synopsis || ""}`;
@@ -1462,9 +1458,14 @@ const EdgeVerdictCard: FC<{
     };
   }, [cardIndex, entered]);
 
-  const resolvedSynopsis = synopsis && synopsis.length > 0
-    ? synopsis
-    : "Current market construction supports the edge, with spread and price still in a playable range.";
+  const hasSynopsis = Boolean(synopsis && synopsis.length > 0);
+
+  // Decompose headline into primary (team) + qualifier (spread/ML/odds)
+  const teamDisplay = parsedVerdict.teamName;
+  const qualifier = parsedVerdict.spread !== "N/A"
+    ? parsedVerdict.spread === "ML" ? "ML" : parsedVerdict.spread
+    : null;
+  const headline = teamDisplay + (qualifier ? ` ${qualifier}` : "");
 
   const handleToggle = useCallback((selection: "tail" | "fade") => {
     const next = outcome === selection ? null : selection;
@@ -1477,25 +1478,18 @@ const EdgeVerdictCard: FC<{
     if (shareState !== "idle") return;
     triggerHaptic();
     setShareState("capturing");
-    // Copy card text to clipboard
-    const shareText = `${headline}\n${resolvedSynopsis}\n\nthedrip.app`;
+    const shareText = hasSynopsis
+      ? `${headline}\n${synopsis}\n\nthedrip.app`
+      : `${headline}\n\nthedrip.app`;
     navigator.clipboard?.writeText(shareText.trim()).catch(() => {});
     trackAction("verdict.share", { trackingKey, cardIndex });
     setTimeout(() => {
       setShareState("copied");
       setTimeout(() => setShareState("idle"), 2200);
     }, 500);
-  }, [shareState, parsedVerdict, resolvedSynopsis, trackingKey, cardIndex]);
+  }, [shareState, headline, hasSynopsis, synopsis, trackingKey, cardIndex]);
 
   const isCaptureMode = shareState === "capturing" || shareState === "copied";
-
-  // Decompose headline into primary (team) + qualifier (spread/ML/odds)
-  const teamDisplay = parsedVerdict.teamName;
-  const qualifier = parsedVerdict.spread !== "N/A"
-    ? parsedVerdict.spread === "ML" ? "ML" : parsedVerdict.spread
-    : null;
-  // For share text — flat string
-  const headline = teamDisplay + (qualifier ? ` ${qualifier}` : "");
 
   return (
     <motion.div layout className="relative overflow-hidden mb-3" style={{ borderRadius: OW.r }}>
@@ -1511,23 +1505,17 @@ const EdgeVerdictCard: FC<{
         <div style={{
           position: "absolute", top: 0, left: 0, right: 0, height: 1,
           background: `linear-gradient(90deg, transparent, ${OW.mintEdge} 30%, ${OW.mintEdge} 70%, transparent)`,
-          opacity: isLive ? undefined : 0.65,
+          opacity: isLive ? 1 : 0.65,
           animation: isLive ? "ow-breathe 3.5s ease-in-out infinite" : "none",
           zIndex: 3,
         }} aria-hidden="true" />
 
-        {/* Grain texture */}
-        <div style={{
-          position: "absolute", inset: 0, opacity: 0.018, pointerEvents: "none", zIndex: 1,
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E")`,
-        }} aria-hidden="true" />
-
         {/* §1 THE PICK label */}
-        <div style={{ ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0]) }}>
+        <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0])}>
           <div style={{
-            fontFamily: OW.mono, fontSize: 10, fontWeight: 500,
-            letterSpacing: "0.14em", textTransform: "uppercase",
-            color: OW.t4, marginBottom: 8,
+            fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
+            letterSpacing: "0.12em", textTransform: "uppercase",
+            color: OW.t4, marginBottom: 10,
           }}>THE PICK</div>
         </div>
 
@@ -1553,12 +1541,12 @@ const EdgeVerdictCard: FC<{
         <div style={{ height: 1, background: OW.border, margin: "24px 0" }} />
 
         {/* §3 Unified row: capture mode shows tag, live mode shows book line */}
-        <div style={{ ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2]) }}>
+        <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2])}>
           {isCaptureMode ? (
             <span style={{
               display: "inline-block",
-              fontFamily: OW.mono, fontSize: 10, fontWeight: 500,
-              letterSpacing: "0.1em", textTransform: "uppercase",
+              fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
+              letterSpacing: "0.12em", textTransform: "uppercase",
               color: OW.t4, padding: "4px 12px", borderRadius: 6,
               background: "rgba(255,255,255,0.03)",
               border: `1px solid ${OW.border}`,
@@ -1578,16 +1566,22 @@ const EdgeVerdictCard: FC<{
                   ...(bookHover ? { color: OW.t3 } : {}),
                 }}
               >
-                Best {phaseWord} odds on{" "}
-                <span style={{
-                  color: bookHover ? book.color : OW.t3,
-                  fontWeight: 600,
-                  transition: `color 0.15s ${OW.ease}`,
-                  borderBottom: bookHover ? `1px solid ${book.color}30` : "1px solid transparent",
-                  paddingBottom: 1,
-                }}>
-                  {book.name}
-                </span>
+                {book ? (
+                  <>
+                    Best {gamePhase} odds on{" "}
+                    <span style={{
+                      color: bookHover ? book.color : OW.t3,
+                      fontWeight: 600,
+                      transition: `color 0.15s ${OW.ease}`,
+                      borderBottom: bookHover ? `1px solid ${book.color}30` : "1px solid transparent",
+                      paddingBottom: 1,
+                    }}>
+                      {book.name}
+                    </span>
+                  </>
+                ) : (
+                  <>Best available odds</>
+                )}
               </span>
               <div style={{ flex: 1, minWidth: 12 }} />
               <button onClick={() => setMetricsOpen(p => !p)} style={{
@@ -1618,17 +1612,18 @@ const EdgeVerdictCard: FC<{
           open={metricsOpen && !isCaptureMode}
         />
 
-        {/* §5 Synopsis */}
-        <div style={{
-          background: OW.elevated, borderRadius: OW.ri,
-          padding: "16px 20px", marginTop: 20,
-          fontFamily: OW.sans, fontSize: 14, fontWeight: 400,
-          lineHeight: 1.78,
-          color: OW.t2, letterSpacing: "0.005em",
-          ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[3]),
-        }}>
-          {resolvedSynopsis}
-        </div>
+        {/* §5 Synopsis — only rendered when real insight exists */}
+        {hasSynopsis && (
+          <div style={{
+            marginTop: 20,
+            fontFamily: OW.sans, fontSize: 14, fontWeight: 400,
+            lineHeight: 1.78,
+            color: OW.t2, letterSpacing: "0.005em",
+            ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[3]),
+          }}>
+            {synopsis}
+          </div>
+        )}
 
         {/* §6 Footer — Tail / Fade / Share with hover states + capture watermark */}
         <div style={{ marginTop: 20, position: "relative", height: 40, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
@@ -1681,8 +1676,8 @@ const EdgeVerdictCard: FC<{
             <button onClick={handleShare} style={{
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               gap: 4, height: 40, padding: "0 16px", borderRadius: OW.ri,
-              border: `1px solid ${shareState === "copied" ? "rgba(54,232,150,0.2)" : OW.mintEdge}`,
-              background: shareState === "copied" ? OW.mintDim : "rgba(54,232,150,0.02)",
+              border: `1px solid ${shareState === "copied" ? "rgba(54,232,150,0.2)" : OW.border}`,
+              background: shareState === "copied" ? OW.mintDim : "rgba(255,255,255,0.015)",
               color: shareState === "copied" ? OW.mint : OW.t3,
               fontFamily: OW.sans, fontSize: 12, fontWeight: 600,
               letterSpacing: "0.04em",
@@ -1711,28 +1706,26 @@ const EdgeVerdictCard: FC<{
 
         {/* §7 Disclosure Trigger — Analysis */}
         {hasAnalysis && (
-          <div style={{ ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
+          <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4])}>
             <div style={{ height: 1, background: OW.border, margin: "16px 0 12px" }} />
             <div style={{ display: "flex", gap: 8 }}>
-              {hasAnalysis && (
-                <button
-                  onClick={() => { onToggleAnalysis?.(); triggerHaptic(); }}
-                  aria-expanded={analysisOpen}
-                  style={{
-                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    padding: "12px 0", borderRadius: OW.ri, cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
-                    background: analysisOpen ? OW.mintDim : "rgba(255,255,255,0.02)",
-                    border: `1px solid ${analysisOpen ? OW.mintEdge : OW.border}`,
-                  }}
-                >
-                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: analysisOpen ? OW.mint : OW.t4 }}>
-                    Analysis
-                  </span>
-                  <motion.div animate={{ rotate: analysisOpen ? 180 : 0 }} transition={SYSTEM.anim.snap}>
-                    <ChevronDown size={10} style={{ color: analysisOpen ? OW.mint : OW.t4 }} />
-                  </motion.div>
-                </button>
-              )}
+              <button
+                onClick={() => { onToggleAnalysis?.(); triggerHaptic(); }}
+                aria-expanded={analysisOpen}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  padding: "12px 0", borderRadius: OW.ri, cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
+                  background: analysisOpen ? OW.mintDim : "rgba(255,255,255,0.02)",
+                  border: `1px solid ${analysisOpen ? OW.mintEdge : OW.border}`,
+                }}
+              >
+                <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: analysisOpen ? OW.mint : OW.t4 }}>
+                  Analysis
+                </span>
+                <motion.div animate={{ rotate: analysisOpen ? 180 : 0 }} transition={SYSTEM.anim.snap}>
+                  <ChevronDown size={10} style={{ color: analysisOpen ? OW.mint : OW.t4 }} />
+                </motion.div>
+              </button>
             </div>
           </div>
         )}
@@ -2797,7 +2790,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
             {/* Scroll anchor — visible when user has scrolled up */}
             <ScrollAnchor visible={hasUnseenContent} onClick={scrollToBottom} />
 
-            <footer className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#030303] via-[#030303]/95 to-transparent pointer-events-none">
+            <footer className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#08080A] via-[#08080A]/95 to-transparent pointer-events-none">
               <div className="pointer-events-auto relative">
                 <AnimatePresence>
                   {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}
