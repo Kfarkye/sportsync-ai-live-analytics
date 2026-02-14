@@ -82,7 +82,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                    className="relative bg-[#050505] border border-white/10 w-full max-w-5xl rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+                    className="relative bg-[#111113] border border-white/10 w-full max-w-5xl rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
                 >
                     {/* Header */}
                     <div className="relative flex flex-col items-center justify-center pt-10 pb-6 px-6 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
@@ -130,7 +130,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-[#050505]">
+                    <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-[#111113]">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {PRICING_TIERS.map((tier) => {
                                 const Icon = tier.icon;

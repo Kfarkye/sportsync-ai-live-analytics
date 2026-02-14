@@ -154,7 +154,7 @@ export const ApplePlayerCard: React.FC<{
             transition={{ delay: index * 0.05, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
                 "group relative rounded-[32px] overflow-hidden transition-all duration-500 transform-gpu",
-                "bg-[#050505]/80 backdrop-blur-[24px] border-[0.5px] border-white/10",
+                "bg-[#111113]/80 backdrop-blur-[24px] border-[0.5px] border-white/10",
                 "shadow-[0_0_0_1px_rgba(255,255,255,0.04),_0_20px_50px_-12px_rgba(0,0,0,0.55)]",
                 "after:content-[''] after:absolute after:inset-0 after:opacity-[0.03] after:pointer-events-none",
                 "after:bg-[url('data:image/svg+xml,%3Csvg viewBox=%270 0 256 256%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.8%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27 opacity=%270.05%27/%3E%3C/svg%3E')]"
@@ -539,7 +539,7 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
                         <div className="w-full h-px bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
                     </div>
                     <div className="relative flex justify-center">
-                        <span className="px-6 bg-[#050505] text-[10px] font-black text-zinc-700 uppercase tracking-[0.3em]">vs</span>
+                        <span className="px-6 bg-[#111113] text-[10px] font-black text-zinc-700 uppercase tracking-[0.3em]">vs</span>
                     </div>
                 </div>
             )}

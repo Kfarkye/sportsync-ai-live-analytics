@@ -7,18 +7,12 @@ interface Props extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
   isLoading?: boolean;
   variant?: 'default' | 'elevated' | 'flush';
-  /** Override padding. Default: p-5 */
   noPadding?: boolean;
 }
 
 /**
- * CardShell - Premium Glassmorphic Container
- * 
- * STATE OF THE ART (Linear/Cron Tier):
- * - Translucent backgrounds with backdrop blur
- * - Gradient light borders (white fade to transparent)
- * - Subtle inner glow for depth
- * - Noise texture overlay for tactile feel
+ * CardShell — Obsidian Weissach Container
+ * Pulls entirely from ESSENCE tokens. No local color knowledge.
  */
 export const CardShell = memo(({
   children,
@@ -29,8 +23,8 @@ export const CardShell = memo(({
   ...rest
 }: Props) => {
   const variants = {
-    default: cn("bg-[rgba(14,14,16,0.75)] backdrop-blur-xl border border-white/[0.06] rounded-3xl", ESSENCE.card.innerGlow),
-    elevated: cn("bg-[rgba(18,18,22,0.85)] backdrop-blur-2xl border border-white/[0.08] rounded-3xl shadow-2xl", ESSENCE.card.innerGlow),
+    default: cn(ESSENCE.card.base),
+    elevated: cn(ESSENCE.card.bg, ESSENCE.card.border, ESSENCE.card.radius, "backdrop-blur-2xl shadow-2xl", ESSENCE.card.innerGlow),
     flush: "bg-transparent border-0 rounded-none"
   };
 
@@ -45,8 +39,19 @@ export const CardShell = memo(({
         className
       )}
     >
-      {/* GLASSMORPHISM overlay (Noise texture) */}
-      <div className="absolute inset-0 rounded-3xl pointer-events-none overflow-hidden">
+      {/* Obsidian Specular Edge Light */}
+      {variant !== 'flush' && (
+        <div
+          className="absolute top-0 left-0 right-0 h-px z-20"
+          style={{
+            background: 'linear-gradient(90deg, transparent, rgba(54,232,150,0.08) 30%, rgba(54,232,150,0.08) 70%, transparent)',
+            opacity: 0.65,
+          }}
+        />
+      )}
+
+      {/* Noise texture */}
+      <div className={cn("absolute inset-0 pointer-events-none overflow-hidden", ESSENCE.card.radius)}>
         <div
           className="absolute inset-0 opacity-[0.015] mix-blend-overlay"
           style={{
@@ -55,7 +60,7 @@ export const CardShell = memo(({
         />
       </div>
 
-      {/* SHIMMER SKELETON (When Loading) */}
+      {/* Shimmer skeleton */}
       {isLoading && (
         <div className="absolute inset-0 z-20 overflow-hidden">
           <div

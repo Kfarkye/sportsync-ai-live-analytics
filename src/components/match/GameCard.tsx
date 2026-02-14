@@ -4,6 +4,7 @@ import { Match } from '@/types';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
 import { Clock, TrendingUp } from 'lucide-react';
+import { ESSENCE } from '@/lib/essence';
 
 interface MatchCardProps {
     match: Match;
@@ -56,13 +57,25 @@ const MatchCard: React.FC<MatchCardProps> = ({
     return (
         <div
             onClick={onSelect}
-            className="group relative bg-[#000000] border border-white/[0.08] rounded-2xl overflow-hidden hover:border-white/[0.15] transition-all duration-200 cursor-pointer flex flex-col h-full shadow-lg hover:shadow-xl hover:-translate-y-0.5 select-none"
+            className="group relative overflow-hidden hover:border-white/[0.08] transition-all duration-200 cursor-pointer flex flex-col h-full hover:-translate-y-0.5 select-none"
+            style={{
+                backgroundColor: ESSENCE.colors.surface.card,
+                borderRadius: ESSENCE.radius.xl,
+                border: `1px solid ${ESSENCE.colors.border.default}`,
+                boxShadow: ESSENCE.shadows.obsidian,
+            }}
         >
-            {/* Selection/Hover Indicator */}
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+            {/* Obsidian Specular Edge Light */}
+            <div
+                className={isLive ? "absolute top-0 left-0 right-0 h-px z-20 animate-[breathe_3.5s_ease-in-out_infinite]" : "absolute top-0 left-0 right-0 h-px z-20"}
+                style={{
+                    background: `linear-gradient(90deg, transparent, ${ESSENCE.colors.accent.mintEdge} 30%, ${ESSENCE.colors.accent.mintEdge} 70%, transparent)`,
+                    opacity: isLive ? undefined : 0.65,
+                }}
+            />
 
             {/* Status Header - Mimics MatchRow's Status Column */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-[#050505]">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.04]" style={{ backgroundColor: ESSENCE.colors.surface.elevated }}>
                 <div className="flex items-center gap-2">
                     {isLive ? (
                         <div className="flex items-center gap-2">
@@ -139,7 +152,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
             </div>
 
             {/* Footer / Odds - Styled to match MatchRow cells */}
-            <div className="px-4 py-3 border-t border-white/[0.06] bg-[#050505] flex items-center justify-between h-[52px]">
+            <div className="px-4 py-3 border-t border-white/[0.04] flex items-center justify-between h-[52px]" style={{ backgroundColor: ESSENCE.colors.surface.elevated }}>
                 <div className="flex items-center gap-2">
                     {(match.odds?.spread !== null && match.odds?.spread !== undefined && match.odds.spread !== '-') && (
                         <div className="flex flex-col items-start justify-center px-2.5 py-1 rounded bg-[#121212] border border-white/5 min-w-[64px]">

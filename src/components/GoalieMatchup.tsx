@@ -257,7 +257,7 @@ export const GoalieMatchup: React.FC<GoalieMatchupProps> = ({ matchId, homeTeam,
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="bg-[#050505]"
+          className="bg-[#111113]"
         >
           <GoalieCard goalie={data.away} team={awayTeam} isHome={false} />
         </motion.div>
@@ -265,7 +265,7 @@ export const GoalieMatchup: React.FC<GoalieMatchupProps> = ({ matchId, homeTeam,
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="bg-[#050505] border-l border-white/[0.04]"
+          className="bg-[#111113] border-l border-white/[0.04]"
         >
           <GoalieCard goalie={data.home} team={homeTeam} isHome={true} />
         </motion.div>

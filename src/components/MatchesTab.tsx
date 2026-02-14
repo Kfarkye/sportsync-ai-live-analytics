@@ -6,6 +6,7 @@ import TeamLogo from './shared/TeamLogo';
 import { Flame, ShieldAlert, TrendingUp, Check, X, Minus, Activity, Lock, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import OddsCard from './betting/OddsCard';
+import { ESSENCE } from '@/lib/essence';
 
 // --- Types ---
 
@@ -103,7 +104,7 @@ const SectionHeader = ({ title }: { title: string }) => (
         <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-white/[0.06]"></div>
         </div>
-        <span className="relative px-4 text-[11px] font-bold text-zinc-500 uppercase tracking-widest bg-[#09090B]">
+        <span className="relative px-4 text-[11px] font-bold text-zinc-500 uppercase tracking-widest bg-[#111113]">
             {title}
         </span>
     </div>
@@ -145,7 +146,7 @@ const MatchesTab = ({ match }: { match: Match }) => {
             
             <SectionHeader title="Team Streaks" />
             
-            <div className="bg-[#09090B] border border-white/[0.08] rounded-2xl px-6 py-2 shadow-lg min-h-[200px]">
+            <div className="bg-[#111113] border border-white/[0.04] rounded-[14px] px-6 py-2 shadow-lg min-h-[200px]">
                 {loading ? (
                     <div className="flex items-center justify-center h-[200px] text-zinc-500 text-xs animate-pulse">
                         Analyzing trends...
@@ -167,7 +168,7 @@ const MatchesTab = ({ match }: { match: Match }) => {
 
             <div className="mt-8">
                 <SectionHeader title="Probability" />
-                <div className="bg-[#09090B] border border-white/[0.08] rounded-2xl p-6 flex justify-between items-center">
+                <div className="bg-[#111113] border border-white/[0.04] rounded-[14px] p-6 flex justify-between items-center">
                      <div className="flex items-center gap-3">
                         <TeamLogo logo={match.homeTeam.logo} className="w-8 h-8" />
                         <div className="flex flex-col">

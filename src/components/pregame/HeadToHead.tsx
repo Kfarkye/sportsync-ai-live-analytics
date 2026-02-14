@@ -41,7 +41,7 @@ const HeadToHead: React.FC<HeadToHeadProps> = ({ meetings, homeId, awayId, homeT
   return (
     <div className="space-y-4">
         {/* Record Summary */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#0A0A0A] border border-white/10 rounded-xl">
+        <div className="flex items-center justify-between px-4 py-3 bg-[#111113] border border-white/10 rounded-xl">
             <div className="flex items-center gap-2">
                 <Trophy size={14} className="text-amber-400" />
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Series History</span>

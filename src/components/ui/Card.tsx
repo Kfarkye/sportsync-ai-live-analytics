@@ -8,28 +8,47 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
     children?: React.ReactNode;
     variant?: "default" | "glass" | "solid";
     hover?: boolean;
+    edgeLight?: boolean;
+    livePulse?: boolean;
     className?: string;
 }
 
-export const Card = ({ children, className, variant = "default", hover = false, ...rest }: CardProps) => {
-    const baseStyles = "relative overflow-hidden rounded-3xl transition-all duration-300";
+/**
+ * Card — Obsidian Weissach Surface
+ * All styling flows from ESSENCE tokens. No local color knowledge.
+ */
+export const Card = ({ children, className, variant = "default", hover = false, edgeLight = true, livePulse = false, ...rest }: CardProps) => {
+    const baseStyles = cn("relative overflow-hidden transition-all duration-300", ESSENCE.card.radius);
 
     const variants = {
-        default: cn("bg-[#09090B] border border-white/[0.08] shadow-2xl", ESSENCE.card.innerGlow),
-        glass: "bg-[#09090B]/60 backdrop-blur-xl saturate-150 border border-white/[0.06]",
-        solid: "bg-[#121212] border border-white/5",
+        default: ESSENCE.card.base,
+        glass: cn(ESSENCE.card.bg, "backdrop-blur-xl saturate-150", ESSENCE.card.border),
+        solid: cn("bg-[" + ESSENCE.colors.surface.elevated + "]", ESSENCE.card.border),
     };
 
-    const hoverStyles = hover ? "hover:border-white/[0.12] hover:shadow-[0_0_50px_rgba(0,0,0,0.5)] hover:-translate-y-0.5" : "";
+    const hoverStyles = hover ? "hover:border-white/[0.08] hover:-translate-y-0.5" : "";
 
     return (
         <MotionDiv
             className={cn(baseStyles, variants[variant], hoverStyles, className)}
             {...rest}
         >
-            {/* Noise Texture for Depth */}
+            {/* Obsidian Specular Edge Light */}
+            {edgeLight && (
+                <div
+                    className={cn(
+                        "absolute top-0 left-0 right-0 h-px z-20",
+                        livePulse && "animate-[breathe_3.5s_ease-in-out_infinite]"
+                    )}
+                    style={{
+                        background: `linear-gradient(90deg, transparent, ${ESSENCE.colors.accent.mintEdge} 30%, ${ESSENCE.colors.accent.mintEdge} 70%, transparent)`,
+                        opacity: livePulse ? undefined : 0.65,
+                    }}
+                />
+            )}
+            {/* Noise Texture */}
             <div
-                className="absolute inset-0 opacity-[0.02] pointer-events-none mix-blend-overlay select-none"
+                className={cn("absolute inset-0 opacity-[0.02] pointer-events-none mix-blend-overlay select-none", ESSENCE.card.radius)}
                 style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
             />
             <div className="relative z-10 h-full">

@@ -26,7 +26,7 @@ import { motion, AnimatePresence, useMotionValue, LayoutGroup } from 'framer-mot
 // ============================================================================
 
 import type { Match, RecentFormGame, ShotEvent, PlayerPropBet, PropBetType } from '@/types';
-import { cn } from '@/lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import { getMatchDisplayStats } from '../../utils/statDisplay';
 
 // Services
@@ -1197,13 +1197,13 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   }, [isEdgeTab, match, pregameIntel]);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white relative overflow-y-auto font-sans">
+    <div className="min-h-screen text-white relative overflow-y-auto font-sans" style={{ backgroundColor: ESSENCE.colors.surface.base }}>
       <div className="fixed inset-0 pointer-events-none z-0">
         <motion.div animate={{ opacity: [0.03, 0.06, 0.03] }} transition={{ duration: 5, repeat: Infinity }} className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[140px]" style={{ background: awayColor }} />
         <motion.div animate={{ opacity: [0.03, 0.06, 0.03] }} transition={{ duration: 5, repeat: Infinity, delay: 2.5 }} className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full blur-[140px]" style={{ background: homeColor }} />
       </div>
 
-      <header className="sticky top-0 z-50 bg-[#050505]/95 backdrop-blur-xl border-b border-white/[0.06] pt-safe shadow-2xl">
+      <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/[0.04] pt-safe shadow-2xl" style={{ backgroundColor: ESSENCE.colors.surface.base + 'F2' }}>
         <div className="flex items-center justify-between px-6 py-4">
           <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-white/5 rounded-full transition-all duration-300">
             <BackArrow />

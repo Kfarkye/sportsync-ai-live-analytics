@@ -6,7 +6,7 @@ import { dbService, CacheResult } from '../../services/dbService';
 import { computeAISignals } from '../../services/gameStateEngine';
 import { useDbFirst } from '../../hooks/useDbFirst';
 import { getDbMatchId, isGameInProgress } from '../../utils/matchUtils';
-import { cn } from '@/lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import {
   Sparkles, ShieldCheck, AlertTriangle,
   Activity, Lock, Ban, Swords, ShieldAlert,
@@ -33,7 +33,7 @@ const SectionLabel = ({ children, color = 'zinc' }: { children: React.ReactNode;
 );
 
 const AnalysisSkeleton = () => (
-  <div className="p-10 space-y-8 bg-[#0A0A0A] rounded-2xl border border-white/[0.04] animate-pulse">
+  <div className={cn("p-10 space-y-8 animate-pulse", ESSENCE.card.base)}>
     <div className="h-3 w-40 bg-zinc-900 rounded" />
     <div className="grid grid-cols-2 gap-3">
       {[1, 2].map(i => <div key={i} className="h-24 bg-zinc-900 rounded-lg" />)}
@@ -472,7 +472,14 @@ export const LiveAnalysisCard: React.FC<{ match: Match }> = ({ match }) => {
   const isFootball = match.sport?.toLowerCase().includes('football') || match.sport === Sport.NFL || match.sport === Sport.COLLEGE_FOOTBALL;
 
   return (
-    <div className="p-8 bg-[#0A0A0A] border border-white/[0.04] rounded-2xl relative overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.6)] isolate">
+    <div className={cn("p-8 relative overflow-hidden isolate", ESSENCE.card.base)}>
+      {/* Obsidian Specular Edge Light */}
+      <div
+        className="absolute top-0 left-0 right-0 h-px z-20 animate-[breathe_3.5s_ease-in-out_infinite]"
+        style={{
+          background: `linear-gradient(90deg, transparent, ${ESSENCE.colors.accent.mintEdge} 30%, ${ESSENCE.colors.accent.mintEdge} 70%, transparent)`,
+        }}
+      />
 
       {/* 1. Status Bar */}
       <div className="flex items-center gap-4 mb-10 relative z-10">

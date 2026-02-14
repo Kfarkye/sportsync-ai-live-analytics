@@ -94,7 +94,7 @@ const ExpandedMatchCard: React.FC<ExpandedMatchCardProps> = ({ match, onClick })
   return (
     <div
       onClick={onClick}
-      className="bg-[#0A0A0A] border border-white/[0.06] rounded-2xl p-5 cursor-pointer hover:border-white/[0.12] hover:bg-white/[0.01] transition-all duration-200"
+      className="bg-[#111113] border border-white/[0.04] rounded-2xl p-5 cursor-pointer hover:border-white/[0.12] hover:bg-white/[0.01] transition-all duration-200"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
@@ -116,7 +116,7 @@ const ExpandedMatchCard: React.FC<ExpandedMatchCardProps> = ({ match, onClick })
 
       {/* Betting Results */}
       {(spreadDisplay || totalDisplay) && (
-        <div className="pt-4 border-t border-white/[0.06] flex flex-wrap gap-2">
+        <div className="pt-4 border-t border-white/[0.04] flex flex-wrap gap-2">
           {spreadDisplay && (
             <ResultBadge label="ATS" value={spreadDisplay} result={spreadResult} />
           )}

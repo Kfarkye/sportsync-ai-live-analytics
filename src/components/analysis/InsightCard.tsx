@@ -17,7 +17,7 @@
 
 import React, { memo, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/essence";
+import { cn, ESSENCE } from "@/lib/essence";
 
 // Lazy import type for the export engine
 type HtmlToImageModule = typeof import("html-to-image");
@@ -315,7 +315,7 @@ const SpecLabel = ({ label }: { label: string }) => (
 );
 
 const SmartChip = ({ label, value, colorClass }: { label: string; value: string; colorClass: string }) => (
-  <div className="flex flex-col justify-center px-4 py-3 rounded-lg bg-[#0A0A0C] border border-white/[0.06] shadow-[0_2px_10px_rgba(0,0,0,0.3)] relative overflow-hidden group/chip">
+  <div className="flex flex-col justify-center px-4 py-3 rounded-lg border shadow-[0_2px_10px_rgba(0,0,0,0.3)] relative overflow-hidden group/chip" style={{ backgroundColor: ESSENCE.colors.surface.elevated, borderColor: ESSENCE.colors.border.default }}>
     <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent opacity-50 pointer-events-none" />
     <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-1 opacity-80">{label}</span>
     <span className={cn("text-[16px] font-mono font-medium tabular-nums tracking-tight leading-none", colorClass)}>{value}</span>
@@ -531,7 +531,7 @@ export const InsightCard = memo(({ data }: { data: InsightCardData }) => {
         whileHover={!isExporting ? { y: -4, backgroundColor: "rgba(255,255,255,0.02)" } : {}}
         transition={PHYSICS_HOVER}
         data-exporting={isExporting ? "true" : "false"}
-        className="relative w-full bg-[#050505] rounded-2xl border border-white/[0.08] p-6 shadow-2xl overflow-hidden cursor-default select-none"
+        className={cn("relative w-full p-6 overflow-hidden cursor-default select-none", ESSENCE.card.base)}
       >
         {/* Background Noise Texture */}
         <div className="absolute inset-0 opacity-40 pointer-events-none mix-blend-overlay" style={{ backgroundImage: NOISE_TEXTURE }} />
