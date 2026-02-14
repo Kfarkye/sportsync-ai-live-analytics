@@ -96,9 +96,6 @@ const REGEX_INVALID_MATCH = /^\*{0,2}invalidation:/i;
 
 const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH LIVE|INVALIDATION|TRIPLE CONFLUENCE|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
 
-// Smart Odds Detection: +1300, -115, -7.5, u212.5, o55.5, etc.
-const REGEX_ODDS_TOKEN = /([+-]\d+(?:\.\d+)?|[uo]\d+(?:\.\d+)?)\b/gi;
-const REGEX_ODDS_EXACT = /^([+-]\d+(?:\.\d+)?|[uo]\d+(?:\.\d+)?)$/i;
 const REGEX_SIGNED_NUMERIC = /[+-]\d+(?:\.\d+)?/g;
 
 /**
@@ -1304,71 +1301,6 @@ const ConfidenceRing: FC<{ value: number; on: boolean }> = memo(({ value, on }) 
 });
 ConfidenceRing.displayName = "ConfidenceRing";
 
-/**
- * SmartOdds — Obsidian Weissach odds capsule.
- * Single odds = mint capsule. Movement = strikethrough opening → arrow → current.
- * Accepts raw odds string; detects multiple signed values for movement display.
- */
-const SmartOdds: FC<{ odds: string }> = memo(({ odds }) => {
-  if (!odds || odds === "N/A") return null;
-
-  // Detect movement: multiple signed values in the string (e.g. "-110 → -118", "-110/-118")
-  const tokens = odds.match(/[+-]\d+(?:\.\d+)?/g);
-
-  // No movement or single value — simple mint capsule
-  if (!tokens || tokens.length <= 1) {
-    return (
-      <span style={{
-        display: "inline-block", padding: "6px 16px", borderRadius: 20,
-        fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
-        letterSpacing: "0.03em", lineHeight: "20px",
-        color: OW.mint, background: OW.mintDim,
-        border: `1px solid ${OW.mintEdge}`,
-      }}>
-        {odds}
-      </span>
-    );
-  }
-
-  // Movement detected: opening (strikethrough) → arrow → current
-  const opening = tokens[0];
-  const current = tokens[tokens.length - 1];
-  const parseNum = (v: string) => parseInt(v.replace(/[^-\d]/g, ""), 10) || 0;
-  const up = parseNum(current) > parseNum(opening);
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <span style={{
-        display: "inline-block", padding: "6px 12px", borderRadius: 20,
-        fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
-        letterSpacing: "0.03em", lineHeight: "20px",
-        color: OW.t4, background: "rgba(255,255,255,0.02)",
-        border: "1px solid rgba(255,255,255,0.03)",
-        textDecoration: "line-through",
-        textDecorationColor: "rgba(255,255,255,0.12)",
-      }}>
-        {opening}
-      </span>
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
-        style={{ flexShrink: 0, opacity: 0.45 }}>
-        <path d="M2 5h6M6 3l2 2-2 2" stroke={up ? OW.mint : OW.gold}
-          strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <span style={{
-        display: "inline-block", padding: "6px 16px", borderRadius: 20,
-        fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
-        letterSpacing: "0.03em", lineHeight: "20px",
-        color: up ? OW.mint : OW.gold,
-        background: up ? OW.mintDim : OW.goldDim,
-        border: `1px solid ${up ? OW.mintEdge : "rgba(205,160,78,0.08)"}`,
-      }}>
-        {current}
-      </span>
-    </div>
-  );
-});
-SmartOdds.displayName = "SmartOdds";
-
 /** ShareIcon — upload arrow for share button */
 const OWShareIcon: FC = () => (
   <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
@@ -1457,13 +1389,12 @@ MetricsPanel.displayName = "MetricsPanel";
 /**
  * EdgeVerdictCard — "Obsidian Weissach" FINAL
  *
- * Full card: THE PICK label → Hero headline → SmartOdds capsule →
+ * Full card: THE PICK label → Hero headline →
  * Divider → Book line (Best {phase} odds on {Book}) → Collapsible Metrics →
- * Synopsis block → Tail/Fade/Share footer → Analysis/Proof disclosure
+ * Synopsis block → Tail/Fade/Share footer → Analysis disclosure
  *
- * Features from reference:
+ * Features:
  * - BOOKS system with brand-color hover on sportsbook name
- * - SmartOdds movement detection (strikethrough opening → arrow → current)
  * - Live game breathe animation on specular edge light
  * - Share button with capture state + watermark
  * - Tail/Fade hover states (mint glow on Tail, subtle lift on Fade)
@@ -1531,7 +1462,7 @@ const EdgeVerdictCard: FC<{
     triggerHaptic();
     setShareState("capturing");
     // Copy card text to clipboard
-    const shareText = `${parsedVerdict.teamName} ${parsedVerdict.spread !== "N/A" ? parsedVerdict.spread : ""} ${parsedVerdict.odds !== "N/A" ? parsedVerdict.odds : ""}\n${resolvedSynopsis}\n\nthedrip.app`;
+    const shareText = `${headline}\n${resolvedSynopsis}\n\nthedrip.app`;
     navigator.clipboard?.writeText(shareText.trim()).catch(() => {});
     trackAction("verdict.share", { trackingKey, cardIndex });
     setTimeout(() => {
@@ -1590,9 +1521,6 @@ const EdgeVerdictCard: FC<{
             lineHeight: 1.12, letterSpacing: "-0.02em",
             color: OW.t1, margin: "0 0 16px",
           }}>{headline}</h3>
-
-          {/* SmartOdds capsule — with movement detection */}
-          <SmartOdds odds={parsedVerdict.odds} />
         </div>
 
         {/* Divider */}
