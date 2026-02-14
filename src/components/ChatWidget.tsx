@@ -739,15 +739,6 @@ function uriToBrand(href?: string): string {
   return hostnameToBrand(getHostname(href));
 }
 
-/**
- * Google S2 High-Res Favicon Service.
- * sz=64 ensures crisp rendering on Retina displays even at small icon sizes.
- * CSP: Requires `img-src https://www.google.com`.
- */
-function getFaviconUrl(href: string): string {
-  try { const domain = new URL(href).hostname; return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`; } catch { return ""; }
-}
-
 function buildWireContent(text: string, attachments: Attachment[]): MessageContent {
   if (attachments.length === 0) return text;
   const parts: MessagePart[] = [{ type: "text", text: text || "Analyze this." }];
@@ -1372,39 +1363,6 @@ const CopyButton: FC<{ content: string }> = memo(({ content }) => {
   );
 });
 CopyButton.displayName = "CopyButton";
-
-/**
- * Weissach Source Icon:
- * 1. Tries to fetch a high-fidelity Google S2 favicon (64px).
- * 2. If it fails, seamlessly renders a "Milled Letter Chip" (Monogram).
- * 3. Default is grayscale for "Quiet Luxury", blooms to color on interaction.
- */
-const SourceIcon: FC<{ url?: string; fallbackLetter: string; className?: string }> = memo(({ url, fallbackLetter, className }) => {
-  const [error, setError] = useState(false);
-  const faviconUrl = useMemo(() => url ? getFaviconUrl(url) : null, [url]);
-
-  if (error || !faviconUrl) {
-    return (
-      <div className={cn("flex items-center justify-center bg-white/[0.08] border border-white/10 text-zinc-400 font-mono font-bold shadow-inner", className)}>
-        {fallbackLetter.charAt(0).toUpperCase()}
-      </div>
-    );
-  }
-  return (
-    <img
-      src={faviconUrl}
-      alt=""
-      onError={() => setError(true)}
-      className={cn("object-contain bg-white/[0.03]", className)}
-      loading="lazy"
-      decoding="async"
-      fetchPriority="low"
-      draggable={false}
-      referrerPolicy="no-referrer"
-    />
-  );
-});
-SourceIcon.displayName = "SourceIcon";
 
 /**
  * ─────────────────────────────────────────────────

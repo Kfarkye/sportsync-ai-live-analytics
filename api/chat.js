@@ -544,8 +544,21 @@ ${text}
 /**
  * Persist AI chat run and extracted picks to database.
  */
-async function persistRun(runId, map, gate, context, convoId, modelId) {
+async function persistRun(runId, map, gate, context, convoId, modelId, groundingMetadata) {
     try {
+        // Build provenance: store groundingSupports for audit trail
+        const grounding = groundingMetadata ? {
+            chunk_count: groundingMetadata.groundingChunks?.length || 0,
+            support_count: groundingMetadata.groundingSupports?.length || 0,
+            sources: (groundingMetadata.groundingChunks || [])
+                .map(c => c.web?.uri).filter(Boolean).slice(0, 10),
+            supports: (groundingMetadata.groundingSupports || [])
+                .map(s => ({
+                    text: s.segment?.text?.slice(0, 100),
+                    chunks: s.groundingChunkIndices
+                })).slice(0, 20)
+        } : null;
+
         // Upsert run record
         await supabase.from("ai_chat_runs").upsert(
             {
@@ -558,7 +571,8 @@ async function persistRun(runId, map, gate, context, convoId, modelId) {
                 gate_reason: gate.reason,
                 match_context: context
                     ? { id: context.match_id, home: context.home_team, away: context.away_team }
-                    : null
+                    : null,
+                grounding_provenance: grounding
             },
             { onConflict: "id" }
         );
@@ -691,11 +705,12 @@ MODE: ${MODE}
 <context>
 MATCHUP: ${activeContext?.away_team || "TBD"} @ ${activeContext?.home_team || "TBD"}
 ${isLive ? `🔴 LIVE: ${activeContext?.away_score || 0}-${activeContext?.home_score || 0} | ${activeContext?.clock || ""}` : ""}
-ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}
+${liveDataUrls.length > 0 ? `LIVE_DATA_URLS: ${liveDataUrls.join(", ")}
+(These endpoints serve real-time scores, odds, and play-by-play. Fetch them via URL Context for authoritative data.)` : `ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}
 ${lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : ""}
 INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}
 INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}
-${evidence.temporal.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : ""}
+${evidence.temporal.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : ""}`}
 ${staleWarning}
 </context>
 
@@ -818,7 +833,7 @@ Role: Field Reporter. Direct, factual, concise.
         if (MODE === "ANALYSIS") {
             const map = buildClaimMap(fullText, rawThoughts);
             const gate = gateDecision(map, true);  // Strict mode with score >= 2
-            await persistRun(currentRunId, map, gate, activeContext, conversation_id, CONFIG.MODEL_ID);
+            await persistRun(currentRunId, map, gate, activeContext, conversation_id, CONFIG.MODEL_ID, finalMetadata);
         }
 
         // --- PERSIST CONVERSATION ---
