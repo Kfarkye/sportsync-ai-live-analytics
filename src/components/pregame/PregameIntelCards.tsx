@@ -12,7 +12,7 @@ import { cn, ESSENCE } from '@/lib/essence';
 import { Match } from '@/types';
 import { pregameIntelService, PregameIntelResponse, IntelCard } from '../../services/pregameIntelService';
 import { cleanHeadline, cleanCardThesis } from '../../lib/intel-guards';
-import { Activity, Zap, TrendingUp, AlertTriangle, Crosshair, ShieldCheck, ExternalLink } from 'lucide-react';
+import { Activity, Zap, TrendingUp, AlertTriangle, Crosshair } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────
 // §0  WEISSACH SYSTEM TOKENS & PHYSICS
@@ -56,7 +56,6 @@ const SECTION_CONFIG: Record<string, { color: string; label: string; icon: React
  */
 const REGEX_CITATION_PLACEHOLDER =
     /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
-const REGEX_CITATION_LABEL = /^\d+(?:\.\d+)?$/;
 const REGEX_SPLIT_COMMA = /[,\s]+/;
 const REGEX_MULTI_SPACE = /\s{2,}/g;
 
@@ -122,14 +121,11 @@ function hostnameToBrand(hostname: string): string {
     return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
-function getFaviconUrl(href: string): string {
-    try { const domain = new URL(href).hostname; return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`; } catch { return ""; }
-}
 
 /**
- * End-of-Paragraph Citation Hydration (Pregame).
- * Converts bracket tokens into end-of-paragraph markdown links, preserving reading flow.
- * Guards fenced code blocks so bracket tokens in code are untouched.
+ * Inline Citation Hydration (Pregame).
+ * Replaces bracket tokens in-place with brand-name hyperlinks.
+ * Adjacent tokens merge into a single parenthetical.
  */
 function hydrateCitations(text: string, sources?: IntelSource[]): string {
     if (!text || !sources?.length) return text;
@@ -138,14 +134,19 @@ function hydrateCitations(text: string, sources?: IntelSource[]): string {
     const CODE_FENCE = /(```[\s\S]*?```)/g;
     const segments = text.split(CODE_FENCE);
 
-    return segments.map((segment) => {
+    const REGEX_ADJACENT_CITATIONS = /(?:\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()[\s]*)+/g;
+
+    const hydrated = segments.map((segment) => {
         if (segment.startsWith("```")) return segment;
-        const paragraphs = segment.split(/\n\n+/);
-        return paragraphs.map((paragraph) => {
-            const collected: Array<{ label: string; uri: string; sortKey: number }> = [];
-            const seen = new Set<string>();
-            const stripped = paragraph.replace(REGEX_CITATION_PLACEHOLDER, (_match, inner: string) => {
-                const parts = inner.split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
+
+        return segment.replace(REGEX_ADJACENT_CITATIONS, (fullMatch) => {
+            const links: Array<{ brand: string; uri: string }> = [];
+            const seenUri = new Set<string>();
+
+            let m: RegExpExecArray | null;
+            const tokenRe = /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
+            while ((m = tokenRe.exec(fullMatch)) !== null) {
+                const parts = m[1].split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
                 for (const part of parts) {
                     const trimmed = part.trim();
                     const num = parseFloat(trimmed);
@@ -153,31 +154,27 @@ function hydrateCitations(text: string, sources?: IntelSource[]): string {
                     const index = Math.floor(num) - 1;
                     if (index < 0 || index >= maxIndex) continue;
                     const uri = uris[index];
-                    if (uri && !seen.has(trimmed)) {
-                        seen.add(trimmed);
-                        const [major, minor = "0"] = trimmed.split(".");
-                        collected.push({ label: trimmed, uri, sortKey: Number(major) * 1000 + Number(minor) });
+                    if (uri && !seenUri.has(uri)) {
+                        seenUri.add(uri);
+                        const hostname = getHostname(uri);
+                        const brand = hostnameToBrand(hostname);
+                        links.push({ brand, uri });
                     }
                 }
-                return "";
-            });
+            }
 
-            if (collected.length === 0) return paragraph;
+            if (links.length === 0) return fullMatch;
 
-            const cleaned = stripped
-                .replace(/\s+\./g, ".")
-                .replace(/\s+,/g, ",")
-                .replace(REGEX_MULTI_SPACE, " ")
-                .trim();
-
-            const suffix = collected
-                .sort((a, b) => a.sortKey - b.sortKey)
-                .map((c) => `[${c.label}](${c.uri})`)
-                .join(" ");
-
-            return cleaned ? `${cleaned} ${suffix}` : suffix;
-        }).join("\n\n");
+            const inner = links.map((l) => `[${l.brand}](${l.uri})`).join(", ");
+            return ` (${inner})`;
+        });
     }).join("");
+
+    return hydrated
+        .replace(/\s+\)/g, ")")
+        .replace(/\(\s+/g, "(")
+        .replace(/\.\s*\(/g, " (")
+        .replace(REGEX_MULTI_SPACE, " ");
 }
 
 function toISOOrNull(v: string | number | Date | null | undefined): string | null {
@@ -213,111 +210,6 @@ const FilmGrain = memo(() => (
 ));
 FilmGrain.displayName = "FilmGrain";
 
-const CitationContext = React.createContext<{ activeCitation: string | null; setActiveCitation: (id: string | null) => void }>({
-    activeCitation: null,
-    setActiveCitation: () => { },
-});
-
-const CitationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [activeCitation, setActiveCitation] = useState<string | null>(null);
-
-    useEffect(() => {
-        const onPointer = (e: globalThis.PointerEvent) => {
-            const t = e.target as HTMLElement | null;
-            if (!t) { setActiveCitation(null); return; }
-            if (typeof t.closest === "function" && t.closest('[data-cite-scope="true"]')) return;
-            setActiveCitation(null);
-        };
-        const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") setActiveCitation(null); };
-        document.addEventListener("pointerdown", onPointer, true);
-        document.addEventListener("keydown", onKey);
-        return () => {
-            document.removeEventListener("pointerdown", onPointer, true);
-            document.removeEventListener("keydown", onKey);
-        };
-    }, []);
-
-    const value = useMemo(() => ({ activeCitation, setActiveCitation }), [activeCitation]);
-    return <CitationContext.Provider value={value}>{children}</CitationContext.Provider>;
-};
-
-const CitationJewel: React.FC<{ id: string; href?: string; indexLabel: string }> = memo(({ id, href, indexLabel }) => {
-    const { activeCitation, setActiveCitation } = React.useContext(CitationContext);
-    const active = activeCitation === id;
-    const hostname = getHostname(href);
-    const brand = hostnameToBrand(hostname);
-
-    return (
-        <span data-cite-scope="true" className="inline-flex items-center align-middle relative mx-0.5 -translate-y-[1px] isolate z-10">
-            <button
-                type="button"
-                onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); triggerHaptic(); setActiveCitation(active ? null : id); }}
-                className={cn(
-                    "group inline-flex items-center gap-1.5 h-[18px] pl-0.5 pr-2 rounded-full border transition-all duration-300 select-none cursor-pointer overflow-hidden backdrop-blur-md",
-                    active
-                        ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
-                        : "bg-white/[0.04] border-white/[0.08] text-zinc-400 hover:bg-white/[0.08] hover:border-white/[0.15] hover:text-zinc-200",
-                )}
-                aria-expanded={active}
-                aria-controls={`cite-popover-${id}`}
-                aria-label={`Source ${indexLabel} from ${brand}`}
-            >
-                <div className="w-3.5 h-3.5 rounded-full bg-[#111113] border border-white/[0.04] flex items-center justify-center overflow-hidden shadow-sm">
-                    <SourceIcon url={href} fallbackLetter={brand} className="w-2.5 h-2.5 rounded-full opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300" />
-                </div>
-                <span className="text-[9px] font-mono font-medium tracking-tight leading-none translate-y-[0.5px]">{indexLabel}</span>
-            </button>
-
-            <AnimatePresence>
-                {active && (
-                    <motion.div
-                        data-cite-scope="true"
-                        id={`cite-popover-${id}`}
-                        role="tooltip"
-                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                        transition={SYSTEM.anim.snap}
-                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 w-[240px] z-[60]"
-                        onPointerDown={(e) => e.stopPropagation()}
-                    >
-                        <div className={cn("p-3.5 rounded-[20px] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.9)]", SYSTEM.surface.glass)}>
-                            <div className="flex items-start gap-3 mb-3">
-                                <div className="w-8 h-8 rounded-[10px] bg-black/40 border border-white/10 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
-                                    <SourceIcon url={href} fallbackLetter={brand} className="w-5 h-5 rounded" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <div className="text-[12px] font-medium text-white truncate leading-tight mb-0.5">{brand}</div>
-                                    <div className="text-[10px] font-mono text-zinc-500 truncate">{hostname}</div>
-                                </div>
-                            </div>
-                            <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                                <div className="flex items-center gap-1.5 text-[9px] font-mono text-emerald-400/90 uppercase tracking-widest">
-                                    <ShieldCheck size={10} /><span>Verified</span>
-                                </div>
-                                {href ? (
-                                    <a
-                                        href={href}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-1 text-[10px] font-medium text-zinc-300 hover:text-white transition-colors"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <span>Open</span><ExternalLink size={10} />
-                                    </a>
-                                ) : (
-                                    <span className="text-[10px] font-mono text-zinc-600">No link</span>
-                                )}
-                            </div>
-                        </div>
-                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#111113] border-r border-b border-white/[0.04] rotate-45 rounded-[1px]" />
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </span>
-    );
-});
-CitationJewel.displayName = "CitationJewel";
 
 const RenderRichText = React.memo(({ text, sources, className }: { text: string; sources?: IntelSource[]; className?: string }) => {
     if (!text) return null;
@@ -325,17 +217,11 @@ const RenderRichText = React.memo(({ text, sources, className }: { text: string;
     const components: Components = useMemo(() => ({
         p: ({ children }) => <span>{children}</span>,
         strong: ({ children }) => <strong className="font-semibold text-white tracking-tight">{children}</strong>,
-        a: ({ href, children }) => {
-            const label = flattenText(children).trim();
-            if (REGEX_CITATION_LABEL.test(label)) {
-                return <CitationJewel id={`${label}:${href || "nolink"}`} href={href} indexLabel={label} />;
-            }
-            return (
-                <a href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline decoration-emerald-500/20 underline-offset-4 transition-colors">
-                    {children}
-                </a>
-            );
-        },
+        a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200">
+                {children}
+            </a>
+        ),
     }), []);
 
     return (
@@ -347,33 +233,6 @@ const RenderRichText = React.memo(({ text, sources, className }: { text: string;
     );
 });
 
-// WEISSACH SOURCE ICON
-const SourceIcon: React.FC<{ url?: string; fallbackLetter: string; className?: string }> = memo(({ url, fallbackLetter, className }) => {
-    const [error, setError] = useState(false);
-    const faviconUrl = useMemo(() => url ? getFaviconUrl(url) : null, [url]);
-
-    if (error || !faviconUrl) {
-        return (
-            <div className={cn("flex items-center justify-center bg-white/[0.08] border border-white/10 text-zinc-400 font-mono font-bold shadow-inner", className)}>
-                {fallbackLetter.charAt(0).toUpperCase()}
-            </div>
-        );
-    }
-    return (
-        <img
-            src={faviconUrl}
-            alt=""
-            onError={() => setError(true)}
-            className={cn("object-contain bg-white/[0.03]", className)}
-            loading="lazy"
-            decoding="async"
-            fetchPriority="low"
-            draggable={false}
-            referrerPolicy="no-referrer"
-        />
-    );
-});
-SourceIcon.displayName = "SourceIcon";
 
 // RESTORED TOGGLE SWITCH (Animated +/-)
 const ToggleSwitch = ({ expanded }: { expanded: boolean }) => (
@@ -442,51 +301,6 @@ const EdgeLabel = ({ startTimeISO }: { startTimeISO: string | null }) => {
     );
 };
 
-// EVIDENCE DECK (Horizontal Scroll)
-const EvidenceDeck: React.FC<{ sources: Array<IntelSource> }> = memo(({ sources }) => {
-    const safeSources = sources ?? [];
-    const uniqueSources = useMemo(() => {
-        const seen = new Set<string>();
-        return safeSources.filter(s => { const u = s.url || s.uri; if (!u || seen.has(u)) return false; seen.add(u); return true; });
-    }, [safeSources]);
-    if (uniqueSources.length === 0) return null;
-
-    return (
-        <div className="mt-20 w-full overflow-hidden relative group/deck select-none border-t border-white/[0.04] pt-8">
-            <div className="max-w-[1200px] mx-auto px-6 md:px-12 mb-5">
-                <div className="flex items-center gap-2.5 opacity-80 md:pl-[160px]">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
-                    <span className={SYSTEM.type.label}>Evidence Ledger</span>
-                    <span className="text-[9px] font-mono text-zinc-600 ml-auto md:ml-2">[{uniqueSources.length}]</span>
-                </div>
-            </div>
-
-            <div className="relative w-full max-w-[1200px] mx-auto md:pl-[160px]">
-                <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#050505] to-transparent z-10 pointer-events-none md:hidden" />
-                <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#050505] to-transparent z-10 pointer-events-none" />
-
-                <div className="flex gap-3 overflow-x-auto pb-6 px-6 md:px-0 scrollbar-hide snap-x" role="list" aria-label="Evidence sources">
-                    {uniqueSources.map((s, i) => {
-                        const uri = s.url || s.uri || ""; const hostname = getHostname(uri); const brand = hostnameToBrand(hostname);
-                        return (
-                            <motion.a key={i} href={uri} target="_blank" rel="noopener noreferrer" role="listitem" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05, ...SYSTEM.anim.fluid }} whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }} onClick={() => triggerHaptic()} className={cn("flex-none w-[150px] snap-start group relative flex flex-col justify-between p-3.5 h-[84px] rounded-[18px] transition-all duration-300", SYSTEM.surface.glass, "hover:bg-white/[0.05] hover:border-emerald-500/20")}>
-                                <div className="flex items-start justify-between">
-                                    <div className="w-5 h-5 rounded-[6px] bg-white/[0.05] border border-white/[0.05] flex items-center justify-center overflow-hidden shadow-sm"><SourceIcon url={uri} fallbackLetter={brand} className="w-3.5 h-3.5 rounded-sm opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all" /></div>
-                                    <span className="text-[9px] font-mono text-zinc-600 group-hover:text-emerald-500/80 transition-colors">0{i + 1}</span>
-                                </div>
-                                <div>
-                                    <div className="text-[11px] font-medium text-zinc-300 truncate leading-tight group-hover:text-white transition-colors">{s.title || brand}</div>
-                                    <div className="text-[9px] text-zinc-600 truncate mt-0.5 font-mono group-hover:text-zinc-500">{hostname}</div>
-                                </div>
-                            </motion.a>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
-});
-EvidenceDeck.displayName = "EvidenceDeck";
 
 // ─────────────────────────────────────────────────────────────────
 // §4  INSIGHT ROWS (Restored Logic)
@@ -655,7 +469,6 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
 
     return (
         <MotionConfig reducedMotion="user">
-            <CitationProvider>
                 <LayoutGroup>
                     <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.06 } } }} className="w-full py-16 font-sans antialiased relative">
                     <div className="mb-32 relative w-full max-w-[1200px] mx-auto px-6 md:px-12">
@@ -692,14 +505,8 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
                         <div className="w-full h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
                     </div>
 
-                    {!hideFooter && processedData.sources && processedData.sources.length > 0 && (
-                        <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
-                            <EvidenceDeck sources={processedData.sources} />
-                        </motion.div>
-                    )}
                     </motion.div>
                 </LayoutGroup>
-            </CitationProvider>
         </MotionConfig>
     );
 };
