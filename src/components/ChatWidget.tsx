@@ -132,6 +132,8 @@ const BRAND_MAP: Record<string, string> = {
   "twitter.com": "X",
   "google.com": "Google",
   "ai.google.dev": "Google AI",
+  "vertexaisearch.cloud.google.com": "Google",
+  "discoveryengine.googleapis.com": "Google",
   "nba.com": "NBA",
   "nfl.com": "NFL",
   "mlb.com": "MLB",
@@ -498,6 +500,7 @@ function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
     .replace(/\s+\)/g, ")")    // " )" → ")"
     .replace(/\(\s+/g, "(")    // "( " → "("
     .replace(/\.\s*\(/g, " (") // ".(" → " ("
+    .replace(/\)([a-zA-Z])/g, ") $1") // ")word" → ") word"
     .replace(REGEX_MULTI_SPACE, " ");
 
   hydrationCache.set(cacheKey, cleaned);
@@ -545,7 +548,13 @@ function confidenceToPercent(level: ConfidenceLevel): number {
 function hostnameToBrand(hostname: string): string {
   const h = hostname.replace(/^www\./, "").toLowerCase();
   if (BRAND_MAP[h]) return BRAND_MAP[h];
-  const base = h.split(".")[0] || "Source";
+  // Walk up subdomains: "vertexaisearch.cloud.google.com" → "cloud.google.com" → "google.com"
+  const parts = h.split(".");
+  for (let i = 1; i < parts.length - 1; i++) {
+    const parent = parts.slice(i).join(".");
+    if (BRAND_MAP[parent]) return BRAND_MAP[parent];
+  }
+  const base = parts[0] || "Source";
   return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
@@ -730,12 +739,19 @@ function extractEdgeSynopses(rawText: string): string[] {
       const nextLine = (lines[j] || "").trim();
       if (!nextLine) continue;
       if (REGEX_VERDICT_MATCH.test(nextLine)) break;
-      if (REGEX_EDGE_SECTION_HEADER.test(nextLine)) continue;
-      const cleanedLine = nextLine
+      // If line IS a section header, extract any content after the header label
+      const headerMatch = nextLine.match(REGEX_EDGE_SECTION_HEADER);
+      const candidate = headerMatch
+        ? nextLine.slice(headerMatch[0].length).replace(/^[:\s*]+/, "").trim()
+        : nextLine;
+      if (!candidate) continue;
+      const cleanedLine = candidate
         .replace(/^[-*•]\s*/, "")
         .replace(/\*+/g, "")
+        .replace(REGEX_CITATION_PLACEHOLDER, "")
+        .replace(REGEX_MULTI_SPACE, " ")
         .trim();
-      if (!cleanedLine) continue;
+      if (!cleanedLine || cleanedLine.length < 10) continue;
       synopsis = cleanedLine;
       break;
     }
