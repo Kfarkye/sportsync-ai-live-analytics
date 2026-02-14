@@ -9,7 +9,7 @@ import React, { useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
 import { MatchRowProps } from '@/types/matchList';
 import TeamLogo from '../shared/TeamLogo';
-import { cn } from '@/lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { Sport, Linescore } from '@/types';
 
@@ -89,8 +89,8 @@ const MatchRow: React.FC<MatchRowProps> = ({
       onClick={() => onSelect(match)}
       className={cn(
         "group relative flex items-center justify-between px-5 py-5 cursor-pointer transform-gpu",
-        // VISIBILITY FIX: Base lifted 2% from void for legibility
-        "bg-white/[0.02]",
+        // Obsidian Weissach — card surface lifted from void
+        "bg-[#111113]/50",
         "transition-all duration-300",
         
         // AUDIT FIX: Restored Premium Gradient Divider (replaces flat border)

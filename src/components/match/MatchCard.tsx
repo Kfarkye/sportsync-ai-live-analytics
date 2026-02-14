@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Match, Sport } from '@/types';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
-import { cn } from '@/lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import { motion } from 'framer-motion';
 import { getLeagueDisplayName } from '@/constants';
 import { analyzeSpread, analyzeMoneyline } from '../../utils/oddsUtils';
@@ -11,17 +11,18 @@ const MotionDiv = motion.div;
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
- * MATCH CARD — Production Final
+ * MATCH CARD — Obsidian Weissach
+ * All surface colors flow from ESSENCE tokens.
  * ────────────────────────────────────────────────────────────────────────────
  */
 
 const COLORS = {
-    white: '#FFFFFF',
-    muted: '#71717A',
-    dim: '#3F3F46',
+    white: ESSENCE.colors.text.primary,
+    muted: ESSENCE.colors.text.tertiary,
+    dim: ESSENCE.colors.text.muted,
     live: '#FF3B30',
     pinned: '#FF9F0A',
-    card: '#0A0A0A',
+    card: ESSENCE.colors.surface.card,
 } as const;
 
 interface MatchCardProps {
@@ -119,11 +120,24 @@ const MatchCard: React.FC<MatchCardProps> = ({
             whileTap={{ scale: 0.985 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             className={cn(
-                "relative cursor-pointer overflow-hidden rounded-2xl",
+                "relative cursor-pointer overflow-hidden",
+                ESSENCE.card.radius,
+                ESSENCE.card.border,
                 isLive && "ring-1 ring-[#FF3B30]/20"
             )}
-            style={{ backgroundColor: COLORS.card }}
+            style={{
+                backgroundColor: COLORS.card,
+                boxShadow: ESSENCE.shadows.obsidian,
+            }}
         >
+            {/* Obsidian Specular Edge Light */}
+            <div
+                className={cn("absolute top-0 left-0 right-0 h-px z-20", isLive && "animate-[breathe_3.5s_ease-in-out_infinite]")}
+                style={{
+                    background: `linear-gradient(90deg, transparent, ${ESSENCE.colors.accent.mintEdge} 30%, ${ESSENCE.colors.accent.mintEdge} 70%, transparent)`,
+                    opacity: isLive ? undefined : 0.65,
+                }}
+            />
             <div className="p-5">
                 {/* Status Row */}
                 <div className="flex items-center justify-between mb-5">

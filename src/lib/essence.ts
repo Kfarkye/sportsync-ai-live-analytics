@@ -9,67 +9,73 @@
 // ============================================================================
 
 export const ESSENCE = {
-  // --- PALETTE: Cinematic Depth (NOT pure black) ---
+  // --- PALETTE: Obsidian Weissach (void → card → elevated) ---
   colors: {
     surface: {
-      base: '#09090b',         // Deep background (Zinc 950+)
-      card: '#0A0A0B',         // Surface Cards (unified)
-      elevated: '#0C0C0D',     // Elevated elements
-      subtle: '#1A1A1C',       // Hover states (lighter)
+      base: '#09090B',         // Void — page background
+      card: '#111113',         // Card — lifted from void
+      elevated: '#151517',     // Elevated — inner panels, synopsis blocks
+      subtle: '#1A1A1C',       // Hover states
       pure: '#000000',         // True Black (sparingly)
     },
     text: {
-      primary: '#FAFAFA',      // Zinc 50
-      secondary: '#A1A1AA',    // Zinc 400
-      tertiary: '#71717A',     // Zinc 500
-      muted: '#52525B',        // Zinc 600
-      ghost: '#3F3F46',        // Zinc 700
+      primary: '#EDEDEF',      // t1 — headlines, scores
+      secondary: '#A1A1AA',    // t2 — body, secondary data
+      tertiary: '#63636E',     // t3 — captions, hover states
+      muted: '#3E3E47',        // t4 — labels, metadata
+      ghost: '#52525C',        // tSys — system lines
     },
     accent: {
-      emerald: '#34D399',      // Success / Live
-      amber: '#FBBF24',        // Warning / Halftime
-      rose: '#FB7185',         // Error
+      mint: '#36E896',         // Primary — confidence, positive
+      mintDim: 'rgba(54,232,150,0.06)',
+      mintEdge: 'rgba(54,232,150,0.08)',
+      gold: '#CDA04E',         // Secondary — caution, movement
+      goldDim: 'rgba(205,160,78,0.08)',
+      emerald: '#36E896',      // Alias for backwards compat
+      amber: '#CDA04E',        // Alias for backwards compat
+      rose: '#EF4444',         // Error / negative
       violet: '#A78BFA',       // Premium / Processing
     },
     border: {
       subtle: 'rgba(255,255,255,0.04)',
-      default: 'rgba(255,255,255,0.06)',
-      strong: 'rgba(255,255,255,0.12)',
-      innerGlow: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 50%, rgba(255,255,255,0.02) 100%)',
+      default: 'rgba(255,255,255,0.04)',
+      strong: 'rgba(255,255,255,0.08)',
+      innerGlow: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 50%, rgba(255,255,255,0.02) 100%)',
     }
   },
 
-  // --- SHADOWS: Cinematic depth ---
+  // --- SHADOWS: Obsidian Layered Depth ---
   shadows: {
-    sm: '0 1px 2px rgba(0,0,0,0.4)',
-    md: '0 4px 12px -2px rgba(0,0,0,0.5)',
-    lg: '0 24px 48px -12px rgba(0,0,0,0.6)',
+    sm: '0 1px 2px rgba(0,0,0,0.5)',
+    md: '0 4px 12px rgba(0,0,0,0.25)',
+    lg: '0 16px 40px rgba(0,0,0,0.3)',
+    // Obsidian 4-layer shadow (the Weissach spec)
+    obsidian: '0 0 0 1px rgba(255,255,255,0.03), 0 1px 2px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.25), 0 16px 40px rgba(0,0,0,0.3)',
     glow: (color: string) => `0 0 60px ${color}20, 0 0 100px ${color}10`,
   },
 
-  // --- RADIUS: Unified scale (4px base) ---
+  // --- RADIUS: Obsidian scale ---
   radius: {
     sm: '4px',
-    md: '8px',
+    md: '8px',      // ri — inner elements
     lg: '12px',
-    xl: '16px',
+    xl: '14px',     // r  — card radius (Obsidian spec)
     '2xl': '20px',
     full: '9999px',
-    // Apple Squircle Approximation (requires clip-path or heavy radius)
     squircle: '44% / 44%',
   },
 
-  // --- CARD GEOMETRY: Normalized container rules ---
+  // --- CARD GEOMETRY: Obsidian Weissach container ---
   card: {
-    padding: 'p-5',           // 20px - consistent padding
-    radius: 'rounded-3xl',    // 24px - unified Apple baseline
+    padding: 'p-7',           // 28px — Obsidian spec (32px top via pt-8)
+    radius: 'rounded-[14px]', // 14px — Obsidian spec
     gap: 'gap-4',             // 16px - internal spacing
-    border: 'border border-white/[0.06]',
-    bg: 'bg-[#0A0A0B]',
-    headerHeight: 'h-[44px]', // Consistent header baseline
-    innerGlow: 'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]',
-    // Full card class shorthand
-    base: 'bg-[#0A0A0B] border border-white/[0.06] rounded-3xl p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]',
+    border: 'border border-white/[0.04]',
+    bg: 'bg-[#111113]',
+    headerHeight: 'h-[44px]',
+    innerGlow: 'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]',
+    // Full Obsidian card class shorthand
+    base: 'bg-[#111113] border border-white/[0.04] rounded-[14px] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_1px_2px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.25),0_16px_40px_rgba(0,0,0,0.3)]',
   },
 
   // --- TYPOGRAPHY: 3-Tier Unified System ---
@@ -124,11 +130,11 @@ export const ESSENCE = {
     shared: { layoutId: "shared-element", transition: { type: "spring", stiffness: 400, damping: 30 } }
   },
 
-  // --- MATERIALS: Cinematic Glass & Cards ---
+  // --- MATERIALS: Obsidian Glass & Cards ---
   glass: {
-    panel: 'bg-[#0A0A0B] border border-white/[0.06] backdrop-blur-xl',
-    header: 'bg-black/95 backdrop-blur-2xl border-b border-white/[0.04]',
-    card: 'bg-[#0A0A0B] border border-white/[0.06] rounded-2xl',
+    panel: 'bg-[#111113] border border-white/[0.04] backdrop-blur-xl',
+    header: 'bg-[#09090B]/95 backdrop-blur-2xl border-b border-white/[0.04]',
+    card: 'bg-[#111113] border border-white/[0.04] rounded-[14px]',
   },
 
   zIndex: {

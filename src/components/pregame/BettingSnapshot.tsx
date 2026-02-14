@@ -117,10 +117,10 @@ const BettingSnapshot: React.FC<BettingSnapshotProps> = ({ odds, homeTeam, awayT
   const homeName = homeTeam.abbreviation || homeTeam.shortName;
 
   return (
-    <div className="bg-[#050505] rounded-xl border border-white/[0.1] overflow-hidden shadow-sm ring-1 ring-white/[0.05]">
+    <div className="bg-[#111113] rounded-xl border border-white/[0.1] overflow-hidden shadow-sm ring-1 ring-white/[0.05]">
         
         {/* Compact Header */}
-        <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] bg-[#0A0A0A] border-b border-white/[0.08]">
+        <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] bg-[#151517] border-b border-white/[0.04]">
             <HeaderCell label="Market" align="left" />
             <HeaderCell label="Spread" />
             <HeaderCell label="Total" />
@@ -180,8 +180,8 @@ const BettingSnapshot: React.FC<BettingSnapshotProps> = ({ odds, homeTeam, awayT
                     <div className="flex flex-col justify-center px-4 py-2 border-r border-white/[0.06]">
                         <span className="font-bold text-zinc-400 text-[13px] tracking-tight">Draw</span>
                     </div>
-                    <div className="border-r border-white/[0.06] bg-[#050505]/50" />
-                    <div className="border-r border-white/[0.06] bg-[#050505]/50" />
+                    <div className="border-r border-white/[0.06] bg-[#111113]/50" />
+                    <div className="border-r border-white/[0.06] bg-[#111113]/50" />
                     <DenseCell 
                         line={drawML.main !== '-' ? formatVal(drawML.val) : '-'} 
                         juice={drawML.main}
@@ -192,7 +192,7 @@ const BettingSnapshot: React.FC<BettingSnapshotProps> = ({ odds, homeTeam, awayT
         </div>
 
         {/* Footer */}
-        <div className="bg-[#030303] border-t border-white/[0.08] px-3 py-1.5 flex justify-between items-center">
+        <div className="bg-[#030303] border-t border-white/[0.04] px-3 py-1.5 flex justify-between items-center">
             <div className="flex items-center gap-2">
                 <div className="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.8)]" />
                 <span className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">Real-time Feed</span>

@@ -8,7 +8,7 @@ import React, { useState, useEffect, useMemo, memo, Component } from 'react';
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence, LayoutGroup, MotionConfig, type Transition } from 'framer-motion';
-import { cn } from '@/lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import { Match } from '@/types';
 import { pregameIntelService, PregameIntelResponse, IntelCard } from '../../services/pregameIntelService';
 import { cleanHeadline, cleanCardThesis } from '../../lib/intel-guards';
@@ -24,9 +24,9 @@ const SYSTEM = {
         snap: { type: "spring", damping: 22, stiffness: 450 } as Transition,
     },
     surface: {
-        void: "bg-[#050505]",
-        glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
-        panel: "bg-[#0A0A0B] border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]",
+        void: "bg-[#09090B]",
+        glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+        panel: ESSENCE.card.base,
     },
     type: {
         mono: "font-mono text-[10px] tracking-[0.12em] uppercase text-zinc-500 tabular-nums font-medium",
@@ -262,7 +262,7 @@ const CitationJewel: React.FC<{ id: string; href?: string; indexLabel: string }>
                 aria-controls={`cite-popover-${id}`}
                 aria-label={`Source ${indexLabel} from ${brand}`}
             >
-                <div className="w-3.5 h-3.5 rounded-full bg-[#050505] border border-white/10 flex items-center justify-center overflow-hidden shadow-sm">
+                <div className="w-3.5 h-3.5 rounded-full bg-[#111113] border border-white/[0.04] flex items-center justify-center overflow-hidden shadow-sm">
                     <SourceIcon url={href} fallbackLetter={brand} className="w-2.5 h-2.5 rounded-full opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300" />
                 </div>
                 <span className="text-[9px] font-mono font-medium tracking-tight leading-none translate-y-[0.5px]">{indexLabel}</span>
@@ -310,7 +310,7 @@ const CitationJewel: React.FC<{ id: string; href?: string; indexLabel: string }>
                                 )}
                             </div>
                         </div>
-                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0A0A0B] border-r border-b border-white/10 rotate-45 rounded-[1px]" />
+                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#111113] border-r border-b border-white/[0.04] rotate-45 rounded-[1px]" />
                     </motion.div>
                 )}
             </AnimatePresence>

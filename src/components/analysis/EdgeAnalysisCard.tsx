@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { cn } from '@/lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import { Activity, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Bot } from 'lucide-react';
 import { Sport } from '@/types';
 
@@ -66,7 +66,7 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
     // 1. LOADING GATE
     if (isLoading || !data) {
         return (
-            <div className="w-full bg-[#0A0A0B] border border-white/[0.04] rounded-2xl p-20 flex flex-col items-center justify-center gap-6">
+            <div className={cn("w-full p-20 flex flex-col items-center justify-center gap-6", ESSENCE.card.base)}>
                 <div className="relative">
                     <div className="absolute -inset-4 bg-white/[0.03] blur-xl rounded-full animate-pulse" />
                     <Bot size={40} className="text-zinc-700 animate-spin relative z-10" />
@@ -96,7 +96,15 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
     const traceEffLabel = rateKey === 'efficiency' ? (isSpread ? 'NET' : 'EFF') : 'NET';
 
     return (
-        <div className="w-full bg-gradient-to-b from-[#0c0c0e] to-[#050506] border border-white/10 rounded-2xl overflow-hidden shadow-2xl font-sans animate-in fade-in zoom-in-95 duration-500">
+        <div className={cn("w-full overflow-hidden font-sans animate-in fade-in zoom-in-95 duration-500 relative", ESSENCE.card.base)}>
+            {/* Obsidian Specular Edge Light */}
+            <div
+                className="absolute top-0 left-0 right-0 h-px z-20"
+                style={{
+                    background: `linear-gradient(90deg, transparent, ${ESSENCE.colors.accent.mintEdge} 30%, ${ESSENCE.colors.accent.mintEdge} 70%, transparent)`,
+                    opacity: 0.65,
+                }}
+            />
 
             {/* SECTION 1: THE EDGE NUMBERS */}
             <div className="p-8 pb-6 relative overflow-hidden">

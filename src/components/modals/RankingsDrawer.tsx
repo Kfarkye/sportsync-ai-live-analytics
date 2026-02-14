@@ -156,7 +156,7 @@ const RankingsDrawer: React.FC<RankingsDrawerProps> = ({ isOpen, onClose, sport,
                         </div>
 
                         {/* Content */}
-                        <div className="overflow-y-auto flex-1 custom-scrollbar bg-[#050505]/50">
+                        <div className="overflow-y-auto flex-1 custom-scrollbar bg-[#111113]/50">
                             {loading ? (
                                 <div className="flex flex-col items-center justify-center py-20 gap-3">
                                     <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />

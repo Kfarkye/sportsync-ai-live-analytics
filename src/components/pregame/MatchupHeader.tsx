@@ -87,7 +87,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
     }, [startTime]);
 
     return (
-        <div className="relative w-full overflow-hidden bg-[#050505]/60 backdrop-blur-[40px] saturate-[180%]">
+        <div className="relative w-full overflow-hidden bg-[#111113]/60 backdrop-blur-[40px] saturate-[180%]">
             {/* CINEMATIC DEPTH: Animated Mesh Gradients - "Battleground" Momentum */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
                 {/* Away Team Primary Glow (Shared Layout) */}
@@ -175,7 +175,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
                     {/* Time Block - Peak Apple Typography */}
                     <motion.div
                         layoutId="dynamic-island-clock"
-                        className="flex flex-col items-center justify-center px-4 py-2 rounded-full bg-[#050505]/60 border-[0.5px] border-white/10 backdrop-blur-[40px] saturate-[180%] shadow-[0_10px_40px_rgba(0,0,0,0.45)]"
+                        className="flex flex-col items-center justify-center px-4 py-2 rounded-full bg-[#111113]/60 border-[0.5px] border-white/10 backdrop-blur-[40px] saturate-[180%] shadow-[0_10px_40px_rgba(0,0,0,0.45)]"
                     >
                         <motion.div
                             className="relative flex items-baseline gap-0.5"

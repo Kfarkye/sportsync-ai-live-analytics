@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Terminal, Link as LinkIcon, Timer, ArrowUp } from 'lucide-react';
 import { Match, AISignals, LiveAIAnalysis, SharpData } from '@/types';
 import { isGameInProgress, isGameFinished, getPeriodDisplay, getDbMatchId } from '../../utils/matchUtils';
-import { cn } from '@/lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import { useLiveGameState } from '../../hooks/useLiveGameState';
 import { supabase } from '../../lib/supabase';
 
@@ -96,7 +96,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
     if (isLive && !sharp_data) {
         return (
             <div className="my-8">
-                <div className="bg-[#0A0A0B]/80 backdrop-blur-2xl border border-white/[0.06] rounded-3xl p-8 space-y-8 shadow-2xl overflow-hidden relative group">
+                <div className={cn("backdrop-blur-2xl p-8 space-y-8 overflow-hidden relative group", ESSENCE.card.base)}>
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent opacity-50" />
                     <div className="flex items-center justify-between relative z-10">
                         <div className="flex items-center gap-3">
@@ -163,7 +163,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
             animate={{ opacity: 1, y: 0 }}
             className="my-8"
         >
-            <div className="bg-[#0A0A0B]/90 backdrop-blur-3xl border border-white/[0.08] rounded-[2.5rem] p-8 space-y-7 shadow-2xl relative overflow-hidden group">
+            <div className={cn("backdrop-blur-3xl p-8 space-y-7 relative overflow-hidden group", ESSENCE.card.base)}>
                 {/* Visual Accent */}
                 <div className={cn(
                     "absolute -top-24 -right-24 w-64 h-64 blur-[100px] opacity-10 transition-colors duration-1000",

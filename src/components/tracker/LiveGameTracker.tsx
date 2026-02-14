@@ -777,7 +777,7 @@ const CourtSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
         );
 
     return (
-        <div className="relative w-full aspect-[2.4/1] bg-[#050505] border-b border-white/[0.04] overflow-hidden select-none">
+        <div className="relative w-full aspect-[2.4/1] bg-[#111113] border-b border-white/[0.04] overflow-hidden select-none">
             <div
                 className="absolute inset-0 opacity-10"
                 style={{
@@ -1335,7 +1335,7 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
 
                     {/* Live Ticker - Only show if Live/Final */}
                     {!vm.meta.isPregame && (
-                        <div className="px-6 py-4 border-b border-white/[0.04] flex gap-3 items-start bg-[#050505]">
+                        <div className="px-6 py-4 border-b border-white/[0.04] flex gap-3 items-start bg-[#111113]">
                             <div
                                 className={cn(
                                     'mt-1.5 w-1.5 h-1.5 rounded-full shrink-0',

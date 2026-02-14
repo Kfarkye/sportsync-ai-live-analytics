@@ -92,7 +92,7 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                                 ].map((item, i) => (
                                     <div
                                         key={i}
-                                        className="bg-[#0A0A0A] p-4 flex flex-col justify-between min-h-[72px] group/cell hover:bg-[#0C0C0C] transition-colors duration-300"
+                                        className="bg-[#111113] p-4 flex flex-col justify-between min-h-[72px] group/cell hover:bg-[#151517] transition-colors duration-300"
                                     >
                                         <span className="text-[9px] text-zinc-600 uppercase font-bold tracking-[0.15em] leading-none">
                                             {item.label}
@@ -105,7 +105,7 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                             </div>
 
                             {/* === NARRATIVE BLOCK === */}
-                            <div className="relative p-5 rounded-md bg-[#0A0A0A] border border-white/[0.04]">
+                            <div className="relative p-5 rounded-md bg-[#111113] border border-white/[0.04]">
                                 {/* Semantic Accent: Connects to parent confidence color */}
                                 <div className={`absolute left-0 top-0 w-[2px] h-full rounded-full ${tokens.bar}`} />
                                 <p className="pl-4 text-[12px] text-zinc-300 leading-[1.8] font-medium">

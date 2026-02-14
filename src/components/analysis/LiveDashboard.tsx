@@ -141,7 +141,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                                             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                                             className={cn(
                                                 "relative w-24 h-24 rounded-[28px] flex items-center justify-center mb-8",
-                                                "bg-[#0A0A0B]/80 backdrop-blur-xl border border-white/10 shadow-[inner_0_1px_0_rgba(255,255,255,0.05),_0_20px_40px_rgba(0,0,0,0.4)]",
+                                                "bg-[#111113]/80 backdrop-blur-xl border border-white/10 shadow-[inner_0_1px_0_rgba(255,255,255,0.05),_0_20px_40px_rgba(0,0,0,0.4)]",
                                             )}
                                         >
                                             <Radio
