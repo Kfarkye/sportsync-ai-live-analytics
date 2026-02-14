@@ -1365,9 +1365,17 @@ const EdgeVerdictCard: FC<{
   cardIndex?: number;
   outcome?: VerdictOutcome;
   onTrack?: (trackingKey: string, outcome: VerdictOutcome) => void;
+  hasAnalysis?: boolean;
+  analysisOpen?: boolean;
+  onToggleAnalysis?: () => void;
+  proofCount?: number;
+  proofOpen?: boolean;
+  onToggleProof?: () => void;
 }> = memo(({
   content, confidence = "high", synopsis, trackingKey,
   cardIndex = 0, outcome, onTrack,
+  hasAnalysis, analysisOpen, onToggleAnalysis,
+  proofCount = 0, proofOpen, onToggleProof,
 }) => {
   const parsedVerdict = useMemo(() => parseEdgeVerdict(content), [content]);
   const confidenceValue = useMemo(() => resolveConfidenceValue(confidence, content), [confidence, content]);
@@ -1465,6 +1473,56 @@ const EdgeVerdictCard: FC<{
             <div style={{ display: "flex", gap: 8 }} role="group" aria-label="Track verdict outcome">
               <EdgeActionButton label="Tail" active={outcome === "tail"} onClick={() => handleToggle("tail")} />
               <EdgeActionButton label="Fade" active={outcome === "fade"} onClick={() => handleToggle("fade")} />
+            </div>
+          </div>
+        )}
+
+        {/* §6 Disclosure Triggers — Analysis + Proof */}
+        {(hasAnalysis || proofCount > 0) && (
+          <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4])}>
+            <div style={{ height: "1px", background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)", margin: onTrack ? "16px 0 14px" : "20px 0 14px" }} aria-hidden="true" />
+            <div style={{ display: "flex", gap: 8 }}>
+              {hasAnalysis && (
+                <button
+                  onClick={() => { onToggleAnalysis?.(); triggerHaptic(); }}
+                  aria-expanded={analysisOpen}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    padding: "10px 0", borderRadius: 10, cursor: "pointer", transition: "all 0.2s ease",
+                    background: analysisOpen ? "rgba(52,211,153,0.06)" : "rgba(255,255,255,0.02)",
+                    border: `1px solid ${analysisOpen ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.04)"}`,
+                  }}
+                >
+                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: analysisOpen ? "rgba(52,211,153,0.7)" : "rgba(255,255,255,0.3)" }}>
+                    Analysis
+                  </span>
+                  <motion.div animate={{ rotate: analysisOpen ? 180 : 0 }} transition={SYSTEM.anim.snap}>
+                    <ChevronDown size={10} style={{ color: analysisOpen ? "rgba(52,211,153,0.5)" : "rgba(255,255,255,0.2)" }} />
+                  </motion.div>
+                </button>
+              )}
+              {proofCount > 0 && (
+                <button
+                  onClick={() => { onToggleProof?.(); triggerHaptic(); }}
+                  aria-expanded={proofOpen}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    padding: "10px 0", borderRadius: 10, cursor: "pointer", transition: "all 0.2s ease",
+                    background: proofOpen ? "rgba(52,211,153,0.06)" : "rgba(255,255,255,0.02)",
+                    border: `1px solid ${proofOpen ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.04)"}`,
+                  }}
+                >
+                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: proofOpen ? "rgba(52,211,153,0.7)" : "rgba(255,255,255,0.3)" }}>
+                    Proof
+                  </span>
+                  <span style={{ fontSize: 9, fontWeight: 500, fontFamily: "monospace", color: proofOpen ? "rgba(52,211,153,0.4)" : "rgba(255,255,255,0.15)" }}>
+                    [{proofCount}]
+                  </span>
+                  <motion.div animate={{ rotate: proofOpen ? 180 : 0 }} transition={SYSTEM.anim.snap}>
+                    <ChevronDown size={10} style={{ color: proofOpen ? "rgba(52,211,153,0.5)" : "rgba(255,255,255,0.2)" }} />
+                  </motion.div>
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -1798,7 +1856,7 @@ const EvidenceDeck: FC<{ sources: Array<{ title: string; uri: string }> }> = mem
     <div className="mt-6 w-full max-w-full overflow-hidden relative group/deck">
       <div className="flex items-center gap-2 mb-3 px-1 opacity-80">
         <div className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_4px_rgba(16,185,129,0.8)]" />
-        <span className={SYSTEM.type.label}>Evidence Ledger</span>
+        <span className={SYSTEM.type.label}>Proof</span>
         <span className="text-[9px] font-mono text-zinc-600 ml-auto">[{sources.length}]</span>
       </div>
       <div className="relative w-full">
@@ -1846,61 +1904,7 @@ EvidenceDeck.displayName = "EvidenceDeck";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §12a ANALYSIS DISCLOSURE (Progressive disclosure for post-verdict content)
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * AnalysisDisclosure — Jony Ive progressive disclosure.
- * Collapsed by default. Centered trigger between hairline dividers.
- * Content springs in from height: 0 with opacity fade.
- * Restraint: no icons in collapsed state, just quiet typography.
- */
-const AnalysisDisclosure: FC<{ children: ReactNode }> = memo(({ children }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <div className="mt-2">
-      <button
-        onClick={() => { setIsOpen(prev => !prev); triggerHaptic(); }}
-        className="group flex items-center gap-3 w-full py-4"
-        aria-expanded={isOpen}
-      >
-        <div className="flex-1 h-px bg-white/[0.04]" aria-hidden="true" />
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono font-medium text-zinc-600 uppercase tracking-[0.14em] group-hover:text-zinc-400 transition-colors">
-            {isOpen ? "Hide Analysis" : "View Analysis"}
-          </span>
-          <motion.div
-            animate={{ rotate: isOpen ? 180 : 0 }}
-            transition={SYSTEM.anim.snap}
-          >
-            <ChevronDown size={10} className="text-zinc-600 group-hover:text-zinc-400 transition-colors" />
-          </motion.div>
-        </div>
-        <div className="flex-1 h-px bg-white/[0.04]" aria-hidden="true" />
-      </button>
-
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ ...SYSTEM.anim.fluid, opacity: { duration: 0.25 } }}
-            style={{ overflow: "hidden" }}
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-});
-AnalysisDisclosure.displayName = "AnalysisDisclosure";
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// §12b MESSAGE BUBBLE
+// §12  MESSAGE BUBBLE
 // ═══════════════════════════════════════════════════════════════════════════
 
 const MessageBubble: FC<{
@@ -1979,6 +1983,12 @@ const MessageBubble: FC<{
       };
     }, [verifiedContent, isUser, message.isStreaming]);
 
+    /** Double-disclosure state — controlled from here, triggered from the pick card */
+    const [analysisOpen, setAnalysisOpen] = useState(false);
+    const [proofOpen, setProofOpen] = useState(false);
+    const toggleAnalysis = useCallback(() => setAnalysisOpen(prev => !prev), []);
+    const toggleProof = useCallback(() => setProofOpen(prev => !prev), []);
+
     const components: Components = useMemo(
       () => {
         let verdictCardIndex = 0;
@@ -2002,6 +2012,12 @@ const MessageBubble: FC<{
                   cardIndex={cardIdx}
                   outcome={verdictOutcomes?.[trackingKey] ?? message.verdictOutcome}
                   onTrack={onTrackVerdict}
+                  hasAnalysis={!!analysisContent}
+                  analysisOpen={analysisOpen}
+                  onToggleAnalysis={toggleAnalysis}
+                  proofCount={sources.length}
+                  proofOpen={proofOpen}
+                  onToggleProof={toggleProof}
                 />
               );
             }
@@ -2067,7 +2083,7 @@ const MessageBubble: FC<{
           ),
         };
       },
-      [isUser, message.id, message.verdictOutcome, verdictOutcomes, onTrackVerdict, synopses],
+      [isUser, message.id, message.verdictOutcome, verdictOutcomes, onTrackVerdict, synopses, analysisContent, analysisOpen, toggleAnalysis, sources.length, proofOpen, toggleProof],
     );
 
     return (
@@ -2078,13 +2094,6 @@ const MessageBubble: FC<{
         transition={SYSTEM.anim.fluid}
         className={cn("flex flex-col mb-10 w-full relative group isolate", isUser ? "items-end" : "items-start")}
       >
-        {!isUser && (
-          <div className="flex items-center gap-2 mb-2 ml-1 select-none">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-            <span className={cn(SYSTEM.type.mono, "text-emerald-500")}>OBSIDIAN // VERIFIED</span>
-          </div>
-        )}
-
         <div className={cn(
           "relative max-w-[92%] md:max-w-[88%]",
           isUser
@@ -2096,14 +2105,37 @@ const MessageBubble: FC<{
               {pickContent}
             </ReactMarkdown>
 
-            {/* Progressive disclosure — analysis sections collapse below the pick card */}
-            {analysisContent && (
-              <AnalysisDisclosure>
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-                  {analysisContent}
-                </ReactMarkdown>
-              </AnalysisDisclosure>
-            )}
+            {/* Analysis disclosure — controlled from pick card trigger */}
+            <AnimatePresence initial={false}>
+              {analysisOpen && analysisContent && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ ...SYSTEM.anim.fluid, opacity: { duration: 0.25 } }}
+                  style={{ overflow: "hidden" }}
+                >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+                    {analysisContent}
+                  </ReactMarkdown>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Proof disclosure — controlled from pick card trigger */}
+            <AnimatePresence initial={false}>
+              {proofOpen && showCitations && !isUser && !message.isStreaming && sources.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ ...SYSTEM.anim.fluid, opacity: { duration: 0.25 } }}
+                  style={{ overflow: "hidden" }}
+                >
+                  <EvidenceDeck sources={sources} />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {!isUser && !message.isStreaming && verifiedContent && (
@@ -2120,10 +2152,6 @@ const MessageBubble: FC<{
               {formattedTime}
             </time>
           </div>
-        )}
-
-        {showCitations && !isUser && !message.isStreaming && sources.length > 0 && (
-          <EvidenceDeck sources={sources} />
         )}
       </motion.div>
     );
