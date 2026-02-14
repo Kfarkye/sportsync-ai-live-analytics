@@ -23,7 +23,7 @@
    - AESTHETIC: Borderless "Phantom Slab" — deep void background, top specular light
    - FEATURE: Smart Odds Detection — auto-highlights (+1300, -110, u22.5)
    - LAYOUT: Hero-class typography (30px) with maximal negative space
-   - UI: "Neon Filament" confidence bar — 3px with intense glow
+   - UI: ConfidenceRing SVG radial gauge — animated fill with percent label
    - UX: Command strip footer for Tail/Fade validation
    - ADD: Watermark + Share action for screenshot readiness
 
@@ -1114,7 +1114,7 @@ const ScrollAnchor: FC<{ visible: boolean; onClick: () => void }> = memo(({ visi
         exit={{ opacity: 0, y: 8, scale: 0.9 }}
         transition={SYSTEM.anim.fluid}
         onClick={() => { triggerHaptic(); onClick(); }}
-        className="absolute bottom-48 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0A0A0B]/90 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 transition-colors"
+        className="absolute bottom-48 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#08080A]/90 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 transition-colors"
         aria-label="Scroll to latest messages"
       >
         <ArrowDown size={10} className="text-emerald-400" />
@@ -1160,7 +1160,7 @@ const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={SYSTEM.anim.fluid}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-[#0A0A0A] border border-white/10 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
+            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-[#08080A] border border-white/10 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
           >
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]" />
             <span className="text-[12px] font-medium text-white tracking-tight">{toast.message}</span>
@@ -1322,8 +1322,8 @@ const EdgeActionButton: FC<{
       onClick={onClick}
       className="flex-1 active:scale-[0.965]"
       style={{
-        display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-        padding: "14px 0", borderRadius: 14, cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        padding: "16px 0", borderRadius: 16, cursor: "pointer",
         fontSize: 12.5, fontWeight: 650, letterSpacing: "0.06em",
         textTransform: "uppercase", fontFamily: "inherit",
         WebkitTapHighlightColor: "transparent",
@@ -1396,6 +1396,7 @@ const EdgeVerdictCard: FC<{
 
   const handleToggle = useCallback((selection: "tail" | "fade") => {
     const next = outcome === selection ? null : selection;
+    triggerHaptic();
     trackAction(`verdict.${selection}`, { trackingKey, selected: next === selection, cardIndex });
     onTrack?.(trackingKey, next);
   }, [cardIndex, onTrack, outcome, trackingKey]);
@@ -1404,53 +1405,53 @@ const EdgeVerdictCard: FC<{
     <motion.div layout className="relative overflow-hidden mb-3 rounded-[20px]">
       <EdgeCardNoiseFilter filterId={grainId} />
       {/* Deep void background with subtle gradient */}
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(168deg, #151517 0%, #121214 40%, #0E0E10 100%)" }} />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(168deg, #151517 0%, #121214 40%, #0E0E10 100%)" }} aria-hidden="true" />
       {/* Border ring */}
-      <div style={{ position: "absolute", inset: 0, borderRadius: 20, border: "1px solid rgba(255,255,255,0.055)", pointerEvents: "none", zIndex: 2 }} />
+      <div style={{ position: "absolute", inset: 0, borderRadius: 20, border: "1px solid rgba(255,255,255,0.055)", pointerEvents: "none", zIndex: 2 }} aria-hidden="true" />
       {/* Grain texture */}
-      <div style={{ position: "absolute", inset: 0, opacity: 0.018, filter: `url(#${grainId})`, pointerEvents: "none", zIndex: 1 }} />
+      <div style={{ position: "absolute", inset: 0, opacity: 0.018, filter: `url(#${grainId})`, pointerEvents: "none", zIndex: 1 }} aria-hidden="true" />
       {/* Top specular light — the Porsche detail */}
-      <div style={{ position: "absolute", top: 0, left: "8%", right: "8%", height: "1px", background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.09) 40%, rgba(255,255,255,0.09) 60%, transparent 100%)", pointerEvents: "none", zIndex: 3 }} />
+      <div style={{ position: "absolute", top: 0, left: "8%", right: "8%", height: "1px", background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.09) 40%, rgba(255,255,255,0.09) 60%, transparent 100%)", pointerEvents: "none", zIndex: 3 }} aria-hidden="true" />
       {/* Warm ambient corner glow */}
-      <div style={{ position: "absolute", top: -40, left: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(212,168,83,0.025) 0%, transparent 70%)", pointerEvents: "none", zIndex: 1 }} />
+      <div style={{ position: "absolute", top: -40, left: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(212,168,83,0.025) 0%, transparent 70%)", pointerEvents: "none", zIndex: 1 }} aria-hidden="true" />
 
-      <div style={{ position: "relative", zIndex: 2, padding: "26px 24px 22px" }}>
+      <div style={{ position: "relative", zIndex: 2, padding: "28px 24px 24px" }}>
         {/* §1 Header — "The Edge" label */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0]) }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0]) }}>
           <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.24)" }}>The Edge</span>
         </div>
 
         {/* §2 Hero — Team name + spread/odds chips */}
         <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[1])}>
-          <h2 style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: "-0.03em", color: "#FAFAFA", lineHeight: 1.05 }}>
+          <p role="heading" aria-level={3} style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: "-0.03em", color: "#FAFAFA", lineHeight: 1.05 }}>
             {parsedVerdict.teamName}
-          </h2>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
             {parsedVerdict.spread !== "N/A" && (
-              <div style={{ display: "inline-flex", alignItems: "center", padding: "7px 15px", borderRadius: 10, background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.14)", boxShadow: "inset 0 1px 0 rgba(52,211,153,0.04)" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", padding: "8px 16px", borderRadius: 12, background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.14)", boxShadow: "inset 0 1px 0 rgba(52,211,153,0.04)" }}>
                 <span style={{ fontSize: 17, fontWeight: 700, fontFeatureSettings: "'tnum'", letterSpacing: "-0.02em", color: "#34D399" }}>{parsedVerdict.spread}</span>
               </div>
             )}
             {parsedVerdict.odds !== "N/A" && (
               <>
-                <span style={{ fontSize: 16, color: "rgba(255,255,255,0.14)", fontWeight: 300, marginLeft: 2, marginRight: -2 }}>(</span>
-                <div style={{ display: "inline-flex", alignItems: "center", padding: "7px 15px", borderRadius: 10, background: "rgba(212,168,83,0.05)", border: "1px solid rgba(212,168,83,0.12)", boxShadow: "inset 0 1px 0 rgba(212,168,83,0.03)" }}>
+                <span style={{ fontSize: 16, color: "rgba(255,255,255,0.14)", fontWeight: 300 }} aria-hidden="true">(</span>
+                <div style={{ display: "inline-flex", alignItems: "center", padding: "8px 16px", borderRadius: 12, background: "rgba(212,168,83,0.05)", border: "1px solid rgba(212,168,83,0.12)", boxShadow: "inset 0 1px 0 rgba(212,168,83,0.03)" }}>
                   <span style={{ fontSize: 17, fontWeight: 700, fontFeatureSettings: "'tnum'", letterSpacing: "-0.02em", color: "#D4A853" }}>{parsedVerdict.odds}</span>
                 </div>
-                <span style={{ fontSize: 16, color: "rgba(255,255,255,0.14)", fontWeight: 300, marginLeft: -2 }}>)</span>
+                <span style={{ fontSize: 16, color: "rgba(255,255,255,0.14)", fontWeight: 300 }} aria-hidden="true">)</span>
               </>
             )}
           </div>
         </div>
 
         {/* §3 Confidence Ring */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 24, padding: "18px 0 16px", borderTop: "1px solid rgba(255,255,255,0.04)", ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2]) }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 24, padding: "20px 0 16px", borderTop: "1px solid rgba(255,255,255,0.04)", ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2]) }}>
           <ConfidenceRing value={confidenceValue} size={48} startDelayMs={cardIndex * EDGE_CARD_STAGGER_PER_CARD_MS} />
-          <span style={{ fontSize: 13.5, fontWeight: 600, color: "rgba(255,255,255,0.7)", letterSpacing: "-0.01em" }}>Confidence</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.7)", letterSpacing: "-0.01em" }}>Confidence</span>
         </div>
 
         {/* §4 Synopsis */}
-        <div style={{ padding: "13px 15px", borderRadius: 12, background: "rgba(255,255,255,0.018)", border: "1px solid rgba(255,255,255,0.03)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.15)", marginTop: 2, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[3]) }}>
+        <div style={{ padding: "12px 16px", borderRadius: 12, background: "rgba(255,255,255,0.018)", border: "1px solid rgba(255,255,255,0.03)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.15)", marginTop: 4, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[3]) }}>
           <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.42)", letterSpacing: "-0.005em" }}>
             {resolvedSynopsis}
           </p>
@@ -1459,8 +1460,8 @@ const EdgeVerdictCard: FC<{
         {/* §5 Command Strip — Tail / Fade */}
         {onTrack && (
           <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4])}>
-            <div style={{ height: "1px", background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)", margin: "20px 0 18px" }} />
-            <div style={{ display: "flex", gap: 10 }} role="group" aria-label="Track verdict outcome">
+            <div style={{ height: "1px", background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)", margin: "20px 0 16px" }} aria-hidden="true" />
+            <div style={{ display: "flex", gap: 8 }} role="group" aria-label="Track verdict outcome">
               <EdgeActionButton label="Tail" active={outcome === "tail"} onClick={() => handleToggle("tail")} />
               <EdgeActionButton label="Fade" active={outcome === "fade"} onClick={() => handleToggle("fade")} />
             </div>
@@ -1468,7 +1469,7 @@ const EdgeVerdictCard: FC<{
         )}
 
         {/* Watermark */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }} aria-hidden="true">
           <span style={{ fontSize: 9.5, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.13)", padding: "4px 0" }}>
             Obsidian Receipt
           </span>
@@ -1586,7 +1587,7 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
           </motion.span>
         </AnimatePresence>
         {onStop && (
-          <button onClick={onStop} className="ml-1 text-zinc-600 hover:text-zinc-200 transition-colors" aria-label="Stop processing">
+          <button onClick={onStop} className="ml-1 p-2 -m-2 text-zinc-600 hover:text-zinc-200 transition-colors" aria-label="Stop processing">
             <StopCircle size={10} />
           </button>
         )}
@@ -1782,7 +1783,7 @@ const CitationJewel: FC<{ id: string; href?: string; indexLabel: string }> = mem
                 )}
               </div>
             </div>
-            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0A0A0B] border-r border-b border-white/10 rotate-45 rounded-[1px]" />
+            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#08080A] border-r border-b border-white/10 rotate-45 rounded-[1px]" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -2122,7 +2123,7 @@ const InputDeck: FC<{
       layout
       className={cn(
         "flex flex-col gap-2 p-1.5 relative overflow-hidden transition-colors duration-500 will-change-transform",
-        SYSTEM.geo.input, "bg-[#0A0A0B] shadow-2xl focus-within:ring-1 focus-within:ring-white/[0.06]",
+        SYSTEM.geo.input, "bg-[#08080A] shadow-2xl focus-within:ring-1 focus-within:ring-white/[0.06]",
         isVoiceMode
           ? "border-emerald-500/30 shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)]"
           : isOffline ? "border-red-500/20" : SYSTEM.surface.milled,
@@ -2630,7 +2631,9 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                       <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
                     </div>
                     <p className={SYSTEM.type.mono}>System Ready</p>
-                    <p className="text-[10px] text-zinc-700 mt-1.5 tracking-wide">Ask for edge, splits, or props</p>
+                    <p className="text-[10px] text-zinc-700 mt-1.5 tracking-wide">
+                      {deriveGamePhase(normalizedContext) === "live" ? "Games are live — ask for in-play edge" : deriveGamePhase(normalizedContext) === "postgame" ? "Markets closed — review your record" : "Pre-game window — find today's edge"}
+                    </p>
                   </motion.div>
                 ) : (
                   messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} verdictOutcomes={verdictOutcomes} showCitations={showCitations} />)
