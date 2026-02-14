@@ -151,7 +151,15 @@ const BRAND_MAP: Record<string, string> = {
   "yahoo.com": "Yahoo",
   "bleacherreport.com": "BR",
   "theathletic.com": "Athletic",
+  "vercel.app": "Live",
 };
+
+/** Path-based brand overrides for live proxy endpoints. */
+const LIVE_PATH_BRANDS: Array<[RegExp, string]> = [
+  [/\/api\/live\/scores\//, "Scores"],
+  [/\/api\/live\/odds\//, "Odds"],
+  [/\/api\/live\/pbp\//, "PBP"],
+];
 
 const EDGE_CARD_STAGE_DELAYS_MS = [0, 120, 220, 300, 480] as const;
 const EDGE_CARD_STAGGER_PER_CARD_MS = 150;
@@ -531,8 +539,7 @@ function injectSupportCitations(
       const uri = chunks[idx]?.web?.uri;
       if (!uri || seenUri.has(uri)) continue;
       seenUri.add(uri);
-      const hostname = getHostname(uri);
-      const brand = hostnameToBrand(hostname);
+      const brand = uriToBrand(uri);
       links.push({ brand, uri });
     }
 
@@ -638,8 +645,7 @@ function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
           const uri = chunks[index]?.web?.uri;
           if (uri && !seenUri.has(uri)) {
             seenUri.add(uri);
-            const hostname = getHostname(uri);
-            const brand = hostnameToBrand(hostname);
+            const brand = uriToBrand(uri);
             links.push({ brand, uri });
           }
         }
@@ -719,6 +725,18 @@ function hostnameToBrand(hostname: string): string {
 function getHostname(href?: string): string {
   if (!href) return "Source";
   try { return new URL(href).hostname.replace(/^www\./, ""); } catch { return "Source"; }
+}
+
+/** Path-aware brand resolution — checks live endpoint paths before falling back to hostname. */
+function uriToBrand(href?: string): string {
+  if (!href) return "Source";
+  try {
+    const url = new URL(href);
+    for (const [pattern, label] of LIVE_PATH_BRANDS) {
+      if (pattern.test(url.pathname)) return label;
+    }
+  } catch { /* fall through */ }
+  return hostnameToBrand(getHostname(href));
 }
 
 /**
@@ -2246,15 +2264,18 @@ const MessageBubble: FC<{
           a: ({ href, children }) => {
             const isCitation = href?.includes(CITE_MARKER);
             const cleanHref = isCitation ? href!.replace(CITE_MARKER, "") : href;
+            const isLiveSource = isCitation && LIVE_PATH_BRANDS.some(([p]) => p.test(cleanHref || ""));
             return (
               <a
                 href={cleanHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={
-                  isCitation
-                    ? "text-zinc-500 no-underline hover:text-zinc-300 transition-colors duration-200"
-                    : "text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
+                  isLiveSource
+                    ? "text-emerald-500/70 no-underline hover:text-emerald-300 transition-colors duration-200"
+                    : isCitation
+                      ? "text-zinc-500 no-underline hover:text-zinc-300 transition-colors duration-200"
+                      : "text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
                 }
               >
                 {children}

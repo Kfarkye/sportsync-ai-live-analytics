@@ -28,6 +28,13 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+/** Resolve the public origin for URL Context endpoints. */
+function getPublicOrigin() {
+    if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+    return "https://localhost:3000";
+}
+
 const CONFIG = {
     MODEL_ID: "gemini-3-flash-preview",
     THINKING_CONFIG: { includeThoughts: true, thinkingLevel: "high" },
@@ -37,7 +44,7 @@ const CONFIG = {
         "verdict", "play", "handicap", "sharp", "odds", "line",
         "lean", "lock", "parlay", "action", "value", "bet", "pick"
     ],
-    TOOLS: [{ googleSearch: {} }],
+    TOOLS: [{ googleSearch: {} }, { urlContext: {} }],
     STALE_THRESHOLD_MS: 15 * 60 * 1000,  // 15 minutes
     INJURY_CACHE_TTL_MS: 5 * 60 * 1000   // 5 minutes
 };
@@ -660,6 +667,18 @@ export default async function handler(req, res) {
             ? "\n⚠️ DATA WARNING: Context may be stale. Verify with Search."
             : "";
 
+        // Build live data URLs for URL Context grounding
+        const liveDataUrls = [];
+        if (activeContext?.match_id) {
+            const origin = getPublicOrigin();
+            const gid = encodeURIComponent(activeContext.match_id);
+            liveDataUrls.push(
+                `${origin}/api/live/scores/${gid}`,
+                `${origin}/api/live/odds/${gid}`,
+                `${origin}/api/live/pbp/${gid}`
+            );
+        }
+
         // --- SYSTEM PROMPT: VERDICT FIRST + ENTITY FIREWALL (SOFTENED) ---
         const systemInstruction = `
 <temporal>
@@ -684,19 +703,19 @@ ${staleWarning}
 You are "The Obsidian Ledger," a forensic sports analyst.
 
 **RULE 1 (ENTITY FIREWALL - STATUS CLAIMS ONLY):**
-- For **injury/availability/status claims**, you MUST cite a source [1.x].
+- For **injury/availability/status claims**, you MUST verify via grounded search.
 - **FALLBACK:** If you cannot verify a player's STATUS (playing, doubtful, out), use their role (e.g., "The starting PG", "The backup center") instead of their name.
-- For general performance stats/impact discussion, verification is encouraged but not strictly required.
 - **NO GUESSING on injury/availability.**
 
-**RULE 2 (CITATION PROTOCOL):**
-- Use high-density decimal citations [1.1], [1.2], [2.1] for every factual claim.
-- Place citations IMMEDIATELY after the fact they support.
-- Do NOT use footnotes.
+**RULE 2 (SOURCE AUTHORITY):**
+- For live scores, odds, and play-by-play: use the data from the provided live endpoint URLs. These are real-time authenticated feeds refreshed every 15-30 seconds.
+- For narratives, trends, injury context, and historical performance: use Google Search.
+- If a web search result conflicts with the live endpoint data on score, odds, or play-by-play, the live endpoint is authoritative.
 
 **RULE 3 (ZERO HALLUCINATION):**
 - You have NO internal knowledge of today's specific lines, scores, or results.
-- **MANDATORY:** Use 'googleSearch' to verify current event claims.
+- **MANDATORY:** Use grounded tools to verify current event claims.
+- Do NOT output bracket citation tokens like [1] or [1.x]. Citations are handled automatically by the grounding system.
 </prime_directive>
 
 ${MODE === "ANALYSIS" ? `
@@ -709,12 +728,12 @@ ${MODE === "ANALYSIS" ? `
 (2-3 sentences max. State the market inefficiency directly. No hedging.)
 
 **KEY FACTORS**
-- [Factor 1] [1.x]
-- [Factor 2] [1.x]
-- [Factor 3] [1.x]
+- [Factor 1]
+- [Factor 2]
+- [Factor 3]
 
 **MARKET DYNAMICS**
-(Line movement direction, opening vs current, sharp vs public splits. Cite [1.x].)
+(Line movement direction, opening vs current, sharp vs public splits.)
 
 **WHAT TO WATCH LIVE**
 IF [Trigger Condition] → THEN [Action/Adjustment]
@@ -735,19 +754,24 @@ IF [Trigger Condition] → THEN [Action/Adjustment]
 <mode_conversation>
 Role: Field Reporter. Direct, factual, concise.
 - Answer the question directly.
-- Cite all factual claims with [1.x].
 - Keep responses focused and efficient.
+- Do NOT output bracket citation tokens. Citations are handled automatically.
 </mode_conversation>
 `}
 `;
 
         // --- BUILD GEMINI HISTORY ---
-        const geminiHistory = messages.map((m) => ({
-            role: m.role === "assistant" ? "model" : "user",
-            parts: [{
-                text: typeof m.content === "string" ? m.content : JSON.stringify(m.content)
-            }]
-        }));
+        // Append live data URLs to the final user message so URL Context fetches them.
+        const geminiHistory = messages.map((m, i) => {
+            let text = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+            if (i === messages.length - 1 && m.role === "user" && liveDataUrls.length > 0) {
+                text += `\n\nLive data sources:\n${liveDataUrls.join("\n")}`;
+            }
+            return {
+                role: m.role === "assistant" ? "model" : "user",
+                parts: [{ text }]
+            };
+        });
 
         // --- STREAM RESPONSE ---
         const result = await genAI.models.generateContentStream({
