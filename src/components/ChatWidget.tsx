@@ -1473,12 +1473,13 @@ const EdgeVerdictCard: FC<{
 
   const isCaptureMode = shareState === "capturing" || shareState === "copied";
 
-  // Build headline from parsed verdict
-  const headline = parsedVerdict.teamName + (
-    parsedVerdict.spread !== "N/A" && parsedVerdict.spread !== "ML"
-      ? ` ${parsedVerdict.spread}`
-      : parsedVerdict.spread === "ML" ? " ML" : ""
-  );
+  // Decompose headline into primary (team) + qualifier (spread/ML/odds)
+  const teamDisplay = parsedVerdict.teamName;
+  const qualifier = parsedVerdict.spread !== "N/A"
+    ? parsedVerdict.spread === "ML" ? "ML" : parsedVerdict.spread
+    : null;
+  // For share text — flat string
+  const headline = teamDisplay + (qualifier ? ` ${qualifier}` : "");
 
   return (
     <motion.div layout className="relative overflow-hidden mb-3" style={{ borderRadius: OW.r }}>
@@ -1514,13 +1515,22 @@ const EdgeVerdictCard: FC<{
           }}>THE PICK</div>
         </div>
 
-        {/* §2 Hero headline */}
+        {/* §2 Hero headline — team primary, qualifier secondary */}
         <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[1])}>
           <h3 style={{
             fontFamily: OW.sans, fontSize: 28, fontWeight: 700,
             lineHeight: 1.12, letterSpacing: "-0.02em",
-            color: OW.t1, margin: "0 0 16px",
-          }}>{headline}</h3>
+            color: OW.t1, margin: 0,
+          }}>
+            {teamDisplay}
+            {qualifier && (
+              <span style={{
+                fontFamily: OW.mono, fontWeight: 500,
+                fontSize: 20, letterSpacing: "0.02em",
+                color: OW.t3, marginLeft: 10,
+              }}>{qualifier}</span>
+            )}
+          </h3>
         </div>
 
         {/* Divider */}
