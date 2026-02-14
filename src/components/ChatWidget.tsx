@@ -82,6 +82,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import type { MatchOdds } from "@/types";
+import { ESSENCE } from "@/lib/essence";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1241,121 +1242,167 @@ const SourceIcon: FC<{ url?: string; fallbackLetter: string; className?: string 
 });
 SourceIcon.displayName = "SourceIcon";
 
-const EdgeCardNoiseFilter: FC<{ filterId: string }> = memo(({ filterId }) => (
-  <svg style={{ position: "absolute", width: 0, height: 0 }} aria-hidden="true">
-    <defs>
-      <filter id={filterId}>
-        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
-        <feColorMatrix type="saturate" values="0" />
-      </filter>
-    </defs>
-  </svg>
-));
-EdgeCardNoiseFilter.displayName = "EdgeCardNoiseFilter";
+/**
+ * ─────────────────────────────────────────────────
+ * Obsidian Weissach — Design Tokens (local to EdgeVerdictCard)
+ * All values mirror ESSENCE but as inline-style primitives.
+ * ─────────────────────────────────────────────────
+ */
+const OW = {
+  card:     ESSENCE.colors.surface.card,
+  elevated: ESSENCE.colors.surface.elevated,
+  mint:     ESSENCE.colors.accent.mint,
+  mintDim:  ESSENCE.colors.accent.mintDim,
+  mintEdge: ESSENCE.colors.accent.mintEdge,
+  gold:     ESSENCE.colors.accent.gold,
+  goldDim:  ESSENCE.colors.accent.goldDim,
+  red:      ESSENCE.colors.accent.rose,
+  t1: ESSENCE.colors.text.primary,
+  t2: ESSENCE.colors.text.secondary,
+  t3: ESSENCE.colors.text.tertiary,
+  t4: ESSENCE.colors.text.muted,
+  tSys: ESSENCE.colors.text.ghost,
+  border: ESSENCE.colors.border.default,
+  sans: "'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+  mono: "'DM Mono', 'SF Mono', 'Fira Code', monospace",
+  r:  14,
+  ri: 8,
+  ease: "cubic-bezier(0.25, 0.1, 0.25, 1)",
+  shadow: ESSENCE.shadows.obsidian,
+} as const;
 
 /**
- * ConfidenceRing — SVG radial gauge with animated fill.
- * Replaces the linear ConfidenceBar with a Porsche-instrument-cluster ring.
+ * ConfidenceRing — Obsidian Weissach SVG radial gauge.
+ * 42px, 2.5px stroke, mint/gold/red by threshold.
  */
-const ConfidenceRing: FC<{
-  value: number;
-  size?: number;
-  startDelayMs?: number;
-}> = memo(({ value, size = 48, startDelayMs = 0 }) => {
-  const [animatedValue, setAnimatedValue] = useState(0);
-  const gradientIdRef = useRef(`confidenceGrad-${Math.random().toString(36).slice(2, 9)}`);
-  const radius = (size - 5) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const clampedValue = Math.max(0, Math.min(100, value));
-  const strokeDashoffset = circumference - (animatedValue / 100) * circumference;
-  const colors = useMemo(() => {
-    if (clampedValue >= 70) return { from: "#34D399", to: "#6EE7B7" };
-    if (clampedValue >= 50) return { from: "#D4A853", to: "#E8C778" };
-    return { from: "#EF4444", to: "#F87171" };
-  }, [clampedValue]);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setAnimatedValue(clampedValue), 500 + startDelayMs);
-    return () => window.clearTimeout(timer);
-  }, [clampedValue, startDelayMs]);
+const OW_RING_SZ = 42, OW_RING_SW = 2.5;
+const OW_RING_R = (OW_RING_SZ - OW_RING_SW) / 2;
+const OW_RING_C = 2 * Math.PI * OW_RING_R;
+
+const ConfidenceRing: FC<{ value: number; on: boolean }> = memo(({ value, on }) => {
+  const v = Math.max(0, Math.min(100, value));
+  const col = v >= 75 ? OW.mint : v >= 50 ? OW.gold : OW.red;
   return (
-    <div style={{ position: "relative", width: size, height: size }}>
-      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.035)" strokeWidth="3" />
-        <circle
-          cx={size / 2} cy={size / 2} r={radius} fill="none"
-          stroke={`url(#${gradientIdRef.current})`}
-          strokeWidth="3" strokeLinecap="round"
-          strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
-          style={{ transition: `stroke-dashoffset 1.4s ${EDGE_CARD_SPRING}` }}
-        />
-        <defs>
-          <linearGradient id={gradientIdRef.current} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor={colors.from} />
-            <stop offset="100%" stopColor={colors.to} />
-          </linearGradient>
-        </defs>
-      </svg>
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{
-          fontSize: 14, fontWeight: 700, fontFeatureSettings: "'tnum'",
-          color: colors.from, letterSpacing: "-0.03em",
-          opacity: animatedValue > 0 ? 1 : 0, transition: "opacity 0.4s ease 0.8s",
-          display: "flex", alignItems: "baseline", gap: 1,
-        }}>
-          {clampedValue}<span style={{ fontSize: 8, fontWeight: 600, opacity: 0.7 }}>%</span>
-        </span>
-      </div>
-    </div>
+    <svg width={OW_RING_SZ} height={OW_RING_SZ} viewBox={`0 0 ${OW_RING_SZ} ${OW_RING_SZ}`}
+      style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
+      <circle cx={OW_RING_SZ/2} cy={OW_RING_SZ/2} r={OW_RING_R} fill="none"
+        stroke="rgba(255,255,255,0.04)" strokeWidth={OW_RING_SW} />
+      <circle cx={OW_RING_SZ/2} cy={OW_RING_SZ/2} r={OW_RING_R} fill="none"
+        stroke={col} strokeWidth={OW_RING_SW}
+        strokeDasharray={OW_RING_C}
+        strokeDashoffset={on ? OW_RING_C - (v / 100) * OW_RING_C : OW_RING_C}
+        strokeLinecap="round"
+        style={{
+          transition: `stroke-dashoffset 0.9s ${OW.ease}`,
+          filter: `drop-shadow(0 0 3px ${col}25)`,
+        }} />
+      <text x={OW_RING_SZ/2} y={OW_RING_SZ/2 + 1} textAnchor="middle"
+        dominantBaseline="central" fill={col}
+        fontFamily={OW.mono} fontSize="11" fontWeight="500"
+        style={{ transform: "rotate(90deg)", transformOrigin: "center" }}>
+        {v}<tspan fontSize="7" dy="-1">%</tspan>
+      </text>
+    </svg>
   );
 });
 ConfidenceRing.displayName = "ConfidenceRing";
 
-const EdgeActionButton: FC<{
-  label: "Tail" | "Fade";
-  active: boolean;
-  onClick: () => void;
-}> = memo(({ label, active, onClick }) => {
-  const palette = label === "Tail"
-    ? { color: "#34D399", bg: "rgba(52,211,153,0.1)", border: "rgba(52,211,153,0.25)" }
-    : { color: "#EF4444", bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.2)" };
+/**
+ * SmartOdds — Obsidian Weissach odds capsule.
+ * Single odds = mint capsule. Movement = strikethrough opening → arrow → current.
+ */
+const SmartOdds: FC<{ odds: string }> = memo(({ odds }) => {
+  if (!odds || odds === "N/A") return null;
   return (
-    <button
-      onClick={onClick}
-      className="flex-1 active:scale-[0.965]"
-      style={{
-        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-        padding: "16px 0", borderRadius: 16, cursor: "pointer",
-        fontSize: 12.5, fontWeight: 650, letterSpacing: "0.06em",
-        textTransform: "uppercase", fontFamily: "inherit",
-        WebkitTapHighlightColor: "transparent",
-        transition: `all 0.25s ${EDGE_CARD_SPRING}`,
-        background: active ? palette.bg : "rgba(255,255,255,0.018)",
-        color: active ? palette.color : "rgba(255,255,255,0.28)",
-        border: active ? `1.5px solid ${palette.border}` : "1px solid rgba(255,255,255,0.045)",
-        transform: active ? "scale(0.985)" : "scale(1)",
-        boxShadow: active
-          ? `0 0 20px ${palette.bg}, inset 0 1px 0 rgba(255,255,255,0.04)`
-          : "inset 0 1px 0 rgba(255,255,255,0.02)",
-      }}
-      aria-pressed={active}
-      aria-label={label}
-    >
-      {active && (
-        label === "Tail"
-          ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg>
-          : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" /></svg>
-      )}
-      {label}
-    </button>
+    <span style={{
+      display: "inline-block", padding: "5px 14px", borderRadius: 20,
+      fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
+      letterSpacing: "0.03em", lineHeight: "20px",
+      color: OW.mint, background: OW.mintDim,
+      border: `1px solid ${OW.mintEdge}`,
+    }}>
+      {odds}
+    </span>
   );
 });
-EdgeActionButton.displayName = "EdgeActionButton";
+SmartOdds.displayName = "SmartOdds";
 
 /**
- * EdgeVerdictCard — "The Phantom Slab Receipt"
- * Borderless deep void. Top specular light. Hero typography.
- * Smart odds detection. ConfidenceRing gauge. Tail/Fade command strip.
- * Designed to screenshot as premium marketing material.
+ * MetricsPanel — Obsidian Weissach collapsible metrics tray.
+ * Confidence ring + Edge + Win prob on elevated surface.
+ */
+const MetricsPanel: FC<{
+  confidence: number; edge?: number; winProb?: number; open: boolean;
+}> = memo(({ confidence, edge, winProb, open }) => {
+  const [ringOn, setRingOn] = useState(false);
+  useEffect(() => {
+    if (open) { const t = setTimeout(() => setRingOn(true), 60); return () => clearTimeout(t); }
+    setRingOn(false);
+  }, [open]);
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateRows: open ? "1fr" : "0fr",
+      opacity: open ? 1 : 0,
+      transition: `grid-template-rows 0.3s ${OW.ease}, opacity 0.25s ${OW.ease}`,
+      marginTop: open ? 12 : 0,
+    }}>
+      <div style={{ overflow: "hidden" }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 16,
+          padding: "12px 14px",
+          background: OW.elevated, borderRadius: OW.ri,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <ConfidenceRing value={confidence} on={ringOn} />
+            <span style={{
+              fontFamily: OW.mono, fontSize: 9, fontWeight: 500,
+              letterSpacing: "0.08em", textTransform: "uppercase", color: OW.t4,
+            }}>Conf</span>
+          </div>
+          <div style={{ width: 1, height: 24, background: OW.border, flexShrink: 0 }} />
+          {edge != null && (
+            <div>
+              <div style={{
+                fontFamily: OW.mono, fontSize: 9, fontWeight: 500,
+                letterSpacing: "0.08em", textTransform: "uppercase",
+                color: OW.t4, marginBottom: 2,
+              }}>Edge</div>
+              <div style={{
+                fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
+                color: edge > 0 ? OW.mint : OW.t2,
+              }}>{edge > 0 ? "+" : ""}{edge}%</div>
+            </div>
+          )}
+          {winProb != null && (
+            <>
+              <div style={{ width: 1, height: 24, background: OW.border, flexShrink: 0 }} />
+              <div>
+                <div style={{
+                  fontFamily: OW.mono, fontSize: 9, fontWeight: 500,
+                  letterSpacing: "0.08em", textTransform: "uppercase",
+                  color: OW.t4, marginBottom: 2,
+                }}>Win</div>
+                <div style={{
+                  fontFamily: OW.mono, fontSize: 13, fontWeight: 500, color: OW.t2,
+                }}>{winProb}%</div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+MetricsPanel.displayName = "MetricsPanel";
+
+/**
+ * EdgeVerdictCard — "Obsidian Weissach" FINAL
+ *
+ * Full card: THE PICK label → Hero headline → SmartOdds capsule →
+ * Divider → Book line → Collapsible Metrics (confidence ring + edge + win) →
+ * Synopsis block (elevated bg, 1.78 line-height) →
+ * Tail/Fade/Share footer → Analysis/Proof disclosure
  */
 const EdgeVerdictCard: FC<{
   content: string;
@@ -1380,10 +1427,7 @@ const EdgeVerdictCard: FC<{
   const parsedVerdict = useMemo(() => parseEdgeVerdict(content), [content]);
   const confidenceValue = useMemo(() => resolveConfidenceValue(confidence, content), [confidence, content]);
   const [entered, setEntered] = useState(false);
-  const grainId = useMemo(
-    () => `edge-card-grain-${trackingKey.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
-    [trackingKey],
-  );
+  const [metricsOpen, setMetricsOpen] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setEntered(true), 80);
@@ -1410,77 +1454,143 @@ const EdgeVerdictCard: FC<{
     onTrack?.(trackingKey, next);
   }, [cardIndex, onTrack, outcome, trackingKey]);
 
-  return (
-    <motion.div layout className="relative overflow-hidden mb-3 rounded-[20px]">
-      <EdgeCardNoiseFilter filterId={grainId} />
-      {/* Deep void background with subtle gradient */}
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(168deg, #151517 0%, #121214 40%, #0E0E10 100%)" }} aria-hidden="true" />
-      {/* Border ring */}
-      <div style={{ position: "absolute", inset: 0, borderRadius: 20, border: "1px solid rgba(255,255,255,0.055)", pointerEvents: "none", zIndex: 2 }} aria-hidden="true" />
-      {/* Grain texture */}
-      <div style={{ position: "absolute", inset: 0, opacity: 0.018, filter: `url(#${grainId})`, pointerEvents: "none", zIndex: 1 }} aria-hidden="true" />
-      {/* Top specular light — the Porsche detail */}
-      <div style={{ position: "absolute", top: 0, left: "8%", right: "8%", height: "1px", background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.09) 40%, rgba(255,255,255,0.09) 60%, transparent 100%)", pointerEvents: "none", zIndex: 3 }} aria-hidden="true" />
-      {/* Warm ambient corner glow */}
-      <div style={{ position: "absolute", top: -40, left: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(212,168,83,0.025) 0%, transparent 70%)", pointerEvents: "none", zIndex: 1 }} aria-hidden="true" />
+  // Build headline from parsed verdict
+  const headline = parsedVerdict.teamName + (
+    parsedVerdict.spread !== "N/A" && parsedVerdict.spread !== "ML"
+      ? ` ${parsedVerdict.spread}`
+      : parsedVerdict.spread === "ML" ? " ML" : ""
+  );
 
-      <div style={{ position: "relative", zIndex: 2, padding: "28px 24px 24px" }}>
-        {/* §1 Header — "The Pick" label */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0]) }}>
-          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.24)" }}>The Pick</span>
+  return (
+    <motion.div layout className="relative overflow-hidden mb-3" style={{ borderRadius: OW.r }}>
+      {/* Obsidian card surface */}
+      <div style={{
+        position: "relative", width: "100%",
+        background: OW.card, borderRadius: OW.r,
+        padding: "32px 28px 24px",
+        boxShadow: OW.shadow, overflow: "hidden",
+        fontFamily: OW.sans, color: OW.t1,
+      }}>
+        {/* Specular edge light */}
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 1,
+          background: `linear-gradient(90deg, transparent, ${OW.mintEdge} 30%, ${OW.mintEdge} 70%, transparent)`,
+          opacity: 0.65, zIndex: 3,
+        }} aria-hidden="true" />
+
+        {/* Grain texture */}
+        <div style={{
+          position: "absolute", inset: 0, opacity: 0.018, pointerEvents: "none", zIndex: 1,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E")`,
+        }} aria-hidden="true" />
+
+        {/* §1 THE PICK label */}
+        <div style={{ ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0]) }}>
+          <div style={{
+            fontFamily: OW.mono, fontSize: 10, fontWeight: 500,
+            letterSpacing: "0.14em", textTransform: "uppercase",
+            color: OW.t4, marginBottom: 10,
+          }}>THE PICK</div>
         </div>
 
-        {/* §2 Hero — Team name + spread/odds chips */}
+        {/* §2 Hero headline */}
         <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[1])}>
-          <p role="heading" aria-level={3} style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: "-0.03em", color: "#FAFAFA", lineHeight: 1.05 }}>
-            {parsedVerdict.teamName}
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
-            {parsedVerdict.spread !== "N/A" && (
-              <div style={{ display: "inline-flex", alignItems: "center", padding: "8px 16px", borderRadius: 12, background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.14)", boxShadow: "inset 0 1px 0 rgba(52,211,153,0.04)" }}>
-                <span style={{ fontSize: 17, fontWeight: 700, fontFeatureSettings: "'tnum'", letterSpacing: "-0.02em", color: "#34D399" }}>{parsedVerdict.spread}</span>
-              </div>
-            )}
-            {parsedVerdict.odds !== "N/A" && (
+          <h3 style={{
+            fontFamily: OW.sans, fontSize: 28, fontWeight: 700,
+            lineHeight: 1.12, letterSpacing: "-0.02em",
+            color: OW.t1, margin: "0 0 16px",
+          }}>{headline}</h3>
+
+          {/* SmartOdds capsule */}
+          <SmartOdds odds={parsedVerdict.odds} />
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: 1, background: OW.border, margin: "24px 0" }} />
+
+        {/* §3 System line + metrics toggle */}
+        <div style={{ ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2]) }}>
+          <div style={{
+            display: "flex", alignItems: "center",
+            userSelect: "none",
+          }}>
+            <span style={{
+              fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+              color: OW.tSys, letterSpacing: "0.005em", lineHeight: "20px",
+            }}>
+              Best odds
+            </span>
+            <div style={{ flex: 1, minWidth: 12 }} />
+            <button onClick={() => setMetricsOpen(p => !p)} style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 26, height: 26, borderRadius: 6,
+              border: "none", cursor: "pointer", flexShrink: 0,
+              background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
+              color: OW.t4, transition: `all 0.2s ${OW.ease}`,
+            }}>
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
+                style={{
+                  transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
+                  transition: `transform 0.25s ${OW.ease}`,
+                }}>
+                <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
+                  strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* §4 Collapsible Metrics tray */}
+        <MetricsPanel
+          confidence={confidenceValue}
+          edge={confidenceValue >= 70 ? Math.round((confidenceValue - 50) * 0.3 * 10) / 10 : undefined}
+          winProb={confidenceValue >= 50 ? Math.min(99, Math.round(confidenceValue * 0.65 + 5)) : undefined}
+          open={metricsOpen}
+        />
+
+        {/* §5 Synopsis */}
+        <div style={{
+          background: OW.elevated, borderRadius: OW.ri,
+          padding: "16px 18px", marginTop: 20,
+          fontFamily: OW.sans, fontSize: 14, fontWeight: 400,
+          lineHeight: 1.78,
+          color: OW.t2, letterSpacing: "0.005em",
+          ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[3]),
+        }}>
+          {resolvedSynopsis}
+        </div>
+
+        {/* §6 Footer — Tail / Fade / Share */}
+        <div style={{ marginTop: 20, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {onTrack && (
               <>
-                <span style={{ fontSize: 16, color: "rgba(255,255,255,0.14)", fontWeight: 300 }} aria-hidden="true">(</span>
-                <div style={{ display: "inline-flex", alignItems: "center", padding: "8px 16px", borderRadius: 12, background: "rgba(212,168,83,0.05)", border: "1px solid rgba(212,168,83,0.12)", boxShadow: "inset 0 1px 0 rgba(212,168,83,0.03)" }}>
-                  <span style={{ fontSize: 17, fontWeight: 700, fontFeatureSettings: "'tnum'", letterSpacing: "-0.02em", color: "#D4A853" }}>{parsedVerdict.odds}</span>
-                </div>
-                <span style={{ fontSize: 16, color: "rgba(255,255,255,0.14)", fontWeight: 300 }} aria-hidden="true">)</span>
+                {(["Tail", "Fade"] as const).map(label => {
+                  const isTail = label === "Tail";
+                  const isActive = outcome === label.toLowerCase();
+                  return (
+                    <button key={label} onClick={() => handleToggle(label.toLowerCase() as "tail" | "fade")} style={{
+                      flex: 1, height: 42, borderRadius: OW.ri,
+                      border: `1px solid ${isActive ? (isTail ? OW.mintEdge : "rgba(239,68,68,0.15)") : OW.border}`,
+                      background: isActive ? (isTail ? OW.mintDim : "rgba(239,68,68,0.04)") : "rgba(255,255,255,0.015)",
+                      color: isActive ? (isTail ? OW.mint : OW.red) : OW.t3,
+                      fontFamily: OW.sans, fontSize: 12, fontWeight: 600,
+                      letterSpacing: "0.08em", textTransform: "uppercase",
+                      cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
+                    }}>
+                      {label}
+                    </button>
+                  );
+                })}
               </>
             )}
           </div>
         </div>
 
-        {/* §3 Confidence Ring */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 24, padding: "20px 0 16px", borderTop: "1px solid rgba(255,255,255,0.04)", ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2]) }}>
-          <ConfidenceRing value={confidenceValue} size={48} startDelayMs={cardIndex * EDGE_CARD_STAGGER_PER_CARD_MS} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.7)", letterSpacing: "-0.01em" }}>Confidence</span>
-        </div>
-
-        {/* §4 Synopsis */}
-        <div style={{ padding: "12px 16px", borderRadius: 12, background: "rgba(255,255,255,0.018)", border: "1px solid rgba(255,255,255,0.03)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.15)", marginTop: 4, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[3]) }}>
-          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.42)", letterSpacing: "-0.005em" }}>
-            {resolvedSynopsis}
-          </p>
-        </div>
-
-        {/* §5 Command Strip — Tail / Fade */}
-        {onTrack && (
-          <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4])}>
-            <div style={{ height: "1px", background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)", margin: "20px 0 16px" }} aria-hidden="true" />
-            <div style={{ display: "flex", gap: 8 }} role="group" aria-label="Track verdict outcome">
-              <EdgeActionButton label="Tail" active={outcome === "tail"} onClick={() => handleToggle("tail")} />
-              <EdgeActionButton label="Fade" active={outcome === "fade"} onClick={() => handleToggle("fade")} />
-            </div>
-          </div>
-        )}
-
-        {/* §6 Disclosure Triggers — Analysis + Proof */}
+        {/* §7 Disclosure Triggers — Analysis + Proof */}
         {(hasAnalysis || proofCount > 0) && (
-          <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4])}>
-            <div style={{ height: "1px", background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)", margin: onTrack ? "16px 0 14px" : "20px 0 14px" }} aria-hidden="true" />
+          <div style={{ ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
+            <div style={{ height: 1, background: OW.border, margin: "16px 0 14px" }} />
             <div style={{ display: "flex", gap: 8 }}>
               {hasAnalysis && (
                 <button
@@ -1488,16 +1598,16 @@ const EdgeVerdictCard: FC<{
                   aria-expanded={analysisOpen}
                   style={{
                     flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    padding: "10px 0", borderRadius: 10, cursor: "pointer", transition: "all 0.2s ease",
-                    background: analysisOpen ? "rgba(52,211,153,0.06)" : "rgba(255,255,255,0.02)",
-                    border: `1px solid ${analysisOpen ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.04)"}`,
+                    padding: "10px 0", borderRadius: OW.ri, cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
+                    background: analysisOpen ? OW.mintDim : "rgba(255,255,255,0.02)",
+                    border: `1px solid ${analysisOpen ? OW.mintEdge : OW.border}`,
                   }}
                 >
-                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: analysisOpen ? "rgba(52,211,153,0.7)" : "rgba(255,255,255,0.3)" }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: analysisOpen ? OW.mint : OW.t4 }}>
                     Analysis
                   </span>
                   <motion.div animate={{ rotate: analysisOpen ? 180 : 0 }} transition={SYSTEM.anim.snap}>
-                    <ChevronDown size={10} style={{ color: analysisOpen ? "rgba(52,211,153,0.5)" : "rgba(255,255,255,0.2)" }} />
+                    <ChevronDown size={10} style={{ color: analysisOpen ? OW.mint : OW.t4 }} />
                   </motion.div>
                 </button>
               )}
@@ -1507,26 +1617,25 @@ const EdgeVerdictCard: FC<{
                   aria-expanded={proofOpen}
                   style={{
                     flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    padding: "10px 0", borderRadius: 10, cursor: "pointer", transition: "all 0.2s ease",
-                    background: proofOpen ? "rgba(52,211,153,0.06)" : "rgba(255,255,255,0.02)",
-                    border: `1px solid ${proofOpen ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.04)"}`,
+                    padding: "10px 0", borderRadius: OW.ri, cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
+                    background: proofOpen ? OW.mintDim : "rgba(255,255,255,0.02)",
+                    border: `1px solid ${proofOpen ? OW.mintEdge : OW.border}`,
                   }}
                 >
-                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: proofOpen ? "rgba(52,211,153,0.7)" : "rgba(255,255,255,0.3)" }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: proofOpen ? OW.mint : OW.t4 }}>
                     Proof
                   </span>
-                  <span style={{ fontSize: 9, fontWeight: 500, fontFamily: "monospace", color: proofOpen ? "rgba(52,211,153,0.4)" : "rgba(255,255,255,0.15)" }}>
+                  <span style={{ fontSize: 9, fontWeight: 500, fontFamily: OW.mono, color: proofOpen ? OW.mint : OW.t4, opacity: 0.6 }}>
                     [{proofCount}]
                   </span>
                   <motion.div animate={{ rotate: proofOpen ? 180 : 0 }} transition={SYSTEM.anim.snap}>
-                    <ChevronDown size={10} style={{ color: proofOpen ? "rgba(52,211,153,0.5)" : "rgba(255,255,255,0.2)" }} />
+                    <ChevronDown size={10} style={{ color: proofOpen ? OW.mint : OW.t4 }} />
                   </motion.div>
                 </button>
               )}
             </div>
           </div>
         )}
-
       </div>
     </motion.div>
   );
