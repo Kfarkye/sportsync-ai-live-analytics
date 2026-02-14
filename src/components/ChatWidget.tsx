@@ -108,6 +108,15 @@ const REGEX_CITATION_PLACEHOLDER =
 const REGEX_SPLIT_COMMA = /[,\s]+/;
 const REGEX_MULTI_SPACE = /\s{2,}/g;
 
+/** URL fragment appended to citation links — lets the <a> renderer distinguish citations from content links. */
+const CITE_MARKER = "#__cite__";
+
+/** Strips support-injected brand citations: " per [ESPN](url#__cite__), [BBRef](url#__cite__)" */
+const REGEX_CLEAN_SUPPORT_CITE = /\s*per\s+(?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+/g;
+
+/** Pre-existing attribution phrases — if present near insertion point, skip to avoid duplication. */
+const REGEX_PREEXISTING_ATTRIBUTION = /(?:according\s+to|reported\s+by|per|via|from|says|noted\s+by|cited\s+by|sourced\s+from)\s+/i;
+
 /** Removes hydrated markdown links: [1](https://...) */
 const REGEX_CLEAN_LINK = /\s*\[\d+(?:\.\d+)?\]\([^)]+\)/g;
 /** Removes raw bracket tokens: [1] or [1.1] */
@@ -257,8 +266,18 @@ function trackAction(name: string, properties?: Record<string, unknown>): void {
 interface GroundingChunk {
   web?: { uri: string; title?: string };
 }
+interface GroundingSupport {
+  segment: {
+    startIndex: number;  // Byte offset, inclusive
+    endIndex: number;    // Byte offset, exclusive
+    text?: string;       // Actual text of the supported phrase
+  };
+  groundingChunkIndices: number[];
+  confidenceScores?: number[];  // Gemini 2.0 only, empty on 2.5+
+}
 interface GroundingMetadata {
   groundingChunks?: GroundingChunk[];
+  groundingSupports?: GroundingSupport[];
   searchEntryPoint?: { renderedContent: string };
   webSearchQueries?: string[];
 }
@@ -433,6 +452,144 @@ class LRUCache<K, V> {
   }
 }
 
+const supportCitationCache = new LRUCache<string, string>(256);
+
+/**
+ * Support-based Citation Inserter (Descending Index Algorithm).
+ *
+ * Maps Gemini groundingSupports to exact phrases in the response text,
+ * inserting brand-name markdown hyperlinks at precise word-level positions.
+ * Falls back to hydrateCitations() when groundingSupports is absent.
+ */
+function injectSupportCitations(
+  text: string,
+  metadata?: GroundingMetadata,
+  isStreaming?: boolean,
+): string {
+  // Gate: only run on completed (non-streaming) messages with valid supports
+  if (
+    !text ||
+    isStreaming ||
+    !metadata?.groundingSupports?.length ||
+    !metadata?.groundingChunks?.length
+  ) {
+    return hydrateCitations(text, metadata);
+  }
+
+  const supports = metadata.groundingSupports;
+  const chunks = metadata.groundingChunks;
+  const cacheKey = `support1:${text.length}:${text.slice(0, 64)}:${supports.length}:${chunks.length}`;
+  const cached = supportCitationCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const textBytes = encoder.encode(text);
+
+  // Step 1: Build resolved supports with character-level positions
+  interface ResolvedSupport {
+    charEnd: number;
+    links: Array<{ brand: string; uri: string }>;
+  }
+
+  const resolved: ResolvedSupport[] = [];
+
+  for (const support of supports) {
+    const { segment, groundingChunkIndices } = support;
+    if (!segment || !groundingChunkIndices?.length) continue;
+
+    const endIndex = segment.endIndex ?? 0;
+    if (endIndex <= 0 || endIndex > textBytes.length) continue;
+
+    // Resolve character position from byte offset
+    let charEnd: number;
+    const decodedPrefix = decoder.decode(textBytes.slice(0, endIndex));
+    charEnd = decodedPrefix.length;
+
+    // Verification: if segment.text is provided, confirm alignment
+    if (segment.text) {
+      const startIndex = segment.startIndex ?? 0;
+      const decodedSegment = decoder.decode(textBytes.slice(startIndex, endIndex));
+      if (decodedSegment !== segment.text) {
+        // Byte/char mismatch — fall back to indexOf
+        const found = text.indexOf(segment.text);
+        if (found === -1) continue;
+        charEnd = found + segment.text.length;
+      }
+    }
+
+    // Skip insertion points inside fenced code blocks
+    const prefix = text.slice(0, charEnd);
+    const fenceCount = (prefix.match(/```/g) || []).length;
+    if (fenceCount % 2 !== 0) continue;
+
+    // Resolve chunk indices to brand links
+    const links: Array<{ brand: string; uri: string }> = [];
+    const seenUri = new Set<string>();
+    for (const idx of groundingChunkIndices) {
+      if (idx < 0 || idx >= chunks.length) continue;
+      const uri = chunks[idx]?.web?.uri;
+      if (!uri || seenUri.has(uri)) continue;
+      seenUri.add(uri);
+      const hostname = getHostname(uri);
+      const brand = hostnameToBrand(hostname);
+      links.push({ brand, uri });
+    }
+
+    if (links.length === 0) continue;
+    resolved.push({ charEnd, links });
+  }
+
+  if (resolved.length === 0) {
+    return hydrateCitations(text, metadata);
+  }
+
+  // Step 2: Sort by charEnd DESCENDING — high-to-low for safe in-place splicing
+  resolved.sort((a, b) => b.charEnd - a.charEnd);
+
+  // Step 3: Merge overlapping supports (endIndex within 5 chars of each other)
+  const merged: ResolvedSupport[] = [];
+  for (const r of resolved) {
+    const last = merged[merged.length - 1];
+    if (last && Math.abs(last.charEnd - r.charEnd) <= 5) {
+      const existingUris = new Set(last.links.map((l) => l.uri));
+      for (const link of r.links) {
+        if (!existingUris.has(link.uri)) {
+          last.links.push(link);
+          existingUris.add(link.uri);
+        }
+      }
+    } else {
+      merged.push({ charEnd: r.charEnd, links: [...r.links] });
+    }
+  }
+
+  // Step 4: Insert citations back-to-front (descending order preserves indices)
+  let result = text;
+  for (const { charEnd, links } of merged) {
+    // Check for pre-existing attribution near insertion point
+    const lookback = result.slice(Math.max(0, charEnd - 30), charEnd);
+    const attrMatch = REGEX_PREEXISTING_ATTRIBUTION.exec(lookback);
+    if (attrMatch) {
+      const lookbackLower = lookback.toLowerCase();
+      const allAlreadyCited = links.every(
+        (l) => lookbackLower.includes(l.brand.toLowerCase()),
+      );
+      if (allAlreadyCited) continue;
+    }
+
+    const citationLinks = links
+      .map((l) => `[${l.brand}](${l.uri}${CITE_MARKER})`)
+      .join(", ");
+    const attribution = ` per ${citationLinks}`;
+    result = result.slice(0, charEnd) + attribution + result.slice(charEnd);
+  }
+
+  const cleaned = result.replace(REGEX_MULTI_SPACE, " ");
+  supportCitationCache.set(cacheKey, cleaned);
+  return cleaned;
+}
+
 const hydrationCache = new LRUCache<string, string>(256);
 
 /**
@@ -517,6 +674,7 @@ function extractTextContent(content: MessageContent): string {
 function cleanVerdictContent(text: string): string {
   if (!text) return "";
   return text
+    .replace(REGEX_CLEAN_SUPPORT_CITE, "")
     .replace(REGEX_CLEAN_LINK, "")
     .replace(REGEX_CLEAN_REF, "")
     .replace(REGEX_CLEAN_CONF, "")
@@ -1949,8 +2107,10 @@ const MessageBubble: FC<{
     const isUser = message.role === "user";
     const verifiedContent = useMemo(() => {
       const t = extractTextContent(message.content);
-      return isUser ? t : showCitations ? hydrateCitations(t, message.groundingMetadata) : t;
-    }, [message.content, message.groundingMetadata, isUser, showCitations]);
+      return isUser ? t : showCitations
+        ? injectSupportCitations(t, message.groundingMetadata, message.isStreaming)
+        : t;
+    }, [message.content, message.groundingMetadata, message.isStreaming, isUser, showCitations]);
 
     const formattedTime = useMemo(() => formatTimestamp(message.timestamp), [message.timestamp]);
 
@@ -2083,16 +2243,24 @@ const MessageBubble: FC<{
             return <strong className={cn("font-semibold", isUser ? "text-black" : "text-white")}>{children}</strong>;
           },
 
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ href, children }) => {
+            const isCitation = href?.includes(CITE_MARKER);
+            const cleanHref = isCitation ? href!.replace(CITE_MARKER, "") : href;
+            return (
+              <a
+                href={cleanHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={
+                  isCitation
+                    ? "text-zinc-500 no-underline hover:text-zinc-300 transition-colors duration-200"
+                    : "text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
+                }
+              >
+                {children}
+              </a>
+            );
+          },
 
           ul: ({ children }) => <ul className="space-y-2 mb-4 ml-1">{children}</ul>,
           li: ({ children }) => (
