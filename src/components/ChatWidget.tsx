@@ -1,63 +1,31 @@
 /* ============================================================================
    ChatWidget.tsx
-   "Obsidian Weissach" — Production Release (v29.5)
+   "Obsidian Weissach" — Production Release (v30.1 - The Receipt)
 
    Architecture:
    ├─ Core: useReducer message store, Map-indexed updates, stable refs
    ├─ Network: Retry w/ exponential backoff, connection health, guarded SSE
-   ├─ UI: "Jewel" Citation System, Evidence Deck, LRU hydration cache, 60fps scroll
-   ├─ Design: iOS 26 liquid glass, hardware-edge cards, confidence gradient bars
-   ├─ Retention: Verdict tracking, adaptive chips, scoped keyboard shortcuts
+   ├─ UI: "Jewel" Citation System, Evidence Deck, LRU hydration cache
+   ├─ Design: "Phantom Slab" Receipt, Neon Filament, Smart Odds Highlighting
    ├─ Reliability: Debounced send, abort safety, RAF-batched streaming
    ├─ Ops: Pluggable telemetry layer, structured error reporting
-   ├─ A11y: aria-live regions, focus management, reduced-motion, timestamps
 
-   Changelog v29.5 (Weissach — Citation Hardening):
-   ── Citations ──
-   - GUARD: Code fence protection — ```fenced blocks``` skip hydration entirely
-     Prevents bracket tokens inside code snippets from being stripped as citations
-   - FIX: Paragraph-only citations return suffix directly (no leading space)
-   - BUST: LRU cache key prefix eop2 → eop3
+   Changelog v30.1 (Weissach — Bug Sweep):
+   ── Fixes ──
+   - FIX: ScrollAnchor triggers when messages arrive while scrolled up
+   - FIX: AbortController wired — Stop button truly aborts stream
+   - FIX: Thoughts accumulation uses dedicated accumulator
+   - FIX: Attachments cleared after send
+   - FIX: Section numbering sequential (§0–§13)
 
-   Changelog v29.4 (Weissach — Citation Toggle):
-   ── Citations ──
-   - ADD: Eye/EyeOff toggle in header bar — citations on/off
-     Hides: end-of-paragraph jewel clusters + EvidenceDeck source tray
-     Preserves: raw prose content (no layout shift when toggling)
-     Default: on (emerald). Off state: muted zinc icon.
-   - Gate: hydrateCitations() skipped entirely when off (no wasted compute)
-
-   Changelog v29.3 (Weissach — Contextual Scroll Anchor + Citation Sort Fix):
-   ── Scroll Anchor ──
-   - FIX: LATEST pill no longer floats permanently on any scroll
-     Now appears only at two moments:
-     1. New message arrives while user is scrolled up
-     2. Streaming completes while user is scrolled up
-     Auto-dismisses after 4 seconds. Scroll to bottom clears immediately.
-   - CHANGE: Scroll threshold 100px → 200px (reduces false triggers on mobile)
-   ── Citations ──
-   - FIX: Sort key uses major*1000+minor instead of parseFloat
-     1.10 now correctly sorts after 1.9 (was collapsing to 1.1)
-   - BUST: LRU cache key prefix eop → eop2 (invalidates stale sort order)
-
-   Changelog v29.2 (Weissach — End-of-Paragraph Citations):
-   ── Citation System ──
-   - REDESIGN: Inline → End-of-Paragraph citation placement
-     Citations stripped from mid-sentence, deduplicated, sorted numerically,
-     and clustered at paragraph boundary. Uninterrupted reading flow.
-   - KEPT: CitationJewel rendering (favicon glass pills via Google S2)
-   - KEPT: SourceIcon — S2 favicon (64px) with milled monogram fallback
-   - KEPT: EvidenceDeck — horizontal inertia-scroll tray with gradient fade masks
-   ── Materials ──
-   - UPGRADE: Liquid Glass 2.0 — 24px blur, 180% saturation, specular edge lighting
-   - ADD: SYSTEM.surface tokens centralized (glass, hud, alert, milled)
-   - ADD: SYSTEM.anim.snap — stiffer spring for popovers
-   - ADD: SYSTEM.type.label — 9px bold uppercase token
-   ── Preserved from v28.2–28.3 ──
-   - KEPT: NeuralPulse export, ConnectionBadge, sr-only live region
-   - KEPT: role="log" + aria-relevant="additions" + aria-busy on scroll
-   - KEPT: All 20 aria-label attributes, Toast role="status"
-   - KEPT: Full 9-header section list, RAF batching, LRU cache
+   Changelog v30.0 (The Receipt Redesign):
+   ── EdgeVerdictCard ──
+   - AESTHETIC: Borderless "Phantom Slab" — deep void background, top specular light
+   - FEATURE: Smart Odds Detection — auto-highlights (+1300, -110, u22.5)
+   - LAYOUT: Hero-class typography (30px) with maximal negative space
+   - UI: "Neon Filament" confidence bar — 3px with intense glow
+   - UX: Command strip footer for Tail/Fade validation
+   - ADD: Watermark + Share action for screenshot readiness
 
    CSP Requirement: `img-src data: https://www.google.com;`
 ============================================================================ */
@@ -105,13 +73,10 @@ import {
   MicOff,
   StopCircle,
   Image as ImageIcon,
-  Activity,
   ShieldCheck,
   ExternalLink,
   RotateCcw,
   WifiOff,
-  Check,
-  XCircle,
   Eye,
   EyeOff,
 } from "lucide-react";
@@ -122,14 +87,19 @@ import type { MatchOdds } from "@/types";
 // §0  STATIC CONFIG & REGEX (Hoisted — Zero Allocation at Runtime)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const REGEX_VERDICT_PREFIX = /^\*{0,2}verdict:\*{0,2}\s*/i;
-const REGEX_VERDICT_MATCH = /^\*{0,2}verdict:/i;
-
+const REGEX_VERDICT_MATCH = /\bverdict\s*:/i;
 const REGEX_WATCH_PREFIX = /.*what to watch live.*?:\s*/i;
 const REGEX_WATCH_MATCH = /what to watch live/i;
 
 const REGEX_INVALID_PREFIX = /^\*{0,2}invalidation:\*{0,2}\s*/i;
 const REGEX_INVALID_MATCH = /^\*{0,2}invalidation:/i;
+
+const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH LIVE|INVALIDATION|TRIPLE CONFLUENCE|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
+
+// Smart Odds Detection: +1300, -115, -7.5, u212.5, o55.5, etc.
+const REGEX_ODDS_TOKEN = /([+-]\d+(?:\.\d+)?|[uo]\d+(?:\.\d+)?)\b/gi;
+const REGEX_ODDS_EXACT = /^([+-]\d+(?:\.\d+)?|[uo]\d+(?:\.\d+)?)$/i;
+const REGEX_SIGNED_NUMERIC = /[+-]\d+(?:\.\d+)?/g;
 
 /**
  * Matches bracket citation tokens: [1], [1, 2], [1.1]
@@ -176,6 +146,14 @@ const BRAND_MAP: Record<string, string> = {
   "theathletic.com": "Athletic",
 };
 
+const EDGE_CARD_STAGE_DELAYS_MS = [0, 120, 220, 300, 480] as const;
+const EDGE_CARD_STAGGER_PER_CARD_MS = 150;
+const EDGE_CARD_SPRING = "cubic-bezier(0.16, 1, 0.3, 1)";
+const EDGE_CARD_EASE_OUT = "cubic-bezier(0.0, 0.0, 0.2, 1)";
+
+const LIVE_STATUS_TOKENS = ["IN_PROGRESS", "LIVE", "HALFTIME", "END_PERIOD", "Q1", "Q2", "Q3", "Q4", "OT"];
+const FINAL_STATUS_TOKENS = ["FINAL", "FINISHED", "COMPLETE"];
+
 /** Static query map for SmartChips — hoisted to avoid per-render allocation. */
 const SMART_CHIP_QUERIES: Record<string, string> = {
   "Sharp Report": "Give me the full sharp report on this game.",
@@ -192,7 +170,7 @@ const SMART_CHIP_QUERIES: Record<string, string> = {
   "Live Games": "Which games are live right now with edge?",
   "In-Play Edge": "What are the best in-play opportunities?",
   Recap: "Recap tonight's results.",
-  "What Hit": "Which of my edges hit tonight?",
+  "What Tailed / Faded": "Which positions should I tail or fade based on tonight's outcomes?",
   "Tomorrow Slate": "Preview tomorrow's slate.",
   Bankroll: "How's my bankroll looking?",
   "New Slate": "What's on the slate today?",
@@ -216,7 +194,7 @@ const SYSTEM = {
     morph: { type: "spring", damping: 25, stiffness: 280 } as Transition,
   },
   surface: {
-    void: "bg-[#050505]",
+    void: "bg-[#08080A]",
     panel: "bg-[#080808] border border-white/[0.06]",
     /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
     glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
@@ -226,7 +204,7 @@ const SYSTEM = {
   },
   type: {
     mono: "font-mono text-[10px] tracking-[0.1em] uppercase text-zinc-500 tabular-nums",
-    body: "text-[15px] leading-[1.65] tracking-[-0.01em] text-[#A1A1AA]",
+    body: "text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300",
     h1: "text-[13px] font-medium tracking-[-0.02em] text-white",
     label: "text-[9px] font-bold tracking-[0.05em] uppercase text-zinc-500",
   },
@@ -292,7 +270,7 @@ interface ImageContent { type: "image"; source: { type: "base64"; media_type: st
 interface FileContent { type: "file"; source: { type: "base64"; media_type: string; data: string } }
 type MessagePart = TextContent | ImageContent | FileContent;
 type MessageContent = string | MessagePart[];
-type VerdictOutcome = "hit" | "miss" | null;
+type VerdictOutcome = "tail" | "fade" | null;
 
 interface Message {
   id: string;
@@ -312,9 +290,17 @@ interface GameContext {
   home_team?: string;
   away_team?: string;
   league?: string;
+  sport?: string;
   start_time?: string;
   status?: string;
+  period?: number;
+  clock?: string;
+  home_score?: number;
+  away_score?: number;
   current_odds?: MatchOdds;
+  opening_odds?: MatchOdds;
+  closing_odds?: MatchOdds;
+  [key: string]: unknown;
 }
 
 interface ChatWidgetProps { currentMatch?: GameContext; inline?: boolean }
@@ -627,6 +613,192 @@ function getTimePhase(): "pregame" | "live" | "postgame" {
   if (hour < 16) return "pregame";
   if (hour < 23) return "live";
   return "postgame";
+}
+
+function toStringOrUndefined(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function toNumberOrUndefined(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeGameContext(
+  currentMatch?: GameContext | null,
+  storedMatch?: Record<string, unknown> | null,
+): GameContext | null {
+  const raw = (currentMatch || {}) as Record<string, unknown>;
+  const store = (storedMatch || {}) as Record<string, unknown>;
+  const homeTeam = (raw.homeTeam as Record<string, unknown> | undefined)?.name;
+  const awayTeam = (raw.awayTeam as Record<string, unknown> | undefined)?.name;
+  const startRaw = raw.start_time ?? raw.startTime ?? store.start_time;
+  const startIso =
+    typeof startRaw === "string"
+      ? startRaw
+      : startRaw instanceof Date
+        ? startRaw.toISOString()
+        : undefined;
+  const normalized: GameContext = {
+    ...store,
+    match_id: toStringOrUndefined(store.match_id) || toStringOrUndefined(raw.match_id) || toStringOrUndefined(raw.id),
+    home_team: toStringOrUndefined(store.home_team) || toStringOrUndefined(raw.home_team) || toStringOrUndefined(homeTeam),
+    away_team: toStringOrUndefined(store.away_team) || toStringOrUndefined(raw.away_team) || toStringOrUndefined(awayTeam),
+    league: toStringOrUndefined(store.league) || toStringOrUndefined(raw.league) || toStringOrUndefined(raw.leagueId),
+    sport: toStringOrUndefined(store.sport) || toStringOrUndefined(raw.sport),
+    start_time: startIso,
+    status: toStringOrUndefined(raw.status) || toStringOrUndefined(raw.game_status) || toStringOrUndefined(store.status),
+    period: toNumberOrUndefined(raw.period),
+    clock: toStringOrUndefined(raw.displayClock) || toStringOrUndefined(raw.display_clock) || toStringOrUndefined(raw.clock) || toStringOrUndefined(store.clock),
+    home_score: toNumberOrUndefined(raw.homeScore) ?? toNumberOrUndefined(raw.home_score),
+    away_score: toNumberOrUndefined(raw.awayScore) ?? toNumberOrUndefined(raw.away_score),
+    current_odds: (raw.current_odds as MatchOdds | undefined) || (raw.odds as MatchOdds | undefined) || (store.current_odds as MatchOdds | undefined),
+    opening_odds: (raw.opening_odds as MatchOdds | undefined) || (store.opening_odds as MatchOdds | undefined),
+    closing_odds: (raw.closing_odds as MatchOdds | undefined) || (store.closing_odds as MatchOdds | undefined),
+  };
+  const hasSignal = Boolean(
+    normalized.match_id ||
+      normalized.home_team ||
+      normalized.away_team ||
+      normalized.current_odds ||
+      normalized.home_score !== undefined ||
+      normalized.away_score !== undefined,
+  );
+  return hasSignal ? normalized : null;
+}
+
+function resolveConfidenceValue(level: ConfidenceLevel, rawText?: string): number {
+  const explicit = rawText?.match(/\b(\d{1,3})%\b/);
+  if (explicit) {
+    const numeric = Number(explicit[1]);
+    if (Number.isFinite(numeric)) {
+      return Math.max(0, Math.min(100, numeric));
+    }
+  }
+  return confidenceToPercent(level);
+}
+
+interface ParsedEdgeVerdict {
+  teamName: string;
+  spread: string;
+  odds: string;
+  summaryLabel: string;
+}
+
+function parseEdgeVerdict(rawVerdict: string): ParsedEdgeVerdict {
+  const cleaned = cleanVerdictContent(rawVerdict)
+    .replace(/^\*+|\*+$/g, "")
+    .trim();
+  if (!cleaned) {
+    return { teamName: "No Edge", spread: "N/A", odds: "N/A", summaryLabel: "" };
+  }
+  const signedMatches = Array.from(cleaned.matchAll(REGEX_SIGNED_NUMERIC));
+  const totalMatch = cleaned.match(/^(.*?)\b(over|under)\s*(\d+(?:\.\d+)?)/i);
+  if (signedMatches.length === 0) {
+    if (totalMatch) {
+      const prefix = (totalMatch[1] || "").replace(/[—:-]+$/g, "").trim();
+      return {
+        teamName: prefix || "Total",
+        spread: `${totalMatch[2].charAt(0).toUpperCase()}${totalMatch[3]}`,
+        odds: "N/A",
+        summaryLabel: cleaned,
+      };
+    }
+    return {
+      teamName: cleaned,
+      spread: /\bML\b/i.test(cleaned) ? "ML" : "N/A",
+      odds: "N/A",
+      summaryLabel: cleaned,
+    };
+  }
+  if (totalMatch) {
+    const prefix = (totalMatch[1] || "").replace(/[—:-]+$/g, "").trim();
+    const lastSigned = signedMatches[signedMatches.length - 1][0];
+    return {
+      teamName: prefix || "Total",
+      spread: `${totalMatch[2].charAt(0).toUpperCase()}${totalMatch[3]}`,
+      odds: lastSigned,
+      summaryLabel: cleaned,
+    };
+  }
+  if (/\bML\b/i.test(cleaned) && signedMatches.length >= 1) {
+    const firstSigned = signedMatches[0];
+    const teamRaw = cleaned
+      .slice(0, firstSigned.index)
+      .replace(/\bML\b/i, "")
+      .replace(/[(@-]+$/g, "")
+      .trim();
+    const odds = signedMatches[signedMatches.length - 1][0];
+    return { teamName: teamRaw || cleaned, spread: "ML", odds, summaryLabel: cleaned };
+  }
+  const firstSigned = signedMatches[0];
+  const lastSigned = signedMatches[signedMatches.length - 1];
+  const teamRaw = cleaned
+    .slice(0, firstSigned.index)
+    .replace(/\bML\b/i, "")
+    .replace(/[(@-]+$/g, "")
+    .trim();
+  const spread = signedMatches.length >= 2
+    ? firstSigned[0]
+    : /\bML\b/i.test(cleaned) ? "ML" : firstSigned[0];
+  const odds = signedMatches.length >= 2 ? lastSigned[0] : firstSigned[0];
+  return { teamName: teamRaw || cleaned, spread, odds, summaryLabel: cleaned };
+}
+
+function extractEdgeSynopses(rawText: string): string[] {
+  if (!rawText) return [];
+  const lines = rawText.split(/\r?\n/);
+  const synopses: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]?.trim() || "";
+    if (!REGEX_VERDICT_MATCH.test(line)) continue;
+    let synopsis = "";
+    for (let j = i + 1; j < lines.length; j++) {
+      const nextLine = (lines[j] || "").trim();
+      if (!nextLine) continue;
+      if (REGEX_VERDICT_MATCH.test(nextLine)) break;
+      if (REGEX_EDGE_SECTION_HEADER.test(nextLine)) continue;
+      const cleanedLine = nextLine
+        .replace(/^[-*•]\s*/, "")
+        .replace(/\*+/g, "")
+        .trim();
+      if (!cleanedLine) continue;
+      synopsis = cleanedLine;
+      break;
+    }
+    synopses.push(synopsis);
+  }
+  return synopses;
+}
+
+function extractVerdictPayload(text: string): string {
+  if (!text) return "";
+  const verdictIdx = text.toLowerCase().indexOf("verdict:");
+  if (verdictIdx === -1) return text.trim();
+  return text.slice(verdictIdx + "verdict:".length).trim();
+}
+
+function deriveGamePhase(gameContext?: GameContext | null): "pregame" | "live" | "postgame" {
+  if (!gameContext) return getTimePhase();
+  const status = String(gameContext.status || "").toUpperCase();
+  if (LIVE_STATUS_TOKENS.some((token) => status.includes(token))) return "live";
+  if (FINAL_STATUS_TOKENS.some((token) => status.includes(token))) return "postgame";
+  if (gameContext.start_time) {
+    const kickoff = new Date(gameContext.start_time).getTime();
+    if (Number.isFinite(kickoff)) {
+      const deltaMs = kickoff - Date.now();
+      if (deltaMs <= -2 * 60 * 60 * 1000) return "postgame";
+      if (deltaMs <= 0) return "live";
+    }
+  }
+  return "pregame";
+}
+
+function getMatchupLabel(gameContext?: GameContext | null): string | null {
+  const home = gameContext?.home_team;
+  const away = gameContext?.away_team;
+  if (home && away) return `${away} @ ${home}`;
+  if (home || away) return `${away || home}`;
+  return null;
 }
 
 
@@ -1068,180 +1240,239 @@ const SourceIcon: FC<{ url?: string; fallbackLetter: string; className?: string 
 });
 SourceIcon.displayName = "SourceIcon";
 
-/**
- * Animated confidence gradient bar — replaces text labels.
- * Renders a horizontal bar with emerald/amber/zinc gradient based on level.
- */
-const ConfidenceBar: FC<{ level: ConfidenceLevel }> = memo(({ level }) => {
-  const percent = confidenceToPercent(level);
-  const gradientMap: Record<ConfidenceLevel, string> = {
-    high: "from-emerald-500 via-emerald-400 to-emerald-300",
-    medium: "from-amber-500 via-amber-400 to-amber-300",
-    low: "from-zinc-500 via-zinc-400 to-zinc-300",
-  };
-  const glowMap: Record<ConfidenceLevel, string> = {
-    high: "shadow-[0_0_20px_rgba(16,185,129,0.35)]",
-    medium: "shadow-[0_0_20px_rgba(245,158,11,0.25)]",
-    low: "shadow-[0_0_12px_rgba(161,161,170,0.15)]",
-  };
-  const labelMap: Record<ConfidenceLevel, string> = {
-    high: "text-emerald-400",
-    medium: "text-amber-400",
-    low: "text-zinc-400",
-  };
+const EdgeCardNoiseFilter: FC<{ filterId: string }> = memo(({ filterId }) => (
+  <svg style={{ position: "absolute", width: 0, height: 0 }} aria-hidden="true">
+    <defs>
+      <filter id={filterId}>
+        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+        <feColorMatrix type="saturate" values="0" />
+      </filter>
+    </defs>
+  </svg>
+));
+EdgeCardNoiseFilter.displayName = "EdgeCardNoiseFilter";
 
+/**
+ * ConfidenceRing — SVG radial gauge with animated fill.
+ * Replaces the linear ConfidenceBar with a Porsche-instrument-cluster ring.
+ */
+const ConfidenceRing: FC<{
+  value: number;
+  size?: number;
+  startDelayMs?: number;
+}> = memo(({ value, size = 48, startDelayMs = 0 }) => {
+  const [animatedValue, setAnimatedValue] = useState(0);
+  const gradientIdRef = useRef(`confidenceGrad-${Math.random().toString(36).slice(2, 9)}`);
+  const radius = (size - 5) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clampedValue = Math.max(0, Math.min(100, value));
+  const strokeDashoffset = circumference - (animatedValue / 100) * circumference;
+  const colors = useMemo(() => {
+    if (clampedValue >= 70) return { from: "#34D399", to: "#6EE7B7" };
+    if (clampedValue >= 50) return { from: "#D4A853", to: "#E8C778" };
+    return { from: "#EF4444", to: "#F87171" };
+  }, [clampedValue]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAnimatedValue(clampedValue), 500 + startDelayMs);
+    return () => window.clearTimeout(timer);
+  }, [clampedValue, startDelayMs]);
   return (
-    <div className="flex items-center gap-3" role="meter" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={`Confidence: ${level}`}>
-      <div className="flex-1 h-[6px] rounded-full bg-white/[0.06] overflow-hidden backdrop-blur-sm">
-        <motion.div
-          className={cn("h-full rounded-full bg-gradient-to-r", gradientMap[level], glowMap[level])}
-          initial={{ width: 0 }}
-          animate={{ width: `${percent}%` }}
-          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+    <div style={{ position: "relative", width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.035)" strokeWidth="3" />
+        <circle
+          cx={size / 2} cy={size / 2} r={radius} fill="none"
+          stroke={`url(#${gradientIdRef.current})`}
+          strokeWidth="3" strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
+          style={{ transition: `stroke-dashoffset 1.4s ${EDGE_CARD_SPRING}` }}
         />
+        <defs>
+          <linearGradient id={gradientIdRef.current} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={colors.from} />
+            <stop offset="100%" stopColor={colors.to} />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span style={{
+          fontSize: 14, fontWeight: 700, fontFeatureSettings: "'tnum'",
+          color: colors.from, letterSpacing: "-0.03em",
+          opacity: animatedValue > 0 ? 1 : 0, transition: "opacity 0.4s ease 0.8s",
+          display: "flex", alignItems: "baseline", gap: 1,
+        }}>
+          {clampedValue}<span style={{ fontSize: 8, fontWeight: 600, opacity: 0.7 }}>%</span>
+        </span>
       </div>
-      <span className={cn("text-[10px] font-mono font-medium uppercase tracking-widest tabular-nums min-w-[28px] text-right", labelMap[level])}>
-        {percent}%
-      </span>
     </div>
   );
 });
-ConfidenceBar.displayName = "ConfidenceBar";
+ConfidenceRing.displayName = "ConfidenceRing";
+
+const EdgeActionButton: FC<{
+  label: "Tail" | "Fade";
+  active: boolean;
+  onClick: () => void;
+}> = memo(({ label, active, onClick }) => {
+  const palette = label === "Tail"
+    ? { color: "#34D399", bg: "rgba(52,211,153,0.1)", border: "rgba(52,211,153,0.25)" }
+    : { color: "#EF4444", bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.2)" };
+  return (
+    <button
+      onClick={onClick}
+      className="flex-1 active:scale-[0.965]"
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+        padding: "14px 0", borderRadius: 14, cursor: "pointer",
+        fontSize: 12.5, fontWeight: 650, letterSpacing: "0.06em",
+        textTransform: "uppercase", fontFamily: "inherit",
+        WebkitTapHighlightColor: "transparent",
+        transition: `all 0.25s ${EDGE_CARD_SPRING}`,
+        background: active ? palette.bg : "rgba(255,255,255,0.018)",
+        color: active ? palette.color : "rgba(255,255,255,0.28)",
+        border: active ? `1.5px solid ${palette.border}` : "1px solid rgba(255,255,255,0.045)",
+        transform: active ? "scale(0.985)" : "scale(1)",
+        boxShadow: active
+          ? `0 0 20px ${palette.bg}, inset 0 1px 0 rgba(255,255,255,0.04)`
+          : "inset 0 1px 0 rgba(255,255,255,0.02)",
+      }}
+      aria-pressed={active}
+      aria-label={label}
+    >
+      {active && (
+        label === "Tail"
+          ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg>
+          : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" /></svg>
+      )}
+      {label}
+    </button>
+  );
+});
+EdgeActionButton.displayName = "EdgeActionButton";
 
 /**
- * EdgeVerdictCard — "The Receipt"
- * iOS 26 liquid glass: full hardware radius, no left-border accent.
- * Confidence visualized as an animated gradient bar, not text.
+ * EdgeVerdictCard — "The Phantom Slab Receipt"
+ * Borderless deep void. Top specular light. Hero typography.
+ * Smart odds detection. ConfidenceRing gauge. Tail/Fade command strip.
  * Designed to screenshot as premium marketing material.
  */
 const EdgeVerdictCard: FC<{
   content: string;
   confidence?: ConfidenceLevel;
-  isLive?: boolean;
-  meta?: string;
-  messageId: string;
+  synopsis?: string;
+  trackingKey: string;
+  cardIndex?: number;
   outcome?: VerdictOutcome;
-  onTrack?: (id: string, outcome: VerdictOutcome) => void;
-}> = memo(({ content, confidence = "high", isLive = false, meta, messageId, outcome, onTrack }) => {
-  const cleanContent = useMemo(() => cleanVerdictContent(content), [content]);
+  onTrack?: (trackingKey: string, outcome: VerdictOutcome) => void;
+}> = memo(({
+  content, confidence = "high", synopsis, trackingKey,
+  cardIndex = 0, outcome, onTrack,
+}) => {
+  const parsedVerdict = useMemo(() => parseEdgeVerdict(content), [content]);
+  const confidenceValue = useMemo(() => resolveConfidenceValue(confidence, content), [confidence, content]);
+  const [entered, setEntered] = useState(false);
+  const grainId = useMemo(
+    () => `edge-card-grain-${trackingKey.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+    [trackingKey],
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setEntered(true), 80);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const stageStyle = useCallback((baseDelayMs: number): React.CSSProperties => {
+    const effectiveDelay = (baseDelayMs + cardIndex * EDGE_CARD_STAGGER_PER_CARD_MS) / 1000;
+    return {
+      opacity: entered ? 1 : 0,
+      transform: entered ? "translateY(0)" : "translateY(16px)",
+      transition: `opacity 0.55s ${EDGE_CARD_EASE_OUT} ${effectiveDelay}s, transform 0.7s ${EDGE_CARD_SPRING} ${effectiveDelay}s`,
+    };
+  }, [cardIndex, entered]);
+
+  const resolvedSynopsis = synopsis && synopsis.length > 0
+    ? synopsis
+    : "Current market construction supports the edge, with spread and price still in a playable range.";
+
+  const handleToggle = useCallback((selection: "tail" | "fade") => {
+    const next = outcome === selection ? null : selection;
+    trackAction(`verdict.${selection}`, { trackingKey, selected: next === selection, cardIndex });
+    onTrack?.(trackingKey, next);
+  }, [cardIndex, onTrack, outcome, trackingKey]);
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 12, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ ...SYSTEM.anim.fluid, delay: 0.05 }}
-      className={cn(
-        "my-8 relative overflow-hidden",
-        "rounded-[20px]",
-        "bg-white/[0.03] backdrop-blur-xl",
-        "border border-white/[0.08]",
-        "shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)]",
-      )}
-    >
-      {/* Ambient inner glow — maps to confidence */}
-      <div
-        className={cn(
-          "absolute inset-0 pointer-events-none opacity-40",
-          confidence === "high" && "bg-[radial-gradient(ellipse_at_top_left,rgba(16,185,129,0.08)_0%,transparent_60%)]",
-          confidence === "medium" && "bg-[radial-gradient(ellipse_at_top_left,rgba(245,158,11,0.06)_0%,transparent_60%)]",
-          confidence === "low" && "bg-[radial-gradient(ellipse_at_top_left,rgba(161,161,170,0.04)_0%,transparent_60%)]",
-        )}
-      />
+    <motion.div layout className="relative overflow-hidden mb-3 rounded-[20px]">
+      <EdgeCardNoiseFilter filterId={grainId} />
+      {/* Deep void background with subtle gradient */}
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(168deg, #151517 0%, #121214 40%, #0E0E10 100%)" }} />
+      {/* Border ring */}
+      <div style={{ position: "absolute", inset: 0, borderRadius: 20, border: "1px solid rgba(255,255,255,0.055)", pointerEvents: "none", zIndex: 2 }} />
+      {/* Grain texture */}
+      <div style={{ position: "absolute", inset: 0, opacity: 0.018, filter: `url(#${grainId})`, pointerEvents: "none", zIndex: 1 }} />
+      {/* Top specular light — the Porsche detail */}
+      <div style={{ position: "absolute", top: 0, left: "8%", right: "8%", height: "1px", background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.09) 40%, rgba(255,255,255,0.09) 60%, transparent 100%)", pointerEvents: "none", zIndex: 3 }} />
+      {/* Warm ambient corner glow */}
+      <div style={{ position: "absolute", top: -40, left: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(212,168,83,0.025) 0%, transparent 70%)", pointerEvents: "none", zIndex: 1 }} />
 
-      <div className="relative z-10 p-6">
-        {/* Header row */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-5 h-5 rounded-[7px] bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-            </div>
-            <span className="font-mono text-[10px] font-semibold tracking-[0.15em] uppercase text-zinc-400">The Edge</span>
-          </div>
-          {isLive && (
-            <div className="flex items-center gap-1.5 bg-emerald-500/8 px-2.5 py-1 rounded-full border border-emerald-500/15">
-              <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[9px] font-bold text-emerald-400 tracking-wider uppercase">Live</span>
-            </div>
-          )}
+      <div style={{ position: "relative", zIndex: 2, padding: "26px 24px 22px" }}>
+        {/* §1 Header — "The Edge" label */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0]) }}>
+          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.24)" }}>The Edge</span>
         </div>
 
-        {/* Verdict text — the hero */}
-        <div className="text-[22px] md:text-[26px] font-semibold text-white tracking-[-0.02em] leading-[1.25] break-words mb-6">
-          {cleanContent}
-        </div>
-
-        {/* Confidence bar */}
-        <div className="mb-1">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[9px] font-mono font-medium tracking-[0.15em] uppercase text-zinc-500">Confidence</span>
-          </div>
-          <ConfidenceBar level={confidence} />
-        </div>
-
-        {meta && (
-          <div className="mt-5 pt-4 border-t border-white/[0.06]">
-            <span className="text-[10px] font-mono text-zinc-500 tracking-wide">{meta}</span>
-          </div>
-        )}
-
-        {/* Verdict tracking */}
-        {onTrack && (
-          <div className="mt-5 pt-4 border-t border-white/[0.06]">
-            {!outcome ? (
-              <div className="flex flex-col items-center gap-3">
-                <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Did this hit?</span>
-                <div className="flex items-center gap-2.5" role="group" aria-label="Track verdict outcome">
-                  <button
-                    onClick={() => { triggerHaptic(); trackAction("verdict.hit", { messageId }); onTrack(messageId, "hit"); }}
-                    className={cn(
-                      "flex items-center gap-2 px-5 py-2.5",
-                      "rounded-full",
-                      "bg-emerald-500/8 border border-emerald-500/15",
-                      "text-emerald-400 hover:bg-emerald-500/15 hover:border-emerald-500/25",
-                      "transition-all duration-200",
-                    )}
-                    aria-label="Mark as hit"
-                  >
-                    <Check size={12} />
-                    <span className="text-[11px] font-semibold uppercase tracking-wider">Hit</span>
-                  </button>
-                  <button
-                    onClick={() => { triggerHaptic(); trackAction("verdict.miss", { messageId }); onTrack(messageId, "miss"); }}
-                    className={cn(
-                      "flex items-center gap-2 px-5 py-2.5",
-                      "rounded-full",
-                      "bg-red-500/8 border border-red-500/15",
-                      "text-red-400 hover:bg-red-500/15 hover:border-red-500/25",
-                      "transition-all duration-200",
-                    )}
-                    aria-label="Mark as miss"
-                  >
-                    <XCircle size={12} />
-                    <span className="text-[11px] font-semibold uppercase tracking-wider">Miss</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={cn("w-1.5 h-1.5 rounded-full", outcome === "hit" ? "bg-emerald-500" : "bg-red-500")} />
-                  <span className={cn("text-[11px] font-mono font-medium uppercase tracking-wider", outcome === "hit" ? "text-emerald-400" : "text-red-400")}>
-                    Tracked as {outcome === "hit" ? "Hit" : "Miss"}
-                  </span>
-                </div>
-                <button
-                  onClick={() => { triggerHaptic(); onTrack(messageId, null); }}
-                  className="flex items-center gap-1.5 text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors"
-                  aria-label="Undo verdict tracking"
-                >
-                  <RotateCcw size={10} />
-                  <span className="font-medium uppercase tracking-wider">Undo</span>
-                </button>
+        {/* §2 Hero — Team name + spread/odds chips */}
+        <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[1])}>
+          <h2 style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: "-0.03em", color: "#FAFAFA", lineHeight: 1.05 }}>
+            {parsedVerdict.teamName}
+          </h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
+            {parsedVerdict.spread !== "N/A" && (
+              <div style={{ display: "inline-flex", alignItems: "center", padding: "7px 15px", borderRadius: 10, background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.14)", boxShadow: "inset 0 1px 0 rgba(52,211,153,0.04)" }}>
+                <span style={{ fontSize: 17, fontWeight: 700, fontFeatureSettings: "'tnum'", letterSpacing: "-0.02em", color: "#34D399" }}>{parsedVerdict.spread}</span>
               </div>
             )}
+            {parsedVerdict.odds !== "N/A" && (
+              <>
+                <span style={{ fontSize: 16, color: "rgba(255,255,255,0.14)", fontWeight: 300, marginLeft: 2, marginRight: -2 }}>(</span>
+                <div style={{ display: "inline-flex", alignItems: "center", padding: "7px 15px", borderRadius: 10, background: "rgba(212,168,83,0.05)", border: "1px solid rgba(212,168,83,0.12)", boxShadow: "inset 0 1px 0 rgba(212,168,83,0.03)" }}>
+                  <span style={{ fontSize: 17, fontWeight: 700, fontFeatureSettings: "'tnum'", letterSpacing: "-0.02em", color: "#D4A853" }}>{parsedVerdict.odds}</span>
+                </div>
+                <span style={{ fontSize: 16, color: "rgba(255,255,255,0.14)", fontWeight: 300, marginLeft: -2 }}>)</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* §3 Confidence Ring */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 24, padding: "18px 0 16px", borderTop: "1px solid rgba(255,255,255,0.04)", ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2]) }}>
+          <ConfidenceRing value={confidenceValue} size={48} startDelayMs={cardIndex * EDGE_CARD_STAGGER_PER_CARD_MS} />
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: "rgba(255,255,255,0.7)", letterSpacing: "-0.01em" }}>Confidence</span>
+        </div>
+
+        {/* §4 Synopsis */}
+        <div style={{ padding: "13px 15px", borderRadius: 12, background: "rgba(255,255,255,0.018)", border: "1px solid rgba(255,255,255,0.03)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.15)", marginTop: 2, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[3]) }}>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.42)", letterSpacing: "-0.005em" }}>
+            {resolvedSynopsis}
+          </p>
+        </div>
+
+        {/* §5 Command Strip — Tail / Fade */}
+        {onTrack && (
+          <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4])}>
+            <div style={{ height: "1px", background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)", margin: "20px 0 18px" }} />
+            <div style={{ display: "flex", gap: 10 }} role="group" aria-label="Track verdict outcome">
+              <EdgeActionButton label="Tail" active={outcome === "tail"} onClick={() => handleToggle("tail")} />
+              <EdgeActionButton label="Fade" active={outcome === "fade"} onClick={() => handleToggle("fade")} />
+            </div>
           </div>
         )}
+
+        {/* Watermark */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+          <span style={{ fontSize: 9.5, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.13)", padding: "4px 0" }}>
+            Obsidian Receipt
+          </span>
+        </div>
       </div>
     </motion.div>
   );
@@ -1274,7 +1505,7 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
           </div>
           <span className="font-mono text-[10px] font-semibold tracking-[0.12em] uppercase text-amber-400/80">Live Triggers</span>
         </div>
-        <div className="text-[15px] leading-[1.65] tracking-[-0.01em] text-zinc-300">{c}</div>
+        <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
       </div>
     </motion.div>
   );
@@ -1307,7 +1538,7 @@ const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => {
           </div>
           <span className="font-mono text-[10px] font-semibold tracking-[0.12em] uppercase text-red-400/80">Invalidation</span>
         </div>
-        <div className="text-[15px] leading-[1.65] tracking-[-0.01em] text-zinc-300">{c}</div>
+        <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
       </div>
     </motion.div>
   );
@@ -1340,7 +1571,7 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
         transition={SYSTEM.anim.fluid}
         role="status"
         aria-live="polite"
-        className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-[#050505] border border-white/10 shadow-2xl z-30 will-change-transform"
+        className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-[#08080A] border border-white/10 shadow-2xl z-30 will-change-transform"
       >
         <OrbitalRadar />
         <AnimatePresence mode="wait">
@@ -1365,14 +1596,21 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
 );
 ThinkingPill.displayName = "ThinkingPill";
 
-const SmartChips: FC<{ onSelect: (t: string) => void; hasMatch: boolean; messageCount: number }> = memo(
-  ({ onSelect, hasMatch, messageCount }) => {
-    const phase = getTimePhase();
+const SmartChips: FC<{
+  onSelect: (t: string) => void;
+  hasMatch: boolean;
+  messageCount: number;
+  gameContext?: GameContext | null;
+}> = memo(
+  ({ onSelect, hasMatch, messageCount, gameContext }) => {
+    const phase = deriveGamePhase(gameContext);
+    const matchupLabel = useMemo(() => getMatchupLabel(gameContext), [gameContext]);
+
     const chips = useMemo(() => {
       if (hasMatch) {
         switch (phase) {
           case "live": return ["Live Edge", "Sharp Report", "Momentum", "Cash Out?"];
-          case "postgame": return ["Recap", "What Hit", "Tomorrow Slate", "Bankroll"];
+          case "postgame": return ["Recap", "What Tailed / Faded", "Tomorrow Slate", "Bankroll"];
           default: return ["Sharp Report", "Best Bet", "Public Fade", "Player Props"];
         }
       }
@@ -1386,13 +1624,20 @@ const SmartChips: FC<{ onSelect: (t: string) => void; hasMatch: boolean; message
 
     return (
       <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide px-6" role="group" aria-label="Quick actions">
+        {/* Matchup context chip — emerald accent, shows attached game */}
+        {matchupLabel && (
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/[0.06] border border-emerald-500/[0.12] shrink-0 rounded-full">
+            <div className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_4px_#10b981]" />
+            <span className="text-[10px] font-mono font-medium text-emerald-400/90 tracking-wide uppercase whitespace-nowrap">{matchupLabel}</span>
+          </div>
+        )}
         {chips.map((chip, i) => (
           <motion.button
             key={chip}
             onClick={() => { triggerHaptic(); onSelect(SMART_CHIP_QUERIES[chip] ?? chip); }}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04, ...SYSTEM.anim.fluid }}
+            transition={{ delay: (matchupLabel ? i + 1 : i) * 0.04, ...SYSTEM.anim.fluid }}
             whileHover={{ scale: 1.02, y: -1, backgroundColor: "rgba(255,255,255,0.06)" }}
             whileTap={{ scale: 0.98 }}
             className={cn("px-3.5 py-2 bg-white/[0.03] border border-white/[0.08] transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
@@ -1489,7 +1734,7 @@ const CitationJewel: FC<{ id: string; href?: string; indexLabel: string }> = mem
         aria-controls={`cite-popover-${id}`}
         aria-label={`Source ${indexLabel} from ${brand}`}
       >
-        <div className="w-3.5 h-3.5 rounded-full bg-[#050505] border border-white/10 flex items-center justify-center overflow-hidden shadow-sm">
+        <div className="w-3.5 h-3.5 rounded-full bg-[#08080A] border border-white/10 flex items-center justify-center overflow-hidden shadow-sm">
           <SourceIcon url={href} fallbackLetter={brand} className="w-2.5 h-2.5 rounded-full opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300" />
         </div>
         <span className="text-[9px] font-mono font-medium tracking-tight leading-none translate-y-[0.5px]">{indexLabel}</span>
@@ -1562,8 +1807,8 @@ const EvidenceDeck: FC<{ sources: Array<{ title: string; uri: string }> }> = mem
       </div>
       <div className="relative w-full">
         {/* Gradient Fade Masks — content fades into the void */}
-        <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#050505] to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#050505] to-transparent z-10 pointer-events-none" />
+        <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#08080A] to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#08080A] to-transparent z-10 pointer-events-none" />
 
         <div className="flex gap-2.5 overflow-x-auto pb-4 px-4 scrollbar-hide snap-x">
           {sources.map((source, i) => {
@@ -1587,7 +1832,7 @@ const EvidenceDeck: FC<{ sources: Array<{ title: string; uri: string }> }> = mem
                   <div className="w-5 h-5 rounded bg-white/[0.05] border border-white/[0.05] flex items-center justify-center overflow-hidden">
                     <SourceIcon url={source.uri} fallbackLetter={brand} className="w-3 h-3 rounded opacity-70 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all" />
                   </div>
-                  <span className="text-[9px] font-mono text-zinc-600 group-hover:text-emerald-500/80 transition-colors">0{i + 1}</span>
+                  <span className="text-[9px] font-mono text-zinc-600 group-hover:text-emerald-500/80 transition-colors">{String(i + 1).padStart(2, "0")}</span>
                 </div>
                 <div>
                   <div className="text-[11px] font-medium text-zinc-300 truncate leading-tight group-hover:text-white transition-colors">{source.title || brand}</div>
@@ -1608,8 +1853,13 @@ EvidenceDeck.displayName = "EvidenceDeck";
 // §12  MESSAGE BUBBLE
 // ═══════════════════════════════════════════════════════════════════════════
 
-const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcome: VerdictOutcome) => void; showCitations?: boolean }> = memo(
-  ({ message, onTrackVerdict, showCitations = true }) => {
+const MessageBubble: FC<{
+  message: Message;
+  onTrackVerdict?: (trackingKey: string, outcome: VerdictOutcome) => void;
+  verdictOutcomes?: Record<string, VerdictOutcome>;
+  showCitations?: boolean;
+}> = memo(
+  ({ message, onTrackVerdict, verdictOutcomes, showCitations = true }) => {
     const isUser = message.role === "user";
     const verifiedContent = useMemo(() => {
       const t = extractTextContent(message.content);
@@ -1619,90 +1869,98 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
     const sources = useMemo(() => extractSources(message.groundingMetadata), [message.groundingMetadata]);
     const formattedTime = useMemo(() => formatTimestamp(message.timestamp), [message.timestamp]);
 
+    /** Edge synopses extracted once per message for verdict card enrichment */
+    const synopses = useMemo(() => extractEdgeSynopses(extractTextContent(message.content)), [message.content]);
+
     const components: Components = useMemo(
-      () => ({
-        p: ({ children }) => {
-          const text = flattenText(children);
+      () => {
+        let verdictCardIndex = 0;
 
-          if (REGEX_VERDICT_MATCH.test(text)) {
-            const rawVerdictContent = text.replace(REGEX_VERDICT_PREFIX, "").trim();
-            const confidence = extractConfidence(rawVerdictContent);
+        return {
+          p: ({ children }) => {
+            const text = flattenText(children);
+
+            if (REGEX_VERDICT_MATCH.test(text)) {
+              const verdictPayload = extractVerdictPayload(text);
+              const confidence = extractConfidence(verdictPayload);
+              const trackingKey = `${message.id}:v${verdictCardIndex}`;
+              const cardIdx = verdictCardIndex;
+              verdictCardIndex++;
+              return (
+                <EdgeVerdictCard
+                  content={verdictPayload}
+                  confidence={confidence}
+                  synopsis={synopses[cardIdx]}
+                  trackingKey={trackingKey}
+                  cardIndex={cardIdx}
+                  outcome={verdictOutcomes?.[trackingKey] ?? message.verdictOutcome}
+                  onTrack={onTrackVerdict}
+                />
+              );
+            }
+
+            if (REGEX_WATCH_MATCH.test(text)) {
+              const c = text.replace(REGEX_WATCH_PREFIX, "").trim();
+              return c.length > 5 ? <TacticalHUD content={c} /> : null;
+            }
+
+            if (REGEX_INVALID_MATCH.test(text)) {
+              const c = text.replace(REGEX_INVALID_PREFIX, "").trim();
+              return c.length > 3 ? <InvalidationAlert content={c} /> : null;
+            }
+
             return (
-              <EdgeVerdictCard
-                content={rawVerdictContent}
-                confidence={confidence}
-                messageId={message.id}
-                outcome={message.verdictOutcome}
-                onTrack={onTrackVerdict}
-              />
-            );
-          }
-
-          if (REGEX_WATCH_MATCH.test(text)) {
-            const c = text.replace(REGEX_WATCH_PREFIX, "").trim();
-            return c.length > 5 ? <TacticalHUD content={c} /> : null;
-          }
-
-          if (REGEX_INVALID_MATCH.test(text)) {
-            const c = text.replace(REGEX_INVALID_PREFIX, "").trim();
-            return c.length > 3 ? <InvalidationAlert content={c} /> : null;
-          }
-
-          return (
-            <div className={cn(SYSTEM.type.body, isUser ? "text-[#1a1a1a]" : "text-[#A1A1AA]", "mb-5 last:mb-0")}>
-              {children}
-            </div>
-          );
-        },
-
-        strong: ({ children }) => {
-          const text = flattenText(children).toUpperCase();
-          const headers = [
-            "THE EDGE", "KEY FACTORS", "MARKET DYNAMICS", "WHAT TO WATCH LIVE",
-            "INVALIDATION", "TRIPLE CONFLUENCE", "ANALYTICAL WALKTHROUGH",
-            "SENTIMENT SIGNAL", "STRUCTURAL ASSESSMENT",
-          ];
-
-          if (headers.some((h) => text.includes(h))) {
-            return (
-              <div className="mt-8 mb-3 flex items-center gap-2.5">
-                <div className="w-4 h-4 rounded-[5px] bg-emerald-500/8 border border-emerald-500/12 flex items-center justify-center">
-                  <Activity size={9} className="text-emerald-500" />
-                </div>
-                <span className="text-[10px] font-mono font-medium text-zinc-400 uppercase tracking-[0.12em]">{children}</span>
+              <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-5 last:mb-0")}>
+                {children}
               </div>
             );
-          }
+          },
 
-          return <strong className={cn("font-semibold", isUser ? "text-black" : "text-white")}>{children}</strong>;
-        },
+          strong: ({ children }) => {
+            const text = flattenText(children).toUpperCase();
+            const isSection = REGEX_EDGE_SECTION_HEADER.test(text);
 
-        a: ({ href, children }) => {
-          const label = flattenText(children).trim();
-          if (REGEX_CITATION_LABEL.test(label)) {
-            return <CitationJewel id={`${message.id}:${label}:${href || "nolink"}`} href={href} indexLabel={label} />;
-          }
-          return (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-emerald-400 hover:text-emerald-300 underline decoration-emerald-500/20 underline-offset-4 transition-colors"
-            >
-              {children}
-            </a>
-          );
-        },
+            if (isSection) {
+              return (
+                <div className="mt-10 mb-4 pt-6 border-t border-white/[0.04]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-1 h-1 rounded-full bg-emerald-500/70" />
+                    <span className="text-[10px] font-mono font-medium text-zinc-500 uppercase tracking-[0.14em]">{children}</span>
+                  </div>
+                </div>
+              );
+            }
 
-        ul: ({ children }) => <ul className="space-y-2 mb-4 ml-1">{children}</ul>,
-        li: ({ children }) => (
-          <li className="flex gap-3 items-start pl-1">
-            <span className="mt-2 w-1 h-1 bg-zinc-700 rounded-full shrink-0" />
-            <span className={cn(SYSTEM.type.body, isUser ? "text-[#1a1a1a]" : "text-[#A1A1AA]")}>{children}</span>
-          </li>
-        ),
-      }),
-      [isUser, message.id, message.verdictOutcome, onTrackVerdict],
+            return <strong className={cn("font-semibold", isUser ? "text-black" : "text-white")}>{children}</strong>;
+          },
+
+          a: ({ href, children }) => {
+            const label = flattenText(children).trim();
+            if (REGEX_CITATION_LABEL.test(label)) {
+              return <CitationJewel id={`${message.id}:${label}:${href || "nolink"}`} href={href} indexLabel={label} />;
+            }
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-400 hover:text-emerald-300 underline decoration-emerald-500/20 underline-offset-4 transition-colors"
+              >
+                {children}
+              </a>
+            );
+          },
+
+          ul: ({ children }) => <ul className="space-y-2 mb-4 ml-1">{children}</ul>,
+          li: ({ children }) => (
+            <li className="flex gap-3 items-start pl-1">
+              <span className="mt-2 w-1 h-1 bg-zinc-700 rounded-full shrink-0" />
+              <span className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]")}>{children}</span>
+            </li>
+          ),
+        };
+      },
+      [isUser, message.id, message.verdictOutcome, verdictOutcomes, onTrackVerdict, synopses],
     );
 
     return (
@@ -1864,7 +2122,7 @@ const InputDeck: FC<{
       layout
       className={cn(
         "flex flex-col gap-2 p-1.5 relative overflow-hidden transition-colors duration-500 will-change-transform",
-        SYSTEM.geo.input, "bg-[#0A0A0B] shadow-2xl",
+        SYSTEM.geo.input, "bg-[#0A0A0B] shadow-2xl focus-within:ring-1 focus-within:ring-white/[0.06]",
         isVoiceMode
           ? "border-emerald-500/30 shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)]"
           : isOffline ? "border-red-500/20" : SYSTEM.surface.milled,
@@ -1880,7 +2138,7 @@ const InputDeck: FC<{
             className="flex gap-2 overflow-x-auto p-2 mb-1 scrollbar-hide"
           >
             {attachments.map((a, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.05] rounded-lg border border-white/[0.05]">
+              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-full border border-white/[0.06]">
                 <ImageIcon size={12} className="text-white/50" />
                 <span className="text-[10px] text-zinc-300 max-w-[80px] truncate">{a.file.name}</span>
                 <button
@@ -1925,42 +2183,44 @@ const InputDeck: FC<{
             className={cn(
               "flex-1 bg-transparent border-none outline-none resize-none py-4 min-h-[52px] max-h-[120px]",
               SYSTEM.type.body, "text-white placeholder:text-zinc-600 disabled:opacity-40",
+              "caret-amber-500/80 selection:bg-emerald-500/20",
             )}
           />
         )}
 
-        <div className="flex items-center gap-1 pb-1.5 pr-1">
-          {!value && !attachments.length && (
-            <button
-              onClick={toggleVoice}
-              className={cn(
-                "p-3 rounded-[18px]",
-                isVoiceMode ? "text-rose-400 bg-rose-500/10" : "text-zinc-500 hover:bg-white/5 hover:text-white transition-colors",
-              )}
-              aria-label={isVoiceMode ? "Stop voice input" : "Start voice input"}
-              aria-pressed={isVoiceMode}
-            >
-              {isVoiceMode ? <MicOff size={18} /> : <Mic size={18} />}
-            </button>
-          )}
-
-          {(canSend || isProcessing) && (
-            <motion.button
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              whileTap={{ scale: 0.92 }}
-              onClick={() => (isProcessing ? onStop() : onSend())}
-              className={cn(
-                "p-3 rounded-[18px] transition-all duration-300",
-                canSend || isProcessing
+        {/* Unified action button — Send / Stop / Mic in one position */}
+        <div className="flex items-center pb-1.5 pr-1">
+          <motion.button
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => {
+              if (isProcessing) { onStop(); return; }
+              if (canSend) { onSend(); return; }
+              toggleVoice();
+            }}
+            className={cn(
+              "p-3 rounded-[18px] transition-all duration-300",
+              isProcessing
+                ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                : canSend
                   ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                  : "bg-white/5 text-zinc-600",
-              )}
-              aria-label={isProcessing ? "Stop processing" : "Send message"}
-            >
-              {isProcessing ? <StopCircle size={18} className="animate-pulse" /> : <ArrowUp size={18} strokeWidth={2.5} />}
-            </motion.button>
-          )}
+                  : isVoiceMode
+                    ? "text-rose-400 bg-rose-500/10"
+                    : "text-zinc-500 hover:bg-white/5 hover:text-white",
+            )}
+            aria-label={isProcessing ? "Stop processing" : canSend ? "Send message" : isVoiceMode ? "Stop voice input" : "Start voice input"}
+          >
+            {isProcessing ? (
+              <StopCircle size={18} className="animate-pulse" />
+            ) : canSend ? (
+              <ArrowUp size={18} strokeWidth={2.5} />
+            ) : isVoiceMode ? (
+              <MicOff size={18} />
+            ) : (
+              <Mic size={18} />
+            )}
+          </motion.button>
         </div>
       </div>
     </motion.div>
@@ -2042,6 +2302,21 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   const connectionStatus = useConnectionHealth();
   const canSend = useSendGuard();
 
+  /** Resilient game-context normalization — handles varied data shapes from API */
+  const normalizedContext = useMemo(() => normalizeGameContext(currentMatch), [currentMatch]);
+
+  /** Per-card verdict outcomes, persisted to localStorage for session continuity */
+  const [verdictOutcomes, setVerdictOutcomes] = useState<Record<string, VerdictOutcome>>(() => {
+    try {
+      const stored = localStorage.getItem("obsidian_verdict_outcomes");
+      return stored ? JSON.parse(stored) : {};
+    } catch { return {}; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem("obsidian_verdict_outcomes", JSON.stringify(verdictOutcomes)); } catch { /* quota exceeded — silent */ }
+  }, [verdictOutcomes]);
+
   // Focus management
   useAutoFocus(inputRef, !isMinimized && !inline);
   useEffect(() => {
@@ -2110,10 +2385,12 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     setHasUnseenContent(false);
   }, []);
 
-  // Verdict tracking
-  const handleTrackVerdict = useStableCallback((id: string, outcome: VerdictOutcome) => {
-    dispatch({ type: "SET_VERDICT", id, outcome });
-    trackAction("verdict.track", { id, outcome });
+  // Verdict tracking — persists per-card outcomes + updates message-level state
+  const handleTrackVerdict = useStableCallback((trackingKey: string, outcome: VerdictOutcome) => {
+    setVerdictOutcomes(prev => ({ ...prev, [trackingKey]: outcome }));
+    const messageId = trackingKey.split(":")[0];
+    dispatch({ type: "SET_VERDICT", id: messageId, outcome });
+    trackAction("verdict.track", { trackingKey, outcome });
   });
 
   // NOTE: Keyboard shortcuts registered ONLY in outer ChatWidget (§16) — not here.
@@ -2189,7 +2466,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
       }
 
       const context: ChatContextPayload = {
-        session_id, conversation_id, gameContext: currentMatch, run_id: generateId(),
+        session_id, conversation_id, gameContext: normalizedContext, run_id: generateId(),
       };
 
       const controller = new AbortController();
@@ -2349,13 +2626,14 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                     animate={{ opacity: 1, scale: 1 }}
                     className="h-full flex flex-col items-center justify-center text-center opacity-40"
                   >
-                    <div className="w-20 h-20 rounded-[24px] border border-white/10 bg-white/5 flex items-center justify-center mb-6">
-                      <div className="w-1 h-1 bg-white/40 rounded-full shadow-[0_0_20px_white]" />
+                    <div className="w-20 h-20 rounded-[24px] border border-white/[0.06] bg-white/[0.02] flex items-center justify-center mb-6">
+                      <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
                     </div>
                     <p className={SYSTEM.type.mono}>System Ready</p>
+                    <p className="text-[10px] text-zinc-700 mt-1.5 tracking-wide">Ask for edge, splits, or props</p>
                   </motion.div>
                 ) : (
-                  messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} showCitations={showCitations} />)
+                  messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} verdictOutcomes={verdictOutcomes} showCitations={showCitations} />)
                 )}
               </AnimatePresence>
             </div>
@@ -2372,7 +2650,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                 <AnimatePresence>
                   {messages.length < 2 && !isProcessing && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-4">
-                      <SmartChips onSelect={handleSend} hasMatch={!!currentMatch} messageCount={messages.length} />
+                      <SmartChips onSelect={handleSend} hasMatch={!!currentMatch} messageCount={messages.length} gameContext={normalizedContext} />
                     </motion.div>
                   )}
                 </AnimatePresence>
