@@ -17,6 +17,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { BettingPickSchema } from "../lib/schemas/picks.js";
+import { generateSatelliteSlug } from "./lib/hmac.js";
 
 // =============================================================================
 // INITIALIZATION
@@ -681,15 +682,19 @@ export default async function handler(req, res) {
             ? "\n⚠️ DATA WARNING: Context may be stale. Verify with Search."
             : "";
 
-        // Build live data URLs for URL Context grounding
+        // Build HMAC-signed satellite URLs for URL Context grounding
         const liveDataUrls = [];
         if (activeContext?.match_id) {
             const origin = getPublicOrigin();
-            const gid = encodeURIComponent(activeContext.match_id);
+            const gid = activeContext.match_id;
+            const scoreSlug = generateSatelliteSlug(gid, "scores");
+            const oddsSlug = generateSatelliteSlug(gid, "odds");
+            const pbpSlug = generateSatelliteSlug(gid, "pbp");
+            const gParam = encodeURIComponent(gid);
             liveDataUrls.push(
-                `${origin}/api/live/scores/${gid}`,
-                `${origin}/api/live/odds/${gid}`,
-                `${origin}/api/live/pbp/${gid}`
+                `${origin}/api/live/scores/${scoreSlug}?g=${gParam}`,
+                `${origin}/api/live/odds/${oddsSlug}?g=${gParam}`,
+                `${origin}/api/live/pbp/${pbpSlug}?g=${gParam}`
             );
         }
 

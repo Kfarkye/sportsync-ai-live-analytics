@@ -2,9 +2,13 @@
    /api/live/pbp/[game_id]
    Public proxy — serves play-by-play + stat leaders from Supabase live_game_state.
    Designed for Gemini URL Context: publicly accessible, minimal payload, GET only.
+
+   HMAC: When SATELLITE_SECRET is set, [game_id] is an HMAC slug and the actual
+   game ID comes from ?g= query param. Falls back to [game_id]-as-gameId when unset.
 ============================================================================ */
 import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit } from "../../lib/rateLimit.js";
+import { validateSatelliteSlug } from "../../lib/hmac.js";
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -21,16 +25,25 @@ export default async function handler(req, res) {
         return res.status(429).json({ error: "Rate limit exceeded" });
     }
 
-    const { game_id } = req.query;
-    if (!game_id || typeof game_id !== "string" || !GAME_ID_RE.test(game_id)) {
+    const slug = req.query.game_id;
+    if (!slug || typeof slug !== "string") {
+        return res.status(400).json({ error: "Invalid request" });
+    }
+
+    const gameId = (typeof req.query.g === "string" && req.query.g) || slug;
+    if (!GAME_ID_RE.test(gameId)) {
         return res.status(400).json({ error: "Invalid game_id" });
+    }
+
+    if (!validateSatelliteSlug(slug, gameId, "pbp")) {
+        return res.status(403).json({ error: "Invalid or expired slug" });
     }
 
     try {
         const { data, error } = await supabase
             .from("live_game_state")
             .select("id, home_team, away_team, home_score, away_score, leaders, play_by_play, updated_at")
-            .eq("id", game_id)
+            .eq("id", gameId)
             .maybeSingle();
 
         if (error) throw error;
@@ -41,6 +54,7 @@ export default async function handler(req, res) {
             ? data.play_by_play.slice(-10)
             : [];
 
+        res.setHeader("Content-Type", "application/json");
         res.setHeader("Cache-Control", "public, max-age=15, stale-while-revalidate=30");
         return res.status(200).json({
             game_id: data.id,
