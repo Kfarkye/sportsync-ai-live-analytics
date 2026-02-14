@@ -6,7 +6,7 @@
    ├─ Core: useReducer message store, Map-indexed updates, stable refs
    ├─ Network: Retry w/ exponential backoff, connection health, guarded SSE
    ├─ UI: "Jewel" Citation System, Evidence Deck, LRU hydration cache
-   ├─ Design: "Phantom Slab" Receipt, Neon Filament, Smart Odds Highlighting
+   ├─ Design: "The Pick" Card, ConfidenceRing, Progressive Disclosure, Smart Odds
    ├─ Reliability: Debounced send, abort safety, RAF-batched streaming
    ├─ Ops: Pluggable telemetry layer, structured error reporting
 
@@ -79,6 +79,7 @@ import {
   WifiOff,
   Eye,
   EyeOff,
+  ChevronDown,
 } from "lucide-react";
 import type { MatchOdds } from "@/types";
 
@@ -1416,9 +1417,9 @@ const EdgeVerdictCard: FC<{
       <div style={{ position: "absolute", top: -40, left: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(212,168,83,0.025) 0%, transparent 70%)", pointerEvents: "none", zIndex: 1 }} aria-hidden="true" />
 
       <div style={{ position: "relative", zIndex: 2, padding: "28px 24px 24px" }}>
-        {/* §1 Header — "The Edge" label */}
+        {/* §1 Header — "The Pick" label */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0]) }}>
-          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.24)" }}>The Edge</span>
+          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.24)" }}>The Pick</span>
         </div>
 
         {/* §2 Hero — Team name + spread/odds chips */}
@@ -1468,12 +1469,6 @@ const EdgeVerdictCard: FC<{
           </div>
         )}
 
-        {/* Watermark */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }} aria-hidden="true">
-          <span style={{ fontSize: 9.5, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.13)", padding: "4px 0" }}>
-            Obsidian Receipt
-          </span>
-        </div>
       </div>
     </motion.div>
   );
@@ -1851,7 +1846,61 @@ EvidenceDeck.displayName = "EvidenceDeck";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §12  MESSAGE BUBBLE
+// §12a ANALYSIS DISCLOSURE (Progressive disclosure for post-verdict content)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * AnalysisDisclosure — Jony Ive progressive disclosure.
+ * Collapsed by default. Centered trigger between hairline dividers.
+ * Content springs in from height: 0 with opacity fade.
+ * Restraint: no icons in collapsed state, just quiet typography.
+ */
+const AnalysisDisclosure: FC<{ children: ReactNode }> = memo(({ children }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => { setIsOpen(prev => !prev); triggerHaptic(); }}
+        className="group flex items-center gap-3 w-full py-4"
+        aria-expanded={isOpen}
+      >
+        <div className="flex-1 h-px bg-white/[0.04]" aria-hidden="true" />
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono font-medium text-zinc-600 uppercase tracking-[0.14em] group-hover:text-zinc-400 transition-colors">
+            {isOpen ? "Hide Analysis" : "View Analysis"}
+          </span>
+          <motion.div
+            animate={{ rotate: isOpen ? 180 : 0 }}
+            transition={SYSTEM.anim.snap}
+          >
+            <ChevronDown size={10} className="text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+          </motion.div>
+        </div>
+        <div className="flex-1 h-px bg-white/[0.04]" aria-hidden="true" />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ ...SYSTEM.anim.fluid, opacity: { duration: 0.25 } }}
+            style={{ overflow: "hidden" }}
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+});
+AnalysisDisclosure.displayName = "AnalysisDisclosure";
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §12b MESSAGE BUBBLE
 // ═══════════════════════════════════════════════════════════════════════════
 
 const MessageBubble: FC<{
@@ -1872,6 +1921,63 @@ const MessageBubble: FC<{
 
     /** Edge synopses extracted once per message for verdict card enrichment */
     const synopses = useMemo(() => extractEdgeSynopses(extractTextContent(message.content)), [message.content]);
+
+    /**
+     * Progressive Disclosure: Split content at verdict boundary.
+     * The pick card is always visible. The analytical breakdown
+     * (Key Factors, Market Dynamics, etc.) collapses behind disclosure.
+     * During streaming, show everything — split only on completed messages.
+     */
+    const { pickContent, analysisContent } = useMemo(() => {
+      if (isUser || !verifiedContent || message.isStreaming) {
+        return { pickContent: verifiedContent, analysisContent: null };
+      }
+
+      const lines = verifiedContent.split("\n");
+      let verdictLineIndex = -1;
+
+      for (let i = 0; i < lines.length; i++) {
+        if (REGEX_VERDICT_MATCH.test(lines[i])) {
+          verdictLineIndex = i;
+          break;
+        }
+      }
+
+      if (verdictLineIndex === -1) return { pickContent: verifiedContent, analysisContent: null };
+
+      // Walk past the verdict line and any immediate continuation (synopsis text)
+      // until we hit an empty line followed by a section header, or a section header directly
+      let analysisStartIndex = -1;
+      for (let i = verdictLineIndex + 1; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        if (!trimmed) continue;
+        const stripped = trimmed.replace(/\*+/g, "").trim().toUpperCase();
+        if (REGEX_EDGE_SECTION_HEADER.test(stripped)) {
+          analysisStartIndex = i;
+          break;
+        }
+        // Non-header content after verdict — could be synopsis or bridging text.
+        // Check if the NEXT non-empty line is a section header; if so, include this with the pick.
+        let nextNonEmpty = "";
+        for (let j = i + 1; j < lines.length; j++) {
+          if (lines[j].trim()) { nextNonEmpty = lines[j].trim().replace(/\*+/g, "").trim().toUpperCase(); break; }
+        }
+        if (REGEX_EDGE_SECTION_HEADER.test(nextNonEmpty)) {
+          // This line is bridging text between verdict and first section — keep with pick
+          continue;
+        }
+      }
+
+      if (analysisStartIndex === -1) return { pickContent: verifiedContent, analysisContent: null };
+
+      const pick = lines.slice(0, analysisStartIndex).join("\n").trim();
+      const analysis = lines.slice(analysisStartIndex).join("\n").trim();
+
+      return {
+        pickContent: pick || verifiedContent,
+        analysisContent: analysis || null,
+      };
+    }, [verifiedContent, isUser, message.isStreaming]);
 
     const components: Components = useMemo(
       () => {
@@ -1974,10 +2080,8 @@ const MessageBubble: FC<{
       >
         {!isUser && (
           <div className="flex items-center gap-2 mb-2 ml-1 select-none">
-            <div className={cn("w-1.5 h-1.5 rounded-full", sources.length > 0 ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-zinc-600")} />
-            <span className={cn(SYSTEM.type.mono, sources.length > 0 ? "text-emerald-500" : "text-zinc-500")}>
-              {sources.length > 0 ? "OBSIDIAN // VERIFIED" : "OBSIDIAN"}
-            </span>
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+            <span className={cn(SYSTEM.type.mono, "text-emerald-500")}>OBSIDIAN // VERIFIED</span>
           </div>
         )}
 
@@ -1989,8 +2093,17 @@ const MessageBubble: FC<{
         )}>
           <div className={cn("prose prose-invert max-w-none", isUser && "prose-p:text-black/90")}>
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-              {verifiedContent}
+              {pickContent}
             </ReactMarkdown>
+
+            {/* Progressive disclosure — analysis sections collapse below the pick card */}
+            {analysisContent && (
+              <AnalysisDisclosure>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+                  {analysisContent}
+                </ReactMarkdown>
+              </AnalysisDisclosure>
+            )}
           </div>
 
           {!isUser && !message.isStreaming && verifiedContent && (
