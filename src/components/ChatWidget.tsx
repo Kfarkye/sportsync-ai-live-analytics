@@ -1344,7 +1344,7 @@ const SmartOdds: FC<{ odds: string }> = memo(({ odds }) => {
   if (!tokens || tokens.length <= 1) {
     return (
       <span style={{
-        display: "inline-block", padding: "5px 14px", borderRadius: 20,
+        display: "inline-block", padding: "6px 16px", borderRadius: 20,
         fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
         letterSpacing: "0.03em", lineHeight: "20px",
         color: OW.mint, background: OW.mintDim,
@@ -1364,7 +1364,7 @@ const SmartOdds: FC<{ odds: string }> = memo(({ odds }) => {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <span style={{
-        display: "inline-block", padding: "5px 11px", borderRadius: 20,
+        display: "inline-block", padding: "6px 12px", borderRadius: 20,
         fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
         letterSpacing: "0.03em", lineHeight: "20px",
         color: OW.t4, background: "rgba(255,255,255,0.02)",
@@ -1380,7 +1380,7 @@ const SmartOdds: FC<{ odds: string }> = memo(({ odds }) => {
           strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <span style={{
-        display: "inline-block", padding: "5px 14px", borderRadius: 20,
+        display: "inline-block", padding: "6px 16px", borderRadius: 20,
         fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
         letterSpacing: "0.03em", lineHeight: "20px",
         color: up ? OW.mint : OW.gold,
@@ -1433,7 +1433,7 @@ const MetricsPanel: FC<{
       <div style={{ overflow: "hidden" }}>
         <div style={{
           display: "flex", alignItems: "center", gap: 16,
-          padding: "12px 14px",
+          padding: "12px 16px",
           background: OW.elevated, borderRadius: OW.ri,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1449,7 +1449,7 @@ const MetricsPanel: FC<{
               <div style={{
                 fontFamily: OW.mono, fontSize: 9, fontWeight: 500,
                 letterSpacing: "0.08em", textTransform: "uppercase",
-                color: OW.t4, marginBottom: 2,
+                color: OW.t4, marginBottom: 4,
               }}>Edge</div>
               <div style={{
                 fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
@@ -1464,7 +1464,7 @@ const MetricsPanel: FC<{
                 <div style={{
                   fontFamily: OW.mono, fontSize: 9, fontWeight: 500,
                   letterSpacing: "0.08em", textTransform: "uppercase",
-                  color: OW.t4, marginBottom: 2,
+                  color: OW.t4, marginBottom: 4,
                 }}>Win</div>
                 <div style={{
                   fontFamily: OW.mono, fontSize: 13, fontWeight: 500, color: OW.t2,
@@ -1584,7 +1584,7 @@ const EdgeVerdictCard: FC<{
       <div style={{
         position: "relative", width: "100%",
         background: OW.card, borderRadius: OW.r,
-        padding: "32px 28px 24px",
+        padding: "32px 24px 24px",
         boxShadow: OW.shadow, overflow: "hidden",
         fontFamily: OW.sans, color: OW.t1,
       }}>
@@ -1608,7 +1608,7 @@ const EdgeVerdictCard: FC<{
           <div style={{
             fontFamily: OW.mono, fontSize: 10, fontWeight: 500,
             letterSpacing: "0.14em", textTransform: "uppercase",
-            color: OW.t4, marginBottom: 10,
+            color: OW.t4, marginBottom: 8,
           }}>THE PICK</div>
         </div>
 
@@ -1634,7 +1634,7 @@ const EdgeVerdictCard: FC<{
               display: "inline-block",
               fontFamily: OW.mono, fontSize: 10, fontWeight: 500,
               letterSpacing: "0.1em", textTransform: "uppercase",
-              color: OW.t4, padding: "4px 10px", borderRadius: 5,
+              color: OW.t4, padding: "4px 12px", borderRadius: 6,
               background: "rgba(255,255,255,0.03)",
               border: `1px solid ${OW.border}`,
             }}>{isLive ? "Live" : "Pre"}</span>
@@ -1667,7 +1667,7 @@ const EdgeVerdictCard: FC<{
               <div style={{ flex: 1, minWidth: 12 }} />
               <button onClick={() => setMetricsOpen(p => !p)} style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
-                width: 26, height: 26, borderRadius: 6,
+                width: 28, height: 28, borderRadius: 8,
                 border: "none", cursor: "pointer", flexShrink: 0,
                 background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
                 color: OW.t4, transition: `all 0.2s ${OW.ease}`,
@@ -1696,7 +1696,7 @@ const EdgeVerdictCard: FC<{
         {/* §5 Synopsis */}
         <div style={{
           background: OW.elevated, borderRadius: OW.ri,
-          padding: "16px 18px", marginTop: 20,
+          padding: "16px 20px", marginTop: 20,
           fontFamily: OW.sans, fontSize: 14, fontWeight: 400,
           lineHeight: 1.78,
           color: OW.t2, letterSpacing: "0.005em",
@@ -1706,7 +1706,7 @@ const EdgeVerdictCard: FC<{
         </div>
 
         {/* §6 Footer — Tail / Fade / Share with hover states + capture watermark */}
-        <div style={{ marginTop: 20, position: "relative", height: 42, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
+        <div style={{ marginTop: 20, position: "relative", height: 40, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
           {/* Action buttons layer */}
           <div style={{
             position: "absolute", inset: 0,
@@ -1738,7 +1738,7 @@ const EdgeVerdictCard: FC<{
                         el.style.background = "rgba(255,255,255,0.015)";
                       }}
                       style={{
-                        flex: 1, height: 42, borderRadius: OW.ri,
+                        flex: 1, height: 40, borderRadius: OW.ri,
                         border: `1px solid ${isActive ? (isTail ? OW.mintEdge : "rgba(239,68,68,0.15)") : OW.border}`,
                         background: isActive ? (isTail ? OW.mintDim : "rgba(239,68,68,0.04)") : "rgba(255,255,255,0.015)",
                         color: isActive ? (isTail ? OW.mint : OW.red) : OW.t3,
@@ -1755,7 +1755,7 @@ const EdgeVerdictCard: FC<{
             {/* Share button */}
             <button onClick={handleShare} style={{
               display: "inline-flex", alignItems: "center", justifyContent: "center",
-              gap: 5, height: 42, padding: "0 15px", borderRadius: OW.ri,
+              gap: 4, height: 40, padding: "0 16px", borderRadius: OW.ri,
               border: `1px solid ${shareState === "copied" ? "rgba(54,232,150,0.2)" : OW.mintEdge}`,
               background: shareState === "copied" ? OW.mintDim : "rgba(54,232,150,0.02)",
               color: shareState === "copied" ? OW.mint : OW.t3,
@@ -1787,7 +1787,7 @@ const EdgeVerdictCard: FC<{
         {/* §7 Disclosure Triggers — Analysis + Proof */}
         {(hasAnalysis || proofCount > 0) && (
           <div style={{ ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
-            <div style={{ height: 1, background: OW.border, margin: "16px 0 14px" }} />
+            <div style={{ height: 1, background: OW.border, margin: "16px 0 12px" }} />
             <div style={{ display: "flex", gap: 8 }}>
               {hasAnalysis && (
                 <button
@@ -1795,7 +1795,7 @@ const EdgeVerdictCard: FC<{
                   aria-expanded={analysisOpen}
                   style={{
                     flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    padding: "10px 0", borderRadius: OW.ri, cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
+                    padding: "12px 0", borderRadius: OW.ri, cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
                     background: analysisOpen ? OW.mintDim : "rgba(255,255,255,0.02)",
                     border: `1px solid ${analysisOpen ? OW.mintEdge : OW.border}`,
                   }}
@@ -1814,7 +1814,7 @@ const EdgeVerdictCard: FC<{
                   aria-expanded={proofOpen}
                   style={{
                     flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    padding: "10px 0", borderRadius: OW.ri, cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
+                    padding: "12px 0", borderRadius: OW.ri, cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
                     background: proofOpen ? OW.mintDim : "rgba(255,255,255,0.02)",
                     border: `1px solid ${proofOpen ? OW.mintEdge : OW.border}`,
                   }}
@@ -2444,7 +2444,7 @@ const MessageBubble: FC<{
             </AnimatePresence>
           </div>
 
-          {!isUser && !message.isStreaming && verifiedContent && (
+          {!isUser && !message.isStreaming && verifiedContent && !REGEX_VERDICT_MATCH.test(extractTextContent(message.content)) && (
             <div className="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity delay-75">
               <CopyButton content={verifiedContent} />
             </div>
