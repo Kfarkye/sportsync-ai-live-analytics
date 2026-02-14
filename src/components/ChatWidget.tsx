@@ -539,10 +539,11 @@ function injectSupportCitations(
     const seenUri = new Set<string>();
     for (const idx of groundingChunkIndices) {
       if (idx < 0 || idx >= chunks.length) continue;
-      const uri = chunks[idx]?.web?.uri;
+      const chunk = chunks[idx];
+      const uri = chunk?.web?.uri;
       if (!uri || seenUri.has(uri)) continue;
       seenUri.add(uri);
-      const brand = uriToBrand(uri);
+      const brand = uriToBrand(uri, chunk?.web?.title);
       links.push({ brand, uri });
     }
 
@@ -645,10 +646,11 @@ function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
           if (Number.isNaN(num)) continue;
           const index = Math.floor(num) - 1;
           if (index < 0 || index >= maxIndex) continue;
-          const uri = chunks[index]?.web?.uri;
+          const chunk = chunks[index];
+          const uri = chunk?.web?.uri;
           if (uri && !seenUri.has(uri)) {
             seenUri.add(uri);
-            const brand = uriToBrand(uri);
+            const brand = uriToBrand(uri, chunk?.web?.title);
             links.push({ brand, uri });
           }
         }
@@ -731,15 +733,29 @@ function getHostname(href?: string): string {
   try { return new URL(href).hostname.replace(/^www\./, ""); } catch { return "Source"; }
 }
 
-/** Path-aware brand resolution — checks live endpoint paths before falling back to hostname. */
-function uriToBrand(href?: string): string {
+/**
+ * Brand resolution — resolves the human-readable source name for a grounding chunk.
+ *
+ * Google Search grounding returns redirect URIs through vertexaisearch.cloud.google.com.
+ * The URI hostname resolves to "Google" for every source. The chunk's title field contains
+ * the ACTUAL source domain (e.g. "espn.com", "basketball-reference.com"). Title takes
+ * priority over hostname when it looks like a domain.
+ */
+function uriToBrand(href?: string, title?: string): string {
   if (!href) return "Source";
+  // 1. Live endpoint paths
   try {
     const url = new URL(href);
     for (const [pattern, label] of LIVE_PATH_BRANDS) {
       if (pattern.test(url.pathname)) return label;
     }
   } catch { /* fall through */ }
+  // 2. Title field — actual source domain for Google Search grounding
+  if (title) {
+    const t = title.replace(/^www\./, "").toLowerCase().trim();
+    if (t.includes(".")) return hostnameToBrand(t);
+  }
+  // 3. URI hostname fallback
   return hostnameToBrand(getHostname(href));
 }
 

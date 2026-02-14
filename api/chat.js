@@ -835,6 +835,13 @@ Role: Field Reporter. Direct, factual, concise.
             }
         }
 
+        // --- GROUNDING DIAGNOSTIC ---
+        if (finalMetadata) {
+            const chunkCount = finalMetadata.groundingChunks?.length || 0;
+            const supportCount = finalMetadata.groundingSupports?.length || 0;
+            console.log(`[Grounding] chunks=${chunkCount} supports=${supportCount}`);
+        }
+
         // --- POST-RUN PROCESSING ---
         if (MODE === "ANALYSIS") {
             const map = buildClaimMap(fullText, rawThoughts);
