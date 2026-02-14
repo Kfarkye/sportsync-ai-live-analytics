@@ -4,41 +4,26 @@
    Designed for Gemini URL Context: publicly accessible, minimal payload, GET only.
 ============================================================================ */
 import { createClient } from "@supabase/supabase-js";
+import { checkRateLimit } from "../../lib/rateLimit.js";
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-// Simple in-memory rate limiter: 60 req/min per IP
-const hits = new Map();
-const RATE_WINDOW_MS = 60_000;
-const RATE_LIMIT = 60;
-
-function rateLimit(ip) {
-    const now = Date.now();
-    const record = hits.get(ip);
-    if (!record || now - record.start > RATE_WINDOW_MS) {
-        hits.set(ip, { start: now, count: 1 });
-        return true;
-    }
-    record.count++;
-    return record.count <= RATE_LIMIT;
-}
+const GAME_ID_RE = /^[\w-]{4,128}$/;
 
 export default async function handler(req, res) {
     if (req.method !== "GET") {
         return res.status(405).json({ error: "Method not allowed" });
     }
-
-    const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || "unknown";
-    if (!rateLimit(ip)) {
+    if (!checkRateLimit(req)) {
         return res.status(429).json({ error: "Rate limit exceeded" });
     }
 
     const { game_id } = req.query;
-    if (!game_id || typeof game_id !== "string") {
-        return res.status(400).json({ error: "Missing game_id" });
+    if (!game_id || typeof game_id !== "string" || !GAME_ID_RE.test(game_id)) {
+        return res.status(400).json({ error: "Invalid game_id" });
     }
 
     try {

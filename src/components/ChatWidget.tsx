@@ -114,8 +114,11 @@ const CITE_MARKER = "#__cite__";
 /** Strips support-injected brand citations: " per [ESPN](url#__cite__), [BBRef](url#__cite__)" */
 const REGEX_CLEAN_SUPPORT_CITE = /\s*per\s+(?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+/g;
 
-/** Pre-existing attribution phrases — if present near insertion point, skip to avoid duplication. */
-const REGEX_PREEXISTING_ATTRIBUTION = /(?:according\s+to|reported\s+by|per|via|from|says|noted\s+by|cited\s+by|sourced\s+from)\s+/i;
+/** Strips hydration-path parenthesized citations: " ([ESPN](url), [BBRef](url))" */
+const REGEX_CLEAN_HYDRATED_CITE = /\s*\((?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+\)/g;
+
+/** Pre-existing attribution phrases — word-bounded to prevent false positives on common prose. */
+const REGEX_PREEXISTING_ATTRIBUTION = /(?:according\s+to|reported\s+by|\bper\b|\bvia\b|sourced?\s+from|says|noted\s+by|cited\s+by)\s+/i;
 
 /** Removes hydrated markdown links: [1](https://...) */
 const REGEX_CLEAN_LINK = /\s*\[\d+(?:\.\d+)?\]\([^)]+\)/g;
@@ -486,7 +489,7 @@ function injectSupportCitations(
 
   const supports = metadata.groundingSupports;
   const chunks = metadata.groundingChunks;
-  const cacheKey = `support1:${text.length}:${text.slice(0, 64)}:${supports.length}:${chunks.length}`;
+  const cacheKey = `support1:${text.length}:${text.slice(0, 64)}:${supports.length}:${chunkFingerprint(chunks)}`;
   const cached = supportCitationCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
@@ -574,18 +577,18 @@ function injectSupportCitations(
   // Step 4: Insert citations back-to-front (descending order preserves indices)
   let result = text;
   for (const { charEnd, links } of merged) {
-    // Check for pre-existing attribution near insertion point
+    // Filter out brands already cited in nearby attribution
     const lookback = result.slice(Math.max(0, charEnd - 30), charEnd);
-    const attrMatch = REGEX_PREEXISTING_ATTRIBUTION.exec(lookback);
-    if (attrMatch) {
+    let uncitedLinks = links;
+    if (REGEX_PREEXISTING_ATTRIBUTION.test(lookback)) {
       const lookbackLower = lookback.toLowerCase();
-      const allAlreadyCited = links.every(
-        (l) => lookbackLower.includes(l.brand.toLowerCase()),
+      uncitedLinks = links.filter(
+        (l) => !lookbackLower.includes(l.brand.toLowerCase()),
       );
-      if (allAlreadyCited) continue;
+      if (uncitedLinks.length === 0) continue;
     }
 
-    const citationLinks = links
+    const citationLinks = uncitedLinks
       .map((l) => `[${l.brand}](${l.uri}${CITE_MARKER})`)
       .join(", ");
     const attribution = ` per ${citationLinks}`;
@@ -681,6 +684,7 @@ function cleanVerdictContent(text: string): string {
   if (!text) return "";
   return text
     .replace(REGEX_CLEAN_SUPPORT_CITE, "")
+    .replace(REGEX_CLEAN_HYDRATED_CITE, "")
     .replace(REGEX_CLEAN_LINK, "")
     .replace(REGEX_CLEAN_REF, "")
     .replace(REGEX_CLEAN_CONF, "")

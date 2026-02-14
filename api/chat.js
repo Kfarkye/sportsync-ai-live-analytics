@@ -32,7 +32,7 @@ const supabase = createClient(
 function getPublicOrigin() {
     if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
     if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-    return "https://localhost:3000";
+    return "http://localhost:3000";
 }
 
 const CONFIG = {
@@ -703,15 +703,21 @@ MODE: ${MODE}
 </temporal>
 
 <context>
-MATCHUP: ${activeContext?.away_team || "TBD"} @ ${activeContext?.home_team || "TBD"}
-${isLive ? `🔴 LIVE: ${activeContext?.away_score || 0}-${activeContext?.home_score || 0} | ${activeContext?.clock || ""}` : ""}
-${liveDataUrls.length > 0 ? `LIVE_DATA_URLS: ${liveDataUrls.join(", ")}
-(These endpoints serve real-time scores, odds, and play-by-play. Fetch them via URL Context for authoritative data.)` : `ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}
-${lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : ""}
-INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}
-INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}
-${evidence.temporal.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : ""}`}
-${staleWarning}
+${[
+    `MATCHUP: ${activeContext?.away_team || "TBD"} @ ${activeContext?.home_team || "TBD"}`,
+    isLive ? `🔴 LIVE: ${activeContext?.away_score || 0}-${activeContext?.home_score || 0} | ${activeContext?.clock || ""}` : "",
+    ...(liveDataUrls.length > 0 ? [
+        `LIVE_DATA_URLS: ${liveDataUrls.join(", ")}`,
+        "(These endpoints serve real-time scores, odds, and play-by-play. Fetch them via URL Context for authoritative data.)"
+    ] : [
+        `ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}`,
+        lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : "",
+        `INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}`,
+        `INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}`,
+        evidence.temporal.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : ""
+    ]),
+    staleWarning
+].filter(Boolean).join("\n")}
 </context>
 
 <prime_directive>
