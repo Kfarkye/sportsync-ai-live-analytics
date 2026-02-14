@@ -365,6 +365,25 @@ body {
   text-align: center;
 }
 
+/* ==========================================================================
+   CITATION LINKS — Obsidian Grounding System
+   Phrase IS the link. No brand names visible. Brand color on hover only.
+   ========================================================================== */
+
+.cite-link {
+  text-decoration: none;
+  color: #63636E; /* zinc-500 resting state */
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+
+.cite-link:hover {
+  color: var(--cite-hover-color, #a1a1aa); /* brand color or zinc-400 fallback */
+  text-decoration: underline;
+  text-decoration-color: var(--cite-hover-underline, rgba(161, 161, 170, 0.25)); /* brand color at 25% opacity */
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+
 /* Subtle Pulse for AI Streaming Highlight */
 @keyframes pulse-subtle {
   0%, 100% {

@@ -1,10 +1,14 @@
 /* ============================================================================
-   /api/live/pbp/[game_id]
-   Public proxy — serves play-by-play + stat leaders from Supabase live_game_state.
+   /api/live/pbp/[slug]
+   HMAC-signed public proxy — serves play-by-play + stat leaders from Supabase.
    Designed for Gemini URL Context: publicly accessible, minimal payload, GET only.
+
+   Route: /api/live/pbp/{hmac_slug}?g={gameId}
+   The slug is validated server-side against the gameId + "pbp" endpoint.
 ============================================================================ */
 import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit } from "../../lib/rateLimit.js";
+import { validateSatelliteSlug } from "../../lib/satellite.js";
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -12,6 +16,7 @@ const supabase = createClient(
 );
 
 const GAME_ID_RE = /^[\w-]{4,128}$/;
+const SLUG_RE = /^[0-9a-f]{16}$/;
 
 export default async function handler(req, res) {
     if (req.method !== "GET") {
@@ -21,16 +26,23 @@ export default async function handler(req, res) {
         return res.status(429).json({ error: "Rate limit exceeded" });
     }
 
-    const { game_id } = req.query;
-    if (!game_id || typeof game_id !== "string" || !GAME_ID_RE.test(game_id)) {
+    const { slug, g: gameId } = req.query;
+
+    if (!slug || typeof slug !== "string" || !SLUG_RE.test(slug)) {
+        return res.status(400).json({ error: "Invalid slug" });
+    }
+    if (!gameId || typeof gameId !== "string" || !GAME_ID_RE.test(gameId)) {
         return res.status(400).json({ error: "Invalid game_id" });
+    }
+    if (!validateSatelliteSlug(slug, gameId, "pbp")) {
+        return res.status(403).json({ error: "Forbidden" });
     }
 
     try {
         const { data, error } = await supabase
             .from("live_game_state")
             .select("id, home_team, away_team, home_score, away_score, leaders, play_by_play, updated_at")
-            .eq("id", game_id)
+            .eq("id", gameId)
             .maybeSingle();
 
         if (error) throw error;
@@ -41,6 +53,7 @@ export default async function handler(req, res) {
             ? data.play_by_play.slice(-10)
             : [];
 
+        res.setHeader("Content-Type", "application/json");
         res.setHeader("Cache-Control", "public, max-age=15, stale-while-revalidate=30");
         return res.status(200).json({
             game_id: data.id,

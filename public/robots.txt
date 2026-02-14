@@ -1,0 +1,5 @@
+User-agent: APIs-Google
+Allow: /api/live/
+
+User-agent: *
+Disallow: /api/
