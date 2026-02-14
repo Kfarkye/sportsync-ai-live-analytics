@@ -113,11 +113,28 @@ function getHostname(href?: string): string {
     try { return new URL(href).hostname.replace(/^www\./, ""); } catch { return "Source"; }
 }
 
+const BRAND_MAP_PREGAME: Record<string, string> = {
+    "espn.com": "ESPN", "covers.com": "Covers", "actionnetwork.com": "Action",
+    "draftkings.com": "DK", "fanduel.com": "FanDuel", "rotowire.com": "RotoWire",
+    "basketball-reference.com": "BBRef", "sports-reference.com": "SportsRef",
+    "pro-football-reference.com": "PFRef", "x.com": "X", "twitter.com": "X",
+    "google.com": "Google", "ai.google.dev": "Google AI",
+    "vertexaisearch.cloud.google.com": "Google", "discoveryengine.googleapis.com": "Google",
+    "nba.com": "NBA", "nfl.com": "NFL", "mlb.com": "MLB", "nhl.com": "NHL",
+    "cbssports.com": "CBS", "yahoo.com": "Yahoo", "bleacherreport.com": "BR",
+    "theathletic.com": "Athletic",
+};
+
 function hostnameToBrand(hostname: string): string {
     const h = hostname.replace(/^www\./, "").toLowerCase();
-    const map: Record<string, string> = { "espn.com": "ESPN", "twitter.com": "X", "x.com": "X", "actionnetwork.com": "Action", "rotowire.com": "RotoWire" };
-    if (map[h]) return map[h];
-    const base = h.split(".")[0] || "Source";
+    if (BRAND_MAP_PREGAME[h]) return BRAND_MAP_PREGAME[h];
+    // Walk up subdomains: "vertexaisearch.cloud.google.com" → "cloud.google.com" → "google.com"
+    const parts = h.split(".");
+    for (let i = 1; i < parts.length - 1; i++) {
+        const parent = parts.slice(i).join(".");
+        if (BRAND_MAP_PREGAME[parent]) return BRAND_MAP_PREGAME[parent];
+    }
+    const base = parts[0] || "Source";
     return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
@@ -174,6 +191,7 @@ function hydrateCitations(text: string, sources?: IntelSource[]): string {
         .replace(/\s+\)/g, ")")
         .replace(/\(\s+/g, "(")
         .replace(/\.\s*\(/g, " (")
+        .replace(/\)([a-zA-Z])/g, ") $1")
         .replace(REGEX_MULTI_SPACE, " ");
 }
 
