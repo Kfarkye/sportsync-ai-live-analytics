@@ -5,7 +5,7 @@
    Architecture:
    ├─ Core: useReducer message store, Map-indexed updates, stable refs
    ├─ Network: Retry w/ exponential backoff, connection health, guarded SSE
-   ├─ UI: "Jewel" Citation System, Evidence Deck, LRU hydration cache
+   ├─ UI: Inline Citation Hyperlinks, LRU hydration cache
    ├─ Design: "The Pick" Card, ConfidenceRing, Progressive Disclosure, Smart Odds
    ├─ Reliability: Debounced send, abort safety, RAF-batched streaming
    ├─ Ops: Pluggable telemetry layer, structured error reporting
@@ -73,8 +73,6 @@ import {
   MicOff,
   StopCircle,
   Image as ImageIcon,
-  ShieldCheck,
-  ExternalLink,
   RotateCcw,
   WifiOff,
   Eye,
@@ -110,7 +108,6 @@ const REGEX_SIGNED_NUMERIC = /[+-]\d+(?:\.\d+)?/g;
 const REGEX_CITATION_PLACEHOLDER =
   /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
 
-const REGEX_CITATION_LABEL = /^\d+(?:\.\d+)?$/;
 const REGEX_SPLIT_COMMA = /[,\s]+/;
 const REGEX_MULTI_SPACE = /\s{2,}/g;
 
@@ -440,47 +437,42 @@ class LRUCache<K, V> {
 const hydrationCache = new LRUCache<string, string>(256);
 
 /**
- * End-of-Paragraph Citation Hydration.
+ * Inline Citation Hydration.
  *
- * Collects all bracket citation tokens ([1], [1.1], [1, 2]) within each
- * paragraph, strips them from their inline positions, deduplicates, and
- * appends the full set as markdown links at the paragraph's trailing edge.
+ * Replaces bracket citation tokens ([1], [1.1], [1, 2]) in-place with
+ * brand-name hyperlinks. Adjacent tokens merge into a single parenthetical.
  *
  * Before: "Price fell to $15K [1.1] [1.10]. Erased all gains [1.1] [1.9]."
- * After:  "Price fell to $15K. Erased all gains. [1.1] [1.9] [1.10]"
- *
- * The `a` component override in MessageBubble still renders each link as
- * a CitationJewel — this function only controls placement, not appearance.
+ * After:  "Price fell to $15K ([ESPN](url), [BBRef](url)). Erased all gains ([ESPN](url), [Yahoo](url))."
  */
 function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
   if (!text || !metadata?.groundingChunks?.length) return text;
   const chunks = metadata.groundingChunks;
-  const cacheKey = `eop3:${text.length}:${text.slice(0, 64)}:${chunks.length}:${chunkFingerprint(chunks)}`;
+  const cacheKey = `inline1:${text.length}:${text.slice(0, 64)}:${chunks.length}:${chunkFingerprint(chunks)}`;
   const cached = hydrationCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
   const maxIndex = chunks.length;
 
   // Guard: Split on fenced code blocks — only hydrate prose segments.
-  // Code fences (``` ... ```) are preserved verbatim to avoid stripping
-  // bracket tokens that are actual code, not citations.
   const CODE_FENCE = /(```[\s\S]*?```)/g;
   const segments = text.split(CODE_FENCE);
 
+  // Matches one or more adjacent bracket tokens: [1] [2] or [1, 2] [3]
+  const REGEX_ADJACENT_CITATIONS = /(?:\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()[\s]*)+/g;
+
   const hydrated = segments.map((segment) => {
-    // Code block — return untouched
     if (segment.startsWith("```")) return segment;
 
-    // Prose segment — hydrate citations per paragraph
-    const paragraphs = segment.split(/\n\n+/);
+    return segment.replace(REGEX_ADJACENT_CITATIONS, (fullMatch) => {
+      const links: Array<{ brand: string; uri: string }> = [];
+      const seenUri = new Set<string>();
 
-    return paragraphs.map((paragraph) => {
-      const collected: Array<{ label: string; uri: string; sortKey: number }> = [];
-      const seen = new Set<string>();
-
-      // Pass 1: Extract every citation from this paragraph, record its label + URI.
-      const stripped = paragraph.replace(REGEX_CITATION_PLACEHOLDER, (_match, inner: string) => {
-        const parts = inner.split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
+      // Extract all individual tokens from the full match
+      let m: RegExpExecArray | null;
+      const tokenRe = /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
+      while ((m = tokenRe.exec(fullMatch)) !== null) {
+        const parts = m[1].split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
         for (const part of parts) {
           const trimmed = part.trim();
           const num = parseFloat(trimmed);
@@ -488,50 +480,33 @@ function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
           const index = Math.floor(num) - 1;
           if (index < 0 || index >= maxIndex) continue;
           const uri = chunks[index]?.web?.uri;
-          if (uri && !seen.has(trimmed)) {
-            seen.add(trimmed);
-            const [major, minor = "0"] = trimmed.split(".");
-            collected.push({ label: trimmed, uri, sortKey: Number(major) * 1000 + Number(minor) });
+          if (uri && !seenUri.has(uri)) {
+            seenUri.add(uri);
+            const hostname = getHostname(uri);
+            const brand = hostnameToBrand(hostname);
+            links.push({ brand, uri });
           }
         }
-        return ""; // Remove the inline token
-      });
+      }
 
-      // No citations found — return paragraph unchanged.
-      if (collected.length === 0) return paragraph;
+      if (links.length === 0) return fullMatch;
 
-      // Pass 2: Clean up orphaned whitespace / double spaces / trailing dots-space.
-      const cleaned = stripped
-        .replace(/\s+\./g, ".")   // " ." → "."
-        .replace(/\s+,/g, ",")    // " ," → ","
-        .replace(REGEX_MULTI_SPACE, " ")
-        .trim();
-
-      // Pass 3: Sort citations numerically (1.1 before 1.9 before 1.10) and
-      // append as markdown links at the paragraph boundary.
-      const suffix = collected
-        .sort((a, b) => a.sortKey - b.sortKey)
-        .map((c) => `[${c.label}](${c.uri})`)
-        .join(" ");
-
-      // Edge: paragraph was only citations — return suffix directly, no leading space.
-      return cleaned ? `${cleaned} ${suffix}` : suffix;
-    }).join("\n\n");
+      const inner = links.map((l) => `[${l.brand}](${l.uri})`).join(", ");
+      return ` (${inner})`;
+    });
   }).join("");
 
-  hydrationCache.set(cacheKey, hydrated);
-  return hydrated;
+  // Clean up spacing artifacts
+  const cleaned = hydrated
+    .replace(/\s+\)/g, ")")    // " )" → ")"
+    .replace(/\(\s+/g, "(")    // "( " → "("
+    .replace(/\.\s*\(/g, " (") // ".(" → " ("
+    .replace(REGEX_MULTI_SPACE, " ");
+
+  hydrationCache.set(cacheKey, cleaned);
+  return cleaned;
 }
 
-/** Type-guard filter — eliminates non-null assertion. */
-function hasWebUri(c: GroundingChunk): c is GroundingChunk & { web: { uri: string; title?: string } } {
-  return typeof c.web?.uri === "string" && c.web.uri.length > 0;
-}
-
-function extractSources(metadata?: GroundingMetadata): Array<{ title: string; uri: string }> {
-  if (!metadata?.groundingChunks) return [];
-  return metadata.groundingChunks.filter(hasWebUri).map((c) => ({ title: c.web.title || "Source", uri: c.web.uri }));
-}
 
 function extractTextContent(content: MessageContent): string {
   if (typeof content === "string") return content;
@@ -1504,14 +1479,10 @@ const EdgeVerdictCard: FC<{
   hasAnalysis?: boolean;
   analysisOpen?: boolean;
   onToggleAnalysis?: () => void;
-  proofCount?: number;
-  proofOpen?: boolean;
-  onToggleProof?: () => void;
 }> = memo(({
   content, confidence = "high", synopsis, trackingKey,
   cardIndex = 0, outcome, onTrack,
   hasAnalysis, analysisOpen, onToggleAnalysis,
-  proofCount = 0, proofOpen, onToggleProof,
 }) => {
   const parsedVerdict = useMemo(() => parseEdgeVerdict(content), [content]);
   const confidenceValue = useMemo(() => resolveConfidenceValue(confidence, content), [confidence, content]);
@@ -1784,8 +1755,8 @@ const EdgeVerdictCard: FC<{
           </div>
         </div>
 
-        {/* §7 Disclosure Triggers — Analysis + Proof */}
-        {(hasAnalysis || proofCount > 0) && (
+        {/* §7 Disclosure Trigger — Analysis */}
+        {hasAnalysis && (
           <div style={{ ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
             <div style={{ height: 1, background: OW.border, margin: "16px 0 12px" }} />
             <div style={{ display: "flex", gap: 8 }}>
@@ -1805,28 +1776,6 @@ const EdgeVerdictCard: FC<{
                   </span>
                   <motion.div animate={{ rotate: analysisOpen ? 180 : 0 }} transition={SYSTEM.anim.snap}>
                     <ChevronDown size={10} style={{ color: analysisOpen ? OW.mint : OW.t4 }} />
-                  </motion.div>
-                </button>
-              )}
-              {proofCount > 0 && (
-                <button
-                  onClick={() => { onToggleProof?.(); triggerHaptic(); }}
-                  aria-expanded={proofOpen}
-                  style={{
-                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    padding: "12px 0", borderRadius: OW.ri, cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
-                    background: proofOpen ? OW.mintDim : "rgba(255,255,255,0.02)",
-                    border: `1px solid ${proofOpen ? OW.mintEdge : OW.border}`,
-                  }}
-                >
-                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: proofOpen ? OW.mint : OW.t4 }}>
-                    Proof
-                  </span>
-                  <span style={{ fontSize: 9, fontWeight: 500, fontFamily: OW.mono, color: proofOpen ? OW.mint : OW.t4, opacity: 0.6 }}>
-                    [{proofCount}]
-                  </span>
-                  <motion.div animate={{ rotate: proofOpen ? 180 : 0 }} transition={SYSTEM.anim.snap}>
-                    <ChevronDown size={10} style={{ color: proofOpen ? OW.mint : OW.t4 }} />
                   </motion.div>
                 </button>
               )}
@@ -2035,178 +1984,8 @@ ConnectionBadge.displayName = "ConnectionBadge";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §11  CITATION PILL (Decoupled via context)
+// §11  (Cleared — citations are now inline hyperlinks)
 // ═══════════════════════════════════════════════════════════════════════════
-
-const CitationContext = createContext<{
-  activeCitation: string | null;
-  setActiveCitation: (id: string | null) => void;
-}>({ activeCitation: null, setActiveCitation: () => { } });
-
-const CitationProvider: FC<{ children: ReactNode }> = ({ children }) => {
-  const [activeCitation, setActiveCitation] = useState<string | null>(null);
-
-  useEffect(() => {
-    const onPointer = (e: globalThis.PointerEvent) => {
-      const t = e.target as HTMLElement | null;
-      if (!t) { setActiveCitation(null); return; }
-      if (typeof t.closest === "function" && t.closest('[data-cite-scope="true"]')) return;
-      setActiveCitation(null);
-    };
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") setActiveCitation(null);
-    };
-    document.addEventListener("pointerdown", onPointer, true);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onPointer, true);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, []);
-
-  const value = useMemo(() => ({ activeCitation, setActiveCitation }), [activeCitation]);
-  return <CitationContext.Provider value={value}>{children}</CitationContext.Provider>;
-};
-
-/**
- * "The Jewel" — Inline Citation Complication.
- * Replaces bracket tokens with a glass pill housing the source's favicon.
- * Preserves full aria: expanded, controls, label, tooltip role.
- */
-const CitationJewel: FC<{ id: string; href?: string; indexLabel: string }> = memo(({ id, href, indexLabel }) => {
-  const { activeCitation, setActiveCitation } = useContext(CitationContext);
-  const active = activeCitation === id;
-  const hostname = getHostname(href);
-  const brand = hostnameToBrand(hostname);
-
-  return (
-    <span data-cite-scope="true" className="inline-flex items-center align-middle relative mx-0.5 -translate-y-[1px] isolate z-10">
-      <button
-        type="button"
-        onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); triggerHaptic(); setActiveCitation(active ? null : id); }}
-        className={cn(
-          "group inline-flex items-center gap-1.5 h-[18px] pl-0.5 pr-2 rounded-full border transition-all duration-300 select-none cursor-pointer overflow-hidden backdrop-blur-md",
-          active
-            ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
-            : "bg-white/[0.04] border-white/[0.08] text-zinc-400 hover:bg-white/[0.08] hover:border-white/[0.15] hover:text-zinc-200",
-        )}
-        aria-expanded={active}
-        aria-controls={`cite-popover-${id}`}
-        aria-label={`Source ${indexLabel} from ${brand}`}
-      >
-        <div className="w-3.5 h-3.5 rounded-full bg-[#08080A] border border-white/10 flex items-center justify-center overflow-hidden shadow-sm">
-          <SourceIcon url={href} fallbackLetter={brand} className="w-2.5 h-2.5 rounded-full opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300" />
-        </div>
-        <span className="text-[9px] font-mono font-medium tracking-tight leading-none translate-y-[0.5px]">{indexLabel}</span>
-      </button>
-
-      <AnimatePresence>
-        {active && (
-          <motion.div
-            data-cite-scope="true"
-            id={`cite-popover-${id}`}
-            role="tooltip"
-            initial={{ opacity: 0, y: 8, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.98 }}
-            transition={SYSTEM.anim.snap}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 w-[240px] z-[60]"
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <div className={cn("p-3.5 rounded-[20px] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.9)]", SYSTEM.surface.glass)}>
-              <div className="flex items-start gap-3 mb-3">
-                <div className="w-8 h-8 rounded-[10px] bg-black/40 border border-white/10 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
-                  <SourceIcon url={href} fallbackLetter={brand} className="w-5 h-5 rounded" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[12px] font-medium text-white truncate leading-tight mb-0.5">{brand}</div>
-                  <div className="text-[10px] font-mono text-zinc-500 truncate">{hostname}</div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                <div className="flex items-center gap-1.5 text-[9px] font-mono text-emerald-400/90 uppercase tracking-widest">
-                  <ShieldCheck size={10} /><span>Verified</span>
-                </div>
-                {href ? (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-[10px] font-medium text-zinc-300 hover:text-white transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span>Open</span><ExternalLink size={10} />
-                  </a>
-                ) : (
-                  <span className="text-[10px] font-mono text-zinc-600">No link</span>
-                )}
-              </div>
-            </div>
-            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#08080A] border-r border-b border-white/10 rotate-45 rounded-[1px]" />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </span>
-  );
-});
-CitationJewel.displayName = "CitationJewel";
-
-/**
- * "The Evidence Deck" — Horizontal Inertia-Scroll Tray.
- * Replaces the vertical details/summary with a dashboard-style component.
- * Gradient fade masks soften the scroll edges into the void.
- */
-const EvidenceDeck: FC<{ sources: Array<{ title: string; uri: string }> }> = memo(({ sources }) => {
-  if (!sources.length) return null;
-  return (
-    <div className="mt-6 w-full max-w-full overflow-hidden relative group/deck">
-      <div className="flex items-center gap-2 mb-3 px-1 opacity-80">
-        <div className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_4px_rgba(16,185,129,0.8)]" />
-        <span className={SYSTEM.type.label}>Proof</span>
-        <span className="text-[9px] font-mono text-zinc-600 ml-auto">[{sources.length}]</span>
-      </div>
-      <div className="relative w-full">
-        {/* Gradient Fade Masks — content fades into the void */}
-        <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#08080A] to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#08080A] to-transparent z-10 pointer-events-none" />
-
-        <div className="flex gap-2.5 overflow-x-auto pb-4 px-4 scrollbar-hide snap-x">
-          {sources.map((source, i) => {
-            const hostname = getHostname(source.uri);
-            const brand = hostnameToBrand(hostname);
-            return (
-              <motion.a
-                key={i}
-                href={source.uri}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05, ...SYSTEM.anim.fluid }}
-                className={cn(
-                  "flex-none w-[150px] snap-start group relative flex flex-col justify-between p-3 h-[84px] rounded-2xl transition-all duration-300",
-                  "bg-white/[0.025] border border-white/[0.06] hover:bg-white/[0.05] hover:border-emerald-500/20 shadow-sm",
-                )}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="w-5 h-5 rounded bg-white/[0.05] border border-white/[0.05] flex items-center justify-center overflow-hidden">
-                    <SourceIcon url={source.uri} fallbackLetter={brand} className="w-3 h-3 rounded opacity-70 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all" />
-                  </div>
-                  <span className="text-[9px] font-mono text-zinc-600 group-hover:text-emerald-500/80 transition-colors">{String(i + 1).padStart(2, "0")}</span>
-                </div>
-                <div>
-                  <div className="text-[11px] font-medium text-zinc-300 truncate leading-tight group-hover:text-white transition-colors">{source.title || brand}</div>
-                  <div className="text-[9px] text-zinc-600 truncate mt-0.5 font-mono">{hostname}</div>
-                </div>
-              </motion.a>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-});
-EvidenceDeck.displayName = "EvidenceDeck";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2226,7 +2005,6 @@ const MessageBubble: FC<{
       return isUser ? t : showCitations ? hydrateCitations(t, message.groundingMetadata) : t;
     }, [message.content, message.groundingMetadata, isUser, showCitations]);
 
-    const sources = useMemo(() => extractSources(message.groundingMetadata), [message.groundingMetadata]);
     const formattedTime = useMemo(() => formatTimestamp(message.timestamp), [message.timestamp]);
 
     /** Edge synopses extracted once per message for verdict card enrichment */
@@ -2291,9 +2069,7 @@ const MessageBubble: FC<{
 
     /** Double-disclosure state — controlled from here, triggered from the pick card */
     const [analysisOpen, setAnalysisOpen] = useState(false);
-    const [proofOpen, setProofOpen] = useState(false);
     const toggleAnalysis = useCallback(() => setAnalysisOpen(prev => !prev), []);
-    const toggleProof = useCallback(() => setProofOpen(prev => !prev), []);
 
     const components: Components = useMemo(
       () => {
@@ -2321,9 +2097,6 @@ const MessageBubble: FC<{
                   hasAnalysis={!!analysisContent}
                   analysisOpen={analysisOpen}
                   onToggleAnalysis={toggleAnalysis}
-                  proofCount={sources.length}
-                  proofOpen={proofOpen}
-                  onToggleProof={toggleProof}
                 />
               );
             }
@@ -2363,22 +2136,16 @@ const MessageBubble: FC<{
             return <strong className={cn("font-semibold", isUser ? "text-black" : "text-white")}>{children}</strong>;
           },
 
-          a: ({ href, children }) => {
-            const label = flattenText(children).trim();
-            if (REGEX_CITATION_LABEL.test(label)) {
-              return <CitationJewel id={`${message.id}:${label}:${href || "nolink"}`} href={href} indexLabel={label} />;
-            }
-            return (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-emerald-400 hover:text-emerald-300 underline decoration-emerald-500/20 underline-offset-4 transition-colors"
-              >
-                {children}
-              </a>
-            );
-          },
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
+            >
+              {children}
+            </a>
+          ),
 
           ul: ({ children }) => <ul className="space-y-2 mb-4 ml-1">{children}</ul>,
           li: ({ children }) => (
@@ -2389,7 +2156,7 @@ const MessageBubble: FC<{
           ),
         };
       },
-      [isUser, message.id, message.verdictOutcome, verdictOutcomes, onTrackVerdict, synopses, analysisContent, analysisOpen, toggleAnalysis, sources.length, proofOpen, toggleProof],
+      [isUser, message.id, message.verdictOutcome, verdictOutcomes, onTrackVerdict, synopses, analysisContent, analysisOpen, toggleAnalysis],
     );
 
     return (
@@ -2428,20 +2195,6 @@ const MessageBubble: FC<{
               )}
             </AnimatePresence>
 
-            {/* Proof disclosure — controlled from pick card trigger */}
-            <AnimatePresence initial={false}>
-              {proofOpen && showCitations && !isUser && !message.isStreaming && sources.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ ...SYSTEM.anim.fluid, opacity: { duration: 0.25 } }}
-                  style={{ overflow: "hidden" }}
-                >
-                  <EvidenceDeck sources={sources} />
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
 
           {!isUser && !message.isStreaming && verifiedContent && !REGEX_VERDICT_MATCH.test(extractTextContent(message.content)) && (
@@ -3008,7 +2761,6 @@ const InnerChatWidget: FC<ChatWidgetProps & {
 
   return (
     <ToastProvider>
-      <CitationProvider>
         <LayoutGroup>
           <motion.div
             layoutId={inline ? undefined : "chat"}
@@ -3123,7 +2875,6 @@ const InnerChatWidget: FC<ChatWidgetProps & {
             </footer>
           </motion.div>
         </LayoutGroup>
-      </CitationProvider>
     </ToastProvider>
   );
 };
