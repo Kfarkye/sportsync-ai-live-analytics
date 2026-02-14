@@ -88,13 +88,13 @@ import { ESSENCE } from "@/lib/essence";
 // ═══════════════════════════════════════════════════════════════════════════
 
 const REGEX_VERDICT_MATCH = /\bverdict\s*:/i;
-const REGEX_WATCH_PREFIX = /.*what to watch live.*?:\s*/i;
-const REGEX_WATCH_MATCH = /what to watch live/i;
+const REGEX_WATCH_PREFIX = /.*what to watch(?:\s+live)?.*?:\s*/i;
+const REGEX_WATCH_MATCH = /what to watch(?:\s+live)?/i;
 
-const REGEX_INVALID_PREFIX = /^\*{0,2}invalidation:\*{0,2}\s*/i;
-const REGEX_INVALID_MATCH = /^\*{0,2}invalidation:/i;
+const REGEX_INVALID_PREFIX = /^\*{0,2}(?:invalidation|cash out\??):\*{0,2}\s*/i;
+const REGEX_INVALID_MATCH = /^\*{0,2}(?:invalidation|cash out\??):/i;
 
-const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH LIVE|INVALIDATION|TRIPLE CONFLUENCE|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
+const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|INVALIDATION|CASH OUT\??|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
 
 const REGEX_SIGNED_NUMERIC = /[+-]\d+(?:\.\d+)?/g;
 
@@ -1742,7 +1742,7 @@ const EdgeVerdictCard: FC<{
 });
 EdgeVerdictCard.displayName = "EdgeVerdictCard";
 
-/** TacticalHUD — Live triggers. Full hardware-radius glass, ambient amber glow. */
+/** TacticalHUD — "What to Watch" — key triggers. Full hardware-radius glass, ambient amber glow. */
 const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
   const c = useMemo(() => cleanVerdictContent(content), [content]);
   return (
@@ -1766,7 +1766,7 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
           <div className="w-4 h-4 rounded-[5px] bg-amber-500/10 border border-amber-500/15 flex items-center justify-center">
             <div className="w-1 h-1 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
           </div>
-          <span className="font-mono text-[10px] font-semibold tracking-[0.12em] uppercase text-amber-400/80">Live Triggers</span>
+          <span className="font-mono text-[10px] font-semibold tracking-[0.12em] uppercase text-amber-400/80">What to Watch</span>
         </div>
         <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
       </div>
@@ -1775,7 +1775,7 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
 });
 TacticalHUD.displayName = "TacticalHUD";
 
-/** InvalidationAlert — Risk warning. Full hardware-radius glass, ambient red glow. */
+/** InvalidationAlert — "Cash Out?" — risk warning. Full hardware-radius glass, ambient red glow. */
 const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => {
   const c = useMemo(() => cleanVerdictContent(content), [content]);
   return (
@@ -1799,7 +1799,7 @@ const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => {
           <div className="w-4 h-4 rounded-[5px] bg-red-500/10 border border-red-500/15 flex items-center justify-center">
             <div className="w-1 h-1 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
           </div>
-          <span className="font-mono text-[10px] font-semibold tracking-[0.12em] uppercase text-red-400/80">Invalidation</span>
+          <span className="font-mono text-[10px] font-semibold tracking-[0.12em] uppercase text-red-400/80">Cash Out?</span>
         </div>
         <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
       </div>
