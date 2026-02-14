@@ -2404,7 +2404,7 @@ const MessageBubble: FC<{
           "relative max-w-[92%] md:max-w-[88%]",
           isUser
             ? "bg-white text-black rounded-[20px] rounded-tr-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5"
-            : "bg-transparent text-white px-0",
+            : "bg-transparent text-white px-0 max-w-full md:max-w-[96%]",
         )}>
           <div className={cn("prose prose-invert max-w-none", isUser && "prose-p:text-black/90")}>
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
@@ -2445,7 +2445,7 @@ const MessageBubble: FC<{
           </div>
 
           {!isUser && !message.isStreaming && verifiedContent && (
-            <div className="absolute -right-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity delay-75">
+            <div className="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity delay-75">
               <CopyButton content={verifiedContent} />
             </div>
           )}
