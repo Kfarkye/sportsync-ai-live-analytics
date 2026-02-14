@@ -114,8 +114,11 @@ const CITE_MARKER = "#__cite__";
 /** Strips support-injected brand citations: " per [ESPN](url#__cite__), [BBRef](url#__cite__)" */
 const REGEX_CLEAN_SUPPORT_CITE = /\s*per\s+(?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+/g;
 
-/** Pre-existing attribution phrases — if present near insertion point, skip to avoid duplication. */
-const REGEX_PREEXISTING_ATTRIBUTION = /(?:according\s+to|reported\s+by|per|via|from|says|noted\s+by|cited\s+by|sourced\s+from)\s+/i;
+/** Strips hydration-path parenthesized citations: " ([ESPN](url), [BBRef](url))" */
+const REGEX_CLEAN_HYDRATED_CITE = /\s*\((?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+\)/g;
+
+/** Pre-existing attribution phrases — word-bounded to prevent false positives on common prose. */
+const REGEX_PREEXISTING_ATTRIBUTION = /(?:according\s+to|reported\s+by|\bper\b|\bvia\b|sourced?\s+from|says|noted\s+by|cited\s+by)\s+/i;
 
 /** Removes hydrated markdown links: [1](https://...) */
 const REGEX_CLEAN_LINK = /\s*\[\d+(?:\.\d+)?\]\([^)]+\)/g;
@@ -151,7 +154,15 @@ const BRAND_MAP: Record<string, string> = {
   "yahoo.com": "Yahoo",
   "bleacherreport.com": "BR",
   "theathletic.com": "Athletic",
+  "vercel.app": "Live",
 };
+
+/** Path-based brand overrides for live proxy endpoints. */
+const LIVE_PATH_BRANDS: Array<[RegExp, string]> = [
+  [/\/api\/live\/scores\//, "Scores"],
+  [/\/api\/live\/odds\//, "Odds"],
+  [/\/api\/live\/pbp\//, "PBP"],
+];
 
 const EDGE_CARD_STAGE_DELAYS_MS = [0, 120, 220, 300, 480] as const;
 const EDGE_CARD_STAGGER_PER_CARD_MS = 150;
@@ -478,7 +489,7 @@ function injectSupportCitations(
 
   const supports = metadata.groundingSupports;
   const chunks = metadata.groundingChunks;
-  const cacheKey = `support1:${text.length}:${text.slice(0, 64)}:${supports.length}:${chunks.length}`;
+  const cacheKey = `support1:${text.length}:${text.slice(0, 64)}:${supports.length}:${chunkFingerprint(chunks)}`;
   const cached = supportCitationCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
@@ -528,11 +539,11 @@ function injectSupportCitations(
     const seenUri = new Set<string>();
     for (const idx of groundingChunkIndices) {
       if (idx < 0 || idx >= chunks.length) continue;
-      const uri = chunks[idx]?.web?.uri;
+      const chunk = chunks[idx];
+      const uri = chunk?.web?.uri;
       if (!uri || seenUri.has(uri)) continue;
       seenUri.add(uri);
-      const hostname = getHostname(uri);
-      const brand = hostnameToBrand(hostname);
+      const brand = uriToBrand(uri, chunk?.web?.title);
       links.push({ brand, uri });
     }
 
@@ -567,18 +578,18 @@ function injectSupportCitations(
   // Step 4: Insert citations back-to-front (descending order preserves indices)
   let result = text;
   for (const { charEnd, links } of merged) {
-    // Check for pre-existing attribution near insertion point
+    // Filter out brands already cited in nearby attribution
     const lookback = result.slice(Math.max(0, charEnd - 30), charEnd);
-    const attrMatch = REGEX_PREEXISTING_ATTRIBUTION.exec(lookback);
-    if (attrMatch) {
+    let uncitedLinks = links;
+    if (REGEX_PREEXISTING_ATTRIBUTION.test(lookback)) {
       const lookbackLower = lookback.toLowerCase();
-      const allAlreadyCited = links.every(
-        (l) => lookbackLower.includes(l.brand.toLowerCase()),
+      uncitedLinks = links.filter(
+        (l) => !lookbackLower.includes(l.brand.toLowerCase()),
       );
-      if (allAlreadyCited) continue;
+      if (uncitedLinks.length === 0) continue;
     }
 
-    const citationLinks = links
+    const citationLinks = uncitedLinks
       .map((l) => `[${l.brand}](${l.uri}${CITE_MARKER})`)
       .join(", ");
     const attribution = ` per ${citationLinks}`;
@@ -635,11 +646,11 @@ function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
           if (Number.isNaN(num)) continue;
           const index = Math.floor(num) - 1;
           if (index < 0 || index >= maxIndex) continue;
-          const uri = chunks[index]?.web?.uri;
+          const chunk = chunks[index];
+          const uri = chunk?.web?.uri;
           if (uri && !seenUri.has(uri)) {
             seenUri.add(uri);
-            const hostname = getHostname(uri);
-            const brand = hostnameToBrand(hostname);
+            const brand = uriToBrand(uri, chunk?.web?.title);
             links.push({ brand, uri });
           }
         }
@@ -675,6 +686,7 @@ function cleanVerdictContent(text: string): string {
   if (!text) return "";
   return text
     .replace(REGEX_CLEAN_SUPPORT_CITE, "")
+    .replace(REGEX_CLEAN_HYDRATED_CITE, "")
     .replace(REGEX_CLEAN_LINK, "")
     .replace(REGEX_CLEAN_REF, "")
     .replace(REGEX_CLEAN_CONF, "")
@@ -722,12 +734,29 @@ function getHostname(href?: string): string {
 }
 
 /**
- * Google S2 High-Res Favicon Service.
- * sz=64 ensures crisp rendering on Retina displays even at small icon sizes.
- * CSP: Requires `img-src https://www.google.com`.
+ * Brand resolution — resolves the human-readable source name for a grounding chunk.
+ *
+ * Google Search grounding returns redirect URIs through vertexaisearch.cloud.google.com.
+ * The URI hostname resolves to "Google" for every source. The chunk's title field contains
+ * the ACTUAL source domain (e.g. "espn.com", "basketball-reference.com"). Title takes
+ * priority over hostname when it looks like a domain.
  */
-function getFaviconUrl(href: string): string {
-  try { const domain = new URL(href).hostname; return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`; } catch { return ""; }
+function uriToBrand(href?: string, title?: string): string {
+  if (!href) return "Source";
+  // 1. Live endpoint paths
+  try {
+    const url = new URL(href);
+    for (const [pattern, label] of LIVE_PATH_BRANDS) {
+      if (pattern.test(url.pathname)) return label;
+    }
+  } catch { /* fall through */ }
+  // 2. Title field — actual source domain for Google Search grounding
+  if (title) {
+    const t = title.replace(/^www\./, "").toLowerCase().trim();
+    if (t.includes(".")) return hostnameToBrand(t);
+  }
+  // 3. URI hostname fallback
+  return hostnameToBrand(getHostname(href));
 }
 
 function buildWireContent(text: string, attachments: Attachment[]): MessageContent {
@@ -1354,39 +1383,6 @@ const CopyButton: FC<{ content: string }> = memo(({ content }) => {
   );
 });
 CopyButton.displayName = "CopyButton";
-
-/**
- * Weissach Source Icon:
- * 1. Tries to fetch a high-fidelity Google S2 favicon (64px).
- * 2. If it fails, seamlessly renders a "Milled Letter Chip" (Monogram).
- * 3. Default is grayscale for "Quiet Luxury", blooms to color on interaction.
- */
-const SourceIcon: FC<{ url?: string; fallbackLetter: string; className?: string }> = memo(({ url, fallbackLetter, className }) => {
-  const [error, setError] = useState(false);
-  const faviconUrl = useMemo(() => url ? getFaviconUrl(url) : null, [url]);
-
-  if (error || !faviconUrl) {
-    return (
-      <div className={cn("flex items-center justify-center bg-white/[0.08] border border-white/10 text-zinc-400 font-mono font-bold shadow-inner", className)}>
-        {fallbackLetter.charAt(0).toUpperCase()}
-      </div>
-    );
-  }
-  return (
-    <img
-      src={faviconUrl}
-      alt=""
-      onError={() => setError(true)}
-      className={cn("object-contain bg-white/[0.03]", className)}
-      loading="lazy"
-      decoding="async"
-      fetchPriority="low"
-      draggable={false}
-      referrerPolicy="no-referrer"
-    />
-  );
-});
-SourceIcon.displayName = "SourceIcon";
 
 /**
  * ─────────────────────────────────────────────────
@@ -2246,15 +2242,18 @@ const MessageBubble: FC<{
           a: ({ href, children }) => {
             const isCitation = href?.includes(CITE_MARKER);
             const cleanHref = isCitation ? href!.replace(CITE_MARKER, "") : href;
+            const isLiveSource = isCitation && LIVE_PATH_BRANDS.some(([p]) => p.test(cleanHref || ""));
             return (
               <a
                 href={cleanHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={
-                  isCitation
-                    ? "text-zinc-500 no-underline hover:text-zinc-300 transition-colors duration-200"
-                    : "text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
+                  isLiveSource
+                    ? "text-emerald-500/70 no-underline hover:text-emerald-300 transition-colors duration-200"
+                    : isCitation
+                      ? "text-zinc-500 no-underline hover:text-zinc-300 transition-colors duration-200"
+                      : "text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
                 }
               >
                 {children}
