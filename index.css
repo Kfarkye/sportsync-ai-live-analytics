@@ -92,6 +92,12 @@ body {
   to { left: 200%; }
 }
 
+/* Obsidian Weissach — specular edge breathe for live games */
+@keyframes ow-breathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.85; }
+}
+
 /* Flash Animations */
 @keyframes flash-green {
   0% { background-color: transparent; }

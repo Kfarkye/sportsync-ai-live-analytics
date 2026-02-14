@@ -1271,6 +1271,28 @@ const OW = {
   shadow: ESSENCE.shadows.obsidian,
 } as const;
 
+/** Sportsbook brand registry — color + display name */
+const OW_BOOKS: Record<string, { name: string; color: string }> = {
+  draftkings: { name: "DraftKings", color: "#4CC764" },
+  fanduel:    { name: "FanDuel",    color: "#1493FF" },
+  betmgm:     { name: "BetMGM",     color: "#BDA258" },
+  caesars:    { name: "Caesars",     color: "#1B6B37" },
+  betrivers:  { name: "BetRivers",   color: "#1A73E8" },
+  pointsbet:  { name: "PointsBet",   color: "#ED1C24" },
+};
+
+/** Extract sportsbook key from verdict/synopsis text */
+function detectBook(text: string): { name: string; color: string } {
+  const lower = text.toLowerCase();
+  for (const [key, book] of Object.entries(OW_BOOKS)) {
+    if (lower.includes(key) || lower.includes(book.name.toLowerCase())) return book;
+  }
+  return OW_BOOKS.draftkings; // default
+}
+
+/** Game-state word for the system line */
+const OW_STATE_WORDS: Record<string, string> = { pregame: "pregame", live: "live", postgame: "postgame" };
+
 /**
  * ConfidenceRing — Obsidian Weissach SVG radial gauge.
  * 42px, 2.5px stroke, mint/gold/red by threshold.
@@ -1310,22 +1332,83 @@ ConfidenceRing.displayName = "ConfidenceRing";
 /**
  * SmartOdds — Obsidian Weissach odds capsule.
  * Single odds = mint capsule. Movement = strikethrough opening → arrow → current.
+ * Accepts raw odds string; detects multiple signed values for movement display.
  */
 const SmartOdds: FC<{ odds: string }> = memo(({ odds }) => {
   if (!odds || odds === "N/A") return null;
+
+  // Detect movement: multiple signed values in the string (e.g. "-110 → -118", "-110/-118")
+  const tokens = odds.match(/[+-]\d+(?:\.\d+)?/g);
+
+  // No movement or single value — simple mint capsule
+  if (!tokens || tokens.length <= 1) {
+    return (
+      <span style={{
+        display: "inline-block", padding: "5px 14px", borderRadius: 20,
+        fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
+        letterSpacing: "0.03em", lineHeight: "20px",
+        color: OW.mint, background: OW.mintDim,
+        border: `1px solid ${OW.mintEdge}`,
+      }}>
+        {odds}
+      </span>
+    );
+  }
+
+  // Movement detected: opening (strikethrough) → arrow → current
+  const opening = tokens[0];
+  const current = tokens[tokens.length - 1];
+  const parseNum = (v: string) => parseInt(v.replace(/[^-\d]/g, ""), 10) || 0;
+  const up = parseNum(current) > parseNum(opening);
+
   return (
-    <span style={{
-      display: "inline-block", padding: "5px 14px", borderRadius: 20,
-      fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
-      letterSpacing: "0.03em", lineHeight: "20px",
-      color: OW.mint, background: OW.mintDim,
-      border: `1px solid ${OW.mintEdge}`,
-    }}>
-      {odds}
-    </span>
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{
+        display: "inline-block", padding: "5px 11px", borderRadius: 20,
+        fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
+        letterSpacing: "0.03em", lineHeight: "20px",
+        color: OW.t4, background: "rgba(255,255,255,0.02)",
+        border: "1px solid rgba(255,255,255,0.03)",
+        textDecoration: "line-through",
+        textDecorationColor: "rgba(255,255,255,0.12)",
+      }}>
+        {opening}
+      </span>
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+        style={{ flexShrink: 0, opacity: 0.45 }}>
+        <path d="M2 5h6M6 3l2 2-2 2" stroke={up ? OW.mint : OW.gold}
+          strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span style={{
+        display: "inline-block", padding: "5px 14px", borderRadius: 20,
+        fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
+        letterSpacing: "0.03em", lineHeight: "20px",
+        color: up ? OW.mint : OW.gold,
+        background: up ? OW.mintDim : OW.goldDim,
+        border: `1px solid ${up ? OW.mintEdge : "rgba(205,160,78,0.08)"}`,
+      }}>
+        {current}
+      </span>
+    </div>
   );
 });
 SmartOdds.displayName = "SmartOdds";
+
+/** ShareIcon — upload arrow for share button */
+const OWShareIcon: FC = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+    <path d="M8 2v8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <path d="M4.5 5.5L8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M13 10v2.5a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 013 12.5V10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+  </svg>
+);
+
+/** CheckIcon — confirmation for copied state */
+const OWCheckIcon: FC = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+    <path d="M3.5 8.5L6.5 11.5 12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
 /**
  * MetricsPanel — Obsidian Weissach collapsible metrics tray.
@@ -1400,9 +1483,15 @@ MetricsPanel.displayName = "MetricsPanel";
  * EdgeVerdictCard — "Obsidian Weissach" FINAL
  *
  * Full card: THE PICK label → Hero headline → SmartOdds capsule →
- * Divider → Book line → Collapsible Metrics (confidence ring + edge + win) →
- * Synopsis block (elevated bg, 1.78 line-height) →
- * Tail/Fade/Share footer → Analysis/Proof disclosure
+ * Divider → Book line (Best {phase} odds on {Book}) → Collapsible Metrics →
+ * Synopsis block → Tail/Fade/Share footer → Analysis/Proof disclosure
+ *
+ * Features from reference:
+ * - BOOKS system with brand-color hover on sportsbook name
+ * - SmartOdds movement detection (strikethrough opening → arrow → current)
+ * - Live game breathe animation on specular edge light
+ * - Share button with capture state + watermark
+ * - Tail/Fade hover states (mint glow on Tail, subtle lift on Fade)
  */
 const EdgeVerdictCard: FC<{
   content: string;
@@ -1428,6 +1517,18 @@ const EdgeVerdictCard: FC<{
   const confidenceValue = useMemo(() => resolveConfidenceValue(confidence, content), [confidence, content]);
   const [entered, setEntered] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "capturing" | "copied">("idle");
+  const [bookHover, setBookHover] = useState(false);
+
+  // Derive game phase and sportsbook from content
+  const gamePhase = useMemo(() => getTimePhase(), []);
+  const isLive = gamePhase === "live";
+  const phaseWord = OW_STATE_WORDS[gamePhase] || "pregame";
+
+  const book = useMemo(() => {
+    const combined = `${content} ${synopsis || ""}`;
+    return detectBook(combined);
+  }, [content, synopsis]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setEntered(true), 80);
@@ -1454,6 +1555,22 @@ const EdgeVerdictCard: FC<{
     onTrack?.(trackingKey, next);
   }, [cardIndex, onTrack, outcome, trackingKey]);
 
+  const handleShare = useCallback(() => {
+    if (shareState !== "idle") return;
+    triggerHaptic();
+    setShareState("capturing");
+    // Copy card text to clipboard
+    const shareText = `${parsedVerdict.teamName} ${parsedVerdict.spread !== "N/A" ? parsedVerdict.spread : ""} ${parsedVerdict.odds !== "N/A" ? parsedVerdict.odds : ""}\n${resolvedSynopsis}\n\nthedrip.app`;
+    navigator.clipboard?.writeText(shareText.trim()).catch(() => {});
+    trackAction("verdict.share", { trackingKey, cardIndex });
+    setTimeout(() => {
+      setShareState("copied");
+      setTimeout(() => setShareState("idle"), 2200);
+    }, 500);
+  }, [shareState, parsedVerdict, resolvedSynopsis, trackingKey, cardIndex]);
+
+  const isCaptureMode = shareState === "capturing" || shareState === "copied";
+
   // Build headline from parsed verdict
   const headline = parsedVerdict.teamName + (
     parsedVerdict.spread !== "N/A" && parsedVerdict.spread !== "ML"
@@ -1471,11 +1588,13 @@ const EdgeVerdictCard: FC<{
         boxShadow: OW.shadow, overflow: "hidden",
         fontFamily: OW.sans, color: OW.t1,
       }}>
-        {/* Specular edge light */}
+        {/* Specular edge light — breathes on live games */}
         <div style={{
           position: "absolute", top: 0, left: 0, right: 0, height: 1,
           background: `linear-gradient(90deg, transparent, ${OW.mintEdge} 30%, ${OW.mintEdge} 70%, transparent)`,
-          opacity: 0.65, zIndex: 3,
+          opacity: isLive ? undefined : 0.65,
+          animation: isLive ? "ow-breathe 3.5s ease-in-out infinite" : "none",
+          zIndex: 3,
         }} aria-hidden="true" />
 
         {/* Grain texture */}
@@ -1501,43 +1620,69 @@ const EdgeVerdictCard: FC<{
             color: OW.t1, margin: "0 0 16px",
           }}>{headline}</h3>
 
-          {/* SmartOdds capsule */}
+          {/* SmartOdds capsule — with movement detection */}
           <SmartOdds odds={parsedVerdict.odds} />
         </div>
 
         {/* Divider */}
         <div style={{ height: 1, background: OW.border, margin: "24px 0" }} />
 
-        {/* §3 System line + metrics toggle */}
+        {/* §3 Unified row: capture mode shows tag, live mode shows book line */}
         <div style={{ ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2]) }}>
-          <div style={{
-            display: "flex", alignItems: "center",
-            userSelect: "none",
-          }}>
+          {isCaptureMode ? (
             <span style={{
-              fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
-              color: OW.tSys, letterSpacing: "0.005em", lineHeight: "20px",
+              display: "inline-block",
+              fontFamily: OW.mono, fontSize: 10, fontWeight: 500,
+              letterSpacing: "0.1em", textTransform: "uppercase",
+              color: OW.t4, padding: "4px 10px", borderRadius: 5,
+              background: "rgba(255,255,255,0.03)",
+              border: `1px solid ${OW.border}`,
+            }}>{isLive ? "Live" : "Pre"}</span>
+          ) : (
+            <div style={{
+              display: "flex", alignItems: "center",
+              userSelect: "none", WebkitTapHighlightColor: "transparent",
             }}>
-              Best odds
-            </span>
-            <div style={{ flex: 1, minWidth: 12 }} />
-            <button onClick={() => setMetricsOpen(p => !p)} style={{
-              display: "flex", alignItems: "center", justifyContent: "center",
-              width: 26, height: 26, borderRadius: 6,
-              border: "none", cursor: "pointer", flexShrink: 0,
-              background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
-              color: OW.t4, transition: `all 0.2s ${OW.ease}`,
-            }}>
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
+              <span
+                onMouseEnter={() => setBookHover(true)}
+                onMouseLeave={() => setBookHover(false)}
                 style={{
-                  transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
-                  transition: `transform 0.25s ${OW.ease}`,
+                  fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+                  color: OW.tSys, letterSpacing: "0.005em", lineHeight: "20px",
+                  transition: `color 0.15s ${OW.ease}`,
+                  ...(bookHover ? { color: OW.t3 } : {}),
+                }}
+              >
+                Best {phaseWord} odds on{" "}
+                <span style={{
+                  color: bookHover ? book.color : OW.t3,
+                  fontWeight: 600,
+                  transition: `color 0.15s ${OW.ease}`,
+                  borderBottom: bookHover ? `1px solid ${book.color}30` : "1px solid transparent",
+                  paddingBottom: 1,
                 }}>
-                <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
-                  strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
+                  {book.name}
+                </span>
+              </span>
+              <div style={{ flex: 1, minWidth: 12 }} />
+              <button onClick={() => setMetricsOpen(p => !p)} style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 26, height: 26, borderRadius: 6,
+                border: "none", cursor: "pointer", flexShrink: 0,
+                background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
+                color: OW.t4, transition: `all 0.2s ${OW.ease}`,
+              }}>
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
+                  style={{
+                    transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
+                    transition: `transform 0.25s ${OW.ease}`,
+                  }}>
+                  <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
+                    strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* §4 Collapsible Metrics tray */}
@@ -1545,7 +1690,7 @@ const EdgeVerdictCard: FC<{
           confidence={confidenceValue}
           edge={confidenceValue >= 70 ? Math.round((confidenceValue - 50) * 0.3 * 10) / 10 : undefined}
           winProb={confidenceValue >= 50 ? Math.min(99, Math.round(confidenceValue * 0.65 + 5)) : undefined}
-          open={metricsOpen}
+          open={metricsOpen && !isCaptureMode}
         />
 
         {/* §5 Synopsis */}
@@ -1560,30 +1705,82 @@ const EdgeVerdictCard: FC<{
           {resolvedSynopsis}
         </div>
 
-        {/* §6 Footer — Tail / Fade / Share */}
-        <div style={{ marginTop: 20, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {/* §6 Footer — Tail / Fade / Share with hover states + capture watermark */}
+        <div style={{ marginTop: 20, position: "relative", height: 42, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
+          {/* Action buttons layer */}
+          <div style={{
+            position: "absolute", inset: 0,
+            display: "flex", alignItems: "center", gap: 8,
+            opacity: isCaptureMode ? 0 : 1,
+            transition: `opacity 0.2s ${OW.ease}`,
+            pointerEvents: isCaptureMode ? "none" : "auto",
+          }}>
             {onTrack && (
               <>
                 {(["Tail", "Fade"] as const).map(label => {
                   const isTail = label === "Tail";
                   const isActive = outcome === label.toLowerCase();
                   return (
-                    <button key={label} onClick={() => handleToggle(label.toLowerCase() as "tail" | "fade")} style={{
-                      flex: 1, height: 42, borderRadius: OW.ri,
-                      border: `1px solid ${isActive ? (isTail ? OW.mintEdge : "rgba(239,68,68,0.15)") : OW.border}`,
-                      background: isActive ? (isTail ? OW.mintDim : "rgba(239,68,68,0.04)") : "rgba(255,255,255,0.015)",
-                      color: isActive ? (isTail ? OW.mint : OW.red) : OW.t3,
-                      fontFamily: OW.sans, fontSize: 12, fontWeight: 600,
-                      letterSpacing: "0.08em", textTransform: "uppercase",
-                      cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
-                    }}>
+                    <button key={label}
+                      onClick={() => handleToggle(label.toLowerCase() as "tail" | "fade")}
+                      onMouseEnter={e => {
+                        if (isActive) return;
+                        const el = e.currentTarget;
+                        el.style.borderColor = isTail ? "rgba(54,232,150,0.15)" : "rgba(255,255,255,0.08)";
+                        el.style.color = isTail ? OW.mint : OW.t2;
+                        el.style.background = isTail ? "rgba(54,232,150,0.03)" : "rgba(255,255,255,0.03)";
+                      }}
+                      onMouseLeave={e => {
+                        if (isActive) return;
+                        const el = e.currentTarget;
+                        el.style.borderColor = OW.border;
+                        el.style.color = OW.t3;
+                        el.style.background = "rgba(255,255,255,0.015)";
+                      }}
+                      style={{
+                        flex: 1, height: 42, borderRadius: OW.ri,
+                        border: `1px solid ${isActive ? (isTail ? OW.mintEdge : "rgba(239,68,68,0.15)") : OW.border}`,
+                        background: isActive ? (isTail ? OW.mintDim : "rgba(239,68,68,0.04)") : "rgba(255,255,255,0.015)",
+                        color: isActive ? (isTail ? OW.mint : OW.red) : OW.t3,
+                        fontFamily: OW.sans, fontSize: 12, fontWeight: 600,
+                        letterSpacing: "0.08em", textTransform: "uppercase",
+                        cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
+                      }}>
                       {label}
                     </button>
                   );
                 })}
               </>
             )}
+            {/* Share button */}
+            <button onClick={handleShare} style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              gap: 5, height: 42, padding: "0 15px", borderRadius: OW.ri,
+              border: `1px solid ${shareState === "copied" ? "rgba(54,232,150,0.2)" : OW.mintEdge}`,
+              background: shareState === "copied" ? OW.mintDim : "rgba(54,232,150,0.02)",
+              color: shareState === "copied" ? OW.mint : OW.t3,
+              fontFamily: OW.sans, fontSize: 12, fontWeight: 600,
+              letterSpacing: "0.04em",
+              cursor: shareState === "capturing" ? "wait" : "pointer",
+              transition: `all 0.25s ${OW.ease}`, whiteSpace: "nowrap",
+            }}>
+              {shareState === "copied" ? <OWCheckIcon /> : shareState === "idle" ? <OWShareIcon /> : null}
+              {shareState === "idle" ? "Share" : shareState === "capturing" ? "···" : "Copied"}
+            </button>
+          </div>
+
+          {/* Watermark layer — visible in capture mode */}
+          <div style={{
+            position: "absolute", inset: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            opacity: isCaptureMode ? 1 : 0,
+            transition: `opacity 0.25s ${OW.ease} ${isCaptureMode ? "0.1s" : "0s"}`,
+            pointerEvents: "none",
+          }}>
+            <span style={{
+              fontFamily: OW.mono, fontSize: 10, fontWeight: 400,
+              letterSpacing: "0.06em", color: "rgba(255,255,255,0.18)",
+            }}>thedrip.app</span>
           </div>
         </div>
 
