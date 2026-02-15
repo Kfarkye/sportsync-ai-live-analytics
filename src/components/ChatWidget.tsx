@@ -329,6 +329,8 @@ interface Message {
   isStreaming?: boolean;
   timestamp: string;
   verdictOutcome?: VerdictOutcome;
+  /** Per-card verdict outcomes keyed by cleaned verdict content. */
+  verdictOutcomes?: Record<string, VerdictOutcome>;
 }
 
 interface Attachment { file: File; base64: string; mimeType: string }
@@ -882,6 +884,7 @@ type MessageAction =
   | { type: "APPEND_BATCH"; messages: Message[] }
   | { type: "UPDATE"; id: string; patch: Partial<Message> }
   | { type: "SET_VERDICT"; id: string; outcome: VerdictOutcome }
+  | { type: "SET_VERDICT_CARD"; id: string; verdictKey: string; outcome: VerdictOutcome }
   | { type: "CLEAR" };
 
 function messageReducer(state: MessageState, action: MessageAction): MessageState {
@@ -904,6 +907,14 @@ function messageReducer(state: MessageState, action: MessageAction): MessageStat
       if (idx === undefined) return state;
       const newOrdered = [...state.ordered];
       newOrdered[idx] = { ...newOrdered[idx], verdictOutcome: action.outcome };
+      return { ordered: newOrdered, index: state.index };
+    }
+    case "SET_VERDICT_CARD": {
+      const idx = state.index.get(action.id);
+      if (idx === undefined) return state;
+      const newOrdered = [...state.ordered];
+      const prev = newOrdered[idx].verdictOutcomes || {};
+      newOrdered[idx] = { ...newOrdered[idx], verdictOutcomes: { ...prev, [action.verdictKey]: action.outcome } };
       return { ordered: newOrdered, index: state.index };
     }
     case "CLEAR":
@@ -1228,9 +1239,10 @@ const EdgeVerdictCard: FC<{
   isLive?: boolean;
   meta?: string;
   messageId: string;
+  verdictKey?: string;
   outcome?: VerdictOutcome;
-  onTrack?: (id: string, outcome: VerdictOutcome) => void;
-}> = memo(({ content, summary, confidence = "high", isLive = false, meta, messageId, outcome, onTrack }) => {
+  onTrack?: (id: string, outcome: VerdictOutcome, verdictKey?: string) => void;
+}> = memo(({ content, summary, confidence = "high", isLive = false, meta, messageId, verdictKey, outcome, onTrack }) => {
   const cleanContent = useMemo(() => cleanVerdictContent(content), [content]);
 
   return (
@@ -1310,7 +1322,7 @@ const EdgeVerdictCard: FC<{
                 <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Did this hit?</span>
                 <div className="flex items-center gap-2.5" role="group" aria-label="Track verdict outcome">
                   <button
-                    onClick={() => { triggerHaptic(); trackAction("verdict.hit", { messageId }); onTrack(messageId, "hit"); }}
+                    onClick={() => { triggerHaptic(); trackAction("verdict.hit", { messageId, verdictKey }); onTrack(messageId, "hit", verdictKey); }}
                     className={cn(
                       "flex items-center gap-2 px-5 py-2.5",
                       "rounded-full",
@@ -1324,7 +1336,7 @@ const EdgeVerdictCard: FC<{
                     <span className="text-[11px] font-semibold uppercase tracking-wider">Hit</span>
                   </button>
                   <button
-                    onClick={() => { triggerHaptic(); trackAction("verdict.miss", { messageId }); onTrack(messageId, "miss"); }}
+                    onClick={() => { triggerHaptic(); trackAction("verdict.miss", { messageId, verdictKey }); onTrack(messageId, "miss", verdictKey); }}
                     className={cn(
                       "flex items-center gap-2 px-5 py-2.5",
                       "rounded-full",
@@ -1348,7 +1360,7 @@ const EdgeVerdictCard: FC<{
                   </span>
                 </div>
                 <button
-                  onClick={() => { triggerHaptic(); onTrack(messageId, null); }}
+                  onClick={() => { triggerHaptic(); onTrack(messageId, null, verdictKey); }}
                   className="flex items-center gap-1.5 text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors"
                   aria-label="Undo verdict tracking"
                 >
@@ -1725,7 +1737,7 @@ EvidenceDeck.displayName = "EvidenceDeck";
 // §12  MESSAGE BUBBLE
 // ═══════════════════════════════════════════════════════════════════════════
 
-const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcome: VerdictOutcome) => void; showCitations?: boolean }> = memo(
+const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcome: VerdictOutcome, verdictKey?: string) => void; showCitations?: boolean }> = memo(
   ({ message, onTrackVerdict, showCitations = true }) => {
     const isUser = message.role === "user";
     const { displayContent, edgeSummary, edgeRange } = useMemo(() => {
@@ -1800,13 +1812,16 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
           if (REGEX_VERDICT_MATCH.test(text)) {
             const rawVerdictContent = text.replace(REGEX_VERDICT_PREFIX, "").trim();
             const confidence = extractConfidence(rawVerdictContent);
+            const vKey = cleanVerdictContent(rawVerdictContent);
+            const cardOutcome = message.verdictOutcomes?.[vKey] ?? message.verdictOutcome;
             return (
               <EdgeVerdictCard
                 content={rawVerdictContent}
                 summary={edgeSummaryNode ?? undefined}
                 confidence={confidence}
                 messageId={message.id}
-                outcome={message.verdictOutcome}
+                verdictKey={vKey}
+                outcome={cardOutcome}
                 onTrack={onTrackVerdict}
               />
             );
@@ -1848,6 +1863,7 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
       message.groundingMetadata,
       message.id,
       message.verdictOutcome,
+      message.verdictOutcomes,
       onTrackVerdict,
       renderBodyParagraph,
       showCitations,
@@ -2258,10 +2274,14 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     setHasUnseenContent(false);
   }, []);
 
-  // Verdict tracking
-  const handleTrackVerdict = useStableCallback((id: string, outcome: VerdictOutcome) => {
-    dispatch({ type: "SET_VERDICT", id, outcome });
-    trackAction("verdict.track", { id, outcome });
+  // Verdict tracking — per-card when verdictKey is provided, per-message fallback
+  const handleTrackVerdict = useStableCallback((id: string, outcome: VerdictOutcome, verdictKey?: string) => {
+    if (verdictKey) {
+      dispatch({ type: "SET_VERDICT_CARD", id, verdictKey, outcome });
+    } else {
+      dispatch({ type: "SET_VERDICT", id, outcome });
+    }
+    trackAction("verdict.track", { id, outcome, verdictKey });
   });
 
   // NOTE: Keyboard shortcuts registered ONLY in outer ChatWidget (§16) — not here.
