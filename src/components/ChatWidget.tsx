@@ -96,7 +96,7 @@ const REGEX_INVALID_MATCH = /^\*{0,2}(?:invalidation|cash out\??):/i;
 
 const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|INVALIDATION|CASH OUT\??|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
 
-const REGEX_SIGNED_NUMERIC = /[+-]\d+(?:\.\d+)?/g;
+const REGEX_SIGNED_NUMERIC = /[+\-\u2212]\d+(?:\.\d+)?/g;
 
 /**
  * Matches bracket citation tokens: [1], [1, 2], [1.1]
@@ -906,6 +906,14 @@ interface ParsedEdgeVerdict {
 function parseEdgeVerdict(rawVerdict: string): ParsedEdgeVerdict {
   const cleaned = cleanVerdictContent(rawVerdict)
     .replace(/^\*+|\*+$/g, "")
+    // Strip parenthetical bet-type labels: (Live Spread), (Moneyline), (ML), (Asian Handicap), (Pregame), etc.
+    .replace(/\s*\((?:Live\s+)?(?:Spread|Moneyline|ML|Asian\s+Handicap|Pregame|Alt(?:ernate)?\s+\w+|Game\s+\w+|Match\s+\w+)[^)]*\)/gi, "")
+    // Strip trailing "/ value" patterns — raw total leaking from schema
+    .replace(/\s*\/\s*[OoUu]?\d+(?:\.\d+)?\s*$/, "")
+    // Fix leading zeros on numeric values: 01.5 → 1.5
+    .replace(/\b0+(\d+(?:\.\d+)?)/g, "$1")
+    // Replace hyphen-minus before digits with proper minus sign (U+2212)
+    .replace(/-(?=\d)/g, "\u2212")
     .trim();
   if (!cleaned) {
     return { teamName: "No Edge", spread: "N/A", odds: "N/A", summaryLabel: "" };
@@ -1034,19 +1042,54 @@ function normalizeTypography(text: string): string {
  * Maps formal/abbreviated names to the common display name.
  */
 const TEAM_DISPLAY_NAMES: Record<string, string> = {
+  // Serie A
   "Internazionale": "Inter Milan",
   "Inter": "Inter Milan",
   "FC Internazionale Milano": "Inter Milan",
   "Juventus FC": "Juventus",
+  "AC Milan": "Milan",
+  "SSC Napoli": "Napoli",
+  "AS Roma": "Roma",
+  "SS Lazio": "Lazio",
+  // La Liga
   "FC Barcelona": "Barcelona",
   "Real Madrid CF": "Real Madrid",
-  "Club América": "América",
+  "Club Atletico de Madrid": "Atlético Madrid",
   "Atletico Madrid": "Atlético Madrid",
+  // Bundesliga
+  "FC Bayern München": "Bayern München",
   "Bayern Munich": "Bayern München",
-  "Paris Saint-Germain": "PSG",
   "Borussia Dortmund": "Dortmund",
+  "RB Leipzig": "Leipzig",
+  "Bayer 04 Leverkusen": "Leverkusen",
+  // Ligue 1
+  "Paris Saint-Germain": "PSG",
+  "Paris Saint-Germain FC": "PSG",
+  "Olympique de Marseille": "Marseille",
+  "Olympique Lyonnais": "Lyon",
+  // Premier League
   "Manchester United": "Man United",
   "Manchester City": "Man City",
+  "Tottenham Hotspur": "Tottenham",
+  "Wolverhampton Wanderers": "Wolves",
+  "West Ham United": "West Ham",
+  "Newcastle United": "Newcastle",
+  // Liga MX
+  "Club América": "América",
+  "CF Monterrey": "Monterrey",
+  "Club León": "León",
+  "Guadalajara": "Chivas",
+  "CD Guadalajara": "Chivas",
+  // MLS
+  "Los Angeles FC": "LAFC",
+  "New York Red Bulls": "NY Red Bulls",
+  "Inter Miami CF": "Inter Miami",
+  // NFL formal names
+  "New England Patriots": "Patriots",
+  "Kansas City Chiefs": "Chiefs",
+  "San Francisco 49ers": "49ers",
+  "Green Bay Packers": "Packers",
+  "Tampa Bay Buccaneers": "Buccaneers",
 };
 
 function normalizeTeamName(raw: string): string {
@@ -1563,42 +1606,6 @@ function detectBook(text: string): { name: string; color: string } | null {
   return null;
 }
 
-/**
- * ConfidenceRing — Obsidian Weissach SVG radial gauge.
- * 42px, 2.5px stroke, mint/gold/red by threshold.
- */
-const OW_RING_SZ = 42, OW_RING_SW = 2.5;
-const OW_RING_R = (OW_RING_SZ - OW_RING_SW) / 2;
-const OW_RING_C = 2 * Math.PI * OW_RING_R;
-
-const ConfidenceRing: FC<{ value: number; on: boolean }> = memo(({ value, on }) => {
-  const v = Math.max(0, Math.min(100, value));
-  const col = v >= 75 ? OW.mint : v >= 50 ? OW.gold : OW.red;
-  return (
-    <svg width={OW_RING_SZ} height={OW_RING_SZ} viewBox={`0 0 ${OW_RING_SZ} ${OW_RING_SZ}`}
-      style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
-      <circle cx={OW_RING_SZ/2} cy={OW_RING_SZ/2} r={OW_RING_R} fill="none"
-        stroke="rgba(255,255,255,0.04)" strokeWidth={OW_RING_SW} />
-      <circle cx={OW_RING_SZ/2} cy={OW_RING_SZ/2} r={OW_RING_R} fill="none"
-        stroke={col} strokeWidth={OW_RING_SW}
-        strokeDasharray={OW_RING_C}
-        strokeDashoffset={on ? OW_RING_C - (v / 100) * OW_RING_C : OW_RING_C}
-        strokeLinecap="round"
-        style={{
-          transition: `stroke-dashoffset 0.9s ${OW.ease}`,
-          filter: `drop-shadow(0 0 3px ${col}25)`,
-        }} />
-      <text x={OW_RING_SZ/2} y={OW_RING_SZ/2 + 1} textAnchor="middle"
-        dominantBaseline="central" fill={col}
-        fontFamily={OW.mono} fontSize="11" fontWeight="500"
-        style={{ transform: "rotate(90deg)", transformOrigin: "center" }}>
-        {v}<tspan fontSize="7" dy="-1">%</tspan>
-      </text>
-    </svg>
-  );
-});
-ConfidenceRing.displayName = "ConfidenceRing";
-
 /** ShareIcon — upload arrow for share button */
 const OWShareIcon: FC = () => (
   <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
@@ -1755,6 +1762,9 @@ const EdgeVerdictCard: FC<{
     : null;
   const headline = teamDisplay + (qualifier ? ` ${qualifier}` : "");
 
+  // Hide odds row entirely when no odds value is present
+  const hasOddsData = parsedVerdict.odds !== "N/A" || book !== null;
+
   const handleToggle = useCallback((selection: "tail" | "fade") => {
     const next = outcome === selection ? null : selection;
     triggerHaptic();
@@ -1825,72 +1835,77 @@ const EdgeVerdictCard: FC<{
           </h3>
         </div>
 
-        {/* M-16: Hairline divider — gradient-faded edges, consistent everywhere */}
-        <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "24px 0" }} />
+        {/* Hairline + odds row — only rendered when odds data is present */}
+        {hasOddsData && (
+          <>
+            {/* M-16: Hairline divider — gradient-faded edges, consistent everywhere */}
+            <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "24px 0" }} />
 
-        {/* §3 Unified row: capture mode shows tag, live mode shows book line */}
-        <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2])}>
-          {isCaptureMode ? (
-            <span style={{
-              display: "inline-block",
-              fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
-              letterSpacing: "0.12em", textTransform: "uppercase",
-              color: OW.t4, padding: "4px 12px", borderRadius: 6,
-              background: "rgba(255,255,255,0.03)",
-              border: `1px solid ${OW.border}`,
-            }}>{isLive ? "Live" : "Pre"}</span>
-          ) : (
-            <div style={{
-              display: "flex", alignItems: "center",
-              userSelect: "none", WebkitTapHighlightColor: "transparent",
-            }}>
-              <span
-                onMouseEnter={() => setBookHover(true)}
-                onMouseLeave={() => setBookHover(false)}
-                style={{
-                  fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
-                  color: OW.tSys, letterSpacing: "0.005em", lineHeight: "20px",
-                  transition: `color 0.15s ${OW.ease}`,
-                  ...(bookHover ? { color: OW.t3 } : {}),
-                }}
-              >
-                {book ? (
-                  <>
-                    Best {gamePhase} odds on{" "}
-                    <span style={{
-                      color: bookHover ? book.color : OW.t3,
-                      fontWeight: 600,
+            {/* §3 Unified row: capture mode shows tag, live mode shows book line */}
+            <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2])}>
+              {isCaptureMode ? (
+                <span style={{
+                  display: "inline-block",
+                  fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
+                  letterSpacing: "0.12em", textTransform: "uppercase",
+                  color: OW.t4, padding: "4px 12px", borderRadius: 6,
+                  background: "rgba(255,255,255,0.03)",
+                  border: `1px solid ${OW.border}`,
+                }}>{isLive ? "Live" : "Pre"}</span>
+              ) : (
+                <div style={{
+                  display: "flex", alignItems: "center",
+                  userSelect: "none", WebkitTapHighlightColor: "transparent",
+                }}>
+                  <span
+                    onMouseEnter={() => setBookHover(true)}
+                    onMouseLeave={() => setBookHover(false)}
+                    style={{
+                      fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+                      color: OW.tSys, letterSpacing: "0.005em", lineHeight: "20px",
                       transition: `color 0.15s ${OW.ease}`,
-                      borderBottom: bookHover ? `1px solid ${book.color}30` : "1px solid transparent",
-                      paddingBottom: 1,
-                    }}>
-                      {book.name}
-                    </span>
-                  </>
-                ) : (
-                  <>Best available odds</>
-                )}
-              </span>
-              <div style={{ flex: 1, minWidth: 12 }} />
-              <button onClick={() => setMetricsOpen(p => !p)} style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: 28, height: 28, borderRadius: 8,
-                border: "none", cursor: "pointer", flexShrink: 0,
-                background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
-                color: OW.t4, transition: `all 0.2s ${OW.ease}`,
-              }}>
-                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
-                  style={{
-                    transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
-                    transition: `transform 0.25s ${OW.ease}`,
+                      ...(bookHover ? { color: OW.t3 } : {}),
+                    }}
+                  >
+                    {book ? (
+                      <>
+                        Best {gamePhase} odds on{" "}
+                        <span style={{
+                          color: bookHover ? book.color : OW.t3,
+                          fontWeight: 600,
+                          transition: `color 0.15s ${OW.ease}`,
+                          borderBottom: bookHover ? `1px solid ${book.color}30` : "1px solid transparent",
+                          paddingBottom: 1,
+                        }}>
+                          {book.name}
+                        </span>
+                      </>
+                    ) : (
+                      <>Best available odds</>
+                    )}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 12 }} />
+                  <button onClick={() => setMetricsOpen(p => !p)} style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: 28, height: 28, borderRadius: 8,
+                    border: "none", cursor: "pointer", flexShrink: 0,
+                    background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
+                    color: OW.t4, transition: `all 0.2s ${OW.ease}`,
                   }}>
-                  <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
-                    strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
+                      style={{
+                        transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
+                        transition: `transform 0.25s ${OW.ease}`,
+                      }}>
+                      <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
+                        strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
 
         {/* §4 Collapsible Metrics tray */}
         <MetricsPanel
@@ -2089,13 +2104,31 @@ TacticalHUD.displayName = "TacticalHUD";
  */
 const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => {
   const c = useMemo(() => cleanVerdictContent(content), [content]);
-  // Try to split into exit/hold scenarios on arrow pattern
+  // M-08: Parse into dual scenarios (exit + hold) on arrow pattern
   const parsed = useMemo(() => {
-    const parts = c.split(/\s*→\s*/);
-    if (parts.length >= 2) {
-      return { exitTrigger: parts[0].trim(), exitAction: parts[1].trim(), hasStructure: true };
+    // Try to find two arrow-separated scenarios
+    // Pattern: "If X → exit action. If Y → hold action" or sentence-split
+    const arrowParts = c.split(/\s*→\s*/);
+    if (arrowParts.length >= 3) {
+      // Three+ parts: first arrow = exit, second arrow = hold
+      const exitTrigger = arrowParts[0].trim();
+      // Find where the hold trigger starts (after first action phrase)
+      const exitAction = arrowParts[1].replace(/[.;]\s*(?:If|When|But if|However)\b.*$/i, "").trim();
+      const holdStart = arrowParts[1].match(/[.;]\s*((?:If|When|But if|However)\b.*)$/i);
+      const holdTrigger = holdStart ? holdStart[1].trim() : "";
+      const holdAction = arrowParts.slice(2).join("→").trim();
+      if (holdTrigger && holdAction) {
+        return { exitTrigger, exitAction, holdTrigger, holdAction, hasStructure: true, hasDual: true };
+      }
+      return { exitTrigger, exitAction: arrowParts.slice(1).join("→").trim(), holdTrigger: "", holdAction: "", hasStructure: true, hasDual: false };
     }
-    return { exitTrigger: c, exitAction: "", hasStructure: false };
+    if (arrowParts.length >= 2) {
+      // Split on sentence boundary for potential dual scenario in action text
+      const exitTrigger = arrowParts[0].trim();
+      const afterArrow = arrowParts[1].trim();
+      return { exitTrigger, exitAction: afterArrow, holdTrigger: "", holdAction: "", hasStructure: true, hasDual: false };
+    }
+    return { exitTrigger: c, exitAction: "", holdTrigger: "", holdAction: "", hasStructure: false, hasDual: false };
   }, [c]);
   return (
     <motion.div
@@ -2128,6 +2161,18 @@ const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => {
             <p className="text-[15px] font-medium text-amber-400 mt-2">
               → {parsed.exitAction}
             </p>
+
+            {/* M-08: Hold scenario — separated by quiet space, emerald action */}
+            {parsed.hasDual && parsed.holdTrigger && (
+              <div className="mt-5 pt-4 border-t border-white/[0.04]">
+                <p className="text-[15px] text-zinc-200 leading-relaxed">
+                  {parsed.holdTrigger}
+                </p>
+                <p className="text-[15px] font-medium text-emerald-400 mt-2">
+                  → {parsed.holdAction}
+                </p>
+              </div>
+            )}
           </>
         ) : (
           <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
@@ -2498,7 +2543,7 @@ const MessageBubble: FC<{
 
             // M-26: Apply typography normalization to body paragraphs
             return (
-              <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-5 last:mb-0")}>
+              <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-6 last:mb-0")}>
                 {children}
               </div>
             );
@@ -2515,10 +2560,11 @@ const MessageBubble: FC<{
               // M-13: Strip inline bullet characters (•, ·, ‣) before headers
               const normalized = normalizeHeader(rawText);
               return (
-                <div className="mt-8 mb-3 pt-6">
-                  {/* M-16/M-17: Consistent gradient-faded hairline, 32px top margin, 12px bottom */}
-                  <div className="mb-3" style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
-                  <div className="flex items-center gap-2.5">
+                <div className="mb-3">
+                  {/* M-16/M-17: Hairline divider after 24px body bottom margin (from mb-6 on paragraphs) */}
+                  <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
+                  {/* M-17: 32px gap between hairline and section header */}
+                  <div className="mt-8 flex items-center gap-2.5">
                     <div className="w-1 h-1 rounded-full bg-zinc-600" />
                     <span className="text-[12px] font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
                   </div>
