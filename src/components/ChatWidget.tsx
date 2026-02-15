@@ -1014,13 +1014,19 @@ function normalizeHeader(raw: string): string {
 /**
  * M-26: Normalize typography — proper em-dashes, ellipsis, smart quotes.
  * Applied to prose content for typographic polish.
+ * Note: Smart quote replacement is conservative — only applies to clear prose
+ * patterns, never inside numbers, odds values, or code-like content.
  */
 function normalizeTypography(text: string): string {
   return text
     .replace(/--/g, "\u2014")               // Double hyphen → em-dash
     .replace(/(\d)\u2013(\d)/g, "$1\u2013$2") // Keep en-dash between numbers
     .replace(/(?<!\d)\u2013(?!\d)/g, "\u2014") // En-dash in prose → em-dash
-    .replace(/\.{3}/g, "\u2026");            // Three dots → ellipsis
+    .replace(/\.{3}/g, "\u2026")            // Three dots → ellipsis
+    .replace(/(^|[\s(])"(?=\S)/gm, "$1\u201C") // Smart open double quote (after whitespace/start)
+    .replace(/"(?=[\s,.;:!?)—\u2014]|$)/gm, "\u201D") // Smart close double quote (before punct/end)
+    .replace(/(^|[\s(])'(?=\S)/gm, "$1\u2018") // Smart open single quote (after whitespace/start)
+    .replace(/'(?=[\s,.;:!?)—\u2014]|$)/gm, "\u2019"); // Smart close single/apostrophe
 }
 
 /**
@@ -1735,7 +1741,11 @@ const EdgeVerdictCard: FC<{
     };
   }, [cardIndex, entered]);
 
-  const hasSynopsis = Boolean(synopsis && synopsis.length > 0);
+  // M-14: Ensure synopsis always exists — fallback to summaryLabel if extraction yielded nothing
+  const resolvedSynopsis = (synopsis && synopsis.length > 0)
+    ? synopsis
+    : (parsedVerdict.summaryLabel && parsedVerdict.summaryLabel.length > 10 ? parsedVerdict.summaryLabel : "");
+  const hasSynopsis = Boolean(resolvedSynopsis && resolvedSynopsis.length > 0);
 
   // Decompose headline into primary (team) + qualifier (spread/ML/odds)
   // M-15: Normalize team name to canonical display form
@@ -1757,7 +1767,7 @@ const EdgeVerdictCard: FC<{
     triggerHaptic();
     setShareState("capturing");
     const shareText = hasSynopsis
-      ? `${headline}\n${synopsis}\n\nthedrip.app`
+      ? `${headline}\n${resolvedSynopsis}\n\nthedrip.app`
       : `${headline}\n\nthedrip.app`;
     navigator.clipboard?.writeText(shareText.trim()).catch(() => {});
     trackAction("verdict.share", { trackingKey, cardIndex });
@@ -1890,7 +1900,7 @@ const EdgeVerdictCard: FC<{
           open={metricsOpen && !isCaptureMode}
         />
 
-        {/* §5 Synopsis — only rendered when real insight exists */}
+        {/* §5 Synopsis — M-14: Always rendered when available (live and pregame alike) */}
         {hasSynopsis && (
           <div style={{
             marginTop: 20,
@@ -1899,7 +1909,7 @@ const EdgeVerdictCard: FC<{
             color: OW.t2, letterSpacing: "0.005em",
             ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[3]),
           }}>
-            {synopsis}
+            {resolvedSynopsis}
           </div>
         )}
 
@@ -2560,8 +2570,10 @@ const MessageBubble: FC<{
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
                     {analysisContent}
                   </ReactMarkdown>
-                  {/* M-25: Bottom fade gradient when more content exists below fold */}
-                  <div className="sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#08080A] to-transparent pointer-events-none" />
+                  {/* M-25: Bottom fade gradient — only shown when analysis has enough content to warrant scroll hint */}
+                  {analysisContent.split("\n").length > 8 && (
+                    <div className="sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#08080A] to-transparent pointer-events-none transition-opacity duration-300" />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
