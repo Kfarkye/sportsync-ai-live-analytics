@@ -56,8 +56,19 @@ function applyCitationLinks(text: string, citations?: CitationSpan[]): string {
   let cutoff = text.length + 1;
 
   for (const c of sorted) {
-    const start = Math.max(0, Math.min(output.length, c.startIndex));
-    const end = Math.max(0, Math.min(output.length, c.endIndex));
+    let start = Math.max(0, Math.min(output.length, c.startIndex));
+    let end = Math.max(0, Math.min(output.length, c.endIndex));
+    if (end <= start) continue;
+
+    const segment = output.slice(start, end);
+    const newlineIndex = segment.indexOf("\n");
+    if (newlineIndex !== -1) end = start + newlineIndex;
+
+    while (start < end && /\s/.test(output[start])) start += 1;
+    while (end > start && /\s/.test(output[end - 1])) end -= 1;
+    while (end > start && /[.,;:)\]]/.test(output[end - 1])) end -= 1;
+    while (start < end && /[(\[]/.test(output[start])) start += 1;
+
     if (end <= start) continue;
     if (end > cutoff) continue;
     if (!c.url) continue;
@@ -126,7 +137,6 @@ const RichTextWithCitations = ({ text, citations }: Props) => {
     if (debug !== "citations") return;
     const html = containerRef.current?.innerHTML;
     if (!html) return;
-    // eslint-disable-next-line no-console
     console.debug("[Citations] Rendered HTML:", html);
   }, [hydrated, citations]);
   return (
