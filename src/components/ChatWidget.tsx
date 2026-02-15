@@ -164,6 +164,14 @@ const SECTION_HEADERS = [
   "STRUCTURAL ASSESSMENT",
 ] as const;
 
+const KILLED_SECTIONS = new Set([
+  "the edge",
+  "invalidation",
+  "triple confluence",
+  "the signal",
+  "the confluence",
+]);
+
 const BRAND_MAP: Record<string, string> = {
   "espn.com": "ESPN",
   "covers.com": "Covers",
@@ -1726,7 +1734,16 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
 
       const sections = extractMarkdownSections(raw);
       const edgeSection = sections.find((s) => normalizeSectionHeader(s.header) === "the edge");
-      const visibleRaw = edgeSection ? removeMarkdownSection(raw, edgeSection) : raw;
+      const killed = sections.filter((s) => KILLED_SECTIONS.has(normalizeSectionHeader(s.header)));
+      const sectionsToRemove = [
+        ...(edgeSection ? [edgeSection] : []),
+        ...killed.filter((s) => s !== edgeSection),
+      ].sort((a, b) => b.start - a.start);
+
+      let visibleRaw = raw;
+      for (const section of sectionsToRemove) {
+        visibleRaw = removeMarkdownSection(visibleRaw, section);
+      }
       const range = edgeSection ? { start: edgeSection.bodyStart, end: edgeSection.bodyEnd } : null;
       return { displayContent: visibleRaw, edgeSummary: edgeSection?.body || "", edgeRange: range };
     }, [message.content, isUser]);

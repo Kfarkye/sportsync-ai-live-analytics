@@ -16,14 +16,9 @@ interface Props {
 }
 
 const SECTION_HEADERS = new Set([
-  "THE EDGE",
   "KEY FACTORS",
   "MARKET DYNAMICS",
   "WHAT TO WATCH",
-  "INVALIDATION",
-  "TRIPLE CONFLUENCE",
-  "THE SIGNAL",
-  "THE CONFLUENCE",
 ]);
 
 function flattenText(children: React.ReactNode): string {
