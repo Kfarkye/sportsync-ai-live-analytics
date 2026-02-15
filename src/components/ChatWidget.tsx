@@ -96,7 +96,7 @@ const REGEX_INVALID_MATCH = /^\*{0,2}(?:invalidation|cash out\??):/i;
 
 const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|INVALIDATION|CASH OUT\??|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
 
-const REGEX_SIGNED_NUMERIC = /[+-]\d+(?:\.\d+)?/g;
+const REGEX_SIGNED_NUMERIC = /[+\-\u2212]\d+(?:\.\d+)?/g;
 
 /**
  * Matches bracket citation tokens: [1], [1, 2], [1.1]
@@ -906,6 +906,14 @@ interface ParsedEdgeVerdict {
 function parseEdgeVerdict(rawVerdict: string): ParsedEdgeVerdict {
   const cleaned = cleanVerdictContent(rawVerdict)
     .replace(/^\*+|\*+$/g, "")
+    // Strip parenthetical bet-type labels: (Live Spread), (Moneyline), (ML), (Asian Handicap), (Pregame), etc.
+    .replace(/\s*\((?:Live\s+)?(?:Spread|Moneyline|ML|Asian\s+Handicap|Pregame|Alt(?:ernate)?\s+\w+|Game\s+\w+|Match\s+\w+)[^)]*\)/gi, "")
+    // Strip trailing "/ value" patterns — raw total leaking from schema
+    .replace(/\s*\/\s*[OoUu]?\d+(?:\.\d+)?\s*$/, "")
+    // Fix leading zeros on numeric values: 01.5 → 1.5
+    .replace(/\b0+(\d+(?:\.\d+)?)/g, "$1")
+    // Replace hyphen-minus before digits with proper minus sign (U+2212)
+    .replace(/-(?=\d)/g, "\u2212")
     .trim();
   if (!cleaned) {
     return { teamName: "No Edge", spread: "N/A", odds: "N/A", summaryLabel: "" };
@@ -1754,6 +1762,9 @@ const EdgeVerdictCard: FC<{
     : null;
   const headline = teamDisplay + (qualifier ? ` ${qualifier}` : "");
 
+  // Hide odds row entirely when no odds value is present
+  const hasOddsData = parsedVerdict.odds !== "N/A" || book !== null;
+
   const handleToggle = useCallback((selection: "tail" | "fade") => {
     const next = outcome === selection ? null : selection;
     triggerHaptic();
@@ -1824,72 +1835,77 @@ const EdgeVerdictCard: FC<{
           </h3>
         </div>
 
-        {/* M-16: Hairline divider — gradient-faded edges, consistent everywhere */}
-        <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "24px 0" }} />
+        {/* Hairline + odds row — only rendered when odds data is present */}
+        {hasOddsData && (
+          <>
+            {/* M-16: Hairline divider — gradient-faded edges, consistent everywhere */}
+            <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "24px 0" }} />
 
-        {/* §3 Unified row: capture mode shows tag, live mode shows book line */}
-        <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2])}>
-          {isCaptureMode ? (
-            <span style={{
-              display: "inline-block",
-              fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
-              letterSpacing: "0.12em", textTransform: "uppercase",
-              color: OW.t4, padding: "4px 12px", borderRadius: 6,
-              background: "rgba(255,255,255,0.03)",
-              border: `1px solid ${OW.border}`,
-            }}>{isLive ? "Live" : "Pre"}</span>
-          ) : (
-            <div style={{
-              display: "flex", alignItems: "center",
-              userSelect: "none", WebkitTapHighlightColor: "transparent",
-            }}>
-              <span
-                onMouseEnter={() => setBookHover(true)}
-                onMouseLeave={() => setBookHover(false)}
-                style={{
-                  fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
-                  color: OW.tSys, letterSpacing: "0.005em", lineHeight: "20px",
-                  transition: `color 0.15s ${OW.ease}`,
-                  ...(bookHover ? { color: OW.t3 } : {}),
-                }}
-              >
-                {book ? (
-                  <>
-                    Best {gamePhase} odds on{" "}
-                    <span style={{
-                      color: bookHover ? book.color : OW.t3,
-                      fontWeight: 600,
+            {/* §3 Unified row: capture mode shows tag, live mode shows book line */}
+            <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2])}>
+              {isCaptureMode ? (
+                <span style={{
+                  display: "inline-block",
+                  fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
+                  letterSpacing: "0.12em", textTransform: "uppercase",
+                  color: OW.t4, padding: "4px 12px", borderRadius: 6,
+                  background: "rgba(255,255,255,0.03)",
+                  border: `1px solid ${OW.border}`,
+                }}>{isLive ? "Live" : "Pre"}</span>
+              ) : (
+                <div style={{
+                  display: "flex", alignItems: "center",
+                  userSelect: "none", WebkitTapHighlightColor: "transparent",
+                }}>
+                  <span
+                    onMouseEnter={() => setBookHover(true)}
+                    onMouseLeave={() => setBookHover(false)}
+                    style={{
+                      fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+                      color: OW.tSys, letterSpacing: "0.005em", lineHeight: "20px",
                       transition: `color 0.15s ${OW.ease}`,
-                      borderBottom: bookHover ? `1px solid ${book.color}30` : "1px solid transparent",
-                      paddingBottom: 1,
-                    }}>
-                      {book.name}
-                    </span>
-                  </>
-                ) : (
-                  <>Best available odds</>
-                )}
-              </span>
-              <div style={{ flex: 1, minWidth: 12 }} />
-              <button onClick={() => setMetricsOpen(p => !p)} style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: 28, height: 28, borderRadius: 8,
-                border: "none", cursor: "pointer", flexShrink: 0,
-                background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
-                color: OW.t4, transition: `all 0.2s ${OW.ease}`,
-              }}>
-                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
-                  style={{
-                    transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
-                    transition: `transform 0.25s ${OW.ease}`,
+                      ...(bookHover ? { color: OW.t3 } : {}),
+                    }}
+                  >
+                    {book ? (
+                      <>
+                        Best {gamePhase} odds on{" "}
+                        <span style={{
+                          color: bookHover ? book.color : OW.t3,
+                          fontWeight: 600,
+                          transition: `color 0.15s ${OW.ease}`,
+                          borderBottom: bookHover ? `1px solid ${book.color}30` : "1px solid transparent",
+                          paddingBottom: 1,
+                        }}>
+                          {book.name}
+                        </span>
+                      </>
+                    ) : (
+                      <>Best available odds</>
+                    )}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 12 }} />
+                  <button onClick={() => setMetricsOpen(p => !p)} style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: 28, height: 28, borderRadius: 8,
+                    border: "none", cursor: "pointer", flexShrink: 0,
+                    background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
+                    color: OW.t4, transition: `all 0.2s ${OW.ease}`,
                   }}>
-                  <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
-                    strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
+                      style={{
+                        transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
+                        transition: `transform 0.25s ${OW.ease}`,
+                      }}>
+                      <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
+                        strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
 
         {/* §4 Collapsible Metrics tray */}
         <MetricsPanel
