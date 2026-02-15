@@ -1,10 +1,14 @@
 /* ============================================================================
-   /api/live/odds/[game_id]
-   Public proxy — serves live odds data from Supabase live_game_state.
+   /api/live/odds/[slug]
+   HMAC-signed public proxy — serves live odds data from Supabase live_game_state.
    Designed for Gemini URL Context: publicly accessible, minimal payload, GET only.
+
+   Route: /api/live/odds/{hmac_slug}?g={gameId}
+   The slug is validated server-side against the gameId + "odds" endpoint.
 ============================================================================ */
 import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit } from "../../lib/rateLimit.js";
+import { validateSatelliteSlug } from "../../lib/satellite.js";
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -12,6 +16,7 @@ const supabase = createClient(
 );
 
 const GAME_ID_RE = /^[\w-]{4,128}$/;
+const SLUG_RE = /^[0-9a-f]{16}$/;
 
 export default async function handler(req, res) {
     if (req.method !== "GET") {
@@ -21,16 +26,23 @@ export default async function handler(req, res) {
         return res.status(429).json({ error: "Rate limit exceeded" });
     }
 
-    const { game_id } = req.query;
-    if (!game_id || typeof game_id !== "string" || !GAME_ID_RE.test(game_id)) {
+    const { slug, g: gameId } = req.query;
+
+    if (!slug || typeof slug !== "string" || !SLUG_RE.test(slug)) {
+        return res.status(400).json({ error: "Invalid slug" });
+    }
+    if (!gameId || typeof gameId !== "string" || !GAME_ID_RE.test(gameId)) {
         return res.status(400).json({ error: "Invalid game_id" });
+    }
+    if (!validateSatelliteSlug(slug, gameId, "odds")) {
+        return res.status(403).json({ error: "Forbidden" });
     }
 
     try {
         const { data, error } = await supabase
             .from("live_game_state")
             .select("id, odds, t60_snapshot, t0_snapshot, updated_at")
-            .eq("id", game_id)
+            .eq("id", gameId)
             .maybeSingle();
 
         if (error) throw error;
@@ -51,6 +63,7 @@ export default async function handler(req, res) {
             movement.push({ label: "current", spread: current.spread, total: current.total });
         }
 
+        res.setHeader("Content-Type", "application/json");
         res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
         return res.status(200).json({
             game_id: data.id,

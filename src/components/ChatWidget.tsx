@@ -111,14 +111,17 @@ const REGEX_MULTI_SPACE = /\s{2,}/g;
 /** URL fragment appended to citation links — lets the <a> renderer distinguish citations from content links. */
 const CITE_MARKER = "#__cite__";
 
-/** Strips support-injected brand citations: " per [ESPN](url#__cite__), [BBRef](url#__cite__)" */
+/** Strips inline citation links (phrase-as-link): [any text](url#__cite__) → "any text" */
+const REGEX_CLEAN_CITE_LINK = /\[([^\]]+)\]\([^)]*#__cite__[^)]*\)/g;
+
+/** Strips old-style support-injected brand citations: " per [ESPN](url#__cite__), [BBRef](url#__cite__)" */
 const REGEX_CLEAN_SUPPORT_CITE = /\s*per\s+(?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+/g;
 
-/** Strips hydration-path parenthesized citations: " ([ESPN](url), [BBRef](url))" */
+/** Strips old-style hydration-path parenthesized citations: " ([ESPN](url), [BBRef](url))" */
 const REGEX_CLEAN_HYDRATED_CITE = /\s*\((?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+\)/g;
 
-/** Pre-existing attribution phrases — word-bounded to prevent false positives on common prose. */
-const REGEX_PREEXISTING_ATTRIBUTION = /(?:according\s+to|reported\s+by|\bper\b|\bvia\b|sourced?\s+from|says|noted\s+by|cited\s+by)\s+/i;
+/** Strips superscript fallback citations: text¹² → text */
+const REGEX_CLEAN_SUPERSCRIPT_CITE = /\s*\[([^\]]+)\]\([^)]*#__cite_sup__[^)]*\)/g;
 
 /** Removes hydrated markdown links: [1](https://...) */
 const REGEX_CLEAN_LINK = /\s*\[\d+(?:\.\d+)?\]\([^)]+\)/g;
@@ -129,39 +132,47 @@ const REGEX_CLEAN_CONF = /\s*\(Confidence:\s*\w+\)/gi;
 /** Extracts confidence level from verdict text before cleaning. */
 const REGEX_EXTRACT_CONF = /\(Confidence:\s*(\w+)\)/i;
 
-const BRAND_MAP: Record<string, string> = {
-  "espn.com": "ESPN",
-  "covers.com": "Covers",
-  "actionnetwork.com": "Action",
-  "draftkings.com": "DK",
-  "fanduel.com": "FanDuel",
-  "rotowire.com": "RotoWire",
-  "basketball-reference.com": "BBRef",
-  "sports-reference.com": "SportsRef",
-  "pro-football-reference.com": "PFRef",
-  "github.com": "GitHub",
-  "x.com": "X",
-  "twitter.com": "X",
-  "google.com": "Google",
-  "ai.google.dev": "Google AI",
-  "vertexaisearch.cloud.google.com": "Google",
-  "discoveryengine.googleapis.com": "Google",
-  "nba.com": "NBA",
-  "nfl.com": "NFL",
-  "mlb.com": "MLB",
-  "nhl.com": "NHL",
-  "cbssports.com": "CBS",
-  "yahoo.com": "Yahoo",
-  "bleacherreport.com": "BR",
-  "theathletic.com": "Athletic",
-  "vercel.app": "Live",
+/**
+ * Brand color map — used ONLY for hover styling and debug logging.
+ * Brand names never appear in the response text. The phrase IS the link.
+ */
+interface BrandInfo { name: string; color: string }
+const BRAND_COLOR_MAP: Record<string, BrandInfo> = {
+  "espn.com":                        { name: "ESPN",     color: "#C2372E" },
+  "covers.com":                      { name: "Covers",   color: "#1A8F3C" },
+  "actionnetwork.com":               { name: "Action",   color: "#0066CC" },
+  "draftkings.com":                  { name: "DK",       color: "#53D337" },
+  "fanduel.com":                     { name: "FanDuel",  color: "#1493FF" },
+  "rotowire.com":                    { name: "RotoWire", color: "#C2372E" },
+  "basketball-reference.com":        { name: "BBRef",    color: "#D46A2F" },
+  "sports-reference.com":            { name: "SportsRef",color: "#D46A2F" },
+  "pro-football-reference.com":      { name: "PFRef",    color: "#D46A2F" },
+  "nba.com":                         { name: "NBA",      color: "#1D428A" },
+  "nfl.com":                         { name: "NFL",      color: "#013369" },
+  "mlb.com":                         { name: "MLB",      color: "#002D72" },
+  "nhl.com":                         { name: "NHL",      color: "#000000" },
+  "cbssports.com":                   { name: "CBS",      color: "#0033A0" },
+  "yahoo.com":                       { name: "Yahoo",    color: "#6001D2" },
+  "bleacherreport.com":              { name: "BR",       color: "#000000" },
+  "theathletic.com":                 { name: "Athletic", color: "#222222" },
+  "x.com":                           { name: "X",        color: "#000000" },
+  "twitter.com":                     { name: "X",        color: "#000000" },
+  "google.com":                      { name: "Google",   color: "#4285F4" },
+  "ai.google.dev":                   { name: "Google AI",color: "#4285F4" },
+  "vertexaisearch.cloud.google.com": { name: "Google",   color: "#4285F4" },
+  "discoveryengine.googleapis.com":  { name: "Google",   color: "#4285F4" },
 };
 
+/** Default brand info for unrecognized sources. */
+const DEFAULT_BRAND: BrandInfo = { name: "Web", color: "#71717A" };
+/** Brand info for live satellite endpoints. */
+const LIVE_BRAND: BrandInfo = { name: "Live", color: "#10B981" };
+
 /** Path-based brand overrides for live proxy endpoints. */
-const LIVE_PATH_BRANDS: Array<[RegExp, string]> = [
-  [/\/api\/live\/scores\//, "Scores"],
-  [/\/api\/live\/odds\//, "Odds"],
-  [/\/api\/live\/pbp\//, "PBP"],
+const LIVE_PATH_BRANDS: Array<[RegExp, BrandInfo]> = [
+  [/\/api\/live\/scores\//, { name: "Scores", color: "#10B981" }],
+  [/\/api\/live\/odds\//,   { name: "Odds",   color: "#10B981" }],
+  [/\/api\/live\/pbp\//,    { name: "PBP",    color: "#10B981" }],
 ];
 
 const EDGE_CARD_STAGE_DELAYS_MS = [0, 120, 220, 300, 480] as const;
@@ -469,7 +480,12 @@ const supportCitationCache = new LRUCache<string, string>(256);
  * Support-based Citation Inserter (Descending Index Algorithm).
  *
  * Maps Gemini groundingSupports to exact phrases in the response text,
- * inserting brand-name markdown hyperlinks at precise word-level positions.
+ * wrapping each supported phrase as an invisible inline hyperlink.
+ *
+ * Design: The phrase IS the link. No brand names appear in the text.
+ * No "per ESPN", no "[1]", no attribution language. Clean prose.
+ * Hover reveals source via brand-color underline.
+ *
  * Falls back to hydrateCitations() when groundingSupports is absent.
  */
 function injectSupportCitations(
@@ -489,7 +505,7 @@ function injectSupportCitations(
 
   const supports = metadata.groundingSupports;
   const chunks = metadata.groundingChunks;
-  const cacheKey = `support1:${text.length}:${text.slice(0, 64)}:${supports.length}:${chunkFingerprint(chunks)}`;
+  const cacheKey = `support2:${text.length}:${text.slice(0, 64)}:${supports.length}:${chunkFingerprint(chunks)}`;
   const cached = supportCitationCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
@@ -499,8 +515,10 @@ function injectSupportCitations(
 
   // Step 1: Build resolved supports with character-level positions
   interface ResolvedSupport {
+    charStart: number;
     charEnd: number;
-    links: Array<{ brand: string; uri: string }>;
+    uri: string;           // First valid source URI
+    brandColor: string;    // Brand hover color (for data attribute)
   }
 
   const resolved: ResolvedSupport[] = [];
@@ -509,113 +527,123 @@ function injectSupportCitations(
     const { segment, groundingChunkIndices } = support;
     if (!segment || !groundingChunkIndices?.length) continue;
 
+    const startIndex = segment.startIndex ?? 0;
     const endIndex = segment.endIndex ?? 0;
-    if (endIndex <= 0 || endIndex > textBytes.length) continue;
+    // Degenerate segment guard
+    if (endIndex <= 0 || startIndex >= endIndex) continue;
+    if (endIndex > textBytes.length) continue;
 
-    // Resolve character position from byte offset
+    // Resolve character positions from byte offsets
+    let charStart: number;
     let charEnd: number;
-    const decodedPrefix = decoder.decode(textBytes.slice(0, endIndex));
-    charEnd = decodedPrefix.length;
+
+    const decodedStart = decoder.decode(textBytes.slice(0, startIndex));
+    charStart = decodedStart.length;
+    const decodedEnd = decoder.decode(textBytes.slice(0, endIndex));
+    charEnd = decodedEnd.length;
 
     // Verification: if segment.text is provided, confirm alignment
     if (segment.text) {
-      const startIndex = segment.startIndex ?? 0;
       const decodedSegment = decoder.decode(textBytes.slice(startIndex, endIndex));
       if (decodedSegment !== segment.text) {
         // Byte/char mismatch — fall back to indexOf
         const found = text.indexOf(segment.text);
         if (found === -1) continue;
+        charStart = found;
         charEnd = found + segment.text.length;
       }
     }
 
-    // Skip insertion points inside fenced code blocks
-    const prefix = text.slice(0, charEnd);
+    // Skip segments inside fenced code blocks
+    const prefix = text.slice(0, charStart);
     const fenceCount = (prefix.match(/```/g) || []).length;
     if (fenceCount % 2 !== 0) continue;
 
-    // Resolve chunk indices to brand links
-    const links: Array<{ brand: string; uri: string }> = [];
-    const seenUri = new Set<string>();
+    // Also skip inline code spans
+    const segmentText = text.slice(charStart, charEnd);
+    if (segmentText.includes("`")) continue;
+
+    // Resolve chunk indices to first valid source URI
+    let bestUri = "";
+    let bestBrand: BrandInfo = DEFAULT_BRAND;
     for (const idx of groundingChunkIndices) {
       if (idx < 0 || idx >= chunks.length) continue;
       const chunk = chunks[idx];
       const uri = chunk?.web?.uri;
-      if (!uri || seenUri.has(uri)) continue;
-      seenUri.add(uri);
-      const brand = uriToBrand(uri, chunk?.web?.title);
-      links.push({ brand, uri });
+      if (!uri) continue;
+      bestUri = uri;
+      bestBrand = uriToBrandInfo(uri, chunk?.web?.title);
+      break; // First valid source
     }
 
-    if (links.length === 0) continue;
-    resolved.push({ charEnd, links });
+    if (!bestUri) continue;
+    resolved.push({ charStart, charEnd, uri: bestUri, brandColor: bestBrand.color });
   }
 
   if (resolved.length === 0) {
     return hydrateCitations(text, metadata);
   }
 
-  // Step 2: Sort by charEnd DESCENDING — high-to-low for safe in-place splicing
+  // Step 2: Sort by endIndex DESCENDING — bottom-to-top insertion prevents index shifting
   resolved.sort((a, b) => b.charEnd - a.charEnd);
 
-  // Step 3: Merge overlapping supports (endIndex within 5 chars of each other)
-  const merged: ResolvedSupport[] = [];
+  // Step 3: Remove overlapping segments — keep the longer segment
+  const deduped: ResolvedSupport[] = [];
   for (const r of resolved) {
-    const last = merged[merged.length - 1];
-    if (last && Math.abs(last.charEnd - r.charEnd) <= 5) {
-      const existingUris = new Set(last.links.map((l) => l.uri));
-      for (const link of r.links) {
-        if (!existingUris.has(link.uri)) {
-          last.links.push(link);
-          existingUris.add(link.uri);
-        }
+    const last = deduped[deduped.length - 1];
+    // Since sorted descending by charEnd, overlaps occur when r.charEnd > last.charStart
+    if (last && r.charEnd > last.charStart) {
+      // Overlap detected — keep whichever is longer
+      const lastLen = last.charEnd - last.charStart;
+      const rLen = r.charEnd - r.charStart;
+      if (rLen > lastLen) {
+        deduped[deduped.length - 1] = r; // Replace with longer
       }
+      // else: keep existing (already longer)
     } else {
-      merged.push({ charEnd: r.charEnd, links: [...r.links] });
+      deduped.push(r);
     }
   }
 
-  // Step 4: Insert citations back-to-front (descending order preserves indices)
+  // Step 4: Splice — wrap each supported phrase as a markdown link (descending order preserves indices)
   let result = text;
-  for (const { charEnd, links } of merged) {
-    // Filter out brands already cited in nearby attribution
-    const lookback = result.slice(Math.max(0, charEnd - 30), charEnd);
-    let uncitedLinks = links;
-    if (REGEX_PREEXISTING_ATTRIBUTION.test(lookback)) {
-      const lookbackLower = lookback.toLowerCase();
-      uncitedLinks = links.filter(
-        (l) => !lookbackLower.includes(l.brand.toLowerCase()),
-      );
-      if (uncitedLinks.length === 0) continue;
-    }
-
-    const citationLinks = uncitedLinks
-      .map((l) => `[${l.brand}](${l.uri}${CITE_MARKER})`)
-      .join(", ");
-    const attribution = ` per ${citationLinks}`;
-    result = result.slice(0, charEnd) + attribution + result.slice(charEnd);
+  for (const { charStart, charEnd, uri, brandColor } of deduped) {
+    const phraseText = result.slice(charStart, charEnd);
+    // Skip empty or whitespace-only segments
+    if (!phraseText.trim()) continue;
+    // Escape any markdown link syntax already in the phrase
+    const safePhrase = phraseText.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+    // Encode brand color in the CITE_MARKER for the renderer
+    const wrappedPhrase = `[${safePhrase}](${uri}${CITE_MARKER}${encodeURIComponent(brandColor)})`;
+    result = result.slice(0, charStart) + wrappedPhrase + result.slice(charEnd);
   }
 
-  const cleaned = result.replace(REGEX_MULTI_SPACE, " ");
-  supportCitationCache.set(cacheKey, cleaned);
-  return cleaned;
+  supportCitationCache.set(cacheKey, result);
+  return result;
 }
 
 const hydrationCache = new LRUCache<string, string>(256);
 
+/** Unicode superscript digits for fallback citation numbers. */
+const SUPERSCRIPT_DIGITS = ["⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"];
+function toSuperscript(n: number): string {
+  return String(n).split("").map((d) => SUPERSCRIPT_DIGITS[parseInt(d, 10)] || d).join("");
+}
+
 /**
- * Inline Citation Hydration.
+ * Fallback Citation Hydration (Superscript Numbers).
  *
- * Replaces bracket citation tokens ([1], [1.1], [1, 2]) in-place with
- * brand-name hyperlinks. Adjacent tokens merge into a single parenthetical.
+ * Fires only when groundingSupports is absent. Replaces bracket citation
+ * tokens ([1], [1.1], [1, 2]) with small superscript number links.
+ * No brand names appear in the text — the fallback is degraded but invisible.
  *
- * Before: "Price fell to $15K [1.1] [1.10]. Erased all gains [1.1] [1.9]."
- * After:  "Price fell to $15K ([ESPN](url), [BBRef](url)). Erased all gains ([ESPN](url), [Yahoo](url))."
+ * Before: "Price fell to $15K [1] [2]. Erased all gains [1]."
+ * After:  "Price fell to $15K[¹](url#__cite_sup__)[²](url#__cite_sup__). Erased all gains[¹](url#__cite_sup__)."
  */
 function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
   if (!text || !metadata?.groundingChunks?.length) return text;
   const chunks = metadata.groundingChunks;
-  const cacheKey = `inline1:${text.length}:${text.slice(0, 64)}:${chunks.length}:${chunkFingerprint(chunks)}`;
+  const cacheKey = `inline2:${text.length}:${text.slice(0, 64)}:${chunks.length}:${chunkFingerprint(chunks)}`;
   const cached = hydrationCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
@@ -632,10 +660,9 @@ function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
     if (segment.startsWith("```")) return segment;
 
     return segment.replace(REGEX_ADJACENT_CITATIONS, (fullMatch) => {
-      const links: Array<{ brand: string; uri: string }> = [];
+      const superscripts: string[] = [];
       const seenUri = new Set<string>();
 
-      // Extract all individual tokens from the full match
       let m: RegExpExecArray | null;
       const tokenRe = /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
       while ((m = tokenRe.exec(fullMatch)) !== null) {
@@ -650,27 +677,18 @@ function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
           const uri = chunk?.web?.uri;
           if (uri && !seenUri.has(uri)) {
             seenUri.add(uri);
-            const brand = uriToBrand(uri, chunk?.web?.title);
-            links.push({ brand, uri });
+            const sup = toSuperscript(index + 1);
+            superscripts.push(`[${sup}](${uri}#__cite_sup__)`);
           }
         }
       }
 
-      if (links.length === 0) return fullMatch;
-
-      const inner = links.map((l) => `[${l.brand}](${l.uri})`).join(", ");
-      return ` (${inner})`;
+      if (superscripts.length === 0) return fullMatch;
+      return superscripts.join("");
     });
   }).join("");
 
-  // Clean up spacing artifacts
-  const cleaned = hydrated
-    .replace(/\s+\)/g, ")")    // " )" → ")"
-    .replace(/\(\s+/g, "(")    // "( " → "("
-    .replace(/\.\s*\(/g, " (") // ".(" → " ("
-    .replace(/\)([a-zA-Z])/g, ") $1") // ")word" → ") word"
-    .replace(REGEX_MULTI_SPACE, " ");
-
+  const cleaned = hydrated.replace(REGEX_MULTI_SPACE, " ");
   hydrationCache.set(cacheKey, cleaned);
   return cleaned;
 }
@@ -685,11 +703,13 @@ function extractTextContent(content: MessageContent): string {
 function cleanVerdictContent(text: string): string {
   if (!text) return "";
   return text
-    .replace(REGEX_CLEAN_SUPPORT_CITE, "")
-    .replace(REGEX_CLEAN_HYDRATED_CITE, "")
-    .replace(REGEX_CLEAN_LINK, "")
-    .replace(REGEX_CLEAN_REF, "")
-    .replace(REGEX_CLEAN_CONF, "")
+    .replace(REGEX_CLEAN_CITE_LINK, "$1")       // [phrase](url#__cite__...) → phrase
+    .replace(REGEX_CLEAN_SUPERSCRIPT_CITE, "")   // [¹](url#__cite_sup__) → ""
+    .replace(REGEX_CLEAN_SUPPORT_CITE, "")       // legacy: " per [Brand](url)" → ""
+    .replace(REGEX_CLEAN_HYDRATED_CITE, "")      // legacy: " ([Brand](url))" → ""
+    .replace(REGEX_CLEAN_LINK, "")               // [1](url) → ""
+    .replace(REGEX_CLEAN_REF, "")                // [1] → ""
+    .replace(REGEX_CLEAN_CONF, "")               // (Confidence: High) → ""
     .replace(REGEX_MULTI_SPACE, " ")
     .trim();
 }
@@ -715,17 +735,17 @@ function confidenceToPercent(level: ConfidenceLevel): number {
   }
 }
 
-function hostnameToBrand(hostname: string): string {
+function hostnameToBrandInfo(hostname: string): BrandInfo {
   const h = hostname.replace(/^www\./, "").toLowerCase();
-  if (BRAND_MAP[h]) return BRAND_MAP[h];
+  if (BRAND_COLOR_MAP[h]) return BRAND_COLOR_MAP[h];
   // Walk up subdomains: "vertexaisearch.cloud.google.com" → "cloud.google.com" → "google.com"
   const parts = h.split(".");
   for (let i = 1; i < parts.length - 1; i++) {
     const parent = parts.slice(i).join(".");
-    if (BRAND_MAP[parent]) return BRAND_MAP[parent];
+    if (BRAND_COLOR_MAP[parent]) return BRAND_COLOR_MAP[parent];
   }
   const base = parts[0] || "Source";
-  return base.charAt(0).toUpperCase() + base.slice(1);
+  return { name: base.charAt(0).toUpperCase() + base.slice(1), color: DEFAULT_BRAND.color };
 }
 
 function getHostname(href?: string): string {
@@ -734,29 +754,38 @@ function getHostname(href?: string): string {
 }
 
 /**
- * Brand resolution — resolves the human-readable source name for a grounding chunk.
+ * Brand resolution — resolves source identity (name + hover color) for a grounding chunk.
  *
  * Google Search grounding returns redirect URIs through vertexaisearch.cloud.google.com.
  * The URI hostname resolves to "Google" for every source. The chunk's title field contains
  * the ACTUAL source domain (e.g. "espn.com", "basketball-reference.com"). Title takes
  * priority over hostname when it looks like a domain.
+ *
+ * Brand names are used ONLY for hover color resolution and debug logging.
+ * They never appear as visible text in the response.
  */
-function uriToBrand(href?: string, title?: string): string {
-  if (!href) return "Source";
-  // 1. Live endpoint paths
+function uriToBrandInfo(href?: string, title?: string): BrandInfo {
+  if (!href) return DEFAULT_BRAND;
+  // 1. Live endpoint paths (satellite proxies)
   try {
     const url = new URL(href);
-    for (const [pattern, label] of LIVE_PATH_BRANDS) {
-      if (pattern.test(url.pathname)) return label;
+    for (const [pattern, brand] of LIVE_PATH_BRANDS) {
+      if (pattern.test(url.pathname)) return brand;
     }
   } catch { /* fall through */ }
   // 2. Title field — actual source domain for Google Search grounding
   if (title) {
     const t = title.replace(/^www\./, "").toLowerCase().trim();
-    if (t.includes(".")) return hostnameToBrand(t);
+    if (t.includes(".")) return hostnameToBrandInfo(t);
+    // Title without dots — check if it contains a known brand keyword
+    const tLower = t.toLowerCase();
+    if (tLower.includes("espn"))                   return BRAND_COLOR_MAP["espn.com"];
+    if (tLower.includes("basketball-reference"))   return BRAND_COLOR_MAP["basketball-reference.com"];
+    if (tLower.includes("the athletic") || tLower.includes("theathletic")) return BRAND_COLOR_MAP["theathletic.com"];
+    if (tLower.includes("covers"))                 return BRAND_COLOR_MAP["covers.com"];
   }
   // 3. URI hostname fallback
-  return hostnameToBrand(getHostname(href));
+  return hostnameToBrandInfo(getHostname(href));
 }
 
 function buildWireContent(text: string, attachments: Attachment[]): MessageContent {
@@ -2241,20 +2270,60 @@ const MessageBubble: FC<{
 
           a: ({ href, children }) => {
             const isCitation = href?.includes(CITE_MARKER);
-            const cleanHref = isCitation ? href!.replace(CITE_MARKER, "") : href;
-            const isLiveSource = isCitation && LIVE_PATH_BRANDS.some(([p]) => p.test(cleanHref || ""));
+            const isSuperscript = href?.includes("#__cite_sup__");
+            // Extract brand color from CITE_MARKER fragment: #__cite__%23RRGGBB or #__cite__#RRGGBB
+            let brandColor = "";
+            let cleanHref = href || "";
+            if (isCitation) {
+              const markerIdx = cleanHref.indexOf(CITE_MARKER);
+              const colorFragment = cleanHref.slice(markerIdx + CITE_MARKER.length);
+              brandColor = decodeURIComponent(colorFragment);
+              cleanHref = cleanHref.slice(0, markerIdx);
+            } else if (isSuperscript) {
+              cleanHref = cleanHref.replace("#__cite_sup__", "");
+            }
+
+            if (isSuperscript) {
+              // Superscript fallback: small, subtle, invisible-ish
+              return (
+                <a
+                  href={cleanHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-zinc-600 no-underline hover:text-zinc-400 text-[0.65em] align-super transition-colors duration-200"
+                >
+                  {children}
+                </a>
+              );
+            }
+
+            if (isCitation) {
+              // Invisible inline citation: phrase IS the link
+              // Resting: zinc-500 (#63636E), no underline
+              // Hover: brand color + hairline underline at 25% opacity
+              const hoverStyle = brandColor
+                ? { "--cite-hover-color": brandColor, "--cite-hover-underline": `${brandColor}40` } as React.CSSProperties
+                : {};
+              return (
+                <a
+                  href={cleanHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cite-link text-[#63636E] no-underline transition-all duration-200 hover:underline underline-offset-4 decoration-1"
+                  style={hoverStyle}
+                >
+                  {children}
+                </a>
+              );
+            }
+
+            // Standard content link (non-citation)
             return (
               <a
                 href={cleanHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={
-                  isLiveSource
-                    ? "text-emerald-500/70 no-underline hover:text-emerald-300 transition-colors duration-200"
-                    : isCitation
-                      ? "text-zinc-500 no-underline hover:text-zinc-300 transition-colors duration-200"
-                      : "text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
-                }
+                className="text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
               >
                 {children}
               </a>
