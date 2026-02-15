@@ -1,63 +1,31 @@
 /* ============================================================================
    ChatWidget.tsx
-   "Obsidian Weissach" — Production Release (v29.5)
+   "Obsidian Weissach" — Production Release (v30.1 - The Receipt)
 
    Architecture:
    ├─ Core: useReducer message store, Map-indexed updates, stable refs
    ├─ Network: Retry w/ exponential backoff, connection health, guarded SSE
-   ├─ UI: "Jewel" Citation System, Evidence Deck, LRU hydration cache, 60fps scroll
-   ├─ Design: iOS 26 liquid glass, hardware-edge cards, confidence gradient bars
-   ├─ Retention: Verdict tracking, adaptive chips, scoped keyboard shortcuts
+   ├─ UI: Inline Citation Hyperlinks, LRU hydration cache
+   ├─ Design: "The Pick" Card, ConfidenceRing, Progressive Disclosure, Smart Odds
    ├─ Reliability: Debounced send, abort safety, RAF-batched streaming
    ├─ Ops: Pluggable telemetry layer, structured error reporting
-   ├─ A11y: aria-live regions, focus management, reduced-motion, timestamps
 
-   Changelog v29.5 (Weissach — Citation Hardening):
-   ── Citations ──
-   - GUARD: Code fence protection — ```fenced blocks``` skip hydration entirely
-     Prevents bracket tokens inside code snippets from being stripped as citations
-   - FIX: Paragraph-only citations return suffix directly (no leading space)
-   - BUST: LRU cache key prefix eop2 → eop3
+   Changelog v30.1 (Weissach — Bug Sweep):
+   ── Fixes ──
+   - FIX: ScrollAnchor triggers when messages arrive while scrolled up
+   - FIX: AbortController wired — Stop button truly aborts stream
+   - FIX: Thoughts accumulation uses dedicated accumulator
+   - FIX: Attachments cleared after send
+   - FIX: Section numbering sequential (§0–§13)
 
-   Changelog v29.4 (Weissach — Citation Toggle):
-   ── Citations ──
-   - ADD: Eye/EyeOff toggle in header bar — citations on/off
-     Hides: end-of-paragraph jewel clusters + EvidenceDeck source tray
-     Preserves: raw prose content (no layout shift when toggling)
-     Default: on (emerald). Off state: muted zinc icon.
-   - Gate: hydrateCitations() skipped entirely when off (no wasted compute)
-
-   Changelog v29.3 (Weissach — Contextual Scroll Anchor + Citation Sort Fix):
-   ── Scroll Anchor ──
-   - FIX: LATEST pill no longer floats permanently on any scroll
-     Now appears only at two moments:
-     1. New message arrives while user is scrolled up
-     2. Streaming completes while user is scrolled up
-     Auto-dismisses after 4 seconds. Scroll to bottom clears immediately.
-   - CHANGE: Scroll threshold 100px → 200px (reduces false triggers on mobile)
-   ── Citations ──
-   - FIX: Sort key uses major*1000+minor instead of parseFloat
-     1.10 now correctly sorts after 1.9 (was collapsing to 1.1)
-   - BUST: LRU cache key prefix eop → eop2 (invalidates stale sort order)
-
-   Changelog v29.2 (Weissach — End-of-Paragraph Citations):
-   ── Citation System ──
-   - REDESIGN: Inline → End-of-Paragraph citation placement
-     Citations stripped from mid-sentence, deduplicated, sorted numerically,
-     and clustered at paragraph boundary. Uninterrupted reading flow.
-   - KEPT: CitationJewel rendering (favicon glass pills via Google S2)
-   - KEPT: SourceIcon — S2 favicon (64px) with milled monogram fallback
-   - KEPT: EvidenceDeck — horizontal inertia-scroll tray with gradient fade masks
-   ── Materials ──
-   - UPGRADE: Liquid Glass 2.0 — 24px blur, 180% saturation, specular edge lighting
-   - ADD: SYSTEM.surface tokens centralized (glass, hud, alert, milled)
-   - ADD: SYSTEM.anim.snap — stiffer spring for popovers
-   - ADD: SYSTEM.type.label — 9px bold uppercase token
-   ── Preserved from v28.2–28.3 ──
-   - KEPT: NeuralPulse export, ConnectionBadge, sr-only live region
-   - KEPT: role="log" + aria-relevant="additions" + aria-busy on scroll
-   - KEPT: All 20 aria-label attributes, Toast role="status"
-   - KEPT: Full 9-header section list, RAF batching, LRU cache
+   Changelog v30.0 (The Receipt Redesign):
+   ── EdgeVerdictCard ──
+   - AESTHETIC: Borderless "Phantom Slab" — deep void background, top specular light
+   - FEATURE: Smart Odds Detection — auto-highlights (+1300, -110, u22.5)
+   - LAYOUT: Hero-class typography (30px) with maximal negative space
+   - UI: ConfidenceRing SVG radial gauge — animated fill with percent label
+   - UX: Command strip footer for Tail/Fade validation
+   - ADD: Watermark + Share action for screenshot readiness
 
    CSP Requirement: `img-src data: https://www.google.com;`
 ============================================================================ */
@@ -105,32 +73,33 @@ import {
   MicOff,
   StopCircle,
   Image as ImageIcon,
-  Activity,
-  ShieldCheck,
-  ExternalLink,
   RotateCcw,
   WifiOff,
-  Check,
-  XCircle,
   Eye,
   EyeOff,
+  ChevronDown,
 } from "lucide-react";
 import type { MatchOdds } from "@/types";
-import RichTextWithCitations, { type CitationSpan } from "./shared/RichTextWithCitations";
+import { ESSENCE } from "@/lib/essence";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
 // §0  STATIC CONFIG & REGEX (Hoisted — Zero Allocation at Runtime)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const REGEX_VERDICT_PREFIX = /^\*{0,2}verdict:\*{0,2}\s*/i;
-const REGEX_VERDICT_MATCH = /^\*{0,2}verdict:/i;
+const REGEX_VERDICT_MATCH = /\bverdict\s*:/i;
+const REGEX_WATCH_PREFIX = /.*what to watch(?:\s+live)?.*?:\s*/i;
+const REGEX_WATCH_MATCH = /what to watch(?:\s+live)?/i;
 
-const REGEX_WATCH_PREFIX = /.*what to watch live.*?:\s*/i;
-const REGEX_WATCH_MATCH = /what to watch live/i;
+const REGEX_INVALID_PREFIX = /^\*{0,2}(?:invalidation|cash out\??):\*{0,2}\s*/i;
+const REGEX_INVALID_MATCH = /^\*{0,2}(?:invalidation|cash out\??):/i;
 
-const REGEX_INVALID_PREFIX = /^\*{0,2}invalidation:\*{0,2}\s*/i;
-const REGEX_INVALID_MATCH = /^\*{0,2}invalidation:/i;
+const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|INVALIDATION|CASH OUT\??|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
+
+/** Sections that live inside the pick card summary — filter from all section renderers */
+const EXCLUDED_SECTIONS = ['the edge', 'the_edge', 'edge'];
+
+const REGEX_SIGNED_NUMERIC = /[+\-\u2212]\d+(?:\.\d+)?/g;
 
 /**
  * Matches bracket citation tokens: [1], [1, 2], [1.1]
@@ -139,9 +108,23 @@ const REGEX_INVALID_MATCH = /^\*{0,2}invalidation:/i;
 const REGEX_CITATION_PLACEHOLDER =
   /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
 
-const REGEX_CITATION_LABEL = /^\d+(?:\.\d+)?$/;
 const REGEX_SPLIT_COMMA = /[,\s]+/;
 const REGEX_MULTI_SPACE = /\s{2,}/g;
+
+/** URL fragment appended to citation links — lets the <a> renderer distinguish citations from content links. */
+const CITE_MARKER = "#__cite__";
+
+/** Strips inline citation links (phrase-as-link): [any text](url#__cite__) → "any text" */
+const REGEX_CLEAN_CITE_LINK = /\[([^\]]+)\]\([^)]*#__cite__[^)]*\)/g;
+
+/** Strips old-style support-injected brand citations: " per [ESPN](url#__cite__), [BBRef](url#__cite__)" */
+const REGEX_CLEAN_SUPPORT_CITE = /\s*per\s+(?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+/g;
+
+/** Strips old-style hydration-path parenthesized citations: " ([ESPN](url), [BBRef](url))" */
+const REGEX_CLEAN_HYDRATED_CITE = /\s*\((?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+\)/g;
+
+/** Strips superscript fallback citations: text¹² → text */
+const REGEX_CLEAN_SUPERSCRIPT_CITE = /\s*\[([^\]]+)\]\([^)]*#__cite_sup__[^)]*\)/g;
 
 /** Removes hydrated markdown links: [1](https://...) */
 const REGEX_CLEAN_LINK = /\s*\[\d+(?:\.\d+)?\]\([^)]+\)/g;
@@ -152,50 +135,56 @@ const REGEX_CLEAN_CONF = /\s*\(Confidence:\s*\w+\)/gi;
 /** Extracts confidence level from verdict text before cleaning. */
 const REGEX_EXTRACT_CONF = /\(Confidence:\s*(\w+)\)/i;
 
-const SECTION_HEADERS = [
-  "THE EDGE",
-  "KEY FACTORS",
-  "MARKET DYNAMICS",
-  "WHAT TO WATCH LIVE",
-  "INVALIDATION",
-  "TRIPLE CONFLUENCE",
-  "ANALYTICAL WALKTHROUGH",
-  "SENTIMENT SIGNAL",
-  "STRUCTURAL ASSESSMENT",
-] as const;
-
-const KILLED_SECTIONS = new Set([
-  "the edge",
-  "invalidation",
-  "triple confluence",
-  "the signal",
-  "the confluence",
-]);
-
-const BRAND_MAP: Record<string, string> = {
-  "espn.com": "ESPN",
-  "covers.com": "Covers",
-  "actionnetwork.com": "Action",
-  "draftkings.com": "DK",
-  "fanduel.com": "FanDuel",
-  "rotowire.com": "RotoWire",
-  "basketball-reference.com": "BBRef",
-  "sports-reference.com": "SportsRef",
-  "pro-football-reference.com": "PFRef",
-  "github.com": "GitHub",
-  "x.com": "X",
-  "twitter.com": "X",
-  "google.com": "Google",
-  "ai.google.dev": "Google AI",
-  "nba.com": "NBA",
-  "nfl.com": "NFL",
-  "mlb.com": "MLB",
-  "nhl.com": "NHL",
-  "cbssports.com": "CBS",
-  "yahoo.com": "Yahoo",
-  "bleacherreport.com": "BR",
-  "theathletic.com": "Athletic",
+/**
+ * Brand color map — used ONLY for hover styling and debug logging.
+ * Brand names never appear in the response text. The phrase IS the link.
+ */
+interface BrandInfo { name: string; color: string }
+const BRAND_COLOR_MAP: Record<string, BrandInfo> = {
+  "espn.com":                        { name: "ESPN",     color: "#C2372E" },
+  "covers.com":                      { name: "Covers",   color: "#1A8F3C" },
+  "actionnetwork.com":               { name: "Action",   color: "#0066CC" },
+  "draftkings.com":                  { name: "DK",       color: "#53D337" },
+  "fanduel.com":                     { name: "FanDuel",  color: "#1493FF" },
+  "rotowire.com":                    { name: "RotoWire", color: "#C2372E" },
+  "basketball-reference.com":        { name: "BBRef",    color: "#D46A2F" },
+  "sports-reference.com":            { name: "SportsRef",color: "#D46A2F" },
+  "pro-football-reference.com":      { name: "PFRef",    color: "#D46A2F" },
+  "nba.com":                         { name: "NBA",      color: "#1D428A" },
+  "nfl.com":                         { name: "NFL",      color: "#013369" },
+  "mlb.com":                         { name: "MLB",      color: "#002D72" },
+  "nhl.com":                         { name: "NHL",      color: "#000000" },
+  "cbssports.com":                   { name: "CBS",      color: "#0033A0" },
+  "yahoo.com":                       { name: "Yahoo",    color: "#6001D2" },
+  "bleacherreport.com":              { name: "BR",       color: "#000000" },
+  "theathletic.com":                 { name: "Athletic", color: "#222222" },
+  "x.com":                           { name: "X",        color: "#000000" },
+  "twitter.com":                     { name: "X",        color: "#000000" },
+  "google.com":                      { name: "Google",   color: "#4285F4" },
+  "ai.google.dev":                   { name: "Google AI",color: "#4285F4" },
+  "vertexaisearch.cloud.google.com": { name: "Google",   color: "#4285F4" },
+  "discoveryengine.googleapis.com":  { name: "Google",   color: "#4285F4" },
 };
+
+/** Default brand info for unrecognized sources. */
+const DEFAULT_BRAND: BrandInfo = { name: "Web", color: "#71717A" };
+/** Brand info for live satellite endpoints. */
+const LIVE_BRAND: BrandInfo = { name: "Live", color: "#10B981" };
+
+/** Path-based brand overrides for live proxy endpoints. */
+const LIVE_PATH_BRANDS: Array<[RegExp, BrandInfo]> = [
+  [/\/api\/live\/scores\//, { name: "Scores", color: "#10B981" }],
+  [/\/api\/live\/odds\//,   { name: "Odds",   color: "#10B981" }],
+  [/\/api\/live\/pbp\//,    { name: "PBP",    color: "#10B981" }],
+];
+
+const EDGE_CARD_STAGE_DELAYS_MS = [0, 120, 220, 300, 480] as const;
+const EDGE_CARD_STAGGER_PER_CARD_MS = 150;
+const EDGE_CARD_SPRING = "cubic-bezier(0.16, 1, 0.3, 1)";
+const EDGE_CARD_EASE_OUT = "cubic-bezier(0.0, 0.0, 0.2, 1)";
+
+const LIVE_STATUS_TOKENS = ["IN_PROGRESS", "LIVE", "HALFTIME", "END_PERIOD", "Q1", "Q2", "Q3", "Q4", "OT"];
+const FINAL_STATUS_TOKENS = ["FINAL", "FINISHED", "COMPLETE"];
 
 /** Static query map for SmartChips — hoisted to avoid per-render allocation. */
 const SMART_CHIP_QUERIES: Record<string, string> = {
@@ -213,7 +202,7 @@ const SMART_CHIP_QUERIES: Record<string, string> = {
   "Live Games": "Which games are live right now with edge?",
   "In-Play Edge": "What are the best in-play opportunities?",
   Recap: "Recap tonight's results.",
-  "What Hit": "Which of my edges hit tonight?",
+  "What Tailed / Faded": "Which positions should I tail or fade based on tonight's outcomes?",
   "Tomorrow Slate": "Preview tomorrow's slate.",
   Bankroll: "How's my bankroll looking?",
   "New Slate": "What's on the slate today?",
@@ -237,7 +226,7 @@ const SYSTEM = {
     morph: { type: "spring", damping: 25, stiffness: 280 } as Transition,
   },
   surface: {
-    void: "bg-[#050505]",
+    void: "bg-[#08080A]",
     panel: "bg-[#080808] border border-white/[0.06]",
     /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
     glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
@@ -247,7 +236,7 @@ const SYSTEM = {
   },
   type: {
     mono: "font-mono text-[10px] tracking-[0.1em] uppercase text-zinc-500 tabular-nums",
-    body: "text-[15px] leading-[1.65] tracking-[-0.01em] text-[#A1A1AA]",
+    body: "text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300",
     h1: "text-[13px] font-medium tracking-[-0.02em] text-white",
     label: "text-[9px] font-bold tracking-[0.05em] uppercase text-zinc-500",
   },
@@ -303,8 +292,13 @@ interface GroundingChunk {
   web?: { uri: string; title?: string };
 }
 interface GroundingSupport {
-  segment?: { startIndex?: number; endIndex?: number; text?: string };
-  groundingChunkIndices?: number[];
+  segment: {
+    startIndex: number;  // Byte offset, inclusive
+    endIndex: number;    // Byte offset, exclusive
+    text?: string;       // Actual text of the supported phrase
+  };
+  groundingChunkIndices: number[];
+  confidenceScores?: number[];  // Gemini 2.0 only, empty on 2.5+
 }
 interface GroundingMetadata {
   groundingChunks?: GroundingChunk[];
@@ -318,7 +312,7 @@ interface ImageContent { type: "image"; source: { type: "base64"; media_type: st
 interface FileContent { type: "file"; source: { type: "base64"; media_type: string; data: string } }
 type MessagePart = TextContent | ImageContent | FileContent;
 type MessageContent = string | MessagePart[];
-type VerdictOutcome = "hit" | "miss" | null;
+type VerdictOutcome = "tail" | "fade" | null;
 
 interface Message {
   id: string;
@@ -329,8 +323,6 @@ interface Message {
   isStreaming?: boolean;
   timestamp: string;
   verdictOutcome?: VerdictOutcome;
-  /** Per-card verdict outcomes keyed by cleaned verdict content. */
-  verdictOutcomes?: Record<string, VerdictOutcome>;
 }
 
 interface Attachment { file: File; base64: string; mimeType: string }
@@ -340,9 +332,17 @@ interface GameContext {
   home_team?: string;
   away_team?: string;
   league?: string;
+  sport?: string;
   start_time?: string;
   status?: string;
+  period?: number;
+  clock?: string;
+  home_score?: number;
+  away_score?: number;
   current_odds?: MatchOdds;
+  opening_odds?: MatchOdds;
+  closing_odds?: MatchOdds;
+  [key: string]: unknown;
 }
 
 interface ChatWidgetProps { currentMatch?: GameContext; inline?: boolean }
@@ -477,101 +477,228 @@ class LRUCache<K, V> {
   }
 }
 
-const hydrationCache = new LRUCache<string, string>(256);
+const supportCitationCache = new LRUCache<string, string>(256);
 
 /**
- * End-of-Paragraph Citation Hydration.
+ * Support-based Citation Inserter (Descending Index Algorithm).
  *
- * Collects all bracket citation tokens ([1], [1.1], [1, 2]) within each
- * paragraph, strips them from their inline positions, deduplicates, and
- * appends the full set as markdown links at the paragraph's trailing edge.
+ * Maps Gemini groundingSupports to exact phrases in the response text,
+ * wrapping each supported phrase as an invisible inline hyperlink.
  *
- * Before: "Price fell to $15K [1.1] [1.10]. Erased all gains [1.1] [1.9]."
- * After:  "Price fell to $15K. Erased all gains. [1.1] [1.9] [1.10]"
+ * Design: The phrase IS the link. No brand names appear in the text.
+ * No "per ESPN", no "[1]", no attribution language. Clean prose.
+ * Hover reveals source via brand-color underline.
  *
- * The `a` component override in MessageBubble still renders each link as
- * a CitationJewel — this function only controls placement, not appearance.
+ * Falls back to hydrateCitations() when groundingSupports is absent.
+ */
+function injectSupportCitations(
+  text: string,
+  metadata?: GroundingMetadata,
+  isStreaming?: boolean,
+): string {
+  // Gate: only run on completed (non-streaming) messages with valid supports
+  if (
+    !text ||
+    isStreaming ||
+    !metadata?.groundingSupports?.length ||
+    !metadata?.groundingChunks?.length
+  ) {
+    return hydrateCitations(text, metadata);
+  }
+
+  const supports = metadata.groundingSupports;
+  const chunks = metadata.groundingChunks;
+  const cacheKey = `support2:${text.length}:${text.slice(0, 64)}:${supports.length}:${chunkFingerprint(chunks)}`;
+  const cached = supportCitationCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const textBytes = encoder.encode(text);
+
+  // Step 1: Build resolved supports with character-level positions
+  interface ResolvedSupport {
+    charStart: number;
+    charEnd: number;
+    uri: string;           // First valid source URI
+    brandColor: string;    // Brand hover color (for data attribute)
+  }
+
+  const resolved: ResolvedSupport[] = [];
+
+  for (const support of supports) {
+    const { segment, groundingChunkIndices } = support;
+    if (!segment || !groundingChunkIndices?.length) continue;
+
+    const startIndex = segment.startIndex ?? 0;
+    const endIndex = segment.endIndex ?? 0;
+    // Degenerate segment guard
+    if (endIndex <= 0 || startIndex >= endIndex) continue;
+    if (endIndex > textBytes.length) continue;
+
+    // Resolve character positions from byte offsets
+    let charStart: number;
+    let charEnd: number;
+
+    const decodedStart = decoder.decode(textBytes.slice(0, startIndex));
+    charStart = decodedStart.length;
+    const decodedEnd = decoder.decode(textBytes.slice(0, endIndex));
+    charEnd = decodedEnd.length;
+
+    // Verification: if segment.text is provided, confirm alignment
+    if (segment.text) {
+      const decodedSegment = decoder.decode(textBytes.slice(startIndex, endIndex));
+      if (decodedSegment !== segment.text) {
+        // Byte/char mismatch — fall back to indexOf
+        const found = text.indexOf(segment.text);
+        if (found === -1) continue;
+        charStart = found;
+        charEnd = found + segment.text.length;
+      }
+    }
+
+    // Skip segments inside fenced code blocks
+    const prefix = text.slice(0, charStart);
+    const fenceCount = (prefix.match(/```/g) || []).length;
+    if (fenceCount % 2 !== 0) continue;
+
+    // Also skip inline code spans
+    const segmentText = text.slice(charStart, charEnd);
+    if (segmentText.includes("`")) continue;
+
+    // Resolve chunk indices to first valid source URI
+    // M-10: Filter out generic "Google" citations
+    let bestUri = "";
+    let bestBrand: BrandInfo = DEFAULT_BRAND;
+    for (const idx of groundingChunkIndices) {
+      if (idx < 0 || idx >= chunks.length) continue;
+      const chunk = chunks[idx];
+      if (!shouldRenderCitation(chunk)) continue; // M-10
+      const uri = chunk?.web?.uri;
+      if (!uri) continue;
+      bestUri = uri;
+      bestBrand = uriToBrandInfo(uri, chunk?.web?.title);
+      break; // First valid source
+    }
+
+    if (!bestUri) continue;
+    resolved.push({ charStart, charEnd, uri: bestUri, brandColor: bestBrand.color });
+  }
+
+  if (resolved.length === 0) {
+    return hydrateCitations(text, metadata);
+  }
+
+  // Step 2: Sort by endIndex DESCENDING — bottom-to-top insertion prevents index shifting
+  resolved.sort((a, b) => b.charEnd - a.charEnd);
+
+  // Step 3: Remove overlapping segments — keep the longer segment
+  const deduped: ResolvedSupport[] = [];
+  for (const r of resolved) {
+    const last = deduped[deduped.length - 1];
+    // Since sorted descending by charEnd, overlaps occur when r.charEnd > last.charStart
+    if (last && r.charEnd > last.charStart) {
+      // Overlap detected — keep whichever is longer
+      const lastLen = last.charEnd - last.charStart;
+      const rLen = r.charEnd - r.charStart;
+      if (rLen > lastLen) {
+        deduped[deduped.length - 1] = r; // Replace with longer
+      }
+      // else: keep existing (already longer)
+    } else {
+      deduped.push(r);
+    }
+  }
+
+  // Step 4: Splice — wrap each supported phrase as a markdown link (descending order preserves indices)
+  let result = text;
+  for (const { charStart, charEnd, uri, brandColor } of deduped) {
+    const phraseText = result.slice(charStart, charEnd);
+    // Skip empty or whitespace-only segments
+    if (!phraseText.trim()) continue;
+    // Escape any markdown link syntax already in the phrase
+    const safePhrase = phraseText.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+    // Encode brand color in the CITE_MARKER for the renderer
+    const wrappedPhrase = `[${safePhrase}](${uri}${CITE_MARKER}${encodeURIComponent(brandColor)})`;
+    result = result.slice(0, charStart) + wrappedPhrase + result.slice(charEnd);
+  }
+
+  supportCitationCache.set(cacheKey, result);
+  return result;
+}
+
+const hydrationCache = new LRUCache<string, string>(256);
+
+/** Unicode superscript digits for fallback citation numbers. */
+const SUPERSCRIPT_DIGITS = ["⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"];
+function toSuperscript(n: number): string {
+  return String(n).split("").map((d) => SUPERSCRIPT_DIGITS[parseInt(d, 10)] || d).join("");
+}
+
+/**
+ * Fallback Citation Hydration (Superscript Numbers).
+ *
+ * Fires only when groundingSupports is absent. Replaces bracket citation
+ * tokens ([1], [1.1], [1, 2]) with small superscript number links.
+ * No brand names appear in the text — the fallback is degraded but invisible.
+ *
+ * Before: "Price fell to $15K [1] [2]. Erased all gains [1]."
+ * After:  "Price fell to $15K[¹](url#__cite_sup__)[²](url#__cite_sup__). Erased all gains[¹](url#__cite_sup__)."
  */
 function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
   if (!text || !metadata?.groundingChunks?.length) return text;
   const chunks = metadata.groundingChunks;
-  const cacheKey = `eop3:${text.length}:${text.slice(0, 64)}:${chunks.length}:${chunkFingerprint(chunks)}`;
+  const cacheKey = `inline2:${text.length}:${text.slice(0, 64)}:${chunks.length}:${chunkFingerprint(chunks)}`;
   const cached = hydrationCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
   const maxIndex = chunks.length;
 
   // Guard: Split on fenced code blocks — only hydrate prose segments.
-  // Code fences (``` ... ```) are preserved verbatim to avoid stripping
-  // bracket tokens that are actual code, not citations.
   const CODE_FENCE = /(```[\s\S]*?```)/g;
   const segments = text.split(CODE_FENCE);
 
+  // Matches one or more adjacent bracket tokens: [1] [2] or [1, 2] [3]
+  const REGEX_ADJACENT_CITATIONS = /(?:\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()[\s]*)+/g;
+
   const hydrated = segments.map((segment) => {
-    // Code block — return untouched
     if (segment.startsWith("```")) return segment;
 
-    // Prose segment — hydrate citations per paragraph
-    const paragraphs = segment.split(/\n\n+/);
+    return segment.replace(REGEX_ADJACENT_CITATIONS, (fullMatch) => {
+      const superscripts: string[] = [];
+      const seenUri = new Set<string>();
 
-    return paragraphs.map((paragraph) => {
-      const collected: Array<{ label: string; uri: string; sortKey: number }> = [];
-      const seen = new Set<string>();
-
-      // Pass 1: Extract every citation from this paragraph, record its label + URI.
-      const stripped = paragraph.replace(REGEX_CITATION_PLACEHOLDER, (_match, inner: string) => {
-        const parts = inner.split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
+      let m: RegExpExecArray | null;
+      const tokenRe = /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
+      while ((m = tokenRe.exec(fullMatch)) !== null) {
+        const parts = m[1].split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
         for (const part of parts) {
           const trimmed = part.trim();
           const num = parseFloat(trimmed);
           if (Number.isNaN(num)) continue;
           const index = Math.floor(num) - 1;
           if (index < 0 || index >= maxIndex) continue;
-          const uri = chunks[index]?.web?.uri;
-          if (uri && !seen.has(trimmed)) {
-            seen.add(trimmed);
-            const [major, minor = "0"] = trimmed.split(".");
-            collected.push({ label: trimmed, uri, sortKey: Number(major) * 1000 + Number(minor) });
+          const chunk = chunks[index];
+          if (!shouldRenderCitation(chunk)) continue; // M-10
+          const uri = chunk?.web?.uri;
+          if (uri && !seenUri.has(uri)) {
+            seenUri.add(uri);
+            const sup = toSuperscript(index + 1);
+            superscripts.push(`[${sup}](${uri}#__cite_sup__)`);
           }
         }
-        return ""; // Remove the inline token
-      });
+      }
 
-      // No citations found — return paragraph unchanged.
-      if (collected.length === 0) return paragraph;
-
-      // Pass 2: Clean up orphaned whitespace / double spaces / trailing dots-space.
-      const cleaned = stripped
-        .replace(/\s+\./g, ".")   // " ." → "."
-        .replace(/\s+,/g, ",")    // " ," → ","
-        .replace(REGEX_MULTI_SPACE, " ")
-        .trim();
-
-      // Pass 3: Sort citations numerically (1.1 before 1.9 before 1.10) and
-      // append as markdown links at the paragraph boundary.
-      const suffix = collected
-        .sort((a, b) => a.sortKey - b.sortKey)
-        .map((c) => `[${c.label}](${c.uri})`)
-        .join(" ");
-
-      // Edge: paragraph was only citations — return suffix directly, no leading space.
-      return cleaned ? `${cleaned} ${suffix}` : suffix;
-    }).join("\n\n");
+      if (superscripts.length === 0) return fullMatch;
+      return superscripts.join("");
+    });
   }).join("");
 
-  hydrationCache.set(cacheKey, hydrated);
-  return hydrated;
+  const cleaned = hydrated.replace(REGEX_MULTI_SPACE, " ");
+  hydrationCache.set(cacheKey, cleaned);
+  return cleaned;
 }
 
-/** Type-guard filter — eliminates non-null assertion. */
-function hasWebUri(c: GroundingChunk): c is GroundingChunk & { web: { uri: string; title?: string } } {
-  return typeof c.web?.uri === "string" && c.web.uri.length > 0;
-}
-
-function extractSources(metadata?: GroundingMetadata): Array<{ title: string; uri: string }> {
-  if (!metadata?.groundingChunks) return [];
-  return metadata.groundingChunks.filter(hasWebUri).map((c) => ({ title: c.web.title || "Source", uri: c.web.uri }));
-}
 
 function extractTextContent(content: MessageContent): string {
   if (typeof content === "string") return content;
@@ -581,12 +708,18 @@ function extractTextContent(content: MessageContent): string {
 
 function cleanVerdictContent(text: string): string {
   if (!text) return "";
-  return text
-    .replace(REGEX_CLEAN_LINK, "")
-    .replace(REGEX_CLEAN_REF, "")
-    .replace(REGEX_CLEAN_CONF, "")
+  const cleaned = text
+    .replace(REGEX_CLEAN_CITE_LINK, "$1")       // [phrase](url#__cite__...) → phrase
+    .replace(REGEX_CLEAN_SUPERSCRIPT_CITE, "")   // [¹](url#__cite_sup__) → ""
+    .replace(REGEX_CLEAN_SUPPORT_CITE, "")       // legacy: " per [Brand](url)" → ""
+    .replace(REGEX_CLEAN_HYDRATED_CITE, "")      // legacy: " ([Brand](url))" → ""
+    .replace(REGEX_CLEAN_LINK, "")               // [1](url) → ""
+    .replace(REGEX_CLEAN_REF, "")                // [1] → ""
+    .replace(REGEX_CLEAN_CONF, "")               // (Confidence: High) → ""
     .replace(REGEX_MULTI_SPACE, " ")
     .trim();
+  // M-26: Normalize typography
+  return normalizeTypography(cleaned);
 }
 
 type ConfidenceLevel = "high" | "medium" | "low";
@@ -610,53 +743,17 @@ function confidenceToPercent(level: ConfidenceLevel): number {
   }
 }
 
-function hostnameToBrand(hostname: string): string {
+function hostnameToBrandInfo(hostname: string): BrandInfo {
   const h = hostname.replace(/^www\./, "").toLowerCase();
-  if (BRAND_MAP[h]) return BRAND_MAP[h];
-  const base = h.split(".")[0] || "Source";
-  return base.charAt(0).toUpperCase() + base.slice(1);
-}
-
-function normalizeSectionHeader(header: string): string {
-  return header.toLowerCase().trim().replace(/^[●•·]\s*/, "");
-}
-
-function extractMarkdownSections(markdown: string): Array<{ header: string; body: string; start: number; end: number; bodyStart: number; bodyEnd: number }> {
-  if (!markdown) return [];
-  const headerSet = new Set(SECTION_HEADERS.map(normalizeSectionHeader));
-  const headerRegex = /(^|\n)\s*\*{2}\s*([^*]+?)\s*\*{2}\s*(?=\n|$)/g;
-  const matches: Array<{ header: string; start: number; headerEnd: number }> = [];
-  let match: RegExpExecArray | null;
-
-  while ((match = headerRegex.exec(markdown))) {
-    const headerText = match[2]?.trim() ?? "";
-    if (!headerText) continue;
-    const normalized = normalizeSectionHeader(headerText);
-    if (!headerSet.has(normalized)) continue;
-    matches.push({ header: headerText, start: match.index, headerEnd: headerRegex.lastIndex });
+  if (BRAND_COLOR_MAP[h]) return BRAND_COLOR_MAP[h];
+  // Walk up subdomains: "vertexaisearch.cloud.google.com" → "cloud.google.com" → "google.com"
+  const parts = h.split(".");
+  for (let i = 1; i < parts.length - 1; i++) {
+    const parent = parts.slice(i).join(".");
+    if (BRAND_COLOR_MAP[parent]) return BRAND_COLOR_MAP[parent];
   }
-
-  if (matches.length === 0) return [];
-
-  return matches.map((entry, idx) => {
-    const nextStart = matches[idx + 1]?.start ?? markdown.length;
-    const rawBody = markdown.slice(entry.headerEnd, nextStart);
-    const leading = rawBody.match(/^\s*/)?.[0]?.length ?? 0;
-    const trailing = rawBody.match(/\s*$/)?.[0]?.length ?? 0;
-    const bodyStart = entry.headerEnd + leading;
-    const bodyEnd = Math.max(bodyStart, nextStart - trailing);
-    const body = markdown.slice(bodyStart, bodyEnd);
-    return { header: entry.header, body, start: entry.start, end: nextStart, bodyStart, bodyEnd };
-  });
-}
-
-function removeMarkdownSection(markdown: string, section?: { start: number; end: number }): string {
-  if (!markdown || !section) return markdown;
-  const before = markdown.slice(0, section.start).trimEnd();
-  const after = markdown.slice(section.end).trimStart();
-  if (!before) return after;
-  if (!after) return before;
-  return `${before}\n\n${after}`;
+  const base = parts[0] || "Source";
+  return { name: base.charAt(0).toUpperCase() + base.slice(1), color: DEFAULT_BRAND.color };
 }
 
 function getHostname(href?: string): string {
@@ -664,52 +761,54 @@ function getHostname(href?: string): string {
   try { return new URL(href).hostname.replace(/^www\./, ""); } catch { return "Source"; }
 }
 
-function buildCitationsFromGrounding(
-  text: string,
-  metadata?: GroundingMetadata,
-  range?: { start: number; end: number },
-): CitationSpan[] {
-  if (!text || !metadata?.groundingSupports?.length || !metadata?.groundingChunks?.length) return [];
-  const supports = metadata.groundingSupports;
-  const chunks = metadata.groundingChunks;
+/**
+ * Brand resolution — resolves source identity (name + hover color) for a grounding chunk.
+ *
+ * Google Search grounding returns redirect URIs through vertexaisearch.cloud.google.com.
+ * The URI hostname resolves to "Google" for every source. The chunk's title field contains
+ * the ACTUAL source domain (e.g. "espn.com", "basketball-reference.com"). Title takes
+ * priority over hostname when it looks like a domain.
+ *
+ * Brand names are used ONLY for hover color resolution and debug logging.
+ * They never appear as visible text in the response.
+ */
+/**
+ * M-10: Filter out generic search engine citations that should never be visible.
+ * Returns true if the citation should be rendered, false if it should be hidden.
+ */
+function shouldRenderCitation(chunk: GroundingChunk): boolean {
+  const title = (chunk?.web?.title || "").toLowerCase().trim();
+  const uri = chunk?.web?.uri || "";
 
-  const citations: CitationSpan[] = [];
-  const rangeStart = range?.start ?? 0;
-  const rangeEnd = range?.end ?? text.length;
+  // Filter generic "Google" / "Google Search" citations
+  if (title === "google" || title === "google search") return false;
+  if (/^https?:\/\/(www\.)?google\.(com|[a-z]{2})\/?$/.test(uri)) return false;
 
-  for (const support of supports) {
-    const start = support.segment?.startIndex;
-    const end = support.segment?.endIndex;
-    const idx = support.groundingChunkIndices?.[0];
-    if (start === undefined || end === undefined || idx === undefined) continue;
-    const chunk = chunks[idx];
-    const url = chunk?.web?.uri;
-    if (!url) continue;
-    if (end <= rangeStart || start >= rangeEnd) continue;
-
-    const clampedStart = Math.max(start, rangeStart) - rangeStart;
-    const clampedEnd = Math.min(end, rangeEnd) - rangeStart;
-    if (clampedEnd <= clampedStart) continue;
-    if (clampedStart >= text.length) continue;
-
-    citations.push({
-      startIndex: clampedStart,
-      endIndex: Math.min(clampedEnd, text.length),
-      url,
-      title: chunk?.web?.title,
-    });
-  }
-
-  return citations;
+  return true;
 }
 
-/**
- * Google S2 High-Res Favicon Service.
- * sz=64 ensures crisp rendering on Retina displays even at small icon sizes.
- * CSP: Requires `img-src https://www.google.com`.
- */
-function getFaviconUrl(href: string): string {
-  try { const domain = new URL(href).hostname; return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`; } catch { return ""; }
+function uriToBrandInfo(href?: string, title?: string): BrandInfo {
+  if (!href) return DEFAULT_BRAND;
+  // 1. Live endpoint paths (satellite proxies)
+  try {
+    const url = new URL(href);
+    for (const [pattern, brand] of LIVE_PATH_BRANDS) {
+      if (pattern.test(url.pathname)) return brand;
+    }
+  } catch { /* fall through */ }
+  // 2. Title field — actual source domain for Google Search grounding
+  if (title) {
+    const t = title.replace(/^www\./, "").toLowerCase().trim();
+    if (t.includes(".")) return hostnameToBrandInfo(t);
+    // Title without dots — check if it contains a known brand keyword
+    const tLower = t.toLowerCase();
+    if (tLower.includes("espn"))                   return BRAND_COLOR_MAP["espn.com"];
+    if (tLower.includes("basketball-reference"))   return BRAND_COLOR_MAP["basketball-reference.com"];
+    if (tLower.includes("the athletic") || tLower.includes("theathletic")) return BRAND_COLOR_MAP["theathletic.com"];
+    if (tLower.includes("covers"))                 return BRAND_COLOR_MAP["covers.com"];
+  }
+  // 3. URI hostname fallback
+  return hostnameToBrandInfo(getHostname(href));
 }
 
 function buildWireContent(text: string, attachments: Attachment[]): MessageContent {
@@ -736,6 +835,357 @@ function getTimePhase(): "pregame" | "live" | "postgame" {
   if (hour < 16) return "pregame";
   if (hour < 23) return "live";
   return "postgame";
+}
+
+function toStringOrUndefined(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function toNumberOrUndefined(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeGameContext(
+  currentMatch?: GameContext | null,
+  storedMatch?: Record<string, unknown> | null,
+): GameContext | null {
+  const raw = (currentMatch || {}) as Record<string, unknown>;
+  const store = (storedMatch || {}) as Record<string, unknown>;
+  const homeTeam = (raw.homeTeam as Record<string, unknown> | undefined)?.name;
+  const awayTeam = (raw.awayTeam as Record<string, unknown> | undefined)?.name;
+  const startRaw = raw.start_time ?? raw.startTime ?? store.start_time;
+  const startIso =
+    typeof startRaw === "string"
+      ? startRaw
+      : startRaw instanceof Date
+        ? startRaw.toISOString()
+        : undefined;
+  const normalized: GameContext = {
+    ...store,
+    match_id: toStringOrUndefined(store.match_id) || toStringOrUndefined(raw.match_id) || toStringOrUndefined(raw.id),
+    home_team: toStringOrUndefined(store.home_team) || toStringOrUndefined(raw.home_team) || toStringOrUndefined(homeTeam),
+    away_team: toStringOrUndefined(store.away_team) || toStringOrUndefined(raw.away_team) || toStringOrUndefined(awayTeam),
+    league: toStringOrUndefined(store.league) || toStringOrUndefined(raw.league) || toStringOrUndefined(raw.leagueId),
+    sport: toStringOrUndefined(store.sport) || toStringOrUndefined(raw.sport),
+    start_time: startIso,
+    status: toStringOrUndefined(raw.status) || toStringOrUndefined(raw.game_status) || toStringOrUndefined(store.status),
+    period: toNumberOrUndefined(raw.period),
+    clock: toStringOrUndefined(raw.displayClock) || toStringOrUndefined(raw.display_clock) || toStringOrUndefined(raw.clock) || toStringOrUndefined(store.clock),
+    home_score: toNumberOrUndefined(raw.homeScore) ?? toNumberOrUndefined(raw.home_score),
+    away_score: toNumberOrUndefined(raw.awayScore) ?? toNumberOrUndefined(raw.away_score),
+    current_odds: (raw.current_odds as MatchOdds | undefined) || (raw.odds as MatchOdds | undefined) || (store.current_odds as MatchOdds | undefined),
+    opening_odds: (raw.opening_odds as MatchOdds | undefined) || (store.opening_odds as MatchOdds | undefined),
+    closing_odds: (raw.closing_odds as MatchOdds | undefined) || (store.closing_odds as MatchOdds | undefined),
+  };
+  const hasSignal = Boolean(
+    normalized.match_id ||
+      normalized.home_team ||
+      normalized.away_team ||
+      normalized.current_odds ||
+      normalized.home_score !== undefined ||
+      normalized.away_score !== undefined,
+  );
+  return hasSignal ? normalized : null;
+}
+
+function resolveConfidenceValue(level: ConfidenceLevel, rawText?: string): number {
+  const explicit = rawText?.match(/\b(\d{1,3})%\b/);
+  if (explicit) {
+    const numeric = Number(explicit[1]);
+    if (Number.isFinite(numeric)) {
+      return Math.max(0, Math.min(100, numeric));
+    }
+  }
+  return confidenceToPercent(level);
+}
+
+interface ParsedEdgeVerdict {
+  teamName: string;
+  spread: string;
+  odds: string;
+  summaryLabel: string;
+}
+
+function parseEdgeVerdict(rawVerdict: string): ParsedEdgeVerdict {
+  const cleaned = cleanVerdictContent(rawVerdict)
+    .replace(/^\*+|\*+$/g, "")
+    // Strip parenthetical bet-type labels: (Live Spread), (Moneyline), (ML), (Asian Handicap), (Pregame), etc.
+    .replace(/\s*\((?:Live\s+)?(?:Spread|Moneyline|ML|Asian\s+Handicap|Pregame|Alt(?:ernate)?\s+\w+|Game\s+\w+|Match\s+\w+)[^)]*\)/gi, "")
+    // Strip trailing "/ value" patterns — raw total leaking from schema
+    .replace(/\s*\/\s*[OoUu]?\d+(?:\.\d+)?\s*$/, "")
+    // Fix leading zeros on numeric values: 01.5 → 1.5
+    .replace(/\b0+(\d+(?:\.\d+)?)/g, "$1")
+    // Replace hyphen-minus before digits with proper minus sign (U+2212)
+    .replace(/-(?=\d)/g, "\u2212")
+    .trim();
+  if (!cleaned) {
+    return { teamName: "No Edge", spread: "N/A", odds: "N/A", summaryLabel: "" };
+  }
+  const signedMatches = Array.from(cleaned.matchAll(REGEX_SIGNED_NUMERIC));
+  const totalMatch = cleaned.match(/^(.*?)\b(over|under)\s*(\d+(?:\.\d+)?)/i);
+  if (signedMatches.length === 0) {
+    if (totalMatch) {
+      const prefix = (totalMatch[1] || "").replace(/[—:-]+$/g, "").trim();
+      return {
+        teamName: prefix || "Total",
+        spread: `${totalMatch[2].charAt(0).toUpperCase()}${totalMatch[3]}`,
+        odds: "N/A",
+        summaryLabel: cleaned,
+      };
+    }
+    return {
+      teamName: cleaned,
+      spread: /\bML\b/i.test(cleaned) ? "ML" : "N/A",
+      odds: "N/A",
+      summaryLabel: cleaned,
+    };
+  }
+  if (totalMatch) {
+    const prefix = (totalMatch[1] || "").replace(/[—:-]+$/g, "").trim();
+    const lastSigned = signedMatches[signedMatches.length - 1][0];
+    return {
+      teamName: prefix || "Total",
+      spread: `${totalMatch[2].charAt(0).toUpperCase()}${totalMatch[3]}`,
+      odds: lastSigned,
+      summaryLabel: cleaned,
+    };
+  }
+  if (/\bML\b/i.test(cleaned) && signedMatches.length >= 1) {
+    const firstSigned = signedMatches[0];
+    const teamRaw = cleaned
+      .slice(0, firstSigned.index)
+      .replace(/\bML\b/i, "")
+      .replace(/[(@-]+$/g, "")
+      .trim();
+    const odds = signedMatches[signedMatches.length - 1][0];
+    return { teamName: teamRaw || cleaned, spread: "ML", odds, summaryLabel: cleaned };
+  }
+  const firstSigned = signedMatches[0];
+  const lastSigned = signedMatches[signedMatches.length - 1];
+  const teamRaw = cleaned
+    .slice(0, firstSigned.index)
+    .replace(/\bML\b/i, "")
+    .replace(/[(@-]+$/g, "")
+    .trim();
+  const spread = signedMatches.length >= 2
+    ? firstSigned[0]
+    : /\bML\b/i.test(cleaned) ? "ML" : firstSigned[0];
+  const odds = signedMatches.length >= 2 ? lastSigned[0] : firstSigned[0];
+  return { teamName: teamRaw || cleaned, spread, odds, summaryLabel: cleaned };
+}
+
+function extractEdgeSynopses(rawText: string): string[] {
+  if (!rawText) return [];
+  const lines = rawText.split(/\r?\n/);
+  const synopses: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]?.trim() || "";
+    if (!REGEX_VERDICT_MATCH.test(line)) continue;
+    let synopsis = "";
+    for (let j = i + 1; j < lines.length; j++) {
+      const nextLine = (lines[j] || "").trim();
+      if (!nextLine) continue;
+      if (REGEX_VERDICT_MATCH.test(nextLine)) break;
+      // If line IS a section header, extract any content after the header label
+      const headerMatch = nextLine.match(REGEX_EDGE_SECTION_HEADER);
+      const candidate = headerMatch
+        ? nextLine.slice(headerMatch[0].length).replace(/^[:\s*]+/, "").trim()
+        : nextLine;
+      if (!candidate) continue;
+      const cleanedLine = candidate
+        .replace(/^[-*•]\s*/, "")
+        .replace(/\*+/g, "")
+        .replace(REGEX_CITATION_PLACEHOLDER, "")
+        .replace(REGEX_MULTI_SPACE, " ")
+        .trim();
+      if (!cleanedLine || cleanedLine.length < 10) continue;
+      synopsis = cleanedLine;
+      break;
+    }
+    synopses.push(synopsis);
+  }
+  return synopses;
+}
+
+/**
+ * M-05/M-06: Normalize section header text.
+ * Strips trailing "LIVE", "PREGAME", trailing colons/punctuation.
+ * Also strips leading bullet characters (M-13).
+ */
+function normalizeHeader(raw: string): string {
+  return raw
+    .replace(/^[●•·‣]\s*/, "")             // M-13: Strip leading bullet (incl. emerald ●)
+    .replace(/\*+/g, "")                    // Strip bold markdown artifacts
+    .replace(/\s+LIVE\s*$/i, "")           // M-05: "WHAT TO WATCH LIVE" → "WHAT TO WATCH"
+    .replace(/\s+PREGAME\s*$/i, "")        // Guard against "WHAT TO WATCH PREGAME"
+    .replace(/:+\s*$/, "")                 // M-06: "INVALIDATION:" → "INVALIDATION"
+    .trim();
+}
+
+/**
+ * Strip excluded sections (e.g. "THE EDGE") from markdown content.
+ * Walks lines: when an excluded section header is found, skips all lines
+ * until the next recognized (non-excluded) section header.
+ */
+function stripExcludedSections(content: string): string {
+  if (!content) return content;
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let skipping = false;
+
+  for (const line of lines) {
+    const stripped = line.replace(/\*+/g, "").replace(/^[●•·‣]\s*/, "").trim();
+    const upper = stripped.toUpperCase();
+
+    if (REGEX_EDGE_SECTION_HEADER.test(upper)) {
+      const headerName = stripped.replace(/[:\s]+$/, "").toLowerCase();
+      if (EXCLUDED_SECTIONS.some(s => headerName === s)) {
+        skipping = true;
+        continue;
+      }
+      // Non-excluded section header — stop skipping
+      skipping = false;
+    }
+
+    if (!skipping) {
+      result.push(line);
+    }
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * M-26: Normalize typography — proper em-dashes, ellipsis, smart quotes.
+ * Applied to prose content for typographic polish.
+ * Note: Smart quote replacement is conservative — only applies to clear prose
+ * patterns, never inside numbers, odds values, or code-like content.
+ */
+function normalizeTypography(text: string): string {
+  return text
+    .replace(/--/g, "\u2014")               // Double hyphen → em-dash
+    .replace(/(\d)\u2013(\d)/g, "$1\u2013$2") // Keep en-dash between numbers
+    .replace(/(?<!\d)\u2013(?!\d)/g, "\u2014") // En-dash in prose → em-dash
+    .replace(/\.{3}/g, "\u2026")            // Three dots → ellipsis
+    .replace(/(^|[\s(])"(?=\S)/gm, "$1\u201C") // Smart open double quote (after whitespace/start)
+    .replace(/"(?=[\s,.;:!?)—\u2014]|$)/gm, "\u201D") // Smart close double quote (before punct/end)
+    .replace(/(^|[\s(])'(?=\S)/gm, "$1\u2018") // Smart open single quote (after whitespace/start)
+    .replace(/'(?=[\s,.;:!?)—\u2014]|$)/gm, "\u2019"); // Smart close single/apostrophe
+}
+
+/**
+ * M-15: Normalize team names to canonical display forms.
+ * Maps formal/abbreviated names to the common display name.
+ */
+const TEAM_DISPLAY_NAMES: Record<string, string> = {
+  // Serie A
+  "Internazionale": "Inter Milan",
+  "Inter": "Inter Milan",
+  "FC Internazionale Milano": "Inter Milan",
+  "Juventus FC": "Juventus",
+  "AC Milan": "Milan",
+  "SSC Napoli": "Napoli",
+  "AS Roma": "Roma",
+  "SS Lazio": "Lazio",
+  // La Liga
+  "FC Barcelona": "Barcelona",
+  "Real Madrid CF": "Real Madrid",
+  "Club Atletico de Madrid": "Atlético Madrid",
+  "Atletico Madrid": "Atlético Madrid",
+  // Bundesliga
+  "FC Bayern München": "Bayern München",
+  "Bayern Munich": "Bayern München",
+  "Borussia Dortmund": "Dortmund",
+  "RB Leipzig": "Leipzig",
+  "Bayer 04 Leverkusen": "Leverkusen",
+  // Ligue 1
+  "Paris Saint-Germain": "PSG",
+  "Paris Saint-Germain FC": "PSG",
+  "Olympique de Marseille": "Marseille",
+  "Olympique Lyonnais": "Lyon",
+  // Premier League
+  "Manchester United": "Man United",
+  "Manchester City": "Man City",
+  "Tottenham Hotspur": "Tottenham",
+  "Wolverhampton Wanderers": "Wolves",
+  "West Ham United": "West Ham",
+  "Newcastle United": "Newcastle",
+  // Liga MX
+  "Club América": "América",
+  "CF Monterrey": "Monterrey",
+  "Club León": "León",
+  "Guadalajara": "Chivas",
+  "CD Guadalajara": "Chivas",
+  // MLS
+  "Los Angeles FC": "LAFC",
+  "New York Red Bulls": "NY Red Bulls",
+  "Inter Miami CF": "Inter Miami",
+  // NFL formal names
+  "New England Patriots": "Patriots",
+  "Kansas City Chiefs": "Chiefs",
+  "San Francisco 49ers": "49ers",
+  "Green Bay Packers": "Packers",
+  "Tampa Bay Buccaneers": "Buccaneers",
+};
+
+function normalizeTeamName(raw: string): string {
+  return TEAM_DISPLAY_NAMES[raw] || raw;
+}
+
+/**
+ * M-07: Parse "WHAT TO WATCH" flat prose into structured layers.
+ * Splits "IF X → THEN Y, as Z" into condition/action/reasoning.
+ */
+function parseWatchFallback(text: string): {
+  condition: string; action: string; reasoning: string;
+} {
+  const arrowSplit = text.split(/\s*→\s*/);
+  if (arrowSplit.length >= 2) {
+    const condition = arrowSplit[0]
+      .replace(/^(?:WHAT TO WATCH\s*(?:LIVE)?\s*)?/i, "")
+      .replace(/^IF\s+/i, "")
+      .trim();
+    const afterArrow = arrowSplit.slice(1).join("→");
+    const commaSplit = afterArrow.split(/,\s*(?:as|because|since)\s+/i);
+    const action = (commaSplit[0] || "")
+      .replace(/^THEN\s+/i, "")
+      .replace(/^look for\s+/i, "")
+      .trim();
+    const reasoning = (commaSplit[1] || "").trim();
+    return { condition, action, reasoning };
+  }
+  return { condition: text, action: "", reasoning: "" };
+}
+
+function extractVerdictPayload(text: string): string {
+  if (!text) return "";
+  const verdictIdx = text.toLowerCase().indexOf("verdict:");
+  if (verdictIdx === -1) return text.trim();
+  return text.slice(verdictIdx + "verdict:".length).trim();
+}
+
+function deriveGamePhase(gameContext?: GameContext | null): "pregame" | "live" | "postgame" {
+  if (!gameContext) return getTimePhase();
+  const status = String(gameContext.status || "").toUpperCase();
+  if (LIVE_STATUS_TOKENS.some((token) => status.includes(token))) return "live";
+  if (FINAL_STATUS_TOKENS.some((token) => status.includes(token))) return "postgame";
+  if (gameContext.start_time) {
+    const kickoff = new Date(gameContext.start_time).getTime();
+    if (Number.isFinite(kickoff)) {
+      const deltaMs = kickoff - Date.now();
+      if (deltaMs <= -2 * 60 * 60 * 1000) return "postgame";
+      if (deltaMs <= 0) return "live";
+    }
+  }
+  return "pregame";
+}
+
+function getMatchupLabel(gameContext?: GameContext | null): string | null {
+  const home = gameContext?.home_team;
+  const away = gameContext?.away_team;
+  if (home && away) return `${away} @ ${home}`;
+  if (home || away) return `${away || home}`;
+  return null;
 }
 
 
@@ -884,7 +1334,6 @@ type MessageAction =
   | { type: "APPEND_BATCH"; messages: Message[] }
   | { type: "UPDATE"; id: string; patch: Partial<Message> }
   | { type: "SET_VERDICT"; id: string; outcome: VerdictOutcome }
-  | { type: "SET_VERDICT_CARD"; id: string; verdictKey: string; outcome: VerdictOutcome }
   | { type: "CLEAR" };
 
 function messageReducer(state: MessageState, action: MessageAction): MessageState {
@@ -907,14 +1356,6 @@ function messageReducer(state: MessageState, action: MessageAction): MessageStat
       if (idx === undefined) return state;
       const newOrdered = [...state.ordered];
       newOrdered[idx] = { ...newOrdered[idx], verdictOutcome: action.outcome };
-      return { ordered: newOrdered, index: state.index };
-    }
-    case "SET_VERDICT_CARD": {
-      const idx = state.index.get(action.id);
-      if (idx === undefined) return state;
-      const newOrdered = [...state.ordered];
-      const prev = newOrdered[idx].verdictOutcomes || {};
-      newOrdered[idx] = { ...newOrdered[idx], verdictOutcomes: { ...prev, [action.verdictKey]: action.outcome } };
       return { ordered: newOrdered, index: state.index };
     }
     case "CLEAR":
@@ -1060,7 +1501,7 @@ const ScrollAnchor: FC<{ visible: boolean; onClick: () => void }> = memo(({ visi
         exit={{ opacity: 0, y: 8, scale: 0.9 }}
         transition={SYSTEM.anim.fluid}
         onClick={() => { triggerHaptic(); onClick(); }}
-        className="absolute bottom-48 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0A0A0B]/90 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 transition-colors"
+        className="absolute bottom-48 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#08080A]/90 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 transition-colors"
         aria-label="Scroll to latest messages"
       >
         <ArrowDown size={10} className="text-emerald-400" />
@@ -1106,7 +1547,7 @@ const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={SYSTEM.anim.fluid}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-[#0A0A0A] border border-white/10 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
+            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-[#08080A] border border-white/10 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
           >
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]" />
             <span className="text-[12px] font-medium text-white tracking-tight">{toast.message}</span>
@@ -1154,221 +1595,478 @@ const CopyButton: FC<{ content: string }> = memo(({ content }) => {
 CopyButton.displayName = "CopyButton";
 
 /**
- * Weissach Source Icon:
- * 1. Tries to fetch a high-fidelity Google S2 favicon (64px).
- * 2. If it fails, seamlessly renders a "Milled Letter Chip" (Monogram).
- * 3. Default is grayscale for "Quiet Luxury", blooms to color on interaction.
+ * ─────────────────────────────────────────────────
+ * Obsidian Weissach — Design Tokens (local to EdgeVerdictCard)
+ * All values mirror ESSENCE but as inline-style primitives.
+ * ─────────────────────────────────────────────────
  */
-const SourceIcon: FC<{ url?: string; fallbackLetter: string; className?: string }> = memo(({ url, fallbackLetter, className }) => {
-  const [error, setError] = useState(false);
-  const faviconUrl = useMemo(() => url ? getFaviconUrl(url) : null, [url]);
+const OW = {
+  card:     ESSENCE.colors.surface.card,
+  elevated: ESSENCE.colors.surface.elevated,
+  mint:     ESSENCE.colors.accent.mint,
+  mintDim:  ESSENCE.colors.accent.mintDim,
+  mintEdge: ESSENCE.colors.accent.mintEdge,
+  gold:     ESSENCE.colors.accent.gold,
+  goldDim:  ESSENCE.colors.accent.goldDim,
+  red:      ESSENCE.colors.accent.rose,
+  t1: ESSENCE.colors.text.primary,
+  t2: ESSENCE.colors.text.secondary,
+  t3: ESSENCE.colors.text.tertiary,
+  t4: ESSENCE.colors.text.muted,
+  tSys: ESSENCE.colors.text.ghost,
+  border: ESSENCE.colors.border.default,
+  sans: "'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+  mono: "'DM Mono', 'SF Mono', 'Fira Code', monospace",
+  r:  16,   // M-23: Outer card radius — 16px
+  ri: 10,   // M-23: Button/inner element radius — 10px
+  ease: "cubic-bezier(0.25, 0.1, 0.25, 1)",
+  shadow: ESSENCE.shadows.obsidian,
+} as const;
 
-  if (error || !faviconUrl) {
-    return (
-      <div className={cn("flex items-center justify-center bg-white/[0.08] border border-white/10 text-zinc-400 font-mono font-bold shadow-inner", className)}>
-        {fallbackLetter.charAt(0).toUpperCase()}
-      </div>
-    );
+/** Sportsbook brand registry — color + display name */
+const OW_BOOKS: Record<string, { name: string; color: string }> = {
+  draftkings: { name: "DraftKings", color: "#4CC764" },
+  fanduel:    { name: "FanDuel",    color: "#1493FF" },
+  betmgm:     { name: "BetMGM",     color: "#BDA258" },
+  caesars:    { name: "Caesars",     color: "#1B6B37" },
+  betrivers:  { name: "BetRivers",   color: "#1A73E8" },
+  pointsbet:  { name: "PointsBet",   color: "#ED1C24" },
+};
+
+/** Extract sportsbook key from verdict/synopsis text — returns null when undetected */
+function detectBook(text: string): { name: string; color: string } | null {
+  const lower = text.toLowerCase();
+  for (const [key, book] of Object.entries(OW_BOOKS)) {
+    if (lower.includes(key) || lower.includes(book.name.toLowerCase())) return book;
   }
-  return (
-    <img
-      src={faviconUrl}
-      alt=""
-      onError={() => setError(true)}
-      className={cn("object-contain bg-white/[0.03]", className)}
-      loading="lazy"
-      decoding="async"
-      fetchPriority="low"
-      draggable={false}
-      referrerPolicy="no-referrer"
-    />
-  );
-});
-SourceIcon.displayName = "SourceIcon";
+  return null;
+}
+
+/** ShareIcon — upload arrow for share button */
+const OWShareIcon: FC = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+    <path d="M8 2v8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <path d="M4.5 5.5L8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M13 10v2.5a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 013 12.5V10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+  </svg>
+);
+
+/** CheckIcon — confirmation for copied state */
+const OWCheckIcon: FC = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+    <path d="M3.5 8.5L6.5 11.5 12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
 /**
- * Animated confidence gradient bar — replaces text labels.
- * Renders a horizontal bar with emerald/amber/zinc gradient based on level.
+ * MetricsPanel — Obsidian Weissach collapsible metrics tray.
+ * M-01: Three-column grid, center-distributed, no pipes, no ring.
+ * M-02: CONF value in white (only EDGE gets color).
+ * Numbers ABOVE labels for scanability.
  */
-const ConfidenceBar: FC<{ level: ConfidenceLevel }> = memo(({ level }) => {
-  const percent = confidenceToPercent(level);
-  const gradientMap: Record<ConfidenceLevel, string> = {
-    high: "from-emerald-500 via-emerald-400 to-emerald-300",
-    medium: "from-amber-500 via-amber-400 to-amber-300",
-    low: "from-zinc-500 via-zinc-400 to-zinc-300",
-  };
-  const glowMap: Record<ConfidenceLevel, string> = {
-    high: "shadow-[0_0_20px_rgba(16,185,129,0.35)]",
-    medium: "shadow-[0_0_20px_rgba(245,158,11,0.25)]",
-    low: "shadow-[0_0_12px_rgba(161,161,170,0.15)]",
-  };
-  const labelMap: Record<ConfidenceLevel, string> = {
-    high: "text-emerald-400",
-    medium: "text-amber-400",
-    low: "text-zinc-400",
-  };
-
+const MetricsPanel: FC<{
+  confidence: number; edge?: number; winProb?: number; open: boolean;
+}> = memo(({ confidence, edge, winProb, open }) => {
   return (
-    <div className="flex items-center gap-3" role="meter" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={`Confidence: ${level}`}>
-      <div className="flex-1 h-[6px] rounded-full bg-white/[0.06] overflow-hidden backdrop-blur-sm">
-        <motion.div
-          className={cn("h-full rounded-full bg-gradient-to-r", gradientMap[level], glowMap[level])}
-          initial={{ width: 0 }}
-          animate={{ width: `${percent}%` }}
-          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-        />
+    <div style={{
+      display: "grid",
+      gridTemplateRows: open ? "1fr" : "0fr",
+      opacity: open ? 1 : 0,
+      transition: `grid-template-rows 0.3s ${OW.ease}, opacity 0.25s ${OW.ease}`,
+      marginTop: open ? 12 : 0,
+    }}>
+      <div style={{ overflow: "hidden" }}>
+        <div style={{
+          display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
+          textAlign: "center", padding: "20px 0",
+          background: OW.elevated, borderRadius: OW.ri,
+        }}>
+          {/* CONF — always white */}
+          <div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 20, fontWeight: 500,
+              letterSpacing: "-0.01em", color: OW.t1,
+            }}>{confidence}%</div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 12, fontWeight: 500,
+              letterSpacing: "0.12em", textTransform: "uppercase",
+              color: OW.t4, marginTop: 4,
+            }}>CONF</div>
+          </div>
+          {/* EDGE — emerald when positive, amber when negative, white when zero */}
+          <div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 20, fontWeight: 500,
+              letterSpacing: "-0.01em",
+              color: edge != null && edge > 0 ? OW.mint : edge != null && edge < 0 ? OW.gold : OW.t1,
+            }}>{edge != null ? `${edge > 0 ? "+" : ""}${edge}%` : "—"}</div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 12, fontWeight: 500,
+              letterSpacing: "0.12em", textTransform: "uppercase",
+              color: OW.t4, marginTop: 4,
+            }}>EDGE</div>
+          </div>
+          {/* WIN — always white */}
+          <div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 20, fontWeight: 500,
+              letterSpacing: "-0.01em", color: OW.t1,
+            }}>{winProb != null ? `${winProb}%` : "—"}</div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 12, fontWeight: 500,
+              letterSpacing: "0.12em", textTransform: "uppercase",
+              color: OW.t4, marginTop: 4,
+            }}>WIN</div>
+          </div>
+        </div>
       </div>
-      <span className={cn("text-[10px] font-mono font-medium uppercase tracking-widest tabular-nums min-w-[28px] text-right", labelMap[level])}>
-        {percent}%
-      </span>
     </div>
   );
 });
-ConfidenceBar.displayName = "ConfidenceBar";
+MetricsPanel.displayName = "MetricsPanel";
 
 /**
- * EdgeVerdictCard — "The Receipt"
- * iOS 26 liquid glass: full hardware radius, no left-border accent.
- * Confidence visualized as an animated gradient bar, not text.
- * Designed to screenshot as premium marketing material.
+ * EdgeVerdictCard — "Obsidian Weissach" FINAL
+ *
+ * Full card: THE PICK label → Hero headline →
+ * Divider → Book line (Best {phase} odds on {Book}) → Collapsible Metrics →
+ * Synopsis block → Tail/Fade/Share footer → Analysis disclosure
+ *
+ * Features:
+ * - BOOKS system with brand-color hover on sportsbook name
+ * - Live game breathe animation on specular edge light
+ * - Share button with capture state + watermark
+ * - Tail/Fade hover states (mint glow on Tail, subtle lift on Fade)
  */
 const EdgeVerdictCard: FC<{
   content: string;
-  summary?: ReactNode;
   confidence?: ConfidenceLevel;
-  isLive?: boolean;
-  meta?: string;
-  messageId: string;
-  verdictKey?: string;
+  synopsis?: string;
+  trackingKey: string;
+  cardIndex?: number;
   outcome?: VerdictOutcome;
-  onTrack?: (id: string, outcome: VerdictOutcome, verdictKey?: string) => void;
-}> = memo(({ content, summary, confidence = "high", isLive = false, meta, messageId, verdictKey, outcome, onTrack }) => {
-  const cleanContent = useMemo(() => cleanVerdictContent(content), [content]);
+  onTrack?: (trackingKey: string, outcome: VerdictOutcome) => void;
+  hasAnalysis?: boolean;
+  analysisOpen?: boolean;
+  onToggleAnalysis?: () => void;
+}> = memo(({
+  content, confidence = "high", synopsis, trackingKey,
+  cardIndex = 0, outcome, onTrack,
+  hasAnalysis, analysisOpen, onToggleAnalysis,
+}) => {
+  const parsedVerdict = useMemo(() => parseEdgeVerdict(content), [content]);
+  const confidenceValue = useMemo(() => resolveConfidenceValue(confidence, content), [confidence, content]);
+  const [entered, setEntered] = useState(false);
+  const [metricsOpen, setMetricsOpen] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "capturing" | "copied">("idle");
+  const [bookHover, setBookHover] = useState(false);
+
+  // Derive game phase and sportsbook from content
+  const gamePhase = useMemo(() => getTimePhase(), []);
+  const isLive = gamePhase === "live";
+
+  const book = useMemo(() => {
+    const combined = `${content} ${synopsis || ""}`;
+    return detectBook(combined);
+  }, [content, synopsis]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setEntered(true), 80);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const stageStyle = useCallback((baseDelayMs: number): React.CSSProperties => {
+    const effectiveDelay = (baseDelayMs + cardIndex * EDGE_CARD_STAGGER_PER_CARD_MS) / 1000;
+    return {
+      opacity: entered ? 1 : 0,
+      transform: entered ? "translateY(0)" : "translateY(16px)",
+      transition: `opacity 0.55s ${EDGE_CARD_EASE_OUT} ${effectiveDelay}s, transform 0.7s ${EDGE_CARD_SPRING} ${effectiveDelay}s`,
+    };
+  }, [cardIndex, entered]);
+
+  // M-14: Ensure synopsis always exists — fallback to summaryLabel if extraction yielded nothing
+  const resolvedSynopsis = (synopsis && synopsis.length > 0)
+    ? synopsis
+    : (parsedVerdict.summaryLabel && parsedVerdict.summaryLabel.length > 10 ? parsedVerdict.summaryLabel : "");
+  const hasSynopsis = Boolean(resolvedSynopsis && resolvedSynopsis.length > 0);
+
+  // Decompose headline into primary (team) + qualifier (spread/ML/odds)
+  // M-15: Normalize team name to canonical display form
+  const teamDisplay = normalizeTeamName(parsedVerdict.teamName);
+  const qualifier = parsedVerdict.spread !== "N/A"
+    ? parsedVerdict.spread === "ML" ? "ML" : parsedVerdict.spread
+    : null;
+  const headline = teamDisplay + (qualifier ? ` ${qualifier}` : "");
+
+  // Hide odds row entirely when no odds value is present
+  const hasOddsData = parsedVerdict.odds !== "N/A" || book !== null;
+
+  const handleToggle = useCallback((selection: "tail" | "fade") => {
+    const next = outcome === selection ? null : selection;
+    triggerHaptic();
+    trackAction(`verdict.${selection}`, { trackingKey, selected: next === selection, cardIndex });
+    onTrack?.(trackingKey, next);
+  }, [cardIndex, onTrack, outcome, trackingKey]);
+
+  const handleShare = useCallback(() => {
+    if (shareState !== "idle") return;
+    triggerHaptic();
+    setShareState("capturing");
+    const shareText = hasSynopsis
+      ? `${headline}\n${resolvedSynopsis}\n\nthedrip.app`
+      : `${headline}\n\nthedrip.app`;
+    navigator.clipboard?.writeText(shareText.trim()).catch(() => {});
+    trackAction("verdict.share", { trackingKey, cardIndex });
+    setTimeout(() => {
+      setShareState("copied");
+      setTimeout(() => setShareState("idle"), 2200);
+    }, 500);
+  }, [shareState, headline, hasSynopsis, synopsis, trackingKey, cardIndex]);
+
+  const isCaptureMode = shareState === "capturing" || shareState === "copied";
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 12, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ ...SYSTEM.anim.fluid, delay: 0.05 }}
-      className={cn(
-        "my-8 relative overflow-hidden",
-        "rounded-[20px]",
-        "bg-white/[0.03] backdrop-blur-xl",
-        "border border-white/[0.08]",
-        "shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)]",
-      )}
-    >
-      {/* Ambient inner glow — maps to confidence */}
-      <div
-        className={cn(
-          "absolute inset-0 pointer-events-none opacity-40",
-          confidence === "high" && "bg-[radial-gradient(ellipse_at_top_left,rgba(16,185,129,0.08)_0%,transparent_60%)]",
-          confidence === "medium" && "bg-[radial-gradient(ellipse_at_top_left,rgba(245,158,11,0.06)_0%,transparent_60%)]",
-          confidence === "low" && "bg-[radial-gradient(ellipse_at_top_left,rgba(161,161,170,0.04)_0%,transparent_60%)]",
-        )}
-      />
+    <motion.div layout className="relative overflow-hidden mb-3" style={{ borderRadius: OW.r }}>
+      {/* Obsidian card surface */}
+      <div style={{
+        position: "relative", width: "100%",
+        background: OW.card, borderRadius: OW.r,
+        padding: "32px 24px 24px",
+        boxShadow: OW.shadow, overflow: "hidden",
+        fontFamily: OW.sans, color: OW.t1,
+      }}>
+        {/* Specular edge light — breathes on live games */}
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 1,
+          background: `linear-gradient(90deg, transparent, ${OW.mintEdge} 30%, ${OW.mintEdge} 70%, transparent)`,
+          opacity: isLive ? 1 : 0.65,
+          animation: isLive ? "ow-breathe 3.5s ease-in-out infinite" : "none",
+          zIndex: 3,
+        }} aria-hidden="true" />
 
-      <div className="relative z-10 p-6">
-        {/* Header row */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-5 h-5 rounded-[7px] bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-            </div>
-            <span className="font-mono text-[10px] font-semibold tracking-[0.15em] uppercase text-zinc-400">The Edge</span>
-          </div>
-          {isLive && (
-            <div className="flex items-center gap-1.5 bg-emerald-500/8 px-2.5 py-1 rounded-full border border-emerald-500/15">
-              <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[9px] font-bold text-emerald-400 tracking-wider uppercase">Live</span>
-            </div>
-          )}
+        {/* §1 THE PICK label */}
+        <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0])}>
+          <div style={{
+            fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
+            letterSpacing: "0.12em", textTransform: "uppercase",
+            color: OW.t4, marginBottom: 10,
+          }}>THE PICK</div>
         </div>
 
-        {/* Verdict text — the hero */}
-        <div className={cn(
-          "text-[22px] md:text-[26px] font-semibold text-white tracking-[-0.02em] leading-[1.25] break-words",
-          summary ? "mb-3" : "mb-6",
-        )}>
-          {cleanContent}
-        </div>
-
-        {summary && (
-          <div className="mb-6 text-[14px] leading-[1.65] text-zinc-300">
-            {summary}
-          </div>
-        )}
-
-        {/* Confidence bar */}
-        <div className="mb-1">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[9px] font-mono font-medium tracking-[0.15em] uppercase text-zinc-500">Confidence</span>
-          </div>
-          <ConfidenceBar level={confidence} />
-        </div>
-
-        {meta && (
-          <div className="mt-5 pt-4 border-t border-white/[0.06]">
-            <span className="text-[10px] font-mono text-zinc-500 tracking-wide">{meta}</span>
-          </div>
-        )}
-
-        {/* Verdict tracking */}
-        {onTrack && (
-          <div className="mt-5 pt-4 border-t border-white/[0.06]">
-            {!outcome ? (
-              <div className="flex flex-col items-center gap-3">
-                <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Did this hit?</span>
-                <div className="flex items-center gap-2.5" role="group" aria-label="Track verdict outcome">
-                  <button
-                    onClick={() => { triggerHaptic(); trackAction("verdict.hit", { messageId, verdictKey }); onTrack(messageId, "hit", verdictKey); }}
-                    className={cn(
-                      "flex items-center gap-2 px-5 py-2.5",
-                      "rounded-full",
-                      "bg-emerald-500/8 border border-emerald-500/15",
-                      "text-emerald-400 hover:bg-emerald-500/15 hover:border-emerald-500/25",
-                      "transition-all duration-200",
-                    )}
-                    aria-label="Mark as hit"
-                  >
-                    <Check size={12} />
-                    <span className="text-[11px] font-semibold uppercase tracking-wider">Hit</span>
-                  </button>
-                  <button
-                    onClick={() => { triggerHaptic(); trackAction("verdict.miss", { messageId, verdictKey }); onTrack(messageId, "miss", verdictKey); }}
-                    className={cn(
-                      "flex items-center gap-2 px-5 py-2.5",
-                      "rounded-full",
-                      "bg-red-500/8 border border-red-500/15",
-                      "text-red-400 hover:bg-red-500/15 hover:border-red-500/25",
-                      "transition-all duration-200",
-                    )}
-                    aria-label="Mark as miss"
-                  >
-                    <XCircle size={12} />
-                    <span className="text-[11px] font-semibold uppercase tracking-wider">Miss</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={cn("w-1.5 h-1.5 rounded-full", outcome === "hit" ? "bg-emerald-500" : "bg-red-500")} />
-                  <span className={cn("text-[11px] font-mono font-medium uppercase tracking-wider", outcome === "hit" ? "text-emerald-400" : "text-red-400")}>
-                    Tracked as {outcome === "hit" ? "Hit" : "Miss"}
-                  </span>
-                </div>
-                <button
-                  onClick={() => { triggerHaptic(); onTrack(messageId, null, verdictKey); }}
-                  className="flex items-center gap-1.5 text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors"
-                  aria-label="Undo verdict tracking"
-                >
-                  <RotateCcw size={10} />
-                  <span className="font-medium uppercase tracking-wider">Undo</span>
-                </button>
-              </div>
+        {/* §2 Hero headline — team primary, qualifier secondary */}
+        <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[1])}>
+          <h3 style={{
+            fontFamily: OW.sans, fontSize: 28, fontWeight: 700,
+            lineHeight: 1.12, letterSpacing: "-0.02em",
+            color: OW.t1, margin: 0,
+          }}>
+            {teamDisplay}
+            {qualifier && (
+              <span style={{
+                fontFamily: OW.mono, fontWeight: 500,
+                fontSize: 20, letterSpacing: "0.02em",
+                color: OW.t3, marginLeft: 10,
+              }}>{qualifier}</span>
             )}
+          </h3>
+        </div>
+
+        {/* Hairline + odds row — only rendered when odds data is present */}
+        {hasOddsData && (
+          <>
+            {/* M-16: Hairline divider — gradient-faded edges, consistent everywhere */}
+            <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "24px 0" }} />
+
+            {/* §3 Unified row: capture mode shows tag, live mode shows book line */}
+            <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2])}>
+              {isCaptureMode ? (
+                <span style={{
+                  display: "inline-block",
+                  fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
+                  letterSpacing: "0.12em", textTransform: "uppercase",
+                  color: OW.t4, padding: "4px 12px", borderRadius: 6,
+                  background: "rgba(255,255,255,0.03)",
+                  border: `1px solid ${OW.border}`,
+                }}>{isLive ? "Live" : "Pre"}</span>
+              ) : (
+                <div style={{
+                  display: "flex", alignItems: "center",
+                  userSelect: "none", WebkitTapHighlightColor: "transparent",
+                }}>
+                  <span
+                    onMouseEnter={() => setBookHover(true)}
+                    onMouseLeave={() => setBookHover(false)}
+                    style={{
+                      fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+                      color: OW.tSys, letterSpacing: "0.005em", lineHeight: "20px",
+                      transition: `color 0.15s ${OW.ease}`,
+                      ...(bookHover ? { color: OW.t3 } : {}),
+                    }}
+                  >
+                    {book ? (
+                      <>
+                        Best {gamePhase} odds on{" "}
+                        <span style={{
+                          color: bookHover ? book.color : OW.t3,
+                          fontWeight: 600,
+                          transition: `color 0.15s ${OW.ease}`,
+                          borderBottom: bookHover ? `1px solid ${book.color}30` : "1px solid transparent",
+                          paddingBottom: 1,
+                        }}>
+                          {book.name}
+                        </span>
+                      </>
+                    ) : (
+                      <>Best available odds</>
+                    )}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 12 }} />
+                  <button onClick={() => setMetricsOpen(p => !p)} style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: 28, height: 28, borderRadius: 8,
+                    border: "none", cursor: "pointer", flexShrink: 0,
+                    background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
+                    color: OW.t4, transition: `all 0.2s ${OW.ease}`,
+                  }}>
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
+                      style={{
+                        transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
+                        transition: `transform 0.25s ${OW.ease}`,
+                      }}>
+                      <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
+                        strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* §4 Collapsible Metrics tray */}
+        <MetricsPanel
+          confidence={confidenceValue}
+          edge={confidenceValue >= 70 ? Math.round((confidenceValue - 50) * 0.3 * 10) / 10 : undefined}
+          winProb={confidenceValue >= 50 ? Math.min(99, Math.round(confidenceValue * 0.65 + 5)) : undefined}
+          open={metricsOpen && !isCaptureMode}
+        />
+
+        {/* §5 Synopsis — M-14: Always rendered when available (live and pregame alike) */}
+        {hasSynopsis && (
+          <div style={{
+            marginTop: 20,
+            fontFamily: OW.sans, fontSize: 14, fontWeight: 400,
+            lineHeight: 1.78,
+            color: OW.t2, letterSpacing: "0.005em",
+            ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[3]),
+          }}>
+            {resolvedSynopsis}
+          </div>
+        )}
+
+        {/* §6 Footer — M-11: Tail/Fade primary, Share ghost utility + M-22: 44px min touch targets */}
+        <div style={{ marginTop: 20, position: "relative", minHeight: 44, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
+          {/* Action buttons layer */}
+          <div style={{
+            position: "absolute", inset: 0,
+            display: "flex", alignItems: "center", gap: 8,
+            opacity: isCaptureMode ? 0 : 1,
+            transition: `opacity 0.2s ${OW.ease}`,
+            pointerEvents: isCaptureMode ? "none" : "auto",
+          }}>
+            {onTrack && (
+              <>
+                {(["Tail", "Fade"] as const).map(label => {
+                  const isTail = label === "Tail";
+                  const isActive = outcome === label.toLowerCase();
+                  return (
+                    <button key={label}
+                      onClick={() => handleToggle(label.toLowerCase() as "tail" | "fade")}
+                      onMouseEnter={e => {
+                        if (isActive) return;
+                        const el = e.currentTarget;
+                        el.style.borderColor = "transparent";
+                        el.style.color = OW.t1;
+                        el.style.background = "rgba(255,255,255,0.10)";
+                      }}
+                      onMouseLeave={e => {
+                        if (isActive) return;
+                        const el = e.currentTarget;
+                        el.style.borderColor = "transparent";
+                        el.style.color = OW.t1;
+                        el.style.background = "rgba(255,255,255,0.06)";
+                      }}
+                      style={{
+                        flex: 1, minHeight: 44, borderRadius: 10, // M-22: 44px touch target, M-23: 10px button radius
+                        border: isActive ? `1px solid ${isTail ? OW.mintEdge : "rgba(239,68,68,0.15)"}` : "1px solid transparent",
+                        background: isActive ? (isTail ? OW.mintDim : "rgba(239,68,68,0.04)") : "rgba(255,255,255,0.06)", // M-11: Filled bg
+                        color: isActive ? (isTail ? OW.mint : OW.red) : OW.t1,
+                        fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+                        letterSpacing: "0.08em", textTransform: "uppercase",
+                        cursor: "pointer", transition: `all 0.15s ${OW.ease}`,
+                      }}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </>
+            )}
+            {/* Share button — M-11: Ghost style, narrower (content-width) */}
+            <button onClick={handleShare} style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              gap: 4, minHeight: 44, padding: "0 16px", borderRadius: 10, // M-22, M-23
+              border: `1px solid ${shareState === "copied" ? "rgba(54,232,150,0.2)" : OW.border}`,
+              background: shareState === "copied" ? OW.mintDim : "transparent", // M-11: Ghost bg
+              color: shareState === "copied" ? OW.mint : OW.t4, // M-11: Dimmer text
+              fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+              letterSpacing: "0.08em",
+              cursor: shareState === "capturing" ? "wait" : "pointer",
+              transition: `all 0.15s ${OW.ease}`, whiteSpace: "nowrap",
+            }}>
+              {shareState === "copied" ? <OWCheckIcon /> : shareState === "idle" ? <OWShareIcon /> : null}
+              {shareState === "idle" ? "Share" : shareState === "capturing" ? "···" : "Copied"}
+            </button>
+          </div>
+
+          {/* Watermark layer — visible in capture mode */}
+          <div style={{
+            position: "absolute", inset: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            opacity: isCaptureMode ? 1 : 0,
+            transition: `opacity 0.25s ${OW.ease} ${isCaptureMode ? "0.1s" : "0s"}`,
+            pointerEvents: "none",
+          }}>
+            <span style={{
+              fontFamily: OW.mono, fontSize: 10, fontWeight: 400,
+              letterSpacing: "0.06em", color: "rgba(255,255,255,0.18)",
+            }}>thedrip.app</span>
+          </div>
+        </div>
+
+        {/* §7 Disclosure Trigger — Analysis */}
+        {hasAnalysis && (
+          <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4])}>
+            {/* M-16: Consistent gradient-faded hairline */}
+            <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "16px 0 12px" }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => { onToggleAnalysis?.(); triggerHaptic(); }}
+                aria-expanded={analysisOpen}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  minHeight: 44, borderRadius: OW.ri, cursor: "pointer", transition: `all 0.15s ${OW.ease}`, // M-22: 44px touch target
+                  background: analysisOpen ? OW.mintDim : "rgba(255,255,255,0.02)",
+                  border: `1px solid ${analysisOpen ? OW.mintEdge : OW.border}`,
+                }}
+              >
+                <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: analysisOpen ? OW.mint : OW.t4 }}>
+                  Analysis
+                </span>
+                <motion.div animate={{ rotate: analysisOpen ? 180 : 0 }} transition={SYSTEM.anim.snap}>
+                  <ChevronDown size={10} style={{ color: analysisOpen ? OW.mint : OW.t4 }} />
+                </motion.div>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1377,9 +2075,14 @@ const EdgeVerdictCard: FC<{
 });
 EdgeVerdictCard.displayName = "EdgeVerdictCard";
 
-/** TacticalHUD — Live triggers. Full hardware-radius glass, ambient amber glow. */
+/**
+ * TacticalHUD — "What to Watch" — M-07: Three-layer hierarchy.
+ * Condition (white) → Action (emerald, with arrow) → Reasoning (dimmed).
+ * Elevated card with amber glow. Border radius 12px (inner card per M-23).
+ */
 const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
   const c = useMemo(() => cleanVerdictContent(content), [content]);
+  const parsed = useMemo(() => parseWatchFallback(c), [c]);
   return (
     <motion.div
       layout
@@ -1388,31 +2091,81 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
       transition={SYSTEM.anim.fluid}
       className={cn(
         "my-8 relative overflow-hidden",
-        "rounded-[18px]",
-        "bg-white/[0.025] backdrop-blur-xl",
-        "border border-white/[0.07]",
+        "rounded-xl",                          // M-23: 12px inner card radius
+        "bg-[#1A1A1C]",                        // M-24: Distinct elevated background
+        "border border-white/[0.08]",          // M-24: Subtle but present border
         "shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
       )}
     >
       {/* Ambient amber glow */}
       <div className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(ellipse_at_top_left,rgba(245,158,11,0.08)_0%,transparent_55%)]" />
       <div className="relative z-10 p-5">
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-4 h-4 rounded-[5px] bg-amber-500/10 border border-amber-500/15 flex items-center justify-center">
-            <div className="w-1 h-1 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
-          </div>
-          <span className="font-mono text-[10px] font-semibold tracking-[0.12em] uppercase text-amber-400/80">Live Triggers</span>
-        </div>
-        <div className="text-[15px] leading-[1.65] tracking-[-0.01em] text-zinc-300">{c}</div>
+        {/* M-04: Section header in zinc-500 — neutral */}
+        <p className="text-[12px] font-mono font-medium tracking-[0.12em] uppercase text-zinc-500 mb-4">
+          WHAT TO WATCH
+        </p>
+
+        {/* M-07: Three-layer structured rendering */}
+        {parsed.action ? (
+          <>
+            {/* Condition — white, readable */}
+            <p className="text-[15px] text-zinc-200 leading-relaxed">
+              {parsed.condition}
+            </p>
+            {/* Action — emerald, the thing to do */}
+            <p className="text-[15px] font-medium text-emerald-400 mt-2">
+              → {parsed.action}
+            </p>
+            {/* Reasoning — dimmed, supporting */}
+            {parsed.reasoning && (
+              <p className="text-[12px] text-zinc-500 leading-relaxed mt-2">
+                {parsed.reasoning}
+              </p>
+            )}
+          </>
+        ) : (
+          /* Fallback: flat prose when no arrow pattern found */
+          <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
+        )}
       </div>
     </motion.div>
   );
 });
 TacticalHUD.displayName = "TacticalHUD";
 
-/** InvalidationAlert — Risk warning. Full hardware-radius glass, ambient red glow. */
+/**
+ * InvalidationAlert — "When to Cash Out" / "Invalidation" — M-08.
+ * Elevated card with exit (amber) and hold (emerald) scenarios.
+ * Border radius 12px inner card per M-23.
+ */
 const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => {
   const c = useMemo(() => cleanVerdictContent(content), [content]);
+  // M-08: Parse into dual scenarios (exit + hold) on arrow pattern
+  const parsed = useMemo(() => {
+    // Try to find two arrow-separated scenarios
+    // Pattern: "If X → exit action. If Y → hold action" or sentence-split
+    const arrowParts = c.split(/\s*→\s*/);
+    if (arrowParts.length >= 3) {
+      // Three+ parts: first arrow = exit, second arrow = hold
+      const exitTrigger = arrowParts[0].trim();
+      // Find where the hold trigger starts (after first action phrase)
+      const exitAction = arrowParts[1].replace(/[.;]\s*(?:If|When|But if|However)\b.*$/i, "").trim();
+      const holdStart = arrowParts[1].match(/[.;]\s*((?:If|When|But if|However)\b.*)$/i);
+      const holdTrigger = holdStart ? holdStart[1].trim() : "";
+      const holdAction = arrowParts.slice(2).join("→").trim();
+      if (holdTrigger && holdAction) {
+        return { exitTrigger, exitAction, holdTrigger, holdAction, hasStructure: true, hasDual: true };
+      }
+      return { exitTrigger, exitAction: arrowParts.slice(1).join("→").trim(), holdTrigger: "", holdAction: "", hasStructure: true, hasDual: false };
+    }
+    if (arrowParts.length >= 2) {
+      // Split on sentence boundary for potential dual scenario in action text
+      const exitTrigger = arrowParts[0].trim();
+      const afterArrow = arrowParts[1].trim();
+      return { exitTrigger, exitAction: afterArrow, holdTrigger: "", holdAction: "", hasStructure: true, hasDual: false };
+    }
+    return { exitTrigger: c, exitAction: "", holdTrigger: "", holdAction: "", hasStructure: false, hasDual: false };
+  }, [c]);
   return (
     <motion.div
       layout
@@ -1421,27 +2174,145 @@ const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => {
       transition={SYSTEM.anim.fluid}
       className={cn(
         "my-8 relative overflow-hidden",
-        "rounded-[18px]",
-        "bg-white/[0.025] backdrop-blur-xl",
-        "border border-white/[0.07]",
+        "rounded-xl",                          // M-23: 12px inner card
+        "bg-[#1A1A1C]",                        // M-24: Distinct elevated surface
+        "border border-white/[0.08]",
         "shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
       )}
     >
       {/* Ambient red glow */}
       <div className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(ellipse_at_top_left,rgba(239,68,68,0.08)_0%,transparent_55%)]" />
       <div className="relative z-10 p-5">
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-4 h-4 rounded-[5px] bg-red-500/10 border border-red-500/15 flex items-center justify-center">
-            <div className="w-1 h-1 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
-          </div>
-          <span className="font-mono text-[10px] font-semibold tracking-[0.12em] uppercase text-red-400/80">Invalidation</span>
-        </div>
-        <div className="text-[15px] leading-[1.65] tracking-[-0.01em] text-zinc-300">{c}</div>
+        {/* M-04: Section header neutral zinc-500 */}
+        <p className="text-[12px] font-mono font-medium tracking-[0.12em] uppercase text-zinc-500 mb-4">
+          WHEN TO CASH OUT
+        </p>
+
+        {parsed.hasStructure ? (
+          <>
+            {/* Exit scenario — amber action */}
+            <p className="text-[15px] text-zinc-200 leading-relaxed">
+              {parsed.exitTrigger}
+            </p>
+            <p className="text-[15px] font-medium text-amber-400 mt-2">
+              → {parsed.exitAction}
+            </p>
+
+            {/* M-08: Hold scenario — separated by quiet space, emerald action */}
+            {parsed.hasDual && parsed.holdTrigger && (
+              <div className="mt-5 pt-4 border-t border-white/[0.04]">
+                <p className="text-[15px] text-zinc-200 leading-relaxed">
+                  {parsed.holdTrigger}
+                </p>
+                <p className="text-[15px] font-medium text-emerald-400 mt-2">
+                  → {parsed.holdAction}
+                </p>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
+        )}
       </div>
     </motion.div>
   );
 });
 InvalidationAlert.displayName = "InvalidationAlert";
+
+/**
+ * M-27: Pick card skeleton — shows while model generates verdict.
+ * Matches final card dimensions for seamless cross-fade.
+ */
+const PickCardSkeleton: FC = memo(() => (
+  <div style={{
+    borderRadius: 16, background: OW.card,
+    border: `1px solid ${OW.border}`, padding: "32px 24px 24px",
+    boxShadow: OW.shadow, marginBottom: 12,
+  }}>
+    {/* THE PICK label skeleton */}
+    <div style={{ height: 12, width: 64, borderRadius: 4, background: "rgba(255,255,255,0.04)" }}
+      className="animate-pulse" />
+    {/* Team name skeleton */}
+    <div style={{ height: 28, width: 192, borderRadius: 4, background: "rgba(255,255,255,0.06)", marginTop: 16 }}
+      className="animate-pulse" />
+    {/* Hairline */}
+    <div style={{ height: 1, width: "100%", background: "rgba(255,255,255,0.04)", margin: "24px 0 16px" }} />
+    {/* Summary skeleton — two lines */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ height: 16, width: "100%", borderRadius: 4, background: "rgba(255,255,255,0.04)" }}
+        className="animate-pulse" />
+      <div style={{ height: 16, width: "80%", borderRadius: 4, background: "rgba(255,255,255,0.04)" }}
+        className="animate-pulse" />
+    </div>
+  </div>
+));
+PickCardSkeleton.displayName = "PickCardSkeleton";
+
+/**
+ * M-25: AnalysisDisclosure — scroll-position-aware fade gradient.
+ * Shows a bottom fade when more content exists below the fold.
+ * Hides the fade when the user has scrolled to the bottom.
+ */
+const AnalysisDisclosure: FC<{
+  analysisContent: string;
+  components: Components;
+}> = memo(({ analysisContent, components }) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [showFade, setShowFade] = useState(true);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const checkScroll = () => {
+      // Check if the content overflows the parent scroll container
+      // Use the nearest scrollable ancestor to determine if content is cut off
+      const parent = el.closest("[role='log']") || el.parentElement;
+      if (!parent) return;
+      const rect = el.getBoundingClientRect();
+      const parentRect = parent.getBoundingClientRect();
+      // If the bottom of the content is within 80px of the parent's bottom, consider it scrolled to end
+      const isNearBottom = rect.bottom <= parentRect.bottom + 80;
+      setShowFade(!isNearBottom);
+    };
+
+    // Initial check after mount + render
+    const timer = setTimeout(checkScroll, 100);
+    // Listen to scroll on the nearest scrollable ancestor
+    const scrollParent = el.closest("[role='log']");
+    scrollParent?.addEventListener("scroll", checkScroll, { passive: true });
+
+    return () => {
+      clearTimeout(timer);
+      scrollParent?.removeEventListener("scroll", checkScroll);
+    };
+  }, [analysisContent]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ ...SYSTEM.anim.fluid, opacity: { duration: 0.25 } }}
+      className="relative"
+      style={{ overflow: "hidden" }}
+    >
+      <div ref={contentRef}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+          {analysisContent}
+        </ReactMarkdown>
+      </div>
+      {/* M-25: Dynamic bottom fade — hides when scrolled to bottom */}
+      <div
+        className={cn(
+          "sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#08080A] to-transparent pointer-events-none transition-opacity duration-300",
+          showFade ? "opacity-100" : "opacity-0",
+        )}
+      />
+    </motion.div>
+  );
+});
+AnalysisDisclosure.displayName = "AnalysisDisclosure";
 
 const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: number }> = memo(
   ({ onStop, status = "thinking", retryCount = 0 }) => {
@@ -1469,7 +2340,7 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
         transition={SYSTEM.anim.fluid}
         role="status"
         aria-live="polite"
-        className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-[#050505] border border-white/10 shadow-2xl z-30 will-change-transform"
+        className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-[#08080A] border border-white/10 shadow-2xl z-30 will-change-transform"
       >
         <OrbitalRadar />
         <AnimatePresence mode="wait">
@@ -1484,7 +2355,7 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
           </motion.span>
         </AnimatePresence>
         {onStop && (
-          <button onClick={onStop} className="ml-1 text-zinc-600 hover:text-zinc-200 transition-colors" aria-label="Stop processing">
+          <button onClick={onStop} className="ml-1 p-2 -m-2 text-zinc-600 hover:text-zinc-200 transition-colors" aria-label="Stop processing">
             <StopCircle size={10} />
           </button>
         )}
@@ -1494,14 +2365,21 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
 );
 ThinkingPill.displayName = "ThinkingPill";
 
-const SmartChips: FC<{ onSelect: (t: string) => void; hasMatch: boolean; messageCount: number }> = memo(
-  ({ onSelect, hasMatch, messageCount }) => {
-    const phase = getTimePhase();
+const SmartChips: FC<{
+  onSelect: (t: string) => void;
+  hasMatch: boolean;
+  messageCount: number;
+  gameContext?: GameContext | null;
+}> = memo(
+  ({ onSelect, hasMatch, messageCount, gameContext }) => {
+    const phase = deriveGamePhase(gameContext);
+    const matchupLabel = useMemo(() => getMatchupLabel(gameContext), [gameContext]);
+
     const chips = useMemo(() => {
       if (hasMatch) {
         switch (phase) {
           case "live": return ["Live Edge", "Sharp Report", "Momentum", "Cash Out?"];
-          case "postgame": return ["Recap", "What Hit", "Tomorrow Slate", "Bankroll"];
+          case "postgame": return ["Recap", "What Tailed / Faded", "Tomorrow Slate", "Bankroll"];
           default: return ["Sharp Report", "Best Bet", "Public Fade", "Player Props"];
         }
       }
@@ -1515,13 +2393,20 @@ const SmartChips: FC<{ onSelect: (t: string) => void; hasMatch: boolean; message
 
     return (
       <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide px-6" role="group" aria-label="Quick actions">
+        {/* Matchup context chip — emerald accent, shows attached game */}
+        {matchupLabel && (
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/[0.06] border border-emerald-500/[0.12] shrink-0 rounded-full">
+            <div className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_4px_#10b981]" />
+            <span className="text-[10px] font-mono font-medium text-emerald-400/90 tracking-wide uppercase whitespace-nowrap">{matchupLabel}</span>
+          </div>
+        )}
         {chips.map((chip, i) => (
           <motion.button
             key={chip}
             onClick={() => { triggerHaptic(); onSelect(SMART_CHIP_QUERIES[chip] ?? chip); }}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04, ...SYSTEM.anim.fluid }}
+            transition={{ delay: (matchupLabel ? i + 1 : i) * 0.04, ...SYSTEM.anim.fluid }}
             whileHover={{ scale: 1.02, y: -1, backgroundColor: "rgba(255,255,255,0.06)" }}
             whileTap={{ scale: 0.98 }}
             className={cn("px-3.5 py-2 bg-white/[0.03] border border-white/[0.08] transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
@@ -1559,315 +2444,252 @@ ConnectionBadge.displayName = "ConnectionBadge";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §11  CITATION PILL (Decoupled via context)
+// §11  (Cleared — citations are now inline hyperlinks)
 // ═══════════════════════════════════════════════════════════════════════════
-
-const CitationContext = createContext<{
-  activeCitation: string | null;
-  setActiveCitation: (id: string | null) => void;
-}>({ activeCitation: null, setActiveCitation: () => { } });
-
-const CitationProvider: FC<{ children: ReactNode }> = ({ children }) => {
-  const [activeCitation, setActiveCitation] = useState<string | null>(null);
-
-  useEffect(() => {
-    const onPointer = (e: globalThis.PointerEvent) => {
-      const t = e.target as HTMLElement | null;
-      if (!t) { setActiveCitation(null); return; }
-      if (typeof t.closest === "function" && t.closest('[data-cite-scope="true"]')) return;
-      setActiveCitation(null);
-    };
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") setActiveCitation(null);
-    };
-    document.addEventListener("pointerdown", onPointer, true);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onPointer, true);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, []);
-
-  const value = useMemo(() => ({ activeCitation, setActiveCitation }), [activeCitation]);
-  return <CitationContext.Provider value={value}>{children}</CitationContext.Provider>;
-};
-
-/**
- * "The Jewel" — Inline Citation Complication.
- * Replaces bracket tokens with a glass pill housing the source's favicon.
- * Preserves full aria: expanded, controls, label, tooltip role.
- */
-const CitationJewel: FC<{ id: string; href?: string; indexLabel: string }> = memo(({ id, href, indexLabel }) => {
-  const { activeCitation, setActiveCitation } = useContext(CitationContext);
-  const active = activeCitation === id;
-  const hostname = getHostname(href);
-  const brand = hostnameToBrand(hostname);
-
-  return (
-    <span data-cite-scope="true" className="inline-flex items-center align-middle relative mx-0.5 -translate-y-[1px] isolate z-10">
-      <button
-        type="button"
-        onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); triggerHaptic(); setActiveCitation(active ? null : id); }}
-        className={cn(
-          "group inline-flex items-center gap-1.5 h-[18px] pl-0.5 pr-2 rounded-full border transition-all duration-300 select-none cursor-pointer overflow-hidden backdrop-blur-md",
-          active
-            ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
-            : "bg-white/[0.04] border-white/[0.08] text-zinc-400 hover:bg-white/[0.08] hover:border-white/[0.15] hover:text-zinc-200",
-        )}
-        aria-expanded={active}
-        aria-controls={`cite-popover-${id}`}
-        aria-label={`Source ${indexLabel} from ${brand}`}
-      >
-        <div className="w-3.5 h-3.5 rounded-full bg-[#050505] border border-white/10 flex items-center justify-center overflow-hidden shadow-sm">
-          <SourceIcon url={href} fallbackLetter={brand} className="w-2.5 h-2.5 rounded-full opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300" />
-        </div>
-        <span className="text-[9px] font-mono font-medium tracking-tight leading-none translate-y-[0.5px]">{indexLabel}</span>
-      </button>
-
-      <AnimatePresence>
-        {active && (
-          <motion.div
-            data-cite-scope="true"
-            id={`cite-popover-${id}`}
-            role="tooltip"
-            initial={{ opacity: 0, y: 8, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.98 }}
-            transition={SYSTEM.anim.snap}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 w-[240px] z-[60]"
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <div className={cn("p-3.5 rounded-[20px] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.9)]", SYSTEM.surface.glass)}>
-              <div className="flex items-start gap-3 mb-3">
-                <div className="w-8 h-8 rounded-[10px] bg-black/40 border border-white/10 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
-                  <SourceIcon url={href} fallbackLetter={brand} className="w-5 h-5 rounded" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[12px] font-medium text-white truncate leading-tight mb-0.5">{brand}</div>
-                  <div className="text-[10px] font-mono text-zinc-500 truncate">{hostname}</div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                <div className="flex items-center gap-1.5 text-[9px] font-mono text-emerald-400/90 uppercase tracking-widest">
-                  <ShieldCheck size={10} /><span>Verified</span>
-                </div>
-                {href ? (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-[10px] font-medium text-zinc-300 hover:text-white transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span>Open</span><ExternalLink size={10} />
-                  </a>
-                ) : (
-                  <span className="text-[10px] font-mono text-zinc-600">No link</span>
-                )}
-              </div>
-            </div>
-            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0A0A0B] border-r border-b border-white/10 rotate-45 rounded-[1px]" />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </span>
-  );
-});
-CitationJewel.displayName = "CitationJewel";
-
-/**
- * "The Evidence Deck" — Horizontal Inertia-Scroll Tray.
- * Replaces the vertical details/summary with a dashboard-style component.
- * Gradient fade masks soften the scroll edges into the void.
- */
-const EvidenceDeck: FC<{ sources: Array<{ title: string; uri: string }> }> = memo(({ sources }) => {
-  if (!sources.length) return null;
-  return (
-    <div className="mt-6 w-full max-w-full overflow-hidden relative group/deck">
-      <div className="flex items-center gap-2 mb-3 px-1 opacity-80">
-        <div className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_4px_rgba(16,185,129,0.8)]" />
-        <span className={SYSTEM.type.label}>Evidence Ledger</span>
-        <span className="text-[9px] font-mono text-zinc-600 ml-auto">[{sources.length}]</span>
-      </div>
-      <div className="relative w-full">
-        {/* Gradient Fade Masks — content fades into the void */}
-        <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#050505] to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#050505] to-transparent z-10 pointer-events-none" />
-
-        <div className="flex gap-2.5 overflow-x-auto pb-4 px-4 scrollbar-hide snap-x">
-          {sources.map((source, i) => {
-            const hostname = getHostname(source.uri);
-            const brand = hostnameToBrand(hostname);
-            return (
-              <motion.a
-                key={i}
-                href={source.uri}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05, ...SYSTEM.anim.fluid }}
-                className={cn(
-                  "flex-none w-[150px] snap-start group relative flex flex-col justify-between p-3 h-[84px] rounded-2xl transition-all duration-300",
-                  "bg-white/[0.025] border border-white/[0.06] hover:bg-white/[0.05] hover:border-emerald-500/20 shadow-sm",
-                )}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="w-5 h-5 rounded bg-white/[0.05] border border-white/[0.05] flex items-center justify-center overflow-hidden">
-                    <SourceIcon url={source.uri} fallbackLetter={brand} className="w-3 h-3 rounded opacity-70 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all" />
-                  </div>
-                  <span className="text-[9px] font-mono text-zinc-600 group-hover:text-emerald-500/80 transition-colors">0{i + 1}</span>
-                </div>
-                <div>
-                  <div className="text-[11px] font-medium text-zinc-300 truncate leading-tight group-hover:text-white transition-colors">{source.title || brand}</div>
-                  <div className="text-[9px] text-zinc-600 truncate mt-0.5 font-mono">{hostname}</div>
-                </div>
-              </motion.a>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-});
-EvidenceDeck.displayName = "EvidenceDeck";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
 // §12  MESSAGE BUBBLE
 // ═══════════════════════════════════════════════════════════════════════════
 
-const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcome: VerdictOutcome, verdictKey?: string) => void; showCitations?: boolean }> = memo(
-  ({ message, onTrackVerdict, showCitations = true }) => {
+const MessageBubble: FC<{
+  message: Message;
+  onTrackVerdict?: (trackingKey: string, outcome: VerdictOutcome) => void;
+  verdictOutcomes?: Record<string, VerdictOutcome>;
+  showCitations?: boolean;
+}> = memo(
+  ({ message, onTrackVerdict, verdictOutcomes, showCitations = true }) => {
     const isUser = message.role === "user";
-    const { displayContent, edgeSummary, edgeRange } = useMemo(() => {
-      const raw = extractTextContent(message.content);
-      if (isUser) return { displayContent: raw, edgeSummary: "", edgeRange: null as { start: number; end: number } | null };
+    const verifiedContent = useMemo(() => {
+      const t = extractTextContent(message.content);
+      if (isUser) return t;
+      const cited = showCitations
+        ? injectSupportCitations(t, message.groundingMetadata, message.isStreaming)
+        : t;
+      // M-26: Apply typography normalization to all AI prose (em-dashes, ellipsis, smart quotes)
+      // Only on completed messages to avoid interfering with streaming text
+      return message.isStreaming ? cited : normalizeTypography(cited);
+    }, [message.content, message.groundingMetadata, message.isStreaming, isUser, showCitations]);
 
-      const sections = extractMarkdownSections(raw);
-      const edgeSection = sections.find((s) => normalizeSectionHeader(s.header) === "the edge");
-      const killed = sections.filter((s) => KILLED_SECTIONS.has(normalizeSectionHeader(s.header)));
-      const sectionsToRemove = [
-        ...(edgeSection ? [edgeSection] : []),
-        ...killed.filter((s) => s !== edgeSection),
-      ].sort((a, b) => b.start - a.start);
-
-      let visibleRaw = raw;
-      for (const section of sectionsToRemove) {
-        visibleRaw = removeMarkdownSection(visibleRaw, section);
-      }
-      const range = edgeSection ? { start: edgeSection.bodyStart, end: edgeSection.bodyEnd } : null;
-      return { displayContent: visibleRaw, edgeSummary: edgeSection?.body || "", edgeRange: range };
-    }, [message.content, isUser]);
-
-    const sources = useMemo(() => extractSources(message.groundingMetadata), [message.groundingMetadata]);
     const formattedTime = useMemo(() => formatTimestamp(message.timestamp), [message.timestamp]);
-    const edgeSummaryCitations = useMemo(() => {
-      if (!showCitations || !edgeSummary || !edgeRange) return [];
-      return buildCitationsFromGrounding(edgeSummary, message.groundingMetadata, edgeRange);
-    }, [showCitations, edgeSummary, edgeRange, message.groundingMetadata]);
-    const renderBodyParagraph = useMemo(
-      () => (children: ReactNode) => (
-        <div className={cn(SYSTEM.type.body, isUser ? "text-[#1a1a1a]" : "text-[#A1A1AA]", "mb-5 last:mb-0")}>
-          {children}
-        </div>
-      ),
-      [isUser],
-    );
-    const edgeSummaryNode = useMemo(() => {
-      if (!edgeSummary) return null;
-      return <RichTextWithCitations text={edgeSummary} citations={edgeSummaryCitations} />;
-    }, [edgeSummary, edgeSummaryCitations]);
 
-    const components: Components = useMemo(() => {
-      const resolveTextAndCitations = (
-        node: { position?: { start?: { offset?: number }; end?: { offset?: number } } } | undefined,
-        fallbackText: string,
-        stripListMarker: boolean,
-      ): { text: string; citations: CitationSpan[] } => {
-        const start = node?.position?.start?.offset;
-        const end = node?.position?.end?.offset;
-        if (typeof start === "number" && typeof end === "number" && end > start) {
-          let slice = displayContent.slice(start, end);
-          let shift = 0;
-          if (stripListMarker) {
-            const markerMatch = slice.match(/^\s*[-*+]\s+/);
-            if (markerMatch) {
-              shift = markerMatch[0].length;
-              slice = slice.slice(shift);
-            }
-          }
-          const citations = showCitations
-            ? buildCitationsFromGrounding(slice, message.groundingMetadata, { start: start + shift, end })
-            : [];
-          return { text: slice, citations };
+    /** Edge synopses extracted once per message for verdict card enrichment */
+    const synopses = useMemo(() => extractEdgeSynopses(extractTextContent(message.content)), [message.content]);
+
+    /**
+     * Progressive Disclosure: Split content at verdict boundary.
+     * The pick card is always visible. The analytical breakdown
+     * (Key Factors, Market Dynamics, etc.) collapses behind disclosure.
+     * During streaming, show everything — split only on completed messages.
+     */
+    const { pickContent, analysisContent } = useMemo(() => {
+      if (isUser || !verifiedContent || message.isStreaming) {
+        return { pickContent: verifiedContent, analysisContent: null };
+      }
+
+      const lines = verifiedContent.split("\n");
+      let verdictLineIndex = -1;
+
+      for (let i = 0; i < lines.length; i++) {
+        if (REGEX_VERDICT_MATCH.test(lines[i])) {
+          verdictLineIndex = i;
+          break;
         }
-        return { text: fallbackText, citations: [] };
-      };
+      }
+
+      if (verdictLineIndex === -1) return { pickContent: verifiedContent, analysisContent: null };
+
+      // Walk past the verdict line and any immediate continuation (synopsis text)
+      // until we hit an empty line followed by a section header, or a section header directly
+      let analysisStartIndex = -1;
+      for (let i = verdictLineIndex + 1; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        if (!trimmed) continue;
+        const stripped = trimmed.replace(/\*+/g, "").trim().toUpperCase();
+        if (REGEX_EDGE_SECTION_HEADER.test(stripped)) {
+          analysisStartIndex = i;
+          break;
+        }
+        // Non-header content after verdict — could be synopsis or bridging text.
+        // Check if the NEXT non-empty line is a section header; if so, include this with the pick.
+        let nextNonEmpty = "";
+        for (let j = i + 1; j < lines.length; j++) {
+          if (lines[j].trim()) { nextNonEmpty = lines[j].trim().replace(/\*+/g, "").trim().toUpperCase(); break; }
+        }
+        if (REGEX_EDGE_SECTION_HEADER.test(nextNonEmpty)) {
+          // This line is bridging text between verdict and first section — keep with pick
+          continue;
+        }
+      }
+
+      if (analysisStartIndex === -1) return { pickContent: stripExcludedSections(verifiedContent), analysisContent: null };
+
+      const pick = lines.slice(0, analysisStartIndex).join("\n").trim();
+      const analysis = lines.slice(analysisStartIndex).join("\n").trim();
 
       return {
-        p: ({ node, children }) => {
-          const text = flattenText(children);
+        pickContent: pick || stripExcludedSections(verifiedContent),
+        analysisContent: analysis ? stripExcludedSections(analysis) : null,
+      };
+    }, [verifiedContent, isUser, message.isStreaming]);
 
-          if (REGEX_VERDICT_MATCH.test(text)) {
-            const rawVerdictContent = text.replace(REGEX_VERDICT_PREFIX, "").trim();
-            const confidence = extractConfidence(rawVerdictContent);
-            const vKey = cleanVerdictContent(rawVerdictContent);
-            const cardOutcome = message.verdictOutcomes?.[vKey] ?? message.verdictOutcome;
+    /** Double-disclosure state — controlled from here, triggered from the pick card */
+    const [analysisOpen, setAnalysisOpen] = useState(false);
+    const toggleAnalysis = useCallback(() => setAnalysisOpen(prev => !prev), []);
+
+    const components: Components = useMemo(
+      () => {
+        let verdictCardIndex = 0;
+
+        return {
+          p: ({ children }) => {
+            const text = flattenText(children);
+
+            if (REGEX_VERDICT_MATCH.test(text)) {
+              const verdictPayload = extractVerdictPayload(text);
+              const confidence = extractConfidence(verdictPayload);
+              const trackingKey = `${message.id}:v${verdictCardIndex}`;
+              const cardIdx = verdictCardIndex;
+              verdictCardIndex++;
+              return (
+                <EdgeVerdictCard
+                  content={verdictPayload}
+                  confidence={confidence}
+                  synopsis={synopses[cardIdx]}
+                  trackingKey={trackingKey}
+                  cardIndex={cardIdx}
+                  outcome={verdictOutcomes?.[trackingKey] ?? message.verdictOutcome}
+                  onTrack={onTrackVerdict}
+                  hasAnalysis={!!analysisContent}
+                  analysisOpen={analysisOpen}
+                  onToggleAnalysis={toggleAnalysis}
+                />
+              );
+            }
+
+            if (REGEX_WATCH_MATCH.test(text)) {
+              const c = text.replace(REGEX_WATCH_PREFIX, "").trim();
+              return c.length > 5 ? <TacticalHUD content={c} /> : null;
+            }
+
+            if (REGEX_INVALID_MATCH.test(text)) {
+              const c = text.replace(REGEX_INVALID_PREFIX, "").trim();
+              return c.length > 3 ? <InvalidationAlert content={c} /> : null;
+            }
+
+            // M-26: Apply typography normalization to body paragraphs
             return (
-              <EdgeVerdictCard
-                content={rawVerdictContent}
-                summary={edgeSummaryNode ?? undefined}
-                confidence={confidence}
-                messageId={message.id}
-                verdictKey={vKey}
-                outcome={cardOutcome}
-                onTrack={onTrackVerdict}
-              />
+              <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-6 last:mb-0")}>
+                {children}
+              </div>
             );
-          }
+          },
 
-          if (REGEX_WATCH_MATCH.test(text)) {
-            const c = text.replace(REGEX_WATCH_PREFIX, "").trim();
-            return c.length > 5 ? <TacticalHUD content={c} /> : null;
-          }
+          strong: ({ children }) => {
+            const rawText = flattenText(children);
+            const text = rawText.toUpperCase();
+            const isSection = REGEX_EDGE_SECTION_HEADER.test(text);
 
-          if (REGEX_INVALID_MATCH.test(text)) {
-            const c = text.replace(REGEX_INVALID_PREFIX, "").trim();
-            return c.length > 3 ? <InvalidationAlert content={c} /> : null;
-          }
+            if (isSection) {
+              // M-04: All section headers zinc-500 — no emerald, no amber
+              // M-05/M-06: Normalize header — strip LIVE, PREGAME, trailing colons
+              // M-13: Strip inline bullet characters (•, ·, ‣, ●) before headers
+              const normalized = normalizeHeader(rawText);
+              // Safety net: skip excluded sections (e.g. THE EDGE) in case content filter missed them
+              if (EXCLUDED_SECTIONS.some(s => normalized.toLowerCase() === s)) {
+                return null;
+              }
+              return (
+                <div className="mb-3">
+                  {/* M-16/M-17: Hairline divider after 24px body bottom margin (from mb-6 on paragraphs) */}
+                  <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
+                  {/* M-17: 32px gap between hairline and section header */}
+                  <div className="mt-8 flex items-center gap-2.5">
+                    <div className="w-1 h-1 rounded-full bg-zinc-600" />
+                    <span className="text-[12px] font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
+                  </div>
+                </div>
+              );
+            }
 
-          const resolved = resolveTextAndCitations(node as any, text, false);
-          return renderBodyParagraph(
-            <RichTextWithCitations text={resolved.text} citations={resolved.citations} />
-          );
-        },
-        ul: ({ children }) => <ul className="space-y-2 mb-4 ml-1">{children}</ul>,
-        li: ({ node, children }) => {
-          const text = flattenText(children);
-          const resolved = resolveTextAndCitations(node as any, text, true);
-          return (
+            // M-13: Strip bullet-prefixed bold sub-headers in prose (incl. ●)
+            const stripped = rawText.replace(/^[●•·‣]\s*/, "");
+            return <strong className={cn("font-semibold", isUser ? "text-black" : "text-white")}>{stripped}</strong>;
+          },
+
+          a: ({ href, children }) => {
+            const isCitation = href?.includes(CITE_MARKER);
+            const isSuperscript = href?.includes("#__cite_sup__");
+            // Extract brand color from CITE_MARKER fragment: #__cite__%23RRGGBB or #__cite__#RRGGBB
+            let brandColor = "";
+            let cleanHref = href || "";
+            if (isCitation) {
+              const markerIdx = cleanHref.indexOf(CITE_MARKER);
+              const colorFragment = cleanHref.slice(markerIdx + CITE_MARKER.length);
+              brandColor = decodeURIComponent(colorFragment);
+              cleanHref = cleanHref.slice(0, markerIdx);
+            } else if (isSuperscript) {
+              cleanHref = cleanHref.replace("#__cite_sup__", "");
+            }
+
+            if (isSuperscript) {
+              // Superscript fallback: small, subtle, invisible-ish
+              return (
+                <a
+                  href={cleanHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-zinc-600 no-underline hover:text-zinc-400 text-[0.65em] align-super transition-colors duration-200"
+                >
+                  {children}
+                </a>
+              );
+            }
+
+            if (isCitation) {
+              // Invisible inline citation: phrase IS the link
+              // Resting: zinc-500 (#63636E), no underline
+              // Hover: brand color + hairline underline at 25% opacity
+              const hoverStyle = brandColor
+                ? { "--cite-hover-color": brandColor, "--cite-hover-underline": `${brandColor}40` } as React.CSSProperties
+                : {};
+              return (
+                <a
+                  href={cleanHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cite-link text-[#63636E] no-underline transition-all duration-200 hover:underline underline-offset-4 decoration-1"
+                  style={hoverStyle}
+                >
+                  {children}
+                </a>
+              );
+            }
+
+            // Standard content link (non-citation)
+            return (
+              <a
+                href={cleanHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
+              >
+                {children}
+              </a>
+            );
+          },
+
+          ul: ({ children }) => <ul className="space-y-2 mb-4 ml-1">{children}</ul>,
+          li: ({ children }) => (
             <li className="flex gap-3 items-start pl-1">
               <span className="mt-2 w-1 h-1 bg-zinc-700 rounded-full shrink-0" />
-              <span className={cn(SYSTEM.type.body, isUser ? "text-[#1a1a1a]" : "text-[#A1A1AA]")}>
-                <RichTextWithCitations text={resolved.text} citations={resolved.citations} />
-              </span>
+              <span className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]")}>{children}</span>
             </li>
-          );
-        },
-      };
-    }, [
-      displayContent,
-      edgeSummaryNode,
-      isUser,
-      message.groundingMetadata,
-      message.id,
-      message.verdictOutcome,
-      message.verdictOutcomes,
-      onTrackVerdict,
-      renderBodyParagraph,
-      showCitations,
-    ]);
+          ),
+        };
+      },
+      [isUser, message.id, message.verdictOutcome, verdictOutcomes, onTrackVerdict, synopses, analysisContent, analysisOpen, toggleAnalysis],
+    );
 
     return (
       <motion.div
@@ -1877,45 +2699,47 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
         transition={SYSTEM.anim.fluid}
         className={cn("flex flex-col mb-10 w-full relative group isolate", isUser ? "items-end" : "items-start")}
       >
-        {!isUser && (
-          <div className="flex items-center gap-2 mb-2 ml-1 select-none">
-            <div className={cn("w-1.5 h-1.5 rounded-full", sources.length > 0 ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-zinc-600")} />
-            <span className={cn(SYSTEM.type.mono, sources.length > 0 ? "text-emerald-500" : "text-zinc-500")}>
-              {sources.length > 0 ? "OBSIDIAN // VERIFIED" : "OBSIDIAN"}
-            </span>
-          </div>
-        )}
-
+        {/* M-18: iMessage-style flattened top-right corner for user bubbles */}
         <div className={cn(
           "relative max-w-[92%] md:max-w-[88%]",
           isUser
-            ? "bg-white text-black rounded-[20px] rounded-tr-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5"
-            : "bg-transparent text-white px-0",
+            ? "bg-white text-black rounded-[20px] rounded-tr-[6px] shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5"
+            : "bg-transparent text-white px-0 max-w-full md:max-w-[96%]",
         )}>
           <div className={cn("prose prose-invert max-w-none", isUser && "prose-p:text-black/90")}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-              {displayContent}
-            </ReactMarkdown>
+            {/* M-27: Show skeleton while AI is generating but no content yet */}
+            {!isUser && message.isStreaming && !pickContent?.trim() ? (
+              <PickCardSkeleton />
+            ) : (
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+                {pickContent}
+              </ReactMarkdown>
+            )}
+
+            {/* Analysis disclosure — controlled from pick card trigger */}
+            {/* M-12: Both pregame and live use the same analysis drawer pattern */}
+            <AnimatePresence initial={false}>
+              {analysisOpen && analysisContent && (
+                <AnalysisDisclosure analysisContent={analysisContent} components={components} />
+              )}
+            </AnimatePresence>
+
           </div>
 
-          {!isUser && !message.isStreaming && displayContent && (
-            <div className="absolute -right-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity delay-75">
-              <CopyButton content={displayContent} />
+          {!isUser && !message.isStreaming && verifiedContent && !REGEX_VERDICT_MATCH.test(extractTextContent(message.content)) && (
+            <div className="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity delay-75">
+              <CopyButton content={verifiedContent} />
             </div>
           )}
         </div>
 
-        {/* Timestamp — reveals on hover */}
+        {/* M-19: Timestamp always below, right-aligned, consistent for both roles */}
         {formattedTime && (
-          <div className={cn("mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none", isUser ? "mr-1" : "ml-1")}>
-            <time dateTime={message.timestamp} className="text-[9px] font-mono text-zinc-600 tabular-nums">
+          <div className="text-right mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none">
+            <time dateTime={message.timestamp} className="text-[11px] text-zinc-600">
               {formattedTime}
             </time>
           </div>
-        )}
-
-        {showCitations && !isUser && !message.isStreaming && sources.length > 0 && (
-          <EvidenceDeck sources={sources} />
         )}
       </motion.div>
     );
@@ -2028,7 +2852,7 @@ const InputDeck: FC<{
       layout
       className={cn(
         "flex flex-col gap-2 p-1.5 relative overflow-hidden transition-colors duration-500 will-change-transform",
-        SYSTEM.geo.input, "bg-[#0A0A0B] shadow-2xl",
+        SYSTEM.geo.input, "bg-[#08080A] shadow-2xl focus-within:ring-1 focus-within:ring-white/[0.06]",
         isVoiceMode
           ? "border-emerald-500/30 shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)]"
           : isOffline ? "border-red-500/20" : SYSTEM.surface.milled,
@@ -2044,7 +2868,7 @@ const InputDeck: FC<{
             className="flex gap-2 overflow-x-auto p-2 mb-1 scrollbar-hide"
           >
             {attachments.map((a, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.05] rounded-lg border border-white/[0.05]">
+              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-full border border-white/[0.06]">
                 <ImageIcon size={12} className="text-white/50" />
                 <span className="text-[10px] text-zinc-300 max-w-[80px] truncate">{a.file.name}</span>
                 <button
@@ -2089,42 +2913,44 @@ const InputDeck: FC<{
             className={cn(
               "flex-1 bg-transparent border-none outline-none resize-none py-4 min-h-[52px] max-h-[120px]",
               SYSTEM.type.body, "text-white placeholder:text-zinc-600 disabled:opacity-40",
+              "caret-amber-500/80 selection:bg-emerald-500/20",
             )}
           />
         )}
 
-        <div className="flex items-center gap-1 pb-1.5 pr-1">
-          {!value && !attachments.length && (
-            <button
-              onClick={toggleVoice}
-              className={cn(
-                "p-3 rounded-[18px]",
-                isVoiceMode ? "text-rose-400 bg-rose-500/10" : "text-zinc-500 hover:bg-white/5 hover:text-white transition-colors",
-              )}
-              aria-label={isVoiceMode ? "Stop voice input" : "Start voice input"}
-              aria-pressed={isVoiceMode}
-            >
-              {isVoiceMode ? <MicOff size={18} /> : <Mic size={18} />}
-            </button>
-          )}
-
-          {(canSend || isProcessing) && (
-            <motion.button
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              whileTap={{ scale: 0.92 }}
-              onClick={() => (isProcessing ? onStop() : onSend())}
-              className={cn(
-                "p-3 rounded-[18px] transition-all duration-300",
-                canSend || isProcessing
+        {/* Unified action button — Send / Stop / Mic in one position */}
+        <div className="flex items-center pb-1.5 pr-1">
+          <motion.button
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => {
+              if (isProcessing) { onStop(); return; }
+              if (canSend) { onSend(); return; }
+              toggleVoice();
+            }}
+            className={cn(
+              "p-3 rounded-[18px] transition-all duration-300",
+              isProcessing
+                ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                : canSend
                   ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                  : "bg-white/5 text-zinc-600",
-              )}
-              aria-label={isProcessing ? "Stop processing" : "Send message"}
-            >
-              {isProcessing ? <StopCircle size={18} className="animate-pulse" /> : <ArrowUp size={18} strokeWidth={2.5} />}
-            </motion.button>
-          )}
+                  : isVoiceMode
+                    ? "text-rose-400 bg-rose-500/10"
+                    : "text-zinc-500 hover:bg-white/5 hover:text-white",
+            )}
+            aria-label={isProcessing ? "Stop processing" : canSend ? "Send message" : isVoiceMode ? "Stop voice input" : "Start voice input"}
+          >
+            {isProcessing ? (
+              <StopCircle size={18} className="animate-pulse" />
+            ) : canSend ? (
+              <ArrowUp size={18} strokeWidth={2.5} />
+            ) : isVoiceMode ? (
+              <MicOff size={18} />
+            ) : (
+              <Mic size={18} />
+            )}
+          </motion.button>
         </div>
       </div>
     </motion.div>
@@ -2195,6 +3021,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   const [srAnnouncement, setSrAnnouncement] = useState("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -2202,9 +3029,36 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   const sendingRef = useRef(false);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
+  // Measure footer height to set scroll container bottom padding dynamically
+  const [footerHeight, setFooterHeight] = useState(88);
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setFooterHeight(entry.contentRect.height + 16);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const { session_id, conversation_id } = useChatContext({ match: currentMatch });
   const connectionStatus = useConnectionHealth();
   const canSend = useSendGuard();
+
+  /** Resilient game-context normalization — handles varied data shapes from API */
+  const normalizedContext = useMemo(() => normalizeGameContext(currentMatch), [currentMatch]);
+
+  /** Per-card verdict outcomes, persisted to localStorage for session continuity */
+  const [verdictOutcomes, setVerdictOutcomes] = useState<Record<string, VerdictOutcome>>(() => {
+    try {
+      const stored = localStorage.getItem("obsidian_verdict_outcomes");
+      return stored ? JSON.parse(stored) : {};
+    } catch { return {}; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem("obsidian_verdict_outcomes", JSON.stringify(verdictOutcomes)); } catch { /* quota exceeded — silent */ }
+  }, [verdictOutcomes]);
 
   // Focus management
   useAutoFocus(inputRef, !isMinimized && !inline);
@@ -2274,14 +3128,12 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     setHasUnseenContent(false);
   }, []);
 
-  // Verdict tracking — per-card when verdictKey is provided, per-message fallback
-  const handleTrackVerdict = useStableCallback((id: string, outcome: VerdictOutcome, verdictKey?: string) => {
-    if (verdictKey) {
-      dispatch({ type: "SET_VERDICT_CARD", id, verdictKey, outcome });
-    } else {
-      dispatch({ type: "SET_VERDICT", id, outcome });
-    }
-    trackAction("verdict.track", { id, outcome, verdictKey });
+  // Verdict tracking — persists per-card outcomes + updates message-level state
+  const handleTrackVerdict = useStableCallback((trackingKey: string, outcome: VerdictOutcome) => {
+    setVerdictOutcomes(prev => ({ ...prev, [trackingKey]: outcome }));
+    const messageId = trackingKey.split(":")[0];
+    dispatch({ type: "SET_VERDICT", id: messageId, outcome });
+    trackAction("verdict.track", { trackingKey, outcome });
   });
 
   // NOTE: Keyboard shortcuts registered ONLY in outer ChatWidget (§16) — not here.
@@ -2357,7 +3209,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
       }
 
       const context: ChatContextPayload = {
-        session_id, conversation_id, gameContext: currentMatch, run_id: generateId(),
+        session_id, conversation_id, gameContext: normalizedContext, run_id: generateId(),
       };
 
       const controller = new AbortController();
@@ -2451,7 +3303,6 @@ const InnerChatWidget: FC<ChatWidgetProps & {
 
   return (
     <ToastProvider>
-      <CitationProvider>
         <LayoutGroup>
           <motion.div
             layoutId={inline ? undefined : "chat"}
@@ -2508,7 +3359,8 @@ const InnerChatWidget: FC<ChatWidgetProps & {
               aria-relevant="additions"
               aria-busy={isProcessing}
               aria-label="Conversation messages"
-              className="relative flex-1 overflow-y-auto px-6 pt-4 pb-44 scroll-smooth no-scrollbar z-10 will-change-transform"
+              className="relative flex-1 overflow-y-auto px-6 pt-4 scroll-smooth no-scrollbar z-10 will-change-transform"
+              style={{ paddingBottom: footerHeight }}
             >
               <AnimatePresence mode="popLayout">
                 {messages.length === 0 ? (
@@ -2517,13 +3369,16 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                     animate={{ opacity: 1, scale: 1 }}
                     className="h-full flex flex-col items-center justify-center text-center opacity-40"
                   >
-                    <div className="w-20 h-20 rounded-[24px] border border-white/10 bg-white/5 flex items-center justify-center mb-6">
-                      <div className="w-1 h-1 bg-white/40 rounded-full shadow-[0_0_20px_white]" />
+                    <div className="w-20 h-20 rounded-[24px] border border-white/[0.06] bg-white/[0.02] flex items-center justify-center mb-6">
+                      <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
                     </div>
                     <p className={SYSTEM.type.mono}>System Ready</p>
+                    <p className="text-[10px] text-zinc-700 mt-1.5 tracking-wide">
+                      {deriveGamePhase(normalizedContext) === "live" ? "Games are live — ask for in-play edge" : deriveGamePhase(normalizedContext) === "postgame" ? "Markets closed — review your record" : "Pre-game window — find today's edge"}
+                    </p>
                   </motion.div>
                 ) : (
-                  messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} showCitations={showCitations} />)
+                  messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} verdictOutcomes={verdictOutcomes} showCitations={showCitations} />)
                 )}
               </AnimatePresence>
             </div>
@@ -2531,7 +3386,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
             {/* Scroll anchor — visible when user has scrolled up */}
             <ScrollAnchor visible={hasUnseenContent} onClick={scrollToBottom} />
 
-            <footer className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#030303] via-[#030303]/95 to-transparent pointer-events-none">
+            <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#08080A] via-[#08080A]/95 to-transparent pointer-events-none">
               <div className="pointer-events-auto relative">
                 <AnimatePresence>
                   {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}
@@ -2540,7 +3395,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                 <AnimatePresence>
                   {messages.length < 2 && !isProcessing && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-4">
-                      <SmartChips onSelect={handleSend} hasMatch={!!currentMatch} messageCount={messages.length} />
+                      <SmartChips onSelect={handleSend} hasMatch={!!currentMatch} messageCount={messages.length} gameContext={normalizedContext} />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -2563,7 +3418,6 @@ const InnerChatWidget: FC<ChatWidgetProps & {
             </footer>
           </motion.div>
         </LayoutGroup>
-      </CitationProvider>
     </ToastProvider>
   );
 };

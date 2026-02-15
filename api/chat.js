@@ -16,7 +16,7 @@ import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
-import { BettingPickSchema, BettingPicksArraySchema } from "../lib/schemas/picks.js";
+import { BettingPickSchema } from "../lib/schemas/picks.js";
 import { generateSatelliteSlug } from "./lib/satellite.js";
 
 // =============================================================================
@@ -401,7 +401,6 @@ async function buildEvidencePacket(context) {
 /**
  * Build claim map from AI response for confluence evaluation.
  * Enhanced regex handles markdown formatting.
- * Extracts ALL verdict lines (multi-pick support).
  * @param {string} response - AI response text
  * @param {string} thoughts - AI thinking text
  * @returns {object}
@@ -410,8 +409,7 @@ function buildClaimMap(response, thoughts) {
     const combinedText = (response + " " + thoughts).toLowerCase();
 
     const map = {
-        verdict: null,        // First verdict (backward compat)
-        verdicts: [],         // All verdicts
+        verdict: null,
         confidence: "medium",
         confluence: {
             price: false,
@@ -420,27 +418,21 @@ function buildClaimMap(response, thoughts) {
         }
     };
 
-    // Enhanced regex: handles **VERDICT:** markdown syntax (global flag for matchAll)
+    // Enhanced regex: handles **VERDICT:** markdown syntax
     const verdictPatterns = [
-        /\*\*verdict[:\s*]*\*\*\s*(.+?)(?:\n|$)/gi,     // **VERDICT:** text
-        /verdict[:\s*]+\*\*(.+?)\*\*/gi,                 // VERDICT: **text**
-        /verdict[:\s*]+(.+?)(?:\n|$)/gi                   // VERDICT: text
+        /\*\*verdict[:\s*]*\*\*\s*(.+?)(?:\n|$)/i,     // **VERDICT:** text
+        /verdict[:\s*]+\*\*(.+?)\*\*/i,                 // VERDICT: **text**
+        /verdict[:\s*]+(.+?)(?:\n|$)/i                  // VERDICT: text
     ];
 
     for (const pattern of verdictPatterns) {
-        const matches = [...response.matchAll(pattern)];
-        if (matches.length > 0) {
-            for (const match of matches) {
-                const extracted = match[1].trim().replace(/\*+/g, "").trim();
-                const verdict = extracted.toLowerCase().includes("pass") ? "PASS" : extracted;
-                map.verdicts.push(verdict);
-            }
-            break; // use first matching pattern tier only
+        const match = response.match(pattern);
+        if (match) {
+            const extracted = match[1].trim().replace(/\*+/g, "").trim();
+            map.verdict = extracted.toLowerCase().includes("pass") ? "PASS" : extracted;
+            break;
         }
     }
-
-    // Backward compat: first verdict
-    map.verdict = map.verdicts[0] || null;
 
     // Confidence detection
     if (combinedText.includes("high confidence") || combinedText.includes("confidence: high") || combinedText.includes("(high)")) {
@@ -460,7 +452,6 @@ function buildClaimMap(response, thoughts) {
 /**
  * Gate decision based on confluence score.
  * RESTORED: Requires score >= 2 for strict quality filtering.
- * Supports multi-verdict: passes if ALL verdicts are PASS.
  * @param {object} map - Claim map
  * @param {boolean} strict - Whether to enforce minimum confluence
  * @returns {{approved: boolean, reason: string, score: number}}
@@ -468,9 +459,7 @@ function buildClaimMap(response, thoughts) {
 function gateDecision(map, strict) {
     const score = Object.values(map.confluence).filter(Boolean).length;
 
-    // If ALL verdicts are PASS (or none found), it's an intentional pass
-    const allPass = map.verdicts.length === 0 || map.verdicts.every(v => v === "PASS");
-    if (allPass) {
+    if (map.verdict === "PASS") {
         return { approved: true, reason: "INTENTIONAL_PASS", score };
     }
 
@@ -487,13 +476,12 @@ function gateDecision(map, strict) {
 // =============================================================================
 
 /**
- * Extract structured picks from AI response using Gemini.
- * Supports multi-pick: extracts ALL VERDICT lines from the response.
- * @param {string} fullText - Full AI response text
+ * Extract structured pick from AI response using Gemini.
+ * @param {string} text - AI response containing verdict
  * @param {object} context - Game context
  * @returns {Promise<object[]>}
  */
-async function extractPicksStructured(fullText, context) {
+async function extractPickStructured(text, context) {
     if (!context || !context.home_team || !context.away_team) return [];
 
     const extractionPrompt = `
@@ -502,7 +490,7 @@ GAME CONTEXT:
 - Away Team: "${context.away_team}"
 - League: ${context.league || "Unknown"}
 
-TASK: Extract ALL betting verdicts from the analysis below. There may be one or more picks.
+TASK: Extract the betting verdict from the analysis below.
 
 STRICT RULES:
 1. "pick_team" MUST exactly match one of: "${context.home_team}" or "${context.away_team}" (use null for Totals only)
@@ -510,51 +498,44 @@ STRICT RULES:
 3. For Totals: pick_type="total", pick_direction="over" or "under"
 4. For Spreads: pick_type="spread", pick_team=team name, pick_line=spread value
 5. For Moneyline: pick_type="moneyline", pick_team=team name
-6. Return one entry per VERDICT line found in the analysis.
 
 ANALYSIS TEXT:
-${fullText}
+${text}
 `;
 
     try {
         const { object } = await generateObject({
             model: google(CONFIG.MODEL_ID),
-            schema: BettingPicksArraySchema,
+            schema: BettingPickSchema,
             prompt: extractionPrompt,
             mode: "json"
         });
 
-        const validPicks = [];
-        for (const p of (object.picks || [])) {
-            // Validate and normalize team names
-            if (p.verdict === "BET" || p.verdict === "FADE") {
-                if (p.pick_type !== "total" && p.pick_team) {
-                    const pickNorm = (p.pick_team || "").toLowerCase().replace(/[^a-z]/g, "");
-                    const homeNorm = (context.home_team || "").toLowerCase().replace(/[^a-z]/g, "");
-                    const awayNorm = (context.away_team || "").toLowerCase().replace(/[^a-z]/g, "");
+        // Validate and normalize team names
+        if (object.verdict === "BET" || object.verdict === "FADE") {
+            if (object.pick_type !== "total" && object.pick_team) {
+                const pickNorm = (object.pick_team || "").toLowerCase().replace(/[^a-z]/g, "");
+                const homeNorm = (context.home_team || "").toLowerCase().replace(/[^a-z]/g, "");
+                const awayNorm = (context.away_team || "").toLowerCase().replace(/[^a-z]/g, "");
 
-                    let matchedTeam = null;
+                let matchedTeam = null;
 
-                    if (pickNorm.includes(homeNorm) || homeNorm.includes(pickNorm)) {
-                        matchedTeam = context.home_team;
-                    } else if (pickNorm.includes(awayNorm) || awayNorm.includes(pickNorm)) {
-                        matchedTeam = context.away_team;
-                    }
-
-                    if (matchedTeam) {
-                        p.pick_team = matchedTeam;
-                    } else if (!p.pick_team) {
-                        console.warn("[Pick Extraction] Could not normalize team:", p.pick_team);
-                        continue;
-                    }
+                if (pickNorm.includes(homeNorm) || homeNorm.includes(pickNorm)) {
+                    matchedTeam = context.home_team;
+                } else if (pickNorm.includes(awayNorm) || awayNorm.includes(pickNorm)) {
+                    matchedTeam = context.away_team;
                 }
-                validPicks.push(p);
-            } else if (p.verdict === "PASS") {
-                validPicks.push(p);
+
+                if (matchedTeam) {
+                    object.pick_team = matchedTeam;
+                } else if (!object.pick_team) {
+                    console.warn("[Pick Extraction] Could not normalize team:", object.pick_team);
+                    return [];
+                }
             }
         }
 
-        return validPicks;
+        return [object];
     } catch (e) {
         console.error("[Pick Extraction] Failed:", e.message);
         return [];
@@ -563,9 +544,8 @@ ${fullText}
 
 /**
  * Persist AI chat run and extracted picks to database.
- * Accepts fullText for multi-pick extraction from the complete response.
  */
-async function persistRun(runId, map, gate, context, convoId, modelId, groundingMetadata, fullText) {
+async function persistRun(runId, map, gate, context, convoId, modelId, groundingMetadata) {
     try {
         // Build provenance: store groundingSupports for audit trail
         const grounding = groundingMetadata ? {
@@ -580,7 +560,7 @@ async function persistRun(runId, map, gate, context, convoId, modelId, grounding
                 })).slice(0, 20)
         } : null;
 
-        // Upsert run record (stores first verdict for backward compat)
+        // Upsert run record
         await supabase.from("ai_chat_runs").upsert(
             {
                 id: runId,
@@ -598,10 +578,9 @@ async function persistRun(runId, map, gate, context, convoId, modelId, grounding
             { onConflict: "id" }
         );
 
-        // Extract and persist picks if approved — uses full text for multi-pick
-        const hasActionableVerdicts = map.verdicts.some(v => v && v !== "PASS");
-        if (gate.approved && hasActionableVerdicts && fullText) {
-            const structuralPicks = await extractPicksStructured(fullText, context);
+        // Extract and persist picks if approved
+        if (gate.approved && map.verdict && map.verdict !== "PASS") {
+            const structuralPicks = await extractPickStructured(map.verdict, context);
 
             if (structuralPicks.length > 0) {
                 const pickRecords = structuralPicks.map((p) => {
@@ -768,15 +747,10 @@ ${MODE === "ANALYSIS" ? `
 <mode_analysis>
 **OUTPUT FORMAT (STRICT - VERDICT FIRST):**
 
-Output one **VERDICT** line per actionable pick. For single-game queries this is one pick. For multi-game queries ("best bets today", "edge today") output up to 3 picks, each as its own VERDICT line.
-
 **VERDICT:** [Team/Side] [Line/Price] ([Confidence: High/Med/Low])
-**VERDICT:** [Team/Side] [Line/Price] ([Confidence: High/Med/Low])
-
-Each VERDICT line MUST be its own paragraph (blank line before and after).
 
 **THE EDGE**
-(2-3 sentences per pick. State the market inefficiency directly. No hedging. If multiple picks, address each briefly.)
+(2-3 sentences max. State the market inefficiency directly. No hedging.)
 
 **KEY FACTORS**
 - [Factor 1]
@@ -800,7 +774,6 @@ IF [Trigger Condition] → THEN [Action/Adjustment]
 - HEADERS: ALL CAPS with colons.
 - Be ASSERTIVE. No "I think" or "It seems".
 - Verdict must include exact line/price when available.
-- Multiple VERDICT lines allowed. Each MUST start with "**VERDICT:**" on its own paragraph.
 </mode_analysis>
 ` : `
 <mode_conversation>
@@ -877,7 +850,7 @@ Role: Field Reporter. Direct, factual, concise.
         if (MODE === "ANALYSIS") {
             const map = buildClaimMap(fullText, rawThoughts);
             const gate = gateDecision(map, true);  // Strict mode with score >= 2
-            await persistRun(currentRunId, map, gate, activeContext, conversation_id, CONFIG.MODEL_ID, finalMetadata, fullText);
+            await persistRun(currentRunId, map, gate, activeContext, conversation_id, CONFIG.MODEL_ID, finalMetadata);
         }
 
         // --- PERSIST CONVERSATION ---
