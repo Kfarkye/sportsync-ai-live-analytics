@@ -5,14 +5,12 @@
 // ===================================================================
 
 import React, { useState, useEffect, useMemo, memo, Component } from 'react';
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence, LayoutGroup, MotionConfig, type Transition } from 'framer-motion';
 import { cn, ESSENCE } from '@/lib/essence';
 import { Match } from '@/types';
 import { pregameIntelService, PregameIntelResponse, IntelCard } from '../../services/pregameIntelService';
 import { cleanHeadline, cleanCardThesis } from '../../lib/intel-guards';
-import { Activity, Zap, TrendingUp, AlertTriangle, Crosshair } from 'lucide-react';
+import { Activity, Zap, TrendingUp, AlertTriangle, Crosshair, ShieldCheck, ExternalLink } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────
 // §0  WEISSACH SYSTEM TOKENS & PHYSICS
@@ -47,7 +45,7 @@ const SECTION_CONFIG: Record<string, { color: string; label: string; icon: React
 };
 
 // ─────────────────────────────────────────────────────────────────
-// §0.1  CITATION REGEX (Hoisted — Zero Allocation at Runtime)
+// §0.1  CITATION NORMALIZATION (Shared Renderer Contract)
 // ─────────────────────────────────────────────────────────────────
 
 /**
@@ -56,6 +54,7 @@ const SECTION_CONFIG: Record<string, { color: string; label: string; icon: React
  */
 const REGEX_CITATION_PLACEHOLDER =
     /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
+const REGEX_CITATION_LABEL = /^\d+(?:\.\d+)?$/;
 const REGEX_SPLIT_COMMA = /[,\s]+/;
 const REGEX_MULTI_SPACE = /\s{2,}/g;
 
@@ -140,9 +139,9 @@ function hostnameToBrand(hostname: string): string {
 
 
 /**
- * Inline Citation Hydration (Pregame).
- * Replaces bracket tokens in-place with brand-name hyperlinks.
- * Adjacent tokens merge into a single parenthetical.
+ * End-of-Paragraph Citation Hydration (Pregame).
+ * Converts bracket tokens into end-of-paragraph markdown links, preserving reading flow.
+ * Guards fenced code blocks so bracket tokens in code are untouched.
  */
 function hydrateCitations(text: string, sources?: IntelSource[]): string {
     if (!text || !sources?.length) return text;
@@ -151,19 +150,14 @@ function hydrateCitations(text: string, sources?: IntelSource[]): string {
     const CODE_FENCE = /(```[\s\S]*?```)/g;
     const segments = text.split(CODE_FENCE);
 
-    const REGEX_ADJACENT_CITATIONS = /(?:\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()[\s]*)+/g;
-
-    const hydrated = segments.map((segment) => {
+    return segments.map((segment) => {
         if (segment.startsWith("```")) return segment;
-
-        return segment.replace(REGEX_ADJACENT_CITATIONS, (fullMatch) => {
-            const links: Array<{ brand: string; uri: string }> = [];
-            const seenUri = new Set<string>();
-
-            let m: RegExpExecArray | null;
-            const tokenRe = /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
-            while ((m = tokenRe.exec(fullMatch)) !== null) {
-                const parts = m[1].split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
+        const paragraphs = segment.split(/\n\n+/);
+        return paragraphs.map((paragraph) => {
+            const collected: Array<{ label: string; uri: string; sortKey: number }> = [];
+            const seen = new Set<string>();
+            const stripped = paragraph.replace(REGEX_CITATION_PLACEHOLDER, (_match, inner: string) => {
+                const parts = inner.split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
                 for (const part of parts) {
                     const trimmed = part.trim();
                     const num = parseFloat(trimmed);
@@ -171,28 +165,31 @@ function hydrateCitations(text: string, sources?: IntelSource[]): string {
                     const index = Math.floor(num) - 1;
                     if (index < 0 || index >= maxIndex) continue;
                     const uri = uris[index];
-                    if (uri && !seenUri.has(uri)) {
-                        seenUri.add(uri);
-                        const hostname = getHostname(uri);
-                        const brand = hostnameToBrand(hostname);
-                        links.push({ brand, uri });
+                    if (uri && !seen.has(trimmed)) {
+                        seen.add(trimmed);
+                        const [major, minor = "0"] = trimmed.split(".");
+                        collected.push({ label: trimmed, uri, sortKey: Number(major) * 1000 + Number(minor) });
                     }
                 }
-            }
+                return "";
+            });
 
-            if (links.length === 0) return fullMatch;
+            if (collected.length === 0) return paragraph;
 
-            const inner = links.map((l) => `[${l.brand}](${l.uri})`).join(", ");
-            return ` (${inner})`;
-        });
+            const cleaned = stripped
+                .replace(/\s+\./g, ".")
+                .replace(/\s+,/g, ",")
+                .replace(REGEX_MULTI_SPACE, " ")
+                .trim();
+
+            const suffix = collected
+                .sort((a, b) => a.sortKey - b.sortKey)
+                .map((c) => `[${c.label}](${c.uri})`)
+                .join(" ");
+
+            return cleaned ? `${cleaned} ${suffix}` : suffix;
+        }).join("\n\n");
     }).join("");
-
-    return hydrated
-        .replace(/\s+\)/g, ")")
-        .replace(/\(\s+/g, "(")
-        .replace(/\.\s*\(/g, " (")
-        .replace(/\)([a-zA-Z])/g, ") $1")
-        .replace(REGEX_MULTI_SPACE, " ");
 }
 
 function toISOOrNull(v: string | number | Date | null | undefined): string | null {
@@ -235,18 +232,22 @@ const RenderRichText = React.memo(({ text, sources, className }: { text: string;
     const components: Components = useMemo(() => ({
         p: ({ children }) => <span>{children}</span>,
         strong: ({ children }) => <strong className="font-semibold text-white tracking-tight">{children}</strong>,
-        a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200">
-                {children}
-            </a>
-        ),
+        a: ({ href, children }) => {
+            const label = flattenText(children).trim();
+            if (REGEX_CITATION_LABEL.test(label)) {
+                return <CitationJewel id={`${label}:${href || "nolink"}`} href={href} indexLabel={label} />;
+            }
+            return (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline decoration-emerald-500/20 underline-offset-4 transition-colors">
+                    {children}
+                </a>
+            );
+        },
     }), []);
 
     return (
         <span className={className}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-                {hydrated}
-            </ReactMarkdown>
+            <RichTextWithCitations text={text} citations={citations} />
         </span>
     );
 });
@@ -487,8 +488,8 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
 
     return (
         <MotionConfig reducedMotion="user">
-                <LayoutGroup>
-                    <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.06 } } }} className="w-full py-16 font-sans antialiased relative">
+            <LayoutGroup>
+                <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.06 } } }} className="w-full py-16 font-sans antialiased relative">
                     <div className="mb-32 relative w-full max-w-[1200px] mx-auto px-6 md:px-12">
                         <FilmGrain />
                         <div className="relative z-10 flex flex-col items-center text-center md:items-start md:text-left md:pl-[160px]">
@@ -523,8 +524,8 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
                         <div className="w-full h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
                     </div>
 
-                    </motion.div>
-                </LayoutGroup>
+                </motion.div>
+            </LayoutGroup>
         </MotionConfig>
     );
 };
