@@ -1215,14 +1215,12 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         </div>
         {error && (<motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2"><div className="bg-red-900/10 border border-red-500/20 text-red-400 text-[10px] uppercase font-mono py-1 px-3 text-center">Data Stream Interrupted • Displaying Cached Telemetry</div></motion.div>)}
         <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
+        {/* M-03: Tab bar — no pipe, underline-only active indicator, extra spacing before AI */}
         <nav className="flex justify-center gap-8 md:gap-12 pb-0 mt-2 border-t border-white/[0.04]">
-          {TABS.map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="relative py-4 group outline-none">
-              {activeTab === tab.id && (
-                <span className="absolute -left-3 top-1/2 -translate-y-1/2 h-4 w-px bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
-              )}
-              <span className={cn("text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-300", activeTab === tab.id ? "text-white" : "text-zinc-600 group-hover:text-zinc-400")}>{tab.label}</span>
-              {activeTab === tab.id && (<motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-px bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />)}
+          {TABS.map((tab, i) => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("relative py-4 group outline-none", i === TABS.length - 1 && "ml-4")}>
+              <span className={cn("text-[11px] font-medium tracking-[0.12em] uppercase transition-all duration-150", activeTab === tab.id ? "text-white" : "text-zinc-500 group-hover:text-zinc-400")}>{tab.label}</span>
+              {activeTab === tab.id && (<motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[2px] bg-white" />)}
             </button>
           ))}
         </nav>

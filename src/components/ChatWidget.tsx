@@ -564,11 +564,13 @@ function injectSupportCitations(
     if (segmentText.includes("`")) continue;
 
     // Resolve chunk indices to first valid source URI
+    // M-10: Filter out generic "Google" citations
     let bestUri = "";
     let bestBrand: BrandInfo = DEFAULT_BRAND;
     for (const idx of groundingChunkIndices) {
       if (idx < 0 || idx >= chunks.length) continue;
       const chunk = chunks[idx];
+      if (!shouldRenderCitation(chunk)) continue; // M-10
       const uri = chunk?.web?.uri;
       if (!uri) continue;
       bestUri = uri;
@@ -674,6 +676,7 @@ function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
           const index = Math.floor(num) - 1;
           if (index < 0 || index >= maxIndex) continue;
           const chunk = chunks[index];
+          if (!shouldRenderCitation(chunk)) continue; // M-10
           const uri = chunk?.web?.uri;
           if (uri && !seenUri.has(uri)) {
             seenUri.add(uri);
@@ -702,7 +705,7 @@ function extractTextContent(content: MessageContent): string {
 
 function cleanVerdictContent(text: string): string {
   if (!text) return "";
-  return text
+  const cleaned = text
     .replace(REGEX_CLEAN_CITE_LINK, "$1")       // [phrase](url#__cite__...) → phrase
     .replace(REGEX_CLEAN_SUPERSCRIPT_CITE, "")   // [¹](url#__cite_sup__) → ""
     .replace(REGEX_CLEAN_SUPPORT_CITE, "")       // legacy: " per [Brand](url)" → ""
@@ -712,6 +715,8 @@ function cleanVerdictContent(text: string): string {
     .replace(REGEX_CLEAN_CONF, "")               // (Confidence: High) → ""
     .replace(REGEX_MULTI_SPACE, " ")
     .trim();
+  // M-26: Normalize typography
+  return normalizeTypography(cleaned);
 }
 
 type ConfidenceLevel = "high" | "medium" | "low";
@@ -764,6 +769,21 @@ function getHostname(href?: string): string {
  * Brand names are used ONLY for hover color resolution and debug logging.
  * They never appear as visible text in the response.
  */
+/**
+ * M-10: Filter out generic search engine citations that should never be visible.
+ * Returns true if the citation should be rendered, false if it should be hidden.
+ */
+function shouldRenderCitation(chunk: GroundingChunk): boolean {
+  const title = (chunk?.web?.title || "").toLowerCase().trim();
+  const uri = chunk?.web?.uri || "";
+
+  // Filter generic "Google" / "Google Search" citations
+  if (title === "google" || title === "google search") return false;
+  if (/^https?:\/\/(www\.)?google\.(com|[a-z]{2})\/?$/.test(uri)) return false;
+
+  return true;
+}
+
 function uriToBrandInfo(href?: string, title?: string): BrandInfo {
   if (!href) return DEFAULT_BRAND;
   // 1. Live endpoint paths (satellite proxies)
@@ -974,6 +994,82 @@ function extractEdgeSynopses(rawText: string): string[] {
     synopses.push(synopsis);
   }
   return synopses;
+}
+
+/**
+ * M-05/M-06: Normalize section header text.
+ * Strips trailing "LIVE", "PREGAME", trailing colons/punctuation.
+ * Also strips leading bullet characters (M-13).
+ */
+function normalizeHeader(raw: string): string {
+  return raw
+    .replace(/^[•·‣]\s*/, "")             // M-13: Strip leading bullet
+    .replace(/\*+/g, "")                    // Strip bold markdown artifacts
+    .replace(/\s+LIVE\s*$/i, "")           // M-05: "WHAT TO WATCH LIVE" → "WHAT TO WATCH"
+    .replace(/\s+PREGAME\s*$/i, "")        // Guard against "WHAT TO WATCH PREGAME"
+    .replace(/:+\s*$/, "")                 // M-06: "INVALIDATION:" → "INVALIDATION"
+    .trim();
+}
+
+/**
+ * M-26: Normalize typography — proper em-dashes, ellipsis, smart quotes.
+ * Applied to prose content for typographic polish.
+ */
+function normalizeTypography(text: string): string {
+  return text
+    .replace(/--/g, "\u2014")               // Double hyphen → em-dash
+    .replace(/(\d)\u2013(\d)/g, "$1\u2013$2") // Keep en-dash between numbers
+    .replace(/(?<!\d)\u2013(?!\d)/g, "\u2014") // En-dash in prose → em-dash
+    .replace(/\.{3}/g, "\u2026");            // Three dots → ellipsis
+}
+
+/**
+ * M-15: Normalize team names to canonical display forms.
+ * Maps formal/abbreviated names to the common display name.
+ */
+const TEAM_DISPLAY_NAMES: Record<string, string> = {
+  "Internazionale": "Inter Milan",
+  "Inter": "Inter Milan",
+  "FC Internazionale Milano": "Inter Milan",
+  "Juventus FC": "Juventus",
+  "FC Barcelona": "Barcelona",
+  "Real Madrid CF": "Real Madrid",
+  "Club América": "América",
+  "Atletico Madrid": "Atlético Madrid",
+  "Bayern Munich": "Bayern München",
+  "Paris Saint-Germain": "PSG",
+  "Borussia Dortmund": "Dortmund",
+  "Manchester United": "Man United",
+  "Manchester City": "Man City",
+};
+
+function normalizeTeamName(raw: string): string {
+  return TEAM_DISPLAY_NAMES[raw] || raw;
+}
+
+/**
+ * M-07: Parse "WHAT TO WATCH" flat prose into structured layers.
+ * Splits "IF X → THEN Y, as Z" into condition/action/reasoning.
+ */
+function parseWatchFallback(text: string): {
+  condition: string; action: string; reasoning: string;
+} {
+  const arrowSplit = text.split(/\s*→\s*/);
+  if (arrowSplit.length >= 2) {
+    const condition = arrowSplit[0]
+      .replace(/^(?:WHAT TO WATCH\s*(?:LIVE)?\s*)?/i, "")
+      .replace(/^IF\s+/i, "")
+      .trim();
+    const afterArrow = arrowSplit.slice(1).join("→");
+    const commaSplit = afterArrow.split(/,\s*(?:as|because|since)\s+/i);
+    const action = (commaSplit[0] || "")
+      .replace(/^THEN\s+/i, "")
+      .replace(/^look for\s+/i, "")
+      .trim();
+    const reasoning = (commaSplit[1] || "").trim();
+    return { condition, action, reasoning };
+  }
+  return { condition: text, action: "", reasoning: "" };
 }
 
 function extractVerdictPayload(text: string): string {
@@ -1436,8 +1532,8 @@ const OW = {
   border: ESSENCE.colors.border.default,
   sans: "'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
   mono: "'DM Mono', 'SF Mono', 'Fira Code', monospace",
-  r:  14,
-  ri: 8,
+  r:  16,   // M-23: Outer card radius — 16px
+  ri: 10,   // M-23: Button/inner element radius — 10px
   ease: "cubic-bezier(0.25, 0.1, 0.25, 1)",
   shadow: ESSENCE.shadows.obsidian,
 } as const;
@@ -1515,16 +1611,13 @@ const OWCheckIcon: FC = () => (
 
 /**
  * MetricsPanel — Obsidian Weissach collapsible metrics tray.
- * Confidence ring + Edge + Win prob on elevated surface.
+ * M-01: Three-column grid, center-distributed, no pipes, no ring.
+ * M-02: CONF value in white (only EDGE gets color).
+ * Numbers ABOVE labels for scanability.
  */
 const MetricsPanel: FC<{
   confidence: number; edge?: number; winProb?: number; open: boolean;
 }> = memo(({ confidence, edge, winProb, open }) => {
-  const [ringOn, setRingOn] = useState(false);
-  useEffect(() => {
-    if (open) { const t = setTimeout(() => setRingOn(true), 60); return () => clearTimeout(t); }
-    setRingOn(false);
-  }, [open]);
   return (
     <div style={{
       display: "grid",
@@ -1535,46 +1628,47 @@ const MetricsPanel: FC<{
     }}>
       <div style={{ overflow: "hidden" }}>
         <div style={{
-          display: "flex", alignItems: "center", gap: 16,
-          padding: "12px 16px",
+          display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
+          textAlign: "center", padding: "20px 0",
           background: OW.elevated, borderRadius: OW.ri,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <ConfidenceRing value={confidence} on={ringOn} />
-            <span style={{
-              fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
-              letterSpacing: "0.12em", textTransform: "uppercase", color: OW.t4,
-            }}>Conf</span>
+          {/* CONF — always white */}
+          <div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 20, fontWeight: 500,
+              letterSpacing: "-0.01em", color: OW.t1,
+            }}>{confidence}%</div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 12, fontWeight: 500,
+              letterSpacing: "0.12em", textTransform: "uppercase",
+              color: OW.t4, marginTop: 4,
+            }}>CONF</div>
           </div>
-          <div style={{ width: 1, height: 24, background: OW.border, flexShrink: 0 }} />
-          {edge != null && (
-            <div>
-              <div style={{
-                fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
-                letterSpacing: "0.12em", textTransform: "uppercase",
-                color: OW.t4, marginBottom: 4,
-              }}>Edge</div>
-              <div style={{
-                fontFamily: OW.mono, fontSize: 13, fontWeight: 500,
-                color: edge > 0 ? OW.mint : OW.t2,
-              }}>{edge > 0 ? "+" : ""}{edge}%</div>
-            </div>
-          )}
-          {winProb != null && (
-            <>
-              <div style={{ width: 1, height: 24, background: OW.border, flexShrink: 0 }} />
-              <div>
-                <div style={{
-                  fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
-                  letterSpacing: "0.12em", textTransform: "uppercase",
-                  color: OW.t4, marginBottom: 4,
-                }}>Win</div>
-                <div style={{
-                  fontFamily: OW.mono, fontSize: 13, fontWeight: 500, color: OW.t2,
-                }}>{winProb}%</div>
-              </div>
-            </>
-          )}
+          {/* EDGE — emerald when positive, amber when negative, white when zero */}
+          <div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 20, fontWeight: 500,
+              letterSpacing: "-0.01em",
+              color: edge != null && edge > 0 ? OW.mint : edge != null && edge < 0 ? OW.gold : OW.t1,
+            }}>{edge != null ? `${edge > 0 ? "+" : ""}${edge}%` : "—"}</div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 12, fontWeight: 500,
+              letterSpacing: "0.12em", textTransform: "uppercase",
+              color: OW.t4, marginTop: 4,
+            }}>EDGE</div>
+          </div>
+          {/* WIN — always white */}
+          <div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 20, fontWeight: 500,
+              letterSpacing: "-0.01em", color: OW.t1,
+            }}>{winProb != null ? `${winProb}%` : "—"}</div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 12, fontWeight: 500,
+              letterSpacing: "0.12em", textTransform: "uppercase",
+              color: OW.t4, marginTop: 4,
+            }}>WIN</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1644,7 +1738,8 @@ const EdgeVerdictCard: FC<{
   const hasSynopsis = Boolean(synopsis && synopsis.length > 0);
 
   // Decompose headline into primary (team) + qualifier (spread/ML/odds)
-  const teamDisplay = parsedVerdict.teamName;
+  // M-15: Normalize team name to canonical display form
+  const teamDisplay = normalizeTeamName(parsedVerdict.teamName);
   const qualifier = parsedVerdict.spread !== "N/A"
     ? parsedVerdict.spread === "ML" ? "ML" : parsedVerdict.spread
     : null;
@@ -1720,8 +1815,8 @@ const EdgeVerdictCard: FC<{
           </h3>
         </div>
 
-        {/* Divider */}
-        <div style={{ height: 1, background: OW.border, margin: "24px 0" }} />
+        {/* M-16: Hairline divider — gradient-faded edges, consistent everywhere */}
+        <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "24px 0" }} />
 
         {/* §3 Unified row: capture mode shows tag, live mode shows book line */}
         <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2])}>
@@ -1808,8 +1903,8 @@ const EdgeVerdictCard: FC<{
           </div>
         )}
 
-        {/* §6 Footer — Tail / Fade / Share with hover states + capture watermark */}
-        <div style={{ marginTop: 20, position: "relative", height: 40, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
+        {/* §6 Footer — M-11: Tail/Fade primary, Share ghost utility + M-22: 44px min touch targets */}
+        <div style={{ marginTop: 20, position: "relative", minHeight: 44, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
           {/* Action buttons layer */}
           <div style={{
             position: "absolute", inset: 0,
@@ -1829,25 +1924,25 @@ const EdgeVerdictCard: FC<{
                       onMouseEnter={e => {
                         if (isActive) return;
                         const el = e.currentTarget;
-                        el.style.borderColor = isTail ? "rgba(54,232,150,0.15)" : "rgba(255,255,255,0.08)";
-                        el.style.color = isTail ? OW.mint : OW.t2;
-                        el.style.background = isTail ? "rgba(54,232,150,0.03)" : "rgba(255,255,255,0.03)";
+                        el.style.borderColor = "transparent";
+                        el.style.color = OW.t1;
+                        el.style.background = "rgba(255,255,255,0.10)";
                       }}
                       onMouseLeave={e => {
                         if (isActive) return;
                         const el = e.currentTarget;
-                        el.style.borderColor = OW.border;
-                        el.style.color = OW.t3;
-                        el.style.background = "rgba(255,255,255,0.015)";
+                        el.style.borderColor = "transparent";
+                        el.style.color = OW.t1;
+                        el.style.background = "rgba(255,255,255,0.06)";
                       }}
                       style={{
-                        flex: 1, height: 40, borderRadius: OW.ri,
-                        border: `1px solid ${isActive ? (isTail ? OW.mintEdge : "rgba(239,68,68,0.15)") : OW.border}`,
-                        background: isActive ? (isTail ? OW.mintDim : "rgba(239,68,68,0.04)") : "rgba(255,255,255,0.015)",
-                        color: isActive ? (isTail ? OW.mint : OW.red) : OW.t3,
-                        fontFamily: OW.sans, fontSize: 12, fontWeight: 600,
+                        flex: 1, minHeight: 44, borderRadius: 10, // M-22: 44px touch target, M-23: 10px button radius
+                        border: isActive ? `1px solid ${isTail ? OW.mintEdge : "rgba(239,68,68,0.15)"}` : "1px solid transparent",
+                        background: isActive ? (isTail ? OW.mintDim : "rgba(239,68,68,0.04)") : "rgba(255,255,255,0.06)", // M-11: Filled bg
+                        color: isActive ? (isTail ? OW.mint : OW.red) : OW.t1,
+                        fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
                         letterSpacing: "0.08em", textTransform: "uppercase",
-                        cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
+                        cursor: "pointer", transition: `all 0.15s ${OW.ease}`,
                       }}>
                       {label}
                     </button>
@@ -1855,17 +1950,17 @@ const EdgeVerdictCard: FC<{
                 })}
               </>
             )}
-            {/* Share button */}
+            {/* Share button — M-11: Ghost style, narrower (content-width) */}
             <button onClick={handleShare} style={{
               display: "inline-flex", alignItems: "center", justifyContent: "center",
-              gap: 4, height: 40, padding: "0 16px", borderRadius: OW.ri,
+              gap: 4, minHeight: 44, padding: "0 16px", borderRadius: 10, // M-22, M-23
               border: `1px solid ${shareState === "copied" ? "rgba(54,232,150,0.2)" : OW.border}`,
-              background: shareState === "copied" ? OW.mintDim : "rgba(255,255,255,0.015)",
-              color: shareState === "copied" ? OW.mint : OW.t3,
-              fontFamily: OW.sans, fontSize: 12, fontWeight: 600,
-              letterSpacing: "0.04em",
+              background: shareState === "copied" ? OW.mintDim : "transparent", // M-11: Ghost bg
+              color: shareState === "copied" ? OW.mint : OW.t4, // M-11: Dimmer text
+              fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+              letterSpacing: "0.08em",
               cursor: shareState === "capturing" ? "wait" : "pointer",
-              transition: `all 0.25s ${OW.ease}`, whiteSpace: "nowrap",
+              transition: `all 0.15s ${OW.ease}`, whiteSpace: "nowrap",
             }}>
               {shareState === "copied" ? <OWCheckIcon /> : shareState === "idle" ? <OWShareIcon /> : null}
               {shareState === "idle" ? "Share" : shareState === "capturing" ? "···" : "Copied"}
@@ -1890,14 +1985,15 @@ const EdgeVerdictCard: FC<{
         {/* §7 Disclosure Trigger — Analysis */}
         {hasAnalysis && (
           <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4])}>
-            <div style={{ height: 1, background: OW.border, margin: "16px 0 12px" }} />
+            {/* M-16: Consistent gradient-faded hairline */}
+            <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "16px 0 12px" }} />
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={() => { onToggleAnalysis?.(); triggerHaptic(); }}
                 aria-expanded={analysisOpen}
                 style={{
                   flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  padding: "12px 0", borderRadius: OW.ri, cursor: "pointer", transition: `all 0.2s ${OW.ease}`,
+                  minHeight: 44, borderRadius: OW.ri, cursor: "pointer", transition: `all 0.15s ${OW.ease}`, // M-22: 44px touch target
                   background: analysisOpen ? OW.mintDim : "rgba(255,255,255,0.02)",
                   border: `1px solid ${analysisOpen ? OW.mintEdge : OW.border}`,
                 }}
@@ -1918,9 +2014,14 @@ const EdgeVerdictCard: FC<{
 });
 EdgeVerdictCard.displayName = "EdgeVerdictCard";
 
-/** TacticalHUD — "What to Watch" — key triggers. Full hardware-radius glass, ambient amber glow. */
+/**
+ * TacticalHUD — "What to Watch" — M-07: Three-layer hierarchy.
+ * Condition (white) → Action (emerald, with arrow) → Reasoning (dimmed).
+ * Elevated card with amber glow. Border radius 12px (inner card per M-23).
+ */
 const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
   const c = useMemo(() => cleanVerdictContent(content), [content]);
+  const parsed = useMemo(() => parseWatchFallback(c), [c]);
   return (
     <motion.div
       layout
@@ -1929,31 +2030,63 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
       transition={SYSTEM.anim.fluid}
       className={cn(
         "my-8 relative overflow-hidden",
-        "rounded-[18px]",
-        "bg-white/[0.025] backdrop-blur-xl",
-        "border border-white/[0.07]",
+        "rounded-xl",                          // M-23: 12px inner card radius
+        "bg-[#1A1A1C]",                        // M-24: Distinct elevated background
+        "border border-white/[0.08]",          // M-24: Subtle but present border
         "shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
       )}
     >
       {/* Ambient amber glow */}
       <div className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(ellipse_at_top_left,rgba(245,158,11,0.08)_0%,transparent_55%)]" />
       <div className="relative z-10 p-5">
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-4 h-4 rounded-[5px] bg-amber-500/10 border border-amber-500/15 flex items-center justify-center">
-            <div className="w-1 h-1 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
-          </div>
-          <span className="font-mono text-[10px] font-semibold tracking-[0.12em] uppercase text-amber-400/80">What to Watch</span>
-        </div>
-        <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
+        {/* M-04: Section header in zinc-500 — neutral */}
+        <p className="text-[12px] font-mono font-medium tracking-[0.12em] uppercase text-zinc-500 mb-4">
+          WHAT TO WATCH
+        </p>
+
+        {/* M-07: Three-layer structured rendering */}
+        {parsed.action ? (
+          <>
+            {/* Condition — white, readable */}
+            <p className="text-[15px] text-zinc-200 leading-relaxed">
+              {parsed.condition}
+            </p>
+            {/* Action — emerald, the thing to do */}
+            <p className="text-[15px] font-medium text-emerald-400 mt-2">
+              → {parsed.action}
+            </p>
+            {/* Reasoning — dimmed, supporting */}
+            {parsed.reasoning && (
+              <p className="text-[12px] text-zinc-500 leading-relaxed mt-2">
+                {parsed.reasoning}
+              </p>
+            )}
+          </>
+        ) : (
+          /* Fallback: flat prose when no arrow pattern found */
+          <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
+        )}
       </div>
     </motion.div>
   );
 });
 TacticalHUD.displayName = "TacticalHUD";
 
-/** InvalidationAlert — "Cash Out?" — risk warning. Full hardware-radius glass, ambient red glow. */
+/**
+ * InvalidationAlert — "When to Cash Out" / "Invalidation" — M-08.
+ * Elevated card with exit (amber) and hold (emerald) scenarios.
+ * Border radius 12px inner card per M-23.
+ */
 const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => {
   const c = useMemo(() => cleanVerdictContent(content), [content]);
+  // Try to split into exit/hold scenarios on arrow pattern
+  const parsed = useMemo(() => {
+    const parts = c.split(/\s*→\s*/);
+    if (parts.length >= 2) {
+      return { exitTrigger: parts[0].trim(), exitAction: parts[1].trim(), hasStructure: true };
+    }
+    return { exitTrigger: c, exitAction: "", hasStructure: false };
+  }, [c]);
   return (
     <motion.div
       layout
@@ -1962,27 +2095,67 @@ const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => {
       transition={SYSTEM.anim.fluid}
       className={cn(
         "my-8 relative overflow-hidden",
-        "rounded-[18px]",
-        "bg-white/[0.025] backdrop-blur-xl",
-        "border border-white/[0.07]",
+        "rounded-xl",                          // M-23: 12px inner card
+        "bg-[#1A1A1C]",                        // M-24: Distinct elevated surface
+        "border border-white/[0.08]",
         "shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
       )}
     >
       {/* Ambient red glow */}
       <div className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(ellipse_at_top_left,rgba(239,68,68,0.08)_0%,transparent_55%)]" />
       <div className="relative z-10 p-5">
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-4 h-4 rounded-[5px] bg-red-500/10 border border-red-500/15 flex items-center justify-center">
-            <div className="w-1 h-1 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
-          </div>
-          <span className="font-mono text-[10px] font-semibold tracking-[0.12em] uppercase text-red-400/80">Cash Out?</span>
-        </div>
-        <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
+        {/* M-04: Section header neutral zinc-500 */}
+        <p className="text-[12px] font-mono font-medium tracking-[0.12em] uppercase text-zinc-500 mb-4">
+          WHEN TO CASH OUT
+        </p>
+
+        {parsed.hasStructure ? (
+          <>
+            {/* Exit scenario — amber action */}
+            <p className="text-[15px] text-zinc-200 leading-relaxed">
+              {parsed.exitTrigger}
+            </p>
+            <p className="text-[15px] font-medium text-amber-400 mt-2">
+              → {parsed.exitAction}
+            </p>
+          </>
+        ) : (
+          <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
+        )}
       </div>
     </motion.div>
   );
 });
 InvalidationAlert.displayName = "InvalidationAlert";
+
+/**
+ * M-27: Pick card skeleton — shows while model generates verdict.
+ * Matches final card dimensions for seamless cross-fade.
+ */
+const PickCardSkeleton: FC = memo(() => (
+  <div style={{
+    borderRadius: 16, background: OW.card,
+    border: `1px solid ${OW.border}`, padding: "32px 24px 24px",
+    boxShadow: OW.shadow, marginBottom: 12,
+  }}>
+    {/* THE PICK label skeleton */}
+    <div style={{ height: 12, width: 64, borderRadius: 4, background: "rgba(255,255,255,0.04)" }}
+      className="animate-pulse" />
+    {/* Team name skeleton */}
+    <div style={{ height: 28, width: 192, borderRadius: 4, background: "rgba(255,255,255,0.06)", marginTop: 16 }}
+      className="animate-pulse" />
+    {/* Hairline */}
+    <div style={{ height: 1, width: "100%", background: "rgba(255,255,255,0.04)", margin: "24px 0 16px" }} />
+    {/* Summary skeleton — two lines */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ height: 16, width: "100%", borderRadius: 4, background: "rgba(255,255,255,0.04)" }}
+        className="animate-pulse" />
+      <div style={{ height: 16, width: "80%", borderRadius: 4, background: "rgba(255,255,255,0.04)" }}
+        className="animate-pulse" />
+    </div>
+  </div>
+));
+PickCardSkeleton.displayName = "PickCardSkeleton";
 
 const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: number }> = memo(
   ({ onStop, status = "thinking", retryCount = 0 }) => {
@@ -2243,6 +2416,7 @@ const MessageBubble: FC<{
               return c.length > 3 ? <InvalidationAlert content={c} /> : null;
             }
 
+            // M-26: Apply typography normalization to body paragraphs
             return (
               <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-5 last:mb-0")}>
                 {children}
@@ -2251,21 +2425,30 @@ const MessageBubble: FC<{
           },
 
           strong: ({ children }) => {
-            const text = flattenText(children).toUpperCase();
+            const rawText = flattenText(children);
+            const text = rawText.toUpperCase();
             const isSection = REGEX_EDGE_SECTION_HEADER.test(text);
 
             if (isSection) {
+              // M-04: All section headers zinc-500 — no emerald, no amber
+              // M-05/M-06: Normalize header — strip LIVE, PREGAME, trailing colons
+              // M-13: Strip inline bullet characters (•, ·, ‣) before headers
+              const normalized = normalizeHeader(rawText);
               return (
-                <div className="mt-10 mb-4 pt-6 border-t border-white/[0.04]">
+                <div className="mt-8 mb-3 pt-6">
+                  {/* M-16/M-17: Consistent gradient-faded hairline, 32px top margin, 12px bottom */}
+                  <div className="mb-3" style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
                   <div className="flex items-center gap-2.5">
-                    <div className="w-1 h-1 rounded-full bg-emerald-500/70" />
-                    <span className="text-[10px] font-mono font-medium text-zinc-500 uppercase tracking-[0.14em]">{children}</span>
+                    <div className="w-1 h-1 rounded-full bg-zinc-600" />
+                    <span className="text-[12px] font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
                   </div>
                 </div>
               );
             }
 
-            return <strong className={cn("font-semibold", isUser ? "text-black" : "text-white")}>{children}</strong>;
+            // M-13: Strip bullet-prefixed bold sub-headers in prose
+            const stripped = rawText.replace(/^[•·‣]\s*/, "");
+            return <strong className={cn("font-semibold", isUser ? "text-black" : "text-white")}>{stripped}</strong>;
           },
 
           a: ({ href, children }) => {
@@ -2350,10 +2533,11 @@ const MessageBubble: FC<{
         transition={SYSTEM.anim.fluid}
         className={cn("flex flex-col mb-10 w-full relative group isolate", isUser ? "items-end" : "items-start")}
       >
+        {/* M-18: iMessage-style flattened top-right corner for user bubbles */}
         <div className={cn(
           "relative max-w-[92%] md:max-w-[88%]",
           isUser
-            ? "bg-white text-black rounded-[20px] rounded-tr-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5"
+            ? "bg-white text-black rounded-[20px] rounded-tr-[6px] shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5"
             : "bg-transparent text-white px-0 max-w-full md:max-w-[96%]",
         )}>
           <div className={cn("prose prose-invert max-w-none", isUser && "prose-p:text-black/90")}>
@@ -2362,6 +2546,7 @@ const MessageBubble: FC<{
             </ReactMarkdown>
 
             {/* Analysis disclosure — controlled from pick card trigger */}
+            {/* M-12: Both pregame and live use the same analysis drawer pattern */}
             <AnimatePresence initial={false}>
               {analysisOpen && analysisContent && (
                 <motion.div
@@ -2369,11 +2554,14 @@ const MessageBubble: FC<{
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ ...SYSTEM.anim.fluid, opacity: { duration: 0.25 } }}
+                  className="relative"
                   style={{ overflow: "hidden" }}
                 >
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
                     {analysisContent}
                   </ReactMarkdown>
+                  {/* M-25: Bottom fade gradient when more content exists below fold */}
+                  <div className="sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#08080A] to-transparent pointer-events-none" />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -2387,10 +2575,10 @@ const MessageBubble: FC<{
           )}
         </div>
 
-        {/* Timestamp — reveals on hover */}
+        {/* M-19: Timestamp always below, right-aligned, consistent for both roles */}
         {formattedTime && (
-          <div className={cn("mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none", isUser ? "mr-1" : "ml-1")}>
-            <time dateTime={message.timestamp} className="text-[9px] font-mono text-zinc-600 tabular-nums">
+          <div className="text-right mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none">
+            <time dateTime={message.timestamp} className="text-[11px] text-zinc-600">
               {formattedTime}
             </time>
           </div>
@@ -3000,7 +3188,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
               aria-relevant="additions"
               aria-busy={isProcessing}
               aria-label="Conversation messages"
-              className="relative flex-1 overflow-y-auto px-6 pt-4 pb-44 scroll-smooth no-scrollbar z-10 will-change-transform"
+              className="relative flex-1 overflow-y-auto px-6 pt-4 pb-52 scroll-smooth no-scrollbar z-10 will-change-transform"
             >
               <AnimatePresence mode="popLayout">
                 {messages.length === 0 ? (

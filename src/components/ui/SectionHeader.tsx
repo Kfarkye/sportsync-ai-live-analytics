@@ -30,9 +30,10 @@ interface SectionHeaderProps {
     centered?: boolean;
 }
 
+// M-04: All section headers get identical neutral treatment — no semantic color
 const ACCENT_COLORS: Record<AccentVariant, string> = {
-    default: 'bg-zinc-700',
-    live: 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]',
+    default: 'bg-zinc-600',
+    live: 'bg-zinc-600',     // M-04: No emerald on section headers
     final: 'bg-zinc-600'
 };
 
@@ -52,7 +53,7 @@ export const SectionHeader = memo(({
         <div className={cn(
             "flex items-center",
             centered ? "flex-col justify-center text-center space-y-4" : "justify-between",
-            compact ? (centered ? "mb-6" : "mb-4") : "mb-6 mt-10 first:mt-0",
+            compact ? (centered ? "mb-6" : "mb-3") : "mb-3 mt-8 first:mt-0", // M-17: 32px top, 12px bottom
             className
         )}>
             {/* Left: Bullet + Title */}
@@ -62,8 +63,9 @@ export const SectionHeader = memo(({
                     ACCENT_COLORS[accent]
                 )} />
                 {Icon && <Icon size={11} strokeWidth={2.5} className="text-zinc-500" />}
+                {/* M-04: All section headers zinc-500, 12px, 500 weight, 0.12em tracking */}
                 <span className={cn(
-                    "text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.2em] leading-none",
+                    "text-[12px] font-medium text-zinc-500 uppercase tracking-[0.12em] leading-none",
                     centered && "pl-0" // Remove relative offset if centered
                 )}>
                     {displayTitle}
