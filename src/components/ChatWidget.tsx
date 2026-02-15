@@ -2217,12 +2217,46 @@ PickCardSkeleton.displayName = "PickCardSkeleton";
  * Shows a bottom fade when more content exists below the fold.
  * Hides the fade when the user has scrolled to the bottom.
  */
+const ANALYSIS_EXCLUDED_HEADERS = ["the edge", "the_edge", "edge"];
+
 const AnalysisDisclosure: FC<{
   analysisContent: string;
   components: Components;
 }> = memo(({ analysisContent, components }) => {
   const contentRef = useRef<HTMLDivElement>(null);
   const [showFade, setShowFade] = useState(true);
+
+  // Filter out "THE EDGE" section (duplicates pick card summary)
+  // and strip leading bullet/dot characters from section headers
+  const filteredContent = useMemo(() => {
+    const lines = analysisContent.split("\n");
+    const sectionHeaderRe = /^(\*{0,2})\s*([●•·▸▪■]\s*)?((?:THE[_ ]?EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|INVALIDATION|CASH OUT\??|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)\s*\*{0,2}\s*:?)/i;
+    const result: string[] = [];
+    let skipping = false;
+
+    for (const line of lines) {
+      const headerMatch = line.match(sectionHeaderRe);
+      if (headerMatch) {
+        const headerText = headerMatch[3].replace(/\*+/g, "").replace(/:?\s*$/, "").trim();
+        if (ANALYSIS_EXCLUDED_HEADERS.includes(headerText.toLowerCase())) {
+          skipping = true;
+          continue;
+        }
+        skipping = false;
+        // Strip leading bullet character from header, keep markdown bold wrapping
+        const cleaned = line.replace(/([*]{0,2}\s*)[●•·▸▪■]\s*/, "$1");
+        result.push(cleaned);
+        continue;
+      }
+      if (skipping) {
+        // Still in excluded section — skip until next header
+        continue;
+      }
+      result.push(line);
+    }
+
+    return result.join("\n").trim();
+  }, [analysisContent]);
 
   useEffect(() => {
     const el = contentRef.current;
@@ -2263,7 +2297,7 @@ const AnalysisDisclosure: FC<{
     >
       <div ref={contentRef}>
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-          {analysisContent}
+          {filteredContent}
         </ReactMarkdown>
       </div>
       {/* M-25: Dynamic bottom fade — hides when scrolled to bottom */}
