@@ -96,6 +96,9 @@ const REGEX_INVALID_MATCH = /^\*{0,2}(?:invalidation|cash out\??):/i;
 
 const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|INVALIDATION|CASH OUT\??|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
 
+/** Sections that live inside the pick card summary — filter from all section renderers */
+const EXCLUDED_SECTIONS = ['the edge', 'the_edge', 'edge'];
+
 const REGEX_SIGNED_NUMERIC = /[+\-\u2212]\d+(?:\.\d+)?/g;
 
 /**
@@ -1011,12 +1014,45 @@ function extractEdgeSynopses(rawText: string): string[] {
  */
 function normalizeHeader(raw: string): string {
   return raw
-    .replace(/^[•·‣]\s*/, "")             // M-13: Strip leading bullet
+    .replace(/^[●•·‣]\s*/, "")             // M-13: Strip leading bullet (incl. emerald ●)
     .replace(/\*+/g, "")                    // Strip bold markdown artifacts
     .replace(/\s+LIVE\s*$/i, "")           // M-05: "WHAT TO WATCH LIVE" → "WHAT TO WATCH"
     .replace(/\s+PREGAME\s*$/i, "")        // Guard against "WHAT TO WATCH PREGAME"
     .replace(/:+\s*$/, "")                 // M-06: "INVALIDATION:" → "INVALIDATION"
     .trim();
+}
+
+/**
+ * Strip excluded sections (e.g. "THE EDGE") from markdown content.
+ * Walks lines: when an excluded section header is found, skips all lines
+ * until the next recognized (non-excluded) section header.
+ */
+function stripExcludedSections(content: string): string {
+  if (!content) return content;
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let skipping = false;
+
+  for (const line of lines) {
+    const stripped = line.replace(/\*+/g, "").replace(/^[●•·‣]\s*/, "").trim();
+    const upper = stripped.toUpperCase();
+
+    if (REGEX_EDGE_SECTION_HEADER.test(upper)) {
+      const headerName = stripped.replace(/[:\s]+$/, "").toLowerCase();
+      if (EXCLUDED_SECTIONS.some(s => headerName === s)) {
+        skipping = true;
+        continue;
+      }
+      // Non-excluded section header — stop skipping
+      skipping = false;
+    }
+
+    if (!skipping) {
+      result.push(line);
+    }
+  }
+
+  return result.join("\n");
 }
 
 /**
@@ -2486,14 +2522,14 @@ const MessageBubble: FC<{
         }
       }
 
-      if (analysisStartIndex === -1) return { pickContent: verifiedContent, analysisContent: null };
+      if (analysisStartIndex === -1) return { pickContent: stripExcludedSections(verifiedContent), analysisContent: null };
 
       const pick = lines.slice(0, analysisStartIndex).join("\n").trim();
       const analysis = lines.slice(analysisStartIndex).join("\n").trim();
 
       return {
-        pickContent: pick || verifiedContent,
-        analysisContent: analysis || null,
+        pickContent: pick || stripExcludedSections(verifiedContent),
+        analysisContent: analysis ? stripExcludedSections(analysis) : null,
       };
     }, [verifiedContent, isUser, message.isStreaming]);
 
@@ -2557,8 +2593,12 @@ const MessageBubble: FC<{
             if (isSection) {
               // M-04: All section headers zinc-500 — no emerald, no amber
               // M-05/M-06: Normalize header — strip LIVE, PREGAME, trailing colons
-              // M-13: Strip inline bullet characters (•, ·, ‣) before headers
+              // M-13: Strip inline bullet characters (•, ·, ‣, ●) before headers
               const normalized = normalizeHeader(rawText);
+              // Safety net: skip excluded sections (e.g. THE EDGE) in case content filter missed them
+              if (EXCLUDED_SECTIONS.some(s => normalized.toLowerCase() === s)) {
+                return null;
+              }
               return (
                 <div className="mb-3">
                   {/* M-16/M-17: Hairline divider after 24px body bottom margin (from mb-6 on paragraphs) */}
@@ -2572,8 +2612,8 @@ const MessageBubble: FC<{
               );
             }
 
-            // M-13: Strip bullet-prefixed bold sub-headers in prose
-            const stripped = rawText.replace(/^[•·‣]\s*/, "");
+            // M-13: Strip bullet-prefixed bold sub-headers in prose (incl. ●)
+            const stripped = rawText.replace(/^[●•·‣]\s*/, "");
             return <strong className={cn("font-semibold", isUser ? "text-black" : "text-white")}>{stripped}</strong>;
           },
 
