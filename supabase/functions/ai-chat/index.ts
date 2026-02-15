@@ -746,6 +746,12 @@ Search for:
 **CONFIDENCE:** [High/Medium/Low] (High only if all three dimensions align: Price, Sentiment, Physics).
 **WHAT TO WATCH LIVE:** [Actionable in-game triggers that validate or invalidate this pick. E.g., "If xG exceeds 0.8 by 30', consider live hedge" or "Monitor box touches for Jonathan David — if <3 by halftime, thesis weakens."]
 **THE RULE:** [The generalized principle, e.g., "Fade public overs on slow-paced teams"].
+
+**STYLE — TYPOGRAPHY:**
+- Italicize proper competition names in non-English languages: *Derby d'Italia*, *Clásico*, *Der Klassiker*, *Le Classique*, *Superclásico*
+- Do NOT italicize team names (Monterrey, León, Juventus, etc.)
+- Use proper em-dashes (—) not double hyphens (--)
+- Use proper ellipsis (…) not three dots (...)
 </output_rules>
 
 

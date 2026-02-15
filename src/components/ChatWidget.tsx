@@ -2167,6 +2167,72 @@ const PickCardSkeleton: FC = memo(() => (
 ));
 PickCardSkeleton.displayName = "PickCardSkeleton";
 
+/**
+ * M-25: AnalysisDisclosure — scroll-position-aware fade gradient.
+ * Shows a bottom fade when more content exists below the fold.
+ * Hides the fade when the user has scrolled to the bottom.
+ */
+const AnalysisDisclosure: FC<{
+  analysisContent: string;
+  components: Components;
+}> = memo(({ analysisContent, components }) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [showFade, setShowFade] = useState(true);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const checkScroll = () => {
+      // Check if the content overflows the parent scroll container
+      // Use the nearest scrollable ancestor to determine if content is cut off
+      const parent = el.closest("[role='log']") || el.parentElement;
+      if (!parent) return;
+      const rect = el.getBoundingClientRect();
+      const parentRect = parent.getBoundingClientRect();
+      // If the bottom of the content is within 80px of the parent's bottom, consider it scrolled to end
+      const isNearBottom = rect.bottom <= parentRect.bottom + 80;
+      setShowFade(!isNearBottom);
+    };
+
+    // Initial check after mount + render
+    const timer = setTimeout(checkScroll, 100);
+    // Listen to scroll on the nearest scrollable ancestor
+    const scrollParent = el.closest("[role='log']");
+    scrollParent?.addEventListener("scroll", checkScroll, { passive: true });
+
+    return () => {
+      clearTimeout(timer);
+      scrollParent?.removeEventListener("scroll", checkScroll);
+    };
+  }, [analysisContent]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ ...SYSTEM.anim.fluid, opacity: { duration: 0.25 } }}
+      className="relative"
+      style={{ overflow: "hidden" }}
+    >
+      <div ref={contentRef}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+          {analysisContent}
+        </ReactMarkdown>
+      </div>
+      {/* M-25: Dynamic bottom fade — hides when scrolled to bottom */}
+      <div
+        className={cn(
+          "sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#08080A] to-transparent pointer-events-none transition-opacity duration-300",
+          showFade ? "opacity-100" : "opacity-0",
+        )}
+      />
+    </motion.div>
+  );
+});
+AnalysisDisclosure.displayName = "AnalysisDisclosure";
+
 const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: number }> = memo(
   ({ onStop, status = "thinking", retryCount = 0 }) => {
     const [idx, setIdx] = useState(0);
@@ -2315,9 +2381,13 @@ const MessageBubble: FC<{
     const isUser = message.role === "user";
     const verifiedContent = useMemo(() => {
       const t = extractTextContent(message.content);
-      return isUser ? t : showCitations
+      if (isUser) return t;
+      const cited = showCitations
         ? injectSupportCitations(t, message.groundingMetadata, message.isStreaming)
         : t;
+      // M-26: Apply typography normalization to all AI prose (em-dashes, ellipsis, smart quotes)
+      // Only on completed messages to avoid interfering with streaming text
+      return message.isStreaming ? cited : normalizeTypography(cited);
     }, [message.content, message.groundingMetadata, message.isStreaming, isUser, showCitations]);
 
     const formattedTime = useMemo(() => formatTimestamp(message.timestamp), [message.timestamp]);
@@ -2551,30 +2621,20 @@ const MessageBubble: FC<{
             : "bg-transparent text-white px-0 max-w-full md:max-w-[96%]",
         )}>
           <div className={cn("prose prose-invert max-w-none", isUser && "prose-p:text-black/90")}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-              {pickContent}
-            </ReactMarkdown>
+            {/* M-27: Show skeleton while AI is generating but no content yet */}
+            {!isUser && message.isStreaming && !pickContent?.trim() ? (
+              <PickCardSkeleton />
+            ) : (
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+                {pickContent}
+              </ReactMarkdown>
+            )}
 
             {/* Analysis disclosure — controlled from pick card trigger */}
             {/* M-12: Both pregame and live use the same analysis drawer pattern */}
             <AnimatePresence initial={false}>
               {analysisOpen && analysisContent && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ ...SYSTEM.anim.fluid, opacity: { duration: 0.25 } }}
-                  className="relative"
-                  style={{ overflow: "hidden" }}
-                >
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-                    {analysisContent}
-                  </ReactMarkdown>
-                  {/* M-25: Bottom fade gradient — only shown when analysis has enough content to warrant scroll hint */}
-                  {analysisContent.split("\n").length > 8 && (
-                    <div className="sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#08080A] to-transparent pointer-events-none transition-opacity duration-300" />
-                  )}
-                </motion.div>
+                <AnalysisDisclosure analysisContent={analysisContent} components={components} />
               )}
             </AnimatePresence>
 
