@@ -2981,12 +2981,25 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   const [srAnnouncement, setSrAnnouncement] = useState("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
   const sendingRef = useRef(false);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  // Measure footer height to set scroll container bottom padding dynamically
+  const [footerHeight, setFooterHeight] = useState(88);
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setFooterHeight(entry.contentRect.height + 16);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const { session_id, conversation_id } = useChatContext({ match: currentMatch });
   const connectionStatus = useConnectionHealth();
@@ -3306,7 +3319,8 @@ const InnerChatWidget: FC<ChatWidgetProps & {
               aria-relevant="additions"
               aria-busy={isProcessing}
               aria-label="Conversation messages"
-              className="relative flex-1 overflow-y-auto px-6 pt-4 pb-52 scroll-smooth no-scrollbar z-10 will-change-transform"
+              className="relative flex-1 overflow-y-auto px-6 pt-4 scroll-smooth no-scrollbar z-10 will-change-transform"
+              style={{ paddingBottom: footerHeight }}
             >
               <AnimatePresence mode="popLayout">
                 {messages.length === 0 ? (
@@ -3332,7 +3346,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
             {/* Scroll anchor — visible when user has scrolled up */}
             <ScrollAnchor visible={hasUnseenContent} onClick={scrollToBottom} />
 
-            <footer className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#08080A] via-[#08080A]/95 to-transparent pointer-events-none">
+            <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#08080A] via-[#08080A]/95 to-transparent pointer-events-none">
               <div className="pointer-events-auto relative">
                 <AnimatePresence>
                   {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}
