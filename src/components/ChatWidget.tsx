@@ -818,12 +818,20 @@ const edgeService = {
     for (let attempt = 0; attempt < RETRY_CONFIG.maxAttempts; attempt++) {
       if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       try {
+        // 30s TTFB timeout — prevents indefinite hangs on bad networks.
+        // Wraps caller signal so manual abort still works.
+        const fetchController = new AbortController();
+        const ttfbTimeout = setTimeout(() => fetchController.abort(new Error("Connection timed out")), 30_000);
+        if (signal) signal.addEventListener("abort", () => fetchController.abort(), { once: true });
+
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages, ...context }),
-          signal,
+          signal: fetchController.signal,
         });
+
+        clearTimeout(ttfbTimeout);
 
         if (!res.ok) {
           if (res.status >= 400 && res.status < 500 && res.status !== 429)
@@ -1462,7 +1470,6 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
 
     return (
       <motion.div
-        layout
         initial={{ opacity: 0, y: 10, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -1871,7 +1878,6 @@ const MessageBubble: FC<{ message: Message; onTrackVerdict?: (id: string, outcom
 
     return (
       <motion.div
-        layout="position"
         initial={{ opacity: 0, y: 20, filter: "blur(4px)" }}
         animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
         transition={SYSTEM.anim.fluid}
@@ -2063,9 +2069,9 @@ const InputDeck: FC<{
       <div className="flex items-end gap-2">
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="p-3.5 rounded-[18px] text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
+          className="p-3.5 rounded-[18px] text-zinc-500 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-30 disabled:pointer-events-none"
           aria-label="Attach file"
-          disabled={isOffline}
+          disabled={isOffline || isProcessing}
         >
           <Plus size={20} strokeWidth={1.5} />
         </button>
@@ -2082,9 +2088,9 @@ const InputDeck: FC<{
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isOffline ? "Offline -- waiting for connection..." : "Ask for edge, splits, or props..."}
+            placeholder={isOffline ? "Offline -- waiting for connection..." : isProcessing ? "Waiting for response..." : "Ask for edge, splits, or props..."}
             rows={1}
-            disabled={isOffline}
+            disabled={isOffline || isProcessing}
             aria-label="Message input"
             className={cn(
               "flex-1 bg-transparent border-none outline-none resize-none py-4 min-h-[52px] max-h-[120px]",
@@ -2529,7 +2535,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
             </div>
 
             {/* Scroll anchor — visible when user has scrolled up */}
-            <ScrollAnchor visible={hasUnseenContent} onClick={scrollToBottom} />
+            <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
 
             <footer className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#030303] via-[#030303]/95 to-transparent pointer-events-none">
               <div className="pointer-events-auto relative">

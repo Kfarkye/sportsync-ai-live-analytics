@@ -526,7 +526,6 @@ ${fullText}
 
         const validPicks = [];
         for (const p of (object.picks || [])) {
-            // Validate and normalize team names
             if (p.verdict === "BET" || p.verdict === "FADE") {
                 if (p.pick_type !== "total" && p.pick_team) {
                     const pickNorm = (p.pick_team || "").toLowerCase().replace(/[^a-z]/g, "");
@@ -657,8 +656,14 @@ export default async function handler(req, res) {
 
         const MODE = detectMode(userQuery, hasImage);
 
-        // --- LIVE SENTINEL CHECK ---
-        const liveScan = await scanForLiveGame(userQuery);
+        // --- PARALLEL: LIVE SENTINEL + EVIDENCE PACKET ---
+        // Fire both concurrently — evidence uses team IDs from gameContext
+        // (already available), live scan discovers score/clock independently.
+        const [liveScan, evidence] = await Promise.all([
+            scanForLiveGame(userQuery),
+            buildEvidencePacket(activeContext)
+        ]);
+
         let isLive = false;
 
         if (liveScan.ok) {
@@ -675,9 +680,6 @@ export default async function handler(req, res) {
         }
 
         isLive = isLive || (activeContext?.status || "").toUpperCase().includes("IN_PROGRESS");
-
-        // --- BUILD EVIDENCE PACKET ---
-        const evidence = await buildEvidencePacket(activeContext);
 
         if (evidence.liveState) {
             activeContext = {
