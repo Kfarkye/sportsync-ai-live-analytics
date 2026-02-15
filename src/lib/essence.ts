@@ -14,7 +14,7 @@ export const ESSENCE = {
     surface: {
       base: '#09090B',         // Void — page background
       card: '#111113',         // Card — lifted from void
-      elevated: '#151517',     // Elevated — inner panels, synopsis blocks
+      elevated: '#1A1A1C',     // M-24: Elevated — inner panels, synopsis blocks (distinct from card)
       subtle: '#1A1A1C',       // Hover states
       pure: '#000000',         // True Black (sparingly)
     },
@@ -54,28 +54,29 @@ export const ESSENCE = {
     glow: (color: string) => `0 0 60px ${color}20, 0 0 100px ${color}10`,
   },
 
-  // --- RADIUS: Obsidian scale ---
+  // --- RADIUS: Obsidian scale (M-23 hierarchy) ---
   radius: {
     sm: '4px',
-    md: '8px',      // ri — inner elements
-    lg: '12px',
-    xl: '14px',     // r  — card radius (Obsidian spec)
+    md: '10px',     // ri — buttons inside cards (M-23)
+    lg: '12px',     // Inner cards (WATCH, CASH OUT) (M-23)
+    xl: '16px',     // r  — outer card radius (M-23: 16px)
     '2xl': '20px',
     full: '9999px',
     squircle: '44% / 44%',
+    pill: '6px',    // Badges/pills — smallest (M-23)
   },
 
   // --- CARD GEOMETRY: Obsidian Weissach container ---
   card: {
     padding: 'p-7',           // 28px — Obsidian spec (32px top via pt-8)
-    radius: 'rounded-[14px]', // 14px — Obsidian spec
+    radius: 'rounded-[16px]', // M-23: 16px — outer card
     gap: 'gap-4',             // 16px - internal spacing
     border: 'border border-white/[0.04]',
     bg: 'bg-[#111113]',
     headerHeight: 'h-[44px]',
     innerGlow: 'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]',
     // Full Obsidian card class shorthand
-    base: 'bg-[#111113] border border-white/[0.04] rounded-[14px] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_1px_2px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.25),0_16px_40px_rgba(0,0,0,0.3)]',
+    base: 'bg-[#111113] border border-white/[0.04] rounded-[16px] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_1px_2px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.25),0_16px_40px_rgba(0,0,0,0.3)]', // M-23
   },
 
   // --- TYPOGRAPHY: 3-Tier Unified System ---
@@ -134,7 +135,7 @@ export const ESSENCE = {
   glass: {
     panel: 'bg-[#111113] border border-white/[0.04] backdrop-blur-xl',
     header: 'bg-[#09090B]/95 backdrop-blur-2xl border-b border-white/[0.04]',
-    card: 'bg-[#111113] border border-white/[0.04] rounded-[14px]',
+    card: 'bg-[#111113] border border-white/[0.04] rounded-[16px]', // M-23
   },
 
   zIndex: {

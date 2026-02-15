@@ -370,18 +370,35 @@ body {
    Phrase IS the link. No brand names visible. Brand color on hover only.
    ========================================================================== */
 
+/* M-09: Citation links — invisible until hover */
 .cite-link {
   text-decoration: none;
-  color: #63636E; /* zinc-500 resting state */
-  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+  color: #71717A; /* zinc-500 — blends with prose */
+  transition: color 150ms ease-out, text-decoration-color 150ms ease-out;
 }
 
 .cite-link:hover {
-  color: var(--cite-hover-color, #a1a1aa); /* brand color or zinc-400 fallback */
+  color: var(--cite-hover-color, #10B981); /* M-09: emerald on hover, or brand color */
   text-decoration: underline;
-  text-decoration-color: var(--cite-hover-underline, rgba(161, 161, 170, 0.25)); /* brand color at 25% opacity */
-  text-underline-offset: 4px;
+  text-decoration-color: var(--cite-hover-underline, rgba(16, 185, 129, 0.25)); /* 25% opacity */
+  text-underline-offset: 3px; /* M-09: Lift underline off baseline */
   text-decoration-thickness: 1px;
+}
+
+/* M-10: Safety net — hide leaked generic Google citations */
+a[href*="google.com/"]:empty,
+a[href*="google.com/search"]:not([class]) { display: none; }
+
+/* M-16: Unified hairline divider */
+.hairline {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.06) 15%,
+    rgba(255, 255, 255, 0.06) 85%,
+    transparent
+  );
 }
 
 /* Subtle Pulse for AI Streaming Highlight */
