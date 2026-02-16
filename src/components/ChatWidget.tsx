@@ -1846,10 +1846,15 @@ const EdgeVerdictCard: FC<{
   // Decompose headline into primary (team) + qualifier (spread/ML/odds)
   // M-15: Normalize team name to canonical display form
   const teamDisplay = normalizeTeamName(parsedVerdict.teamName);
-  const qualifier = parsedVerdict.spread !== "N/A"
-    ? parsedVerdict.spread === "ML" ? "ML" : parsedVerdict.spread
-    : null;
-  const headline = teamDisplay + (qualifier ? ` ${qualifier}` : "");
+  const odds = parsedVerdict.odds !== "N/A" ? parsedVerdict.odds : null;
+  const qualifierPrimary = parsedVerdict.spread !== "N/A"
+    ? (parsedVerdict.spread === "ML" ? "ML" : parsedVerdict.spread)
+    : odds;
+  const qualifierSecondary = parsedVerdict.spread !== "N/A" && odds ? odds : null;
+  const qualifierForShare = qualifierPrimary
+    ? `${qualifierPrimary}${qualifierSecondary ? ` ${qualifierSecondary}` : ""}`
+    : "";
+  const headline = teamDisplay + (qualifierForShare ? ` ${qualifierForShare}` : "");
 
   const handleToggle = useCallback((selection: "tail" | "fade") => {
     const next = outcome === selection ? null : selection;
@@ -1911,12 +1916,24 @@ const EdgeVerdictCard: FC<{
             color: OW.t1, margin: 0,
           }}>
             {teamDisplay}
-            {qualifier && (
+            {qualifierPrimary && (
               <span style={{
                 fontFamily: OW.mono, fontWeight: 500,
                 fontSize: 20, letterSpacing: "0.02em",
                 color: OW.t3, marginLeft: 10,
-              }}>{qualifier}</span>
+              }}>
+                {qualifierPrimary}
+                {qualifierSecondary && (
+                  <span style={{
+                    marginLeft: 8,
+                    fontSize: 12,
+                    letterSpacing: "0.06em",
+                    color: OW.t4,
+                  }}>
+                    {qualifierSecondary}
+                  </span>
+                )}
+              </span>
             )}
           </h3>
         </div>
