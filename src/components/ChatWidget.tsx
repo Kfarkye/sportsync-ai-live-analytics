@@ -98,8 +98,8 @@ const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYN
 // Match "MATCHUP 2: Team A vs Team B — Feb 16, 7:00 PM ET" (number optional) with bullets/markdown.
 const REGEX_MATCHUP_LINE = /^\s*(?:[●•·‣-]\s*)?(?:\*{1,3}\s*)?MATCHUP(?:\s*\d+)?\s*[:—-]\s*(.+?)(?:\s*\*{1,3})?\s*$/i;
 
-/** Sections that live inside the pick card summary — filter from all section renderers */
-const EXCLUDED_SECTIONS = ['the edge', 'the_edge', 'edge'];
+/** Sections that should never render in analysis */
+const EXCLUDED_SECTIONS = ['the edge', 'the_edge', 'edge', 'triple confluence', 'triple_confluence'];
 
 const REGEX_SIGNED_NUMERIC = /[+\-\u2212]\d+(?:\.\d+)?/g;
 
