@@ -22,12 +22,31 @@ function evictStale() {
 }
 
 /**
+ * Extract the real client IP. Prefer x-real-ip (set by Vercel from the actual
+ * connection) over x-forwarded-for (which clients can spoof by prepending entries).
+ * @param {import('http').IncomingMessage} req
+ * @returns {string}
+ */
+function getClientIp(req) {
+    // Vercel sets x-real-ip from the actual TCP connection — not spoofable
+    const realIp = req.headers?.["x-real-ip"];
+    if (realIp) return realIp.trim();
+    // Fallback: take the *last* entry in x-forwarded-for (closest to the edge)
+    const xff = req.headers?.["x-forwarded-for"];
+    if (xff) {
+        const parts = xff.split(",").map(s => s.trim()).filter(Boolean);
+        return parts[parts.length - 1] || "unknown";
+    }
+    return req.socket?.remoteAddress || "unknown";
+}
+
+/**
  * @param {import('http').IncomingMessage} req
  * @returns {boolean} true if allowed, false if rate-limited
  */
 export function checkRateLimit(req) {
     evictStale();
-    const ip = (req.headers?.["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";
+    const ip = getClientIp(req);
     const now = Date.now();
     const record = hits.get(ip);
     if (!record || now - record.start > RATE_WINDOW_MS) {
