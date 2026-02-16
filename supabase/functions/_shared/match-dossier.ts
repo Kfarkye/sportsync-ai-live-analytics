@@ -93,6 +93,8 @@ export type MatchDossier = {
   market_snapshot: {
     spread: number | null;
     total: number | null;
+    opening_spread: number | null;
+    opening_total: number | null;
     home_ml: string | number | null;
     away_ml: string | number | null;
     spread_juice: string | number | null;
@@ -146,7 +148,7 @@ export async function buildMatchDossier(
   const { data: match } = await supabase
     .from("matches")
     .select(
-      "id, league_id, sport, start_time, home_team, away_team, current_odds, current_spread, current_total, odds_home_spread_safe, odds_total_safe, home_ml, away_ml, spread_juice, total_juice, odds_api_event_id"
+      "id, league_id, sport, start_time, home_team, away_team, current_odds, opening_odds, current_spread, current_total, odds_home_spread_safe, odds_total_safe, home_ml, away_ml, spread_juice, total_juice, odds_api_event_id"
     )
     .eq("id", dbId)
     .maybeSingle()
@@ -177,6 +179,10 @@ export async function buildMatchDossier(
     odds?.total ??
     odds?.total_value ??
     null;
+
+  const openingOdds = (match?.opening_odds ?? {}) as Record<string, any>;
+  const openingSpread = openingOdds?.homeSpread ?? openingOdds?.spread_home_value ?? null;
+  const openingTotal = openingOdds?.total ?? openingOdds?.total_value ?? null;
 
   const homeMl = overrides.home_ml ?? match?.home_ml ?? null;
   const awayMl = overrides.away_ml ?? match?.away_ml ?? null;
@@ -266,6 +272,8 @@ export async function buildMatchDossier(
     market_snapshot: {
       spread: isFiniteNumber(currentSpread) ? currentSpread : null,
       total: isFiniteNumber(currentTotal) ? currentTotal : null,
+      opening_spread: isFiniteNumber(openingSpread) ? openingSpread : null,
+      opening_total: isFiniteNumber(openingTotal) ? openingTotal : null,
       home_ml: homeMl,
       away_ml: awayMl,
       spread_juice: spreadJuice,

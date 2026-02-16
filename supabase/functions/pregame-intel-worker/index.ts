@@ -381,6 +381,7 @@ Deno.serve(async (req: Request) => {
                         home_team: match.home_team,
                         away_team: match.away_team,
                         current_odds: match.current_odds,
+                        opening_odds: match.opening_odds,
                     };
                     await processSingleIntel(p, supabase, `job-${item.id.slice(0, 4)}`, { mode: "job" });
                     await supabase.from("intel_job_items").update({ status: "success" }).eq("id", item.id);
@@ -408,7 +409,7 @@ Deno.serve(async (req: Request) => {
             console.log(`[${requestId}] 💧 [HYDRATION] Fetching details...`);
             const { data: match, error: matchErr } = await supabase
                 .from("matches")
-                .select("home_team, away_team, league_id, sport, start_time, odds_home_spread_safe, odds_total_safe, current_odds")
+                .select("home_team, away_team, league_id, sport, start_time, odds_home_spread_safe, odds_total_safe, current_odds, opening_odds")
                 .eq("id", p.match_id)
                 .single();
 
@@ -538,6 +539,15 @@ async function processSingleIntel(
     const dbId = dossier.match_id;
     const gameDate = dossier.game_date;
 
+    // Fetch pregame line snapshots (T-60 and T-0) from live_game_state
+    const { data: liveState } = await supabase
+        .from("live_game_state")
+        .select("t60_snapshot, t0_snapshot")
+        .eq("id", dbId)
+        .maybeSingle();
+    const t60 = liveState?.t60_snapshot ?? null;
+    const t0 = liveState?.t0_snapshot ?? null;
+
     // 1. FRESHNESS CHECK
     let existingIntel: any = null;
     if (!p.force_refresh) {
@@ -621,6 +631,31 @@ async function processSingleIntel(
     const marketMenu = marketOffers.map((o) => `- ID: "${o.id}" | ${o.label}`).join("\n");
     const edge = Number.isFinite(dossier.valuation.delta) ? dossier.valuation.delta.toFixed(1) : "0.0";
 
+    // Build line-movement block for the AI
+    const openSpread = dossier.market_snapshot.opening_spread;
+    const openTotal = dossier.market_snapshot.opening_total;
+    const curSpread = dossier.market_snapshot.spread;
+    const curTotal = dossier.market_snapshot.total;
+    const spreadMove = (openSpread != null && curSpread != null) ? curSpread - openSpread : null;
+    const totalMove = (openTotal != null && curTotal != null) ? curTotal - openTotal : null;
+    const fmtMove = (v: number | null) => v == null ? "N/A" : (v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1));
+
+    let lineMovementBlock = `<line_movement>
+Opening Spread: ${openSpread ?? "N/A"}
+Current Spread: ${curSpread ?? "N/A"}
+Spread Movement: ${fmtMove(spreadMove)}
+Opening Total: ${openTotal ?? "N/A"}
+Current Total: ${curTotal ?? "N/A"}
+Total Movement: ${fmtMove(totalMove)}`;
+
+    if (t60) {
+        lineMovementBlock += `\nT-60 Snapshot (60 min pre-game): Spread ${t60.odds?.homeSpread ?? "N/A"}, Total ${t60.odds?.total ?? "N/A"} [${t60.timestamp ?? ""}]`;
+    }
+    if (t0) {
+        lineMovementBlock += `\nT-0 Snapshot (at tip-off): Spread ${t0.odds?.homeSpread ?? "N/A"}, Total ${t0.odds?.total ?? "N/A"} [${t0.timestamp ?? ""}]`;
+    }
+    lineMovementBlock += "\n</line_movement>";
+
     // 3. AI PROMPT (single call)
     const systemInstruction = PREGAME_INTEL_SYSTEM_INSTRUCTION(dossier.current_date, dossier.game_date);
     const synthesisPrompt = `<matchup>${dossier.away_team} @ ${dossier.home_team}</matchup>
@@ -647,10 +682,11 @@ Total: ${dossier.market_snapshot.total ?? "N/A"}
 Home ML: ${dossier.market_snapshot.home_ml ?? "N/A"}
 Away ML: ${dossier.market_snapshot.away_ml ?? "N/A"}
 </market_snapshot>
+${lineMovementBlock}
 <market_offers>
 ${marketMenu}
 </market_offers>
-<task>Select the best offer. Justify using the forensic context.</task>`;
+<task>Select the best offer. Justify using the forensic context and line movement data.</task>`;
 
     const dynamicSchema: any = JSON.parse(JSON.stringify(PREGAME_INTEL_SCHEMA_BASE));
     dynamicSchema.properties.selected_offer_id.enum = marketOffers.map((o) => o.id);
