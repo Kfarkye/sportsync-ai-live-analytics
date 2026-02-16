@@ -229,7 +229,7 @@ export const normalizeOpeningLines = (dbRow: any) => {
     const isExtremeML = (ml: number | undefined) => {
         if (ml === undefined) return true;
         const absVal = Math.abs(ml);
-        return absVal >= 4000 || absVal <= 101;
+        return absVal >= 4000;
     };
 
     const hML = parseML(dbRow.home_ml);

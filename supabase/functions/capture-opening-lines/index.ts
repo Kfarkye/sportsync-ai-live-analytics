@@ -338,6 +338,18 @@ function extractMatch(event: ESPNEvent, leagueConfig: LeagueConfig): MatchRecord
   }
 }
 
+function getCanonicalEventId(eventId: string, leagueConfig: LeagueConfig): string {
+  if (eventId.includes('_')) return eventId;
+  let suffix = `_${leagueConfig.leagueId}`;
+  if (leagueConfig.leagueId === 'mens-college-basketball') suffix = '_ncaab';
+  if (leagueConfig.leagueId === 'college-football') suffix = '_ncaaf';
+  if (leagueConfig.leagueId === 'nba') suffix = '_nba';
+  if (leagueConfig.leagueId === 'nfl') suffix = '_nfl';
+  if (leagueConfig.leagueId === 'mlb') suffix = '_mlb';
+  if (leagueConfig.leagueId === 'nhl') suffix = '_nhl';
+  return `${eventId}${suffix}`;
+}
+
 function extractOpeningLine(event: ESPNEvent, leagueConfig: LeagueConfig): OpeningLineRecord | null {
   const competition = event.competitions?.[0]
   const odds = competition?.odds?.[0]
@@ -417,7 +429,7 @@ function extractOpeningLine(event: ESPNEvent, leagueConfig: LeagueConfig): Openi
   };
 
   return {
-    match_id: event.id,
+    match_id: getCanonicalEventId(event.id, leagueConfig),
     sport: leagueConfig.label,
     source: leagueConfig.league,
     home_spread: homeSpread,
