@@ -95,8 +95,8 @@ const REGEX_INVALID_PREFIX = /^\*{0,2}(?:invalidation|cash out\??):\*{0,2}\s*/i;
 const REGEX_INVALID_MATCH = /^\*{0,2}(?:invalidation|cash out\??):/i;
 
 const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|INVALIDATION|CASH OUT\??|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
-// Match "MATCHUP 2: Team A vs Team B — Feb 16, 7:00 PM ET" (number optional) with bullets/markdown.
-const REGEX_MATCHUP_LINE = /^\s*(?:[●•·‣-]\s*)?(?:\*{1,3}\s*)?MATCHUP(?:\s*\d+)?\s*[:—-]\s*(.+?)(?:\s*\*{1,3})?\s*$/i;
+// Match "MATCHUP 2: Team A vs Team B — Feb 16, 7:00 PM ET" with optional brackets, bullets, markdown.
+const REGEX_MATCHUP_LINE = /^\s*(?:\[)?\s*(?:[●•·‣-]\s*)?(?:\*{1,3}\s*)?MATCHUP(?:\s*\d+)?\s*[:—-]\s*(.+?)(?:\s*\*{1,3})?\s*(?:\])?\s*$/i;
 
 /** Sections that should never render in analysis */
 const EXCLUDED_SECTIONS = ['the edge', 'the_edge', 'edge', 'triple confluence', 'triple_confluence'];
@@ -1832,16 +1832,10 @@ const EdgeVerdictCard: FC<{
   const [entered, setEntered] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [shareState, setShareState] = useState<"idle" | "capturing" | "copied">("idle");
-  const [bookHover, setBookHover] = useState(false);
 
   // Derive game phase and sportsbook from content
   const gamePhase = useMemo(() => getTimePhase(), []);
   const isLive = gamePhase === "live";
-
-  const book = useMemo(() => {
-    const combined = `${content} ${synopsis || ""}`;
-    return detectBook(combined);
-  }, [content, synopsis]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setEntered(true), 80);
@@ -1870,9 +1864,6 @@ const EdgeVerdictCard: FC<{
     ? parsedVerdict.spread === "ML" ? "ML" : parsedVerdict.spread
     : null;
   const headline = teamDisplay + (qualifier ? ` ${qualifier}` : "");
-
-  // Hide odds row entirely when no odds value is present
-  const hasOddsData = parsedVerdict.odds !== "N/A" || book !== null;
 
   const handleToggle = useCallback((selection: "tail" | "fade") => {
     const next = outcome === selection ? null : selection;
@@ -1917,18 +1908,6 @@ const EdgeVerdictCard: FC<{
           zIndex: 3,
         }} aria-hidden="true" />
 
-        {/* Matchup line — inside card, no kicker */}
-        {matchupLine && (
-          <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0])}>
-            <div style={{
-              fontFamily: OW.sans, fontSize: 14, fontWeight: 600,
-              letterSpacing: "-0.01em", color: OW.t2, marginBottom: 12,
-            }}>
-              {matchupLine}
-            </div>
-          </div>
-        )}
-
         {/* §1 THE PICK label */}
         <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0])}>
           <div style={{
@@ -1956,74 +1935,42 @@ const EdgeVerdictCard: FC<{
           </h3>
         </div>
 
-        {/* Hairline + odds row — only rendered when odds data is present */}
-        {hasOddsData && (
+        {/* Matchup row — replaces "Best available odds" */}
+        {matchupLine && (
           <>
             {/* M-16: Hairline divider — gradient-faded edges, consistent everywhere */}
-            <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "24px 0" }} />
+            <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "20px 0 14px" }} />
 
-            {/* §3 Unified row: capture mode shows tag, live mode shows book line */}
+            {/* §3 Matchup line */}
             <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2])}>
-              {isCaptureMode ? (
+              <div style={{
+                display: "flex", alignItems: "center",
+                userSelect: "none", WebkitTapHighlightColor: "transparent",
+              }}>
                 <span style={{
-                  display: "inline-block",
-                  fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
-                  letterSpacing: "0.12em", textTransform: "uppercase",
-                  color: OW.t4, padding: "4px 12px", borderRadius: 6,
-                  background: "rgba(255,255,255,0.03)",
-                  border: `1px solid ${OW.border}`,
-                }}>{isLive ? "Live" : "Pre"}</span>
-              ) : (
-                <div style={{
-                  display: "flex", alignItems: "center",
-                  userSelect: "none", WebkitTapHighlightColor: "transparent",
+                  fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+                  color: OW.t3, letterSpacing: "0.005em", lineHeight: "20px",
                 }}>
-                  <span
-                    onMouseEnter={() => setBookHover(true)}
-                    onMouseLeave={() => setBookHover(false)}
+                  {matchupLine}
+                </span>
+                <div style={{ flex: 1, minWidth: 12 }} />
+                <button onClick={() => setMetricsOpen(p => !p)} style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 28, height: 28, borderRadius: 8,
+                  border: "none", cursor: "pointer", flexShrink: 0,
+                  background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
+                  color: OW.t4, transition: `all 0.2s ${OW.ease}`,
+                }}>
+                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
                     style={{
-                      fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
-                      color: OW.tSys, letterSpacing: "0.005em", lineHeight: "20px",
-                      transition: `color 0.15s ${OW.ease}`,
-                      ...(bookHover ? { color: OW.t3 } : {}),
-                    }}
-                  >
-                    {book ? (
-                      <>
-                        Best {gamePhase} odds on{" "}
-                        <span style={{
-                          color: bookHover ? book.color : OW.t3,
-                          fontWeight: 600,
-                          transition: `color 0.15s ${OW.ease}`,
-                          borderBottom: bookHover ? `1px solid ${book.color}30` : "1px solid transparent",
-                          paddingBottom: 1,
-                        }}>
-                          {book.name}
-                        </span>
-                      </>
-                    ) : (
-                      <>Best available odds</>
-                    )}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 12 }} />
-                  <button onClick={() => setMetricsOpen(p => !p)} style={{
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    width: 28, height: 28, borderRadius: 8,
-                    border: "none", cursor: "pointer", flexShrink: 0,
-                    background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
-                    color: OW.t4, transition: `all 0.2s ${OW.ease}`,
-                  }}>
-                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
-                      style={{
-                        transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
-                        transition: `transform 0.25s ${OW.ease}`,
-                      }}>
-                      <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
-                        strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                </div>
-              )}
+                      transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
+                      transition: `transform 0.25s ${OW.ease}`,
+                    }}>
+                    <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
+                      strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </>
         )}
