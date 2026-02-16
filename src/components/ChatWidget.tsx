@@ -95,8 +95,8 @@ const REGEX_INVALID_PREFIX = /^\*{0,2}(?:invalidation|cash out\??):\*{0,2}\s*/i;
 const REGEX_INVALID_MATCH = /^\*{0,2}(?:invalidation|cash out\??):/i;
 
 const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|INVALIDATION|CASH OUT\??|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
-// Match "MATCHUP 2: Team A vs Team B (NCAAB)" with optional bullets/markdown and alternate separators.
-const REGEX_MATCHUP_LINE = /^\s*(?:[●•·‣-]\s*)?(?:\*{1,3}\s*)?MATCHUP\s*\d+\s*[:—-]\s*(.+?)(?:\s*\*{1,3})?\s*$/i;
+// Match "MATCHUP 2: Team A vs Team B — Feb 16, 7:00 PM ET" (number optional) with bullets/markdown.
+const REGEX_MATCHUP_LINE = /^\s*(?:[●•·‣-]\s*)?(?:\*{1,3}\s*)?MATCHUP(?:\s*\d+)?\s*[:—-]\s*(.+?)(?:\s*\*{1,3})?\s*$/i;
 
 /** Sections that live inside the pick card summary — filter from all section renderers */
 const EXCLUDED_SECTIONS = ['the edge', 'the_edge', 'edge'];
