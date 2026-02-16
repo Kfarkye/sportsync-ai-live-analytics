@@ -95,6 +95,7 @@ const REGEX_INVALID_PREFIX = /^\*{0,2}(?:invalidation|cash out\??):\*{0,2}\s*/i;
 const REGEX_INVALID_MATCH = /^\*{0,2}(?:invalidation|cash out\??):/i;
 
 const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|INVALIDATION|CASH OUT\??|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
+const REGEX_MATCHUP_LINE = /^MATCHUP\s*\d+\s*:\s*(.+)$/i;
 
 /** Sections that live inside the pick card summary — filter from all section renderers */
 const EXCLUDED_SECTIONS = ['the edge', 'the_edge', 'edge'];
@@ -1007,6 +1008,75 @@ function extractEdgeSynopses(rawText: string): string[] {
   return synopses;
 }
 
+function extractMatchupLines(rawText: string): string[] {
+  if (!rawText) return [];
+  const lines = rawText.split(/\r?\n/);
+  const matchups: string[] = [];
+  for (const line of lines) {
+    const match = line.trim().match(REGEX_MATCHUP_LINE);
+    if (match?.[1]) {
+      matchups.push(normalizeTypography(match[1].trim()));
+    }
+  }
+  return matchups;
+}
+
+function stripMatchupLines(content: string): string {
+  if (!content) return content;
+  const lines = content.split(/\r?\n/);
+  return lines.filter(line => !REGEX_MATCHUP_LINE.test(line.trim())).join("\n");
+}
+
+function splitPickContent(rawContent: string): { pickContent: string; analysisBlocks: string[] } {
+  if (!rawContent) return { pickContent: rawContent, analysisBlocks: [] };
+  const lines = rawContent.split("\n");
+  const verdictIndices: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (REGEX_VERDICT_MATCH.test(lines[i])) verdictIndices.push(i);
+  }
+  if (verdictIndices.length === 0) return { pickContent: rawContent, analysisBlocks: [] };
+
+  const pickSegments: string[] = [];
+  const analysisBlocks: string[] = [];
+  const preamble = lines.slice(0, verdictIndices[0]).join("\n").trim();
+  if (preamble) pickSegments.push(preamble);
+
+  for (let v = 0; v < verdictIndices.length; v++) {
+    const start = verdictIndices[v];
+    const end = v + 1 < verdictIndices.length ? verdictIndices[v + 1] : lines.length;
+    const block = lines.slice(start, end);
+
+    let analysisStartIndex = -1;
+    for (let i = 1; i < block.length; i++) {
+      const trimmed = block[i].trim();
+      if (!trimmed) continue;
+      const stripped = trimmed.replace(/\*+/g, "").trim().toUpperCase();
+      if (REGEX_EDGE_SECTION_HEADER.test(stripped)) {
+        analysisStartIndex = i;
+        break;
+      }
+      let nextNonEmpty = "";
+      for (let j = i + 1; j < block.length; j++) {
+        if (block[j].trim()) { nextNonEmpty = block[j].trim().replace(/\*+/g, "").trim().toUpperCase(); break; }
+      }
+      if (REGEX_EDGE_SECTION_HEADER.test(nextNonEmpty)) {
+        continue;
+      }
+    }
+
+    const pickPart = analysisStartIndex === -1 ? block.join("\n") : block.slice(0, analysisStartIndex).join("\n");
+    const analysisPart = analysisStartIndex === -1 ? "" : block.slice(analysisStartIndex).join("\n");
+
+    if (pickPart.trim()) pickSegments.push(pickPart.trim());
+    if (analysisPart.trim()) analysisBlocks.push(stripExcludedSections(analysisPart.trim()));
+  }
+
+  return {
+    pickContent: stripExcludedSections(pickSegments.join("\n\n")),
+    analysisBlocks,
+  };
+}
+
 /**
  * M-05/M-06: Normalize section header text.
  * Strips trailing "LIVE", "PREGAME", trailing colons/punctuation.
@@ -1742,6 +1812,7 @@ const EdgeVerdictCard: FC<{
   content: string;
   confidence?: ConfidenceLevel;
   synopsis?: string;
+  matchupLine?: string;
   trackingKey: string;
   cardIndex?: number;
   outcome?: VerdictOutcome;
@@ -1750,7 +1821,7 @@ const EdgeVerdictCard: FC<{
   analysisOpen?: boolean;
   onToggleAnalysis?: () => void;
 }> = memo(({
-  content, confidence = "high", synopsis, trackingKey,
+  content, confidence = "high", synopsis, matchupLine, trackingKey,
   cardIndex = 0, outcome, onTrack,
   hasAnalysis, analysisOpen, onToggleAnalysis,
 }) => {
@@ -1844,12 +1915,24 @@ const EdgeVerdictCard: FC<{
           zIndex: 3,
         }} aria-hidden="true" />
 
+        {/* Matchup line — inside card, no kicker */}
+        {matchupLine && (
+          <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0])}>
+            <div style={{
+              fontFamily: OW.sans, fontSize: 14, fontWeight: 600,
+              letterSpacing: "-0.01em", color: OW.t2, marginBottom: 12,
+            }}>
+              {matchupLine}
+            </div>
+          </div>
+        )}
+
         {/* §1 THE PICK label */}
         <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0])}>
           <div style={{
             fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
             letterSpacing: "0.12em", textTransform: "uppercase",
-            color: OW.t4, marginBottom: 10,
+            color: OW.t4, marginBottom: 8,
           }}>THE PICK</div>
         </div>
 
@@ -2460,8 +2543,9 @@ const MessageBubble: FC<{
 }> = memo(
   ({ message, onTrackVerdict, verdictOutcomes, showCitations = true }) => {
     const isUser = message.role === "user";
+    const rawText = useMemo(() => extractTextContent(message.content), [message.content]);
     const verifiedContent = useMemo(() => {
-      const t = extractTextContent(message.content);
+      const t = rawText;
       if (isUser) return t;
       const cited = showCitations
         ? injectSupportCitations(t, message.groundingMetadata, message.isStreaming)
@@ -2474,7 +2558,12 @@ const MessageBubble: FC<{
     const formattedTime = useMemo(() => formatTimestamp(message.timestamp), [message.timestamp]);
 
     /** Edge synopses extracted once per message for verdict card enrichment */
-    const synopses = useMemo(() => extractEdgeSynopses(extractTextContent(message.content)), [message.content]);
+    const synopses = useMemo(() => extractEdgeSynopses(rawText), [rawText]);
+    const matchups = useMemo(() => extractMatchupLines(rawText), [rawText]);
+    const contentSansMatchups = useMemo(
+      () => (isUser ? verifiedContent : stripMatchupLines(verifiedContent)),
+      [verifiedContent, isUser],
+    );
 
     /**
      * Progressive Disclosure: Split content at verdict boundary.
@@ -2482,60 +2571,118 @@ const MessageBubble: FC<{
      * (Key Factors, Market Dynamics, etc.) collapses behind disclosure.
      * During streaming, show everything — split only on completed messages.
      */
-    const { pickContent, analysisContent } = useMemo(() => {
-      if (isUser || !verifiedContent || message.isStreaming) {
-        return { pickContent: verifiedContent, analysisContent: null };
+    const { pickContent, analysisBlocks } = useMemo(() => {
+      if (isUser || !contentSansMatchups || message.isStreaming) {
+        return { pickContent: contentSansMatchups, analysisBlocks: [] };
       }
-
-      const lines = verifiedContent.split("\n");
-      let verdictLineIndex = -1;
-
-      for (let i = 0; i < lines.length; i++) {
-        if (REGEX_VERDICT_MATCH.test(lines[i])) {
-          verdictLineIndex = i;
-          break;
-        }
-      }
-
-      if (verdictLineIndex === -1) return { pickContent: verifiedContent, analysisContent: null };
-
-      // Walk past the verdict line and any immediate continuation (synopsis text)
-      // until we hit an empty line followed by a section header, or a section header directly
-      let analysisStartIndex = -1;
-      for (let i = verdictLineIndex + 1; i < lines.length; i++) {
-        const trimmed = lines[i].trim();
-        if (!trimmed) continue;
-        const stripped = trimmed.replace(/\*+/g, "").trim().toUpperCase();
-        if (REGEX_EDGE_SECTION_HEADER.test(stripped)) {
-          analysisStartIndex = i;
-          break;
-        }
-        // Non-header content after verdict — could be synopsis or bridging text.
-        // Check if the NEXT non-empty line is a section header; if so, include this with the pick.
-        let nextNonEmpty = "";
-        for (let j = i + 1; j < lines.length; j++) {
-          if (lines[j].trim()) { nextNonEmpty = lines[j].trim().replace(/\*+/g, "").trim().toUpperCase(); break; }
-        }
-        if (REGEX_EDGE_SECTION_HEADER.test(nextNonEmpty)) {
-          // This line is bridging text between verdict and first section — keep with pick
-          continue;
-        }
-      }
-
-      if (analysisStartIndex === -1) return { pickContent: stripExcludedSections(verifiedContent), analysisContent: null };
-
-      const pick = lines.slice(0, analysisStartIndex).join("\n").trim();
-      const analysis = lines.slice(analysisStartIndex).join("\n").trim();
-
-      return {
-        pickContent: pick || stripExcludedSections(verifiedContent),
-        analysisContent: analysis ? stripExcludedSections(analysis) : null,
-      };
-    }, [verifiedContent, isUser, message.isStreaming]);
+      return splitPickContent(contentSansMatchups);
+    }, [contentSansMatchups, isUser, message.isStreaming]);
 
     /** Double-disclosure state — controlled from here, triggered from the pick card */
-    const [analysisOpen, setAnalysisOpen] = useState(false);
-    const toggleAnalysis = useCallback(() => setAnalysisOpen(prev => !prev), []);
+    const [analysisOpenByKey, setAnalysisOpenByKey] = useState<Record<string, boolean>>({});
+    const toggleAnalysis = useCallback((key: string) => {
+      setAnalysisOpenByKey(prev => ({ ...prev, [key]: !prev[key] }));
+    }, []);
+
+    const analysisComponents: Components = useMemo(() => ({
+      p: ({ children }) => {
+        const text = flattenText(children);
+        if (REGEX_WATCH_MATCH.test(text)) {
+          const c = text.replace(REGEX_WATCH_PREFIX, "").trim();
+          return c.length > 5 ? <TacticalHUD content={c} /> : null;
+        }
+        if (REGEX_INVALID_MATCH.test(text)) {
+          const c = text.replace(REGEX_INVALID_PREFIX, "").trim();
+          return c.length > 3 ? <InvalidationAlert content={c} /> : null;
+        }
+        return (
+          <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-6 last:mb-0")}>
+            {children}
+          </div>
+        );
+      },
+      strong: ({ children }) => {
+        const rawText = flattenText(children);
+        const text = rawText.toUpperCase();
+        const isSection = REGEX_EDGE_SECTION_HEADER.test(text);
+        if (isSection) {
+          const normalized = normalizeHeader(rawText);
+          if (EXCLUDED_SECTIONS.some(s => normalized.toLowerCase() === s)) {
+            return null;
+          }
+          return (
+            <div className="mb-3">
+              <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
+              <div className="mt-8 flex items-center gap-2.5">
+                <div className="w-1 h-1 rounded-full bg-zinc-600" />
+                <span className="text-[12px] font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
+              </div>
+            </div>
+          );
+        }
+        const stripped = rawText.replace(/^[●•·‣]\s*/, "");
+        return <strong className={cn("font-semibold", isUser ? "text-black" : "text-white")}>{stripped}</strong>;
+      },
+      a: ({ href, children }) => {
+        const isCitation = href?.includes(CITE_MARKER);
+        const isSuperscript = href?.includes("#__cite_sup__");
+        let brandColor = "";
+        let cleanHref = href || "";
+        if (isCitation) {
+          const markerIdx = cleanHref.indexOf(CITE_MARKER);
+          const colorFragment = cleanHref.slice(markerIdx + CITE_MARKER.length);
+          brandColor = decodeURIComponent(colorFragment);
+          cleanHref = cleanHref.slice(0, markerIdx);
+        } else if (isSuperscript) {
+          cleanHref = cleanHref.replace("#__cite_sup__", "");
+        }
+        if (isSuperscript) {
+          return (
+            <a
+              href={cleanHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-zinc-600 no-underline hover:text-zinc-400 text-[0.65em] align-super transition-colors duration-200"
+            >
+              {children}
+            </a>
+          );
+        }
+        if (isCitation) {
+          const hoverStyle = brandColor
+            ? { "--cite-hover-color": brandColor, "--cite-hover-underline": `${brandColor}40` } as React.CSSProperties
+            : {};
+          return (
+            <a
+              href={cleanHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cite-link text-[#63636E] no-underline transition-all duration-200 hover:underline underline-offset-4 decoration-1"
+              style={hoverStyle}
+            >
+              {children}
+            </a>
+          );
+        }
+        return (
+          <a
+            href={cleanHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
+          >
+            {children}
+          </a>
+        );
+      },
+      ul: ({ children }) => <ul className="space-y-2 mb-4 ml-1">{children}</ul>,
+      li: ({ children }) => (
+        <li className="flex gap-3 items-start pl-1">
+          <span className="mt-2 w-1 h-1 bg-zinc-700 rounded-full shrink-0" />
+          <span className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]")}>{children}</span>
+        </li>
+      ),
+    }), [isUser]);
 
     const components: Components = useMemo(
       () => {
@@ -2551,19 +2698,29 @@ const MessageBubble: FC<{
               const trackingKey = `${message.id}:v${verdictCardIndex}`;
               const cardIdx = verdictCardIndex;
               verdictCardIndex++;
+              const analysisBlock = analysisBlocks[cardIdx];
+              const isOpen = Boolean(analysisOpenByKey[trackingKey]);
               return (
-                <EdgeVerdictCard
-                  content={verdictPayload}
-                  confidence={confidence}
-                  synopsis={synopses[cardIdx]}
-                  trackingKey={trackingKey}
-                  cardIndex={cardIdx}
-                  outcome={verdictOutcomes?.[trackingKey] ?? message.verdictOutcome}
-                  onTrack={onTrackVerdict}
-                  hasAnalysis={!!analysisContent}
-                  analysisOpen={analysisOpen}
-                  onToggleAnalysis={toggleAnalysis}
-                />
+                <>
+                  <EdgeVerdictCard
+                    content={verdictPayload}
+                    confidence={confidence}
+                    synopsis={synopses[cardIdx]}
+                    matchupLine={matchups[cardIdx]}
+                    trackingKey={trackingKey}
+                    cardIndex={cardIdx}
+                    outcome={verdictOutcomes?.[trackingKey] ?? message.verdictOutcome}
+                    onTrack={onTrackVerdict}
+                    hasAnalysis={!!analysisBlock}
+                    analysisOpen={isOpen}
+                    onToggleAnalysis={() => toggleAnalysis(trackingKey)}
+                  />
+                  <AnimatePresence initial={false}>
+                    {isOpen && analysisBlock && (
+                      <AnalysisDisclosure analysisContent={analysisBlock} components={analysisComponents} />
+                    )}
+                  </AnimatePresence>
+                </>
               );
             }
 
@@ -2688,7 +2845,7 @@ const MessageBubble: FC<{
           ),
         };
       },
-      [isUser, message.id, message.verdictOutcome, verdictOutcomes, onTrackVerdict, synopses, analysisContent, analysisOpen, toggleAnalysis],
+      [analysisBlocks, analysisComponents, analysisOpenByKey, isUser, matchups, message.id, message.verdictOutcome, onTrackVerdict, synopses, toggleAnalysis, verdictOutcomes],
     );
 
     return (
@@ -2715,14 +2872,6 @@ const MessageBubble: FC<{
                 {pickContent}
               </ReactMarkdown>
             )}
-
-            {/* Analysis disclosure — controlled from pick card trigger */}
-            {/* M-12: Both pregame and live use the same analysis drawer pattern */}
-            <AnimatePresence initial={false}>
-              {analysisOpen && analysisContent && (
-                <AnalysisDisclosure analysisContent={analysisContent} components={components} />
-              )}
-            </AnimatePresence>
 
           </div>
 
