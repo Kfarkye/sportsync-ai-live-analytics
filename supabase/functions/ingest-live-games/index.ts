@@ -44,6 +44,17 @@ async function fetchWithRetry(url: string) {
 
 const getCompetitorName = (c: any) => c?.team?.displayName || c?.athlete?.displayName || 'Unknown';
 
+/** Retry a Supabase upsert up to 3 times with exponential backoff. */
+async function upsertWithRetry(table: string, payload: any, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const { error } = await supabase.from(table).upsert(payload);
+    if (!error) return;
+    Logger.error(`DB_UPSERT_RETRY`, { table, attempt, maxRetries: retries, error: error.message } as any);
+    if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+    else throw new Error(`${table} upsert failed after ${retries} attempts: ${error.message}`);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok');
   const stats = { processed: 0, live: 0, errors: [] as string[], snapshots: 0 };
@@ -110,7 +121,7 @@ async function processGame(event: any, league: any, stats: any) {
     let canonicalId = await resolveCanonicalMatch(supabase, getCompetitorName(home), getCompetitorName(away), event.date, league.id);
     if (!canonicalId) canonicalId = generateDeterministicId(getCompetitorName(home), getCompetitorName(away), event.date, league.id);
 
-    await supabase.from('canonical_games').upsert({
+    await upsertWithRetry('canonical_games', {
       id: canonicalId, league_id: league.id, sport: league.sport_type,
       home_team_name: getCompetitorName(home), away_team_name: getCompetitorName(away),
       commence_time: event.date, status: comp.status?.type?.name
@@ -131,10 +142,16 @@ async function processGame(event: any, league: any, stats: any) {
       };
     }
 
-    // MONOTONICITY GUARD
+    // MONOTONICITY GUARD — never let scores regress
     if (existingMatch) {
-      if ((existingMatch.home_score || 0) > homeScore) homeScore = existingMatch.home_score;
-      if ((existingMatch.away_score || 0) > awayScore) awayScore = existingMatch.away_score;
+      if ((existingMatch.home_score || 0) > homeScore) {
+        Logger.info("MONO_GUARD_HOME", { dbMatchId, existing: existingMatch.home_score, incoming: homeScore });
+        homeScore = existingMatch.home_score;
+      }
+      if ((existingMatch.away_score || 0) > awayScore) {
+        Logger.info("MONO_GUARD_AWAY", { dbMatchId, existing: existingMatch.away_score, incoming: awayScore });
+        awayScore = existingMatch.away_score;
+      }
     }
 
     const match: any = {
@@ -153,7 +170,7 @@ async function processGame(event: any, league: any, stats: any) {
     if (!isClosingLocked && isLiveGame && finalMarketOdds.homeSpread) {
       match.closing_odds = finalMarketOdds;
       isClosingLocked = true;
-      await supabase.from('closing_lines').upsert({ match_id: dbMatchId, league_id: league.id, ...finalMarketOdds });
+      await upsertWithRetry('closing_lines', { match_id: dbMatchId, league_id: league.id, ...finalMarketOdds });
     }
     match.is_closing_locked = isClosingLocked;
 
@@ -177,7 +194,7 @@ async function processGame(event: any, league: any, stats: any) {
       }
     }
 
-    await supabase.from('matches').upsert(match);
+    await upsertWithRetry('matches', match);
     const aiSignals = computeAISignals(match);
 
     const statePayload: any = {
@@ -187,7 +204,7 @@ async function processGame(event: any, league: any, stats: any) {
     if (t60_snapshot) statePayload.t60_snapshot = t60_snapshot;
     if (t0_snapshot) statePayload.t0_snapshot = t0_snapshot;
 
-    await supabase.from('live_game_state').upsert(statePayload);
+    await upsertWithRetry('live_game_state', statePayload);
     stats.processed++;
     stats.live++;
   } catch (e: any) {

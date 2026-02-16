@@ -14,7 +14,7 @@ const SATELLITE_SECRET = process.env.SATELLITE_SECRET || "";
  * Generate an HMAC-signed slug for a satellite endpoint.
  * @param {string} gameId - The game identifier
  * @param {string} endpoint - The endpoint type: "scores" | "odds" | "pbp"
- * @returns {string} 16-character hex slug
+ * @returns {string} 32-character hex slug (128-bit entropy)
  */
 export function generateSatelliteSlug(gameId, endpoint) {
     const ttlBucket = Math.floor(Date.now() / 60_000); // 1-min buckets
@@ -22,7 +22,7 @@ export function generateSatelliteSlug(gameId, endpoint) {
     return createHmac("sha256", SATELLITE_SECRET)
         .update(payload)
         .digest("hex")
-        .slice(0, 16);
+        .slice(0, 32);
 }
 
 /**
@@ -42,7 +42,7 @@ export function validateSatelliteSlug(slug, gameId, endpoint) {
         const expected = createHmac("sha256", SATELLITE_SECRET)
             .update(payload)
             .digest("hex")
-            .slice(0, 16);
+            .slice(0, 32);
         if (slug === expected) return true;
     }
     return false;
