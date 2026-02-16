@@ -774,6 +774,7 @@ IF [Trigger Condition] → THEN [Action/Adjustment]
 - HEADERS: ALL CAPS with colons.
 - Be ASSERTIVE. No "I think" or "It seems".
 - Verdict must include exact line/price when available.
+- No labeled bullets. Do: "- The team has won 8 of 10 at home." Don't: "- **Home Dominance:** The team has won 8 of 10 at home."
 </mode_analysis>
 ` : `
 <mode_conversation>
