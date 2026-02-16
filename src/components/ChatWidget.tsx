@@ -1784,11 +1784,10 @@ MetricsPanel.displayName = "MetricsPanel";
  * EdgeVerdictCard — "Obsidian Weissach" FINAL
  *
  * Full card: THE PICK label → Hero headline →
- * Divider → Book line (Best {phase} odds on {Book}) → Collapsible Metrics →
+ * Divider → Matchup line → Collapsible Metrics →
  * Synopsis block → Tail/Fade/Share footer → Analysis disclosure
  *
  * Features:
- * - BOOKS system with brand-color hover on sportsbook name
  * - Live game breathe animation on specular edge light
  * - Share button with capture state + watermark
  * - Tail/Fade hover states (mint glow on Tail, subtle lift on Fade)

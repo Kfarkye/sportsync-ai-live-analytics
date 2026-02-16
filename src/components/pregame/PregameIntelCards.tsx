@@ -487,8 +487,8 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
 
     return (
         <MotionConfig reducedMotion="user">
-                <LayoutGroup>
-                    <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.06 } } }} className="w-full py-16 font-sans antialiased relative">
+            <LayoutGroup>
+                <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.06 } } }} className="w-full py-16 font-sans antialiased relative">
                     <div className="mb-32 relative w-full max-w-[1200px] mx-auto px-6 md:px-12">
                         <FilmGrain />
                         <div className="relative z-10 flex flex-col items-center text-center md:items-start md:text-left md:pl-[160px]">
@@ -523,8 +523,8 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
                         <div className="w-full h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
                     </div>
 
-                    </motion.div>
-                </LayoutGroup>
+                </motion.div>
+            </LayoutGroup>
         </MotionConfig>
     );
 };
