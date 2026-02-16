@@ -1016,7 +1016,7 @@ function extractMatchupLines(rawText: string): string[] {
   for (const line of lines) {
     const match = line.trim().match(REGEX_MATCHUP_LINE);
     if (match?.[1]) {
-      const cleaned = match[1].replace(/\*+/g, "").trim();
+      const cleaned = match[1].replace(/\*+/g, "").replace(/^:+/, "").trim();
       matchups.push(normalizeTypography(cleaned));
     }
   }
@@ -1695,25 +1695,6 @@ const OW = {
   shadow: ESSENCE.shadows.obsidian,
 } as const;
 
-/** Sportsbook brand registry — color + display name */
-const OW_BOOKS: Record<string, { name: string; color: string }> = {
-  draftkings: { name: "DraftKings", color: "#4CC764" },
-  fanduel:    { name: "FanDuel",    color: "#1493FF" },
-  betmgm:     { name: "BetMGM",     color: "#BDA258" },
-  caesars:    { name: "Caesars",     color: "#1B6B37" },
-  betrivers:  { name: "BetRivers",   color: "#1A73E8" },
-  pointsbet:  { name: "PointsBet",   color: "#ED1C24" },
-};
-
-/** Extract sportsbook key from verdict/synopsis text — returns null when undetected */
-function detectBook(text: string): { name: string; color: string } | null {
-  const lower = text.toLowerCase();
-  for (const [key, book] of Object.entries(OW_BOOKS)) {
-    if (lower.includes(key) || lower.includes(book.name.toLowerCase())) return book;
-  }
-  return null;
-}
-
 /** ShareIcon — upload arrow for share button */
 const OWShareIcon: FC = () => (
   <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
@@ -1936,44 +1917,44 @@ const EdgeVerdictCard: FC<{
         </div>
 
         {/* Matchup row — replaces "Best available odds" */}
-        {matchupLine && (
-          <>
-            {/* M-16: Hairline divider — gradient-faded edges, consistent everywhere */}
-            <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "20px 0 14px" }} />
+        <>
+          {/* M-16: Hairline divider — gradient-faded edges, consistent everywhere */}
+          <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "20px 0 14px" }} />
 
-            {/* §3 Matchup line */}
-            <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2])}>
-              <div style={{
-                display: "flex", alignItems: "center",
-                userSelect: "none", WebkitTapHighlightColor: "transparent",
-              }}>
+          {/* §3 Matchup line + metrics toggle */}
+          <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2])}>
+            <div style={{
+              display: "flex", alignItems: "center",
+              userSelect: "none", WebkitTapHighlightColor: "transparent",
+            }}>
+              {matchupLine && (
                 <span style={{
                   fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
                   color: OW.t3, letterSpacing: "0.005em", lineHeight: "20px",
                 }}>
                   {matchupLine}
                 </span>
-                <div style={{ flex: 1, minWidth: 12 }} />
-                <button onClick={() => setMetricsOpen(p => !p)} style={{
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  width: 28, height: 28, borderRadius: 8,
-                  border: "none", cursor: "pointer", flexShrink: 0,
-                  background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
-                  color: OW.t4, transition: `all 0.2s ${OW.ease}`,
-                }}>
-                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
-                    style={{
-                      transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
-                      transition: `transform 0.25s ${OW.ease}`,
-                    }}>
-                    <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
-                      strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              </div>
+              )}
+              <div style={{ flex: 1, minWidth: 12 }} />
+              <button onClick={() => setMetricsOpen(p => !p)} style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 28, height: 28, borderRadius: 8,
+                border: "none", cursor: "pointer", flexShrink: 0,
+                background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
+                color: OW.t4, transition: `all 0.2s ${OW.ease}`,
+              }}>
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
+                  style={{
+                    transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
+                    transition: `transform 0.25s ${OW.ease}`,
+                  }}>
+                  <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
+                    strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
             </div>
-          </>
-        )}
+          </div>
+        </>
 
         {/* §4 Collapsible Metrics tray */}
         <MetricsPanel
