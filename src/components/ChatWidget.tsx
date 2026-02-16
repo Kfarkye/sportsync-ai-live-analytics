@@ -928,9 +928,10 @@ function parseEdgeVerdict(rawVerdict: string): ParsedEdgeVerdict {
   if (signedMatches.length === 0) {
     if (totalMatch) {
       const prefix = (totalMatch[1] || "").replace(/[—:-]+$/g, "").trim();
+      const totalPrefix = totalMatch[2].charAt(0).toLowerCase();
       return {
         teamName: prefix || "Total",
-        spread: `${totalMatch[2].charAt(0).toUpperCase()}${totalMatch[3]}`,
+        spread: `${totalPrefix}${totalMatch[3]}`,
         odds: "N/A",
         summaryLabel: cleaned,
       };
@@ -944,10 +945,11 @@ function parseEdgeVerdict(rawVerdict: string): ParsedEdgeVerdict {
   }
   if (totalMatch) {
     const prefix = (totalMatch[1] || "").replace(/[—:-]+$/g, "").trim();
+    const totalPrefix = totalMatch[2].charAt(0).toLowerCase();
     const lastSigned = signedMatches[signedMatches.length - 1][0];
     return {
       teamName: prefix || "Total",
-      spread: `${totalMatch[2].charAt(0).toUpperCase()}${totalMatch[3]}`,
+      spread: `${totalPrefix}${totalMatch[3]}`,
       odds: lastSigned,
       summaryLabel: cleaned,
     };
