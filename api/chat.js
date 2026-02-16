@@ -768,8 +768,6 @@ ${MODE === "ANALYSIS" ? `
 **WHAT TO WATCH LIVE**
 IF [Trigger Condition] → THEN [Action/Adjustment]
 
-**INVALIDATION:** [Exit condition that would void this pick]
-
 **STYLE RULES:**
 - HEADERS: ALL CAPS with colons.
 - Be ASSERTIVE. No "I think" or "It seems".

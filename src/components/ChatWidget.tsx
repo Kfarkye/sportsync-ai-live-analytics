@@ -91,10 +91,7 @@ const REGEX_VERDICT_MATCH = /\bverdict\s*:/i;
 const REGEX_WATCH_PREFIX = /.*what to watch(?:\s+live)?.*?:\s*/i;
 const REGEX_WATCH_MATCH = /what to watch(?:\s+live)?/i;
 
-const REGEX_INVALID_PREFIX = /^\*{0,2}(?:invalidation|cash out\??):\*{0,2}\s*/i;
-const REGEX_INVALID_MATCH = /^\*{0,2}(?:invalidation|cash out\??):/i;
-
-const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|INVALIDATION|CASH OUT\??|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
+const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
 // Match "MATCHUP 2: Team A vs Team B — Feb 16, 7:00 PM ET" with optional brackets, bullets, markdown.
 const REGEX_MATCHUP_LINE = /^\s*(?:\[)?\s*(?:[●•·‣-]\s*)?(?:\*{1,3}\s*)?MATCHUP(?:\s*\d+)?\s*[:—-]\s*(.+?)(?:\s*\*{1,3})?\s*(?:\])?\s*$/i;
 
@@ -200,7 +197,6 @@ const SMART_CHIP_QUERIES: Record<string, string> = {
   "Injury News": "What's the latest injury news?",
   "Live Edge": "What live edges are available right now?",
   Momentum: "How has momentum shifted? Any live play?",
-  "Cash Out?": "Should I cash out or let it ride?",
   "Live Games": "Which games are live right now with edge?",
   "In-Play Edge": "What are the best in-play opportunities?",
   Recap: "Recap tonight's results.",
@@ -2148,92 +2144,6 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
 TacticalHUD.displayName = "TacticalHUD";
 
 /**
- * InvalidationAlert — "When to Cash Out" / "Invalidation" — M-08.
- * Elevated card with exit (amber) and hold (emerald) scenarios.
- * Border radius 12px inner card per M-23.
- */
-const InvalidationAlert: FC<{ content: string }> = memo(({ content }) => {
-  const c = useMemo(() => cleanVerdictContent(content), [content]);
-  // M-08: Parse into dual scenarios (exit + hold) on arrow pattern
-  const parsed = useMemo(() => {
-    // Try to find two arrow-separated scenarios
-    // Pattern: "If X → exit action. If Y → hold action" or sentence-split
-    const arrowParts = c.split(/\s*→\s*/);
-    if (arrowParts.length >= 3) {
-      // Three+ parts: first arrow = exit, second arrow = hold
-      const exitTrigger = arrowParts[0].trim();
-      // Find where the hold trigger starts (after first action phrase)
-      const exitAction = arrowParts[1].replace(/[.;]\s*(?:If|When|But if|However)\b.*$/i, "").trim();
-      const holdStart = arrowParts[1].match(/[.;]\s*((?:If|When|But if|However)\b.*)$/i);
-      const holdTrigger = holdStart ? holdStart[1].trim() : "";
-      const holdAction = arrowParts.slice(2).join("→").trim();
-      if (holdTrigger && holdAction) {
-        return { exitTrigger, exitAction, holdTrigger, holdAction, hasStructure: true, hasDual: true };
-      }
-      return { exitTrigger, exitAction: arrowParts.slice(1).join("→").trim(), holdTrigger: "", holdAction: "", hasStructure: true, hasDual: false };
-    }
-    if (arrowParts.length >= 2) {
-      // Split on sentence boundary for potential dual scenario in action text
-      const exitTrigger = arrowParts[0].trim();
-      const afterArrow = arrowParts[1].trim();
-      return { exitTrigger, exitAction: afterArrow, holdTrigger: "", holdAction: "", hasStructure: true, hasDual: false };
-    }
-    return { exitTrigger: c, exitAction: "", holdTrigger: "", holdAction: "", hasStructure: false, hasDual: false };
-  }, [c]);
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={SYSTEM.anim.fluid}
-      className={cn(
-        "my-8 relative overflow-hidden",
-        "rounded-xl",                          // M-23: 12px inner card
-        "bg-[#1A1A1C]",                        // M-24: Distinct elevated surface
-        "border border-white/[0.08]",
-        "shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
-      )}
-    >
-      {/* Ambient red glow */}
-      <div className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(ellipse_at_top_left,rgba(239,68,68,0.08)_0%,transparent_55%)]" />
-      <div className="relative z-10 p-5">
-        {/* M-04: Section header neutral zinc-500 */}
-        <p className="text-[12px] font-mono font-medium tracking-[0.12em] uppercase text-zinc-500 mb-4">
-          WHEN TO CASH OUT
-        </p>
-
-        {parsed.hasStructure ? (
-          <>
-            {/* Exit scenario — amber action */}
-            <p className="text-[15px] text-zinc-200 leading-relaxed">
-              {parsed.exitTrigger}
-            </p>
-            <p className="text-[15px] font-medium text-amber-400 mt-2">
-              → {parsed.exitAction}
-            </p>
-
-            {/* M-08: Hold scenario — separated by quiet space, emerald action */}
-            {parsed.hasDual && parsed.holdTrigger && (
-              <div className="mt-5 pt-4 border-t border-white/[0.04]">
-                <p className="text-[15px] text-zinc-200 leading-relaxed">
-                  {parsed.holdTrigger}
-                </p>
-                <p className="text-[15px] font-medium text-emerald-400 mt-2">
-                  → {parsed.holdAction}
-                </p>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
-        )}
-      </div>
-    </motion.div>
-  );
-});
-InvalidationAlert.displayName = "InvalidationAlert";
-
-/**
  * M-27: Pick card skeleton — shows while model generates verdict.
  * Matches final card dimensions for seamless cross-fade.
  */
@@ -2392,7 +2302,7 @@ const SmartChips: FC<{
     const chips = useMemo(() => {
       if (hasMatch) {
         switch (phase) {
-          case "live": return ["Live Edge", "Sharp Report", "Momentum", "Cash Out?"];
+          case "live": return ["Live Edge", "Sharp Report", "Momentum", "Live Games"];
           case "postgame": return ["Recap", "What Tailed / Faded", "Tomorrow Slate", "Bankroll"];
           default: return ["Sharp Report", "Best Bet", "Public Fade", "Player Props"];
         }
@@ -2521,10 +2431,6 @@ const MessageBubble: FC<{
         if (REGEX_WATCH_MATCH.test(text)) {
           const c = text.replace(REGEX_WATCH_PREFIX, "").trim();
           return c.length > 5 ? <TacticalHUD content={c} /> : null;
-        }
-        if (REGEX_INVALID_MATCH.test(text)) {
-          const c = text.replace(REGEX_INVALID_PREFIX, "").trim();
-          return c.length > 3 ? <InvalidationAlert content={c} /> : null;
         }
         return (
           <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-6 last:mb-0")}>
@@ -2658,11 +2564,6 @@ const MessageBubble: FC<{
             if (REGEX_WATCH_MATCH.test(text)) {
               const c = text.replace(REGEX_WATCH_PREFIX, "").trim();
               return c.length > 5 ? <TacticalHUD content={c} /> : null;
-            }
-
-            if (REGEX_INVALID_MATCH.test(text)) {
-              const c = text.replace(REGEX_INVALID_PREFIX, "").trim();
-              return c.length > 3 ? <InvalidationAlert content={c} /> : null;
             }
 
             // M-26: Apply typography normalization to body paragraphs

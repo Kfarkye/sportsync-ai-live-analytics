@@ -58,7 +58,7 @@ export const ESSENCE = {
   radius: {
     sm: '4px',
     md: '10px',     // ri — buttons inside cards (M-23)
-    lg: '12px',     // Inner cards (WATCH, CASH OUT) (M-23)
+  lg: '12px',     // Inner cards (WATCH) (M-23)
     xl: '16px',     // r  — outer card radius (M-23: 16px)
     '2xl': '20px',
     full: '9999px',
