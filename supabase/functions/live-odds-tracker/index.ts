@@ -452,7 +452,7 @@ async function fetchOdds(sportKey: string, apiKey: string) {
                         best_spread: lines.spread_best,
                         best_total: lines.total_best,
                         best_h2h: lines.h2h_best,
-                        is_live: true,
+                        is_live: new Date(event.commence_time) <= new Date(),
                         last_updated: new Date().toISOString()
                     };
                 });
