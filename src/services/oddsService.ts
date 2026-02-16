@@ -240,7 +240,7 @@ export const mergePremiumOdds = async (matches: Match[]): Promise<Match[]> => {
             ...feed,
             match_id: match.id,
             homeML: feed._bestH2h?.home?.price, awayML: feed._bestH2h?.away?.price, drawML: feed._bestH2h?.draw?.price,
-            homeSpread: feed._bestSpread?.home?.point, awaySpread: feed._bestSpread?.home?.point,
+            homeSpread: feed._bestSpread?.home?.point, awaySpread: feed._bestSpread?.away?.point,
             total: feed._bestTotal?.over?.point,
             provider: feed._isLive ? "Live" : (feed._bestSpread?.home?.bookmaker || "Consensus")
           });

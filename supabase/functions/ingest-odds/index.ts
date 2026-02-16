@@ -47,7 +47,7 @@ serve(async (req) => {
     try {
         const supabaseUrl = Deno.env.get('SUPABASE_URL')
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-        const cronSecret = Deno.env.get('CRON_SECRET') || "XVAVO7RWXpT0fsTdXBr5OmHlR8MrEKeJ"
+        const cronSecret = Deno.env.get('CRON_SECRET') || ''
         const reqSecret = req.headers.get('x-cron-secret') ?? ''
 
         // Log runtime context once per request to diagnose env/schema split
@@ -136,7 +136,7 @@ serve(async (req) => {
                                 best_spread: lines.spread,
                                 best_total: lines.total,
                                 best_h2h: lines.h2h,
-                                is_live: true,
+                                is_live: new Date(event.commence_time) <= new Date(),
                                 last_updated: new Date().toISOString()
                             };
                         });
@@ -168,10 +168,9 @@ serve(async (req) => {
         Logger.error('FATAL_INGEST_ODDS', { endpoint: 'ingest-odds', error: e.message, stack: e.stack?.substring(0, 500) })
         return new Response(JSON.stringify({
             error: e.message,
-            debug,
-            stack: e.stack
+            debug
         }), {
-            status: 200,
+            status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
     }
