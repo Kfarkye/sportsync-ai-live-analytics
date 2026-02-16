@@ -770,11 +770,6 @@ IF [Trigger Condition] → THEN [Action/Adjustment]
 
 **INVALIDATION:** [Exit condition that would void this pick]
 
-**TRIPLE CONFLUENCE**
-• Price: [Present/Absent] - [Brief reason]
-• Sentiment: [Present/Absent] - [Brief reason]
-• Structure: [Present/Absent] - [Brief reason]
-
 **STYLE RULES:**
 - HEADERS: ALL CAPS with colons.
 - Be ASSERTIVE. No "I think" or "It seems".
