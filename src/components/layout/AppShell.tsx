@@ -58,7 +58,7 @@ const AppShell: FC = () => {
 
   const { pinnedMatchIds, togglePin } = usePinStore();
 
-  // 1. Fetch Data
+  // 1. Fetch Data — isLoading is true only on first fetch (no cached data), not refetches
   const { data: matches = [], isLoading, refetch } = useMatches(selectedDate);
 
   // 2. Offline cache
@@ -72,8 +72,12 @@ const AppShell: FC = () => {
     }
   }, [matches, online, updateCache]);
 
-  // Use cached data when offline
-  const effectiveMatches = online && matches.length > 0 ? matches : (hasCachedData ? cachedMatches : matches);
+  // Use cached data when offline — stabilize reference to prevent re-render thrashing
+  const effectiveMatches = useMemo(() => {
+    if (online && matches.length > 0) return matches;
+    if (hasCachedData) return cachedMatches;
+    return matches;
+  }, [online, matches, hasCachedData, cachedMatches]);
 
   // 3. Pull-to-refresh
   const handleRefresh = useCallback(async () => {
@@ -113,11 +117,17 @@ const AppShell: FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); toggleCmdk(); }
-      if (e.key === 'Escape') { selectedMatch ? setSelectedMatch(null) : closeAllOverlays(); }
+      if (e.key === 'Escape') {
+        if (selectedMatch) {
+          setSelectedMatch(null);
+        }
+        // Don't call closeAllOverlays here — it kills the chat.
+        // ChatWidget handles its own Escape. Modals handle their own Escape via onClose.
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [toggleCmdk, selectedMatch, setSelectedMatch, closeAllOverlays]);
+  }, [toggleCmdk, selectedMatch, setSelectedMatch]);
 
   if (showLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
 
@@ -137,23 +147,23 @@ const AppShell: FC = () => {
         </div>
       )}
 
-      {/* Pull-to-refresh indicator */}
-      {(pulling || refreshing) && (
-        <div
-          className="flex items-center justify-center transition-all duration-200"
-          style={{ height: pullDistance, minHeight: pulling ? 20 : 0 }}
-        >
-          <div className={`w-5 h-5 border-2 border-white/20 border-t-white/80 rounded-full ${refreshing ? 'animate-spin' : ''}`}
-            style={{ transform: !refreshing ? `rotate(${pullDistance * 3}deg)` : undefined }}
-          />
-        </div>
-      )}
-
       <MotionMain
         className="flex-1 w-full overflow-y-auto"
         ref={scrollRef as React.RefObject<HTMLElement>}
         {...ptrHandlers}
       >
+        {/* Pull-to-refresh indicator — inside scroll container to prevent layout shift */}
+        <div
+          className="flex items-center justify-center overflow-hidden transition-all duration-200"
+          style={{ height: (pulling || refreshing) ? Math.max(pullDistance, 20) : 0 }}
+        >
+          {(pulling || refreshing) && (
+            <div className={`w-5 h-5 border-2 border-white/20 border-t-white/80 rounded-full ${refreshing ? 'animate-spin' : ''}`}
+              style={{ transform: !refreshing ? `rotate(${pullDistance * 3}deg)` : undefined }}
+            />
+          )}
+        </div>
+
         <div className="max-w-7xl mx-auto px-4 md:px-6 pb-32">
           <AnimatePresence mode="wait">
             {activeView === 'FEED' && (

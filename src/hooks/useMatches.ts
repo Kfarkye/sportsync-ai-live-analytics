@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { formatLocalDate, safeParseDate } from '../utils/dateUtils';
 import { fetchAllMatches } from '../services/espnService'; // Fallback
@@ -54,6 +54,8 @@ export const useMatches = (selectedDate: Date | string) => {
     queryKey: ['matches', dateKey],
     queryFn: () => fetchMatches(dateObj),
     staleTime: 5000,
+    // Keep previous data visible during refetches and date changes — prevents flash
+    placeholderData: keepPreviousData,
     // ADAPTIVE POLLING: 5s if game is live, else 15s.
     refetchInterval: (query): number | false => {
       const data = query.state.data as Match[] | undefined;
