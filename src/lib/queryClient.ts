@@ -6,7 +6,7 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // Data fresh for 5 mins (Google quality baseline)
-      gcTime: 1000 * 60 * 60 * 24, // Keep in cache for 24h
+      gcTime: 1000 * 60 * 60, // Keep in cache for 1h
       retry: 1,
       refetchOnWindowFocus: true,
     },
@@ -23,6 +23,6 @@ if (typeof window !== 'undefined') {
   persistQueryClient({
     queryClient,
     persister: localStoragePersister,
-    maxAge: 1000 * 60 * 60 * 24, // 24 hours
+    maxAge: 1000 * 60 * 60, // 1 hour — prevents serving stale scores after app reopen
   });
 }
