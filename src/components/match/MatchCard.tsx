@@ -120,27 +120,29 @@ const MatchCard: React.FC<MatchCardProps> = ({
             whileTap={{ scale: 0.985 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             className={cn(
-                "relative cursor-pointer overflow-hidden",
-                ESSENCE.card.radius,
+                // Mobile-first: full-width card, zero horizontal scroll
+                "relative cursor-pointer overflow-hidden w-full card-full-mobile",
+                "rounded-2xl md:rounded-3xl",
                 ESSENCE.card.border,
                 isLive && "ring-1 ring-[#FF3B30]/20"
             )}
             style={{
                 backgroundColor: COLORS.card,
-                boxShadow: ESSENCE.shadows.obsidian,
             }}
         >
             {/* Obsidian Specular Edge Light */}
             <div
                 className={cn("absolute top-0 left-0 right-0 h-px z-20", isLive && "animate-[breathe_3.5s_ease-in-out_infinite]")}
                 style={{
-                    background: `linear-gradient(90deg, transparent, ${ESSENCE.colors.accent.mintEdge} 30%, ${ESSENCE.colors.accent.mintEdge} 70%, transparent)`,
+                    background: isLive
+                        ? 'linear-gradient(90deg, transparent, rgba(255,59,48,0.6) 30%, rgba(255,59,48,0.6) 70%, transparent)'
+                        : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 30%, rgba(255,255,255,0.08) 70%, transparent)',
                     opacity: isLive ? undefined : 0.65,
                 }}
             />
-            <div className="p-5">
+            <div className="p-4 md:p-5">
                 {/* Status Row */}
-                <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center justify-between mb-4 md:mb-5">
                     {isLive ? (
                         <div className="flex items-center gap-2">
                             <motion.span
@@ -175,15 +177,15 @@ const MatchCard: React.FC<MatchCardProps> = ({
                     )}
                 </div>
 
-                {/* Teams */}
-                <div className="space-y-3">
+                {/* Teams — mobile-optimized spacing */}
+                <div className="space-y-2.5 md:space-y-3">
                     {/* Away Team */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between min-h-[36px]">
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                             <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-7 h-7 flex-shrink-0" />
                             <div className="min-w-0">
                                 <span
-                                    className={cn("block text-[15px] truncate", awayWinner ? "font-bold" : awayLost ? "font-normal" : "font-semibold")}
+                                    className={cn("block text-[14px] md:text-[15px] truncate", awayWinner ? "font-bold" : awayLost ? "font-normal" : "font-semibold")}
                                     style={{ color: awayWinner ? COLORS.white : awayLost ? COLORS.muted : COLORS.white }}
                                 >
                                     {match.awayTeam.name}
@@ -196,8 +198,9 @@ const MatchCard: React.FC<MatchCardProps> = ({
                             </div>
                         </div>
 
+                        {/* Score/Odds — monospace, 18px+ for mobile readability */}
                         <span
-                            className={cn("text-[24px] tabular-nums min-w-[40px] text-right", awayWinner ? "font-bold" : "font-normal")}
+                            className={cn("font-mono text-[20px] md:text-[24px] tabular-nums min-w-[40px] text-right", awayWinner ? "font-bold" : "font-normal")}
                             style={{ color: showScores ? (awayWinner ? COLORS.white : COLORS.muted) : COLORS.dim }}
                         >
                             {showScores ? match.awayScore : (awayLine || '–')}
@@ -205,12 +208,12 @@ const MatchCard: React.FC<MatchCardProps> = ({
                     </div>
 
                     {/* Home Team */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between min-h-[36px]">
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                             <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-7 h-7 flex-shrink-0" />
                             <div className="min-w-0">
                                 <span
-                                    className={cn("block text-[15px] truncate", homeWinner ? "font-bold" : homeLost ? "font-normal" : "font-semibold")}
+                                    className={cn("block text-[14px] md:text-[15px] truncate", homeWinner ? "font-bold" : homeLost ? "font-normal" : "font-semibold")}
                                     style={{ color: homeWinner ? COLORS.white : homeLost ? COLORS.muted : COLORS.white }}
                                 >
                                     {match.homeTeam.name}
@@ -224,7 +227,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                         </div>
 
                         <span
-                            className={cn("text-[24px] tabular-nums min-w-[40px] text-right", homeWinner ? "font-bold" : "font-normal")}
+                            className={cn("font-mono text-[20px] md:text-[24px] tabular-nums min-w-[40px] text-right", homeWinner ? "font-bold" : "font-normal")}
                             style={{ color: showScores ? (homeWinner ? COLORS.white : COLORS.muted) : COLORS.dim }}
                         >
                             {showScores ? match.homeScore : (homeLine || '–')}

@@ -4,115 +4,57 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   CSS VARIABLES — Obsidian Weissach Design System
+   ============================================================================ */
 :root {
   --color-white: #FFFFFF;
   --color-zinc-950: #020203;
   --color-brand-cyan: #00F0FF;
-  /* Apple Easing (System Spring) */
   --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
   --vvh: 100vh;
   --kb: 0px;
+
+  /* Mobile-first spacing (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Surface palette (never pure #000) */
+  --surface-base: #09090B;
+  --surface-card: #0A0A0B;
+  --surface-elevated: #0C0C0D;
+  --surface-subtle: #111111;
+
+  /* Safe area fallbacks */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Bottom nav height */
+  --nav-height: 72px;
 }
 
+/* ============================================================================
+   BASE — Mobile-First Foundation
+   ============================================================================ */
 html, body {
   height: 100%;
   overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
-}
-
-* {
-  max-width: 100%;
-}
-
-input, textarea {
-  font-size: 16px !important; /* Forces iOS to not zoom on focus */
-}
-
-#root {
-  width: 100%;
-  height: 100dvh;
-  height: var(--vvh, 100vh);
-  overflow: hidden;
-}
-
-body {
-  background-color: var(--color-zinc-950);
-  -webkit-font-smoothing: antialiased;
-  color: var(--color-white);
-  overflow-x: hidden;
-  overscroll-behavior: none;
-}
-
-/* Institutional Monospace */
-.font-mono-ledger {
-  font-family: 'JetBrains Mono', monospace;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.04em;
-}
-
-/* Apple Material System: Glass with High Saturation */
-.glass-material {
-  background: rgba(10, 10, 12, 0.75);
-  backdrop-filter: blur(25px) saturate(200%);
-  -webkit-backdrop-filter: blur(25px) saturate(200%);
-  border: 0.5px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
-}
-
-/* Micro-Interaction: Physical Press */
-.press-haptic {
-  transition: transform 0.1s var(--ease-spring);
-}
-.press-haptic:active {
-  transform: scale(0.975);
-}
-
-/* Subtle Chrome Shine */
-.shimmer-edge {
-  position: relative;
-  overflow: hidden;
-}
-.shimmer-edge::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 50%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.03),
-    transparent
-  );
-  animation: edge-shimmer 4s infinite linear;
-}
-
-@keyframes edge-shimmer {
-  to { left: 200%; }
-}
-
-/* Obsidian Weissach — specular edge breathe for live games */
-@keyframes ow-breathe {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.85; }
-}
-
-/* Flash Animations */
-@keyframes flash-green {
-  0% { background-color: transparent; }
-  20% { background-color: rgba(16, 185, 129, 0.2); }
-  100% { background-color: transparent; }
-}
-
-.flash-update-green {
-  animation: flash-green 1.2s ease-out;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 html {
   height: 100%;
   overflow-y: scroll;
-  background-color: var(--color-void);
+  background-color: var(--surface-base);
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   color-scheme: dark;
@@ -120,21 +62,34 @@ html {
 
 body {
   min-height: 100%;
-  background-color: var(--color-void);
+  background-color: var(--surface-base);
   color: var(--color-white);
-  font-family: var(--font-sans);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   position: relative;
   margin: 0;
-  -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
-  touch-action: manipulation;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+/* Prevent horizontal overflow on all elements */
+* {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Force 16px on inputs to prevent iOS zoom */
+input, textarea, select {
+  font-size: 16px !important;
 }
 
 #root {
-  min-height: 100vh;
+  width: 100%;
+  min-height: 100dvh;
+  min-height: var(--vvh, 100vh);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -146,35 +101,171 @@ body {
   color: #FFFFFF;
 }
 
-/* Tactile Feedback for IOS */
+/* ============================================================================
+   TYPOGRAPHY — Monospace Ledger System
+   ============================================================================ */
+.font-mono-ledger {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+
+/* Odds numbers: minimum 18px, monospace, right-aligned */
+.odds-number {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: max(18px, 1.125rem);
+  line-height: 1.2;
+  text-align: right;
+}
+
+/* AI analysis text */
+.analysis-text {
+  font-size: 14px;
+  color: #A0A0A0;
+  line-height: 1.4;
+}
+
+/* ============================================================================
+   GLASS MATERIALS — Apple-Grade Frosted Surfaces
+   ============================================================================ */
+.glass-material {
+  background: rgba(10, 10, 12, 0.75);
+  backdrop-filter: blur(25px) saturate(200%);
+  -webkit-backdrop-filter: blur(25px) saturate(200%);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+.glass-premium {
+  background: rgba(10, 10, 12, 0.85);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  isolation: isolate;
+}
+
+/* ============================================================================
+   TOUCH INTERACTIONS — Mobile Haptics
+   ============================================================================ */
+.press-haptic {
+  transition: transform 0.1s var(--ease-spring);
+}
+.press-haptic:active {
+  transform: scale(0.975);
+}
+
 .tap-feedback:active {
   opacity: 0.6;
   transform: scale(0.97);
-  transition: all 0.1s var(--ease-apple);
+  transition: all 0.1s var(--ease-spring);
 }
 
 .tap-scale:active {
   transform: scale(0.95);
-  transition: transform 0.1s var(--ease-apple);
+  transition: transform 0.1s var(--ease-spring);
 }
 
-/* ==========================================================================
-   SCROLLBARS (Stealth Mode)
-   ========================================================================== */
+/* Touch target minimum: 44x44px */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-/* Primary: Hidden scrollbar for main window (App-like feel) */
+/* ============================================================================
+   ANIMATIONS — Performance-Optimized (GPU Compositing)
+   ============================================================================ */
+.shimmer-edge {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-edge::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+  animation: edge-shimmer 4s infinite linear;
+  will-change: transform;
+}
+
+@keyframes edge-shimmer {
+  to { left: 200%; }
+}
+
+@keyframes ow-breathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes flash-green {
+  0% { background-color: transparent; }
+  20% { background-color: rgba(16, 185, 129, 0.2); }
+  100% { background-color: transparent; }
+}
+
+.flash-update-green {
+  animation: flash-green 1.2s ease-out;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; text-shadow: 0 0 10px rgba(79, 70, 229, 0.1); }
+  50% { opacity: 0.85; text-shadow: 0 0 20px rgba(79, 70, 229, 0.4); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+/* Network reconnecting pulse (header) */
+@keyframes reconnect-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.reconnecting-pulse {
+  animation: reconnect-pulse 2s ease-in-out infinite;
+}
+
+/* Skeleton loading shimmer */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* ============================================================================
+   SCROLLBARS — Stealth Mode
+   ============================================================================ */
 ::-webkit-scrollbar {
   display: none;
 }
 
 .no-scrollbar {
   -ms-overflow-style: none;
-  /* IE and Edge */
   scrollbar-width: none;
-  /* Firefox */
 }
 
-/* Secondary: Subtle scrollbar for dense data tables */
 .custom-scrollbar::-webkit-scrollbar {
   display: block;
   width: 4px;
@@ -190,19 +281,17 @@ body {
   border-radius: 10px;
 }
 
-/* ==========================================================================
-   UTILITIES
-   ========================================================================== */
+/* ============================================================================
+   SAFE AREA — iOS Notch & Home Bar
+   ============================================================================ */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pl-safe { padding-left: env(safe-area-inset-left); }
+.pr-safe { padding-right: env(safe-area-inset-right); }
+.h-safe-bottom { height: env(safe-area-inset-bottom); }
+.top-safe-header { top: env(safe-area-inset-top); }
 
-.glass-premium {
-  background: rgba(10, 10, 12, 0.85);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border-bottom: 1px solid var(--glass-border);
-  isolation: isolate;
-}
-
-/* Unified Sticky Header (USH) Specs */
+/* Unified Sticky Header (USH) */
 .ush-root {
   position: sticky;
   top: 0;
@@ -218,79 +307,46 @@ body {
 
 @supports (-webkit-touch-callout: none) {
   .ush-root {
-    transform: translateZ(0); /* Fix Safari "peek-through" */
+    transform: translateZ(0);
   }
 }
 
-/* IOS Safe Area Utilities */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.pt-safe {
-  padding-top: env(safe-area-inset-top);
-}
-
-.pl-safe {
-  padding-left: env(safe-area-inset-left);
-}
-
-.pr-safe {
-  padding-right: env(safe-area-inset-right);
-}
-
-.h-safe-bottom {
-  height: env(safe-area-inset-bottom);
-}
-
-.top-safe-header {
-  top: env(safe-area-inset-top);
-}
-
-/* Continuous Curves (Squircle-like) */
+/* ============================================================================
+   LAYOUT UTILITIES — Mobile-First
+   ============================================================================ */
 .ios-card {
-  border-radius: var(--radius-ios);
+  border-radius: 20px;
   overflow: hidden;
 }
 
 .ios-card-sm {
-  border-radius: var(--radius-ios-sm);
+  border-radius: 12px;
   overflow: hidden;
 }
 
-/* Apple-style gradients */
 .bg-ios-gradient {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
 }
 
-@keyframes ticker {
-  0% {
-    transform: translateX(0);
-  }
-
-  100% {
-    transform: translateX(-50%);
-  }
+/* Bottom sheet */
+.bottom-sheet {
+  border-radius: 20px 20px 0 0;
+  max-height: calc(100vh - env(safe-area-inset-top, 0px) - 20px);
 }
 
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(300%);
-  }
+/* Full-width cards on mobile */
+.card-full-mobile {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
-/* ==========================================================================
-   TYPOGRAPHIC OPERATING SYSTEM - UTILITIES
-   ========================================================================== */
-
+/* ============================================================================
+   MATCHUP GRID — Typography Operating System
+   ============================================================================ */
 .matchup-grid {
   display: grid;
   grid-template-columns: 1fr var(--col-time) var(--col-end);
-  /* FLIPPED: Teams First */
   align-items: center;
   column-gap: 16px;
   padding: var(--row-py) 16px;
@@ -304,7 +360,6 @@ body {
   letter-spacing: var(--trk-time);
   color: var(--tone-2);
   text-align: right;
-  /* width is handled by grid, but good to be explicit if flex */
   font-variant-numeric: tabular-nums;
 }
 
@@ -313,7 +368,6 @@ body {
   flex-direction: column;
   gap: var(--team-gap);
   min-width: 0;
-  /* Enable truncation */
 }
 
 .ty-team-row {
@@ -321,7 +375,6 @@ body {
   align-items: center;
   gap: 12px;
   height: 24px;
-  /* Fix height for perfect vertical rhythm */
 }
 
 .ty-team-name {
@@ -329,7 +382,6 @@ body {
   line-height: var(--lh-team);
   font-weight: var(--w-semi);
   letter-spacing: -0.01em;
-  /* Optical spacing adjustment */
   color: var(--tone-1);
   white-space: nowrap;
   overflow: hidden;
@@ -348,7 +400,6 @@ body {
   color: var(--tone-1);
   font-variant-numeric: tabular-nums;
   margin-left: auto;
-  /* Push to right of team row */
 }
 
 .ty-score.secondary {
@@ -365,54 +416,61 @@ body {
   text-align: center;
 }
 
-/* ==========================================================================
+/* ============================================================================
    CITATION LINKS — Obsidian Grounding System
-   Phrase IS the link. No brand names visible. Brand color on hover only.
-   ========================================================================== */
-
-/* M-09: Citation links — invisible until hover */
+   ============================================================================ */
 .cite-link {
   text-decoration: none;
-  color: #71717A; /* zinc-500 — blends with prose */
+  color: #71717A;
   transition: color 150ms ease-out, text-decoration-color 150ms ease-out;
 }
 
 .cite-link:hover {
-  color: var(--cite-hover-color, #10B981); /* M-09: emerald on hover, or brand color */
+  color: var(--cite-hover-color, #10B981);
   text-decoration: underline;
-  text-decoration-color: var(--cite-hover-underline, rgba(16, 185, 129, 0.25)); /* 25% opacity */
-  text-underline-offset: 3px; /* M-09: Lift underline off baseline */
+  text-decoration-color: var(--cite-hover-underline, rgba(16, 185, 129, 0.25));
+  text-underline-offset: 3px;
   text-decoration-thickness: 1px;
 }
 
-/* M-10: Safety net — hide leaked generic Google citations */
 a[href*="google.com/"]:empty,
 a[href*="google.com/search"]:not([class]) { display: none; }
 
-/* M-16: Unified hairline divider */
 .hairline {
   height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(255, 255, 255, 0.06) 15%,
-    rgba(255, 255, 255, 0.06) 85%,
-    transparent
-  );
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.06) 15%, rgba(255, 255, 255, 0.06) 85%, transparent);
 }
 
-/* Subtle Pulse for AI Streaming Highlight */
-@keyframes pulse-subtle {
-  0%, 100% {
-    opacity: 1;
-    text-shadow: 0 0 10px rgba(79, 70, 229, 0.1); /* Indigo subtle glow */
-  }
-  50% {
-    opacity: 0.85;
-    text-shadow: 0 0 20px rgba(79, 70, 229, 0.4); /* Stronger glow */
-  }
+/* ============================================================================
+   STALE DATA INDICATOR — Dims edge badge after 60s
+   ============================================================================ */
+.stale-indicator {
+  opacity: 0.5;
+  filter: saturate(0.5);
+  transition: opacity 0.5s ease, filter 0.5s ease;
 }
 
-.animate-pulse-subtle {
-  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+/* ============================================================================
+   SMOOTH HEIGHT TRANSITION — AI Analysis Expand
+   ============================================================================ */
+.expand-transition {
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+  overflow: hidden;
+}
+
+.expand-transition.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+.expand-transition.expanded {
+  max-height: 500px;
+  opacity: 1;
+}
+
+/* ============================================================================
+   RESPONSIVE UTILITIES
+   ============================================================================ */
+.pb-mobile-nav {
+  padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 16px);
 }

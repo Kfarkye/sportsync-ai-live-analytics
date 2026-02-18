@@ -67,13 +67,12 @@ const MatchRow: React.FC<MatchRowProps> = ({
   const showScores = isLive || isFinal;
   const isTennis = match.sport === Sport.TENNIS;
 
-  // Memoized formatted time/round to prevent layout thrashing during scroll
   const { startTimeStr, roundStr } = useMemo(() => ({
     startTimeStr: new Date(match.startTime)
         .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
         .replace(' ', ''),
-    roundStr: match.round 
-        ? match.round.replace('Qualifying ', 'Q').replace('Round of ', 'R').replace('Round ', 'R') 
+    roundStr: match.round
+        ? match.round.replace('Qualifying ', 'Q').replace('Round of ', 'R').replace('Round ', 'R')
         : null
   }), [match.startTime, match.round]);
 
@@ -82,85 +81,79 @@ const MatchRow: React.FC<MatchRowProps> = ({
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      // AUDIT FIX: Added scale for "lift" effect, with zIndex to prevent clipping
       whileHover={{ scale: 1.005, backgroundColor: "rgba(255,255,255,0.05)", zIndex: 10 }}
-      whileTap={{ scale: 0.995, backgroundColor: "rgba(255,255,255,0.08)" }}
+      whileTap={{ scale: 0.985, backgroundColor: "rgba(255,255,255,0.08)" }}
       transition={PHYSICS_MOTION}
       onClick={() => onSelect(match)}
       className={cn(
-        "group relative flex items-center justify-between px-5 py-5 cursor-pointer transform-gpu",
-        // Obsidian Weissach — card surface lifted from void
+        // Mobile-first: full-width, single-column, minimum 44px row height
+        "group relative flex items-center justify-between px-4 md:px-5 py-4 md:py-5 cursor-pointer transform-gpu",
+        "min-h-[72px]", // Minimum touch target height
         "bg-[#111113]/50",
         "transition-all duration-300",
-        
-        // AUDIT FIX: Restored Premium Gradient Divider (replaces flat border)
-        "after:content-[''] after:absolute after:left-5 after:right-5 after:bottom-0 after:h-px after:scale-y-[0.5] after:origin-bottom",
+        // Gradient Divider
+        "after:content-[''] after:absolute after:left-4 after:right-4 md:after:left-5 md:after:right-5 after:bottom-0 after:h-px after:scale-y-[0.5] after:origin-bottom",
         "after:bg-gradient-to-r after:from-transparent after:via-white/10 after:to-transparent",
         "last:after:hidden"
       )}
     >
       {/* Active Laser Line (Left Edge) */}
-      {/* Dynamic State: Amber when Pinned, White when Hovered */}
       <div className={cn(
         "absolute left-0 top-0 bottom-0 w-[3px] transition-all duration-300 ease-out z-10",
-        isPinned 
-            ? "bg-amber-400 opacity-100 shadow-[0_0_15px_rgba(251,191,36,0.3)]" 
+        isPinned
+            ? "bg-amber-400 opacity-100 shadow-[0_0_15px_rgba(251,191,36,0.3)]"
             : "bg-white scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
       )} />
 
-      {/* Team Data Core */}
-      <div className="flex flex-col gap-3 flex-1 min-w-0 pr-6">
+      {/* Team Data Core — mobile-optimized spacing */}
+      <div className="flex flex-col gap-2.5 md:gap-3 flex-1 min-w-0 pr-4 md:pr-6">
         {[match.awayTeam, match.homeTeam].map((team, idx) => {
           const isHome = idx === 1;
           const score = isHome ? match.homeScore : match.awayScore;
           const otherScore = isHome ? match.awayScore : match.homeScore;
-          
-          // Winner logic: Strict comparison only if final
+
           const isWinner = isFinal && (typeof score === 'number' && typeof otherScore === 'number' && score > otherScore);
           const isLoser = isFinal && (typeof score === 'number' && typeof otherScore === 'number' && score < otherScore);
 
           return (
-            <div key={team.id || idx} className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 min-w-0 flex-1">
-                {/* Identity: Logo/Flag (VISIBILITY FIX: Full Color) */}
+            <div key={team.id || idx} className="flex items-center justify-between gap-3 md:gap-4">
+              <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
                 <div className="relative w-6 h-6 shrink-0 flex items-center justify-center">
                   {isTennis && team.flag ? (
                     <div className="w-5 h-3.5 overflow-hidden rounded-[1px] shadow-sm">
-                        <img src={team.flag} alt="" className="w-full h-full object-cover" />
+                        <img src={team.flag} alt="" className="w-full h-full object-cover" loading="lazy" />
                     </div>
                   ) : (
                     <>
-                      {/* Ambient Glow on Hover Only */}
-                      <div 
-                        className="absolute inset-0 blur-md opacity-0 group-hover:opacity-25 transition-opacity duration-500" 
-                        style={{ backgroundColor: team.color ? (team.color.startsWith('#') ? team.color : `#${team.color}`) : '#fff' }} 
+                      <div
+                        className="absolute inset-0 blur-md opacity-0 group-hover:opacity-25 transition-opacity duration-500"
+                        style={{ backgroundColor: team.color ? (team.color.startsWith('#') ? team.color : `#${team.color}`) : '#fff' }}
                       />
-                      {/* Logo: 100% Opacity, No Grayscale */}
-                      <TeamLogo 
-                        logo={team.logo} 
-                        className="w-full h-full object-contain relative z-10 transition-transform duration-300 group-hover:scale-110" 
+                      <TeamLogo
+                        logo={team.logo}
+                        className="w-full h-full object-contain relative z-10 transition-transform duration-300 group-hover:scale-110"
                       />
                     </>
                   )}
                 </div>
 
-                {/* Team Name (VISIBILITY FIX: Bright White Default) */}
+                {/* Team Name — 14px mobile, 15px desktop */}
                 <span className={cn(
-                  "text-[15px] tracking-tight truncate transition-colors duration-300 select-none",
+                  "text-[14px] md:text-[15px] tracking-tight truncate transition-colors duration-300 select-none",
                   isLoser ? "text-zinc-500 font-medium" : "text-white font-semibold"
                 )}>
                   {team.name}
                 </span>
               </div>
 
-              {/* Score Readout */}
+              {/* Score — monospace, minimum 18px for readability */}
               {showScores && (
                 <div className="shrink-0">
                   {isTennis ? (
                     <TennisSetScores linescores={team.linescores} />
                   ) : (
                     <span className={cn(
-                        "font-mono text-[16px] tabular-nums leading-none tracking-tight transition-colors duration-300",
+                        "font-mono text-[18px] md:text-[16px] tabular-nums leading-none tracking-tight transition-colors duration-300",
                         isLoser ? "text-zinc-500 font-medium" : "text-white font-bold"
                     )}>
                       {score ?? '-'}
@@ -173,8 +166,8 @@ const MatchRow: React.FC<MatchRowProps> = ({
         })}
       </div>
 
-      {/* Status Metadata (Instrument Panel) */}
-      <div className="flex flex-col items-end gap-1 pl-6 min-w-[80px] border-l border-white/[0.06] py-1 select-none">
+      {/* Status Metadata — responsive width */}
+      <div className="flex flex-col items-end gap-1 pl-3 md:pl-6 min-w-[70px] md:min-w-[80px] border-l border-white/[0.06] py-1 select-none">
         {isLive ? (
           <>
             <div className="flex items-center gap-1.5">
@@ -194,7 +187,6 @@ const MatchRow: React.FC<MatchRowProps> = ({
           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">FINAL</span>
         ) : (
           <>
-            {/* Start Time: High Contrast (zinc-200) */}
             <span className="text-[13px] font-mono font-medium text-zinc-200 tabular-nums tracking-wide group-hover:text-white transition-colors">
               {startTimeStr}
             </span>

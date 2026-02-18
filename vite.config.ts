@@ -21,6 +21,10 @@ export default defineConfig(({ mode }) => {
       ]
     },
     build: {
+      // Target modern browsers for smaller output
+      target: 'es2022',
+      // CSS code splitting
+      cssCodeSplit: true,
       rollupOptions: {
         output: {
           manualChunks: {

@@ -256,17 +256,16 @@ const MatchList: React.FC<MatchListProps> = ({
     return (
         <div className="min-h-screen bg-transparent pb-32">
             <LayoutGroup>
-                <div className="max-w-7xl mx-auto px-0 lg:px-6 w-full">
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-12 items-start">
+                <div className="max-w-7xl mx-auto w-full">
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 lg:gap-12 items-start">
 
-                        {/* FEED COLUMN */}
-                        <div className="min-w-0 flex flex-col gap-10">
-
+                        {/* FEED COLUMN — mobile-first: full-width, single-column */}
+                        <div className="min-w-0 flex flex-col gap-6 md:gap-10">
 
                             {/* Favorites */}
                             {favorites.length > 0 && (
-                                <section className="px-0">
-                                    <div className="flex items-center gap-2 mb-4 px-4 lg:px-1">
+                                <section>
+                                    <div className="flex items-center gap-2 mb-3 md:mb-4 px-1">
                                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" />
                                         <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">Watchlist</span>
                                     </div>
@@ -287,12 +286,11 @@ const MatchList: React.FC<MatchListProps> = ({
                             )}
 
                             {/* League Groups */}
-                            <div className="space-y-8">
+                            <div className="space-y-6 md:space-y-8">
                                 {groupedMatches.map(([leagueId, leagueMatches], groupIndex) => {
                                     const leagueConfig = LEAGUES.find(l => l.id === leagueId);
                                     const leagueName = leagueConfig?.name || leagueId.toUpperCase();
 
-                                    // Get earliest game time for header
                                     const earliestTime = leagueMatches.length > 0
                                         ? new Date(Math.min(...leagueMatches.map(m => new Date(m.startTime).getTime())))
                                             .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -305,9 +303,8 @@ const MatchList: React.FC<MatchListProps> = ({
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: groupIndex * 0.05 }}
                                         >
-                                            {/* Pure Typography League Header */}
                                             {selectedSportKey === 'all' && (
-                                                <div className="px-4 pt-8 pb-3 flex items-baseline justify-between">
+                                                <div className="px-4 pt-6 md:pt-8 pb-2 md:pb-3 flex items-baseline justify-between">
                                                     <div className="flex items-baseline gap-3">
                                                         <h3 className="text-xs font-medium text-white/90 tracking-wide uppercase">
                                                             {leagueName}
@@ -341,10 +338,9 @@ const MatchList: React.FC<MatchListProps> = ({
                             </div>
                         </div>
 
-                        {/* SIDEBAR WIDGETS (Desktop) - Synced to 112px + gap */}
+                        {/* SIDEBAR WIDGETS (Desktop only) */}
                         <div className="hidden lg:flex flex-col sticky top-[128px] space-y-6">
 
-                            {/* HEADLINE ACTS (Moved to Sidebar) */}
                             {featuredMatches.length > 0 && (
                                 <section className="mb-2">
                                     <div className="flex items-center gap-2 mb-3 px-1">
@@ -364,15 +360,14 @@ const MatchList: React.FC<MatchListProps> = ({
                                 </section>
                             )}
 
-                            {/* Promo Widget */}
-                            <div className="p-8 rounded-2xl bg-zinc-900/30 border border-white/[0.04] relative overflow-hidden group">
+                            <div className="p-6 lg:p-8 rounded-2xl bg-zinc-900/30 border border-white/[0.04] relative overflow-hidden group">
                                 <h3 className="text-[11px] font-bold text-[#2997FF] uppercase tracking-widest mb-3">
                                     Pro Access
                                 </h3>
                                 <p className="text-[13px] text-zinc-400 mb-6 leading-relaxed font-medium tracking-tight">
                                     Real-time institutional feeds and sharp money indicators.
                                 </p>
-                                <button onClick={onOpenPricing} className="w-full py-3 bg-white hover:bg-zinc-200 text-black text-[11px] font-bold uppercase tracking-widest rounded-full transition-colors flex items-center justify-center">
+                                <button onClick={onOpenPricing} className="w-full py-3 min-h-[44px] bg-white hover:bg-zinc-200 text-black text-[11px] font-bold uppercase tracking-widest rounded-full transition-colors flex items-center justify-center active:scale-95">
                                     Upgrade
                                 </button>
                             </div>

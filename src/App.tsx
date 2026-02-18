@@ -26,7 +26,16 @@ const App: FC = () => {
     configService.subscribe();
 
     // 2. Bind iOS Visual Viewport (Fixes keyboard layout jumps)
-    return bindIOSVisualViewport();
+    const unbindViewport = bindIOSVisualViewport();
+
+    // 3. Register Service Worker (offline app shell)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {
+        // SW registration failed silently — app still works
+      });
+    }
+
+    return unbindViewport;
   }, []);
 
   return (

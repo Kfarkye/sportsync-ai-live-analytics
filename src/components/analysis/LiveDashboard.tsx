@@ -77,10 +77,10 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
     const displayMatches = getActiveList();
 
     return (
-        <div className="w-full max-w-7xl mx-auto px-4 lg:px-8 pb-32 relative">
+        <div className="w-full max-w-7xl mx-auto pb-32 relative">
 
-            {/* Content Area with Sidebar */}
-            <div className="mt-3 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 items-start">
+            {/* Content Area with Sidebar — mobile-first single column */}
+            <div className="mt-3 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 lg:gap-8 items-start">
 
                 {/* Main Feed */}
                 <div className="min-w-0">
@@ -88,7 +88,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                         <MotionDiv
                             layout
                             className={cn(
-                                "grid gap-4",
+                                "grid gap-3 md:gap-4",
                                 layout === 'GRID' ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"
                             )}
                         >

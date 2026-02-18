@@ -29,16 +29,24 @@ export const MobileNavBar = () => {
     const { activeView, setActiveView, toggleGlobalChat, isGlobalChatOpen } = useAppStore();
 
     const TABS = [
-        { id: 'FEED', label: 'Home', icon: Home },
+        { id: 'FEED', label: 'Feed', icon: Home },
         { id: 'LIVE', label: 'Live', icon: Zap },
-        { id: 'TITAN', label: 'Titan', icon: BarChart3 },
+        { id: 'TITAN', label: 'Search', icon: BarChart3 },
     ];
 
+    const handleTabPress = (tabId: string) => {
+        if ('vibrate' in navigator) navigator.vibrate(10);
+        setActiveView(tabId as ViewType);
+    };
+
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-[45] flex items-center justify-center pb-safe mb-6 print:hidden pointer-events-none px-4">
-            <div className="flex items-center gap-1.5 p-1.5 bg-black/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-lg pointer-events-auto">
-                {/* View Tabs */}
-                <div className="flex items-center gap-1">
+        <nav className="fixed bottom-0 left-0 right-0 z-[45] flex items-center justify-center pb-safe mb-4 md:mb-6 print:hidden pointer-events-none px-4"
+            role="navigation"
+            aria-label="Main navigation"
+        >
+            <div className="flex items-center gap-1 p-1.5 bg-black/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-lg pointer-events-auto">
+                {/* View Tabs — 44px minimum touch targets */}
+                <div className="flex items-center gap-0.5">
                     {TABS.map((tab) => {
                         const isActive = activeView === tab.id;
                         const Icon = tab.icon;
@@ -46,10 +54,12 @@ export const MobileNavBar = () => {
                         return (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveView(tab.id as ViewType)}
+                                onClick={() => handleTabPress(tab.id)}
+                                aria-label={tab.label}
+                                aria-current={isActive ? 'page' : undefined}
                                 className={cn(
-                                    "relative flex items-center justify-center w-14 h-11 rounded-full transition-all duration-300 active:scale-90",
-                                    isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                                    "relative flex flex-col items-center justify-center min-w-[52px] h-[44px] rounded-full transition-all duration-300 active:scale-90",
+                                    isActive ? 'text-white' : 'text-zinc-500'
                                 )}
                             >
                                 {isActive && (
@@ -60,28 +70,39 @@ export const MobileNavBar = () => {
                                     />
                                 )}
                                 <Icon size={20} strokeWidth={isActive ? 2.5 : 2} className="relative z-10" />
+                                <span className={cn(
+                                    "relative z-10 text-[9px] font-semibold mt-0.5 tracking-wide",
+                                    isActive ? 'text-white' : 'text-zinc-600'
+                                )}>{tab.label}</span>
                             </button>
                         );
                     })}
                 </div>
 
                 {/* Subtle Divider */}
-                <div className="w-px h-5 bg-white/10 mx-1" />
+                <div className="w-px h-5 bg-white/10 mx-0.5" />
 
-                {/* Edge Button */}
+                {/* Edge Button — 44px touch target */}
                 <button
-                    onClick={() => toggleGlobalChat()}
+                    onClick={() => {
+                        if ('vibrate' in navigator) navigator.vibrate(10);
+                        toggleGlobalChat();
+                    }}
+                    aria-label="AI Edge Assistant"
                     className={cn(
-                        "relative flex items-center justify-center w-14 h-11 rounded-full transition-all duration-300 active:scale-95",
-                        isGlobalChatOpen ? "text-emerald-400" : "text-zinc-500 hover:text-zinc-300"
+                        "relative flex flex-col items-center justify-center min-w-[52px] h-[44px] rounded-full transition-all duration-300 active:scale-95",
+                        isGlobalChatOpen ? "text-emerald-400" : "text-zinc-500"
                     )}
-                    title="Edge"
                 >
                     {isGlobalChatOpen ? (
                         <EdgePulse />
                     ) : (
                         <Bot size={20} strokeWidth={2} className="relative z-10" />
                     )}
+                    <span className={cn(
+                        "relative z-10 text-[9px] font-semibold mt-0.5 tracking-wide",
+                        isGlobalChatOpen ? 'text-emerald-400' : 'text-zinc-600'
+                    )}>Edge</span>
 
                     {isGlobalChatOpen && (
                         <MotionDiv
@@ -92,6 +113,6 @@ export const MobileNavBar = () => {
                     )}
                 </button>
             </div>
-        </div>
+        </nav>
     );
 };

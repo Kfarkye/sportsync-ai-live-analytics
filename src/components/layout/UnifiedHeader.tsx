@@ -1,7 +1,7 @@
 
 import React, { FC, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { Trophy, ChevronDown, Calendar, ChevronLeft, ChevronRight, Search, Grid3X3, List, X } from 'lucide-react';
+import { Trophy, ChevronDown, Calendar, ChevronLeft, ChevronRight, Search, Grid3X3, List, X, Wifi, WifiOff } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeekNavigation } from '../../hooks/useWeekNavigation';
@@ -13,10 +13,9 @@ const MotionSpan = motion.span;
 const MotionDiv = motion.div;
 
 const parseWeekValue = (value: string): Date => {
-    // Preferred: YYYY-MM-DD local date string (avoid UTC shift)
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
         const [y, m, d] = value.split('-').map(Number);
-        return new Date(y, m - 1, d, 12, 0, 0, 0); // noon local for stability
+        return new Date(y, m - 1, d, 12, 0, 0, 0);
     }
     const numeric = Number(value);
     if (!Number.isNaN(numeric) && value.trim() !== '') {
@@ -25,7 +24,11 @@ const parseWeekValue = (value: string): Date => {
     return new Date(value);
 };
 
-export const UnifiedHeader: FC = () => {
+interface UnifiedHeaderProps {
+    reconnecting?: boolean;
+}
+
+export const UnifiedHeader: FC<UnifiedHeaderProps> = ({ reconnecting = false }) => {
     const {
         selectedSport,
         selectedDate,
@@ -50,7 +53,6 @@ export const UnifiedHeader: FC = () => {
     const isCollege = selectedSport === Sport.COLLEGE_FOOTBALL || selectedSport === Sport.COLLEGE_BASKETBALL;
     const navStep = (selectedSport === Sport.NFL || selectedSport === Sport.COLLEGE_FOOTBALL) ? 7 : 1;
 
-    // Logic: Auto-center active week tab
     useEffect(() => {
         const container = weekScrollRef.current;
         const activeElement = document.getElementById('week-tab-active');
@@ -75,16 +77,22 @@ export const UnifiedHeader: FC = () => {
 
     return (
         <header className="sticky top-0 z-40 w-full bg-black/95 backdrop-blur-2xl border-b border-white/10 print:hidden pt-safe">
+            {/* Network reconnecting indicator — subtle header pulse */}
+            {reconnecting && (
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500/60 to-transparent animate-reconnect" />
+            )}
+
             <div className="max-w-7xl mx-auto w-full flex flex-col">
-                {/* PRIMARY ROW: Context & Identity */}
+                {/* PRIMARY ROW: Context & Identity — 56px, 44px touch targets */}
                 <div className="h-14 px-4 md:px-6 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        {/* Unified Context Trigger */}
+                    <div className="flex items-center gap-3">
+                        {/* Sport Selector — 44px touch target */}
                         <button
                             onClick={() => toggleSportDrawer(true)}
-                            className="group flex items-center gap-3 active:scale-[0.97] transition-all duration-200"
+                            className="group flex items-center gap-3 min-h-[44px] min-w-[44px] active:scale-[0.97] transition-all duration-200"
+                            aria-label={`Select sport: ${sportLabel}`}
                         >
-                            <div className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 shadow-[inner_0_1px_0_rgba(255,255,255,0.05)] group-hover:bg-white/10 transition-colors text-base relative overflow-hidden">
+                            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 shadow-[inner_0_1px_0_rgba(255,255,255,0.05)] group-hover:bg-white/10 transition-colors text-base relative overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent opacity-50" />
                                 <span className="relative z-10">{sportIcon}</span>
                             </div>
@@ -106,37 +114,41 @@ export const UnifiedHeader: FC = () => {
                         {isCollege && (
                             <button
                                 onClick={() => toggleRankingsDrawer(true)}
-                                className="w-7 h-7 flex items-center justify-center rounded-full text-amber-500/80 hover:text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90"
+                                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-amber-500/80 hover:text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90"
+                                aria-label="Rankings"
                             >
-                                <Trophy size={14} />
+                                <Trophy size={16} />
                             </button>
                         )}
                     </div>
 
-                    {/* Global Actions */}
-                    <div className="flex items-center gap-3">
+                    {/* Global Actions — 44px touch targets */}
+                    <div className="flex items-center gap-2">
                         <button
                             onClick={() => toggleCmdk()}
-                            className="w-8 h-8 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all active:scale-95"
+                            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all active:scale-95"
+                            aria-label="Search"
                         >
-                            <Search size={16} strokeWidth={2.5} />
+                            <Search size={18} strokeWidth={2.5} />
                         </button>
 
                         {user ? (
                             <button
                                 onClick={() => toggleAuthModal(true)}
-                                className="relative w-7 h-7 rounded-full bg-zinc-800 border border-white/10 p-0.5 shadow-lg active:scale-95 transition-transform"
+                                className="relative min-w-[44px] min-h-[44px] flex items-center justify-center active:scale-95 transition-transform"
+                                aria-label="Account"
                             >
-                                <div className="w-full h-full rounded-full bg-gradient-to-tr from-zinc-700 to-zinc-900 flex items-center justify-center text-[10px] font-bold text-zinc-100 uppercase tracking-tighter">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-zinc-700 to-zinc-900 border border-white/10 flex items-center justify-center text-[11px] font-bold text-zinc-100 uppercase tracking-tighter shadow-lg">
                                     {user.email?.[0]}
                                 </div>
                             </button>
                         ) : (
                             <button
                                 onClick={() => toggleAuthModal(true)}
-                                className="w-7 h-7 rounded-full bg-white/5 border border-white/5 flex items-center justify-center text-zinc-500 hover:text-zinc-300 active:scale-95 transition-all"
+                                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/5 border border-white/5 text-zinc-500 hover:text-zinc-300 active:scale-95 transition-all"
+                                aria-label="Sign in"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                                     <circle cx="12" cy="7" r="4" />
                                 </svg>
@@ -145,7 +157,7 @@ export const UnifiedHeader: FC = () => {
                     </div>
                 </div>
 
-                {/* SECONDARY ROW: Timeline or View Navigation */}
+                {/* SECONDARY ROW: Timeline / Live Controls — touch-optimized */}
                 <div className="h-11 px-4 md:px-6 flex items-center border-t border-white/5">
                     <AnimatePresence mode="wait">
                         {activeView === 'FEED' ? (
@@ -158,7 +170,8 @@ export const UnifiedHeader: FC = () => {
                             >
                                 <button
                                     onClick={() => setSelectedDate(-navStep)}
-                                    className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-white bg-white/5 rounded-lg border border-white/5 transition-all active:scale-90"
+                                    className="min-w-[44px] min-h-[40px] flex items-center justify-center text-zinc-500 hover:text-white bg-white/5 rounded-lg border border-white/5 transition-all active:scale-90"
+                                    aria-label="Previous date"
                                 >
                                     <ChevronLeft size={16} />
                                 </button>
@@ -174,7 +187,7 @@ export const UnifiedHeader: FC = () => {
                                                 id={option.isCurrent ? 'week-tab-active' : undefined}
                                                 onClick={() => handleWeekSelect(option.value)}
                                                 className={cn(
-                                                    "relative flex-shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-semibold tracking-tight transition-all duration-200 select-none",
+                                                    "relative flex-shrink-0 px-3 py-2 rounded-lg text-[11px] font-semibold tracking-tight transition-all duration-200 select-none min-h-[36px]",
                                                     option.isCurrent ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
                                                 )}
                                             >
@@ -193,7 +206,8 @@ export const UnifiedHeader: FC = () => {
 
                                 <button
                                     onClick={() => setSelectedDate(navStep)}
-                                    className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-white bg-white/5 rounded-lg border border-white/5 transition-all active:scale-90"
+                                    className="min-w-[44px] min-h-[40px] flex items-center justify-center text-zinc-500 hover:text-white bg-white/5 rounded-lg border border-white/5 transition-all active:scale-90"
+                                    aria-label="Next date"
                                 >
                                     <ChevronRight size={16} />
                                 </button>
@@ -204,20 +218,20 @@ export const UnifiedHeader: FC = () => {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="flex-1 flex items-center justify-between gap-4"
+                                className="flex-1 flex items-center justify-between gap-2"
                             >
-                                {/* Segmented Control */}
+                                {/* Segmented Control — 44px touch targets */}
                                 <div className="flex items-center bg-white/5 rounded-lg p-0.5 border border-white/5">
                                     {(['LIVE', 'NEXT', 'ENDED'] as const).map((tab) => {
-                                        const labels = { LIVE: 'Live', NEXT: 'Upcoming', ENDED: 'Completed' };
+                                        const labels = { LIVE: 'Live', NEXT: 'Next', ENDED: 'Done' };
                                         const isActive = liveTab === tab;
                                         return (
                                             <button
                                                 key={tab}
                                                 onClick={() => setLiveTab(tab)}
                                                 className={cn(
-                                                    "relative px-3 py-1.5 rounded-md text-[11px] font-semibold tracking-tight transition-colors",
-                                                    isActive ? "text-white bg-white/10" : "text-zinc-500 hover:text-zinc-300"
+                                                    "relative px-3 py-2 min-h-[36px] rounded-md text-[11px] font-semibold tracking-tight transition-colors",
+                                                    isActive ? "text-white bg-white/10" : "text-zinc-500"
                                                 )}
                                             >
                                                 {labels[tab]}
@@ -226,17 +240,16 @@ export const UnifiedHeader: FC = () => {
                                     })}
                                 </div>
 
-                                {/* Controls */}
-                                <div className="flex items-center gap-2">
-                                    {/* Search Input */}
-                                    <div className="relative">
+                                {/* Controls — compressed for mobile */}
+                                <div className="flex items-center gap-1.5">
+                                    <div className="relative hidden md:block">
                                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={12} />
                                         <input
                                             type="text"
                                             placeholder="Search..."
                                             value={liveFilter}
                                             onChange={(e) => setLiveFilter(e.target.value)}
-                                            className="w-28 bg-white/5 border border-white/5 rounded-lg py-1.5 pl-7 pr-2 text-[11px] text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:bg-white/10 focus:border-white/10 transition-all"
+                                            className="w-28 bg-white/5 border border-white/5 rounded-lg py-2 pl-7 pr-2 text-[12px] text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:bg-white/10 focus:border-white/10 transition-all"
                                         />
                                     </div>
 
@@ -245,18 +258,20 @@ export const UnifiedHeader: FC = () => {
                                         <button
                                             onClick={() => setLiveLayout('LIST')}
                                             className={cn(
-                                                "p-1.5 rounded-md transition-colors",
-                                                liveLayout === 'LIST' ? "text-white bg-white/10" : "text-zinc-500 hover:text-zinc-300"
+                                                "p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-md transition-colors",
+                                                liveLayout === 'LIST' ? "text-white bg-white/10" : "text-zinc-500"
                                             )}
+                                            aria-label="List view"
                                         >
                                             <List size={14} />
                                         </button>
                                         <button
                                             onClick={() => setLiveLayout('GRID')}
                                             className={cn(
-                                                "p-1.5 rounded-md transition-colors",
-                                                liveLayout === 'GRID' ? "text-white bg-white/10" : "text-zinc-500 hover:text-zinc-300"
+                                                "p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-md transition-colors",
+                                                liveLayout === 'GRID' ? "text-white bg-white/10" : "text-zinc-500"
                                             )}
+                                            aria-label="Grid view"
                                         >
                                             <Grid3X3 size={14} />
                                         </button>
