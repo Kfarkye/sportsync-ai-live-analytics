@@ -93,13 +93,19 @@ export async function cacheData(
   table: string,
   conflictField: string,
   payload: Record<string, DbValue>
-): Promise<void> {
-  await supabase
+): Promise<boolean> {
+  const { error } = await supabase
     .from(table)
     .upsert({
       ...payload,
       fetched_at: new Date().toISOString()
     }, { onConflict: conflictField });
+
+  if (error) {
+    console.error(`[dbService] cacheData failed for ${table}:`, error.message);
+    return false;
+  }
+  return true;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -293,7 +299,7 @@ export const dbService = {
 
   // Versioned AISignals (Write-Once)
   storeAISignalSnapshot: async (matchId: string, signals: DbValue) => {
-    await supabase
+    const { error } = await supabase
       .from('ai_signal_snapshots')
       .insert({
         match_id: matchId,
@@ -301,6 +307,10 @@ export const dbService = {
         system_state: signals.system_state,
         fetched_at: new Date().toISOString()
       });
+
+    if (error) {
+      console.error(`[dbService] storeAISignalSnapshot failed for ${matchId}:`, error.message);
+    }
   },
 
   // Box Score

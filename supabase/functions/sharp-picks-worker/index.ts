@@ -4,11 +4,12 @@ declare const Deno: any;
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { executeAnalyticalQuery, safeJsonParse } from "../_shared/gemini.ts";
 import { getCanonicalMatchId, toLocalGameDate } from "../_shared/match-registry.ts";
+import { validateEdgeAuth } from "../_shared/env.ts";
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, x-client-info, apikey",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, x-client-info, apikey, x-pipeline-secret, x-cron-secret",
     "Content-Type": "application/json",
 };
 
@@ -91,6 +92,10 @@ const MIN_CONFLUENCE_SCORE = 70;
 
 Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
+
+    // Auth gate: require service_role, pipeline secret, or cron secret
+    const authError = validateEdgeAuth(req);
+    if (authError) return authError;
 
     const supabase = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",

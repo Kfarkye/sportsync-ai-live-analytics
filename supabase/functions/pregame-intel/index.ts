@@ -2,16 +2,20 @@
 declare const Deno: any;
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { validateEdgeAuth } from "../_shared/env.ts";
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, x-client-info, apikey, x-client-timeout, x-trace-id",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, x-client-info, apikey, x-client-timeout, x-trace-id, x-pipeline-secret, x-cron-secret",
     "Content-Type": "application/json",
 };
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
+
+    const authError = validateEdgeAuth(req);
+    if (authError) return authError;
 
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',

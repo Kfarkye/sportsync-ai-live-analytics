@@ -7,12 +7,13 @@ import { cleanHeadline, cleanCardThesis } from "../_shared/intel-guards.ts";
 import { PREGAME_INTEL_SCHEMA_BASE, PREGAME_INTEL_SYSTEM_INSTRUCTION } from "../_shared/prompts/pregame-intel-v1.ts";
 import { normalizeTennisOdds } from "../_shared/tennis-odds-normalizer.ts";
 import { normalizeSoccerOdds } from "../_shared/soccer-odds-normalizer.ts";
+import { validateEdgeAuth } from "../_shared/env.ts";
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers":
-        "Content-Type, Authorization, x-client-info, apikey, x-client-timeout, x-trace-id",
+        "Content-Type, Authorization, x-client-info, apikey, x-client-timeout, x-trace-id, x-pipeline-secret, x-cron-secret",
 };
 
 // -------------------------------------------------------------------------
@@ -339,6 +340,10 @@ const stripUnknownColumnsAndRetryUpsert = async (supabase: any, table: string, p
 // @ts-ignore: Deno is global
 Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
+
+    // Auth gate: require service_role, pipeline secret, or cron secret
+    const authError = validateEdgeAuth(req);
+    if (authError) return authError;
 
     const supabase = createClient(
         // @ts-ignore

@@ -1,1 +1,0 @@
-// DEPRECATED: Replaced by src/store/appStore.ts and src/hooks/useMatches.ts
