@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CacheResult } from '../services/dbService';
 
 export type DataSource = 'db' | 'api' | 'db-stale' | null;
@@ -25,6 +25,10 @@ export const useDbFirst = <T>(
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<DataSource>(null);
 
+  // Use ref to avoid stale closure over `data` state in fetchFromApi
+  const dataRef = useRef(data);
+  dataRef.current = data;
+
   const fetchFromApi = useCallback(async () => {
     try {
       const apiData = await apiFetch();
@@ -40,12 +44,12 @@ export const useDbFirst = <T>(
       return false;
     } catch (e) {
       console.error("API/AI fetch failed:", e);
-      if (!data) {
+      if (!dataRef.current) {
         setError((e as Error).message || "An unexpected error occurred.");
       }
       return false;
     }
-  }, [apiFetch, cacheFn, data]);
+  }, [apiFetch, cacheFn]);
 
   const fetchData = useCallback(async (force = false) => {
     setIsLoading(true);
@@ -92,7 +96,8 @@ export const useDbFirst = <T>(
         if (!success) setError("Data unavailable.");
         setIsLoading(false);
     }
-  }, dependencies);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbFetch, fetchFromApi, ...dependencies]);
 
   useEffect(() => {
     fetchData();
