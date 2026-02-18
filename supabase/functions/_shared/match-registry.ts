@@ -48,6 +48,7 @@ export const LEAGUE_SUFFIX_MAP: Readonly<Record<string, string>> = Object.freeze
     'uefa.champions': '_ucl', 'soccer_uefa_champions_league': '_ucl',
     'uefa.europa': '_uel', 'soccer_uefa_europa_league': '_uel',
     'caf.nations': '_afcon', 'soccer_caf_nations': '_afcon',
+    'fifa.world': '_worldcup', 'soccer_fifa_world_cup': '_worldcup',
     'atp': '_tennis', 'wta': '_tennis', 'tennis_atp': '_tennis', 'tennis_wta': '_tennis'
 });
 
@@ -67,6 +68,7 @@ export const LEAGUE_ID_MAP: Readonly<Record<string, string>> = Object.freeze({
     'ucl': 'uefa.champions', 'soccer_uefa_champions_league': 'uefa.champions', 'soccer_uefa_champs_league': 'uefa.champions',
     'uel': 'uefa.europa', 'soccer_uefa_europa_league': 'uefa.europa',
     'afcon': 'caf.nations', 'soccer_caf_nations': 'caf.nations',
+    'worldcup': 'fifa.world', 'soccer_fifa_world_cup': 'fifa.world',
     'wnba': 'wnba', 'basketball_wnba': 'wnba',
     'atp': 'atp', 'wta': 'wta', 'tennis_atp': 'atp', 'tennis_wta': 'wta'
 });
@@ -300,7 +302,7 @@ export async function resolveCanonicalMatch(
             'nba': '_nba', 'nfl': '_nfl', 'nhl': '_nhl', 'mlb': '_mlb',
             'college-football': '_ncaaf', 'mens-college-basketball': '_ncaab',
             'eng.1': '_epl', 'ita.1': '_seriea', 'esp.1': '_laliga', 'ger.1': '_bundesliga',
-            'uefa.champions': '_ucl', 'uefa.europa': '_uel'
+            'uefa.champions': '_ucl', 'uefa.europa': '_uel', 'fifa.world': '_worldcup'
         } as Record<string, string>;
         const expectedSuffix = LEAGUE_SUFFIX[canonicalLeague] || `_${canonicalLeague}`;
 

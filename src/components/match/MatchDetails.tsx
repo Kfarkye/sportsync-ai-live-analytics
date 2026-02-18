@@ -60,6 +60,7 @@ import { GoalieMatchup } from '../GoalieMatchup';
 import { MatchupLoader, MatchupContextPills } from '../ui';
 import ChatWidget from '../ChatWidget';
 import { TechnicalDebugView } from '../TechnicalDebugView';
+import { TechnicalAuditHub } from '../analysis/TechnicalAuditHub';
 
 // ============================================================================
 // SECTION 2: STRICT TYPE DEFINITIONS (AUDIT FIX)
@@ -1259,6 +1260,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
               )}
               {activeTab === 'DATA' && (
                 <div className="space-y-0">
+                  <div className="mb-12">
+                    <TechnicalAuditHub canonicalId={match.canonical_id || getDbMatchId(match.id, match.leagueId?.toLowerCase() || '')} />
+                  </div>
                   {(gameEdgeCardData || insightCardData) && (
                     <div className="mb-12 space-y-6">
                       <div className="flex items-center gap-2">
