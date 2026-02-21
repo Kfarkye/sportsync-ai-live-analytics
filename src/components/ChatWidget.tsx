@@ -970,7 +970,7 @@ function parseEdgeVerdict(rawVerdict: string): ParsedEdgeVerdict {
   const spread = signedMatches.length >= 2
     ? firstSigned[0]
     : /\bML\b/i.test(cleaned) ? "ML" : firstSigned[0];
-  const odds = signedMatches.length >= 2 ? lastSigned[0] : firstSigned[0];
+  const odds = signedMatches.length >= 2 ? lastSigned[0] : "N/A";
   return { teamName: teamRaw || cleaned, spread, odds, summaryLabel: cleaned };
 }
 
