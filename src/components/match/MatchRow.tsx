@@ -87,8 +87,13 @@ const MatchRow: React.FC<MatchRowProps> = ({
       whileTap={{ scale: 0.995, backgroundColor: "rgba(255,255,255,0.08)" }}
       transition={PHYSICS_MOTION}
       onClick={() => onSelect(match)}
+      role="button"
+      tabIndex={0}
+      aria-label={`${match.awayTeam.name} vs ${match.homeTeam.name}`}
+      onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(match); } }}
       className={cn(
-        "group relative flex items-center justify-between px-5 py-5 cursor-pointer transform-gpu",
+        "group relative flex items-center justify-between px-3 py-4 md:px-5 md:py-5 cursor-pointer transform-gpu",
+        "focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:outline-none focus-visible:ring-inset",
         // Obsidian Weissach — card surface lifted from void
         "bg-[#111113]/50",
         "transition-all duration-300",
@@ -123,7 +128,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
             <div key={team.id || idx} className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4 min-w-0 flex-1">
                 {/* Identity: Logo/Flag (VISIBILITY FIX: Full Color) */}
-                <div className="relative w-6 h-6 shrink-0 flex items-center justify-center">
+                <div className="relative w-8 h-8 shrink-0 flex items-center justify-center">
                   {isTennis && team.flag ? (
                     <div className="w-5 h-3.5 overflow-hidden rounded-[1px] shadow-sm">
                         <img src={team.flag} alt="" className="w-full h-full object-cover" />
@@ -179,10 +184,10 @@ const MatchRow: React.FC<MatchRowProps> = ({
           <>
             <div className="flex items-center gap-1.5">
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="motion-reduce:hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
                 </span>
-                <span className="text-[9px] font-bold text-rose-400 uppercase tracking-[0.2em] font-mono animate-pulse">
+                <span className="text-[9px] font-bold text-rose-400 uppercase tracking-[0.2em] font-mono motion-safe:animate-pulse">
                    {match.displayClock || 'LIVE'}
                 </span>
             </div>

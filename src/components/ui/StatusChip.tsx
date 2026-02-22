@@ -61,7 +61,7 @@ export const StatusChip = memo(({ variant, className, pulse = false, label }: St
             <div className="relative flex h-1.5 w-1.5">
                 {shouldPulse && (
                     <span className={cn(
-                        "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                        "motion-reduce:hidden animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
                         config.dot
                     )} />
                 )}

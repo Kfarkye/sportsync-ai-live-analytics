@@ -35,6 +35,7 @@ export const ESSENCE = {
       subtle: 'rgba(255,255,255,0.04)',
       default: 'rgba(255,255,255,0.06)',
       strong: 'rgba(255,255,255,0.12)',
+      divider: 'rgba(255,255,255,0.06)',
       innerGlow: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 50%, rgba(255,255,255,0.02) 100%)',
     }
   },
@@ -94,9 +95,9 @@ export const ESSENCE = {
     t1Project: 'font-mono text-[24px] font-black tabular-nums text-white tracking-tight',
 
     // TIER 2: Secondary Metadata (The "Knowledge" Layer)
-    t2Label: 'text-[9px] font-bold text-zinc-600 uppercase tracking-[0.15em]',
+    t2Label: 'text-[9px] font-bold text-zinc-500 uppercase tracking-[0.15em]',
     t2Team: 'text-sm font-semibold text-zinc-200 tracking-tight',
-    t2Header: 'text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em]',
+    t2Header: 'text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]',
 
     // TIER 3: Deep Context (The "Forensic" Layer)
     t3Meta: 'text-[9px] font-medium text-zinc-500 uppercase tracking-wider',
