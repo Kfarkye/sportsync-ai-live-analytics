@@ -1,181 +1,440 @@
-import React, { memo } from 'react';
-import { motion, type Variants } from 'framer-motion';
-import { ChevronRight } from 'lucide-react';
-import TypeWriter from '../shared/TypeWriter';
-
-const MotionMain = motion.main;
-const MotionDiv = motion.div;
-const MotionH1 = motion.h1;
-const MotionButton = motion.button;
-const MotionFooter = motion.footer;
+import React, { FC } from 'react';
 
 interface LandingPageProps {
   onEnter: () => void;
 }
 
-// ========================================================================
-// Configuration
-// ========================================================================
-
-const EASING_APPLE: [number, number, number, number] = [0.22, 1, 0.36, 1];
-const TRANSITION_DURATION = 1.6;
-const EASING_SPRING_CTA = { type: 'spring', stiffness: 400, damping: 17 } as const;
-
-const entranceVariants: Variants = {
-  hidden: { opacity: 0, y: 25 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: TRANSITION_DURATION,
-      ease: EASING_APPLE,
-    },
-  },
-};
-
-// ========================================================================
-// Components
-// ========================================================================
-
-const DripHeroLogo = memo(() => (
-  <svg
-    width="80"
-    height="80"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    className="drop-shadow-[0_10px_60px_rgba(139,92,246,0.6)]"
-    role="img"
-    aria-label="The Drip Logo"
-  >
-    <path
-      d="M12 21C15.5346 21 18.4346 18.1 18.4346 14.5654C18.4346 11.0308 15.5346 3 12 3C8.46538 3 5.56538 11.0308 5.56538 14.5654C5.56538 18.1 8.46538 21 12 21Z"
-      fill="url(#paint0_linear_clean)"
-    />
-    <defs>
-      <linearGradient id="paint0_linear_clean" x1="12" y1="3" x2="12" y2="21" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#FFFFFF" />
-        <stop offset="0.4" stopColor="#C4B5FD" />
-        <stop offset="1" stopColor="#7C3AED" />
-      </linearGradient>
-    </defs>
-  </svg>
-));
-DripHeroLogo.displayName = 'DripHeroLogo';
-
-// ========================================================================
-// Main Component
-// ========================================================================
-
-const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
+const LandingPage: FC<LandingPageProps> = ({ onEnter }) => {
   return (
-    <div className="relative min-h-screen bg-[#030303] text-white overflow-hidden flex flex-col items-center justify-center font-sans selection:bg-violet-500/40 antialiased">
+    <div className="drip-landing-body">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap');
 
-      {/* Background spotlight */}
-      <div className="absolute inset-0 z-0 pointer-events-none select-none">
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-[800px] opacity-30"
-          style={{
-            background: 'radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, rgba(3, 3, 3, 0) 50%)',
-            filter: 'blur(100px)'
-          }}
-        />
-      </div>
+        /* ═══════════════════════════════════════════════════════════════════════
+           OBSIDIAN WEISSACH v7 — THE DRIP LANDING PAGE
+           ═══════════════════════════════════════════════════════════════════════
+           
+           Design Principles:
+           ├─ Jony Ive: Every element earned. Nothing decorative.
+           ├─ Steve Jobs: Precision creates adoption. First glance = understood.
+           ├─ Linear/Vercel: Crisp. Correct. Mathematically consistent.
+           ├─ Porsche: Luxury is engineered, not announced.
+           └─ Emerald: Single accent, earned by interaction.
+           
+           Typography: Outfit (geometric sans, premium feel, not overused)
+           Palette: Obsidian blacks with emerald accent
+           
+        ═══════════════════════════════════════════════════════════════════════ */
 
-      {/* Main Content */}
-      <MotionMain
-        initial="hidden"
-        animate="visible"
-        transition={{ staggerChildren: 0.15, delayChildren: 0.1 }}
-        className="relative z-10 flex flex-col items-center text-center px-6 max-w-4xl w-full"
-      >
+        .drip-landing-body, .drip-landing-body *, .drip-landing-body *::before, .drip-landing-body *::after {
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
 
-        {/* Logo */}
-        <MotionDiv
-          variants={entranceVariants}
-          className="mb-14 relative group"
-        >
-          <div className="absolute -inset-12 bg-violet-600/20 blur-[50px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+        .drip-landing-body {
+            /* ─── OBSIDIAN PALETTE ─── */
+            --void: #000000;
+            --obsidian: #060606;
+            --graphite: #0e0e0e;
+            --carbon: #161616;
+            --ash: #1e1e1e;
+            --smoke: #2a2a2a;
+            --slate: #3a3a3a;
+            --silver: #666666;
+            --mist: #888888;
+            --cloud: #aaaaaa;
+            --bone: #c8c8c8;
+            --ivory: #e0e0e0;
+            --white: #f0f0f0;
 
-          <div className="relative w-32 h-32 bg-white/[0.02] backdrop-blur-2xl border border-white/[0.06] rounded-[28px] flex items-center justify-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.04] to-transparent pointer-events-none" />
-            <DripHeroLogo />
-          </div>
-        </MotionDiv>
+            /* ─── EMERALD ACCENT (earned, not given) ─── */
+            --emerald: #00c978;
+            --emerald-soft: #00b86e;
+            --emerald-dim: rgba(0, 201, 120, 0.12);
+            --emerald-glow: rgba(0, 201, 120, 0.06);
+            --emerald-pulse: rgba(0, 201, 120, 0.35);
+
+            /* ─── MOTION ─── */
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+            /* ─── TYPOGRAPHY ─── */
+            --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            
+            font-family: var(--font-sans);
+            background: var(--void);
+            color: var(--white);
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        /* ─── FILM GRAIN (subtle analog texture) ─── */
+        .drip-landing-body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            opacity: 0.025;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* ─── AMBIENT GLOW (subtle, not decorative) ─── */
+        .drip-landing-body::after {
+            content: '';
+            position: fixed;
+            top: -40%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 140%;
+            height: 80%;
+            background: radial-gradient(
+                ellipse 60% 40% at 50% 0%,
+                var(--emerald-glow) 0%,
+                transparent 70%
+            );
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           CONTAINER
+        ═══════════════════════════════════════════════════════════════════════ */
+
+        .drip-landing-container {
+            width: 100%;
+            max-width: 520px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           LIVE INDICATOR (earned emerald moment)
+        ═══════════════════════════════════════════════════════════════════════ */
+
+        .drip-landing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 48px;
+            opacity: 0;
+            animation: fadeIn 0.8s var(--ease-out-expo) 0.3s forwards;
+        }
+
+        .drip-pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--emerald);
+            position: relative;
+            box-shadow: 0 0 12px var(--emerald-pulse);
+        }
+
+        .drip-pulse::before {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            background: var(--emerald);
+            opacity: 0.4;
+            animation: pulse 2.5s ease-in-out infinite;
+        }
+
+        .drip-live-text {
+            font-size: 0.6875rem;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--emerald);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           TYPOGRAPHY
+        ═══════════════════════════════════════════════════════════════════════ */
+
+        .drip-title {
+            font-size: clamp(3rem, 12vw, 4.5rem);
+            font-weight: 600;
+            letter-spacing: -0.04em;
+            line-height: 0.95;
+            margin-bottom: 32px;
+            opacity: 0;
+            animation: fadeInUp 0.9s var(--ease-out-expo) 0.4s forwards;
+        }
+
+        .drip-headline {
+            font-size: clamp(1.25rem, 4vw, 1.625rem);
+            font-weight: 400;
+            color: var(--bone);
+            line-height: 1.35;
+            letter-spacing: -0.01em;
+            margin-bottom: 48px;
+            opacity: 0;
+            animation: fadeInUp 0.9s var(--ease-out-expo) 0.55s forwards;
+        }
+
+        .drip-headline-primary {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .drip-headline-secondary {
+            display: block;
+            color: var(--mist);
+            font-size: 0.9em;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           CTA
+        ═══════════════════════════════════════════════════════════════════════ */
+
+        .drip-cta-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            opacity: 0;
+            animation: fadeInUp 0.9s var(--ease-out-expo) 0.7s forwards;
+        }
+
+        .drip-cta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 180px;
+            padding: 18px 56px;
+            font-family: var(--font-sans);
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            color: var(--void);
+            background: var(--white);
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.25s var(--ease-out-quart);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .drip-cta::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(0,0,0,0.04) 100%);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .drip-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 4px 20px rgba(240, 240, 240, 0.12),
+                0 12px 40px rgba(240, 240, 240, 0.08);
+        }
+
+        .drip-cta:hover::before {
+            opacity: 1;
+        }
+
+        .drip-cta:active {
+            transform: translateY(0);
+            transition-duration: 0.1s;
+        }
+
+        .drip-trial-note {
+            font-size: 0.875rem;
+            font-weight: 400;
+            color: var(--silver);
+            letter-spacing: 0.01em;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           EDGE TAGLINE
+        ═══════════════════════════════════════════════════════════════════════ */
+
+        .drip-edge-tagline {
+            margin-top: 80px;
+            padding-top: 40px;
+            border-top: 1px solid var(--ash);
+            opacity: 0;
+            animation: fadeIn 0.9s var(--ease-out-expo) 0.9s forwards;
+        }
+
+        .drip-edge-title {
+            font-size: 0.6875rem;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--slate);
+            margin-bottom: 12px;
+        }
+
+        .drip-edge-description {
+            font-size: 0.9375rem;
+            font-weight: 400;
+            color: var(--mist);
+            line-height: 1.5;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           FOOTER
+        ═══════════════════════════════════════════════════════════════════════ */
+
+        .drip-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px 24px;
+            padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            opacity: 0;
+            animation: fadeIn 0.8s var(--ease-out-expo) 1.1s forwards;
+            z-index: 2;
+        }
+
+        .drip-footer-link {
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--slate);
+            text-decoration: none;
+            letter-spacing: 0.02em;
+            transition: color 0.2s ease;
+        }
+
+        .drip-footer-link:hover {
+            color: var(--mist);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           ANIMATIONS
+        ═══════════════════════════════════════════════════════════════════════ */
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.4;
+            }
+            50% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           REDUCED MOTION
+        ═══════════════════════════════════════════════════════════════════════ */
+
+        @media (prefers-reduced-motion: reduce) {
+            .drip-landing-body *, .drip-landing-body *::before, .drip-landing-body *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           MOBILE
+        ═══════════════════════════════════════════════════════════════════════ */
+
+        @media (max-width: 480px) {
+            .drip-landing-body {
+                padding: 20px;
+                padding-bottom: 100px;
+            }
+
+            .drip-landing-indicator {
+                margin-bottom: 40px;
+            }
+
+            .drip-title {
+                margin-bottom: 24px;
+            }
+
+            .drip-headline {
+                margin-bottom: 40px;
+            }
+
+            .drip-cta {
+                width: 100%;
+                padding: 20px 48px;
+            }
+
+            .drip-edge-tagline {
+                margin-top: 60px;
+                padding-top: 32px;
+            }
+        }
+      `}</style>
+
+      <div className="drip-landing-container">
+        {/* Live Indicator */}
+        <div className="drip-landing-indicator">
+          <div className="drip-pulse" />
+          <span className="drip-live-text">Live</span>
+        </div>
+
+        {/* Title */}
+        <h1 className="drip-title">The Drip</h1>
 
         {/* Headline */}
-        <MotionH1
-          variants={entranceVariants}
-          className="text-7xl md:text-[7.5rem] font-semibold tracking-[-0.04em] mb-10 bg-clip-text text-transparent bg-gradient-to-b from-white to-zinc-400"
-        >
-          The Drip
-        </MotionH1>
+        <p className="drip-headline">
+          <span className="drip-headline-primary">See what the books see. Live.</span>
+          <span className="drip-headline-secondary">Odds. Edge. Context. One conversation.</span>
+        </p>
 
-        {/* TypeWriter - Bettor focused, no code aesthetic */}
-        <MotionDiv
-          variants={entranceVariants}
-          className="h-14 mb-20 flex items-center justify-center"
-        >
-          <div className="text-xl md:text-2xl text-zinc-400 font-medium tracking-tight">
-            <TypeWriter
-              lines={[
-                'Player props on deck.',
-                'Akron vs. Kent State? We know the edge.',
-                'Vegas feared.',
-                '2AM locks loaded.'
-              ]}
-              colors={[
-                'text-zinc-400',
-                'text-violet-400',
-                'text-zinc-400',
-                'text-white'
-              ]}
-              typingSpeed={45}
-              deleteSpeed={25}
-              pauseBeforeType={1000}
-              pauseBeforeDelete={2200}
-              showCursor={true}
-              cursorChar="pipe"
-              loop={true}
-            />
-          </div>
-        </MotionDiv>
-
-        {/* CTA Button */}
-        <MotionDiv variants={entranceVariants}>
-          <MotionButton
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.98 }}
-            transition={EASING_SPRING_CTA}
-            onClick={onEnter}
-            className="group relative px-12 py-4 bg-white text-black rounded-full overflow-hidden shadow-[0_8px_40px_rgba(255,255,255,0.25)] z-50 transition-shadow duration-500 hover:shadow-[0_8px_50px_rgba(255,255,255,0.4)]"
-            aria-label="Enter the Edge"
-          >
-            <div className="absolute inset-0 bg-gradient-to-b from-white to-zinc-200 opacity-100 group-hover:opacity-95 transition-opacity" />
-
-            <div className="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-[200%]" />
-
-            <div className="relative flex items-center gap-3 font-semibold text-lg tracking-tight">
-              <span>Enter the Edge</span>
-              <ChevronRight size={18} className="text-black/50 group-hover:translate-x-0.5 transition-transform duration-300" />
-            </div>
-          </MotionButton>
-        </MotionDiv>
-
-      </MotionMain>
-
-      {/* Minimal Footer - Just the live indicator */}
-      <MotionFooter
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 2.2, duration: 1 }}
-        className="absolute bottom-8 z-10"
-      >
-        <div className="flex items-center gap-2 opacity-50">
-          <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
-          <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Live</span>
+        {/* CTA */}
+        <div className="drip-cta-wrapper">
+          <button className="drip-cta" onClick={onEnter}>Start</button>
+          <span className="drip-trial-note">Free for 3 days</span>
         </div>
-      </MotionFooter>
+
+        {/* Edge Tagline */}
+        <div className="drip-edge-tagline">
+          <p className="drip-edge-title">Edge</p>
+          <p className="drip-edge-description">Public tax stripped. Value revealed.</p>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="drip-footer">
+        <a href="/terms" className="drip-footer-link">Terms</a>
+        <a href="/privacy" className="drip-footer-link">Privacy</a>
+      </footer>
     </div>
   );
 };
