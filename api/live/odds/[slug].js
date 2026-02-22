@@ -16,7 +16,8 @@ const supabase = createClient(
 );
 
 const GAME_ID_RE = /^[\w-]{4,128}$/;
-const SLUG_RE = /^[0-9a-f]{16}$/;
+const SLUG_RE = /^[0-9a-f]{64}$/;
+const NONCE_RE = /^[0-9a-f]{32}$/;
 
 export default async function handler(req, res) {
     if (req.method !== "GET") {
@@ -26,7 +27,7 @@ export default async function handler(req, res) {
         return res.status(429).json({ error: "Rate limit exceeded" });
     }
 
-    const { slug, g: gameId } = req.query;
+    const { slug, g: gameId, n: nonce } = req.query;
 
     if (!slug || typeof slug !== "string" || !SLUG_RE.test(slug)) {
         return res.status(400).json({ error: "Invalid slug" });
@@ -34,7 +35,10 @@ export default async function handler(req, res) {
     if (!gameId || typeof gameId !== "string" || !GAME_ID_RE.test(gameId)) {
         return res.status(400).json({ error: "Invalid game_id" });
     }
-    if (!validateSatelliteSlug(slug, gameId, "odds")) {
+    if (!nonce || typeof nonce !== "string" || !NONCE_RE.test(nonce)) {
+        return res.status(400).json({ error: "Invalid nonce" });
+    }
+    if (!validateSatelliteSlug(slug, gameId, "odds", nonce)) {
         return res.status(403).json({ error: "Forbidden" });
     }
 

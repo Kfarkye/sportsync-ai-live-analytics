@@ -690,13 +690,13 @@ export default async function handler(req, res) {
         if (activeContext?.match_id) {
             const origin = getPublicOrigin();
             const gid = encodeURIComponent(activeContext.match_id);
-            const scoreSlug = generateSatelliteSlug(activeContext.match_id, "scores");
-            const oddsSlug = generateSatelliteSlug(activeContext.match_id, "odds");
-            const pbpSlug = generateSatelliteSlug(activeContext.match_id, "pbp");
+            const scores = generateSatelliteSlug(activeContext.match_id, "scores");
+            const odds = generateSatelliteSlug(activeContext.match_id, "odds");
+            const pbp = generateSatelliteSlug(activeContext.match_id, "pbp");
             liveDataUrls.push(
-                `${origin}/api/live/scores/${scoreSlug}?g=${gid}`,
-                `${origin}/api/live/odds/${oddsSlug}?g=${gid}`,
-                `${origin}/api/live/pbp/${pbpSlug}?g=${gid}`
+                `${origin}/api/live/scores/${scores.slug}?g=${gid}&n=${scores.nonce}`,
+                `${origin}/api/live/odds/${odds.slug}?g=${gid}&n=${odds.nonce}`,
+                `${origin}/api/live/pbp/${pbp.slug}?g=${gid}&n=${pbp.nonce}`
             );
         }
 
