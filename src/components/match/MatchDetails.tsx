@@ -26,6 +26,12 @@ import { motion, AnimatePresence, useMotionValue, LayoutGroup } from 'framer-mot
 // ============================================================================
 
 import type { Match, RecentFormGame, ShotEvent, PlayerPropBet, PropBetType } from '@/types';
+import { Sport } from '@/types';
+import {
+  BaseballGamePanel,
+  BaseballEdgePanel,
+  useBaseballLive,
+} from '@/components/baseball';
 import { cn, ESSENCE } from '@/lib/essence';
 import { getMatchDisplayStats } from '../../utils/statDisplay';
 
@@ -931,6 +937,15 @@ export interface MatchDetailsProps {
 
 const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matches = [], onSelectMatch }) => {
   const { match, liveState, nhlShots, connectionStatus, error, forecastHistory, edgeState, isInitialLoad } = useMatchPolling(initialMatch as ExtendedMatch);
+
+  // Baseball-specific live data (pitch tracking, edge signals, matchup state)
+  const isBaseball = match.sport === Sport.BASEBALL;
+  const { data: baseballData } = useBaseballLive(
+    match.id,
+    match.status,
+    isBaseball,
+  );
+
   const [pregameIntel, setPregameIntel] = useState<PregameIntelResponse | null>(null);
   useKeyboardNavigation(matches, match.id, onSelectMatch);
 
@@ -1233,7 +1248,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             <motion.div key={activeTab} {...ANIMATION.slideUp}>
               {activeTab === 'OVERVIEW' && (
                 <div className="space-y-0">
-                  <SpecSheetRow label="01 // BROADCAST" defaultOpen={true} collapsible={false}><CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} /></SpecSheetRow>
+                  <SpecSheetRow label="01 // BROADCAST" defaultOpen={true} collapsible={false}>{isBaseball ? (<BaseballGamePanel match={match} baseballData={baseballData ?? null} />) : (<CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} />)}</SpecSheetRow>
                   <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-white/[0.08]" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
                   {liveState?.ai_analysis && <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={true}><LiveAIInsight match={match} /></SpecSheetRow>}
                   <div className="w-full h-px bg-white/[0.08]" />
@@ -1263,6 +1278,17 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   <div className="mb-12">
                     <TechnicalAuditHub canonicalId={match.canonical_id || getDbMatchId(match.id, match.leagueId?.toLowerCase() || '')} />
                   </div>
+                  {isBaseball && baseballData?.edge && (
+                    <div className="mb-12">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-1 h-1 rounded-full bg-emerald-400" />
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
+                          Edge Convergence
+                        </span>
+                      </div>
+                      <BaseballEdgePanel edge={baseballData.edge} />
+                    </div>
+                  )}
                   {(gameEdgeCardData || insightCardData) && (
                     <div className="mb-12 space-y-6">
                       <div className="flex items-center gap-2">
