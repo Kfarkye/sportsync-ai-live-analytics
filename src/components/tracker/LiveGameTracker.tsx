@@ -1259,7 +1259,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
 
                 {/* Navigation Tabs */}
                 {showTabs && (
-                    <div className="w-full flex items-center justify-center gap-8 border-b border-white/[0.08] pb-0 overflow-x-auto no-scrollbar px-4">
+                    <div className="w-full flex items-center justify-center gap-6 border-b border-white/[0.08] pb-0 overflow-x-auto no-scrollbar px-4">
                         {TABS.map((tab, i) => (
                             <button
                                 key={tab}
@@ -1268,7 +1268,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 aria-pressed={activeTab === tab}
                                 className={cn(
                                     'text-[10px] sm:text-[11px] font-bold tracking-[0.15em] transition-colors pb-4 relative shrink-0',
-                                    i === TABS.length - 1 && 'ml-4', // M-03: Extra spacing before AI tab
+                                    i === TABS.length - 1 && 'ml-2', // M-03: Subtle spacing before AI tab
                                     activeTab === tab
                                         ? 'text-white'
                                         : 'text-zinc-600 hover:text-zinc-400'
