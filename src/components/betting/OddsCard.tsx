@@ -121,11 +121,16 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
             "relative",
             isStale && "opacity-50 grayscale"
         )}>
+            {isStale && (
+                <div className="absolute top-0 right-0 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 z-10">
+                    <span className="font-mono text-[8px] font-bold tracking-wider text-red-400">STALE</span>
+                </div>
+            )}
             {/* Section Header - Elite Style */}
             <div className="flex items-center gap-2 mb-5">
                 <div className={cn(
                     "w-1.5 h-1.5 rounded-full",
-                    isFinal ? "bg-zinc-500" : isLive ? "bg-emerald-500 animate-pulse" : "bg-zinc-600"
+                    isFinal ? "bg-zinc-500" : isLive ? "bg-emerald-500 motion-safe:animate-pulse" : "bg-zinc-600"
                 )} />
                 <span className="text-caption font-bold text-zinc-500 uppercase tracking-widest">
                     {oddsLabel}
