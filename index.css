@@ -157,6 +157,12 @@ input, textarea {
   animation: flash-green 1.2s ease-out;
 }
 
+/* Landing → App transition */
+@keyframes fadeInApp {
+  0% { opacity: 0; transform: scale(1.01); filter: blur(4px); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
 /* AI Streaming pulse */
 @keyframes pulse-subtle {
   0%, 100% {

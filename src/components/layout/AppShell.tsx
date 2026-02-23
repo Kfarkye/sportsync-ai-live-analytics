@@ -78,11 +78,27 @@ const AppShell: FC = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [toggleCmdk, selectedMatch, setSelectedMatch, closeAllOverlays]);
 
-  if (showLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
+  if (showLanding) {
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="landing"
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0, scale: 0.98, filter: 'blur(8px)' }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <LandingPage onEnter={() => setShowLanding(false)} />
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="min-h-screen h-screen bg-black text-[#FAFAFA] font-sans selection:bg-[#0A84FF]/30 relative flex flex-col antialiased">
+    <div
+      className="min-h-screen h-screen bg-black text-[#FAFAFA] font-sans selection:bg-[#0A84FF]/30 relative flex flex-col antialiased"
+      style={{ animation: 'fadeInApp 0.6s ease-out' }}
+    >
       <a href="#main-content" className="skip-link">Skip to content</a>
       <UnifiedHeader />
 
