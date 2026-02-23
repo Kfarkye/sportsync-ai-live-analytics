@@ -8,6 +8,7 @@ import MatchList from '../match/MatchList';
 import { FeedSkeleton } from '../ui/Skeleton';
 import MatchDetails from '../match/MatchDetails';
 import ChatWidget from '../ChatWidget';
+import { ObsidianToaster, obsidianToast } from '../ui/Toast';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
 import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
@@ -121,7 +122,11 @@ const AppShell: FC = () => {
                     onSelectMatch={setSelectedMatch}
                     isLoading={isLoading}
                     pinnedMatchIds={pinnedSet}
-                    onTogglePin={(id, e) => togglePin(id)}
+                    onTogglePin={(id, e) => {
+                      const wasPinned = pinnedSet.has(id);
+                      togglePin(id);
+                      obsidianToast.action(wasPinned ? 'Removed from Watchlist' : 'Added to Watchlist');
+                    }}
                     isMatchLive={(m) => isGameInProgress(m.status)}
                     isMatchFinal={(m) => isGameFinished(m.status)}
                     onOpenPricing={() => togglePricingModal(true)}
@@ -198,6 +203,7 @@ const AppShell: FC = () => {
         <AuthModal isOpen={isAuthModalOpen} onClose={() => toggleAuthModal(false)} />
         <PricingModal isOpen={isPricingModalOpen} onClose={() => togglePricingModal(false)} />
       </Suspense>
+      <ObsidianToaster />
     </div >
   );
 };
