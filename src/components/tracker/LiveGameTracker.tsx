@@ -147,6 +147,7 @@ interface GameViewModel {
         displayDate: string;
         hasData: boolean;
         league: string;
+        startLabel: string;
     };
     teams: {
         home: TeamViewModel;
@@ -535,6 +536,13 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
                         match.lastPlay
                 ),
                 league: league.replace(/_/g, ' '),
+                startLabel: ['NFL', 'CFB', 'COLLEGE_FOOTBALL'].some(s => league.includes(s)) ? 'KICKOFF'
+                    : ['NBA', 'CBB', 'NCAAB', 'WNBA'].some(s => league.includes(s)) ? 'TIP-OFF'
+                    : ['NHL'].some(s => league.includes(s)) ? 'PUCK DROP'
+                    : ['MLB'].some(s => league.includes(s)) ? 'FIRST PITCH'
+                    : ['SOCCER', 'MLS', 'EPL', 'LIGA', 'SERIE', 'BUNDESLIGA', 'LIGUE', 'UCL', 'UEL', 'WORLD'].some(s => league.includes(s)) ? 'KICK-OFF'
+                    : ['TENNIS'].some(s => league.includes(s)) ? 'FIRST SERVE'
+                    : 'START',
             },
             teams: {
                 home: {
@@ -1190,16 +1198,23 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                     {/* Center Stage: Score vs Pregame Time */}
                     <div className={cn('flex flex-col items-center justify-start min-w-[140px]', centerBlockPaddingTop)}>
                         {isPregame ? (
-                            <div className="flex flex-col items-center gap-2">
-                                <span className="text-[38px] sm:text-[52px] font-medium tracking-[-0.04em] tabular-nums text-white">
-                                    {meta.displayClock}
+                            <div className="flex flex-col items-center">
+                                <div className="flex items-baseline">
+                                    <span
+                                        className="text-[42px] sm:text-[52px] font-light tracking-[-0.03em] tabular-nums text-white"
+                                        style={{ fontFeatureSettings: '"tnum" on, "lnum" on' }}
+                                    >
+                                        {meta.displayClock}
+                                    </span>
+                                </div>
+                                <span className="text-caption font-medium text-zinc-600 uppercase tracking-widest mt-1">
+                                    {meta.startLabel}
                                 </span>
-                                <span className="text-caption font-medium text-white/40 uppercase tracking-loose">
-                                    Tip-Off
-                                </span>
-                                <span className="text-footnote font-mono font-medium text-zinc-500 tracking-wide">
-                                    {betting.matchupStr}
-                                </span>
+                                {betting.matchupStr && (
+                                    <span className="text-footnote font-mono font-medium text-zinc-500 tracking-wide mt-3">
+                                        {betting.matchupStr}
+                                    </span>
+                                )}
                             </div>
                         ) : (
                             <div className="flex flex-col items-center gap-4">
