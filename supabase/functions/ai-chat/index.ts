@@ -3,6 +3,7 @@ declare const Deno: any;
 
 import { createClient } from "@supabase/supabase-js";
 import { executeStreamingAnalyticalQuery, executeAnalyticalQuery, executeEmbeddingQuery, safeJsonParse } from "../_shared/gemini.ts";
+import { noVigProb } from "../_shared/oddsUtils.ts";
 import { getActiveModel, getFallbackModel, ModelConfig } from "../_shared/model-registry.ts";
 import { LLMRequest } from "../_shared/llm-adapter.ts";
 import { executeGPT52StreamingQuery } from "../_shared/openai.ts";
@@ -1056,9 +1057,32 @@ Apply the full analytical framework. If the edge isn't structural, PASS.
                 const currentSpread = dbOdds?.current?.homeSpread ?? null;
                 const currentTotal = dbOdds?.current?.total ?? null;
 
-                const calcImpliedProb = (spread: number | null): number | null => {
-                  if (spread === null) return null;
-                  return Math.round(50 - (spread * 3));
+                // Compute true (no-vig) implied probability for the picked side.
+                // Uses the actual odds from both sides of the market, not a linear heuristic.
+                const getImpliedProb = (pick: any): number | null => {
+                  const pickOdds = pick.pick_odds;
+                  if (!pickOdds || !dbOdds?.current) return null;
+
+                  let otherOdds: number | null = null;
+                  if (pick.pick_type === 'spread') {
+                    // Determine which side was picked, get the other side's odds
+                    otherOdds = pick.pick_side?.toLowerCase() === 'home'
+                      ? (dbOdds.current.awaySpreadOdds ?? null)
+                      : (dbOdds.current.homeSpreadOdds ?? null);
+                  } else if (pick.pick_type === 'total') {
+                    otherOdds = pick.pick_side?.toLowerCase() === 'over'
+                      ? (dbOdds.current.underOdds ?? null)
+                      : (dbOdds.current.overOdds ?? null);
+                  } else if (pick.pick_type === 'moneyline') {
+                    otherOdds = pick.pick_side?.toLowerCase() === 'home'
+                      ? (dbOdds.current.awayWin ?? null)
+                      : (dbOdds.current.homeWin ?? null);
+                  }
+
+                  // Fallback: if we don't know the other side, assume standard -110
+                  if (otherOdds === null) otherOdds = -110;
+                  const prob = noVigProb(pickOdds, otherOdds);
+                  return prob !== null ? Math.round(prob * 100) : null;
                 };
 
                 const pickRecords = extractedPicks.map(pick => {
@@ -1089,7 +1113,7 @@ Apply the full analytical framework. If the edge isn't structural, PASS.
                     game_start_time: current_match.start_time || null,
                     result: 'pending',
                     opening_line: relevantOpening,
-                    implied_probability: pick.pick_type === 'spread' ? calcImpliedProb(pick.pick_line) : null,
+                    implied_probability: getImpliedProb(pick),
                     market_alpha: lineMovement
                   };
                 });
