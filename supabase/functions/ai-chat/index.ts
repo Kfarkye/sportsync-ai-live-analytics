@@ -6,6 +6,7 @@ import { executeStreamingAnalyticalQuery, executeAnalyticalQuery, executeEmbeddi
 import { getActiveModel, getFallbackModel, ModelConfig } from "../_shared/model-registry.ts";
 import { LLMRequest } from "../_shared/llm-adapter.ts";
 import { executeGPT52StreamingQuery } from "../_shared/openai.ts";
+import { americanToImplied, devig2Way } from "../_shared/oddsUtils.ts";
 
 
 const CONFIG = {
@@ -1056,9 +1057,30 @@ Apply the full analytical framework. If the edge isn't structural, PASS.
                 const currentSpread = dbOdds?.current?.homeSpread ?? null;
                 const currentTotal = dbOdds?.current?.total ?? null;
 
-                const calcImpliedProb = (spread: number | null): number | null => {
-                  if (spread === null) return null;
-                  return Math.round(50 - (spread * 3));
+                // Proper devig: derive no-vig implied probability from actual market prices.
+                // Falls back to moneyline-based devig when spread juice isn't available.
+                const calcImpliedProb = (pick: typeof extractedPicks[0]): number | null => {
+                  if (pick.pick_type === 'moneyline' && dbOdds?.current) {
+                    const hML = dbOdds.current.homeWin ?? dbOdds.current.homeML;
+                    const aML = dbOdds.current.awayWin ?? dbOdds.current.awayML;
+                    if (hML && aML) {
+                      const { probA, probB } = devig2Way(hML, aML);
+                      return Math.round((pick.pick_side === 'HOME' ? probA : probB) * 100);
+                    }
+                  }
+                  if (pick.pick_type === 'spread') {
+                    const hOdds = dbOdds?.current?.homeSpreadOdds ?? -110;
+                    const aOdds = dbOdds?.current?.awaySpreadOdds ?? -110;
+                    const { probA, probB } = devig2Way(hOdds, aOdds);
+                    return Math.round((pick.pick_side === 'HOME' ? probA : probB) * 100);
+                  }
+                  if (pick.pick_type === 'total') {
+                    const oOdds = dbOdds?.current?.overOdds ?? -110;
+                    const uOdds = dbOdds?.current?.underOdds ?? -110;
+                    const { probA, probB } = devig2Way(oOdds, uOdds);
+                    return Math.round((pick.pick_side === 'OVER' ? probA : probB) * 100);
+                  }
+                  return null;
                 };
 
                 const pickRecords = extractedPicks.map(pick => {
@@ -1089,7 +1111,7 @@ Apply the full analytical framework. If the edge isn't structural, PASS.
                     game_start_time: current_match.start_time || null,
                     result: 'pending',
                     opening_line: relevantOpening,
-                    implied_probability: pick.pick_type === 'spread' ? calcImpliedProb(pick.pick_line) : null,
+                    implied_probability: calcImpliedProb(pick),
                     market_alpha: lineMovement
                   };
                 });
