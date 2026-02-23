@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 // Internal imports — Replace with your actual project structure
-import { type Match, type StatItem } from '@/types';
+import { type Match, type StatItem, Sport, type Linescore } from '@/types';
 import TeamLogo from '../shared/TeamLogo';
 import { cn } from '@/lib/essence';
 import { isGameFinished } from '../../utils/matchUtils';
@@ -1071,6 +1071,77 @@ PredictionCard.displayName = 'PredictionCard';
 
 type ScoreHeaderVariant = 'full' | 'embedded';
 
+// ============================================================================
+// 8a. TENNIS SCORE HEADER COMPONENTS
+// ============================================================================
+
+/** Country flag for tennis players */
+const TennisFlag: FC<{ flag?: string; name: string; className?: string }> = ({ flag, name, className }) => {
+    if (!flag) return <div className={cn("bg-zinc-800 rounded-[2px] flex items-center justify-center text-[9px] font-bold text-zinc-500", className)}>{name.slice(0, 2).toUpperCase()}</div>;
+    return (
+        <div className={cn("overflow-hidden rounded-[3px] shadow-md border border-white/10", className)}>
+            <img src={flag} alt="" className="w-full h-full object-cover" />
+        </div>
+    );
+};
+
+/** Set-by-set scores for tennis scoreboard */
+const TennisScoreGrid: FC<{ match: Match }> = ({ match }) => {
+    const awayLS = match.awayTeam?.linescores || [];
+    const homeLS = match.homeTeam?.linescores || [];
+    const maxSets = Math.max(awayLS.length, homeLS.length, 1);
+
+    return (
+        <div className="flex flex-col items-center gap-0">
+            {/* Set column headers */}
+            <div className="flex items-center gap-0 mb-1">
+                <div className="w-[100px]" /> {/* Name spacer */}
+                {Array.from({ length: maxSets }, (_, i) => (
+                    <div key={i} className="w-9 text-center text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
+                        S{i + 1}
+                    </div>
+                ))}
+            </div>
+            {/* Player rows */}
+            {[
+                { team: match.awayTeam, ls: awayLS, score: match.awayScore },
+                { team: match.homeTeam, ls: homeLS, score: match.homeScore },
+            ].map(({ team, ls }, rowIdx) => {
+                const lastName = team.name.split(' ').pop() || team.name;
+                return (
+                    <div key={rowIdx} className={cn(
+                        "flex items-center gap-0 py-2",
+                        rowIdx === 0 && "border-b border-white/[0.06]"
+                    )}>
+                        {/* Player name + flag */}
+                        <div className="w-[100px] flex items-center gap-2 pr-3">
+                            <TennisFlag flag={team.flag} name={team.name} className="w-5 h-3.5 shrink-0" />
+                            <span className="text-sm font-semibold text-white truncate tracking-tight">{lastName}</span>
+                        </div>
+                        {/* Set scores */}
+                        {Array.from({ length: maxSets }, (_, i) => {
+                            const set = ls[i];
+                            return (
+                                <div key={i} className="w-9 text-center">
+                                    <span className={cn(
+                                        "font-mono text-base tabular-nums",
+                                        set?.winner ? "text-white font-bold" : "text-zinc-500 font-medium"
+                                    )}>
+                                        {set?.value ?? '-'}
+                                    </span>
+                                    {set?.tiebreak && (
+                                        <sup className="text-[9px] text-zinc-500 ml-px">{set.tiebreak}</sup>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
 export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: ScoreHeaderVariant }> = memo(
     ({ match, onBack, variant = 'full' }) => {
         const vm = useGameViewModel(match as ExtendedMatch);
@@ -1082,6 +1153,10 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
 
         const { teams, meta, betting } = vm;
         const isPregame = meta.isPregame;
+        const isTennis = match.sport === Sport.TENNIS;
+        const tennisRound = match.round
+            ? match.round.replace('Qualifying ', 'Q').replace('Round of ', 'R').replace('Round ', 'R')
+            : null;
         const isEmbedded = variant === 'embedded';
         const showTopBar = !isEmbedded;
         const showTabs = !isEmbedded;
@@ -1164,19 +1239,23 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                         gridMarginBottom
                     )}
                 >
-                    {/* Away Team */}
+                    {/* Away Team / Player 1 */}
                     <div className="flex flex-col items-center gap-3 text-center">
                         <div className="relative mb-2">
                             <div
                                 className="absolute inset-[-10px] rounded-full blur-2xl opacity-20"
                                 style={{ background: teams.away.color }}
                             />
-                            <div className={cn('flex items-center justify-center bg-overlay-subtle rounded-full border border-white/[0.05]', logoSize)}>
-                            <TeamLogo
-                                logo={teams.away.logo}
-                                className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
-                            />
-                        </div>
+                            {isTennis ? (
+                                <TennisFlag flag={match.awayTeam?.flag} name={teams.away.name} className={cn(isEmbedded ? 'w-14 h-10' : 'w-16 h-11')} />
+                            ) : (
+                                <div className={cn('flex items-center justify-center bg-overlay-subtle rounded-full border border-white/[0.05]', logoSize)}>
+                                <TeamLogo
+                                    logo={teams.away.logo}
+                                    className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
+                                />
+                            </div>
+                            )}
                         </div>
                         <div className="text-center">
                             {/* Name on Pregame, Abbr on Live */}
@@ -1216,6 +1295,20 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                     </span>
                                 )}
                             </div>
+                        ) : isTennis ? (
+                            /* Tennis: Set-by-set score grid */
+                            <div className="flex flex-col items-center gap-3">
+                                <TennisScoreGrid match={match} />
+                                <div className="flex items-center gap-3 text-footnote font-medium tracking-widest uppercase">
+                                    <span className="text-white/40">{statusLabel}</span>
+                                    {tennisRound && (
+                                        <>
+                                            <span className="w-1 h-1 rounded-full bg-amber-400/80" />
+                                            <span className="text-amber-400 font-mono tracking-widest">{tennisRound}</span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
                         ) : (
                             <div className="flex flex-col items-center gap-4">
                                 <div className="flex items-baseline gap-6 sm:gap-12">
@@ -1241,19 +1334,23 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                         )}
                     </div>
 
-                    {/* Home Team */}
+                    {/* Home Team / Player 2 */}
                     <div className="flex flex-col items-center gap-3 text-center">
                         <div className="relative mb-2">
                             <div
                                 className="absolute inset-[-10px] rounded-full blur-2xl opacity-20"
                                 style={{ background: teams.home.color }}
                             />
-                            <div className={cn('flex items-center justify-center bg-overlay-subtle rounded-full border border-white/[0.05]', logoSize)}>
-                            <TeamLogo
-                                logo={teams.home.logo}
-                                className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
-                            />
-                        </div>
+                            {isTennis ? (
+                                <TennisFlag flag={match.homeTeam?.flag} name={teams.home.name} className={cn(isEmbedded ? 'w-14 h-10' : 'w-16 h-11')} />
+                            ) : (
+                                <div className={cn('flex items-center justify-center bg-overlay-subtle rounded-full border border-white/[0.05]', logoSize)}>
+                                <TeamLogo
+                                    logo={teams.home.logo}
+                                    className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
+                                />
+                            </div>
+                            )}
                         </div>
                         <div className="text-center">
                             <h2 className={cn(nameText, 'font-bold text-white tracking-tight leading-tight')}>
