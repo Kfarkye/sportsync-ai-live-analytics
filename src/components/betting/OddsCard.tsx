@@ -121,11 +121,16 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
             "relative",
             isStale && "opacity-50 grayscale"
         )}>
+            {isStale && (
+                <div className="absolute top-0 right-0 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 z-10">
+                    <span className="font-mono text-[8px] font-bold tracking-wider text-red-400">STALE</span>
+                </div>
+            )}
             {/* Section Header - Elite Style */}
             <div className="flex items-center gap-2 mb-5">
                 <div className={cn(
                     "w-1.5 h-1.5 rounded-full",
-                    isFinal ? "bg-zinc-500" : isLive ? "bg-emerald-500 animate-pulse" : "bg-zinc-600"
+                    isFinal ? "bg-zinc-500" : isLive ? "bg-emerald-500 motion-safe:animate-pulse" : "bg-zinc-600"
                 )} />
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">
                     {oddsLabel}
@@ -152,7 +157,7 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
             </div>
 
             {/* Away Team Row */}
-            <div className="flex items-center gap-4 py-4 border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150 -mx-2 px-2 rounded-lg">
+            <div className="flex items-center gap-4 py-4 border-b border-white/[0.04] hover:bg-white/[0.02] focus-within:bg-white/[0.03] transition-colors duration-150 -mx-2 px-2 rounded-lg">
                 <div className="w-28 flex items-center gap-2.5 shrink-0">
                     <TeamLogo logo={match.awayTeam.logo} className="w-7 h-7 drop-shadow-md" />
                     <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-[0.1em]">
@@ -167,7 +172,7 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
             </div>
 
             {/* Home Team Row */}
-            <div className="flex items-center gap-4 py-4 border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150 -mx-2 px-2 rounded-lg">
+            <div className="flex items-center gap-4 py-4 border-b border-white/[0.04] hover:bg-white/[0.02] focus-within:bg-white/[0.03] transition-colors duration-150 -mx-2 px-2 rounded-lg">
                 <div className="w-28 flex items-center gap-2.5 shrink-0">
                     <TeamLogo logo={match.homeTeam.logo} className="w-7 h-7 drop-shadow-md" />
                     <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-[0.1em]">

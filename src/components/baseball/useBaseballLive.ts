@@ -13,16 +13,16 @@ import type { BaseballLiveData } from './types';
  * Live: aggressive (10s). Scheduled: lazy (60s). Final: disabled.
  */
 const POLL_INTERVALS: Record<string, number | false> = {
-    LIVE: 10_000,
-    HALFTIME: 15_000,
-    SCHEDULED: 60_000,
-    FINISHED: false,
-    POSTPONED: false,
-    CANCELLED: false,
+  LIVE: 10_000,
+  HALFTIME: 15_000,
+  SCHEDULED: 60_000,
+  FINISHED: false,
+  POSTPONED: false,
+  CANCELLED: false,
 };
 
 function getRefetchInterval(status: MatchStatus | string): number | false {
-    return POLL_INTERVALS[status] ?? 30_000;
+  return POLL_INTERVALS[status] ?? 30_000;
 }
 
 /**
@@ -35,28 +35,28 @@ function getRefetchInterval(status: MatchStatus | string): number | false {
  * or returns null, the component renders with Match data alone.
  */
 async function fetchBaseballLiveData(matchId: string): Promise<BaseballLiveData | null> {
-    try {
-        const { data, error } = await supabase.functions.invoke('baseball-live', {
-            body: { matchId },
-        });
+  try {
+    const { data, error } = await supabase.functions.invoke('baseball-live', {
+      body: { matchId },
+    });
 
-        if (error) {
-            // Non-fatal: edge function may not be deployed yet
-            if (process.env.NODE_ENV === 'development') {
-                console.warn('[useBaseballLive] Edge function error:', error.message);
-            }
-            return null;
-        }
-
-        if (!data || typeof data !== 'object') return null;
-
-        return data as BaseballLiveData;
-    } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-            console.warn('[useBaseballLive] Fetch failed:', err);
-        }
-        return null;
+    if (error) {
+      // Non-fatal: edge function may not be deployed yet
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[useBaseballLive] Edge function error:', error.message);
+      }
+      return null;
     }
+
+    if (!data || typeof data !== 'object') return null;
+
+    return data as BaseballLiveData;
+  } catch (err) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[useBaseballLive] Fetch failed:', err);
+    }
+    return null;
+  }
 }
 
 /**
@@ -78,24 +78,24 @@ async function fetchBaseballLiveData(matchId: string): Promise<BaseballLiveData 
  * }
  */
 export function useBaseballLive(
-    matchId: string,
-    status: MatchStatus | string,
-    enabled = true,
+  matchId: string,
+  status: MatchStatus | string,
+  enabled = true,
 ) {
-    const refetchInterval = getRefetchInterval(status);
+  const refetchInterval = getRefetchInterval(status);
 
-    return useQuery<BaseballLiveData | null>({
-        queryKey: ['baseball-live', matchId],
-        queryFn: () => fetchBaseballLiveData(matchId),
-        enabled: enabled && !!matchId,
-        refetchInterval: refetchInterval || undefined,
-        refetchIntervalInBackground: false,
-        staleTime: typeof refetchInterval === 'number' ? refetchInterval * 0.8 : 30_000,
-        retry: 2,
-        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
-        // Don't throw — the component handles null gracefully
-        throwOnError: false,
-    });
+  return useQuery<BaseballLiveData | null>({
+    queryKey: ['baseball-live', matchId],
+    queryFn: () => fetchBaseballLiveData(matchId),
+    enabled: enabled && !!matchId,
+    refetchInterval: refetchInterval || undefined,
+    refetchIntervalInBackground: false,
+    staleTime: typeof refetchInterval === 'number' ? refetchInterval * 0.8 : 30_000,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
+    // Don't throw — the component handles null gracefully
+    throwOnError: false,
+  });
 }
 
 export default useBaseballLive;

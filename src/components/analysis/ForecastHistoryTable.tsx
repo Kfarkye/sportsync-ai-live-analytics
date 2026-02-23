@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { cn } from '@/lib/essence';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, BarChart3 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface ForecastSnapshot {
     id: string;
@@ -69,12 +70,18 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
     if (loading && snapshots.length === 0) {
         return (
             <div className="flex items-center justify-center p-8">
-                <div className="w-6 h-6 border-2 border-zinc-800 border-t-zinc-500 rounded-full animate-spin" />
+                <div className="w-6 h-6 border-2 border-zinc-800 border-t-zinc-500 rounded-full motion-safe:animate-spin" />
             </div>
         );
     }
 
-    if (snapshots.length === 0) return null;
+    if (snapshots.length === 0) return (
+        <EmptyState
+            icon={<BarChart3 size={24} />}
+            message="No forecast snapshots yet"
+            description="Forecast data appears once the game goes live"
+        />
+    );
 
     return (
         <div className="w-full">
@@ -87,11 +94,11 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="border-b border-white/[0.04]">
-                            <th className="py-3 px-2 text-[9px] font-black text-zinc-500 uppercase tracking-widest">Time</th>
-                            <th className="py-3 px-2 text-[9px] font-black text-zinc-500 uppercase tracking-widest text-center">Score</th>
-                            <th className="py-3 px-2 text-[9px] font-black text-zinc-500 uppercase tracking-widest text-center">Fair</th>
-                            <th className="py-3 px-2 text-[9px] font-black text-zinc-500 uppercase tracking-widest text-center">Market</th>
-                            <th className="py-3 px-2 text-[9px] font-black text-zinc-500 uppercase tracking-widest text-center">Edge</th>
+                            <th className="py-3 px-2 text-[9px] font-black text-zinc-400 uppercase tracking-widest">Time</th>
+                            <th className="py-3 px-2 text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center">Score</th>
+                            <th className="py-3 px-2 text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center">Fair</th>
+                            <th className="py-3 px-2 text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center">Market</th>
+                            <th className="py-3 px-2 text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center">Edge</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.02]">

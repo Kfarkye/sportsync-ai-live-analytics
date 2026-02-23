@@ -38,7 +38,7 @@ export const Card = ({ children, className, variant = "default", hover = false, 
                 <div
                     className={cn(
                         "absolute top-0 left-0 right-0 h-px z-20",
-                        livePulse && "animate-[breathe_3.5s_ease-in-out_infinite]"
+                        livePulse && "motion-safe:animate-[breathe_3.5s_ease-in-out_infinite]"
                     )}
                     style={{
                         background: `linear-gradient(90deg, transparent, ${ESSENCE.colors.accent.mintEdge} 30%, ${ESSENCE.colors.accent.mintEdge} 70%, transparent)`,
