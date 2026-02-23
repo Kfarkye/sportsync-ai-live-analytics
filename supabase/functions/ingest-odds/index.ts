@@ -452,26 +452,39 @@ async function syncToMatches(supabase: any, oddsData: any[], sportKey: string, r
     }
 }
 
+// 6-tier sharp book priority: lower = sharper.
+// Pinnacle is the global benchmark, Circa the US sharp benchmark.
+const SHARP_BOOK_PRIORITY: Record<string, number> = {
+    'pinnacle': 1,
+    'circa': 2, 'circa sports': 2,
+    'betonlineag': 3, 'betonline.ag': 3, 'betonline': 3,
+    'draftkings': 4, 'fanduel': 4,
+    'betmgm': 5,
+};
+const MAX_BOOK_TIER = 6; // everything else
+
+function getBookTier(title: string): number {
+    const key = (title || '').toLowerCase().replace(/[^a-z.]/g, '');
+    return SHARP_BOOK_PRIORITY[key] ?? MAX_BOOK_TIER;
+}
+
 function calculateAnchorLines(bookmakers: any[], homeTeam: string, awayTeam: string, sport: string, isLive: boolean, mappingCache?: Map<string, string>) {
     const best: any = { h2h: null, spread: null, total: null }
-    const timestamps: any = { h2h: 0, spread: 0, total: 0 }
+    const bestTier: any = { h2h: MAX_BOOK_TIER + 1, spread: MAX_BOOK_TIER + 1, total: MAX_BOOK_TIER + 1 }
 
     const resolve = (name: string) => mappingCache?.get(name) || name;
     const normHome = normalizeTeam(resolve(homeTeam))
     const normAway = normalizeTeam(resolve(awayTeam))
 
-    if (sport.includes('nba')) {
-        Logger.info('DEBUG_ANCHOR_NBA', { homeTeam, awayTeam, normHome, normAway, hasCache: !!mappingCache });
-    }
-
     for (const book of bookmakers) {
-        const bookTs = new Date(book.last_update || 0).getTime()
+        const tier = getBookTier(book.title)
         for (const market of book.markets) {
             const type = market.key === 'h2h' ? 'h2h' : (market.key === 'spreads' ? 'spread' : (market.key === 'totals' ? 'total' : null))
             if (!type) continue
 
-            if (bookTs > timestamps[type]) {
-                timestamps[type] = bookTs
+            // Accept this book only if it's at least as sharp as current best
+            if (tier < bestTier[type]) {
+                bestTier[type] = tier
                 if (type === 'h2h') {
                     const home = market.outcomes.find((o: any) => normalizeTeam(resolve(o.name)) === normHome)
                     const away = market.outcomes.find((o: any) => normalizeTeam(resolve(o.name)) === normAway)
