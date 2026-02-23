@@ -11,7 +11,7 @@
      - Aligned :root variables with ESSENCE design system
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -102,7 +102,7 @@ input, textarea {
 
 /* Institutional Monospace (used by BettingResultCell, LiveAnalysisCard) */
 .font-mono-ledger {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Geist Mono', 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
 }
@@ -249,4 +249,62 @@ a[href*="google.com/search"]:not([class]) { display: none; }
     rgba(255, 255, 255, 0.06) 85%,
     transparent
   );
+}
+
+/* ==========================================================================
+   §12  ACCESSIBILITY — Focus Visible + Reduced Motion
+   ==========================================================================
+   Linear: "We spent a lot of time on accessibility details."
+   Apple Liquid Glass adapts to Increase Contrast mode.
+   ========================================================================== */
+
+/* Global focus ring — keyboard only (invisible for mouse/touch) */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Accent ring for interactive elements */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline-color: rgba(52, 211, 153, 0.4);
+}
+
+/* Reduced Motion — disables CSS animations/transitions.
+   Framer's MotionConfig reducedMotion="user" handles spring animations. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Skip Link — screen reader users */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 100;
+  padding: 8px 16px;
+  background: #000;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: 16px;
 }

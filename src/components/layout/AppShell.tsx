@@ -1,5 +1,5 @@
 import React, { FC, lazy, Suspense, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import { useAppStore, usePinStore } from '../../store/appStore';
 import { useMatches } from '../../hooks/useMatches';
 import { UnifiedHeader } from './UnifiedHeader';
@@ -81,10 +81,13 @@ const AppShell: FC = () => {
   if (showLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen h-screen bg-black text-[#FAFAFA] font-sans selection:bg-[#0A84FF]/30 relative flex flex-col antialiased">
+      <a href="#main-content" className="skip-link">Skip to content</a>
       <UnifiedHeader />
 
       <MotionMain
+        id="main-content"
         className="flex-1 w-full overflow-y-auto"
       >
         <div className="max-w-7xl mx-auto px-4 md:px-6 pb-32">
@@ -205,6 +208,7 @@ const AppShell: FC = () => {
       </Suspense>
       <ObsidianToaster />
     </div >
+    </MotionConfig>
   );
 };
 

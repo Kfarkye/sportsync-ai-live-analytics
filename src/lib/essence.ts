@@ -269,6 +269,17 @@ export const ESSENCE = {
   },
 
   // ==========================================================================
+  // §12b  ACCESSIBILITY
+  // ==========================================================================
+  a11y: {
+    focusRing:        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
+    focusRingAccent:  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
+    focusRingInset:   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/20',
+    srOnly:           'sr-only',
+    skipLink:         'sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-black focus:text-white focus:rounded-lg focus:border focus:border-white/20',
+  },
+
+  // ==========================================================================
   // §13  NAVIGATION & HEADER
   // ==========================================================================
   nav: {
