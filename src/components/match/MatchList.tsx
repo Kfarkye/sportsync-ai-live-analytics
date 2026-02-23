@@ -7,6 +7,7 @@ import TeamLogo from '../shared/TeamLogo';
 import { LayoutGroup, motion } from 'framer-motion';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { useAppStore } from '../../store/appStore';
+import { FeedSkeleton } from '../ui/Skeleton';
 
 interface MatchListProps {
     matches: Match[];
@@ -148,16 +149,6 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
     );
 };
 
-const MatchRowSkeleton = () => (
-    <div className="w-full h-[72px] border-b border-edge flex items-center animate-pulse">
-        <div className="w-[80px] h-full border-r border-edge-subtle bg-overlay-ghost" />
-        <div className="flex-1 px-6 flex flex-col gap-2">
-            <div className="h-3 w-32 bg-white/5 rounded" />
-            <div className="h-3 w-24 bg-white/5 rounded" />
-        </div>
-    </div>
-);
-
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -235,13 +226,7 @@ const MatchList: React.FC<MatchListProps> = ({
     }, [matches, pinnedMatchIds, isMatchLive]);
 
     if (isLoading && matches.length === 0) {
-        return (
-            <div className="max-w-7xl mx-auto w-full pt-4">
-                <div className="border-t border-edge-strong">
-                    {[1, 2, 3, 4, 5, 6].map(i => <MatchRowSkeleton key={i} />)}
-                </div>
-            </div>
-        );
+        return <FeedSkeleton />;
     }
 
     if (matches.length === 0) {
@@ -323,16 +308,26 @@ const MatchList: React.FC<MatchListProps> = ({
                                             )}
 
                                             <div className="border-b border-edge">
-                                                {leagueMatches.map(match => (
-                                                    <MatchRow
+                                                {leagueMatches.map((match, rowIndex) => (
+                                                    <MotionDiv
                                                         key={match.id}
-                                                        match={match}
-                                                        isPinned={pinnedMatchIds.has(match.id)}
-                                                        isLive={isMatchLive(match)}
-                                                        isFinal={isMatchFinal(match)}
-                                                        onSelect={() => onSelectMatch(match)}
-                                                        onTogglePin={(e) => onTogglePin(match.id, e)}
-                                                    />
+                                                        initial={{ opacity: 0, y: 6 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        transition={{
+                                                            duration: 0.3,
+                                                            delay: groupIndex * 0.06 + rowIndex * 0.03,
+                                                            ease: [0.22, 1, 0.36, 1],
+                                                        }}
+                                                    >
+                                                        <MatchRow
+                                                            match={match}
+                                                            isPinned={pinnedMatchIds.has(match.id)}
+                                                            isLive={isMatchLive(match)}
+                                                            isFinal={isMatchFinal(match)}
+                                                            onSelect={() => onSelectMatch(match)}
+                                                            onTogglePin={(e) => onTogglePin(match.id, e)}
+                                                        />
+                                                    </MotionDiv>
                                                 ))}
                                             </div>
                                         </MotionDiv>
