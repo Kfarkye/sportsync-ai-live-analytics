@@ -6,15 +6,11 @@
  */
 
 // Core Layout
-export { CardShell } from './CardShell';
-export { default as CardShellDefault } from './CardShell';
 export { Card } from './Card';
 export { default as CardDefault } from './Card';
 
-// Headers & Titles  
+// Headers & Titles
 export { SectionHeader, CardHeader } from './SectionHeader';
-export { SectionTitle } from './SectionTitle';
-export { default as SectionTitleDefault } from './SectionTitle';
 
 // Status Indicators
 export { StatusChip } from './StatusChip';
