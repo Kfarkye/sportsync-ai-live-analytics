@@ -50,7 +50,7 @@ export const PropStreaksTable = ({ teamName }: { teamName?: string }) => {
             <div className="flex items-center justify-between py-3 border-b border-edge-subtle">
                 <div className="flex items-center gap-2">
                     <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
-                    <span className="text-footnote font-semibold text-zinc-400 uppercase tracking-[0.1em]">Hot Streaks</span>
+                    <span className="text-footnote font-semibold text-zinc-400 uppercase tracking-expanded">Hot Streaks</span>
                 </div>
                 <span className="text-caption font-medium text-zinc-600 uppercase tracking-wide">
                     Last 10 Games

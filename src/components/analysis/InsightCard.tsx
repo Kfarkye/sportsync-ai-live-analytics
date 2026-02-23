@@ -296,7 +296,7 @@ const BookFavicon = ({ offer }: { offer: BookOffer }) => {
 
 const BookTicker = ({ offers, bestOdds }: { offers: BookOffer[]; bestOdds: string }) => (
   <div className="flex flex-col items-end gap-2">
-    <div className="px-2.5 py-1 rounded-lg border border-white/[0.08] bg-overlay-subtle">
+    <div className="px-2.5 py-1 rounded-lg border border-edge-strong bg-overlay-subtle">
       <span className="text-body-sm font-mono font-bold text-white tabular-nums">{bestOdds}</span>
     </div>
     <div className="flex items-center gap-3">
@@ -502,7 +502,7 @@ export const InsightCard = memo(({ data }: { data: InsightCardData }) => {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
-            className="absolute -top-2 right-10 z-50 bg-[#0b0b0c] border border-white/[0.08] rounded-xl shadow-2xl p-2 flex flex-col gap-1"
+            className="absolute -top-2 right-10 z-50 bg-surface-base border border-edge-strong rounded-xl shadow-2xl p-2 flex flex-col gap-1"
           >
             <button
               type="button"

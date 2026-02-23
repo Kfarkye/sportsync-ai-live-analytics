@@ -68,7 +68,7 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
         return (
             <div className={cn("w-full p-20 flex flex-col items-center justify-center gap-6", ESSENCE.card.base)}>
                 <div className="relative">
-                    <div className="absolute -inset-4 bg-white/[0.03] blur-xl rounded-full animate-pulse" />
+                    <div className="absolute -inset-4 bg-overlay-dim blur-xl rounded-full animate-pulse" />
                     <Bot size={40} className="text-zinc-700 animate-spin relative z-10" />
                 </div>
                 <div className="flex flex-col items-center gap-2">
@@ -146,11 +146,11 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
                                     isPositive ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]" : "bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.8)]"
                                 )} />
                             </div>
-                            <div className="text-label font-black text-zinc-600 uppercase tracking-[0.1em] mt-1">
+                            <div className="text-label font-black text-zinc-600 uppercase tracking-expanded mt-1">
                                 {getUnitLabel()} vs Market
                             </div>
                             {/* Market vs Model Row - Enhanced */}
-                            <div className="flex items-center gap-4 mt-5 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-edge">
+                            <div className="flex items-center gap-4 mt-5 px-4 py-2.5 rounded-xl bg-overlay-dim border border-edge">
                                 <div className="flex flex-col items-center">
                                     <span className="text-nano text-zinc-600 uppercase tracking-widest font-bold">Market</span>
                                     <span className="text-lg font-mono text-zinc-500 line-through decoration-zinc-600">{data.impliedLine.toFixed(1)}</span>
@@ -172,7 +172,7 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
 
                     {/* The Probability */}
                     {!isEfficient && (
-                        <div className="flex items-center gap-2.5 px-4 py-2 rounded-full border border-white/[0.08] bg-gradient-to-r from-white/[0.03] to-transparent">
+                        <div className="flex items-center gap-2.5 px-4 py-2 rounded-full border border-edge-strong bg-gradient-to-r from-white/[0.03] to-transparent">
                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
                             <span className="text-sm font-bold text-zinc-300 tracking-wide">
                                 {Math.round(data.confidence * 100)}% Relative Confidence

@@ -50,7 +50,7 @@ const SportCard: React.FC<{
       <div className={`
                 relative overflow-hidden rounded-2xl transition-all duration-300
                 ${isSelected
-          ? 'bg-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]'
+          ? 'bg-overlay-strong shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]'
           : 'bg-overlay-subtle hover:bg-overlay-muted shadow-[0_2px_8px_rgba(0,0,0,0.2)]'
         }
                 border border-edge-subtle
@@ -217,7 +217,7 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
             {/* Close Button - Minimal */}
             <button
               onClick={onClose}
-              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center bg-overlay-muted hover:bg-white/[0.08] rounded-full text-zinc-500 hover:text-white transition-all duration-200 border border-edge-subtle"
+              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center bg-overlay-muted hover:bg-overlay-strong rounded-full text-zinc-500 hover:text-white transition-all duration-200 border border-edge-subtle"
             >
               <X size={16} strokeWidth={2} />
             </button>
@@ -228,10 +228,10 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
                 {/* GLOBAL ALL SPORTS OPTION */}
                 <div>
                   <div className="flex items-center gap-3 px-1 mb-3">
-                    <span className="text-footnote font-semibold text-zinc-600 uppercase tracking-[0.12em]">
+                    <span className="text-footnote font-semibold text-zinc-600 uppercase tracking-spread">
                       Universe
                     </span>
-                    <div className="flex-1 h-px bg-white/[0.03]" />
+                    <div className="flex-1 h-px bg-overlay-dim" />
                   </div>
                   <SportCard
                     sport={'all'}
@@ -249,10 +249,10 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
                   <div key={category}>
                     {/* Category Label - Subtle Typography */}
                     <div className="flex items-center gap-3 px-1 mb-3">
-                      <span className="text-footnote font-semibold text-zinc-600 uppercase tracking-[0.12em]">
+                      <span className="text-footnote font-semibold text-zinc-600 uppercase tracking-spread">
                         {category}
                       </span>
-                      <div className="flex-1 h-px bg-white/[0.03]" />
+                      <div className="flex-1 h-px bg-overlay-dim" />
                     </div>
 
                     {/* Sport Cards */}

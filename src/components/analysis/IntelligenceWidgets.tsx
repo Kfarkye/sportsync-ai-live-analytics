@@ -44,7 +44,7 @@ export const PredictorWidget: React.FC<{ match: Match }> = React.memo(({ match }
             </div>
 
             {/* Probability Bar */}
-            <div className="h-2 w-full bg-white/[0.03] rounded-full overflow-hidden flex">
+            <div className="h-2 w-full bg-overlay-dim rounded-full overflow-hidden flex">
                 <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${awayChance}%` }}

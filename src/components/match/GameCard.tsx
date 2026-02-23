@@ -57,7 +57,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
     return (
         <div
             onClick={onSelect}
-            className="group relative overflow-hidden hover:border-white/[0.08] transition-all duration-200 cursor-pointer flex flex-col h-full hover:-translate-y-0.5 select-none"
+            className="group relative overflow-hidden hover:border-edge-strong transition-all duration-200 cursor-pointer flex flex-col h-full hover:-translate-y-0.5 select-none"
             style={{
                 backgroundColor: ESSENCE.colors.surface.card,
                 borderRadius: ESSENCE.radius.xl,
@@ -155,7 +155,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
             <div className="px-4 py-3 border-t border-edge-subtle flex items-center justify-between h-[52px]" style={{ backgroundColor: ESSENCE.colors.surface.elevated }}>
                 <div className="flex items-center gap-2">
                     {(match.odds?.spread !== null && match.odds?.spread !== undefined && match.odds.spread !== '-') && (
-                        <div className="flex flex-col items-start justify-center px-2.5 py-1 rounded bg-[#121212] border border-white/5 min-w-[64px]">
+                        <div className="flex flex-col items-start justify-center px-2.5 py-1 rounded bg-surface-elevated border border-white/5 min-w-[64px]">
                             <span className="text-label text-zinc-500 uppercase font-bold leading-none mb-1">Spread</span>
                             <span className="text-small font-mono font-bold text-white leading-none tracking-tight">
                                 {Number(match.odds.spread) === 0 ? 'PK' : match.odds.spread}
@@ -163,7 +163,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                         </div>
                     )}
                     {(match.odds?.overUnder !== null && match.odds?.overUnder !== undefined && match.odds.overUnder !== '-') && (
-                        <div className="flex flex-col items-start justify-center px-2.5 py-1 rounded bg-[#121212] border border-white/5 min-w-[64px]">
+                        <div className="flex flex-col items-start justify-center px-2.5 py-1 rounded bg-surface-elevated border border-white/5 min-w-[64px]">
                             <span className="text-label text-zinc-500 uppercase font-bold leading-none mb-1">Total</span>
                             <span className="text-small font-mono font-bold text-white leading-none tracking-tight">
                                 {String(match.odds.overUnder).replace(/[OU]/g, '').trim()}

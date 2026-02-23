@@ -618,7 +618,7 @@ const ObsidianPanel = memo(
         return (
             <Component
                 className={cn(
-                    'relative overflow-hidden bg-[#09090B]',
+                    'relative overflow-hidden bg-surface-base',
                     'border border-edge shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]',
                     hover && 'transition-colors duration-200 hover:bg-overlay-subtle',
                     className
@@ -640,7 +640,7 @@ ObsidianPanel.displayName = 'ObsidianPanel';
 const Label = ({ children, className }: { children: ReactNode; className?: string }) => (
     <div
         className={cn(
-            'text-caption font-bold text-zinc-500 uppercase tracking-[0.15em] leading-none',
+            'text-caption font-bold text-zinc-500 uppercase tracking-loose leading-none',
             className
         )}
     >
@@ -720,7 +720,7 @@ const FieldSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
         );
 
     return (
-        <div className="relative w-full aspect-[2.4/1] overflow-hidden bg-[#000000] border-b border-edge select-none isolate">
+        <div className="relative w-full aspect-[2.4/1] overflow-hidden bg-surface-pure border-b border-edge select-none isolate">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#1a2e22_0%,_#000000_100%)] opacity-100" />
             <div className="absolute inset-0 flex opacity-20">
                 {Array.from({ length: 11 }).map((_, i) => (
@@ -777,7 +777,7 @@ const CourtSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
         );
 
     return (
-        <div className="relative w-full aspect-[2.4/1] bg-[#111113] border-b border-edge-subtle overflow-hidden select-none">
+        <div className="relative w-full aspect-[2.4/1] bg-surface-elevated border-b border-edge-subtle overflow-hidden select-none">
             <div
                 className="absolute inset-0 opacity-10"
                 style={{
@@ -822,7 +822,7 @@ const ClosingLinesTable: FC<{ viewModel: GameViewModel }> = memo(({ viewModel })
     const { teams, betting } = viewModel;
 
     return (
-        <div className="bg-[#000000] px-6 py-6 border-b border-edge">
+        <div className="bg-surface-pure px-6 py-6 border-b border-edge">
             <div className="flex items-center gap-2 mb-5">
                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
                 <span className="text-caption font-bold uppercase tracking-widest text-zinc-500">
@@ -986,7 +986,7 @@ const BoxScoreCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
     if (!rows.length) return null;
 
     return (
-        <div className="bg-[#000000] border-t border-edge-subtle pb-20">
+        <div className="bg-surface-pure border-t border-edge-subtle pb-20">
             <div className="flex items-center gap-2 mb-4 px-8 pt-8">
                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
                 <span className="text-caption font-bold uppercase tracking-widest text-zinc-500">
@@ -1093,7 +1093,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
             <header
                 className={cn(
                     'relative w-full flex flex-col items-center overflow-hidden select-none',
-                    isEmbedded ? 'bg-[#050506] pt-4' : 'bg-[#050506] pt-6 border-b border-white/[0.08]'
+                    isEmbedded ? 'bg-surface-pure pt-4' : 'bg-surface-pure pt-6 border-b border-edge-strong'
                 )}
             >
                 {/* Top Status Bar: [Back] [Date/League] [Dot] */}
@@ -1145,7 +1145,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                         className="absolute top-[30%] -right-[20%] w-[80%] h-[80%] blur-[120px] opacity-20"
                         style={{ background: teams.home.color }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050506]/40 to-[#050506]" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-surface-pure/40 to-surface-pure" />
                 </div>
 
                 {/* Horizontal Face-Off (Grid for Precision Center) */}
@@ -1194,7 +1194,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 <span className="text-[38px] sm:text-[52px] font-medium tracking-[-0.04em] tabular-nums text-white">
                                     {meta.displayClock}
                                 </span>
-                                <span className="text-caption font-medium text-white/40 uppercase tracking-[0.15em]">
+                                <span className="text-caption font-medium text-white/40 uppercase tracking-loose">
                                     Tip-Off
                                 </span>
                                 <span className="text-footnote font-mono font-medium text-zinc-500 tracking-wide">
@@ -1259,7 +1259,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
 
                 {/* Navigation Tabs */}
                 {showTabs && (
-                    <div className="w-full flex items-center justify-center gap-6 border-b border-white/[0.08] pb-0 overflow-x-auto no-scrollbar px-4">
+                    <div className="w-full flex items-center justify-center gap-6 border-b border-edge-strong pb-0 overflow-x-auto no-scrollbar px-4">
                         {TABS.map((tab, i) => (
                             <button
                                 key={tab}
@@ -1267,7 +1267,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 onClick={() => handleTabClick(tab)}
                                 aria-pressed={activeTab === tab}
                                 className={cn(
-                                    'text-caption sm:text-footnote font-bold tracking-[0.15em] transition-colors pb-4 relative shrink-0',
+                                    'text-caption sm:text-footnote font-bold tracking-loose transition-colors pb-4 relative shrink-0',
                                     i === TABS.length - 1 && 'ml-2', // M-03: Subtle spacing before AI tab
                                     activeTab === tab
                                         ? 'text-white'
@@ -1315,7 +1315,7 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
         return (
             <div
                 className={cn(
-                    'flex flex-col w-full bg-[#000000] overflow-x-hidden font-sans',
+                    'flex flex-col w-full bg-surface-pure overflow-x-hidden font-sans',
                     showHeader ? 'min-h-screen' : 'min-h-0'
                 )}
             >
@@ -1336,7 +1336,7 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
 
                     {/* Live Ticker - Only show if Live/Final */}
                     {!vm.meta.isPregame && (
-                        <div className="px-6 py-4 border-b border-edge-subtle flex gap-3 items-start bg-[#111113]">
+                        <div className="px-6 py-4 border-b border-edge-subtle flex gap-3 items-start bg-surface-elevated">
                             <div
                                 className={cn(
                                     'mt-1.5 w-1.5 h-1.5 rounded-full shrink-0',

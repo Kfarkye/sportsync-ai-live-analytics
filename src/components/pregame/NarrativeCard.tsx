@@ -24,7 +24,7 @@ export const NarrativeCard = ({ match }: { match: Match }) => {
 
     if (isLoading) {
         return (
-            <div className="bg-[#09090B] border border-white/[0.08] rounded-2xl p-12 flex flex-col items-center justify-center min-h-[300px]">
+            <div className="bg-surface-base border border-edge-strong rounded-2xl p-12 flex flex-col items-center justify-center min-h-[300px]">
                 <div className="relative mb-4">
                     <div className="absolute inset-0 bg-amber-500/20 blur-xl rounded-full" />
                     <Loader2 className="w-8 h-8 text-amber-500 animate-spin relative z-10" />
@@ -36,7 +36,7 @@ export const NarrativeCard = ({ match }: { match: Match }) => {
 
     if (error || !data) {
         return (
-            <div className="bg-[#09090B] border border-white/[0.08] rounded-2xl p-8 flex flex-col items-center justify-center min-h-[250px]">
+            <div className="bg-surface-base border border-edge-strong rounded-2xl p-8 flex flex-col items-center justify-center min-h-[250px]">
                 <div className="p-3 bg-red-500/10 rounded-xl mb-4">
                     <AlertTriangle className="w-6 h-6 text-red-500" />
                 </div>
@@ -59,7 +59,7 @@ export const NarrativeCard = ({ match }: { match: Match }) => {
         <MotionDiv
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-[#09090B] border border-white/[0.08] rounded-2xl overflow-hidden shadow-2xl relative group"
+            className="bg-surface-base border border-edge-strong rounded-2xl overflow-hidden shadow-2xl relative group"
         >
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-rose-500" />
 
@@ -81,7 +81,7 @@ export const NarrativeCard = ({ match }: { match: Match }) => {
                 </h3>
 
                 <div className="relative pl-6 border-l-2 border-amber-500/40">
-                    <Quote size={20} className="absolute -left-[11px] -top-1 text-amber-500 bg-[#09090B]" />
+                    <Quote size={20} className="absolute -left-[11px] -top-1 text-amber-500 bg-surface-base" />
                     <p className="text-sm md:text-body-lg text-zinc-200 leading-relaxed font-medium">
                         {data.mainRant}
                     </p>
@@ -90,7 +90,7 @@ export const NarrativeCard = ({ match }: { match: Match }) => {
 
             <div className="grid md:grid-cols-12 gap-px bg-white/5 border-b border-white/5">
 
-                <div className="md:col-span-7 bg-[#0D0D0E] p-6 md:p-8">
+                <div className="md:col-span-7 bg-surface-base p-6 md:p-8">
                     <h4 className="text-caption font-bold text-zinc-500 uppercase tracking-widest mb-5 flex items-center gap-2">
                         <div className="w-1 h-1 bg-zinc-500 rounded-full" />
                         Psychological Factors
@@ -109,7 +109,7 @@ export const NarrativeCard = ({ match }: { match: Match }) => {
                         <div className="text-label font-bold text-zinc-600 uppercase mb-2">Key Analogies</div>
                         <div className="flex flex-wrap gap-2">
                             {data.analogies?.map((analogy, i) => (
-                                <span key={i} className="px-2.5 py-1 bg-white/[0.03] rounded-md text-caption text-zinc-400 border border-white/5 font-medium">
+                                <span key={i} className="px-2.5 py-1 bg-overlay-dim rounded-md text-caption text-zinc-400 border border-white/5 font-medium">
                                     {analogy}
                                 </span>
                             ))}
@@ -117,7 +117,7 @@ export const NarrativeCard = ({ match }: { match: Match }) => {
                     </div>
                 </div>
 
-                <div className="md:col-span-5 bg-[#0D0D0E] p-6 md:p-8 relative overflow-hidden flex flex-col">
+                <div className="md:col-span-5 bg-surface-base p-6 md:p-8 relative overflow-hidden flex flex-col">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full pointer-events-none" />
 
                     <div className="flex-1 relative z-10">
@@ -141,7 +141,7 @@ export const NarrativeCard = ({ match }: { match: Match }) => {
                             />
                         </div>
 
-                        <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5">
+                        <div className="p-3 bg-overlay-dim rounded-xl border border-white/5">
                             <p className="text-footnote text-zinc-300 leading-snug font-medium">
                                 <span className="text-amber-500 font-bold mr-1">Why:</span>
                                 {data.blazingPick.reason}
@@ -161,7 +161,7 @@ export const NarrativeCard = ({ match }: { match: Match }) => {
 
             {/* Sources Footer */}
             {data.sources && data.sources.length > 0 && (
-                <div className="px-6 py-4 bg-[#080808] border-t border-white/5">
+                <div className="px-6 py-4 bg-surface-base border-t border-white/5">
                     <div className="flex items-center gap-2 mb-3 text-caption font-bold text-zinc-500 uppercase tracking-widest">
                         <FileText size={10} /> Verified Sources
                     </div>
@@ -172,7 +172,7 @@ export const NarrativeCard = ({ match }: { match: Match }) => {
                                 href={source.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.03] hover:bg-white/[0.08] rounded-full border border-white/5 hover:border-white/10 text-caption text-zinc-400 hover:text-white transition-all group"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-overlay-dim hover:bg-overlay-strong rounded-full border border-white/5 hover:border-white/10 text-caption text-zinc-400 hover:text-white transition-all group"
                             >
                                 <span className="truncate max-w-[150px]">{source.title}</span>
                                 <ExternalLink size={10} className="opacity-50 group-hover:opacity-100" />

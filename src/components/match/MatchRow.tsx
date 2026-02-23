@@ -37,7 +37,7 @@ const TennisSetScores: React.FC<{ linescores?: Linescore[] }> = ({ linescores })
             className={cn(
                 "relative flex items-center justify-center w-5 h-5 rounded-[2px] transition-colors duration-300 select-none",
                 ls.winner 
-                    ? "bg-white/[0.08] text-white font-bold border border-white/10 shadow-[0_0_8px_rgba(255,255,255,0.05)]" 
+                    ? "bg-overlay-strong text-white font-bold border border-white/10 shadow-[0_0_8px_rgba(255,255,255,0.05)]" 
                     : "text-zinc-500 bg-transparent"
             )}
         >
@@ -90,7 +90,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
       className={cn(
         "group relative flex items-center justify-between px-5 py-5 cursor-pointer transform-gpu",
         // Obsidian Weissach — card surface lifted from void
-        "bg-[#111113]/50",
+        "bg-surface-elevated/50",
         "transition-all duration-300",
         
         // AUDIT FIX: Restored Premium Gradient Divider (replaces flat border)
@@ -186,7 +186,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
                    {match.displayClock || 'LIVE'}
                 </span>
             </div>
-            <span className="text-label font-bold text-zinc-500 uppercase tracking-[0.1em] mt-0.5">
+            <span className="text-label font-bold text-zinc-500 uppercase tracking-expanded mt-0.5">
               {isTennis && roundStr ? roundStr : getPeriodDisplay(match)}
             </span>
           </>

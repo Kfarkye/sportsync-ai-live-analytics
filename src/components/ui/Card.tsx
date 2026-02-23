@@ -54,7 +54,7 @@ export const Card = memo(({
         flush: "bg-transparent border-0 rounded-none",
     };
 
-    const hoverStyles = hover ? "hover:border-white/[0.08] hover:-translate-y-0.5" : "";
+    const hoverStyles = hover ? "hover:border-edge-strong hover:-translate-y-0.5" : "";
     const paddingStyles = !noPadding && !isFlush ? ESSENCE.card.padding : "";
 
     return (

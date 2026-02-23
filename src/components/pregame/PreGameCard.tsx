@@ -92,7 +92,7 @@ const SpecSheetRow = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className={cn(
-                "group relative border-t border-white/[0.08] transition-all duration-500",
+                "group relative border-t border-edge-strong transition-all duration-500",
                 collapsible ? "cursor-pointer" : "cursor-default"
             )}
             onClick={() => collapsible && setIsOpen(!isOpen)}
@@ -355,7 +355,7 @@ const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, o
                         )}
 
                         {/* Closing Hairline */}
-                        <div className="w-full h-px bg-white/[0.08]" />
+                        <div className="w-full h-px bg-overlay-strong" />
                     </motion.div>
                 )}
 
@@ -371,7 +371,7 @@ const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, o
                                 <PropMarketListView match={match} />
                             </DebugBoundary>
                         </SpecSheetRow>
-                        <div className="w-full h-px bg-white/[0.08]" />
+                        <div className="w-full h-px bg-overlay-strong" />
                     </motion.div>
                 )}
 

@@ -57,7 +57,7 @@ const GoalieCard = ({
 
       {/* Header: Status Badge */}
       <div className={cn(
-        "relative z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label font-black uppercase tracking-[0.15em] border mb-6 transition-all duration-500",
+        "relative z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label font-black uppercase tracking-loose border mb-6 transition-all duration-500",
         isConfirmed
           ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
           : "bg-amber-500/10 border-amber-500/20 text-amber-400",
@@ -257,7 +257,7 @@ export const GoalieMatchup: React.FC<GoalieMatchupProps> = ({ matchId, homeTeam,
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="bg-[#111113]"
+          className="bg-surface-elevated"
         >
           <GoalieCard goalie={data.away} team={awayTeam} isHome={false} />
         </motion.div>
@@ -265,7 +265,7 @@ export const GoalieMatchup: React.FC<GoalieMatchupProps> = ({ matchId, homeTeam,
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="bg-[#111113] border-l border-edge-subtle"
+          className="bg-surface-elevated border-l border-edge-subtle"
         >
           <GoalieCard goalie={data.home} team={homeTeam} isHome={true} />
         </motion.div>

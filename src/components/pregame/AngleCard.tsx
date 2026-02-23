@@ -24,7 +24,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
 
     if (isLoading) {
         return (
-            <div className="bg-[#09090B] border border-white/[0.08] rounded-2xl p-12 flex flex-col items-center justify-center min-h-[300px]">
+            <div className="bg-surface-base border border-edge-strong rounded-2xl p-12 flex flex-col items-center justify-center min-h-[300px]">
                 <div className="relative mb-4">
                     <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full" />
                     <Loader2 className="w-8 h-8 text-emerald-500 animate-spin relative z-10" />
@@ -36,7 +36,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
 
     if (error || !data) {
         return (
-            <div className="bg-[#09090B] border border-white/[0.08] rounded-2xl p-8 flex flex-col items-center justify-center min-h-[250px]">
+            <div className="bg-surface-base border border-edge-strong rounded-2xl p-8 flex flex-col items-center justify-center min-h-[250px]">
                 <div className="p-3 bg-red-500/10 rounded-xl mb-4">
                     <AlertTriangle className="w-6 h-6 text-red-500" />
                 </div>
@@ -55,11 +55,11 @@ export const AngleCard = ({ match }: { match: Match }) => {
         <MotionDiv
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-[#09090B] border border-white/[0.08] rounded-2xl overflow-hidden shadow-2xl relative group"
+            className="bg-surface-base border border-edge-strong rounded-2xl overflow-hidden shadow-2xl relative group"
         >
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
 
-            <div className="p-6 md:p-8 border-b border-white/5 bg-[#09090B]">
+            <div className="p-6 md:p-8 border-b border-white/5 bg-surface-base">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-400 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
@@ -89,7 +89,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
             </div>
 
             <div className="grid md:grid-cols-2 gap-px bg-white/5 border-b border-white/5">
-                <div className="p-6 md:p-8 bg-[#0D0D0E]">
+                <div className="p-6 md:p-8 bg-surface-base">
                     <h4 className="text-caption font-bold text-zinc-500 uppercase tracking-widest mb-5 flex items-center gap-2">
                         <div className="w-1 h-1 bg-zinc-500 rounded-full" />
                         Power Ratings
@@ -107,7 +107,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
                     </div>
                 </div>
 
-                <div className="p-6 md:p-8 bg-[#0D0D0E]">
+                <div className="p-6 md:p-8 bg-surface-base">
                     <h4 className="text-caption font-bold text-zinc-500 uppercase tracking-widest mb-5 flex items-center gap-2">
                         <div className="w-1 h-1 bg-zinc-500 rounded-full" />
                         Value Positions
@@ -117,7 +117,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
                             const conf = play.confidence;
                             const isElite = conf.tier === 'ELITE' || conf.tier === 'STRONG';
                             return (
-                                <div key={i} className="bg-white/[0.03] border border-white/5 rounded-xl p-4 flex items-center justify-between group hover:bg-white/[0.05] hover:border-emerald-500/30 transition-all duration-300 relative overflow-hidden">
+                                <div key={i} className="bg-overlay-dim border border-white/5 rounded-xl p-4 flex items-center justify-between group hover:bg-white/[0.05] hover:border-emerald-500/30 transition-all duration-300 relative overflow-hidden">
                                     {isElite && <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/0 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />}
 
                                     <div className="relative z-10">
@@ -137,7 +137,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
 
             {/* Sources Footer */}
             {data.sources && data.sources.length > 0 && (
-                <div className="px-6 py-4 bg-[#080808] border-t border-white/5">
+                <div className="px-6 py-4 bg-surface-base border-t border-white/5">
                     <div className="flex items-center gap-2 mb-3 text-caption font-bold text-zinc-500 uppercase tracking-widest">
                         <FileText size={10} /> Verified Sources
                     </div>
@@ -148,7 +148,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
                                 href={source.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.03] hover:bg-white/[0.08] rounded-full border border-white/5 hover:border-white/10 text-caption text-zinc-400 hover:text-white transition-all group"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-overlay-dim hover:bg-overlay-strong rounded-full border border-white/5 hover:border-white/10 text-caption text-zinc-400 hover:text-white transition-all group"
                             >
                                 <span className="truncate max-w-[150px]">{source.title}</span>
                                 <ExternalLink size={10} className="opacity-50 group-hover:opacity-100" />

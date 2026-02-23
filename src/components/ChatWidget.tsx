@@ -224,16 +224,16 @@ const SYSTEM = {
     morph: { type: "spring", damping: 25, stiffness: 280 } as Transition,
   },
   surface: {
-    void: "bg-[#08080A]",
-    panel: "bg-[#080808] border border-edge",
+    void: "bg-surface-base",
+    panel: "bg-surface-base border border-edge",
     /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
-    glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+    glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-edge-strong shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
     hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20 shadow-[inset_0_1px_0_rgba(245,158,11,0.1)]",
-    milled: "border-t border-white/[0.08] border-b border-black/50 border-x border-edge-subtle",
+    milled: "border-t border-edge-strong border-b border-black/50 border-x border-edge-subtle",
     alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20 shadow-[inset_0_1px_0_rgba(225,29,72,0.1)]",
   },
   type: {
-    mono: "font-mono text-caption tracking-[0.1em] uppercase text-zinc-500 tabular-nums",
+    mono: "font-mono text-caption tracking-expanded uppercase text-zinc-500 tabular-nums",
     body: "text-body-lg leading-[1.72] tracking-[-0.005em] text-zinc-300",
     h1: "text-body-sm font-medium tracking-tight text-white",
     label: "text-label font-bold tracking-[0.05em] uppercase text-zinc-500",
@@ -1579,7 +1579,7 @@ const ScrollAnchor: FC<{ visible: boolean; onClick: () => void }> = memo(({ visi
         exit={{ opacity: 0, y: 8, scale: 0.9 }}
         transition={SYSTEM.anim.fluid}
         onClick={() => { triggerHaptic(); onClick(); }}
-        className="absolute bottom-32 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#08080A]/90 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 transition-colors"
+        className="absolute bottom-32 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-base/90 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 transition-colors"
         aria-label="Scroll to latest messages"
       >
         <ArrowDown size={10} className="text-emerald-400" />
@@ -1625,7 +1625,7 @@ const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={SYSTEM.anim.fluid}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-[#08080A] border border-white/10 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
+            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-surface-base border border-white/10 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
           >
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]" />
             <span className="text-small font-medium text-white tracking-tight">{toast.message}</span>
@@ -2127,8 +2127,8 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
       className={cn(
         "my-8 relative overflow-hidden",
         "rounded-xl",                          // M-23: 12px inner card radius
-        "bg-[#1A1A1C]",                        // M-24: Distinct elevated background
-        "border border-white/[0.08]",          // M-24: Subtle but present border
+        "bg-surface-subtle",                        // M-24: Distinct elevated background
+        "border border-edge-strong",          // M-24: Subtle but present border
         "shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
       )}
     >
@@ -2136,7 +2136,7 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
       <div className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(ellipse_at_top_left,rgba(245,158,11,0.08)_0%,transparent_55%)]" />
       <div className="relative z-10 p-5">
         {/* M-04: Section header in zinc-500 — neutral */}
-        <p className="text-small font-mono font-medium tracking-[0.12em] uppercase text-zinc-500 mb-4">
+        <p className="text-small font-mono font-medium tracking-spread uppercase text-zinc-500 mb-4">
           WHAT TO WATCH
         </p>
 
@@ -2254,7 +2254,7 @@ const AnalysisDisclosure: FC<{
       {/* M-25: Dynamic bottom fade — hides when scrolled to bottom */}
       <div
         className={cn(
-          "sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#08080A] to-transparent pointer-events-none transition-opacity duration-300",
+          "sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-surface-base to-transparent pointer-events-none transition-opacity duration-300",
           showFade ? "opacity-100" : "opacity-0",
         )}
       />
@@ -2288,7 +2288,7 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
         transition={SYSTEM.anim.fluid}
         role="status"
         aria-live="polite"
-        className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-[#08080A] border border-white/10 shadow-2xl z-30 will-change-transform"
+        className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-surface-base border border-white/10 shadow-2xl z-30 will-change-transform"
       >
         <OrbitalRadar />
         <AnimatePresence mode="wait">
@@ -2357,7 +2357,7 @@ const SmartChips: FC<{
             transition={{ delay: (matchupLabel ? i + 1 : i) * 0.04, ...SYSTEM.anim.fluid }}
             whileHover={{ scale: 1.02, y: -1, backgroundColor: "rgba(255,255,255,0.06)" }}
             whileTap={{ scale: 0.98 }}
-            className={cn("px-3.5 py-2 bg-white/[0.03] border border-white/[0.08] transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
+            className={cn("px-3.5 py-2 bg-overlay-dim border border-edge-strong transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
           >
             <span className="text-caption font-medium text-zinc-300 tracking-wide uppercase whitespace-nowrap">{chip}</span>
           </motion.button>
@@ -2476,7 +2476,7 @@ const MessageBubble: FC<{
               <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
               <div className="mt-8 flex items-center gap-2.5">
                 <div className="w-1 h-1 rounded-full bg-zinc-600" />
-                <span className="text-small font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
+                <span className="text-small font-mono font-medium text-zinc-500 uppercase tracking-spread">{normalized}</span>
               </div>
             </div>
           );
@@ -2619,7 +2619,7 @@ const MessageBubble: FC<{
                   {/* M-17: 32px gap between hairline and section header */}
                   <div className="mt-8 flex items-center gap-2.5">
                     <div className="w-1 h-1 rounded-full bg-zinc-600" />
-                    <span className="text-small font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
+                    <span className="text-small font-mono font-medium text-zinc-500 uppercase tracking-spread">{normalized}</span>
                   </div>
                 </div>
               );
@@ -2856,7 +2856,7 @@ const InputDeck: FC<{
       layout
       className={cn(
         "flex flex-col gap-2 p-1.5 relative overflow-hidden transition-colors duration-500 will-change-transform",
-        SYSTEM.geo.input, "bg-[#08080A] shadow-2xl focus-within:ring-1 focus-within:ring-white/[0.06]",
+        SYSTEM.geo.input, "bg-surface-base shadow-2xl focus-within:ring-1 focus-within:ring-white/[0.06]",
         isVoiceMode
           ? "border-emerald-500/30 shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)]"
           : isOffline ? "border-red-500/20" : SYSTEM.surface.milled,
@@ -2872,7 +2872,7 @@ const InputDeck: FC<{
             className="flex gap-2 overflow-x-auto p-2 mb-1 scrollbar-hide"
           >
             {attachments.map((a, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-full border border-edge">
+              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-overlay-dim rounded-full border border-edge">
                 <ImageIcon size={12} className="text-white/50" />
                 <span className="text-caption text-zinc-300 max-w-[80px] truncate">{a.file.name}</span>
                 <button
@@ -3319,7 +3319,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                 : cn(
                   "w-full md:w-[460px] h-[100dvh] md:h-[min(840px,90dvh)]",
                   "rounded-[28px] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]",
-                  "border border-white/[0.08]",
+                  "border border-edge-strong",
                   SYSTEM.surface.void,
                 ),
             )}
@@ -3390,7 +3390,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
             {/* Scroll anchor — visible when user has scrolled up */}
             <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
 
-            <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#08080A] via-[#08080A]/95 to-transparent pointer-events-none">
+            <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-surface-base via-surface-base/95 to-transparent pointer-events-none">
               <div className="pointer-events-auto relative">
                 <AnimatePresence>
                   {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}

@@ -24,12 +24,12 @@ const SYSTEM = {
         snap: { type: "spring", damping: 22, stiffness: 450 } as Transition,
     },
     surface: {
-        void: "bg-[#09090B]",
+        void: "bg-surface-base",
         glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-edge-subtle shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
         panel: ESSENCE.card.base,
     },
     type: {
-        mono: "font-mono text-caption tracking-[0.12em] uppercase text-zinc-500 tabular-nums font-medium",
+        mono: "font-mono text-caption tracking-spread uppercase text-zinc-500 tabular-nums font-medium",
         label: "text-label font-bold tracking-[0.08em] uppercase",
     },
 } as const;
@@ -498,7 +498,7 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
                             <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
                                 <div className="flex flex-col md:flex-row md:items-baseline md:gap-8 mb-8">
                                     <h1 className="text-[56px] md:text-[100px] font-semibold text-white tracking-tighter leading-[0.85] drop-shadow-2xl break-words max-w-5xl">{recommendedPick}</h1>
-                                    {displayJuice && <span className="text-[16px] md:text-title-lg font-mono text-zinc-500 font-medium tracking-[0.15em] mt-4 md:mt-0">{displayJuice}</span>}
+                                    {displayJuice && <span className="text-[16px] md:text-title-lg font-mono text-zinc-500 font-medium tracking-loose mt-4 md:mt-0">{displayJuice}</span>}
                                 </div>
                                 <div className="max-w-3xl border-l-2 border-white/10 pl-8 py-2 mx-auto md:mx-0">
                                     <p className="text-title-lg md:text-headline text-zinc-300 font-light leading-[1.5] tracking-tight text-pretty"><RenderRichText text={String(processedData.headline || "")} sources={processedData.sources} /></p>

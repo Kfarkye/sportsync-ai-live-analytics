@@ -104,7 +104,7 @@ const SectionHeader = ({ title }: { title: string }) => (
         <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-edge"></div>
         </div>
-        <span className="relative px-4 text-footnote font-bold text-zinc-500 uppercase tracking-widest bg-[#111113]">
+        <span className="relative px-4 text-footnote font-bold text-zinc-500 uppercase tracking-widest bg-surface-elevated">
             {title}
         </span>
     </div>
@@ -146,7 +146,7 @@ const MatchesTab = ({ match }: { match: Match }) => {
             
             <SectionHeader title="Team Streaks" />
             
-            <div className="bg-[#111113] border border-edge-subtle rounded-[14px] px-6 py-2 shadow-lg min-h-[200px]">
+            <div className="bg-surface-elevated border border-edge-subtle rounded-[14px] px-6 py-2 shadow-lg min-h-[200px]">
                 {loading ? (
                     <div className="flex items-center justify-center h-[200px] text-zinc-500 text-xs animate-pulse">
                         Analyzing trends...
@@ -168,7 +168,7 @@ const MatchesTab = ({ match }: { match: Match }) => {
 
             <div className="mt-8">
                 <SectionHeader title="Probability" />
-                <div className="bg-[#111113] border border-edge-subtle rounded-[14px] p-6 flex justify-between items-center">
+                <div className="bg-surface-elevated border border-edge-subtle rounded-[14px] p-6 flex justify-between items-center">
                      <div className="flex items-center gap-3">
                         <TeamLogo logo={match.homeTeam.logo} className="w-8 h-8" />
                         <div className="flex flex-col">

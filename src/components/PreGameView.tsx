@@ -36,7 +36,7 @@ const FatigueCard: React.FC<{ fatigue: { home?: FatigueMetrics, away?: FatigueMe
     const renderMetrics = (data: FatigueMetrics | undefined, label: string) => {
         if (!data) return null;
         return (
-            <div className="flex-1 p-3 bg-white/[0.03] rounded-lg border border-white/5">
+            <div className="flex-1 p-3 bg-overlay-dim rounded-lg border border-white/5">
                 <div className="flex justify-between items-center mb-2">
                     <span className="text-caption font-bold text-zinc-500 uppercase">{label}</span>
                     <span className={`text-caption font-bold px-1.5 py-0.5 rounded ${data.fatigueScore > 70 ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
@@ -59,7 +59,7 @@ const FatigueCard: React.FC<{ fatigue: { home?: FatigueMetrics, away?: FatigueMe
     };
 
     return (
-        <div className="bg-[#09090B] border border-white/10 rounded-xl p-4">
+        <div className="bg-surface-base border border-white/10 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-4">
                 <Plane size={14} className="text-blue-400" />
                 <h3 className="text-caption font-bold text-white uppercase tracking-widest">Travel & Schedule</h3>
@@ -73,7 +73,7 @@ const FatigueCard: React.FC<{ fatigue: { home?: FatigueMetrics, away?: FatigueMe
 };
 
 const OfficiatingCard: React.FC<{ stats: OfficialStats }> = ({ stats }) => (
-    <div className="bg-[#09090B] border border-white/10 rounded-xl p-4">
+    <div className="bg-surface-base border border-white/10 rounded-xl p-4">
         <div className="flex items-center gap-2 mb-4">
             <Scale size={14} className="text-yellow-400" />
             <h3 className="text-caption font-bold text-white uppercase tracking-widest">Officiating Crew</h3>
@@ -92,7 +92,7 @@ const OfficiatingCard: React.FC<{ stats: OfficialStats }> = ({ stats }) => (
             </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 bg-white/[0.03] rounded-lg p-2 border border-white/5">
+        <div className="grid grid-cols-3 gap-2 bg-overlay-dim rounded-lg p-2 border border-white/5">
             <div className="text-center">
                 <div className="text-label text-zinc-500 uppercase">Home Win</div>
                 <div className="font-mono font-bold text-white">{stats.homeWinPct}%</div>
@@ -307,7 +307,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
                 } catch { }
 
                 return (
-                    <div className="bg-[#09090B] border border-white/5 rounded-xl overflow-hidden relative group">
+                    <div className="bg-surface-base border border-white/5 rounded-xl overflow-hidden relative group">
                         {/* Header: Zero UI Style */}
                         <div className="p-6 border-b border-white/5 flex justify-between items-end bg-gradient-to-r from-transparent via-white/[0.01] to-transparent">
                             <div>
@@ -363,7 +363,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
                                 {/* Section 3: The Verdict */}
                                 <div className="relative pl-4 border-l-2 border-white/10">
-                                    <div className="text-caption font-bold text-white uppercase tracking-widest mb-3 absolute -top-3 left-4 bg-[#09090B] px-2">The Verdict</div>
+                                    <div className="text-caption font-bold text-white uppercase tracking-widest mb-3 absolute -top-3 left-4 bg-surface-base px-2">The Verdict</div>
                                     <div className="prose prose-invert prose-sm max-w-none text-zinc-300 prose-p:leading-relaxed prose-strong:text-white prose-p:mb-2 prose-p:opacity-90">
                                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{structured.analysis}</ReactMarkdown>
                                     </div>
@@ -384,7 +384,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
             {/* 1.5 Shareable Insight Card */}
             {insightCardData && (
-                <div className="bg-[#09090B] border border-white/10 rounded-2xl p-4 md:p-5">
+                <div className="bg-surface-base border border-white/10 rounded-2xl p-4 md:p-5">
                     <div className="flex items-center gap-2 mb-4">
                         <CheckCircle2 size={12} className="text-emerald-400" />
                         <span className="text-caption font-bold text-white uppercase tracking-widest">Shareable Insight</span>
@@ -396,7 +396,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
             {/* 2. Qualitative Context Grid */}
             <div className="grid md:grid-cols-2 gap-4">
                 {/* Narrative Trends (was Market Edge) */}
-                <div className="bg-[#09090B] border border-white/10 rounded-xl p-4">
+                <div className="bg-surface-base border border-white/10 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-4">
                         <TrendingUp size={14} className="text-violet-400" />
                         <h3 className="text-caption font-bold text-white uppercase tracking-widest">Narrative Trends</h3>
@@ -416,7 +416,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
                 <div className="space-y-4">
                     {news.weather && (
-                        <div className="bg-gradient-to-br from-indigo-950/20 to-[#09090B] border border-indigo-500/20 rounded-xl p-4">
+                        <div className="bg-gradient-to-br from-indigo-950/20 to-surface-base border border-indigo-500/20 rounded-xl p-4">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2 text-indigo-400">
                                     <Thermometer size={14} />
@@ -444,7 +444,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
             <div className="grid md:grid-cols-2 gap-4">
                 {news.fatigue && <FatigueCard fatigue={news.fatigue} />}
 
-                <div className="bg-[#09090B] border border-white/10 rounded-xl p-4">
+                <div className="bg-surface-base border border-white/10 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-4">
                         <Activity size={14} className="text-rose-400" />
                         <h3 className="text-caption font-bold text-white uppercase tracking-widest">Critical Injuries</h3>

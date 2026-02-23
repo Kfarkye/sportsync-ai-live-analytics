@@ -35,7 +35,7 @@ const MetricRow = ({
       <div className="flex justify-between items-center text-caption">
         <div className="flex items-center gap-1.5 text-zinc-500 group-hover/row:text-zinc-300 transition-colors">
           <Icon size={10} strokeWidth={2.5} />
-          <span className="font-bold uppercase tracking-[0.15em]">{label}</span>
+          <span className="font-bold uppercase tracking-loose">{label}</span>
         </div>
         <span className="font-sans font-semibold text-white tabular-nums tracking-tight">
           {value.toFixed(1)} <span className="text-zinc-600 text-label font-sans font-normal">PPG</span>

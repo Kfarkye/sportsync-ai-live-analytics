@@ -141,7 +141,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                                             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                                             className={cn(
                                                 "relative w-24 h-24 rounded-[28px] flex items-center justify-center mb-8",
-                                                "bg-[#111113]/80 backdrop-blur-xl border border-white/10 shadow-[inner_0_1px_0_rgba(255,255,255,0.05),_0_20px_40px_rgba(0,0,0,0.4)]",
+                                                "bg-surface-elevated/80 backdrop-blur-xl border border-white/10 shadow-[inner_0_1px_0_rgba(255,255,255,0.05),_0_20px_40px_rgba(0,0,0,0.4)]",
                                             )}
                                         >
                                             <Radio
@@ -205,7 +205,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                     )}
 
                     {/* Pro Terminal: State of the Art Upsell */}
-                    <div className="p-6 rounded-[20px] bg-[#0C0C0E] border border-edge relative overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                    <div className="p-6 rounded-[20px] bg-surface-base border border-edge relative overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                         {/* Subtle gradient accent */}
                         <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
 
@@ -215,7 +215,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                         <p className="text-small text-zinc-500 leading-relaxed mb-5 font-medium">
                             Access real-time order flow, sharp money splits, and institutional line movement data.
                         </p>
-                        <button className="w-full py-2.5 bg-white/[0.03] text-zinc-300 text-caption font-bold uppercase tracking-[0.15em] rounded-xl border border-white/[0.08] hover:bg-overlay-emphasis hover:border-white/[0.12] hover:text-white transition-all duration-200">
+                        <button className="w-full py-2.5 bg-overlay-dim text-zinc-300 text-caption font-bold uppercase tracking-loose rounded-xl border border-edge-strong hover:bg-overlay-emphasis hover:border-edge-heavy hover:text-white transition-all duration-200">
                             Unlock Data
                         </button>
                     </div>

@@ -38,7 +38,7 @@ const formatVal = (val: number) => val > 0 ? `+${val}` : `${val}`;
 
 const HeaderCell = ({ label, align = 'center' }: { label: string, align?: 'left' | 'center' | 'right' }) => (
     <div className={`
-      text-label font-bold text-zinc-500 uppercase tracking-[0.15em] py-2 px-3 border-r border-edge last:border-r-0
+      text-label font-bold text-zinc-500 uppercase tracking-loose py-2 px-3 border-r border-edge last:border-r-0
       ${align === 'left' ? 'text-left' : align === 'right' ? 'text-right' : 'text-center'}
     `}>
         {label}
@@ -117,10 +117,10 @@ const BettingSnapshot: React.FC<BettingSnapshotProps> = ({ odds, homeTeam, awayT
   const homeName = homeTeam.abbreviation || homeTeam.shortName;
 
   return (
-    <div className="bg-[#111113] rounded-xl border border-white/[0.1] overflow-hidden shadow-sm ring-1 ring-white/[0.05]">
+    <div className="bg-surface-elevated rounded-xl border border-white/[0.1] overflow-hidden shadow-sm ring-1 ring-white/[0.05]">
         
         {/* Compact Header */}
-        <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] bg-[#151517] border-b border-edge-subtle">
+        <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] bg-surface-elevated border-b border-edge-subtle">
             <HeaderCell label="Market" align="left" />
             <HeaderCell label="Spread" />
             <HeaderCell label="Total" />
@@ -176,12 +176,12 @@ const BettingSnapshot: React.FC<BettingSnapshotProps> = ({ odds, homeTeam, awayT
 
             {/* Draw Row (Soccer) */}
             {sport === Sport.SOCCER && (
-                <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] items-stretch bg-[#080808]">
+                <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] items-stretch bg-surface-base">
                     <div className="flex flex-col justify-center px-4 py-2 border-r border-edge">
                         <span className="font-bold text-zinc-400 text-body-sm tracking-tight">Draw</span>
                     </div>
-                    <div className="border-r border-edge bg-[#111113]/50" />
-                    <div className="border-r border-edge bg-[#111113]/50" />
+                    <div className="border-r border-edge bg-surface-elevated/50" />
+                    <div className="border-r border-edge bg-surface-elevated/50" />
                     <DenseCell 
                         line={drawML.main !== '-' ? formatVal(drawML.val) : '-'} 
                         juice={drawML.main}
@@ -192,7 +192,7 @@ const BettingSnapshot: React.FC<BettingSnapshotProps> = ({ odds, homeTeam, awayT
         </div>
 
         {/* Footer */}
-        <div className="bg-[#030303] border-t border-edge-subtle px-3 py-1.5 flex justify-between items-center">
+        <div className="bg-surface-pure border-t border-edge-subtle px-3 py-1.5 flex justify-between items-center">
             <div className="flex items-center gap-2">
                 <div className="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.8)]" />
                 <span className="text-label font-mono text-zinc-600 uppercase tracking-widest">Real-time Feed</span>

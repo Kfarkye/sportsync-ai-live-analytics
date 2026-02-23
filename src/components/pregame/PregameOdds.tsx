@@ -254,7 +254,7 @@ const PregameOdds = ({ match }: { match: Match }) => {
             <div className="flex items-center gap-4 py-5 border-b border-edge-subtle transition-colors duration-150">
                 <div className="w-28 flex items-center gap-2.5 shrink-0">
                     <TeamLogo logo={match.awayTeam.logo} className="w-7 h-7 drop-shadow-md" />
-                    <span className="text-footnote font-bold text-white uppercase tracking-[0.1em]">{match.awayTeam.abbreviation || match.awayTeam.shortName}</span>
+                    <span className="text-footnote font-bold text-white uppercase tracking-expanded">{match.awayTeam.abbreviation || match.awayTeam.shortName}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 flex-1">
                     <OddsCell label="Spread" value={awaySpread} subValue={awaySpreadOdds} open={awaySpreadOpen} />
@@ -267,7 +267,7 @@ const PregameOdds = ({ match }: { match: Match }) => {
             <div className="flex items-center gap-4 py-5 border-b border-edge-subtle transition-colors duration-150">
                 <div className="w-28 flex items-center gap-2.5 shrink-0">
                     <TeamLogo logo={match.homeTeam.logo} className="w-7 h-7 drop-shadow-md" />
-                    <span className="text-footnote font-bold text-white uppercase tracking-[0.1em]">{match.homeTeam.abbreviation || match.homeTeam.shortName}</span>
+                    <span className="text-footnote font-bold text-white uppercase tracking-expanded">{match.homeTeam.abbreviation || match.homeTeam.shortName}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 flex-1">
                     <OddsCell label="Spread" value={homeSpread} subValue={homeSpreadOdds} open={homeSpreadOpen} />

@@ -58,7 +58,7 @@ const WinProbability: React.FC<WinProbabilityProps> = ({
                     </div>
 
                     {spread > 5 && (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-[#121212] rounded-full border border-white/10 shadow-inner">
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-elevated rounded-full border border-white/10 shadow-inner">
                             <span className={`w-1.5 h-1.5 rounded-full ${isHomeFav ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
                             <span className={ESSENCE.tier.t2Header}>
                                 {isHomeFav ? 'Home' : 'Away'} Advantage
@@ -68,7 +68,7 @@ const WinProbability: React.FC<WinProbabilityProps> = ({
                 </div>
 
                 {/* Comparison Bar */}
-                <div className="relative h-16 w-full flex rounded-xl overflow-hidden ring-1 ring-white/10 bg-[#121212] shadow-inner">
+                <div className="relative h-16 w-full flex rounded-xl overflow-hidden ring-1 ring-white/10 bg-surface-elevated shadow-inner">
 
                     {/* Away Segment */}
                     <MotionDiv
@@ -91,7 +91,7 @@ const WinProbability: React.FC<WinProbabilityProps> = ({
 
                     {/* The "Sharp Edge" Splitter */}
                     <div
-                        className="absolute top-[-10%] bottom-[-10%] w-3 bg-[#09090B] z-20 skew-x-[-18deg] border-x-2 border-[#09090B] shadow-[0_0_20px_rgba(0,0,0,0.5)] scale-y-110 origin-center"
+                        className="absolute top-[-10%] bottom-[-10%] w-3 bg-surface-base z-20 skew-x-[-18deg] border-x-2 border-[#09090B] shadow-[0_0_20px_rgba(0,0,0,0.5)] scale-y-110 origin-center"
                         style={{
                             left: `calc(${normAway}% - 6px)`,
                             transition: 'left 1.4s cubic-bezier(0.22, 1, 0.36, 1)'

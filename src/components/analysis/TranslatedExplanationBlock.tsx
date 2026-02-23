@@ -92,9 +92,9 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                                 ].map((item, i) => (
                                     <div
                                         key={i}
-                                        className="bg-[#111113] p-4 flex flex-col justify-between min-h-[72px] group/cell hover:bg-[#151517] transition-colors duration-300"
+                                        className="bg-surface-elevated p-4 flex flex-col justify-between min-h-[72px] group/cell hover:bg-surface-elevated transition-colors duration-300"
                                     >
-                                        <span className="text-label text-zinc-600 uppercase font-bold tracking-[0.15em] leading-none">
+                                        <span className="text-label text-zinc-600 uppercase font-bold tracking-loose leading-none">
                                             {item.label}
                                         </span>
                                         <span className={`text-small font-bold tracking-tight mt-2 tabular-nums ${item.isHighlight ? tokens.accent : 'text-zinc-200'}`}>
@@ -105,7 +105,7 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                             </div>
 
                             {/* === NARRATIVE BLOCK === */}
-                            <div className="relative p-5 rounded-md bg-[#111113] border border-edge-subtle">
+                            <div className="relative p-5 rounded-md bg-surface-elevated border border-edge-subtle">
                                 {/* Semantic Accent: Connects to parent confidence color */}
                                 <div className={`absolute left-0 top-0 w-[2px] h-full rounded-full ${tokens.bar}`} />
                                 <p className="pl-4 text-small text-zinc-300 leading-[1.8] font-medium">
@@ -117,7 +117,7 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                             {/* Subdued: This is metadata, not content */}
                             <div className="flex items-center gap-3 opacity-50">
                                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-800" />
-                                <span className="text-label text-zinc-600 uppercase font-semibold tracking-[0.15em]">
+                                <span className="text-label text-zinc-600 uppercase font-semibold tracking-loose">
                                     Derivative Logic Block // Locked Signal
                                 </span>
                                 <div className="flex-grow h-[1px] bg-zinc-900" />

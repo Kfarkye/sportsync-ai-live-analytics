@@ -53,7 +53,7 @@ const CoachCard: React.FC<CoachCardProps> = ({
             <div className="grid grid-cols-2 gap-4">
                 {/* Away Coach */}
                 <div className="space-y-0.5">
-                    <span className="text-caption font-semibold text-zinc-600 uppercase tracking-[0.1em]">
+                    <span className="text-caption font-semibold text-zinc-600 uppercase tracking-expanded">
                         {awayTeamName}
                     </span>
                     <h4 className="text-body font-semibold text-white tracking-tight">
@@ -63,7 +63,7 @@ const CoachCard: React.FC<CoachCardProps> = ({
 
                 {/* Home Coach */}
                 <div className="space-y-0.5 text-right">
-                    <span className="text-caption font-semibold text-zinc-600 uppercase tracking-[0.1em]">
+                    <span className="text-caption font-semibold text-zinc-600 uppercase tracking-expanded">
                         {homeTeamName}
                     </span>
                     <h4 className="text-body font-semibold text-white tracking-tight">

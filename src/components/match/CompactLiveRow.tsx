@@ -56,7 +56,7 @@ const CompactLiveRow: React.FC<CompactLiveRowProps> = ({ match, onClick }) => {
     return (
         <div
             onClick={onClick}
-            className="group relative w-full px-4 py-3 bg-black/40 hover:bg-white/[0.03] transition-colors cursor-pointer border-b border-edge-subtle"
+            className="group relative w-full px-4 py-3 bg-black/40 hover:bg-overlay-dim transition-colors cursor-pointer border-b border-edge-subtle"
         >
             <div className="flex items-center justify-between font-mono text-xs tracking-tight">
 

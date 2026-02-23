@@ -154,7 +154,7 @@ export const ApplePlayerCard: React.FC<{
             transition={{ delay: index * 0.05, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
                 "group relative rounded-[32px] overflow-hidden transition-all duration-500 transform-gpu",
-                "bg-[#111113]/80 backdrop-blur-[24px] border-[0.5px] border-white/10",
+                "bg-surface-elevated/80 backdrop-blur-[24px] border-[0.5px] border-white/10",
                 "shadow-[0_0_0_1px_rgba(255,255,255,0.04),_0_20px_50px_-12px_rgba(0,0,0,0.55)]",
                 "after:content-[''] after:absolute after:inset-0 after:opacity-[0.03] after:pointer-events-none",
                 "after:bg-[url('data:image/svg+xml,%3Csvg viewBox=%270 0 256 256%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.8%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27 opacity=%270.05%27/%3E%3C/svg%3E')]"
@@ -236,7 +236,7 @@ export const ApplePlayerCard: React.FC<{
                 </div>
 
                 {/* Stat Type Selector — iOS Native Segmented Feel */}
-                <div className="flex items-center justify-between gap-2 mb-7 bg-white/[0.03] p-1 rounded-2xl ring-1 ring-white/[0.05]">
+                <div className="flex items-center justify-between gap-2 mb-7 bg-overlay-dim p-1 rounded-2xl ring-1 ring-white/[0.05]">
                     {hasMultipleProps && (
                         <button
                             onClick={prevProp}
@@ -486,7 +486,7 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
             <div className="space-y-6">
                 <div className="flex items-center gap-3">
                     <span className="text-caption font-black text-zinc-600 uppercase tracking-widest">{title}</span>
-                    <div className="flex-1 h-px bg-white/[0.03]" />
+                    <div className="flex-1 h-px bg-overlay-dim" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {players.map((group, idx) => (
@@ -539,7 +539,7 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
                         <div className="w-full h-px bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
                     </div>
                     <div className="relative flex justify-center">
-                        <span className="px-6 bg-[#111113] text-caption font-black text-zinc-700 uppercase tracking-ultra">vs</span>
+                        <span className="px-6 bg-surface-elevated text-caption font-black text-zinc-700 uppercase tracking-ultra">vs</span>
                     </div>
                 </div>
             )}

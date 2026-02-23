@@ -247,7 +247,7 @@ const GameContextCard: React.FC<GameContextCardProps> = ({ match }) => {
             {/* Primary Context (Week/Round/Bowl) */}
             {primary && (
                 <div className="py-3 border-b border-edge-subtle">
-                    <div className="text-caption font-semibold text-zinc-600 uppercase tracking-[0.1em] mb-1">
+                    <div className="text-caption font-semibold text-zinc-600 uppercase tracking-expanded mb-1">
                         Game
                     </div>
                     <div className="text-body-lg font-semibold text-white tracking-tight">
@@ -264,7 +264,7 @@ const GameContextCard: React.FC<GameContextCardProps> = ({ match }) => {
             {/* Matchup Type (Division/Conference) */}
             {matchupType && (
                 <div className="py-3 border-b border-edge-subtle">
-                    <div className="text-caption font-semibold text-zinc-600 uppercase tracking-[0.1em] mb-1">
+                    <div className="text-caption font-semibold text-zinc-600 uppercase tracking-expanded mb-1">
                         Matchup
                     </div>
                     <div className="text-body font-medium text-zinc-300 tracking-tight">

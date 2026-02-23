@@ -226,7 +226,7 @@ const PPMTracker = ({ ppm, edgeState, edgePoints, context, sport }: {
 
       {/* Visual bar (only show when NOT neutral) */}
       {edgeState !== 'NEUTRAL' && (
-        <div className="mt-4 h-1 w-full bg-white/[0.03] rounded-full overflow-hidden">
+        <div className="mt-4 h-1 w-full bg-overlay-dim rounded-full overflow-hidden">
           <div
             className={cn("h-full transition-all duration-1000", ppm.delta > 0 ? "bg-emerald-500" : "bg-rose-500")}
             style={{ width: `${Math.min(100, Math.abs(ppm.delta) * 200 + 10)}%` }}
@@ -296,7 +296,7 @@ const OddsAnchorGrid: React.FC<{ match: Match, signals: AISignals }> = ({ match,
 
   return (
     <div className="mb-24 rounded-sm overflow-hidden border border-edge bg-black/20 shadow-[0_24px_48px_rgba(0,0,0,0.5)]">
-      <div className="grid grid-cols-4 gap-px bg-white/[0.08]">
+      <div className="grid grid-cols-4 gap-px bg-overlay-strong">
         <div className="bg-zinc-950 p-6"><span className="text-[7px] font-black text-zinc-600 uppercase tracking-[0.5em] leading-none">Reference</span></div>
         <div className="bg-zinc-950 p-6 border-l border-white/[0.02]"><span className="text-[7px] font-black text-zinc-600 uppercase tracking-[0.5em] leading-none">Opening</span></div>
         <div className="bg-zinc-950 p-6 border-l border-white/[0.02]"><span className="text-[7px] font-black text-zinc-600 uppercase tracking-[0.5em] leading-none">Closing</span></div>

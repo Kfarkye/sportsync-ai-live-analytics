@@ -59,7 +59,7 @@ const MarketIntelligence: React.FC<MarketIntelligenceProps> = ({ marketIntel, co
     const gridCols = (hasSplits && hasTacticalData) ? 'md:grid-cols-2' : 'grid-cols-1';
 
     return (
-        <div className="relative overflow-hidden rounded-[24px] border border-edge-subtle bg-[#111113] shadow-2xl group flex flex-col transition-all duration-500 hover:border-white/[0.12]">
+        <div className="relative overflow-hidden rounded-[24px] border border-edge-subtle bg-surface-elevated shadow-2xl group flex flex-col transition-all duration-500 hover:border-edge-heavy">
             {/* Ambient Background Glow */}
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.04] via-transparent to-transparent pointer-events-none" />
             <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />

@@ -42,7 +42,7 @@ const VenueSplitsGrid: React.FC = () => {
     <div className="w-full space-y-6">
       
       {/* Controls Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-[#09090B] border border-white/[0.08] shadow-lg">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-base border border-edge-strong shadow-lg">
         
         {/* League Selector */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
@@ -72,7 +72,7 @@ const VenueSplitsGrid: React.FC = () => {
             <select 
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="pl-9 pr-4 py-2 bg-[#121214] border border-white/10 rounded-lg text-xs font-medium text-white appearance-none focus:outline-none focus:border-white/20 hover:bg-[#161618] transition-colors cursor-pointer min-w-[160px]"
+              className="pl-9 pr-4 py-2 bg-surface-elevated border border-white/10 rounded-lg text-xs font-medium text-white appearance-none focus:outline-none focus:border-white/20 hover:bg-surface-subtle transition-colors cursor-pointer min-w-[160px]"
             >
               {SORT_OPTIONS.map(opt => (
                 <option key={opt.id} value={opt.id}>{opt.label}</option>
@@ -82,7 +82,7 @@ const VenueSplitsGrid: React.FC = () => {
 
           <button 
             onClick={toggleSort}
-            className="p-2 rounded-lg bg-[#121214] border border-white/10 text-zinc-400 hover:text-white transition-colors"
+            className="p-2 rounded-lg bg-surface-elevated border border-white/10 text-zinc-400 hover:text-white transition-colors"
           >
             <ArrowUpDown size={14} className={sortOrder === 'asc' ? 'rotate-180' : ''} />
           </button>

@@ -94,7 +94,7 @@ const ExpandedMatchCard: React.FC<ExpandedMatchCardProps> = ({ match, onClick })
   return (
     <div
       onClick={onClick}
-      className="bg-[#111113] border border-edge-subtle rounded-2xl p-5 cursor-pointer hover:border-white/[0.12] hover:bg-overlay-ghost transition-all duration-200"
+      className="bg-surface-elevated border border-edge-subtle rounded-2xl p-5 cursor-pointer hover:border-edge-heavy hover:bg-overlay-ghost transition-all duration-200"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">

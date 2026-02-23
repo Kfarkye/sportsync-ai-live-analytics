@@ -52,14 +52,17 @@ export default {
                     ghost:   'rgba(255,255,255,0.03)',
                     subtle:  'rgba(255,255,255,0.04)',
                     DEFAULT: 'rgba(255,255,255,0.06)',
-                    strong:  'rgba(255,255,255,0.12)',
+                    strong:  'rgba(255,255,255,0.08)',
+                    heavy:   'rgba(255,255,255,0.12)',
                 },
                 // Background overlay tiers
                 overlay: {
                     ghost:    'rgba(255,255,255,0.01)',
                     subtle:   'rgba(255,255,255,0.02)',
+                    dim:      'rgba(255,255,255,0.03)',
                     muted:    'rgba(255,255,255,0.04)',
                     emphasis: 'rgba(255,255,255,0.06)',
+                    strong:   'rgba(255,255,255,0.08)',
                 },
             },
 
@@ -68,13 +71,16 @@ export default {
                Enables migration: tracking-[0.2em] → tracking-widest
                ────────────────────────────────────────────────────── */
             letterSpacing: {
-                tight:   '-0.02em',
-                snug:    '-0.01em',
-                normal:  '0em',
-                wide:    '0.04em',
-                wider:   '0.08em',
-                widest:  '0.2em',
-                ultra:   '0.3em',
+                tight:    '-0.02em',
+                snug:     '-0.01em',
+                normal:   '0em',
+                wide:     '0.04em',
+                wider:    '0.08em',
+                expanded: '0.1em',     // 16 usages
+                spread:   '0.12em',    // 10 usages
+                loose:    '0.15em',    // 16 usages
+                widest:   '0.2em',
+                ultra:    '0.3em',
             },
 
             /* ──────────────────────────────────────────────────────

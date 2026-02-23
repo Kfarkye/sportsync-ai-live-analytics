@@ -39,7 +39,7 @@ const RankingRow: React.FC<{ item: RankingItem }> = ({ item }) => (
         </div>
         
         <div className="mx-4 relative">
-            <div className="w-10 h-10 rounded-[14px] bg-[#1C1C1E] border border-white/[0.08] flex items-center justify-center shadow-sm overflow-hidden">
+            <div className="w-10 h-10 rounded-[14px] bg-surface-subtle border border-edge-strong flex items-center justify-center shadow-sm overflow-hidden">
                 <TeamLogo logo={item.team.logo} name={item.team.name} className="w-7 h-7 object-contain" />
             </div>
             {/* Tiny accent dot based on team color */}
@@ -156,7 +156,7 @@ const RankingsDrawer: React.FC<RankingsDrawerProps> = ({ isOpen, onClose, sport,
                         </div>
 
                         {/* Content */}
-                        <div className="overflow-y-auto flex-1 custom-scrollbar bg-[#111113]/50">
+                        <div className="overflow-y-auto flex-1 custom-scrollbar bg-surface-elevated/50">
                             {loading ? (
                                 <div className="flex flex-col items-center justify-center py-20 gap-3">
                                     <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />

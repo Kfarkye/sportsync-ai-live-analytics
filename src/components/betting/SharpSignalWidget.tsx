@@ -31,7 +31,7 @@ const GaugeBar = ({
                     {pct}%
                 </span>
             </div>
-            <div className="h-1.5 w-full bg-[#1A1A1A] rounded-full overflow-hidden border border-edge-subtle">
+            <div className="h-1.5 w-full bg-surface-subtle rounded-full overflow-hidden border border-edge-subtle">
                 <MotionDiv
                     initial={{ width: 0 }}
                     animate={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }}
@@ -59,7 +59,7 @@ export const SharpSignalWidget = ({ match }: { match: Match }) => {
     }, [match.id, match.sport]);
 
     if (loading) return (
-        <div className="h-[180px] bg-[#09090B] border border-white/[0.08] rounded-xl flex flex-col items-center justify-center gap-3 animate-pulse">
+        <div className="h-[180px] bg-surface-base border border-edge-strong rounded-xl flex flex-col items-center justify-center gap-3 animate-pulse">
             <Target size={20} className="text-zinc-700" />
             <span className="text-label font-mono text-zinc-600 uppercase tracking-widest">Analysing Order Flow...</span>
         </div>
@@ -75,10 +75,10 @@ export const SharpSignalWidget = ({ match }: { match: Match }) => {
         <MotionDiv
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-[#09090B] border border-white/[0.08] rounded-xl overflow-hidden shadow-lg"
+            className="bg-surface-base border border-edge-strong rounded-xl overflow-hidden shadow-lg"
         >
             {/* Header */}
-            <div className="bg-[#0C0C0E] px-4 py-3 border-b border-edge flex items-center justify-between">
+            <div className="bg-surface-base px-4 py-3 border-b border-edge flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <Zap size={14} className={isSharp ? "text-[#00F0FF] fill-[#00F0FF]/20" : "text-zinc-500"} />
                     <h3 className="text-caption font-bold text-zinc-200 uppercase tracking-widest">Sharp Report</h3>
@@ -136,7 +136,7 @@ export const SharpSignalWidget = ({ match }: { match: Match }) => {
 
                 {/* Summary */}
                 {signal.inferred_sharp_side !== 'neutral' && (
-                    <div className="text-caption text-zinc-400 font-mono leading-relaxed bg-[#121214] p-3 rounded-lg border border-white/5">
+                    <div className="text-caption text-zinc-400 font-mono leading-relaxed bg-surface-elevated p-3 rounded-lg border border-white/5">
                         <span className="text-[#00F0FF] font-bold">INSIGHT:</span> Smart money is heavily favoring <span className="text-white font-bold">{signal.inferred_sharp_side === 'home' ? match.homeTeam.shortName : match.awayTeam.shortName}</span> despite {signal.public_pct > 50 ? 'public consensus' : 'ticket volume'}.
                     </div>
                 )}

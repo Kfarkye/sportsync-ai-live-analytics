@@ -53,7 +53,7 @@ const travelFlagLabels: Record<string, string> = {
 const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading }) => {
     if (loading) {
         return (
-            <div className="rounded-[20px] bg-[#111113] border border-edge-subtle p-6">
+            <div className="rounded-[20px] bg-surface-elevated border border-edge-subtle p-6">
                 <div className="flex items-center justify-center h-32">
                     <div className="w-6 h-6 border-2 border-zinc-800 border-t-zinc-500 rounded-full animate-spin" />
                 </div>
@@ -63,7 +63,7 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
 
     if (!context) {
         return (
-            <div className="rounded-[20px] bg-[#111113] border border-edge-subtle p-6">
+            <div className="rounded-[20px] bg-surface-elevated border border-edge-subtle p-6">
                 <div className="flex flex-col items-center justify-center h-32 text-center">
                     <Activity className="w-8 h-8 text-zinc-700 mb-3" />
                     <p className="text-body-sm text-zinc-600">No pregame context available</p>
@@ -82,7 +82,7 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
         <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-[20px] bg-[#111113] border border-edge-subtle overflow-hidden"
+            className="rounded-[20px] bg-surface-elevated border border-edge-subtle overflow-hidden"
         >
             {/* Header */}
             <div className="px-6 py-4 border-b border-edge-subtle">

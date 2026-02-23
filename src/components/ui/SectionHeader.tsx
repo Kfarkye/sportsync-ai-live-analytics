@@ -65,7 +65,7 @@ export const SectionHeader = memo(({
                 {Icon && <Icon size={11} strokeWidth={2.5} className="text-zinc-500" />}
                 {/* M-04: All section headers zinc-500, 12px, 500 weight, 0.12em tracking */}
                 <span className={cn(
-                    "text-small font-medium text-zinc-500 uppercase tracking-[0.12em] leading-none",
+                    "text-small font-medium text-zinc-500 uppercase tracking-spread leading-none",
                     centered && "pl-0" // Remove relative offset if centered
                 )}>
                     {displayTitle}

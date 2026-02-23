@@ -24,7 +24,7 @@ const OddsCell = ({ label, value, subValue, isLive, active, result }: OddsCellPr
   // Result Styling - Compact
   let valueColor = isLive ? "text-[#FF375F]" : "text-zinc-200 group-hover/cell:text-white";
   let borderColor = "border-[#27272a]";
-  let bgColor = "bg-[#121214]";
+  let bgColor = "bg-surface-elevated";
   let labelColor = "text-zinc-600 group-hover/cell:text-zinc-500";
 
   if (result === 'covered' || result === 'winning') {
@@ -33,7 +33,7 @@ const OddsCell = ({ label, value, subValue, isLive, active, result }: OddsCellPr
     borderColor = "border-emerald-500/20";
   } else if (result === 'lost' || result === 'losing') {
     valueColor = "text-zinc-500 line-through decoration-zinc-600/50";
-    bgColor = "bg-[#18181a]";
+    bgColor = "bg-surface-subtle";
     borderColor = "border-edge-subtle";
   } else if (result === 'push') {
     valueColor = "text-amber-400";

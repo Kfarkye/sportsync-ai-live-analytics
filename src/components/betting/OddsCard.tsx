@@ -155,7 +155,7 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
             <div className="flex items-center gap-4 py-4 border-b border-edge-subtle hover:bg-overlay-subtle transition-colors duration-150 -mx-2 px-2 rounded-lg">
                 <div className="w-28 flex items-center gap-2.5 shrink-0">
                     <TeamLogo logo={match.awayTeam.logo} className="w-7 h-7 drop-shadow-md" />
-                    <span className="text-footnote font-semibold text-zinc-400 uppercase tracking-[0.1em]">
+                    <span className="text-footnote font-semibold text-zinc-400 uppercase tracking-expanded">
                         {match.awayTeam.abbreviation || match.awayTeam.shortName}
                     </span>
                 </div>
@@ -170,7 +170,7 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
             <div className="flex items-center gap-4 py-4 border-b border-edge-subtle hover:bg-overlay-subtle transition-colors duration-150 -mx-2 px-2 rounded-lg">
                 <div className="w-28 flex items-center gap-2.5 shrink-0">
                     <TeamLogo logo={match.homeTeam.logo} className="w-7 h-7 drop-shadow-md" />
-                    <span className="text-footnote font-semibold text-zinc-400 uppercase tracking-[0.1em]">
+                    <span className="text-footnote font-semibold text-zinc-400 uppercase tracking-expanded">
                         {match.homeTeam.abbreviation || match.homeTeam.shortName}
                     </span>
                 </div>

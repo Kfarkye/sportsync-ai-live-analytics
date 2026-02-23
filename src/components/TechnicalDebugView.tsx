@@ -140,7 +140,7 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
     };
 
     return (
-        <div className="fixed inset-y-0 right-0 w-96 z-[9999] bg-zinc-950 border-l border-white/10 shadow-2xl flex flex-col font-mono text-[10px] animate-in slide-in-from-right duration-300">
+        <div className="fixed inset-y-0 right-0 w-96 z-[9999] bg-zinc-950 border-l border-white/10 shadow-2xl flex flex-col font-mono text-caption animate-in slide-in-from-right duration-300">
             <div className="flex items-center justify-between p-4 border-b border-white/10 bg-zinc-900/50">
                 <div className="flex items-center gap-2">
                     <Database size={14} className="text-cyan-400" />
@@ -170,11 +170,11 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                     </h4>
                     <div className="grid grid-cols-2 gap-2">
                         <div className="bg-white/5 p-2 rounded">
-                            <div className="text-[8px] text-zinc-500 uppercase">Match Last Updated</div>
+                            <div className="text-nano text-zinc-500 uppercase">Match Last Updated</div>
                             <div className="text-sm font-bold text-green-400">{getTimeDelta(debugData.matchInDb?.last_updated)}</div>
                         </div>
                         <div className="bg-white/5 p-2 rounded">
-                            <div className="text-[8px] text-zinc-500 uppercase">Feed Last Updated</div>
+                            <div className="text-nano text-zinc-500 uppercase">Feed Last Updated</div>
                             <div className="text-sm font-bold text-cyan-400">{getTimeDelta(debugData.marketFeed?.last_updated)}</div>
                         </div>
                     </div>
@@ -210,10 +210,10 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                             <>
                                 <div className="flex justify-between items-center pb-1 border-b border-purple-500/10 mb-1">
                                     <span className="text-zinc-500">PROVIDER_RAW</span>
-                                    <span className="text-[8px] text-purple-400 font-bold tracking-widest">{debugData.matchInDb.current_odds.provider}</span>
+                                    <span className="text-nano text-purple-400 font-bold tracking-widest">{debugData.matchInDb.current_odds.provider}</span>
                                 </div>
-                                <div className="flex justify-between"><span className="text-zinc-500">Raw Spread:</span> <span className="text-zinc-200 font-bold">{debugData.matchInDb.current_odds._debug_raw.spread_point ?? 'N/A'} <span className="text-zinc-500 text-[8px]">({debugData.matchInDb.current_odds._debug_raw.spread_price ?? '-'})</span></span></div>
-                                <div className="flex justify-between"><span className="text-zinc-500">Raw Total:</span> <span className="text-zinc-200 font-bold">{debugData.matchInDb.current_odds._debug_raw.total_point ?? 'N/A'} <span className="text-zinc-500 text-[8px]">({debugData.matchInDb.current_odds._debug_raw.total_price ?? '-'})</span></span></div>
+                                <div className="flex justify-between"><span className="text-zinc-500">Raw Spread:</span> <span className="text-zinc-200 font-bold">{debugData.matchInDb.current_odds._debug_raw.spread_point ?? 'N/A'} <span className="text-zinc-500 text-nano">({debugData.matchInDb.current_odds._debug_raw.spread_price ?? '-'})</span></span></div>
+                                <div className="flex justify-between"><span className="text-zinc-500">Raw Total:</span> <span className="text-zinc-200 font-bold">{debugData.matchInDb.current_odds._debug_raw.total_point ?? 'N/A'} <span className="text-zinc-500 text-nano">({debugData.matchInDb.current_odds._debug_raw.total_price ?? '-'})</span></span></div>
                                 <div className="text-[7px] text-zinc-600 mt-1 italic">Normalized in-app for Rest of Game offsets</div>
                             </>
                         ) : (
@@ -230,12 +230,12 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                                 <Activity size={12} />
                                 Logic Trace (The Brain)
                             </span>
-                            <span className="group-open:rotate-180 transition-transform text-[8px]">▼</span>
+                            <span className="group-open:rotate-180 transition-transform text-nano">▼</span>
                         </summary>
                         <div className="mt-2 space-y-1 bg-black/40 p-2 rounded border border-white/5 max-h-48 overflow-y-auto custom-scrollbar">
                             {debugData.liveGameState?.logic_trace ? (
                                 debugData.liveGameState.logic_trace.map((lineStr: string, i: number) => (
-                                    <div key={i} className="flex gap-2 text-[8px]">
+                                    <div key={i} className="flex gap-2 text-nano">
                                         <span className="text-zinc-600 shrink-0 w-3">{i + 1}</span>
                                         <span className="text-zinc-300">{lineStr}</span>
                                     </div>
@@ -252,12 +252,12 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                                 <Activity size={12} />
                                 Discovery Trace (Capture)
                             </span>
-                            <span className="group-open:rotate-180 transition-transform text-[8px]">▼</span>
+                            <span className="group-open:rotate-180 transition-transform text-nano">▼</span>
                         </summary>
                         <div className="mt-2 space-y-1 bg-black/40 p-2 rounded border border-white/5 max-h-48 overflow-y-auto custom-scrollbar">
                             {debugData.matchInDb?.ingest_trace ? (
                                 debugData.matchInDb.ingest_trace.map((lineStr: string, i: number) => (
-                                    <div key={i} className="flex gap-2 text-[8px]">
+                                    <div key={i} className="flex gap-2 text-nano">
                                         <span className="text-zinc-600 shrink-0 w-3">{i + 1}</span>
                                         <span className="text-zinc-300">{lineStr}</span>
                                     </div>
@@ -274,12 +274,12 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                                 <Activity size={12} />
                                 Intel Trace (Gemini)
                             </span>
-                            <span className="group-open:rotate-180 transition-transform text-[8px]">▼</span>
+                            <span className="group-open:rotate-180 transition-transform text-nano">▼</span>
                         </summary>
                         <div className="mt-2 space-y-1 bg-black/40 p-2 rounded border border-white/5 max-h-48 overflow-y-auto custom-scrollbar">
                             {debugData.pregameIntel?.ingest_trace ? (
                                 debugData.pregameIntel.ingest_trace.map((lineStr: string, i: number) => (
-                                    <div key={i} className="flex gap-2 text-[8px]">
+                                    <div key={i} className="flex gap-2 text-nano">
                                         <span className="text-zinc-600 shrink-0 w-3">{i + 1}</span>
                                         <span className="text-zinc-300">{lineStr}</span>
                                     </div>
@@ -296,12 +296,12 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                                 <Activity size={12} />
                                 Chat Trace (The Architect)
                             </span>
-                            <span className="group-open:rotate-180 transition-transform text-[8px]">▼</span>
+                            <span className="group-open:rotate-180 transition-transform text-nano">▼</span>
                         </summary>
                         <div className="mt-2 space-y-1 bg-black/40 p-2 rounded border border-white/5 max-h-48 overflow-y-auto custom-scrollbar">
                             {debugData.activeConversation?.debug_trace ? (
                                 debugData.activeConversation.debug_trace.map((lineStr: string, i: number) => (
-                                    <div key={i} className="flex gap-2 text-[8px]">
+                                    <div key={i} className="flex gap-2 text-nano">
                                         <span className="text-zinc-600 shrink-0 w-3">{i + 1}</span>
                                         <span className="text-zinc-300">{lineStr}</span>
                                     </div>
@@ -319,7 +319,7 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                             <span>Ingest Trace (Last)</span>
                             <span className="group-open:rotate-180 transition-transform">▼</span>
                         </summary>
-                        <pre className="mt-2 p-2 bg-black/40 rounded overflow-x-auto text-[8px] max-h-48 overflow-y-auto border border-white/5">
+                        <pre className="mt-2 p-2 bg-black/40 rounded overflow-x-auto text-nano max-h-48 overflow-y-auto border border-white/5">
                             {JSON.stringify(debugData.lastIngestDebug, null, 2)}
                         </pre>
                     </details>
@@ -329,7 +329,7 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                             <span>Raw Match Data</span>
                             <span className="group-open:rotate-180 transition-transform">▼</span>
                         </summary>
-                        <pre className="mt-2 p-2 bg-black/40 rounded overflow-x-auto text-[8px] max-h-48 overflow-y-auto border border-white/5">
+                        <pre className="mt-2 p-2 bg-black/40 rounded overflow-x-auto text-nano max-h-48 overflow-y-auto border border-white/5">
                             {JSON.stringify(debugData.matchInDb, null, 2)}
                         </pre>
                     </details>
@@ -339,7 +339,7 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                             <span>Raw Market Feed</span>
                             <span className="group-open:rotate-180 transition-transform">▼</span>
                         </summary>
-                        <pre className="mt-2 p-2 bg-black/40 rounded overflow-x-auto text-[8px] max-h-48 overflow-y-auto border border-white/5">
+                        <pre className="mt-2 p-2 bg-black/40 rounded overflow-x-auto text-nano max-h-48 overflow-y-auto border border-white/5">
                             {JSON.stringify(debugData.marketFeed, null, 2)}
                         </pre>
                     </details>
@@ -349,7 +349,7 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                             <span>Canonical Identity</span>
                             <span className="group-open:rotate-180 transition-transform">▼</span>
                         </summary>
-                        <pre className="mt-2 p-2 bg-black/40 rounded overflow-x-auto text-[8px] max-h-48 overflow-y-auto border border-white/5">
+                        <pre className="mt-2 p-2 bg-black/40 rounded overflow-x-auto text-nano max-h-48 overflow-y-auto border border-white/5">
                             {JSON.stringify(debugData.canonicalGame, null, 2)}
                         </pre>
                     </details>
@@ -359,14 +359,14 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                             <span>Full Market Feed (JSON)</span>
                             <span className="group-open:rotate-180 transition-transform">▼</span>
                         </summary>
-                        <pre className="mt-2 p-2 bg-black/40 rounded overflow-x-auto text-[10px] max-h-96 overflow-y-auto border border-purple-500/20 text-zinc-300 whitespace-pre">
+                        <pre className="mt-2 p-2 bg-black/40 rounded overflow-x-auto text-caption max-h-96 overflow-y-auto border border-purple-500/20 text-zinc-300 whitespace-pre">
                             {JSON.stringify(debugData.marketFeed, null, 2)}
                         </pre>
                     </details>
                 </div>
             </div>
 
-            <div className="p-4 border-t border-white/10 bg-zinc-900/30 text-[8px] text-zinc-600">
+            <div className="p-4 border-t border-white/10 bg-zinc-900/30 text-nano text-zinc-600">
                 SYSTEM_EPOCH: 2026-01-10T20:52:16Z
                 <br />
                 AGENT: ANTIGRAVITY_SRE_V2

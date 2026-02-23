@@ -111,7 +111,7 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
               <th className="py-3 text-left w-28 px-1">
                 <span className="text-caption font-black text-zinc-600 uppercase tracking-widest">Team</span>
               </th>
-              <th className="py-3 px-3 text-center w-16 bg-white/[0.03] rounded-t-lg">
+              <th className="py-3 px-3 text-center w-16 bg-overlay-dim rounded-t-lg">
                 <span className="text-caption font-black text-zinc-500 uppercase tracking-widest">Tot</span>
               </th>
             </tr>
@@ -130,7 +130,7 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
                       </span>
                     </div>
                   </td>
-                  <td className={cn("py-4 px-3 text-center bg-white/[0.03] border-l border-edge-subtle", idx === 1 && "rounded-b-lg")}>
+                  <td className={cn("py-4 px-3 text-center bg-overlay-dim border-l border-edge-subtle", idx === 1 && "rounded-b-lg")}>
                     <span className={cn(
                       "font-mono text-[18px] font-black tabular-nums tracking-tighter",
                       isWinning ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" : "text-zinc-400",
@@ -189,7 +189,7 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
                 </span>
               </th>
             ))}
-            <th className="py-3 px-3 text-center w-16 bg-white/[0.03] rounded-t-lg">
+            <th className="py-3 px-3 text-center w-16 bg-overlay-dim rounded-t-lg">
               <span className="text-caption font-black text-zinc-500 uppercase tracking-widest">Tot</span>
             </th>
           </tr>
@@ -221,7 +221,7 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
                   </td>
                 ))}
                 <td className={cn(
-                  "py-4 px-3 text-center bg-white/[0.03] border-l border-edge-subtle",
+                  "py-4 px-3 text-center bg-overlay-dim border-l border-edge-subtle",
                   idx === 1 && "rounded-b-lg"
                 )}>
                   <span className={cn(
@@ -282,7 +282,7 @@ export const TeamStatsGrid: React.FC<TeamStatsGridProps> = memo(({ stats, colors
                 <span className="text-caption font-semibold text-zinc-500 uppercase tracking-widest">{stat.label}</span>
                 <span className="text-small font-mono font-semibold text-white/90 tabular-nums">{stat.homeValue}</span>
               </div>
-              <div className="relative h-1.5 w-full bg-white/[0.03] rounded-full overflow-hidden flex">
+              <div className="relative h-1.5 w-full bg-overlay-dim rounded-full overflow-hidden flex">
                 <div className="absolute left-0 top-0 bottom-0 w-px bg-white/10" />
                 <motion.div
                   initial={{ width: 0 }}
@@ -354,7 +354,7 @@ export const ClassicPlayerProps: React.FC<{ match: Match }> = memo(({ match }) =
         <div className="w-12 h-12 rounded-2xl bg-zinc-900/50 flex items-center justify-center mb-4">
           <Target size={20} className="text-zinc-700" />
         </div>
-        <span className="text-footnote font-medium text-zinc-600 uppercase tracking-[0.1em]">No Active Props</span>
+        <span className="text-footnote font-medium text-zinc-600 uppercase tracking-expanded">No Active Props</span>
       </div>
     );
   }
@@ -461,7 +461,7 @@ const BoxScore: React.FC<{ match: Match }> = memo(({ match }) => {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-white/[0.08] bg-overlay-subtle p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+      <div className="rounded-2xl border border-edge-strong bg-overlay-subtle p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
@@ -475,7 +475,7 @@ const BoxScore: React.FC<{ match: Match }> = memo(({ match }) => {
       </div>
 
       {stats.length > 0 && (
-        <div className="rounded-2xl border border-white/[0.08] bg-overlay-subtle p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+        <div className="rounded-2xl border border-edge-strong bg-overlay-subtle p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
             <span className="text-caption font-bold uppercase tracking-widest text-zinc-500">Team Stats</span>

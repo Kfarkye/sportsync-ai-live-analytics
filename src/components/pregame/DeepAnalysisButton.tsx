@@ -34,7 +34,7 @@ const AnalysisTrigger: React.FC<AnalysisTriggerProps> = ({
             absolute inset-0 rounded-2xl transition-all duration-300
             ${isActive 
                 ? 'bg-white opacity-100 shadow-[0_10px_30px_-10px_rgba(255,255,255,0.3)] border border-white' 
-                : 'bg-[#111] border border-white/10 hover:bg-[#161616] opacity-100'
+                : 'bg-surface-elevated border border-white/10 hover:bg-surface-subtle opacity-100'
             }
         `} />
         

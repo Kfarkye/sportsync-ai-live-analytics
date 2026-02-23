@@ -228,7 +228,7 @@ const BSORow: FC<{ label: string; count: number; max: number; colorClass: string
                         key={i}
                         className={cn(
                             'w-2 h-2 rounded-full transition-all duration-200',
-                            i < count ? colorClass : 'bg-overlay-emphasis border border-white/[0.08]',
+                            i < count ? colorClass : 'bg-overlay-emphasis border border-edge-strong',
                         )}
                         style={i < count ? { boxShadow: `0 0 4px currentColor` } : undefined}
                     />
@@ -318,7 +318,7 @@ const StrikeZone: FC<StrikeZoneProps> = memo(({ pitches, className }) => {
                                     y={py - 12}
                                     textAnchor="middle"
                                     fill={col}
-                                    className="font-mono text-[6px] font-bold tracking-[0.1em]"
+                                    className="font-mono text-[6px] font-bold tracking-expanded"
                                 >
                                     LAST
                                 </text>
@@ -440,11 +440,11 @@ const Matchup: FC<MatchupProps> = memo(({ pitcher, batter, awayColor, homeColor,
                     'flex flex-col items-center px-3 py-1.5 rounded-lg border',
                     pcHot
                         ? 'bg-orange-500/10 border-orange-500/20'
-                        : 'bg-white/[0.03] border-edge',
+                        : 'bg-overlay-dim border-edge',
                 )}
                 aria-label={`Pitch count: ${pitcher.pitchCount}`}
             >
-                <span className="font-mono text-[7px] font-semibold tracking-[0.12em] text-zinc-500">P-CT</span>
+                <span className="font-mono text-[7px] font-semibold tracking-spread text-zinc-500">P-CT</span>
                 <span
                     className={cn(
                         'font-mono text-xl font-extrabold leading-none',

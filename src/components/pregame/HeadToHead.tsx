@@ -41,7 +41,7 @@ const HeadToHead: React.FC<HeadToHeadProps> = ({ meetings, homeId, awayId, homeT
   return (
     <div className="space-y-4">
         {/* Record Summary */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#111113] border border-white/10 rounded-xl">
+        <div className="flex items-center justify-between px-4 py-3 bg-surface-elevated border border-white/10 rounded-xl">
             <div className="flex items-center gap-2">
                 <Trophy size={14} className="text-amber-400" />
                 <span className="text-caption font-bold text-zinc-500 uppercase tracking-widest">Series History</span>
@@ -60,7 +60,7 @@ const HeadToHead: React.FC<HeadToHeadProps> = ({ meetings, homeId, awayId, homeT
         </div>
 
         {/* Matches List */}
-        <div className="bg-[#09090B] border border-white/[0.08] rounded-xl overflow-hidden">
+        <div className="bg-surface-base border border-edge-strong rounded-xl overflow-hidden">
             {meetings.map((game, i) => {
                 const date = new Date(game.date);
                 const isHomeGame = game.homeTeamId === homeId; 

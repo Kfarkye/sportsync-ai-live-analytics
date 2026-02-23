@@ -159,7 +159,7 @@ const ConditionsCard: React.FC<ConditionsCardProps> = ({ venue, stadium, weather
                         <Tv size={14} strokeWidth={2} className="text-emerald-500" />
                     </div>
                     <div className="flex-1">
-                        <div className="text-caption font-semibold text-zinc-600 uppercase tracking-[0.12em] mb-0.5">Broadcast</div>
+                        <div className="text-caption font-semibold text-zinc-600 uppercase tracking-spread mb-0.5">Broadcast</div>
                         <div className="text-body-sm font-semibold text-white tracking-tight">
                             {broadcast.toUpperCase().replace('NETWORK', '').trim()}
                         </div>

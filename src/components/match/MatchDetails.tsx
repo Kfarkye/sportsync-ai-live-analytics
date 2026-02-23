@@ -560,7 +560,7 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
   const effectiveOpen = collapsible ? isOpen : true;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn("group relative border-t border-white/[0.08] transition-all duration-500", collapsible ? "cursor-pointer" : "cursor-default")} onClick={() => collapsible && setIsOpen(!isOpen)}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn("group relative border-t border-edge-strong transition-all duration-500", collapsible ? "cursor-pointer" : "cursor-default")} onClick={() => collapsible && setIsOpen(!isOpen)}>
       <div className={cn("absolute -top-[1px] left-0 h-[1px] bg-white transition-all duration-500 ease-out z-10 shadow-[0_0_10px_rgba(255,255,255,0.4)]", effectiveOpen ? "w-full opacity-100" : "w-0 opacity-0")} />
       <div className="py-6 flex flex-col md:flex-row md:items-start gap-5 md:gap-0">
         <div className="w-full md:w-[140px] shrink-0 flex items-center justify-between md:block select-none">
@@ -587,7 +587,7 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
 // ============================================================================
 
 const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'connecting' }) => {
-  const base = "flex items-center justify-center w-7 h-7 bg-white/[0.03] border border-white/5 rounded-full backdrop-blur-sm";
+  const base = "flex items-center justify-center w-7 h-7 bg-overlay-dim border border-white/5 rounded-full backdrop-blur-sm";
   if (status === 'connected') {
     return (
       <div className={base}>
@@ -1234,7 +1234,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         <nav className="flex justify-center gap-8 md:gap-12 pb-0 mt-2 border-t border-edge-subtle">
           {TABS.map((tab, i) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("relative py-4 group outline-none", i === TABS.length - 1 && "ml-4")}>
-              <span className={cn("text-footnote font-medium tracking-[0.12em] uppercase transition-all duration-150", activeTab === tab.id ? "text-white" : "text-zinc-500 group-hover:text-zinc-400")}>{tab.label}</span>
+              <span className={cn("text-footnote font-medium tracking-spread uppercase transition-all duration-150", activeTab === tab.id ? "text-white" : "text-zinc-500 group-hover:text-zinc-400")}>{tab.label}</span>
               {activeTab === tab.id && (<motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[2px] bg-white" />)}
             </button>
           ))}
@@ -1254,9 +1254,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       <CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} />
                     )}
                   </SpecSheetRow>
-                  <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-white/[0.08]" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
+                  <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-overlay-strong" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
                   {liveState?.ai_analysis && <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={true}><LiveAIInsight match={match} /></SpecSheetRow>}
-                  <div className="w-full h-px bg-white/[0.08]" />
+                  <div className="w-full h-px bg-overlay-strong" />
                 </div>
               )}
               {activeTab === 'DETAILS' && (
@@ -1267,7 +1267,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     <SpecSheetRow label="05 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
                     <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
                     <SpecSheetRow label="07 // CONTEXT" defaultOpen={true}>{match.context ? <MatchupContextPills {...match.context} sport={match.sport} /> : <div className="text-zinc-500 italic text-xs">No context available.</div>}</SpecSheetRow>
-                    <div className="w-full h-px bg-white/[0.08]" />
+                    <div className="w-full h-px bg-overlay-strong" />
                   </div>
                 </div>
               )}
@@ -1275,7 +1275,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                 <div className="space-y-0">
                   <div className="flex justify-end mb-4 pr-4"><button onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')} className="text-label font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">SWITCH VIEW</button></div>
                   <SpecSheetRow label="01 // PLAYER MKTS" defaultOpen={true} collapsible={false}>{propView === 'classic' ? <ClassicPlayerProps match={match} /> : <CinematicPlayerProps match={match} />}</SpecSheetRow>
-                  <div className="w-full h-px bg-white/[0.08]" />
+                  <div className="w-full h-px bg-overlay-strong" />
                 </div>
               )}
               {activeTab === 'DATA' && (
@@ -1314,7 +1314,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   <div className="mb-12"><ForecastHistoryTable matchId={match.id} /></div>
                   <SpecSheetRow label="01 // BOX SCORE" defaultOpen={true}><BoxScore match={match} /></SpecSheetRow>
                   <SpecSheetRow label="02 // ANALYSIS" defaultOpen={false}><SafePregameIntelCards match={match} /></SpecSheetRow>
-                  <div className="w-full h-px bg-white/[0.08]" />
+                  <div className="w-full h-px bg-overlay-strong" />
                 </div>
               )}
               {activeTab === 'CHAT' && (<div className="max-w-3xl mx-auto h-[700px]"><ChatWidget currentMatch={match} inline /></div>)}

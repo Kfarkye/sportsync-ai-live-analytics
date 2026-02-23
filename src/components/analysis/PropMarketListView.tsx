@@ -367,7 +367,7 @@ const CategoryCard: FC<CategoryCardProps> = memo(({ category, index, match, acti
     const formattedIndex = (index + 1).toString().padStart(2, '0');
 
     return (
-        <div className="relative border-t border-white/[0.08]">
+        <div className="relative border-t border-edge-strong">
             {/* Active Laser (Vertical) */}
             <div className={cn(
                 "absolute top-0 bottom-0 left-0 w-[2px] bg-white transition-all duration-500 ease-out z-10 shadow-[0_0_10px_rgba(255,255,255,0.4)]",
@@ -381,7 +381,7 @@ const CategoryCard: FC<CategoryCardProps> = memo(({ category, index, match, acti
                 transition={SPRING_IN}
                 className={cn(
                     'w-full flex items-center justify-between py-6 group transition-all duration-300 px-4 md:px-0',
-                    isOpen && `sticky ${TOKENS.sticky.categoryOpen} z-${TOKENS.z.categoryHeader} bg-[#111113]/60 backdrop-blur-[40px] saturate-[180%] border-b border-edge-subtle`
+                    isOpen && `sticky ${TOKENS.sticky.categoryOpen} z-${TOKENS.z.categoryHeader} bg-surface-elevated/60 backdrop-blur-[40px] saturate-[180%] border-b border-edge-subtle`
                 )}
             >
                 <div className="flex items-center gap-4 pl-4">
@@ -430,7 +430,7 @@ const CategoryCard: FC<CategoryCardProps> = memo(({ category, index, match, acti
                                             {/* Sub-header */}
                                             <div className={cn(
                                                 `sticky ${TOKENS.sticky.teamLabel} z-${TOKENS.z.teamLabel}`,
-                                                "py-2 mb-2 bg-[#111113]/95 backdrop-blur-sm border-b border-edge-subtle flex items-center justify-between"
+                                                "py-2 mb-2 bg-surface-elevated/95 backdrop-blur-sm border-b border-edge-subtle flex items-center justify-between"
                                             )}>
                                                 <span className="text-label font-bold text-zinc-500 uppercase tracking-widest font-mono">
                                                     {teamName}
@@ -510,7 +510,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
             {/* Sticky Filter Deck (Desktop) */}
             <nav className={cn(
                 `hidden md:flex sticky ${TOKENS.sticky.nav} z-${TOKENS.z.sticky}`,
-                "bg-[#111113]/60 backdrop-blur-[40px] saturate-[180%] border-b border-edge-subtle py-3"
+                "bg-surface-elevated/60 backdrop-blur-[40px] saturate-[180%] border-b border-edge-subtle py-3"
             )}>
                 <div className="flex items-center justify-center gap-6 md:gap-12 px-4 w-full">
                     {/* Away */}
@@ -578,7 +578,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={SPRING_IN}
-                className="md:hidden fixed left-3 right-3 z-[60] bottom-[calc(env(safe-area-inset-bottom)+12px)] px-3 py-2 rounded-full bg-[#111113]/60 backdrop-blur-[40px] saturate-[180%] border-[0.5px] border-edge-subtle shadow-[0_16px_60px_rgba(0,0,0,0.45)]"
+                className="md:hidden fixed left-3 right-3 z-[60] bottom-[calc(env(safe-area-inset-bottom)+12px)] px-3 py-2 rounded-full bg-surface-elevated/60 backdrop-blur-[40px] saturate-[180%] border-[0.5px] border-edge-subtle shadow-[0_16px_60px_rgba(0,0,0,0.45)]"
             >
                 <div className="flex items-center justify-between gap-2">
                     {teams.filter(t => t.side === 'AWAY').map(t => (
@@ -645,7 +645,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                         />
                     ))}
                 </LayoutGroup>
-                <div className="w-full h-px bg-white/[0.08] mt-8" />
+                <div className="w-full h-px bg-overlay-strong mt-8" />
             </div>
         </div>
     );

@@ -237,7 +237,7 @@ const MatchList: React.FC<MatchListProps> = ({
     if (isLoading && matches.length === 0) {
         return (
             <div className="max-w-7xl mx-auto w-full pt-4">
-                <div className="border-t border-white/[0.08]">
+                <div className="border-t border-edge-strong">
                     {[1, 2, 3, 4, 5, 6].map(i => <MatchRowSkeleton key={i} />)}
                 </div>
             </div>
@@ -270,7 +270,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" />
                                         <span className="text-footnote font-semibold text-zinc-500 uppercase tracking-widest">Watchlist</span>
                                     </div>
-                                    <div className="border-t border-white/[0.08]">
+                                    <div className="border-t border-edge-strong">
                                         {favorites.map(match => (
                                             <MatchRow
                                                 key={`fav-${match.id}`}

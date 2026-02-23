@@ -82,7 +82,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
 
     if (liveLoading && !liveState) {
         return (
-            <div className="p-16 flex flex-col items-center justify-center bg-[#080808]/60 backdrop-blur-xl rounded-3xl border border-edge-subtle shadow-2xl">
+            <div className="p-16 flex flex-col items-center justify-center bg-surface-base/60 backdrop-blur-xl rounded-3xl border border-edge-subtle shadow-2xl">
                 <motion.div
                     animate={{ rotate: 360, scale: [1, 1.1, 1] }}
                     transition={{ duration: 2, repeat: Infinity }}
@@ -192,7 +192,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <div className="px-2.5 py-1 bg-white/[0.03] border border-white/[0.02] rounded-lg hidden sm:flex items-center gap-1.5">
+                        <div className="px-2.5 py-1 bg-overlay-dim border border-white/[0.02] rounded-lg hidden sm:flex items-center gap-1.5">
                             <Target size={10} className="text-zinc-600" />
                             <span className="text-caption font-black text-zinc-600 tracking-widest uppercase">{marketType}</span>
                         </div>
@@ -203,7 +203,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                             <span className={cn("text-xs font-black tracking-tight uppercase", accentColor)}>
                                 {side === 'PASS' ? 'Efficiency Clear' : displaySide}
                             </span>
-                            <div className="w-[1px] h-4 bg-white/[0.08]" />
+                            <div className="w-[1px] h-4 bg-overlay-strong" />
                             <span className="text-footnote font-mono font-bold text-zinc-400 tabular-nums">
                                 {sharp_data?.recommendation?.unit_size || '0.00U'}
                             </span>
@@ -254,7 +254,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                             >
                                 <div className="mt-2 w-1.5 h-1.5 rounded-full bg-overlay-emphasis group-hover:bg-emerald-500/50 transition-all duration-500 shadow-[0_0_8px_transparent] group-hover:shadow-emerald-500/20" />
                                 <div className="flex-1 flex flex-col gap-0.5">
-                                    <span className="text-label font-black uppercase tracking-[0.15em] text-zinc-600 group-hover:text-emerald-500/60 transition-colors">{pillar.label}</span>
+                                    <span className="text-label font-black uppercase tracking-loose text-zinc-600 group-hover:text-emerald-500/60 transition-colors">{pillar.label}</span>
                                     <span className="text-body text-zinc-300 font-medium leading-[1.4] tracking-tight">{pillar.val}</span>
                                 </div>
                             </motion.div>

@@ -29,7 +29,7 @@ const PropCard: React.FC<{ player: RosterPlayer; teamColor: string }> = ({ playe
     const [imgError, setImgError] = useState(false);
 
     return (
-        <div className="relative overflow-hidden rounded-lg bg-[#111113] border border-edge-subtle shadow-lg group hover:border-white/[0.12] transition-all duration-300">
+        <div className="relative overflow-hidden rounded-lg bg-surface-elevated border border-edge-subtle shadow-lg group hover:border-edge-heavy transition-all duration-300">
             {/* Team Identity Bar */}
             <div
                 className="absolute top-0 left-0 w-[3px] h-full opacity-70 group-hover:opacity-100 transition-opacity"
@@ -75,7 +75,7 @@ const PropCard: React.FC<{ player: RosterPlayer; teamColor: string }> = ({ playe
 
                     {/* Market Type Badge */}
                     <div className="px-3 py-1.5 rounded-md bg-indigo-500/10 border border-indigo-500/20">
-                        <span className="text-label font-black text-indigo-400 uppercase tracking-[0.15em]">
+                        <span className="text-label font-black text-indigo-400 uppercase tracking-loose">
                             {player.prop.market}
                         </span>
                     </div>
@@ -99,7 +99,7 @@ const PropCard: React.FC<{ player: RosterPlayer; teamColor: string }> = ({ playe
 
                     {/* Over/Under Buttons */}
                     <div className="flex gap-2">
-                        <button className="flex flex-col items-center justify-center bg-[#0F0F0F] hover:bg-emerald-500/10 border border-edge-subtle hover:border-emerald-500/30 rounded-md h-12 w-14 transition-all duration-300 group/btn">
+                        <button className="flex flex-col items-center justify-center bg-surface-base hover:bg-emerald-500/10 border border-edge-subtle hover:border-emerald-500/30 rounded-md h-12 w-14 transition-all duration-300 group/btn">
                             <span className="text-nano font-bold text-zinc-600 uppercase mb-1 group-hover/btn:text-emerald-500/70">
                                 Over
                             </span>
@@ -107,7 +107,7 @@ const PropCard: React.FC<{ player: RosterPlayer; teamColor: string }> = ({ playe
                                 {player.prop.over}
                             </span>
                         </button>
-                        <button className="flex flex-col items-center justify-center bg-[#0F0F0F] hover:bg-rose-500/10 border border-edge-subtle hover:border-rose-500/30 rounded-md h-12 w-14 transition-all duration-300 group/btn">
+                        <button className="flex flex-col items-center justify-center bg-surface-base hover:bg-rose-500/10 border border-edge-subtle hover:border-rose-500/30 rounded-md h-12 w-14 transition-all duration-300 group/btn">
                             <span className="text-nano font-bold text-zinc-600 uppercase mb-1 group-hover/btn:text-rose-500/70">
                                 Under
                             </span>
@@ -148,9 +148,9 @@ const LineupProps: React.FC<LineupPropsProps> = ({ homeRoster, awayRoster, homeT
     const activeTeam = activeTab === 'home' ? homeTeam : awayTeam;
 
     return (
-        <div className="bg-[#080808] border border-edge-subtle rounded-lg overflow-hidden shadow-2xl">
+        <div className="bg-surface-base border border-edge-subtle rounded-lg overflow-hidden shadow-2xl">
             {/* Tab Header */}
-            <div className="flex border-b border-white/[0.05] bg-[#111113]">
+            <div className="flex border-b border-white/[0.05] bg-surface-elevated">
                 <button
                     onClick={() => setActiveTab('home')}
                     className={cn(
@@ -191,7 +191,7 @@ const LineupProps: React.FC<LineupPropsProps> = ({ homeRoster, awayRoster, homeT
             </div>
 
             {/* Content Grid */}
-            <div className="p-5 bg-[#080808] min-h-[320px]">
+            <div className="p-5 bg-surface-base min-h-[320px]">
                 <AnimatePresence mode='wait'>
                     <MotionDiv
                         key={activeTab}
@@ -213,10 +213,10 @@ const LineupProps: React.FC<LineupPropsProps> = ({ homeRoster, awayRoster, homeT
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 bg-[#111113] border-t border-white/[0.05] flex justify-between items-center">
+            <div className="px-5 py-3 bg-surface-elevated border-t border-white/[0.05] flex justify-between items-center">
                 <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/60 animate-pulse" />
-                    <span className="text-label font-bold text-zinc-500 uppercase tracking-[0.15em]">
+                    <span className="text-label font-bold text-zinc-500 uppercase tracking-loose">
                         Live Projections
                     </span>
                 </div>
