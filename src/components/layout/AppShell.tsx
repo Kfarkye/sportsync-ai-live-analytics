@@ -5,6 +5,7 @@ import { useMatches } from '../../hooks/useMatches';
 import { UnifiedHeader } from './UnifiedHeader';
 import { MobileNavBar } from './MobileNavBar';
 import MatchList from '../match/MatchList';
+import { FeedSkeleton } from '../ui/Skeleton';
 import MatchDetails from '../match/MatchDetails';
 import ChatWidget from '../ChatWidget';
 import LandingPage from './LandingPage';
@@ -95,18 +96,9 @@ const AppShell: FC = () => {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
-                {/* LOADING STATE */}
+                {/* LOADING STATE — Skeleton feed */}
                 {isLoading && filteredMatches.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-24 opacity-50">
-                    <div className="w-6 h-6 border-2 border-white/20 border-t-white/80 rounded-full animate-spin mb-4" />
-                    <p className="text-footnote font-bold tracking-widest text-zinc-500 uppercase">Syncing Sports Data</p>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="mt-6 px-4 py-1.5 rounded-full border border-white/10 text-caption font-medium text-zinc-400 hover:bg-white/5 active:scale-95 transition-all"
-                    >
-                      Force Refresh
-                    </button>
-                  </div>
+                  <FeedSkeleton />
                 )}
 
                 {/* EMPTY STATE */}
@@ -147,7 +139,7 @@ const AppShell: FC = () => {
 
             {activeView === 'TITAN' && (
               <MotionDiv key="titan" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
-                <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="w-6 h-6 border-2 border-white/20 border-t-emerald-500 rounded-full animate-spin" /></div>}>
+                <Suspense fallback={<FeedSkeleton />}>
                   <TitanAnalytics />
                 </Suspense>
               </MotionDiv>
