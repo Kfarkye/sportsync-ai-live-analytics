@@ -51,6 +51,7 @@ const MONITORED_LEAGUES: LeagueConfig[] = [
   { sport: 'soccer', league: 'usa.1', leagueId: 'mls', label: 'MLS', hasDrawLine: true },
   { sport: 'soccer', league: 'uefa.champions', leagueId: 'ucl', label: 'UCL', hasDrawLine: true },
   { sport: 'soccer', league: 'uefa.europa', leagueId: 'uel', label: 'UEL', hasDrawLine: true },
+  { sport: 'soccer', league: 'fifa.world', leagueId: 'worldcup', label: 'World Cup', hasDrawLine: true },
   { sport: 'mma', league: 'ufc', leagueId: 'ufc', label: 'UFC', hasDrawLine: false },
   { sport: 'tennis', league: 'atp', leagueId: 'atp', label: 'ATP', hasDrawLine: false },
   { sport: 'tennis', league: 'wta', leagueId: 'wta', label: 'WTA', hasDrawLine: false },

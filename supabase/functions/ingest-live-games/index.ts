@@ -19,6 +19,7 @@ const MONITOR_LEAGUES = [
   { id: 'epl', sport_type: Sport.SOCCER, endpoint: 'soccer/eng.1' },
   { id: 'seriea', sport_type: Sport.SOCCER, endpoint: 'soccer/ita.1' },
   { id: 'bundesliga', sport_type: Sport.SOCCER, endpoint: 'soccer/ger.1' },
+  { id: 'worldcup', sport_type: Sport.SOCCER, endpoint: 'soccer/fifa.world' },
   { id: 'atp', sport_type: Sport.TENNIS, endpoint: 'tennis/atp' },
   { id: 'wta', sport_type: Sport.TENNIS, endpoint: 'tennis/wta' }
 ];

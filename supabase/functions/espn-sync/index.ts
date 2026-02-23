@@ -34,6 +34,7 @@ const MONITORED_LEAGUES = [
   { sport: 'soccer', league: 'ita.1' },
   { sport: 'soccer', league: 'esp.1' },
   { sport: 'soccer', league: 'ger.1' },
+  { sport: 'soccer', league: 'fifa.world' },
 ];
 
 const SUFFIX_MAP: Record<string, string> = {
@@ -46,7 +47,8 @@ const SUFFIX_MAP: Record<string, string> = {
   'eng.1': '_epl',
   'ita.1': '_seriea',
   'esp.1': '_laliga',
-  'ger.1': '_bundesliga'
+  'ger.1': '_bundesliga',
+  'fifa.world': '_worldcup'
 };
 
 const mapStatus = (rawStatus: string) => {
