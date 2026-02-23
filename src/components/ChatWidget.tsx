@@ -2590,6 +2590,12 @@ const MessageBubble: FC<{
               return c.length > 5 ? <TacticalHUD content={c} /> : null;
             }
 
+            // Suppress paragraphs already rendered inside EdgeVerdictCard as synopsis
+            if (synopses.length > 0) {
+              const cleaned = text.replace(/\*+/g, "").replace(/\s+/g, " ").trim();
+              if (synopses.some(s => s && cleaned.length > 10 && cleaned.includes(s))) return null;
+            }
+
             // M-26: Apply typography normalization to body paragraphs
             return (
               <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-6 last:mb-0")}>
