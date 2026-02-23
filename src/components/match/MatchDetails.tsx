@@ -25,13 +25,8 @@ import { motion, AnimatePresence, useMotionValue, LayoutGroup } from 'framer-mot
 // SECTION 1: IMPORTS
 // ============================================================================
 
-import type { Match, RecentFormGame, ShotEvent, PlayerPropBet, PropBetType } from '@/types';
 import { Sport } from '@/types';
-import {
-  BaseballGamePanel,
-  BaseballEdgePanel,
-  useBaseballLive,
-} from '@/components/baseball';
+import type { Match, RecentFormGame, ShotEvent, PlayerPropBet, PropBetType } from '@/types';
 import { cn, ESSENCE } from '@/lib/essence';
 import { getMatchDisplayStats } from '../../utils/statDisplay';
 
@@ -66,7 +61,11 @@ import { GoalieMatchup } from '../GoalieMatchup';
 import { MatchupLoader, MatchupContextPills } from '../ui';
 import ChatWidget from '../ChatWidget';
 import { TechnicalDebugView } from '../TechnicalDebugView';
-import { TechnicalAuditHub } from '../analysis/TechnicalAuditHub';
+import {
+  BaseballGamePanel,
+  BaseballEdgePanel,
+  useBaseballLive,
+} from '@/components/baseball';
 
 // ============================================================================
 // SECTION 2: STRICT TYPE DEFINITIONS (AUDIT FIX)
@@ -938,12 +937,12 @@ export interface MatchDetailsProps {
 const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matches = [], onSelectMatch }) => {
   const { match, liveState, nhlShots, connectionStatus, error, forecastHistory, edgeState, isInitialLoad } = useMatchPolling(initialMatch as ExtendedMatch);
 
-  // Baseball-specific live data (pitch tracking, edge signals, matchup state)
+  // Baseball-specific live data (pitch tracking, edge convergence, matchup state)
   const isBaseball = match.sport === Sport.BASEBALL;
   const { data: baseballData } = useBaseballLive(
     match.id,
     match.status,
-    isBaseball,
+    isBaseball,  // only fetches when sport is BASEBALL
   );
 
   const [pregameIntel, setPregameIntel] = useState<PregameIntelResponse | null>(null);
@@ -1214,14 +1213,14 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
   return (
     <div className="min-h-screen text-white relative overflow-y-auto font-sans" style={{ backgroundColor: ESSENCE.colors.surface.base }}>
-      <div className="fixed inset-0 pointer-events-none z-0 motion-reduce:hidden">
+      <div className="fixed inset-0 pointer-events-none z-0">
         <motion.div animate={{ opacity: [0.03, 0.06, 0.03] }} transition={{ duration: 5, repeat: Infinity }} className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[140px]" style={{ background: awayColor }} />
         <motion.div animate={{ opacity: [0.03, 0.06, 0.03] }} transition={{ duration: 5, repeat: Infinity, delay: 2.5 }} className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full blur-[140px]" style={{ background: homeColor }} />
       </div>
 
       <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/[0.04] pt-safe shadow-2xl" style={{ backgroundColor: ESSENCE.colors.surface.base + 'F2' }}>
         <div className="flex items-center justify-between px-6 py-4">
-          <button onClick={onBack} aria-label="Go back to matches" className="group flex items-center justify-center w-10 h-10 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:outline-none rounded-full transition-all duration-300">
+          <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-white/5 rounded-full transition-all duration-300">
             <BackArrow />
           </button>
           <div className="flex items-center gap-4">
@@ -1232,9 +1231,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         {error && (<motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2"><div className="bg-red-900/10 border border-red-500/20 text-red-400 text-[10px] uppercase font-mono py-1 px-3 text-center">Data Stream Interrupted • Displaying Cached Telemetry</div></motion.div>)}
         <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
         {/* M-03: Tab bar — no pipe, underline-only active indicator, extra spacing before AI */}
-        <nav role="tablist" aria-label="Match detail tabs" className="flex justify-center gap-8 md:gap-12 pb-0 mt-2 border-t border-white/[0.04]">
+        <nav className="flex justify-center gap-8 md:gap-12 pb-0 mt-2 border-t border-white/[0.04]">
           {TABS.map((tab, i) => (
-            <button key={tab.id} role="tab" aria-selected={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className={cn("relative py-4 group outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent rounded-sm", i === TABS.length - 1 && "ml-4")}>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("relative py-4 group outline-none", i === TABS.length - 1 && "ml-4")}>
               <span className={cn("text-[11px] font-medium tracking-[0.12em] uppercase transition-all duration-150", activeTab === tab.id ? "text-white" : "text-zinc-500 group-hover:text-zinc-400")}>{tab.label}</span>
               {activeTab === tab.id && (<motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[2px] bg-white" />)}
             </button>
@@ -1248,7 +1247,13 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             <motion.div key={activeTab} {...ANIMATION.slideUp}>
               {activeTab === 'OVERVIEW' && (
                 <div className="space-y-0">
-                  <SpecSheetRow label="01 // BROADCAST" defaultOpen={true} collapsible={false}>{isBaseball ? (<BaseballGamePanel match={match} baseballData={baseballData ?? null} />) : (<CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} />)}</SpecSheetRow>
+                  <SpecSheetRow label="01 // BROADCAST" defaultOpen={true} collapsible={false}>
+                    {isBaseball ? (
+                      <BaseballGamePanel match={match} baseballData={baseballData} />
+                    ) : (
+                      <CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} />
+                    )}
+                  </SpecSheetRow>
                   <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-white/[0.08]" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
                   {liveState?.ai_analysis && <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={true}><LiveAIInsight match={match} /></SpecSheetRow>}
                   <div className="w-full h-px bg-white/[0.08]" />
@@ -1275,20 +1280,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
               )}
               {activeTab === 'DATA' && (
                 <div className="space-y-0">
-                  <div className="mb-12">
-                    <TechnicalAuditHub canonicalId={match.canonical_id || getDbMatchId(match.id, match.leagueId?.toLowerCase() || '')} />
-                  </div>
-                  {isBaseball && baseballData?.edge && (
-                    <div className="mb-12">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
-                          Edge Convergence
-                        </span>
-                      </div>
-                      <BaseballEdgePanel edge={baseballData.edge} />
-                    </div>
-                  )}
                   {(gameEdgeCardData || insightCardData) && (
                     <div className="mb-12 space-y-6">
                       <div className="flex items-center gap-2">
@@ -1307,6 +1298,17 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                           <InsightCard data={insightCardData} />
                         </div>
                       )}
+                    </div>
+                  )}
+                  {isBaseball && baseballData?.edge && (
+                    <div className="mb-12">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-1 h-1 rounded-full bg-emerald-400" />
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
+                          Edge Convergence
+                        </span>
+                      </div>
+                      <BaseballEdgePanel edge={baseballData.edge} />
                     </div>
                   )}
                   <div className="mb-12"><ForecastHistoryTable matchId={match.id} /></div>
