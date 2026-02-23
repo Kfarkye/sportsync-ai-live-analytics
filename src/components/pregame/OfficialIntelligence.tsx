@@ -39,7 +39,7 @@ const SpecRow = ({
     isLast?: boolean;
 }) => (
     <div className={cn(
-        "group relative flex flex-col md:flex-row md:items-baseline gap-2 md:gap-0 py-5 transition-colors duration-500 hover:bg-white/[0.02]",
+        "group relative flex flex-col md:flex-row md:items-baseline gap-2 md:gap-0 py-5 transition-colors duration-500 hover:bg-overlay-subtle",
         !isLast && "border-b border-white/[0.08]"
     )}>
         {/* Active Laser Line (Left Edge - Hover State) */}
@@ -47,7 +47,7 @@ const SpecRow = ({
 
         {/* 1. Technical Label */}
         <div className="w-full md:w-[140px] shrink-0 select-none pl-3 md:pl-0">
-            <span className="text-[9px] font-bold tracking-[0.25em] uppercase text-zinc-600 group-hover:text-zinc-400 transition-colors duration-300 font-mono">
+            <span className="text-label font-bold tracking-[0.25em] uppercase text-zinc-600 group-hover:text-zinc-400 transition-colors duration-300 font-mono">
                 {label}
             </span>
         </div>
@@ -89,7 +89,7 @@ const OfficialIntelligence: React.FC<OfficialIntelligenceProps> = ({ officials, 
             {chief && (
                 <SpecRow label="01 // CREW CHIEF" isLast={crewMembers.length === 0}>
                     <div className="flex items-center gap-3">
-                        <h4 className="text-[15px] md:text-[16px] font-medium text-white tracking-tight">
+                        <h4 className="text-body-lg md:text-[16px] font-medium text-white tracking-tight">
                             {chief}
                         </h4>
                         {/* Status Dot (Pure CSS) */}
@@ -109,7 +109,7 @@ const OfficialIntelligence: React.FC<OfficialIntelligenceProps> = ({ officials, 
                             <div key={idx} className="flex items-center gap-2 group/item select-none">
                                 {/* Decorator Dot */}
                                 <span className="w-1 h-1 rounded-full bg-zinc-700 group-hover/item:bg-zinc-500 transition-colors duration-300" />
-                                <span className="text-[13px] font-light text-zinc-400 group-hover/item:text-zinc-200 transition-colors duration-300 tracking-wide">
+                                <span className="text-body-sm font-light text-zinc-400 group-hover/item:text-zinc-200 transition-colors duration-300 tracking-wide">
                                     {name}
                                 </span>
                             </div>

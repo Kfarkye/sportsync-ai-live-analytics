@@ -31,7 +31,7 @@ export const PropViewToggle: React.FC<PropViewToggleProps> = ({ view, onChange, 
             <button
                 onClick={() => onChange('cinematic')}
                 className={cn(
-                    "relative z-10 px-5 py-2 rounded-[10px] text-[10px] font-black uppercase tracking-[0.15em] transition-colors duration-300 active:scale-95 tap-feedback",
+                    "relative z-10 px-5 py-2 rounded-[10px] text-caption font-black uppercase tracking-[0.15em] transition-colors duration-300 active:scale-95 tap-feedback",
                     view === 'cinematic' ? "text-zinc-950" : "text-zinc-500 hover:text-zinc-300"
                 )}
             >
@@ -40,7 +40,7 @@ export const PropViewToggle: React.FC<PropViewToggleProps> = ({ view, onChange, 
             <button
                 onClick={() => onChange('classic')}
                 className={cn(
-                    "relative z-10 px-5 py-2 rounded-[10px] text-[10px] font-black uppercase tracking-[0.15em] transition-colors duration-300 active:scale-95 tap-feedback",
+                    "relative z-10 px-5 py-2 rounded-[10px] text-caption font-black uppercase tracking-[0.15em] transition-colors duration-300 active:scale-95 tap-feedback",
                     view === 'classic' ? "text-zinc-950" : "text-zinc-500 hover:text-zinc-300"
                 )}
             >

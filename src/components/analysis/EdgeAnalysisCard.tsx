@@ -72,7 +72,7 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
                     <Bot size={40} className="text-zinc-700 animate-spin relative z-10" />
                 </div>
                 <div className="flex flex-col items-center gap-2">
-                    <span className="text-[11px] font-black uppercase tracking-[0.5em] text-zinc-500 ml-[0.5em]">
+                    <span className="text-footnote font-black uppercase tracking-[0.5em] text-zinc-500 ml-[0.5em]">
                         Analysis
                     </span>
                     <div className="h-[1px] w-12 bg-white/[0.05]" />
@@ -121,17 +121,17 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
                     {/* The Signal Meter (Hero) */}
                     {isEfficient ? (
                         <div className="flex flex-col items-center py-4">
-                            <div className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 mb-2">Audit Status</div>
+                            <div className="text-caption font-black uppercase tracking-ultra text-zinc-600 mb-2">Audit Status</div>
                             <div className="text-2xl font-mono font-bold tracking-tighter text-zinc-400 uppercase">
                                 Market Efficient
                             </div>
-                            <div className="text-[9px] font-medium text-zinc-600 mt-2 uppercase tracking-widest">
+                            <div className="text-label font-medium text-zinc-600 mt-2 uppercase tracking-widest">
                                 No High-Conviction Alpha Detected
                             </div>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center">
-                            <div className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-500 mb-3">Signal Meter</div>
+                            <div className="text-label font-black uppercase tracking-[0.4em] text-zinc-500 mb-3">Signal Meter</div>
 
                             {/* Hero Number - 72px for Sofascore-Level Dominance */}
                             <div className="flex items-center gap-3">
@@ -146,22 +146,22 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
                                     isPositive ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]" : "bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.8)]"
                                 )} />
                             </div>
-                            <div className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.1em] mt-1">
+                            <div className="text-label font-black text-zinc-600 uppercase tracking-[0.1em] mt-1">
                                 {getUnitLabel()} vs Market
                             </div>
                             {/* Market vs Model Row - Enhanced */}
-                            <div className="flex items-center gap-4 mt-5 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                            <div className="flex items-center gap-4 mt-5 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-edge">
                                 <div className="flex flex-col items-center">
-                                    <span className="text-[8px] text-zinc-600 uppercase tracking-widest font-bold">Market</span>
+                                    <span className="text-nano text-zinc-600 uppercase tracking-widest font-bold">Market</span>
                                     <span className="text-lg font-mono text-zinc-500 line-through decoration-zinc-600">{data.impliedLine.toFixed(1)}</span>
                                 </div>
                                 <ArrowRight size={16} className="text-zinc-600" />
                                 <div className="flex flex-col items-center">
-                                    <span className="text-[8px] text-zinc-600 uppercase tracking-widest font-bold">Model</span>
+                                    <span className="text-nano text-zinc-600 uppercase tracking-widest font-bold">Model</span>
                                     <span className="text-lg font-mono text-white font-bold">{data.modelLine.toFixed(1)}</span>
                                 </div>
                                 <span className={cn(
-                                    "text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border ml-2",
+                                    "text-caption font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border ml-2",
                                     isPositive ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-rose-500/15 text-rose-400 border-rose-500/30"
                                 )}>
                                     {data.edgeDirection}
@@ -186,8 +186,8 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
 
             {/* SECTION 3.5: GROUNDING SOURCES */}
             {data.sources && data.sources.length > 0 && (
-                <div className="px-6 py-4 bg-white/[0.01] border-t border-white/[0.04]">
-                    <div className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-3 pl-1">
+                <div className="px-6 py-4 bg-overlay-ghost border-t border-edge-subtle">
+                    <div className="text-label font-bold text-zinc-600 uppercase tracking-widest mb-3 pl-1">
                         Grounded Sources
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -197,7 +197,7 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
                                 href={source.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-[10px] font-medium text-blue-400/70 hover:text-blue-300 transition-colors bg-blue-500/5 px-2 py-1 rounded border border-blue-500/10"
+                                className="text-caption font-medium text-blue-400/70 hover:text-blue-300 transition-colors bg-blue-500/5 px-2 py-1 rounded border border-blue-500/10"
                             >
                                 {source.title.length > 25 ? source.title.substring(0, 25) + '...' : source.title}
                             </a>
@@ -209,14 +209,14 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
             {/* SECTION 4: INJURIES (PRICED IN) */}
             {data.keyInjuries.length > 0 && (
                 <>
-                    <div className="h-px w-full bg-white/[0.04]" />
-                    <div className="px-6 py-4 bg-white/[0.02]">
+                    <div className="h-px w-full bg-overlay-muted" />
+                    <div className="px-6 py-4 bg-overlay-subtle">
                         <div className="flex flex-col gap-2">
                             {data.keyInjuries.slice(0, 3).map((inj, i) => (
                                 <div key={i} className="flex items-center justify-between">
                                     <span className="text-xs font-medium text-zinc-400 font-mono">{inj.name}</span>
                                     <span className={cn(
-                                        "text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider",
+                                        "text-caption font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider",
                                         inj.status === 'OUT' ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
                                             inj.status === 'GTD' ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
                                                 "bg-zinc-800 text-zinc-400 border-zinc-700"
@@ -227,7 +227,7 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
                             ))}
                         </div>
                         {/* The Non-Negotiable Accounting Line */}
-                        <div className="mt-4 pt-3 border-t border-dashed border-white/10 flex items-center gap-2 text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+                        <div className="mt-4 pt-3 border-t border-dashed border-white/10 flex items-center gap-2 text-caption font-mono text-zinc-500 uppercase tracking-widest">
                             <CheckCircle2 size={10} className="text-zinc-600" />
                             <span>Availability: Priced In</span>
                         </div>
@@ -236,12 +236,12 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
             )}
 
             {/* SECTION 5: WHY THIS BET (EXPANDABLE TRACE) */}
-            <div className="border-t border-white/[0.04]">
+            <div className="border-t border-edge-subtle">
                 <button
                     onClick={() => setTraceExpanded(!traceExpanded)}
-                    className="w-full px-6 py-3 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors"
+                    className="w-full px-6 py-3 flex items-center justify-between text-left hover:bg-overlay-subtle transition-colors"
                 >
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Why this bet?</span>
+                    <span className="text-caption font-bold text-zinc-400 uppercase tracking-widest">Why this bet?</span>
                     {traceExpanded ? (
                         <ChevronUp size={14} className="text-zinc-500" />
                     ) : (
@@ -251,20 +251,20 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
                 {traceExpanded && (
                     <div className="px-6 pb-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
                         <div className="grid grid-cols-3 gap-3">
-                            <div className="bg-white/[0.02] border border-white/[0.05] rounded-lg p-3 text-center">
-                                <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-wider mb-1">Pace</div>
+                            <div className="bg-overlay-subtle border border-white/[0.05] rounded-lg p-3 text-center">
+                                <div className="text-nano font-bold text-zinc-600 uppercase tracking-wider mb-1">Pace</div>
                                 <div className="text-sm font-mono font-bold text-zinc-300">{data.trace.pace.toFixed(1)}</div>
                             </div>
-                            <div className="bg-white/[0.02] border border-white/[0.05] rounded-lg p-3 text-center">
-                                <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-wider mb-1">Efficiency</div>
+                            <div className="bg-overlay-subtle border border-white/[0.05] rounded-lg p-3 text-center">
+                                <div className="text-nano font-bold text-zinc-600 uppercase tracking-wider mb-1">Efficiency</div>
                                 <div className="text-sm font-mono font-bold text-zinc-300">{data.trace.efficiency.toFixed(3)}</div>
                             </div>
-                            <div className="bg-white/[0.02] border border-white/[0.05] rounded-lg p-3 text-center">
-                                <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-wider mb-1">{traceVolumeLabel}</div>
+                            <div className="bg-overlay-subtle border border-white/[0.05] rounded-lg p-3 text-center">
+                                <div className="text-nano font-bold text-zinc-600 uppercase tracking-wider mb-1">{traceVolumeLabel}</div>
                                 <div className="text-sm font-mono font-bold text-zinc-300">{Math.round(data.trace.possessions)}</div>
                             </div>
                         </div>
-                        <div className="text-[10px] text-zinc-500 text-center font-mono">
+                        <div className="text-caption text-zinc-500 text-center font-mono">
                             Fair Line = Pace × Efficiency → {data.modelLine.toFixed(1)}
                         </div>
                     </div>

@@ -75,9 +75,9 @@ export const EdgeAnalysis: React.FC<{ match: Match }> = ({ match }) => {
                 <div className={cn("p-6", ESSENCE.card.base)}>
                     <div className="flex items-center gap-3 mb-4">
                         <ShieldCheck size={14} className="text-zinc-500" />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Forensic Trace</span>
+                        <span className="text-caption font-bold uppercase tracking-widest text-zinc-500">Forensic Trace</span>
                     </div>
-                    <div className="font-mono text-[11px] text-zinc-500 leading-relaxed max-h-48 overflow-y-auto">
+                    <div className="font-mono text-footnote text-zinc-500 leading-relaxed max-h-48 overflow-y-auto">
                         {intel.thought_trace}
                     </div>
                 </div>

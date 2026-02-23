@@ -58,14 +58,14 @@ const HUDMetric = ({
     icon: ComponentType<{ size?: number; className?: string }>;
     color?: string;
 }) => (
-    <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-colors group/metric">
+    <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-overlay-subtle border border-edge-subtle hover:bg-overlay-muted transition-colors group/metric">
         <div className="flex items-center gap-2">
             <Icon size={12} className={color} />
-            <span className="text-[11px] font-medium text-zinc-500">{label}</span>
+            <span className="text-footnote font-medium text-zinc-500">{label}</span>
         </div>
         <div className="flex flex-col">
-            <span className="text-[14px] font-semibold text-zinc-200 group-hover/metric:text-white transition-colors">{value}</span>
-            {subValue && <span className="text-[10px] font-medium text-zinc-600">{subValue}</span>}
+            <span className="text-body font-semibold text-zinc-200 group-hover/metric:text-white transition-colors">{value}</span>
+            {subValue && <span className="text-caption font-medium text-zinc-600">{subValue}</span>}
         </div>
     </div>
 );
@@ -88,20 +88,20 @@ const ConditionsCard: React.FC<ConditionsCardProps> = ({ venue, stadium, weather
     return (
         <div className="relative">
             {/* Venue Row */}
-            <div className="flex items-center gap-3 py-3 border-b border-white/[0.04]">
+            <div className="flex items-center gap-3 py-3 border-b border-edge-subtle">
                 <div className="w-9 h-9 rounded-lg bg-white/[0.025] flex items-center justify-center shrink-0">
                     <span className="text-base">🏟️</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                    <div className="text-[14px] font-semibold text-white truncate tracking-tight">
+                    <div className="text-body font-semibold text-white truncate tracking-tight">
                         {stadium?.name || venue.name}
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[11px] font-medium text-zinc-500">{venue.city}{venue.state ? `, ${venue.state}` : ''}</span>
+                        <span className="text-footnote font-medium text-zinc-500">{venue.city}{venue.state ? `, ${venue.state}` : ''}</span>
                         {venue.capacity && venue.capacity > 0 && (
                             <>
                                 <span className="text-zinc-700">·</span>
-                                <span className="text-[10px] font-medium text-zinc-600 tabular-nums">
+                                <span className="text-caption font-medium text-zinc-600 tabular-nums">
                                     {venue.capacity.toLocaleString()}
                                 </span>
                             </>
@@ -112,16 +112,16 @@ const ConditionsCard: React.FC<ConditionsCardProps> = ({ venue, stadium, weather
 
             {/* Weather Row - Only for outdoor sports */}
             {(!isArenaSport && (hasWeather || isIndoorVenue)) && (
-                <div className="flex items-center gap-3 py-3 border-b border-white/[0.04]">
+                <div className="flex items-center gap-3 py-3 border-b border-edge-subtle">
                     <div className="w-9 h-9 rounded-lg bg-white/[0.025] flex items-center justify-center shrink-0">
                         {isIndoorVenue ? <Thermometer size={16} strokeWidth={2} className="text-emerald-500/70" /> : <WeatherIcon condition={weather?.condition || ''} />}
                     </div>
                     <div className="flex-1">
                         <div className="flex items-baseline gap-1.5">
-                            <span className="text-[20px] font-bold text-white tabular-nums tracking-tight">
+                            <span className="text-title-lg font-bold text-white tabular-nums tracking-tight">
                                 {isIndoorVenue ? (hasWeather ? weather?.temp : '72') : weather?.temp || '--'}°
                             </span>
-                            <span className="text-[11px] text-zinc-500 font-medium">
+                            <span className="text-footnote text-zinc-500 font-medium">
                                 {isIndoorVenue ? 'Indoor' : (weather?.condition || 'Weather')}
                             </span>
                         </div>
@@ -131,19 +131,19 @@ const ConditionsCard: React.FC<ConditionsCardProps> = ({ venue, stadium, weather
                                 {isWindNotable && (
                                     <div className="flex items-center gap-1 text-zinc-500">
                                         <Wind size={11} strokeWidth={2} />
-                                        <span className="text-[10px] font-medium tabular-nums">{weather!.wind.split(' ')[0]} mph</span>
+                                        <span className="text-caption font-medium tabular-nums">{weather!.wind.split(' ')[0]} mph</span>
                                     </div>
                                 )}
                                 {isHumNotable && (
                                     <div className="flex items-center gap-1 text-zinc-500">
                                         <Droplets size={11} strokeWidth={2} />
-                                        <span className="text-[10px] font-medium tabular-nums">{weather!.humidity}%</span>
+                                        <span className="text-caption font-medium tabular-nums">{weather!.humidity}%</span>
                                     </div>
                                 )}
                                 {isAltNotable && (
                                     <div className="flex items-center gap-1 text-zinc-500">
                                         <Mountain size={11} strokeWidth={2} />
-                                        <span className="text-[10px] font-medium tabular-nums">{stadium!.altitude_ft} ft</span>
+                                        <span className="text-caption font-medium tabular-nums">{stadium!.altitude_ft} ft</span>
                                     </div>
                                 )}
                             </div>
@@ -154,13 +154,13 @@ const ConditionsCard: React.FC<ConditionsCardProps> = ({ venue, stadium, weather
 
             {/* Broadcast Row */}
             {broadcast && (
-                <div className="flex items-center gap-3 py-3 border-b border-white/[0.04]">
+                <div className="flex items-center gap-3 py-3 border-b border-edge-subtle">
                     <div className="w-9 h-9 rounded-lg bg-white/[0.025] flex items-center justify-center shrink-0">
                         <Tv size={14} strokeWidth={2} className="text-emerald-500" />
                     </div>
                     <div className="flex-1">
-                        <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.12em] mb-0.5">Broadcast</div>
-                        <div className="text-[13px] font-semibold text-white tracking-tight">
+                        <div className="text-caption font-semibold text-zinc-600 uppercase tracking-[0.12em] mb-0.5">Broadcast</div>
+                        <div className="text-body-sm font-semibold text-white tracking-tight">
                             {broadcast.toUpperCase().replace('NETWORK', '').trim()}
                         </div>
                     </div>

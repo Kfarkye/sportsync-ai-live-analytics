@@ -75,7 +75,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
             />
 
             {/* Status Header - Mimics MatchRow's Status Column */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.04]" style={{ backgroundColor: ESSENCE.colors.surface.elevated }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-edge-subtle" style={{ backgroundColor: ESSENCE.colors.surface.elevated }}>
                 <div className="flex items-center gap-2">
                     {isLive ? (
                         <div className="flex items-center gap-2">
@@ -84,14 +84,14 @@ const MatchCard: React.FC<MatchCardProps> = ({
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
                             </span>
                             <div className="flex flex-col leading-none">
-                                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Live</span>
-                                <span className="text-[10px] text-white font-mono mt-0.5 font-bold">{clockDisplay}</span>
+                                <span className="text-caption font-bold text-rose-500 uppercase tracking-widest">Live</span>
+                                <span className="text-caption text-white font-mono mt-0.5 font-bold">{clockDisplay}</span>
                             </div>
                         </div>
                     ) : isFinal ? (
                         <div className="flex items-center gap-2">
                             <span className="w-1.5 h-1.5 bg-zinc-600 rounded-full" />
-                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Final</span>
+                            <span className="text-caption font-bold text-zinc-500 uppercase tracking-widest">Final</span>
                         </div>
                     ) : (
                         <div className="flex items-center gap-2">
@@ -99,8 +99,8 @@ const MatchCard: React.FC<MatchCardProps> = ({
                                 <Clock size={10} />
                             </div>
                             <div className="flex flex-col leading-none">
-                                <span className="text-[11px] font-bold text-zinc-300 tabular-nums">{clockDisplay}</span>
-                                <span className="text-[9px] text-zinc-600 uppercase font-bold">{periodDisplay}</span>
+                                <span className="text-footnote font-bold text-zinc-300 tabular-nums">{clockDisplay}</span>
+                                <span className="text-label text-zinc-600 uppercase font-bold">{periodDisplay}</span>
                             </div>
                         </div>
                     )}
@@ -123,10 +123,10 @@ const MatchCard: React.FC<MatchCardProps> = ({
                     <div className="flex items-center gap-3 min-w-0">
                         <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-8 h-8 object-contain" />
                         <div className="min-w-0 flex flex-col">
-                            <span className={`text-[15px] font-semibold tracking-tight truncate ${awayWinner || !isFinal ? 'text-white' : 'text-zinc-500'}`}>
+                            <span className={`text-body-lg font-semibold tracking-tight truncate ${awayWinner || !isFinal ? 'text-white' : 'text-zinc-500'}`}>
                                 {match.awayTeam.name}
                             </span>
-                            <span className="text-[10px] text-zinc-600 font-mono">{match.awayTeam.record}</span>
+                            <span className="text-caption text-zinc-600 font-mono">{match.awayTeam.record}</span>
                         </div>
                     </div>
                     <span className={`text-2xl font-mono font-bold tracking-tighter ${isLive || isFinal ? (awayWinner ? 'text-white' : 'text-zinc-500') : 'text-zinc-700'}`}>
@@ -139,10 +139,10 @@ const MatchCard: React.FC<MatchCardProps> = ({
                     <div className="flex items-center gap-3 min-w-0">
                         <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-8 h-8 object-contain" />
                         <div className="min-w-0 flex flex-col">
-                            <span className={`text-[15px] font-semibold tracking-tight truncate ${homeWinner || !isFinal ? 'text-white' : 'text-zinc-500'}`}>
+                            <span className={`text-body-lg font-semibold tracking-tight truncate ${homeWinner || !isFinal ? 'text-white' : 'text-zinc-500'}`}>
                                 {match.homeTeam.name}
                             </span>
-                            <span className="text-[10px] text-zinc-600 font-mono">{match.homeTeam.record}</span>
+                            <span className="text-caption text-zinc-600 font-mono">{match.homeTeam.record}</span>
                         </div>
                     </div>
                     <span className={`text-2xl font-mono font-bold tracking-tighter ${isLive || isFinal ? (homeWinner ? 'text-white' : 'text-zinc-500') : 'text-zinc-700'}`}>
@@ -152,20 +152,20 @@ const MatchCard: React.FC<MatchCardProps> = ({
             </div>
 
             {/* Footer / Odds - Styled to match MatchRow cells */}
-            <div className="px-4 py-3 border-t border-white/[0.04] flex items-center justify-between h-[52px]" style={{ backgroundColor: ESSENCE.colors.surface.elevated }}>
+            <div className="px-4 py-3 border-t border-edge-subtle flex items-center justify-between h-[52px]" style={{ backgroundColor: ESSENCE.colors.surface.elevated }}>
                 <div className="flex items-center gap-2">
                     {(match.odds?.spread !== null && match.odds?.spread !== undefined && match.odds.spread !== '-') && (
                         <div className="flex flex-col items-start justify-center px-2.5 py-1 rounded bg-[#121212] border border-white/5 min-w-[64px]">
-                            <span className="text-[9px] text-zinc-500 uppercase font-bold leading-none mb-1">Spread</span>
-                            <span className="text-[12px] font-mono font-bold text-white leading-none tracking-tight">
+                            <span className="text-label text-zinc-500 uppercase font-bold leading-none mb-1">Spread</span>
+                            <span className="text-small font-mono font-bold text-white leading-none tracking-tight">
                                 {Number(match.odds.spread) === 0 ? 'PK' : match.odds.spread}
                             </span>
                         </div>
                     )}
                     {(match.odds?.overUnder !== null && match.odds?.overUnder !== undefined && match.odds.overUnder !== '-') && (
                         <div className="flex flex-col items-start justify-center px-2.5 py-1 rounded bg-[#121212] border border-white/5 min-w-[64px]">
-                            <span className="text-[9px] text-zinc-500 uppercase font-bold leading-none mb-1">Total</span>
-                            <span className="text-[12px] font-mono font-bold text-white leading-none tracking-tight">
+                            <span className="text-label text-zinc-500 uppercase font-bold leading-none mb-1">Total</span>
+                            <span className="text-small font-mono font-bold text-white leading-none tracking-tight">
                                 {String(match.odds.overUnder).replace(/[OU]/g, '').trim()}
                             </span>
                         </div>
@@ -173,7 +173,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                 </div>
 
                 {hasAction && (
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                    <div className="flex items-center gap-1.5 text-caption font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                         <TrendingUp size={10} />
                         <span>Action</span>
                     </div>

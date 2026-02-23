@@ -19,11 +19,11 @@ export const MatchupLoader: React.FC<MatchupLoaderProps> = ({
         )}>
             <div className="relative mb-6">
                 <div className="absolute -inset-4 border border-white/5 rounded-full animate-[spin_8s_linear_infinite]" />
-                <div className="w-12 h-12 rounded-full bg-zinc-950 border border-white/[0.04] flex items-center justify-center backdrop-blur-xl">
+                <div className="w-12 h-12 rounded-full bg-zinc-950 border border-edge-subtle flex items-center justify-center backdrop-blur-xl">
                     <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
                 </div>
             </div>
-            <div className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.3em] animate-pulse">
+            <div className="text-caption font-bold text-zinc-600 uppercase tracking-ultra animate-pulse">
                 {label}
             </div>
         </div>

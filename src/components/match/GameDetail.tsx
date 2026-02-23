@@ -125,8 +125,8 @@ const GameDetail: React.FC<GameDetailProps> = ({ game }) => {
                                         <h4 className="text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">Smart Bet Insight</h4>
                                         <p className="text-white leading-relaxed font-medium">{analysis.bettingInsight}</p>
                                         <div className="mt-4 flex items-center gap-2">
-                                            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/20">Win Prob: {game.odds?.winProbability}%</span>
-                                            <span className="text-[10px] bg-slate-700 text-slate-300 px-2 py-1 rounded">High Confidence</span>
+                                            <span className="text-caption bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/20">Win Prob: {game.odds?.winProbability}%</span>
+                                            <span className="text-caption bg-slate-700 text-slate-300 px-2 py-1 rounded">High Confidence</span>
                                         </div>
                                     </div>
                                 </div>

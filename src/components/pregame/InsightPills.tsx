@@ -25,11 +25,11 @@ const InsightPills: React.FC<InsightPillsProps> = ({ insights }) => {
             {insights.map((insight) => (
                 <div
                     key={insight.id}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors group cursor-default"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.03] border border-edge hover:bg-white/[0.05] transition-colors group cursor-default"
                     title={insight.detail}
                 >
                     <InsightIcon type={insight.insight_type} />
-                    <span className="text-[10px] font-black text-zinc-300 uppercase tracking-widest group-hover:text-white transition-colors">
+                    <span className="text-caption font-black text-zinc-300 uppercase tracking-widest group-hover:text-white transition-colors">
                         {insight.summary}
                     </span>
                     {insight.impact_level >= 8 && (

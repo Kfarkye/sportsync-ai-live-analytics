@@ -53,7 +53,7 @@ const travelFlagLabels: Record<string, string> = {
 const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading }) => {
     if (loading) {
         return (
-            <div className="rounded-[20px] bg-[#111113] border border-white/[0.04] p-6">
+            <div className="rounded-[20px] bg-[#111113] border border-edge-subtle p-6">
                 <div className="flex items-center justify-center h-32">
                     <div className="w-6 h-6 border-2 border-zinc-800 border-t-zinc-500 rounded-full animate-spin" />
                 </div>
@@ -63,10 +63,10 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
 
     if (!context) {
         return (
-            <div className="rounded-[20px] bg-[#111113] border border-white/[0.04] p-6">
+            <div className="rounded-[20px] bg-[#111113] border border-edge-subtle p-6">
                 <div className="flex flex-col items-center justify-center h-32 text-center">
                     <Activity className="w-8 h-8 text-zinc-700 mb-3" />
-                    <p className="text-[13px] text-zinc-600">No pregame context available</p>
+                    <p className="text-body-sm text-zinc-600">No pregame context available</p>
                 </div>
             </div>
         );
@@ -82,15 +82,15 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
         <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-[20px] bg-[#111113] border border-white/[0.04] overflow-hidden"
+            className="rounded-[20px] bg-[#111113] border border-edge-subtle overflow-hidden"
         >
             {/* Header */}
-            <div className="px-6 py-4 border-b border-white/[0.04]">
+            <div className="px-6 py-4 border-b border-edge-subtle">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-[13px] font-semibold text-zinc-300 uppercase tracking-wider">
+                    <h3 className="text-body-sm font-semibold text-zinc-300 uppercase tracking-wider">
                         Watch Tags
                     </h3>
-                    <span className="text-[10px] text-zinc-600 font-mono">
+                    <span className="text-caption text-zinc-600 font-mono">
                         {new Date(context.generated_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                     </span>
                 </div>
@@ -102,7 +102,7 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
                     <div>
                         <div className="flex items-center gap-2 mb-3">
                             <AlertCircle className="w-4 h-4 text-rose-400" />
-                            <span className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+                            <span className="text-footnote font-medium text-zinc-500 uppercase tracking-wider">
                                 Injuries
                             </span>
                         </div>
@@ -116,18 +116,18 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
                                     >
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[13px] font-medium text-zinc-200">
+                                                <span className="text-body-sm font-medium text-zinc-200">
                                                     {injury.player}
                                                 </span>
-                                                <span className="text-[10px] text-zinc-600">
+                                                <span className="text-caption text-zinc-600">
                                                     {injury.team}
                                                 </span>
                                             </div>
-                                            <p className="text-[11px] text-zinc-500 mt-0.5">
+                                            <p className="text-footnote text-zinc-500 mt-0.5">
                                                 {injury.note}
                                             </p>
                                         </div>
-                                        <span className={`text-[10px] font-bold ${colors.text} uppercase`}>
+                                        <span className={`text-caption font-bold ${colors.text} uppercase`}>
                                             {injury.status}
                                         </span>
                                     </div>
@@ -142,7 +142,7 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
                     <div>
                         <div className="flex items-center gap-2 mb-3">
                             <Plane className="w-4 h-4 text-blue-400" />
-                            <span className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+                            <span className="text-footnote font-medium text-zinc-500 uppercase tracking-wider">
                                 Schedule
                             </span>
                         </div>
@@ -152,10 +152,10 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
                                     key={idx}
                                     className="px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20"
                                 >
-                                    <div className="text-[11px] font-medium text-blue-400">
+                                    <div className="text-footnote font-medium text-blue-400">
                                         {t.team}: {travelFlagLabels[t.flag]}
                                     </div>
-                                    <p className="text-[10px] text-zinc-500 mt-0.5">{t.note}</p>
+                                    <p className="text-caption text-zinc-500 mt-0.5">{t.note}</p>
                                 </div>
                             ))}
                         </div>
@@ -167,7 +167,7 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
                     <div>
                         <div className="flex items-center gap-2 mb-3">
                             <TrendingUp className="w-4 h-4 text-amber-400" />
-                            <span className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+                            <span className="text-footnote font-medium text-zinc-500 uppercase tracking-wider">
                                 Market
                             </span>
                         </div>
@@ -178,10 +178,10 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
                                     className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20"
                                 >
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-bold text-amber-400 uppercase">
+                                        <span className="text-caption font-bold text-amber-400 uppercase">
                                             {s.signal}
                                         </span>
-                                        <span className="text-[11px] text-zinc-400">{s.note}</span>
+                                        <span className="text-footnote text-zinc-400">{s.note}</span>
                                     </div>
                                 </div>
                             ))}
@@ -192,10 +192,10 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
                                 >
                                     <div className="flex items-center gap-2">
                                         <Users className="w-3 h-3 text-zinc-500" />
-                                        <span className="text-[10px] font-medium text-zinc-500 uppercase">
+                                        <span className="text-caption font-medium text-zinc-500 uppercase">
                                             {p.signal.replace('_', ' ')}
                                         </span>
-                                        <span className="text-[11px] text-zinc-400">{p.note}</span>
+                                        <span className="text-footnote text-zinc-400">{p.note}</span>
                                     </div>
                                 </div>
                             ))}
@@ -208,7 +208,7 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
                     <div>
                         <div className="flex items-center gap-2 mb-3">
                             <Clock className="w-4 h-4 text-zinc-400" />
-                            <span className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+                            <span className="text-footnote font-medium text-zinc-500 uppercase tracking-wider">
                                 Context
                             </span>
                         </div>
@@ -216,7 +216,7 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
                             {context.context_notes.map((note, idx) => (
                                 <li
                                     key={idx}
-                                    className="flex items-start gap-2 text-[12px] text-zinc-400"
+                                    className="flex items-start gap-2 text-small text-zinc-400"
                                 >
                                     <span className="text-zinc-600 mt-0.5">•</span>
                                     <span>{note}</span>

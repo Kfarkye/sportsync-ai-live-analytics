@@ -123,13 +123,13 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
 
                 {/* Context Bar (Date + Broadcast) - Vibrant */}
                 <div className="flex items-center gap-3 mb-6">
-                    <span className={cn("text-[10px] font-black text-white tracking-[0.2em]", ESSENCE.interactions.vibrancy)}>
+                    <span className={cn("text-caption font-black text-white tracking-widest", ESSENCE.interactions.vibrancy)}>
                         {dayStr}
                     </span>
                     {broadcast && (
                         <>
                             <div className="w-[1px] h-[8px] bg-white/20" />
-                            <span className={cn("text-[10px] font-semibold text-white/40 tracking-wide", ESSENCE.interactions.vibrancy)}>
+                            <span className={cn("text-caption font-semibold text-white/40 tracking-wide", ESSENCE.interactions.vibrancy)}>
                                 {broadcast.replace('Network', '').trim().split(' ')[0]}
                             </span>
                         </>
@@ -163,10 +163,10 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
                                 />
                             )}
                         </motion.div>
-                        <span className="text-[15px] sm:text-[20px] font-bold text-white tracking-tight leading-tight">
+                        <span className="text-body-lg sm:text-title-lg font-bold text-white tracking-tight leading-tight">
                             {sport === Sport.TENNIS ? awayTeam?.name.split(' ').slice(-1)[0] : (awayTeam?.shortName || awayTeam?.name)}
                         </span>
-                        <span className="mt-1 text-[11px] font-semibold text-white/35 tabular-nums tracking-wide font-mono">
+                        <span className="mt-1 text-footnote font-semibold text-white/35 tabular-nums tracking-wide font-mono">
                             {sport === Sport.TENNIS ? `RANK #${awayTeam?.rank || '—'}` : `${awayTeam?.rank ? `#${awayTeam.rank} · ` : ''}${finalAwayRecord}`}
                         </span>
                     </div>
@@ -192,7 +192,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
                                 {timeStr}
                             </span>
                             <span className={cn(
-                                "text-[14px] sm:text-[16px] font-medium tracking-tight",
+                                "text-body sm:text-[16px] font-medium tracking-tight",
                                 isUrgent ? "text-orange-400/70" : "text-white/50"
                             )}>
                                 {ampm}
@@ -205,7 +205,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
                                 />
                             )}
                         </motion.div>
-                        <span className="mt-1 text-[10px] font-semibold text-white/30 uppercase tracking-[0.25em]">
+                        <span className="mt-1 text-caption font-semibold text-white/30 uppercase tracking-[0.25em]">
                             {startLabel}
                         </span>
 
@@ -232,7 +232,7 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
                             }
 
                             return favoriteSpread !== null ? (
-                                <span className="mt-3 text-[11px] font-mono font-medium text-zinc-500 tracking-wide">
+                                <span className="mt-3 text-footnote font-mono font-medium text-zinc-500 tracking-wide">
                                     {favoriteAbbr} {favoriteSpread === 0 ? 'PK' : favoriteSpread}
                                     {odds.total && <span className="text-zinc-600 ml-2">O/U {odds.total}</span>}
                                 </span>
@@ -271,10 +271,10 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
                                 />
                             )}
                         </motion.div>
-                        <span className="text-[15px] sm:text-[20px] font-bold text-white tracking-tight leading-tight">
+                        <span className="text-body-lg sm:text-title-lg font-bold text-white tracking-tight leading-tight">
                             {sport === Sport.TENNIS ? homeTeam?.name.split(' ').slice(-1)[0] : (homeTeam?.shortName || homeTeam?.name)}
                         </span>
-                        <span className="mt-1 text-[11px] font-semibold text-white/35 tabular-nums tracking-wide font-mono">
+                        <span className="mt-1 text-footnote font-semibold text-white/35 tabular-nums tracking-wide font-mono">
                             {sport === Sport.TENNIS ? `RANK #${homeTeam?.rank || '—'}` : `${homeTeam?.rank ? `#${homeTeam.rank} · ` : ''}${finalHomeRecord}`}
                         </span>
                     </div>

@@ -27,10 +27,10 @@ const PHYSICS_MOTION = { type: "spring", stiffness: 400, damping: 25 };
 // "Digital Readout" for Tennis Sets
 // Mimics high-end scoreboard LCDs with sub-script tiebreak indicators
 const TennisSetScores: React.FC<{ linescores?: Linescore[] }> = ({ linescores }) => {
-  if (!linescores || linescores.length === 0) return <span className="text-[11px] text-zinc-600 font-mono tracking-widest">-</span>;
+  if (!linescores || linescores.length === 0) return <span className="text-footnote text-zinc-600 font-mono tracking-widest">-</span>;
 
   return (
-    <div className="flex items-center gap-[6px] font-mono text-[11px] tabular-nums leading-none">
+    <div className="flex items-center gap-[6px] font-mono text-footnote tabular-nums leading-none">
       {linescores.map((ls, idx) => (
         <div 
             key={idx}
@@ -43,7 +43,7 @@ const TennisSetScores: React.FC<{ linescores?: Linescore[] }> = ({ linescores })
         >
           {ls.value ?? '-'}
           {ls.tiebreak && (
-            <span className="absolute -top-[3px] -right-[4px] text-[8px] font-medium text-zinc-400 scale-75 origin-top-right">
+            <span className="absolute -top-[3px] -right-[4px] text-nano font-medium text-zinc-400 scale-75 origin-top-right">
                 {ls.tiebreak}
             </span>
           )}
@@ -146,7 +146,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
 
                 {/* Team Name (VISIBILITY FIX: Bright White Default) */}
                 <span className={cn(
-                  "text-[15px] tracking-tight truncate transition-colors duration-300 select-none",
+                  "text-body-lg tracking-tight truncate transition-colors duration-300 select-none",
                   isLoser ? "text-zinc-500 font-medium" : "text-white font-semibold"
                 )}>
                   {team.name}
@@ -174,7 +174,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
       </div>
 
       {/* Status Metadata (Instrument Panel) */}
-      <div className="flex flex-col items-end gap-1 pl-6 min-w-[80px] border-l border-white/[0.06] py-1 select-none">
+      <div className="flex flex-col items-end gap-1 pl-6 min-w-[80px] border-l border-edge py-1 select-none">
         {isLive ? (
           <>
             <div className="flex items-center gap-1.5">
@@ -182,29 +182,29 @@ const MatchRow: React.FC<MatchRowProps> = ({
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
                 </span>
-                <span className="text-[9px] font-bold text-rose-400 uppercase tracking-[0.2em] font-mono animate-pulse">
+                <span className="text-label font-bold text-rose-400 uppercase tracking-widest font-mono animate-pulse">
                    {match.displayClock || 'LIVE'}
                 </span>
             </div>
-            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.1em] mt-0.5">
+            <span className="text-label font-bold text-zinc-500 uppercase tracking-[0.1em] mt-0.5">
               {isTennis && roundStr ? roundStr : getPeriodDisplay(match)}
             </span>
           </>
         ) : isFinal ? (
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">FINAL</span>
+          <span className="text-caption font-bold text-zinc-500 uppercase tracking-widest">FINAL</span>
         ) : (
           <>
             {/* Start Time: High Contrast (zinc-200) */}
-            <span className="text-[13px] font-mono font-medium text-zinc-200 tabular-nums tracking-wide group-hover:text-white transition-colors">
+            <span className="text-body-sm font-mono font-medium text-zinc-200 tabular-nums tracking-wide group-hover:text-white transition-colors">
               {startTimeStr}
             </span>
             {isTennis && roundStr && (
-                <span className="text-[9px] font-medium text-zinc-500 uppercase tracking-wider">
+                <span className="text-label font-medium text-zinc-500 uppercase tracking-wider">
                     {roundStr}
                 </span>
             )}
             {!isTennis && (
-                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em]">
+                <span className="text-label font-bold text-zinc-500 uppercase tracking-widest">
                     START
                 </span>
             )}

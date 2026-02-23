@@ -67,7 +67,7 @@ export const StatusChip = memo(({ variant, className, pulse = false, label }: St
                 )}
                 <span className={cn("relative inline-flex rounded-full h-1.5 w-1.5", config.dot)} />
             </div>
-            <span className={cn("text-[8px] font-black uppercase tracking-[0.15em]", config.text)}>
+            <span className={cn("text-nano font-black uppercase tracking-[0.15em]", config.text)}>
                 {displayLabel}
             </span>
         </div>

@@ -43,7 +43,7 @@ const GoalieCard = ({
 
   return (
     <div className={cn(
-      "relative flex flex-col p-6 rounded-2xl border bg-black/40 backdrop-blur-xl border-white/[0.06] overflow-hidden group transition-all duration-500 hover:border-white/10",
+      "relative flex flex-col p-6 rounded-2xl border bg-black/40 backdrop-blur-xl border-edge overflow-hidden group transition-all duration-500 hover:border-white/10",
       isHome ? "items-end text-right" : "items-start text-left"
     )}>
       {/* Cinematic Ambient Glow */}
@@ -57,7 +57,7 @@ const GoalieCard = ({
 
       {/* Header: Status Badge */}
       <div className={cn(
-        "relative z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.15em] border mb-6 transition-all duration-500",
+        "relative z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label font-black uppercase tracking-[0.15em] border mb-6 transition-all duration-500",
         isConfirmed
           ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
           : "bg-amber-500/10 border-amber-500/20 text-amber-400",
@@ -106,28 +106,28 @@ const GoalieCard = ({
             {goalie.name || 'Unannounced'}
           </h4>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{team.shortName}</span>
+            <span className="text-caption font-black text-zinc-500 uppercase tracking-widest">{team.shortName}</span>
             <div className="w-1 h-1 rounded-full bg-zinc-800" />
-            <span className="text-[10px] font-bold text-zinc-600 font-mono italic">Primary Netminder</span>
+            <span className="text-caption font-bold text-zinc-600 font-mono italic">Primary Netminder</span>
           </div>
         </div>
       </div>
 
       {/* The Stats Ledger (Digital Monospace) */}
       <div className={cn(
-        "relative z-10 grid grid-cols-3 gap-6 w-full py-4 border-y border-white/[0.04]",
+        "relative z-10 grid grid-cols-3 gap-6 w-full py-4 border-y border-edge-subtle",
         isHome ? "text-right" : "text-left"
       )}>
         <div className="flex flex-col gap-1">
-          <span className="text-[8px] font-black text-zinc-600 uppercase tracking-[0.2em]">GAA</span>
+          <span className="text-nano font-black text-zinc-600 uppercase tracking-widest">GAA</span>
           <span className="text-xl font-mono font-black text-zinc-200 tabular-nums">{gaa || '0.00'}</span>
         </div>
-        <div className="flex flex-col gap-1 border-x border-white/[0.04] px-4">
-          <span className="text-[8px] font-black text-zinc-600 uppercase tracking-[0.2em]">SV%</span>
+        <div className="flex flex-col gap-1 border-x border-edge-subtle px-4">
+          <span className="text-nano font-black text-zinc-600 uppercase tracking-widest">SV%</span>
           <span className="text-xl font-mono font-black text-white tabular-nums tracking-tighter">{svPct || '.000'}</span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[8px] font-black text-zinc-600 uppercase tracking-[0.2em]">Record</span>
+          <span className="text-nano font-black text-zinc-600 uppercase tracking-widest">Record</span>
           <span className="text-xl font-mono font-black text-zinc-300 tabular-nums">{record || '---'}</span>
         </div>
       </div>
@@ -141,7 +141,7 @@ const GoalieCard = ({
               isHome ? "flex-row-reverse" : "flex-row"
             )}>
               <TrendingUp size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-              <p className="text-[11px] leading-relaxed font-medium text-zinc-300">{bettingInsight}</p>
+              <p className="text-footnote leading-relaxed font-medium text-zinc-300">{bettingInsight}</p>
             </div>
           )}
           {reasoning && (
@@ -150,7 +150,7 @@ const GoalieCard = ({
               isHome ? "flex-row-reverse" : "flex-row"
             )}>
               <Info size={13} className="text-zinc-600 shrink-0 mt-0.5" />
-              <p className="text-[11px] leading-relaxed text-zinc-500 italic font-medium">{reasoning}</p>
+              <p className="text-footnote leading-relaxed text-zinc-500 italic font-medium">{reasoning}</p>
             </div>
           )}
         </div>
@@ -241,18 +241,18 @@ export const GoalieMatchup: React.FC<GoalieMatchupProps> = ({ matchId, homeTeam,
             <Shield size={14} className="text-indigo-400" />
           </div>
           <div>
-            <h3 className="text-[12px] font-black text-white uppercase tracking-[0.3em]">Netminder Duet</h3>
-            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mt-0.5">Primary Personnel Context</p>
+            <h3 className="text-small font-black text-white uppercase tracking-ultra">Netminder Duet</h3>
+            <p className="text-caption font-bold text-zinc-600 uppercase tracking-widest mt-0.5">Primary Personnel Context</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-700 font-bold uppercase tracking-wider">
+        <div className="flex items-center gap-2 text-caption font-mono text-zinc-700 font-bold uppercase tracking-wider">
           <div className="w-1.5 h-1.5 rounded-full bg-zinc-800 animate-pulse" />
           <span>Authoritative Intelligence</span>
         </div>
       </div>
 
       {/* Verses Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/[0.04] border border-white/[0.06] rounded-2xl overflow-hidden shadow-2xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-overlay-muted border border-edge rounded-2xl overflow-hidden shadow-2xl">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -265,7 +265,7 @@ export const GoalieMatchup: React.FC<GoalieMatchupProps> = ({ matchId, homeTeam,
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="bg-[#111113] border-l border-white/[0.04]"
+          className="bg-[#111113] border-l border-edge-subtle"
         >
           <GoalieCard goalie={data.home} team={homeTeam} isHome={true} />
         </motion.div>

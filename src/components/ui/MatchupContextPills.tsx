@@ -33,7 +33,7 @@ const ContextPill = ({
 }) => (
     <div className="flex items-center gap-1.5">
         <Icon size={11} className={color} strokeWidth={2} />
-        <span className="text-[10px] font-medium text-zinc-500 tracking-tight whitespace-nowrap">{value}</span>
+        <span className="text-caption font-medium text-zinc-500 tracking-tight whitespace-nowrap">{value}</span>
     </div>
 );
 

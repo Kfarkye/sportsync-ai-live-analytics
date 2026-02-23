@@ -56,12 +56,12 @@ const CompactLiveRow: React.FC<CompactLiveRowProps> = ({ match, onClick }) => {
     return (
         <div
             onClick={onClick}
-            className="group relative w-full px-4 py-3 bg-black/40 hover:bg-white/[0.03] transition-colors cursor-pointer border-b border-white/[0.04]"
+            className="group relative w-full px-4 py-3 bg-black/40 hover:bg-white/[0.03] transition-colors cursor-pointer border-b border-edge-subtle"
         >
             <div className="flex items-center justify-between font-mono text-xs tracking-tight">
 
                 {/* Status Column */}
-                <div className="flex items-center w-16 text-[10px] font-medium opacity-60">
+                <div className="flex items-center w-16 text-caption font-medium opacity-60">
                     <span className={isLive ? 'text-rose-500' : isScheduled ? 'text-zinc-500' : 'text-zinc-600'}>
                         {isLive && <span className="mr-1.5 inline-block w-1 h-1 bg-current rounded-full" />}
                         {clockDisplay}
@@ -75,11 +75,11 @@ const CompactLiveRow: React.FC<CompactLiveRowProps> = ({ match, onClick }) => {
 
                     <div className="flex items-center gap-2 min-w-[60px] justify-center">
                         {isScheduled ? (
-                            <span className="text-zinc-700 text-[10px]">vs</span>
+                            <span className="text-zinc-700 text-caption">vs</span>
                         ) : (
                             <>
                                 <span className={`font-medium ${textColor}`}>{match.awayScore}</span>
-                                <span className="text-zinc-800 text-[10px]">:</span>
+                                <span className="text-zinc-800 text-caption">:</span>
                                 <span className={`font-medium ${textColor}`}>{match.homeScore}</span>
                             </>
                         )}

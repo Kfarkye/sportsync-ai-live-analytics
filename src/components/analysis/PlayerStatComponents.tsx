@@ -204,12 +204,12 @@ export const ApplePlayerCard: React.FC<{
                     <div className="flex-1 min-w-0">
                         <motion.h3
                             layout
-                            className="text-[21px] font-semibold text-white tracking-[-0.02em] truncate leading-tight"
+                            className="text-[21px] font-semibold text-white tracking-tight truncate leading-tight"
                         >
                             {group.playerName}
                         </motion.h3>
                         {group.team && (
-                            <p className="text-[9px] font-semibold text-zinc-500 mt-1 uppercase tracking-[0.22em]">
+                            <p className="text-label font-semibold text-zinc-500 mt-1 uppercase tracking-[0.22em]">
                                 {group.team}
                             </p>
                         )}
@@ -230,7 +230,7 @@ export const ApplePlayerCard: React.FC<{
                             )}>
                                 {currentValue}
                             </div>
-                            <div className="text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.25em] mt-1">ACTUAL</div>
+                            <div className="text-label font-semibold text-zinc-600 uppercase tracking-[0.25em] mt-1">ACTUAL</div>
                         </motion.div>
                     )}
                 </div>
@@ -254,7 +254,7 @@ export const ApplePlayerCard: React.FC<{
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 1.1, y: -4 }}
                                 transition={ESSENCE.transition.spring}
-                                className="text-[12px] font-semibold text-zinc-300 tracking-[0.26em] uppercase"
+                                className="text-small font-semibold text-zinc-300 tracking-[0.26em] uppercase"
                             >
                                 {formatMarketLabel(currentProp.main.betType, currentProp.main.marketLabel)}
                             </motion.span>
@@ -282,7 +282,7 @@ export const ApplePlayerCard: React.FC<{
                             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                         >
                             <span
-                                className="text-[80px] font-black tabular-nums leading-[0.92] tracking-[-0.02em]"
+                                className="text-[80px] font-black tabular-nums leading-[0.92] tracking-tight"
                                 style={{
                                     color: '#fff',
                                     textShadow: '0 0 40px rgba(255,255,255,0.1)'
@@ -294,14 +294,14 @@ export const ApplePlayerCard: React.FC<{
                     </AnimatePresence>
 
                     {/* Perspective Label */}
-                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] font-semibold text-zinc-600 uppercase tracking-[0.34em]">
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-nano font-semibold text-zinc-600 uppercase tracking-[0.34em]">
                         Line
                     </div>
                 </div>
 
                 {/* Progress — Optimized for iOS tactile feedback */}
                 {showResults && (
-                    <div className="space-y-5 bg-white/[0.02] p-5 rounded-3xl border border-white/[0.04]">
+                    <div className="space-y-5 bg-overlay-subtle p-5 rounded-3xl border border-edge-subtle">
                         {/* Progress Bar with Internal Glow */}
                         <div
                             className="h-2 w-full rounded-full overflow-hidden relative"
@@ -323,7 +323,7 @@ export const ApplePlayerCard: React.FC<{
                         </div>
 
                         {/* Status Labeling */}
-                        <div className="flex justify-between items-center text-[11px] font-semibold uppercase tracking-[0.2em]">
+                        <div className="flex justify-between items-center text-footnote font-semibold uppercase tracking-widest">
                             <span className="text-zinc-600 tabular-nums">
                                 LIVE <span className="text-zinc-400">{currentValue}</span> • LINE <span className="text-zinc-400">{lineDisplay}</span>
                             </span>
@@ -473,7 +473,7 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
         return (
             <div className="flex flex-col items-center justify-center py-24">
                 <Target size={32} strokeWidth={1} className="text-zinc-700 mb-4" />
-                <span className="text-[14px] text-zinc-600">
+                <span className="text-body text-zinc-600">
                     No props available
                 </span>
             </div>
@@ -485,7 +485,7 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
         return (
             <div className="space-y-6">
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">{title}</span>
+                    <span className="text-caption font-black text-zinc-600 uppercase tracking-widest">{title}</span>
                     <div className="flex-1 h-px bg-white/[0.03]" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -514,8 +514,8 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
                 <div className="flex items-center gap-4">
                     <img src={team.logo} alt="" className="w-10 h-10 object-contain" />
                     <div>
-                        <h2 className="text-[20px] font-bold text-white tracking-tight">{team.name}</h2>
-                        <span className="text-[12px] text-zinc-500 font-medium">
+                        <h2 className="text-title-lg font-bold text-white tracking-tight">{team.name}</h2>
+                        <span className="text-small text-zinc-500 font-medium">
                             {players.length} {players.length === 1 ? 'Player' : 'Players'}
                         </span>
                     </div>
@@ -539,7 +539,7 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
                         <div className="w-full h-px bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
                     </div>
                     <div className="relative flex justify-center">
-                        <span className="px-6 bg-[#111113] text-[10px] font-black text-zinc-700 uppercase tracking-[0.3em]">vs</span>
+                        <span className="px-6 bg-[#111113] text-caption font-black text-zinc-700 uppercase tracking-ultra">vs</span>
                     </div>
                 </div>
             )}

@@ -277,7 +277,7 @@ const BookFavicon = ({ offer }: { offer: BookOffer }) => {
     >
       {hasError ? (
         <div className="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center">
-          <span className="text-[8px] font-bold text-zinc-500">{fallbackLetter}</span>
+          <span className="text-nano font-bold text-zinc-500">{fallbackLetter}</span>
         </div>
       ) : (
         <img
@@ -296,8 +296,8 @@ const BookFavicon = ({ offer }: { offer: BookOffer }) => {
 
 const BookTicker = ({ offers, bestOdds }: { offers: BookOffer[]; bestOdds: string }) => (
   <div className="flex flex-col items-end gap-2">
-    <div className="px-2.5 py-1 rounded-lg border border-white/[0.08] bg-white/[0.02]">
-      <span className="text-[13px] font-mono font-bold text-white tabular-nums">{bestOdds}</span>
+    <div className="px-2.5 py-1 rounded-lg border border-white/[0.08] bg-overlay-subtle">
+      <span className="text-body-sm font-mono font-bold text-white tabular-nums">{bestOdds}</span>
     </div>
     <div className="flex items-center gap-3">
       {offers.map((offer, i) => (
@@ -310,25 +310,25 @@ const BookTicker = ({ offers, bestOdds }: { offers: BookOffer[]; bestOdds: strin
 const SpecLabel = ({ label }: { label: string }) => (
   <div className="flex items-center gap-3 mb-3 opacity-50 select-none">
     <div className="h-px w-5 bg-white" />
-    <span className="text-[9px] font-bold text-white uppercase tracking-[0.3em] font-mono">{label}</span>
+    <span className="text-label font-bold text-white uppercase tracking-ultra font-mono">{label}</span>
   </div>
 );
 
 const SmartChip = ({ label, value, colorClass }: { label: string; value: string; colorClass: string }) => (
   <div className="flex flex-col justify-center px-4 py-3 rounded-lg border shadow-[0_2px_10px_rgba(0,0,0,0.3)] relative overflow-hidden group/chip" style={{ backgroundColor: ESSENCE.colors.surface.elevated, borderColor: ESSENCE.colors.border.default }}>
     <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent opacity-50 pointer-events-none" />
-    <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-1 opacity-80">{label}</span>
+    <span className="text-label font-bold text-zinc-500 uppercase tracking-widest mb-1 opacity-80">{label}</span>
     <span className={cn("text-[16px] font-mono font-medium tabular-nums tracking-tight leading-none", colorClass)}>{value}</span>
     <div className={cn("absolute bottom-0 left-0 right-0 h-[2px] opacity-20 bg-current", colorClass)} />
   </div>
 );
 
 const L5Strip = ({ outcomes, hitRate }: { outcomes: InsightOutcome[]; hitRate: number }) => (
-  <div className="mt-6 pt-5 border-t border-white/[0.06] flex items-center justify-between">
+  <div className="mt-6 pt-5 border-t border-edge flex items-center justify-between">
     <div className="flex items-baseline gap-2">
-      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Trajectory</span>
-      <span className={cn("text-[14px] font-mono font-bold tabular-nums", hitRate >= 60 ? "text-emerald-400" : hitRate <= 40 ? "text-rose-400" : "text-zinc-300")}>
-        {hitRate}% <span className="text-[10px] text-zinc-600 font-normal ml-0.5">L5</span>
+      <span className="text-caption font-bold text-zinc-500 uppercase tracking-widest">Trajectory</span>
+      <span className={cn("text-body font-mono font-bold tabular-nums", hitRate >= 60 ? "text-emerald-400" : hitRate <= 40 ? "text-rose-400" : "text-zinc-300")}>
+        {hitRate}% <span className="text-caption text-zinc-600 font-normal ml-0.5">L5</span>
       </span>
     </div>
 
@@ -507,14 +507,14 @@ export const InsightCard = memo(({ data }: { data: InsightCardData }) => {
             <button
               type="button"
               onClick={() => handleExport("FEED")}
-              className="px-3 py-2 rounded-lg text-[11px] font-semibold text-zinc-200 hover:bg-white/[0.05] text-left"
+              className="px-3 py-2 rounded-lg text-footnote font-semibold text-zinc-200 hover:bg-white/[0.05] text-left"
             >
               Export 1080×1350 (Feed)
             </button>
             <button
               type="button"
               onClick={() => handleExport("STORY")}
-              className="px-3 py-2 rounded-lg text-[11px] font-semibold text-zinc-200 hover:bg-white/[0.05] text-left"
+              className="px-3 py-2 rounded-lg text-footnote font-semibold text-zinc-200 hover:bg-white/[0.05] text-left"
             >
               Export 1080×1920 (Story)
             </button>
@@ -557,13 +557,13 @@ export const InsightCard = memo(({ data }: { data: InsightCardData }) => {
                     className="w-full h-full object-cover grayscale-[0.2]"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-zinc-600">
+                  <div className="w-full h-full flex items-center justify-center text-caption font-bold text-zinc-600">
                     {initials(player.name)}
                   </div>
                 )}
               </div>
               <div className="absolute -bottom-1 -right-1 px-1.5 py-0.5 bg-black border border-white/10 rounded-[4px]">
-                <span className="text-[8px] font-black text-zinc-400 block leading-none tracking-tighter">{player.team}</span>
+                <span className="text-nano font-black text-zinc-400 block leading-none tracking-tighter">{player.team}</span>
               </div>
             </div>
 
@@ -573,13 +573,13 @@ export const InsightCard = memo(({ data }: { data: InsightCardData }) => {
                   {player.name}
                 </h3>
                 {matchupText && (
-                  <span className="text-[10px] font-medium text-zinc-600 font-mono shrink-0 tracking-wide">
+                  <span className="text-caption font-medium text-zinc-600 font-mono shrink-0 tracking-wide">
                     • {matchupText}
                   </span>
                 )}
               </div>
 
-              <div className={cn("text-[13px] font-bold tracking-wide mt-1.5 uppercase font-mono", selectionColor)}>
+              <div className={cn("text-body-sm font-bold tracking-wide mt-1.5 uppercase font-mono", selectionColor)}>
                 {bet.segment}
               </div>
             </div>
@@ -592,7 +592,7 @@ export const InsightCard = memo(({ data }: { data: InsightCardData }) => {
         <div className="relative mb-8 pl-1 z-10">
           <SpecLabel label="01 // INTELLIGENCE" />
           <div className="relative pl-4 border-l-[2px] border-white/10">
-            <p className="text-[14px] leading-[1.6] text-zinc-300 font-light text-pretty tracking-wide">
+            <p className="text-body leading-[1.6] text-zinc-300 font-light text-pretty tracking-wide">
               {analysis.rationale}
             </p>
           </div>
@@ -615,7 +615,7 @@ export const InsightCard = memo(({ data }: { data: InsightCardData }) => {
         {isExporting && (
           <div className="absolute bottom-3 right-4 opacity-60 flex items-center gap-2">
             <DripMark width={18} height={18} className="text-zinc-400" />
-            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-600">THE DRIP</span>
+            <span className="text-nano font-black uppercase tracking-ultra text-zinc-600">THE DRIP</span>
           </div>
         )}
       </motion.div>

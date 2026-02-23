@@ -51,9 +51,9 @@ const SportCard: React.FC<{
                 relative overflow-hidden rounded-2xl transition-all duration-300
                 ${isSelected
           ? 'bg-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]'
-          : 'bg-white/[0.02] hover:bg-white/[0.04] shadow-[0_2px_8px_rgba(0,0,0,0.2)]'
+          : 'bg-overlay-subtle hover:bg-overlay-muted shadow-[0_2px_8px_rgba(0,0,0,0.2)]'
         }
-                border border-white/[0.04]
+                border border-edge-subtle
                 backdrop-blur-xl
             `}>
         {/* Content */}
@@ -61,7 +61,7 @@ const SportCard: React.FC<{
           <div className="flex flex-col">
             {/* League Name - Primary Typography */}
             <span className={`
-                            text-[17px] font-semibold tracking-[-0.02em] transition-all duration-200
+                            text-title font-semibold tracking-tight transition-all duration-200
                             ${isSelected
                 ? 'text-white'
                 : 'text-zinc-300 group-hover:text-white'
@@ -78,7 +78,7 @@ const SportCard: React.FC<{
                                     ${isSelected ? 'bg-white' : 'bg-rose-500'}
                                 `} />
                 <span className={`
-                                    text-[11px] font-medium tracking-wide
+                                    text-footnote font-medium tracking-wide
                                     ${isSelected ? 'text-white/70' : 'text-zinc-500'}
                                 `}>
                   {liveCount} live
@@ -208,7 +208,7 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
                 Leagues
               </h2>
               {totalLive > 0 && (
-                <p className="text-[13px] text-zinc-500 font-medium mt-2 tracking-[-0.01em]">
+                <p className="text-body-sm text-zinc-500 font-medium mt-2 tracking-snug">
                   {totalLive} games in progress
                 </p>
               )}
@@ -217,7 +217,7 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
             {/* Close Button - Minimal */}
             <button
               onClick={onClose}
-              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center bg-white/[0.04] hover:bg-white/[0.08] rounded-full text-zinc-500 hover:text-white transition-all duration-200 border border-white/[0.04]"
+              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center bg-overlay-muted hover:bg-white/[0.08] rounded-full text-zinc-500 hover:text-white transition-all duration-200 border border-edge-subtle"
             >
               <X size={16} strokeWidth={2} />
             </button>
@@ -228,7 +228,7 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
                 {/* GLOBAL ALL SPORTS OPTION */}
                 <div>
                   <div className="flex items-center gap-3 px-1 mb-3">
-                    <span className="text-[11px] font-semibold text-zinc-600 uppercase tracking-[0.12em]">
+                    <span className="text-footnote font-semibold text-zinc-600 uppercase tracking-[0.12em]">
                       Universe
                     </span>
                     <div className="flex-1 h-px bg-white/[0.03]" />
@@ -249,7 +249,7 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
                   <div key={category}>
                     {/* Category Label - Subtle Typography */}
                     <div className="flex items-center gap-3 px-1 mb-3">
-                      <span className="text-[11px] font-semibold text-zinc-600 uppercase tracking-[0.12em]">
+                      <span className="text-footnote font-semibold text-zinc-600 uppercase tracking-[0.12em]">
                         {category}
                       </span>
                       <div className="flex-1 h-px bg-white/[0.03]" />

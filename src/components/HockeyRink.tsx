@@ -21,7 +21,7 @@ const HockeyRink: React.FC<HockeyRinkProps> = ({ shots, homeTeam, awayTeam }) =>
 
   return (
     <div className="w-full relative aspect-[2.35/1]">
-      <div className="absolute top-2 left-4 z-10 flex gap-4 text-[10px] font-bold font-mono bg-white/90 p-1 rounded border border-slate-200">
+      <div className="absolute top-2 left-4 z-10 flex gap-4 text-caption font-bold font-mono bg-white/90 p-1 rounded border border-slate-200">
          <div className="flex items-center gap-1">
             <div className="w-2 h-2 rounded-full" style={{backgroundColor: homeTeam.color}}></div>
             <span className="text-slate-700">{homeTeam.shortName}</span>

@@ -34,13 +34,13 @@ const OddsCell = ({ label, value, subValue, isLive, active, result }: OddsCellPr
   } else if (result === 'lost' || result === 'losing') {
     valueColor = "text-zinc-500 line-through decoration-zinc-600/50";
     bgColor = "bg-[#18181a]";
-    borderColor = "border-white/[0.04]";
+    borderColor = "border-edge-subtle";
   } else if (result === 'push') {
     valueColor = "text-amber-400";
     bgColor = "bg-amber-500/[0.08]";
     borderColor = "border-amber-500/20";
   } else if (active) {
-    bgColor = "bg-white/[0.06]";
+    bgColor = "bg-overlay-emphasis";
     borderColor = "border-white/10";
     valueColor = "text-white";
   }
@@ -50,20 +50,20 @@ const OddsCell = ({ label, value, subValue, isLive, active, result }: OddsCellPr
         "group/cell relative flex flex-col items-center justify-center min-w-[48px] md:min-w-[56px] h-[44px] rounded-md border transition-all duration-200 cursor-default",
         borderColor,
         bgColor,
-        result ? "shadow-sm" : "hover:bg-white/[0.04] hover:border-white/[0.1]"
+        result ? "shadow-sm" : "hover:bg-overlay-muted hover:border-white/[0.1]"
     )}>
         <div className="flex flex-col items-center leading-none gap-0.5">
             <div className="flex items-baseline gap-0.5">
-                <span className={cn("text-[12px] font-mono font-medium tracking-tighter tabular-nums transition-colors", valueColor)}>
+                <span className={cn("text-small font-mono font-medium tracking-tighter tabular-nums transition-colors", valueColor)}>
                     {value}
                 </span>
                 {subValue && subValue !== '-' && (
-                    <span className="text-[9px] text-zinc-500 tabular-nums scale-90 origin-bottom-left">
+                    <span className="text-label text-zinc-500 tabular-nums scale-90 origin-bottom-left">
                         {subValue}
                     </span>
                 )}
             </div>
-            <span className={cn("text-[8px] font-bold uppercase tracking-wider transition-colors", labelColor)}>
+            <span className={cn("text-nano font-bold uppercase tracking-wider transition-colors", labelColor)}>
                 {label}
             </span>
         </div>

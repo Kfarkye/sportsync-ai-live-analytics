@@ -32,14 +32,14 @@ const DeltaValue = ({ value, label }: { value: number; label?: string }) => {
     return (
         <div className="flex items-center gap-1.5">
             <span className={cn(
-                "text-[12px] font-mono font-bold tabular-nums",
+                "text-small font-mono font-bold tabular-nums",
                 isPositive ? "text-emerald-400" : isNegative ? "text-rose-400" : "text-zinc-500"
             )}>
                 {value > 0 ? '+' : ''}{value.toFixed(1)}
             </span>
             {label && (
                 <span className={cn(
-                    "text-[8px] font-black uppercase tracking-widest",
+                    "text-nano font-black uppercase tracking-widest",
                     isPositive ? "text-emerald-500/60" : isNegative ? "text-rose-500/60" : "text-zinc-600"
                 )}>
                     {label}
@@ -87,7 +87,7 @@ const MetricRow = ({
         >
             {/* Centered Label */}
             <div className="text-center mb-4">
-                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.25em]">
+                <span className="text-caption font-black text-zinc-500 uppercase tracking-[0.25em]">
                     {label}
                 </span>
             </div>
@@ -97,12 +97,12 @@ const MetricRow = ({
                 {/* Away Team Value */}
                 <div className="w-24 text-left">
                     <div className={cn(
-                        "text-[20px] font-mono font-black tabular-nums leading-none mb-1",
+                        "text-title-lg font-mono font-black tabular-nums leading-none mb-1",
                         awayAdvantage ? "text-white" : "text-zinc-500"
                     )}>
                         {awayValue.toFixed(1)}
                     </div>
-                    <div className="text-[9px] font-bold text-zinc-600 uppercase tracking-wider mb-1.5">
+                    <div className="text-label font-bold text-zinc-600 uppercase tracking-wider mb-1.5">
                         {awayName}
                     </div>
                     <DeltaValue value={awayDelta} label={deltaLabel} />
@@ -139,12 +139,12 @@ const MetricRow = ({
                 {/* Home Team Value */}
                 <div className="w-24 text-right">
                     <div className={cn(
-                        "text-[20px] font-mono font-black tabular-nums leading-none mb-1",
+                        "text-title-lg font-mono font-black tabular-nums leading-none mb-1",
                         homeAdvantage ? "text-white" : "text-zinc-500"
                     )}>
                         {homeValue.toFixed(1)}
                     </div>
-                    <div className="text-[9px] font-bold text-zinc-600 uppercase tracking-wider mb-1.5">
+                    <div className="text-label font-bold text-zinc-600 uppercase tracking-wider mb-1.5">
                         {homeName}
                     </div>
                     <div className="flex justify-end">
@@ -191,10 +191,10 @@ const StatsComparison: React.FC<StatsComparisonProps> = ({
             animate={{ opacity: 1 }}
             className="py-16 flex flex-col items-center justify-center"
         >
-            <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-white/[0.06] flex items-center justify-center mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-edge flex items-center justify-center mb-4">
                 <div className="w-5 h-5 border-2 border-zinc-700 border-dashed rounded-full animate-pulse" />
             </div>
-            <span className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.2em]">
+            <span className="text-footnote font-black text-zinc-500 uppercase tracking-widest">
                 Team Metrics Unavailable
             </span>
         </motion.div>
@@ -251,8 +251,8 @@ const StatsComparison: React.FC<StatsComparisonProps> = ({
             className="bg-transparent py-4"
         >
             {/* Header */}
-            <div className="mb-6 border-b border-white/[0.04] pb-4">
-                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em]">
+            <div className="mb-6 border-b border-edge-subtle pb-4">
+                <span className="text-caption font-bold text-zinc-600 uppercase tracking-widest">
                     Team Efficiency
                 </span>
             </div>

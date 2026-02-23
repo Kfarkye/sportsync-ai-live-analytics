@@ -225,18 +225,18 @@ const SYSTEM = {
   },
   surface: {
     void: "bg-[#08080A]",
-    panel: "bg-[#080808] border border-white/[0.06]",
+    panel: "bg-[#080808] border border-edge",
     /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
     glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
     hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20 shadow-[inset_0_1px_0_rgba(245,158,11,0.1)]",
-    milled: "border-t border-white/[0.08] border-b border-black/50 border-x border-white/[0.04]",
+    milled: "border-t border-white/[0.08] border-b border-black/50 border-x border-edge-subtle",
     alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20 shadow-[inset_0_1px_0_rgba(225,29,72,0.1)]",
   },
   type: {
-    mono: "font-mono text-[10px] tracking-[0.1em] uppercase text-zinc-500 tabular-nums",
-    body: "text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300",
-    h1: "text-[13px] font-medium tracking-[-0.02em] text-white",
-    label: "text-[9px] font-bold tracking-[0.05em] uppercase text-zinc-500",
+    mono: "font-mono text-caption tracking-[0.1em] uppercase text-zinc-500 tabular-nums",
+    body: "text-body-lg leading-[1.72] tracking-[-0.005em] text-zinc-300",
+    h1: "text-body-sm font-medium tracking-tight text-white",
+    label: "text-label font-bold tracking-[0.05em] uppercase text-zinc-500",
   },
   geo: { pill: "rounded-full", card: "rounded-[22px]", input: "rounded-[24px]" },
 } as const;
@@ -1583,7 +1583,7 @@ const ScrollAnchor: FC<{ visible: boolean; onClick: () => void }> = memo(({ visi
         aria-label="Scroll to latest messages"
       >
         <ArrowDown size={10} className="text-emerald-400" />
-        <span className="text-[10px] font-medium text-zinc-300 tracking-wide uppercase">Latest</span>
+        <span className="text-caption font-medium text-zinc-300 tracking-wide uppercase">Latest</span>
       </motion.button>
     )}
   </AnimatePresence>
@@ -1628,7 +1628,7 @@ const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
             className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-[#08080A] border border-white/10 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
           >
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]" />
-            <span className="text-[12px] font-medium text-white tracking-tight">{toast.message}</span>
+            <span className="text-small font-medium text-white tracking-tight">{toast.message}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -2136,7 +2136,7 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
       <div className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(ellipse_at_top_left,rgba(245,158,11,0.08)_0%,transparent_55%)]" />
       <div className="relative z-10 p-5">
         {/* M-04: Section header in zinc-500 — neutral */}
-        <p className="text-[12px] font-mono font-medium tracking-[0.12em] uppercase text-zinc-500 mb-4">
+        <p className="text-small font-mono font-medium tracking-[0.12em] uppercase text-zinc-500 mb-4">
           WHAT TO WATCH
         </p>
 
@@ -2144,23 +2144,23 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
         {parsed.action ? (
           <>
             {/* Condition — white, readable */}
-            <p className="text-[15px] text-zinc-200 leading-relaxed">
+            <p className="text-body-lg text-zinc-200 leading-relaxed">
               {parsed.condition}
             </p>
             {/* Action — emerald, the thing to do */}
-            <p className="text-[15px] font-medium text-emerald-400 mt-2">
+            <p className="text-body-lg font-medium text-emerald-400 mt-2">
               → {parsed.action}
             </p>
             {/* Reasoning — dimmed, supporting */}
             {parsed.reasoning && (
-              <p className="text-[12px] text-zinc-500 leading-relaxed mt-2">
+              <p className="text-small text-zinc-500 leading-relaxed mt-2">
                 {parsed.reasoning}
               </p>
             )}
           </>
         ) : (
           /* Fallback: flat prose when no arrow pattern found */
-          <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
+          <div className="text-body-lg leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
         )}
       </div>
     </motion.div>
@@ -2345,7 +2345,7 @@ const SmartChips: FC<{
         {matchupLabel && (
           <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/[0.06] border border-emerald-500/[0.12] shrink-0 rounded-full">
             <div className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_4px_#10b981]" />
-            <span className="text-[10px] font-mono font-medium text-emerald-400/90 tracking-wide uppercase whitespace-nowrap">{matchupLabel}</span>
+            <span className="text-caption font-mono font-medium text-emerald-400/90 tracking-wide uppercase whitespace-nowrap">{matchupLabel}</span>
           </div>
         )}
         {chips.map((chip, i) => (
@@ -2359,7 +2359,7 @@ const SmartChips: FC<{
             whileTap={{ scale: 0.98 }}
             className={cn("px-3.5 py-2 bg-white/[0.03] border border-white/[0.08] transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
           >
-            <span className="text-[10px] font-medium text-zinc-300 tracking-wide uppercase whitespace-nowrap">{chip}</span>
+            <span className="text-caption font-medium text-zinc-300 tracking-wide uppercase whitespace-nowrap">{chip}</span>
           </motion.button>
         ))}
       </div>
@@ -2377,7 +2377,7 @@ const ConnectionBadge: FC<{ status: ConnectionStatus }> = memo(({ status }) => {
       exit={{ opacity: 0, y: -10 }}
       role="status"
       className={cn(
-        "flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-mono uppercase tracking-wider",
+        "flex items-center gap-2 px-3 py-1.5 rounded-full text-caption font-mono uppercase tracking-wider",
         status === "offline"
           ? "bg-red-500/10 border border-red-500/20 text-red-400"
           : "bg-amber-500/10 border border-amber-500/20 text-amber-400",
@@ -2476,7 +2476,7 @@ const MessageBubble: FC<{
               <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
               <div className="mt-8 flex items-center gap-2.5">
                 <div className="w-1 h-1 rounded-full bg-zinc-600" />
-                <span className="text-[12px] font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
+                <span className="text-small font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
               </div>
             </div>
           );
@@ -2619,7 +2619,7 @@ const MessageBubble: FC<{
                   {/* M-17: 32px gap between hairline and section header */}
                   <div className="mt-8 flex items-center gap-2.5">
                     <div className="w-1 h-1 rounded-full bg-zinc-600" />
-                    <span className="text-[12px] font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
+                    <span className="text-small font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
                   </div>
                 </div>
               );
@@ -2740,7 +2740,7 @@ const MessageBubble: FC<{
         {/* M-19: Timestamp always below, right-aligned, consistent for both roles */}
         {formattedTime && (
           <div className="text-right mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none">
-            <time dateTime={message.timestamp} className="text-[11px] text-zinc-600">
+            <time dateTime={message.timestamp} className="text-footnote text-zinc-600">
               {formattedTime}
             </time>
           </div>
@@ -2872,9 +2872,9 @@ const InputDeck: FC<{
             className="flex gap-2 overflow-x-auto p-2 mb-1 scrollbar-hide"
           >
             {attachments.map((a, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-full border border-white/[0.06]">
+              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-full border border-edge">
                 <ImageIcon size={12} className="text-white/50" />
-                <span className="text-[10px] text-zinc-300 max-w-[80px] truncate">{a.file.name}</span>
+                <span className="text-caption text-zinc-300 max-w-[80px] truncate">{a.file.name}</span>
                 <button
                   onClick={() => onAttach(attachments.filter((_, j) => j !== i))}
                   className="text-zinc-500 hover:text-white transition-colors"
@@ -3373,11 +3373,11 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                     animate={{ opacity: 1, scale: 1 }}
                     className="h-full flex flex-col items-center justify-center text-center opacity-40"
                   >
-                    <div className="w-20 h-20 rounded-[24px] border border-white/[0.06] bg-white/[0.02] flex items-center justify-center mb-6">
+                    <div className="w-20 h-20 rounded-[24px] border border-edge bg-overlay-subtle flex items-center justify-center mb-6">
                       <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
                     </div>
                     <p className={SYSTEM.type.mono}>System Ready</p>
-                    <p className="text-[10px] text-zinc-700 mt-1.5 tracking-wide">
+                    <p className="text-caption text-zinc-700 mt-1.5 tracking-wide">
                       {deriveGamePhase(normalizedContext) === "live" ? "Games are live — ask for in-play edge" : deriveGamePhase(normalizedContext) === "postgame" ? "Markets closed — review your record" : "Pre-game window — find today's edge"}
                     </p>
                   </motion.div>

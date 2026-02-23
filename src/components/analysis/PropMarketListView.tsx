@@ -56,7 +56,7 @@ const ToggleSwitch = ({ expanded }: { expanded: boolean }) => (
 
 // High-Precision Progress Line
 const PrecisionProgress = memo(({ progress, isHitting, color }: { progress: number; isHitting: boolean; color: string }) => (
-    <div className="h-[2px] w-full bg-white/[0.06] mt-3 relative overflow-hidden">
+    <div className="h-[2px] w-full bg-overlay-emphasis mt-3 relative overflow-hidden">
         <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${Math.min(progress, 100)}%` }}
@@ -223,7 +223,7 @@ const PlayerCard: FC<PlayerCardProps> = memo(({ player, match, category, teamCol
             whileHover={{ scale: 1.02, y: -2 }}
             transition={{ type: "spring", stiffness: 260, damping: 24 }}
             className={cn(
-                "group relative py-4 px-3 transition-all duration-300 border-t border-white/[0.04] first:border-t-0",
+                "group relative py-4 px-3 transition-all duration-300 border-t border-edge-subtle first:border-t-0",
                 ESSENCE.card.base,
                 "backdrop-blur-[24px] transform-gpu",
                 "after:content-[''] after:absolute after:inset-0 after:opacity-[0.035] after:pointer-events-none",
@@ -244,7 +244,7 @@ const PlayerCard: FC<PlayerCardProps> = memo(({ player, match, category, teamCol
                         {player.headshotUrl ? (
                             <img src={player.headshotUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[10px] font-mono text-zinc-500">
+                            <div className="w-full h-full flex items-center justify-center text-caption font-mono text-zinc-500">
                                 {initials}
                             </div>
                         )}
@@ -253,14 +253,14 @@ const PlayerCard: FC<PlayerCardProps> = memo(({ player, match, category, teamCol
                     </div>
 
                     <div className="min-w-0 flex flex-col justify-center">
-                        <span className="text-[14px] font-semibold text-zinc-200 tracking-tight truncate group-hover:text-white transition-colors">
+                        <span className="text-body font-semibold text-zinc-200 tracking-tight truncate group-hover:text-white transition-colors">
                             {player.playerName}
                         </span>
                         <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.22em] font-mono">
+                            <span className="text-label font-semibold text-zinc-600 uppercase tracking-[0.22em] font-mono">
                                 {sideLabel}
                             </span>
-                            <span className="text-[9px] font-mono text-zinc-600 tabular-nums">
+                            <span className="text-label font-mono text-zinc-600 tabular-nums">
                                 {formatOdds(prop.oddsAmerican)}
                             </span>
                         </div>
@@ -273,14 +273,14 @@ const PlayerCard: FC<PlayerCardProps> = memo(({ player, match, category, teamCol
                         <span className="text-[18px] font-light text-white tabular-nums tracking-tighter leading-none">
                             {Number.isInteger(displayLine) ? displayLine : displayLine.toFixed(1)}
                         </span>
-                        <span className="text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.22em] mt-1">Line</span>
+                        <span className="text-label font-semibold text-zinc-600 uppercase tracking-[0.22em] mt-1">Line</span>
                         {hasLiveStats && (
                             <motion.span
                                 key={liveValue}
                                 animate={{ scale: [1, 1.1, 1] }}
                                 transition={{ duration: 0.6, ease: "easeOut" }}
                                 className={cn(
-                                    "text-[10px] font-mono font-bold mt-1 tracking-wider tabular-nums",
+                                    "text-caption font-mono font-bold mt-1 tracking-wider tabular-nums",
                                     isHitting ? "text-emerald-400" : "text-zinc-500"
                                 )}
                             >
@@ -381,18 +381,18 @@ const CategoryCard: FC<CategoryCardProps> = memo(({ category, index, match, acti
                 transition={SPRING_IN}
                 className={cn(
                     'w-full flex items-center justify-between py-6 group transition-all duration-300 px-4 md:px-0',
-                    isOpen && `sticky ${TOKENS.sticky.categoryOpen} z-${TOKENS.z.categoryHeader} bg-[#111113]/60 backdrop-blur-[40px] saturate-[180%] border-b border-white/[0.04]`
+                    isOpen && `sticky ${TOKENS.sticky.categoryOpen} z-${TOKENS.z.categoryHeader} bg-[#111113]/60 backdrop-blur-[40px] saturate-[180%] border-b border-edge-subtle`
                 )}
             >
                 <div className="flex items-center gap-4 pl-4">
                     <span className={cn(
-                        "text-[10px] font-bold tracking-[0.2em] uppercase font-mono transition-colors duration-300",
+                        "text-caption font-bold tracking-widest uppercase font-mono transition-colors duration-300",
                         isOpen ? "text-white" : "text-zinc-600 group-hover:text-zinc-400"
                     )}>
                         {formattedIndex} // {category.label}
                     </span>
                     {!isOpen && (
-                        <span className="text-[9px] font-mono text-zinc-600 bg-white/5 px-1.5 py-0.5 rounded">
+                        <span className="text-label font-mono text-zinc-600 bg-white/5 px-1.5 py-0.5 rounded">
                             {totalItems}
                         </span>
                     )}
@@ -430,9 +430,9 @@ const CategoryCard: FC<CategoryCardProps> = memo(({ category, index, match, acti
                                             {/* Sub-header */}
                                             <div className={cn(
                                                 `sticky ${TOKENS.sticky.teamLabel} z-${TOKENS.z.teamLabel}`,
-                                                "py-2 mb-2 bg-[#111113]/95 backdrop-blur-sm border-b border-white/[0.04] flex items-center justify-between"
+                                                "py-2 mb-2 bg-[#111113]/95 backdrop-blur-sm border-b border-edge-subtle flex items-center justify-between"
                                             )}>
-                                                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] font-mono">
+                                                <span className="text-label font-bold text-zinc-500 uppercase tracking-widest font-mono">
                                                     {teamName}
                                                 </span>
                                                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: normalizeColor(teamColor) }} />
@@ -458,7 +458,7 @@ const CategoryCard: FC<CategoryCardProps> = memo(({ category, index, match, acti
                                 <div className="mt-8 flex justify-center">
                                     <button
                                         onClick={() => setShowAll(true)}
-                                        className="px-6 py-2 border-b border-zinc-800 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 hover:text-white hover:border-zinc-500 transition-all duration-300"
+                                        className="px-6 py-2 border-b border-zinc-800 text-label font-bold uppercase tracking-widest text-zinc-500 hover:text-white hover:border-zinc-500 transition-all duration-300"
                                     >
                                         Load Full Roster ({remainingCount}+)
                                     </button>
@@ -499,7 +499,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
 
     if (!dbProps.length) return (
         <div className="py-32 text-center border border-dashed border-zinc-800 rounded-xl opacity-50 mt-12 mx-4">
-            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-600">
+            <span className="text-caption font-mono uppercase tracking-widest text-zinc-600">
                 Market Data Unavailable
             </span>
         </div>
@@ -510,7 +510,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
             {/* Sticky Filter Deck (Desktop) */}
             <nav className={cn(
                 `hidden md:flex sticky ${TOKENS.sticky.nav} z-${TOKENS.z.sticky}`,
-                "bg-[#111113]/60 backdrop-blur-[40px] saturate-[180%] border-b border-white/[0.04] py-3"
+                "bg-[#111113]/60 backdrop-blur-[40px] saturate-[180%] border-b border-edge-subtle py-3"
             )}>
                 <div className="flex items-center justify-center gap-6 md:gap-12 px-4 w-full">
                     {/* Away */}
@@ -525,7 +525,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                                 activeTeamId === t.id ? "text-white" : "text-zinc-600 hover:text-zinc-400"
                             )}
                         >
-                            <span className="text-[10px] font-bold tracking-[0.2em] uppercase">
+                            <span className="text-caption font-bold tracking-widest uppercase">
                                 {t.abbreviation || t.shortName}
                             </span>
                             {activeTeamId === t.id && (
@@ -544,7 +544,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                             activeTeamId === 'ALL' ? "text-white" : "text-zinc-600 hover:text-zinc-400"
                         )}
                     >
-                        <span className="text-[10px] font-bold tracking-[0.2em] uppercase">ALL MARKETS</span>
+                        <span className="text-caption font-bold tracking-widest uppercase">ALL MARKETS</span>
                         {activeTeamId === 'ALL' && (
                             <motion.div layoutId="propFilter" className="absolute bottom-0 left-0 right-0 h-px bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
                         )}
@@ -562,7 +562,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                                 activeTeamId === t.id ? "text-white" : "text-zinc-600 hover:text-zinc-400"
                             )}
                         >
-                            <span className="text-[10px] font-bold tracking-[0.2em] uppercase">
+                            <span className="text-caption font-bold tracking-widest uppercase">
                                 {t.abbreviation || t.shortName}
                             </span>
                             {activeTeamId === t.id && (
@@ -578,7 +578,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={SPRING_IN}
-                className="md:hidden fixed left-3 right-3 z-[60] bottom-[calc(env(safe-area-inset-bottom)+12px)] px-3 py-2 rounded-full bg-[#111113]/60 backdrop-blur-[40px] saturate-[180%] border-[0.5px] border-white/[0.04] shadow-[0_16px_60px_rgba(0,0,0,0.45)]"
+                className="md:hidden fixed left-3 right-3 z-[60] bottom-[calc(env(safe-area-inset-bottom)+12px)] px-3 py-2 rounded-full bg-[#111113]/60 backdrop-blur-[40px] saturate-[180%] border-[0.5px] border-edge-subtle shadow-[0_16px_60px_rgba(0,0,0,0.45)]"
             >
                 <div className="flex items-center justify-between gap-2">
                     {teams.filter(t => t.side === 'AWAY').map(t => (
@@ -592,7 +592,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                                 activeTeamId === t.id ? "text-white" : "text-zinc-500"
                             )}
                         >
-                            <span className="text-[9px] font-bold tracking-[0.22em] uppercase">
+                            <span className="text-label font-bold tracking-[0.22em] uppercase">
                                 {t.abbreviation || t.shortName}
                             </span>
                         </motion.button>
@@ -607,7 +607,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                             activeTeamId === 'ALL' ? "text-white" : "text-zinc-500"
                         )}
                     >
-                        <span className="text-[9px] font-bold tracking-[0.22em] uppercase">ALL</span>
+                        <span className="text-label font-bold tracking-[0.22em] uppercase">ALL</span>
                     </motion.button>
 
                     {teams.filter(t => t.side === 'HOME').map(t => (
@@ -621,7 +621,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                                 activeTeamId === t.id ? "text-white" : "text-zinc-500"
                             )}
                         >
-                            <span className="text-[9px] font-bold tracking-[0.22em] uppercase">
+                            <span className="text-label font-bold tracking-[0.22em] uppercase">
                                 {t.abbreviation || t.shortName}
                             </span>
                         </motion.button>

@@ -48,10 +48,10 @@ const AnalysisTrigger: React.FC<AnalysisTriggerProps> = ({
                 </div>
                 
                 <div>
-                    <div className={`text-[13px] font-bold tracking-tight ${isActive ? 'text-black' : 'text-white'}`}>
+                    <div className={`text-body-sm font-bold tracking-tight ${isActive ? 'text-black' : 'text-white'}`}>
                         {title}
                     </div>
-                    <div className={`text-[10px] font-medium tracking-wide uppercase ${isActive ? 'text-black/60' : 'text-zinc-500'}`}>
+                    <div className={`text-caption font-medium tracking-wide uppercase ${isActive ? 'text-black/60' : 'text-zinc-500'}`}>
                         {subtitle}
                     </div>
                 </div>

@@ -163,13 +163,13 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
 
                                         {/* Content Hierarchy */}
                                         <h3 className={cn(
-                                            "text-[13px] font-black uppercase tracking-[0.3em] mb-3 transition-colors duration-500",
+                                            "text-body-sm font-black uppercase tracking-ultra mb-3 transition-colors duration-500",
                                             activeTab === 'LIVE' ? "text-emerald-500/80" : activeTab === 'NEXT' ? "text-violet-400/80" : "text-zinc-500"
                                         )}>
                                             {activeTab === 'LIVE' ? 'No Live Games' : activeTab === 'NEXT' ? 'No Upcoming Games' : 'No Completed Games'}
                                         </h3>
 
-                                        <p className="text-[12px] text-zinc-500 font-medium tracking-tight max-w-[240px] text-center leading-relaxed">
+                                        <p className="text-small text-zinc-500 font-medium tracking-tight max-w-[240px] text-center leading-relaxed">
                                             {activeTab === 'LIVE'
                                                 ? "Check back shortly for active match sessions or view upcoming games."
                                                 : activeTab === 'NEXT'
@@ -181,7 +181,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                                         {activeTab !== 'NEXT' && (
                                             <button
                                                 onClick={() => useAppStore.getState().setLiveTab('NEXT')}
-                                                className="mt-10 px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 hover:text-white hover:bg-white/10 active:scale-95 transition-all duration-300 shadow-lg"
+                                                className="mt-10 px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-caption font-bold uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-white/10 active:scale-95 transition-all duration-300 shadow-lg"
                                             >
                                                 View Schedule
                                             </button>
@@ -205,17 +205,17 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                     )}
 
                     {/* Pro Terminal: State of the Art Upsell */}
-                    <div className="p-6 rounded-[20px] bg-[#0C0C0E] border border-white/[0.06] relative overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                    <div className="p-6 rounded-[20px] bg-[#0C0C0E] border border-edge relative overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                         {/* Subtle gradient accent */}
                         <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
 
-                        <h3 className="text-[10px] font-black text-violet-400 uppercase tracking-[0.2em] mb-3">
+                        <h3 className="text-caption font-black text-violet-400 uppercase tracking-widest mb-3">
                             Pro Terminal
                         </h3>
-                        <p className="text-[12px] text-zinc-500 leading-relaxed mb-5 font-medium">
+                        <p className="text-small text-zinc-500 leading-relaxed mb-5 font-medium">
                             Access real-time order flow, sharp money splits, and institutional line movement data.
                         </p>
-                        <button className="w-full py-2.5 bg-white/[0.03] text-zinc-300 text-[10px] font-bold uppercase tracking-[0.15em] rounded-xl border border-white/[0.08] hover:bg-white/[0.06] hover:border-white/[0.12] hover:text-white transition-all duration-200">
+                        <button className="w-full py-2.5 bg-white/[0.03] text-zinc-300 text-caption font-bold uppercase tracking-[0.15em] rounded-xl border border-white/[0.08] hover:bg-overlay-emphasis hover:border-white/[0.12] hover:text-white transition-all duration-200">
                             Unlock Data
                         </button>
                     </div>

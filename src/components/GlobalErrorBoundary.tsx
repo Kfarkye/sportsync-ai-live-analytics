@@ -63,7 +63,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
                         </button>
 
                         {process.env.NODE_ENV === 'development' && (
-                            <pre className="mt-8 p-4 bg-zinc-900 border border-white/5 rounded-lg text-[10px] text-left overflow-auto max-w-full text-zinc-500">
+                            <pre className="mt-8 p-4 bg-zinc-900 border border-white/5 rounded-lg text-caption text-left overflow-auto max-w-full text-zinc-500">
                                 {this.state.error?.toString()}
                             </pre>
                         )}

@@ -150,7 +150,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                                 style={{ backgroundColor: COLORS.live }}
                             />
                             <span
-                                className="text-[11px] font-bold uppercase tracking-wide"
+                                className="text-footnote font-bold uppercase tracking-wide"
                                 style={{ color: COLORS.live }}
                             >
                                 {clockDisplay} {periodLabel}
@@ -158,7 +158,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                         </div>
                     ) : (
                         <span
-                            className="text-[11px] font-black uppercase tracking-[0.2em] tabular-nums"
+                            className="text-footnote font-black uppercase tracking-widest tabular-nums"
                             style={{ color: isFinal ? COLORS.dim : COLORS.muted }}
                         >
                             {isFinal ? 'FINAL' : new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M/, '')}
@@ -167,7 +167,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
                     {!isFinal && (
                         <span
-                            className="text-[10px] font-medium uppercase tracking-widest"
+                            className="text-caption font-medium uppercase tracking-widest"
                             style={{ color: COLORS.dim }}
                         >
                             {leagueName}
@@ -183,13 +183,13 @@ const MatchCard: React.FC<MatchCardProps> = ({
                             <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-7 h-7 flex-shrink-0" />
                             <div className="min-w-0">
                                 <span
-                                    className={cn("block text-[15px] truncate", awayWinner ? "font-bold" : awayLost ? "font-normal" : "font-semibold")}
+                                    className={cn("block text-body-lg truncate", awayWinner ? "font-bold" : awayLost ? "font-normal" : "font-semibold")}
                                     style={{ color: awayWinner ? COLORS.white : awayLost ? COLORS.muted : COLORS.white }}
                                 >
                                     {match.awayTeam.name}
                                 </span>
                                 {match.awayTeam.record && (
-                                    <span className="block text-[11px] mt-0.5" style={{ color: COLORS.dim }}>
+                                    <span className="block text-footnote mt-0.5" style={{ color: COLORS.dim }}>
                                         {match.awayTeam.record}
                                     </span>
                                 )}
@@ -197,7 +197,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                         </div>
 
                         <span
-                            className={cn("text-[24px] tabular-nums min-w-[40px] text-right", awayWinner ? "font-bold" : "font-normal")}
+                            className={cn("text-headline tabular-nums min-w-[40px] text-right", awayWinner ? "font-bold" : "font-normal")}
                             style={{ color: showScores ? (awayWinner ? COLORS.white : COLORS.muted) : COLORS.dim }}
                         >
                             {showScores ? match.awayScore : (awayLine || '–')}
@@ -210,13 +210,13 @@ const MatchCard: React.FC<MatchCardProps> = ({
                             <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-7 h-7 flex-shrink-0" />
                             <div className="min-w-0">
                                 <span
-                                    className={cn("block text-[15px] truncate", homeWinner ? "font-bold" : homeLost ? "font-normal" : "font-semibold")}
+                                    className={cn("block text-body-lg truncate", homeWinner ? "font-bold" : homeLost ? "font-normal" : "font-semibold")}
                                     style={{ color: homeWinner ? COLORS.white : homeLost ? COLORS.muted : COLORS.white }}
                                 >
                                     {match.homeTeam.name}
                                 </span>
                                 {match.homeTeam.record && (
-                                    <span className="block text-[11px] mt-0.5" style={{ color: COLORS.dim }}>
+                                    <span className="block text-footnote mt-0.5" style={{ color: COLORS.dim }}>
                                         {match.homeTeam.record}
                                     </span>
                                 )}
@@ -224,7 +224,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                         </div>
 
                         <span
-                            className={cn("text-[24px] tabular-nums min-w-[40px] text-right", homeWinner ? "font-bold" : "font-normal")}
+                            className={cn("text-headline tabular-nums min-w-[40px] text-right", homeWinner ? "font-bold" : "font-normal")}
                             style={{ color: showScores ? (homeWinner ? COLORS.white : COLORS.muted) : COLORS.dim }}
                         >
                             {showScores ? match.homeScore : (homeLine || '–')}

@@ -246,15 +246,15 @@ const GameContextCard: React.FC<GameContextCardProps> = ({ match }) => {
         <div className="relative">
             {/* Primary Context (Week/Round/Bowl) */}
             {primary && (
-                <div className="py-3 border-b border-white/[0.04]">
-                    <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.1em] mb-1">
+                <div className="py-3 border-b border-edge-subtle">
+                    <div className="text-caption font-semibold text-zinc-600 uppercase tracking-[0.1em] mb-1">
                         Game
                     </div>
-                    <div className="text-[15px] font-semibold text-white tracking-tight">
+                    <div className="text-body-lg font-semibold text-white tracking-tight">
                         {primary}
                     </div>
                     {secondary && (
-                        <div className="text-[12px] font-medium text-zinc-400 mt-0.5">
+                        <div className="text-small font-medium text-zinc-400 mt-0.5">
                             {secondary}
                         </div>
                     )}
@@ -263,11 +263,11 @@ const GameContextCard: React.FC<GameContextCardProps> = ({ match }) => {
 
             {/* Matchup Type (Division/Conference) */}
             {matchupType && (
-                <div className="py-3 border-b border-white/[0.04]">
-                    <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.1em] mb-1">
+                <div className="py-3 border-b border-edge-subtle">
+                    <div className="text-caption font-semibold text-zinc-600 uppercase tracking-[0.1em] mb-1">
                         Matchup
                     </div>
-                    <div className="text-[14px] font-medium text-zinc-300 tracking-tight">
+                    <div className="text-body font-medium text-zinc-300 tracking-tight">
                         {matchupType}
                     </div>
                 </div>

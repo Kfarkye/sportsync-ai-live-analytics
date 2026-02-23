@@ -70,7 +70,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
                             <div className="flex items-center gap-2 mt-0.5">
                                 <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 rounded-md border border-white/5">
                                     <Layers size={10} className="text-emerald-500" />
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Syndicate Action</span>
+                                    <span className="text-caption font-bold text-zinc-400 uppercase tracking-wider">Syndicate Action</span>
                                 </div>
                             </div>
                         </div>
@@ -83,14 +83,14 @@ export const AngleCard = ({ match }: { match: Match }) => {
                         <RefreshCw size={14} />
                     </button>
                 </div>
-                <p className="text-sm md:text-[15px] text-zinc-300 leading-relaxed font-medium border-l-2 border-white/10 pl-4 py-1">
+                <p className="text-sm md:text-body-lg text-zinc-300 leading-relaxed font-medium border-l-2 border-white/10 pl-4 py-1">
                     {data.summary}
                 </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-px bg-white/5 border-b border-white/5">
                 <div className="p-6 md:p-8 bg-[#0D0D0E]">
-                    <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-5 flex items-center gap-2">
+                    <h4 className="text-caption font-bold text-zinc-500 uppercase tracking-widest mb-5 flex items-center gap-2">
                         <div className="w-1 h-1 bg-zinc-500 rounded-full" />
                         Power Ratings
                     </h4>
@@ -108,7 +108,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
                 </div>
 
                 <div className="p-6 md:p-8 bg-[#0D0D0E]">
-                    <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-5 flex items-center gap-2">
+                    <h4 className="text-caption font-bold text-zinc-500 uppercase tracking-widest mb-5 flex items-center gap-2">
                         <div className="w-1 h-1 bg-zinc-500 rounded-full" />
                         Value Positions
                     </h4>
@@ -122,10 +122,10 @@ export const AngleCard = ({ match }: { match: Match }) => {
 
                                     <div className="relative z-10">
                                         <div className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{play.label}</div>
-                                        <div className="text-[10px] font-mono text-zinc-500 mt-0.5 bg-black/30 inline-block px-1.5 py-0.5 rounded">{play.odds}</div>
+                                        <div className="text-caption font-mono text-zinc-500 mt-0.5 bg-black/30 inline-block px-1.5 py-0.5 rounded">{play.odds}</div>
                                     </div>
                                     <div className="text-right relative z-10">
-                                        <div className="text-[9px] text-zinc-500 uppercase font-bold mb-0.5">{conf.label}</div>
+                                        <div className="text-label text-zinc-500 uppercase font-bold mb-0.5">{conf.label}</div>
                                         <div className={`text-sm font-mono font-bold ${isElite ? 'text-emerald-400' : 'text-zinc-400'}`}>{conf.score}</div>
                                     </div>
                                 </div>
@@ -138,7 +138,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
             {/* Sources Footer */}
             {data.sources && data.sources.length > 0 && (
                 <div className="px-6 py-4 bg-[#080808] border-t border-white/5">
-                    <div className="flex items-center gap-2 mb-3 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                    <div className="flex items-center gap-2 mb-3 text-caption font-bold text-zinc-500 uppercase tracking-widest">
                         <FileText size={10} /> Verified Sources
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -148,7 +148,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
                                 href={source.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.03] hover:bg-white/[0.08] rounded-full border border-white/5 hover:border-white/10 text-[10px] text-zinc-400 hover:text-white transition-all group"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.03] hover:bg-white/[0.08] rounded-full border border-white/5 hover:border-white/10 text-caption text-zinc-400 hover:text-white transition-all group"
                             >
                                 <span className="truncate max-w-[150px]">{source.title}</span>
                                 <ExternalLink size={10} className="opacity-50 group-hover:opacity-100" />

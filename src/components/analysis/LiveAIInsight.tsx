@@ -82,13 +82,13 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
 
     if (liveLoading && !liveState) {
         return (
-            <div className="p-16 flex flex-col items-center justify-center bg-[#080808]/60 backdrop-blur-xl rounded-3xl border border-white/[0.04] shadow-2xl">
+            <div className="p-16 flex flex-col items-center justify-center bg-[#080808]/60 backdrop-blur-xl rounded-3xl border border-edge-subtle shadow-2xl">
                 <motion.div
                     animate={{ rotate: 360, scale: [1, 1.1, 1] }}
                     transition={{ duration: 2, repeat: Infinity }}
                     className="w-12 h-12 border-2 border-zinc-800 border-t-emerald-500 rounded-full mb-6"
                 />
-                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 animate-pulse">Synchronizing Intelligence</span>
+                <span className="text-caption font-black uppercase tracking-[0.4em] text-zinc-500 animate-pulse">Synchronizing Intelligence</span>
             </div>
         );
     }
@@ -115,7 +115,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                         <div className="w-full h-4 bg-zinc-800/30 rounded-lg animate-pulse" />
                         <div className="w-4/5 h-4 bg-zinc-800/20 rounded-lg animate-pulse" />
                     </div>
-                    <div className="pt-8 border-t border-white/[0.03] flex items-center justify-between relative z-10">
+                    <div className="pt-8 border-t border-edge-ghost flex items-center justify-between relative z-10">
                         <div className="flex items-center gap-2">
                             <div className="flex gap-0.5">
                                 {[1, 2, 3].map(i => (
@@ -127,7 +127,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                     />
                                 ))}
                             </div>
-                            <span className="text-[10px] font-black text-emerald-500/60 uppercase tracking-[0.2em] ml-1">Computing Alpha</span>
+                            <span className="text-caption font-black text-emerald-500/60 uppercase tracking-widest ml-1">Computing Alpha</span>
                         </div>
                         <div className="flex gap-4">
                             <div className="w-8 h-2 bg-zinc-800/50 rounded-full" />
@@ -184,27 +184,27 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                     />
                                 ))}
                             </div>
-                            <span className={cn("text-[10px] font-black tracking-[0.2em] uppercase", accentColor)}>
+                            <span className={cn("text-caption font-black tracking-widest uppercase", accentColor)}>
                                 {isEdge ? "Tactical Alpha Detected" : "Market Efficiency Confirmed"}
                             </span>
                         </div>
-                        {formattedTime && <span className="text-[9px] font-mono text-zinc-600 tracking-tighter uppercase opacity-60">Audit Hash: {formattedTime} • v4.2 ARCHITECT</span>}
+                        {formattedTime && <span className="text-label font-mono text-zinc-600 tracking-tighter uppercase opacity-60">Audit Hash: {formattedTime} • v4.2 ARCHITECT</span>}
                     </div>
 
                     <div className="flex items-center gap-3">
                         <div className="px-2.5 py-1 bg-white/[0.03] border border-white/[0.02] rounded-lg hidden sm:flex items-center gap-1.5">
                             <Target size={10} className="text-zinc-600" />
-                            <span className="text-[10px] font-black text-zinc-600 tracking-widest uppercase">{marketType}</span>
+                            <span className="text-caption font-black text-zinc-600 tracking-widest uppercase">{marketType}</span>
                         </div>
                         <div className={cn(
                             "px-4 py-2 rounded-2xl flex items-center gap-3 border shadow-lg transition-all duration-700",
-                            isEdge ? "bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/5 ring-1 ring-emerald-500/10" : "bg-zinc-900/60 border-white/[0.04]"
+                            isEdge ? "bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/5 ring-1 ring-emerald-500/10" : "bg-zinc-900/60 border-edge-subtle"
                         )}>
                             <span className={cn("text-xs font-black tracking-tight uppercase", accentColor)}>
                                 {side === 'PASS' ? 'Efficiency Clear' : displaySide}
                             </span>
                             <div className="w-[1px] h-4 bg-white/[0.08]" />
-                            <span className="text-[11px] font-mono font-bold text-zinc-400 tabular-nums">
+                            <span className="text-footnote font-mono font-bold text-zinc-400 tabular-nums">
                                 {sharp_data?.recommendation?.unit_size || '0.00U'}
                             </span>
                         </div>
@@ -216,20 +216,20 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                 </h2>
 
                 {/* Tier 2: Real-time Snapshot Grid */}
-                <div className="grid grid-cols-3 gap-8 py-5 border-y border-white/[0.04] relative z-10">
+                <div className="grid grid-cols-3 gap-8 py-5 border-y border-edge-subtle relative z-10">
                     <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-zinc-600 tracking-widest uppercase">Scoreboard</span>
+                        <span className="text-label font-black text-zinc-600 tracking-widest uppercase">Scoreboard</span>
                         <span className="font-mono text-[16px] font-bold text-white tabular-nums tracking-tight">{forensicSnapshot.score}</span>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-zinc-600 tracking-widest uppercase">Game Clock</span>
+                        <span className="text-label font-black text-zinc-600 tracking-widest uppercase">Game Clock</span>
                         <div className="flex items-center gap-1.5">
                             <Timer size={12} className="text-zinc-700" />
                             <span className="font-mono text-[16px] font-bold text-white tabular-nums tracking-tight">{forensicSnapshot.clock}</span>
                         </div>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-zinc-600 tracking-widest uppercase">Confidence</span>
+                        <span className="text-label font-black text-zinc-600 tracking-widest uppercase">Confidence</span>
                         <div className="flex items-center gap-1.5">
                             <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity }} className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             <span className="font-mono text-[16px] font-bold text-white tabular-nums tracking-tight">{sharp_data.confidence_level || sharp_data.confidence_rating || "—"}%</span>
@@ -252,10 +252,10 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                 key={i}
                                 className="flex items-start gap-4 group"
                             >
-                                <div className="mt-2 w-1.5 h-1.5 rounded-full bg-white/[0.06] group-hover:bg-emerald-500/50 transition-all duration-500 shadow-[0_0_8px_transparent] group-hover:shadow-emerald-500/20" />
+                                <div className="mt-2 w-1.5 h-1.5 rounded-full bg-overlay-emphasis group-hover:bg-emerald-500/50 transition-all duration-500 shadow-[0_0_8px_transparent] group-hover:shadow-emerald-500/20" />
                                 <div className="flex-1 flex flex-col gap-0.5">
-                                    <span className="text-[9px] font-black uppercase tracking-[0.15em] text-zinc-600 group-hover:text-emerald-500/60 transition-colors">{pillar.label}</span>
-                                    <span className="text-[14px] text-zinc-300 font-medium leading-[1.4] tracking-tight">{pillar.val}</span>
+                                    <span className="text-label font-black uppercase tracking-[0.15em] text-zinc-600 group-hover:text-emerald-500/60 transition-colors">{pillar.label}</span>
+                                    <span className="text-body text-zinc-300 font-medium leading-[1.4] tracking-tight">{pillar.val}</span>
                                 </div>
                             </motion.div>
                         ))}
@@ -272,7 +272,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                 exit={{ height: 0, opacity: 0 }}
                                 className="overflow-hidden"
                             >
-                                <p className="text-[13.5px] text-zinc-400 leading-[1.6] tracking-tight mb-5 border-l border-white/[0.05] pl-4 italic bg-white/[0.01] py-2 rounded-r-lg">
+                                <p className="text-[13.5px] text-zinc-400 leading-[1.6] tracking-tight mb-5 border-l border-white/[0.05] pl-4 italic bg-overlay-ghost py-2 rounded-r-lg">
                                     {sharp_data.the_read}
                                 </p>
                             </motion.div>
@@ -282,7 +282,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                     <div className="flex items-center gap-6">
                         <button
                             onClick={() => setShowFullRead(!showFullRead)}
-                            className="text-[10px] font-black text-emerald-500/70 hover:text-emerald-400 transition-all flex items-center gap-2 uppercase tracking-widest group"
+                            className="text-caption font-black text-emerald-500/70 hover:text-emerald-400 transition-all flex items-center gap-2 uppercase tracking-widest group"
                         >
                             <span className="bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all">
                                 {showFullRead ? 'Collapse Digest' : 'Read Deep Dive'}
@@ -295,7 +295,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                         {ai_analysis?.thought_trace && (
                             <button
                                 onClick={() => setShowTrace(!showTrace)}
-                                className="text-[10px] font-black text-zinc-600 hover:text-white transition-colors uppercase tracking-[0.2em] flex items-center gap-2"
+                                className="text-caption font-black text-zinc-600 hover:text-white transition-colors uppercase tracking-widest flex items-center gap-2"
                             >
                                 <Terminal size={12} className="opacity-40" />
                                 <span>{showTrace ? 'Seal Trace' : 'Audit Pipeline'}</span>
@@ -311,10 +311,10 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                 exit={{ height: 0, opacity: 0 }}
                                 className="overflow-hidden mt-6"
                             >
-                                <div className="p-6 rounded-2xl bg-black/40 border border-white/[0.03] backdrop-blur-md font-mono text-[11px] text-zinc-500 leading-relaxed max-h-72 overflow-y-auto custom-scrollbar selection:bg-emerald-500/20">
+                                <div className="p-6 rounded-2xl bg-black/40 border border-edge-ghost backdrop-blur-md font-mono text-footnote text-zinc-500 leading-relaxed max-h-72 overflow-y-auto custom-scrollbar selection:bg-emerald-500/20">
                                     <div className="flex items-center gap-2 mb-4 opacity-50">
                                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                        <span className="uppercase tracking-widest text-[9px] font-black">Secure Reasoning Kernel</span>
+                                        <span className="uppercase tracking-widest text-label font-black">Secure Reasoning Kernel</span>
                                     </div>
                                     {ai_analysis.thought_trace}
                                 </div>
@@ -332,7 +332,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                 href={s.uri || s.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.04] text-[9px] font-bold text-zinc-600 hover:text-emerald-400/80 hover:border-emerald-500/20 hover:bg-emerald-500/5 transition-all duration-500"
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-overlay-subtle border border-edge-subtle text-label font-bold text-zinc-600 hover:text-emerald-400/80 hover:border-emerald-500/20 hover:bg-emerald-500/5 transition-all duration-500"
                             >
                                 <LinkIcon size={10} className="opacity-40" />
                                 <span className="uppercase tracking-wider">{(s.title || 'Source').substring(0, 20)}</span>
