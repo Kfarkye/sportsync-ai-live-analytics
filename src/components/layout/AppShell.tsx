@@ -89,6 +89,10 @@ const AppShell: FC = () => {
       <MotionMain
         id="main-content"
         className="flex-1 w-full overflow-y-auto"
+        style={{
+          maskImage: 'linear-gradient(to bottom, transparent 0%, black 16px, black calc(100% - 32px), transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 16px, black calc(100% - 32px), transparent 100%)',
+        }}
       >
         <div className="max-w-7xl mx-auto px-4 md:px-6 pb-32">
           <AnimatePresence mode="wait">

@@ -288,6 +288,48 @@ a:focus-visible,
   }
 }
 
+/* ==========================================================================
+   §13  SCROLL EDGE EFFECTS
+   ==========================================================================
+   Linear iOS: "At scroll view edges, we apply a variable blur that
+   intensifies as content approaches the screen edge."
+   We approximate with CSS mask-image gradient fades.
+   ========================================================================== */
+
+.scroll-fade-y {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 16px,
+    black calc(100% - 32px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 16px,
+    black calc(100% - 32px),
+    transparent 100%
+  );
+}
+
+.scroll-fade-x {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 12px,
+    black calc(100% - 12px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 12px,
+    black calc(100% - 12px),
+    transparent 100%
+  );
+}
+
 /* Skip Link — screen reader users */
 .skip-link {
   position: absolute;
