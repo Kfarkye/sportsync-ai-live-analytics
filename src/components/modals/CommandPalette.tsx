@@ -103,9 +103,9 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ matches, onSelect, isOp
       { id: 'view-feed', type: 'view', label: 'Go to Feed', sublabel: 'Home', icon: <Home size={14} className="text-zinc-400" />, action: () => setActiveView('FEED') },
       { id: 'view-live', type: 'view', label: 'Go to Live', sublabel: 'Live games', icon: <Zap size={14} className="text-zinc-400" />, action: () => setActiveView('LIVE') },
       { id: 'view-titan', type: 'view', label: 'Go to Titan', sublabel: 'Analytics', icon: <BarChart3 size={14} className="text-zinc-400" />, action: () => setActiveView('TITAN') },
-      { id: 'date-today', type: 'action', label: 'Jump to Today', sublabel: 'Date', icon: <Calendar size={14} className="text-zinc-400" />, action: () => setSelectedDate(new Date().toISOString()) },
-      { id: 'date-yesterday', type: 'action', label: 'Jump to Yesterday', sublabel: 'Date', icon: <Clock size={14} className="text-zinc-400" />, action: () => { const d = new Date(); d.setDate(d.getDate() - 1); setSelectedDate(d.toISOString()); } },
-      { id: 'date-tomorrow', type: 'action', label: 'Jump to Tomorrow', sublabel: 'Date', icon: <ArrowRight size={14} className="text-zinc-400" />, action: () => { const d = new Date(); d.setDate(d.getDate() + 1); setSelectedDate(d.toISOString()); } },
+      { id: 'date-today', type: 'action', label: 'Jump to Today', sublabel: 'Date', icon: <Calendar size={14} className="text-zinc-400" />, action: () => setSelectedDate(new Date()) },
+      { id: 'date-yesterday', type: 'action', label: 'Jump to Yesterday', sublabel: 'Date', icon: <Clock size={14} className="text-zinc-400" />, action: () => { const d = new Date(); d.setDate(d.getDate() - 1); setSelectedDate(d); } },
+      { id: 'date-tomorrow', type: 'action', label: 'Jump to Tomorrow', sublabel: 'Date', icon: <ArrowRight size={14} className="text-zinc-400" />, action: () => { const d = new Date(); d.setDate(d.getDate() + 1); setSelectedDate(d); } },
     ];
     ORDERED_SPORTS.forEach(sport => {
       const cfg = SPORT_CONFIG[sport as keyof typeof SPORT_CONFIG];
