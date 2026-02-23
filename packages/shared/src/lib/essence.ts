@@ -1,34 +1,7 @@
 // ============================================================================
 // SHARED DESIGN TOKENS (SSOT)
 // Edit in src/lib/essence.ts and run `npm run sync:shared`.
-// ============================================================================
-
-// ============================================================================
-// ESSENCE DESIGN SYSTEM v11.0 — Consolidated Single Source of Truth
-// ============================================================================
-//
-// This file is the ONLY design token authority for SportsSync AI.
-// Every color, size, radius, shadow, and motion value lives here.
-//
-// KILLED in v11:
-//   - src/styles/design-tokens.ts  (0 imports — dead code)
-//   - src/ui/density.ts            (1 import — absorbed into §15)
-//
-// RULES:
-//   1. No hex color in any .tsx file. Use ESSENCE.colors.* or ESSENCE.tw.*
-//   2. No arbitrary text-[Npx]. Use ESSENCE.scale.* or ESSENCE.tier.*
-//   3. No arbitrary border-white/[N]. Use ESSENCE.tw.border.*
-//   4. No arbitrary bg-white/[N]. Use ESSENCE.tw.surface.*
-//   5. If a value doesn't exist here, ADD it here first, then use it.
-//
-// SYNC: Edit here, then run `npm run sync:shared` to propagate to
-//       packages/shared/src/lib/essence.ts and supabase functions.
-// ============================================================================
-
-// ============================================================================
-// §1  PALETTE — Cinematic Depth
-// ============================================================================
-// Rationalized from 27 unique surface hexes found across 88 component files.
+// =====================================================================// Rationalized from 27 unique surface hexes found across 88 component files.
 // Every bg-[#XXXXXX] must map to one of these 6 surface values.
 
 export const ESSENCE = {
@@ -370,16 +343,7 @@ export const ESSENCE = {
   },
 } as const;
 
-// ============================================================================
-// §16  UTILITY: Class Name Joiner
-// ============================================================================
-export const cn = (...classes: (string | undefined | null | false)[]) =>
-  classes.filter(Boolean).join(' ');
-
-// ============================================================================
-// §17  TYPE EXPORTS
-// ============================================================================
-export type EssenceColors  = typeof ESSENCE.colors;
+// =====================================================================export type EssenceColors  = typeof ESSENCE.colors;
 export type EssenceSurface = keyof typeof ESSENCE.colors.surface;
 export type EssenceText    = keyof typeof ESSENCE.colors.text;
 export type EssenceAccent  = keyof typeof ESSENCE.colors.accent;
