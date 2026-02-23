@@ -1051,21 +1051,19 @@ export interface AISignals {
   trace_id?: string;
   trace_dump?: Record<string, unknown>;
 
-  // v7.0: Multi-market edge (spread + ML alongside totals)
+  // v7.0: Spread + ML edge signals (was totals-only)
   market_edge?: {
-    spread: {
+    spread?: {
       opening: number;
       current: number;
-      movement: number;          // current - opening (negative = favorite strengthened)
-      direction: 'HOME' | 'AWAY' | 'FLAT';
-    } | null;
-    moneyline: {
-      home_no_vig: number;       // True probability (0-1) after devig
+      movement: number;       // current - opening (negative = moved toward home)
+    };
+    moneyline?: {
+      home_no_vig: number;    // devigged true probability (0-1)
       away_no_vig: number;
-      draw_no_vig: number | null;
-      overround: number;         // Total vig (e.g., 1.048 = 4.8% vig)
-      value_side: 'HOME' | 'AWAY' | 'DRAW' | null;  // Side with most movement in its favor
-    } | null;
+      draw_no_vig?: number;
+      value_side: 'home' | 'away' | 'draw' | null;
+    };
   };
 }
 

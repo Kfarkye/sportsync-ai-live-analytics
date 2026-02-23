@@ -9,7 +9,7 @@
 export { Card } from './Card';
 export { default as CardDefault } from './Card';
 
-// Headers & Titles  
+// Headers & Titles
 export { SectionHeader, CardHeader } from './SectionHeader';
 
 // Status Indicators

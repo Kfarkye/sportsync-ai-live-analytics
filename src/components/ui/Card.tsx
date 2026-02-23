@@ -17,16 +17,7 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 /**
  * Card — Obsidian Weissach Surface (Unified)
- *
- * Single card primitive for the entire application.
- * Consolidates the former Card + CardShell into one component.
- *
- * Variants:
- *   default   — Standard ESSENCE card (bg + border + radius + padding)
- *   glass     — Frosted glass with backdrop-blur
- *   solid     — Opaque elevated surface
- *   elevated  — Glass + deep shadow (modals, popovers)
- *   flush     — Transparent, no border/radius (inline sections)
+ * Consolidated from Card + CardShell. All styling flows from ESSENCE tokens.
  */
 export const Card = memo(({
     children,
@@ -39,31 +30,32 @@ export const Card = memo(({
     noPadding = false,
     ...rest
 }: CardProps) => {
-    const isFlush = variant === "flush";
+    const baseStyles = cn("relative overflow-hidden transition-all duration-300", ESSENCE.card.radius);
 
-    const baseStyles = cn(
-        "relative overflow-hidden transition-all duration-300",
-        !isFlush && ESSENCE.card.radius
-    );
-
-    const variants: Record<string, string> = {
+    const variants = {
         default: ESSENCE.card.base,
         glass: cn(ESSENCE.card.bg, "backdrop-blur-xl saturate-150", ESSENCE.card.border),
-        solid: cn(`bg-[${ESSENCE.colors.surface.elevated}]`, ESSENCE.card.border),
+        solid: cn("bg-[" + ESSENCE.colors.surface.elevated + "]", ESSENCE.card.border),
         elevated: cn(ESSENCE.card.bg, ESSENCE.card.border, ESSENCE.card.radius, "backdrop-blur-2xl shadow-2xl", ESSENCE.card.innerGlow),
         flush: "bg-transparent border-0 rounded-none",
     };
 
-    const hoverStyles = hover ? "hover:border-edge-strong hover:-translate-y-0.5" : "";
-    const paddingStyles = !noPadding && !isFlush ? ESSENCE.card.padding : "";
+    const hoverStyles = hover ? "hover:border-white/[0.08] hover:-translate-y-0.5" : "";
+    const showEdge = edgeLight && variant !== 'flush';
 
     return (
         <MotionDiv
-            className={cn(baseStyles, variants[variant], hoverStyles, paddingStyles, className)}
+            className={cn(
+                baseStyles,
+                variants[variant],
+                hoverStyles,
+                !noPadding && variant !== 'flush' && ESSENCE.card.padding,
+                className
+            )}
             {...rest}
         >
             {/* Obsidian Specular Edge Light */}
-            {edgeLight && !isFlush && (
+            {showEdge && (
                 <div
                     className={cn(
                         "absolute top-0 left-0 right-0 h-px z-20",
@@ -77,14 +69,12 @@ export const Card = memo(({
             )}
 
             {/* Noise Texture */}
-            {!isFlush && (
-                <div
-                    className={cn("absolute inset-0 opacity-[0.02] pointer-events-none mix-blend-overlay select-none", ESSENCE.card.radius)}
-                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
-                />
-            )}
+            <div
+                className={cn("absolute inset-0 opacity-[0.02] pointer-events-none mix-blend-overlay select-none", ESSENCE.card.radius)}
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
+            />
 
-            {/* Loading shimmer skeleton */}
+            {/* Shimmer skeleton */}
             {isLoading && (
                 <div className="absolute inset-0 z-20 overflow-hidden">
                     <div

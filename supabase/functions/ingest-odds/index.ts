@@ -452,55 +452,39 @@ async function syncToMatches(supabase: any, oddsData: any[], sportKey: string, r
     }
 }
 
-// Sharp book priority: lower number = preferred source for anchor lines.
-// Pinnacle is the global price-setter. Circa is the sharpest US book.
-// DraftKings/FanDuel are high-volume US market-makers.
-// Everything else is tier 3 (still valid, just not preferred).
-const BOOK_PRIORITY: Record<string, number> = {
-    pinnacle: 1,
-    circa_sports: 1,
-    betonlineag: 2,
-    bookmaker: 2,
-    draftkings: 3,
-    fanduel: 3,
-    betmgm: 4,
-    caesars: 4,
-    pointsbetus: 4,
-    bovada: 4,
-    williamhill_us: 4,
-    betrivers: 5,
-    unibet_us: 5,
-    superbook: 5,
-    wynnbet: 5,
+// 6-tier sharp book priority: lower = sharper.
+// Pinnacle is the global benchmark, Circa the US sharp benchmark.
+const SHARP_BOOK_PRIORITY: Record<string, number> = {
+    'pinnacle': 1,
+    'circa': 2, 'circa sports': 2,
+    'betonlineag': 3, 'betonline.ag': 3, 'betonline': 3,
+    'draftkings': 4, 'fanduel': 4,
+    'betmgm': 5,
 };
-const DEFAULT_BOOK_PRIORITY = 6;
+const MAX_BOOK_TIER = 6; // everything else
 
-function getBookPriority(book: { key?: string; title?: string }): number {
-    const key = (book.key || book.title || '').toLowerCase().replace(/[\s-]/g, '');
-    return BOOK_PRIORITY[key] ?? DEFAULT_BOOK_PRIORITY;
+function getBookTier(title: string): number {
+    const key = (title || '').toLowerCase().replace(/[^a-z.]/g, '');
+    return SHARP_BOOK_PRIORITY[key] ?? MAX_BOOK_TIER;
 }
 
 function calculateAnchorLines(bookmakers: any[], homeTeam: string, awayTeam: string, sport: string, isLive: boolean, mappingCache?: Map<string, string>) {
     const best: any = { h2h: null, spread: null, total: null }
-    // Track [priority, timestamp] per market — prefer sharper book, break ties by freshness
-    const bestRank: Record<string, [number, number]> = { h2h: [Infinity, 0], spread: [Infinity, 0], total: [Infinity, 0] }
+    const bestTier: any = { h2h: MAX_BOOK_TIER + 1, spread: MAX_BOOK_TIER + 1, total: MAX_BOOK_TIER + 1 }
 
     const resolve = (name: string) => mappingCache?.get(name) || name;
     const normHome = normalizeTeam(resolve(homeTeam))
     const normAway = normalizeTeam(resolve(awayTeam))
 
     for (const book of bookmakers) {
-        const bookTs = new Date(book.last_update || 0).getTime()
-        const priority = getBookPriority(book)
-
+        const tier = getBookTier(book.title)
         for (const market of book.markets) {
             const type = market.key === 'h2h' ? 'h2h' : (market.key === 'spreads' ? 'spread' : (market.key === 'totals' ? 'total' : null))
             if (!type) continue
 
-            const [curPriority, curTs] = bestRank[type]
-            // Accept if: sharper book, OR same tier but fresher data
-            if (priority < curPriority || (priority === curPriority && bookTs > curTs)) {
-                bestRank[type] = [priority, bookTs]
+            // Accept this book only if it's at least as sharp as current best
+            if (tier < bestTier[type]) {
+                bestTier[type] = tier
                 if (type === 'h2h') {
                     const home = market.outcomes.find((o: any) => normalizeTeam(resolve(o.name)) === normHome)
                     const away = market.outcomes.find((o: any) => normalizeTeam(resolve(o.name)) === normAway)

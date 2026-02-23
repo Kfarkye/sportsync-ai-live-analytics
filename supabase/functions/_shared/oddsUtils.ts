@@ -550,6 +550,58 @@ export const analyzeTotal = (match: Match): TotalAnalysis => {
     };
 };
 
+// ============================================================================
+// DEVIG MODULE — No-vig probability math
+// ============================================================================
+
+/** Convert American odds to raw implied probability (0-1). Returns NaN for invalid input. */
+export const americanToImplied = (american: number): number => {
+    if (!Number.isFinite(american) || american === 0) return NaN;
+    return american < 0
+        ? Math.abs(american) / (Math.abs(american) + 100)
+        : 100 / (american + 100);
+};
+
+/** Convert probability (0-1) back to American odds. */
+export const impliedToAmerican = (prob: number): number => {
+    if (!Number.isFinite(prob) || prob <= 0 || prob >= 1) return 0;
+    return prob >= 0.5
+        ? Math.round(-100 * prob / (1 - prob))
+        : Math.round(100 * (1 - prob) / prob);
+};
+
+/** Remove vig from a 2-way market (spread sides, totals, or h2h without draw).
+ *  Uses multiplicative method: each side's no-vig prob = raw / sum(raw).
+ */
+export const devig2Way = (priceA: number, priceB: number): { probA: number; probB: number } => {
+    const rawA = americanToImplied(priceA);
+    const rawB = americanToImplied(priceB);
+    if (isNaN(rawA) || isNaN(rawB)) return { probA: 0.5, probB: 0.5 };
+    const total = rawA + rawB;
+    if (total <= 0) return { probA: 0.5, probB: 0.5 };
+    return { probA: rawA / total, probB: rawB / total };
+};
+
+/** Remove vig from a 3-way market (h2h with draw). */
+export const devig3Way = (
+    priceA: number, priceB: number, priceDraw: number
+): { probA: number; probB: number; probDraw: number } => {
+    const rawA = americanToImplied(priceA);
+    const rawB = americanToImplied(priceB);
+    const rawD = americanToImplied(priceDraw);
+    if (isNaN(rawA) || isNaN(rawB) || isNaN(rawD)) return { probA: 0.34, probB: 0.33, probDraw: 0.33 };
+    const total = rawA + rawB + rawD;
+    if (total <= 0) return { probA: 0.34, probB: 0.33, probDraw: 0.33 };
+    return { probA: rawA / total, probB: rawB / total, probDraw: rawD / total };
+};
+
+/** Single-price devig: given one side's American price and the total implied probability of all sides. */
+export const noVigProb = (price: number, totalImplied: number): number => {
+    const raw = americanToImplied(price);
+    if (isNaN(raw) || totalImplied <= 0) return 0;
+    return raw / totalImplied;
+};
+
 export const analyzeMoneyline = (match: Match): MoneylineAnalysis => {
     const source = normalizeSource(match);
     const isFinal = isMatchFinal(match.status);

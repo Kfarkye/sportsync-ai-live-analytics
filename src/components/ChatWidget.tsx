@@ -84,101 +84,167 @@ import { ESSENCE } from "@/lib/essence";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Extracted Modules (see src/components/chat/)
+// §0  STATIC CONFIG & REGEX (Hoisted — Zero Allocation at Runtime)
 // ═══════════════════════════════════════════════════════════════════════════
-import type {
-  GroundingChunk,
-  GroundingSupport,
-  GroundingMetadata,
-  TextContent,
-  ImageContent,
-  FileContent,
-  MessagePart,
-  MessageContent,
-  Message,
-  Attachment,
-  GameContext,
-  ChatWidgetProps,
-  StreamChunk,
-  WireMessage,
-  ChatContextPayload,
-  ConnectionStatus,
-  VerdictOutcome,
-} from "./chat/types";
-import {
-  REGEX_VERDICT_MATCH,
-  REGEX_WATCH_PREFIX,
-  REGEX_WATCH_MATCH,
-  REGEX_EDGE_SECTION_HEADER,
-  REGEX_MATCHUP_LINE,
-  EXCLUDED_SECTIONS,
-  REGEX_SIGNED_NUMERIC,
-  REGEX_CITATION_PLACEHOLDER,
-  REGEX_SPLIT_COMMA,
-  REGEX_MULTI_SPACE,
-  CITE_MARKER,
-  REGEX_CLEAN_CITE_LINK,
-  REGEX_CLEAN_SUPPORT_CITE,
-  REGEX_CLEAN_HYDRATED_CITE,
-  REGEX_CLEAN_SUPERSCRIPT_CITE,
-  REGEX_CLEAN_LINK,
-  REGEX_CLEAN_REF,
-  REGEX_CLEAN_CONF,
-  REGEX_EXTRACT_CONF,
-  BRAND_COLOR_MAP,
-  DEFAULT_BRAND,
-  LIVE_BRAND,
-  LIVE_PATH_BRANDS,
-  EDGE_CARD_STAGE_DELAYS_MS,
-  EDGE_CARD_STAGGER_PER_CARD_MS,
-  EDGE_CARD_SPRING,
-  EDGE_CARD_EASE_OUT,
-  LIVE_STATUS_TOKENS,
-  FINAL_STATUS_TOKENS,
-  SMART_CHIP_QUERIES,
-  SYSTEM,
-  RETRY_CONFIG,
-  SEND_DEBOUNCE_MS,
-  MAX_FILE_SIZE_BYTES,
-  type BrandInfo,
-} from "./chat/config";
-import {
-  cn,
-  generateId,
-  triggerHaptic,
-  flattenText,
-  isTextInputFocused,
-  formatTimestamp,
-  formatFileSize,
-  chunkFingerprint,
-  LRUCache,
-  injectSupportCitations,
-  SUPERSCRIPT_DIGITS,
-  toSuperscript,
-  hydrateCitations,
-  extractTextContent,
-  cleanVerdictContent,
-  extractConfidence,
-  confidenceToPercent,
-  hostnameToBrandInfo,
-  getHostname,
-  shouldRenderCitation,
-  uriToBrandInfo,
-  buildWireContent,
-  getRetryDelay,
-  getTimePhase,
-  toStringOrUndefined,
-  toNumberOrUndefined,
-  normalizeGameContext,
-  resolveConfidenceValue,
-  parseEdgeVerdict,
-  extractEdgeSynopses,
-  detectCitationMode,
-  parseCitationUrl,
-  deriveGamePhase,
-  isLiveGame,
-  isSignedNumeric,
-} from "./chat/utils";
+
+const REGEX_VERDICT_MATCH = /\bverdict\s*:/i;
+const REGEX_WATCH_PREFIX = /.*what to watch(?:\s+live)?.*?:\s*/i;
+const REGEX_WATCH_MATCH = /what to watch(?:\s+live)?/i;
+
+const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
+// Match "MATCHUP 2: Team A vs Team B — Feb 16, 7:00 PM ET" with optional brackets, bullets, markdown.
+const REGEX_MATCHUP_LINE = /^\s*(?:\[)?\s*(?:[●•·‣-]\s*)?(?:\*{1,3}\s*)?MATCHUP(?:\s*\d+)?\s*[:—-]\s*(.+?)(?:\s*\*{1,3})?\s*(?:\])?\s*$/i;
+
+/** Sections that should never render in analysis */
+const EXCLUDED_SECTIONS = ['the edge', 'the_edge', 'edge', 'triple confluence', 'triple_confluence'];
+
+const REGEX_SIGNED_NUMERIC = /[+\-\u2212]\d+(?:\.\d+)?/g;
+
+/**
+ * Matches bracket citation tokens: [1], [1, 2], [1.1]
+ * Negative lookahead (?!\() prevents matching markdown links [text](url).
+ */
+const REGEX_CITATION_PLACEHOLDER =
+  /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
+
+const REGEX_SPLIT_COMMA = /[,\s]+/;
+const REGEX_MULTI_SPACE = /\s{2,}/g;
+
+/** URL fragment appended to citation links — lets the <a> renderer distinguish citations from content links. */
+const CITE_MARKER = "#__cite__";
+
+/** Strips inline citation links (phrase-as-link): [any text](url#__cite__) → "any text" */
+const REGEX_CLEAN_CITE_LINK = /\[([^\]]+)\]\([^)]*#__cite__[^)]*\)/g;
+
+/** Strips old-style support-injected brand citations: " per [ESPN](url#__cite__), [BBRef](url#__cite__)" */
+const REGEX_CLEAN_SUPPORT_CITE = /\s*per\s+(?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+/g;
+
+/** Strips old-style hydration-path parenthesized citations: " ([ESPN](url), [BBRef](url))" */
+const REGEX_CLEAN_HYDRATED_CITE = /\s*\((?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+\)/g;
+
+/** Strips superscript fallback citations: text¹² → text */
+const REGEX_CLEAN_SUPERSCRIPT_CITE = /\s*\[([^\]]+)\]\([^)]*#__cite_sup__[^)]*\)/g;
+
+/** Removes hydrated markdown links: [1](https://...) */
+const REGEX_CLEAN_LINK = /\s*\[\d+(?:\.\d+)?\]\([^)]+\)/g;
+/** Removes raw bracket tokens: [1] or [1.1] */
+const REGEX_CLEAN_REF = /\s*\[\d+(?:\.\d+)?\]/g;
+/** Removes confidence annotations: (Confidence: High) — note escaped parens. */
+const REGEX_CLEAN_CONF = /\s*\(Confidence:\s*\w+\)/gi;
+/** Extracts confidence level from verdict text before cleaning. */
+const REGEX_EXTRACT_CONF = /\(Confidence:\s*(\w+)\)/i;
+
+/**
+ * Brand color map — used ONLY for hover styling and debug logging.
+ * Brand names never appear in the response text. The phrase IS the link.
+ */
+interface BrandInfo { name: string; color: string }
+const BRAND_COLOR_MAP: Record<string, BrandInfo> = {
+  "espn.com":                        { name: "ESPN",     color: "#C2372E" },
+  "covers.com":                      { name: "Covers",   color: "#1A8F3C" },
+  "actionnetwork.com":               { name: "Action",   color: "#0066CC" },
+  "draftkings.com":                  { name: "DK",       color: "#53D337" },
+  "fanduel.com":                     { name: "FanDuel",  color: "#1493FF" },
+  "rotowire.com":                    { name: "RotoWire", color: "#C2372E" },
+  "basketball-reference.com":        { name: "BBRef",    color: "#D46A2F" },
+  "sports-reference.com":            { name: "SportsRef",color: "#D46A2F" },
+  "pro-football-reference.com":      { name: "PFRef",    color: "#D46A2F" },
+  "nba.com":                         { name: "NBA",      color: "#1D428A" },
+  "nfl.com":                         { name: "NFL",      color: "#013369" },
+  "mlb.com":                         { name: "MLB",      color: "#002D72" },
+  "nhl.com":                         { name: "NHL",      color: "#000000" },
+  "cbssports.com":                   { name: "CBS",      color: "#0033A0" },
+  "yahoo.com":                       { name: "Yahoo",    color: "#6001D2" },
+  "bleacherreport.com":              { name: "BR",       color: "#000000" },
+  "theathletic.com":                 { name: "Athletic", color: "#222222" },
+  "x.com":                           { name: "X",        color: "#000000" },
+  "twitter.com":                     { name: "X",        color: "#000000" },
+  "google.com":                      { name: "Google",   color: "#4285F4" },
+  "ai.google.dev":                   { name: "Google AI",color: "#4285F4" },
+  "vertexaisearch.cloud.google.com": { name: "Google",   color: "#4285F4" },
+  "discoveryengine.googleapis.com":  { name: "Google",   color: "#4285F4" },
+};
+
+/** Default brand info for unrecognized sources. */
+const DEFAULT_BRAND: BrandInfo = { name: "Web", color: "#71717A" };
+/** Brand info for live satellite endpoints. */
+const LIVE_BRAND: BrandInfo = { name: "Live", color: "#10B981" };
+
+/** Path-based brand overrides for live proxy endpoints. */
+const LIVE_PATH_BRANDS: Array<[RegExp, BrandInfo]> = [
+  [/\/api\/live\/scores\//, { name: "Scores", color: "#10B981" }],
+  [/\/api\/live\/odds\//,   { name: "Odds",   color: "#10B981" }],
+  [/\/api\/live\/pbp\//,    { name: "PBP",    color: "#10B981" }],
+];
+
+const EDGE_CARD_STAGE_DELAYS_MS = [0, 120, 220, 300, 480] as const;
+const EDGE_CARD_STAGGER_PER_CARD_MS = 150;
+const EDGE_CARD_SPRING = "cubic-bezier(0.16, 1, 0.3, 1)";
+const EDGE_CARD_EASE_OUT = "cubic-bezier(0.0, 0.0, 0.2, 1)";
+
+const LIVE_STATUS_TOKENS = ["IN_PROGRESS", "LIVE", "HALFTIME", "END_PERIOD", "Q1", "Q2", "Q3", "Q4", "OT"];
+const FINAL_STATUS_TOKENS = ["FINAL", "FINISHED", "COMPLETE"];
+
+/** Static query map for SmartChips — hoisted to avoid per-render allocation. */
+const SMART_CHIP_QUERIES: Record<string, string> = {
+  "Sharp Report": "Give me the full sharp report on this game.",
+  "Best Bet": "What is the best bet for this game?",
+  "Public Fade": "Where is the public heavy? Should I fade?",
+  "Player Props": "Analyze the top player props.",
+  "Edge Today": "What games have edge today?",
+  "Line Moves": "Show me significant line moves.",
+  "Public Splits": "What are the public betting splits?",
+  "Injury News": "What's the latest injury news?",
+  "Live Edge": "What live edges are available right now?",
+  Momentum: "How has momentum shifted? Any live play?",
+  "Live Games": "Which games are live right now with edge?",
+  "In-Play Edge": "What are the best in-play opportunities?",
+  Recap: "Recap tonight's results.",
+  "What Tailed / Faded": "Which positions should I tail or fade based on tonight's outcomes?",
+  "Tomorrow Slate": "Preview tomorrow's slate.",
+  Bankroll: "How's my bankroll looking?",
+  "New Slate": "What's on the slate today?",
+  "My Record": "Show my recent record and ROI.",
+  "Best Edge": "What's the highest confidence edge right now?",
+  Promos: "Any sportsbook promos worth grabbing?",
+  Futures: "Any futures with value right now?",
+  "Sharp Money": "Where is the sharp money flowing?",
+};
+
+/**
+ * Design system tokens — single source of truth.
+ * `as Transition` casts required: Framer Motion's Transition union type
+ * doesn't accept object literals directly. Safe — runtime values match shape.
+ */
+const SYSTEM = {
+  anim: {
+    fluid: { type: "spring", damping: 30, stiffness: 380, mass: 0.8 } as Transition,
+    snap: { type: "spring", damping: 22, stiffness: 450 } as Transition,
+    draw: { duration: 0.6, ease: "circOut" } as Transition,
+    morph: { type: "spring", damping: 25, stiffness: 280 } as Transition,
+  },
+  surface: {
+    void: "bg-[#08080A]",
+    panel: "bg-[#080808] border border-white/[0.06]",
+    /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
+    glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+    hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20 shadow-[inset_0_1px_0_rgba(245,158,11,0.1)]",
+    milled: "border-t border-white/[0.08] border-b border-black/50 border-x border-white/[0.04]",
+    alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20 shadow-[inset_0_1px_0_rgba(225,29,72,0.1)]",
+  },
+  type: {
+    mono: "font-mono text-[10px] tracking-[0.1em] uppercase text-zinc-500 tabular-nums",
+    body: "text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300",
+    h1: "text-[13px] font-medium tracking-[-0.02em] text-white",
+    label: "text-[9px] font-bold tracking-[0.05em] uppercase text-zinc-500",
+  },
+  geo: { pill: "rounded-full", card: "rounded-[22px]", input: "rounded-[24px]" },
+} as const;
+
+const RETRY_CONFIG = { maxAttempts: 3, baseDelay: 1000, maxDelay: 8000, jitterFactor: 0.3 } as const;
+const SEND_DEBOUNCE_MS = 300;
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // §1  TELEMETRY (Pluggable — swap no-op for Sentry/DataDog/PostHog)
@@ -213,6 +279,983 @@ function reportTiming(name: string, startMs: number, tags?: Record<string, strin
 }
 function trackAction(name: string, properties?: Record<string, unknown>): void {
   chatTelemetry.current.trackAction(name, properties);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §2  TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface GroundingChunk {
+  web?: { uri: string; title?: string };
+}
+interface GroundingSupport {
+  segment: {
+    startIndex: number;  // Byte offset, inclusive
+    endIndex: number;    // Byte offset, exclusive
+    text?: string;       // Actual text of the supported phrase
+  };
+  groundingChunkIndices: number[];
+  confidenceScores?: number[];  // Gemini 2.0 only, empty on 2.5+
+}
+interface GroundingMetadata {
+  groundingChunks?: GroundingChunk[];
+  groundingSupports?: GroundingSupport[];
+  searchEntryPoint?: { renderedContent: string };
+  webSearchQueries?: string[];
+}
+
+interface TextContent { type: "text"; text: string }
+interface ImageContent { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+interface FileContent { type: "file"; source: { type: "base64"; media_type: string; data: string } }
+type MessagePart = TextContent | ImageContent | FileContent;
+type MessageContent = string | MessagePart[];
+type VerdictOutcome = "tail" | "fade" | null;
+
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: MessageContent;
+  thoughts?: string;
+  groundingMetadata?: GroundingMetadata;
+  isStreaming?: boolean;
+  timestamp: string;
+  verdictOutcome?: VerdictOutcome;
+}
+
+interface Attachment { file: File; base64: string; mimeType: string }
+
+interface GameContext {
+  match_id?: string;
+  home_team?: string;
+  away_team?: string;
+  league?: string;
+  sport?: string;
+  start_time?: string;
+  status?: string;
+  period?: number;
+  clock?: string;
+  home_score?: number;
+  away_score?: number;
+  current_odds?: MatchOdds;
+  opening_odds?: MatchOdds;
+  closing_odds?: MatchOdds;
+  [key: string]: unknown;
+}
+
+interface ChatWidgetProps { currentMatch?: GameContext; inline?: boolean }
+
+interface StreamChunk {
+  type: "text" | "thought" | "grounding" | "error";
+  content?: string;
+  metadata?: GroundingMetadata;
+  done?: boolean;
+}
+
+type WireMessage = { role: "user" | "assistant"; content: MessageContent };
+
+interface ChatContextPayload {
+  session_id?: string | null;
+  conversation_id?: string | null;
+  gameContext?: GameContext | null;
+  run_id: string;
+}
+
+type ConnectionStatus = "connected" | "reconnecting" | "offline";
+
+declare global {
+  interface Window {
+    webkitSpeechRecognition?: new () => SpeechRecognition;
+    SpeechRecognition?: new () => SpeechRecognition;
+  }
+  interface SpeechRecognition extends EventTarget {
+    continuous: boolean;
+    interimResults: boolean;
+    onresult: ((event: SpeechRecognitionEvent) => void) | null;
+    onend: (() => void) | null;
+    start: () => void;
+    stop: () => void;
+    abort: () => void;
+  }
+  interface SpeechRecognitionEvent extends Event { results: SpeechRecognitionResultList }
+  interface SpeechRecognitionResultList { readonly length: number;[index: number]: SpeechRecognitionResult }
+  interface SpeechRecognitionResult { readonly length: number; readonly isFinal: boolean;[index: number]: SpeechRecognitionAlternative }
+  interface SpeechRecognitionAlternative { readonly transcript: string; readonly confidence: number }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §3  UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+function generateId(): string {
+  try {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  } catch { /* fallback */ }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function triggerHaptic(): void {
+  try { if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(4); } catch { /* silent */ }
+}
+
+function flattenText(children: ReactNode): string {
+  return React.Children.toArray(children).reduce<string>((acc, child) => {
+    if (typeof child === "string") return acc + child;
+    if (typeof child === "number") return acc + String(child);
+    if (React.isValidElement<{ children?: ReactNode }>(child)) return acc + flattenText(child.props.children);
+    return acc;
+  }, "");
+}
+
+function isTextInputFocused(): boolean {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName.toLowerCase();
+  return tag === "textarea" || tag === "input" || el.getAttribute("contenteditable") === "true";
+}
+
+function formatTimestamp(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** DJB2 hash of chunk URIs for collision-safe cache keys. */
+function chunkFingerprint(chunks: GroundingChunk[]): string {
+  let hash = 0;
+  const uris = chunks.map((c) => c.web?.uri ?? "").join("|");
+  for (let i = 0; i < uris.length; i++) hash = ((hash << 5) - hash + uris.charCodeAt(i)) | 0;
+  return hash.toString(36);
+}
+
+/**
+ * LRU cache using Map insertion-order guarantee.
+ * On get: re-inserts entry to mark as recently used.
+ * On set: evicts oldest entry when capacity exceeded.
+ * Eliminates the full-wipe render spikes of the previous Map.clear() strategy.
+ */
+class LRUCache<K, V> {
+  private readonly max: number;
+  private readonly map = new Map<K, V>();
+
+  constructor(max: number) {
+    this.max = max;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.map.get(key);
+    if (value === undefined) return undefined;
+    // Move to end (most recently used)
+    this.map.delete(key);
+    this.map.set(key, value);
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.map.has(key)) this.map.delete(key);
+    this.map.set(key, value);
+    if (this.map.size > this.max) {
+      // Delete oldest (first entry in insertion order)
+      const oldest = this.map.keys().next().value;
+      if (oldest !== undefined) this.map.delete(oldest);
+    }
+  }
+}
+
+const supportCitationCache = new LRUCache<string, string>(256);
+
+/**
+ * Support-based Citation Inserter (Descending Index Algorithm).
+ *
+ * Maps Gemini groundingSupports to exact phrases in the response text,
+ * wrapping each supported phrase as an invisible inline hyperlink.
+ *
+ * Design: The phrase IS the link. No brand names appear in the text.
+ * No "per ESPN", no "[1]", no attribution language. Clean prose.
+ * Hover reveals source via brand-color underline.
+ *
+ * Falls back to hydrateCitations() when groundingSupports is absent.
+ */
+function injectSupportCitations(
+  text: string,
+  metadata?: GroundingMetadata,
+  isStreaming?: boolean,
+): string {
+  // Gate: only run on completed (non-streaming) messages with valid supports
+  if (
+    !text ||
+    isStreaming ||
+    !metadata?.groundingSupports?.length ||
+    !metadata?.groundingChunks?.length
+  ) {
+    return hydrateCitations(text, metadata);
+  }
+
+  const supports = metadata.groundingSupports;
+  const chunks = metadata.groundingChunks;
+  const cacheKey = `support2:${text.length}:${text.slice(0, 64)}:${supports.length}:${chunkFingerprint(chunks)}`;
+  const cached = supportCitationCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const textBytes = encoder.encode(text);
+
+  // Step 1: Build resolved supports with character-level positions
+  interface ResolvedSupport {
+    charStart: number;
+    charEnd: number;
+    uri: string;           // First valid source URI
+    brandColor: string;    // Brand hover color (for data attribute)
+  }
+
+  const resolved: ResolvedSupport[] = [];
+
+  for (const support of supports) {
+    const { segment, groundingChunkIndices } = support;
+    if (!segment || !groundingChunkIndices?.length) continue;
+
+    const startIndex = segment.startIndex ?? 0;
+    const endIndex = segment.endIndex ?? 0;
+    // Degenerate segment guard
+    if (endIndex <= 0 || startIndex >= endIndex) continue;
+    if (endIndex > textBytes.length) continue;
+
+    // Resolve character positions from byte offsets
+    let charStart: number;
+    let charEnd: number;
+
+    const decodedStart = decoder.decode(textBytes.slice(0, startIndex));
+    charStart = decodedStart.length;
+    const decodedEnd = decoder.decode(textBytes.slice(0, endIndex));
+    charEnd = decodedEnd.length;
+
+    // Verification: if segment.text is provided, confirm alignment
+    if (segment.text) {
+      const decodedSegment = decoder.decode(textBytes.slice(startIndex, endIndex));
+      if (decodedSegment !== segment.text) {
+        // Byte/char mismatch — fall back to indexOf
+        const found = text.indexOf(segment.text);
+        if (found === -1) continue;
+        charStart = found;
+        charEnd = found + segment.text.length;
+      }
+    }
+
+    // Skip segments inside fenced code blocks
+    const prefix = text.slice(0, charStart);
+    const fenceCount = (prefix.match(/```/g) || []).length;
+    if (fenceCount % 2 !== 0) continue;
+
+    // Also skip inline code spans
+    const segmentText = text.slice(charStart, charEnd);
+    if (segmentText.includes("`")) continue;
+
+    // Resolve chunk indices to first valid source URI
+    // M-10: Filter out generic "Google" citations
+    let bestUri = "";
+    let bestBrand: BrandInfo = DEFAULT_BRAND;
+    for (const idx of groundingChunkIndices) {
+      if (idx < 0 || idx >= chunks.length) continue;
+      const chunk = chunks[idx];
+      if (!shouldRenderCitation(chunk)) continue; // M-10
+      const uri = chunk?.web?.uri;
+      if (!uri) continue;
+      bestUri = uri;
+      bestBrand = uriToBrandInfo(uri, chunk?.web?.title);
+      break; // First valid source
+    }
+
+    if (!bestUri) continue;
+    resolved.push({ charStart, charEnd, uri: bestUri, brandColor: bestBrand.color });
+  }
+
+  if (resolved.length === 0) {
+    return hydrateCitations(text, metadata);
+  }
+
+  // Step 2: Sort by endIndex DESCENDING — bottom-to-top insertion prevents index shifting
+  resolved.sort((a, b) => b.charEnd - a.charEnd);
+
+  // Step 3: Remove overlapping segments — keep the longer segment
+  const deduped: ResolvedSupport[] = [];
+  for (const r of resolved) {
+    const last = deduped[deduped.length - 1];
+    // Since sorted descending by charEnd, overlaps occur when r.charEnd > last.charStart
+    if (last && r.charEnd > last.charStart) {
+      // Overlap detected — keep whichever is longer
+      const lastLen = last.charEnd - last.charStart;
+      const rLen = r.charEnd - r.charStart;
+      if (rLen > lastLen) {
+        deduped[deduped.length - 1] = r; // Replace with longer
+      }
+      // else: keep existing (already longer)
+    } else {
+      deduped.push(r);
+    }
+  }
+
+  // Step 4: Splice — wrap each supported phrase as a markdown link (descending order preserves indices)
+  let result = text;
+  for (const { charStart, charEnd, uri, brandColor } of deduped) {
+    const phraseText = result.slice(charStart, charEnd);
+    // Skip empty or whitespace-only segments
+    if (!phraseText.trim()) continue;
+    // Escape any markdown link syntax already in the phrase
+    const safePhrase = phraseText.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+    // Encode brand color in the CITE_MARKER for the renderer
+    const wrappedPhrase = `[${safePhrase}](${uri}${CITE_MARKER}${encodeURIComponent(brandColor)})`;
+    result = result.slice(0, charStart) + wrappedPhrase + result.slice(charEnd);
+  }
+
+  supportCitationCache.set(cacheKey, result);
+  return result;
+}
+
+const hydrationCache = new LRUCache<string, string>(256);
+
+/** Unicode superscript digits for fallback citation numbers. */
+const SUPERSCRIPT_DIGITS = ["⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"];
+function toSuperscript(n: number): string {
+  return String(n).split("").map((d) => SUPERSCRIPT_DIGITS[parseInt(d, 10)] || d).join("");
+}
+
+/**
+ * Fallback Citation Hydration (Superscript Numbers).
+ *
+ * Fires only when groundingSupports is absent. Replaces bracket citation
+ * tokens ([1], [1.1], [1, 2]) with small superscript number links.
+ * No brand names appear in the text — the fallback is degraded but invisible.
+ *
+ * Before: "Price fell to $15K [1] [2]. Erased all gains [1]."
+ * After:  "Price fell to $15K[¹](url#__cite_sup__)[²](url#__cite_sup__). Erased all gains[¹](url#__cite_sup__)."
+ */
+function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
+  if (!text || !metadata?.groundingChunks?.length) return text;
+  const chunks = metadata.groundingChunks;
+  const cacheKey = `inline2:${text.length}:${text.slice(0, 64)}:${chunks.length}:${chunkFingerprint(chunks)}`;
+  const cached = hydrationCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const maxIndex = chunks.length;
+
+  // Guard: Split on fenced code blocks — only hydrate prose segments.
+  const CODE_FENCE = /(```[\s\S]*?```)/g;
+  const segments = text.split(CODE_FENCE);
+
+  // Matches one or more adjacent bracket tokens: [1] [2] or [1, 2] [3]
+  const REGEX_ADJACENT_CITATIONS = /(?:\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()[\s]*)+/g;
+
+  const hydrated = segments.map((segment) => {
+    if (segment.startsWith("```")) return segment;
+
+    return segment.replace(REGEX_ADJACENT_CITATIONS, (fullMatch) => {
+      const superscripts: string[] = [];
+      const seenUri = new Set<string>();
+
+      let m: RegExpExecArray | null;
+      const tokenRe = /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
+      while ((m = tokenRe.exec(fullMatch)) !== null) {
+        const parts = m[1].split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
+        for (const part of parts) {
+          const trimmed = part.trim();
+          const num = parseFloat(trimmed);
+          if (Number.isNaN(num)) continue;
+          const index = Math.floor(num) - 1;
+          if (index < 0 || index >= maxIndex) continue;
+          const chunk = chunks[index];
+          if (!shouldRenderCitation(chunk)) continue; // M-10
+          const uri = chunk?.web?.uri;
+          if (uri && !seenUri.has(uri)) {
+            seenUri.add(uri);
+            const sup = toSuperscript(index + 1);
+            superscripts.push(`[${sup}](${uri}#__cite_sup__)`);
+          }
+        }
+      }
+
+      if (superscripts.length === 0) return fullMatch;
+      return superscripts.join("");
+    });
+  }).join("");
+
+  const cleaned = hydrated.replace(REGEX_MULTI_SPACE, " ");
+  hydrationCache.set(cacheKey, cleaned);
+  return cleaned;
+}
+
+
+function extractTextContent(content: MessageContent): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.find((c) => c.type === "text")?.text ?? "";
+  return "";
+}
+
+function cleanVerdictContent(text: string): string {
+  if (!text) return "";
+  const cleaned = text
+    .replace(REGEX_CLEAN_CITE_LINK, "$1")       // [phrase](url#__cite__...) → phrase
+    .replace(REGEX_CLEAN_SUPERSCRIPT_CITE, "")   // [¹](url#__cite_sup__) → ""
+    .replace(REGEX_CLEAN_SUPPORT_CITE, "")       // legacy: " per [Brand](url)" → ""
+    .replace(REGEX_CLEAN_HYDRATED_CITE, "")      // legacy: " ([Brand](url))" → ""
+    .replace(REGEX_CLEAN_LINK, "")               // [1](url) → ""
+    .replace(REGEX_CLEAN_REF, "")                // [1] → ""
+    .replace(REGEX_CLEAN_CONF, "")               // (Confidence: High) → ""
+    .replace(REGEX_MULTI_SPACE, " ")
+    .trim();
+  // M-26: Normalize typography
+  return normalizeTypography(cleaned);
+}
+
+type ConfidenceLevel = "high" | "medium" | "low";
+
+/** Extract confidence level from raw verdict text before it gets cleaned. */
+function extractConfidence(text: string): ConfidenceLevel {
+  const match = REGEX_EXTRACT_CONF.exec(text);
+  if (!match) return "high"; // default — most verdicts are high confidence
+  const level = match[1].toLowerCase();
+  if (level === "medium" || level === "med") return "medium";
+  if (level === "low") return "low";
+  return "high";
+}
+
+/** Maps confidence level to visual bar percentage. */
+function confidenceToPercent(level: ConfidenceLevel): number {
+  switch (level) {
+    case "high": return 88;
+    case "medium": return 58;
+    case "low": return 30;
+  }
+}
+
+function hostnameToBrandInfo(hostname: string): BrandInfo {
+  const h = hostname.replace(/^www\./, "").toLowerCase();
+  if (BRAND_COLOR_MAP[h]) return BRAND_COLOR_MAP[h];
+  // Walk up subdomains: "vertexaisearch.cloud.google.com" → "cloud.google.com" → "google.com"
+  const parts = h.split(".");
+  for (let i = 1; i < parts.length - 1; i++) {
+    const parent = parts.slice(i).join(".");
+    if (BRAND_COLOR_MAP[parent]) return BRAND_COLOR_MAP[parent];
+  }
+  const base = parts[0] || "Source";
+  return { name: base.charAt(0).toUpperCase() + base.slice(1), color: DEFAULT_BRAND.color };
+}
+
+function getHostname(href?: string): string {
+  if (!href) return "Source";
+  try { return new URL(href).hostname.replace(/^www\./, ""); } catch { return "Source"; }
+}
+
+/**
+ * Brand resolution — resolves source identity (name + hover color) for a grounding chunk.
+ *
+ * Google Search grounding returns redirect URIs through vertexaisearch.cloud.google.com.
+ * The URI hostname resolves to "Google" for every source. The chunk's title field contains
+ * the ACTUAL source domain (e.g. "espn.com", "basketball-reference.com"). Title takes
+ * priority over hostname when it looks like a domain.
+ *
+ * Brand names are used ONLY for hover color resolution and debug logging.
+ * They never appear as visible text in the response.
+ */
+/**
+ * M-10: Filter out generic search engine citations that should never be visible.
+ * Returns true if the citation should be rendered, false if it should be hidden.
+ */
+function shouldRenderCitation(chunk: GroundingChunk): boolean {
+  const title = (chunk?.web?.title || "").toLowerCase().trim();
+  const uri = chunk?.web?.uri || "";
+
+  // Filter generic "Google" / "Google Search" citations
+  if (title === "google" || title === "google search") return false;
+  if (/^https?:\/\/(www\.)?google\.(com|[a-z]{2})\/?$/.test(uri)) return false;
+
+  return true;
+}
+
+function uriToBrandInfo(href?: string, title?: string): BrandInfo {
+  if (!href) return DEFAULT_BRAND;
+  // 1. Live endpoint paths (satellite proxies)
+  try {
+    const url = new URL(href);
+    for (const [pattern, brand] of LIVE_PATH_BRANDS) {
+      if (pattern.test(url.pathname)) return brand;
+    }
+  } catch { /* fall through */ }
+  // 2. Title field — actual source domain for Google Search grounding
+  if (title) {
+    const t = title.replace(/^www\./, "").toLowerCase().trim();
+    if (t.includes(".")) return hostnameToBrandInfo(t);
+    // Title without dots — check if it contains a known brand keyword
+    const tLower = t.toLowerCase();
+    if (tLower.includes("espn"))                   return BRAND_COLOR_MAP["espn.com"];
+    if (tLower.includes("basketball-reference"))   return BRAND_COLOR_MAP["basketball-reference.com"];
+    if (tLower.includes("the athletic") || tLower.includes("theathletic")) return BRAND_COLOR_MAP["theathletic.com"];
+    if (tLower.includes("covers"))                 return BRAND_COLOR_MAP["covers.com"];
+  }
+  // 3. URI hostname fallback
+  return hostnameToBrandInfo(getHostname(href));
+}
+
+function buildWireContent(text: string, attachments: Attachment[]): MessageContent {
+  if (attachments.length === 0) return text;
+  const parts: MessagePart[] = [{ type: "text", text: text || "Analyze this." }];
+  for (const a of attachments) {
+    parts.push(
+      a.mimeType.startsWith("image/")
+        ? { type: "image", source: { type: "base64", media_type: a.mimeType, data: a.base64 } }
+        : { type: "file", source: { type: "base64", media_type: a.mimeType, data: a.base64 } }
+    );
+  }
+  return parts;
+}
+
+function getRetryDelay(attempt: number): number {
+  const delay = Math.min(RETRY_CONFIG.baseDelay * Math.pow(2, attempt), RETRY_CONFIG.maxDelay);
+  const jitter = delay * RETRY_CONFIG.jitterFactor * (Math.random() * 2 - 1);
+  return Math.max(0, delay + jitter);
+}
+
+function getTimePhase(): "pregame" | "live" | "postgame" {
+  const hour = new Date().getHours();
+  if (hour < 16) return "pregame";
+  if (hour < 23) return "live";
+  return "postgame";
+}
+
+function toStringOrUndefined(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function toNumberOrUndefined(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeGameContext(
+  currentMatch?: GameContext | null,
+  storedMatch?: Record<string, unknown> | null,
+): GameContext | null {
+  const raw = (currentMatch || {}) as Record<string, unknown>;
+  const store = (storedMatch || {}) as Record<string, unknown>;
+  const homeTeam = (raw.homeTeam as Record<string, unknown> | undefined)?.name;
+  const awayTeam = (raw.awayTeam as Record<string, unknown> | undefined)?.name;
+  const startRaw = raw.start_time ?? raw.startTime ?? store.start_time;
+  const startIso =
+    typeof startRaw === "string"
+      ? startRaw
+      : startRaw instanceof Date
+        ? startRaw.toISOString()
+        : undefined;
+  const normalized: GameContext = {
+    ...store,
+    match_id: toStringOrUndefined(store.match_id) || toStringOrUndefined(raw.match_id) || toStringOrUndefined(raw.id),
+    home_team: toStringOrUndefined(store.home_team) || toStringOrUndefined(raw.home_team) || toStringOrUndefined(homeTeam),
+    away_team: toStringOrUndefined(store.away_team) || toStringOrUndefined(raw.away_team) || toStringOrUndefined(awayTeam),
+    league: toStringOrUndefined(store.league) || toStringOrUndefined(raw.league) || toStringOrUndefined(raw.leagueId),
+    sport: toStringOrUndefined(store.sport) || toStringOrUndefined(raw.sport),
+    start_time: startIso,
+    status: toStringOrUndefined(raw.status) || toStringOrUndefined(raw.game_status) || toStringOrUndefined(store.status),
+    period: toNumberOrUndefined(raw.period),
+    clock: toStringOrUndefined(raw.displayClock) || toStringOrUndefined(raw.display_clock) || toStringOrUndefined(raw.clock) || toStringOrUndefined(store.clock),
+    home_score: toNumberOrUndefined(raw.homeScore) ?? toNumberOrUndefined(raw.home_score),
+    away_score: toNumberOrUndefined(raw.awayScore) ?? toNumberOrUndefined(raw.away_score),
+    current_odds: (raw.current_odds as MatchOdds | undefined) || (raw.odds as MatchOdds | undefined) || (store.current_odds as MatchOdds | undefined),
+    opening_odds: (raw.opening_odds as MatchOdds | undefined) || (store.opening_odds as MatchOdds | undefined),
+    closing_odds: (raw.closing_odds as MatchOdds | undefined) || (store.closing_odds as MatchOdds | undefined),
+  };
+  const hasSignal = Boolean(
+    normalized.match_id ||
+      normalized.home_team ||
+      normalized.away_team ||
+      normalized.current_odds ||
+      normalized.home_score !== undefined ||
+      normalized.away_score !== undefined,
+  );
+  return hasSignal ? normalized : null;
+}
+
+function resolveConfidenceValue(level: ConfidenceLevel, rawText?: string): number {
+  const explicit = rawText?.match(/\b(\d{1,3})%\b/);
+  if (explicit) {
+    const numeric = Number(explicit[1]);
+    if (Number.isFinite(numeric)) {
+      return Math.max(0, Math.min(100, numeric));
+    }
+  }
+  return confidenceToPercent(level);
+}
+
+interface ParsedEdgeVerdict {
+  teamName: string;
+  spread: string;
+  odds: string;
+  summaryLabel: string;
+}
+
+function parseEdgeVerdict(rawVerdict: string): ParsedEdgeVerdict {
+  const cleaned = cleanVerdictContent(rawVerdict)
+    .replace(/^\*+|\*+$/g, "")
+    // Strip parenthetical bet-type labels: (Live Spread), (Moneyline), (ML), (Asian Handicap), (Pregame), etc.
+    .replace(/\s*\((?:Live\s+)?(?:Spread|Moneyline|ML|Asian\s+Handicap|Pregame|Alt(?:ernate)?\s+\w+|Game\s+\w+|Match\s+\w+)[^)]*\)/gi, "")
+    // Strip trailing "/ value" patterns — raw total leaking from schema
+    .replace(/\s*\/\s*[OoUu]?\d+(?:\.\d+)?\s*$/, "")
+    // Fix leading zeros on numeric values: 01.5 → 1.5
+    .replace(/\b0+(\d+(?:\.\d+)?)/g, "$1")
+    // Replace hyphen-minus before digits with proper minus sign (U+2212)
+    .replace(/-(?=\d)/g, "\u2212")
+    .trim();
+  if (!cleaned) {
+    return { teamName: "No Edge", spread: "N/A", odds: "N/A", summaryLabel: "" };
+  }
+  const signedMatches = Array.from(cleaned.matchAll(REGEX_SIGNED_NUMERIC));
+  const totalMatch = cleaned.match(/^(.*?)\b(over|under)\s*(\d+(?:\.\d+)?)/i);
+  if (signedMatches.length === 0) {
+    if (totalMatch) {
+      const prefix = (totalMatch[1] || "").replace(/[—:-]+$/g, "").trim();
+      const totalPrefix = totalMatch[2].charAt(0).toLowerCase();
+      return {
+        teamName: prefix || "Total",
+        spread: `${totalPrefix}${totalMatch[3]}`,
+        odds: "N/A",
+        summaryLabel: cleaned,
+      };
+    }
+    return {
+      teamName: cleaned,
+      spread: /\bML\b/i.test(cleaned) ? "ML" : "N/A",
+      odds: "N/A",
+      summaryLabel: cleaned,
+    };
+  }
+  if (totalMatch) {
+    const prefix = (totalMatch[1] || "").replace(/[—:-]+$/g, "").trim();
+    const totalPrefix = totalMatch[2].charAt(0).toLowerCase();
+    const lastSigned = signedMatches[signedMatches.length - 1][0];
+    return {
+      teamName: prefix || "Total",
+      spread: `${totalPrefix}${totalMatch[3]}`,
+      odds: lastSigned,
+      summaryLabel: cleaned,
+    };
+  }
+  if (/\bML\b/i.test(cleaned) && signedMatches.length >= 1) {
+    const firstSigned = signedMatches[0];
+    const teamRaw = cleaned
+      .slice(0, firstSigned.index)
+      .replace(/\bML\b/i, "")
+      .replace(/[(@-]+$/g, "")
+      .trim();
+    const odds = signedMatches[signedMatches.length - 1][0];
+    return { teamName: teamRaw || cleaned, spread: "ML", odds, summaryLabel: cleaned };
+  }
+  const firstSigned = signedMatches[0];
+  const lastSigned = signedMatches[signedMatches.length - 1];
+  const teamRaw = cleaned
+    .slice(0, firstSigned.index)
+    .replace(/\bML\b/i, "")
+    .replace(/[(@-]+$/g, "")
+    .trim();
+  const spread = signedMatches.length >= 2
+    ? firstSigned[0]
+    : /\bML\b/i.test(cleaned) ? "ML" : firstSigned[0];
+  const odds = signedMatches.length >= 2 ? lastSigned[0] : "N/A";
+  return { teamName: teamRaw || cleaned, spread, odds, summaryLabel: cleaned };
+}
+
+function extractEdgeSynopses(rawText: string): string[] {
+  if (!rawText) return [];
+  const lines = rawText.split(/\r?\n/);
+  const synopses: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]?.trim() || "";
+    if (!REGEX_VERDICT_MATCH.test(line)) continue;
+    let synopsis = "";
+    for (let j = i + 1; j < lines.length; j++) {
+      const nextLine = (lines[j] || "").trim();
+      if (!nextLine) continue;
+      if (REGEX_VERDICT_MATCH.test(nextLine)) break;
+      // If line IS a section header, extract any content after the header label
+      const headerMatch = nextLine.match(REGEX_EDGE_SECTION_HEADER);
+      const candidate = headerMatch
+        ? nextLine.slice(headerMatch[0].length).replace(/^[:\s*]+/, "").trim()
+        : nextLine;
+      if (!candidate) continue;
+      const cleanedLine = candidate
+        .replace(/^[-*•]\s*/, "")
+        .replace(/\*+/g, "")
+        .replace(REGEX_CITATION_PLACEHOLDER, "")
+        .replace(REGEX_MULTI_SPACE, " ")
+        .trim();
+      if (!cleanedLine || cleanedLine.length < 10) continue;
+      synopsis = cleanedLine;
+      break;
+    }
+    synopses.push(synopsis);
+  }
+  return synopses;
+}
+
+function extractMatchupLines(rawText: string): string[] {
+  if (!rawText) return [];
+  const lines = rawText.split(/\r?\n/);
+  const matchups: string[] = [];
+  for (const line of lines) {
+    const match = line.trim().match(REGEX_MATCHUP_LINE);
+    if (match?.[1]) {
+      const cleaned = match[1].replace(/\*+/g, "").replace(/^:+/, "").trim();
+      matchups.push(normalizeTypography(cleaned));
+    }
+  }
+  return matchups;
+}
+
+function stripMatchupLines(content: string): string {
+  if (!content) return content;
+  const lines = content.split(/\r?\n/);
+  return lines.filter(line => !REGEX_MATCHUP_LINE.test(line.trim())).join("\n");
+}
+
+function splitPickContent(rawContent: string): { pickContent: string; analysisBlocks: string[] } {
+  if (!rawContent) return { pickContent: rawContent, analysisBlocks: [] };
+  const lines = rawContent.split("\n");
+  const verdictIndices: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (REGEX_VERDICT_MATCH.test(lines[i])) verdictIndices.push(i);
+  }
+  if (verdictIndices.length === 0) return { pickContent: rawContent, analysisBlocks: [] };
+
+  const pickSegments: string[] = [];
+  const analysisBlocks: string[] = [];
+  const preamble = lines.slice(0, verdictIndices[0]).join("\n").trim();
+  if (preamble) pickSegments.push(preamble);
+
+  for (let v = 0; v < verdictIndices.length; v++) {
+    const start = verdictIndices[v];
+    const end = v + 1 < verdictIndices.length ? verdictIndices[v + 1] : lines.length;
+    const block = lines.slice(start, end);
+
+    let analysisStartIndex = -1;
+    for (let i = 1; i < block.length; i++) {
+      const trimmed = block[i].trim();
+      if (!trimmed) continue;
+      const stripped = trimmed.replace(/\*+/g, "").trim().toUpperCase();
+      if (REGEX_EDGE_SECTION_HEADER.test(stripped)) {
+        analysisStartIndex = i;
+        break;
+      }
+      let nextNonEmpty = "";
+      for (let j = i + 1; j < block.length; j++) {
+        if (block[j].trim()) { nextNonEmpty = block[j].trim().replace(/\*+/g, "").trim().toUpperCase(); break; }
+      }
+      if (REGEX_EDGE_SECTION_HEADER.test(nextNonEmpty)) {
+        continue;
+      }
+    }
+
+    const pickPart = analysisStartIndex === -1 ? block.join("\n") : block.slice(0, analysisStartIndex).join("\n");
+    const analysisPart = analysisStartIndex === -1 ? "" : block.slice(analysisStartIndex).join("\n");
+
+    if (pickPart.trim()) pickSegments.push(pickPart.trim());
+    if (analysisPart.trim()) analysisBlocks.push(stripExcludedSections(analysisPart.trim()));
+  }
+
+  return {
+    pickContent: stripExcludedSections(pickSegments.join("\n\n")),
+    analysisBlocks,
+  };
+}
+
+/**
+ * M-05/M-06: Normalize section header text.
+ * Strips trailing "LIVE", "PREGAME", trailing colons/punctuation.
+ * Also strips leading bullet characters (M-13).
+ */
+function normalizeHeader(raw: string): string {
+  return raw
+    .replace(/^[●•·‣]\s*/, "")             // M-13: Strip leading bullet (incl. emerald ●)
+    .replace(/\*+/g, "")                    // Strip bold markdown artifacts
+    .replace(/\s+LIVE\s*$/i, "")           // M-05: "WHAT TO WATCH LIVE" → "WHAT TO WATCH"
+    .replace(/\s+PREGAME\s*$/i, "")        // Guard against "WHAT TO WATCH PREGAME"
+    .replace(/:+\s*$/, "")                 // M-06: "INVALIDATION:" → "INVALIDATION"
+    .trim();
+}
+
+/**
+ * Strip excluded sections (e.g. "THE EDGE") from markdown content.
+ * Walks lines: when an excluded section header is found, skips all lines
+ * until the next recognized (non-excluded) section header.
+ */
+function stripExcludedSections(content: string): string {
+  if (!content) return content;
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let skipping = false;
+
+  for (const line of lines) {
+    const stripped = line.replace(/\*+/g, "").replace(/^[●•·‣]\s*/, "").trim();
+    const upper = stripped.toUpperCase();
+
+    if (REGEX_EDGE_SECTION_HEADER.test(upper)) {
+      const headerName = stripped.replace(/[:\s]+$/, "").toLowerCase();
+      if (EXCLUDED_SECTIONS.some(s => headerName === s)) {
+        skipping = true;
+        continue;
+      }
+      // Non-excluded section header — stop skipping
+      skipping = false;
+    }
+
+    if (!skipping) {
+      result.push(line);
+    }
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * M-26: Normalize typography — proper em-dashes, ellipsis, smart quotes.
+ * Applied to prose content for typographic polish.
+ * Note: Smart quote replacement is conservative — only applies to clear prose
+ * patterns, never inside numbers, odds values, or code-like content.
+ */
+function normalizeTypography(text: string): string {
+  return text
+    .replace(/--/g, "\u2014")               // Double hyphen → em-dash
+    .replace(/(\d)\u2013(\d)/g, "$1\u2013$2") // Keep en-dash between numbers
+    .replace(/(?<!\d)\u2013(?!\d)/g, "\u2014") // En-dash in prose → em-dash
+    .replace(/\.{3}/g, "\u2026")            // Three dots → ellipsis
+    .replace(/(^|[\s(])"(?=\S)/gm, "$1\u201C") // Smart open double quote (after whitespace/start)
+    .replace(/"(?=[\s,.;:!?)—\u2014]|$)/gm, "\u201D") // Smart close double quote (before punct/end)
+    .replace(/(^|[\s(])'(?=\S)/gm, "$1\u2018") // Smart open single quote (after whitespace/start)
+    .replace(/'(?=[\s,.;:!?)—\u2014]|$)/gm, "\u2019"); // Smart close single/apostrophe
+}
+
+/**
+ * M-15: Normalize team names to canonical display forms.
+ * Maps formal/abbreviated names to the common display name.
+ */
+const TEAM_DISPLAY_NAMES: Record<string, string> = {
+  // Serie A
+  "Internazionale": "Inter Milan",
+  "Inter": "Inter Milan",
+  "FC Internazionale Milano": "Inter Milan",
+  "Juventus FC": "Juventus",
+  "AC Milan": "Milan",
+  "SSC Napoli": "Napoli",
+  "AS Roma": "Roma",
+  "SS Lazio": "Lazio",
+  // La Liga
+  "FC Barcelona": "Barcelona",
+  "Real Madrid CF": "Real Madrid",
+  "Club Atletico de Madrid": "Atlético Madrid",
+  "Atletico Madrid": "Atlético Madrid",
+  // Bundesliga
+  "FC Bayern München": "Bayern München",
+  "Bayern Munich": "Bayern München",
+  "Borussia Dortmund": "Dortmund",
+  "RB Leipzig": "Leipzig",
+  "Bayer 04 Leverkusen": "Leverkusen",
+  // Ligue 1
+  "Paris Saint-Germain": "PSG",
+  "Paris Saint-Germain FC": "PSG",
+  "Olympique de Marseille": "Marseille",
+  "Olympique Lyonnais": "Lyon",
+  // Premier League
+  "Manchester United": "Man United",
+  "Manchester City": "Man City",
+  "Tottenham Hotspur": "Tottenham",
+  "Wolverhampton Wanderers": "Wolves",
+  "West Ham United": "West Ham",
+  "Newcastle United": "Newcastle",
+  // Liga MX
+  "Club América": "América",
+  "CF Monterrey": "Monterrey",
+  "Club León": "León",
+  "Guadalajara": "Chivas",
+  "CD Guadalajara": "Chivas",
+  // MLS
+  "Los Angeles FC": "LAFC",
+  "New York Red Bulls": "NY Red Bulls",
+  "Inter Miami CF": "Inter Miami",
+  // NFL formal names
+  "New England Patriots": "Patriots",
+  "Kansas City Chiefs": "Chiefs",
+  "San Francisco 49ers": "49ers",
+  "Green Bay Packers": "Packers",
+  "Tampa Bay Buccaneers": "Buccaneers",
+};
+
+function normalizeTeamName(raw: string): string {
+  return TEAM_DISPLAY_NAMES[raw] || raw;
+}
+
+/**
+ * M-07: Parse "WHAT TO WATCH" flat prose into structured layers.
+ * Splits "IF X → THEN Y, as Z" into condition/action/reasoning.
+ */
+function parseWatchFallback(text: string): {
+  condition: string; action: string; reasoning: string;
+} {
+  const arrowSplit = text.split(/\s*→\s*/);
+  if (arrowSplit.length >= 2) {
+    const condition = arrowSplit[0]
+      .replace(/^(?:WHAT TO WATCH\s*(?:LIVE)?\s*)?/i, "")
+      .replace(/^IF\s+/i, "")
+      .trim();
+    const afterArrow = arrowSplit.slice(1).join("→");
+    const commaSplit = afterArrow.split(/,\s*(?:as|because|since)\s+/i);
+    const action = (commaSplit[0] || "")
+      .replace(/^THEN\s+/i, "")
+      .replace(/^look for\s+/i, "")
+      .trim();
+    const reasoning = (commaSplit[1] || "").trim();
+    return { condition, action, reasoning };
+  }
+  return { condition: text, action: "", reasoning: "" };
+}
+
+function extractVerdictPayload(text: string): string {
+  if (!text) return "";
+  const verdictIdx = text.toLowerCase().indexOf("verdict:");
+  if (verdictIdx === -1) return text.trim();
+  return text.slice(verdictIdx + "verdict:".length).trim();
+}
+
+function deriveGamePhase(gameContext?: GameContext | null): "pregame" | "live" | "postgame" {
+  if (!gameContext) return getTimePhase();
+  const status = String(gameContext.status || "").toUpperCase();
+  if (LIVE_STATUS_TOKENS.some((token) => status.includes(token))) return "live";
+  if (FINAL_STATUS_TOKENS.some((token) => status.includes(token))) return "postgame";
+  if (gameContext.start_time) {
+    const kickoff = new Date(gameContext.start_time).getTime();
+    if (Number.isFinite(kickoff)) {
+      const deltaMs = kickoff - Date.now();
+      if (deltaMs <= -2 * 60 * 60 * 1000) return "postgame";
+      if (deltaMs <= 0) return "live";
+    }
+  }
+  return "pregame";
+}
+
+function getMatchupLabel(gameContext?: GameContext | null): string | null {
+  const home = gameContext?.home_team;
+  const away = gameContext?.away_team;
+  if (home && away) return `${away} @ ${home}`;
+  if (home || away) return `${away || home}`;
+  return null;
 }
 
 
@@ -536,11 +1579,11 @@ const ScrollAnchor: FC<{ visible: boolean; onClick: () => void }> = memo(({ visi
         exit={{ opacity: 0, y: 8, scale: 0.9 }}
         transition={SYSTEM.anim.fluid}
         onClick={() => { triggerHaptic(); onClick(); }}
-        className="absolute bottom-32 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-base/90 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 transition-colors"
+        className="absolute bottom-32 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#08080A]/90 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 transition-colors"
         aria-label="Scroll to latest messages"
       >
         <ArrowDown size={10} className="text-emerald-400" />
-        <span className="text-caption font-medium text-zinc-300 tracking-wide uppercase">Latest</span>
+        <span className="text-[10px] font-medium text-zinc-300 tracking-wide uppercase">Latest</span>
       </motion.button>
     )}
   </AnimatePresence>
@@ -582,10 +1625,10 @@ const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={SYSTEM.anim.fluid}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-surface-base border border-white/10 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
+            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-[#08080A] border border-white/10 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
           >
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]" />
-            <span className="text-small font-medium text-white tracking-tight">{toast.message}</span>
+            <span className="text-[12px] font-medium text-white tracking-tight">{toast.message}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1084,8 +2127,8 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
       className={cn(
         "my-8 relative overflow-hidden",
         "rounded-xl",                          // M-23: 12px inner card radius
-        "bg-surface-subtle",                        // M-24: Distinct elevated background
-        "border border-edge-strong",          // M-24: Subtle but present border
+        "bg-[#1A1A1C]",                        // M-24: Distinct elevated background
+        "border border-white/[0.08]",          // M-24: Subtle but present border
         "shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
       )}
     >
@@ -1093,7 +2136,7 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
       <div className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(ellipse_at_top_left,rgba(245,158,11,0.08)_0%,transparent_55%)]" />
       <div className="relative z-10 p-5">
         {/* M-04: Section header in zinc-500 — neutral */}
-        <p className="text-small font-mono font-medium tracking-spread uppercase text-zinc-500 mb-4">
+        <p className="text-[12px] font-mono font-medium tracking-[0.12em] uppercase text-zinc-500 mb-4">
           WHAT TO WATCH
         </p>
 
@@ -1101,23 +2144,23 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
         {parsed.action ? (
           <>
             {/* Condition — white, readable */}
-            <p className="text-body-lg text-zinc-200 leading-relaxed">
+            <p className="text-[15px] text-zinc-200 leading-relaxed">
               {parsed.condition}
             </p>
             {/* Action — emerald, the thing to do */}
-            <p className="text-body-lg font-medium text-emerald-400 mt-2">
+            <p className="text-[15px] font-medium text-emerald-400 mt-2">
               → {parsed.action}
             </p>
             {/* Reasoning — dimmed, supporting */}
             {parsed.reasoning && (
-              <p className="text-small text-zinc-500 leading-relaxed mt-2">
+              <p className="text-[12px] text-zinc-500 leading-relaxed mt-2">
                 {parsed.reasoning}
               </p>
             )}
           </>
         ) : (
           /* Fallback: flat prose when no arrow pattern found */
-          <div className="text-body-lg leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
+          <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
         )}
       </div>
     </motion.div>
@@ -1211,7 +2254,7 @@ const AnalysisDisclosure: FC<{
       {/* M-25: Dynamic bottom fade — hides when scrolled to bottom */}
       <div
         className={cn(
-          "sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-surface-base to-transparent pointer-events-none transition-opacity duration-300",
+          "sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#08080A] to-transparent pointer-events-none transition-opacity duration-300",
           showFade ? "opacity-100" : "opacity-0",
         )}
       />
@@ -1245,7 +2288,7 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
         transition={SYSTEM.anim.fluid}
         role="status"
         aria-live="polite"
-        className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-surface-base border border-white/10 shadow-2xl z-30 will-change-transform"
+        className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-[#08080A] border border-white/10 shadow-2xl z-30 will-change-transform"
       >
         <OrbitalRadar />
         <AnimatePresence mode="wait">
@@ -1302,7 +2345,7 @@ const SmartChips: FC<{
         {matchupLabel && (
           <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/[0.06] border border-emerald-500/[0.12] shrink-0 rounded-full">
             <div className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_4px_#10b981]" />
-            <span className="text-caption font-mono font-medium text-emerald-400/90 tracking-wide uppercase whitespace-nowrap">{matchupLabel}</span>
+            <span className="text-[10px] font-mono font-medium text-emerald-400/90 tracking-wide uppercase whitespace-nowrap">{matchupLabel}</span>
           </div>
         )}
         {chips.map((chip, i) => (
@@ -1314,9 +2357,9 @@ const SmartChips: FC<{
             transition={{ delay: (matchupLabel ? i + 1 : i) * 0.04, ...SYSTEM.anim.fluid }}
             whileHover={{ scale: 1.02, y: -1, backgroundColor: "rgba(255,255,255,0.06)" }}
             whileTap={{ scale: 0.98 }}
-            className={cn("px-3.5 py-2 bg-overlay-dim border border-edge-strong transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
+            className={cn("px-3.5 py-2 bg-white/[0.03] border border-white/[0.08] transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
           >
-            <span className="text-caption font-medium text-zinc-300 tracking-wide uppercase whitespace-nowrap">{chip}</span>
+            <span className="text-[10px] font-medium text-zinc-300 tracking-wide uppercase whitespace-nowrap">{chip}</span>
           </motion.button>
         ))}
       </div>
@@ -1334,7 +2377,7 @@ const ConnectionBadge: FC<{ status: ConnectionStatus }> = memo(({ status }) => {
       exit={{ opacity: 0, y: -10 }}
       role="status"
       className={cn(
-        "flex items-center gap-2 px-3 py-1.5 rounded-full text-caption font-mono uppercase tracking-wider",
+        "flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-mono uppercase tracking-wider",
         status === "offline"
           ? "bg-red-500/10 border border-red-500/20 text-red-400"
           : "bg-amber-500/10 border border-amber-500/20 text-amber-400",
@@ -1433,7 +2476,7 @@ const MessageBubble: FC<{
               <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
               <div className="mt-8 flex items-center gap-2.5">
                 <div className="w-1 h-1 rounded-full bg-zinc-600" />
-                <span className="text-small font-mono font-medium text-zinc-500 uppercase tracking-spread">{normalized}</span>
+                <span className="text-[12px] font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
               </div>
             </div>
           );
@@ -1547,6 +2590,12 @@ const MessageBubble: FC<{
               return c.length > 5 ? <TacticalHUD content={c} /> : null;
             }
 
+            // Suppress paragraphs already rendered inside EdgeVerdictCard as synopsis
+            if (synopses.length > 0) {
+              const cleaned = text.replace(/\*+/g, "").replace(/\s+/g, " ").trim();
+              if (synopses.some(s => s && cleaned.length > 10 && cleaned.includes(s))) return null;
+            }
+
             // M-26: Apply typography normalization to body paragraphs
             return (
               <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-6 last:mb-0")}>
@@ -1576,7 +2625,7 @@ const MessageBubble: FC<{
                   {/* M-17: 32px gap between hairline and section header */}
                   <div className="mt-8 flex items-center gap-2.5">
                     <div className="w-1 h-1 rounded-full bg-zinc-600" />
-                    <span className="text-small font-mono font-medium text-zinc-500 uppercase tracking-spread">{normalized}</span>
+                    <span className="text-[12px] font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
                   </div>
                 </div>
               );
@@ -1697,7 +2746,7 @@ const MessageBubble: FC<{
         {/* M-19: Timestamp always below, right-aligned, consistent for both roles */}
         {formattedTime && (
           <div className="text-right mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none">
-            <time dateTime={message.timestamp} className="text-footnote text-zinc-600">
+            <time dateTime={message.timestamp} className="text-[11px] text-zinc-600">
               {formattedTime}
             </time>
           </div>
@@ -1813,7 +2862,7 @@ const InputDeck: FC<{
       layout
       className={cn(
         "flex flex-col gap-2 p-1.5 relative overflow-hidden transition-colors duration-500 will-change-transform",
-        SYSTEM.geo.input, "bg-surface-base shadow-2xl focus-within:ring-1 focus-within:ring-white/[0.06]",
+        SYSTEM.geo.input, "bg-[#08080A] shadow-2xl focus-within:ring-1 focus-within:ring-white/[0.06]",
         isVoiceMode
           ? "border-emerald-500/30 shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)]"
           : isOffline ? "border-red-500/20" : SYSTEM.surface.milled,
@@ -1829,9 +2878,9 @@ const InputDeck: FC<{
             className="flex gap-2 overflow-x-auto p-2 mb-1 scrollbar-hide"
           >
             {attachments.map((a, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-overlay-dim rounded-full border border-edge">
+              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-full border border-white/[0.06]">
                 <ImageIcon size={12} className="text-white/50" />
-                <span className="text-caption text-zinc-300 max-w-[80px] truncate">{a.file.name}</span>
+                <span className="text-[10px] text-zinc-300 max-w-[80px] truncate">{a.file.name}</span>
                 <button
                   onClick={() => onAttach(attachments.filter((_, j) => j !== i))}
                   className="text-zinc-500 hover:text-white transition-colors"
@@ -2276,7 +3325,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                 : cn(
                   "w-full md:w-[460px] h-[100dvh] md:h-[min(840px,90dvh)]",
                   "rounded-[28px] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]",
-                  "border border-edge-strong",
+                  "border border-white/[0.08]",
                   SYSTEM.surface.void,
                 ),
             )}
@@ -2330,11 +3379,11 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                     animate={{ opacity: 1, scale: 1 }}
                     className="h-full flex flex-col items-center justify-center text-center opacity-40"
                   >
-                    <div className="w-20 h-20 rounded-[24px] border border-edge bg-overlay-subtle flex items-center justify-center mb-6">
+                    <div className="w-20 h-20 rounded-[24px] border border-white/[0.06] bg-white/[0.02] flex items-center justify-center mb-6">
                       <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
                     </div>
                     <p className={SYSTEM.type.mono}>System Ready</p>
-                    <p className="text-caption text-zinc-700 mt-1.5 tracking-wide">
+                    <p className="text-[10px] text-zinc-700 mt-1.5 tracking-wide">
                       {deriveGamePhase(normalizedContext) === "live" ? "Games are live — ask for in-play edge" : deriveGamePhase(normalizedContext) === "postgame" ? "Markets closed — review your record" : "Pre-game window — find today's edge"}
                     </p>
                   </motion.div>
@@ -2347,7 +3396,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
             {/* Scroll anchor — visible when user has scrolled up */}
             <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
 
-            <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-surface-base via-surface-base/95 to-transparent pointer-events-none">
+            <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#08080A] via-[#08080A]/95 to-transparent pointer-events-none">
               <div className="pointer-events-auto relative">
                 <AnimatePresence>
                   {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}

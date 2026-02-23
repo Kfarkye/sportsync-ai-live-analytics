@@ -234,7 +234,7 @@ const BackArrow = () => (
 
 const EdgeStateBadge = memo(({ edgeState }: { edgeState: EdgeState }) => (
   <div className={cn(
-    "flex items-center gap-2 px-3 py-1 rounded-full text-label font-bold tracking-widest uppercase transition-colors duration-500 border backdrop-blur-md",
+    "flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-bold tracking-[0.2em] uppercase transition-colors duration-500 border backdrop-blur-md",
     edgeState.state === 'PLAY' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]" :
       edgeState.state === 'LEAN' ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
         "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
@@ -276,7 +276,7 @@ const ForecastSparkline = memo(({ points }: { points: ForecastPoint[] }) => {
 });
 
 const OddsCardSkeleton = memo(() => (
-  <div className="animate-pulse space-y-4 p-4 border border-white/5 rounded-xl bg-overlay-subtle">
+  <div className="animate-pulse space-y-4 p-4 border border-white/5 rounded-xl bg-white/[0.02]">
     <div className="flex justify-between items-center">
       <div className="h-2 w-20 bg-white/10 rounded-full" />
       <div className="h-2 w-8 bg-white/10 rounded-full" />
@@ -516,7 +516,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
         <BroadcastOverlay />
         <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
           {match.possession && (
-            <div className="px-2 py-px bg-black/80 backdrop-blur text-zinc-300 text-label tracking-widest font-mono border border-white/10 uppercase">
+            <div className="px-2 py-px bg-black/80 backdrop-blur text-zinc-300 text-[9px] tracking-widest font-mono border border-white/10 uppercase">
               POSS // <span className="text-white font-bold">{match.possession}</span>
             </div>
           )}
@@ -526,15 +526,15 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
         <div className="w-1 h-8 bg-blue-500 shrink-0 opacity-80" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-label font-bold text-zinc-400 uppercase tracking-widest font-mono">
+            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-[0.2em] font-mono">
               {(lastPlay?.type?.text || "LIVE FEED").toUpperCase()}
             </span>
-            <span className="text-label text-zinc-600 font-mono tracking-widest">
+            <span className="text-[9px] text-zinc-600 font-mono tracking-widest">
               {match.displayClock || "00:00"} // P{match.period}
             </span>
           </div>
           <AnimatePresence mode="wait">
-            <motion.p key={lastPlay?.text || "waiting"} initial={{ opacity: 0, x: 5 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -5 }} className="text-body-sm font-medium text-white leading-snug truncate">
+            <motion.p key={lastPlay?.text || "waiting"} initial={{ opacity: 0, x: 5 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -5 }} className="text-[13px] font-medium text-white leading-snug truncate">
               {lastPlay?.text || "Waiting for signal..."}
             </motion.p>
           </AnimatePresence>
@@ -560,11 +560,11 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
   const effectiveOpen = collapsible ? isOpen : true;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn("group relative border-t border-edge-strong transition-all duration-500", collapsible ? "cursor-pointer" : "cursor-default")} onClick={() => collapsible && setIsOpen(!isOpen)}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn("group relative border-t border-white/[0.08] transition-all duration-500", collapsible ? "cursor-pointer" : "cursor-default")} onClick={() => collapsible && setIsOpen(!isOpen)}>
       <div className={cn("absolute -top-[1px] left-0 h-[1px] bg-white transition-all duration-500 ease-out z-10 shadow-[0_0_10px_rgba(255,255,255,0.4)]", effectiveOpen ? "w-full opacity-100" : "w-0 opacity-0")} />
       <div className="py-6 flex flex-col md:flex-row md:items-start gap-5 md:gap-0">
         <div className="w-full md:w-[140px] shrink-0 flex items-center justify-between md:block select-none">
-          <span className={cn("text-caption font-bold tracking-widest uppercase transition-colors duration-300 font-mono block", effectiveOpen ? "text-zinc-50" : "text-zinc-600 group-hover:text-zinc-400")}>{label}</span>
+          <span className={cn("text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-300 font-mono block", effectiveOpen ? "text-zinc-50" : "text-zinc-600 group-hover:text-zinc-400")}>{label}</span>
           {collapsible && <div className="md:hidden block"><ToggleSwitch expanded={effectiveOpen} /></div>}
         </div>
         <div className="flex-1 min-w-0 relative">
@@ -587,7 +587,7 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
 // ============================================================================
 
 const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'connecting' }) => {
-  const base = "flex items-center justify-center w-7 h-7 bg-overlay-dim border border-white/5 rounded-full backdrop-blur-sm";
+  const base = "flex items-center justify-center w-7 h-7 bg-white/[0.03] border border-white/5 rounded-full backdrop-blur-sm";
   if (status === 'connected') {
     return (
       <div className={base}>
@@ -1218,23 +1218,23 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         <motion.div animate={{ opacity: [0.03, 0.06, 0.03] }} transition={{ duration: 5, repeat: Infinity, delay: 2.5 }} className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full blur-[140px]" style={{ background: homeColor }} />
       </div>
 
-      <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-edge-subtle pt-safe shadow-2xl" style={{ backgroundColor: ESSENCE.colors.surface.base + 'F2' }}>
+      <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/[0.04] pt-safe shadow-2xl" style={{ backgroundColor: ESSENCE.colors.surface.base + 'F2' }}>
         <div className="flex items-center justify-between px-6 py-4">
           <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-white/5 rounded-full transition-all duration-300">
             <BackArrow />
           </button>
           <div className="flex items-center gap-4">
-            <span className="text-caption font-bold text-zinc-500 tracking-widest uppercase hidden md:block">{match.leagueId?.toUpperCase()} // {match.id.slice(-4)}</span>
+            <span className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase hidden md:block">{match.leagueId?.toUpperCase()} // {match.id.slice(-4)}</span>
             <ConnectionBadge status={connectionStatus} />
           </div>
         </div>
-        {error && (<motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2"><div className="bg-red-900/10 border border-red-500/20 text-red-400 text-caption uppercase font-mono py-1 px-3 text-center">Data Stream Interrupted • Displaying Cached Telemetry</div></motion.div>)}
+        {error && (<motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2"><div className="bg-red-900/10 border border-red-500/20 text-red-400 text-[10px] uppercase font-mono py-1 px-3 text-center">Data Stream Interrupted • Displaying Cached Telemetry</div></motion.div>)}
         <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
         {/* M-03: Tab bar — no pipe, underline-only active indicator, extra spacing before AI */}
-        <nav className="flex justify-center gap-8 md:gap-12 pb-0 mt-2 border-t border-edge-subtle">
+        <nav className="flex justify-center gap-6 md:gap-12 pb-0 mt-2 border-t border-white/[0.04]">
           {TABS.map((tab, i) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("relative py-4 group outline-none", i === TABS.length - 1 && "ml-4")}>
-              <span className={cn("text-footnote font-medium tracking-spread uppercase transition-all duration-150", activeTab === tab.id ? "text-white" : "text-zinc-500 group-hover:text-zinc-400")}>{tab.label}</span>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("relative py-4 group outline-none", i === TABS.length - 1 && "ml-2")}>
+              <span className={cn("text-[11px] font-medium tracking-[0.12em] uppercase transition-all duration-150", activeTab === tab.id ? "text-white" : "text-zinc-500 group-hover:text-zinc-400")}>{tab.label}</span>
               {activeTab === tab.id && (<motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[2px] bg-white" />)}
             </button>
           ))}
@@ -1254,9 +1254,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       <CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} />
                     )}
                   </SpecSheetRow>
-                  <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-overlay-strong" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
+                  <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-white/[0.08]" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
                   {liveState?.ai_analysis && <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={true}><LiveAIInsight match={match} /></SpecSheetRow>}
-                  <div className="w-full h-px bg-overlay-strong" />
+                  <div className="w-full h-px bg-white/[0.08]" />
                 </div>
               )}
               {activeTab === 'DETAILS' && (
@@ -1267,15 +1267,15 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     <SpecSheetRow label="05 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
                     <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
                     <SpecSheetRow label="07 // CONTEXT" defaultOpen={true}>{match.context ? <MatchupContextPills {...match.context} sport={match.sport} /> : <div className="text-zinc-500 italic text-xs">No context available.</div>}</SpecSheetRow>
-                    <div className="w-full h-px bg-overlay-strong" />
+                    <div className="w-full h-px bg-white/[0.08]" />
                   </div>
                 </div>
               )}
               {activeTab === 'PROPS' && (
                 <div className="space-y-0">
-                  <div className="flex justify-end mb-4 pr-4"><button onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')} className="text-label font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">SWITCH VIEW</button></div>
+                  <div className="flex justify-end mb-4 pr-4"><button onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')} className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 hover:text-white transition-colors">SWITCH VIEW</button></div>
                   <SpecSheetRow label="01 // PLAYER MKTS" defaultOpen={true} collapsible={false}>{propView === 'classic' ? <ClassicPlayerProps match={match} /> : <CinematicPlayerProps match={match} />}</SpecSheetRow>
-                  <div className="w-full h-px bg-overlay-strong" />
+                  <div className="w-full h-px bg-white/[0.08]" />
                 </div>
               )}
               {activeTab === 'DATA' && (
@@ -1284,17 +1284,17 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     <div className="mb-12 space-y-6">
                       <div className="flex items-center gap-2">
                         <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                        <span className="text-caption font-bold text-zinc-400 uppercase tracking-widest">Shareable Insights</span>
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Shareable Insights</span>
                       </div>
                       {gameEdgeCardData && (
                         <div className="space-y-3">
-                          <span className="text-label font-bold text-zinc-500 uppercase tracking-widest">Game Edge</span>
+                          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Game Edge</span>
                           <InsightCard data={gameEdgeCardData} />
                         </div>
                       )}
                       {insightCardData && (
                         <div className="space-y-3">
-                          <span className="text-label font-bold text-zinc-500 uppercase tracking-widest">Player Prop</span>
+                          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Player Prop</span>
                           <InsightCard data={insightCardData} />
                         </div>
                       )}
@@ -1304,7 +1304,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     <div className="mb-12">
                       <div className="flex items-center gap-2 mb-4">
                         <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                        <span className="text-caption font-bold text-zinc-400 uppercase tracking-widest">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
                           Edge Convergence
                         </span>
                       </div>
@@ -1314,7 +1314,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   <div className="mb-12"><ForecastHistoryTable matchId={match.id} /></div>
                   <SpecSheetRow label="01 // BOX SCORE" defaultOpen={true}><BoxScore match={match} /></SpecSheetRow>
                   <SpecSheetRow label="02 // ANALYSIS" defaultOpen={false}><SafePregameIntelCards match={match} /></SpecSheetRow>
-                  <div className="w-full h-px bg-overlay-strong" />
+                  <div className="w-full h-px bg-white/[0.08]" />
                 </div>
               )}
               {activeTab === 'CHAT' && (<div className="max-w-3xl mx-auto h-[700px]"><ChatWidget currentMatch={match} inline /></div>)}

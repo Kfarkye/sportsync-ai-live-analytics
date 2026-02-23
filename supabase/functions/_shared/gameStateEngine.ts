@@ -71,7 +71,7 @@ import {
     getRegimeMultiplier
 } from "./engine/market.ts";
 import { calculatePregameConstraints } from "./engine/signals/pregame.ts";
-import { devig2Way, devig3Way } from "./oddsUtils.ts";
+import { americanToImplied, devig2Way, devig3Way } from "./oddsUtils.ts";
 
 // =============================================================================
 // 1. STRICT TYPES & INTERFACES
@@ -501,70 +501,6 @@ export const computeAISignals = (match: Match): AISignals => {
         delete (fair.variance_flags as any)._trace; // Clean up payload
     }
 
-    // ==========================================================================
-    // v7.0: MULTI-MARKET EDGE (Spread + ML alongside Totals)
-    // ==========================================================================
-    // Spread edge: pure line movement (no model required — market IS the model)
-    const spreadEdge = (odds.hasSpread && odds.open.spread !== 0) ? (() => {
-        const movement = odds.cur.spread - odds.open.spread;
-        return {
-            opening: odds.open.spread,
-            current: odds.cur.spread,
-            movement: Number(movement.toFixed(1)),
-            direction: Math.abs(movement) < 0.5 ? 'FLAT' as const
-                : movement < 0 ? 'HOME' as const  // line moved toward home (home got more points = away strengthened)
-                : 'AWAY' as const,
-        };
-    })() : null;
-
-    // ML edge: devig to get true probabilities, detect value
-    const mlEdge = (odds.hasML && odds.cur.mlHome !== 0 && odds.cur.mlAway !== 0) ? (() => {
-        const hasDraw = odds.cur.mlDraw !== 0;
-        if (hasDraw) {
-            const dv = devig3Way(odds.cur.mlHome, odds.cur.mlAway, odds.cur.mlDraw);
-            if (!dv) return null;
-            // Compare to opening ML devig to find which side gained value
-            const dvOpen = devig3Way(odds.open.mlHome, odds.open.mlAway, odds.open.mlDraw);
-            let valueSide: 'HOME' | 'AWAY' | 'DRAW' | null = null;
-            if (dvOpen) {
-                const homeShift = dv.probHome - dvOpen.probHome;
-                const awayShift = dv.probAway - dvOpen.probAway;
-                const drawShift = dv.probDraw - dvOpen.probDraw;
-                const maxShift = Math.max(Math.abs(homeShift), Math.abs(awayShift), Math.abs(drawShift));
-                if (maxShift > 0.02) { // 2% probability shift threshold
-                    if (Math.abs(homeShift) === maxShift) valueSide = homeShift > 0 ? 'HOME' : 'AWAY';
-                    else if (Math.abs(awayShift) === maxShift) valueSide = awayShift > 0 ? 'AWAY' : 'HOME';
-                    else valueSide = drawShift > 0 ? 'DRAW' : null;
-                }
-            }
-            return {
-                home_no_vig: Number(dv.probHome.toFixed(4)),
-                away_no_vig: Number(dv.probAway.toFixed(4)),
-                draw_no_vig: Number(dv.probDraw.toFixed(4)),
-                overround: Number(dv.overround.toFixed(4)),
-                value_side: valueSide,
-            };
-        } else {
-            const dv = devig2Way(odds.cur.mlHome, odds.cur.mlAway);
-            if (!dv) return null;
-            const dvOpen = devig2Way(odds.open.mlHome, odds.open.mlAway);
-            let valueSide: 'HOME' | 'AWAY' | null = null;
-            if (dvOpen) {
-                const homeShift = dv.probA - dvOpen.probA;
-                if (Math.abs(homeShift) > 0.02) {
-                    valueSide = homeShift > 0 ? 'HOME' : 'AWAY';
-                }
-            }
-            return {
-                home_no_vig: Number(dv.probA.toFixed(4)),
-                away_no_vig: Number(dv.probB.toFixed(4)),
-                draw_no_vig: null,
-                overround: Number(dv.overround.toFixed(4)),
-                value_side: valueSide,
-            };
-        }
-    })() : null;
-
     const signals: AISignals = {
         trace_id: traceId,
         trace_dump: traceDump,
@@ -658,11 +594,64 @@ export const computeAISignals = (match: Match): AISignals => {
         is_total_override: nflOverride.active,
         override_classification: nflOverride.classification as any,
         override_logs: nflOverride.logs,
-        market_edge: {
-            spread: spreadEdge,
-            moneyline: mlEdge,
-        },
     };
+
+    // ==========================================================================
+    // v7.0: SPREAD + MONEYLINE EDGE (was totals-only)
+    // ==========================================================================
+    const marketEdge: AISignals['market_edge'] = {};
+
+    // Spread movement: how far has the line moved from open?
+    if (odds.hasSpread && odds.open.spread !== 0) {
+        marketEdge.spread = {
+            opening: odds.open.spread,
+            current: odds.cur.spread,
+            movement: Number((odds.cur.spread - odds.open.spread).toFixed(1)),
+        };
+    }
+
+    // Moneyline: devigged true probabilities + value_side detection
+    if (odds.hasML) {
+        const hasDrawMarket = odds.cur.mlDraw !== 0 && match.sport === Sport.SOCCER;
+        if (hasDrawMarket) {
+            const { probA, probB, probDraw } = devig3Way(odds.cur.mlHome, odds.cur.mlAway, odds.cur.mlDraw);
+            // Value side = side where devigged prob differs most from raw implied (biggest vig extraction)
+            const rawH = americanToImplied(odds.cur.mlHome);
+            const rawA = americanToImplied(odds.cur.mlAway);
+            const rawD = americanToImplied(odds.cur.mlDraw);
+            const diffH = isNaN(rawH) ? 0 : rawH - probA;
+            const diffA = isNaN(rawA) ? 0 : rawA - probA;
+            const diffD = isNaN(rawD) ? 0 : rawD - probDraw;
+            const maxDiff = Math.max(diffH, diffA, diffD);
+            const valueSide = maxDiff <= 0.005 ? null
+                : maxDiff === diffH ? 'home' as const
+                : maxDiff === diffA ? 'away' as const
+                : 'draw' as const;
+            marketEdge.moneyline = {
+                home_no_vig: Number(probA.toFixed(4)),
+                away_no_vig: Number(probB.toFixed(4)),
+                draw_no_vig: Number(probDraw.toFixed(4)),
+                value_side: valueSide,
+            };
+        } else if (odds.cur.mlHome !== 0 && odds.cur.mlAway !== 0) {
+            const { probA, probB } = devig2Way(odds.cur.mlHome, odds.cur.mlAway);
+            const rawH = americanToImplied(odds.cur.mlHome);
+            const rawA = americanToImplied(odds.cur.mlAway);
+            const diffH = isNaN(rawH) ? 0 : rawH - probA;
+            const diffA = isNaN(rawA) ? 0 : rawA - probB;
+            const valueSide = Math.abs(diffH - diffA) < 0.005 ? null
+                : diffH > diffA ? 'home' as const : 'away' as const;
+            marketEdge.moneyline = {
+                home_no_vig: Number(probA.toFixed(4)),
+                away_no_vig: Number(probB.toFixed(4)),
+                value_side: valueSide,
+            };
+        }
+    }
+
+    if (marketEdge.spread || marketEdge.moneyline) {
+        signals.market_edge = marketEdge;
+    }
 
     signals.blueprint = getMarketBlueprint(match, signals);
     return signals;
