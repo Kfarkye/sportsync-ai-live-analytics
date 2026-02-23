@@ -1050,6 +1050,21 @@ export interface AISignals {
   // v6.0: Structured Observability
   trace_id?: string;
   trace_dump?: Record<string, unknown>;
+
+  // v7.0: Spread + ML edge signals (was totals-only)
+  market_edge?: {
+    spread?: {
+      opening: number;
+      current: number;
+      movement: number;       // current - opening (negative = moved toward home)
+    };
+    moneyline?: {
+      home_no_vig: number;    // devigged true probability (0-1)
+      away_no_vig: number;
+      draw_no_vig?: number;
+      value_side: 'home' | 'away' | 'draw' | null;
+    };
+  };
 }
 
 export interface PublicNarrative {
