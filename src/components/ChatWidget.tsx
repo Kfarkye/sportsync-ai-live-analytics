@@ -2597,10 +2597,25 @@ const MessageBubble: FC<{
               return c.length > 5 ? <TacticalHUD content={c} /> : null;
             }
 
-            // Suppress paragraphs already rendered inside EdgeVerdictCard as synopsis
+            // Suppress paragraphs already rendered inside EdgeVerdictCard as synopsis.
+            // Must normalize aggressively: smart quotes, dashes, whitespace all vary
+            // between extractEdgeSynopses (raw text) and ReactMarkdown output.
             if (synopses.length > 0) {
-              const cleaned = text.replace(/\*+/g, "").replace(/\s+/g, " ").trim();
-              if (synopses.some(s => s && cleaned.length > 10 && cleaned.includes(s))) return null;
+              const normalize = (s: string) => s
+                .replace(/\*+/g, "")
+                .replace(/[\u2018\u2019\u201C\u201D''""]/g, "")  // all quote variants
+                .replace(/[\u2013\u2014—–-]/g, "-")              // all dash variants
+                .replace(/\s+/g, " ")
+                .trim()
+                .toLowerCase();
+              const cleanedNorm = normalize(text);
+              if (synopses.some(s => {
+                if (!s || s.length < 15) return false;
+                const sNorm = normalize(s);
+                // Match if either contains the other, or first 60 chars match
+                return cleanedNorm.includes(sNorm) || sNorm.includes(cleanedNorm)
+                  || (sNorm.length > 40 && cleanedNorm.startsWith(sNorm.slice(0, 40)));
+              })) return null;
             }
 
             // M-26: Apply typography normalization to body paragraphs
