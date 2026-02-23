@@ -1231,9 +1231,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         {error && (<motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2"><div className="bg-red-900/10 border border-red-500/20 text-red-400 text-[10px] uppercase font-mono py-1 px-3 text-center">Data Stream Interrupted • Displaying Cached Telemetry</div></motion.div>)}
         <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
         {/* M-03: Tab bar — no pipe, underline-only active indicator, extra spacing before AI */}
-        <nav className="flex justify-center gap-8 md:gap-12 pb-0 mt-2 border-t border-white/[0.04]">
+        <nav className="flex justify-center gap-6 md:gap-12 pb-0 mt-2 border-t border-white/[0.04]">
           {TABS.map((tab, i) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("relative py-4 group outline-none", i === TABS.length - 1 && "ml-4")}>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("relative py-4 group outline-none", i === TABS.length - 1 && "ml-2")}>
               <span className={cn("text-[11px] font-medium tracking-[0.12em] uppercase transition-all duration-150", activeTab === tab.id ? "text-white" : "text-zinc-500 group-hover:text-zinc-400")}>{tab.label}</span>
               {activeTab === tab.id && (<motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[2px] bg-white" />)}
             </button>
