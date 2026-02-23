@@ -13,7 +13,7 @@ function cn(...inputs: ClassValue[]) {
 const MotionDiv = motion.div;
 
 // ─────────────────────────────────────────────────────────────
-// § SCROLL DIRECTION HOOK
+// § SCROLL DIRECTION — rAF-throttled, passive listener
 // ─────────────────────────────────────────────────────────────
 
 type ScrollDir = 'up' | 'down' | 'idle';
@@ -40,7 +40,6 @@ const useScrollDirection = (threshold = 12): { direction: ScrollDir; isCompact: 
                     lastY.current = y;
                 }
 
-                // Re-expand when near top
                 if (y < 40) {
                     setIsCompact(false);
                     setDirection('idle');
@@ -58,7 +57,7 @@ const useScrollDirection = (threshold = 12): { direction: ScrollDir; isCompact: 
 };
 
 // ─────────────────────────────────────────────────────────────
-// § EDGE PULSE
+// § EDGE PULSE INDICATOR
 // ─────────────────────────────────────────────────────────────
 
 const EdgePulse = () => (
@@ -73,24 +72,27 @@ const EdgePulse = () => (
 );
 
 // ─────────────────────────────────────────────────────────────
-// § TABS CONFIG
+// § TABS — icon + label, because labels are function, not decoration
 // ─────────────────────────────────────────────────────────────
 
 const TABS = [
-    { id: 'FEED',  icon: Home },
-    { id: 'LIVE',  icon: Zap },
-    { id: 'TITAN', icon: BarChart3 },
+    { id: 'FEED',  label: 'Home', icon: Home },
+    { id: 'LIVE',  label: 'Live', icon: Zap },
+    { id: 'TITAN', label: 'Titan', icon: BarChart3 },
 ] as const;
 
 // ─────────────────────────────────────────────────────────────
 // § MOBILE NAV BAR
+//
+// Design:  Glass material + collapse-on-scroll + text labels
+// Pattern: iOS tab bar (icon above label, always labeled)
+//          Compact state: icon-only (user has mental model)
 // ─────────────────────────────────────────────────────────────
 
 export const MobileNavBar = () => {
     const { activeView, setActiveView, toggleGlobalChat, isGlobalChatOpen } = useAppStore();
     const { isCompact } = useScrollDirection(12);
 
-    // Expand when user taps while compact
     const handleTabPress = useCallback((id: string) => {
         setActiveView(id as ViewType);
     }, [setActiveView]);
@@ -115,20 +117,17 @@ export const MobileNavBar = () => {
                 {/* ── Glass Shell ── */}
                 <div
                     className={cn(
-                        "relative flex items-center gap-1 rounded-full overflow-hidden transition-all duration-300",
-                        // Glass material: translucent, not opaque
+                        "relative flex items-center rounded-full overflow-hidden transition-all duration-300",
                         "bg-zinc-950/70 backdrop-blur-3xl backdrop-saturate-150",
-                        // Single subtle border + specular top edge
                         "border border-white/[0.08]",
                         "shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_32px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.3)]",
-                        // Compact vs expanded padding
-                        isCompact ? "p-1 gap-0.5" : "p-1.5 gap-1.5",
+                        isCompact ? "px-1 py-1 gap-0" : "px-2 py-1.5 gap-0.5",
                     )}
                 >
                     {/* ── View Tabs ── */}
                     <div className={cn(
                         "flex items-center transition-all duration-300",
-                        isCompact ? "gap-0" : "gap-1",
+                        isCompact ? "gap-0" : "gap-0.5",
                     )}>
                         {TABS.map((tab) => {
                             const isActive = activeView === tab.id;
@@ -140,8 +139,8 @@ export const MobileNavBar = () => {
                                     layout
                                     animate={{
                                         width: isCompact
-                                            ? (isActive ? 48 : 0)
-                                            : 56,
+                                            ? (isActive ? 44 : 0)
+                                            : isActive ? 72 : 52,
                                         opacity: isCompact
                                             ? (isActive ? 1 : 0)
                                             : 1,
@@ -159,8 +158,8 @@ export const MobileNavBar = () => {
                                     <button
                                         onClick={() => handleTabPress(tab.id)}
                                         className={cn(
-                                            "relative flex items-center justify-center rounded-full transition-colors duration-200 active:scale-90",
-                                            isCompact ? "w-12 h-10" : "w-14 h-11",
+                                            "relative flex flex-col items-center justify-center rounded-full transition-colors duration-200 active:scale-90",
+                                            isCompact ? "w-11 h-10" : "w-full h-12",
                                             isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300',
                                         )}
                                     >
@@ -172,10 +171,19 @@ export const MobileNavBar = () => {
                                             />
                                         )}
                                         <Icon
-                                            size={isCompact ? 18 : 20}
+                                            size={isCompact ? 18 : 17}
                                             strokeWidth={isActive ? 2.5 : 1.8}
                                             className="relative z-10 transition-all duration-200"
                                         />
+                                        {/* Label — visible expanded, hidden compact */}
+                                        {!isCompact && (
+                                            <span className={cn(
+                                                "relative z-10 text-[9px] font-semibold tracking-wide leading-none mt-0.5",
+                                                isActive ? "text-white/90" : "text-zinc-500",
+                                            )}>
+                                                {tab.label}
+                                            </span>
+                                        )}
                                     </button>
                                 </MotionDiv>
                             );
@@ -192,14 +200,14 @@ export const MobileNavBar = () => {
                             marginRight: isCompact ? 0 : 4,
                         }}
                         transition={{ duration: 0.2 }}
-                        className="h-5 bg-white/[0.06] overflow-hidden"
+                        className="h-5 bg-white/[0.06] overflow-hidden flex-shrink-0"
                     />
 
-                    {/* ── Edge / Chat Button ── */}
+                    {/* ── Edge / Chat ── */}
                     <MotionDiv
                         layout
                         animate={{
-                            width: isCompact ? 0 : 56,
+                            width: isCompact ? 0 : isGlobalChatOpen ? 72 : 52,
                             opacity: isCompact ? 0 : 1,
                         }}
                         transition={{
@@ -215,15 +223,23 @@ export const MobileNavBar = () => {
                         <button
                             onClick={() => toggleGlobalChat()}
                             className={cn(
-                                "relative flex items-center justify-center w-14 h-11 rounded-full transition-all duration-200 active:scale-95",
+                                "relative flex flex-col items-center justify-center w-full h-12 rounded-full transition-all duration-200 active:scale-95",
                                 isGlobalChatOpen ? "text-emerald-400" : "text-zinc-500 hover:text-zinc-300",
                             )}
                         >
                             {isGlobalChatOpen ? (
                                 <EdgePulse />
                             ) : (
-                                <Bot size={20} strokeWidth={1.8} className="relative z-10" />
+                                <Bot size={17} strokeWidth={1.8} className="relative z-10" />
                             )}
+
+                            {/* Label */}
+                            <span className={cn(
+                                "relative z-10 text-[9px] font-semibold tracking-wide leading-none mt-0.5",
+                                isGlobalChatOpen ? "text-emerald-400/80" : "text-zinc-500",
+                            )}>
+                                Edge
+                            </span>
 
                             {isGlobalChatOpen && (
                                 <MotionDiv
