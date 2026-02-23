@@ -1,9 +1,10 @@
 
 import React, { useMemo } from 'react';
-import { Match, MatchStatus } from '@/types';
+import { Match, MatchStatus, Sport, Linescore } from '@/types';
 import { LEAGUES } from '@/constants';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
+import { cn } from '@/lib/essence';
 import { LayoutGroup, motion } from 'framer-motion';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { useAppStore } from '../../store/appStore';
@@ -26,54 +27,31 @@ const MotionDiv = motion.div;
 // WIDGETS
 // ============================================================================
 
-const FeaturedMatchWidget = ({ match, onClick }: { match: Match; onClick: () => void }) => {
-    const isLive = match.status === MatchStatus.LIVE ||
-        String(match.status).includes('IN_PROGRESS') ||
-        String(match.status).includes('HALF');
-
+// --- Tennis Set Score Display (matches MatchRow's TennisSetScores) ---
+const HeroSetScores: React.FC<{ linescores?: Linescore[] }> = ({ linescores }) => {
+    if (!linescores || linescores.length === 0) return <span className="text-sm text-zinc-600 font-mono">-</span>;
     return (
-        <div
-            onClick={onClick}
-            className="relative overflow-hidden cursor-pointer group transition-all duration-300 mb-8"
-        >
-            {/* Minimalist Header */}
-            <div className="flex items-center justify-between mb-4 px-1">
-                <span className="text-footnote font-semibold text-zinc-500 uppercase tracking-widest">Featured Match</span>
-                {isLive && (
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30] animate-pulse" />
-                        <span className="text-footnote font-medium text-[#FF3B30]">Live</span>
-                    </div>
-                )}
-            </div>
+        <div className="flex items-center gap-1 font-mono text-sm tabular-nums">
+            {linescores.map((ls, idx) => (
+                <span key={idx} className={ls.winner ? "text-white font-bold" : "text-zinc-500"}>{ls.value ?? '-'}</span>
+            ))}
+        </div>
+    );
+};
 
-            {/* Main Content */}
-            <div className="relative py-2">
-                <div className="flex items-center justify-between gap-8">
-                    <div className="flex flex-col items-center gap-3 flex-1">
-                        <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-16 h-16 object-contain drop-shadow-lg" />
-                        <span className="text-sm font-medium text-zinc-200 tracking-tight">{match.awayTeam.name}</span>
-                    </div>
-
-                    <div className="flex flex-col items-center min-w-[120px]">
-                        <div className="text-5xl font-light text-white tracking-tighter tabular-nums flex items-center gap-4">
-                            <span>{match.awayScore}</span>
-                            <span className="text-zinc-700 text-3xl font-thin">:</span>
-                            <span>{match.homeScore}</span>
-                        </div>
-                        <div className="mt-3">
-                            <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest">
-                                {match.displayClock || new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col items-center gap-3 flex-1">
-                        <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-16 h-16 object-contain drop-shadow-lg" />
-                        <span className="text-sm font-medium text-zinc-200 tracking-tight">{match.homeTeam.name}</span>
-                    </div>
+// --- Player identity for tennis (flag + last name) ---
+const TennisPlayerIdentity: React.FC<{ team: Match['homeTeam']; className?: string }> = ({ team, className }) => {
+    const lastName = team.name.split(' ').pop() || team.name;
+    return (
+        <div className={cn("flex flex-col items-center gap-2", className)}>
+            {team.flag ? (
+                <div className="w-10 h-7 overflow-hidden rounded-[2px] shadow-md border border-white/10">
+                    <img src={team.flag} alt="" className="w-full h-full object-cover" />
                 </div>
-            </div>
+            ) : (
+                <TeamLogo logo={team.logo} name={team.name} className="w-10 h-10 object-contain drop-shadow-2xl" />
+            )}
+            <span className="text-sm font-bold text-white tracking-tight truncate max-w-[100px]">{lastName}</span>
         </div>
     );
 };
@@ -82,6 +60,12 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
     const homeColor = match.homeTeam.color || '#1c1c1e';
     const awayColor = match.awayTeam.color || '#1c1c1e';
     const bgGradient = `linear-gradient(135deg, ${awayColor}15 0%, #09090b 50%, ${homeColor}15 100%)`;
+    const isTennis = match.sport === Sport.TENNIS;
+
+    // Tennis: show round (R1, QF, SF, F). Team sports: show period/clock.
+    const roundStr = match.round
+        ? match.round.replace('Qualifying ', 'Q').replace('Round of ', 'R').replace('Round ', 'R')
+        : null;
 
     return (
         <div
@@ -91,7 +75,7 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
         >
             {/* Dynamic Background */}
             <div className="absolute inset-0 opacity-60 transition-opacity duration-500 group-hover:opacity-80" style={{ background: bgGradient }} />
-            <div className="absolute inset-0 bg-black/20" /> {/* Dimmer */}
+            <div className="absolute inset-0 bg-black/20" />
 
             <div className="relative z-10 h-full flex flex-col justify-between p-5">
                 {/* Top Row: Status */}
@@ -110,38 +94,69 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
                                 </span>
                             </div>
                         )}
+                        {/* Tennis round badge */}
+                        {isTennis && roundStr && (
+                            <div className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
+                                <span className="text-label font-bold text-zinc-400 uppercase tracking-widest">{roundStr}</span>
+                            </div>
+                        )}
                     </div>
                     <span className="text-caption font-bold text-white/30 uppercase tracking-widest">{match.leagueId}</span>
                 </div>
 
                 {/* Middle Row: Matchup */}
                 <div className="flex items-center justify-between px-2">
-                    <div className="flex flex-col items-center gap-2">
-                        <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-12 h-12 object-contain drop-shadow-2xl" />
-                        <span className="text-sm font-bold text-white tracking-tight">{match.awayTeam.abbreviation || match.awayTeam.name.substring(0, 3).toUpperCase()}</span>
-                    </div>
+                    {/* Player/Team 1 (Away) */}
+                    {isTennis ? (
+                        <TennisPlayerIdentity team={match.awayTeam} />
+                    ) : (
+                        <div className="flex flex-col items-center gap-2">
+                            <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-12 h-12 object-contain drop-shadow-2xl" />
+                            <span className="text-sm font-bold text-white tracking-tight">{match.awayTeam.abbreviation || match.awayTeam.name.substring(0, 3).toUpperCase()}</span>
+                        </div>
+                    )}
 
-                    <div className="flex flex-col items-center">
-                        {isLive ? (
-                            <div className="text-3xl font-mono font-bold text-white tracking-tighter tabular-nums flex items-center gap-3">
-                                <span>{match.awayScore}</span>
-                                <span className="text-white/20">-</span>
-                                <span>{match.homeScore}</span>
-                            </div>
+                    {/* Score Center */}
+                    <div className="flex flex-col items-center gap-1">
+                        {isLive || (match.homeScore !== undefined && match.homeScore !== null) ? (
+                            isTennis ? (
+                                /* Tennis: Set-by-set scores for each player */
+                                <div className="flex flex-col items-center gap-1.5">
+                                    <HeroSetScores linescores={match.awayTeam.linescores} />
+                                    <div className="w-12 h-px bg-white/10" />
+                                    <HeroSetScores linescores={match.homeTeam.linescores} />
+                                </div>
+                            ) : (
+                                /* Team sports: Big score */
+                                <div className="text-3xl font-mono font-bold text-white tracking-tighter tabular-nums flex items-center gap-3">
+                                    <span>{match.awayScore}</span>
+                                    <span className="text-white/20">-</span>
+                                    <span>{match.homeScore}</span>
+                                </div>
+                            )
                         ) : (
                             <span className="text-2xl font-black text-white/20 italic">VS</span>
                         )}
                     </div>
 
-                    <div className="flex flex-col items-center gap-2">
-                        <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-12 h-12 object-contain drop-shadow-2xl" />
-                        <span className="text-sm font-bold text-white tracking-tight">{match.homeTeam.abbreviation || match.homeTeam.name.substring(0, 3).toUpperCase()}</span>
-                    </div>
+                    {/* Player/Team 2 (Home) */}
+                    {isTennis ? (
+                        <TennisPlayerIdentity team={match.homeTeam} />
+                    ) : (
+                        <div className="flex flex-col items-center gap-2">
+                            <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-12 h-12 object-contain drop-shadow-2xl" />
+                            <span className="text-sm font-bold text-white tracking-tight">{match.homeTeam.abbreviation || match.homeTeam.name.substring(0, 3).toUpperCase()}</span>
+                        </div>
+                    )}
                 </div>
 
+                {/* Bottom Row: Context */}
                 <div className="flex items-center justify-center">
                     <span className="text-caption font-bold text-white/40 uppercase tracking-widest truncate max-w-[200px]">
-                        {isLive ? getPeriodDisplay(match) : 'Headline Event'}
+                        {isLive
+                            ? (isTennis && roundStr ? roundStr : getPeriodDisplay(match))
+                            : 'Headline Event'
+                        }
                     </span>
                 </div>
             </div>
