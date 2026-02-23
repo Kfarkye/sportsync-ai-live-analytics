@@ -96,7 +96,7 @@ export const UnifiedHeader: FC = () => {
                                     <ChevronDown size={12} className="text-zinc-500 mt-0.5 group-hover:text-zinc-300 transition-colors" />
                                 </div>
                                 {activeView !== 'LIVE' && leagueId.toLowerCase() !== sportLabel.toLowerCase() && (
-                                    <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none">
+                                    <span className="text-label font-black text-zinc-500 uppercase tracking-widest leading-none">
                                         {leagueId}
                                     </span>
                                 )}
@@ -127,7 +127,7 @@ export const UnifiedHeader: FC = () => {
                                 onClick={() => toggleAuthModal(true)}
                                 className="relative w-7 h-7 rounded-full bg-zinc-800 border border-white/10 p-0.5 shadow-lg active:scale-95 transition-transform"
                             >
-                                <div className="w-full h-full rounded-full bg-gradient-to-tr from-zinc-700 to-zinc-900 flex items-center justify-center text-[10px] font-bold text-zinc-100 uppercase tracking-tighter">
+                                <div className="w-full h-full rounded-full bg-gradient-to-tr from-zinc-700 to-zinc-900 flex items-center justify-center text-caption font-bold text-zinc-100 uppercase tracking-tighter">
                                     {user.email?.[0]}
                                 </div>
                             </button>
@@ -174,7 +174,7 @@ export const UnifiedHeader: FC = () => {
                                                 id={option.isCurrent ? 'week-tab-active' : undefined}
                                                 onClick={() => handleWeekSelect(option.value)}
                                                 className={cn(
-                                                    "relative flex-shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-semibold tracking-tight transition-all duration-200 select-none",
+                                                    "relative flex-shrink-0 px-3 py-1.5 rounded-lg text-footnote font-semibold tracking-tight transition-all duration-200 select-none",
                                                     option.isCurrent ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
                                                 )}
                                             >
@@ -216,7 +216,7 @@ export const UnifiedHeader: FC = () => {
                                                 key={tab}
                                                 onClick={() => setLiveTab(tab)}
                                                 className={cn(
-                                                    "relative px-3 py-1.5 rounded-md text-[11px] font-semibold tracking-tight transition-colors",
+                                                    "relative px-3 py-1.5 rounded-md text-footnote font-semibold tracking-tight transition-colors",
                                                     isActive ? "text-white bg-white/10" : "text-zinc-500 hover:text-zinc-300"
                                                 )}
                                             >
@@ -236,7 +236,7 @@ export const UnifiedHeader: FC = () => {
                                             placeholder="Search..."
                                             value={liveFilter}
                                             onChange={(e) => setLiveFilter(e.target.value)}
-                                            className="w-28 bg-white/5 border border-white/5 rounded-lg py-1.5 pl-7 pr-2 text-[11px] text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:bg-white/10 focus:border-white/10 transition-all"
+                                            className="w-28 bg-white/5 border border-white/5 rounded-lg py-1.5 pl-7 pr-2 text-footnote text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:bg-white/10 focus:border-white/10 transition-all"
                                         />
                                     </div>
 

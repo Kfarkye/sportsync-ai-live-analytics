@@ -26,15 +26,15 @@ const CoachCard: React.FC<CoachCardProps> = ({
 
     if (isLoading) {
         return (
-            <div className="animate-pulse py-3 border-b border-white/[0.04]">
+            <div className="animate-pulse py-3 border-b border-edge-subtle">
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <div className="h-2.5 w-16 bg-white/[0.04] rounded" />
-                        <div className="h-4 w-28 bg-white/[0.06] rounded" />
+                        <div className="h-2.5 w-16 bg-overlay-muted rounded" />
+                        <div className="h-4 w-28 bg-overlay-emphasis rounded" />
                     </div>
                     <div className="space-y-2 flex flex-col items-end">
-                        <div className="h-2.5 w-16 bg-white/[0.04] rounded" />
-                        <div className="h-4 w-28 bg-white/[0.06] rounded" />
+                        <div className="h-2.5 w-16 bg-overlay-muted rounded" />
+                        <div className="h-4 w-28 bg-overlay-emphasis rounded" />
                     </div>
                 </div>
             </div>
@@ -49,24 +49,24 @@ const CoachCard: React.FC<CoachCardProps> = ({
     }
 
     return (
-        <div className="relative py-3 border-b border-white/[0.04]">
+        <div className="relative py-3 border-b border-edge-subtle">
             <div className="grid grid-cols-2 gap-4">
                 {/* Away Coach */}
                 <div className="space-y-0.5">
-                    <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.1em]">
+                    <span className="text-caption font-semibold text-zinc-600 uppercase tracking-expanded">
                         {awayTeamName}
                     </span>
-                    <h4 className="text-[14px] font-semibold text-white tracking-tight">
+                    <h4 className="text-body font-semibold text-white tracking-tight">
                         {awayCoach?.coach_name || '—'}
                     </h4>
                 </div>
 
                 {/* Home Coach */}
                 <div className="space-y-0.5 text-right">
-                    <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.1em]">
+                    <span className="text-caption font-semibold text-zinc-600 uppercase tracking-expanded">
                         {homeTeamName}
                     </span>
-                    <h4 className="text-[14px] font-semibold text-white tracking-tight">
+                    <h4 className="text-body font-semibold text-white tracking-tight">
                         {homeCoach?.coach_name || '—'}
                     </h4>
                 </div>

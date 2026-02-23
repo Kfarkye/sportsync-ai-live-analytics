@@ -147,6 +147,7 @@ interface GameViewModel {
         displayDate: string;
         hasData: boolean;
         league: string;
+        startLabel: string;
     };
     teams: {
         home: TeamViewModel;
@@ -535,6 +536,13 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
                         match.lastPlay
                 ),
                 league: league.replace(/_/g, ' '),
+                startLabel: ['NFL', 'CFB', 'COLLEGE_FOOTBALL'].some(s => league.includes(s)) ? 'KICKOFF'
+                    : ['NBA', 'CBB', 'NCAAB', 'WNBA'].some(s => league.includes(s)) ? 'TIP-OFF'
+                    : ['NHL'].some(s => league.includes(s)) ? 'PUCK DROP'
+                    : ['MLB'].some(s => league.includes(s)) ? 'FIRST PITCH'
+                    : ['SOCCER', 'MLS', 'EPL', 'LIGA', 'SERIE', 'BUNDESLIGA', 'LIGUE', 'UCL', 'UEL', 'WORLD'].some(s => league.includes(s)) ? 'KICK-OFF'
+                    : ['TENNIS'].some(s => league.includes(s)) ? 'FIRST SERVE'
+                    : 'START',
             },
             teams: {
                 home: {
@@ -618,9 +626,9 @@ const ObsidianPanel = memo(
         return (
             <Component
                 className={cn(
-                    'relative overflow-hidden bg-[#09090B]',
-                    'border border-white/[0.06] shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]',
-                    hover && 'transition-colors duration-200 hover:bg-white/[0.02]',
+                    'relative overflow-hidden bg-surface-base',
+                    'border border-edge shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]',
+                    hover && 'transition-colors duration-200 hover:bg-overlay-subtle',
                     className
                 )}
                 {...props}
@@ -640,7 +648,7 @@ ObsidianPanel.displayName = 'ObsidianPanel';
 const Label = ({ children, className }: { children: ReactNode; className?: string }) => (
     <div
         className={cn(
-            'text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] leading-none',
+            'text-caption font-bold text-zinc-500 uppercase tracking-loose leading-none',
             className
         )}
     >
@@ -720,7 +728,7 @@ const FieldSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
         );
 
     return (
-        <div className="relative w-full aspect-[2.4/1] overflow-hidden bg-[#000000] border-b border-white/[0.06] select-none isolate">
+        <div className="relative w-full aspect-[2.4/1] overflow-hidden bg-surface-pure border-b border-edge select-none isolate">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#1a2e22_0%,_#000000_100%)] opacity-100" />
             <div className="absolute inset-0 flex opacity-20">
                 {Array.from({ length: 11 }).map((_, i) => (
@@ -746,7 +754,7 @@ const FieldSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
             </div>
             <div className="absolute bottom-3 left-3 z-30 flex items-center gap-2 px-2 py-1 bg-black/80 backdrop-blur rounded border border-white/10">
                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: state.team.color }} />
-                <span className="text-[10px] font-mono text-white">{state.text}</span>
+                <span className="text-caption font-mono text-white">{state.text}</span>
             </div>
         </div>
     );
@@ -777,7 +785,7 @@ const CourtSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
         );
 
     return (
-        <div className="relative w-full aspect-[2.4/1] bg-[#111113] border-b border-white/[0.04] overflow-hidden select-none">
+        <div className="relative w-full aspect-[2.4/1] bg-surface-elevated border-b border-edge-subtle overflow-hidden select-none">
             <div
                 className="absolute inset-0 opacity-10"
                 style={{
@@ -805,7 +813,7 @@ const CourtSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
             </motion.div>
             <div className="absolute bottom-3 right-3 z-30 flex items-center gap-2 px-3 py-1 bg-black/80 backdrop-blur rounded-full border border-white/10">
                 <div className={cn('w-1.5 h-1.5 rounded-full bg-orange-500', !reduceMotion && 'animate-pulse')} />
-                <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+                <span className="text-caption font-bold text-white uppercase tracking-wider">
                     Poss {state.activeTeam.abbr}
                 </span>
             </div>
@@ -822,26 +830,26 @@ const ClosingLinesTable: FC<{ viewModel: GameViewModel }> = memo(({ viewModel })
     const { teams, betting } = viewModel;
 
     return (
-        <div className="bg-[#000000] px-6 py-6 border-b border-white/[0.06]">
+        <div className="bg-surface-pure px-6 py-6 border-b border-edge">
             <div className="flex items-center gap-2 mb-5">
                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                <span className="text-caption font-bold uppercase tracking-widest text-zinc-500">
                     {betting.linesLabel || 'Closing Lines'}
                 </span>
             </div>
 
             <div className="w-full">
                 <div className="grid grid-cols-[1fr_1fr_1fr_1fr] mb-3 px-2">
-                    <span className="text-[9px] font-bold text-zinc-600 tracking-widest uppercase">
+                    <span className="text-label font-bold text-zinc-600 tracking-widest uppercase">
                         Team
                     </span>
-                    <span className="text-[9px] font-bold text-zinc-600 tracking-widest uppercase text-right">
+                    <span className="text-label font-bold text-zinc-600 tracking-widest uppercase text-right">
                         Spread
                     </span>
-                    <span className="text-[9px] font-bold text-zinc-600 tracking-widest uppercase text-right">
+                    <span className="text-label font-bold text-zinc-600 tracking-widest uppercase text-right">
                         Total
                     </span>
-                    <span className="text-[9px] font-bold text-zinc-600 tracking-widest uppercase text-right">
+                    <span className="text-label font-bold text-zinc-600 tracking-widest uppercase text-right">
                         Money
                     </span>
                 </div>
@@ -852,11 +860,11 @@ const ClosingLinesTable: FC<{ viewModel: GameViewModel }> = memo(({ viewModel })
                 ].map((row, i) => (
                     <div
                         key={row.team.id ?? i}
-                        className="grid grid-cols-[1fr_1fr_1fr_1fr] py-4 border-t border-white/[0.06] items-center px-2"
+                        className="grid grid-cols-[1fr_1fr_1fr_1fr] py-4 border-t border-edge items-center px-2"
                     >
                         <div className="flex items-center gap-3">
                             <TeamLogo logo={row.team.logo} className="w-5 h-5 object-contain" />
-                            <span className="text-[11px] font-bold text-white tracking-wider">
+                            <span className="text-footnote font-bold text-white tracking-wider">
                                 {row.team.abbr}
                             </span>
                         </div>
@@ -986,20 +994,20 @@ const BoxScoreCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
     if (!rows.length) return null;
 
     return (
-        <div className="bg-[#000000] border-t border-white/[0.04] pb-20">
+        <div className="bg-surface-pure border-t border-edge-subtle pb-20">
             <div className="flex items-center gap-2 mb-4 px-8 pt-8">
                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                <span className="text-caption font-bold uppercase tracking-widest text-zinc-500">
                     Match Stats
                 </span>
             </div>
             {rows.map((row, i) => (
                 <div
                     key={i}
-                    className="grid grid-cols-[1fr_auto_1fr] py-4 px-8 border-b border-white/[0.04] items-center"
+                    className="grid grid-cols-[1fr_auto_1fr] py-4 px-8 border-b border-edge-subtle items-center"
                 >
                     <span className="text-sm font-mono text-white text-left">{row.away}</span>
-                    <span className="text-[10px] font-bold text-zinc-500 tracking-widest uppercase">
+                    <span className="text-caption font-bold text-zinc-500 tracking-widest uppercase">
                         {row.label}
                     </span>
                     <span className="text-sm font-mono text-white text-right">{row.home}</span>
@@ -1026,7 +1034,7 @@ const PredictionCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
                 </div>
                 <div
                     className={cn(
-                        'px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border',
+                        'px-2 py-0.5 rounded text-label font-bold uppercase tracking-wider border',
                         isPlay
                             ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10'
                             : 'text-zinc-500 border-white/5 bg-white/5'
@@ -1079,7 +1087,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
         const showTabs = !isEmbedded;
         const logoSize = isEmbedded ? 'w-16 h-16 sm:w-20 sm:h-20' : 'w-20 h-20 sm:w-24 sm:h-24';
         const logoImgSize = isEmbedded ? 'w-10 h-10 sm:w-14 sm:h-14' : 'w-12 h-12 sm:w-16 sm:h-16';
-        const nameText = isEmbedded ? 'text-[14px] sm:text-[18px]' : 'text-[15px] sm:text-[20px]';
+        const nameText = isEmbedded ? 'text-body sm:text-[18px]' : 'text-body-lg sm:text-title-lg';
         const scoreText = isEmbedded ? 'text-4xl sm:text-6xl' : 'text-5xl sm:text-8xl';
         const centerBlockPaddingTop = isEmbedded ? 'pt-1' : 'pt-4';
         const gridMarginTop = isEmbedded ? 'mt-8' : 'mt-16';
@@ -1093,7 +1101,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
             <header
                 className={cn(
                     'relative w-full flex flex-col items-center overflow-hidden select-none',
-                    isEmbedded ? 'bg-[#050506] pt-4' : 'bg-[#050506] pt-6 border-b border-white/[0.08]'
+                    isEmbedded ? 'bg-surface-pure pt-4' : 'bg-surface-pure pt-6 border-b border-edge-strong'
                 )}
             >
                 {/* Top Status Bar: [Back] [Date/League] [Dot] */}
@@ -1110,14 +1118,14 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                             )}
                         >
                             <ArrowLeft size={14} strokeWidth={3} />
-                            <span className="text-[10px] font-bold tracking-widest uppercase">BACK</span>
+                            <span className="text-caption font-bold tracking-widest uppercase">BACK</span>
                         </button>
                         <div className="flex flex-col items-center">
-                            <span className="text-[10px] font-black text-zinc-400 tracking-widest uppercase">
+                            <span className="text-caption font-black text-zinc-400 tracking-widest uppercase">
                                 {meta.league || 'LIVE'}
                             </span>
                             {isPregame && (
-                                <span className="text-[9px] font-bold text-zinc-600 tracking-wide mt-0.5">
+                                <span className="text-label font-bold text-zinc-600 tracking-wide mt-0.5">
                                     {meta.displayDate}
                                 </span>
                             )}
@@ -1145,7 +1153,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                         className="absolute top-[30%] -right-[20%] w-[80%] h-[80%] blur-[120px] opacity-20"
                         style={{ background: teams.home.color }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050506]/40 to-[#050506]" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-surface-pure/40 to-surface-pure" />
                 </div>
 
                 {/* Horizontal Face-Off (Grid for Precision Center) */}
@@ -1163,7 +1171,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 className="absolute inset-[-10px] rounded-full blur-2xl opacity-20"
                                 style={{ background: teams.away.color }}
                             />
-                            <div className={cn('flex items-center justify-center bg-white/[0.02] rounded-full border border-white/[0.05]', logoSize)}>
+                            <div className={cn('flex items-center justify-center bg-overlay-subtle rounded-full border border-white/[0.05]', logoSize)}>
                             <TeamLogo
                                 logo={teams.away.logo}
                                 className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
@@ -1177,11 +1185,11 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 <span className="sm:hidden">{isPregame ? teams.away.name : teams.away.abbr}</span>
                             </h2>
                             {isPregame && (
-                                <div className="text-[10px] font-bold text-zinc-400 tracking-widest uppercase mt-1">
+                                <div className="text-caption font-bold text-zinc-400 tracking-widest uppercase mt-1">
                                     {teams.away.abbr}
                                 </div>
                             )}
-                            <span className="mt-1 text-[11px] font-semibold text-white/35 tabular-nums tracking-wide font-mono">
+                            <span className="mt-1 text-footnote font-semibold text-white/35 tabular-nums tracking-wide font-mono">
                                 {teams.away.record}
                             </span>
                         </div>
@@ -1190,16 +1198,23 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                     {/* Center Stage: Score vs Pregame Time */}
                     <div className={cn('flex flex-col items-center justify-start min-w-[140px]', centerBlockPaddingTop)}>
                         {isPregame ? (
-                            <div className="flex flex-col items-center gap-2">
-                                <span className="text-[38px] sm:text-[52px] font-medium tracking-[-0.04em] tabular-nums text-white">
-                                    {meta.displayClock}
+                            <div className="flex flex-col items-center">
+                                <div className="flex items-baseline">
+                                    <span
+                                        className="text-[42px] sm:text-[52px] font-light tracking-[-0.03em] tabular-nums text-white"
+                                        style={{ fontFeatureSettings: '"tnum" on, "lnum" on' }}
+                                    >
+                                        {meta.displayClock}
+                                    </span>
+                                </div>
+                                <span className="text-caption font-medium text-zinc-600 uppercase tracking-widest mt-1">
+                                    {meta.startLabel}
                                 </span>
-                                <span className="text-[10px] font-medium text-white/40 uppercase tracking-[0.15em]">
-                                    Tip-Off
-                                </span>
-                                <span className="text-[11px] font-mono font-medium text-zinc-500 tracking-wide">
-                                    {betting.matchupStr}
-                                </span>
+                                {betting.matchupStr && (
+                                    <span className="text-footnote font-mono font-medium text-zinc-500 tracking-wide mt-3">
+                                        {betting.matchupStr}
+                                    </span>
+                                )}
                             </div>
                         ) : (
                             <div className="flex flex-col items-center gap-4">
@@ -1211,7 +1226,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                         {teams.home.score}
                                     </span>
                                 </div>
-                                <div className="flex items-center gap-3 text-[11px] font-medium tracking-[0.2em] uppercase">
+                                <div className="flex items-center gap-3 text-footnote font-medium tracking-widest uppercase">
                                     <span className="text-white/40">{statusLabel}</span>
                                     {!meta.isFinished && (
                                         <>
@@ -1233,7 +1248,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 className="absolute inset-[-10px] rounded-full blur-2xl opacity-20"
                                 style={{ background: teams.home.color }}
                             />
-                            <div className={cn('flex items-center justify-center bg-white/[0.02] rounded-full border border-white/[0.05]', logoSize)}>
+                            <div className={cn('flex items-center justify-center bg-overlay-subtle rounded-full border border-white/[0.05]', logoSize)}>
                             <TeamLogo
                                 logo={teams.home.logo}
                                 className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
@@ -1246,11 +1261,11 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 <span className="sm:hidden">{isPregame ? teams.home.name : teams.home.abbr}</span>
                             </h2>
                             {isPregame && (
-                                <div className="text-[10px] font-bold text-zinc-400 tracking-widest uppercase mt-1">
+                                <div className="text-caption font-bold text-zinc-400 tracking-widest uppercase mt-1">
                                     {teams.home.abbr}
                                 </div>
                             )}
-                            <span className="mt-1 text-[11px] font-semibold text-white/35 tabular-nums tracking-wide font-mono">
+                            <span className="mt-1 text-footnote font-semibold text-white/35 tabular-nums tracking-wide font-mono">
                                 {teams.home.record}
                             </span>
                         </div>
@@ -1259,7 +1274,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
 
                 {/* Navigation Tabs */}
                 {showTabs && (
-                    <div className="w-full flex items-center justify-center gap-8 border-b border-white/[0.08] pb-0 overflow-x-auto no-scrollbar px-4">
+                    <div className="w-full flex items-center justify-center gap-6 border-b border-edge-strong pb-0 overflow-x-auto no-scrollbar px-4">
                         {TABS.map((tab, i) => (
                             <button
                                 key={tab}
@@ -1267,8 +1282,8 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 onClick={() => handleTabClick(tab)}
                                 aria-pressed={activeTab === tab}
                                 className={cn(
-                                    'text-[10px] sm:text-[11px] font-bold tracking-[0.15em] transition-colors pb-4 relative shrink-0',
-                                    i === TABS.length - 1 && 'ml-4', // M-03: Extra spacing before AI tab
+                                    'text-caption sm:text-footnote font-bold tracking-loose transition-colors pb-4 relative shrink-0',
+                                    i === TABS.length - 1 && 'ml-2', // M-03: Subtle spacing before AI tab
                                     activeTab === tab
                                         ? 'text-white'
                                         : 'text-zinc-600 hover:text-zinc-400'
@@ -1315,7 +1330,7 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
         return (
             <div
                 className={cn(
-                    'flex flex-col w-full bg-[#000000] overflow-x-hidden font-sans',
+                    'flex flex-col w-full bg-surface-pure overflow-x-hidden font-sans',
                     showHeader ? 'min-h-screen' : 'min-h-0'
                 )}
             >
@@ -1325,7 +1340,7 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
                 <div className={cn('w-full', !reduceMotion && 'animate-in fade-in duration-700')}>
                     {/* Visualization Layer - Only show if NOT pregame */}
                     {!vm.meta.isPregame && (
-                        <div className="w-full border-b border-white/[0.06]">
+                        <div className="w-full border-b border-edge">
                             {vm.meta.isFootball ? (
                                 <FieldSchematic viewModel={vm} />
                             ) : vm.meta.isBasketball ? (
@@ -1336,7 +1351,7 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
 
                     {/* Live Ticker - Only show if Live/Final */}
                     {!vm.meta.isPregame && (
-                        <div className="px-6 py-4 border-b border-white/[0.04] flex gap-3 items-start bg-[#111113]">
+                        <div className="px-6 py-4 border-b border-edge-subtle flex gap-3 items-start bg-surface-elevated">
                             <div
                                 className={cn(
                                     'mt-1.5 w-1.5 h-1.5 rounded-full shrink-0',
@@ -1358,7 +1373,7 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
                     {/* Data Modules */}
                     <ClosingLinesTable viewModel={vm} />
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/[0.06] border-b border-white/[0.06]">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-overlay-emphasis border-b border-edge">
                         <PredictionCard viewModel={vm} />
                         {!vm.meta.isPregame && (
                             <ObsidianPanel hover className="p-5 flex flex-col justify-between min-h-[130px]">

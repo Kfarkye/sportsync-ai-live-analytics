@@ -75,7 +75,7 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
         className={cn(
           // Container Geometry
           "relative flex items-center justify-center shrink-0 select-none overflow-hidden",
-          "bg-[#1A1A1A] rounded-2xl",
+          "bg-surface-subtle rounded-2xl",
           // Depth & Polish
           "shadow-[0_4px_12px_rgba(0,0,0,0.3)]",
           "border-t border-white/[0.05]",

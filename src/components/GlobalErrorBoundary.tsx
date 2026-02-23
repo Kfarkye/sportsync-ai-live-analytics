@@ -39,7 +39,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
     public render() {
         if (this.state.hasError) {
             return (
-                <div className="flex flex-col items-center justify-center min-h-screen bg-[#111113] text-white p-6">
+                <div className="flex flex-col items-center justify-center min-h-screen bg-surface-elevated text-white p-6">
                     <div className="absolute inset-0 pointer-events-none">
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-red-500/10 blur-[100px] rounded-full" />
                     </div>
@@ -63,7 +63,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
                         </button>
 
                         {process.env.NODE_ENV === 'development' && (
-                            <pre className="mt-8 p-4 bg-zinc-900 border border-white/5 rounded-lg text-[10px] text-left overflow-auto max-w-full text-zinc-500">
+                            <pre className="mt-8 p-4 bg-zinc-900 border border-white/5 rounded-lg text-caption text-left overflow-auto max-w-full text-zinc-500">
                                 {this.state.error?.toString()}
                             </pre>
                         )}

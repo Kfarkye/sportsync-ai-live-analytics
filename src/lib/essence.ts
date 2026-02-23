@@ -365,16 +365,7 @@ export const ESSENCE = {
   },
 } as const;
 
-// ============================================================================
-// §16  UTILITY: Class Name Joiner
-// ============================================================================
-export const cn = (...classes: (string | undefined | null | false)[]) =>
-  classes.filter(Boolean).join(' ');
-
-// ============================================================================
-// §17  TYPE EXPORTS
-// ============================================================================
-export type EssenceColors  = typeof ESSENCE.colors;
+// =====================================================================export type EssenceColors  = typeof ESSENCE.colors;
 export type EssenceSurface = keyof typeof ESSENCE.colors.surface;
 export type EssenceText    = keyof typeof ESSENCE.colors.text;
 export type EssenceAccent  = keyof typeof ESSENCE.colors.accent;

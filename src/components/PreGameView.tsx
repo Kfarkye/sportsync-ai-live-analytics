@@ -36,33 +36,33 @@ const FatigueCard: React.FC<{ fatigue: { home?: FatigueMetrics, away?: FatigueMe
     const renderMetrics = (data: FatigueMetrics | undefined, label: string) => {
         if (!data) return null;
         return (
-            <div className="flex-1 p-3 bg-white/[0.03] rounded-lg border border-white/5">
+            <div className="flex-1 p-3 bg-overlay-dim rounded-lg border border-white/5">
                 <div className="flex justify-between items-center mb-2">
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase">{label}</span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${data.fatigueScore > 70 ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                    <span className="text-caption font-bold text-zinc-500 uppercase">{label}</span>
+                    <span className={`text-caption font-bold px-1.5 py-0.5 rounded ${data.fatigueScore > 70 ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
                         Load: {data.fatigueScore}%
                     </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                     <div className="text-center">
-                        <div className="text-[9px] text-zinc-500 uppercase">Rest</div>
+                        <div className="text-label text-zinc-500 uppercase">Rest</div>
                         <div className="text-sm font-mono font-bold text-white">{data.daysRest}d</div>
                     </div>
                     <div className="text-center">
-                        <div className="text-[9px] text-zinc-500 uppercase">Travel</div>
+                        <div className="text-label text-zinc-500 uppercase">Travel</div>
                         <div className="text-sm font-mono font-bold text-white">{data.milesTraveled}mi</div>
                     </div>
                 </div>
-                <p className="text-[10px] text-zinc-400 italic leading-tight">{data.note}</p>
+                <p className="text-caption text-zinc-400 italic leading-tight">{data.note}</p>
             </div>
         );
     };
 
     return (
-        <div className="bg-[#09090B] border border-white/10 rounded-xl p-4">
+        <div className="bg-surface-base border border-white/10 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-4">
                 <Plane size={14} className="text-blue-400" />
-                <h3 className="text-[10px] font-bold text-white uppercase tracking-widest">Travel & Schedule</h3>
+                <h3 className="text-caption font-bold text-white uppercase tracking-widest">Travel & Schedule</h3>
             </div>
             <div className="flex flex-col md:flex-row gap-4">
                 {renderMetrics(fatigue.away, 'Away')}
@@ -73,18 +73,18 @@ const FatigueCard: React.FC<{ fatigue: { home?: FatigueMetrics, away?: FatigueMe
 };
 
 const OfficiatingCard: React.FC<{ stats: OfficialStats }> = ({ stats }) => (
-    <div className="bg-[#09090B] border border-white/10 rounded-xl p-4">
+    <div className="bg-surface-base border border-white/10 rounded-xl p-4">
         <div className="flex items-center gap-2 mb-4">
             <Scale size={14} className="text-yellow-400" />
-            <h3 className="text-[10px] font-bold text-white uppercase tracking-widest">Officiating Crew</h3>
+            <h3 className="text-caption font-bold text-white uppercase tracking-widest">Officiating Crew</h3>
         </div>
 
         <div className="flex justify-between items-start mb-4">
             <div>
                 <div className="text-sm font-bold text-white">{stats.crewName || "Unknown Crew"}</div>
-                <div className="text-[10px] text-zinc-500 uppercase">{stats.referee}</div>
+                <div className="text-caption text-zinc-500 uppercase">{stats.referee}</div>
             </div>
-            <div className={`px-2 py-1 rounded text-[10px] font-bold border ${stats.bias?.includes('Home') ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+            <div className={`px-2 py-1 rounded text-caption font-bold border ${stats.bias?.includes('Home') ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
                 stats.bias?.includes('Neutral') ? 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20' :
                     'bg-red-500/10 text-red-400 border-red-500/20'
                 }`}>
@@ -92,17 +92,17 @@ const OfficiatingCard: React.FC<{ stats: OfficialStats }> = ({ stats }) => (
             </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 bg-white/[0.03] rounded-lg p-2 border border-white/5">
+        <div className="grid grid-cols-3 gap-2 bg-overlay-dim rounded-lg p-2 border border-white/5">
             <div className="text-center">
-                <div className="text-[9px] text-zinc-500 uppercase">Home Win</div>
+                <div className="text-label text-zinc-500 uppercase">Home Win</div>
                 <div className="font-mono font-bold text-white">{stats.homeWinPct}%</div>
             </div>
             <div className="text-center border-x border-white/5">
-                <div className="text-[9px] text-zinc-500 uppercase">Over</div>
+                <div className="text-label text-zinc-500 uppercase">Over</div>
                 <div className="font-mono font-bold text-white">{stats.overPct}%</div>
             </div>
             <div className="text-center">
-                <div className="text-[9px] text-zinc-500 uppercase">Fouls/Gm</div>
+                <div className="text-label text-zinc-500 uppercase">Fouls/Gm</div>
                 <div className="font-mono font-bold text-white">{stats.foulsPerGame}</div>
             </div>
         </div>
@@ -263,7 +263,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
     if (!news) {
         return (
-            <div className="flex flex-col items-center justify-center py-12 border border-white/5 rounded-xl bg-white/[0.02]">
+            <div className="flex flex-col items-center justify-center py-12 border border-white/5 rounded-xl bg-overlay-subtle">
                 <FileText className="text-zinc-600 mb-3" size={32} />
                 <p className="text-sm text-zinc-400 mb-4">Deep analysis report not generated yet.</p>
                 <button
@@ -284,7 +284,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
                 <div className="flex items-center gap-2 text-emerald-500">
                     <CheckCircle2 size={14} />
                     <span className="text-xs font-bold uppercase tracking-wider">Analysis Active</span>
-                    <span className="text-[10px] text-zinc-500">• {new Date(news.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="text-caption text-zinc-500">• {new Date(news.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <button
                     onClick={handleGenerate}
@@ -307,15 +307,15 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
                 } catch { }
 
                 return (
-                    <div className="bg-[#09090B] border border-white/5 rounded-xl overflow-hidden relative group">
+                    <div className="bg-surface-base border border-white/5 rounded-xl overflow-hidden relative group">
                         {/* Header: Zero UI Style */}
                         <div className="p-6 border-b border-white/5 flex justify-between items-end bg-gradient-to-r from-transparent via-white/[0.01] to-transparent">
                             <div>
-                                <div className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em] mb-2">Internal Briefing</div>
+                                <div className="text-caption font-bold text-zinc-600 uppercase tracking-widest mb-2">Internal Briefing</div>
                                 <h2 className="text-2xl font-bold text-white tracking-tight leading-none">{match.awayTeam.name} <span className="text-zinc-600">@</span> {match.homeTeam.name}</h2>
                             </div>
                             <div className="text-right">
-                                <div className="text-[10px] font-mono text-zinc-500 mb-1">{new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+                                <div className="text-caption font-mono text-zinc-500 mb-1">{new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
                                 <div className="flex gap-3 text-xs font-mono font-bold">
                                     <span className="text-white">{(match.odds?.homeSpread !== null && match.odds?.homeSpread !== undefined) ? (Number(match.odds.homeSpread) === 0 ? 'PK' : (Number(match.odds.homeSpread) > 0 ? `+${match.odds.homeSpread}` : match.odds.homeSpread)) : 'OFF'}</span>
                                     <span className="text-zinc-500">{(match.odds?.total !== null && match.odds?.total !== undefined) ? match.odds.total : 'OFF'}</span>
@@ -328,7 +328,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
                                 {/* Section 1: Identity & Form */}
                                 <div className="grid grid-cols-2 gap-8 mb-8">
                                     <div className="space-y-2">
-                                        <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                                        <div className="flex items-center gap-2 text-caption font-bold text-zinc-600 uppercase tracking-widest">
                                             <div className="w-1 h-1 bg-blue-500 rounded-full" /> Away Identity
                                         </div>
                                         <p className="text-sm text-zinc-300 font-medium leading-relaxed tracking-wide opacity-90">
@@ -336,7 +336,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
                                         </p>
                                     </div>
                                     <div className="space-y-2">
-                                        <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                                        <div className="flex items-center gap-2 text-caption font-bold text-zinc-600 uppercase tracking-widest">
                                             <div className="w-1 h-1 bg-indigo-500 rounded-full" /> Home Identity
                                         </div>
                                         <p className="text-sm text-zinc-300 font-medium leading-relaxed tracking-wide opacity-90">
@@ -347,14 +347,14 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
                                 {/* Section 2: Intel Grid */}
                                 <div className="grid md:grid-cols-2 gap-4 mb-8">
-                                    <div className="bg-white/[0.02] border border-white/5 p-4 rounded-lg">
-                                        <div className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mb-2 font-mono">Market Signal</div>
+                                    <div className="bg-overlay-subtle border border-white/5 p-4 rounded-lg">
+                                        <div className="text-label font-bold text-emerald-500 uppercase tracking-widest mb-2 font-mono">Market Signal</div>
                                         <p className="text-xs text-zinc-400 font-mono leading-relaxed">
                                             {structured.betting_splits}
                                         </p>
                                     </div>
-                                    <div className="bg-white/[0.02] border border-white/5 p-4 rounded-lg">
-                                        <div className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mb-2 font-mono">Key Trend</div>
+                                    <div className="bg-overlay-subtle border border-white/5 p-4 rounded-lg">
+                                        <div className="text-label font-bold text-indigo-500 uppercase tracking-widest mb-2 font-mono">Key Trend</div>
                                         <p className="text-xs text-zinc-400 font-mono leading-relaxed">
                                             {structured.key_trend}
                                         </p>
@@ -363,7 +363,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
                                 {/* Section 3: The Verdict */}
                                 <div className="relative pl-4 border-l-2 border-white/10">
-                                    <div className="text-[10px] font-bold text-white uppercase tracking-widest mb-3 absolute -top-3 left-4 bg-[#09090B] px-2">The Verdict</div>
+                                    <div className="text-caption font-bold text-white uppercase tracking-widest mb-3 absolute -top-3 left-4 bg-surface-base px-2">The Verdict</div>
                                     <div className="prose prose-invert prose-sm max-w-none text-zinc-300 prose-p:leading-relaxed prose-strong:text-white prose-p:mb-2 prose-p:opacity-90">
                                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{structured.analysis}</ReactMarkdown>
                                     </div>
@@ -384,10 +384,10 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
             {/* 1.5 Shareable Insight Card */}
             {insightCardData && (
-                <div className="bg-[#09090B] border border-white/10 rounded-2xl p-4 md:p-5">
+                <div className="bg-surface-base border border-white/10 rounded-2xl p-4 md:p-5">
                     <div className="flex items-center gap-2 mb-4">
                         <CheckCircle2 size={12} className="text-emerald-400" />
-                        <span className="text-[10px] font-bold text-white uppercase tracking-widest">Shareable Insight</span>
+                        <span className="text-caption font-bold text-white uppercase tracking-widest">Shareable Insight</span>
                     </div>
                     <InsightCard data={insightCardData} />
                 </div>
@@ -396,10 +396,10 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
             {/* 2. Qualitative Context Grid */}
             <div className="grid md:grid-cols-2 gap-4">
                 {/* Narrative Trends (was Market Edge) */}
-                <div className="bg-[#09090B] border border-white/10 rounded-xl p-4">
+                <div className="bg-surface-base border border-white/10 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-4">
                         <TrendingUp size={14} className="text-violet-400" />
-                        <h3 className="text-[10px] font-bold text-white uppercase tracking-widest">Narrative Trends</h3>
+                        <h3 className="text-caption font-bold text-white uppercase tracking-widest">Narrative Trends</h3>
                     </div>
                     <div className="space-y-3">
                         {news.bettingFactors.map((f, i) => (
@@ -416,21 +416,21 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
                 <div className="space-y-4">
                     {news.weather && (
-                        <div className="bg-gradient-to-br from-indigo-950/20 to-[#09090B] border border-indigo-500/20 rounded-xl p-4">
+                        <div className="bg-gradient-to-br from-indigo-950/20 to-surface-base border border-indigo-500/20 rounded-xl p-4">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2 text-indigo-400">
                                     <Thermometer size={14} />
-                                    <h3 className="text-[10px] font-bold uppercase tracking-widest">Hyper-Local</h3>
+                                    <h3 className="text-caption font-bold uppercase tracking-widest">Hyper-Local</h3>
                                 </div>
                                 <span className="text-xl font-mono font-bold text-white">{news.weather.temp}</span>
                             </div>
                             <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                                <div><div className="text-zinc-500 text-[10px] uppercase">Wind</div><div className="font-bold text-white">{news.weather.wind}</div></div>
-                                <div><div className="text-zinc-500 text-[10px] uppercase">Humid</div><div className="font-bold text-white">{news.weather.humidity}</div></div>
-                                <div><div className="text-zinc-500 text-[10px] uppercase">Condition</div><div className="font-bold text-white">{news.weather.condition}</div></div>
+                                <div><div className="text-zinc-500 text-caption uppercase">Wind</div><div className="font-bold text-white">{news.weather.wind}</div></div>
+                                <div><div className="text-zinc-500 text-caption uppercase">Humid</div><div className="font-bold text-white">{news.weather.humidity}</div></div>
+                                <div><div className="text-zinc-500 text-caption uppercase">Condition</div><div className="font-bold text-white">{news.weather.condition}</div></div>
                             </div>
                             {news.weather.impact && (
-                                <div className="mt-3 pt-3 border-t border-indigo-500/10 text-[11px] text-indigo-300">
+                                <div className="mt-3 pt-3 border-t border-indigo-500/10 text-footnote text-indigo-300">
                                     <span className="font-bold">Impact:</span> {news.weather.impact}
                                 </div>
                             )}
@@ -444,22 +444,22 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
             <div className="grid md:grid-cols-2 gap-4">
                 {news.fatigue && <FatigueCard fatigue={news.fatigue} />}
 
-                <div className="bg-[#09090B] border border-white/10 rounded-xl p-4">
+                <div className="bg-surface-base border border-white/10 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-4">
                         <Activity size={14} className="text-rose-400" />
-                        <h3 className="text-[10px] font-bold text-white uppercase tracking-widest">Critical Injuries</h3>
+                        <h3 className="text-caption font-bold text-white uppercase tracking-widest">Critical Injuries</h3>
                     </div>
                     <div className="space-y-3">
                         {news.keyInjuries.length === 0 ? (
                             <div className="text-xs text-zinc-500 italic">No critical injuries reported.</div>
                         ) : (
                             news.keyInjuries.map((inj, i) => (
-                                <div key={i} className="bg-white/[0.02] p-2 rounded border border-white/5">
+                                <div key={i} className="bg-overlay-subtle p-2 rounded border border-white/5">
                                     <div className="flex justify-between items-start mb-1">
                                         <span className="text-xs font-bold text-white">{inj.player} <span className="text-zinc-500">({inj.team})</span></span>
-                                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-rose-500/10 text-rose-400 rounded border border-rose-500/20">{inj.status}</span>
+                                        <span className="text-label font-bold px-1.5 py-0.5 bg-rose-500/10 text-rose-400 rounded border border-rose-500/20">{inj.status}</span>
                                     </div>
-                                    <p className="text-[10px] text-zinc-400">{inj.analysis || inj.description || inj.details}</p>
+                                    <p className="text-caption text-zinc-400">{inj.analysis || inj.description || inj.details}</p>
                                 </div>
                             ))
                         )}
@@ -472,12 +472,12 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
             {/* Sources */}
             {news.sources && news.sources.length > 0 && (
                 <div className="pt-4 border-t border-white/5">
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">
+                    <div className="flex items-center gap-2 text-caption font-bold text-zinc-500 uppercase tracking-widest mb-3">
                         <FileText size={12} /> Sources
                     </div>
                     <div className="flex flex-wrap gap-2">
                         {news.sources.map((s, i) => (
-                            <a key={i} href={s.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] text-zinc-400 hover:text-white transition-colors">
+                            <a key={i} href={s.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-caption text-zinc-400 hover:text-white transition-colors">
                                 <ExternalLink size={10} /> {s.title}
                             </a>
                         ))}

@@ -32,17 +32,17 @@ const MetricRow = ({
 
   return (
     <div className="flex flex-col gap-2 mb-4 group/row">
-      <div className="flex justify-between items-center text-[10px]">
+      <div className="flex justify-between items-center text-caption">
         <div className="flex items-center gap-1.5 text-zinc-500 group-hover/row:text-zinc-300 transition-colors">
           <Icon size={10} strokeWidth={2.5} />
-          <span className="font-bold uppercase tracking-[0.15em]">{label}</span>
+          <span className="font-bold uppercase tracking-loose">{label}</span>
         </div>
         <span className="font-sans font-semibold text-white tabular-nums tracking-tight">
-          {value.toFixed(1)} <span className="text-zinc-600 text-[9px] font-sans font-normal">PPG</span>
+          {value.toFixed(1)} <span className="text-zinc-600 text-label font-sans font-normal">PPG</span>
         </span>
       </div>
 
-      <div className="h-2 w-full bg-white/[0.04] rounded-full overflow-hidden relative">
+      <div className="h-2 w-full bg-overlay-muted rounded-full overflow-hidden relative">
         <MotionDiv
           initial={{ width: 0 }}
           animate={{ width: `${widthPct}%` }}
@@ -71,7 +71,7 @@ const VenueSplitsCard: React.FC<VenueSplitsCardProps> = ({ data, teamColor = '#4
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1.0] }}
-      className="relative flex flex-col py-4 border-b border-white/[0.04] last:border-0"
+      className="relative flex flex-col py-4 border-b border-edge-subtle last:border-0"
     >
 
       {/* Header */}
@@ -84,7 +84,7 @@ const VenueSplitsCard: React.FC<VenueSplitsCardProps> = ({ data, teamColor = '#4
             <TeamLogo logo={data.team.logo_url} name={data.team.name} className="w-8 h-8 object-contain drop-shadow-md" />
           </MotionDiv>
           <div className="flex flex-col">
-            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] leading-none mb-1.5">Team Analysis</span>
+            <span className="text-label font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1.5">Team Analysis</span>
             <h3 className="text-lg font-bold text-white tracking-tight leading-none truncate max-w-[140px]">
               {data.team.name}
             </h3>
@@ -93,9 +93,9 @@ const VenueSplitsCard: React.FC<VenueSplitsCardProps> = ({ data, teamColor = '#4
 
         {/* Delta Badge - Forensic Pill */}
         <div
-          className="flex flex-col items-end justify-center px-2 py-1 rounded-lg border bg-white/[0.02] border-white/[0.06]"
+          className="flex flex-col items-end justify-center px-2 py-1 rounded-lg border bg-overlay-subtle border-edge"
         >
-          <span className="text-[8px] font-black uppercase tracking-widest mb-0.5 text-zinc-500">
+          <span className="text-nano font-black uppercase tracking-widest mb-0.5 text-zinc-500">
             Home Edge
           </span>
           <div className="flex items-center gap-1 font-mono font-bold text-sm leading-none text-white">
@@ -131,21 +131,21 @@ const VenueSplitsCard: React.FC<VenueSplitsCardProps> = ({ data, teamColor = '#4
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-1.5 text-zinc-500">
             <TrendingUp size={10} />
-            <span className="text-[9px] font-bold uppercase tracking-widest">L3 Trend</span>
+            <span className="text-label font-bold uppercase tracking-widest">L3 Trend</span>
           </div>
           <div className="flex items-baseline gap-1">
             <span className="text-xs font-sans font-semibold tabular-nums text-zinc-300 group-hover:text-white transition-colors">{data.recency?.last_3_avg?.toFixed(1) || '-'}</span>
-            <span className="text-[9px] text-zinc-600">PPG</span>
+            <span className="text-label text-zinc-600">PPG</span>
           </div>
         </div>
 
         <div className="flex flex-col items-end gap-0.5">
           <div className="flex items-center gap-1.5 text-zinc-500">
-            <span className="text-[9px] font-bold uppercase tracking-widest">Sample</span>
+            <span className="text-label font-bold uppercase tracking-widest">Sample</span>
             <Activity size={10} />
           </div>
           <span className="text-xs font-sans font-semibold tabular-nums text-zinc-300 group-hover:text-white transition-colors">
-            {data.games?.total || 0} <span className="text-[9px] text-zinc-600 font-sans font-normal">Gms</span>
+            {data.games?.total || 0} <span className="text-label text-zinc-600 font-sans font-normal">Gms</span>
           </span>
         </div>
 

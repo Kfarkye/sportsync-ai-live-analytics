@@ -99,10 +99,10 @@ const AppShell: FC = () => {
                 {isLoading && filteredMatches.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 opacity-50">
                     <div className="w-6 h-6 border-2 border-white/20 border-t-white/80 rounded-full animate-spin mb-4" />
-                    <p className="text-[11px] font-bold tracking-[0.2em] text-zinc-500 uppercase">Syncing Sports Data</p>
+                    <p className="text-footnote font-bold tracking-widest text-zinc-500 uppercase">Syncing Sports Data</p>
                     <button
                       onClick={() => window.location.reload()}
-                      className="mt-6 px-4 py-1.5 rounded-full border border-white/10 text-[10px] font-medium text-zinc-400 hover:bg-white/5 active:scale-95 transition-all"
+                      className="mt-6 px-4 py-1.5 rounded-full border border-white/10 text-caption font-medium text-zinc-400 hover:bg-white/5 active:scale-95 transition-all"
                     >
                       Force Refresh
                     </button>
@@ -116,7 +116,7 @@ const AppShell: FC = () => {
                     <h3 className="text-xl font-bold text-white tracking-tight">
                       {new Date(selectedDate).toDateString() === new Date().toDateString() ? 'No Games Today' : 'No Games Scheduled'}
                     </h3>
-                    <p className="text-zinc-500 text-[13px] mt-2 max-w-[200px] leading-relaxed">
+                    <p className="text-zinc-500 text-body-sm mt-2 max-w-[200px] leading-relaxed">
                       Check back later or navigate to another date in the timeline.
                     </p>
                   </div>
@@ -186,12 +186,12 @@ const AppShell: FC = () => {
       {/* Global Legal & Responsibility Footer */}
       <footer className="w-full max-w-7xl mx-auto px-6 py-12 border-t border-white/5 opacity-40">
         <div className="flex flex-col items-center text-center space-y-4">
-          <p className="text-[10px] font-medium leading-relaxed max-w-2xl text-zinc-400">
+          <p className="text-caption font-medium leading-relaxed max-w-2xl text-zinc-400">
             SportSync AI provides a quantitative decision-support environment for entertainment purposes only.
             We are not a sportsbook and do not provide financial advice or guarantee outcome success.
             Analytical confidence levels represent model weights, not mathematical probability of real-world results.
           </p>
-          <div className="flex items-center gap-6 text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500">
+          <div className="flex items-center gap-6 text-label font-black uppercase tracking-widest text-zinc-500">
             <span>Must be 21+</span>
             <span className="w-1 h-1 rounded-full bg-zinc-800" />
             <span>Problem? 1-800-GAMBLER</span>

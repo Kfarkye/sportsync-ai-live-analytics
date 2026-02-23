@@ -40,6 +40,7 @@ const SPORT_KEYS: Record<string, string> = {
   'ita.1': 'soccer_italy_serie_a',
   'fra.1': 'soccer_france_ligue_one',
   'uefa.champions': 'soccer_uefa_champs_league',
+  'fifa.world': 'soccer_fifa_world_cup',
   // Other
   'ufc': 'mma_mixed_martial_arts',
   'mma': 'mma_mixed_martial_arts',

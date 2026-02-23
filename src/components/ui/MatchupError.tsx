@@ -29,7 +29,7 @@ export const MatchupError: React.FC<MatchupErrorProps> = ({
                 {message}
             </p>
             {error && (
-                <div className="bg-black/40 p-3 rounded-xl border border-white/[0.04] text-[10px] font-mono text-rose-400 overflow-auto max-h-32 text-left">
+                <div className="bg-black/40 p-3 rounded-xl border border-edge-subtle text-caption font-mono text-rose-400 overflow-auto max-h-32 text-left">
                     {error.toString()}
                 </div>
             )}

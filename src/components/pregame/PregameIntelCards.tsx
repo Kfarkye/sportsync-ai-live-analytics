@@ -24,13 +24,13 @@ const SYSTEM = {
         snap: { type: "spring", damping: 22, stiffness: 450 } as Transition,
     },
     surface: {
-        void: "bg-[#09090B]",
-        glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+        void: "bg-surface-base",
+        glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-edge-subtle shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
         panel: ESSENCE.card.base,
     },
     type: {
-        mono: "font-mono text-[10px] tracking-[0.12em] uppercase text-zinc-500 tabular-nums font-medium",
-        label: "text-[9px] font-bold tracking-[0.08em] uppercase",
+        mono: "font-mono text-caption tracking-spread uppercase text-zinc-500 tabular-nums font-medium",
+        label: "text-label font-bold tracking-[0.08em] uppercase",
     },
 } as const;
 
@@ -275,7 +275,7 @@ const ConfidenceBar = ({ tier }: { tier: string }) => {
 
     return (
         <div className="flex items-center gap-2 h-4 w-full max-w-[120px]" title={`Confidence: ${tier}`}>
-            <div className="flex-1 h-[5px] rounded-full bg-white/[0.06] overflow-hidden backdrop-blur-sm">
+            <div className="flex-1 h-[5px] rounded-full bg-overlay-emphasis overflow-hidden backdrop-blur-sm">
                 <motion.div
                     className={cn("h-full rounded-full bg-gradient-to-r", gradient, glow)}
                     initial={{ width: 0 }}
@@ -283,7 +283,7 @@ const ConfidenceBar = ({ tier }: { tier: string }) => {
                     transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
                 />
             </div>
-            <span className={cn("text-[9px] font-mono uppercase tabular-nums", level === "high" ? "text-emerald-400" : level === "medium" ? "text-amber-400" : "text-zinc-500")}>
+            <span className={cn("text-label font-mono uppercase tabular-nums", level === "high" ? "text-emerald-400" : level === "medium" ? "text-amber-400" : "text-zinc-500")}>
                 {percent}%
             </span>
         </div>
@@ -354,7 +354,7 @@ const InsightRow = ({ card, confidenceTier, isLast, sources }: { card: ExtendedI
 
                     {/* Left Rail (Label) - Restored 'md:pl-[160px]' alignment structure */}
                     <div className="hidden md:flex w-[160px] shrink-0 flex-col gap-3 select-none pt-1">
-                        <span className={cn("text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-300 font-mono", expanded ? config.color : "text-zinc-600 group-hover:text-zinc-500")}>
+                        <span className={cn("text-caption font-bold tracking-widest uppercase transition-colors duration-300 font-mono", expanded ? config.color : "text-zinc-600 group-hover:text-zinc-500")}>
                             {config.label.split(' // ')[1]}
                         </span>
                         {isEngine && confidenceTier && <ConfidenceBar tier={confidenceTier} />}
@@ -364,12 +364,12 @@ const InsightRow = ({ card, confidenceTier, isLast, sources }: { card: ExtendedI
                     <div className="flex-1 min-w-0">
                         {/* Mobile Header */}
                         <div className="md:hidden flex items-center justify-between mb-4 opacity-80">
-                            <span className={cn("text-[9px] font-bold tracking-[0.2em] uppercase font-mono", expanded ? config.color : "text-zinc-600")}>{config.label.split(' // ')[1]}</span>
+                            <span className={cn("text-label font-bold tracking-widest uppercase font-mono", expanded ? config.color : "text-zinc-600")}>{config.label.split(' // ')[1]}</span>
                             {isEngine && confidenceTier && <ConfidenceBar tier={confidenceTier} />}
                         </div>
 
                         <div className="flex items-start justify-between gap-8">
-                            <div className={cn("text-[16px] md:text-[18px] leading-[1.6] font-light tracking-wide transition-colors duration-500 text-pretty max-w-[80ch]", isEngine ? "font-mono text-[13px] text-zinc-300/90 tracking-normal leading-[1.8]" : (expanded ? "text-white" : "text-zinc-400 group-hover:text-zinc-200"))}>
+                            <div className={cn("text-[16px] md:text-[18px] leading-[1.6] font-light tracking-wide transition-colors duration-500 text-pretty max-w-[80ch]", isEngine ? "font-mono text-body-sm text-zinc-300/90 tracking-normal leading-[1.8]" : (expanded ? "text-white" : "text-zinc-400 group-hover:text-zinc-200"))}>
                                 <RenderRichText text={displayThesis} sources={sources} />
                             </div>
 
@@ -388,14 +388,14 @@ const InsightRow = ({ card, confidenceTier, isLast, sources }: { card: ExtendedI
                                         {card.market_implication && (
                                             <div className="pl-0 md:pl-6 md:border-l border-white/10">
                                                 <div className="flex items-center gap-2 mb-2 text-emerald-400/80 md:hidden"><Activity size={10} /><span className={SYSTEM.type.label}>Market Implication</span></div>
-                                                <p className="text-[14px] text-zinc-400/90 italic leading-relaxed font-light"><RenderRichText text={String(card.market_implication)} sources={sources} /></p>
+                                                <p className="text-body text-zinc-400/90 italic leading-relaxed font-light"><RenderRichText text={String(card.market_implication)} sources={sources} /></p>
                                             </div>
                                         )}
                                         <div className="space-y-4">
                                             {details.map((detail, i) => (
                                                 <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + (i * 0.04) }} className="flex gap-4 group/item items-baseline">
                                                     <span className="block w-1 h-1 bg-zinc-700 rounded-full mt-2 shrink-0 group-hover/item:bg-white transition-colors duration-500" />
-                                                    <p className="text-[14px] text-zinc-400 font-light leading-relaxed group-hover/item:text-zinc-200 transition-colors duration-500"><RenderRichText text={detail} sources={sources} /></p>
+                                                    <p className="text-body text-zinc-400 font-light leading-relaxed group-hover/item:text-zinc-200 transition-colors duration-500"><RenderRichText text={detail} sources={sources} /></p>
                                                 </motion.div>
                                             ))}
                                         </div>
@@ -475,7 +475,7 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
             <div className="py-40 text-center w-full">
                 <div className="inline-flex flex-col items-center gap-6">
                     <span className={SYSTEM.type.mono}>Signal Lost</span>
-                    <button onClick={retry} className="px-8 py-2.5 rounded-full border border-zinc-800 text-[10px] font-bold text-zinc-500 hover:text-white hover:border-white/30 transition-all uppercase tracking-widest">Reconnect</button>
+                    <button onClick={retry} className="px-8 py-2.5 rounded-full border border-zinc-800 text-caption font-bold text-zinc-500 hover:text-white hover:border-white/30 transition-all uppercase tracking-widest">Reconnect</button>
                 </div>
             </div>
         );
@@ -498,10 +498,10 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
                             <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
                                 <div className="flex flex-col md:flex-row md:items-baseline md:gap-8 mb-8">
                                     <h1 className="text-[56px] md:text-[100px] font-semibold text-white tracking-tighter leading-[0.85] drop-shadow-2xl break-words max-w-5xl">{recommendedPick}</h1>
-                                    {displayJuice && <span className="text-[16px] md:text-[20px] font-mono text-zinc-500 font-medium tracking-[0.15em] mt-4 md:mt-0">{displayJuice}</span>}
+                                    {displayJuice && <span className="text-[16px] md:text-title-lg font-mono text-zinc-500 font-medium tracking-loose mt-4 md:mt-0">{displayJuice}</span>}
                                 </div>
                                 <div className="max-w-3xl border-l-2 border-white/10 pl-8 py-2 mx-auto md:mx-0">
-                                    <p className="text-[20px] md:text-[24px] text-zinc-300 font-light leading-[1.5] tracking-tight text-pretty"><RenderRichText text={String(processedData.headline || "")} sources={processedData.sources} /></p>
+                                    <p className="text-title-lg md:text-headline text-zinc-300 font-light leading-[1.5] tracking-tight text-pretty"><RenderRichText text={String(processedData.headline || "")} sources={processedData.sources} /></p>
                                 </div>
                             </motion.div>
                         </div>

@@ -28,13 +28,13 @@ const ResultBadge: React.FC<ResultBadgeProps> = ({ label, value, result }) => {
   const icons = {
     win: <Check size={12} strokeWidth={3} />,
     loss: <X size={12} strokeWidth={3} />,
-    push: <span className="text-[10px] font-bold">P</span>,
+    push: <span className="text-caption font-bold">P</span>,
     null: null
   };
 
   return (
     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${styles[result ?? 'null']}`}>
-      <span className="text-[10px] uppercase tracking-wider opacity-60">{label}</span>
+      <span className="text-caption uppercase tracking-wider opacity-60">{label}</span>
       <span className="font-bold font-mono">{value}</span>
       {icons[result ?? 'null']}
     </div>
@@ -53,7 +53,7 @@ const TeamRow: React.FC<{
         <span className={`font-semibold ${isWinner ? 'text-white' : 'text-zinc-500'}`}>
           {team.shortName || team.name}
         </span>
-        <span className="text-[10px] text-zinc-600 ml-2 font-mono">
+        <span className="text-caption text-zinc-600 ml-2 font-mono">
           {team.record || ''}
         </span>
       </div>
@@ -94,15 +94,15 @@ const ExpandedMatchCard: React.FC<ExpandedMatchCardProps> = ({ match, onClick })
   return (
     <div
       onClick={onClick}
-      className="bg-[#111113] border border-white/[0.04] rounded-2xl p-5 cursor-pointer hover:border-white/[0.12] hover:bg-white/[0.01] transition-all duration-200"
+      className="bg-surface-elevated border border-edge-subtle rounded-2xl p-5 cursor-pointer hover:border-edge-heavy hover:bg-overlay-ghost transition-all duration-200"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 bg-zinc-600 rounded-full" />
-          <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">Final</span>
+          <span className="text-caption font-semibold text-zinc-500 uppercase tracking-widest">Final</span>
         </div>
-        <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-wide">
+        <span className="text-caption font-medium text-zinc-600 uppercase tracking-wide">
           {match.leagueId?.toUpperCase() || match.sport}
         </span>
       </div>
@@ -110,13 +110,13 @@ const ExpandedMatchCard: React.FC<ExpandedMatchCardProps> = ({ match, onClick })
       {/* Teams */}
       <div className="space-y-3 mb-5">
         <TeamRow team={match.awayTeam} score={match.awayScore} isWinner={awayWinner} />
-        <div className="h-px bg-white/[0.04]" />
+        <div className="h-px bg-overlay-muted" />
         <TeamRow team={match.homeTeam} score={match.homeScore} isWinner={homeWinner} />
       </div>
 
       {/* Betting Results */}
       {(spreadDisplay || totalDisplay) && (
-        <div className="pt-4 border-t border-white/[0.04] flex flex-wrap gap-2">
+        <div className="pt-4 border-t border-edge-subtle flex flex-wrap gap-2">
           {spreadDisplay && (
             <ResultBadge label="ATS" value={spreadDisplay} result={spreadResult} />
           )}

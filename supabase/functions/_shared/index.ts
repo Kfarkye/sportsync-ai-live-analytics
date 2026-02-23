@@ -1050,6 +1050,23 @@ export interface AISignals {
   // v6.0: Structured Observability
   trace_id?: string;
   trace_dump?: Record<string, unknown>;
+
+  // v7.0: Multi-market edge (spread + ML alongside totals)
+  market_edge?: {
+    spread: {
+      opening: number;
+      current: number;
+      movement: number;          // current - opening (negative = favorite strengthened)
+      direction: 'HOME' | 'AWAY' | 'FLAT';
+    } | null;
+    moneyline: {
+      home_no_vig: number;       // True probability (0-1) after devig
+      away_no_vig: number;
+      draw_no_vig: number | null;
+      overround: number;         // Total vig (e.g., 1.048 = 4.8% vig)
+      value_side: 'HOME' | 'AWAY' | 'DRAW' | null;  // Side with most movement in its favor
+    } | null;
+  };
 }
 
 export interface PublicNarrative {

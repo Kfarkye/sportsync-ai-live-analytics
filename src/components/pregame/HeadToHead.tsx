@@ -23,8 +23,8 @@ interface HeadToHeadProps {
 const HeadToHead: React.FC<HeadToHeadProps> = ({ meetings, homeId, awayId, homeTeam, awayTeam }) => {
   if (!meetings || meetings.length === 0) {
       return (
-        <div className="text-center py-8 border border-white/5 rounded-xl bg-white/[0.02]">
-            <div className="text-[11px] text-white/40 italic">No recent head-to-head data found.</div>
+        <div className="text-center py-8 border border-white/5 rounded-xl bg-overlay-subtle">
+            <div className="text-footnote text-white/40 italic">No recent head-to-head data found.</div>
         </div>
       );
   }
@@ -41,10 +41,10 @@ const HeadToHead: React.FC<HeadToHeadProps> = ({ meetings, homeId, awayId, homeT
   return (
     <div className="space-y-4">
         {/* Record Summary */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#111113] border border-white/10 rounded-xl">
+        <div className="flex items-center justify-between px-4 py-3 bg-surface-elevated border border-white/10 rounded-xl">
             <div className="flex items-center gap-2">
                 <Trophy size={14} className="text-amber-400" />
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Series History</span>
+                <span className="text-caption font-bold text-zinc-500 uppercase tracking-widest">Series History</span>
             </div>
             <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5">
@@ -60,7 +60,7 @@ const HeadToHead: React.FC<HeadToHeadProps> = ({ meetings, homeId, awayId, homeT
         </div>
 
         {/* Matches List */}
-        <div className="bg-[#09090B] border border-white/[0.08] rounded-xl overflow-hidden">
+        <div className="bg-surface-base border border-edge-strong rounded-xl overflow-hidden">
             {meetings.map((game, i) => {
                 const date = new Date(game.date);
                 const isHomeGame = game.homeTeamId === homeId; 
@@ -71,7 +71,7 @@ const HeadToHead: React.FC<HeadToHeadProps> = ({ meetings, homeId, awayId, homeT
                 else if (game.winnerId === awayId) resultLabel = 'L';
 
                 return (
-                    <div key={i} className="flex items-center justify-between p-3 border-b border-white/[0.06] last:border-0 hover:bg-white/[0.02] transition-colors">
+                    <div key={i} className="flex items-center justify-between p-3 border-b border-edge last:border-0 hover:bg-overlay-subtle transition-colors">
                         <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs border ${
                                 resultLabel === 'W' ? 'bg-[#53D337]/10 text-[#53D337] border-[#53D337]/20' : 
@@ -87,7 +87,7 @@ const HeadToHead: React.FC<HeadToHeadProps> = ({ meetings, homeId, awayId, homeT
                                         {awayTeam.shortName}
                                     </span> 
                                 </div>
-                                <span className="text-[10px] text-zinc-500">{date.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'})}</span>
+                                <span className="text-caption text-zinc-500">{date.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'})}</span>
                             </div>
                         </div>
                         

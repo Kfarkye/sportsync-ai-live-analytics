@@ -226,23 +226,23 @@ interface BSOProps {
 }
 
 const BSORow: FC<{ label: string; count: number; max: number; colorClass: string; aria: string }> = memo(
-  ({ label, count, max, colorClass, aria }) => (
-    <div className="flex items-center gap-1.5" role="group" aria-label={aria}>
-      <span className={ESSENCE.tier.t2Header}>{label}</span>
-      <div className="flex gap-1">
-        {Array.from({ length: max }).map((_, i) => (
-          <div
-            key={i}
-            className={cn(
-              'w-2 h-2 rounded-full transition-all duration-200',
-              i < count ? colorClass : 'bg-white/[0.06] border border-white/[0.08]',
-            )}
-            style={i < count ? { boxShadow: `0 0 4px currentColor` } : undefined}
-          />
-        ))}
-      </div>
-    </div>
-  ),
+    ({ label, count, max, colorClass, aria }) => (
+        <div className="flex items-center gap-1.5" role="group" aria-label={aria}>
+            <span className={ESSENCE.tier.t2Header}>{label}</span>
+            <div className="flex gap-1">
+                {Array.from({ length: max }).map((_, i) => (
+                    <div
+                        key={i}
+                        className={cn(
+                            'w-2 h-2 rounded-full transition-all duration-200',
+                            i < count ? colorClass : 'bg-overlay-emphasis border border-edge-strong',
+                        )}
+                        style={i < count ? { boxShadow: `0 0 4px currentColor` } : undefined}
+                    />
+                ))}
+            </div>
+        </div>
+    ),
 );
 BSORow.displayName = 'BSORow';
 
@@ -297,53 +297,53 @@ const StrikeZone: FC<StrikeZoneProps> = memo(({ pitches, className }) => {
           const col = PITCH_HEX[p.result] || ESSENCE.colors.text.tertiary;
           const isLast = i === 0;
 
-          return (
-            <g key={`pitch-${p.seq}-${i}`}>
-              {/* Last pitch animated ring */}
-              {isLast && (
-                <circle cx={px} cy={py} r={13} fill="none" stroke={col} strokeWidth="1" opacity={0.4} strokeDasharray="2 2">
-                  <animate attributeName="r" values="12;15;12" dur="2s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0.4;0.15;0.4" dur="2s" repeatCount="indefinite" />
-                </circle>
-              )}
-              <circle cx={px} cy={py} r={10} fill={col} opacity={0.18} />
-              <circle cx={px} cy={py} r={7} fill={col} opacity={0.85} style={{ filter: `drop-shadow(0 0 3px ${col}40)` }} />
-              {/* Sequence number */}
-              <text
-                x={px}
-                y={py + 3.5}
-                textAnchor="middle"
-                fill="#fff"
-                className="font-mono text-[8px] font-bold"
-              >
-                {pitches.length - i}
-              </text>
-              {/* LAST label */}
-              {isLast && (
-                <text
-                  x={px}
-                  y={py - 12}
-                  textAnchor="middle"
-                  fill={col}
-                  className="font-mono text-[6px] font-bold tracking-[0.1em]"
-                >
-                  LAST
-                </text>
-              )}
-            </g>
-          );
-        })}
-        {/* Home plate */}
-        <path
-          d={`M${total / 2 - 12} ${pad + zoneSize + 6} L${total / 2} ${pad + zoneSize + 14} L${total / 2 + 12} ${pad + zoneSize + 6}`}
-          fill="none"
-          stroke={ESSENCE.colors.border.strong}
-          strokeWidth="1"
-          strokeLinecap="round"
-        />
-      </svg>
-    </div>
-  );
+                    return (
+                        <g key={`pitch-${p.seq}-${i}`}>
+                            {/* Last pitch animated ring */}
+                            {isLast && (
+                                <circle cx={px} cy={py} r={13} fill="none" stroke={col} strokeWidth="1" opacity={0.4} strokeDasharray="2 2">
+                                    <animate attributeName="r" values="12;15;12" dur="2s" repeatCount="indefinite" />
+                                    <animate attributeName="opacity" values="0.4;0.15;0.4" dur="2s" repeatCount="indefinite" />
+                                </circle>
+                            )}
+                            <circle cx={px} cy={py} r={10} fill={col} opacity={0.18} />
+                            <circle cx={px} cy={py} r={7} fill={col} opacity={0.85} style={{ filter: `drop-shadow(0 0 3px ${col}40)` }} />
+                            {/* Sequence number */}
+                            <text
+                                x={px}
+                                y={py + 3.5}
+                                textAnchor="middle"
+                                fill="#fff"
+                                className="font-mono text-nano font-bold"
+                            >
+                                {pitches.length - i}
+                            </text>
+                            {/* LAST label */}
+                            {isLast && (
+                                <text
+                                    x={px}
+                                    y={py - 12}
+                                    textAnchor="middle"
+                                    fill={col}
+                                    className="font-mono text-[6px] font-bold tracking-expanded"
+                                >
+                                    LAST
+                                </text>
+                            )}
+                        </g>
+                    );
+                })}
+                {/* Home plate */}
+                <path
+                    d={`M${total / 2 - 12} ${pad + zoneSize + 6} L${total / 2} ${pad + zoneSize + 14} L${total / 2 + 12} ${pad + zoneSize + 6}`}
+                    fill="none"
+                    stroke={ESSENCE.colors.border.strong}
+                    strokeWidth="1"
+                    strokeLinecap="round"
+                />
+            </svg>
+        </div>
+    );
 });
 StrikeZone.displayName = 'StrikeZone';
 
@@ -360,32 +360,34 @@ const PitchLog: FC<PitchLogProps> = memo(({ pitches }) => {
     return <EmptyState message="No pitch tracking available" />;
   }
 
-  return (
-    <div className="flex flex-col">
-      {pitches.map((p, i) => (
-        <div
-          key={`log-${p.seq}-${i}`}
-          className={cn(
-            'grid grid-cols-[24px_1fr_1fr_50px] items-center py-2',
-            i < pitches.length - 1 && 'border-b border-white/[0.06]',
-          )}
-        >
-          <div
-            className={cn(
-              'w-[18px] h-[18px] rounded-full flex items-center justify-center',
-              'font-mono text-[8px] font-extrabold text-white',
-              PITCH_COLORS[p.result],
-            )}
-          >
-            {pitches.length - i}
-          </div>
-          <span className="text-xs font-medium text-white">
-            {PITCH_LABELS[p.result] || p.result}
-          </span>
-          <span className="text-xs text-zinc-400">{p.type}</span>
-          <span className={cn(ESSENCE.type.dataSm, 'text-right')}>
-            {p.mph}mph
-          </span>
+    return (
+        <div className="flex flex-col">
+            {pitches.map((p, i) => (
+                <div
+                    key={`log-${p.seq}-${i}`}
+                    className={cn(
+                        'grid grid-cols-[24px_1fr_1fr_50px] items-center py-2',
+                        i < pitches.length - 1 && 'border-b border-edge',
+                    )}
+                >
+                    <div
+                        className={cn(
+                            'w-[18px] h-[18px] rounded-full flex items-center justify-center',
+                            'font-mono text-nano font-extrabold text-white',
+                            PITCH_COLORS[p.result],
+                        )}
+                    >
+                        {pitches.length - i}
+                    </div>
+                    <span className="text-xs font-medium text-white">
+                        {PITCH_LABELS[p.result] || p.result}
+                    </span>
+                    <span className="text-xs text-zinc-400">{p.type}</span>
+                    <span className={cn(ESSENCE.type.dataSm, 'text-right')}>
+                        {p.mph}mph
+                    </span>
+                </div>
+            ))}
         </div>
       ))}
     </div>
@@ -406,16 +408,16 @@ interface MatchupProps {
 }
 
 const PlayerAvatar: FC<{ initials: string; color: string }> = memo(({ initials, color }) => (
-  <div
-    className="w-[46px] h-[46px] rounded-xl flex items-center justify-center font-mono text-[13px] font-black"
-    style={{
-      background: `linear-gradient(135deg, ${color}22, ${color}08)`,
-      border: `1px solid ${color}22`,
-      color,
-    }}
-  >
-    {initials}
-  </div>
+    <div
+        className="w-[46px] h-[46px] rounded-xl flex items-center justify-center font-mono text-body-sm font-black"
+        style={{
+            background: `linear-gradient(135deg, ${color}22, ${color}08)`,
+            border: `1px solid ${color}22`,
+            color,
+        }}
+    >
+        {initials}
+    </div>
 ));
 PlayerAvatar.displayName = 'PlayerAvatar';
 
@@ -441,26 +443,26 @@ const Matchup: FC<MatchupProps> = memo(({ pitcher, batter, awayColor, homeColor,
         </div>
       </div>
 
-      {/* Pitch Count Badge */}
-      <div
-        className={cn(
-          'flex flex-col items-center px-3 py-1.5 rounded-lg border',
-          pcHot
-            ? 'bg-orange-500/10 border-orange-500/20'
-            : 'bg-white/[0.03] border-white/[0.06]',
-        )}
-        aria-label={`Pitch count: ${pitcher.pitchCount}`}
-      >
-        <span className="font-mono text-[7px] font-semibold tracking-[0.12em] text-zinc-500">P-CT</span>
-        <span
-          className={cn(
-            'font-mono text-xl font-extrabold leading-none',
-            pcHot ? 'text-orange-500' : 'text-white',
-          )}
-        >
-          {pitcher.pitchCount}
-        </span>
-      </div>
+            {/* Pitch Count Badge */}
+            <div
+                className={cn(
+                    'flex flex-col items-center px-3 py-1.5 rounded-lg border',
+                    pcHot
+                        ? 'bg-orange-500/10 border-orange-500/20'
+                        : 'bg-overlay-dim border-edge',
+                )}
+                aria-label={`Pitch count: ${pitcher.pitchCount}`}
+            >
+                <span className="font-mono text-[7px] font-semibold tracking-spread text-zinc-500">P-CT</span>
+                <span
+                    className={cn(
+                        'font-mono text-xl font-extrabold leading-none',
+                        pcHot ? 'text-orange-500' : 'text-white',
+                    )}
+                >
+                    {pitcher.pitchCount}
+                </span>
+            </div>
 
       {/* Batter */}
       <div className="flex items-center gap-2.5">
@@ -506,9 +508,23 @@ const DueUp: FC<DueUpProps> = memo(({ teamName, teamColor, players }) => {
             <div className={cn(ESSENCE.tier.t3Record, 'mt-0.5')}>
               {p.position} ({p.bats})
             </div>
-            <div className="flex justify-between mt-1">
-              <span className="font-mono text-[9px] text-zinc-500">Today</span>
-              <span className="font-mono text-[10px] font-bold text-white">{p.todayLine}</span>
+            <div className="grid grid-cols-2 gap-2">
+                {players.slice(0, 2).map((p, i) => (
+                    <div
+                        key={`due-${i}`}
+                        className="p-2.5 rounded-lg bg-overlay-subtle border border-edge"
+                    >
+                        <span className={ESSENCE.tier.t3Meta}>{i === 0 ? 'ON DECK' : 'IN THE HOLE'}</span>
+                        <div className={cn(ESSENCE.tier.t2Team, 'mt-1')}>{p.name}</div>
+                        <div className={cn(ESSENCE.tier.t3Record, 'mt-0.5')}>
+                            {p.position} ({p.bats})
+                        </div>
+                        <div className="flex justify-between mt-1">
+                            <span className="font-mono text-label text-zinc-500">Today</span>
+                            <span className="font-mono text-caption font-bold text-white">{p.todayLine}</span>
+                        </div>
+                    </div>
+                ))}
             </div>
           </div>
         ))}
@@ -547,62 +563,62 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
     <div className={cn(ESSENCE.tier.t2Header, 'text-center py-1')}>{label}</div>
   );
 
-  const ScoreCell: FC<{ val: string; active: boolean }> = ({ val, active }) => (
-    <div
-      className={cn(
-        'font-mono text-[10px] text-center py-1.5 transition-all duration-300',
-        active ? 'font-bold text-white border-b-2 border-orange-500' : val ? 'text-zinc-400' : 'text-zinc-600',
-      )}
-    >
-      {val}
-    </div>
-  );
+    const ScoreCell: FC<{ val: string; active: boolean }> = ({ val, active }) => (
+        <div
+            className={cn(
+                'font-mono text-caption text-center py-1.5 transition-all duration-300',
+                active ? 'font-bold text-white border-b-2 border-orange-500' : val ? 'text-zinc-400' : 'text-zinc-600',
+            )}
+        >
+            {val}
+        </div>
+    );
 
-  const TeamRow: FC<{ team: Team; scores: Array<{ value?: number }>; isAway: boolean }> = ({
-    team,
-    scores,
-    isAway,
-  }) => (
-    <div style={{ display: 'grid', gridTemplateColumns: cols }}>
-      <div className="font-mono text-[10px] font-extrabold tracking-wider text-white py-1.5">
-        {team.abbreviation || team.shortName}
-      </div>
-      {Array.from({ length: innings }).map((_, i) => {
-        const active =
-          !isFinal &&
-          i + 1 === inning &&
-          ((isAway && half === 'top') || (!isAway && half === 'bottom'));
-        const val = i < scores.length ? String(scores[i]?.value ?? 0) : i + 1 < inning ? '0' : '';
-        return <ScoreCell key={i} val={val} active={active} />;
-      })}
-      <div />
-      <div className="font-mono text-[10px] font-extrabold text-white text-center py-1.5">
-        {team.score}
-      </div>
-      {/* H and E — derive from linescores or show dash */}
-      <div className="font-mono text-[10px] font-extrabold text-white text-center py-1.5">-</div>
-      <div className="font-mono text-[10px] font-extrabold text-white text-center py-1.5">-</div>
-    </div>
-  );
+    const TeamRow: FC<{ team: Team; scores: Array<{ value?: number }>; isAway: boolean }> = ({
+        team,
+        scores,
+        isAway,
+    }) => (
+        <div style={{ display: 'grid', gridTemplateColumns: cols }}>
+            <div className="font-mono text-caption font-extrabold tracking-wider text-white py-1.5">
+                {team.abbreviation || team.shortName}
+            </div>
+            {Array.from({ length: innings }).map((_, i) => {
+                const active =
+                    !isFinal &&
+                    i + 1 === inning &&
+                    ((isAway && half === 'top') || (!isAway && half === 'bottom'));
+                const val = i < scores.length ? String(scores[i]?.value ?? 0) : i + 1 < inning ? '0' : '';
+                return <ScoreCell key={i} val={val} active={active} />;
+            })}
+            <div />
+            <div className="font-mono text-caption font-extrabold text-white text-center py-1.5">
+                {team.score}
+            </div>
+            {/* H and E — derive from linescores or show dash */}
+            <div className="font-mono text-caption font-extrabold text-white text-center py-1.5">-</div>
+            <div className="font-mono text-caption font-extrabold text-white text-center py-1.5">-</div>
+        </div>
+    );
 
-  return (
-    <Card className="!p-2 overflow-x-auto">
-      {/* Header row */}
-      <div style={{ display: 'grid', gridTemplateColumns: cols }}>
-        <HeaderCell label="" />
-        {Array.from({ length: innings }).map((_, i) => (
-          <HeaderCell key={i} label={String(i + 1)} />
-        ))}
-        <div />
-        <HeaderCell label="R" />
-        <HeaderCell label="H" />
-        <HeaderCell label="E" />
-      </div>
-      <TeamRow team={away} scores={awayScores} isAway />
-      <div className="h-px bg-white/[0.06]" />
-      <TeamRow team={home} scores={homeScores} isAway={false} />
-    </Card>
-  );
+    return (
+        <Card className="!p-2 overflow-x-auto">
+            {/* Header row */}
+            <div style={{ display: 'grid', gridTemplateColumns: cols }}>
+                <HeaderCell label="" />
+                {Array.from({ length: innings }).map((_, i) => (
+                    <HeaderCell key={i} label={String(i + 1)} />
+                ))}
+                <div />
+                <HeaderCell label="R" />
+                <HeaderCell label="H" />
+                <HeaderCell label="E" />
+            </div>
+            <TeamRow team={away} scores={awayScores} isAway />
+            <div className="h-px bg-overlay-emphasis" />
+            <TeamRow team={home} scores={homeScores} isAway={false} />
+        </Card>
+    );
 });
 BaseballLineScore.displayName = 'BaseballLineScore';
 
@@ -637,42 +653,42 @@ export const BaseballScoringSummary: FC<BaseballScoringSummaryProps> = memo(({
         const teamColor = isAway ? awayColor : homeColor;
         const teamLabel = isAway ? awayAbbr.slice(0, 2) : homeAbbr.slice(0, 2);
 
-        return (
-          <div key={`score-${i}`}>
-            {play.inningLabel && (
-              <div
-                className={cn(
-                  'text-[11px] font-bold text-zinc-400 py-2',
-                  i > 0 && 'border-t border-white/[0.06]',
-                )}
-              >
-                {play.inningLabel}
-              </div>
-            )}
-            <div className="flex items-start gap-2.5 py-1.5">
-              <div
-                className="w-5 h-5 rounded-[5px] flex-shrink-0 mt-0.5 flex items-center justify-center font-mono text-[7px] font-extrabold"
-                style={{
-                  background: `${teamColor}18`,
-                  border: `1px solid ${teamColor}22`,
-                  color: teamColor,
-                }}
-              >
-                {teamLabel}
-              </div>
-              <span className="flex-1 text-xs text-white leading-relaxed">
-                {play.description}
-              </span>
-              <div className="flex gap-2.5 flex-shrink-0">
-                <span className="font-mono text-[11px] font-bold text-white">{play.awayScore}</span>
-                <span className="font-mono text-[11px] font-bold text-white">{play.homeScore}</span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </Card>
-  );
+                return (
+                    <div key={`score-${i}`}>
+                        {play.inningLabel && (
+                            <div
+                                className={cn(
+                                    'text-footnote font-bold text-zinc-400 py-2',
+                                    i > 0 && 'border-t border-edge',
+                                )}
+                            >
+                                {play.inningLabel}
+                            </div>
+                        )}
+                        <div className="flex items-start gap-2.5 py-1.5">
+                            <div
+                                className="w-5 h-5 rounded-[5px] flex-shrink-0 mt-0.5 flex items-center justify-center font-mono text-[7px] font-extrabold"
+                                style={{
+                                    background: `${teamColor}18`,
+                                    border: `1px solid ${teamColor}22`,
+                                    color: teamColor,
+                                }}
+                            >
+                                {teamLabel}
+                            </div>
+                            <span className="flex-1 text-xs text-white leading-relaxed">
+                                {play.description}
+                            </span>
+                            <div className="flex gap-2.5 flex-shrink-0">
+                                <span className="font-mono text-footnote font-bold text-white">{play.awayScore}</span>
+                                <span className="font-mono text-footnote font-bold text-white">{play.homeScore}</span>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+        </Card>
+    );
 });
 BaseballScoringSummary.displayName = 'BaseballScoringSummary';
 
@@ -689,41 +705,41 @@ interface EdgeSignalCardProps {
 const EdgeSignalCard: FC<EdgeSignalCardProps> = memo(({ label, icon, data }) => {
   const colors = EDGE_COLORS[data.signal];
 
-  return (
-    <Card className="!p-3.5">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-zinc-400">{icon}</span>
-          <span className={ESSENCE.tier.t2Label}>{label}</span>
-        </div>
-        <div className={cn('flex items-center gap-1.5 px-2 py-1 rounded-full', colors.bg)}>
-          <div className={cn('w-[5px] h-[5px] rounded-full', colors.dot)} style={{ boxShadow: `0 0 4px currentColor` }} />
-          <span className={cn('font-mono text-[9px] font-bold tracking-wider', colors.text)}>
-            {data.value}
-          </span>
-        </div>
-      </div>
+    return (
+        <Card className="!p-3.5">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                    <span className="text-zinc-400">{icon}</span>
+                    <span className={ESSENCE.tier.t2Label}>{label}</span>
+                </div>
+                <div className={cn('flex items-center gap-1.5 px-2 py-1 rounded-full', colors.bg)}>
+                    <div className={cn('w-[5px] h-[5px] rounded-full', colors.dot)} style={{ boxShadow: `0 0 4px currentColor` }} />
+                    <span className={cn('font-mono text-label font-bold tracking-wider', colors.text)}>
+                        {data.value}
+                    </span>
+                </div>
+            </div>
 
       {/* Detail */}
       <p className="text-xs text-zinc-400 leading-relaxed mb-2.5">{data.detail}</p>
 
-      {/* Cited Inputs */}
-      {data.inputs.length > 0 && (
-        <div className="border-t border-white/[0.06] pt-2">
-          <span className={cn(ESSENCE.tier.t3Meta, 'block mb-1.5')}>INPUTS</span>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-            {data.inputs.map((inp, j) => (
-              <div key={j} className="flex justify-between py-0.5">
-                <span className="font-mono text-[9px] text-zinc-500">{inp.field}</span>
-                <span className="font-mono text-[9px] font-semibold text-white">{inp.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </Card>
-  );
+            {/* Cited Inputs */}
+            {data.inputs.length > 0 && (
+                <div className="border-t border-edge pt-2">
+                    <span className={cn(ESSENCE.tier.t3Meta, 'block mb-1.5')}>INPUTS</span>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                        {data.inputs.map((inp, j) => (
+                            <div key={j} className="flex justify-between py-0.5">
+                                <span className="font-mono text-label text-zinc-500">{inp.field}</span>
+                                <span className="font-mono text-label font-semibold text-white">{inp.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </Card>
+    );
 });
 EdgeSignalCard.displayName = 'EdgeSignalCard';
 
@@ -745,45 +761,49 @@ export const BaseballEdgePanel: FC<BaseballEdgePanelProps> = memo(({ edge }) => 
     { label: 'BP', signal: edge.bullpen },
   ];
 
-  return (
-    <motion.div {...FADE_IN} className="flex flex-col gap-2.5">
-      {/* Convergence Header */}
-      <div className={cn('p-4 rounded-xl border', colors.bg, colors.border)}>
-        <div className="flex items-center justify-between mb-2.5">
-          <span className={cn(ESSENCE.tier.t2Header)}>EDGE CONVERGENCE</span>
-          <div className={cn('flex items-center gap-1.5 px-2 py-1 rounded-full', colors.bg)}>
-            <div
-              className={cn('w-[5px] h-[5px] rounded-full', EDGE_COLORS[tier === 'STRONG' ? 'high' : tier === 'MODERATE' ? 'med' : 'low'].dot)}
-              style={{ boxShadow: `0 0 6px currentColor` }}
-            />
-            <span className={cn('font-mono text-[9px] font-bold tracking-wider', colors.text)}>
-              {tier}
-            </span>
-          </div>
-        </div>
-
-        {/* Signal Bars */}
-        <div className="flex gap-1.5 mb-3">
-          {bars.map((item) => {
-            const c = EDGE_COLORS[item.signal.signal];
-            const pct = item.signal.signal === 'high' ? 90 : item.signal.signal === 'med' ? 55 : 25;
-
-            return (
-              <div key={item.label} className="flex-1">
-                <div className="flex justify-between mb-1">
-                  <span className="font-mono text-[8px] font-semibold text-zinc-500">{item.label}</span>
-                  <span className={cn('font-mono text-[8px] font-semibold', c.text)}>
-                    {item.signal.signal.toUpperCase()}
-                  </span>
+    return (
+        <motion.div {...FADE_IN} className="flex flex-col gap-2.5">
+            {/* Convergence Header */}
+            <div className={cn('p-4 rounded-xl border', colors.bg, colors.border)}>
+                <div className="flex items-center justify-between mb-2.5">
+                    <span className={cn(ESSENCE.tier.t2Header)}>EDGE CONVERGENCE</span>
+                    <div className={cn('flex items-center gap-1.5 px-2 py-1 rounded-full', colors.bg)}>
+                        <div
+                            className={cn('w-[5px] h-[5px] rounded-full', EDGE_COLORS[tier === 'STRONG' ? 'high' : tier === 'MODERATE' ? 'med' : 'low'].dot)}
+                            style={{ boxShadow: `0 0 6px currentColor` }}
+                        />
+                        <span className={cn('font-mono text-label font-bold tracking-wider', colors.text)}>
+                            {tier}
+                        </span>
+                    </div>
                 </div>
-                <div className="h-1 rounded-sm bg-white/[0.04] overflow-hidden">
-                  <motion.div
-                    className={cn('h-full rounded-sm', c.dot)}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={{ duration: 0.6, ease: 'easeOut' }}
-                    style={{ boxShadow: `0 0 6px currentColor` }}
-                  />
+
+                {/* Signal Bars */}
+                <div className="flex gap-1.5 mb-3">
+                    {bars.map((item) => {
+                        const c = EDGE_COLORS[item.signal.signal];
+                        const pct = item.signal.signal === 'high' ? 90 : item.signal.signal === 'med' ? 55 : 25;
+
+                        return (
+                            <div key={item.label} className="flex-1">
+                                <div className="flex justify-between mb-1">
+                                    <span className="font-mono text-nano font-semibold text-zinc-500">{item.label}</span>
+                                    <span className={cn('font-mono text-nano font-semibold', c.text)}>
+                                        {item.signal.signal.toUpperCase()}
+                                    </span>
+                                </div>
+                                <div className="h-1 rounded-sm bg-overlay-muted overflow-hidden">
+                                    <motion.div
+                                        className={cn('h-full rounded-sm', c.dot)}
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${pct}%` }}
+                                        transition={{ duration: 0.6, ease: 'easeOut' }}
+                                        style={{ boxShadow: `0 0 6px currentColor` }}
+                                    />
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
               </div>
             );
@@ -822,9 +842,9 @@ BaseballEdgePanel.displayName = 'BaseballEdgePanel';
 // ============================================================================
 
 const FreshnessBadge: FC<{ ts: number | undefined; className?: string }> = memo(({ ts, className }) => (
-  <span className={cn('font-mono text-[8px] text-zinc-600', className)}>
-    Updated {relativeTime(ts)}
-  </span>
+    <span className={cn('font-mono text-nano text-zinc-600', className)}>
+        Updated {relativeTime(ts)}
+    </span>
 ));
 FreshnessBadge.displayName = 'FreshnessBadge';
 
@@ -835,12 +855,11 @@ FreshnessBadge.displayName = 'FreshnessBadge';
 const StaleWarning: FC<{ ts: number | undefined }> = memo(({ ts }) => {
   if (!isStaleTs(ts)) return null;
 
-  return (
-    <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10">
-      <AlertTriangle size={9} className="text-red-400" />
-      <span className="font-mono text-[8px] font-bold tracking-wider text-red-400">STALE</span>
-    </div>
-  );
+    return (
+        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10">
+            <span className="font-mono text-nano font-bold tracking-wider text-red-400">STALE</span>
+        </div>
+    );
 });
 StaleWarning.displayName = 'StaleWarning';
 
@@ -891,47 +910,32 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
   // If no baseball-specific data, show what we can from Match alone
   const hasPitchData = !!baseballData?.pitches?.length;
 
-  return (
-    <motion.div {...FADE_IN} className="flex flex-col gap-2.5">
-      {/* View Toggle (live only) */}
-      {isLive && (
-        <div
-          className="flex rounded-lg overflow-hidden border border-white/[0.06]"
-          role="group"
-          aria-label="View toggle"
-        >
-          {(['atbat', 'runners'] as const).map((opt) => (
-            <button
-              key={opt}
-              aria-pressed={view === opt}
-              onClick={() => setView(opt)}
-              className={cn(
-                'flex-1 min-h-[44px] flex items-center justify-center',
-                'text-xs font-bold transition-all duration-200',
-                view === opt
-                  ? 'text-white bg-white/[0.06]'
-                  : 'text-zinc-500 hover:text-zinc-300',
-              )}
-            >
-              {opt === 'atbat' ? 'At-Bat' : 'Runners'}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* AT-BAT VIEW */}
-      {isLive && view === 'atbat' && (
-        <AnimatePresence mode="wait">
-          <motion.div key="atbat" {...FADE_IN} className="flex flex-col gap-2.5">
-            {/* Matchup */}
-            {baseballData?.pitcher && baseballData?.batter && (
-              <Matchup
-                pitcher={baseballData.pitcher}
-                batter={baseballData.batter}
-                awayColor={awayColor}
-                homeColor={homeColor}
-                status={match.status}
-              />
+    return (
+        <motion.div {...FADE_IN} className="flex flex-col gap-2.5">
+            {/* View Toggle (live only) */}
+            {isLive && (
+                <div
+                    className="flex rounded-lg overflow-hidden border border-edge"
+                    role="group"
+                    aria-label="View toggle"
+                >
+                    {(['atbat', 'runners'] as const).map((opt) => (
+                        <button
+                            key={opt}
+                            aria-pressed={view === opt}
+                            onClick={() => setView(opt)}
+                            className={cn(
+                                'flex-1 min-h-[44px] flex items-center justify-center',
+                                'text-xs font-bold transition-all duration-200',
+                                view === opt
+                                    ? 'text-white bg-overlay-emphasis'
+                                    : 'text-zinc-500 hover:text-zinc-300',
+                            )}
+                        >
+                            {opt === 'atbat' ? 'At-Bat' : 'Runners'}
+                        </button>
+                    ))}
+                </div>
             )}
 
             {/* Strike Zone + BSO + Pitch Log */}
@@ -985,14 +989,25 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
         </AnimatePresence>
       )}
 
-      {/* Due Up */}
-      {isLive && baseballData?.dueUp && baseballData.dueUp.length > 0 && (
-        <DueUp
-          teamName={battingTeam.shortName || battingTeam.name}
-          teamColor={battingColor}
-          players={baseballData.dueUp}
-        />
-      )}
+            {/* RUNNERS VIEW */}
+            {isLive && view === 'runners' && (
+                <AnimatePresence mode="wait">
+                    <motion.div key="runners" {...FADE_IN}>
+                        <Card className="!p-5 flex flex-col items-center gap-4">
+                            <Diamond
+                                onFirst={runners.first}
+                                onSecond={runners.second}
+                                onThird={runners.third}
+                                size={120}
+                            />
+                            <BSO balls={balls} strikes={strikes} outs={outs} />
+                            <span className="font-mono text-caption text-zinc-500 tracking-wider">
+                                {runners.first || runners.second || runners.third ? 'Runners on base' : 'Bases empty'}
+                            </span>
+                        </Card>
+                    </motion.div>
+                </AnimatePresence>
+            )}
 
       {/* Inning Context (live only) */}
       {isLive && (
@@ -1013,12 +1028,24 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
         </div>
       )}
 
-      {/* Line Score (always) */}
-      <BaseballLineScore
-        match={match}
-        currentInning={inning}
-        inningHalf={inningHalf}
-      />
+            {/* Inning Context (live only) */}
+            {isLive && (
+                <div className="flex items-center gap-2 px-1 py-2">
+                    <div
+                        className="w-[22px] h-[22px] rounded-md flex items-center justify-center font-mono text-[7px] font-extrabold"
+                        style={{
+                            background: `${battingColor}15`,
+                            border: `1px solid ${battingColor}20`,
+                            color: battingColor,
+                        }}
+                    >
+                        {(battingTeam.abbreviation || battingTeam.shortName || '').slice(0, 2)}
+                    </div>
+                    <span className="text-body-sm font-extrabold text-white">
+                        {formatInning(inning, inningHalf)}
+                    </span>
+                </div>
+            )}
 
       {/* FINAL: promote scoring summary */}
       {isFinal && baseballData?.scoringPlays && (

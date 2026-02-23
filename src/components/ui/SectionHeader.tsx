@@ -65,7 +65,7 @@ export const SectionHeader = memo(({
                 {Icon && <Icon size={11} strokeWidth={2.5} className="text-zinc-500" />}
                 {/* M-04: All section headers zinc-500, 12px, 500 weight, 0.12em tracking */}
                 <span className={cn(
-                    "text-[12px] font-medium text-zinc-500 uppercase tracking-[0.12em] leading-none",
+                    "text-small font-medium text-zinc-500 uppercase tracking-spread leading-none",
                     centered && "pl-0" // Remove relative offset if centered
                 )}>
                     {displayTitle}
@@ -103,7 +103,7 @@ export const CardHeader = memo(({ title, rightAccessory, showDivider = false, cl
     return (
         <div className={cn("mb-4", className)}>
             <div className="flex items-center justify-between">
-                <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">
+                <h4 className="text-caption font-bold text-zinc-500 uppercase tracking-widest">
                     {title}
                 </h4>
                 {rightAccessory && (
@@ -112,7 +112,7 @@ export const CardHeader = memo(({ title, rightAccessory, showDivider = false, cl
                     </div>
                 )}
             </div>
-            {showDivider && <div className="h-[1px] bg-white/[0.04] mt-3" />}
+            {showDivider && <div className="h-[1px] bg-overlay-muted mt-3" />}
         </div>
     );
 });

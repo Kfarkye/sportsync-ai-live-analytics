@@ -188,8 +188,11 @@ export const normalizeTeam = (name: string, leagueId?: string): string => {
     // 6. Strip Punctuation
     clean = clean.replace(/['".]/g, '');
 
-    // 7. Remove Noise words
-    clean = clean.replace(/\b(the|fc|afc|sc|club|cf|united|city|real|inter|ac)\b/g, '');
+    // 7. Remove Noise words (ONLY truly generic prefixes/suffixes)
+    // NOTE: 'united', 'city', 'real', 'inter', 'ac' are IDENTITY words —
+    // they distinguish Manchester United from Manchester City, Inter Milan
+    // from AC Milan, Real Madrid from Atletico Madrid. Never strip these.
+    clean = clean.replace(/\b(the|fc|afc|sc|club|cf)\b/g, '');
 
     // 8. Final: strip non-alphanumeric
     return clean.replace(/[^a-z0-9]/g, '').trim() || 'unknown';

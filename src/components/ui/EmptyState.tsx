@@ -24,7 +24,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     return (
         <div className={cn(
             "flex flex-col items-center justify-center py-16 px-8 text-center",
-            "rounded-2xl border border-white/[0.04] bg-white/[0.01]",
+            "rounded-2xl border border-edge-subtle bg-overlay-ghost",
             className
         )}>
             {icon && (
@@ -32,11 +32,11 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
                     {icon}
                 </div>
             )}
-            <p className="text-[13px] font-semibold text-zinc-500 uppercase tracking-[0.1em]">
+            <p className="text-body-sm font-semibold text-zinc-500 uppercase tracking-expanded">
                 {message}
             </p>
             {description && (
-                <p className="mt-2 text-[12px] font-medium text-zinc-600 max-w-[280px]">
+                <p className="mt-2 text-small font-medium text-zinc-600 max-w-[280px]">
                     {description}
                 </p>
             )}

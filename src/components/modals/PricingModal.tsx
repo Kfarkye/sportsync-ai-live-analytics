@@ -82,7 +82,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                    className="relative bg-[#111113] border border-white/10 w-full max-w-5xl rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+                    className="relative bg-surface-elevated border border-white/10 w-full max-w-5xl rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
                 >
                     {/* Header */}
                     <div className="relative flex flex-col items-center justify-center pt-10 pb-6 px-6 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
@@ -115,7 +115,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                                 onClick={() => setBillingCycle('yearly')}
                                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all relative z-10 flex items-center gap-2 ${billingCycle === 'yearly' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
                             >
-                                Yearly <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">-20%</span>
+                                Yearly <span className="text-label text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">-20%</span>
                             </button>
                             
                             {/* Sliding pill */}
@@ -130,7 +130,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-[#111113]">
+                    <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-surface-elevated">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {PRICING_TIERS.map((tier) => {
                                 const Icon = tier.icon;
@@ -138,7 +138,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                                 
                                 // Dynamic Styles based on tier
                                 const borderClass = isPopular ? 'border-emerald-500/30' : 'border-white/10';
-                                const bgClass = isPopular ? 'bg-gradient-to-b from-emerald-950/20 to-transparent' : 'bg-white/[0.02]';
+                                const bgClass = isPopular ? 'bg-gradient-to-b from-emerald-950/20 to-transparent' : 'bg-overlay-subtle';
                                 const btnClass = isPopular 
                                     ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20' 
                                     : 'bg-white/10 hover:bg-white/20 text-white';
@@ -149,7 +149,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                                         className={`
                                             relative rounded-3xl p-6 border flex flex-col transition-all duration-300 group
                                             ${borderClass} ${bgClass}
-                                            hover:border-white/20 hover:bg-white/[0.04]
+                                            hover:border-white/20 hover:bg-overlay-muted
                                         `}
                                     >
                                         {isPopular && (
@@ -162,7 +162,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                                                     <Icon size={20} />
                                                 </div>
                                                 {isPopular && (
-                                                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full uppercase tracking-wider border border-emerald-500/20">
+                                                    <span className="text-caption font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full uppercase tracking-wider border border-emerald-500/20">
                                                         Best Value
                                                     </span>
                                                 )}
@@ -201,7 +201,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                         <div className="mt-12 flex flex-col items-center justify-center text-center gap-4">
                             <div className="flex -space-x-2">
                                 {[1,2,3,4].map(i => (
-                                    <div key={i} className="w-8 h-8 rounded-full bg-zinc-800 border-2 border-[#050505] flex items-center justify-center text-[10px] text-zinc-400">
+                                    <div key={i} className="w-8 h-8 rounded-full bg-zinc-800 border-2 border-[#050505] flex items-center justify-center text-caption text-zinc-400">
                                         User
                                     </div>
                                 ))}

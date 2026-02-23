@@ -87,18 +87,18 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
         <div className="w-full">
             <div className="flex items-center gap-2 mb-4">
                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Forecast History</span>
+                <span className="text-caption font-bold text-zinc-500 uppercase tracking-widest">Forecast History</span>
             </div>
 
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="border-b border-white/[0.04]">
-                            <th className="py-3 px-2 text-[9px] font-black text-zinc-400 uppercase tracking-widest">Time</th>
-                            <th className="py-3 px-2 text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center">Score</th>
-                            <th className="py-3 px-2 text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center">Fair</th>
-                            <th className="py-3 px-2 text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center">Market</th>
-                            <th className="py-3 px-2 text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center">Edge</th>
+                        <tr className="border-b border-edge-subtle">
+                            <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">Time</th>
+                            <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest text-center">Score</th>
+                            <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest text-center">Fair</th>
+                            <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest text-center">Market</th>
+                            <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest text-center">Edge</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.02]">
@@ -113,22 +113,22 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                                 >
                                     <td className="py-3 px-2">
                                         <div className="flex flex-col">
-                                            <span className="text-[11px] font-mono font-bold text-zinc-300">{s.clock}</span>
-                                            <span className="text-[9px] font-bold text-zinc-600 uppercase">P{s.period}</span>
+                                            <span className="text-footnote font-mono font-bold text-zinc-300">{s.clock}</span>
+                                            <span className="text-label font-bold text-zinc-600 uppercase">P{s.period}</span>
                                         </div>
                                     </td>
                                     <td className="py-3 px-2 text-center">
-                                        <span className="text-[11px] font-mono font-bold text-zinc-400">
+                                        <span className="text-footnote font-mono font-bold text-zinc-400">
                                             {s.away_score}-{s.home_score}
                                         </span>
                                     </td>
                                     <td className="py-3 px-2 text-center">
-                                        <span className="text-[11px] font-mono font-bold text-white drop-shadow-sm">
+                                        <span className="text-footnote font-mono font-bold text-white drop-shadow-sm">
                                             {s.fair_total.toFixed(1)}
                                         </span>
                                     </td>
                                     <td className="py-3 px-2 text-center">
-                                        <span className="text-[11px] font-mono font-bold text-zinc-500">
+                                        <span className="text-footnote font-mono font-bold text-zinc-500">
                                             {s.market_total.toFixed(1)}
                                         </span>
                                     </td>
@@ -150,7 +150,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                                                     <Minus size={10} className="text-zinc-600" />
                                                 )}
                                                 <span className={cn(
-                                                    "text-[10px] font-mono font-bold",
+                                                    "text-caption font-mono font-bold",
                                                     s.edge_state === 'PLAY' ? "text-emerald-400" :
                                                         s.edge_state === 'LEAN' ? "text-amber-400" : "text-zinc-500"
                                                 )}>

@@ -92,7 +92,7 @@ const SpecSheetRow = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className={cn(
-                "group relative border-t border-white/[0.08] transition-all duration-500",
+                "group relative border-t border-edge-strong transition-all duration-500",
                 collapsible ? "cursor-pointer" : "cursor-default"
             )}
             onClick={() => collapsible && setIsOpen(!isOpen)}
@@ -108,7 +108,7 @@ const SpecSheetRow = ({
                 {/* 1. Technical Label (Desktop: Left Col / Mobile: Top) */}
                 <div className="w-full md:w-[140px] shrink-0 flex items-center justify-between md:block select-none">
                     <span className={cn(
-                        "text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-300 font-mono block",
+                        "text-caption font-bold tracking-widest uppercase transition-colors duration-300 font-mono block",
                         effectiveOpen ? "text-zinc-50" : "text-zinc-600 group-hover:text-zinc-400"
                     )}>
                         {label}
@@ -226,7 +226,7 @@ const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, o
         return (
             <div className="w-full h-[600px] flex flex-col items-center justify-center space-y-6 opacity-40">
                 <div className="h-px w-32 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 animate-pulse" />
-                <div className="text-[9px] tracking-[0.4em] uppercase text-zinc-500 font-mono">Loading Schematics</div>
+                <div className="text-label tracking-[0.4em] uppercase text-zinc-500 font-mono">Loading Schematics</div>
             </div>
         );
     }
@@ -355,7 +355,7 @@ const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, o
                         )}
 
                         {/* Closing Hairline */}
-                        <div className="w-full h-px bg-white/[0.08]" />
+                        <div className="w-full h-px bg-overlay-strong" />
                     </motion.div>
                 )}
 
@@ -371,7 +371,7 @@ const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, o
                                 <PropMarketListView match={match} />
                             </DebugBoundary>
                         </SpecSheetRow>
-                        <div className="w-full h-px bg-white/[0.08]" />
+                        <div className="w-full h-px bg-overlay-strong" />
                     </motion.div>
                 )}
 

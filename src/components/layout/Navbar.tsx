@@ -56,7 +56,7 @@ const Navbar: React.FC = () => {
         </div>
         <div className="hidden lg:flex flex-col text-right">
           <span className="text-xs font-semibold text-white">Guest User</span>
-          <span className="text-[10px] text-emerald-400 font-mono">$1,240.50</span>
+          <span className="text-caption text-emerald-400 font-mono">$1,240.50</span>
         </div>
       </div>
     </nav>
