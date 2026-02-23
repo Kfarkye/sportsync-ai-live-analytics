@@ -172,10 +172,10 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
                     </div>
 
 
-                    {/* Time Block - Peak Apple Typography */}
+                    {/* Time Block */}
                     <motion.div
                         layoutId="dynamic-island-clock"
-                        className="flex flex-col items-center justify-center px-4 py-2 rounded-full bg-surface-elevated/60 border-[0.5px] border-white/10 backdrop-blur-[40px] saturate-[180%] shadow-[0_10px_40px_rgba(0,0,0,0.45)]"
+                        className="flex flex-col items-center justify-center"
                     >
                         <motion.div
                             className="relative flex items-baseline gap-0.5"
