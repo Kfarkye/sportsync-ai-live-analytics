@@ -702,6 +702,7 @@ export function splitPickContent(rawContent: string): { pickContent: string; ana
     const end = v + 1 < verdictIndices.length ? verdictIndices[v + 1] : lines.length;
     const block = lines.slice(start, end);
 
+    // Find where analysis section headers begin (e.g. **KEY FACTORS**)
     let analysisStartIndex = -1;
     for (let i = 1; i < block.length; i++) {
       const trimmed = block[i].trim();
@@ -720,7 +721,14 @@ export function splitPickContent(rawContent: string): { pickContent: string; ana
       }
     }
 
-    const pickPart = analysisStartIndex === -1 ? block.join("\n") : block.slice(0, analysisStartIndex).join("\n");
+    // Pick part = ONLY the verdict line itself + matchup lines.
+    // Body text (synopsis) after the verdict line is already rendered
+    // inside EdgeVerdictCard via the synopses prop — including it here
+    // causes the text to render twice (once in the card, once below it).
+    const verdictLine = block[0];
+    const matchupLines = block.slice(1, analysisStartIndex === -1 ? block.length : analysisStartIndex)
+      .filter(l => REGEX_MATCHUP_LINE.test(l.trim()));
+    const pickPart = [verdictLine, ...matchupLines].join("\n");
     const analysisPart = analysisStartIndex === -1 ? "" : block.slice(analysisStartIndex).join("\n");
 
     if (pickPart.trim()) pickSegments.push(pickPart.trim());
