@@ -8,7 +8,7 @@ const LandingPage: FC<LandingPageProps> = ({ onEnter }) => {
   return (
     <div className="drip-landing-body">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap');
 
         /* ═══════════════════════════════════════════════════════════════════════
            OBSIDIAN WEISSACH v7 — THE DRIP LANDING PAGE
@@ -21,7 +21,7 @@ const LandingPage: FC<LandingPageProps> = ({ onEnter }) => {
            ├─ Porsche: Luxury is engineered, not announced.
            └─ Emerald: Single accent, earned by interaction.
            
-           Typography: Outfit (geometric sans, premium feel, not overused)
+           Typography: Geist (Vercel's Swiss-inspired sans, precision-engineered for UI)
            Palette: Obsidian blacks with emerald accent
            
         ═══════════════════════════════════════════════════════════════════════ */
@@ -60,7 +60,7 @@ const LandingPage: FC<LandingPageProps> = ({ onEnter }) => {
             --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 
             /* ─── TYPOGRAPHY ─── */
-            --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
             
             font-family: var(--font-sans);
             background: var(--void);

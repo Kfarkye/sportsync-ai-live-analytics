@@ -203,9 +203,9 @@ export const ESSENCE = {
 
   // Legacy typography (backwards compat — migrate to tier.* or scale.*)
   type: {
-    hero:    'font-sans text-[32px] font-semibold tracking-[-0.02em] text-white',
-    title:   'font-sans text-[20px] font-semibold tracking-[-0.01em] text-white',
-    body:    'font-sans text-[15px] font-normal text-zinc-300',
+    hero:    'font-sans text-[32px] font-semibold tracking-[-0.03em] text-white',
+    title:   'font-sans text-[20px] font-semibold tracking-[-0.02em] text-white',
+    body:    'font-sans text-[15px] font-normal text-zinc-300 leading-relaxed',
     caption: 'font-sans text-[13px] font-medium text-zinc-500',
     label:   'text-[9px] font-bold text-zinc-600 uppercase tracking-[0.1em]',
     data:    'font-mono text-[16px] font-bold tabular-nums text-white',

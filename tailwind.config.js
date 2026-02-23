@@ -8,8 +8,8 @@ export default {
         extend: {
             /* ── Fonts (kept — 19 + 227 usages) ─────────────────────── */
             fontFamily: {
-                sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-                mono: ['JetBrains Mono', 'SF Mono', 'monospace'],
+                sans: ['Geist', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                mono: ['Geist Mono', 'JetBrains Mono', 'SF Mono', 'monospace'],
             },
 
             /* ── ESSENCE Type Scale (12 stops) ──────────────────────── *
