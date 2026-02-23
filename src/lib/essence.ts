@@ -1,6 +1,14 @@
 // ============================================================================
 // ESSENCE DESIGN SYSTEM v11.0 — Consolidated Single Source of Truth
 // ============================================================================
+
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+/** Merge Tailwind classes with conflict resolution */
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 //
 // This file is the ONLY design token authority for SportsSync AI.
 // Every color, size, radius, shadow, and motion value lives here.
@@ -365,7 +373,8 @@ export const ESSENCE = {
   },
 } as const;
 
-// =====================================================================export type EssenceColors  = typeof ESSENCE.colors;
+// =====================================================================
+export type EssenceColors  = typeof ESSENCE.colors;
 export type EssenceSurface = keyof typeof ESSENCE.colors.surface;
 export type EssenceText    = keyof typeof ESSENCE.colors.text;
 export type EssenceAccent  = keyof typeof ESSENCE.colors.accent;
