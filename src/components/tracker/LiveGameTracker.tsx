@@ -244,6 +244,16 @@ const getOrdinal = (n: number) => {
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
+const parseBaseballHalf = (...values: Array<string | undefined | null>): 'TOP' | 'BOT' | null => {
+    for (const value of values) {
+        if (!value) continue;
+        const v = value.toLowerCase();
+        if (v.includes('top')) return 'TOP';
+        if (v.includes('bot') || v.includes('bottom') || v.includes('btm')) return 'BOT';
+    }
+    return null;
+};
+
 type PlainValue = string | number | boolean | null | PlainValue[] | { [key: string]: PlainValue };
 
 const isPlainObject = (v: object | null | undefined): v is Record<string, PlainValue> =>
@@ -1154,6 +1164,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
         const { teams, meta, betting } = vm;
         const isPregame = meta.isPregame;
         const isTennis = match.sport === Sport.TENNIS;
+        const isBaseball = match.sport === Sport.BASEBALL;
         const tennisRound = match.round
             ? match.round.replace('Qualifying ', 'Q').replace('Round of ', 'R').replace('Round ', 'R')
             : null;
@@ -1171,6 +1182,13 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
         const regulation = safeNumber(vm.normalized.regulationPeriods, 0);
         const hasOvertime = regulation > 0 && period > regulation;
         const statusLabel = meta.isFinished ? (hasOvertime ? 'FINAL/OT' : 'FINAL') : 'LIVE';
+        const inning = Math.max(1, period || 1);
+        const inningHalf = parseBaseballHalf(vm.normalized.displayClock, match.minute, match.displayClock);
+        const inningLabel = inningHalf
+            ? `${inningHalf} ${getOrdinal(inning).toUpperCase()}`
+            : `INNING ${getOrdinal(inning).toUpperCase()}`;
+        const outs = safeNumber(vm.normalized.situation?.outs, 0);
+        const outsLabel = `${outs} OUT${outs === 1 ? '' : 'S'}`;
         const awayRecord = teams.away.record?.trim();
         const homeRecord = teams.home.record?.trim();
         const showAwayRecord = !!awayRecord && awayRecord !== '-' && awayRecord !== '—';
@@ -1331,12 +1349,14 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-3 text-footnote font-medium tracking-widest uppercase">
-                                    <span className="text-white/40">{statusLabel}</span>
+                                    <span className="text-white/40">
+                                        {isBaseball && !meta.isFinished ? inningLabel : statusLabel}
+                                    </span>
                                     {!meta.isFinished && (
                                         <>
                                             <span className="w-1 h-1 rounded-full bg-amber-400/80" />
                                             <span className="text-amber-400 font-mono tracking-widest tabular-nums">
-                                                {meta.displayClock}
+                                                {isBaseball ? outsLabel : meta.displayClock}
                                             </span>
                                         </>
                                     )}
