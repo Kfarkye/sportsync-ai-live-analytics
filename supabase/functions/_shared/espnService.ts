@@ -23,7 +23,7 @@ import { resilientFetch, logger as Logger } from './resilience.ts';
 import { EspnAdapters, Safe } from './espnAdapters.ts';
 import { computeAISignals } from './gameStateEngine.ts';
 import { safeSlice } from './oddsUtils.ts';
-import { safeParseDate } from './dateUtils.ts';
+import { formatLocalDate, safeParseDate } from './dateUtils.ts';
 
 
 // ============================================================================
@@ -203,7 +203,24 @@ export const fetchLeagueMatches = async (
                     }))
                 )
             );
-            console.log(`[ESPN] Tennis flattened: ${data.events.length} tournaments → ${events.length} matches`);
+
+            const targetDate = formatLocalDate(dObj);
+            const seen = new Set<string>();
+            events = events.filter((event: any) => {
+                const eventId = String(event?.id || '');
+                if (eventId) {
+                    if (seen.has(eventId)) return false;
+                    seen.add(eventId);
+                }
+
+                if (!event?.date) return true;
+                const parsedDate = new Date(event.date);
+                if (Number.isNaN(parsedDate.getTime())) return true;
+                const eventDate = formatLocalDate(parsedDate);
+                return eventDate === targetDate;
+            });
+
+            console.log(`[ESPN] Tennis flattened: ${data.events.length} tournaments → ${events.length} matches (${targetDate})`);
         }
 
         // Debug: Log fetch results for Tennis and Liga MX
