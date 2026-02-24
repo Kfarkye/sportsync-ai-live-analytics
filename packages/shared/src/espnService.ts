@@ -324,9 +324,51 @@ export const fetchAllMatches = async (
         debugManager.trace('ESPNService', 'Match Hydrated', m.id, { canonicalId: m.canonical_id, home: m.homeTeam.name, away: m.awayTeam.name });
     });
 
+    const statusRank = (status?: string) => {
+        if (!status) return 0;
+        const s = status.toUpperCase();
+        if (s === 'LIVE' || s === 'IN_PROGRESS' || s === 'STATUS_IN_PROGRESS') return 3;
+        if (s === 'FINISHED' || s === 'FINAL' || s === 'STATUS_FINAL' || s === 'STATUS_FINAL_OT') return 2;
+        if (s === 'SCHEDULED' || s === 'STATUS_SCHEDULED' || s === 'PREGAME') return 1;
+        return 0;
+    };
+
+    const completenessScore = (match: Match) => {
+        const hasScores = match.homeScore !== undefined && match.awayScore !== undefined;
+        const hasClock = !!match.displayClock;
+        const hasOdds = !!match.current_odds || !!match.odds;
+        const hasLinescores = (match.homeTeam?.linescores?.length || 0) > 0 || (match.awayTeam?.linescores?.length || 0) > 0;
+        return statusRank(match.status) * 10
+            + (hasScores ? 3 : 0)
+            + (hasLinescores ? 2 : 0)
+            + (hasClock ? 1 : 0)
+            + (hasOdds ? 1 : 0);
+    };
+
+    const deduped = new Map<string, Match>();
+    matches.forEach(match => {
+        const canonicalKey = match.canonical_id
+            || generateCanonicalGameId(
+                match.homeTeam?.name || 'Unknown',
+                match.awayTeam?.name || 'Unknown',
+                match.startTime,
+                match.leagueId
+            );
+        const key = canonicalKey || match.id;
+        const existing = deduped.get(key);
+        if (!existing) {
+            deduped.set(key, match);
+            return;
+        }
+        const best = completenessScore(match) >= completenessScore(existing) ? match : existing;
+        deduped.set(key, best);
+    });
+
+    const uniqueMatches = Array.from(deduped.values());
+
     // Sort by start time
 
-    return matches.sort((a, b) =>
+    return uniqueMatches.sort((a, b) =>
         new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
     );
 };
