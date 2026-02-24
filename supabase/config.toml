@@ -20,6 +20,9 @@ verify_jwt = false
 [functions.ingest-odds]
 verify_jwt = false
 
+[functions.ingest-game-events]
+verify_jwt = false
+
 [functions.history-janitor]
 enabled = true
 verify_jwt = true
