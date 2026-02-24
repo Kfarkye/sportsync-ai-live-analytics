@@ -142,6 +142,19 @@ const stripSuffix = (id: string): string => {
     return id.split('_')[0];
 };
 
+const TENNIS_PLACEHOLDER_REGEX =
+    /^(tbd|tba|bye|qualifier|alternate|lucky loser|wild card)\b/i;
+
+const isPlaceholderCompetitor = (competitor: any): boolean => {
+    if (!competitor) return true;
+    const entity = competitor.team || competitor.athlete || {};
+    const name = String(
+        entity.displayName || entity.fullName || entity.shortDisplayName || entity.name || ''
+    ).trim();
+    if (!name) return true;
+    return TENNIS_PLACEHOLDER_REGEX.test(name);
+};
+
 /**
  * Fetch scoreboard for a league on a specific date
  * This is the primary endpoint for match listings
@@ -236,6 +249,9 @@ export const fetchLeagueMatches = async (
             const awayComp = competition.competitors.find((c: any) => c.homeAway === 'away');
             // Tennis uses competitor.athlete, other sports use competitor.team
             if (!(homeComp?.team || homeComp?.athlete) || !(awayComp?.team || awayComp?.athlete)) return null;
+            if (league.sport === Sport.TENNIS && (isPlaceholderCompetitor(homeComp) || isPlaceholderCompetitor(awayComp))) {
+                return null;
+            }
 
             return {
                 id: Safe.string(event.id),
