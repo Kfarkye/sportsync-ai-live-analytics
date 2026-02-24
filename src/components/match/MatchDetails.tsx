@@ -15,6 +15,7 @@ import React, {
   useMemo,
   useCallback,
   useRef,
+  useId,
   memo,
   type FC,
   type ReactNode,
@@ -558,9 +559,38 @@ interface SpecSheetRowProps {
 const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true }: SpecSheetRowProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const effectiveOpen = collapsible ? isOpen : true;
+  const contentId = useId();
+  const safeLabel = label.replace(/\s*\/\/\s*/g, ' ').trim();
+  const toggleOpen = () => {
+    if (!collapsible) return;
+    setIsOpen((prev) => !prev);
+  };
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!collapsible) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleOpen();
+    }
+  };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn("group relative border-t border-white/[0.08] transition-all duration-500", collapsible ? "cursor-pointer" : "cursor-default")} onClick={() => collapsible && setIsOpen(!isOpen)}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className={cn(
+        "group relative border-t border-white/[0.08] transition-all duration-500",
+        collapsible
+          ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:ring-offset-0"
+          : "cursor-default"
+      )}
+      onClick={toggleOpen}
+      onKeyDown={handleKeyDown}
+      role={collapsible ? "button" : undefined}
+      tabIndex={collapsible ? 0 : undefined}
+      aria-expanded={collapsible ? effectiveOpen : undefined}
+      aria-controls={collapsible ? contentId : undefined}
+      aria-label={collapsible ? `${safeLabel} section` : undefined}
+    >
       <div className={cn("absolute -top-[1px] left-0 h-[1px] bg-white transition-all duration-500 ease-out z-10 shadow-[0_0_10px_rgba(255,255,255,0.4)]", effectiveOpen ? "w-full opacity-100" : "w-0 opacity-0")} />
       <div className="py-6 flex flex-col md:flex-row md:items-start gap-5 md:gap-0">
         <div className="w-full md:w-[140px] shrink-0 flex items-center justify-between md:block select-none">
@@ -571,7 +601,16 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
           {collapsible && <div className="hidden md:block absolute right-0 top-1"><ToggleSwitch expanded={effectiveOpen} /></div>}
           <AnimatePresence initial={false}>
             {effectiveOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={PHYSICS_SWITCH} className="overflow-hidden">
+              <motion.div
+                id={contentId}
+                role="region"
+                aria-label={safeLabel}
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={PHYSICS_SWITCH}
+                className="overflow-hidden"
+              >
                 <div className="animate-in fade-in duration-700 fill-mode-forwards">{children}</div>
               </motion.div>
             )}
@@ -956,6 +995,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
   const [activeTab, setActiveTab] = useState(isSched ? 'DETAILS' : 'OVERVIEW');
   const [propView, setPropView] = useState<'classic' | 'cinematic'>('cinematic');
+  const nextPropView = propView === 'classic' ? 'cinematic' : 'classic';
+  const nextPropLabel = nextPropView === 'classic' ? 'Classic View' : 'Cinematic View';
 
   useEffect(() => {
     if (isSched && activeTab === 'OVERVIEW') setActiveTab('DETAILS');
@@ -974,6 +1015,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const TABS = isSched
     ? [{ id: 'DETAILS', label: 'Matchup' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }]
     : [{ id: 'OVERVIEW', label: 'Game' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }];
+  const tabButtonId = (id: string) => `match-tab-${id.toLowerCase()}`;
+  const tabPanelId = (id: string) => `match-panel-${id.toLowerCase()}`;
 
   const fallbackLiveState: LiveState | undefined = match.lastPlay
     ? { lastPlay: { text: match.lastPlay.text, type: { text: match.lastPlay.type } } }
@@ -1220,7 +1263,13 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
       <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/[0.04] pt-safe shadow-2xl" style={{ backgroundColor: ESSENCE.colors.surface.base + 'F2' }}>
         <div className="flex items-center justify-between px-6 py-4">
-          <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-white/5 rounded-full transition-all duration-300">
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back to matches"
+            title="Back to matches"
+            className="group flex items-center justify-center w-10 h-10 hover:bg-white/5 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+          >
             <BackArrow />
           </button>
           <div className="flex items-center gap-4">
@@ -1231,9 +1280,25 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         {error && (<motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2"><div className="bg-red-900/10 border border-red-500/20 text-red-400 text-[10px] uppercase font-mono py-1 px-3 text-center">Data Stream Interrupted • Displaying Cached Telemetry</div></motion.div>)}
         <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
         {/* M-03: Tab bar — no pipe, underline-only active indicator, extra spacing before AI */}
-        <nav className="flex justify-center gap-6 md:gap-12 pb-0 mt-2 border-t border-white/[0.04]">
+        <nav
+          className="flex justify-center gap-6 md:gap-12 pb-0 mt-2 border-t border-white/[0.04]"
+          role="tablist"
+          aria-label="Match detail tabs"
+        >
           {TABS.map((tab, i) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("relative py-4 group outline-none", i === TABS.length - 1 && "ml-2")}>
+            <button
+              key={tab.id}
+              type="button"
+              id={tabButtonId(tab.id)}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={tabPanelId(tab.id)}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "relative py-4 group outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
+                i === TABS.length - 1 && "ml-2"
+              )}
+            >
               <span className={cn("text-[11px] font-medium tracking-[0.12em] uppercase transition-all duration-150", activeTab === tab.id ? "text-white" : "text-zinc-500 group-hover:text-zinc-400")}>{tab.label}</span>
               {activeTab === tab.id && (<motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[2px] bg-white" />)}
             </button>
@@ -1244,7 +1309,14 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       <main className="relative z-10 pb-safe-offset-24 min-h-screen max-w-[840px] mx-auto pt-8 px-4 md:px-0">
         <LayoutGroup>
           <AnimatePresence mode="wait">
-            <motion.div key={activeTab} {...ANIMATION.slideUp}>
+            <motion.div
+              key={activeTab}
+              id={tabPanelId(activeTab)}
+              role="tabpanel"
+              aria-labelledby={tabButtonId(activeTab)}
+              tabIndex={-1}
+              {...ANIMATION.slideUp}
+            >
               {activeTab === 'OVERVIEW' && (
                 <div className="space-y-0">
                   <SpecSheetRow label="01 // BROADCAST" defaultOpen={true} collapsible={false}>
@@ -1273,7 +1345,17 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
               )}
               {activeTab === 'PROPS' && (
                 <div className="space-y-0">
-                  <div className="flex justify-end mb-4 pr-4"><button onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')} className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 hover:text-white transition-colors">SWITCH VIEW</button></div>
+                  <div className="flex justify-end mb-4 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')}
+                      aria-label={`Switch to ${nextPropLabel}`}
+                      title={`Switch to ${nextPropLabel}`}
+                      className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                    >
+                      SWITCH TO {nextPropLabel.toUpperCase()}
+                    </button>
+                  </div>
                   <SpecSheetRow label="01 // PLAYER MKTS" defaultOpen={true} collapsible={false}>{propView === 'classic' ? <ClassicPlayerProps match={match} /> : <CinematicPlayerProps match={match} />}</SpecSheetRow>
                   <div className="w-full h-px bg-white/[0.08]" />
                 </div>

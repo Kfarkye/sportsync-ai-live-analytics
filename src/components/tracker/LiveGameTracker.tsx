@@ -1029,7 +1029,7 @@ const PredictionCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
         <ObsidianPanel hover className="p-5 flex flex-col justify-between min-h-[130px]">
             <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
-                    <Target size={14} className="text-zinc-500" />
+                    <Target size={14} className="text-zinc-500" aria-hidden="true" />
                     <Label>Model</Label>
                 </div>
                 <div
@@ -1052,7 +1052,7 @@ const PredictionCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
                             isPlay ? (isOver ? 'text-emerald-400' : 'text-rose-400') : 'text-zinc-500'
                         )}
                     >
-                        {isOver ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        {isOver ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
                         {Math.abs(safeNumber(edge_points)).toFixed(1)}
                     </div>
                 </div>
@@ -1077,10 +1077,10 @@ type ScoreHeaderVariant = 'full' | 'embedded';
 
 /** Country flag for tennis players */
 const TennisFlag: FC<{ flag?: string; name: string; className?: string }> = ({ flag, name, className }) => {
-    if (!flag) return <div className={cn("bg-zinc-800 rounded-[2px] flex items-center justify-center text-[9px] font-bold text-zinc-500", className)}>{name.slice(0, 2).toUpperCase()}</div>;
+    if (!flag) return <div className={cn("bg-zinc-800 rounded-[2px] flex items-center justify-center text-[9px] font-bold text-zinc-500", className)} aria-hidden="true">{name.slice(0, 2).toUpperCase()}</div>;
     return (
         <div className={cn("overflow-hidden rounded-[3px] shadow-md border border-white/10", className)}>
-            <img src={flag} alt="" className="w-full h-full object-cover" />
+            <img src={flag} alt="" className="w-full h-full object-cover" aria-hidden="true" />
         </div>
     );
 };
@@ -1171,6 +1171,12 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
         const regulation = safeNumber(vm.normalized.regulationPeriods, 0);
         const hasOvertime = regulation > 0 && period > regulation;
         const statusLabel = meta.isFinished ? (hasOvertime ? 'FINAL/OT' : 'FINAL') : 'LIVE';
+        const awayRecord = teams.away.record?.trim();
+        const homeRecord = teams.home.record?.trim();
+        const showAwayRecord = !!awayRecord && awayRecord !== '-' && awayRecord !== '—';
+        const showHomeRecord = !!homeRecord && homeRecord !== '-' && homeRecord !== '—';
+        const headerLabel = `${teams.away.name} vs ${teams.home.name}`;
+        const headerAriaLabel = `${headerLabel} ${meta.isFinished ? 'final' : isPregame ? 'pregame' : 'live'}`;
 
         return (
             <header
@@ -1178,6 +1184,8 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                     'relative w-full flex flex-col items-center overflow-hidden select-none',
                     isEmbedded ? 'bg-surface-pure pt-4' : 'bg-surface-pure pt-6 border-b border-edge-strong'
                 )}
+                role="region"
+                aria-label={headerAriaLabel}
             >
                 {/* Top Status Bar: [Back] [Date/League] [Dot] */}
                 {showTopBar && (
@@ -1187,12 +1195,13 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                             onClick={onBack}
                             disabled={!onBack}
                             aria-label="Back"
+                            title="Back"
                             className={cn(
-                                'flex items-center gap-2 text-zinc-500 transition-colors',
+                                'flex items-center gap-2 text-zinc-500 transition-colors rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
                                 onBack ? 'hover:text-white cursor-pointer' : 'opacity-50 cursor-default'
                             )}
                         >
-                            <ArrowLeft size={14} strokeWidth={3} />
+                            <ArrowLeft size={14} strokeWidth={3} aria-hidden="true" />
                             <span className="text-caption font-bold tracking-widest uppercase">BACK</span>
                         </button>
                         <div className="flex flex-col items-center">
@@ -1268,9 +1277,11 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                     {teams.away.abbr}
                                 </div>
                             )}
-                            <span className="mt-1 text-footnote font-semibold text-white/35 tabular-nums tracking-wide font-mono">
-                                {teams.away.record}
-                            </span>
+                            {showAwayRecord && (
+                                <span className="mt-1 text-footnote font-semibold text-white/35 tabular-nums tracking-wide font-mono">
+                                    {awayRecord}
+                                </span>
+                            )}
                         </div>
                     </div>
 
@@ -1362,16 +1373,18 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                     {teams.home.abbr}
                                 </div>
                             )}
-                            <span className="mt-1 text-footnote font-semibold text-white/35 tabular-nums tracking-wide font-mono">
-                                {teams.home.record}
-                            </span>
+                            {showHomeRecord && (
+                                <span className="mt-1 text-footnote font-semibold text-white/35 tabular-nums tracking-wide font-mono">
+                                    {homeRecord}
+                                </span>
+                            )}
                         </div>
                     </div>
                 </div>
 
                 {/* Navigation Tabs */}
                 {showTabs && (
-                    <div className="w-full flex items-center justify-center gap-6 border-b border-edge-strong pb-0 overflow-x-auto no-scrollbar px-4">
+                    <div className="w-full flex items-center justify-center gap-6 border-b border-edge-strong pb-0 overflow-x-auto no-scrollbar px-4" role="group" aria-label="Scoreboard views">
                         {TABS.map((tab, i) => (
                             <button
                                 key={tab}
@@ -1379,7 +1392,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 onClick={() => handleTabClick(tab)}
                                 aria-pressed={activeTab === tab}
                                 className={cn(
-                                    'text-caption sm:text-footnote font-bold tracking-loose transition-colors pb-4 relative shrink-0',
+                                    'text-caption sm:text-footnote font-bold tracking-loose transition-colors pb-4 relative shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded-sm',
                                     i === TABS.length - 1 && 'ml-2', // M-03: Subtle spacing before AI tab
                                     activeTab === tab
                                         ? 'text-white'
@@ -1419,8 +1432,9 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
 
         if (!vm)
             return (
-                <div className="h-[300px] flex items-center justify-center bg-black">
-                    <Activity className={cn('text-zinc-700', !reduceMotion && 'animate-pulse')} />
+                <div className="h-[300px] flex items-center justify-center bg-black" role="status" aria-live="polite">
+                    <Activity className={cn('text-zinc-700', !reduceMotion && 'animate-pulse')} aria-hidden="true" />
+                    <span className="sr-only">Loading live tracker</span>
                 </div>
             );
 
@@ -1460,6 +1474,7 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
                             <p
                                 className="text-xs font-medium text-zinc-300 leading-relaxed"
                                 aria-live="polite"
+                                role="status"
                             >
                                 {vm.gameplay.lastPlay?.text ||
                                     (vm.meta.isFinished ? 'Game Final' : 'Game in progress...')}
@@ -1474,8 +1489,8 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
                         <PredictionCard viewModel={vm} />
                         {!vm.meta.isPregame && (
                             <ObsidianPanel hover className="p-5 flex flex-col justify-between min-h-[130px]">
-                                <div className="flex items-center gap-2">
-                                    <Radio size={14} className="text-zinc-500" />
+                        <div className="flex items-center gap-2">
+                                    <Radio size={14} className="text-zinc-500" aria-hidden="true" />
                                     <Label>Feed Status</Label>
                                 </div>
                                 <div className="flex items-center gap-2 text-zinc-400 text-xs">
@@ -1509,6 +1524,7 @@ export const LiveTotalCard: FC<{ match: Match }> = memo(({ match }) => {
             <ObsidianPanel className="p-6 flex flex-col items-center justify-center min-h-[160px]">
                 <Activity
                     className={cn('text-zinc-600 mb-2', !reduceMotion && 'animate-spin')}
+                    aria-hidden="true"
                 />
                 <Label>Loading...</Label>
             </ObsidianPanel>
