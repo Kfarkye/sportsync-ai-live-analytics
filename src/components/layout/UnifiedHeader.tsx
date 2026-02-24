@@ -176,7 +176,8 @@ export const UnifiedHeader: FC = () => {
         toggleSportDrawer,
         toggleCmdk,
         toggleAuthModal,
-        toggleRankingsDrawer
+        toggleRankingsDrawer,
+        isSportDrawerOpen
     } = useAppStore();
 
     const { user } = useAuth();
@@ -230,8 +231,12 @@ export const UnifiedHeader: FC = () => {
                 <div className="h-14 px-4 md:px-6 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <button
+                            type="button"
                             onClick={() => toggleSportDrawer(true)}
-                            className="group flex items-center gap-3 active:scale-[0.97] transition-all duration-200"
+                            aria-haspopup="dialog"
+                            aria-expanded={isSportDrawerOpen}
+                            aria-label="Change sport"
+                            className="group flex items-center gap-3 active:scale-[0.97] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                         >
                             <div className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 border border-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] group-hover:bg-white/10 transition-colors text-base relative overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent opacity-50" />
@@ -254,7 +259,9 @@ export const UnifiedHeader: FC = () => {
 
                         {isCollege && (
                             <button
+                                type="button"
                                 onClick={() => toggleRankingsDrawer(true)}
+                                aria-label="Open rankings"
                                 className="w-7 h-7 flex items-center justify-center rounded-full text-amber-500/80 hover:text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90"
                             >
                                 <Trophy size={14} />
@@ -264,16 +271,20 @@ export const UnifiedHeader: FC = () => {
 
                     <div className="flex items-center gap-3">
                         <button
+                            type="button"
                             onClick={() => toggleCmdk()}
-                            className="w-8 h-8 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all active:scale-95"
+                            aria-label="Search (Cmd+K)"
+                            className="w-8 h-8 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                         >
                             <Search size={16} strokeWidth={2.5} />
                         </button>
 
                         {user ? (
                             <button
+                                type="button"
                                 onClick={() => toggleAuthModal(true)}
-                                className="relative w-7 h-7 rounded-full bg-zinc-800 border border-white/10 p-0.5 shadow-lg active:scale-95 transition-transform"
+                                aria-label="Account"
+                                className="relative w-7 h-7 rounded-full bg-zinc-800 border border-white/10 p-0.5 shadow-lg active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                             >
                                 <div className="w-full h-full rounded-full bg-gradient-to-tr from-zinc-700 to-zinc-900 flex items-center justify-center text-caption font-bold text-zinc-100 uppercase tracking-tighter">
                                     {user.email?.[0]}
@@ -281,8 +292,10 @@ export const UnifiedHeader: FC = () => {
                             </button>
                         ) : (
                             <button
+                                type="button"
                                 onClick={() => toggleAuthModal(true)}
-                                className="w-7 h-7 rounded-full bg-white/5 border border-white/5 flex items-center justify-center text-zinc-500 hover:text-zinc-300 active:scale-95 transition-all"
+                                aria-label="Sign in"
+                                className="w-7 h-7 rounded-full bg-white/5 border border-white/5 flex items-center justify-center text-zinc-500 hover:text-zinc-300 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
@@ -313,9 +326,11 @@ export const UnifiedHeader: FC = () => {
                                             <LayoutGroup id="week-tabs">
                                                 {weekOptions.map((option) => (
                                                     <button
+                                                        type="button"
                                                         key={option.value}
                                                         id={option.isCurrent ? 'week-tab-active' : undefined}
                                                         onClick={() => handleWeekSelect(option.value)}
+                                                        aria-pressed={option.isCurrent}
                                                         className={cn(
                                                             "relative flex-shrink-0 px-3 py-1.5 rounded-lg text-footnote font-semibold tracking-tight transition-colors duration-200 select-none",
                                                             option.isCurrent ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
@@ -341,8 +356,10 @@ export const UnifiedHeader: FC = () => {
                                             <div className="flex items-center gap-0.5">
                                                 {anchors.map((anchor) => (
                                                     <button
+                                                        type="button"
                                                         key={anchor.label}
                                                         onClick={() => handleDateSelect(anchor.date)}
+                                                        aria-pressed={anchor.isActive}
                                                         className={cn(
                                                             "relative px-3.5 py-1.5 rounded-lg text-[13px] font-semibold tracking-[-0.01em] transition-colors duration-200 select-none",
                                                             anchor.isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300',
@@ -381,7 +398,10 @@ export const UnifiedHeader: FC = () => {
 
                                         {/* Calendar toggle */}
                                         <button
+                                            type="button"
                                             onClick={() => setCalendarOpen(prev => !prev)}
+                                            aria-label="Open calendar"
+                                            aria-expanded={calendarOpen}
                                             className={cn(
                                                 "w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 active:scale-90",
                                                 calendarOpen
@@ -419,8 +439,10 @@ export const UnifiedHeader: FC = () => {
                                         const isActive = liveTab === tab;
                                         return (
                                             <button
+                                                type="button"
                                                 key={tab}
                                                 onClick={() => setLiveTab(tab)}
+                                                aria-pressed={isActive}
                                                 className={cn(
                                                     "relative px-3 py-1.5 rounded-md text-footnote font-semibold tracking-tight transition-colors",
                                                     isActive ? "text-white bg-white/10" : "text-zinc-500 hover:text-zinc-300"
@@ -438,6 +460,8 @@ export const UnifiedHeader: FC = () => {
                                         <input
                                             type="text"
                                             placeholder="Search..."
+                                            aria-label="Filter live games"
+                                            spellCheck={false}
                                             value={liveFilter}
                                             onChange={(e) => setLiveFilter(e.target.value)}
                                             className="w-28 bg-white/5 border border-white/5 rounded-lg py-1.5 pl-7 pr-2 text-footnote text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:bg-white/10 focus:border-white/10 transition-all"
@@ -446,7 +470,9 @@ export const UnifiedHeader: FC = () => {
 
                                     <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/5">
                                         <button
+                                            type="button"
                                             onClick={() => setLiveLayout('LIST')}
+                                            aria-pressed={liveLayout === 'LIST'}
                                             className={cn(
                                                 "p-1.5 rounded-md transition-colors",
                                                 liveLayout === 'LIST' ? "text-white bg-white/10" : "text-zinc-500 hover:text-zinc-300"
@@ -455,7 +481,9 @@ export const UnifiedHeader: FC = () => {
                                             <List size={14} />
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={() => setLiveLayout('GRID')}
+                                            aria-pressed={liveLayout === 'GRID'}
                                             className={cn(
                                                 "p-1.5 rounded-md transition-colors",
                                                 liveLayout === 'GRID' ? "text-white bg-white/10" : "text-zinc-500 hover:text-zinc-300"

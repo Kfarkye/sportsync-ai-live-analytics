@@ -257,6 +257,11 @@ const LandingPage: FC<LandingPageProps> = ({ onEnter }) => {
             transition-duration: 0.1s;
         }
 
+        .drip-cta:focus-visible {
+            outline: 2px solid var(--emerald);
+            outline-offset: 4px;
+        }
+
         .drip-trial-note {
             font-size: 0.875rem;
             font-weight: 400;
@@ -322,6 +327,12 @@ const LandingPage: FC<LandingPageProps> = ({ onEnter }) => {
 
         .drip-footer-link:hover {
             color: var(--mist);
+        }
+
+        .drip-footer-link:focus-visible {
+            outline: 2px solid var(--emerald);
+            outline-offset: 3px;
+            border-radius: 6px;
         }
 
         /* ═══════════════════════════════════════════════════════════════════════
@@ -419,7 +430,7 @@ const LandingPage: FC<LandingPageProps> = ({ onEnter }) => {
 
         {/* CTA */}
         <div className="drip-cta-wrapper">
-          <button className="drip-cta" onClick={onEnter}>Start</button>
+          <button type="button" className="drip-cta" onClick={onEnter}>Start</button>
           <span className="drip-trial-note">Free for 3 days</span>
         </div>
 

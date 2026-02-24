@@ -1,5 +1,6 @@
 import React, { FC, lazy, Suspense, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
+import { Calendar } from 'lucide-react';
 import { useAppStore, usePinStore } from '../../store/appStore';
 import { useMatches } from '../../hooks/useMatches';
 import { UnifiedHeader } from './UnifiedHeader';
@@ -32,6 +33,7 @@ const AppShell: FC = () => {
     isPricingModalOpen, isRankingsDrawerOpen, toggleCmdk,
     toggleAuthModal, togglePricingModal,
     toggleSportDrawer, toggleRankingsDrawer, setShowLanding,
+    setSelectedDate,
     closeAllOverlays
   } = useAppStore();
 
@@ -128,13 +130,22 @@ const AppShell: FC = () => {
                 {/* EMPTY STATE */}
                 {!isLoading && filteredMatches.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
-                    <div className="text-4xl mb-6 grayscale filter contrast-50 opacity-20">📅</div>
-                    <h3 className="text-xl font-bold text-white tracking-tight">
+                    <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center mb-6">
+                      <Calendar size={18} className="text-zinc-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-white tracking-tight">
                       {new Date(selectedDate).toDateString() === new Date().toDateString() ? 'No Games Today' : 'No Games Scheduled'}
                     </h3>
-                    <p className="text-zinc-500 text-body-sm mt-2 max-w-[200px] leading-relaxed">
-                      Check back later or navigate to another date in the timeline.
+                    <p className="text-zinc-500 text-body-sm mt-2 max-w-[260px] leading-relaxed">
+                      Check back later or pick another date in the timeline.
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDate(new Date())}
+                      className="mt-5 px-4 py-2 rounded-full border border-white/10 text-caption font-bold uppercase tracking-widest text-zinc-300 hover:text-white hover:border-white/20 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                    >
+                      Back to Today
+                    </button>
                   </div>
                 )}
 

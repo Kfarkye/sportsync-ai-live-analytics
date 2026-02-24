@@ -56,11 +56,18 @@ const TennisPlayerIdentity: React.FC<{ team: Match['homeTeam']; className?: stri
     );
 };
 
+const normalizeHex = (value?: string) => {
+    if (!value) return '#1c1c1e';
+    return value.startsWith('#') ? value : `#${value}`;
+};
+
 const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () => void; isLive: boolean }) => {
-    const homeColor = match.homeTeam.color || '#1c1c1e';
-    const awayColor = match.awayTeam.color || '#1c1c1e';
+    const homeColor = normalizeHex(match.homeTeam.color);
+    const awayColor = normalizeHex(match.awayTeam.color);
     const bgGradient = `linear-gradient(135deg, ${awayColor}15 0%, #09090b 50%, ${homeColor}15 100%)`;
     const isTennis = match.sport === Sport.TENNIS;
+    const scheduledTime = new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const heroLabel = `${match.awayTeam.name} vs ${match.homeTeam.name}`;
 
     // Tennis: show round (R1, QF, SF, F). Team sports: show period/clock.
     const roundStr = match.round
@@ -70,7 +77,16 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
     return (
         <div
             onClick={onClick}
-            className="relative h-[160px] rounded-2xl border border-white/10 overflow-hidden cursor-pointer group transition-all duration-500 hover:border-white/20 hover:shadow-2xl"
+            role="button"
+            tabIndex={0}
+            aria-label={`Open ${heroLabel}`}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onClick();
+                }
+            }}
+            className="relative h-[160px] rounded-2xl border border-white/10 overflow-hidden cursor-pointer group transition-all duration-500 hover:border-white/20 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             style={{ background: '#09090b' }}
         >
             {/* Dynamic Background */}
@@ -90,7 +106,7 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
                         {!isLive && (
                             <div className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
                                 <span className="text-label font-bold text-zinc-400 uppercase tracking-widest">
-                                    {new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                    {scheduledTime}
                                 </span>
                             </div>
                         )}
@@ -101,7 +117,9 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
                             </div>
                         )}
                     </div>
-                    <span className="text-caption font-bold text-white/30 uppercase tracking-widest">{match.leagueId}</span>
+                    <span className="text-caption font-bold text-white/30 uppercase tracking-widest">
+                        {match.leagueId}
+                    </span>
                 </div>
 
                 {/* Middle Row: Matchup */}
@@ -382,7 +400,11 @@ const MatchList: React.FC<MatchListProps> = ({
                                 <p className="text-body-sm text-zinc-400 mb-6 leading-relaxed font-medium tracking-tight">
                                     Real-time institutional feeds and sharp money indicators.
                                 </p>
-                                <button onClick={onOpenPricing} className="w-full py-3 bg-white hover:bg-zinc-200 text-black text-footnote font-bold uppercase tracking-widest rounded-full transition-colors flex items-center justify-center">
+                                <button
+                                    type="button"
+                                    onClick={onOpenPricing}
+                                    className="w-full py-3 bg-white hover:bg-zinc-200 text-black text-footnote font-bold uppercase tracking-widest rounded-full transition-colors flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                                >
                                     Upgrade
                                 </button>
                             </div>
