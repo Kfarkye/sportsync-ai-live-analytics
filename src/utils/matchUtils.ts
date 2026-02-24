@@ -87,7 +87,12 @@ export const getPeriodDisplay = (match: Match): string => {
     return otPeriod === 1 ? 'OT' : `${otPeriod}OT`;
   }
 
-  if (match.sport === Sport.BASEBALL) return match.displayClock || `${period}`;
+  if (match.sport === Sport.BASEBALL) {
+    const outs = match.situation?.outs;
+    const base = match.displayClock || (period ? `INNING ${period}` : '');
+    if (!base) return outs !== undefined && outs !== null ? `${outs} OUTS` : '';
+    return outs !== undefined && outs !== null ? `${base} • ${outs} OUTS` : base;
+  }
   if (match.sport === Sport.HOCKEY) return `P${period}`;
   if (match.sport === Sport.SOCCER) return `${period === 1 ? '1st' : '2nd'} Half`;
   if (match.sport === Sport.TENNIS) return `Set ${period}`;

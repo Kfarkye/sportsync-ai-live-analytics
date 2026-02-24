@@ -69,6 +69,10 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
     // Period label: H for Soccer/NCAAB (halves), P for Hockey (periods), Q for others (quarters)
     const getPeriodLabel = () => {
+        if (match.sport === Sport.BASEBALL) {
+            const outs = match.situation?.outs;
+            return outs !== undefined && outs !== null ? `• ${outs} OUTS` : '';
+        }
         if (!match.period) return '';
         if (match.sport === Sport.SOCCER || match.sport === Sport.COLLEGE_BASKETBALL) return `H${match.period}`;
         if (match.sport === Sport.HOCKEY) return `P${match.period}`;

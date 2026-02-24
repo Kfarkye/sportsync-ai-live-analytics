@@ -32,19 +32,19 @@ const TennisSetScores: React.FC<{ linescores?: Linescore[] }> = ({ linescores })
   return (
     <div className="flex items-center gap-[6px] font-mono text-footnote tabular-nums leading-none">
       {linescores.map((ls, idx) => (
-        <div 
-            key={idx}
-            className={cn(
-                "relative flex items-center justify-center w-5 h-5 rounded-[2px] transition-colors duration-300 select-none",
-                ls.winner 
-                    ? "bg-overlay-strong text-white font-bold border border-white/10 shadow-[0_0_8px_rgba(255,255,255,0.05)]" 
-                    : "text-zinc-500 bg-transparent"
-            )}
+        <div
+          key={idx}
+          className={cn(
+            "relative flex items-center justify-center w-5 h-5 rounded-[2px] transition-colors duration-300 select-none",
+            ls.winner
+              ? "bg-overlay-strong text-white font-bold border border-white/10 shadow-[0_0_8px_rgba(255,255,255,0.05)]"
+              : "text-zinc-500 bg-transparent"
+          )}
         >
           {ls.value ?? '-'}
           {ls.tiebreak && (
             <span className="absolute -top-[3px] -right-[4px] text-nano font-medium text-zinc-400 scale-75 origin-top-right">
-                {ls.tiebreak}
+              {ls.tiebreak}
             </span>
           )}
         </div>
@@ -70,11 +70,11 @@ const MatchRow: React.FC<MatchRowProps> = ({
   // Memoized formatted time/round to prevent layout thrashing during scroll
   const { startTimeStr, roundStr } = useMemo(() => ({
     startTimeStr: new Date(match.startTime)
-        .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-        .replace(' ', ''),
-    roundStr: match.round 
-        ? match.round.replace('Qualifying ', 'Q').replace('Round of ', 'R').replace('Round ', 'R') 
-        : null
+      .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      .replace(' ', ''),
+    roundStr: match.round
+      ? match.round.replace('Qualifying ', 'Q').replace('Round of ', 'R').replace('Round ', 'R')
+      : null
   }), [match.startTime, match.round]);
 
   return (
@@ -97,7 +97,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
         // Obsidian Weissach — card surface lifted from void
         "bg-surface-elevated/50",
         "transition-all duration-300",
-        
+
         // AUDIT FIX: Restored Premium Gradient Divider (replaces flat border)
         "after:content-[''] after:absolute after:left-5 after:right-5 after:bottom-0 after:h-px after:scale-y-[0.5] after:origin-bottom",
         "after:bg-gradient-to-r after:from-transparent after:via-white/10 after:to-transparent",
@@ -108,9 +108,9 @@ const MatchRow: React.FC<MatchRowProps> = ({
       {/* Dynamic State: Amber when Pinned, White when Hovered */}
       <div className={cn(
         "absolute left-0 top-0 bottom-0 w-[3px] transition-all duration-300 ease-out z-10",
-        isPinned 
-            ? "bg-amber-400 opacity-100 shadow-[0_0_15px_rgba(251,191,36,0.3)]" 
-            : "bg-white scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+        isPinned
+          ? "bg-amber-400 opacity-100 shadow-[0_0_15px_rgba(251,191,36,0.3)]"
+          : "bg-white scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
       )} />
 
       {/* Team Data Core */}
@@ -119,7 +119,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
           const isHome = idx === 1;
           const score = isHome ? match.homeScore : match.awayScore;
           const otherScore = isHome ? match.awayScore : match.homeScore;
-          
+
           // Winner logic: Strict comparison only if final
           const isWinner = isFinal && (typeof score === 'number' && typeof otherScore === 'number' && score > otherScore);
           const isLoser = isFinal && (typeof score === 'number' && typeof otherScore === 'number' && score < otherScore);
@@ -131,19 +131,19 @@ const MatchRow: React.FC<MatchRowProps> = ({
                 <div className="relative w-8 h-8 shrink-0 flex items-center justify-center">
                   {isTennis && team.flag ? (
                     <div className="w-5 h-3.5 overflow-hidden rounded-[1px] shadow-sm">
-                        <img src={team.flag} alt="" className="w-full h-full object-cover" />
+                      <img src={team.flag} alt="" className="w-full h-full object-cover" />
                     </div>
                   ) : (
                     <>
                       {/* Ambient Glow on Hover Only */}
-                      <div 
-                        className="absolute inset-0 blur-md opacity-0 group-hover:opacity-25 transition-opacity duration-500" 
-                        style={{ backgroundColor: team.color ? (team.color.startsWith('#') ? team.color : `#${team.color}`) : '#fff' }} 
+                      <div
+                        className="absolute inset-0 blur-md opacity-0 group-hover:opacity-25 transition-opacity duration-500"
+                        style={{ backgroundColor: team.color ? (team.color.startsWith('#') ? team.color : `#${team.color}`) : '#fff' }}
                       />
                       {/* Logo: 100% Opacity, No Grayscale */}
-                      <TeamLogo 
-                        logo={team.logo} 
-                        className="w-full h-full object-contain relative z-10 transition-transform duration-300 group-hover:scale-110" 
+                      <TeamLogo
+                        logo={team.logo}
+                        className="w-full h-full object-contain relative z-10 transition-transform duration-300 group-hover:scale-110"
                       />
                     </>
                   )}
@@ -165,8 +165,8 @@ const MatchRow: React.FC<MatchRowProps> = ({
                     <TennisSetScores linescores={team.linescores} />
                   ) : (
                     <span className={cn(
-                        "font-mono text-[16px] tabular-nums leading-none tracking-tight transition-colors duration-300",
-                        isLoser ? "text-zinc-500 font-medium" : "text-white font-bold"
+                      "font-mono text-[16px] tabular-nums leading-none tracking-tight transition-colors duration-300",
+                      isLoser ? "text-zinc-500 font-medium" : "text-white font-bold"
                     )}>
                       {score ?? '-'}
                     </span>
@@ -183,15 +183,15 @@ const MatchRow: React.FC<MatchRowProps> = ({
         {isLive ? (
           <>
             <div className="flex items-center gap-1.5">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="motion-reduce:hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
-                </span>
-                <span className="text-label font-bold text-rose-400 uppercase tracking-widest font-mono animate-pulse">
-                   {match.displayClock || 'LIVE'}
-                </span>
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="motion-reduce:hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
+              </span>
+              <span className="text-label font-bold text-rose-400 uppercase tracking-widest font-mono animate-pulse">
+                {match.sport === Sport.BASEBALL ? 'LIVE' : (match.displayClock || 'LIVE')}
+              </span>
             </div>
-            <span className="text-label font-bold text-zinc-500 uppercase tracking-expanded mt-0.5">
+            <span className="text-label font-bold text-zinc-500 uppercase tracking-expanded mt-0.5 whitespace-nowrap">
               {isTennis && roundStr ? roundStr : getPeriodDisplay(match)}
             </span>
           </>
@@ -204,14 +204,14 @@ const MatchRow: React.FC<MatchRowProps> = ({
               {startTimeStr}
             </span>
             {isTennis && roundStr && (
-                <span className="text-label font-medium text-zinc-500 uppercase tracking-wider">
-                    {roundStr}
-                </span>
+              <span className="text-label font-medium text-zinc-500 uppercase tracking-wider">
+                {roundStr}
+              </span>
             )}
             {!isTennis && (
-                <span className="text-label font-bold text-zinc-500 uppercase tracking-widest">
-                    START
-                </span>
+              <span className="text-label font-bold text-zinc-500 uppercase tracking-widest">
+                START
+              </span>
             )}
           </>
         )}

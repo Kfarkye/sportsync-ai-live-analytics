@@ -349,28 +349,28 @@ function normalizeMatch(raw: RawMatch | undefined): Match | null {
     const situationRaw = raw.situation;
     const situation: Match['situation'] | undefined = situationRaw
         ? {
-              yardLine: (() => {
-                  const v = situationRaw.yardLine;
-                  if (typeof v === 'number') return Math.max(0, Math.min(100, v));
-                  if (typeof v === 'string') {
-                      const n = parseInt(v.replace(/\D/g, ''), 10);
-                      return Number.isFinite(n)
-                          ? Math.max(0, Math.min(100, n))
-                          : 50;
-                  }
-                  return 50;
-              })(),
-              down: safeNumber(situationRaw.down, 1),
-              distance: safeNumber(situationRaw.distance, 10),
-              possessionId: situationRaw.possessionId
-                  ? String(situationRaw.possessionId)
-                  : undefined,
-              possessionText: situationRaw.possession,
-              isRedZone: situationRaw.isRedZone,
-              downDistanceText: situationRaw.downDistanceText,
-              ballX: situationRaw.ballX,
-              ballY: situationRaw.ballY,
-          }
+            yardLine: (() => {
+                const v = situationRaw.yardLine;
+                if (typeof v === 'number') return Math.max(0, Math.min(100, v));
+                if (typeof v === 'string') {
+                    const n = parseInt(v.replace(/\D/g, ''), 10);
+                    return Number.isFinite(n)
+                        ? Math.max(0, Math.min(100, n))
+                        : 50;
+                }
+                return 50;
+            })(),
+            down: safeNumber(situationRaw.down, 1),
+            distance: safeNumber(situationRaw.distance, 10),
+            possessionId: situationRaw.possessionId
+                ? String(situationRaw.possessionId)
+                : undefined,
+            possessionText: situationRaw.possession,
+            isRedZone: situationRaw.isRedZone,
+            downDistanceText: situationRaw.downDistanceText,
+            ballX: situationRaw.ballX,
+            ballY: situationRaw.ballY,
+        }
         : undefined;
 
     return {
@@ -382,10 +382,10 @@ function normalizeMatch(raw: RawMatch | undefined): Match | null {
         situation,
         currentDrive: raw.currentDrive
             ? {
-                  ...raw.currentDrive,
-                  plays: safeNumber(raw.currentDrive.plays),
-                  yards: safeNumber(raw.currentDrive.yards),
-              }
+                ...raw.currentDrive,
+                plays: safeNumber(raw.currentDrive.plays),
+                yards: safeNumber(raw.currentDrive.yards),
+            }
             : undefined,
         lastPlay: raw.lastPlay
             ? { ...raw.lastPlay, id: raw.lastPlay.id ?? '', text: raw.lastPlay.text ?? '' }
@@ -511,10 +511,10 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
         const totalHit: GameViewModel['betting']['totalHit'] = !hasTotal
             ? null
             : totalScore > total
-              ? 'OVER'
-              : totalScore < total
-                ? 'UNDER'
-                : 'PUSH';
+                ? 'OVER'
+                : totalScore < total
+                    ? 'UNDER'
+                    : 'PUSH';
         const windSpd = pickWindSpeed(match);
         const league = String(match.league || match.sport || '').toUpperCase();
         const isPregame =
@@ -535,24 +535,32 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
                 ),
                 isFinished: isFinal,
                 isPregame,
-                displayClock:
-                    match.displayClock || (isPregame ? formatTime(match.date) : DEFAULT_CLOCK),
+                displayClock: (() => {
+                    let c = match.displayClock || (isPregame ? formatTime(match.date) : DEFAULT_CLOCK);
+                    if (!isFinal && !isPregame && ['MLB', 'BASEBALL'].some((s) => league.includes(s))) {
+                        const outs = match.situation?.outs;
+                        if (outs !== undefined && outs !== null) {
+                            c = c && c !== DEFAULT_CLOCK ? `${c} • ${outs} OUTS` : `${outs} OUTS`;
+                        }
+                    }
+                    return c;
+                })(),
                 displayDate: formatDate(match.date),
                 hasData: Boolean(
                     match.displayClock ||
-                        match.period ||
-                        match.situation ||
-                        match.currentDrive ||
-                        match.lastPlay
+                    match.period ||
+                    match.situation ||
+                    match.currentDrive ||
+                    match.lastPlay
                 ),
                 league: league.replace(/_/g, ' '),
                 startLabel: ['NFL', 'CFB', 'COLLEGE_FOOTBALL'].some(s => league.includes(s)) ? 'KICKOFF'
                     : ['NBA', 'CBB', 'NCAAB', 'WNBA'].some(s => league.includes(s)) ? 'TIP-OFF'
-                    : ['NHL'].some(s => league.includes(s)) ? 'PUCK DROP'
-                    : ['MLB'].some(s => league.includes(s)) ? 'FIRST PITCH'
-                    : ['SOCCER', 'MLS', 'EPL', 'LIGA', 'SERIE', 'BUNDESLIGA', 'LIGUE', 'UCL', 'UEL', 'WORLD'].some(s => league.includes(s)) ? 'KICK-OFF'
-                    : ['TENNIS'].some(s => league.includes(s)) ? 'FIRST SERVE'
-                    : 'START',
+                        : ['NHL'].some(s => league.includes(s)) ? 'PUCK DROP'
+                            : ['MLB'].some(s => league.includes(s)) ? 'FIRST PITCH'
+                                : ['SOCCER', 'MLS', 'EPL', 'LIGA', 'SERIE', 'BUNDESLIGA', 'LIGUE', 'UCL', 'UEL', 'WORLD'].some(s => league.includes(s)) ? 'KICK-OFF'
+                                    : ['TENNIS'].some(s => league.includes(s)) ? 'FIRST SERVE'
+                                        : 'START',
             },
             teams: {
                 home: {
@@ -681,10 +689,10 @@ const DataValue = ({
             size === 'hero'
                 ? 'text-5xl sm:text-6xl md:text-8xl font-light'
                 : size === 'xl'
-                  ? 'text-4xl sm:text-5xl font-light'
-                  : size === 'lg'
-                    ? 'text-2xl sm:text-3xl'
-                    : 'text-sm',
+                    ? 'text-4xl sm:text-5xl font-light'
+                    : size === 'lg'
+                        ? 'text-2xl sm:text-3xl'
+                        : 'text-sm',
             className
         )}
     >
@@ -714,8 +722,8 @@ const FieldSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
                     ? 100 - n
                     : n
                 : isHome
-                  ? n
-                  : 100 - n;
+                    ? n
+                    : 100 - n;
         }
         yard = Math.max(0, Math.min(100, yard));
         const dist = safeNumber(gameplay.situation.distance, 10);
@@ -1277,11 +1285,11 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 <TennisFlag flag={match.awayTeam?.flag} name={teams.away.name} className={cn(isEmbedded ? 'w-14 h-10' : 'w-16 h-11')} />
                             ) : (
                                 <div className={cn('flex items-center justify-center bg-overlay-subtle rounded-full border border-white/[0.05]', logoSize)}>
-                                <TeamLogo
-                                    logo={teams.away.logo}
-                                    className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
-                                />
-                            </div>
+                                    <TeamLogo
+                                        logo={teams.away.logo}
+                                        className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
+                                    />
+                                </div>
                             )}
                         </div>
                         <div className="text-center">
@@ -1376,11 +1384,11 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 <TennisFlag flag={match.homeTeam?.flag} name={teams.home.name} className={cn(isEmbedded ? 'w-14 h-10' : 'w-16 h-11')} />
                             ) : (
                                 <div className={cn('flex items-center justify-center bg-overlay-subtle rounded-full border border-white/[0.05]', logoSize)}>
-                                <TeamLogo
-                                    logo={teams.home.logo}
-                                    className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
-                                />
-                            </div>
+                                    <TeamLogo
+                                        logo={teams.home.logo}
+                                        className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
+                                    />
+                                </div>
                             )}
                         </div>
                         <div className="text-center">
