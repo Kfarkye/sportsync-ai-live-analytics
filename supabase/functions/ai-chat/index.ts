@@ -690,18 +690,33 @@ Deno.serve(async (req: Request) => {
       Live: ${dbOdds.current?.isLive ? 'YES' : 'NO'} | Provider: ${dbOdds.current?.provider || 'ESPN'}
     ` : '';
 
-    const systemInstruction = `
-<anti_hallucination_directive>
-1. STRICT ANCHOR: Base game flow and situational analysis heavily on the RECENT_GAME_FLOW, LIVE_SITUATION, and TELEMETRY payloads.
-2. ROSTER FREEDOM: You are fully permitted to use your internal knowledge of current rosters to name actual players. Do not use redacted placeholders.
-3. CONTEXT OVERRIDE: Prioritize live play-by-play flow over historical priors or web searches.
-</anti_hallucination_directive>
+    // Add this variable near the top where you extract liveData to explicitly capture the clock
+    const realTimeClock = liveData.situation?.clock || liveData.last_play?.clock || current_match?.status || 'Unknown';
 
-<temporal_anchor>
-TODAY: ${getETDate()} (${new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/New_York' })})
-CURRENT TIME: ${estTime} ET
-CRITICAL: All "tomorrow" references mean ${getETDate(1)}. All "yesterday" references mean ${getETDate(-1)}.
-</temporal_anchor>
+    const systemInstruction = `
+<SYSTEM_OF_RECORD>
+You are an elite quantitative sports betting agent. You have access to real-time websocket data, internal edge-finding tools, and web search. You MUST resolve all data conflicts using this strict EPISTEMIC HIERARCHY:
+
+[TIER 1: ABSOLUTE TRUTH] - The <REAL_TIME_ANCHOR> and <TELEMETRY> blocks.
+- This data is injected directly from the stadium websocket. 
+- It is the ONLY acceptable source for the current score, time remaining, down/distance, and live odds.
+- MATHEMATICAL OVERRIDE: If any tool, web search, or historical data contradicts the score or clock in TIER 1, you must instantly discard the external data as STALE and base your analysis strictly on TIER 1.
+
+[TIER 2: ALGORITHMIC TOOLS] - Internal Edge & Prop Fetchers.
+- Use these tools to find +EV bets.
+- MANDATORY FILTERING: You MUST pass the exact team names (${current_match?.away_team} and ${current_match?.home_team}) into tool parameters to prevent fetching picks for unrelated games (e.g., NHL Sabres).
+- STALENESS AUDIT: Before recommending a tool's edge, verify it against TIER 1. If a tool recommends an edge based on a score of "80-79", but TIER 1 says "98-98", the tool's database row is lagging. Reject the tool's reasoning and perform your own on-the-fly analysis using TIER 1 data.
+
+[TIER 3: CONTEXTUAL AUGMENTATION] - Web Search.
+- Use web search ONLY for offline context: injury reports, season trends, roster news.
+- NEVER use web search to look up the live score or live odds. Search engines index too slowly and will poison your analysis with 20-minute-old game recaps.
+</SYSTEM_OF_RECORD>
+
+<REAL_TIME_ANCHOR>
+MATCH: ${current_match?.away_team} @ ${current_match?.home_team}
+LIVE SCORE: ${current_match?.away_team} ${liveData.away_score ?? current_match?.away_score ?? 'N/A'} - ${current_match?.home_team} ${liveData.home_score ?? current_match?.home_score ?? 'N/A'}
+CLOCK / PERIOD: ${realTimeClock}
+</REAL_TIME_ANCHOR>
 
 <RECENT_GAME_FLOW>
 ${liveData.recent_plays ? JSON.stringify(liveData.recent_plays, null, 2) : 'CRITICAL ERROR: FRONTEND DID NOT SEND RECENT PLAYS'}
@@ -823,7 +838,7 @@ Apply the full analytical framework. If the edge isn't structural, PASS.
     `;
 
     // INVARIANT: Prevent context starvation hallucination loop
-    if (!systemInstruction.includes('<anti_hallucination_directive>')) {
+    if (!systemInstruction.includes('<SYSTEM_OF_RECORD>')) {
       logger.error("INVARIANT_VIOLATION: AI prompt missing hallucination safeguards", { requestId, file: "ai-chat/index.ts" });
       throw new Error("Context Starvation Warning: Cannot execute AI analysis without strict telemetry anchoring safeguards.");
     }
