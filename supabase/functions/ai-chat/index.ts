@@ -678,12 +678,23 @@ Deno.serve(async (req: Request) => {
       Live: ${dbOdds.current?.isLive ? 'YES' : 'NO'} | Provider: ${dbOdds.current?.provider || 'ESPN'}
     ` : '';
 
+    // 1. THE DEFENSIVE UNWRAP
+    // Flatten the object so we find the data whether it is nested or flat
+    const liveData = telemetry?.state || (telemetry as any)?.record || telemetry || {};
+
+    // 2. THE TRUTH SERUM LOG
+    // Check your Supabase Edge Function logs after you deploy this!
+    console.log("🚨 INCOMING PAYLOAD TRUTH SERUM 🚨", JSON.stringify({
+      hasRecentPlays: !!liveData.recent_plays,
+      hasSituation: !!liveData.situation,
+      keysReceived: Object.keys(liveData)
+    }));
+
     const systemInstruction = `
 <anti_hallucination_directive>
 1. STRICT ANCHOR: Base game flow and situational analysis heavily on the RECENT_GAME_FLOW, LIVE_SITUATION, and TELEMETRY payloads.
-2. ROSTER FREEDOM: You are fully permitted to use your internal knowledge of current 2025-2026 NBA rosters to name actual players for these specific teams (e.g., Desmond Bane for the Magic). 
-3. NO REDACTIONS: NEVER use bracketed placeholders like "[The starting SG]" or "[The starting PG]". Confidently use their real names.
-4. CONTEXT OVERRIDE: Prioritize live play-by-play flow over historical priors or pre-game narratives.
+2. ROSTER FREEDOM: You are fully permitted to use your internal knowledge of current rosters to name actual players. Do not use redacted placeholders.
+3. CONTEXT OVERRIDE: Prioritize live play-by-play flow over historical priors or web searches.
 </anti_hallucination_directive>
 
 <temporal_anchor>
@@ -693,20 +704,18 @@ CRITICAL: All "tomorrow" references mean ${getETDate(1)}. All "yesterday" refere
 </temporal_anchor>
 
 <RECENT_GAME_FLOW>
-${telemetry?.state?.recent_plays ? JSON.stringify(telemetry.state.recent_plays, null, 2) : 'No recent plays available.'}
+${liveData.recent_plays ? JSON.stringify(liveData.recent_plays, null, 2) : 'CRITICAL ERROR: FRONTEND DID NOT SEND RECENT PLAYS'}
 </RECENT_GAME_FLOW>
 
 <LIVE_SITUATION>
-${telemetry?.state?.situation ? JSON.stringify(telemetry.state.situation, null, 2) : 'No live situation data available.'}
+${liveData.situation ? JSON.stringify(liveData.situation, null, 2) : 'CRITICAL ERROR: FRONTEND DID NOT SEND SITUATION'}
 </LIVE_SITUATION>
 
 <TELEMETRY>
 ${JSON.stringify({
-      stats: telemetry?.state?.stats || null,
-      player_stats: telemetry?.state?.player_stats || null,
-      momentum: telemetry?.state?.momentum || null,
-      advanced_metrics: telemetry?.state?.advanced_metrics || null,
-      current_drive: telemetry?.state?.current_drive || null
+      stats: liveData.stats || null,
+      player_stats: liveData.player_stats || null,
+      advanced_metrics: liveData.advanced_metrics || null
     }, null, 2)}
 </TELEMETRY>
 
