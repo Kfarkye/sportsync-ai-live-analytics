@@ -18,6 +18,7 @@ import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { BettingPickSchema } from "../lib/schemas/picks.js";
 import { generateSatelliteSlug } from "./lib/satellite.js";
+import { checkRateLimit } from "./lib/rateLimit.js";
 
 // =============================================================================
 // INITIALIZATION
@@ -277,6 +278,9 @@ async function fetchESPNInjuries(teamId, sportKey) {
         return { ...cached.data, cached: true };
     }
 
+    // Prevents unbounded memory growth in warm serverless instances
+    if (INJURY_CACHE.size > 500) INJURY_CACHE.clear();
+
     const sportConfig = {
         NBA: { sport: "basketball", league: "nba" },
         NFL: { sport: "football", league: "nfl" },
@@ -508,7 +512,8 @@ ${text}
             model: google(CONFIG.MODEL_ID),
             schema: BettingPickSchema,
             prompt: extractionPrompt,
-            mode: "json"
+            mode: "json",
+            abortSignal: AbortSignal.timeout(15000)
         });
 
         // Validate and normalize team names
@@ -623,9 +628,16 @@ export default async function handler(req, res) {
     if (req.method !== "POST") {
         return res.status(405).json({ error: "Method not allowed" });
     }
+    if (!checkRateLimit(req)) {
+        return res.status(429).json({ error: "Rate limit exceeded" });
+    }
 
     try {
-        const { messages, session_id, conversation_id, gameContext, run_id } = req.body;
+        const session_id = req.body.session_id;
+        const conversation_id = req.body.conversation_id;
+        const run_id = req.body.run_id;
+        const gameContext = req.body.gameContext;
+        const messages = (req.body.messages || []).slice(-40);
         const currentRunId = run_id || crypto.randomUUID();
 
         // Initialize context
@@ -712,20 +724,20 @@ MODE: ${MODE}
 
 <context>
 ${[
-    `MATCHUP: ${activeContext?.away_team || "TBD"} @ ${activeContext?.home_team || "TBD"}`,
-    isLive ? `🔴 LIVE: ${activeContext?.away_score || 0}-${activeContext?.home_score || 0} | ${activeContext?.clock || ""}` : "",
-    ...(liveDataUrls.length > 0 ? [
-        `LIVE_DATA_URLS: ${liveDataUrls.join(", ")}`,
-        "(These endpoints serve real-time scores, odds, and play-by-play. Fetch them via URL Context for authoritative data.)"
-    ] : [
-        `ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}`,
-        lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : "",
-        `INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}`,
-        `INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}`,
-        evidence.temporal.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : ""
-    ]),
-    staleWarning
-].filter(Boolean).join("\n")}
+                `MATCHUP: ${activeContext?.away_team || "TBD"} @ ${activeContext?.home_team || "TBD"}`,
+                isLive ? `🔴 LIVE: ${activeContext?.away_score || 0}-${activeContext?.home_score || 0} | ${activeContext?.clock || ""}` : "",
+                ...(liveDataUrls.length > 0 ? [
+                    `LIVE_DATA_URLS: ${liveDataUrls.join(", ")}`,
+                    "(These endpoints serve real-time scores, odds, and play-by-play. Fetch them via URL Context for authoritative data.)"
+                ] : [
+                    `ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}`,
+                    lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : "",
+                    `INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}`,
+                    `INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}`,
+                    evidence.temporal.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : ""
+                ]),
+                staleWarning
+            ].filter(Boolean).join("\n")}
 </context>
 
 <prime_directive>
@@ -802,6 +814,17 @@ Role: Field Reporter. Direct, factual, concise.
         });
 
         // --- STREAM RESPONSE ---
+        let isAborted = false;
+        const fallbackTimeout = setTimeout(() => {
+            console.warn("[Timeout] Aborting Gemini stream after 55s to beat Vercel 60s limit");
+            isAborted = true;
+        }, 55000);
+
+        req.on("close", () => {
+            isAborted = true;
+            clearTimeout(fallbackTimeout);
+        });
+
         const result = await genAI.models.generateContentStream({
             model: CONFIG.MODEL_ID,
             contents: geminiHistory.slice(-8),
@@ -821,6 +844,11 @@ Role: Field Reporter. Direct, factual, concise.
         let finalMetadata = null;
 
         for await (const chunk of result) {
+            if (isAborted) {
+                res.write(`data: ${JSON.stringify({ type: "error", content: "Stream interrupted or timed out (max 55s)" })}\n\n`);
+                break;
+            }
+
             // Capture grounding metadata
             if (chunk.candidates?.[0]?.groundingMetadata) {
                 finalMetadata = chunk.candidates[0].groundingMetadata;
@@ -841,6 +869,8 @@ Role: Field Reporter. Direct, factual, concise.
                 }
             }
         }
+
+        clearTimeout(fallbackTimeout);
 
         // --- GROUNDING DIAGNOSTIC ---
         if (finalMetadata) {

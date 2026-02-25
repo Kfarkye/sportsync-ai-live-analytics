@@ -14,7 +14,10 @@
 ============================================================================ */
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 
-const SATELLITE_SECRET = process.env.SATELLITE_SECRET || "";
+const SATELLITE_SECRET = process.env.SATELLITE_SECRET;
+if (!SATELLITE_SECRET) {
+    console.warn("WARNING: SATELLITE_SECRET is missing. URLs generated will be invalid.");
+}
 
 /**
  * Generate an HMAC-signed slug + nonce for a satellite endpoint.

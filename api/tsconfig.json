@@ -2,8 +2,11 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "CommonJS",
-    "lib": ["ES2020"],
+    "lib": [
+      "ES2020"
+    ],
     "esModuleInterop": true,
+    "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
     "moduleResolution": "node",
@@ -11,6 +14,10 @@
     "isolatedModules": true,
     "outDir": ".vercel/output"
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.js"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
