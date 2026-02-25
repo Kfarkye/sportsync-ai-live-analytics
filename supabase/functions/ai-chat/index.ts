@@ -622,11 +622,23 @@ Deno.serve(async (req: Request) => {
     const tempoBlock = formatTempoBlock(tempoData || []);
     const marketPhase = getMarketPhase(current_match);
 
-    const lastPlay = telemetry?.state?.last_play;
-    const situation = telemetry?.state?.situation;
-    const currentDrive = telemetry?.state?.current_drive;
-    const signals = telemetry?.state?.deterministic_signals;
-    const dbOdds = telemetry?.state?.odds;
+    // 1. THE DEFENSIVE UNWRAP
+    // Flatten the object so we find the data whether it is nested or flat
+    const liveData = telemetry?.state || (telemetry as any)?.record || telemetry || {};
+
+    // 2. THE TRUTH SERUM LOG
+    // Check your Supabase Edge Function logs after you deploy this!
+    console.log("🚨 INCOMING PAYLOAD TRUTH SERUM 🚨", JSON.stringify({
+      hasRecentPlays: !!liveData.recent_plays,
+      hasSituation: !!liveData.situation,
+      keysReceived: Object.keys(liveData)
+    }));
+
+    const lastPlay = liveData.last_play;
+    const situation = liveData.situation;
+    const currentDrive = liveData.current_drive;
+    const signals = liveData.deterministic_signals;
+    const dbOdds = liveData.odds;
 
     const livePlayBlock = lastPlay ? `
       LAST PLAY: ${lastPlay.text || 'N/A'}
@@ -634,7 +646,7 @@ Deno.serve(async (req: Request) => {
       Win Prob Shift: ${lastPlay.probability?.homeWinPercentage ? `Home ${lastPlay.probability.homeWinPercentage}%` : 'N/A'}
     ` : '';
 
-    const recentPlays = telemetry?.state?.recent_plays;
+    const recentPlays = liveData.recent_plays;
     const recentPlaysBlock = Array.isArray(recentPlays) && recentPlays.length > 0 ? `
       RECENT GAME FLOW (last ${recentPlays.length} plays):
       ${recentPlays.map((p: any, i: number) => `${i + 1}. [${p.clock || 'N/A'}] ${p.team ? `${p.team}: ` : ''}${p.text}`).join('\n      ')}
@@ -677,18 +689,6 @@ Deno.serve(async (req: Request) => {
       Opening: Spread ${dbOdds.opening?.homeSpread ?? dbOdds.opening?.spread ?? 'OFF'} | Total ${dbOdds.opening?.overUnder ?? 'OFF'}
       Live: ${dbOdds.current?.isLive ? 'YES' : 'NO'} | Provider: ${dbOdds.current?.provider || 'ESPN'}
     ` : '';
-
-    // 1. THE DEFENSIVE UNWRAP
-    // Flatten the object so we find the data whether it is nested or flat
-    const liveData = telemetry?.state || (telemetry as any)?.record || telemetry || {};
-
-    // 2. THE TRUTH SERUM LOG
-    // Check your Supabase Edge Function logs after you deploy this!
-    console.log("🚨 INCOMING PAYLOAD TRUTH SERUM 🚨", JSON.stringify({
-      hasRecentPlays: !!liveData.recent_plays,
-      hasSituation: !!liveData.situation,
-      keysReceived: Object.keys(liveData)
-    }));
 
     const systemInstruction = `
 <anti_hallucination_directive>
