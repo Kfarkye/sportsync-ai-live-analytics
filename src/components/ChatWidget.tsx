@@ -140,29 +140,29 @@ const REGEX_EXTRACT_CONF = /\(Confidence:\s*(\w+)\)/i;
  */
 interface BrandInfo { name: string; color: string }
 const BRAND_COLOR_MAP: Record<string, BrandInfo> = {
-  "espn.com":                        { name: "ESPN",     color: "#C2372E" },
-  "covers.com":                      { name: "Covers",   color: "#1A8F3C" },
-  "actionnetwork.com":               { name: "Action",   color: "#0066CC" },
-  "draftkings.com":                  { name: "DK",       color: "#53D337" },
-  "fanduel.com":                     { name: "FanDuel",  color: "#1493FF" },
-  "rotowire.com":                    { name: "RotoWire", color: "#C2372E" },
-  "basketball-reference.com":        { name: "BBRef",    color: "#D46A2F" },
-  "sports-reference.com":            { name: "SportsRef",color: "#D46A2F" },
-  "pro-football-reference.com":      { name: "PFRef",    color: "#D46A2F" },
-  "nba.com":                         { name: "NBA",      color: "#1D428A" },
-  "nfl.com":                         { name: "NFL",      color: "#013369" },
-  "mlb.com":                         { name: "MLB",      color: "#002D72" },
-  "nhl.com":                         { name: "NHL",      color: "#000000" },
-  "cbssports.com":                   { name: "CBS",      color: "#0033A0" },
-  "yahoo.com":                       { name: "Yahoo",    color: "#6001D2" },
-  "bleacherreport.com":              { name: "BR",       color: "#000000" },
-  "theathletic.com":                 { name: "Athletic", color: "#222222" },
-  "x.com":                           { name: "X",        color: "#000000" },
-  "twitter.com":                     { name: "X",        color: "#000000" },
-  "google.com":                      { name: "Google",   color: "#4285F4" },
-  "ai.google.dev":                   { name: "Google AI",color: "#4285F4" },
-  "vertexaisearch.cloud.google.com": { name: "Google",   color: "#4285F4" },
-  "discoveryengine.googleapis.com":  { name: "Google",   color: "#4285F4" },
+  "espn.com": { name: "ESPN", color: "#C2372E" },
+  "covers.com": { name: "Covers", color: "#1A8F3C" },
+  "actionnetwork.com": { name: "Action", color: "#0066CC" },
+  "draftkings.com": { name: "DK", color: "#53D337" },
+  "fanduel.com": { name: "FanDuel", color: "#1493FF" },
+  "rotowire.com": { name: "RotoWire", color: "#C2372E" },
+  "basketball-reference.com": { name: "BBRef", color: "#D46A2F" },
+  "sports-reference.com": { name: "SportsRef", color: "#D46A2F" },
+  "pro-football-reference.com": { name: "PFRef", color: "#D46A2F" },
+  "nba.com": { name: "NBA", color: "#1D428A" },
+  "nfl.com": { name: "NFL", color: "#013369" },
+  "mlb.com": { name: "MLB", color: "#002D72" },
+  "nhl.com": { name: "NHL", color: "#000000" },
+  "cbssports.com": { name: "CBS", color: "#0033A0" },
+  "yahoo.com": { name: "Yahoo", color: "#6001D2" },
+  "bleacherreport.com": { name: "BR", color: "#000000" },
+  "theathletic.com": { name: "Athletic", color: "#222222" },
+  "x.com": { name: "X", color: "#000000" },
+  "twitter.com": { name: "X", color: "#000000" },
+  "google.com": { name: "Google", color: "#4285F4" },
+  "ai.google.dev": { name: "Google AI", color: "#4285F4" },
+  "vertexaisearch.cloud.google.com": { name: "Google", color: "#4285F4" },
+  "discoveryengine.googleapis.com": { name: "Google", color: "#4285F4" },
 };
 
 /** Default brand info for unrecognized sources. */
@@ -173,8 +173,8 @@ const LIVE_BRAND: BrandInfo = { name: "Live", color: "#10B981" };
 /** Path-based brand overrides for live proxy endpoints. */
 const LIVE_PATH_BRANDS: Array<[RegExp, BrandInfo]> = [
   [/\/api\/live\/scores\//, { name: "Scores", color: "#10B981" }],
-  [/\/api\/live\/odds\//,   { name: "Odds",   color: "#10B981" }],
-  [/\/api\/live\/pbp\//,    { name: "PBP",    color: "#10B981" }],
+  [/\/api\/live\/odds\//, { name: "Odds", color: "#10B981" }],
+  [/\/api\/live\/pbp\//, { name: "PBP", color: "#10B981" }],
 ];
 
 const EDGE_CARD_STAGE_DELAYS_MS = [0, 120, 220, 300, 480] as const;
@@ -800,10 +800,10 @@ function uriToBrandInfo(href?: string, title?: string): BrandInfo {
     if (t.includes(".")) return hostnameToBrandInfo(t);
     // Title without dots — check if it contains a known brand keyword
     const tLower = t.toLowerCase();
-    if (tLower.includes("espn"))                   return BRAND_COLOR_MAP["espn.com"];
-    if (tLower.includes("basketball-reference"))   return BRAND_COLOR_MAP["basketball-reference.com"];
+    if (tLower.includes("espn")) return BRAND_COLOR_MAP["espn.com"];
+    if (tLower.includes("basketball-reference")) return BRAND_COLOR_MAP["basketball-reference.com"];
     if (tLower.includes("the athletic") || tLower.includes("theathletic")) return BRAND_COLOR_MAP["theathletic.com"];
-    if (tLower.includes("covers"))                 return BRAND_COLOR_MAP["covers.com"];
+    if (tLower.includes("covers")) return BRAND_COLOR_MAP["covers.com"];
   }
   // 3. URI hostname fallback
   return hostnameToBrandInfo(getHostname(href));
@@ -877,11 +877,11 @@ function normalizeGameContext(
   };
   const hasSignal = Boolean(
     normalized.match_id ||
-      normalized.home_team ||
-      normalized.away_team ||
-      normalized.current_odds ||
-      normalized.home_score !== undefined ||
-      normalized.away_score !== undefined,
+    normalized.home_team ||
+    normalized.away_team ||
+    normalized.current_odds ||
+    normalized.home_score !== undefined ||
+    normalized.away_score !== undefined,
   );
   return hasSignal ? normalized : null;
 }
@@ -1679,14 +1679,14 @@ CopyButton.displayName = "CopyButton";
  * ─────────────────────────────────────────────────
  */
 const OW = {
-  card:     ESSENCE.colors.surface.card,
+  card: ESSENCE.colors.surface.card,
   elevated: ESSENCE.colors.surface.elevated,
-  mint:     ESSENCE.colors.accent.mint,
-  mintDim:  ESSENCE.colors.accent.mintDim,
+  mint: ESSENCE.colors.accent.mint,
+  mintDim: ESSENCE.colors.accent.mintDim,
   mintEdge: ESSENCE.colors.accent.mintEdge,
-  gold:     ESSENCE.colors.accent.gold,
-  goldDim:  ESSENCE.colors.accent.goldDim,
-  red:      ESSENCE.colors.accent.rose,
+  gold: ESSENCE.colors.accent.gold,
+  goldDim: ESSENCE.colors.accent.goldDim,
+  red: ESSENCE.colors.accent.rose,
   t1: ESSENCE.colors.text.primary,
   t2: ESSENCE.colors.text.secondary,
   t3: ESSENCE.colors.text.tertiary,
@@ -1695,7 +1695,7 @@ const OW = {
   border: ESSENCE.colors.border.default,
   sans: "'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
   mono: "'DM Mono', 'SF Mono', 'Fira Code', monospace",
-  r:  16,   // M-23: Outer card radius — 16px
+  r: 16,   // M-23: Outer card radius — 16px
   ri: 10,   // M-23: Button/inner element radius — 10px
   ease: "cubic-bezier(0.25, 0.1, 0.25, 1)",
   shadow: ESSENCE.shadows.obsidian,
@@ -1704,16 +1704,16 @@ const OW = {
 /** ShareIcon — upload arrow for share button */
 const OWShareIcon: FC = () => (
   <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-    <path d="M8 2v8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-    <path d="M4.5 5.5L8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M13 10v2.5a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 013 12.5V10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <path d="M8 2v8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    <path d="M4.5 5.5L8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13 10v2.5a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 013 12.5V10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
   </svg>
 );
 
 /** CheckIcon — confirmation for copied state */
 const OWCheckIcon: FC = () => (
   <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-    <path d="M3.5 8.5L6.5 11.5 12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M3.5 8.5L6.5 11.5 12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -1870,7 +1870,7 @@ const EdgeVerdictCard: FC<{
     const shareText = hasSynopsis
       ? `${headline}\n${resolvedSynopsis}\n\nthedrip.app`
       : `${headline}\n\nthedrip.app`;
-    navigator.clipboard?.writeText(shareText.trim()).catch(() => {});
+    navigator.clipboard?.writeText(shareText.trim()).catch(() => { });
     trackAction("verdict.share", { trackingKey, cardIndex });
     setTimeout(() => {
       setShareState("copied");
@@ -3247,6 +3247,11 @@ const InnerChatWidget: FC<ChatWidgetProps & {
             groundingData = chunk.metadata || null;
             enqueuePatch({ groundingMetadata: groundingData || undefined });
           }
+          if (chunk.type === "error") {
+            const errMsg = chunk.content || "An error occurred. Please try again.";
+            fullText += `\n\n⚠️ ${errMsg}`;
+            enqueuePatch({ content: fullText });
+          }
         },
         () => {
           if (!mountedRef.current) return;
@@ -3313,121 +3318,121 @@ const InnerChatWidget: FC<ChatWidgetProps & {
 
   return (
     <ToastProvider>
-        <LayoutGroup>
-          <motion.div
-            layoutId={inline ? undefined : "chat"}
-            role="dialog"
-            aria-label="Obsidian Weissach -- Betting Intelligence"
-            className={cn(
-              "flex flex-col overflow-hidden transition-all duration-500 isolate relative z-50 will-change-transform",
-              inline
-                ? "w-full h-full bg-transparent"
-                : cn(
-                  "w-full md:w-[460px] h-[100dvh] md:h-[min(840px,90dvh)]",
-                  "rounded-[28px] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]",
-                  "border border-slate-200",
-                  SYSTEM.surface.void,
-                ),
-            )}
+      <LayoutGroup>
+        <motion.div
+          layoutId={inline ? undefined : "chat"}
+          role="dialog"
+          aria-label="Obsidian Weissach -- Betting Intelligence"
+          className={cn(
+            "flex flex-col overflow-hidden transition-all duration-500 isolate relative z-50 will-change-transform",
+            inline
+              ? "w-full h-full bg-transparent"
+              : cn(
+                "w-full md:w-[460px] h-[100dvh] md:h-[min(840px,90dvh)]",
+                "rounded-[28px] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]",
+                "border border-slate-200",
+                SYSTEM.surface.void,
+              ),
+          )}
+        >
+          <FilmGrain />
+
+          {/* SR-only live region for state announcements */}
+          <div aria-live="polite" aria-atomic="true" className="sr-only">{srAnnouncement}</div>
+
+          {!inline && (
+            <header className="flex items-center justify-between px-8 pt-6 pb-2 shrink-0 z-20 select-none">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
+                <span className={SYSTEM.type.h1}>
+                  Obsidian<span className="text-slate-900/30 font-normal ml-1">Weissach</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <AnimatePresence><ConnectionBadge status={connectionStatus} /></AnimatePresence>
+                <button
+                  onClick={() => setShowCitations(prev => !prev)}
+                  className={cn("p-2 transition-colors", showCitations ? "text-emerald-400 hover:text-emerald-300" : "text-slate-500 hover:text-slate-400")}
+                  aria-label={showCitations ? "Hide citations" : "Show citations"}
+                  title={showCitations ? "Citations on" : "Citations off"}
+                >
+                  {showCitations ? <Eye size={14} /> : <EyeOff size={14} />}
+                </button>
+                <button onClick={() => setIsMinimized?.(true)} className="p-2 text-slate-500 hover:text-slate-900 transition-colors" aria-label="Minimize chat">
+                  <Minimize2 size={16} />
+                </button>
+                <button onClick={() => toggleGlobalChat(false)} className="p-2 text-slate-500 hover:text-slate-900 transition-colors" aria-label="Close chat">
+                  <X size={16} />
+                </button>
+              </div>
+            </header>
+          )}
+
+          <div
+            ref={scrollRef}
+            role="log"
+            aria-relevant="additions"
+            aria-busy={isProcessing}
+            aria-label="Conversation messages"
+            className="relative flex-1 overflow-y-auto px-6 pt-4 scroll-smooth no-scrollbar z-10 will-change-transform"
+            style={{ paddingBottom: footerHeight }}
           >
-            <FilmGrain />
+            <AnimatePresence mode="popLayout">
+              {messages.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="h-full flex flex-col items-center justify-center text-center opacity-40"
+                >
+                  <div className="w-20 h-20 rounded-[24px] border border-slate-200 bg-slate-50 flex items-center justify-center mb-6">
+                    <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
+                  </div>
+                  <p className={SYSTEM.type.mono}>System Ready</p>
+                  <p className="text-[10px] text-slate-400 mt-1.5 tracking-wide">
+                    {deriveGamePhase(normalizedContext) === "live" ? "Games are live — ask for in-play edge" : deriveGamePhase(normalizedContext) === "postgame" ? "Markets closed — review your record" : "Pre-game window — find today's edge"}
+                  </p>
+                </motion.div>
+              ) : (
+                messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} verdictOutcomes={verdictOutcomes} showCitations={showCitations} />)
+              )}
+            </AnimatePresence>
+          </div>
 
-            {/* SR-only live region for state announcements */}
-            <div aria-live="polite" aria-atomic="true" className="sr-only">{srAnnouncement}</div>
+          {/* Scroll anchor — visible when user has scrolled up */}
+          <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
 
-            {!inline && (
-              <header className="flex items-center justify-between px-8 pt-6 pb-2 shrink-0 z-20 select-none">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
-                  <span className={SYSTEM.type.h1}>
-                    Obsidian<span className="text-slate-900/30 font-normal ml-1">Weissach</span>
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <AnimatePresence><ConnectionBadge status={connectionStatus} /></AnimatePresence>
-                  <button
-                    onClick={() => setShowCitations(prev => !prev)}
-                    className={cn("p-2 transition-colors", showCitations ? "text-emerald-400 hover:text-emerald-300" : "text-slate-500 hover:text-slate-400")}
-                    aria-label={showCitations ? "Hide citations" : "Show citations"}
-                    title={showCitations ? "Citations on" : "Citations off"}
-                  >
-                    {showCitations ? <Eye size={14} /> : <EyeOff size={14} />}
-                  </button>
-                  <button onClick={() => setIsMinimized?.(true)} className="p-2 text-slate-500 hover:text-slate-900 transition-colors" aria-label="Minimize chat">
-                    <Minimize2 size={16} />
-                  </button>
-                  <button onClick={() => toggleGlobalChat(false)} className="p-2 text-slate-500 hover:text-slate-900 transition-colors" aria-label="Close chat">
-                    <X size={16} />
-                  </button>
-                </div>
-              </header>
-            )}
+          <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#08080A] via-[#08080A]/95 to-transparent pointer-events-none">
+            <div className="pointer-events-auto relative">
+              <AnimatePresence>
+                {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}
+              </AnimatePresence>
 
-            <div
-              ref={scrollRef}
-              role="log"
-              aria-relevant="additions"
-              aria-busy={isProcessing}
-              aria-label="Conversation messages"
-              className="relative flex-1 overflow-y-auto px-6 pt-4 scroll-smooth no-scrollbar z-10 will-change-transform"
-              style={{ paddingBottom: footerHeight }}
-            >
-              <AnimatePresence mode="popLayout">
-                {messages.length === 0 ? (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="h-full flex flex-col items-center justify-center text-center opacity-40"
-                  >
-                    <div className="w-20 h-20 rounded-[24px] border border-slate-200 bg-slate-50 flex items-center justify-center mb-6">
-                      <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
-                    </div>
-                    <p className={SYSTEM.type.mono}>System Ready</p>
-                    <p className="text-[10px] text-slate-400 mt-1.5 tracking-wide">
-                      {deriveGamePhase(normalizedContext) === "live" ? "Games are live — ask for in-play edge" : deriveGamePhase(normalizedContext) === "postgame" ? "Markets closed — review your record" : "Pre-game window — find today's edge"}
-                    </p>
+              <AnimatePresence>
+                {messages.length < 2 && !isProcessing && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-4">
+                    <SmartChips onSelect={handleSend} hasMatch={!!currentMatch} messageCount={messages.length} gameContext={normalizedContext} />
                   </motion.div>
-                ) : (
-                  messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} verdictOutcomes={verdictOutcomes} showCitations={showCitations} />)
                 )}
               </AnimatePresence>
+
+              <InputDeck
+                value={input}
+                onChange={setInput}
+                onSend={handleSend}
+                onStop={handleAbort}
+                attachments={attachments}
+                onAttach={setAttachments}
+                isProcessing={isProcessing}
+                isVoiceMode={isVoiceMode}
+                onVoiceModeChange={setIsVoiceMode}
+                isOffline={connectionStatus === "offline"}
+                inputRef={inputRef}
+                fileInputRef={fileInputRef}
+              />
             </div>
-
-            {/* Scroll anchor — visible when user has scrolled up */}
-            <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
-
-            <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#08080A] via-[#08080A]/95 to-transparent pointer-events-none">
-              <div className="pointer-events-auto relative">
-                <AnimatePresence>
-                  {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}
-                </AnimatePresence>
-
-                <AnimatePresence>
-                  {messages.length < 2 && !isProcessing && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-4">
-                      <SmartChips onSelect={handleSend} hasMatch={!!currentMatch} messageCount={messages.length} gameContext={normalizedContext} />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <InputDeck
-                  value={input}
-                  onChange={setInput}
-                  onSend={handleSend}
-                  onStop={handleAbort}
-                  attachments={attachments}
-                  onAttach={setAttachments}
-                  isProcessing={isProcessing}
-                  isVoiceMode={isVoiceMode}
-                  onVoiceModeChange={setIsVoiceMode}
-                  isOffline={connectionStatus === "offline"}
-                  inputRef={inputRef}
-                  fileInputRef={fileInputRef}
-                />
-              </div>
-            </footer>
-          </motion.div>
-        </LayoutGroup>
+          </footer>
+        </motion.div>
+      </LayoutGroup>
     </ToastProvider>
   );
 };

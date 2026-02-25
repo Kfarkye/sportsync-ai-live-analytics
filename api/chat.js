@@ -82,10 +82,8 @@ function hmacHex(secret, data) {
     return crypto.createHmac("sha256", secret).update(data).digest("hex");
 }
 
-// [INFRA] Disable native body parser. Required for raw HMAC checks and 2MB DOS limits
-export const config = {
-    api: { bodyParser: false },
-};
+// NOTE: Vercel vanilla serverless functions auto-parse req.body.
+// `export const config = { api: { bodyParser: false } }` is Next.js-only and NOT supported here.
 
 // =============================================================================
 // UTILITIES
@@ -663,32 +661,15 @@ export default async function handler(req, res) {
         return res.status(429).json({ error: "Rate limit exceeded" });
     }
 
-    // [SEC] Safely read raw stream to prevent Out-Of-Memory DOS attacks
+    // [SEC] Validate payload size (Vercel auto-parses req.body for vanilla serverless)
     const MAX_PAYLOAD_SIZE = 2 * 1024 * 1024;
-    const chunks = [];
-    let byteLength = 0;
-
-    for await (const chunk of req) {
-        const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-        byteLength += buf.length;
-        if (byteLength > MAX_PAYLOAD_SIZE) {
-            return res.status(413).json({ error: "Payload too large (Max 2MB)" });
-        }
-        chunks.push(buf);
+    const bodyStr = JSON.stringify(req.body || {});
+    if (bodyStr.length > MAX_PAYLOAD_SIZE) {
+        return res.status(413).json({ error: "Payload too large (Max 2MB)" });
     }
-    const rawBody = Buffer.concat(chunks).toString("utf8");
-
-    // [SEC] Verify HMAC if required by architecture in future endpoints
-    // For now, reconstruct JSON safely
-    let parsedBody = {};
-    try {
-        parsedBody = JSON.parse(rawBody);
-    } catch {
+    if (!req.body) {
         return res.status(400).json({ error: "Invalid JSON payload" });
     }
-
-    // Assign back so legacy code continues to work seamlessly
-    req.body = parsedBody;
 
     try {
         const session_id = req.body.session_id;
