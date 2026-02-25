@@ -27,6 +27,12 @@ if (!SATELLITE_SECRET) {
  */
 export function generateSatelliteSlug(gameId, endpoint) {
     const nonce = randomBytes(16).toString("hex"); // 32 hex chars
+
+    // Fallback: If no secret is configured, return dummy values to avoid crashing the AI stream
+    if (!SATELLITE_SECRET) {
+        return { slug: "UNCONFIGURED_SECRET", nonce };
+    }
+
     const ttlBucket = Math.floor(Date.now() / 60_000); // 1-min buckets
     const payload = `${gameId}:${endpoint}:${ttlBucket}:${nonce}`;
     const slug = createHmac("sha512", SATELLITE_SECRET)
