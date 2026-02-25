@@ -1,21 +1,15 @@
 // ============================================================================
-// ESSENCE DESIGN SYSTEM v11.0 — Consolidated Single Source of Truth
+// ESSENCE DESIGN SYSTEM v12.0 — Editorial Light
 // ============================================================================
-
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-/** Merge Tailwind classes with conflict resolution */
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
 //
 // This file is the ONLY design token authority for SportsSync AI.
 // Every color, size, radius, shadow, and motion value lives here.
 //
-// KILLED in v11:
-//   - src/styles/design-tokens.ts  (0 imports — dead code)
-//   - src/ui/density.ts            (1 import — absorbed into §15)
+// v12 CHANGES — "Editorial Light" Overhaul:
+//   - All surfaces → white / slate-50 (light backgrounds)
+//   - All text → slate-900 primary / slate-500 secondary
+//   - All borders → slate-200 crisp outlines (no blurry shadows)
+//   - All glows/neon removed
 //
 // RULES:
 //   1. No hex color in any .tsx file. Use ESSENCE.colors.* or ESSENCE.tw.*
@@ -23,96 +17,91 @@ export function cn(...inputs: ClassValue[]) {
 //   3. No arbitrary border-white/[N]. Use ESSENCE.tw.border.*
 //   4. No arbitrary bg-white/[N]. Use ESSENCE.tw.surface.*
 //   5. If a value doesn't exist here, ADD it here first, then use it.
-//
-// SYNC: Edit here, then run `npm run sync:shared` to propagate to
-//       packages/shared/src/lib/essence.ts and supabase functions.
 // ============================================================================
 
 // ============================================================================
-// §1  PALETTE — Cinematic Depth
+// §1  PALETTE — Editorial Light
 // ============================================================================
-// Rationalized from 27 unique surface hexes found across 88 component files.
-// Every bg-[#XXXXXX] must map to one of these 6 surface values.
 
 export const ESSENCE = {
   colors: {
-    // Surfaces: Dark → Light (6 stops — no more)
+    // Surfaces: Light hierarchy (Canvas → Container)
     surface: {
-      pure:     'var(--surface-pure)',     // True black — overlays, voids only
-      base:     'var(--surface-base)',     // Page background (Zinc 950+)
-      card:     'var(--surface-card)',     // Card / panel fill (unified)
-      elevated: 'var(--surface-elevated)', // Modals, popovers, raised panels
-      subtle:   'var(--surface-subtle)',   // Hover states, interactive surfaces
-      accent:   'var(--surface-accent)',   // Active states, selected rows
+      pure:     '#FFFFFF',   // Pure white — cards, containers
+      base:     '#F8FAFC',   // slate-50 — page background (the "canvas")
+      card:     '#FFFFFF',   // Card / panel fill
+      elevated: '#FFFFFF',   // Modals, popovers, raised panels
+      subtle:   '#F1F5F9',   // slate-100 — hover states, interactive surfaces
+      accent:   '#E2E8F0',   // slate-200 — active states, selected rows
     },
 
-    // Text: Light → Dark (5 stops)
+    // Text: Dark → Light (5 stops)
     text: {
-      primary:   'var(--ink-primary)',   // Ink 900/50
-      secondary: 'var(--ink-secondary)', // Ink 700/400
-      tertiary:  'var(--ink-tertiary)',  // Ink 500
-      muted:     'var(--ink-muted)',     // Ink 400/600
-      ghost:     'var(--ink-ghost)',     // Ink 300/700
+      primary:   '#0F172A',  // slate-900 — headlines, scores, team names
+      secondary: '#64748B',  // slate-500 — body, descriptions, secondary data
+      tertiary:  '#94A3B8',  // slate-400 — captions, timestamps
+      muted:     '#CBD5E1',  // slate-300 — disabled, placeholders
+      ghost:     '#E2E8F0',  // slate-200 — structural hints
     },
 
-    // Semantic Accents (5 hues + muted variants)
+    // Semantic Accents (muted for editorial feel)
     accent: {
-      emerald:      '#34D399',
-      emeraldMuted: 'rgba(52, 211, 153, 0.12)',
-      mintEdge:     'rgba(54, 232, 150, 0.08)',  // Card specular edge light
-      amber:        '#FBBF24',
-      amberMuted:   'rgba(251, 191, 36, 0.12)',
-      rose:         '#FB7185',
-      roseMuted:    'rgba(251, 113, 133, 0.12)',
-      violet:       '#A78BFA',
-      violetMuted:  'rgba(167, 139, 250, 0.12)',
-      cyan:         '#00F0FF',
-      cyanMuted:    'rgba(0, 240, 255, 0.12)',
-      // Alias accents (used by ChatWidget, match cards)
-      mint:         '#34D399',                       // = emerald
-      mintDim:      'rgba(52, 211, 153, 0.12)',      // = emeraldMuted
-      gold:         '#FBBF24',                       // = amber
-      goldDim:      'rgba(251, 191, 36, 0.12)',      // = amberMuted
+      emerald:      '#10B981',
+      emeraldMuted: 'rgba(16, 185, 129, 0.08)',
+      mintEdge:     'transparent',  // No more specular edge light
+      amber:        '#F59E0B',
+      amberMuted:   'rgba(245, 158, 11, 0.08)',
+      rose:         '#F43F5E',
+      roseMuted:    'rgba(244, 63, 94, 0.08)',
+      violet:       '#8B5CF6',
+      violetMuted:  'rgba(139, 92, 246, 0.08)',
+      cyan:         '#0F172A',     // Brand anchor = slate-900
+      cyanMuted:    'rgba(15, 23, 42, 0.06)',
+      // Alias accents
+      mint:         '#10B981',
+      mintDim:      'rgba(16, 185, 129, 0.08)',
+      gold:         '#F59E0B',
+      goldDim:      'rgba(245, 158, 11, 0.08)',
     },
 
-    // Borders: 4 opacity tiers (rationalized from 9)
+    // Borders: Crisp slate-200 outlines (the "Outline Rule")
     border: {
-      ghost:    'var(--edge-ghost)',
-      subtle:   'var(--edge-subtle)',
-      default:  'var(--edge-default)',
-      strong:   'var(--edge-strong)',
-      innerGlow: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 50%, rgba(255,255,255,0.02) 100%)',
+      ghost:    'rgba(15,23,42,0.04)',
+      subtle:   'rgba(15,23,42,0.06)',
+      default:  '#E2E8F0',   // slate-200 — primary border
+      strong:   '#CBD5E1',   // slate-300
+      innerGlow: 'none',     // Killed — no inner glow
     },
 
-    // Background overlays: 4 opacity tiers (rationalized from 10)
+    // Background overlays: Subtle tints on white
     overlay: {
-      ghost:    'var(--overlay-ghost)',
-      subtle:   'var(--overlay-subtle)',
-      muted:    'var(--overlay-muted)',
-      emphasis: 'var(--overlay-emphasis)',
+      ghost:    'rgba(15,23,42,0.02)',
+      subtle:   'rgba(15,23,42,0.03)',
+      muted:    'rgba(15,23,42,0.05)',
+      emphasis: 'rgba(15,23,42,0.08)',
     },
   },
 
   // ==========================================================================
-  // §2  TYPE SCALE — Named sizes (rationalized from 25 arbitrary values)
+  // §2  TYPE SCALE — Named sizes (unchanged)
   // ==========================================================================
   scale: {
-    nano:     'text-[8px]',    // 59 usages  — micro labels, status chips
-    label:    'text-[9px]',    // 144 usages — section labels, tier headers
-    caption:  'text-[10px]',   // 235 usages — metadata, timestamps, badges
-    footnote: 'text-[11px]',   // 83 usages  — secondary data, records
-    small:    'text-[12px]',   // 33 usages  — compact body, abbreviations
-    bodySm:   'text-[13px]',   // 32 usages  — body small
-    body:     'text-[14px]',   // 20 usages  — default body
-    bodyLg:   'text-[15px]',   // 23 usages  — card titles, emphasized body
-    title:    'text-[17px]',   // section titles
-    titleLg:  'text-[20px]',   // page titles, modal headers
-    headline: 'text-[24px]',   // display headline
-    display:  'text-[32px]',   // scores, hero numbers
+    nano:     'text-[8px]',
+    label:    'text-[9px]',
+    caption:  'text-[10px]',
+    footnote: 'text-[11px]',
+    small:    'text-[12px]',
+    bodySm:   'text-[13px]',
+    body:     'text-[14px]',
+    bodyLg:   'text-[15px]',
+    title:    'text-[17px]',
+    titleLg:  'text-[20px]',
+    headline: 'text-[24px]',
+    display:  'text-[32px]',
   },
 
   // ==========================================================================
-  // §3  TRACKING — Named letter-spacing (rationalized from 18 values)
+  // §3  TRACKING — Named letter-spacing (unchanged)
   // ==========================================================================
   tracking: {
     tight:   'tracking-[-0.03em]',
@@ -120,24 +109,24 @@ export const ESSENCE = {
     normal:  'tracking-normal',
     wide:    'tracking-[0.1em]',
     wider:   'tracking-[0.15em]',
-    widest:  'tracking-[0.2em]',     // 72 usages — primary section labels
+    widest:  'tracking-[0.2em]',
     ultra:   'tracking-[0.3em]',
   },
 
   // ==========================================================================
-  // §4  SHADOWS
+  // §4  SHADOWS — Microscopic only (the "Outline Rule")
   // ==========================================================================
   shadows: {
-    sm:   '0 1px 2px rgba(0,0,0,0.4)',
-    md:   '0 4px 12px -2px rgba(0,0,0,0.5)',
-    lg:   '0 24px 48px -12px rgba(0,0,0,0.6)',
-    logo:    '0 2px 8px rgba(0,0,0,0.5)',
-    obsidian: '0 8px 32px -4px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.4)',  // Deep card shadow
-    glow: (color: string) => `0 0 60px ${color}20, 0 0 100px ${color}10`,
+    sm:   '0 1px 2px rgba(0,0,0,0.04)',
+    md:   '0 2px 4px rgba(0,0,0,0.04)',
+    lg:   '0 4px 8px rgba(0,0,0,0.04)',
+    logo:    'none',                // No logo shadows
+    obsidian: 'none',               // Killed — use border instead
+    glow: (_color: string) => 'none',  // Killed — no glows
   },
 
   // ==========================================================================
-  // §5  RADIUS — 4px base grid
+  // §5  RADIUS — 4px base grid (unchanged)
   // ==========================================================================
   radius: {
     sm:    '4px',
@@ -151,7 +140,7 @@ export const ESSENCE = {
   },
 
   // ==========================================================================
-  // §6  SPACING — 4px base grid (absorbed from dead design-tokens.ts)
+  // §6  SPACING — 4px base grid (unchanged)
   // ==========================================================================
   spacing: {
     0:  '0px',
@@ -168,53 +157,53 @@ export const ESSENCE = {
   },
 
   // ==========================================================================
-  // §7  CARD GEOMETRY
+  // §7  CARD GEOMETRY — Editorial Light
   // ==========================================================================
   card: {
     padding:      'p-5',
-    radius:       'rounded-3xl',
+    radius:       'rounded-2xl',
     gap:          'gap-4',
-    border:       'border border-edge',
-    bg:           'bg-surface-card',
+    border:       'border border-slate-200',
+    bg:           'bg-white',
     headerHeight: 'h-[44px]',
-    innerGlow:    'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]',
-    base: 'bg-surface-card border border-edge rounded-3xl p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]',
+    innerGlow:    '',  // Killed
+    base: 'bg-white border border-slate-200 rounded-2xl p-5',
   },
 
   // ==========================================================================
-  // §8  TYPOGRAPHY TIERS — Institutional Hierarchy
+  // §8  TYPOGRAPHY TIERS — Editorial Light
   // ==========================================================================
   tier: {
-    // Tier 1: Primary Values — Monospace, bold, white
-    t1Score:   'font-mono text-[32px] font-bold tabular-nums text-white tracking-tight',
-    t1Value:   'font-mono text-[16px] font-bold tabular-nums text-white tracking-tight',
-    t1Project: 'font-mono text-[24px] font-black tabular-nums text-white tracking-tight',
+    // Tier 1: Primary Values — Bold, slate-900
+    t1Score:   'font-mono text-[32px] font-bold tabular-nums text-slate-900 tracking-tight',
+    t1Value:   'font-mono text-[16px] font-bold tabular-nums text-slate-900 tracking-tight',
+    t1Project: 'font-mono text-[24px] font-black tabular-nums text-slate-900 tracking-tight',
 
-    // Tier 2: Labels & Names — Sans, semibold
-    t2Label:  'text-[9px] font-bold text-zinc-600 uppercase tracking-[0.15em]',
-    t2Team:   'text-sm font-semibold text-zinc-200 tracking-tight',
-    t2Header: 'text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em]',
+    // Tier 2: Labels & Names — Sans, semibold, slate-700
+    t2Label:  'text-[9px] font-bold text-slate-400 uppercase tracking-[0.15em]',
+    t2Team:   'text-sm font-semibold text-slate-900 tracking-tight',
+    t2Header: 'text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]',
 
-    // Tier 3: Metadata — Sans, medium, muted
-    t3Meta:   'text-[9px] font-medium text-zinc-500 uppercase tracking-wider',
-    t3Record: 'text-[10px] font-medium text-zinc-600 tabular-nums',
-    t3Delta:  'font-mono text-[11px] font-bold tabular-nums text-zinc-400',
+    // Tier 3: Metadata — Sans, medium, slate-500
+    t3Meta:   'text-[9px] font-medium text-slate-500 uppercase tracking-wider',
+    t3Record: 'text-[10px] font-medium text-slate-500 tabular-nums',
+    t3Delta:  'font-mono text-[11px] font-bold tabular-nums text-slate-500',
   },
 
-  // Legacy typography (backwards compat — migrate to tier.* or scale.*)
+  // Legacy typography — Editorial Light
   type: {
-    hero:    'font-sans text-[32px] font-semibold tracking-[-0.03em] text-white',
-    title:   'font-sans text-[20px] font-semibold tracking-[-0.02em] text-white',
-    body:    'font-sans text-[15px] font-normal text-zinc-300 leading-relaxed',
-    caption: 'font-sans text-[13px] font-medium text-zinc-500',
-    label:   'text-[9px] font-bold text-zinc-600 uppercase tracking-[0.1em]',
-    data:    'font-mono text-[16px] font-bold tabular-nums text-white',
-    dataSm:  'font-mono text-[13px] font-semibold tabular-nums text-zinc-200',
-    dataLg:  'font-mono text-[24px] font-black tabular-nums text-white',
+    hero:    'font-sans text-[32px] font-semibold tracking-[-0.02em] text-slate-900',
+    title:   'font-sans text-[20px] font-semibold tracking-[-0.01em] text-slate-900',
+    body:    'font-sans text-[15px] font-normal text-slate-600',
+    caption: 'font-sans text-[13px] font-medium text-slate-500',
+    label:   'text-[9px] font-bold text-slate-400 uppercase tracking-[0.1em]',
+    data:    'font-mono text-[16px] font-bold tabular-nums text-slate-900',
+    dataSm:  'font-mono text-[13px] font-semibold tabular-nums text-slate-700',
+    dataLg:  'font-mono text-[24px] font-black tabular-nums text-slate-900',
   },
 
   // ==========================================================================
-  // §9  MOTION — Apple-style spring physics
+  // §9  MOTION — Apple-style spring physics (unchanged)
   // ==========================================================================
   transition: {
     spring:  { type: "spring" as const, stiffness: 400, damping: 30, mass: 1 },
@@ -231,16 +220,16 @@ export const ESSENCE = {
   },
 
   // ==========================================================================
-  // §10  MATERIALS — Glass & Vibrancy
+  // §10  MATERIALS — Editorial Light
   // ==========================================================================
   glass: {
-    panel:  'bg-[#0A0A0B] border border-white/[0.06] backdrop-blur-xl',
-    header: 'bg-black/95 backdrop-blur-2xl border-b border-white/[0.04]',
-    card:   'bg-[#0A0A0B] border border-white/[0.06] rounded-2xl',
+    panel:  'bg-white border border-slate-200',
+    header: 'bg-white/95 backdrop-blur-xl border-b border-slate-200',
+    card:   'bg-white border border-slate-200 rounded-2xl',
   },
 
   // ==========================================================================
-  // §11  Z-INDEX
+  // §11  Z-INDEX (unchanged)
   // ==========================================================================
   zIndex: {
     base:    0,
@@ -252,113 +241,100 @@ export const ESSENCE = {
   },
 
   // ==========================================================================
-  // §12  MICRO-INTERACTIONS
+  // §12  MICRO-INTERACTIONS — Editorial Light
   // ==========================================================================
   interactions: {
-    hoverScale:  { scale: 1.01, boxShadow: "0 20px 40px -12px rgba(0,0,0,0.5)" },
+    hoverScale:  { scale: 1.01, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" },
     activePress: { scale: 0.98 },
     fadeIn:       { opacity: 0, y: 8 },
     fadeInActive: { opacity: 1, y: 0 },
-    glowPulse:   { boxShadow: "0 0 20px rgba(52, 211, 153, 0.3)" },
+    glowPulse:   { boxShadow: "none" },
     haptic: {
       whileHover: { scale: 1.01 },
       whileTap:   { scale: 0.98 },
       transition: { type: "spring" as const, stiffness: 600, damping: 30 },
     },
-    vibrancy: 'mix-blend-overlay opacity-80 contrast-125 brightness-150',
+    vibrancy: '',  // Killed — no vibrancy effects
   },
 
   // ==========================================================================
-  // §12b  ACCESSIBILITY
-  // ==========================================================================
-  a11y: {
-    focusRing:        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-    focusRingAccent:  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-    focusRingInset:   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/20',
-    srOnly:           'sr-only',
-    skipLink:         'sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-black focus:text-white focus:rounded-lg focus:border focus:border-white/20',
-  },
-
-  // ==========================================================================
-  // §13  NAVIGATION & HEADER
+  // §13  NAVIGATION & HEADER — Editorial Light
   // ==========================================================================
   nav: {
     h1:          'h-14',
     h2:          'h-10',
-    pill:        'rounded-full bg-white/[0.04] border border-white/[0.04] shadow-sm transition-all duration-200',
-    chip:        'w-11 h-11 flex items-center justify-center rounded-full bg-white/[0.02] border border-white/[0.04] text-zinc-500 hover:text-white hover:bg-white/[0.06] transition-all duration-200',
-    initialPill: 'w-7 h-7 rounded-full bg-zinc-900 border border-white/[0.1] shadow-inner flex items-center justify-center text-[10px] font-bold text-zinc-100 tracking-tighter',
-    divider:     'border-white/[0.08]',
+    pill:        'rounded-full bg-slate-50 border border-slate-200 shadow-sm transition-all duration-200',
+    chip:        'w-11 h-11 flex items-center justify-center rounded-full bg-slate-50 border border-slate-200 text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200',
+    initialPill: 'w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-900 tracking-tighter',
+    divider:     'border-slate-200',
   },
 
   // ==========================================================================
-  // §14  FLOATING ACTION ICON
+  // §14  FLOATING ACTION ICON — Editorial Light
   // ==========================================================================
   floatingIcon: {
     position:  'absolute bottom-4 right-4',
     size:      'w-8 h-8',
-    style:     'rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center',
+    style:     'rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center',
     iconSize:  14,
-    iconColor: 'text-zinc-600',
+    iconColor: 'text-slate-400',
   },
 
   // ==========================================================================
-  // §15  TAILWIND UTILITY PRESETS
+  // §15  TAILWIND UTILITY PRESETS — Editorial Light
   // ==========================================================================
-  // Pre-composed class strings for the most common UI patterns.
-  // Absorbed from dead design-tokens.ts (TW.*) and density.ts (DENSE.*).
   tw: {
     // --- Section & Card Headers ---
-    sectionLabel:     'text-[12px] font-medium text-ink-tertiary uppercase tracking-[0.12em]',
-    cardHeaderLabel:  'text-[10px] font-bold text-ink-tertiary uppercase tracking-[0.2em]',
-    columnHeader:     'text-[10px] font-semibold text-ink-tertiary uppercase tracking-[0.15em]',
+    sectionLabel:     'text-[12px] font-medium text-slate-500 uppercase tracking-[0.12em]',
+    cardHeaderLabel:  'text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]',
+    columnHeader:     'text-[10px] font-semibold text-slate-400 uppercase tracking-[0.15em]',
 
     // --- Data Display ---
-    dataValue:          'text-[15px] font-semibold text-ink-primary tabular-nums',
-    dataValueSecondary: 'text-[11px] font-medium text-ink-tertiary tabular-nums',
-    teamAbbr:           'text-[12px] font-semibold text-ink-secondary uppercase tracking-[0.08em]',
+    dataValue:          'text-[15px] font-semibold text-slate-900 tabular-nums',
+    dataValueSecondary: 'text-[11px] font-medium text-slate-500 tabular-nums',
+    teamAbbr:           'text-[12px] font-semibold text-slate-700 uppercase tracking-[0.08em]',
     tabular:            'tabular-nums font-mono',
 
     // --- Border shorthands ---
     border: {
-      ghost:   'border border-edge-ghost',
-      subtle:  'border border-edge-subtle',
-      default: 'border border-edge',
-      strong:  'border border-edge-strong',
+      ghost:   'border border-slate-100',
+      subtle:  'border border-slate-200/60',
+      default: 'border border-slate-200',
+      strong:  'border border-slate-300',
     },
 
     // --- Surface shorthands ---
     surface: {
-      ghost:    'bg-overlay-ghost',
-      subtle:   'bg-overlay-subtle',
-      muted:    'bg-overlay-muted',
-      emphasis: 'bg-overlay-emphasis',
+      ghost:    'bg-slate-50/50',
+      subtle:   'bg-slate-50',
+      muted:    'bg-slate-100',
+      emphasis: 'bg-slate-200/50',
     },
 
     // --- Row Patterns ---
-    rowDivider:      'border-b border-edge-subtle',
-    rowDividerGhost: 'border-b border-edge-ghost',
-    interactiveRow:  'py-4 hover:bg-overlay-subtle transition-colors duration-200',
+    rowDivider:      'border-b border-slate-200/60',
+    rowDividerGhost: 'border-b border-slate-100',
+    interactiveRow:  'py-4 hover:bg-slate-50 transition-colors duration-200',
 
     // --- Icon Containers ---
-    iconSm: 'w-8 h-8 rounded-lg bg-overlay-subtle flex items-center justify-center',
-    iconMd: 'w-10 h-10 rounded-lg bg-overlay-subtle flex items-center justify-center',
+    iconSm: 'w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center',
+    iconMd: 'w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center',
 
     // --- Cards (density-aware) ---
-    card:         'rounded-xl border border-edge bg-surface-card p-3',
-    cardFeatured: 'rounded-2xl border border-edge bg-surface-card p-4',
-    cardCompact:  'rounded-lg border border-edge bg-surface-card p-2',
+    card:         'rounded-xl border border-slate-200 bg-white p-3',
+    cardFeatured: 'rounded-2xl border border-slate-200 bg-white p-4',
+    cardCompact:  'rounded-lg border border-slate-200 bg-white p-2',
 
     // --- Tabs ---
-    tabsWrap:    'h-10 rounded-xl border border-edge bg-overlay-subtle p-1',
+    tabsWrap:    'h-10 rounded-xl border border-slate-200 bg-slate-50 p-1',
     tab:         'h-8 rounded-lg px-3 text-sm font-medium',
-    tabActive:   'bg-overlay-emphasis text-ink-primary',
-    tabInactive: 'text-ink-secondary hover:text-ink-primary',
+    tabActive:   'bg-white text-slate-900 shadow-sm',
+    tabInactive: 'text-slate-400 hover:text-slate-600',
 
     // --- Badges ---
     badge:        'rounded-md px-2 py-1 text-[10px] font-semibold uppercase',
-    badgeLive:    'bg-emerald-500/20 text-emerald-400',
-    badgeNeutral: 'bg-overlay-muted text-ink-tertiary',
+    badgeLive:    'bg-emerald-50 text-emerald-600 border border-emerald-200',
+    badgeNeutral: 'bg-slate-50 text-slate-500 border border-slate-200',
 
     // --- Buttons ---
     buttonSm: 'h-8 rounded-lg px-3 text-sm font-medium',
@@ -370,21 +346,29 @@ export const ESSENCE = {
     sectionGap: 'space-y-3',
 
     // --- Dividers ---
-    divider:       'border-t border-edge-subtle',
-    dividerStrong: 'border-t border-edge',
-    hairline:      'h-px bg-gradient-to-r from-transparent via-edge to-transparent',
+    divider:       'border-t border-slate-200',
+    dividerStrong: 'border-t border-slate-300',
+    hairline:      'h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent',
 
     // --- Hero / Header ---
     heroHeader: 'space-y-2 py-3',
-    heroScore:  'text-2xl font-bold tabular-nums',
-    heroClock:  'text-sm font-medium text-ink-secondary',
+    heroScore:  'text-2xl font-bold tabular-nums text-slate-900',
+    heroClock:  'text-sm font-medium text-slate-500',
 
     // --- Status ---
     statusText: 'text-[8px] font-black uppercase tracking-[0.15em]',
   },
 } as const;
 
-// =====================================================================
+// ============================================================================
+// §16  UTILITY: Class Name Joiner
+// ============================================================================
+export const cn = (...classes: (string | undefined | null | false)[]) =>
+  classes.filter(Boolean).join(' ');
+
+// ============================================================================
+// §17  TYPE EXPORTS
+// ============================================================================
 export type EssenceColors  = typeof ESSENCE.colors;
 export type EssenceSurface = keyof typeof ESSENCE.colors.surface;
 export type EssenceText    = keyof typeof ESSENCE.colors.text;

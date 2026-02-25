@@ -44,7 +44,7 @@ export const PredictorWidget: React.FC<{ match: Match }> = React.memo(({ match }
             </div>
 
             {/* Probability Bar */}
-            <div className="h-2 w-full bg-overlay-dim rounded-full overflow-hidden flex">
+            <div className="h-2 w-full bg-slate-50 rounded-full overflow-hidden flex">
                 <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${awayChance}%` }}
@@ -63,12 +63,12 @@ export const PredictorWidget: React.FC<{ match: Match }> = React.memo(({ match }
 
             {/* Spread */}
             {(predictor.awayTeamLine || predictor.homeTeamLine) && (
-                <div className="mt-5 pt-4 border-t border-edge-subtle grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-xl bg-overlay-subtle">
+                <div className="mt-5 pt-4 border-t border-slate-200 grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-xl bg-slate-50">
                         <span className={cn(ESSENCE.tier.t2Header, "block mb-1")}>Spread</span>
                         <span className={ESSENCE.tier.t1Value}>{predictor.awayTeamLine || '—'}</span>
                     </div>
-                    <div className="p-3 rounded-xl bg-overlay-subtle">
+                    <div className="p-3 rounded-xl bg-slate-50">
                         <span className={cn(ESSENCE.tier.t2Header, "block mb-1")}>Spread</span>
                         <span className={ESSENCE.tier.t1Value}>{predictor.homeTeamLine || '—'}</span>
                     </div>

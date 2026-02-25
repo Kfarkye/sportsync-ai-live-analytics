@@ -109,7 +109,7 @@ const GameRow = ({
       variants={{ hidden: { opacity: 0, x: align === 'left' ? -10 : 10 }, visible: { opacity: 1, x: 0 } }}
       transition={PHYSICS_SWITCH}
       className={cn(
-        "group relative flex items-center py-2.5 transition-colors duration-300 hover:bg-overlay-subtle cursor-default",
+        "group relative flex items-center py-2.5 transition-colors duration-300 hover:bg-white/[0.02] cursor-default",
         align === 'right' ? "flex-row-reverse text-right" : "text-left"
       )}
     >
@@ -121,7 +121,7 @@ const GameRow = ({
 
       {/* 1. Date (Technical Mono) */}
       <div className={cn(
-        "w-12 shrink-0 font-mono text-label text-zinc-600 tracking-wider group-hover:text-zinc-400 transition-colors select-none",
+        "w-12 shrink-0 font-mono text-[9px] text-zinc-600 tracking-wider group-hover:text-zinc-400 transition-colors select-none",
         align === 'right' ? "pr-0 pl-2" : "pl-3 pr-2"
       )}>
         {dateStr}
@@ -135,7 +135,7 @@ const GameRow = ({
         <div className="relative w-5 h-5 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity grayscale group-hover:grayscale-0">
           <TeamLogo logo={game.opponent?.logo} className="w-full h-full object-contain" />
         </div>
-        <span className="text-small font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors tracking-tight truncate uppercase">
+        <span className="text-[12px] font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors tracking-tight truncate uppercase">
           {game.opponent?.shortName || game.opponent?.name?.split(' ').pop() || 'OPP'}
         </span>
       </div>
@@ -147,7 +147,7 @@ const GameRow = ({
       )}>
         <div
           className={cn(
-            "flex items-center justify-center w-5 h-5 rounded-[2px] text-caption font-bold border transition-colors duration-300",
+            "flex items-center justify-center w-5 h-5 rounded-[2px] text-[10px] font-bold border transition-colors duration-300",
             isWin
               ? "bg-white/[0.05] border-white/10 text-white shadow-[0_0_8px_rgba(255,255,255,0.05)]"
               : "bg-transparent border-zinc-800 text-zinc-600"
@@ -156,7 +156,7 @@ const GameRow = ({
         >
           {result}
         </div>
-        <span className="text-caption text-zinc-500 group-hover:text-zinc-300 transition-colors tabular-nums tracking-wide">
+        <span className="text-[10px] text-zinc-500 group-hover:text-zinc-300 transition-colors tabular-nums tracking-wide">
           {teamScore}-{oppScore}
         </span>
       </div>
@@ -183,14 +183,14 @@ const RecentForm: React.FC<RecentFormProps> = ({
         {/* AWAY TEAM COLUMN */}
         <section>
           {/* Header (Spec Sheet Label) */}
-          <div className="flex items-end justify-between mb-6 pb-2 border-b border-edge">
+          <div className="flex items-end justify-between mb-6 pb-2 border-b border-white/[0.06]">
             <div className="flex flex-col gap-1">
-              <span className="text-label font-bold text-zinc-600 uppercase tracking-[0.25em] font-mono select-none">
+              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.25em] font-mono select-none">
                 01 // AWAY FORM
               </span>
               <div className="flex items-center gap-2">
                 <div className="w-1 h-1 rounded-full" style={{ backgroundColor: awayColor || '#fff' }} />
-                <span className="text-body-sm font-semibold text-zinc-200 tracking-wide uppercase">
+                <span className="text-[13px] font-semibold text-zinc-200 tracking-wide uppercase">
                   {awayName}
                 </span>
               </div>
@@ -215,14 +215,14 @@ const RecentForm: React.FC<RecentFormProps> = ({
         {/* HOME TEAM COLUMN (Mirrored) */}
         <section>
           {/* Header (Mirrored) */}
-          <div className="flex items-end justify-between flex-row-reverse mb-6 pb-2 border-b border-edge">
+          <div className="flex items-end justify-between flex-row-reverse mb-6 pb-2 border-b border-white/[0.06]">
             <div className="flex flex-col gap-1 items-end text-right">
-              <span className="text-label font-bold text-zinc-600 uppercase tracking-[0.25em] font-mono select-none">
+              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.25em] font-mono select-none">
                 02 // HOME FORM
               </span>
               <div className="flex items-center gap-2 flex-row-reverse">
                 <div className="w-1 h-1 rounded-full" style={{ backgroundColor: homeColor || '#fff' }} />
-                <span className="text-body-sm font-semibold text-zinc-200 tracking-wide uppercase">
+                <span className="text-[13px] font-semibold text-zinc-200 tracking-wide uppercase">
                   {homeName}
                 </span>
               </div>

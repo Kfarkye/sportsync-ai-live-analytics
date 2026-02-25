@@ -1,14 +1,12 @@
 
 import React, { useMemo } from 'react';
-import { Match, MatchStatus, Sport, Linescore } from '@/types';
+import { Match, MatchStatus } from '@/types';
 import { LEAGUES } from '@/constants';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
-import { cn } from '@/lib/essence';
 import { LayoutGroup, motion } from 'framer-motion';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { useAppStore } from '../../store/appStore';
-import { FeedSkeleton } from '../ui/Skeleton';
 
 interface MatchListProps {
     matches: Match[];
@@ -27,160 +25,138 @@ const MotionDiv = motion.div;
 // WIDGETS
 // ============================================================================
 
-// --- Tennis Set Score Display (matches MatchRow's TennisSetScores) ---
-const HeroSetScores: React.FC<{ linescores?: Linescore[] }> = ({ linescores }) => {
-    if (!linescores || linescores.length === 0) return <span className="text-sm text-ink-muted font-mono">-</span>;
-    return (
-        <div className="flex items-center gap-1 font-mono text-sm tabular-nums">
-            {linescores.map((ls, idx) => (
-                <span key={idx} className={ls.winner ? "text-ink-primary font-bold" : "text-ink-tertiary"}>{ls.value ?? '-'}</span>
-            ))}
-        </div>
-    );
-};
-
-// --- Player identity for tennis (flag + last name) ---
-const TennisPlayerIdentity: React.FC<{ team: Match['homeTeam']; className?: string }> = ({ team, className }) => {
-    const lastName = team.name.split(' ').pop() || team.name;
-    return (
-        <div className={cn("flex flex-col items-center gap-2", className)}>
-            {team.flag ? (
-                <div className="w-10 h-7 overflow-hidden rounded-[2px] shadow-md border border-edge-subtle">
-                    <img src={team.flag} alt="" className="w-full h-full object-cover" />
-                </div>
-            ) : (
-                <TeamLogo logo={team.logo} name={team.name} className="w-10 h-10 object-contain drop-shadow-2xl" />
-            )}
-            <span className="text-sm font-bold text-ink-primary tracking-tight truncate max-w-[100px]">{lastName}</span>
-        </div>
-    );
-};
-
-const normalizeHex = (value?: string) => {
-    if (!value) return '#1c1c1e';
-    return value.startsWith('#') ? value : `#${value}`;
-};
-
-const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () => void; isLive: boolean }) => {
-    const homeColor = normalizeHex(match.homeTeam.color);
-    const awayColor = normalizeHex(match.awayTeam.color);
-    const bgGradient = `linear-gradient(135deg, ${awayColor}0A 0%, var(--surface-card) 45%, ${homeColor}0A 100%)`;
-    const isTennis = match.sport === Sport.TENNIS;
-    const scheduledTime = new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    const heroLabel = `${match.awayTeam.name} vs ${match.homeTeam.name}`;
-
-    // Tennis: show round (R1, QF, SF, F). Team sports: show period/clock.
-    const roundStr = match.round
-        ? match.round.replace('Qualifying ', 'Q').replace('Round of ', 'R').replace('Round ', 'R')
-        : null;
+const FeaturedMatchWidget = ({ match, onClick }: { match: Match; onClick: () => void }) => {
+    const isLive = match.status === MatchStatus.LIVE ||
+        String(match.status).includes('IN_PROGRESS') ||
+        String(match.status).includes('HALF');
 
     return (
         <div
             onClick={onClick}
-            role="button"
-            tabIndex={0}
-            aria-label={`Open ${heroLabel}`}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onClick();
-                }
-            }}
-            className="relative h-[160px] rounded-2xl border border-edge-subtle overflow-hidden cursor-pointer group transition-all duration-300 hover:border-edge focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-ghost focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base shadow-sm"
-            style={{ background: 'var(--surface-card)' }}
+            className="relative overflow-hidden cursor-pointer group transition-all duration-300 mb-8"
+        >
+            {/* Minimalist Header */}
+            <div className="flex items-center justify-between mb-4 px-1">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Featured Match</span>
+                {isLive && (
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30] animate-pulse" />
+                        <span className="text-[11px] font-medium text-[#FF3B30]">Live</span>
+                    </div>
+                )}
+            </div>
+
+            {/* Main Content */}
+            <div className="relative py-2">
+                <div className="flex items-center justify-between gap-8">
+                    <div className="flex flex-col items-center gap-3 flex-1">
+                        <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-16 h-16 object-contain drop-shadow-lg" />
+                        <span className="text-sm font-medium text-slate-700 tracking-tight">{match.awayTeam.name}</span>
+                    </div>
+
+                    <div className="flex flex-col items-center min-w-[120px]">
+                        <div className="text-5xl font-light text-slate-900 tracking-tighter tabular-nums flex items-center gap-4">
+                            <span>{match.awayScore}</span>
+                            <span className="text-slate-400 text-3xl font-thin">:</span>
+                            <span>{match.homeScore}</span>
+                        </div>
+                        <div className="mt-3">
+                            <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">
+                                {match.displayClock || new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col items-center gap-3 flex-1">
+                        <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-16 h-16 object-contain drop-shadow-lg" />
+                        <span className="text-sm font-medium text-slate-700 tracking-tight">{match.homeTeam.name}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () => void; isLive: boolean }) => {
+    const homeColor = match.homeTeam.color || '#1c1c1e';
+    const awayColor = match.awayTeam.color || '#1c1c1e';
+    const bgGradient = `linear-gradient(135deg, ${awayColor}15 0%, #09090b 50%, ${homeColor}15 100%)`;
+
+    return (
+        <div
+            onClick={onClick}
+            className="relative h-[160px] rounded-2xl border border-white/10 overflow-hidden cursor-pointer group transition-all duration-500 hover:border-white/20 hover:shadow-sm"
+            style={{ background: '#09090b' }}
         >
             {/* Dynamic Background */}
-            <div className="absolute inset-0 opacity-40 transition-opacity duration-300 group-hover:opacity-60" style={{ background: bgGradient }} />
-            <div className="absolute inset-0 bg-overlay-ghost" />
+            <div className="absolute inset-0 opacity-60 transition-opacity duration-500 group-hover:opacity-80" style={{ background: bgGradient }} />
+            <div className="absolute inset-0 bg-black/20" /> {/* Dimmer */}
 
             <div className="relative z-10 h-full flex flex-col justify-between p-5">
                 {/* Top Row: Status */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         {isLive && (
-                            <div className="px-2 py-0.5 rounded-full bg-rose-50 border border-rose-100 flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />
-                                <span className="text-label font-bold text-rose-600 uppercase tracking-widest">Live</span>
+                            <div className="px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/30 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest">Live</span>
                             </div>
                         )}
                         {!isLive && (
-                            <div className="px-2 py-0.5 rounded-full bg-surface-subtle border border-edge-subtle">
-                                <span className="text-label font-bold text-ink-tertiary uppercase tracking-widest">
-                                    {scheduledTime}
+                            <div className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                    {new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                                 </span>
                             </div>
                         )}
-                        {/* Tennis round badge */}
-                        {isTennis && roundStr && (
-                            <div className="px-2 py-0.5 rounded-full bg-overlay-subtle border border-edge-subtle">
-                                <span className="text-label font-bold text-ink-tertiary uppercase tracking-widest">{roundStr}</span>
-                            </div>
-                        )}
                     </div>
-                    <span className="text-caption font-bold text-ink-tertiary uppercase tracking-widest">
-                        {match.leagueId}
-                    </span>
+                    <span className="text-[10px] font-bold text-slate-900/30 uppercase tracking-[0.2em]">{match.leagueId}</span>
                 </div>
 
                 {/* Middle Row: Matchup */}
                 <div className="flex items-center justify-between px-2">
-                    {/* Player/Team 1 (Away) */}
-                    {isTennis ? (
-                        <TennisPlayerIdentity team={match.awayTeam} />
-                    ) : (
-                        <div className="flex flex-col items-center gap-2">
-                            <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-12 h-12 object-contain drop-shadow-2xl" />
-                            <span className="text-sm font-bold text-ink-primary tracking-tight">{match.awayTeam.abbreviation || match.awayTeam.name.substring(0, 3).toUpperCase()}</span>
-                        </div>
-                    )}
+                    <div className="flex flex-col items-center gap-2">
+                        <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-12 h-12 object-contain drop-shadow-sm" />
+                        <span className="text-sm font-bold text-slate-900 tracking-tight">{match.awayTeam.abbreviation || match.awayTeam.name.substring(0, 3).toUpperCase()}</span>
+                    </div>
 
-                    {/* Score Center */}
-                    <div className="flex flex-col items-center gap-1">
-                        {isLive || (match.homeScore !== undefined && match.homeScore !== null) ? (
-                            isTennis ? (
-                                /* Tennis: Set-by-set scores for each player */
-                                <div className="flex flex-col items-center gap-1.5">
-                                    <HeroSetScores linescores={match.awayTeam.linescores} />
-                                    <div className="w-12 h-px bg-overlay-emphasis" />
-                                    <HeroSetScores linescores={match.homeTeam.linescores} />
-                                </div>
-                            ) : (
-                                /* Team sports: Big score */
-                                <div className="text-3xl font-mono font-bold text-ink-primary tracking-tighter tabular-nums flex items-center gap-3">
-                                    <span>{match.awayScore}</span>
-                                    <span className="text-ink-ghost">-</span>
-                                    <span>{match.homeScore}</span>
-                                </div>
-                            )
+                    <div className="flex flex-col items-center">
+                        {isLive ? (
+                            <div className="text-3xl font-mono font-bold text-slate-900 tracking-tighter tabular-nums flex items-center gap-3">
+                                <span>{match.awayScore}</span>
+                                <span className="text-slate-900/20">-</span>
+                                <span>{match.homeScore}</span>
+                            </div>
                         ) : (
-                            <span className="text-2xl font-black text-ink-ghost italic">VS</span>
+                            <span className="text-2xl font-black text-slate-900/20 italic">VS</span>
                         )}
                     </div>
 
-                    {/* Player/Team 2 (Home) */}
-                    {isTennis ? (
-                        <TennisPlayerIdentity team={match.homeTeam} />
-                    ) : (
-                        <div className="flex flex-col items-center gap-2">
-                            <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-12 h-12 object-contain drop-shadow-2xl" />
-                            <span className="text-sm font-bold text-ink-primary tracking-tight">{match.homeTeam.abbreviation || match.homeTeam.name.substring(0, 3).toUpperCase()}</span>
-                        </div>
-                    )}
+                    <div className="flex flex-col items-center gap-2">
+                        <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-12 h-12 object-contain drop-shadow-sm" />
+                        <span className="text-sm font-bold text-slate-900 tracking-tight">{match.homeTeam.abbreviation || match.homeTeam.name.substring(0, 3).toUpperCase()}</span>
+                    </div>
                 </div>
 
-                {/* Bottom Row: Context */}
                 <div className="flex items-center justify-center">
-                    <span className="text-caption font-bold text-ink-tertiary uppercase tracking-widest truncate max-w-[200px]">
-                        {isLive
-                            ? (isTennis && roundStr ? roundStr : getPeriodDisplay(match))
-                            : 'Headline Event'
-                        }
+                    <span className="text-[10px] font-bold text-slate-900/40 uppercase tracking-[0.2em] truncate max-w-[200px]">
+                        {isLive ? getPeriodDisplay(match) : 'Headline Event'}
                     </span>
                 </div>
             </div>
         </div>
     );
 };
+
+const MatchRowSkeleton = () => (
+    <div className="w-full h-[72px] border-b border-slate-200 flex items-center animate-pulse">
+        <div className="w-[80px] h-full border-r border-slate-200 bg-white/[0.01]" />
+        <div className="flex-1 px-6 flex flex-col gap-2">
+            <div className="h-3 w-32 bg-white/5 rounded" />
+            <div className="h-3 w-24 bg-white/5 rounded" />
+        </div>
+    </div>
+);
 
 // ============================================================================
 // MAIN COMPONENT
@@ -259,12 +235,18 @@ const MatchList: React.FC<MatchListProps> = ({
     }, [matches, pinnedMatchIds, isMatchLive]);
 
     if (isLoading && matches.length === 0) {
-        return <FeedSkeleton />;
+        return (
+            <div className="max-w-7xl mx-auto w-full pt-4">
+                <div className="border-t border-slate-200">
+                    {[1, 2, 3, 4, 5, 6].map(i => <MatchRowSkeleton key={i} />)}
+                </div>
+            </div>
+        );
     }
 
     if (matches.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] text-ink-muted">
+            <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500">
                 <span className="text-xl mb-4 opacity-50">∅</span>
                 <span className="text-sm font-medium uppercase tracking-widest opacity-70">No Action</span>
             </div>
@@ -272,7 +254,7 @@ const MatchList: React.FC<MatchListProps> = ({
     }
 
     return (
-        <div className="min-h-screen bg-transparent pb-32" data-theme="light">
+        <div className="min-h-screen bg-transparent pb-32">
             <LayoutGroup>
                 <div className="max-w-7xl mx-auto px-0 lg:px-6 w-full">
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-12 items-start">
@@ -286,9 +268,9 @@ const MatchList: React.FC<MatchListProps> = ({
                                 <section className="px-0">
                                     <div className="flex items-center gap-2 mb-4 px-4 lg:px-1">
                                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" />
-                                        <span className="text-footnote font-semibold text-ink-tertiary uppercase tracking-widest">Watchlist</span>
+                                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Watchlist</span>
                                     </div>
-                                    <div className="border-t border-edge-strong">
+                                    <div className="border-t border-slate-200">
                                         {favorites.map(match => (
                                             <MatchRow
                                                 key={`fav-${match.id}`}
@@ -327,40 +309,30 @@ const MatchList: React.FC<MatchListProps> = ({
                                             {selectedSportKey === 'all' && (
                                                 <div className="px-4 pt-8 pb-3 flex items-baseline justify-between">
                                                     <div className="flex items-baseline gap-3">
-                                                        <h3 className="text-xs font-medium text-ink-primary tracking-wide uppercase">
+                                                        <h3 className="text-xs font-medium text-slate-900/90 tracking-wide uppercase">
                                                             {leagueName}
                                                         </h3>
-                                                        <span className="text-caption font-normal text-ink-tertiary tracking-wide">
+                                                        <span className="text-[10px] font-normal text-slate-500 tracking-wide">
                                                             {earliestTime}
                                                         </span>
                                                     </div>
-                                                    <span className="text-caption font-normal text-ink-muted tabular-nums tracking-wide">
+                                                    <span className="text-[10px] font-normal text-slate-500 tabular-nums tracking-wide">
                                                         {leagueMatches.length}
                                                     </span>
                                                 </div>
                                             )}
 
-                                            <div className="border-b border-edge">
-                                                {leagueMatches.map((match, rowIndex) => (
-                                                    <MotionDiv
+                                            <div className="border-b border-slate-200">
+                                                {leagueMatches.map(match => (
+                                                    <MatchRow
                                                         key={match.id}
-                                                        initial={{ opacity: 0, y: 6 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        transition={{
-                                                            duration: 0.3,
-                                                            delay: groupIndex * 0.06 + rowIndex * 0.03,
-                                                            ease: [0.22, 1, 0.36, 1],
-                                                        }}
-                                                    >
-                                                        <MatchRow
-                                                            match={match}
-                                                            isPinned={pinnedMatchIds.has(match.id)}
-                                                            isLive={isMatchLive(match)}
-                                                            isFinal={isMatchFinal(match)}
-                                                            onSelect={() => onSelectMatch(match)}
-                                                            onTogglePin={(e) => onTogglePin(match.id, e)}
-                                                        />
-                                                    </MotionDiv>
+                                                        match={match}
+                                                        isPinned={pinnedMatchIds.has(match.id)}
+                                                        isLive={isMatchLive(match)}
+                                                        isFinal={isMatchFinal(match)}
+                                                        onSelect={() => onSelectMatch(match)}
+                                                        onTogglePin={(e) => onTogglePin(match.id, e)}
+                                                    />
                                                 ))}
                                             </div>
                                         </MotionDiv>
@@ -376,8 +348,8 @@ const MatchList: React.FC<MatchListProps> = ({
                             {featuredMatches.length > 0 && (
                                 <section className="mb-2">
                                     <div className="flex items-center gap-2 mb-3 px-1">
-                                        <span className="w-1.5 h-1.5 bg-brand-primary rounded-full shadow-glow-cyan-sm animate-pulse" />
-                                        <span className="text-caption font-semibold text-ink-tertiary uppercase tracking-widest">Headline Events</span>
+                                        <span className="w-1.5 h-1.5 bg-brand-cyan rounded-full shadow-glow-cyan-sm animate-pulse" />
+                                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Headline Events</span>
                                     </div>
                                     <div className="flex flex-col gap-4">
                                         {featuredMatches.map(match => (
@@ -393,18 +365,14 @@ const MatchList: React.FC<MatchListProps> = ({
                             )}
 
                             {/* Promo Widget */}
-                            <div className="p-8 rounded-2xl bg-surface-card border border-edge-subtle shadow-sm relative overflow-hidden group">
-                                <h3 className="text-footnote font-bold text-brand-primary uppercase tracking-widest mb-3">
+                            <div className="p-8 rounded-2xl bg-zinc-900/30 border border-slate-200 relative overflow-hidden group">
+                                <h3 className="text-[11px] font-bold text-[#2997FF] uppercase tracking-widest mb-3">
                                     Pro Access
                                 </h3>
-                                <p className="text-body-sm text-ink-tertiary mb-6 leading-relaxed font-medium tracking-tight">
+                                <p className="text-[13px] text-slate-400 mb-6 leading-relaxed font-medium tracking-tight">
                                     Real-time institutional feeds and sharp money indicators.
                                 </p>
-                                <button
-                                    type="button"
-                                    onClick={onOpenPricing}
-                                    className="w-full py-3 bg-brand-primary text-white text-footnote font-bold uppercase tracking-widest rounded-full transition-opacity flex items-center justify-center hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
-                                >
+                                <button onClick={onOpenPricing} className="w-full py-3 bg-white hover:bg-zinc-200 text-black text-[11px] font-bold uppercase tracking-widest rounded-full transition-colors flex items-center justify-center">
                                     Upgrade
                                 </button>
                             </div>

@@ -140,29 +140,29 @@ const REGEX_EXTRACT_CONF = /\(Confidence:\s*(\w+)\)/i;
  */
 interface BrandInfo { name: string; color: string }
 const BRAND_COLOR_MAP: Record<string, BrandInfo> = {
-  "espn.com": { name: "ESPN", color: "#C2372E" },
-  "covers.com": { name: "Covers", color: "#1A8F3C" },
-  "actionnetwork.com": { name: "Action", color: "#0066CC" },
-  "draftkings.com": { name: "DK", color: "#53D337" },
-  "fanduel.com": { name: "FanDuel", color: "#1493FF" },
-  "rotowire.com": { name: "RotoWire", color: "#C2372E" },
-  "basketball-reference.com": { name: "BBRef", color: "#D46A2F" },
-  "sports-reference.com": { name: "SportsRef", color: "#D46A2F" },
-  "pro-football-reference.com": { name: "PFRef", color: "#D46A2F" },
-  "nba.com": { name: "NBA", color: "#1D428A" },
-  "nfl.com": { name: "NFL", color: "#013369" },
-  "mlb.com": { name: "MLB", color: "#002D72" },
-  "nhl.com": { name: "NHL", color: "#000000" },
-  "cbssports.com": { name: "CBS", color: "#0033A0" },
-  "yahoo.com": { name: "Yahoo", color: "#6001D2" },
-  "bleacherreport.com": { name: "BR", color: "#000000" },
-  "theathletic.com": { name: "Athletic", color: "#222222" },
-  "x.com": { name: "X", color: "#000000" },
-  "twitter.com": { name: "X", color: "#000000" },
-  "google.com": { name: "Google", color: "#4285F4" },
-  "ai.google.dev": { name: "Google AI", color: "#4285F4" },
-  "vertexaisearch.cloud.google.com": { name: "Google", color: "#4285F4" },
-  "discoveryengine.googleapis.com": { name: "Google", color: "#4285F4" },
+  "espn.com":                        { name: "ESPN",     color: "#C2372E" },
+  "covers.com":                      { name: "Covers",   color: "#1A8F3C" },
+  "actionnetwork.com":               { name: "Action",   color: "#0066CC" },
+  "draftkings.com":                  { name: "DK",       color: "#53D337" },
+  "fanduel.com":                     { name: "FanDuel",  color: "#1493FF" },
+  "rotowire.com":                    { name: "RotoWire", color: "#C2372E" },
+  "basketball-reference.com":        { name: "BBRef",    color: "#D46A2F" },
+  "sports-reference.com":            { name: "SportsRef",color: "#D46A2F" },
+  "pro-football-reference.com":      { name: "PFRef",    color: "#D46A2F" },
+  "nba.com":                         { name: "NBA",      color: "#1D428A" },
+  "nfl.com":                         { name: "NFL",      color: "#013369" },
+  "mlb.com":                         { name: "MLB",      color: "#002D72" },
+  "nhl.com":                         { name: "NHL",      color: "#000000" },
+  "cbssports.com":                   { name: "CBS",      color: "#0033A0" },
+  "yahoo.com":                       { name: "Yahoo",    color: "#6001D2" },
+  "bleacherreport.com":              { name: "BR",       color: "#000000" },
+  "theathletic.com":                 { name: "Athletic", color: "#222222" },
+  "x.com":                           { name: "X",        color: "#000000" },
+  "twitter.com":                     { name: "X",        color: "#000000" },
+  "google.com":                      { name: "Google",   color: "#4285F4" },
+  "ai.google.dev":                   { name: "Google AI",color: "#4285F4" },
+  "vertexaisearch.cloud.google.com": { name: "Google",   color: "#4285F4" },
+  "discoveryengine.googleapis.com":  { name: "Google",   color: "#4285F4" },
 };
 
 /** Default brand info for unrecognized sources. */
@@ -173,8 +173,8 @@ const LIVE_BRAND: BrandInfo = { name: "Live", color: "#10B981" };
 /** Path-based brand overrides for live proxy endpoints. */
 const LIVE_PATH_BRANDS: Array<[RegExp, BrandInfo]> = [
   [/\/api\/live\/scores\//, { name: "Scores", color: "#10B981" }],
-  [/\/api\/live\/odds\//, { name: "Odds", color: "#10B981" }],
-  [/\/api\/live\/pbp\//, { name: "PBP", color: "#10B981" }],
+  [/\/api\/live\/odds\//,   { name: "Odds",   color: "#10B981" }],
+  [/\/api\/live\/pbp\//,    { name: "PBP",    color: "#10B981" }],
 ];
 
 const EDGE_CARD_STAGE_DELAYS_MS = [0, 120, 220, 300, 480] as const;
@@ -224,19 +224,19 @@ const SYSTEM = {
     morph: { type: "spring", damping: 25, stiffness: 280 } as Transition,
   },
   surface: {
-    void: "bg-[#08080A]",
-    panel: "bg-[#080808] border border-white/[0.06]",
+    void: "bg-white",
+    panel: "bg-white border border-slate-200",
     /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
-    glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+    glass: "bg-slate-50 backdrop-blur-[24px] backdrop-saturate-[180%] border border-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
     hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20 shadow-[inset_0_1px_0_rgba(245,158,11,0.1)]",
-    milled: "border-t border-white/[0.08] border-b border-black/50 border-x border-white/[0.04]",
+    milled: "border-t border-slate-200 border-b border-black/50 border-x border-slate-200",
     alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20 shadow-[inset_0_1px_0_rgba(225,29,72,0.1)]",
   },
   type: {
-    mono: "font-mono text-[10px] tracking-[0.1em] uppercase text-zinc-500 tabular-nums",
-    body: "text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300",
-    h1: "text-[13px] font-medium tracking-[-0.02em] text-white",
-    label: "text-[9px] font-bold tracking-[0.05em] uppercase text-zinc-500",
+    mono: "font-mono text-[10px] tracking-[0.1em] uppercase text-slate-500 tabular-nums",
+    body: "text-[15px] leading-[1.72] tracking-[-0.005em] text-slate-600",
+    h1: "text-[13px] font-medium tracking-[-0.02em] text-slate-900",
+    label: "text-[9px] font-bold tracking-[0.05em] uppercase text-slate-500",
   },
   geo: { pill: "rounded-full", card: "rounded-[22px]", input: "rounded-[24px]" },
 } as const;
@@ -800,10 +800,10 @@ function uriToBrandInfo(href?: string, title?: string): BrandInfo {
     if (t.includes(".")) return hostnameToBrandInfo(t);
     // Title without dots — check if it contains a known brand keyword
     const tLower = t.toLowerCase();
-    if (tLower.includes("espn")) return BRAND_COLOR_MAP["espn.com"];
-    if (tLower.includes("basketball-reference")) return BRAND_COLOR_MAP["basketball-reference.com"];
+    if (tLower.includes("espn"))                   return BRAND_COLOR_MAP["espn.com"];
+    if (tLower.includes("basketball-reference"))   return BRAND_COLOR_MAP["basketball-reference.com"];
     if (tLower.includes("the athletic") || tLower.includes("theathletic")) return BRAND_COLOR_MAP["theathletic.com"];
-    if (tLower.includes("covers")) return BRAND_COLOR_MAP["covers.com"];
+    if (tLower.includes("covers"))                 return BRAND_COLOR_MAP["covers.com"];
   }
   // 3. URI hostname fallback
   return hostnameToBrandInfo(getHostname(href));
@@ -877,11 +877,11 @@ function normalizeGameContext(
   };
   const hasSignal = Boolean(
     normalized.match_id ||
-    normalized.home_team ||
-    normalized.away_team ||
-    normalized.current_odds ||
-    normalized.home_score !== undefined ||
-    normalized.away_score !== undefined,
+      normalized.home_team ||
+      normalized.away_team ||
+      normalized.current_odds ||
+      normalized.home_score !== undefined ||
+      normalized.away_score !== undefined,
   );
   return hasSignal ? normalized : null;
 }
@@ -1064,14 +1064,7 @@ function splitPickContent(rawContent: string): { pickContent: string; analysisBl
       }
     }
 
-    // Pick part = ONLY the verdict line itself + matchup lines.
-    // Body text (synopsis) after the verdict line is already rendered
-    // inside EdgeVerdictCard via the synopses prop — including it here
-    // causes the text to render twice (once in the card, once below it).
-    const verdictLine = block[0];
-    const matchupLines = block.slice(1, analysisStartIndex === -1 ? block.length : analysisStartIndex)
-      .filter(l => REGEX_MATCHUP_LINE.test(l.trim()));
-    const pickPart = [verdictLine, ...matchupLines].join("\n");
+    const pickPart = analysisStartIndex === -1 ? block.join("\n") : block.slice(0, analysisStartIndex).join("\n");
     const analysisPart = analysisStartIndex === -1 ? "" : block.slice(analysisStartIndex).join("\n");
 
     if (pickPart.trim()) pickSegments.push(pickPart.trim());
@@ -1586,11 +1579,11 @@ const ScrollAnchor: FC<{ visible: boolean; onClick: () => void }> = memo(({ visi
         exit={{ opacity: 0, y: 8, scale: 0.9 }}
         transition={SYSTEM.anim.fluid}
         onClick={() => { triggerHaptic(); onClick(); }}
-        className="absolute bottom-32 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#08080A]/90 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 transition-colors"
+        className="absolute bottom-32 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 border border-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-slate-50 transition-colors"
         aria-label="Scroll to latest messages"
       >
         <ArrowDown size={10} className="text-emerald-400" />
-        <span className="text-[10px] font-medium text-zinc-300 tracking-wide uppercase">Latest</span>
+        <span className="text-[10px] font-medium text-slate-600 tracking-wide uppercase">Latest</span>
       </motion.button>
     )}
   </AnimatePresence>
@@ -1632,10 +1625,10 @@ const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={SYSTEM.anim.fluid}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-[#08080A] border border-white/10 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
+            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
           >
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]" />
-            <span className="text-[12px] font-medium text-white tracking-tight">{toast.message}</span>
+            <span className="text-[12px] font-medium text-slate-900 tracking-tight">{toast.message}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1669,7 +1662,7 @@ const CopyButton: FC<{ content: string }> = memo(({ content }) => {
       onClick={handleCopy}
       className={cn(
         "p-1.5 rounded-md transition-all duration-200",
-        copied ? "text-emerald-400 bg-emerald-500/10" : "text-zinc-600 hover:text-zinc-300 hover:bg-white/5",
+        copied ? "text-emerald-400 bg-emerald-500/10" : "text-slate-500 hover:text-slate-600 hover:bg-slate-50",
       )}
       aria-label={copied ? "Copied" : "Copy to clipboard"}
     >
@@ -1686,14 +1679,14 @@ CopyButton.displayName = "CopyButton";
  * ─────────────────────────────────────────────────
  */
 const OW = {
-  card: ESSENCE.colors.surface.card,
+  card:     ESSENCE.colors.surface.card,
   elevated: ESSENCE.colors.surface.elevated,
-  mint: ESSENCE.colors.accent.mint,
-  mintDim: ESSENCE.colors.accent.mintDim,
+  mint:     ESSENCE.colors.accent.mint,
+  mintDim:  ESSENCE.colors.accent.mintDim,
   mintEdge: ESSENCE.colors.accent.mintEdge,
-  gold: ESSENCE.colors.accent.gold,
-  goldDim: ESSENCE.colors.accent.goldDim,
-  red: ESSENCE.colors.accent.rose,
+  gold:     ESSENCE.colors.accent.gold,
+  goldDim:  ESSENCE.colors.accent.goldDim,
+  red:      ESSENCE.colors.accent.rose,
   t1: ESSENCE.colors.text.primary,
   t2: ESSENCE.colors.text.secondary,
   t3: ESSENCE.colors.text.tertiary,
@@ -1702,7 +1695,7 @@ const OW = {
   border: ESSENCE.colors.border.default,
   sans: "'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
   mono: "'DM Mono', 'SF Mono', 'Fira Code', monospace",
-  r: 16,   // M-23: Outer card radius — 16px
+  r:  16,   // M-23: Outer card radius — 16px
   ri: 10,   // M-23: Button/inner element radius — 10px
   ease: "cubic-bezier(0.25, 0.1, 0.25, 1)",
   shadow: ESSENCE.shadows.obsidian,
@@ -1711,16 +1704,16 @@ const OW = {
 /** ShareIcon — upload arrow for share button */
 const OWShareIcon: FC = () => (
   <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-    <path d="M8 2v8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    <path d="M4.5 5.5L8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M13 10v2.5a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 013 12.5V10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    <path d="M8 2v8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <path d="M4.5 5.5L8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M13 10v2.5a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 013 12.5V10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
   </svg>
 );
 
 /** CheckIcon — confirmation for copied state */
 const OWCheckIcon: FC = () => (
   <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-    <path d="M3.5 8.5L6.5 11.5 12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M3.5 8.5L6.5 11.5 12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
@@ -1877,7 +1870,7 @@ const EdgeVerdictCard: FC<{
     const shareText = hasSynopsis
       ? `${headline}\n${resolvedSynopsis}\n\nthedrip.app`
       : `${headline}\n\nthedrip.app`;
-    navigator.clipboard?.writeText(shareText.trim()).catch(() => { });
+    navigator.clipboard?.writeText(shareText.trim()).catch(() => {});
     trackAction("verdict.share", { trackingKey, cardIndex });
     setTimeout(() => {
       setShareState("copied");
@@ -2134,8 +2127,8 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
       className={cn(
         "my-8 relative overflow-hidden",
         "rounded-xl",                          // M-23: 12px inner card radius
-        "bg-[#1A1A1C]",                        // M-24: Distinct elevated background
-        "border border-white/[0.08]",          // M-24: Subtle but present border
+        "bg-white",                        // M-24: Distinct elevated background
+        "border border-slate-200",          // M-24: Subtle but present border
         "shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
       )}
     >
@@ -2143,7 +2136,7 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
       <div className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(ellipse_at_top_left,rgba(245,158,11,0.08)_0%,transparent_55%)]" />
       <div className="relative z-10 p-5">
         {/* M-04: Section header in zinc-500 — neutral */}
-        <p className="text-[12px] font-mono font-medium tracking-[0.12em] uppercase text-zinc-500 mb-4">
+        <p className="text-[12px] font-mono font-medium tracking-[0.12em] uppercase text-slate-500 mb-4">
           WHAT TO WATCH
         </p>
 
@@ -2151,7 +2144,7 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
         {parsed.action ? (
           <>
             {/* Condition — white, readable */}
-            <p className="text-[15px] text-zinc-200 leading-relaxed">
+            <p className="text-[15px] text-slate-700 leading-relaxed">
               {parsed.condition}
             </p>
             {/* Action — emerald, the thing to do */}
@@ -2160,14 +2153,14 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
             </p>
             {/* Reasoning — dimmed, supporting */}
             {parsed.reasoning && (
-              <p className="text-[12px] text-zinc-500 leading-relaxed mt-2">
+              <p className="text-[12px] text-slate-500 leading-relaxed mt-2">
                 {parsed.reasoning}
               </p>
             )}
           </>
         ) : (
           /* Fallback: flat prose when no arrow pattern found */
-          <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-zinc-300">{c}</div>
+          <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-slate-600">{c}</div>
         )}
       </div>
     </motion.div>
@@ -2295,7 +2288,7 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
         transition={SYSTEM.anim.fluid}
         role="status"
         aria-live="polite"
-        className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-[#08080A] border border-white/10 shadow-2xl z-30 will-change-transform"
+        className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-sm z-30 will-change-transform"
       >
         <OrbitalRadar />
         <AnimatePresence mode="wait">
@@ -2304,13 +2297,13 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
             initial={{ opacity: 0, filter: "blur(4px)" }}
             animate={{ opacity: 1, filter: "blur(0px)" }}
             exit={{ opacity: 0, filter: "blur(4px)" }}
-            className={cn(SYSTEM.type.mono, "text-zinc-300 min-w-[100px] text-center")}
+            className={cn(SYSTEM.type.mono, "text-slate-600 min-w-[100px] text-center")}
           >
             {displayText}
           </motion.span>
         </AnimatePresence>
         {onStop && (
-          <button onClick={onStop} className="ml-1 p-2 -m-2 text-zinc-600 hover:text-zinc-200 transition-colors" aria-label="Stop processing">
+          <button onClick={onStop} className="ml-1 p-2 -m-2 text-slate-500 hover:text-slate-700 transition-colors" aria-label="Stop processing">
             <StopCircle size={10} />
           </button>
         )}
@@ -2364,9 +2357,9 @@ const SmartChips: FC<{
             transition={{ delay: (matchupLabel ? i + 1 : i) * 0.04, ...SYSTEM.anim.fluid }}
             whileHover={{ scale: 1.02, y: -1, backgroundColor: "rgba(255,255,255,0.06)" }}
             whileTap={{ scale: 0.98 }}
-            className={cn("px-3.5 py-2 bg-white/[0.03] border border-white/[0.08] transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
+            className={cn("px-3.5 py-2 bg-slate-50 border border-slate-200 transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
           >
-            <span className="text-[10px] font-medium text-zinc-300 tracking-wide uppercase whitespace-nowrap">{chip}</span>
+            <span className="text-[10px] font-medium text-slate-600 tracking-wide uppercase whitespace-nowrap">{chip}</span>
           </motion.button>
         ))}
       </div>
@@ -2483,13 +2476,13 @@ const MessageBubble: FC<{
               <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
               <div className="mt-8 flex items-center gap-2.5">
                 <div className="w-1 h-1 rounded-full bg-zinc-600" />
-                <span className="text-[12px] font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
+                <span className="text-[12px] font-mono font-medium text-slate-500 uppercase tracking-[0.12em]">{normalized}</span>
               </div>
             </div>
           );
         }
         const stripped = rawText.replace(/^[●•·‣]\s*/, "");
-        return <strong className={cn("font-semibold", isUser ? "text-black" : "text-white")}>{stripped}</strong>;
+        return <strong className={cn("font-semibold", isUser ? "text-black" : "text-slate-900")}>{stripped}</strong>;
       },
       a: ({ href, children }) => {
         const isCitation = href?.includes(CITE_MARKER);
@@ -2510,7 +2503,7 @@ const MessageBubble: FC<{
               href={cleanHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-zinc-600 no-underline hover:text-zinc-400 text-[0.65em] align-super transition-colors duration-200"
+              className="text-slate-500 no-underline hover:text-slate-400 text-[0.65em] align-super transition-colors duration-200"
             >
               {children}
             </a>
@@ -2597,25 +2590,10 @@ const MessageBubble: FC<{
               return c.length > 5 ? <TacticalHUD content={c} /> : null;
             }
 
-            // Suppress paragraphs already rendered inside EdgeVerdictCard as synopsis.
-            // Must normalize aggressively: smart quotes, dashes, whitespace all vary
-            // between extractEdgeSynopses (raw text) and ReactMarkdown output.
+            // Suppress paragraphs already rendered inside EdgeVerdictCard as synopsis
             if (synopses.length > 0) {
-              const normalize = (s: string) => s
-                .replace(/\*+/g, "")
-                .replace(/[\u2018\u2019\u201C\u201D''""]/g, "")  // all quote variants
-                .replace(/[\u2013\u2014—–-]/g, "-")              // all dash variants
-                .replace(/\s+/g, " ")
-                .trim()
-                .toLowerCase();
-              const cleanedNorm = normalize(text);
-              if (synopses.some(s => {
-                if (!s || s.length < 15) return false;
-                const sNorm = normalize(s);
-                // Match if either contains the other, or first 60 chars match
-                return cleanedNorm.includes(sNorm) || sNorm.includes(cleanedNorm)
-                  || (sNorm.length > 40 && cleanedNorm.startsWith(sNorm.slice(0, 40)));
-              })) return null;
+              const cleaned = text.replace(/\*+/g, "").replace(/\s+/g, " ").trim();
+              if (synopses.some(s => s && cleaned.length > 10 && cleaned.includes(s))) return null;
             }
 
             // M-26: Apply typography normalization to body paragraphs
@@ -2647,7 +2625,7 @@ const MessageBubble: FC<{
                   {/* M-17: 32px gap between hairline and section header */}
                   <div className="mt-8 flex items-center gap-2.5">
                     <div className="w-1 h-1 rounded-full bg-zinc-600" />
-                    <span className="text-[12px] font-mono font-medium text-zinc-500 uppercase tracking-[0.12em]">{normalized}</span>
+                    <span className="text-[12px] font-mono font-medium text-slate-500 uppercase tracking-[0.12em]">{normalized}</span>
                   </div>
                 </div>
               );
@@ -2655,7 +2633,7 @@ const MessageBubble: FC<{
 
             // M-13: Strip bullet-prefixed bold sub-headers in prose (incl. ●)
             const stripped = rawText.replace(/^[●•·‣]\s*/, "");
-            return <strong className={cn("font-semibold", isUser ? "text-black" : "text-white")}>{stripped}</strong>;
+            return <strong className={cn("font-semibold", isUser ? "text-black" : "text-slate-900")}>{stripped}</strong>;
           },
 
           a: ({ href, children }) => {
@@ -2680,7 +2658,7 @@ const MessageBubble: FC<{
                   href={cleanHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-zinc-600 no-underline hover:text-zinc-400 text-[0.65em] align-super transition-colors duration-200"
+                  className="text-slate-500 no-underline hover:text-slate-400 text-[0.65em] align-super transition-colors duration-200"
                 >
                   {children}
                 </a>
@@ -2744,7 +2722,7 @@ const MessageBubble: FC<{
           "relative max-w-[92%] md:max-w-[88%]",
           isUser
             ? "bg-white text-black rounded-[20px] rounded-tr-[6px] shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5"
-            : "bg-transparent text-white px-0 max-w-full md:max-w-[96%]",
+            : "bg-transparent text-slate-900 px-0 max-w-full md:max-w-[96%]",
         )}>
           <div className={cn("prose prose-invert max-w-none", isUser && "prose-p:text-black/90")}>
             {/* M-27: Show skeleton while AI is generating but no content yet */}
@@ -2768,7 +2746,7 @@ const MessageBubble: FC<{
         {/* M-19: Timestamp always below, right-aligned, consistent for both roles */}
         {formattedTime && (
           <div className="text-right mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none">
-            <time dateTime={message.timestamp} className="text-[11px] text-zinc-600">
+            <time dateTime={message.timestamp} className="text-[11px] text-slate-500">
               {formattedTime}
             </time>
           </div>
@@ -2884,7 +2862,7 @@ const InputDeck: FC<{
       layout
       className={cn(
         "flex flex-col gap-2 p-1.5 relative overflow-hidden transition-colors duration-500 will-change-transform",
-        SYSTEM.geo.input, "bg-[#08080A] shadow-2xl focus-within:ring-1 focus-within:ring-white/[0.06]",
+        SYSTEM.geo.input, "bg-white shadow-sm focus-within:ring-1 focus-within:ring-slate-200",
         isVoiceMode
           ? "border-emerald-500/30 shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)]"
           : isOffline ? "border-red-500/20" : SYSTEM.surface.milled,
@@ -2900,12 +2878,12 @@ const InputDeck: FC<{
             className="flex gap-2 overflow-x-auto p-2 mb-1 scrollbar-hide"
           >
             {attachments.map((a, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-full border border-white/[0.06]">
-                <ImageIcon size={12} className="text-white/50" />
-                <span className="text-[10px] text-zinc-300 max-w-[80px] truncate">{a.file.name}</span>
+              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-200">
+                <ImageIcon size={12} className="text-slate-900/50" />
+                <span className="text-[10px] text-slate-600 max-w-[80px] truncate">{a.file.name}</span>
                 <button
                   onClick={() => onAttach(attachments.filter((_, j) => j !== i))}
-                  className="text-zinc-500 hover:text-white transition-colors"
+                  className="text-slate-500 hover:text-slate-900 transition-colors"
                   aria-label={`Remove ${a.file.name}`}
                 >
                   <X size={10} />
@@ -2919,7 +2897,7 @@ const InputDeck: FC<{
       <div className="flex items-end gap-2">
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="p-3.5 rounded-[18px] text-zinc-500 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          className="p-3.5 rounded-[18px] text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
           aria-label="Attach file"
           disabled={isOffline || isProcessing}
         >
@@ -2944,7 +2922,7 @@ const InputDeck: FC<{
             aria-label="Message input"
             className={cn(
               "flex-1 bg-transparent border-none outline-none resize-none py-4 min-h-[52px] max-h-[120px]",
-              SYSTEM.type.body, "text-white placeholder:text-zinc-600 disabled:opacity-40",
+              SYSTEM.type.body, "text-slate-900 placeholder:text-slate-500 disabled:opacity-40",
               "caret-amber-500/80 selection:bg-emerald-500/20",
             )}
           />
@@ -2969,7 +2947,7 @@ const InputDeck: FC<{
                   ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
                   : isVoiceMode
                     ? "text-rose-400 bg-rose-500/10"
-                    : "text-zinc-500 hover:bg-white/5 hover:text-white",
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
             )}
             aria-label={isProcessing ? "Stop processing" : canSend ? "Send message" : isVoiceMode ? "Stop voice input" : "Start voice input"}
           >
@@ -3016,7 +2994,7 @@ class ChatErrorBoundary extends Component<
           <div className="text-rose-400 font-mono text-xs text-center">System Error. {this.state.error?.message}</div>
           <button
             onClick={() => { this.setState({ hasError: false, error: undefined }); this.props.onReset?.(); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white text-xs hover:bg-white/10 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-50 border border-slate-200 text-slate-900 text-xs hover:bg-slate-50 transition-colors"
           >
             <RotateCcw size={12} />
             Reset
@@ -3079,11 +3057,6 @@ const InnerChatWidget: FC<ChatWidgetProps & {
 
   /** Resilient game-context normalization — handles varied data shapes from API */
   const normalizedContext = useMemo(() => normalizeGameContext(currentMatch), [currentMatch]);
-
-  /** CRITICAL FIX: Clear chat history when the selected match changes to prevent context bleed */
-  useEffect(() => {
-    dispatch({ type: "CLEAR" });
-  }, [normalizedContext?.match_id]);
 
   /** Per-card verdict outcomes, persisted to localStorage for session continuity */
   const [verdictOutcomes, setVerdictOutcomes] = useState<Record<string, VerdictOutcome>>(() => {
@@ -3325,7 +3298,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
       <motion.button
         layoutId="chat"
         onClick={() => setIsMinimized?.(false)}
-        className={cn("flex items-center gap-3 px-6 py-3 rounded-full shadow-2xl border-t border-white/10", SYSTEM.surface.glass)}
+        className={cn("flex items-center gap-3 px-6 py-3 rounded-full shadow-sm border-t border-slate-200", SYSTEM.surface.glass)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         aria-label="Open chat"
@@ -3340,121 +3313,121 @@ const InnerChatWidget: FC<ChatWidgetProps & {
 
   return (
     <ToastProvider>
-      <LayoutGroup>
-        <motion.div
-          layoutId={inline ? undefined : "chat"}
-          role="dialog"
-          aria-label="Obsidian Weissach -- Betting Intelligence"
-          className={cn(
-            "flex flex-col overflow-hidden transition-all duration-500 isolate relative z-50 will-change-transform",
-            inline
-              ? "w-full h-full bg-transparent"
-              : cn(
-                "w-full md:w-[460px] h-[100dvh] md:h-[min(840px,90dvh)]",
-                "rounded-[28px] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]",
-                "border border-white/[0.08]",
-                SYSTEM.surface.void,
-              ),
-          )}
-        >
-          <FilmGrain />
-
-          {/* SR-only live region for state announcements */}
-          <div aria-live="polite" aria-atomic="true" className="sr-only">{srAnnouncement}</div>
-
-          {!inline && (
-            <header className="flex items-center justify-between px-8 pt-6 pb-2 shrink-0 z-20 select-none">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
-                <span className={SYSTEM.type.h1}>
-                  Obsidian<span className="text-white/30 font-normal ml-1">Weissach</span>
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <AnimatePresence><ConnectionBadge status={connectionStatus} /></AnimatePresence>
-                <button
-                  onClick={() => setShowCitations(prev => !prev)}
-                  className={cn("p-2 transition-colors", showCitations ? "text-emerald-400 hover:text-emerald-300" : "text-zinc-600 hover:text-zinc-400")}
-                  aria-label={showCitations ? "Hide citations" : "Show citations"}
-                  title={showCitations ? "Citations on" : "Citations off"}
-                >
-                  {showCitations ? <Eye size={14} /> : <EyeOff size={14} />}
-                </button>
-                <button onClick={() => setIsMinimized?.(true)} className="p-2 text-zinc-600 hover:text-white transition-colors" aria-label="Minimize chat">
-                  <Minimize2 size={16} />
-                </button>
-                <button onClick={() => toggleGlobalChat(false)} className="p-2 text-zinc-600 hover:text-white transition-colors" aria-label="Close chat">
-                  <X size={16} />
-                </button>
-              </div>
-            </header>
-          )}
-
-          <div
-            ref={scrollRef}
-            role="log"
-            aria-relevant="additions"
-            aria-busy={isProcessing}
-            aria-label="Conversation messages"
-            className="relative flex-1 overflow-y-auto px-6 pt-4 scroll-smooth no-scrollbar z-10 will-change-transform"
-            style={{ paddingBottom: footerHeight }}
+        <LayoutGroup>
+          <motion.div
+            layoutId={inline ? undefined : "chat"}
+            role="dialog"
+            aria-label="Obsidian Weissach -- Betting Intelligence"
+            className={cn(
+              "flex flex-col overflow-hidden transition-all duration-500 isolate relative z-50 will-change-transform",
+              inline
+                ? "w-full h-full bg-transparent"
+                : cn(
+                  "w-full md:w-[460px] h-[100dvh] md:h-[min(840px,90dvh)]",
+                  "rounded-[28px] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]",
+                  "border border-slate-200",
+                  SYSTEM.surface.void,
+                ),
+            )}
           >
-            <AnimatePresence mode="popLayout">
-              {messages.length === 0 ? (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="h-full flex flex-col items-center justify-center text-center opacity-40"
-                >
-                  <div className="w-20 h-20 rounded-[24px] border border-white/[0.06] bg-white/[0.02] flex items-center justify-center mb-6">
-                    <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
-                  </div>
-                  <p className={SYSTEM.type.mono}>System Ready</p>
-                  <p className="text-[10px] text-zinc-700 mt-1.5 tracking-wide">
-                    {deriveGamePhase(normalizedContext) === "live" ? "Games are live — ask for in-play edge" : deriveGamePhase(normalizedContext) === "postgame" ? "Markets closed — review your record" : "Pre-game window — find today's edge"}
-                  </p>
-                </motion.div>
-              ) : (
-                messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} verdictOutcomes={verdictOutcomes} showCitations={showCitations} />)
-              )}
-            </AnimatePresence>
-          </div>
+            <FilmGrain />
 
-          {/* Scroll anchor — visible when user has scrolled up */}
-          <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
+            {/* SR-only live region for state announcements */}
+            <div aria-live="polite" aria-atomic="true" className="sr-only">{srAnnouncement}</div>
 
-          <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#08080A] via-[#08080A]/95 to-transparent pointer-events-none">
-            <div className="pointer-events-auto relative">
-              <AnimatePresence>
-                {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}
-              </AnimatePresence>
+            {!inline && (
+              <header className="flex items-center justify-between px-8 pt-6 pb-2 shrink-0 z-20 select-none">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
+                  <span className={SYSTEM.type.h1}>
+                    Obsidian<span className="text-slate-900/30 font-normal ml-1">Weissach</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AnimatePresence><ConnectionBadge status={connectionStatus} /></AnimatePresence>
+                  <button
+                    onClick={() => setShowCitations(prev => !prev)}
+                    className={cn("p-2 transition-colors", showCitations ? "text-emerald-400 hover:text-emerald-300" : "text-slate-500 hover:text-slate-400")}
+                    aria-label={showCitations ? "Hide citations" : "Show citations"}
+                    title={showCitations ? "Citations on" : "Citations off"}
+                  >
+                    {showCitations ? <Eye size={14} /> : <EyeOff size={14} />}
+                  </button>
+                  <button onClick={() => setIsMinimized?.(true)} className="p-2 text-slate-500 hover:text-slate-900 transition-colors" aria-label="Minimize chat">
+                    <Minimize2 size={16} />
+                  </button>
+                  <button onClick={() => toggleGlobalChat(false)} className="p-2 text-slate-500 hover:text-slate-900 transition-colors" aria-label="Close chat">
+                    <X size={16} />
+                  </button>
+                </div>
+              </header>
+            )}
 
-              <AnimatePresence>
-                {messages.length < 2 && !isProcessing && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-4">
-                    <SmartChips onSelect={handleSend} hasMatch={!!currentMatch} messageCount={messages.length} gameContext={normalizedContext} />
+            <div
+              ref={scrollRef}
+              role="log"
+              aria-relevant="additions"
+              aria-busy={isProcessing}
+              aria-label="Conversation messages"
+              className="relative flex-1 overflow-y-auto px-6 pt-4 scroll-smooth no-scrollbar z-10 will-change-transform"
+              style={{ paddingBottom: footerHeight }}
+            >
+              <AnimatePresence mode="popLayout">
+                {messages.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="h-full flex flex-col items-center justify-center text-center opacity-40"
+                  >
+                    <div className="w-20 h-20 rounded-[24px] border border-slate-200 bg-slate-50 flex items-center justify-center mb-6">
+                      <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
+                    </div>
+                    <p className={SYSTEM.type.mono}>System Ready</p>
+                    <p className="text-[10px] text-slate-400 mt-1.5 tracking-wide">
+                      {deriveGamePhase(normalizedContext) === "live" ? "Games are live — ask for in-play edge" : deriveGamePhase(normalizedContext) === "postgame" ? "Markets closed — review your record" : "Pre-game window — find today's edge"}
+                    </p>
                   </motion.div>
+                ) : (
+                  messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} verdictOutcomes={verdictOutcomes} showCitations={showCitations} />)
                 )}
               </AnimatePresence>
-
-              <InputDeck
-                value={input}
-                onChange={setInput}
-                onSend={handleSend}
-                onStop={handleAbort}
-                attachments={attachments}
-                onAttach={setAttachments}
-                isProcessing={isProcessing}
-                isVoiceMode={isVoiceMode}
-                onVoiceModeChange={setIsVoiceMode}
-                isOffline={connectionStatus === "offline"}
-                inputRef={inputRef}
-                fileInputRef={fileInputRef}
-              />
             </div>
-          </footer>
-        </motion.div>
-      </LayoutGroup>
+
+            {/* Scroll anchor — visible when user has scrolled up */}
+            <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
+
+            <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#08080A] via-[#08080A]/95 to-transparent pointer-events-none">
+              <div className="pointer-events-auto relative">
+                <AnimatePresence>
+                  {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                  {messages.length < 2 && !isProcessing && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-4">
+                      <SmartChips onSelect={handleSend} hasMatch={!!currentMatch} messageCount={messages.length} gameContext={normalizedContext} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <InputDeck
+                  value={input}
+                  onChange={setInput}
+                  onSend={handleSend}
+                  onStop={handleAbort}
+                  attachments={attachments}
+                  onAttach={setAttachments}
+                  isProcessing={isProcessing}
+                  isVoiceMode={isVoiceMode}
+                  onVoiceModeChange={setIsVoiceMode}
+                  isOffline={connectionStatus === "offline"}
+                  inputRef={inputRef}
+                  fileInputRef={fileInputRef}
+                />
+              </div>
+            </footer>
+          </motion.div>
+        </LayoutGroup>
     </ToastProvider>
   );
 };

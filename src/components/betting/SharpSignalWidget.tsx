@@ -23,15 +23,15 @@ const GaugeBar = ({
     return (
         <div className="flex flex-col gap-1.5">
             <div className="flex justify-between items-end">
-                <div className="flex items-center gap-1.5 text-zinc-400">
+                <div className="flex items-center gap-1.5 text-slate-400">
                     <Icon size={12} />
-                    <span className="text-label font-bold uppercase tracking-wider">{label}</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider">{label}</span>
                 </div>
                 <span className={cn("text-xs font-mono font-bold tabular-nums", color)}>
                     {pct}%
                 </span>
             </div>
-            <div className="h-1.5 w-full bg-surface-subtle rounded-full overflow-hidden border border-edge-subtle">
+            <div className="h-1.5 w-full bg-[#1A1A1A] rounded-full overflow-hidden border border-slate-200">
                 <MotionDiv
                     initial={{ width: 0 }}
                     animate={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }}
@@ -59,9 +59,9 @@ export const SharpSignalWidget = ({ match }: { match: Match }) => {
     }, [match.id, match.sport]);
 
     if (loading) return (
-        <div className="h-[180px] bg-surface-base border border-edge-strong rounded-xl flex flex-col items-center justify-center gap-3 animate-pulse">
-            <Target size={20} className="text-zinc-700" />
-            <span className="text-label font-mono text-zinc-600 uppercase tracking-widest">Analysing Order Flow...</span>
+        <div className="h-[180px] bg-slate-50 border border-slate-200 rounded-xl flex flex-col items-center justify-center gap-3 animate-pulse">
+            <Target size={20} className="text-slate-400" />
+            <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">Analysing Order Flow...</span>
         </div>
     );
 
@@ -75,18 +75,18 @@ export const SharpSignalWidget = ({ match }: { match: Match }) => {
         <MotionDiv
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-surface-base border border-edge-strong rounded-xl overflow-hidden shadow-lg"
+            className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shadow-sm"
         >
             {/* Header */}
-            <div className="bg-surface-base px-4 py-3 border-b border-edge flex items-center justify-between">
+            <div className="bg-[#0C0C0E] px-4 py-3 border-b border-slate-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <Zap size={14} className={isSharp ? "text-[#00F0FF] fill-[#00F0FF]/20" : "text-zinc-500"} />
-                    <h3 className="text-caption font-bold text-zinc-200 uppercase tracking-widest">Sharp Report</h3>
+                    <Zap size={14} className={isSharp ? "text-[#00F0FF] fill-[#00F0FF]/20" : "text-slate-500"} />
+                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Sharp Report</h3>
                 </div>
 
                 {isSharp && (
                     <div className="px-2 py-0.5 rounded bg-[#00F0FF]/10 border border-[#00F0FF]/20">
-                        <span className="text-nano font-black text-[#00F0FF] uppercase tracking-widest">High Conviction</span>
+                        <span className="text-[8px] font-black text-[#00F0FF] uppercase tracking-widest">High Conviction</span>
                     </div>
                 )}
             </div>
@@ -97,7 +97,7 @@ export const SharpSignalWidget = ({ match }: { match: Match }) => {
                     <GaugeBar
                         label="Ticket Count (Public)"
                         pct={signal.public_pct}
-                        color="text-zinc-400"
+                        color="text-slate-400"
                         icon={Users}
                     />
                     <GaugeBar
@@ -110,14 +110,14 @@ export const SharpSignalWidget = ({ match }: { match: Match }) => {
 
                 {/* Signals */}
                 {(signal.rlm_detected || signal.pvj_detected) && (
-                    <div className="pt-4 border-t border-edge">
+                    <div className="pt-4 border-t border-slate-200">
                         <div className="flex gap-2">
                             {signal.rlm_detected && (
                                 <div className="flex-1 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2 flex items-center gap-2">
                                     <TrendingUp size={14} className="text-rose-500" />
                                     <div className="flex flex-col">
-                                        <span className="text-nano font-bold text-rose-400 uppercase">RLM Detected</span>
-                                        <span className="text-nano text-rose-300/70">Line moved vs Public</span>
+                                        <span className="text-[8px] font-bold text-rose-400 uppercase">RLM Detected</span>
+                                        <span className="text-[8px] text-rose-300/70">Line moved vs Public</span>
                                     </div>
                                 </div>
                             )}
@@ -125,8 +125,8 @@ export const SharpSignalWidget = ({ match }: { match: Match }) => {
                                 <div className="flex-1 bg-[#00F0FF]/10 border border-[#00F0FF]/20 rounded-lg p-2 flex items-center gap-2">
                                     <AlertTriangle size={14} className="text-[#00F0FF]" />
                                     <div className="flex flex-col">
-                                        <span className="text-nano font-bold text-[#00F0FF] uppercase">Sharp Divergence</span>
-                                        <span className="text-nano text-[#00F0FF]/70">Money &gt; Tickets</span>
+                                        <span className="text-[8px] font-bold text-[#00F0FF] uppercase">Sharp Divergence</span>
+                                        <span className="text-[8px] text-[#00F0FF]/70">Money &gt; Tickets</span>
                                     </div>
                                 </div>
                             )}
@@ -136,8 +136,8 @@ export const SharpSignalWidget = ({ match }: { match: Match }) => {
 
                 {/* Summary */}
                 {signal.inferred_sharp_side !== 'neutral' && (
-                    <div className="text-caption text-zinc-400 font-mono leading-relaxed bg-surface-elevated p-3 rounded-lg border border-white/5">
-                        <span className="text-[#00F0FF] font-bold">INSIGHT:</span> Smart money is heavily favoring <span className="text-white font-bold">{signal.inferred_sharp_side === 'home' ? match.homeTeam.shortName : match.awayTeam.shortName}</span> despite {signal.public_pct > 50 ? 'public consensus' : 'ticket volume'}.
+                    <div className="text-[10px] text-slate-400 font-mono leading-relaxed bg-[#121214] p-3 rounded-lg border border-white/5">
+                        <span className="text-[#00F0FF] font-bold">INSIGHT:</span> Smart money is heavily favoring <span className="text-slate-900 font-bold">{signal.inferred_sharp_side === 'home' ? match.homeTeam.shortName : match.awayTeam.shortName}</span> despite {signal.public_pct > 50 ? 'public consensus' : 'ticket volume'}.
                     </div>
                 )}
             </div>

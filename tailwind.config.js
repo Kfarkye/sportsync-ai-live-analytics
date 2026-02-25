@@ -8,8 +8,8 @@ export default {
         extend: {
             /* ── Fonts (kept — 19 + 227 usages) ─────────────────────── */
             fontFamily: {
-                sans: ['Geist', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-                mono: ['Geist Mono', 'JetBrains Mono', 'SF Mono', 'monospace'],
+                sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                mono: ['JetBrains Mono', 'SF Mono', 'monospace'],
             },
 
             /* ── ESSENCE Type Scale (12 stops) ──────────────────────── *
@@ -37,43 +37,34 @@ export default {
              * Brand:     text-brand-cyan, bg-brand-cyan (3 usages)     */
             colors: {
                 brand: {
-                    primary: 'rgb(var(--brand-primary-rgb) / <alpha-value>)',
-                    muted: 'var(--brand-muted)',
-                    cyan: 'rgb(var(--brand-cyan-rgb) / <alpha-value>)',
+                    slate: '#0F172A',
                 },
                 surface: {
-                    pure:     'rgb(var(--surface-pure-rgb) / <alpha-value>)',
-                    base:     'rgb(var(--surface-base-rgb) / <alpha-value>)',
-                    card:     'rgb(var(--surface-card-rgb) / <alpha-value>)',
-                    elevated: 'rgb(var(--surface-elevated-rgb) / <alpha-value>)',
-                    subtle:   'rgb(var(--surface-subtle-rgb) / <alpha-value>)',
-                    accent:   'rgb(var(--surface-accent-rgb) / <alpha-value>)',
+                    pure:     '#FFFFFF',
+                    base:     '#F8FAFC',   /* slate-50 */
+                    card:     '#FFFFFF',
+                    elevated: '#FFFFFF',
+                    subtle:   '#F1F5F9',   /* slate-100 */
+                    accent:   '#E2E8F0',   /* slate-200 */
                 },
                 edge: {
-                    ghost:   'var(--edge-ghost)',
-                    subtle:  'var(--edge-subtle)',
-                    DEFAULT: 'var(--edge-default)',
-                    strong:  'var(--edge-strong)',
+                    ghost:   'rgba(15,23,42,0.03)',
+                    subtle:  'rgba(15,23,42,0.06)',
+                    DEFAULT: '#E2E8F0',
+                    strong:  '#CBD5E1',
                 },
                 overlay: {
-                    ghost:    'var(--overlay-ghost)',
-                    subtle:   'var(--overlay-subtle)',
-                    muted:    'var(--overlay-muted)',
-                    emphasis: 'var(--overlay-emphasis)',
-                },
-                ink: {
-                    primary: 'var(--ink-primary)',
-                    secondary: 'var(--ink-secondary)',
-                    tertiary: 'var(--ink-tertiary)',
-                    muted: 'var(--ink-muted)',
-                    ghost: 'var(--ink-ghost)',
+                    ghost:    'rgba(15,23,42,0.02)',
+                    subtle:   'rgba(15,23,42,0.04)',
+                    muted:    'rgba(15,23,42,0.06)',
+                    emphasis: 'rgba(15,23,42,0.08)',
                 },
             },
 
-            /* ── Shadows (kept — 1 usage each) ─────────────────────── */
+            /* ── Shadows — Editorial Light (microscopic only) ──────── */
             boxShadow: {
-                'glow-cyan':    '0 0 20px rgba(0, 240, 255, 0.35)',
-                'glow-cyan-sm': '0 0 10px rgba(0, 240, 255, 0.25)',
+                'editorial-sm': '0 1px 2px rgba(0, 0, 0, 0.04)',
+                'editorial-md': '0 2px 4px rgba(0, 0, 0, 0.04)',
             },
         },
     },

@@ -54,25 +54,25 @@ const StatLeaders: React.FC<StatLeadersProps> = ({ leaders, homeTeamId, awayTeam
                 return (
                     <div key={idx} className="space-y-8">
                         <div className="flex flex-col items-center">
-                            <span className="text-label font-black uppercase tracking-[0.5em] text-white/10 mb-2 truncate max-w-full">{category.displayName}</span>
+                            <span className="text-[9px] font-black uppercase tracking-[0.5em] text-slate-900/10 mb-2 truncate max-w-full">{category.displayName}</span>
                         </div>
 
                         <div className="space-y-8">
                             {/* Away Leader */}
                             {awayLeader && (
                                 <div className="flex items-center gap-4 group">
-                                    <div className="relative w-10 h-10 rounded-full overflow-hidden bg-black/40 border border-edge-subtle">
+                                    <div className="relative w-10 h-10 rounded-full overflow-hidden bg-black/40 border border-slate-200">
                                         {awayLeader.athlete.headshot ? (
                                             <img src={awayLeader.athlete.headshot} alt={awayLeader.athlete.fullName} className="w-full h-full object-cover grayscale transition-opacity duration-700 opacity-40 group-hover:opacity-100" />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-caption text-zinc-800 font-bold uppercase">
+                                            <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-300 font-bold uppercase">
                                                 {(awayLeader.athlete.shortName || awayLeader.athlete.displayName || '').substring(0, 2)}
                                             </div>
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-small font-medium text-white/50 truncate group-hover:text-white transition-colors tracking-tight italic uppercase">{awayLeader.athlete.displayName}</div>
-                                        <div className="text-[18px] font-medium text-white tabular-nums tracking-tighter mt-1">{awayLeader.displayValue}</div>
+                                        <div className="text-[12px] font-medium text-slate-900/50 truncate group-hover:text-slate-900 transition-colors tracking-tight italic uppercase">{awayLeader.athlete.displayName}</div>
+                                        <div className="text-[18px] font-medium text-slate-900 tabular-nums tracking-tighter mt-1">{awayLeader.displayValue}</div>
                                     </div>
                                 </div>
                             )}
@@ -80,18 +80,18 @@ const StatLeaders: React.FC<StatLeadersProps> = ({ leaders, homeTeamId, awayTeam
                             {/* Home Leader */}
                             {homeLeader && (
                                 <div className="flex items-center gap-4 group flex-row-reverse text-right">
-                                    <div className="relative w-10 h-10 rounded-full overflow-hidden bg-black/40 border border-edge-subtle">
+                                    <div className="relative w-10 h-10 rounded-full overflow-hidden bg-black/40 border border-slate-200">
                                         {homeLeader.athlete.headshot ? (
                                             <img src={homeLeader.athlete.headshot} alt={homeLeader.athlete.fullName} className="w-full h-full object-cover grayscale transition-opacity duration-700 opacity-40 group-hover:opacity-100" />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-caption text-zinc-800 font-bold uppercase">
+                                            <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-300 font-bold uppercase">
                                                 {(homeLeader.athlete.shortName || homeLeader.athlete.displayName || '').substring(0, 2)}
                                             </div>
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-small font-medium text-white/50 truncate group-hover:text-white transition-colors tracking-tight italic uppercase">{homeLeader.athlete.displayName}</div>
-                                        <div className="text-[18px] font-medium text-white tabular-nums tracking-tighter mt-1">{homeLeader.displayValue}</div>
+                                        <div className="text-[12px] font-medium text-slate-900/50 truncate group-hover:text-slate-900 transition-colors tracking-tight italic uppercase">{homeLeader.athlete.displayName}</div>
+                                        <div className="text-[18px] font-medium text-slate-900 tabular-nums tracking-tighter mt-1">{homeLeader.displayValue}</div>
                                     </div>
                                 </div>
                             )}

@@ -1,15 +1,12 @@
 import React, { FC, lazy, Suspense, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
-import { Calendar } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore, usePinStore } from '../../store/appStore';
 import { useMatches } from '../../hooks/useMatches';
 import { UnifiedHeader } from './UnifiedHeader';
 import { MobileNavBar } from './MobileNavBar';
 import MatchList from '../match/MatchList';
-import { FeedSkeleton } from '../ui/Skeleton';
 import MatchDetails from '../match/MatchDetails';
 import ChatWidget from '../ChatWidget';
-import { ObsidianToaster, obsidianToast } from '../ui/Toast';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
 import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
@@ -33,7 +30,6 @@ const AppShell: FC = () => {
     isPricingModalOpen, isRankingsDrawerOpen, toggleCmdk,
     toggleAuthModal, togglePricingModal,
     toggleSportDrawer, toggleRankingsDrawer, setShowLanding,
-    setSelectedDate,
     closeAllOverlays
   } = useAppStore();
 
@@ -70,13 +66,6 @@ const AppShell: FC = () => {
   // Unique key to force animation when Date/Sport changes
   // We use the raw ISO string slice to be consistent
   const viewKey = `feed-${new Date(selectedDate).toISOString().split('T')[0]}-${selectedSport}`;
-  const isEditorial = showLanding || (activeView === 'FEED' && !selectedMatch);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const theme = isEditorial ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [isEditorial]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -87,37 +76,14 @@ const AppShell: FC = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [toggleCmdk, selectedMatch, setSelectedMatch, closeAllOverlays]);
 
-  if (showLanding) {
-    return (
-      <AnimatePresence mode="wait">
-        <motion.div
-          key="landing"
-          initial={{ opacity: 1 }}
-          exit={{ opacity: 0, scale: 0.98, filter: 'blur(8px)' }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <LandingPage onEnter={() => setShowLanding(false)} />
-        </motion.div>
-      </AnimatePresence>
-    );
-  }
+  if (showLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
 
   return (
-    <MotionConfig reducedMotion="user">
-    <div
-      className="min-h-screen h-screen bg-surface-base text-ink-primary font-sans relative flex flex-col antialiased"
-      style={{ animation: 'fadeInApp 0.6s ease-out' }}
-    >
-      <a href="#main-content" className="skip-link">Skip to content</a>
+    <div className="min-h-screen h-screen bg-slate-50 text-slate-900 font-sans selection:bg-slate-900/10 relative flex flex-col antialiased">
       <UnifiedHeader />
 
       <MotionMain
-        id="main-content"
         className="flex-1 w-full overflow-y-auto"
-        style={{
-          maskImage: 'linear-gradient(to bottom, transparent 0%, black 16px, black calc(100% - 32px), transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 16px, black calc(100% - 32px), transparent 100%)',
-        }}
       >
         <div className="max-w-7xl mx-auto px-4 md:px-6 pb-32">
           <AnimatePresence mode="wait">
@@ -129,30 +95,32 @@ const AppShell: FC = () => {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
-                {/* LOADING STATE — Skeleton feed */}
+                {/* LOADING STATE */}
                 {isLoading && filteredMatches.length === 0 && (
-                  <FeedSkeleton />
+                  <div className="flex flex-col items-center justify-center py-24 opacity-70">
+                    <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin mb-4" />
+                    <p className="text-[11px] font-bold tracking-[0.2em] text-slate-500 uppercase">Syncing Sports Data</p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="mt-6 px-4 py-1.5 rounded-full border border-slate-200 text-[10px] font-medium text-slate-500 hover:bg-slate-100 active:scale-95 transition-all"
+                    >
+                      Force Refresh
+                    </button>
+                  </div>
                 )}
 
                 {/* EMPTY STATE */}
                 {!isLoading && filteredMatches.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-overlay-subtle border border-edge-subtle flex items-center justify-center mb-6">
-                      <Calendar size={18} className="text-ink-tertiary" />
+                    <div className="w-14 h-14 bg-white border border-slate-200 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
+                      <span className="text-2xl text-slate-400">📅</span>
                     </div>
-                    <h3 className="text-lg font-semibold text-ink-primary tracking-tight">
+                    <h3 className="text-xl font-bold text-slate-900 tracking-tight">
                       {new Date(selectedDate).toDateString() === new Date().toDateString() ? 'No Games Today' : 'No Games Scheduled'}
                     </h3>
-                    <p className="text-ink-tertiary text-body-sm mt-2 max-w-[260px] leading-relaxed">
-                      Check back later or pick another date in the timeline.
+                    <p className="text-slate-500 text-[13px] mt-2 max-w-[200px] leading-relaxed">
+                      Check back later or navigate to another date in the timeline.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDate(new Date())}
-                      className="mt-5 px-4 py-2 rounded-full border border-edge-subtle text-caption font-bold uppercase tracking-widest text-ink-secondary hover:text-ink-primary hover:border-edge transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-ghost focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
-                    >
-                      Back to Today
-                    </button>
                   </div>
                 )}
 
@@ -163,11 +131,7 @@ const AppShell: FC = () => {
                     onSelectMatch={setSelectedMatch}
                     isLoading={isLoading}
                     pinnedMatchIds={pinnedSet}
-                    onTogglePin={(id, e) => {
-                      const wasPinned = pinnedSet.has(id);
-                      togglePin(id);
-                      obsidianToast.action(wasPinned ? 'Removed from Watchlist' : 'Added to Watchlist');
-                    }}
+                    onTogglePin={(id, e) => togglePin(id)}
                     isMatchLive={(m) => isGameInProgress(m.status)}
                     isMatchFinal={(m) => isGameFinished(m.status)}
                     onOpenPricing={() => togglePricingModal(true)}
@@ -185,7 +149,7 @@ const AppShell: FC = () => {
 
             {activeView === 'TITAN' && (
               <MotionDiv key="titan" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
-                <Suspense fallback={<FeedSkeleton />}>
+                <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" /></div>}>
                   <TitanAnalytics />
                 </Suspense>
               </MotionDiv>
@@ -205,10 +169,10 @@ const AppShell: FC = () => {
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 32, stiffness: 350, mass: 1 }}
-            className="fixed inset-0 z-[60] bg-black overflow-hidden flex flex-col"
+            className="fixed inset-0 z-[60] bg-slate-50 overflow-hidden flex flex-col"
           >
-            {/* Sheet Handle for Mobile (Visual only since it's full screen) */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-overlay-emphasis rounded-full z-[70] md:hidden" />
+            {/* Sheet Handle for Mobile */}
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-[70] md:hidden" />
             <MatchDetails
               match={selectedMatch}
               matches={filteredMatches}
@@ -219,21 +183,19 @@ const AppShell: FC = () => {
         )}
       </AnimatePresence>
 
-      <div data-theme="dark">
-        <ChatWidget currentMatch={selectedMatch} matches={matches} />
-      </div>
+      <ChatWidget currentMatch={selectedMatch} matches={matches} />
 
       {/* Global Legal & Responsibility Footer */}
-      <footer className="w-full max-w-7xl mx-auto px-6 py-12 border-t border-edge-subtle opacity-40">
+      <footer className="w-full max-w-7xl mx-auto px-6 py-12 border-t border-slate-200 opacity-60">
         <div className="flex flex-col items-center text-center space-y-4">
-          <p className="text-caption font-medium leading-relaxed max-w-2xl text-ink-tertiary">
+          <p className="text-[10px] font-medium leading-relaxed max-w-2xl text-slate-400">
             SportSync AI provides a quantitative decision-support environment for entertainment purposes only.
             We are not a sportsbook and do not provide financial advice or guarantee outcome success.
             Analytical confidence levels represent model weights, not mathematical probability of real-world results.
           </p>
-          <div className="flex items-center gap-6 text-label font-black uppercase tracking-widest text-ink-tertiary">
+          <div className="flex items-center gap-6 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
             <span>Must be 21+</span>
-            <span className="w-1 h-1 rounded-full bg-edge-strong" />
+            <span className="w-1 h-1 rounded-full bg-slate-300" />
             <span>Problem? 1-800-GAMBLER</span>
           </div>
         </div>
@@ -246,9 +208,7 @@ const AppShell: FC = () => {
         <AuthModal isOpen={isAuthModalOpen} onClose={() => toggleAuthModal(false)} />
         <PricingModal isOpen={isPricingModalOpen} onClose={() => togglePricingModal(false)} />
       </Suspense>
-      <ObsidianToaster />
     </div >
-    </MotionConfig>
   );
 };
 

@@ -16,33 +16,33 @@ const OddsCell = ({ label, value, subValue, isLive, active, result }: OddsCellPr
   if (!value || value === '-' || value === 'N/A') {
     return (
       <div className="flex flex-col items-center justify-center min-w-[48px] md:min-w-[56px] h-[44px] opacity-20 select-none">
-        <div className="w-2 h-0.5 bg-zinc-500 rounded-full" />
+        <div className="w-2 h-0.5 bg-slate-500 rounded-full" />
       </div>
     );
   }
 
   // Result Styling - Compact
-  let valueColor = isLive ? "text-[#FF375F]" : "text-zinc-200 group-hover/cell:text-white";
+  let valueColor = isLive ? "text-[#FF375F]" : "text-slate-700 group-hover/cell:text-slate-900";
   let borderColor = "border-[#27272a]";
-  let bgColor = "bg-surface-elevated";
-  let labelColor = "text-zinc-600 group-hover/cell:text-zinc-500";
+  let bgColor = "bg-[#121214]";
+  let labelColor = "text-slate-500 group-hover/cell:text-slate-500";
 
   if (result === 'covered' || result === 'winning') {
     valueColor = "text-[#4ADE80] font-bold";
     bgColor = "bg-emerald-500/[0.08]";
     borderColor = "border-emerald-500/20";
   } else if (result === 'lost' || result === 'losing') {
-    valueColor = "text-zinc-500 line-through decoration-zinc-600/50";
-    bgColor = "bg-surface-subtle";
-    borderColor = "border-edge-subtle";
+    valueColor = "text-slate-500 line-through decoration-zinc-600/50";
+    bgColor = "bg-[#18181a]";
+    borderColor = "border-slate-200";
   } else if (result === 'push') {
     valueColor = "text-amber-400";
     bgColor = "bg-amber-500/[0.08]";
     borderColor = "border-amber-500/20";
   } else if (active) {
-    bgColor = "bg-overlay-emphasis";
+    bgColor = "bg-slate-100";
     borderColor = "border-white/10";
-    valueColor = "text-white";
+    valueColor = "text-slate-900";
   }
 
   return (
@@ -50,20 +50,20 @@ const OddsCell = ({ label, value, subValue, isLive, active, result }: OddsCellPr
         "group/cell relative flex flex-col items-center justify-center min-w-[48px] md:min-w-[56px] h-[44px] rounded-md border transition-all duration-200 cursor-default",
         borderColor,
         bgColor,
-        result ? "shadow-sm" : "hover:bg-overlay-muted hover:border-white/[0.1]"
+        result ? "shadow-sm" : "hover:bg-slate-50 hover:border-slate-200"
     )}>
         <div className="flex flex-col items-center leading-none gap-0.5">
             <div className="flex items-baseline gap-0.5">
-                <span className={cn("text-small font-mono font-medium tracking-tighter tabular-nums transition-colors", valueColor)}>
+                <span className={cn("text-[12px] font-mono font-medium tracking-tighter tabular-nums transition-colors", valueColor)}>
                     {value}
                 </span>
                 {subValue && subValue !== '-' && (
-                    <span className="text-label text-zinc-500 tabular-nums scale-90 origin-bottom-left">
+                    <span className="text-[9px] text-slate-500 tabular-nums scale-90 origin-bottom-left">
                         {subValue}
                     </span>
                 )}
             </div>
-            <span className={cn("text-nano font-bold uppercase tracking-wider transition-colors", labelColor)}>
+            <span className={cn("text-[8px] font-bold uppercase tracking-wider transition-colors", labelColor)}>
                 {label}
             </span>
         </div>

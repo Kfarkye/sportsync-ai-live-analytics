@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 // Internal imports — Replace with your actual project structure
-import { type Match, type StatItem, Sport, type Linescore } from '@/types';
+import { type Match, type StatItem } from '@/types';
 import TeamLogo from '../shared/TeamLogo';
 import { cn } from '@/lib/essence';
 import { isGameFinished } from '../../utils/matchUtils';
@@ -147,7 +147,6 @@ interface GameViewModel {
         displayDate: string;
         hasData: boolean;
         league: string;
-        startLabel: string;
     };
     teams: {
         home: TeamViewModel;
@@ -242,16 +241,6 @@ const getOrdinal = (n: number) => {
     const s = ['th', 'st', 'nd', 'rd'];
     const v = n % 100;
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
-};
-
-const parseBaseballHalf = (...values: Array<string | undefined | null>): 'TOP' | 'BOT' | null => {
-    for (const value of values) {
-        if (!value) continue;
-        const v = value.toLowerCase();
-        if (v.includes('top')) return 'TOP';
-        if (v.includes('bot') || v.includes('bottom') || v.includes('btm')) return 'BOT';
-    }
-    return null;
 };
 
 type PlainValue = string | number | boolean | null | PlainValue[] | { [key: string]: PlainValue };
@@ -349,28 +338,28 @@ function normalizeMatch(raw: RawMatch | undefined): Match | null {
     const situationRaw = raw.situation;
     const situation: Match['situation'] | undefined = situationRaw
         ? {
-            yardLine: (() => {
-                const v = situationRaw.yardLine;
-                if (typeof v === 'number') return Math.max(0, Math.min(100, v));
-                if (typeof v === 'string') {
-                    const n = parseInt(v.replace(/\D/g, ''), 10);
-                    return Number.isFinite(n)
-                        ? Math.max(0, Math.min(100, n))
-                        : 50;
-                }
-                return 50;
-            })(),
-            down: safeNumber(situationRaw.down, 1),
-            distance: safeNumber(situationRaw.distance, 10),
-            possessionId: situationRaw.possessionId
-                ? String(situationRaw.possessionId)
-                : undefined,
-            possessionText: situationRaw.possession,
-            isRedZone: situationRaw.isRedZone,
-            downDistanceText: situationRaw.downDistanceText,
-            ballX: situationRaw.ballX,
-            ballY: situationRaw.ballY,
-        }
+              yardLine: (() => {
+                  const v = situationRaw.yardLine;
+                  if (typeof v === 'number') return Math.max(0, Math.min(100, v));
+                  if (typeof v === 'string') {
+                      const n = parseInt(v.replace(/\D/g, ''), 10);
+                      return Number.isFinite(n)
+                          ? Math.max(0, Math.min(100, n))
+                          : 50;
+                  }
+                  return 50;
+              })(),
+              down: safeNumber(situationRaw.down, 1),
+              distance: safeNumber(situationRaw.distance, 10),
+              possessionId: situationRaw.possessionId
+                  ? String(situationRaw.possessionId)
+                  : undefined,
+              possessionText: situationRaw.possession,
+              isRedZone: situationRaw.isRedZone,
+              downDistanceText: situationRaw.downDistanceText,
+              ballX: situationRaw.ballX,
+              ballY: situationRaw.ballY,
+          }
         : undefined;
 
     return {
@@ -382,10 +371,10 @@ function normalizeMatch(raw: RawMatch | undefined): Match | null {
         situation,
         currentDrive: raw.currentDrive
             ? {
-                ...raw.currentDrive,
-                plays: safeNumber(raw.currentDrive.plays),
-                yards: safeNumber(raw.currentDrive.yards),
-            }
+                  ...raw.currentDrive,
+                  plays: safeNumber(raw.currentDrive.plays),
+                  yards: safeNumber(raw.currentDrive.yards),
+              }
             : undefined,
         lastPlay: raw.lastPlay
             ? { ...raw.lastPlay, id: raw.lastPlay.id ?? '', text: raw.lastPlay.text ?? '' }
@@ -511,10 +500,10 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
         const totalHit: GameViewModel['betting']['totalHit'] = !hasTotal
             ? null
             : totalScore > total
-                ? 'OVER'
-                : totalScore < total
-                    ? 'UNDER'
-                    : 'PUSH';
+              ? 'OVER'
+              : totalScore < total
+                ? 'UNDER'
+                : 'PUSH';
         const windSpd = pickWindSpeed(match);
         const league = String(match.league || match.sport || '').toUpperCase();
         const isPregame =
@@ -535,32 +524,17 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
                 ),
                 isFinished: isFinal,
                 isPregame,
-                displayClock: (() => {
-                    let c = match.displayClock || (isPregame ? formatTime(match.date) : DEFAULT_CLOCK);
-                    if (!isFinal && !isPregame && ['MLB', 'BASEBALL'].some((s) => league.includes(s))) {
-                        const outs = match.situation?.outs;
-                        if (outs !== undefined && outs !== null) {
-                            c = c && c !== DEFAULT_CLOCK ? `${c} • ${outs} OUTS` : `${outs} OUTS`;
-                        }
-                    }
-                    return c;
-                })(),
+                displayClock:
+                    match.displayClock || (isPregame ? formatTime(match.date) : DEFAULT_CLOCK),
                 displayDate: formatDate(match.date),
                 hasData: Boolean(
                     match.displayClock ||
-                    match.period ||
-                    match.situation ||
-                    match.currentDrive ||
-                    match.lastPlay
+                        match.period ||
+                        match.situation ||
+                        match.currentDrive ||
+                        match.lastPlay
                 ),
                 league: league.replace(/_/g, ' '),
-                startLabel: ['NFL', 'CFB', 'COLLEGE_FOOTBALL'].some(s => league.includes(s)) ? 'KICKOFF'
-                    : ['NBA', 'CBB', 'NCAAB', 'WNBA'].some(s => league.includes(s)) ? 'TIP-OFF'
-                        : ['NHL'].some(s => league.includes(s)) ? 'PUCK DROP'
-                            : ['MLB'].some(s => league.includes(s)) ? 'FIRST PITCH'
-                                : ['SOCCER', 'MLS', 'EPL', 'LIGA', 'SERIE', 'BUNDESLIGA', 'LIGUE', 'UCL', 'UEL', 'WORLD'].some(s => league.includes(s)) ? 'KICK-OFF'
-                                    : ['TENNIS'].some(s => league.includes(s)) ? 'FIRST SERVE'
-                                        : 'START',
             },
             teams: {
                 home: {
@@ -644,9 +618,9 @@ const ObsidianPanel = memo(
         return (
             <Component
                 className={cn(
-                    'relative overflow-hidden bg-surface-base',
-                    'border border-edge shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]',
-                    hover && 'transition-colors duration-200 hover:bg-overlay-subtle',
+                    'relative overflow-hidden bg-white',
+                    'border border-slate-200 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]',
+                    hover && 'transition-colors duration-200 hover:bg-slate-50',
                     className
                 )}
                 {...props}
@@ -666,7 +640,7 @@ ObsidianPanel.displayName = 'ObsidianPanel';
 const Label = ({ children, className }: { children: ReactNode; className?: string }) => (
     <div
         className={cn(
-            'text-caption font-bold text-zinc-500 uppercase tracking-loose leading-none',
+            'text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em] leading-none',
             className
         )}
     >
@@ -685,14 +659,14 @@ const DataValue = ({
 }) => (
     <span
         className={cn(
-            'font-mono font-medium tracking-tighter tabular-nums text-white leading-none',
+            'font-mono font-medium tracking-tighter tabular-nums text-slate-900 leading-none',
             size === 'hero'
                 ? 'text-5xl sm:text-6xl md:text-8xl font-light'
                 : size === 'xl'
-                    ? 'text-4xl sm:text-5xl font-light'
-                    : size === 'lg'
-                        ? 'text-2xl sm:text-3xl'
-                        : 'text-sm',
+                  ? 'text-4xl sm:text-5xl font-light'
+                  : size === 'lg'
+                    ? 'text-2xl sm:text-3xl'
+                    : 'text-sm',
             className
         )}
     >
@@ -722,8 +696,8 @@ const FieldSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
                     ? 100 - n
                     : n
                 : isHome
-                    ? n
-                    : 100 - n;
+                  ? n
+                  : 100 - n;
         }
         yard = Math.max(0, Math.min(100, yard));
         const dist = safeNumber(gameplay.situation.distance, 10);
@@ -746,7 +720,7 @@ const FieldSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
         );
 
     return (
-        <div className="relative w-full aspect-[2.4/1] overflow-hidden bg-surface-pure border-b border-edge select-none isolate">
+        <div className="relative w-full aspect-[2.4/1] overflow-hidden bg-[#000000] border-b border-slate-200 select-none isolate">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#1a2e22_0%,_#000000_100%)] opacity-100" />
             <div className="absolute inset-0 flex opacity-20">
                 {Array.from({ length: 11 }).map((_, i) => (
@@ -767,12 +741,12 @@ const FieldSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
             />
             <div className="absolute top-1/2 -translate-y-1/2 z-20" style={{ left: `${state.ballX}%` }}>
                 <motion.div layoutId="football" transition={transition} className="relative -translate-x-1/2">
-                    <div className="w-2.5 h-4 bg-[#8B4513] rounded-full border border-white/20 shadow-lg" />
+                    <div className="w-2.5 h-4 bg-[#8B4513] rounded-full border border-white/20 shadow-sm" />
                 </motion.div>
             </div>
-            <div className="absolute bottom-3 left-3 z-30 flex items-center gap-2 px-2 py-1 bg-black/80 backdrop-blur rounded border border-white/10">
+            <div className="absolute bottom-3 left-3 z-30 flex items-center gap-2 px-2 py-1 bg-slate-50/80 backdrop-blur rounded border border-white/10">
                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: state.team.color }} />
-                <span className="text-caption font-mono text-white">{state.text}</span>
+                <span className="text-[10px] font-mono text-slate-900">{state.text}</span>
             </div>
         </div>
     );
@@ -803,7 +777,7 @@ const CourtSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
         );
 
     return (
-        <div className="relative w-full aspect-[2.4/1] bg-surface-elevated border-b border-edge-subtle overflow-hidden select-none">
+        <div className="relative w-full aspect-[2.4/1] bg-white border-b border-slate-200 overflow-hidden select-none">
             <div
                 className="absolute inset-0 opacity-10"
                 style={{
@@ -829,9 +803,9 @@ const CourtSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
             >
                 <div className="w-3 h-3 rounded-full bg-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.6)]" />
             </motion.div>
-            <div className="absolute bottom-3 right-3 z-30 flex items-center gap-2 px-3 py-1 bg-black/80 backdrop-blur rounded-full border border-white/10">
+            <div className="absolute bottom-3 right-3 z-30 flex items-center gap-2 px-3 py-1 bg-slate-50/80 backdrop-blur rounded-full border border-white/10">
                 <div className={cn('w-1.5 h-1.5 rounded-full bg-orange-500', !reduceMotion && 'animate-pulse')} />
-                <span className="text-caption font-bold text-white uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">
                     Poss {state.activeTeam.abbr}
                 </span>
             </div>
@@ -848,26 +822,26 @@ const ClosingLinesTable: FC<{ viewModel: GameViewModel }> = memo(({ viewModel })
     const { teams, betting } = viewModel;
 
     return (
-        <div className="bg-surface-pure px-6 py-6 border-b border-edge">
+        <div className="bg-[#000000] px-6 py-6 border-b border-slate-200">
             <div className="flex items-center gap-2 mb-5">
                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                <span className="text-caption font-bold uppercase tracking-widest text-zinc-500">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
                     {betting.linesLabel || 'Closing Lines'}
                 </span>
             </div>
 
             <div className="w-full">
                 <div className="grid grid-cols-[1fr_1fr_1fr_1fr] mb-3 px-2">
-                    <span className="text-label font-bold text-zinc-600 tracking-widest uppercase">
+                    <span className="text-[9px] font-bold text-slate-500 tracking-widest uppercase">
                         Team
                     </span>
-                    <span className="text-label font-bold text-zinc-600 tracking-widest uppercase text-right">
+                    <span className="text-[9px] font-bold text-slate-500 tracking-widest uppercase text-right">
                         Spread
                     </span>
-                    <span className="text-label font-bold text-zinc-600 tracking-widest uppercase text-right">
+                    <span className="text-[9px] font-bold text-slate-500 tracking-widest uppercase text-right">
                         Total
                     </span>
-                    <span className="text-label font-bold text-zinc-600 tracking-widest uppercase text-right">
+                    <span className="text-[9px] font-bold text-slate-500 tracking-widest uppercase text-right">
                         Money
                     </span>
                 </div>
@@ -878,25 +852,25 @@ const ClosingLinesTable: FC<{ viewModel: GameViewModel }> = memo(({ viewModel })
                 ].map((row, i) => (
                     <div
                         key={row.team.id ?? i}
-                        className="grid grid-cols-[1fr_1fr_1fr_1fr] py-4 border-t border-edge items-center px-2"
+                        className="grid grid-cols-[1fr_1fr_1fr_1fr] py-4 border-t border-slate-200 items-center px-2"
                     >
                         <div className="flex items-center gap-3">
                             <TeamLogo logo={row.team.logo} className="w-5 h-5 object-contain" />
-                            <span className="text-footnote font-bold text-white tracking-wider">
+                            <span className="text-[11px] font-bold text-slate-900 tracking-wider">
                                 {row.team.abbr}
                             </span>
                         </div>
-                        <span className="text-xs font-mono text-white text-right">
+                        <span className="text-xs font-mono text-slate-900 text-right">
                             {betting.hasSpread
                                 ? row.spread > 0
                                     ? `+${row.spread}`
                                     : row.spread
                                 : '-'}
                         </span>
-                        <span className="text-xs font-mono text-white text-right">
+                        <span className="text-xs font-mono text-slate-900 text-right">
                             {betting.hasTotal ? (i === 0 ? `o${betting.total}` : `u${betting.total}`) : '-'}
                         </span>
-                        <span className="text-xs font-mono text-zinc-500 text-right">
+                        <span className="text-xs font-mono text-slate-500 text-right">
                             {row.ml}
                         </span>
                     </div>
@@ -1012,23 +986,23 @@ const BoxScoreCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) => {
     if (!rows.length) return null;
 
     return (
-        <div className="bg-surface-pure border-t border-edge-subtle pb-20">
+        <div className="bg-[#000000] border-t border-slate-200 pb-20">
             <div className="flex items-center gap-2 mb-4 px-8 pt-8">
                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
-                <span className="text-caption font-bold uppercase tracking-widest text-zinc-500">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
                     Match Stats
                 </span>
             </div>
             {rows.map((row, i) => (
                 <div
                     key={i}
-                    className="grid grid-cols-[1fr_auto_1fr] py-4 px-8 border-b border-edge-subtle items-center"
+                    className="grid grid-cols-[1fr_auto_1fr] py-4 px-8 border-b border-slate-200 items-center"
                 >
-                    <span className="text-sm font-mono text-white text-left">{row.away}</span>
-                    <span className="text-caption font-bold text-zinc-500 tracking-widest uppercase">
+                    <span className="text-sm font-mono text-slate-900 text-left">{row.away}</span>
+                    <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">
                         {row.label}
                     </span>
-                    <span className="text-sm font-mono text-white text-right">{row.home}</span>
+                    <span className="text-sm font-mono text-slate-900 text-right">{row.home}</span>
                 </div>
             ))}
         </div>
@@ -1047,15 +1021,15 @@ const PredictionCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
         <ObsidianPanel hover className="p-5 flex flex-col justify-between min-h-[130px]">
             <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
-                    <Target size={14} className="text-zinc-500" aria-hidden="true" />
+                    <Target size={14} className="text-slate-500" />
                     <Label>Model</Label>
                 </div>
                 <div
                     className={cn(
-                        'px-2 py-0.5 rounded text-label font-bold uppercase tracking-wider border',
+                        'px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border',
                         isPlay
                             ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10'
-                            : 'text-zinc-500 border-white/5 bg-white/5'
+                            : 'text-slate-500 border-white/5 bg-white/5'
                     )}
                 >
                     {isPlay ? 'Strong Value' : 'Neutral'}
@@ -1067,10 +1041,10 @@ const PredictionCard: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
                     <div
                         className={cn(
                             'flex items-center gap-0.5 text-lg font-mono font-bold',
-                            isPlay ? (isOver ? 'text-emerald-400' : 'text-rose-400') : 'text-zinc-500'
+                            isPlay ? (isOver ? 'text-emerald-400' : 'text-rose-400') : 'text-slate-500'
                         )}
                     >
-                        {isOver ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
+                        {isOver ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                         {Math.abs(safeNumber(edge_points)).toFixed(1)}
                     </div>
                 </div>
@@ -1089,77 +1063,6 @@ PredictionCard.displayName = 'PredictionCard';
 
 type ScoreHeaderVariant = 'full' | 'embedded';
 
-// ============================================================================
-// 8a. TENNIS SCORE HEADER COMPONENTS
-// ============================================================================
-
-/** Country flag for tennis players */
-const TennisFlag: FC<{ flag?: string; name: string; className?: string }> = ({ flag, name, className }) => {
-    if (!flag) return <div className={cn("bg-zinc-800 rounded-[2px] flex items-center justify-center text-[9px] font-bold text-zinc-500", className)} aria-hidden="true">{name.slice(0, 2).toUpperCase()}</div>;
-    return (
-        <div className={cn("overflow-hidden rounded-[3px] shadow-md border border-white/10", className)}>
-            <img src={flag} alt="" className="w-full h-full object-cover" aria-hidden="true" />
-        </div>
-    );
-};
-
-/** Set-by-set scores for tennis scoreboard */
-const TennisScoreGrid: FC<{ match: Match }> = ({ match }) => {
-    const awayLS = match.awayTeam?.linescores || [];
-    const homeLS = match.homeTeam?.linescores || [];
-    const maxSets = Math.max(awayLS.length, homeLS.length, 1);
-
-    return (
-        <div className="flex flex-col items-center gap-0">
-            {/* Set column headers */}
-            <div className="flex items-center gap-0 mb-1">
-                <div className="w-[100px]" /> {/* Name spacer */}
-                {Array.from({ length: maxSets }, (_, i) => (
-                    <div key={i} className="w-9 text-center text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
-                        S{i + 1}
-                    </div>
-                ))}
-            </div>
-            {/* Player rows */}
-            {[
-                { team: match.awayTeam, ls: awayLS, score: match.awayScore },
-                { team: match.homeTeam, ls: homeLS, score: match.homeScore },
-            ].map(({ team, ls }, rowIdx) => {
-                const lastName = team.name.split(' ').pop() || team.name;
-                return (
-                    <div key={rowIdx} className={cn(
-                        "flex items-center gap-0 py-2",
-                        rowIdx === 0 && "border-b border-white/[0.06]"
-                    )}>
-                        {/* Player name + flag */}
-                        <div className="w-[100px] flex items-center gap-2 pr-3">
-                            <TennisFlag flag={team.flag} name={team.name} className="w-5 h-3.5 shrink-0" />
-                            <span className="text-sm font-semibold text-white truncate tracking-tight">{lastName}</span>
-                        </div>
-                        {/* Set scores */}
-                        {Array.from({ length: maxSets }, (_, i) => {
-                            const set = ls[i];
-                            return (
-                                <div key={i} className="w-9 text-center">
-                                    <span className={cn(
-                                        "font-mono text-base tabular-nums",
-                                        set?.winner ? "text-white font-bold" : "text-zinc-500 font-medium"
-                                    )}>
-                                        {set?.value ?? '-'}
-                                    </span>
-                                    {set?.tiebreak && (
-                                        <sup className="text-[9px] text-zinc-500 ml-px">{set.tiebreak}</sup>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                );
-            })}
-        </div>
-    );
-};
-
 export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: ScoreHeaderVariant }> = memo(
     ({ match, onBack, variant = 'full' }) => {
         const vm = useGameViewModel(match as ExtendedMatch);
@@ -1167,21 +1070,16 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
         const reduceMotion = useReducedMotion();
         const handleTabClick = useCallback((tab: TabKey) => setActiveTab(tab), []);
 
-        if (!vm) return <div className="h-[360px] bg-black animate-pulse" />;
+        if (!vm) return <div className="h-[360px] bg-slate-50 animate-pulse" />;
 
         const { teams, meta, betting } = vm;
         const isPregame = meta.isPregame;
-        const isTennis = match.sport === Sport.TENNIS;
-        const isBaseball = match.sport === Sport.BASEBALL;
-        const tennisRound = match.round
-            ? match.round.replace('Qualifying ', 'Q').replace('Round of ', 'R').replace('Round ', 'R')
-            : null;
         const isEmbedded = variant === 'embedded';
         const showTopBar = !isEmbedded;
         const showTabs = !isEmbedded;
         const logoSize = isEmbedded ? 'w-16 h-16 sm:w-20 sm:h-20' : 'w-20 h-20 sm:w-24 sm:h-24';
         const logoImgSize = isEmbedded ? 'w-10 h-10 sm:w-14 sm:h-14' : 'w-12 h-12 sm:w-16 sm:h-16';
-        const nameText = isEmbedded ? 'text-body sm:text-[18px]' : 'text-body-lg sm:text-title-lg';
+        const nameText = isEmbedded ? 'text-[14px] sm:text-[18px]' : 'text-[15px] sm:text-[20px]';
         const scoreText = isEmbedded ? 'text-4xl sm:text-6xl' : 'text-5xl sm:text-8xl';
         const centerBlockPaddingTop = isEmbedded ? 'pt-1' : 'pt-4';
         const gridMarginTop = isEmbedded ? 'mt-8' : 'mt-16';
@@ -1190,28 +1088,13 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
         const regulation = safeNumber(vm.normalized.regulationPeriods, 0);
         const hasOvertime = regulation > 0 && period > regulation;
         const statusLabel = meta.isFinished ? (hasOvertime ? 'FINAL/OT' : 'FINAL') : 'LIVE';
-        const inning = Math.max(1, period || 1);
-        const inningHalf = parseBaseballHalf(vm.normalized.displayClock, match.minute, match.displayClock);
-        const inningLabel = inningHalf
-            ? `${inningHalf} ${getOrdinal(inning).toUpperCase()}`
-            : `INNING ${getOrdinal(inning).toUpperCase()}`;
-        const outs = safeNumber(vm.normalized.situation?.outs, 0);
-        const outsLabel = `${outs} OUT${outs === 1 ? '' : 'S'}`;
-        const awayRecord = teams.away.record?.trim();
-        const homeRecord = teams.home.record?.trim();
-        const showAwayRecord = !!awayRecord && awayRecord !== '-' && awayRecord !== '—';
-        const showHomeRecord = !!homeRecord && homeRecord !== '-' && homeRecord !== '—';
-        const headerLabel = `${teams.away.name} vs ${teams.home.name}`;
-        const headerAriaLabel = `${headerLabel} ${meta.isFinished ? 'final' : isPregame ? 'pregame' : 'live'}`;
 
         return (
             <header
                 className={cn(
                     'relative w-full flex flex-col items-center overflow-hidden select-none',
-                    isEmbedded ? 'bg-surface-pure pt-4' : 'bg-surface-pure pt-6 border-b border-edge-strong'
+                    isEmbedded ? 'bg-[#050506] pt-4' : 'bg-[#050506] pt-6 border-b border-slate-200'
                 )}
-                role="region"
-                aria-label={headerAriaLabel}
             >
                 {/* Top Status Bar: [Back] [Date/League] [Dot] */}
                 {showTopBar && (
@@ -1221,21 +1104,20 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                             onClick={onBack}
                             disabled={!onBack}
                             aria-label="Back"
-                            title="Back"
                             className={cn(
-                                'flex items-center gap-2 text-zinc-500 transition-colors rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
-                                onBack ? 'hover:text-white cursor-pointer' : 'opacity-50 cursor-default'
+                                'flex items-center gap-2 text-slate-500 transition-colors',
+                                onBack ? 'hover:text-slate-900 cursor-pointer' : 'opacity-50 cursor-default'
                             )}
                         >
-                            <ArrowLeft size={14} strokeWidth={3} aria-hidden="true" />
-                            <span className="text-caption font-bold tracking-widest uppercase">BACK</span>
+                            <ArrowLeft size={14} strokeWidth={3} />
+                            <span className="text-[10px] font-bold tracking-widest uppercase">BACK</span>
                         </button>
                         <div className="flex flex-col items-center">
-                            <span className="text-caption font-black text-zinc-400 tracking-widest uppercase">
+                            <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">
                                 {meta.league || 'LIVE'}
                             </span>
                             {isPregame && (
-                                <span className="text-label font-bold text-zinc-600 tracking-wide mt-0.5">
+                                <span className="text-[9px] font-bold text-slate-500 tracking-wide mt-0.5">
                                     {meta.displayDate}
                                 </span>
                             )}
@@ -1263,7 +1145,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                         className="absolute top-[30%] -right-[20%] w-[80%] h-[80%] blur-[120px] opacity-20"
                         style={{ background: teams.home.color }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-surface-pure/40 to-surface-pure" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050506]/40 to-[#050506]" />
                 </div>
 
                 {/* Horizontal Face-Off (Grid for Precision Center) */}
@@ -1274,97 +1156,68 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                         gridMarginBottom
                     )}
                 >
-                    {/* Away Team / Player 1 */}
+                    {/* Away Team */}
                     <div className="flex flex-col items-center gap-3 text-center">
                         <div className="relative mb-2">
                             <div
                                 className="absolute inset-[-10px] rounded-full blur-2xl opacity-20"
                                 style={{ background: teams.away.color }}
                             />
-                            {isTennis ? (
-                                <TennisFlag flag={match.awayTeam?.flag} name={teams.away.name} className={cn(isEmbedded ? 'w-14 h-10' : 'w-16 h-11')} />
-                            ) : (
-                                <div className={cn('flex items-center justify-center bg-overlay-subtle rounded-full border border-white/[0.05]', logoSize)}>
-                                    <TeamLogo
-                                        logo={teams.away.logo}
-                                        className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
-                                    />
-                                </div>
-                            )}
+                            <div className={cn('flex items-center justify-center bg-slate-50 rounded-full border border-slate-200', logoSize)}>
+                            <TeamLogo
+                                logo={teams.away.logo}
+                                className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
+                            />
+                        </div>
                         </div>
                         <div className="text-center">
                             {/* Name on Pregame, Abbr on Live */}
-                            <h2 className={cn(nameText, 'font-bold text-white tracking-tight leading-tight')}>
+                            <h2 className={cn(nameText, 'font-bold text-slate-900 tracking-tight leading-tight')}>
                                 <span className="hidden sm:inline">{teams.away.name}</span>
                                 <span className="sm:hidden">{isPregame ? teams.away.name : teams.away.abbr}</span>
                             </h2>
                             {isPregame && (
-                                <div className="text-caption font-bold text-zinc-400 tracking-widest uppercase mt-1">
+                                <div className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mt-1">
                                     {teams.away.abbr}
                                 </div>
                             )}
-                            {showAwayRecord && (
-                                <span className="mt-1 text-footnote font-semibold text-white/35 tabular-nums tracking-wide font-mono">
-                                    {awayRecord}
-                                </span>
-                            )}
+                            <span className="mt-1 text-[11px] font-semibold text-slate-900/35 tabular-nums tracking-wide font-mono">
+                                {teams.away.record}
+                            </span>
                         </div>
                     </div>
 
                     {/* Center Stage: Score vs Pregame Time */}
                     <div className={cn('flex flex-col items-center justify-start min-w-[140px]', centerBlockPaddingTop)}>
                         {isPregame ? (
-                            <div className="flex flex-col items-center">
-                                <div className="flex items-baseline">
-                                    <span
-                                        className="text-[42px] sm:text-[52px] font-light tracking-[-0.03em] tabular-nums text-white"
-                                        style={{ fontFeatureSettings: '"tnum" on, "lnum" on' }}
-                                    >
-                                        {meta.displayClock}
-                                    </span>
-                                </div>
-                                <span className="text-caption font-medium text-zinc-600 uppercase tracking-widest mt-1">
-                                    {meta.startLabel}
+                            <div className="flex flex-col items-center gap-2">
+                                <span className="text-[38px] sm:text-[52px] font-medium tracking-[-0.04em] tabular-nums text-slate-900">
+                                    {meta.displayClock}
                                 </span>
-                                {betting.matchupStr && (
-                                    <span className="text-footnote font-mono font-medium text-zinc-500 tracking-wide mt-3">
-                                        {betting.matchupStr}
-                                    </span>
-                                )}
-                            </div>
-                        ) : isTennis ? (
-                            /* Tennis: Set-by-set score grid */
-                            <div className="flex flex-col items-center gap-3">
-                                <TennisScoreGrid match={match} />
-                                <div className="flex items-center gap-3 text-footnote font-medium tracking-widest uppercase">
-                                    <span className="text-white/40">{statusLabel}</span>
-                                    {tennisRound && (
-                                        <>
-                                            <span className="w-1 h-1 rounded-full bg-amber-400/80" />
-                                            <span className="text-amber-400 font-mono tracking-widest">{tennisRound}</span>
-                                        </>
-                                    )}
-                                </div>
+                                <span className="text-[10px] font-medium text-slate-900/40 uppercase tracking-[0.15em]">
+                                    Tip-Off
+                                </span>
+                                <span className="text-[11px] font-mono font-medium text-slate-500 tracking-wide">
+                                    {betting.matchupStr}
+                                </span>
                             </div>
                         ) : (
                             <div className="flex flex-col items-center gap-4">
                                 <div className="flex items-baseline gap-6 sm:gap-12">
-                                    <span className={cn(scoreText, 'font-light text-white tabular-nums tracking-tighter drop-shadow-lg')}>
+                                    <span className={cn(scoreText, 'font-light text-slate-900 tabular-nums tracking-tighter drop-shadow-sm')}>
                                         {teams.away.score}
                                     </span>
-                                    <span className={cn(scoreText, 'font-light text-white tabular-nums tracking-tighter drop-shadow-lg')}>
+                                    <span className={cn(scoreText, 'font-light text-slate-900 tabular-nums tracking-tighter drop-shadow-sm')}>
                                         {teams.home.score}
                                     </span>
                                 </div>
-                                <div className="flex items-center gap-3 text-footnote font-medium tracking-widest uppercase">
-                                    <span className="text-white/40">
-                                        {isBaseball && !meta.isFinished ? inningLabel : statusLabel}
-                                    </span>
+                                <div className="flex items-center gap-3 text-[11px] font-medium tracking-[0.2em] uppercase">
+                                    <span className="text-slate-900/40">{statusLabel}</span>
                                     {!meta.isFinished && (
                                         <>
                                             <span className="w-1 h-1 rounded-full bg-amber-400/80" />
                                             <span className="text-amber-400 font-mono tracking-widest tabular-nums">
-                                                {isBaseball ? outsLabel : meta.displayClock}
+                                                {meta.displayClock}
                                             </span>
                                         </>
                                     )}
@@ -1373,46 +1226,40 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                         )}
                     </div>
 
-                    {/* Home Team / Player 2 */}
+                    {/* Home Team */}
                     <div className="flex flex-col items-center gap-3 text-center">
                         <div className="relative mb-2">
                             <div
                                 className="absolute inset-[-10px] rounded-full blur-2xl opacity-20"
                                 style={{ background: teams.home.color }}
                             />
-                            {isTennis ? (
-                                <TennisFlag flag={match.homeTeam?.flag} name={teams.home.name} className={cn(isEmbedded ? 'w-14 h-10' : 'w-16 h-11')} />
-                            ) : (
-                                <div className={cn('flex items-center justify-center bg-overlay-subtle rounded-full border border-white/[0.05]', logoSize)}>
-                                    <TeamLogo
-                                        logo={teams.home.logo}
-                                        className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
-                                    />
-                                </div>
-                            )}
+                            <div className={cn('flex items-center justify-center bg-slate-50 rounded-full border border-slate-200', logoSize)}>
+                            <TeamLogo
+                                logo={teams.home.logo}
+                                className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
+                            />
+                        </div>
                         </div>
                         <div className="text-center">
-                            <h2 className={cn(nameText, 'font-bold text-white tracking-tight leading-tight')}>
+                            <h2 className={cn(nameText, 'font-bold text-slate-900 tracking-tight leading-tight')}>
                                 <span className="hidden sm:inline">{teams.home.name}</span>
                                 <span className="sm:hidden">{isPregame ? teams.home.name : teams.home.abbr}</span>
                             </h2>
                             {isPregame && (
-                                <div className="text-caption font-bold text-zinc-400 tracking-widest uppercase mt-1">
+                                <div className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mt-1">
                                     {teams.home.abbr}
                                 </div>
                             )}
-                            {showHomeRecord && (
-                                <span className="mt-1 text-footnote font-semibold text-white/35 tabular-nums tracking-wide font-mono">
-                                    {homeRecord}
-                                </span>
-                            )}
+                            <span className="mt-1 text-[11px] font-semibold text-slate-900/35 tabular-nums tracking-wide font-mono">
+                                {teams.home.record}
+                            </span>
                         </div>
                     </div>
                 </div>
 
                 {/* Navigation Tabs */}
                 {showTabs && (
-                    <div className="w-full flex items-center justify-center gap-6 border-b border-edge-strong pb-0 overflow-x-auto no-scrollbar px-4" role="group" aria-label="Scoreboard views">
+                    <div className="w-full flex items-center justify-center gap-8 border-b border-slate-200 pb-0 overflow-x-auto no-scrollbar px-4">
                         {TABS.map((tab, i) => (
                             <button
                                 key={tab}
@@ -1420,11 +1267,11 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 onClick={() => handleTabClick(tab)}
                                 aria-pressed={activeTab === tab}
                                 className={cn(
-                                    'text-caption sm:text-footnote font-bold tracking-loose transition-colors pb-4 relative shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded-sm',
-                                    i === TABS.length - 1 && 'ml-2', // M-03: Subtle spacing before AI tab
+                                    'text-[10px] sm:text-[11px] font-bold tracking-[0.15em] transition-colors pb-4 relative shrink-0',
+                                    i === TABS.length - 1 && 'ml-4', // M-03: Extra spacing before AI tab
                                     activeTab === tab
-                                        ? 'text-white'
-                                        : 'text-zinc-600 hover:text-zinc-400'
+                                        ? 'text-slate-900'
+                                        : 'text-slate-500 hover:text-slate-400'
                                 )}
                             >
                                 {tab}
@@ -1460,16 +1307,15 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
 
         if (!vm)
             return (
-                <div className="h-[300px] flex items-center justify-center bg-black" role="status" aria-live="polite">
-                    <Activity className={cn('text-zinc-700', !reduceMotion && 'animate-pulse')} aria-hidden="true" />
-                    <span className="sr-only">Loading live tracker</span>
+                <div className="h-[300px] flex items-center justify-center bg-slate-50">
+                    <Activity className={cn('text-slate-400', !reduceMotion && 'animate-pulse')} />
                 </div>
             );
 
         return (
             <div
                 className={cn(
-                    'flex flex-col w-full bg-surface-pure overflow-x-hidden font-sans',
+                    'flex flex-col w-full bg-[#000000] overflow-x-hidden font-sans',
                     showHeader ? 'min-h-screen' : 'min-h-0'
                 )}
             >
@@ -1479,7 +1325,7 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
                 <div className={cn('w-full', !reduceMotion && 'animate-in fade-in duration-700')}>
                     {/* Visualization Layer - Only show if NOT pregame */}
                     {!vm.meta.isPregame && (
-                        <div className="w-full border-b border-edge">
+                        <div className="w-full border-b border-slate-200">
                             {vm.meta.isFootball ? (
                                 <FieldSchematic viewModel={vm} />
                             ) : vm.meta.isBasketball ? (
@@ -1490,7 +1336,7 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
 
                     {/* Live Ticker - Only show if Live/Final */}
                     {!vm.meta.isPregame && (
-                        <div className="px-6 py-4 border-b border-edge-subtle flex gap-3 items-start bg-surface-elevated">
+                        <div className="px-6 py-4 border-b border-slate-200 flex gap-3 items-start bg-white">
                             <div
                                 className={cn(
                                     'mt-1.5 w-1.5 h-1.5 rounded-full shrink-0',
@@ -1500,9 +1346,8 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
                                 aria-hidden="true"
                             />
                             <p
-                                className="text-xs font-medium text-zinc-300 leading-relaxed"
+                                className="text-xs font-medium text-slate-600 leading-relaxed"
                                 aria-live="polite"
-                                role="status"
                             >
                                 {vm.gameplay.lastPlay?.text ||
                                     (vm.meta.isFinished ? 'Game Final' : 'Game in progress...')}
@@ -1513,15 +1358,15 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
                     {/* Data Modules */}
                     <ClosingLinesTable viewModel={vm} />
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-overlay-emphasis border-b border-edge">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-50 border-b border-slate-200">
                         <PredictionCard viewModel={vm} />
                         {!vm.meta.isPregame && (
                             <ObsidianPanel hover className="p-5 flex flex-col justify-between min-h-[130px]">
-                        <div className="flex items-center gap-2">
-                                    <Radio size={14} className="text-zinc-500" aria-hidden="true" />
+                                <div className="flex items-center gap-2">
+                                    <Radio size={14} className="text-slate-500" />
                                     <Label>Feed Status</Label>
                                 </div>
-                                <div className="flex items-center gap-2 text-zinc-400 text-xs">
+                                <div className="flex items-center gap-2 text-slate-400 text-xs">
                                     <div
                                         className={cn(
                                             'w-1 h-1 rounded-full',
@@ -1551,8 +1396,7 @@ export const LiveTotalCard: FC<{ match: Match }> = memo(({ match }) => {
         return (
             <ObsidianPanel className="p-6 flex flex-col items-center justify-center min-h-[160px]">
                 <Activity
-                    className={cn('text-zinc-600 mb-2', !reduceMotion && 'animate-spin')}
-                    aria-hidden="true"
+                    className={cn('text-slate-500 mb-2', !reduceMotion && 'animate-spin')}
                 />
                 <Label>Loading...</Label>
             </ObsidianPanel>

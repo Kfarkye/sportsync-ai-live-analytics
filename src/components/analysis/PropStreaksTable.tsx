@@ -47,12 +47,12 @@ export const PropStreaksTable = ({ teamName }: { teamName?: string }) => {
     return (
         <div>
             {/* Section Header */}
-            <div className="flex items-center justify-between py-3 border-b border-edge-subtle">
+            <div className="flex items-center justify-between py-3 border-b border-slate-200">
                 <div className="flex items-center gap-2">
                     <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
-                    <span className="text-footnote font-semibold text-zinc-400 uppercase tracking-expanded">Hot Streaks</span>
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.1em]">Hot Streaks</span>
                 </div>
-                <span className="text-caption font-medium text-zinc-600 uppercase tracking-wide">
+                <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">
                     Last 10 Games
                 </span>
             </div>
@@ -66,7 +66,7 @@ export const PropStreaksTable = ({ teamName }: { teamName?: string }) => {
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.03 }}
-                            className="flex items-center justify-between py-3 border-b border-edge-subtle hover:bg-overlay-ghost transition-colors duration-150"
+                            className="flex items-center justify-between py-3 border-b border-slate-200 hover:bg-white/[0.01] transition-colors duration-150"
                         >
                             {/* Left: Player Info */}
                             <div className="flex items-center gap-3">
@@ -75,16 +75,16 @@ export const PropStreaksTable = ({ teamName }: { teamName?: string }) => {
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-body-sm font-semibold text-white tracking-tight">
+                                        <span className="text-[13px] font-semibold text-slate-900 tracking-tight">
                                             {streak.player_name}
                                         </span>
-                                        <span className="px-1.5 py-0.5 rounded-md bg-orange-500/10 border border-orange-500/20 text-label font-semibold text-orange-400 uppercase">
+                                        <span className="px-1.5 py-0.5 rounded-md bg-orange-500/10 border border-orange-500/20 text-[9px] font-semibold text-orange-400 uppercase">
                                             {streak.streak_count}G
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-1.5 text-caption text-zinc-500 font-medium mt-0.5">
+                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium mt-0.5">
                                         <span>{streak.team}</span>
-                                        <span className="text-zinc-700">·</span>
+                                        <span className="text-slate-400">·</span>
                                         <span className="uppercase">{streak.prop_type.replace('_', ' ')}</span>
                                     </div>
                                 </div>
@@ -92,10 +92,10 @@ export const PropStreaksTable = ({ teamName }: { teamName?: string }) => {
 
                             {/* Right: Values */}
                             <div className="text-right">
-                                <div className="text-body font-semibold text-white tabular-nums tracking-tight">
+                                <div className="text-[14px] font-semibold text-slate-900 tabular-nums tracking-tight">
                                     {streak.streak_type} {streak.threshold}
                                 </div>
-                                <div className="text-caption font-medium text-zinc-600 mt-0.5">
+                                <div className="text-[10px] font-medium text-slate-500 mt-0.5">
                                     Avg: {streak.avg_value.toFixed(1)}
                                 </div>
                             </div>

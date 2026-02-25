@@ -52,14 +52,14 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                 className={`w-full flex items-center justify-between group transition-all duration-300 py-2 px-1 -mx-1 rounded-md ${tokens.hoverBorder} border border-transparent`}
             >
                 <div className="flex items-center gap-4">
-                    <span className="text-footnote font-bold uppercase tracking-widest text-zinc-500 group-hover:text-zinc-300 transition-colors">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 group-hover:text-slate-600 transition-colors">
                         Contextual Translation
                     </span>
                     {/* Expanding line - indicates interactivity */}
                     <div className="h-[1px] w-6 bg-zinc-800 group-hover:w-10 transition-all duration-500" />
                 </div>
                 <div className="flex items-center gap-4">
-                    <span className="text-caption font-semibold uppercase tracking-widest text-zinc-600 group-hover:text-zinc-400 transition-colors">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400 transition-colors">
                         {isOpen ? 'Close' : 'View'}
                     </span>
                     {/* Geometric Toggle - No icons, pure CSS */}
@@ -83,7 +83,7 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                         <div className="pt-6 space-y-6">
                             {/* === ANCHOR DATA GRID === */}
                             {/* Financial-style: Each cell is atomic, scannable */}
-                            <div className="grid grid-cols-4 gap-[1px] bg-zinc-900/50 rounded-md overflow-hidden border border-edge-subtle">
+                            <div className="grid grid-cols-4 gap-[1px] bg-zinc-900/50 rounded-md overflow-hidden border border-slate-200">
                                 {[
                                     { label: 'Signal', value: explanation.signal, isHighlight: true },
                                     { label: 'Market Total', value: explanation.market_total },
@@ -92,12 +92,12 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                                 ].map((item, i) => (
                                     <div
                                         key={i}
-                                        className="bg-surface-elevated p-4 flex flex-col justify-between min-h-[72px] group/cell hover:bg-surface-elevated transition-colors duration-300"
+                                        className="bg-white p-4 flex flex-col justify-between min-h-[72px] group/cell hover:bg-[#151517] transition-colors duration-300"
                                     >
-                                        <span className="text-label text-zinc-600 uppercase font-bold tracking-loose leading-none">
+                                        <span className="text-[9px] text-slate-500 uppercase font-bold tracking-[0.15em] leading-none">
                                             {item.label}
                                         </span>
-                                        <span className={`text-small font-bold tracking-tight mt-2 tabular-nums ${item.isHighlight ? tokens.accent : 'text-zinc-200'}`}>
+                                        <span className={`text-[12px] font-bold tracking-tight mt-2 tabular-nums ${item.isHighlight ? tokens.accent : 'text-slate-700'}`}>
                                             {item.value}
                                         </span>
                                     </div>
@@ -105,10 +105,10 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                             </div>
 
                             {/* === NARRATIVE BLOCK === */}
-                            <div className="relative p-5 rounded-md bg-surface-elevated border border-edge-subtle">
+                            <div className="relative p-5 rounded-md bg-white border border-slate-200">
                                 {/* Semantic Accent: Connects to parent confidence color */}
                                 <div className={`absolute left-0 top-0 w-[2px] h-full rounded-full ${tokens.bar}`} />
-                                <p className="pl-4 text-small text-zinc-300 leading-[1.8] font-medium">
+                                <p className="pl-4 text-[12px] text-slate-600 leading-[1.8] font-medium">
                                     {explanation.why_now}
                                 </p>
                             </div>
@@ -117,7 +117,7 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                             {/* Subdued: This is metadata, not content */}
                             <div className="flex items-center gap-3 opacity-50">
                                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-800" />
-                                <span className="text-label text-zinc-600 uppercase font-semibold tracking-loose">
+                                <span className="text-[9px] text-slate-500 uppercase font-semibold tracking-[0.15em]">
                                     Derivative Logic Block // Locked Signal
                                 </span>
                                 <div className="flex-grow h-[1px] bg-zinc-900" />

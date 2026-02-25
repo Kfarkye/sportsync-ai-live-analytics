@@ -32,10 +32,10 @@ const PlayerAvatar = ({ src, name }: { src?: string; name: string }) => {
 
   return (
     <div className="relative">
-      <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-edge overflow-hidden shrink-0">
+      <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-white/[0.06] overflow-hidden shrink-0">
         {(!src || error) ? (
           <div className="w-full h-full flex items-center justify-center bg-zinc-850">
-            <span className="text-label font-semibold text-zinc-500">{initials}</span>
+            <span className="text-[9px] font-semibold text-zinc-500">{initials}</span>
           </div>
         ) : (
           <img
@@ -52,29 +52,29 @@ const PlayerAvatar = ({ src, name }: { src?: string; name: string }) => {
 };
 
 const InjuryRow: React.FC<{ injury: InjuryReport }> = ({ injury }) => (
-  <div className="flex items-center gap-3 py-4 border-b border-edge-subtle last:border-0 hover:bg-white/[0.015] transition-colors duration-300">
+  <div className="flex items-center gap-3 py-4 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.015] transition-colors duration-300">
     <PlayerAvatar src={injury.headshot} name={injury.name} />
     <div className="flex-1 min-w-0">
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-col min-w-0">
-          <h5 className="text-body-sm font-medium text-white tracking-tight leading-none">
+          <h5 className="text-[13px] font-medium text-white tracking-tight leading-none">
             {injury.name}
           </h5>
           <div className="flex items-center gap-1.5 mt-1">
-            <span className="text-caption font-medium text-zinc-500">
+            <span className="text-[10px] font-medium text-zinc-500">
               {injury.position}
             </span>
             {injury.description && (
               <>
                 <span className="text-zinc-700">·</span>
-                <span className="text-caption font-medium text-zinc-600 truncate">
+                <span className="text-[10px] font-medium text-zinc-600 truncate">
                   {injury.description}
                 </span>
               </>
             )}
           </div>
         </div>
-        <div className={`px-2 py-0.5 rounded-md text-label font-bold uppercase tracking-wider shrink-0 border ${getStatusStyle(injury.status)}`}>
+        <div className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider shrink-0 border ${getStatusStyle(injury.status)}`}>
           {injury.status}
         </div>
       </div>
@@ -107,8 +107,8 @@ const InjuryList: React.FC<InjuryListProps> = ({
         {hasAway && (
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-label font-bold text-zinc-600 uppercase tracking-widest">{awayTeamName}</span>
-              <div className="flex-1 h-px bg-overlay-muted" />
+              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">{awayTeamName}</span>
+              <div className="flex-1 h-px bg-white/[0.04]" />
             </div>
             <div>
               {awayInjuries.slice(0, displayLimit).map((inj, i) => (
@@ -121,8 +121,8 @@ const InjuryList: React.FC<InjuryListProps> = ({
         {hasHome && (
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-label font-bold text-zinc-600 uppercase tracking-widest">{homeTeamName}</span>
-              <div className="flex-1 h-px bg-overlay-muted" />
+              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">{homeTeamName}</span>
+              <div className="flex-1 h-px bg-white/[0.04]" />
             </div>
             <div>
               {homeInjuries.slice(0, displayLimit).map((inj, i) => (
@@ -135,7 +135,7 @@ const InjuryList: React.FC<InjuryListProps> = ({
         {needsExpansion && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="w-full py-2.5 flex items-center justify-center gap-1.5 text-footnote font-medium text-zinc-500 hover:text-white transition-colors duration-150"
+            className="w-full py-2.5 flex items-center justify-center gap-1.5 text-[11px] font-medium text-zinc-500 hover:text-white transition-colors duration-150"
           >
             {expanded ? (
               <>Show less <ChevronUp size={12} strokeWidth={2.5} /></>

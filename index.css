@@ -11,7 +11,7 @@
      - Aligned :root variables with ESSENCE design system
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -22,47 +22,12 @@
    ========================================================================== */
 
 :root {
-  /* Palette (aligned with ESSENCE.colors) */
-  --color-white: #FAFAFA;
-  --color-zinc-950: #020203;
-  --color-brand-cyan: #00F0FF;
-
-  /* Theme: Dark (default) */
-  --surface-pure-rgb: 0 0 0;
-  --surface-base-rgb: 9 9 11;
-  --surface-card-rgb: 10 10 11;
-  --surface-elevated-rgb: 17 17 19;
-  --surface-subtle-rgb: 26 26 28;
-  --surface-accent-rgb: 34 34 36;
-
-  --surface-pure: rgb(var(--surface-pure-rgb));
-  --surface-base: rgb(var(--surface-base-rgb));
-  --surface-card: rgb(var(--surface-card-rgb));
-  --surface-elevated: rgb(var(--surface-elevated-rgb));
-  --surface-subtle: rgb(var(--surface-subtle-rgb));
-  --surface-accent: rgb(var(--surface-accent-rgb));
-
-  --ink-primary: #FAFAFA;
-  --ink-secondary: #A1A1AA;
-  --ink-tertiary: #71717A;
-  --ink-muted: #52525B;
-  --ink-ghost: #3F3F46;
-
-  --edge-ghost: rgba(255,255,255,0.03);
-  --edge-subtle: rgba(255,255,255,0.04);
-  --edge-default: rgba(255,255,255,0.06);
-  --edge-strong: rgba(255,255,255,0.12);
-
-  --overlay-ghost: rgba(255,255,255,0.01);
-  --overlay-subtle: rgba(255,255,255,0.02);
-  --overlay-muted: rgba(255,255,255,0.04);
-  --overlay-emphasis: rgba(255,255,255,0.06);
-
-  --brand-primary-rgb: 79 70 229;
-  --brand-cyan-rgb: 0 240 255;
-  --brand-primary: rgb(var(--brand-primary-rgb));
-  --brand-muted: rgba(79, 70, 229, 0.12);
-  --brand-cyan: rgb(var(--brand-cyan-rgb));
+  /* Palette — Editorial Light */
+  --color-background: #F8FAFC;  /* slate-50 */
+  --color-surface: #FFFFFF;
+  --color-text-primary: #0F172A;  /* slate-900 */
+  --color-text-secondary: #64748B; /* slate-500 */
+  --color-border: #E2E8F0; /* slate-200 */
 
   /* Motion */
   --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -74,8 +39,7 @@
 }
 
 /* ==========================================================================
-   §2  DOCUMENT ROOT
-   Merged from 2x html, 2x body, 2x #root — single source of truth.
+   §2  DOCUMENT ROOT — Editorial Light
    ========================================================================== */
 
 html {
@@ -85,15 +49,15 @@ html {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   -webkit-text-size-adjust: 100%;
-  color-scheme: dark;
-  background-color: var(--surface-base);
+  color-scheme: light;
+  background-color: var(--color-background);
 }
 
 body {
   min-height: 100%;
   margin: 0;
-  background-color: var(--surface-base);
-  color: var(--ink-primary);
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -129,87 +93,8 @@ input, textarea {
 }
 
 ::selection {
-  background-color: var(--brand-muted);
-  color: var(--ink-primary);
-}
-
-/* ==========================================================================
-   §2b  THEME OVERRIDES — Editorial Light
-   ========================================================================== */
-
-html[data-theme="light"] {
-  color-scheme: light;
-}
-
-html[data-theme="light"] body {
-  background-color: var(--surface-base);
-  color: var(--ink-primary);
-}
-
-html[data-theme="light"] {
-  --surface-pure-rgb: 255 255 255;
-  --surface-base-rgb: 248 249 250;
-  --surface-card-rgb: 255 255 255;
-  --surface-elevated-rgb: 255 255 255;
-  --surface-subtle-rgb: 241 245 249;
-  --surface-accent-rgb: 226 232 240;
-
-  --surface-pure: rgb(var(--surface-pure-rgb));
-  --surface-base: rgb(var(--surface-base-rgb));
-  --surface-card: rgb(var(--surface-card-rgb));
-  --surface-elevated: rgb(var(--surface-elevated-rgb));
-  --surface-subtle: rgb(var(--surface-subtle-rgb));
-  --surface-accent: rgb(var(--surface-accent-rgb));
-
-  --ink-primary: #111827;
-  --ink-secondary: #374151;
-  --ink-tertiary: #6B7280;
-  --ink-muted: #9CA3AF;
-  --ink-ghost: #CBD5E1;
-
-  --edge-ghost: rgba(15, 23, 42, 0.04);
-  --edge-subtle: rgba(15, 23, 42, 0.06);
-  --edge-default: rgba(15, 23, 42, 0.10);
-  --edge-strong: rgba(15, 23, 42, 0.16);
-
-  --overlay-ghost: rgba(15, 23, 42, 0.02);
-  --overlay-subtle: rgba(15, 23, 42, 0.04);
-  --overlay-muted: rgba(15, 23, 42, 0.06);
-  --overlay-emphasis: rgba(15, 23, 42, 0.08);
-}
-
-/* Nested dark islands (e.g., chat) inside light theme */
-[data-theme="dark"] {
-  color-scheme: dark;
-  --surface-pure-rgb: 0 0 0;
-  --surface-base-rgb: 9 9 11;
-  --surface-card-rgb: 10 10 11;
-  --surface-elevated-rgb: 17 17 19;
-  --surface-subtle-rgb: 26 26 28;
-  --surface-accent-rgb: 34 34 36;
-
-  --surface-pure: rgb(var(--surface-pure-rgb));
-  --surface-base: rgb(var(--surface-base-rgb));
-  --surface-card: rgb(var(--surface-card-rgb));
-  --surface-elevated: rgb(var(--surface-elevated-rgb));
-  --surface-subtle: rgb(var(--surface-subtle-rgb));
-  --surface-accent: rgb(var(--surface-accent-rgb));
-
-  --ink-primary: #FAFAFA;
-  --ink-secondary: #A1A1AA;
-  --ink-tertiary: #71717A;
-  --ink-muted: #52525B;
-  --ink-ghost: #3F3F46;
-
-  --edge-ghost: rgba(255,255,255,0.03);
-  --edge-subtle: rgba(255,255,255,0.04);
-  --edge-default: rgba(255,255,255,0.06);
-  --edge-strong: rgba(255,255,255,0.12);
-
-  --overlay-ghost: rgba(255,255,255,0.01);
-  --overlay-subtle: rgba(255,255,255,0.02);
-  --overlay-muted: rgba(255,255,255,0.04);
-  --overlay-emphasis: rgba(255,255,255,0.06);
+  background-color: rgba(15, 23, 42, 0.15);
+  color: #0F172A;
 }
 
 /* ==========================================================================
@@ -218,7 +103,7 @@ html[data-theme="light"] {
 
 /* Institutional Monospace (used by BettingResultCell, LiveAnalysisCard) */
 .font-mono-ledger {
-  font-family: 'Geist Mono', 'JetBrains Mono', monospace;
+  font-family: 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
 }
@@ -227,13 +112,13 @@ html[data-theme="light"] {
    §5  MATERIALS — Glass Effects
    ========================================================================== */
 
-/* Apple Material System (used by BettingResultCell) */
+/* Apple Material System — Editorial Light (used by BettingResultCell) */
 .glass-material {
-  background: rgba(10, 10, 12, 0.75);
-  backdrop-filter: blur(25px) saturate(200%);
-  -webkit-backdrop-filter: blur(25px) saturate(200%);
-  border: 0.5px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(25px) saturate(150%);
+  -webkit-backdrop-filter: blur(25px) saturate(150%);
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 /* ==========================================================================
@@ -273,21 +158,13 @@ html[data-theme="light"] {
   animation: flash-green 1.2s ease-out;
 }
 
-/* Landing → App transition */
-@keyframes fadeInApp {
-  0% { opacity: 0; transform: scale(1.01); filter: blur(4px); }
-  100% { opacity: 1; transform: scale(1); filter: blur(0); }
-}
-
-/* AI Streaming pulse */
+/* AI Streaming pulse — Editorial Light (no glow) */
 @keyframes pulse-subtle {
   0%, 100% {
     opacity: 1;
-    text-shadow: 0 0 10px rgba(79, 70, 229, 0.1);
   }
   50% {
-    opacity: 0.85;
-    text-shadow: 0 0 20px rgba(79, 70, 229, 0.4);
+    opacity: 0.7;
   }
 }
 
@@ -321,7 +198,7 @@ html[data-theme="light"] {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(15, 23, 42, 0.12);
   border-radius: 10px;
 }
 
@@ -342,14 +219,14 @@ html[data-theme="light"] {
 
 .cite-link {
   text-decoration: none;
-  color: #71717A;
+  color: #64748B;
   transition: color 150ms ease-out, text-decoration-color 150ms ease-out;
 }
 
 .cite-link:hover {
-  color: var(--cite-hover-color, #10B981);
+  color: var(--cite-hover-color, #0F172A);
   text-decoration: underline;
-  text-decoration-color: var(--cite-hover-underline, rgba(16, 185, 129, 0.25));
+  text-decoration-color: var(--cite-hover-underline, rgba(15, 23, 42, 0.25));
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
 }
@@ -367,108 +244,8 @@ a[href*="google.com/search"]:not([class]) { display: none; }
   background: linear-gradient(
     to right,
     transparent,
-    rgba(255, 255, 255, 0.06) 15%,
-    rgba(255, 255, 255, 0.06) 85%,
+    #E2E8F0 15%,
+    #E2E8F0 85%,
     transparent
   );
-}
-
-/* ==========================================================================
-   §12  ACCESSIBILITY — Focus Visible + Reduced Motion
-   ==========================================================================
-   Linear: "We spent a lot of time on accessibility details."
-   Apple Liquid Glass adapts to Increase Contrast mode.
-   ========================================================================== */
-
-/* Global focus ring — keyboard only (invisible for mouse/touch) */
-*:focus:not(:focus-visible) {
-  outline: none;
-}
-
-*:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.2);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* Accent ring for interactive elements */
-button:focus-visible,
-a:focus-visible,
-[role="button"]:focus-visible,
-[tabindex]:focus-visible {
-  outline-color: rgba(52, 211, 153, 0.4);
-}
-
-/* Reduced Motion — disables CSS animations/transitions.
-   Framer's MotionConfig reducedMotion="user" handles spring animations. */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* ==========================================================================
-   §13  SCROLL EDGE EFFECTS
-   ==========================================================================
-   Linear iOS: "At scroll view edges, we apply a variable blur that
-   intensifies as content approaches the screen edge."
-   We approximate with CSS mask-image gradient fades.
-   ========================================================================== */
-
-.scroll-fade-y {
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 16px,
-    black calc(100% - 32px),
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 16px,
-    black calc(100% - 32px),
-    transparent 100%
-  );
-}
-
-.scroll-fade-x {
-  mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    black 12px,
-    black calc(100% - 12px),
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    black 12px,
-    black calc(100% - 12px),
-    transparent 100%
-  );
-}
-
-/* Skip Link — screen reader users */
-.skip-link {
-  position: absolute;
-  top: -100%;
-  left: 16px;
-  z-index: 100;
-  padding: 8px 16px;
-  background: #000;
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  text-decoration: none;
-  transition: top 0.2s;
-}
-
-.skip-link:focus {
-  top: 16px;
 }

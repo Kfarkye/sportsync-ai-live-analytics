@@ -23,7 +23,7 @@ import { resilientFetch, logger as Logger } from './resilience.ts';
 import { EspnAdapters, Safe } from './espnAdapters.ts';
 import { computeAISignals } from './gameStateEngine.ts';
 import { safeSlice } from './oddsUtils.ts';
-import { formatLocalDate, safeParseDate } from './dateUtils.ts';
+import { safeParseDate } from './dateUtils.ts';
 
 
 // ============================================================================
@@ -142,19 +142,6 @@ const stripSuffix = (id: string): string => {
     return id.split('_')[0];
 };
 
-const TENNIS_PLACEHOLDER_REGEX =
-    /^(tbd|tba|bye|qualifier|alternate|lucky loser|wild card)\b/i;
-
-const isPlaceholderCompetitor = (competitor: any): boolean => {
-    if (!competitor) return true;
-    const entity = competitor.team || competitor.athlete || {};
-    const name = String(
-        entity.displayName || entity.fullName || entity.shortDisplayName || entity.name || ''
-    ).trim();
-    if (!name) return true;
-    return TENNIS_PLACEHOLDER_REGEX.test(name);
-};
-
 /**
  * Fetch scoreboard for a league on a specific date
  * This is the primary endpoint for match listings
@@ -216,24 +203,7 @@ export const fetchLeagueMatches = async (
                     }))
                 )
             );
-
-            const targetDate = formatLocalDate(dObj);
-            const seen = new Set<string>();
-            events = events.filter((event: any) => {
-                const eventId = String(event?.id || '');
-                if (eventId) {
-                    if (seen.has(eventId)) return false;
-                    seen.add(eventId);
-                }
-
-                if (!event?.date) return true;
-                const parsedDate = new Date(event.date);
-                if (Number.isNaN(parsedDate.getTime())) return true;
-                const eventDate = formatLocalDate(parsedDate);
-                return eventDate === targetDate;
-            });
-
-            console.log(`[ESPN] Tennis flattened: ${data.events.length} tournaments → ${events.length} matches (${targetDate})`);
+            console.log(`[ESPN] Tennis flattened: ${data.events.length} tournaments → ${events.length} matches`);
         }
 
         // Debug: Log fetch results for Tennis and Liga MX
@@ -249,9 +219,6 @@ export const fetchLeagueMatches = async (
             const awayComp = competition.competitors.find((c: any) => c.homeAway === 'away');
             // Tennis uses competitor.athlete, other sports use competitor.team
             if (!(homeComp?.team || homeComp?.athlete) || !(awayComp?.team || awayComp?.athlete)) return null;
-            if (league.sport === Sport.TENNIS && (isPlaceholderCompetitor(homeComp) || isPlaceholderCompetitor(awayComp))) {
-                return null;
-            }
 
             return {
                 id: Safe.string(event.id),
@@ -324,51 +291,9 @@ export const fetchAllMatches = async (
         debugManager.trace('ESPNService', 'Match Hydrated', m.id, { canonicalId: m.canonical_id, home: m.homeTeam.name, away: m.awayTeam.name });
     });
 
-    const statusRank = (status?: string) => {
-        if (!status) return 0;
-        const s = status.toUpperCase();
-        if (s === 'LIVE' || s === 'IN_PROGRESS' || s === 'STATUS_IN_PROGRESS') return 3;
-        if (s === 'FINISHED' || s === 'FINAL' || s === 'STATUS_FINAL' || s === 'STATUS_FINAL_OT') return 2;
-        if (s === 'SCHEDULED' || s === 'STATUS_SCHEDULED' || s === 'PREGAME') return 1;
-        return 0;
-    };
-
-    const completenessScore = (match: Match) => {
-        const hasScores = match.homeScore !== undefined && match.awayScore !== undefined;
-        const hasClock = !!match.displayClock;
-        const hasOdds = !!match.current_odds || !!match.odds;
-        const hasLinescores = (match.homeTeam?.linescores?.length || 0) > 0 || (match.awayTeam?.linescores?.length || 0) > 0;
-        return statusRank(match.status) * 10
-            + (hasScores ? 3 : 0)
-            + (hasLinescores ? 2 : 0)
-            + (hasClock ? 1 : 0)
-            + (hasOdds ? 1 : 0);
-    };
-
-    const deduped = new Map<string, Match>();
-    matches.forEach(match => {
-        const canonicalKey = match.canonical_id
-            || generateCanonicalGameId(
-                match.homeTeam?.name || 'Unknown',
-                match.awayTeam?.name || 'Unknown',
-                match.startTime,
-                match.leagueId
-            );
-        const key = canonicalKey || match.id;
-        const existing = deduped.get(key);
-        if (!existing) {
-            deduped.set(key, match);
-            return;
-        }
-        const best = completenessScore(match) >= completenessScore(existing) ? match : existing;
-        deduped.set(key, best);
-    });
-
-    const uniqueMatches = Array.from(deduped.values());
-
     // Sort by start time
 
-    return uniqueMatches.sort((a, b) =>
+    return matches.sort((a, b) =>
         new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
     );
 };

@@ -49,7 +49,7 @@ const MovementIndicator = ({ current, open }: { current?: number, open?: number 
     const isPositive = diff > 0;
 
     return (
-        <div className={`flex items-center gap-0.5 text-label font-semibold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+        <div className={`flex items-center gap-0.5 text-[9px] font-semibold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
             {isPositive ? <TrendingUp size={9} strokeWidth={2.5} /> : <TrendingDown size={9} strokeWidth={2.5} />}
             <span className="tabular-nums">{Math.abs(diff).toFixed(1)}</span>
         </div>
@@ -87,17 +87,17 @@ const OddsCell = ({
     return (
         <div className="flex flex-col items-center justify-center py-1">
             <div className="flex items-baseline gap-1">
-                <span className="text-body-lg font-bold text-white tabular-nums tracking-tight">{displayCurrent}</span>
+                <span className="text-[15px] font-bold text-white tabular-nums tracking-tight">{displayCurrent}</span>
                 {subValue && (
-                    <span className="text-caption text-zinc-500 font-medium tabular-nums">{fmtJuice(subValue)}</span>
+                    <span className="text-[10px] text-zinc-500 font-medium tabular-nums">{fmtJuice(subValue)}</span>
                 )}
                 <MovementIndicator current={curVal} open={opVal} />
             </div>
 
             {opVal !== undefined && opVal !== curVal && (
                 <div className="flex items-center gap-1 mt-1">
-                    <span className="text-label font-medium text-zinc-600 uppercase tracking-wide">Open</span>
-                    <span className="text-caption text-zinc-500 font-medium tabular-nums">{displayOpen}</span>
+                    <span className="text-[9px] font-medium text-zinc-600 uppercase tracking-wide">Open</span>
+                    <span className="text-[10px] text-zinc-500 font-medium tabular-nums">{displayOpen}</span>
                 </div>
             )}
         </div>
@@ -222,16 +222,16 @@ const PregameOdds = ({ match }: { match: Match }) => {
             {/* Section Header - Matches Gamecast Style */}
             <div className="flex items-center gap-2 mb-6">
                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                <span className="text-caption font-bold text-zinc-500 uppercase tracking-widest">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">
                     {oddsLabel}
                 </span>
                 {oddsSubLabel && (
-                    <span className="text-label text-zinc-600">{oddsSubLabel}</span>
+                    <span className="text-[9px] text-zinc-600">{oddsSubLabel}</span>
                 )}
                 {isLive && (
                     <div className={`ml-auto flex items-center gap-1.5 px-2 py-0.5 rounded-md ${hasLiveOdds ? 'bg-emerald-500/10' : 'bg-amber-500/10'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${hasLiveOdds ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                        <span className={`text-label font-bold uppercase ${hasLiveOdds ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        <span className={`text-[9px] font-bold uppercase ${hasLiveOdds ? 'text-emerald-400' : 'text-amber-400'}`}>
                             {hasLiveOdds ? 'LIVE' : 'Pre-Game'}
                         </span>
                     </div>
@@ -239,22 +239,22 @@ const PregameOdds = ({ match }: { match: Match }) => {
             </div>
 
             {/* Column Headers */}
-            <div className="flex items-center gap-4 mb-3 pb-3 border-b border-edge-subtle">
+            <div className="flex items-center gap-4 mb-3 pb-3 border-b border-white/[0.04]">
                 <div className="w-28 shrink-0">
-                    <span className="text-label font-bold text-zinc-600 uppercase tracking-widest">Team</span>
+                    <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Team</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 flex-1">
-                    <div className="text-label font-bold text-zinc-600 uppercase tracking-widest text-center">Spread</div>
-                    <div className="text-label font-bold text-zinc-600 uppercase tracking-widest text-center">Total</div>
-                    <div className="text-label font-bold text-zinc-600 uppercase tracking-widest text-center">Money</div>
+                    <div className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] text-center">Spread</div>
+                    <div className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] text-center">Total</div>
+                    <div className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] text-center">Money</div>
                 </div>
             </div>
 
             {/* Away Team Row */}
-            <div className="flex items-center gap-4 py-5 border-b border-edge-subtle transition-colors duration-150">
+            <div className="flex items-center gap-4 py-5 border-b border-white/[0.04] transition-colors duration-150">
                 <div className="w-28 flex items-center gap-2.5 shrink-0">
                     <TeamLogo logo={match.awayTeam.logo} className="w-7 h-7 drop-shadow-md" />
-                    <span className="text-footnote font-bold text-white uppercase tracking-expanded">{match.awayTeam.abbreviation || match.awayTeam.shortName}</span>
+                    <span className="text-[11px] font-bold text-white uppercase tracking-[0.1em]">{match.awayTeam.abbreviation || match.awayTeam.shortName}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 flex-1">
                     <OddsCell label="Spread" value={awaySpread} subValue={awaySpreadOdds} open={awaySpreadOpen} />
@@ -264,10 +264,10 @@ const PregameOdds = ({ match }: { match: Match }) => {
             </div>
 
             {/* Home Team Row */}
-            <div className="flex items-center gap-4 py-5 border-b border-edge-subtle transition-colors duration-150">
+            <div className="flex items-center gap-4 py-5 border-b border-white/[0.04] transition-colors duration-150">
                 <div className="w-28 flex items-center gap-2.5 shrink-0">
                     <TeamLogo logo={match.homeTeam.logo} className="w-7 h-7 drop-shadow-md" />
-                    <span className="text-footnote font-bold text-white uppercase tracking-expanded">{match.homeTeam.abbreviation || match.homeTeam.shortName}</span>
+                    <span className="text-[11px] font-bold text-white uppercase tracking-[0.1em]">{match.homeTeam.abbreviation || match.homeTeam.shortName}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 flex-1">
                     <OddsCell label="Spread" value={homeSpread} subValue={homeSpreadOdds} open={homeSpreadOpen} />
@@ -278,10 +278,10 @@ const PregameOdds = ({ match }: { match: Match }) => {
 
             {/* Draw Row (Soccer) */}
             {match.sport === 'SOCCER' && (drawML || drawMLOpen) && (
-                <div className="flex items-center gap-5 py-4 border-b border-edge-subtle group/row hover:bg-overlay-subtle transition-colors duration-300">
+                <div className="flex items-center gap-5 py-4 border-b border-white/[0.04] group/row hover:bg-white/[0.02] transition-colors duration-300">
                     <div className="w-24 flex items-center gap-3 shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-zinc-800 border border-edge flex items-center justify-center text-zinc-500 font-bold text-xs">X</div>
-                        <span className="text-small font-semibold text-zinc-500 uppercase tracking-wider">Draw</span>
+                        <div className="w-8 h-8 rounded-full bg-zinc-800 border border-white/[0.06] flex items-center justify-center text-zinc-500 font-bold text-xs">X</div>
+                        <span className="text-[12px] font-semibold text-zinc-500 uppercase tracking-wider">Draw</span>
                     </div>
                     <div className="grid grid-cols-3 gap-3 flex-1">
                         <div className="invisible" />

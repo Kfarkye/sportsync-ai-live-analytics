@@ -1,7 +1,7 @@
 /**
  * UI Primitives Barrel Export
  * 
- * UNIFIED DESIGN SYSTEM v11.0
+ * UNIFIED DESIGN SYSTEM v10.0
  * All UI primitives are exported from this single location.
  */
 
@@ -22,9 +22,3 @@ export { PropViewToggle } from './PropViewToggle';
 export { MatchupLoader } from './MatchupLoader';
 export { MatchupError } from './MatchupError';
 export { MatchupContextPills } from './MatchupContextPills';
-
-// Loading States
-export { Skeleton, MatchRowSkeleton, LeagueHeaderSkeleton, FeedSkeleton, DetailSkeleton } from './Skeleton';
-
-// Feedback
-export { ObsidianToaster, obsidianToast } from './Toast';

@@ -186,7 +186,7 @@ Deno.serve(async (req: Request) => {
 
             if (sportsToRefresh.length > 0) {
                 console.log(`[Odds] Refreshing ${sportsToRefresh.length} stale sports: ${sportsToRefresh.join(', ')}`);
-                supabase.functions.invoke('ingest-odds-v3', {
+                supabase.functions.invoke('ingest-odds', {
                     body: { sport_keys: sportsToRefresh }
                 }).catch((e: any) => console.error("Sync trigger failed", e));
             }

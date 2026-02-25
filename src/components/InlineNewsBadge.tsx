@@ -43,23 +43,23 @@ const InlineNewsBadge: React.FC<InlineNewsBadgeProps> = ({ type, text, onClick }
         mt-3 px-3 py-2 
         bg-gradient-to-br from-white/[0.04] to-white/[0.01]
         backdrop-blur-md
-        border border-edge
+        border border-slate-200
         rounded-xl
         flex items-center justify-between gap-3
         group cursor-pointer
         hover:from-white/[0.06]
-        hover:border-white/[0.10]
+        hover:border-slate-200
         transition-all duration-150
       `}
     >
       <div className={`flex items-center gap-2 ${style.color}`}>
         <Icon size={12} className={type === 'LIVE' ? 'animate-pulse' : ''} />
-        <span className="text-caption font-bold uppercase tracking-wider">{style.label}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider">{style.label}</span>
       </div>
       
       <div className="h-3 w-px bg-white/10" />
       
-      <span className="text-body-sm text-white/80 font-medium truncate flex-1 leading-none tracking-tight">
+      <span className="text-[13px] text-white/80 font-medium truncate flex-1 leading-none tracking-tight">
         {text}
       </span>
       

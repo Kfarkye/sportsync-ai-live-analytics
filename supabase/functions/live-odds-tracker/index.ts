@@ -37,7 +37,6 @@ const LEAGUE_TO_ODDS_KEY: Record<string, string> = {
     'usa.1': 'soccer_usa_mls',
     'uefa.champions': 'soccer_uefa_champs_league',
     'uefa.europa': 'soccer_uefa_europa_league',
-    'fifa.world': 'soccer_fifa_world_cup',
 }
 
 // DB ID Suffixes (Crucial for Primary Keys matching espn-sync)
@@ -47,8 +46,7 @@ const SUFFIX_MAP: Record<string, string> = {
     'nhl': '_nhl', 'mlb': '_mlb',
     'eng.1': '_epl', 'esp.1': '_laliga', 'ger.1': '_bundesliga',
     'ita.1': '_seriea', 'fra.1': '_ligue1', 'uefa.champions': '_ucl',
-    'uefa.europa': '_uel', 'mls': '_mls', 'usa.1': '_mls',
-    'fifa.world': '_worldcup'
+    'uefa.europa': '_uel', 'mls': '_mls', 'usa.1': '_mls'
 };
 
 // Monitored leagues loop
@@ -67,7 +65,6 @@ const MONITORED_LEAGUES = [
     { sport: 'soccer', league: 'usa.1' },
     { sport: 'soccer', league: 'uefa.champions' },
     { sport: 'soccer', league: 'uefa.europa' },
-    { sport: 'soccer', league: 'fifa.world' },
 ];
 
 // Comprehensive Team Aliases (For Fuzzy Match Fallback)
