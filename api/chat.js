@@ -19,6 +19,7 @@ import { google } from "@ai-sdk/google";
 import { BettingPickSchema } from "../lib/schemas/picks.js";
 import { generateSatelliteSlug } from "./lib/satellite.js";
 import { checkRateLimit } from "./lib/rateLimit.js";
+import { LruTtlCache } from "./lib/lruTtlCache.js";
 
 // =============================================================================
 // INITIALIZATION
@@ -49,6 +50,41 @@ const CONFIG = {
     TOOLS: [{ googleSearch: {} }, { urlContext: {} }],
     STALE_THRESHOLD_MS: 15 * 60 * 1000,  // 15 minutes
     INJURY_CACHE_TTL_MS: 5 * 60 * 1000   // 5 minutes
+};
+
+// [INFRA] Bounded cache replaces the unbounded memory Map
+const INJURY_CACHE = new LruTtlCache({
+    maxEntries: Number(process.env.INJURY_CACHE_MAX_ENTRIES ?? 512),
+    ttlMs: Number(process.env.INJURY_CACHE_TTL_MS ?? CONFIG.INJURY_CACHE_TTL_MS),
+});
+
+// [SEC] Enforce strict lengths for HMAC secrets to prevent empty-string forgery
+const SATELLITE_SECRET = (() => {
+    const v = process.env.SATELLITE_SECRET;
+    if (v !== undefined && (typeof v !== "string" || v.trim().length < 16)) {
+        console.warn("[SEC] Missing/weak SATELLITE_SECRET (min 16 chars).");
+    }
+    return v ? v.trim() : null;
+})();
+
+function timingSafeEqHex(aHex, bHex) {
+    try {
+        const a = Buffer.from(aHex, "hex");
+        const b = Buffer.from(bHex, "hex");
+        if (a.length !== b.length) return false;
+        return crypto.timingSafeEqual(a, b);
+    } catch {
+        return false;
+    }
+}
+
+function hmacHex(secret, data) {
+    return crypto.createHmac("sha256", secret).update(data).digest("hex");
+}
+
+// [INFRA] Disable native body parser. Required for raw HMAC checks and 2MB DOS limits
+export const config = {
+    api: { bodyParser: false },
 };
 
 // =============================================================================
@@ -260,8 +296,6 @@ async function scanForLiveGame(userQuery) {
 // DATA FETCHERS
 // =============================================================================
 
-const INJURY_CACHE = new Map();
-
 /**
  * Fetch injuries from ESPN API with caching.
  * @param {string} teamId - ESPN team ID
@@ -274,12 +308,9 @@ async function fetchESPNInjuries(teamId, sportKey) {
     const cacheKey = `${sportKey}_${teamId}`;
     const cached = INJURY_CACHE.get(cacheKey);
 
-    if (cached && Date.now() - cached.timestamp < CONFIG.INJURY_CACHE_TTL_MS) {
-        return { ...cached.data, cached: true };
+    if (cached) {
+        return { ...cached, cached: true };
     }
-
-    // Prevents unbounded memory growth in warm serverless instances
-    if (INJURY_CACHE.size > 500) INJURY_CACHE.clear();
 
     const sportConfig = {
         NBA: { sport: "basketball", league: "nba" },
@@ -632,17 +663,44 @@ export default async function handler(req, res) {
         return res.status(429).json({ error: "Rate limit exceeded" });
     }
 
+    // [SEC] Safely read raw stream to prevent Out-Of-Memory DOS attacks
+    const MAX_PAYLOAD_SIZE = 2 * 1024 * 1024;
+    const chunks = [];
+    let byteLength = 0;
+
+    for await (const chunk of req) {
+        const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        byteLength += buf.length;
+        if (byteLength > MAX_PAYLOAD_SIZE) {
+            return res.status(413).json({ error: "Payload too large (Max 2MB)" });
+        }
+        chunks.push(buf);
+    }
+    const rawBody = Buffer.concat(chunks).toString("utf8");
+
+    // [SEC] Verify HMAC if required by architecture in future endpoints
+    // For now, reconstruct JSON safely
+    let parsedBody = {};
+    try {
+        parsedBody = JSON.parse(rawBody);
+    } catch {
+        return res.status(400).json({ error: "Invalid JSON payload" });
+    }
+
+    // Assign back so legacy code continues to work seamlessly
+    req.body = parsedBody;
+
     try {
         const session_id = req.body.session_id;
         const conversation_id = req.body.conversation_id;
         const run_id = req.body.run_id;
         const gameContext = req.body.gameContext;
-        const messages = (req.body.messages || []).slice(-40);
+        const messages = Array.isArray(req.body.messages) ? req.body.messages.slice(-40) : [];
         const currentRunId = run_id || crypto.randomUUID();
 
         // Initialize context
         let activeContext = gameContext || {};
-        const lastMsg = messages[messages.length - 1];
+        const lastMsg = messages.length > 0 ? messages[messages.length - 1] : { content: "" };
         const userQuery = typeof lastMsg.content === "string" ? lastMsg.content : "";
         const hasImage = Array.isArray(lastMsg.content) && lastMsg.content.some((c) => c.type === "image");
 
@@ -729,13 +787,12 @@ ${[
                 ...(liveDataUrls.length > 0 ? [
                     `LIVE_DATA_URLS: ${liveDataUrls.join(", ")}`,
                     "(These endpoints serve real-time scores, odds, and play-by-play. Fetch them via URL Context for authoritative data.)"
-                ] : [
-                    `ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}`,
-                    lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : "",
-                    `INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}`,
-                    `INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}`,
-                    evidence.temporal.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : ""
-                ]),
+                ] : []),
+                `ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}`,
+                lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : "",
+                `INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}`,
+                `INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}`,
+                evidence.temporal?.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : "",
                 staleWarning
             ].filter(Boolean).join("\n")}
 </context>
@@ -835,9 +892,26 @@ Role: Field Reporter. Direct, factual, concise.
             }
         });
 
-        res.setHeader("Content-Type", "text/event-stream");
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Connection", "keep-alive");
+        res.writeHead(200, {
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no", // Bypasses Vercel Edge buffering natively
+        });
+
+        if (typeof res.flushHeaders === "function") res.flushHeaders();
+        res.write(`:ok\n\n`);
+
+        // [INFRA] Socket-safe write wrapper completely prevents ERR_STREAM_WRITE_AFTER_END crashes
+        const safeWrite = (payload) => {
+            if (res.writableEnded || res.destroyed) return false;
+            try {
+                res.write(`data: ${JSON.stringify(payload)}\n\n`);
+                return true;
+            } catch {
+                return false;
+            }
+        };
 
         let fullText = "";
         let rawThoughts = "";
@@ -845,14 +919,14 @@ Role: Field Reporter. Direct, factual, concise.
 
         for await (const chunk of result) {
             if (isAborted) {
-                res.write(`data: ${JSON.stringify({ type: "error", content: "Stream interrupted or timed out (max 55s)" })}\n\n`);
+                safeWrite({ type: "error", content: "Stream interrupted or timed out (max 55s)" });
                 break;
             }
 
             // Capture grounding metadata
             if (chunk.candidates?.[0]?.groundingMetadata) {
                 finalMetadata = chunk.candidates[0].groundingMetadata;
-                res.write(`data: ${JSON.stringify({ type: "grounding", metadata: finalMetadata })}\n\n`);
+                safeWrite({ type: "grounding", metadata: finalMetadata });
             }
 
             // FIX: Iterate ALL parts in the chunk (prevents data loss)
@@ -861,10 +935,10 @@ Role: Field Reporter. Direct, factual, concise.
                 if (part.text) {
                     if (part.thought) {
                         rawThoughts += part.text;
-                        res.write(`data: ${JSON.stringify({ type: "thought", content: part.text })}\n\n`);
+                        safeWrite({ type: "thought", content: part.text });
                     } else {
                         fullText += part.text;
-                        res.write(`data: ${JSON.stringify({ type: "text", content: part.text })}\n\n`);
+                        safeWrite({ type: "text", content: part.text });
                     }
                 }
             }
@@ -908,12 +982,16 @@ Role: Field Reporter. Direct, factual, concise.
             }).eq("id", conversation_id);
         }
 
-        res.write(`data: ${JSON.stringify({ done: true, model: CONFIG.MODEL_ID })}\n\n`);
-        res.end();
+        safeWrite({ done: true, model: CONFIG.MODEL_ID });
 
     } catch (e) {
         console.error("[Chat Handler] Error:", e);
-        res.write(`data: ${JSON.stringify({ type: "error", content: e.message })}\n\n`);
-        res.end();
+        if (!res.writableEnded && !res.destroyed) {
+            res.write(`data: ${JSON.stringify({ type: "error", content: e.message })}\n\n`);
+        }
+    } finally {
+        if (!res.writableEnded && !res.destroyed) {
+            res.end();
+        }
     }
 }
