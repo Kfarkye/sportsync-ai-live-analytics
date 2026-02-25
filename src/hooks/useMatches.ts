@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { formatLocalDate, safeParseDate } from '../utils/dateUtils';
 import { fetchAllMatches } from '../services/espnService'; // Fallback
@@ -66,6 +66,7 @@ export const useMatches = (selectedDate: Date | string) => {
     },
     refetchOnMount: true,
     retry: 1,
+    placeholderData: keepPreviousData,
   });
 
   return matches;

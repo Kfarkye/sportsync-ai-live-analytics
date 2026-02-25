@@ -70,11 +70,11 @@ const AppShell: FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); toggleCmdk(); }
-      if (e.key === 'Escape') { selectedMatch ? setSelectedMatch(null) : closeAllOverlays(); }
+      if (e.key === 'Escape') { if (selectedMatch) setSelectedMatch(null); }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [toggleCmdk, selectedMatch, setSelectedMatch, closeAllOverlays]);
+  }, [toggleCmdk, selectedMatch, setSelectedMatch]);
 
   if (showLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
 

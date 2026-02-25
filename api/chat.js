@@ -659,8 +659,6 @@ export default async function handler(req, res) {
             isLive = true;
         }
 
-        isLive = isLive || (activeContext?.status || "").toUpperCase().includes("IN_PROGRESS");
-
         if (evidence.liveState) {
             activeContext = {
                 ...activeContext,
@@ -668,6 +666,9 @@ export default async function handler(req, res) {
                 current_odds: evidence.liveState.odds
             };
         }
+
+        const validLiveStatuses = ["IN_PROGRESS", "LIVE", "HALFTIME", "END_PERIOD"];
+        isLive = isLive || validLiveStatuses.some(st => (activeContext?.status || "").toUpperCase().includes(st));
 
         // Determine market phase
         const marketPhase = getMarketPhase(activeContext);
