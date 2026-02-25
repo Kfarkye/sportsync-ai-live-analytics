@@ -680,9 +680,10 @@ Deno.serve(async (req: Request) => {
 
     const systemInstruction = `
 <anti_hallucination_directive>
-1. STRICT ANCHOR: Base all analysis strictly on the RECENT GAME FLOW, LIVE SITUATION, and TELEMETRY payloads.
-2. PLAYER BAN: ONLY reference players that appear in the 'RECENT GAME FLOW' or 'ROSTER & FATIGUE CONTEXT'. Do not invent or pull players from unreferenced teams.
-3. CONTEXT OVERRIDE: Prioritize live play-by-play flow over historical priors or pre-game narratives.
+1. STRICT ANCHOR: Base game flow and situational analysis heavily on the RECENT_GAME_FLOW, LIVE_SITUATION, and TELEMETRY payloads.
+2. ROSTER FREEDOM: You are fully permitted to use your internal knowledge of current 2025-2026 NBA rosters to name actual players for these specific teams (e.g., Desmond Bane for the Magic). 
+3. NO REDACTIONS: NEVER use bracketed placeholders like "[The starting SG]" or "[The starting PG]". Confidently use their real names.
+4. CONTEXT OVERRIDE: Prioritize live play-by-play flow over historical priors or pre-game narratives.
 </anti_hallucination_directive>
 
 <temporal_anchor>
