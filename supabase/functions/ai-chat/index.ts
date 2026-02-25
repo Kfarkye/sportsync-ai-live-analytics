@@ -679,11 +679,35 @@ Deno.serve(async (req: Request) => {
     ` : '';
 
     const systemInstruction = `
+<anti_hallucination_directive>
+1. STRICT ANCHOR: Base all analysis strictly on the RECENT GAME FLOW, LIVE SITUATION, and TELEMETRY payloads.
+2. PLAYER BAN: ONLY reference players that appear in the 'RECENT GAME FLOW' or 'ROSTER & FATIGUE CONTEXT'. Do not invent or pull players from unreferenced teams.
+3. CONTEXT OVERRIDE: Prioritize live play-by-play flow over historical priors or pre-game narratives.
+</anti_hallucination_directive>
+
 <temporal_anchor>
 TODAY: ${getETDate()} (${new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/New_York' })})
 CURRENT TIME: ${estTime} ET
 CRITICAL: All "tomorrow" references mean ${getETDate(1)}. All "yesterday" references mean ${getETDate(-1)}.
 </temporal_anchor>
+
+<RECENT_GAME_FLOW>
+${telemetry?.state?.recent_plays ? JSON.stringify(telemetry.state.recent_plays, null, 2) : 'No recent plays available.'}
+</RECENT_GAME_FLOW>
+
+<LIVE_SITUATION>
+${telemetry?.state?.situation ? JSON.stringify(telemetry.state.situation, null, 2) : 'No live situation data available.'}
+</LIVE_SITUATION>
+
+<TELEMETRY>
+${JSON.stringify({
+      stats: telemetry?.state?.stats || null,
+      player_stats: telemetry?.state?.player_stats || null,
+      momentum: telemetry?.state?.momentum || null,
+      advanced_metrics: telemetry?.state?.advanced_metrics || null,
+      current_drive: telemetry?.state?.current_drive || null
+    }, null, 2)}
+</TELEMETRY>
 
 <search_directive>
 REQUIRED: Conduct TWO separate searches for every game:
@@ -787,6 +811,12 @@ SCHEDULED: ${current_match?.start_time ? new Date(current_match.start_time).toLo
 Apply the full analytical framework. If the edge isn't structural, PASS.
 </task>
     `;
+
+    // INVARIANT: Prevent context starvation hallucination loop
+    if (!systemInstruction.includes('<anti_hallucination_directive>')) {
+      logger.error("INVARIANT_VIOLATION: AI prompt missing hallucination safeguards", { requestId, file: "ai-chat/index.ts" });
+      throw new Error("Context Starvation Warning: Cannot execute AI analysis without strict telemetry anchoring safeguards.");
+    }
 
     const chatHistory = messages
       .slice(0, -1)
