@@ -709,10 +709,19 @@ export default async function handler(req, res) {
         // --- PARALLEL: LIVE SENTINEL + EVIDENCE PACKET ---
         // Fire both concurrently — evidence uses team IDs from gameContext
         // (already available), live scan discovers score/clock independently.
-        const [liveScan, evidence] = await Promise.all([
-            scanForLiveGame(userQuery),
-            buildEvidencePacket(activeContext)
-        ]);
+        // Armored: if either fetch fails, the AI stream proceeds with partial context.
+        let liveScan = { ok: false };
+        let evidence = { injuries: { home: [], away: [] }, liveState: null, temporal: { t60: null, t0: null }, lineMovement: null };
+
+        try {
+            [liveScan, evidence] = await Promise.all([
+                scanForLiveGame(userQuery),
+                buildEvidencePacket(activeContext)
+            ]);
+        } catch (middleLogicError) {
+            console.warn("[WARN] Middle logic failed (data fetch error):", middleLogicError.message);
+            // DO NOT THROW — let the AI stream proceed with whatever context is available
+        }
 
         let isLive = false;
 
@@ -985,9 +994,26 @@ Role: Field Reporter. Direct, factual, concise.
         safeWrite({ done: true, model: CONFIG.MODEL_ID });
 
     } catch (e) {
-        console.error("[Chat Handler] Error:", e);
+        console.error("🔥 Fatal Handler Error:", e);
+
         if (!res.writableEnded && !res.destroyed) {
-            res.write(`data: ${JSON.stringify({ type: "error", content: e.message })}\n\n`);
+            // 🚨 THE FIX: If the code crashed BEFORE the stream headers were sent, we MUST 
+            // force the headers to be an SSE stream. Otherwise, the frontend silently dies
+            // because it's expecting text/event-stream but gets a 500 JSON it can't parse.
+            if (!res.headersSent) {
+                res.writeHead(200, {
+                    "Content-Type": "text/event-stream; charset=utf-8",
+                    "Cache-Control": "no-cache, no-transform",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no"
+                });
+                if (typeof res.flushHeaders === "function") res.flushHeaders();
+                res.write(`:ok\n\n`);
+            }
+
+            // Send a friendly error physically into the chat window so the user isn't stuck
+            const errorMessage = e.message || "An unexpected error occurred. Please try again.";
+            res.write(`data: ${JSON.stringify({ type: "error", content: errorMessage })}\n\n`);
         }
     } finally {
         if (!res.writableEnded && !res.destroyed) {
