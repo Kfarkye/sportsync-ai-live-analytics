@@ -64,7 +64,7 @@ const normalizeHex = (value?: string) => {
 const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () => void; isLive: boolean }) => {
     const homeColor = normalizeHex(match.homeTeam.color);
     const awayColor = normalizeHex(match.awayTeam.color);
-    const bgGradient = `linear-gradient(135deg, ${awayColor}12 0%, var(--surface-base) 50%, ${homeColor}12 100%)`;
+    const bgGradient = `linear-gradient(135deg, ${awayColor}0A 0%, var(--surface-card) 45%, ${homeColor}0A 100%)`;
     const isTennis = match.sport === Sport.TENNIS;
     const scheduledTime = new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     const heroLabel = `${match.awayTeam.name} vs ${match.homeTeam.name}`;
@@ -86,11 +86,11 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
                     onClick();
                 }
             }}
-            className="relative h-[160px] rounded-2xl border border-edge-subtle overflow-hidden cursor-pointer group transition-all duration-500 hover:border-edge hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-ghost focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
+            className="relative h-[160px] rounded-2xl border border-edge-subtle overflow-hidden cursor-pointer group transition-all duration-300 hover:border-edge focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-ghost focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base shadow-sm"
             style={{ background: 'var(--surface-card)' }}
         >
             {/* Dynamic Background */}
-            <div className="absolute inset-0 opacity-60 transition-opacity duration-500 group-hover:opacity-80" style={{ background: bgGradient }} />
+            <div className="absolute inset-0 opacity-40 transition-opacity duration-300 group-hover:opacity-60" style={{ background: bgGradient }} />
             <div className="absolute inset-0 bg-overlay-ghost" />
 
             <div className="relative z-10 h-full flex flex-col justify-between p-5">
@@ -98,13 +98,13 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         {isLive && (
-                            <div className="px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/30 flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                                <span className="text-label font-bold text-red-500 uppercase tracking-widest">Live</span>
+                            <div className="px-2 py-0.5 rounded-full bg-rose-50 border border-rose-100 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />
+                                <span className="text-label font-bold text-rose-600 uppercase tracking-widest">Live</span>
                             </div>
                         )}
                         {!isLive && (
-                            <div className="px-2 py-0.5 rounded-full bg-overlay-subtle border border-edge-subtle">
+                            <div className="px-2 py-0.5 rounded-full bg-surface-subtle border border-edge-subtle">
                                 <span className="text-label font-bold text-ink-tertiary uppercase tracking-widest">
                                     {scheduledTime}
                                 </span>
@@ -117,7 +117,7 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
                             </div>
                         )}
                     </div>
-                    <span className="text-caption font-bold text-ink-ghost uppercase tracking-widest">
+                    <span className="text-caption font-bold text-ink-tertiary uppercase tracking-widest">
                         {match.leagueId}
                     </span>
                 </div>
@@ -170,7 +170,7 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
 
                 {/* Bottom Row: Context */}
                 <div className="flex items-center justify-center">
-                    <span className="text-caption font-bold text-ink-ghost uppercase tracking-widest truncate max-w-[200px]">
+                    <span className="text-caption font-bold text-ink-tertiary uppercase tracking-widest truncate max-w-[200px]">
                         {isLive
                             ? (isTennis && roundStr ? roundStr : getPeriodDisplay(match))
                             : 'Headline Event'
@@ -272,7 +272,7 @@ const MatchList: React.FC<MatchListProps> = ({
     }
 
     return (
-        <div className="min-h-screen bg-transparent pb-32">
+        <div className="min-h-screen bg-transparent pb-32" data-theme="light">
             <LayoutGroup>
                 <div className="max-w-7xl mx-auto px-0 lg:px-6 w-full">
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-12 items-start">
@@ -393,7 +393,7 @@ const MatchList: React.FC<MatchListProps> = ({
                             )}
 
                             {/* Promo Widget */}
-                            <div className="p-8 rounded-2xl bg-surface-card border border-edge-subtle relative overflow-hidden group">
+                            <div className="p-8 rounded-2xl bg-surface-card border border-edge-subtle shadow-sm relative overflow-hidden group">
                                 <h3 className="text-footnote font-bold text-brand-primary uppercase tracking-widest mb-3">
                                     Pro Access
                                 </h3>

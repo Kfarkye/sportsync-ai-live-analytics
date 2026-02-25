@@ -94,14 +94,10 @@ const MatchRow: React.FC<MatchRowProps> = ({
       className={cn(
         "group relative flex items-center justify-between px-3 py-4 md:px-5 md:py-5 cursor-pointer transform-gpu",
         "focus-visible:ring-2 focus-visible:ring-ink-ghost focus-visible:outline-none focus-visible:ring-inset",
-        // Obsidian Weissach — card surface lifted from void
-        "bg-surface-card",
-        "transition-all duration-300",
-
-        // AUDIT FIX: Restored Premium Gradient Divider (replaces flat border)
-        "after:content-[''] after:absolute after:left-5 after:right-5 after:bottom-0 after:h-px after:scale-y-[0.5] after:origin-bottom",
-        "after:bg-gradient-to-r after:from-transparent after:via-edge after:to-transparent",
-        "last:after:hidden"
+        // Editorial surface: crisp borders, no foggy shadows
+        "bg-surface-card border-b border-edge-subtle",
+        "transition-all duration-300 hover:bg-overlay-subtle",
+        "last:border-b-0"
       )}
     >
       {/* Active Laser Line (Left Edge) */}
@@ -114,7 +110,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
       )} />
 
       {/* Team Data Core */}
-      <div className="flex flex-col gap-3 flex-1 min-w-0 pr-6">
+      <div className="flex flex-col gap-3 flex-1 min-w-0 pr-4 lg:max-w-[520px]">
         {[match.awayTeam, match.homeTeam].map((team, idx) => {
           const isHome = idx === 1;
           const score = isHome ? match.homeScore : match.awayScore;
@@ -152,7 +148,9 @@ const MatchRow: React.FC<MatchRowProps> = ({
                 {/* Team Name (VISIBILITY FIX: Bright White Default) */}
                 <span className={cn(
                   "text-body-lg tracking-tight truncate transition-colors duration-300 select-none",
-                  isLoser ? "text-ink-tertiary font-medium" : "text-ink-primary font-semibold"
+                  isFinal
+                    ? (isWinner ? "text-ink-primary font-bold" : isLoser ? "text-ink-tertiary font-medium" : "text-ink-primary font-semibold")
+                    : "text-ink-primary font-semibold"
                 )}>
                   {team.name}
                 </span>
@@ -166,7 +164,9 @@ const MatchRow: React.FC<MatchRowProps> = ({
                   ) : (
                     <span className={cn(
                       "font-mono text-[16px] tabular-nums leading-none tracking-tight transition-colors duration-300",
-                      isLoser ? "text-ink-tertiary font-medium" : "text-ink-primary font-bold"
+                      isFinal
+                        ? (isLoser ? "text-ink-tertiary font-medium" : "text-ink-primary font-bold")
+                        : "text-ink-primary font-semibold"
                     )}>
                       {score ?? '-'}
                     </span>
@@ -179,15 +179,15 @@ const MatchRow: React.FC<MatchRowProps> = ({
       </div>
 
       {/* Status Metadata (Instrument Panel) */}
-      <div className="flex flex-col items-end gap-1 pl-6 min-w-[80px] border-l border-edge py-1 select-none">
+      <div className="flex flex-col items-end gap-1 pl-4 min-w-[72px] border-l border-edge-subtle py-1 select-none">
         {isLive ? (
           <>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 border border-rose-100">
               <span className="relative flex h-1.5 w-1.5">
-                <span className="motion-reduce:hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
+                <span className="motion-reduce:hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-600 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-600"></span>
               </span>
-              <span className="text-label font-bold text-rose-400 uppercase tracking-widest font-mono animate-pulse">
+              <span className="text-label font-bold text-rose-600 uppercase tracking-widest font-mono">
                 {match.sport === Sport.BASEBALL ? 'LIVE' : (match.displayClock || 'LIVE')}
               </span>
             </div>
