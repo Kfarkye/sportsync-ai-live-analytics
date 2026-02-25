@@ -123,6 +123,134 @@ const detectGameMoment = (period: number, clock: string, status: string, sport: 
   return 'HALFTIME';
 };
 
+const parseAmericanOdds = (val: unknown): number | null => {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'number' && Number.isFinite(val)) return val;
+  const raw = String(val).trim();
+  if (!raw) return null;
+  const upper = raw.toUpperCase();
+  if (upper === 'EVEN' || upper === 'EV') return 100;
+  const cleaned = raw.replace(/[^0-9+-.]/g, '');
+  if (!cleaned) return null;
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : null;
+};
+
+const parseSpreadValue = (val: unknown): number | null => {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'number' && Number.isFinite(val)) return val;
+  const raw = String(val).trim();
+  if (!raw) return null;
+  if (/pk|pick/i.test(raw)) return 0;
+  const match = raw.match(/[-+]?\d+(\.\d+)?/);
+  if (!match) return null;
+  const num = Number(match[0]);
+  return Number.isFinite(num) ? num : null;
+};
+
+const parseOddsFromESPN = (odds: any): {
+  home_ml: number | null;
+  away_ml: number | null;
+  home_spread: number | null;
+  away_spread: number | null;
+} => {
+  const home_ml = parseAmericanOdds(
+    odds?.homeTeamOdds?.moneyLine ??
+    odds?.home_ml ??
+    odds?.homeML ??
+    odds?.homeMoneyline ??
+    odds?.moneyline?.home?.current?.odds ??
+    odds?.moneyline?.home?.open?.odds
+  );
+  const away_ml = parseAmericanOdds(
+    odds?.awayTeamOdds?.moneyLine ??
+    odds?.away_ml ??
+    odds?.awayML ??
+    odds?.awayMoneyline ??
+    odds?.moneyline?.away?.current?.odds ??
+    odds?.moneyline?.away?.open?.odds
+  );
+
+  const spreadRaw = parseSpreadValue(odds?.details ?? odds?.spread ?? odds?.line);
+  let home_spread: number | null = null;
+  let away_spread: number | null = null;
+
+  if (spreadRaw !== null && home_ml !== null && away_ml !== null) {
+    const favorite = home_ml < away_ml ? 'home' : home_ml > away_ml ? 'away' : null;
+    const absSpread = Math.abs(spreadRaw);
+    if (favorite === 'home') {
+      home_spread = -absSpread;
+      away_spread = absSpread;
+    } else if (favorite === 'away') {
+      away_spread = -absSpread;
+      home_spread = absSpread;
+    }
+  }
+
+  return { home_ml, away_ml, home_spread, away_spread };
+};
+
+const formatSpread = (val: number | null | undefined): string => {
+  if (val === null || val === undefined || !Number.isFinite(val)) return 'N/A';
+  if (val === 0) return 'PK';
+  return val > 0 ? `+${val}` : `${val}`;
+};
+
+const formatMoneyline = (val: number | null | undefined): string => {
+  if (val === null || val === undefined || !Number.isFinite(val)) return 'N/A';
+  return val > 0 ? `+${val}` : `${val}`;
+};
+
+const buildPrompt = (p: {
+  home_team: string;
+  away_team: string;
+  away_score: number;
+  home_score: number;
+  clock: string;
+  period: number;
+  market_total: number;
+  fair_total: number;
+  edge: number;
+  recommendedSide: string;
+  moment: AnalysisMoment;
+  momentConfig: { focus: string; tone: string };
+  home_spread: number | null;
+  away_spread: number | null;
+  home_ml: number | null;
+  away_ml: number | null;
+}): string => {
+  const spreadLine = (p.home_spread !== null && p.away_spread !== null)
+    ? `${p.home_team} ${formatSpread(p.home_spread)} / ${p.away_team} ${formatSpread(p.away_spread)}`
+    : 'N/A';
+  const moneylineLine = (p.home_ml !== null || p.away_ml !== null)
+    ? `${p.home_team} ${formatMoneyline(p.home_ml)} / ${p.away_team} ${formatMoneyline(p.away_ml)}`
+    : 'N/A';
+
+  return `
+    ### MATCH: ${p.away_team} @ ${p.home_team}
+    ### LIVE GAME STATE
+    - ${p.away_team}: ${p.away_score} goals/points
+    - ${p.home_team}: ${p.home_score} goals/points
+    - Clock: ${p.clock} | Period: ${p.period}
+    - Spread: ${spreadLine}
+    - Moneyline: ${moneylineLine}
+    - Betting Line (Total): ${p.market_total}
+    - Our Projected Final Total: ${p.fair_total}
+    - Difference: ${Math.abs(p.edge).toFixed(1)} points ${p.edge > 0 ? 'OVER' : 'UNDER'} the line
+    
+    ### ANALYSIS TYPE: ${p.moment.replace('_', ' ')}
+    ${p.momentConfig.focus}
+    
+    ### TONE
+    ${p.momentConfig.tone}
+    
+    ### OUTPUT GUIDANCE
+    - If ${p.recommendedSide} looks good, explain why in game-flow terms
+    - Focus on what's actually happening on the court/pitch
+    - Write like a halftime analyst, not a Wall Street trader
+    `;
+};
+
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
@@ -163,27 +291,22 @@ Deno.serve(async (req: Request) => {
     console.log(`[${requestId}] 📈 [EDGE-CALC] Delta: ${edge.toFixed(2)} pts | Direction: ${recommendedSide}`);
     console.log(`[${requestId}] 🎯 [MOMENT] Detected: ${moment} (Period: ${period}, Clock: ${clock})`);
 
-    const prompt = `
-    ### MATCH: ${snapshot?.away_team || 'Away'} @ ${snapshot?.home_team || 'Home'}
-    ### LIVE GAME STATE
-    - ${snapshot?.away_team || 'Away'}: ${snapshot?.away_score ?? 0} goals/points
-    - ${snapshot?.home_team || 'Home'}: ${snapshot?.home_score ?? 0} goals/points
-    - Clock: ${clock} | Period: ${period}
-    - Betting Line (Total): ${marketTotal}
-    - Our Projected Final Total: ${fairTotal}
-    - Difference: ${Math.abs(edge).toFixed(1)} points ${edge > 0 ? 'OVER' : 'UNDER'} the line
-    
-    ### ANALYSIS TYPE: ${moment.replace('_', ' ')}
-    ${momentConfig.focus}
-    
-    ### TONE
-    ${momentConfig.tone}
-    
-    ### OUTPUT GUIDANCE
-    - If ${recommendedSide} looks good, explain why in game-flow terms
-    - Focus on what's actually happening on the court/pitch
-    - Write like a halftime analyst, not a Wall Street trader
-    `;
+    const odds = parseOddsFromESPN(snapshot?.odds ?? snapshot);
+    const prompt = buildPrompt({
+      home_team: snapshot?.home_team || 'Home',
+      away_team: snapshot?.away_team || 'Away',
+      away_score: snapshot?.away_score ?? 0,
+      home_score: snapshot?.home_score ?? 0,
+      clock,
+      period,
+      market_total: marketTotal,
+      fair_total: fairTotal,
+      edge,
+      recommendedSide,
+      moment,
+      momentConfig,
+      ...odds
+    });
 
 
     console.log(`[${requestId}] 🧠 [GEMINI-START] Invoking Tactical Auditor with thinkingLevel: high...`);
