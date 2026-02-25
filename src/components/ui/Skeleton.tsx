@@ -44,14 +44,14 @@ const radiusMap = {
 export const Skeleton = memo(({ className, width, height, rounded = 'md' }: SkeletonProps) => (
   <div
     className={cn(
-      'bg-white/[0.04]',
+      'bg-overlay-muted',
       radiusMap[rounded],
       className,
     )}
     style={{
       width: typeof width === 'number' ? `${width}px` : width,
       height: typeof height === 'number' ? `${height}px` : height,
-      backgroundImage: 'linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.04) 50%, transparent 75%)',
+      backgroundImage: 'linear-gradient(90deg, transparent 25%, var(--overlay-muted) 50%, transparent 75%)',
       backgroundSize: '200% 100%',
       backgroundAttachment: 'fixed',
       animation: 'obsidian-shimmer 2s ease-in-out infinite',
@@ -64,7 +64,7 @@ Skeleton.displayName = 'Skeleton';
 // --- MatchRow Skeleton (mimics real MatchRow layout) ---
 export const MatchRowSkeleton = memo(({ index = 0 }: { index?: number }) => (
   <div
-    className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.04]"
+    className="flex items-center gap-3 px-4 py-3.5 border-b border-edge-subtle"
     style={{ animationDelay: `${index * 80}ms` }}
   >
     {/* Status chip */}

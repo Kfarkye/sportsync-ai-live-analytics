@@ -27,7 +27,7 @@ const PHYSICS_MOTION = { type: "spring", stiffness: 400, damping: 25 };
 // "Digital Readout" for Tennis Sets
 // Mimics high-end scoreboard LCDs with sub-script tiebreak indicators
 const TennisSetScores: React.FC<{ linescores?: Linescore[] }> = ({ linescores }) => {
-  if (!linescores || linescores.length === 0) return <span className="text-footnote text-zinc-600 font-mono tracking-widest">-</span>;
+  if (!linescores || linescores.length === 0) return <span className="text-footnote text-ink-muted font-mono tracking-widest">-</span>;
 
   return (
     <div className="flex items-center gap-[6px] font-mono text-footnote tabular-nums leading-none">
@@ -37,13 +37,13 @@ const TennisSetScores: React.FC<{ linescores?: Linescore[] }> = ({ linescores })
           className={cn(
             "relative flex items-center justify-center w-5 h-5 rounded-[2px] transition-colors duration-300 select-none",
             ls.winner
-              ? "bg-overlay-strong text-white font-bold border border-white/10 shadow-[0_0_8px_rgba(255,255,255,0.05)]"
-              : "text-zinc-500 bg-transparent"
+              ? "bg-overlay-emphasis text-ink-primary font-bold border border-edge-subtle shadow-[0_0_8px_rgba(255,255,255,0.05)]"
+              : "text-ink-tertiary bg-transparent"
           )}
         >
           {ls.value ?? '-'}
           {ls.tiebreak && (
-            <span className="absolute -top-[3px] -right-[4px] text-nano font-medium text-zinc-400 scale-75 origin-top-right">
+            <span className="absolute -top-[3px] -right-[4px] text-nano font-medium text-ink-tertiary scale-75 origin-top-right">
               {ls.tiebreak}
             </span>
           )}
@@ -83,8 +83,8 @@ const MatchRow: React.FC<MatchRowProps> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       // AUDIT FIX: Added scale for "lift" effect, with zIndex to prevent clipping
-      whileHover={{ scale: 1.005, backgroundColor: "rgba(255,255,255,0.05)", zIndex: 10 }}
-      whileTap={{ scale: 0.995, backgroundColor: "rgba(255,255,255,0.08)" }}
+      whileHover={{ scale: 1.005, backgroundColor: "var(--overlay-subtle)", zIndex: 10 }}
+      whileTap={{ scale: 0.995, backgroundColor: "var(--overlay-emphasis)" }}
       transition={PHYSICS_MOTION}
       onClick={() => onSelect(match)}
       role="button"
@@ -93,14 +93,14 @@ const MatchRow: React.FC<MatchRowProps> = ({
       onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(match); } }}
       className={cn(
         "group relative flex items-center justify-between px-3 py-4 md:px-5 md:py-5 cursor-pointer transform-gpu",
-        "focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:outline-none focus-visible:ring-inset",
+        "focus-visible:ring-2 focus-visible:ring-ink-ghost focus-visible:outline-none focus-visible:ring-inset",
         // Obsidian Weissach — card surface lifted from void
-        "bg-surface-elevated/50",
+        "bg-surface-card",
         "transition-all duration-300",
 
         // AUDIT FIX: Restored Premium Gradient Divider (replaces flat border)
         "after:content-[''] after:absolute after:left-5 after:right-5 after:bottom-0 after:h-px after:scale-y-[0.5] after:origin-bottom",
-        "after:bg-gradient-to-r after:from-transparent after:via-white/10 after:to-transparent",
+        "after:bg-gradient-to-r after:from-transparent after:via-edge after:to-transparent",
         "last:after:hidden"
       )}
     >
@@ -110,7 +110,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
         "absolute left-0 top-0 bottom-0 w-[3px] transition-all duration-300 ease-out z-10",
         isPinned
           ? "bg-amber-400 opacity-100 shadow-[0_0_15px_rgba(251,191,36,0.3)]"
-          : "bg-white scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+          : "bg-ink-primary scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
       )} />
 
       {/* Team Data Core */}
@@ -152,7 +152,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
                 {/* Team Name (VISIBILITY FIX: Bright White Default) */}
                 <span className={cn(
                   "text-body-lg tracking-tight truncate transition-colors duration-300 select-none",
-                  isLoser ? "text-zinc-500 font-medium" : "text-white font-semibold"
+                  isLoser ? "text-ink-tertiary font-medium" : "text-ink-primary font-semibold"
                 )}>
                   {team.name}
                 </span>
@@ -166,7 +166,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
                   ) : (
                     <span className={cn(
                       "font-mono text-[16px] tabular-nums leading-none tracking-tight transition-colors duration-300",
-                      isLoser ? "text-zinc-500 font-medium" : "text-white font-bold"
+                      isLoser ? "text-ink-tertiary font-medium" : "text-ink-primary font-bold"
                     )}>
                       {score ?? '-'}
                     </span>
@@ -191,25 +191,25 @@ const MatchRow: React.FC<MatchRowProps> = ({
                 {match.sport === Sport.BASEBALL ? 'LIVE' : (match.displayClock || 'LIVE')}
               </span>
             </div>
-            <span className="text-label font-bold text-zinc-500 uppercase tracking-expanded mt-0.5 whitespace-nowrap">
+            <span className="text-label font-bold text-ink-tertiary uppercase tracking-expanded mt-0.5 whitespace-nowrap">
               {isTennis && roundStr ? roundStr : getPeriodDisplay(match)}
             </span>
           </>
         ) : isFinal ? (
-          <span className="text-caption font-bold text-zinc-500 uppercase tracking-widest">FINAL</span>
+          <span className="text-caption font-bold text-ink-tertiary uppercase tracking-widest">FINAL</span>
         ) : (
           <>
             {/* Start Time: High Contrast (zinc-200) */}
-            <span className="text-body-sm font-mono font-medium text-zinc-200 tabular-nums tracking-wide group-hover:text-white transition-colors">
+            <span className="text-body-sm font-mono font-medium text-ink-secondary tabular-nums tracking-wide group-hover:text-ink-primary transition-colors">
               {startTimeStr}
             </span>
             {isTennis && roundStr && (
-              <span className="text-label font-medium text-zinc-500 uppercase tracking-wider">
+              <span className="text-label font-medium text-ink-tertiary uppercase tracking-wider">
                 {roundStr}
               </span>
             )}
             {!isTennis && (
-              <span className="text-label font-bold text-zinc-500 uppercase tracking-widest">
+              <span className="text-label font-bold text-ink-tertiary uppercase tracking-widest">
                 START
               </span>
             )}

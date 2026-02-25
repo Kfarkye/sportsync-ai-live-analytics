@@ -109,7 +109,7 @@ const ExtendedDateGrid: FC<{
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
-            className="overflow-hidden border-t border-white/[0.04]"
+            className="overflow-hidden border-t border-edge-subtle"
         >
             <div className="px-4 md:px-6 py-3">
                 <div className="grid grid-cols-7 gap-1">
@@ -129,24 +129,24 @@ const ExtendedDateGrid: FC<{
                                     "flex flex-col items-center py-2 rounded-lg transition-all duration-200",
                                     "active:scale-[0.92]",
                                     isSelected
-                                        ? "bg-white/[0.08] ring-1 ring-white/[0.08]"
-                                        : "hover:bg-white/[0.04]",
+                                        ? "bg-overlay-emphasis ring-1 ring-edge-subtle"
+                                        : "hover:bg-overlay-subtle",
                                 )}
                             >
                                 <span className={cn(
                                     "text-[9px] font-semibold tracking-[0.1em] leading-none mb-1.5",
-                                    isSelected ? "text-white/70" : "text-zinc-600",
+                                    isSelected ? "text-ink-secondary" : "text-ink-muted",
                                 )}>
                                     {day}
                                 </span>
                                 <span className={cn(
                                     "text-[13px] font-semibold leading-none tabular-nums",
-                                    isSelected ? "text-white" : isToday ? "text-zinc-300" : "text-zinc-500",
+                                    isSelected ? "text-ink-primary" : isToday ? "text-ink-secondary" : "text-ink-tertiary",
                                 )}>
                                     {num}
                                 </span>
                                 {isToday && (
-                                    <div className="w-1 h-1 rounded-full bg-white/40 mt-1.5" />
+                                    <div className="w-1 h-1 rounded-full bg-ink-ghost mt-1.5" />
                                 )}
                             </button>
                         );
@@ -224,7 +224,7 @@ export const UnifiedHeader: FC = () => {
     }, [isOnAnchor, safeDate]);
 
     return (
-        <header className="sticky top-0 z-40 w-full bg-black/95 backdrop-blur-2xl border-b border-white/[0.06] print:hidden pt-safe">
+        <header className="sticky top-0 z-40 w-full bg-surface-base backdrop-blur-2xl border-b border-edge print:hidden pt-safe">
             <div className="max-w-7xl mx-auto w-full flex flex-col">
 
                 {/* ── PRIMARY ROW ─────────────────────────────────── */}
@@ -236,21 +236,21 @@ export const UnifiedHeader: FC = () => {
                             aria-haspopup="dialog"
                             aria-expanded={isSportDrawerOpen}
                             aria-label="Change sport"
-                            className="group flex items-center gap-3 active:scale-[0.97] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                            className="group flex items-center gap-3 active:scale-[0.97] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-ghost focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
                         >
-                            <div className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 border border-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] group-hover:bg-white/10 transition-colors text-base relative overflow-hidden">
+                            <div className="w-8 h-8 flex items-center justify-center rounded-xl bg-overlay-subtle border border-edge shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] group-hover:bg-overlay-emphasis transition-colors text-base relative overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent opacity-50" />
                                 <span className="relative z-10">{sportIcon}</span>
                             </div>
                             <div className="flex flex-col items-start leading-none gap-0.5">
                                 <div className="flex items-center gap-1">
-                                    <h1 className="text-[16px] font-semibold tracking-tight text-white/90 group-hover:text-white transition-colors">
+                                    <h1 className="text-[16px] font-semibold tracking-tight text-ink-primary group-hover:text-ink-primary transition-colors">
                                         {sportLabel}
                                     </h1>
-                                    <ChevronDown size={12} className="text-zinc-500 mt-0.5 group-hover:text-zinc-300 transition-colors" />
+                                    <ChevronDown size={12} className="text-ink-tertiary mt-0.5 group-hover:text-ink-secondary transition-colors" />
                                 </div>
                                 {activeView !== 'LIVE' && leagueId.toLowerCase() !== sportLabel.toLowerCase() && (
-                                    <span className="text-label font-black text-zinc-500 uppercase tracking-widest leading-none">
+                                    <span className="text-label font-black text-ink-tertiary uppercase tracking-widest leading-none">
                                         {leagueId}
                                     </span>
                                 )}
@@ -274,7 +274,7 @@ export const UnifiedHeader: FC = () => {
                             type="button"
                             onClick={() => toggleCmdk()}
                             aria-label="Search (Cmd+K)"
-                            className="w-8 h-8 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                            className="w-8 h-8 flex items-center justify-center rounded-full text-ink-tertiary hover:text-ink-secondary hover:bg-overlay-subtle transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-ghost focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
                         >
                             <Search size={16} strokeWidth={2.5} />
                         </button>
@@ -284,9 +284,9 @@ export const UnifiedHeader: FC = () => {
                                 type="button"
                                 onClick={() => toggleAuthModal(true)}
                                 aria-label="Account"
-                                className="relative w-7 h-7 rounded-full bg-zinc-800 border border-white/10 p-0.5 shadow-lg active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                                className="relative w-7 h-7 rounded-full bg-surface-subtle border border-edge-subtle p-0.5 shadow-lg active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-ghost focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
                             >
-                                <div className="w-full h-full rounded-full bg-gradient-to-tr from-zinc-700 to-zinc-900 flex items-center justify-center text-caption font-bold text-zinc-100 uppercase tracking-tighter">
+                                <div className="w-full h-full rounded-full bg-gradient-to-tr from-zinc-700 to-zinc-900 flex items-center justify-center text-caption font-bold text-ink-primary uppercase tracking-tighter">
                                     {user.email?.[0]}
                                 </div>
                             </button>
@@ -295,7 +295,7 @@ export const UnifiedHeader: FC = () => {
                                 type="button"
                                 onClick={() => toggleAuthModal(true)}
                                 aria-label="Sign in"
-                                className="w-7 h-7 rounded-full bg-white/5 border border-white/5 flex items-center justify-center text-zinc-500 hover:text-zinc-300 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                                className="w-7 h-7 rounded-full bg-overlay-subtle border border-edge-subtle flex items-center justify-center text-ink-tertiary hover:text-ink-secondary active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-ghost focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
@@ -307,7 +307,7 @@ export const UnifiedHeader: FC = () => {
                 </div>
 
                 {/* ── SECONDARY ROW ───────────────────────────────── */}
-                <div className="border-t border-white/[0.04]">
+                <div className="border-t border-edge-subtle">
                     <AnimatePresence mode="wait">
                         {activeView === 'FEED' ? (
                             <MotionDiv
@@ -333,13 +333,13 @@ export const UnifiedHeader: FC = () => {
                                                         aria-pressed={option.isCurrent}
                                                         className={cn(
                                                             "relative flex-shrink-0 px-3 py-1.5 rounded-lg text-footnote font-semibold tracking-tight transition-colors duration-200 select-none",
-                                                            option.isCurrent ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                                                            option.isCurrent ? 'text-ink-primary' : 'text-ink-tertiary hover:text-ink-secondary'
                                                         )}
                                                     >
                                                         {option.isCurrent && (
                                                             <MotionSpan
                                                                 layoutId="week-active-pill"
-                                                                className="absolute inset-0 rounded-lg bg-white/[0.08] border border-white/[0.06]"
+                                                                className="absolute inset-0 rounded-lg bg-overlay-emphasis border border-edge"
                                                                 transition={ESSENCE.transition.spring}
                                                             />
                                                         )}
@@ -362,13 +362,13 @@ export const UnifiedHeader: FC = () => {
                                                         aria-pressed={anchor.isActive}
                                                         className={cn(
                                                             "relative px-3.5 py-1.5 rounded-lg text-[13px] font-semibold tracking-[-0.01em] transition-colors duration-200 select-none",
-                                                            anchor.isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300',
+                                                            anchor.isActive ? 'text-ink-primary' : 'text-ink-tertiary hover:text-ink-secondary',
                                                         )}
                                                     >
                                                         {anchor.isActive && (
                                                             <MotionSpan
                                                                 layoutId="date-active-pill"
-                                                                className="absolute inset-0 rounded-lg bg-white/[0.08] border border-white/[0.06]"
+                                                                className="absolute inset-0 rounded-lg bg-overlay-emphasis border border-edge"
                                                                 transition={ESSENCE.transition.spring}
                                                             />
                                                         )}
@@ -385,10 +385,10 @@ export const UnifiedHeader: FC = () => {
                                                     >
                                                         <MotionSpan
                                                             layoutId="date-active-pill"
-                                                            className="absolute inset-0 rounded-lg bg-white/[0.08] border border-white/[0.06]"
+                                                            className="absolute inset-0 rounded-lg bg-overlay-emphasis border border-edge"
                                                             transition={ESSENCE.transition.spring}
                                                         />
-                                                        <span className="relative z-10 text-[13px] font-semibold text-white">
+                                                        <span className="relative z-10 text-[13px] font-semibold text-ink-primary">
                                                             {offAnchorLabel}
                                                         </span>
                                                     </MotionDiv>
@@ -405,8 +405,8 @@ export const UnifiedHeader: FC = () => {
                                             className={cn(
                                                 "w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 active:scale-90",
                                                 calendarOpen
-                                                    ? "bg-white/[0.08] text-white"
-                                                    : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04]",
+                                                    ? "bg-overlay-emphasis text-ink-primary"
+                                                    : "text-ink-tertiary hover:text-ink-secondary hover:bg-overlay-subtle",
                                             )}
                                         >
                                             <Calendar size={15} strokeWidth={2} />
@@ -433,7 +433,7 @@ export const UnifiedHeader: FC = () => {
                                 exit={{ opacity: 0 }}
                                 className="h-11 px-4 md:px-6 flex items-center justify-between gap-4"
                             >
-                                <div className="flex items-center bg-white/5 rounded-lg p-0.5 border border-white/5">
+                                <div className="flex items-center bg-overlay-subtle rounded-lg p-0.5 border border-edge-subtle">
                                     {(['LIVE', 'NEXT', 'ENDED'] as const).map((tab) => {
                                         const labels = { LIVE: 'Live', NEXT: 'Upcoming', ENDED: 'Completed' };
                                         const isActive = liveTab === tab;
@@ -445,7 +445,7 @@ export const UnifiedHeader: FC = () => {
                                                 aria-pressed={isActive}
                                                 className={cn(
                                                     "relative px-3 py-1.5 rounded-md text-footnote font-semibold tracking-tight transition-colors",
-                                                    isActive ? "text-white bg-white/10" : "text-zinc-500 hover:text-zinc-300"
+                                                    isActive ? "text-ink-primary bg-overlay-emphasis" : "text-ink-tertiary hover:text-ink-secondary"
                                                 )}
                                             >
                                                 {labels[tab]}
@@ -456,7 +456,7 @@ export const UnifiedHeader: FC = () => {
 
                                 <div className="flex items-center gap-2">
                                     <div className="relative">
-                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={12} />
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-tertiary pointer-events-none" size={12} />
                                         <input
                                             type="text"
                                             placeholder="Search..."
@@ -464,18 +464,18 @@ export const UnifiedHeader: FC = () => {
                                             spellCheck={false}
                                             value={liveFilter}
                                             onChange={(e) => setLiveFilter(e.target.value)}
-                                            className="w-28 bg-white/5 border border-white/5 rounded-lg py-1.5 pl-7 pr-2 text-footnote text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:bg-white/10 focus:border-white/10 transition-all"
+                                            className="w-28 bg-overlay-subtle border border-edge-subtle rounded-lg py-1.5 pl-7 pr-2 text-footnote text-ink-primary placeholder:text-ink-muted focus:outline-none focus:bg-overlay-emphasis focus:border-edge-subtle transition-all"
                                         />
                                     </div>
 
-                                    <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/5">
+                                    <div className="flex bg-overlay-subtle rounded-lg p-0.5 border border-edge-subtle">
                                         <button
                                             type="button"
                                             onClick={() => setLiveLayout('LIST')}
                                             aria-pressed={liveLayout === 'LIST'}
                                             className={cn(
                                                 "p-1.5 rounded-md transition-colors",
-                                                liveLayout === 'LIST' ? "text-white bg-white/10" : "text-zinc-500 hover:text-zinc-300"
+                                                liveLayout === 'LIST' ? "text-ink-primary bg-overlay-emphasis" : "text-ink-tertiary hover:text-ink-secondary"
                                             )}
                                         >
                                             <List size={14} />
@@ -486,7 +486,7 @@ export const UnifiedHeader: FC = () => {
                                             aria-pressed={liveLayout === 'GRID'}
                                             className={cn(
                                                 "p-1.5 rounded-md transition-colors",
-                                                liveLayout === 'GRID' ? "text-white bg-white/10" : "text-zinc-500 hover:text-zinc-300"
+                                                liveLayout === 'GRID' ? "text-ink-primary bg-overlay-emphasis" : "text-ink-tertiary hover:text-ink-secondary"
                                             )}
                                         >
                                             <Grid3X3 size={14} />

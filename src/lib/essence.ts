@@ -38,21 +38,21 @@ export const ESSENCE = {
   colors: {
     // Surfaces: Dark → Light (6 stops — no more)
     surface: {
-      pure:     '#000000',   // True black — overlays, voids only
-      base:     '#09090b',   // Page background (Zinc 950+)
-      card:     '#0A0A0B',   // Card / panel fill (unified)
-      elevated: '#111113',   // Modals, popovers, raised panels
-      subtle:   '#1A1A1C',   // Hover states, interactive surfaces
-      accent:   '#222224',   // Active states, selected rows
+      pure:     'var(--surface-pure)',     // True black — overlays, voids only
+      base:     'var(--surface-base)',     // Page background (Zinc 950+)
+      card:     'var(--surface-card)',     // Card / panel fill (unified)
+      elevated: 'var(--surface-elevated)', // Modals, popovers, raised panels
+      subtle:   'var(--surface-subtle)',   // Hover states, interactive surfaces
+      accent:   'var(--surface-accent)',   // Active states, selected rows
     },
 
     // Text: Light → Dark (5 stops)
     text: {
-      primary:   '#FAFAFA',  // Zinc 50  — headlines, scores, values
-      secondary: '#A1A1AA',  // Zinc 400 — body, descriptions
-      tertiary:  '#71717A',  // Zinc 500 — captions, timestamps
-      muted:     '#52525B',  // Zinc 600 — disabled, placeholders
-      ghost:     '#3F3F46',  // Zinc 700 — structural hints
+      primary:   'var(--ink-primary)',   // Ink 900/50
+      secondary: 'var(--ink-secondary)', // Ink 700/400
+      tertiary:  'var(--ink-tertiary)',  // Ink 500
+      muted:     'var(--ink-muted)',     // Ink 400/600
+      ghost:     'var(--ink-ghost)',     // Ink 300/700
     },
 
     // Semantic Accents (5 hues + muted variants)
@@ -77,19 +77,19 @@ export const ESSENCE = {
 
     // Borders: 4 opacity tiers (rationalized from 9)
     border: {
-      ghost:    'rgba(255,255,255,0.03)',
-      subtle:   'rgba(255,255,255,0.04)',
-      default:  'rgba(255,255,255,0.06)',
-      strong:   'rgba(255,255,255,0.12)',
+      ghost:    'var(--edge-ghost)',
+      subtle:   'var(--edge-subtle)',
+      default:  'var(--edge-default)',
+      strong:   'var(--edge-strong)',
       innerGlow: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 50%, rgba(255,255,255,0.02) 100%)',
     },
 
     // Background overlays: 4 opacity tiers (rationalized from 10)
     overlay: {
-      ghost:    'rgba(255,255,255,0.01)',
-      subtle:   'rgba(255,255,255,0.02)',
-      muted:    'rgba(255,255,255,0.04)',
-      emphasis: 'rgba(255,255,255,0.06)',
+      ghost:    'var(--overlay-ghost)',
+      subtle:   'var(--overlay-subtle)',
+      muted:    'var(--overlay-muted)',
+      emphasis: 'var(--overlay-emphasis)',
     },
   },
 
@@ -174,11 +174,11 @@ export const ESSENCE = {
     padding:      'p-5',
     radius:       'rounded-3xl',
     gap:          'gap-4',
-    border:       'border border-white/[0.06]',
-    bg:           'bg-[#0A0A0B]',
+    border:       'border border-edge',
+    bg:           'bg-surface-card',
     headerHeight: 'h-[44px]',
     innerGlow:    'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]',
-    base: 'bg-[#0A0A0B] border border-white/[0.06] rounded-3xl p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]',
+    base: 'bg-surface-card border border-edge rounded-3xl p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]',
   },
 
   // ==========================================================================
@@ -309,56 +309,56 @@ export const ESSENCE = {
   // Absorbed from dead design-tokens.ts (TW.*) and density.ts (DENSE.*).
   tw: {
     // --- Section & Card Headers ---
-    sectionLabel:     'text-[12px] font-medium text-zinc-500 uppercase tracking-[0.12em]',
-    cardHeaderLabel:  'text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]',
-    columnHeader:     'text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.15em]',
+    sectionLabel:     'text-[12px] font-medium text-ink-tertiary uppercase tracking-[0.12em]',
+    cardHeaderLabel:  'text-[10px] font-bold text-ink-tertiary uppercase tracking-[0.2em]',
+    columnHeader:     'text-[10px] font-semibold text-ink-tertiary uppercase tracking-[0.15em]',
 
     // --- Data Display ---
-    dataValue:          'text-[15px] font-semibold text-white tabular-nums',
-    dataValueSecondary: 'text-[11px] font-medium text-zinc-500 tabular-nums',
-    teamAbbr:           'text-[12px] font-semibold text-zinc-300 uppercase tracking-[0.08em]',
+    dataValue:          'text-[15px] font-semibold text-ink-primary tabular-nums',
+    dataValueSecondary: 'text-[11px] font-medium text-ink-tertiary tabular-nums',
+    teamAbbr:           'text-[12px] font-semibold text-ink-secondary uppercase tracking-[0.08em]',
     tabular:            'tabular-nums font-mono',
 
     // --- Border shorthands ---
     border: {
-      ghost:   'border border-white/[0.03]',
-      subtle:  'border border-white/[0.04]',
-      default: 'border border-white/[0.06]',
-      strong:  'border border-white/[0.12]',
+      ghost:   'border border-edge-ghost',
+      subtle:  'border border-edge-subtle',
+      default: 'border border-edge',
+      strong:  'border border-edge-strong',
     },
 
     // --- Surface shorthands ---
     surface: {
-      ghost:    'bg-white/[0.01]',
-      subtle:   'bg-white/[0.02]',
-      muted:    'bg-white/[0.04]',
-      emphasis: 'bg-white/[0.06]',
+      ghost:    'bg-overlay-ghost',
+      subtle:   'bg-overlay-subtle',
+      muted:    'bg-overlay-muted',
+      emphasis: 'bg-overlay-emphasis',
     },
 
     // --- Row Patterns ---
-    rowDivider:      'border-b border-white/[0.04]',
-    rowDividerGhost: 'border-b border-white/[0.03]',
-    interactiveRow:  'py-4 hover:bg-white/[0.02] transition-colors duration-200',
+    rowDivider:      'border-b border-edge-subtle',
+    rowDividerGhost: 'border-b border-edge-ghost',
+    interactiveRow:  'py-4 hover:bg-overlay-subtle transition-colors duration-200',
 
     // --- Icon Containers ---
-    iconSm: 'w-8 h-8 rounded-lg bg-white/[0.03] flex items-center justify-center',
-    iconMd: 'w-10 h-10 rounded-lg bg-white/[0.03] flex items-center justify-center',
+    iconSm: 'w-8 h-8 rounded-lg bg-overlay-subtle flex items-center justify-center',
+    iconMd: 'w-10 h-10 rounded-lg bg-overlay-subtle flex items-center justify-center',
 
     // --- Cards (density-aware) ---
-    card:         'rounded-xl border border-white/[0.06] bg-[#0A0A0B] p-3',
-    cardFeatured: 'rounded-2xl border border-white/[0.06] bg-[#0A0A0B] p-4',
-    cardCompact:  'rounded-lg border border-white/[0.06] bg-[#0A0A0B] p-2',
+    card:         'rounded-xl border border-edge bg-surface-card p-3',
+    cardFeatured: 'rounded-2xl border border-edge bg-surface-card p-4',
+    cardCompact:  'rounded-lg border border-edge bg-surface-card p-2',
 
     // --- Tabs ---
-    tabsWrap:    'h-10 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1',
+    tabsWrap:    'h-10 rounded-xl border border-edge bg-overlay-subtle p-1',
     tab:         'h-8 rounded-lg px-3 text-sm font-medium',
-    tabActive:   'bg-white/[0.06] text-white',
-    tabInactive: 'text-white/70 hover:text-white/90',
+    tabActive:   'bg-overlay-emphasis text-ink-primary',
+    tabInactive: 'text-ink-secondary hover:text-ink-primary',
 
     // --- Badges ---
     badge:        'rounded-md px-2 py-1 text-[10px] font-semibold uppercase',
     badgeLive:    'bg-emerald-500/20 text-emerald-400',
-    badgeNeutral: 'bg-white/[0.04] text-zinc-400',
+    badgeNeutral: 'bg-overlay-muted text-ink-tertiary',
 
     // --- Buttons ---
     buttonSm: 'h-8 rounded-lg px-3 text-sm font-medium',
@@ -370,14 +370,14 @@ export const ESSENCE = {
     sectionGap: 'space-y-3',
 
     // --- Dividers ---
-    divider:       'border-t border-white/[0.04]',
-    dividerStrong: 'border-t border-white/[0.06]',
-    hairline:      'h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent',
+    divider:       'border-t border-edge-subtle',
+    dividerStrong: 'border-t border-edge',
+    hairline:      'h-px bg-gradient-to-r from-transparent via-edge to-transparent',
 
     // --- Hero / Header ---
     heroHeader: 'space-y-2 py-3',
     heroScore:  'text-2xl font-bold tabular-nums',
-    heroClock:  'text-sm font-medium text-white/80',
+    heroClock:  'text-sm font-medium text-ink-secondary',
 
     // --- Status ---
     statusText: 'text-[8px] font-black uppercase tracking-[0.15em]',

@@ -27,6 +27,43 @@
   --color-zinc-950: #020203;
   --color-brand-cyan: #00F0FF;
 
+  /* Theme: Dark (default) */
+  --surface-pure-rgb: 0 0 0;
+  --surface-base-rgb: 9 9 11;
+  --surface-card-rgb: 10 10 11;
+  --surface-elevated-rgb: 17 17 19;
+  --surface-subtle-rgb: 26 26 28;
+  --surface-accent-rgb: 34 34 36;
+
+  --surface-pure: rgb(var(--surface-pure-rgb));
+  --surface-base: rgb(var(--surface-base-rgb));
+  --surface-card: rgb(var(--surface-card-rgb));
+  --surface-elevated: rgb(var(--surface-elevated-rgb));
+  --surface-subtle: rgb(var(--surface-subtle-rgb));
+  --surface-accent: rgb(var(--surface-accent-rgb));
+
+  --ink-primary: #FAFAFA;
+  --ink-secondary: #A1A1AA;
+  --ink-tertiary: #71717A;
+  --ink-muted: #52525B;
+  --ink-ghost: #3F3F46;
+
+  --edge-ghost: rgba(255,255,255,0.03);
+  --edge-subtle: rgba(255,255,255,0.04);
+  --edge-default: rgba(255,255,255,0.06);
+  --edge-strong: rgba(255,255,255,0.12);
+
+  --overlay-ghost: rgba(255,255,255,0.01);
+  --overlay-subtle: rgba(255,255,255,0.02);
+  --overlay-muted: rgba(255,255,255,0.04);
+  --overlay-emphasis: rgba(255,255,255,0.06);
+
+  --brand-primary-rgb: 79 70 229;
+  --brand-cyan-rgb: 0 240 255;
+  --brand-primary: rgb(var(--brand-primary-rgb));
+  --brand-muted: rgba(79, 70, 229, 0.12);
+  --brand-cyan: rgb(var(--brand-cyan-rgb));
+
   /* Motion */
   --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-apple: cubic-bezier(0.25, 0.1, 0.25, 1.0);
@@ -49,14 +86,14 @@ html {
   -webkit-overflow-scrolling: touch;
   -webkit-text-size-adjust: 100%;
   color-scheme: dark;
-  background-color: var(--color-zinc-950);
+  background-color: var(--surface-base);
 }
 
 body {
   min-height: 100%;
   margin: 0;
-  background-color: var(--color-zinc-950);
-  color: var(--color-white);
+  background-color: var(--surface-base);
+  color: var(--ink-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -92,8 +129,87 @@ input, textarea {
 }
 
 ::selection {
-  background-color: rgba(0, 240, 255, 0.2);
-  color: #FFFFFF;
+  background-color: var(--brand-muted);
+  color: var(--ink-primary);
+}
+
+/* ==========================================================================
+   §2b  THEME OVERRIDES — Editorial Light
+   ========================================================================== */
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+html[data-theme="light"] body {
+  background-color: var(--surface-base);
+  color: var(--ink-primary);
+}
+
+html[data-theme="light"] {
+  --surface-pure-rgb: 255 255 255;
+  --surface-base-rgb: 248 249 250;
+  --surface-card-rgb: 255 255 255;
+  --surface-elevated-rgb: 255 255 255;
+  --surface-subtle-rgb: 241 245 249;
+  --surface-accent-rgb: 226 232 240;
+
+  --surface-pure: rgb(var(--surface-pure-rgb));
+  --surface-base: rgb(var(--surface-base-rgb));
+  --surface-card: rgb(var(--surface-card-rgb));
+  --surface-elevated: rgb(var(--surface-elevated-rgb));
+  --surface-subtle: rgb(var(--surface-subtle-rgb));
+  --surface-accent: rgb(var(--surface-accent-rgb));
+
+  --ink-primary: #111827;
+  --ink-secondary: #374151;
+  --ink-tertiary: #6B7280;
+  --ink-muted: #9CA3AF;
+  --ink-ghost: #CBD5E1;
+
+  --edge-ghost: rgba(15, 23, 42, 0.04);
+  --edge-subtle: rgba(15, 23, 42, 0.06);
+  --edge-default: rgba(15, 23, 42, 0.10);
+  --edge-strong: rgba(15, 23, 42, 0.16);
+
+  --overlay-ghost: rgba(15, 23, 42, 0.02);
+  --overlay-subtle: rgba(15, 23, 42, 0.04);
+  --overlay-muted: rgba(15, 23, 42, 0.06);
+  --overlay-emphasis: rgba(15, 23, 42, 0.08);
+}
+
+/* Nested dark islands (e.g., chat) inside light theme */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-pure-rgb: 0 0 0;
+  --surface-base-rgb: 9 9 11;
+  --surface-card-rgb: 10 10 11;
+  --surface-elevated-rgb: 17 17 19;
+  --surface-subtle-rgb: 26 26 28;
+  --surface-accent-rgb: 34 34 36;
+
+  --surface-pure: rgb(var(--surface-pure-rgb));
+  --surface-base: rgb(var(--surface-base-rgb));
+  --surface-card: rgb(var(--surface-card-rgb));
+  --surface-elevated: rgb(var(--surface-elevated-rgb));
+  --surface-subtle: rgb(var(--surface-subtle-rgb));
+  --surface-accent: rgb(var(--surface-accent-rgb));
+
+  --ink-primary: #FAFAFA;
+  --ink-secondary: #A1A1AA;
+  --ink-tertiary: #71717A;
+  --ink-muted: #52525B;
+  --ink-ghost: #3F3F46;
+
+  --edge-ghost: rgba(255,255,255,0.03);
+  --edge-subtle: rgba(255,255,255,0.04);
+  --edge-default: rgba(255,255,255,0.06);
+  --edge-strong: rgba(255,255,255,0.12);
+
+  --overlay-ghost: rgba(255,255,255,0.01);
+  --overlay-subtle: rgba(255,255,255,0.02);
+  --overlay-muted: rgba(255,255,255,0.04);
+  --overlay-emphasis: rgba(255,255,255,0.06);
 }
 
 /* ==========================================================================

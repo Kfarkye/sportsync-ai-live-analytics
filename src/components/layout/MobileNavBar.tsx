@@ -118,8 +118,8 @@ export const MobileNavBar = () => {
                 <div
                     className={cn(
                         "relative flex items-center rounded-full overflow-hidden transition-all duration-300",
-                        "bg-zinc-950/70 backdrop-blur-3xl backdrop-saturate-150",
-                        "border border-white/[0.08]",
+                        "bg-surface-card backdrop-blur-3xl backdrop-saturate-150",
+                        "border border-edge",
                         "shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_32px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.3)]",
                         isCompact ? "px-1 py-1 gap-0" : "px-2 py-1.5 gap-0.5",
                     )}
@@ -160,13 +160,13 @@ export const MobileNavBar = () => {
                                         className={cn(
                                             "relative flex flex-col items-center justify-center rounded-full transition-colors duration-200 active:scale-90",
                                             isCompact ? "w-11 h-10" : "w-full h-12",
-                                            isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300',
+                                            isActive ? 'text-ink-primary' : 'text-ink-tertiary hover:text-ink-secondary',
                                         )}
                                     >
                                         {isActive && (
                                             <MotionDiv
                                                 layoutId="activeTabMobile"
-                                                className="absolute inset-0 rounded-full bg-white/[0.08] border border-white/[0.06]"
+                                                className="absolute inset-0 rounded-full bg-overlay-emphasis border border-edge-subtle"
                                                 transition={ESSENCE.transition.spring}
                                             />
                                         )}
@@ -179,7 +179,7 @@ export const MobileNavBar = () => {
                                         {!isCompact && (
                                             <span className={cn(
                                                 "relative z-10 text-[9px] font-semibold tracking-wide leading-none mt-0.5",
-                                                isActive ? "text-white/90" : "text-zinc-500",
+                                                isActive ? "text-ink-primary" : "text-ink-tertiary",
                                             )}>
                                                 {tab.label}
                                             </span>
@@ -200,7 +200,7 @@ export const MobileNavBar = () => {
                             marginRight: isCompact ? 0 : 4,
                         }}
                         transition={{ duration: 0.2 }}
-                        className="h-5 bg-white/[0.06] overflow-hidden flex-shrink-0"
+                        className="h-5 bg-overlay-emphasis overflow-hidden flex-shrink-0"
                     />
 
                     {/* ── Edge / Chat ── */}
@@ -224,7 +224,7 @@ export const MobileNavBar = () => {
                             onClick={() => toggleGlobalChat()}
                             className={cn(
                                 "relative flex flex-col items-center justify-center w-full h-12 rounded-full transition-all duration-200 active:scale-95",
-                                isGlobalChatOpen ? "text-emerald-400" : "text-zinc-500 hover:text-zinc-300",
+                                isGlobalChatOpen ? "text-emerald-400" : "text-ink-tertiary hover:text-ink-secondary",
                             )}
                         >
                             {isGlobalChatOpen ? (
@@ -236,7 +236,7 @@ export const MobileNavBar = () => {
                             {/* Label */}
                             <span className={cn(
                                 "relative z-10 text-[9px] font-semibold tracking-wide leading-none mt-0.5",
-                                isGlobalChatOpen ? "text-emerald-400/80" : "text-zinc-500",
+                                isGlobalChatOpen ? "text-emerald-400/80" : "text-ink-tertiary",
                             )}>
                                 Edge
                             </span>

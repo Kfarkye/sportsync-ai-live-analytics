@@ -70,6 +70,13 @@ const AppShell: FC = () => {
   // Unique key to force animation when Date/Sport changes
   // We use the raw ISO string slice to be consistent
   const viewKey = `feed-${new Date(selectedDate).toISOString().split('T')[0]}-${selectedSport}`;
+  const isEditorial = showLanding || (activeView === 'FEED' && !selectedMatch);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const theme = isEditorial ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [isEditorial]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -98,7 +105,7 @@ const AppShell: FC = () => {
   return (
     <MotionConfig reducedMotion="user">
     <div
-      className="min-h-screen h-screen bg-black text-[#FAFAFA] font-sans selection:bg-[#0A84FF]/30 relative flex flex-col antialiased"
+      className="min-h-screen h-screen bg-surface-base text-ink-primary font-sans relative flex flex-col antialiased"
       style={{ animation: 'fadeInApp 0.6s ease-out' }}
     >
       <a href="#main-content" className="skip-link">Skip to content</a>
@@ -130,19 +137,19 @@ const AppShell: FC = () => {
                 {/* EMPTY STATE */}
                 {!isLoading && filteredMatches.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center mb-6">
-                      <Calendar size={18} className="text-zinc-400" />
+                    <div className="w-12 h-12 rounded-2xl bg-overlay-subtle border border-edge-subtle flex items-center justify-center mb-6">
+                      <Calendar size={18} className="text-ink-tertiary" />
                     </div>
-                    <h3 className="text-lg font-semibold text-white tracking-tight">
+                    <h3 className="text-lg font-semibold text-ink-primary tracking-tight">
                       {new Date(selectedDate).toDateString() === new Date().toDateString() ? 'No Games Today' : 'No Games Scheduled'}
                     </h3>
-                    <p className="text-zinc-500 text-body-sm mt-2 max-w-[260px] leading-relaxed">
+                    <p className="text-ink-tertiary text-body-sm mt-2 max-w-[260px] leading-relaxed">
                       Check back later or pick another date in the timeline.
                     </p>
                     <button
                       type="button"
                       onClick={() => setSelectedDate(new Date())}
-                      className="mt-5 px-4 py-2 rounded-full border border-white/10 text-caption font-bold uppercase tracking-widest text-zinc-300 hover:text-white hover:border-white/20 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                      className="mt-5 px-4 py-2 rounded-full border border-edge-subtle text-caption font-bold uppercase tracking-widest text-ink-secondary hover:text-ink-primary hover:border-edge transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-ghost focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
                     >
                       Back to Today
                     </button>
@@ -201,7 +208,7 @@ const AppShell: FC = () => {
             className="fixed inset-0 z-[60] bg-black overflow-hidden flex flex-col"
           >
             {/* Sheet Handle for Mobile (Visual only since it's full screen) */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-white/10 rounded-full z-[70] md:hidden" />
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-overlay-emphasis rounded-full z-[70] md:hidden" />
             <MatchDetails
               match={selectedMatch}
               matches={filteredMatches}
@@ -212,19 +219,21 @@ const AppShell: FC = () => {
         )}
       </AnimatePresence>
 
-      <ChatWidget currentMatch={selectedMatch} matches={matches} />
+      <div data-theme="dark">
+        <ChatWidget currentMatch={selectedMatch} matches={matches} />
+      </div>
 
       {/* Global Legal & Responsibility Footer */}
-      <footer className="w-full max-w-7xl mx-auto px-6 py-12 border-t border-white/5 opacity-40">
+      <footer className="w-full max-w-7xl mx-auto px-6 py-12 border-t border-edge-subtle opacity-40">
         <div className="flex flex-col items-center text-center space-y-4">
-          <p className="text-caption font-medium leading-relaxed max-w-2xl text-zinc-400">
+          <p className="text-caption font-medium leading-relaxed max-w-2xl text-ink-tertiary">
             SportSync AI provides a quantitative decision-support environment for entertainment purposes only.
             We are not a sportsbook and do not provide financial advice or guarantee outcome success.
             Analytical confidence levels represent model weights, not mathematical probability of real-world results.
           </p>
-          <div className="flex items-center gap-6 text-label font-black uppercase tracking-widest text-zinc-500">
+          <div className="flex items-center gap-6 text-label font-black uppercase tracking-widest text-ink-tertiary">
             <span>Must be 21+</span>
-            <span className="w-1 h-1 rounded-full bg-zinc-800" />
+            <span className="w-1 h-1 rounded-full bg-edge-strong" />
             <span>Problem? 1-800-GAMBLER</span>
           </div>
         </div>
