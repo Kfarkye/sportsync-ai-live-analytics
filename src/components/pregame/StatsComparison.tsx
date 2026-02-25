@@ -33,14 +33,14 @@ const DeltaValue = ({ value, label }: { value: number; label?: string }) => {
         <div className="flex items-center gap-1.5">
             <span className={cn(
                 "text-[12px] font-mono font-bold tabular-nums",
-                isPositive ? "text-emerald-400" : isNegative ? "text-rose-400" : "text-zinc-500"
+                isPositive ? "text-emerald-400" : isNegative ? "text-rose-400" : "text-slate-500"
             )}>
                 {value > 0 ? '+' : ''}{value.toFixed(1)}
             </span>
             {label && (
                 <span className={cn(
                     "text-[8px] font-black uppercase tracking-widest",
-                    isPositive ? "text-emerald-500/60" : isNegative ? "text-rose-500/60" : "text-zinc-600"
+                    isPositive ? "text-emerald-500/60" : isNegative ? "text-rose-500/60" : "text-slate-500"
                 )}>
                     {label}
                 </span>
@@ -87,7 +87,7 @@ const MetricRow = ({
         >
             {/* Centered Label */}
             <div className="text-center mb-4">
-                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.25em]">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em]">
                     {label}
                 </span>
             </div>
@@ -98,18 +98,18 @@ const MetricRow = ({
                 <div className="w-24 text-left">
                     <div className={cn(
                         "text-[20px] font-mono font-black tabular-nums leading-none mb-1",
-                        awayAdvantage ? "text-white" : "text-zinc-500"
+                        awayAdvantage ? "text-slate-900" : "text-slate-500"
                     )}>
                         {awayValue.toFixed(1)}
                     </div>
-                    <div className="text-[9px] font-bold text-zinc-600 uppercase tracking-wider mb-1.5">
+                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                         {awayName}
                     </div>
                     <DeltaValue value={awayDelta} label={deltaLabel} />
                 </div>
 
                 {/* Center Bar */}
-                <div className="flex-1 relative h-2 bg-zinc-900 rounded-full overflow-hidden">
+                <div className="flex-1 relative h-2 bg-slate-200 rounded-full overflow-hidden">
                     {/* Away Bar (grows from center to left) */}
                     <MotionDiv
                         initial={{ width: 0 }}
@@ -117,7 +117,7 @@ const MetricRow = ({
                         transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
                         className={cn(
                             "absolute right-1/2 top-0 h-full rounded-l-full origin-right",
-                            awayAdvantage ? "bg-white" : "bg-zinc-700"
+                            awayAdvantage ? "bg-slate-900" : "bg-slate-300"
                         )}
                     />
 
@@ -128,23 +128,23 @@ const MetricRow = ({
                         transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
                         className={cn(
                             "absolute left-1/2 top-0 h-full rounded-r-full origin-left",
-                            homeAdvantage ? "bg-white" : "bg-zinc-700"
+                            homeAdvantage ? "bg-slate-900" : "bg-slate-300"
                         )}
                     />
 
                     {/* Center Divider */}
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-4 bg-zinc-800 z-10" />
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-4 bg-slate-200 z-10" />
                 </div>
 
                 {/* Home Team Value */}
                 <div className="w-24 text-right">
                     <div className={cn(
                         "text-[20px] font-mono font-black tabular-nums leading-none mb-1",
-                        homeAdvantage ? "text-white" : "text-zinc-500"
+                        homeAdvantage ? "text-slate-900" : "text-slate-500"
                     )}>
                         {homeValue.toFixed(1)}
                     </div>
-                    <div className="text-[9px] font-bold text-zinc-600 uppercase tracking-wider mb-1.5">
+                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                         {homeName}
                     </div>
                     <div className="flex justify-end">
@@ -181,7 +181,7 @@ const StatsComparison: React.FC<StatsComparisonProps> = ({
 
     if (isLoading) return (
         <div className="p-12 flex justify-center">
-            <div className="w-6 h-6 border-2 border-zinc-800 border-t-zinc-400 rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-slate-300 border-t-zinc-400 rounded-full animate-spin" />
         </div>
     );
 
@@ -191,10 +191,10 @@ const StatsComparison: React.FC<StatsComparisonProps> = ({
             animate={{ opacity: 1 }}
             className="py-16 flex flex-col items-center justify-center"
         >
-            <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-white/[0.06] flex items-center justify-center mb-4">
-                <div className="w-5 h-5 border-2 border-zinc-700 border-dashed rounded-full animate-pulse" />
+            <div className="w-14 h-14 rounded-2xl bg-slate-200 border border-slate-200 flex items-center justify-center mb-4">
+                <div className="w-5 h-5 border-2 border-slate-300 border-dashed rounded-full animate-pulse" />
             </div>
-            <span className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.2em]">
+            <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">
                 Team Metrics Unavailable
             </span>
         </motion.div>
@@ -251,14 +251,14 @@ const StatsComparison: React.FC<StatsComparisonProps> = ({
             className="bg-transparent py-4"
         >
             {/* Header */}
-            <div className="mb-6 border-b border-white/[0.04] pb-4">
-                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em]">
+            <div className="mb-6 border-b border-slate-200 pb-4">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
                     Team Efficiency
                 </span>
             </div>
 
             {/* Metrics Grid */}
-            <div className="divide-y divide-white/[0.04]">
+            <div className="divide-y divide-slate-200">
                 {metrics.map((metric) => (
                     <MetricRow
                         key={metric.id}

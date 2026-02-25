@@ -24,13 +24,13 @@ const SYSTEM = {
         snap: { type: "spring", damping: 22, stiffness: 450 } as Transition,
     },
     surface: {
-        void: "bg-[#09090B]",
-        glass: "bg-white/[0.025] backdrop-blur-[24px] backdrop-saturate-[180%] border border-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+        void: "bg-slate-50",
+        glass: "bg-white border border-slate-200",
         panel: ESSENCE.card.base,
     },
     type: {
-        mono: "font-mono text-[10px] tracking-[0.12em] uppercase text-zinc-500 tabular-nums font-medium",
-        label: "text-[9px] font-bold tracking-[0.08em] uppercase",
+        mono: "font-mono text-[10px] tracking-[0.12em] uppercase text-slate-500 tabular-nums font-medium",
+        label: "text-[9px] font-bold tracking-[0.08em] uppercase text-slate-400",
     },
 } as const;
 
@@ -39,11 +39,11 @@ const NOISE_TEXTURE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmln
 const SORT_ORDER = ["The Spot", "The Trend", "The Engine", "The Trap", "X-Factor"];
 
 const SECTION_CONFIG: Record<string, { color: string; label: string; icon: React.ElementType }> = {
-    "The Spot": { color: "text-white", label: "01 // THE SPOT", icon: Crosshair },
-    "The Trend": { color: "text-blue-300", label: "02 // THE TREND", icon: TrendingUp },
-    "The Engine": { color: "text-emerald-300", label: "03 // THE ENGINE", icon: Activity },
-    "The Trap": { color: "text-amber-300", label: "04 // THE TRAP", icon: AlertTriangle },
-    "X-Factor": { color: "text-purple-300", label: "05 // X-FACTOR", icon: Zap },
+    "The Spot": { color: "text-slate-900", label: "01 // THE SPOT", icon: Crosshair },
+    "The Trend": { color: "text-blue-700", label: "02 // THE TREND", icon: TrendingUp },
+    "The Engine": { color: "text-emerald-700", label: "03 // THE ENGINE", icon: Activity },
+    "The Trap": { color: "text-amber-700", label: "04 // THE TRAP", icon: AlertTriangle },
+    "X-Factor": { color: "text-violet-700", label: "05 // X-FACTOR", icon: Zap },
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -234,9 +234,9 @@ const RenderRichText = React.memo(({ text, sources, className }: { text: string;
     const hydrated = useMemo(() => hydrateCitations(text, sources), [text, sources]);
     const components: Components = useMemo(() => ({
         p: ({ children }) => <span>{children}</span>,
-        strong: ({ children }) => <strong className="font-semibold text-white tracking-tight">{children}</strong>,
+        strong: ({ children }) => <strong className="font-semibold text-slate-900 tracking-tight">{children}</strong>,
         a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200">
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-slate-500 no-underline hover:text-slate-900 hover:underline decoration-slate-300 underline-offset-4 transition-colors duration-200">
                 {children}
             </a>
         ),
@@ -256,11 +256,11 @@ const RenderRichText = React.memo(({ text, sources, className }: { text: string;
 const ToggleSwitch = ({ expanded }: { expanded: boolean }) => (
     <div className="relative w-3 h-3 flex items-center justify-center opacity-50 group-hover:opacity-100 transition-opacity duration-300">
         <span className={cn(
-            "absolute w-full h-[1.5px] bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+            "absolute w-full h-[1.5px] bg-slate-900 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
             expanded ? "rotate-180" : "rotate-0"
         )} />
         <span className={cn(
-            "absolute w-full h-[1.5px] bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+            "absolute w-full h-[1.5px] bg-slate-900 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
             expanded ? "rotate-180 opacity-0" : "rotate-90 opacity-100"
         )} />
     </div>
@@ -270,20 +270,19 @@ const ToggleSwitch = ({ expanded }: { expanded: boolean }) => (
 const ConfidenceBar = ({ tier }: { tier: string }) => {
     const level = tier === "HIGH" ? "high" : tier === "MEDIUM" ? "medium" : "low";
     const percent = level === "high" ? 88 : level === "medium" ? 58 : 30;
-    const gradient = level === "high" ? "from-emerald-500 via-emerald-400 to-emerald-300" : level === "medium" ? "from-amber-500 via-amber-400 to-amber-300" : "from-zinc-500 via-zinc-400 to-zinc-300";
-    const glow = level === "high" ? "shadow-[0_0_12px_rgba(16,185,129,0.35)]" : level === "medium" ? "shadow-[0_0_12px_rgba(245,158,11,0.25)]" : "";
+    const gradient = level === "high" ? "from-emerald-500 to-emerald-400" : level === "medium" ? "from-amber-500 to-amber-400" : "from-slate-400 to-slate-300";
 
     return (
         <div className="flex items-center gap-2 h-4 w-full max-w-[120px]" title={`Confidence: ${tier}`}>
-            <div className="flex-1 h-[5px] rounded-full bg-white/[0.06] overflow-hidden backdrop-blur-sm">
+            <div className="flex-1 h-[5px] rounded-full bg-slate-200 overflow-hidden">
                 <motion.div
-                    className={cn("h-full rounded-full bg-gradient-to-r", gradient, glow)}
+                    className={cn("h-full rounded-full bg-gradient-to-r", gradient)}
                     initial={{ width: 0 }}
                     animate={{ width: `${percent}%` }}
                     transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
                 />
             </div>
-            <span className={cn("text-[9px] font-mono uppercase tabular-nums", level === "high" ? "text-emerald-400" : level === "medium" ? "text-amber-400" : "text-zinc-500")}>
+            <span className={cn("text-[9px] font-mono uppercase tabular-nums", level === "high" ? "text-emerald-600" : level === "medium" ? "text-amber-600" : "text-slate-500")}>
                 {percent}%
             </span>
         </div>
@@ -312,9 +311,9 @@ const EdgeLabel = ({ startTimeISO }: { startTimeISO: string | null }) => {
     const isLive = label === "TODAY'S EDGE";
 
     return (
-        <div className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-lg backdrop-blur-xl", isLive ? "bg-emerald-500/10 border-emerald-500/20 shadow-[0_0_20px_-8px_rgba(16,185,129,0.3)]" : "bg-zinc-800/40 border-white/10")}>
+        <div className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm", isLive ? "bg-emerald-50 border-emerald-200" : "bg-slate-50 border-slate-200")}>
             {isLive && <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" /><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" /></span>}
-            <span className={cn(SYSTEM.type.label, isLive ? "text-emerald-400" : "text-zinc-400")}>{label}</span>
+            <span className={cn(SYSTEM.type.label, isLive ? "text-emerald-700" : "text-slate-400")}>{label}</span>
         </div>
     );
 };
@@ -340,21 +339,18 @@ const InsightRow = ({ card, confidenceTier, isLast, sources }: { card: ExtendedI
 
     return (
         <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn("group relative w-full transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]", hasDetails ? "cursor-pointer" : "cursor-default")} onClick={() => hasDetails && setExpanded(v => !v)}>
-            {/* Volumetric Glow */}
-            <div className={cn("absolute inset-0 -z-10 opacity-0 transition-opacity duration-700 pointer-events-none", expanded ? "opacity-100" : "opacity-0")} style={{ background: `radial-gradient(circle at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 70%)` }} />
-
             {/* Hairline Separator */}
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
 
             <div className="relative max-w-[1200px] mx-auto">
-                {/* Active Indicator Rail (Laser Anchor) */}
-                <div className={cn("absolute left-[2px] md:left-[-12px] top-8 bottom-8 w-[2px] bg-white rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] shadow-[0_0_12px_rgba(255,255,255,0.4)]", expanded ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0")} />
+                {/* Active Indicator Rail */}
+                <div className={cn("absolute left-[2px] md:left-[-12px] top-8 bottom-8 w-[2px] bg-slate-900 rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]", expanded ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0")} />
 
                 <div className="py-8 md:py-10 px-6 md:px-0 flex flex-col md:flex-row md:items-baseline gap-6 md:gap-0 z-10">
 
-                    {/* Left Rail (Label) - Restored 'md:pl-[160px]' alignment structure */}
+                    {/* Left Rail (Label) */}
                     <div className="hidden md:flex w-[160px] shrink-0 flex-col gap-3 select-none pt-1">
-                        <span className={cn("text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-300 font-mono", expanded ? config.color : "text-zinc-600 group-hover:text-zinc-500")}>
+                        <span className={cn("text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-300 font-mono", expanded ? config.color : "text-slate-400 group-hover:text-slate-500")}>
                             {config.label.split(' // ')[1]}
                         </span>
                         {isEngine && confidenceTier && <ConfidenceBar tier={confidenceTier} />}
@@ -363,19 +359,18 @@ const InsightRow = ({ card, confidenceTier, isLast, sources }: { card: ExtendedI
                     {/* Content Stream */}
                     <div className="flex-1 min-w-0">
                         {/* Mobile Header */}
-                        <div className="md:hidden flex items-center justify-between mb-4 opacity-80">
-                            <span className={cn("text-[9px] font-bold tracking-[0.2em] uppercase font-mono", expanded ? config.color : "text-zinc-600")}>{config.label.split(' // ')[1]}</span>
+                        <div className="md:hidden flex items-center justify-between mb-4">
+                            <span className={cn("text-[9px] font-bold tracking-[0.2em] uppercase font-mono", expanded ? config.color : "text-slate-400")}>{config.label.split(' // ')[1]}</span>
                             {isEngine && confidenceTier && <ConfidenceBar tier={confidenceTier} />}
                         </div>
 
                         <div className="flex items-start justify-between gap-8">
-                            <div className={cn("text-[16px] md:text-[18px] leading-[1.6] font-light tracking-wide transition-colors duration-500 text-pretty max-w-[80ch]", isEngine ? "font-mono text-[13px] text-zinc-300/90 tracking-normal leading-[1.8]" : (expanded ? "text-white" : "text-zinc-400 group-hover:text-zinc-200"))}>
+                            <div className={cn("text-[16px] md:text-[18px] leading-[1.6] font-light tracking-wide transition-colors duration-500 text-pretty max-w-[80ch]", isEngine ? "font-mono text-[13px] text-slate-600 tracking-normal leading-[1.8]" : (expanded ? "text-slate-900" : "text-slate-500 group-hover:text-slate-700"))}>
                                 <RenderRichText text={displayThesis} sources={sources} />
                             </div>
 
-                            {/* Restored Toggle Interaction */}
                             {hasDetails && (
-                                <div className="shrink-0 mt-2 text-white/80">
+                                <div className="shrink-0 mt-2">
                                     <ToggleSwitch expanded={expanded} />
                                 </div>
                             )}
@@ -386,16 +381,16 @@ const InsightRow = ({ card, confidenceTier, isLast, sources }: { card: ExtendedI
                                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={SYSTEM.anim.fluid} className="overflow-hidden">
                                     <div className="pt-8 space-y-6">
                                         {card.market_implication && (
-                                            <div className="pl-0 md:pl-6 md:border-l border-white/10">
-                                                <div className="flex items-center gap-2 mb-2 text-emerald-400/80 md:hidden"><Activity size={10} /><span className={SYSTEM.type.label}>Market Implication</span></div>
-                                                <p className="text-[14px] text-zinc-400/90 italic leading-relaxed font-light"><RenderRichText text={String(card.market_implication)} sources={sources} /></p>
+                                            <div className="pl-0 md:pl-6 md:border-l border-slate-200">
+                                                <div className="flex items-center gap-2 mb-2 text-emerald-600 md:hidden"><Activity size={10} /><span className={SYSTEM.type.label}>Market Implication</span></div>
+                                                <p className="text-[14px] text-slate-500 italic leading-relaxed font-light"><RenderRichText text={String(card.market_implication)} sources={sources} /></p>
                                             </div>
                                         )}
                                         <div className="space-y-4">
                                             {details.map((detail, i) => (
                                                 <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + (i * 0.04) }} className="flex gap-4 group/item items-baseline">
-                                                    <span className="block w-1 h-1 bg-zinc-700 rounded-full mt-2 shrink-0 group-hover/item:bg-white transition-colors duration-500" />
-                                                    <p className="text-[14px] text-zinc-400 font-light leading-relaxed group-hover/item:text-zinc-200 transition-colors duration-500"><RenderRichText text={detail} sources={sources} /></p>
+                                                    <span className="block w-1 h-1 bg-slate-300 rounded-full mt-2 shrink-0 group-hover/item:bg-slate-900 transition-colors duration-500" />
+                                                    <p className="text-[14px] text-slate-500 font-light leading-relaxed group-hover/item:text-slate-700 transition-colors duration-500"><RenderRichText text={detail} sources={sources} /></p>
                                                 </motion.div>
                                             ))}
                                         </div>
@@ -409,7 +404,7 @@ const InsightRow = ({ card, confidenceTier, isLast, sources }: { card: ExtendedI
             </div>
 
             {/* Bottom Hairline for Last Item */}
-            {isLast && <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />}
+            {isLast && <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />}
         </motion.div>
     );
 };
@@ -463,9 +458,9 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
 
     if (status === 'LOADING') {
         return (
-            <div className="w-full min-h-[500px] flex flex-col items-center justify-center space-y-8 opacity-40">
-                <div className="relative w-24 h-[1px] bg-zinc-800 overflow-hidden"><div className="absolute inset-0 bg-white/50 w-1/2 animate-[shimmer_2s_infinite]" /></div>
-                <div className={SYSTEM.type.mono}>Initializing Vector Analysis</div>
+            <div className="w-full min-h-[500px] flex flex-col items-center justify-center space-y-8 opacity-60">
+                <div className="relative w-24 h-[1px] bg-slate-200 overflow-hidden"><div className="absolute inset-0 bg-slate-400/50 w-1/2 animate-[shimmer_2s_infinite]" /></div>
+                <div className={SYSTEM.type.mono}>Initializing Analysis</div>
             </div>
         );
     }
@@ -474,34 +469,64 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
         return (
             <div className="py-40 text-center w-full">
                 <div className="inline-flex flex-col items-center gap-6">
-                    <span className={SYSTEM.type.mono}>Signal Lost</span>
-                    <button onClick={retry} className="px-8 py-2.5 rounded-full border border-zinc-800 text-[10px] font-bold text-zinc-500 hover:text-white hover:border-white/30 transition-all uppercase tracking-widest">Reconnect</button>
+                    <span className={SYSTEM.type.mono}>Unable to load analysis</span>
+                    <button onClick={retry} className="px-8 py-2.5 rounded-full border border-slate-200 text-[10px] font-bold text-slate-500 hover:text-slate-900 hover:border-slate-300 transition-all uppercase tracking-widest">Retry</button>
                 </div>
             </div>
         );
     }
 
     const confidenceTier = String(processedData.confidence_tier || "");
-    const recommendedPick = String(processedData.recommended_pick || "");
+    const rawPick = String(processedData.recommended_pick || "");
     const displayJuice = processedData.grading_metadata?.price || processedData.spread_juice;
+
+    // Phase 4: Humanize raw database text
+    const isNoMarket = rawPick === 'NO_MARKET' || rawPick === 'NO MARKET' || rawPick.includes('NO_MARKET');
+    const recommendedPick = isNoMarket ? '' : rawPick;
+
+    // If NO_MARKET, show the humanized empty state instead
+    if (isNoMarket) {
+        return (
+            <div className="flex-1 w-full bg-slate-50 min-h-[55vh] relative pt-16 px-6 flex flex-col items-center font-sans pb-40">
+                <div className="text-center max-w-sm mb-12">
+                    <div className="w-14 h-14 bg-white border border-slate-200 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
+                        <span className="text-2xl text-slate-400">&#128274;</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-2">
+                        Lines Not Yet Posted
+                    </h3>
+                    <p className="text-[15px] text-slate-500 leading-relaxed">
+                        Sportsbooks have not released the market for this game. AI analysis will begin automatically once odds are available.
+                    </p>
+                </div>
+                <div className="flex justify-center">
+                    <div className="bg-white/90 backdrop-blur-sm border border-slate-200 px-4 py-1.5 rounded-full flex items-center gap-2 shadow-sm">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                            Monitoring Market
+                        </span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <MotionConfig reducedMotion="user">
             <LayoutGroup>
                 <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.06 } } }} className="w-full py-16 font-sans antialiased relative">
                     <div className="mb-32 relative w-full max-w-[1200px] mx-auto px-6 md:px-12">
-                        <FilmGrain />
                         <div className="relative z-10 flex flex-col items-center text-center md:items-start md:text-left md:pl-[160px]">
                             <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="mb-10">
                                 <EdgeLabel startTimeISO={startTimeISO} />
                             </motion.div>
                             <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
                                 <div className="flex flex-col md:flex-row md:items-baseline md:gap-8 mb-8">
-                                    <h1 className="text-[56px] md:text-[100px] font-semibold text-white tracking-tighter leading-[0.85] drop-shadow-2xl break-words max-w-5xl">{recommendedPick}</h1>
-                                    {displayJuice && <span className="text-[16px] md:text-[20px] font-mono text-zinc-500 font-medium tracking-[0.15em] mt-4 md:mt-0">{displayJuice}</span>}
+                                    <h1 className="text-[56px] md:text-[100px] font-semibold text-slate-900 tracking-tighter leading-[0.85] break-words max-w-5xl">{recommendedPick}</h1>
+                                    {displayJuice && <span className="text-[16px] md:text-[20px] font-mono text-slate-500 font-medium tracking-[0.15em] mt-4 md:mt-0">{displayJuice}</span>}
                                 </div>
-                                <div className="max-w-3xl border-l-2 border-white/10 pl-8 py-2 mx-auto md:mx-0">
-                                    <p className="text-[20px] md:text-[24px] text-zinc-300 font-light leading-[1.5] tracking-tight text-pretty"><RenderRichText text={String(processedData.headline || "")} sources={processedData.sources} /></p>
+                                <div className="max-w-3xl border-l-2 border-slate-200 pl-8 py-2 mx-auto md:mx-0">
+                                    <p className="text-[20px] md:text-[24px] text-slate-600 font-light leading-[1.5] tracking-tight text-pretty"><RenderRichText text={String(processedData.headline || "")} sources={processedData.sources} /></p>
                                 </div>
                             </motion.div>
                         </div>
@@ -509,8 +534,8 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
 
                     <div className="relative w-full">
                         <div className="max-w-[1200px] mx-auto px-6 md:px-12 mb-8 select-none">
-                            <div className="flex items-center gap-6 opacity-40 md:pl-[160px]">
-                                <div className="h-px w-12 bg-white" />
+                            <div className="flex items-center gap-6 md:pl-[160px]">
+                                <div className="h-px w-12 bg-slate-300" />
                                 <span className={SYSTEM.type.label}>Vector Analysis</span>
                             </div>
                         </div>
@@ -520,7 +545,7 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
                         ))}
 
                         {/* Closing Fade */}
-                        <div className="w-full h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+                        <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
                     </div>
 
                 </motion.div>

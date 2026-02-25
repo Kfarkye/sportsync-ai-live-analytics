@@ -42,12 +42,12 @@ const VenueSplitsGrid: React.FC = () => {
     <div className="w-full space-y-6">
       
       {/* Controls Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-[#09090B] border border-white/[0.08] shadow-lg">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm">
         
         {/* League Selector */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
           <div className="p-2 bg-white/5 rounded-lg mr-2">
-            <MapPin size={16} className="text-zinc-400" />
+            <MapPin size={16} className="text-slate-400" />
           </div>
           {LEAGUES.map(league => (
             <button
@@ -56,8 +56,8 @@ const VenueSplitsGrid: React.FC = () => {
               className={`
                 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap
                 ${activeLeague === league.id 
-                  ? 'bg-white text-black shadow-lg shadow-white/10' 
-                  : 'bg-transparent text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}
+                  ? 'bg-white text-slate-900 shadow-sm shadow-white/10' 
+                  : 'bg-transparent text-slate-500 hover:text-slate-600 hover:bg-white/5'}
               `}
             >
               {league.label}
@@ -68,11 +68,11 @@ const VenueSplitsGrid: React.FC = () => {
         {/* Sort Controls */}
         <div className="flex items-center gap-3">
           <div className="relative group">
-            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <select 
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="pl-9 pr-4 py-2 bg-[#121214] border border-white/10 rounded-lg text-xs font-medium text-white appearance-none focus:outline-none focus:border-white/20 hover:bg-[#161618] transition-colors cursor-pointer min-w-[160px]"
+              className="pl-9 pr-4 py-2 bg-[#121214] border border-white/10 rounded-lg text-xs font-medium text-slate-900 appearance-none focus:outline-none focus:border-white/20 hover:bg-[#161618] transition-colors cursor-pointer min-w-[160px]"
             >
               {SORT_OPTIONS.map(opt => (
                 <option key={opt.id} value={opt.id}>{opt.label}</option>
@@ -82,7 +82,7 @@ const VenueSplitsGrid: React.FC = () => {
 
           <button 
             onClick={toggleSort}
-            className="p-2 rounded-lg bg-[#121214] border border-white/10 text-zinc-400 hover:text-white transition-colors"
+            className="p-2 rounded-lg bg-[#121214] border border-white/10 text-slate-400 hover:text-slate-900 transition-colors"
           >
             <ArrowUpDown size={14} className={sortOrder === 'asc' ? 'rotate-180' : ''} />
           </button>
@@ -92,8 +92,8 @@ const VenueSplitsGrid: React.FC = () => {
       {/* Grid Content */}
       <div className="min-h-[400px]">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
-            <Loader2 className="w-8 h-8 animate-spin mb-4 text-zinc-700" />
+          <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+            <Loader2 className="w-8 h-8 animate-spin mb-4 text-slate-400" />
             <span className="text-xs font-bold uppercase tracking-widest">Analyzing Venue Data...</span>
           </div>
         ) : (

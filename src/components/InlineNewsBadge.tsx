@@ -43,12 +43,12 @@ const InlineNewsBadge: React.FC<InlineNewsBadgeProps> = ({ type, text, onClick }
         mt-3 px-3 py-2 
         bg-gradient-to-br from-white/[0.04] to-white/[0.01]
         backdrop-blur-md
-        border border-white/[0.06]
+        border border-slate-200
         rounded-xl
         flex items-center justify-between gap-3
         group cursor-pointer
         hover:from-white/[0.06]
-        hover:border-white/[0.10]
+        hover:border-slate-200
         transition-all duration-150
       `}
     >

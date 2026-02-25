@@ -13,12 +13,12 @@ function cn(...inputs: ClassValue[]) {
 
 const MotionDiv = motion.div;
 
-// Inline pulse indicator (replaces NeuralPulse)
+// Inline pulse indicator for active chat
 const EdgePulse = () => (
     <div className="relative w-5 h-5 flex items-center justify-center">
-        <div className="w-2 h-2 rounded-full bg-emerald-400" />
+        <div className="w-2 h-2 rounded-full bg-emerald-500" />
         <motion.div
-            className="absolute inset-0 rounded-full bg-emerald-400/40"
+            className="absolute inset-0 rounded-full bg-emerald-500/30"
             animate={{ scale: [1, 2], opacity: [0.5, 0] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
         />
@@ -35,61 +35,57 @@ export const MobileNavBar = () => {
     ];
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-[45] flex items-center justify-center pb-safe mb-6 print:hidden pointer-events-none px-4">
-            <div className="flex items-center gap-1.5 p-1.5 bg-black/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-lg pointer-events-auto">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] z-[45] font-sans print:hidden">
+            {/* iOS Frosted Glass Container */}
+            <div className="bg-white/85 backdrop-blur-xl border border-slate-200/80 rounded-full px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.08)] flex items-center justify-between">
                 {/* View Tabs */}
-                <div className="flex items-center gap-1">
-                    {TABS.map((tab) => {
-                        const isActive = activeView === tab.id;
-                        const Icon = tab.icon;
+                {TABS.map((tab) => {
+                    const isActive = activeView === tab.id;
+                    const Icon = tab.icon;
 
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveView(tab.id as ViewType)}
-                                className={cn(
-                                    "relative flex items-center justify-center w-14 h-11 rounded-full transition-all duration-300 active:scale-90",
-                                    isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-                                )}
-                            >
-                                {isActive && (
-                                    <MotionDiv
-                                        layoutId="activeTabMobile"
-                                        className="absolute inset-0 bg-white/10 rounded-full shadow-lg border border-white/10"
-                                        transition={ESSENCE.transition.spring}
-                                    />
-                                )}
-                                <Icon size={20} strokeWidth={isActive ? 2.5 : 2} className="relative z-10" />
-                            </button>
-                        );
-                    })}
-                </div>
+                    return (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveView(tab.id as ViewType)}
+                            className={cn(
+                                "flex flex-col items-center gap-1.5 transition-colors duration-200 active:scale-90",
+                                isActive ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'
+                            )}
+                        >
+                            <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                            <span className={cn(
+                                "text-[10px] tracking-wide",
+                                isActive ? "font-bold" : "font-medium"
+                            )}>
+                                {tab.label}
+                            </span>
+                        </button>
+                    );
+                })}
 
                 {/* Subtle Divider */}
-                <div className="w-px h-5 bg-white/10 mx-1" />
+                <div className="w-px h-6 bg-slate-200 mx-1" />
 
-                {/* Edge Button */}
+                {/* Edge/Chat Button */}
                 <button
                     onClick={() => toggleGlobalChat()}
                     className={cn(
-                        "relative flex items-center justify-center w-14 h-11 rounded-full transition-all duration-300 active:scale-95",
-                        isGlobalChatOpen ? "text-emerald-400" : "text-zinc-500 hover:text-zinc-300"
+                        "flex flex-col items-center gap-1.5 transition-colors duration-200 active:scale-95",
+                        isGlobalChatOpen ? "text-emerald-600" : "text-slate-400 hover:text-slate-600"
                     )}
-                    title="Edge"
+                    title="Edge AI"
                 >
                     {isGlobalChatOpen ? (
                         <EdgePulse />
                     ) : (
-                        <Bot size={20} strokeWidth={2} className="relative z-10" />
+                        <Bot size={20} strokeWidth={2} />
                     )}
-
-                    {isGlobalChatOpen && (
-                        <MotionDiv
-                            layoutId="activeTabMobileChat"
-                            className="absolute inset-0 bg-[#34D399]/10 rounded-full border border-[#34D399]/20"
-                            transition={ESSENCE.transition.spring}
-                        />
-                    )}
+                    <span className={cn(
+                        "text-[10px] tracking-wide",
+                        isGlobalChatOpen ? "font-bold" : "font-medium"
+                    )}>
+                        Edge
+                    </span>
                 </button>
             </div>
         </div>

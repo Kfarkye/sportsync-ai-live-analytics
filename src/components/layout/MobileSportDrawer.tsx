@@ -50,10 +50,10 @@ const SportCard: React.FC<{
       <div className={`
                 relative overflow-hidden rounded-2xl transition-all duration-300
                 ${isSelected
-          ? 'bg-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]'
-          : 'bg-white/[0.02] hover:bg-white/[0.04] shadow-[0_2px_8px_rgba(0,0,0,0.2)]'
+          ? 'bg-slate-100 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]'
+          : 'bg-slate-50 hover:bg-slate-50 shadow-[0_2px_8px_rgba(0,0,0,0.2)]'
         }
-                border border-white/[0.04]
+                border border-slate-200
                 backdrop-blur-xl
             `}>
         {/* Content */}
@@ -63,8 +63,8 @@ const SportCard: React.FC<{
             <span className={`
                             text-[17px] font-semibold tracking-[-0.02em] transition-all duration-200
                             ${isSelected
-                ? 'text-white'
-                : 'text-zinc-300 group-hover:text-white'
+                ? 'text-slate-900'
+                : 'text-slate-600 group-hover:text-slate-900'
               }
                         `}>
               {config.label}
@@ -79,7 +79,7 @@ const SportCard: React.FC<{
                                 `} />
                 <span className={`
                                     text-[11px] font-medium tracking-wide
-                                    ${isSelected ? 'text-white/70' : 'text-zinc-500'}
+                                    ${isSelected ? 'text-slate-900/70' : 'text-slate-500'}
                                 `}>
                   {liveCount} live
                 </span>
@@ -204,11 +204,11 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
 
             {/* Header - Pure Typography */}
             <div className="px-6 pt-2 pb-5">
-              <h2 className="text-[28px] font-bold text-white tracking-[-0.03em] leading-none">
+              <h2 className="text-[28px] font-bold text-slate-900 tracking-[-0.03em] leading-none">
                 Leagues
               </h2>
               {totalLive > 0 && (
-                <p className="text-[13px] text-zinc-500 font-medium mt-2 tracking-[-0.01em]">
+                <p className="text-[13px] text-slate-500 font-medium mt-2 tracking-[-0.01em]">
                   {totalLive} games in progress
                 </p>
               )}
@@ -217,7 +217,7 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
             {/* Close Button - Minimal */}
             <button
               onClick={onClose}
-              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center bg-white/[0.04] hover:bg-white/[0.08] rounded-full text-zinc-500 hover:text-white transition-all duration-200 border border-white/[0.04]"
+              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center bg-slate-50 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-all duration-200 border border-slate-200"
             >
               <X size={16} strokeWidth={2} />
             </button>
@@ -228,10 +228,10 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
                 {/* GLOBAL ALL SPORTS OPTION */}
                 <div>
                   <div className="flex items-center gap-3 px-1 mb-3">
-                    <span className="text-[11px] font-semibold text-zinc-600 uppercase tracking-[0.12em]">
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.12em]">
                       Universe
                     </span>
-                    <div className="flex-1 h-px bg-white/[0.03]" />
+                    <div className="flex-1 h-px bg-slate-50" />
                   </div>
                   <SportCard
                     sport={'all'}
@@ -249,10 +249,10 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
                   <div key={category}>
                     {/* Category Label - Subtle Typography */}
                     <div className="flex items-center gap-3 px-1 mb-3">
-                      <span className="text-[11px] font-semibold text-zinc-600 uppercase tracking-[0.12em]">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.12em]">
                         {category}
                       </span>
-                      <div className="flex-1 h-px bg-white/[0.03]" />
+                      <div className="flex-1 h-px bg-slate-50" />
                     </div>
 
                     {/* Sport Cards */}

@@ -107,7 +107,7 @@ const TypeWriter: React.FC<TypeWriterProps> = ({
   ]);
 
   // Determine current color
-  const currentColor = colors[lineIndex % colors.length] || 'text-white';
+  const currentColor = colors[lineIndex % colors.length] || 'text-slate-900';
   const fontFamily = font === 'mono' ? 'font-mono' : 'font-sans';
 
   return (

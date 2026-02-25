@@ -82,13 +82,13 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
 
     if (liveLoading && !liveState) {
         return (
-            <div className="p-16 flex flex-col items-center justify-center bg-[#080808]/60 backdrop-blur-xl rounded-3xl border border-white/[0.04] shadow-2xl">
+            <div className="p-16 flex flex-col items-center justify-center bg-[#080808]/60 backdrop-blur-xl rounded-3xl border border-slate-200 shadow-sm">
                 <motion.div
                     animate={{ rotate: 360, scale: [1, 1.1, 1] }}
                     transition={{ duration: 2, repeat: Infinity }}
                     className="w-12 h-12 border-2 border-zinc-800 border-t-emerald-500 rounded-full mb-6"
                 />
-                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 animate-pulse">Synchronizing Intelligence</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 animate-pulse">Synchronizing Intelligence</span>
             </div>
         );
     }
@@ -155,7 +155,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
     };
 
     const formattedTime = ai_analysis?.generated_at ? new Date(ai_analysis.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
-    const accentColor = isEdge ? "text-emerald-400" : "text-zinc-500";
+    const accentColor = isEdge ? "text-emerald-400" : "text-slate-500";
 
     return (
         <motion.div
@@ -188,51 +188,51 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                 {isEdge ? "Tactical Alpha Detected" : "Market Efficiency Confirmed"}
                             </span>
                         </div>
-                        {formattedTime && <span className="text-[9px] font-mono text-zinc-600 tracking-tighter uppercase opacity-60">Audit Hash: {formattedTime} • v4.2 ARCHITECT</span>}
+                        {formattedTime && <span className="text-[9px] font-mono text-slate-500 tracking-tighter uppercase opacity-60">Audit Hash: {formattedTime} • v4.2 ARCHITECT</span>}
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <div className="px-2.5 py-1 bg-white/[0.03] border border-white/[0.02] rounded-lg hidden sm:flex items-center gap-1.5">
-                            <Target size={10} className="text-zinc-600" />
-                            <span className="text-[10px] font-black text-zinc-600 tracking-widest uppercase">{marketType}</span>
+                        <div className="px-2.5 py-1 bg-slate-50 border border-white/[0.02] rounded-lg hidden sm:flex items-center gap-1.5">
+                            <Target size={10} className="text-slate-500" />
+                            <span className="text-[10px] font-black text-slate-500 tracking-widest uppercase">{marketType}</span>
                         </div>
                         <div className={cn(
-                            "px-4 py-2 rounded-2xl flex items-center gap-3 border shadow-lg transition-all duration-700",
-                            isEdge ? "bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/5 ring-1 ring-emerald-500/10" : "bg-zinc-900/60 border-white/[0.04]"
+                            "px-4 py-2 rounded-2xl flex items-center gap-3 border shadow-sm transition-all duration-700",
+                            isEdge ? "bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/5 ring-1 ring-emerald-500/10" : "bg-zinc-900/60 border-slate-200"
                         )}>
                             <span className={cn("text-xs font-black tracking-tight uppercase", accentColor)}>
                                 {side === 'PASS' ? 'Efficiency Clear' : displaySide}
                             </span>
-                            <div className="w-[1px] h-4 bg-white/[0.08]" />
-                            <span className="text-[11px] font-mono font-bold text-zinc-400 tabular-nums">
+                            <div className="w-[1px] h-4 bg-slate-100" />
+                            <span className="text-[11px] font-mono font-bold text-slate-400 tabular-nums">
                                 {sharp_data?.recommendation?.unit_size || '0.00U'}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                <h2 className="text-[22px] font-bold text-white tracking-tight leading-[1.15] relative z-10 lg:pr-12">
+                <h2 className="text-[22px] font-bold text-slate-900 tracking-tight leading-[1.15] relative z-10 lg:pr-12">
                     {sharp_data.headline}
                 </h2>
 
                 {/* Tier 2: Real-time Snapshot Grid */}
-                <div className="grid grid-cols-3 gap-8 py-5 border-y border-white/[0.04] relative z-10">
+                <div className="grid grid-cols-3 gap-8 py-5 border-y border-slate-200 relative z-10">
                     <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-zinc-600 tracking-widest uppercase">Scoreboard</span>
-                        <span className="font-mono text-[16px] font-bold text-white tabular-nums tracking-tight">{forensicSnapshot.score}</span>
+                        <span className="text-[9px] font-black text-slate-500 tracking-widest uppercase">Scoreboard</span>
+                        <span className="font-mono text-[16px] font-bold text-slate-900 tabular-nums tracking-tight">{forensicSnapshot.score}</span>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-zinc-600 tracking-widest uppercase">Game Clock</span>
+                        <span className="text-[9px] font-black text-slate-500 tracking-widest uppercase">Game Clock</span>
                         <div className="flex items-center gap-1.5">
-                            <Timer size={12} className="text-zinc-700" />
-                            <span className="font-mono text-[16px] font-bold text-white tabular-nums tracking-tight">{forensicSnapshot.clock}</span>
+                            <Timer size={12} className="text-slate-400" />
+                            <span className="font-mono text-[16px] font-bold text-slate-900 tabular-nums tracking-tight">{forensicSnapshot.clock}</span>
                         </div>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-zinc-600 tracking-widest uppercase">Confidence</span>
+                        <span className="text-[9px] font-black text-slate-500 tracking-widest uppercase">Confidence</span>
                         <div className="flex items-center gap-1.5">
                             <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity }} className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className="font-mono text-[16px] font-bold text-white tabular-nums tracking-tight">{sharp_data.confidence_level || sharp_data.confidence_rating || "—"}%</span>
+                            <span className="font-mono text-[16px] font-bold text-slate-900 tabular-nums tracking-tight">{sharp_data.confidence_level || sharp_data.confidence_rating || "—"}%</span>
                         </div>
                     </div>
                 </div>
@@ -252,10 +252,10 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                 key={i}
                                 className="flex items-start gap-4 group"
                             >
-                                <div className="mt-2 w-1.5 h-1.5 rounded-full bg-white/[0.06] group-hover:bg-emerald-500/50 transition-all duration-500 shadow-[0_0_8px_transparent] group-hover:shadow-emerald-500/20" />
+                                <div className="mt-2 w-1.5 h-1.5 rounded-full bg-slate-100 group-hover:bg-emerald-500/50 transition-all duration-500 shadow-[0_0_8px_transparent] group-hover:shadow-emerald-500/20" />
                                 <div className="flex-1 flex flex-col gap-0.5">
-                                    <span className="text-[9px] font-black uppercase tracking-[0.15em] text-zinc-600 group-hover:text-emerald-500/60 transition-colors">{pillar.label}</span>
-                                    <span className="text-[14px] text-zinc-300 font-medium leading-[1.4] tracking-tight">{pillar.val}</span>
+                                    <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 group-hover:text-emerald-500/60 transition-colors">{pillar.label}</span>
+                                    <span className="text-[14px] text-slate-600 font-medium leading-[1.4] tracking-tight">{pillar.val}</span>
                                 </div>
                             </motion.div>
                         ))}
@@ -272,7 +272,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                 exit={{ height: 0, opacity: 0 }}
                                 className="overflow-hidden"
                             >
-                                <p className="text-[13.5px] text-zinc-400 leading-[1.6] tracking-tight mb-5 border-l border-white/[0.05] pl-4 italic bg-white/[0.01] py-2 rounded-r-lg">
+                                <p className="text-[13.5px] text-slate-400 leading-[1.6] tracking-tight mb-5 border-l border-white/[0.05] pl-4 italic bg-white/[0.01] py-2 rounded-r-lg">
                                     {sharp_data.the_read}
                                 </p>
                             </motion.div>
@@ -295,7 +295,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                         {ai_analysis?.thought_trace && (
                             <button
                                 onClick={() => setShowTrace(!showTrace)}
-                                className="text-[10px] font-black text-zinc-600 hover:text-white transition-colors uppercase tracking-[0.2em] flex items-center gap-2"
+                                className="text-[10px] font-black text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-[0.2em] flex items-center gap-2"
                             >
                                 <Terminal size={12} className="opacity-40" />
                                 <span>{showTrace ? 'Seal Trace' : 'Audit Pipeline'}</span>
@@ -311,7 +311,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                 exit={{ height: 0, opacity: 0 }}
                                 className="overflow-hidden mt-6"
                             >
-                                <div className="p-6 rounded-2xl bg-black/40 border border-white/[0.03] backdrop-blur-md font-mono text-[11px] text-zinc-500 leading-relaxed max-h-72 overflow-y-auto custom-scrollbar selection:bg-emerald-500/20">
+                                <div className="p-6 rounded-2xl bg-black/40 border border-white/[0.03] backdrop-blur-md font-mono text-[11px] text-slate-500 leading-relaxed max-h-72 overflow-y-auto custom-scrollbar selection:bg-emerald-500/20">
                                     <div className="flex items-center gap-2 mb-4 opacity-50">
                                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                         <span className="uppercase tracking-widest text-[9px] font-black">Secure Reasoning Kernel</span>
@@ -332,7 +332,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                 href={s.uri || s.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.04] text-[9px] font-bold text-zinc-600 hover:text-emerald-400/80 hover:border-emerald-500/20 hover:bg-emerald-500/5 transition-all duration-500"
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[9px] font-bold text-slate-500 hover:text-emerald-400/80 hover:border-emerald-500/20 hover:bg-emerald-500/5 transition-all duration-500"
                             >
                                 <LinkIcon size={10} className="opacity-40" />
                                 <span className="uppercase tracking-wider">{(s.title || 'Source').substring(0, 20)}</span>

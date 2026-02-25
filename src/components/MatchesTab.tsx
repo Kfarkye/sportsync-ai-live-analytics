@@ -80,10 +80,10 @@ const calculateStreaks = (games: RecentFormGame[], teamId: string, sport: Sport)
 // --- Sub-Components ---
 
 const StreakRow: React.FC<{ streak: Streak, teamLogo: string }> = ({ streak, teamLogo }) => (
-    <div className="flex items-center justify-between py-4 border-b border-white/[0.06] last:border-0 group">
+    <div className="flex items-center justify-between py-4 border-b border-slate-200 last:border-0 group">
         <div className="flex items-center gap-4">
             <TeamLogo logo={teamLogo} className="w-6 h-6 opacity-90" />
-            <span className="text-[13px] font-medium text-zinc-300 group-hover:text-white transition-colors">{streak.label}</span>
+            <span className="text-[13px] font-medium text-slate-600 group-hover:text-slate-900 transition-colors">{streak.label}</span>
         </div>
         <div className="flex items-center gap-3">
             {streak.icon && (
@@ -92,7 +92,7 @@ const StreakRow: React.FC<{ streak: Streak, teamLogo: string }> = ({ streak, tea
                     className={streak.type === 'POSITIVE' ? 'text-emerald-500' : streak.type === 'NEGATIVE' ? 'text-rose-500' : 'text-amber-500'} 
                 />
             )}
-            <span className={`text-[13px] font-mono font-bold ${streak.type === 'POSITIVE' ? 'text-emerald-400' : 'text-white'}`}>
+            <span className={`text-[13px] font-mono font-bold ${streak.type === 'POSITIVE' ? 'text-emerald-400' : 'text-slate-900'}`}>
                 {streak.value}
             </span>
         </div>
@@ -102,9 +102,9 @@ const StreakRow: React.FC<{ streak: Streak, teamLogo: string }> = ({ streak, tea
 const SectionHeader = ({ title }: { title: string }) => (
     <div className="flex items-center justify-center mb-6 relative">
         <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-white/[0.06]"></div>
+            <div className="w-full border-t border-slate-200"></div>
         </div>
-        <span className="relative px-4 text-[11px] font-bold text-zinc-500 uppercase tracking-widest bg-[#111113]">
+        <span className="relative px-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-white">
             {title}
         </span>
     </div>
@@ -146,13 +146,13 @@ const MatchesTab = ({ match }: { match: Match }) => {
             
             <SectionHeader title="Team Streaks" />
             
-            <div className="bg-[#111113] border border-white/[0.04] rounded-[14px] px-6 py-2 shadow-lg min-h-[200px]">
+            <div className="bg-white border border-slate-200 rounded-[14px] px-6 py-2 shadow-sm min-h-[200px]">
                 {loading ? (
-                    <div className="flex items-center justify-center h-[200px] text-zinc-500 text-xs animate-pulse">
+                    <div className="flex items-center justify-center h-[200px] text-slate-500 text-xs animate-pulse">
                         Analyzing trends...
                     </div>
                 ) : streaks.length === 0 ? (
-                    <div className="flex items-center justify-center h-[200px] text-zinc-600 text-xs italic">
+                    <div className="flex items-center justify-center h-[200px] text-slate-500 text-xs italic">
                         No significant streaks detected.
                     </div>
                 ) : (
@@ -168,14 +168,14 @@ const MatchesTab = ({ match }: { match: Match }) => {
 
             <div className="mt-8">
                 <SectionHeader title="Probability" />
-                <div className="bg-[#111113] border border-white/[0.04] rounded-[14px] p-6 flex justify-between items-center">
+                <div className="bg-white border border-slate-200 rounded-[14px] p-6 flex justify-between items-center">
                      <div className="flex items-center gap-3">
                         <TeamLogo logo={match.homeTeam.logo} className="w-8 h-8" />
                         <div className="flex flex-col">
-                            <span className="text-sm font-bold text-white">
+                            <span className="text-sm font-bold text-slate-900">
                                 {match.odds?.homeWin && String(match.odds.homeWin).includes('-') ? 'Favorite' : 'Underdog'}
                             </span>
-                            <span className="text-[10px] text-zinc-500">Implied Probability</span>
+                            <span className="text-[10px] text-slate-500">Implied Probability</span>
                         </div>
                      </div>
                      
@@ -183,7 +183,7 @@ const MatchesTab = ({ match }: { match: Match }) => {
                         <div className="text-xl font-mono font-bold text-emerald-400">
                             {match.win_probability?.home ? `${match.win_probability.home.toFixed(0)}%` : '-'}
                         </div>
-                        <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest bg-zinc-800/50 px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-200/50 px-2 py-0.5 rounded">
                             {match.odds?.homeWin || '-'}
                         </span>
                      </div>

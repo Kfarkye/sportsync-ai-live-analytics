@@ -38,7 +38,7 @@ const WinProbability: React.FC<WinProbabilityProps> = ({
             {/* Subtle Ambient Glow */}
             <div className="absolute -inset-0.5 bg-gradient-to-r from-transparent via-white/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition duration-700 blur-sm" />
 
-            <div className={cn(ESSENCE.card.base, "relative overflow-hidden shadow-2xl")}>
+            <div className={cn(ESSENCE.card.base, "relative overflow-hidden shadow-sm")}>
                 {/* Background Tint based on winner */}
                 <div
                     className="absolute inset-0 opacity-[0.03] transition-colors duration-1000 pointer-events-none"
@@ -49,11 +49,11 @@ const WinProbability: React.FC<WinProbabilityProps> = ({
                 <div className="flex items-center justify-between mb-5 relative z-10">
                     <div className="flex items-center gap-2">
                         <div className="p-1.5 bg-white/5 rounded-md border border-white/5">
-                            <Zap size={14} className="text-zinc-400 fill-zinc-400/20" />
+                            <Zap size={14} className="text-slate-400 fill-zinc-400/20" />
                         </div>
                         <div>
                             <span className={ESSENCE.tier.t2Label + " block"}>Win Projection</span>
-                            <span className={ESSENCE.tier.t3Meta}>Model Confidence: <span className="text-zinc-400">{confidence}</span></span>
+                            <span className={ESSENCE.tier.t3Meta}>Model Confidence: <span className="text-slate-400">{confidence}</span></span>
                         </div>
                     </div>
 
@@ -91,7 +91,7 @@ const WinProbability: React.FC<WinProbabilityProps> = ({
 
                     {/* The "Sharp Edge" Splitter */}
                     <div
-                        className="absolute top-[-10%] bottom-[-10%] w-3 bg-[#09090B] z-20 skew-x-[-18deg] border-x-2 border-[#09090B] shadow-[0_0_20px_rgba(0,0,0,0.5)] scale-y-110 origin-center"
+                        className="absolute top-[-10%] bottom-[-10%] w-3 bg-slate-50 z-20 skew-x-[-18deg] border-x-2 border-[#09090B] shadow-[0_0_20px_rgba(0,0,0,0.5)] scale-y-110 origin-center"
                         style={{
                             left: `calc(${normAway}% - 6px)`,
                             transition: 'left 1.4s cubic-bezier(0.22, 1, 0.36, 1)'
@@ -119,13 +119,13 @@ const WinProbability: React.FC<WinProbabilityProps> = ({
                 {/* Footer / Context */}
                 <div className="mt-4 flex justify-between items-center px-1">
                     <div className={`flex items-center gap-1.5 transition-opacity duration-500 ${!isHomeFav ? 'opacity-100' : 'opacity-30'}`}>
-                        <Trophy size={12} className={!isHomeFav ? "text-amber-400 fill-amber-400/20" : "text-zinc-600"} />
-                        <span className={ESSENCE.tier.t3Meta + (!isHomeFav ? " text-zinc-300" : "")}>Projected Winner</span>
+                        <Trophy size={12} className={!isHomeFav ? "text-amber-400 fill-amber-400/20" : "text-slate-500"} />
+                        <span className={ESSENCE.tier.t3Meta + (!isHomeFav ? " text-slate-600" : "")}>Projected Winner</span>
                     </div>
 
                     <div className={`flex items-center gap-1.5 transition-opacity duration-500 ${isHomeFav ? 'opacity-100' : 'opacity-30'}`}>
-                        <span className={ESSENCE.tier.t3Meta + (isHomeFav ? " text-zinc-300" : "")}>Projected Winner</span>
-                        <Trophy size={12} className={isHomeFav ? "text-amber-400 fill-amber-400/20" : "text-zinc-600"} />
+                        <span className={ESSENCE.tier.t3Meta + (isHomeFav ? " text-slate-600" : "")}>Projected Winner</span>
+                        <Trophy size={12} className={isHomeFav ? "text-amber-400 fill-amber-400/20" : "text-slate-500"} />
                     </div>
                 </div>
             </div>

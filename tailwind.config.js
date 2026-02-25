@@ -37,34 +37,34 @@ export default {
              * Brand:     text-brand-cyan, bg-brand-cyan (3 usages)     */
             colors: {
                 brand: {
-                    cyan: '#00F0FF',
+                    slate: '#0F172A',
                 },
                 surface: {
-                    pure:     '#000000',
-                    base:     '#09090b',
-                    card:     '#0A0A0B',
-                    elevated: '#111113',
-                    subtle:   '#1A1A1C',
-                    accent:   '#222224',
+                    pure:     '#FFFFFF',
+                    base:     '#F8FAFC',   /* slate-50 */
+                    card:     '#FFFFFF',
+                    elevated: '#FFFFFF',
+                    subtle:   '#F1F5F9',   /* slate-100 */
+                    accent:   '#E2E8F0',   /* slate-200 */
                 },
                 edge: {
-                    ghost:   'rgba(255,255,255,0.03)',
-                    subtle:  'rgba(255,255,255,0.04)',
-                    DEFAULT: 'rgba(255,255,255,0.06)',
-                    strong:  'rgba(255,255,255,0.12)',
+                    ghost:   'rgba(15,23,42,0.03)',
+                    subtle:  'rgba(15,23,42,0.06)',
+                    DEFAULT: '#E2E8F0',
+                    strong:  '#CBD5E1',
                 },
                 overlay: {
-                    ghost:    'rgba(255,255,255,0.01)',
-                    subtle:   'rgba(255,255,255,0.02)',
-                    muted:    'rgba(255,255,255,0.04)',
-                    emphasis: 'rgba(255,255,255,0.06)',
+                    ghost:    'rgba(15,23,42,0.02)',
+                    subtle:   'rgba(15,23,42,0.04)',
+                    muted:    'rgba(15,23,42,0.06)',
+                    emphasis: 'rgba(15,23,42,0.08)',
                 },
             },
 
-            /* ── Shadows (kept — 1 usage each) ─────────────────────── */
+            /* ── Shadows — Editorial Light (microscopic only) ──────── */
             boxShadow: {
-                'glow-cyan':    '0 0 20px rgba(0, 240, 255, 0.35)',
-                'glow-cyan-sm': '0 0 10px rgba(0, 240, 255, 0.25)',
+                'editorial-sm': '0 1px 2px rgba(0, 0, 0, 0.04)',
+                'editorial-md': '0 2px 4px rgba(0, 0, 0, 0.04)',
             },
         },
     },

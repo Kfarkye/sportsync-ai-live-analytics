@@ -21,7 +21,7 @@ const TrendIndicator = ({ trend }: { trend: number }) => {
     // Example: Was 5, Now 3. Trend = 5 - 3 = 2. Positive = Improved.
     // Example: Was 3, Now 5. Trend = 3 - 5 = -2. Negative = Dropped.
     
-    if (trend === 0) return <Minus size={10} className="text-zinc-600" />;
+    if (trend === 0) return <Minus size={10} className="text-slate-500" />;
     
     const isUp = trend > 0;
     return (
@@ -33,13 +33,13 @@ const TrendIndicator = ({ trend }: { trend: number }) => {
 };
 
 const RankingRow: React.FC<{ item: RankingItem }> = ({ item }) => (
-    <div className="flex items-center py-3.5 px-6 border-b border-white/[0.04] active:bg-white/[0.02] transition-colors group">
+    <div className="flex items-center py-3.5 px-6 border-b border-slate-200 active:bg-slate-50 transition-colors group">
         <div className="w-8 flex justify-center shrink-0">
-            <span className="text-lg font-mono font-light text-white tracking-tighter">{item.rank}</span>
+            <span className="text-lg font-mono font-light text-slate-900 tracking-tighter">{item.rank}</span>
         </div>
         
         <div className="mx-4 relative">
-            <div className="w-10 h-10 rounded-[14px] bg-[#1C1C1E] border border-white/[0.08] flex items-center justify-center shadow-sm overflow-hidden">
+            <div className="w-10 h-10 rounded-[14px] bg-[#1C1C1E] border border-slate-200 flex items-center justify-center shadow-sm overflow-hidden">
                 <TeamLogo logo={item.team.logo} name={item.team.name} className="w-7 h-7 object-contain" />
             </div>
             {/* Tiny accent dot based on team color */}
@@ -51,17 +51,17 @@ const RankingRow: React.FC<{ item: RankingItem }> = ({ item }) => (
 
         <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-                <span className="text-[15px] font-bold text-white tracking-tight truncate">{item.team.name}</span>
+                <span className="text-[15px] font-bold text-slate-900 tracking-tight truncate">{item.team.name}</span>
                 {item.firstPlaceVotes ? (
-                    <span className="text-[9px] bg-white/10 px-1.5 py-0.5 rounded text-white/60 font-medium">
+                    <span className="text-[9px] bg-white/10 px-1.5 py-0.5 rounded text-slate-900/60 font-medium">
                         ({item.firstPlaceVotes})
                     </span>
                 ) : null}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[11px] font-mono text-zinc-500">{item.team.record}</span>
-                <span className="text-zinc-700 text-[8px]">•</span>
-                <span className="text-[10px] text-zinc-600 font-medium">{item.points} PTS</span>
+                <span className="text-[11px] font-mono text-slate-500">{item.team.record}</span>
+                <span className="text-slate-400 text-[8px]">•</span>
+                <span className="text-[10px] text-slate-500 font-medium">{item.points} PTS</span>
             </div>
         </div>
 
@@ -137,30 +137,30 @@ const RankingsDrawer: React.FC<RankingsDrawerProps> = ({ isOpen, onClose, sport,
                         </div>
 
                         {/* Header */}
-                        <div className="px-6 py-4 flex items-center justify-between border-b border-white/[0.06]">
+                        <div className="px-6 py-4 flex items-center justify-between border-b border-slate-200">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-amber-500/10 rounded-xl border border-amber-500/20 text-amber-500">
                                     <Trophy size={18} />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-white tracking-tight leading-none">AP Top 25</h2>
-                                    <p className="text-[11px] text-zinc-400 mt-0.5 font-medium">NCAA Football • Week 14</p>
+                                    <h2 className="text-xl font-bold text-slate-900 tracking-tight leading-none">AP Top 25</h2>
+                                    <p className="text-[11px] text-slate-400 mt-0.5 font-medium">NCAA Football • Week 14</p>
                                 </div>
                             </div>
                             <button 
                                 onClick={onClose}
-                                className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full text-slate-400 hover:text-slate-900 hover:bg-white/10 transition-colors"
                             >
                                 <X size={16} strokeWidth={2.5} />
                             </button>
                         </div>
 
                         {/* Content */}
-                        <div className="overflow-y-auto flex-1 custom-scrollbar bg-[#111113]/50">
+                        <div className="overflow-y-auto flex-1 custom-scrollbar bg-white/50">
                             {loading ? (
                                 <div className="flex flex-col items-center justify-center py-20 gap-3">
-                                    <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
-                                    <span className="text-xs font-medium text-zinc-600 uppercase tracking-widest">Loading Poll...</span>
+                                    <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
+                                    <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">Loading Poll...</span>
                                 </div>
                             ) : rankings.length > 0 ? (
                                 <div className="pb-12">
@@ -169,7 +169,7 @@ const RankingsDrawer: React.FC<RankingsDrawerProps> = ({ isOpen, onClose, sport,
                                     ))}
                                 </div>
                             ) : (
-                                <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
+                                <div className="flex flex-col items-center justify-center py-20 text-slate-500">
                                     <p>Rankings unavailable for this week.</p>
                                 </div>
                             )}

@@ -37,7 +37,7 @@ const FeaturedMatchWidget = ({ match, onClick }: { match: Match; onClick: () => 
         >
             {/* Minimalist Header */}
             <div className="flex items-center justify-between mb-4 px-1">
-                <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">Featured Match</span>
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Featured Match</span>
                 {isLive && (
                     <div className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30] animate-pulse" />
@@ -51,17 +51,17 @@ const FeaturedMatchWidget = ({ match, onClick }: { match: Match; onClick: () => 
                 <div className="flex items-center justify-between gap-8">
                     <div className="flex flex-col items-center gap-3 flex-1">
                         <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-16 h-16 object-contain drop-shadow-lg" />
-                        <span className="text-sm font-medium text-zinc-200 tracking-tight">{match.awayTeam.name}</span>
+                        <span className="text-sm font-medium text-slate-700 tracking-tight">{match.awayTeam.name}</span>
                     </div>
 
                     <div className="flex flex-col items-center min-w-[120px]">
-                        <div className="text-5xl font-light text-white tracking-tighter tabular-nums flex items-center gap-4">
+                        <div className="text-5xl font-light text-slate-900 tracking-tighter tabular-nums flex items-center gap-4">
                             <span>{match.awayScore}</span>
-                            <span className="text-zinc-700 text-3xl font-thin">:</span>
+                            <span className="text-slate-400 text-3xl font-thin">:</span>
                             <span>{match.homeScore}</span>
                         </div>
                         <div className="mt-3">
-                            <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest">
+                            <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">
                                 {match.displayClock || new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                             </span>
                         </div>
@@ -69,7 +69,7 @@ const FeaturedMatchWidget = ({ match, onClick }: { match: Match; onClick: () => 
 
                     <div className="flex flex-col items-center gap-3 flex-1">
                         <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-16 h-16 object-contain drop-shadow-lg" />
-                        <span className="text-sm font-medium text-zinc-200 tracking-tight">{match.homeTeam.name}</span>
+                        <span className="text-sm font-medium text-slate-700 tracking-tight">{match.homeTeam.name}</span>
                     </div>
                 </div>
             </div>
@@ -85,7 +85,7 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
     return (
         <div
             onClick={onClick}
-            className="relative h-[160px] rounded-2xl border border-white/10 overflow-hidden cursor-pointer group transition-all duration-500 hover:border-white/20 hover:shadow-2xl"
+            className="relative h-[160px] rounded-2xl border border-white/10 overflow-hidden cursor-pointer group transition-all duration-500 hover:border-white/20 hover:shadow-sm"
             style={{ background: '#09090b' }}
         >
             {/* Dynamic Background */}
@@ -104,42 +104,42 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
                         )}
                         {!isLive && (
                             <div className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
-                                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
                                     {new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                                 </span>
                             </div>
                         )}
                     </div>
-                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">{match.leagueId}</span>
+                    <span className="text-[10px] font-bold text-slate-900/30 uppercase tracking-[0.2em]">{match.leagueId}</span>
                 </div>
 
                 {/* Middle Row: Matchup */}
                 <div className="flex items-center justify-between px-2">
                     <div className="flex flex-col items-center gap-2">
-                        <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-12 h-12 object-contain drop-shadow-2xl" />
-                        <span className="text-sm font-bold text-white tracking-tight">{match.awayTeam.abbreviation || match.awayTeam.name.substring(0, 3).toUpperCase()}</span>
+                        <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-12 h-12 object-contain drop-shadow-sm" />
+                        <span className="text-sm font-bold text-slate-900 tracking-tight">{match.awayTeam.abbreviation || match.awayTeam.name.substring(0, 3).toUpperCase()}</span>
                     </div>
 
                     <div className="flex flex-col items-center">
                         {isLive ? (
-                            <div className="text-3xl font-mono font-bold text-white tracking-tighter tabular-nums flex items-center gap-3">
+                            <div className="text-3xl font-mono font-bold text-slate-900 tracking-tighter tabular-nums flex items-center gap-3">
                                 <span>{match.awayScore}</span>
-                                <span className="text-white/20">-</span>
+                                <span className="text-slate-900/20">-</span>
                                 <span>{match.homeScore}</span>
                             </div>
                         ) : (
-                            <span className="text-2xl font-black text-white/20 italic">VS</span>
+                            <span className="text-2xl font-black text-slate-900/20 italic">VS</span>
                         )}
                     </div>
 
                     <div className="flex flex-col items-center gap-2">
-                        <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-12 h-12 object-contain drop-shadow-2xl" />
-                        <span className="text-sm font-bold text-white tracking-tight">{match.homeTeam.abbreviation || match.homeTeam.name.substring(0, 3).toUpperCase()}</span>
+                        <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-12 h-12 object-contain drop-shadow-sm" />
+                        <span className="text-sm font-bold text-slate-900 tracking-tight">{match.homeTeam.abbreviation || match.homeTeam.name.substring(0, 3).toUpperCase()}</span>
                     </div>
                 </div>
 
                 <div className="flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] truncate max-w-[200px]">
+                    <span className="text-[10px] font-bold text-slate-900/40 uppercase tracking-[0.2em] truncate max-w-[200px]">
                         {isLive ? getPeriodDisplay(match) : 'Headline Event'}
                     </span>
                 </div>
@@ -149,8 +149,8 @@ const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () =>
 };
 
 const MatchRowSkeleton = () => (
-    <div className="w-full h-[72px] border-b border-white/[0.06] flex items-center animate-pulse">
-        <div className="w-[80px] h-full border-r border-white/[0.04] bg-white/[0.01]" />
+    <div className="w-full h-[72px] border-b border-slate-200 flex items-center animate-pulse">
+        <div className="w-[80px] h-full border-r border-slate-200 bg-white/[0.01]" />
         <div className="flex-1 px-6 flex flex-col gap-2">
             <div className="h-3 w-32 bg-white/5 rounded" />
             <div className="h-3 w-24 bg-white/5 rounded" />
@@ -237,7 +237,7 @@ const MatchList: React.FC<MatchListProps> = ({
     if (isLoading && matches.length === 0) {
         return (
             <div className="max-w-7xl mx-auto w-full pt-4">
-                <div className="border-t border-white/[0.08]">
+                <div className="border-t border-slate-200">
                     {[1, 2, 3, 4, 5, 6].map(i => <MatchRowSkeleton key={i} />)}
                 </div>
             </div>
@@ -246,7 +246,7 @@ const MatchList: React.FC<MatchListProps> = ({
 
     if (matches.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] text-zinc-600">
+            <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500">
                 <span className="text-xl mb-4 opacity-50">∅</span>
                 <span className="text-sm font-medium uppercase tracking-widest opacity-70">No Action</span>
             </div>
@@ -268,9 +268,9 @@ const MatchList: React.FC<MatchListProps> = ({
                                 <section className="px-0">
                                     <div className="flex items-center gap-2 mb-4 px-4 lg:px-1">
                                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" />
-                                        <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">Watchlist</span>
+                                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Watchlist</span>
                                     </div>
-                                    <div className="border-t border-white/[0.08]">
+                                    <div className="border-t border-slate-200">
                                         {favorites.map(match => (
                                             <MatchRow
                                                 key={`fav-${match.id}`}
@@ -309,20 +309,20 @@ const MatchList: React.FC<MatchListProps> = ({
                                             {selectedSportKey === 'all' && (
                                                 <div className="px-4 pt-8 pb-3 flex items-baseline justify-between">
                                                     <div className="flex items-baseline gap-3">
-                                                        <h3 className="text-xs font-medium text-white/90 tracking-wide uppercase">
+                                                        <h3 className="text-xs font-medium text-slate-900/90 tracking-wide uppercase">
                                                             {leagueName}
                                                         </h3>
-                                                        <span className="text-[10px] font-normal text-zinc-500 tracking-wide">
+                                                        <span className="text-[10px] font-normal text-slate-500 tracking-wide">
                                                             {earliestTime}
                                                         </span>
                                                     </div>
-                                                    <span className="text-[10px] font-normal text-zinc-600 tabular-nums tracking-wide">
+                                                    <span className="text-[10px] font-normal text-slate-500 tabular-nums tracking-wide">
                                                         {leagueMatches.length}
                                                     </span>
                                                 </div>
                                             )}
 
-                                            <div className="border-b border-white/[0.06]">
+                                            <div className="border-b border-slate-200">
                                                 {leagueMatches.map(match => (
                                                     <MatchRow
                                                         key={match.id}
@@ -349,7 +349,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                 <section className="mb-2">
                                     <div className="flex items-center gap-2 mb-3 px-1">
                                         <span className="w-1.5 h-1.5 bg-brand-cyan rounded-full shadow-glow-cyan-sm animate-pulse" />
-                                        <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">Headline Events</span>
+                                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Headline Events</span>
                                     </div>
                                     <div className="flex flex-col gap-4">
                                         {featuredMatches.map(match => (
@@ -365,11 +365,11 @@ const MatchList: React.FC<MatchListProps> = ({
                             )}
 
                             {/* Promo Widget */}
-                            <div className="p-8 rounded-2xl bg-zinc-900/30 border border-white/[0.04] relative overflow-hidden group">
+                            <div className="p-8 rounded-2xl bg-zinc-900/30 border border-slate-200 relative overflow-hidden group">
                                 <h3 className="text-[11px] font-bold text-[#2997FF] uppercase tracking-widest mb-3">
                                     Pro Access
                                 </h3>
-                                <p className="text-[13px] text-zinc-400 mb-6 leading-relaxed font-medium tracking-tight">
+                                <p className="text-[13px] text-slate-400 mb-6 leading-relaxed font-medium tracking-tight">
                                     Real-time institutional feeds and sharp money indicators.
                                 </p>
                                 <button onClick={onOpenPricing} className="w-full py-3 bg-white hover:bg-zinc-200 text-black text-[11px] font-bold uppercase tracking-widest rounded-full transition-colors flex items-center justify-center">

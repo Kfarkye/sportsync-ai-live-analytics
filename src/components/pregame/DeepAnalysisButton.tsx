@@ -42,16 +42,16 @@ const AnalysisTrigger: React.FC<AnalysisTriggerProps> = ({
             <div className="flex items-center gap-3">
                 <div className={`
                     w-10 h-10 rounded-xl flex items-center justify-center transition-colors
-                    ${isActive ? 'bg-black/5 text-black' : 'bg-black border border-white/10 text-zinc-500 group-hover:text-white'}
+                    ${isActive ? 'bg-black/5 text-black' : 'bg-white border border-white/10 text-slate-500 group-hover:text-slate-900'}
                 `}>
                     {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Icon size={18} className={isActive ? "" : ""} />}
                 </div>
                 
                 <div>
-                    <div className={`text-[13px] font-bold tracking-tight ${isActive ? 'text-black' : 'text-white'}`}>
+                    <div className={`text-[13px] font-bold tracking-tight ${isActive ? 'text-black' : 'text-slate-900'}`}>
                         {title}
                     </div>
-                    <div className={`text-[10px] font-medium tracking-wide uppercase ${isActive ? 'text-black/60' : 'text-zinc-500'}`}>
+                    <div className={`text-[10px] font-medium tracking-wide uppercase ${isActive ? 'text-black/60' : 'text-slate-500'}`}>
                         {subtitle}
                     </div>
                 </div>

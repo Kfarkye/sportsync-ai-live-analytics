@@ -70,9 +70,9 @@ const BettingOutcome = ({ spread, teamId }: BettingOutcomeProps) => {
     <div className="flex items-center mt-1">
       {isPush ? (
         <span
-          className={`${commonClasses} bg-zinc-800 text-zinc-400 border border-zinc-700`}
+          className={`${commonClasses} bg-slate-300 text-slate-400 border border-slate-400`}
         >
-          <Minus className="w-3 h-3 text-zinc-500" />
+          <Minus className="w-3 h-3 text-slate-500" />
           PUSH {line}
         </span>
       ) : (

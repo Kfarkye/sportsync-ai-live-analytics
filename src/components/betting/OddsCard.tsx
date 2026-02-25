@@ -91,11 +91,11 @@ const OddsCell = memo(({ value, subValue, prefix }: { value?: string, subValue?:
             className="flex flex-col items-center justify-center py-1"
         >
             <div className="flex items-baseline gap-1">
-                <span className="text-[15px] font-semibold text-white tabular-nums tracking-tight">
+                <span className="text-[15px] font-semibold text-slate-900 tabular-nums tracking-tight">
                     {displayValue}
                 </span>
                 {subValue && subValue !== '-' && (
-                    <span className="text-[10px] text-zinc-500 font-medium tabular-nums">
+                    <span className="text-[10px] text-slate-500 font-medium tabular-nums">
                         {subValue}
                     </span>
                 )}
@@ -132,7 +132,7 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
                     "w-1.5 h-1.5 rounded-full",
                     isFinal ? "bg-zinc-500" : isLive ? "bg-emerald-500 motion-safe:animate-pulse" : "bg-zinc-600"
                 )} />
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
                     {oddsLabel}
                 </span>
                 {isHalftime && (
@@ -143,24 +143,24 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
             </div>
 
             {/* Column Headers */}
-            <div className="flex items-center gap-4 mb-3 pb-3 border-b border-white/[0.04]">
+            <div className="flex items-center gap-4 mb-3 pb-3 border-b border-slate-200">
                 <div className="w-28 shrink-0">
-                    <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Team</span>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">Team</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 flex-1">
-                    <div className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] text-center">Spread</div>
-                    <div className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] text-center">
+                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] text-center">Spread</div>
+                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] text-center">
                         {match.sport === Sport.TENNIS ? 'Games' : 'Total'}
                     </div>
-                    <div className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] text-center">Money</div>
+                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] text-center">Money</div>
                 </div>
             </div>
 
             {/* Away Team Row */}
-            <div className="flex items-center gap-4 py-4 border-b border-white/[0.04] hover:bg-white/[0.02] focus-within:bg-white/[0.03] transition-colors duration-150 -mx-2 px-2 rounded-lg">
+            <div className="flex items-center gap-4 py-4 border-b border-slate-200 hover:bg-slate-50 focus-within:bg-slate-50 transition-colors duration-150 -mx-2 px-2 rounded-lg">
                 <div className="w-28 flex items-center gap-2.5 shrink-0">
                     <TeamLogo logo={match.awayTeam.logo} className="w-7 h-7 drop-shadow-md" />
-                    <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-[0.1em]">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.1em]">
                         {match.awayTeam.abbreviation || match.awayTeam.shortName}
                     </span>
                 </div>
@@ -172,10 +172,10 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
             </div>
 
             {/* Home Team Row */}
-            <div className="flex items-center gap-4 py-4 border-b border-white/[0.04] hover:bg-white/[0.02] focus-within:bg-white/[0.03] transition-colors duration-150 -mx-2 px-2 rounded-lg">
+            <div className="flex items-center gap-4 py-4 border-b border-slate-200 hover:bg-slate-50 focus-within:bg-slate-50 transition-colors duration-150 -mx-2 px-2 rounded-lg">
                 <div className="w-28 flex items-center gap-2.5 shrink-0">
                     <TeamLogo logo={match.homeTeam.logo} className="w-7 h-7 drop-shadow-md" />
-                    <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-[0.1em]">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.1em]">
                         {match.homeTeam.abbreviation || match.homeTeam.shortName}
                     </span>
                 </div>

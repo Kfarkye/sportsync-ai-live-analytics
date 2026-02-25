@@ -74,12 +74,12 @@ export const AILoadingState: React.FC<AILoadingStateProps> = ({
     return (
       <div className="flex items-center gap-3 py-4 px-2">
         <div className="relative">
-          <div className={`w-5 h-5 rounded-full border border-zinc-800 ${colors.border} animate-spin`} />
+          <div className={`w-5 h-5 rounded-full border border-slate-300 ${colors.border} animate-spin`} />
           <div className="absolute inset-0 flex items-center justify-center">
             <div className={`w-1 h-1 ${colors.bg} rounded-full animate-pulse`} />
           </div>
         </div>
-        <span className="text-sm text-zinc-400 font-mono animate-pulse">
+        <span className="text-sm text-slate-400 font-mono animate-pulse">
           {displayMessage}
         </span>
       </div>
@@ -91,10 +91,10 @@ export const AILoadingState: React.FC<AILoadingStateProps> = ({
     <div className="flex flex-col items-center justify-center w-full min-h-[400px] gap-8 animate-in fade-in duration-700">
       <div className="relative">
         {/* Outer ring */}
-        <div className={`w-20 h-20 rounded-full border border-zinc-800 ${colors.border} animate-spin`} />
+        <div className={`w-20 h-20 rounded-full border border-slate-300 ${colors.border} animate-spin`} />
         {/* Inner ring - reverse spin */}
         <div 
-          className="w-16 h-16 rounded-full border border-zinc-800 border-b-zinc-600 animate-spin absolute top-2 left-2" 
+          className="w-16 h-16 rounded-full border border-slate-300 border-b-zinc-600 animate-spin absolute top-2 left-2" 
           style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} 
         />
         {/* Center dot with glow */}
@@ -103,10 +103,10 @@ export const AILoadingState: React.FC<AILoadingStateProps> = ({
         </div>
       </div>
       <div className="space-y-3 text-center max-w-md">
-        <h3 className="text-xl font-bold text-white tracking-tight">
+        <h3 className="text-xl font-bold text-slate-900 tracking-tight">
           {config.title}
         </h3>
-        <p className="text-sm text-zinc-400 font-mono animate-pulse">
+        <p className="text-sm text-slate-400 font-mono animate-pulse">
           {displayMessage}
         </p>
       </div>

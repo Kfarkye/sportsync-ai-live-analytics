@@ -39,7 +39,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
     public render() {
         if (this.state.hasError) {
             return (
-                <div className="flex flex-col items-center justify-center min-h-screen bg-[#111113] text-white p-6">
+                <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 text-slate-900 p-6">
                     <div className="absolute inset-0 pointer-events-none">
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-red-500/10 blur-[100px] rounded-full" />
                     </div>
@@ -50,20 +50,20 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
                         </div>
 
                         <h1 className="text-xl font-bold mb-3 tracking-tight">Something went wrong</h1>
-                        <p className="text-zinc-500 text-sm mb-8 leading-relaxed">
+                        <p className="text-slate-500 text-sm mb-8 leading-relaxed">
                             We've encountered a critical error. The application has been paused to prevent further issues.
                         </p>
 
                         <button
                             onClick={this.handleReset}
-                            className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-full text-sm font-bold uppercase tracking-wider hover:bg-zinc-200 transition-all active:scale-95"
+                            className="flex items-center gap-2 px-6 py-3 bg-slate-50 text-black rounded-full text-sm font-bold uppercase tracking-wider hover:bg-slate-200 transition-all active:scale-95"
                         >
                             <RefreshCcw size={16} />
                             Restart App
                         </button>
 
                         {process.env.NODE_ENV === 'development' && (
-                            <pre className="mt-8 p-4 bg-zinc-900 border border-white/5 rounded-lg text-[10px] text-left overflow-auto max-w-full text-zinc-500">
+                            <pre className="mt-8 p-4 bg-slate-200 border border-white/5 rounded-lg text-[10px] text-left overflow-auto max-w-full text-slate-500">
                                 {this.state.error?.toString()}
                             </pre>
                         )}

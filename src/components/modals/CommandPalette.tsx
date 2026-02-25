@@ -15,7 +15,7 @@ interface CommandPaletteProps {
 const MAX_RESULTS = 5;
 
 const Kbd: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <kbd className="hidden sm:inline-flex items-center justify-center h-5 min-w-[20px] px-1 text-[10px] font-medium font-sans text-zinc-500 bg-[#1A1A1A] border border-white/10 rounded-[4px] mx-0.5 shadow-sm">
+  <kbd className="hidden sm:inline-flex items-center justify-center h-5 min-w-[20px] px-1 text-[10px] font-medium font-sans text-slate-500 bg-[#1A1A1A] border border-white/10 rounded-[4px] mx-0.5 shadow-sm">
     {children}
   </kbd>
 );
@@ -27,7 +27,7 @@ const MatchItem = React.memo(({ match, isActive, onSelect, onMouseEnter }: { mat
       onMouseEnter={onMouseEnter}
       className={cn(
         "cursor-pointer flex items-center justify-between p-3 mx-2 rounded-lg transition-all duration-150 group relative",
-        isActive ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'
+        isActive ? 'bg-slate-100' : 'hover:bg-slate-50'
       )}
     >
       {/* Active Indicator Bar */}
@@ -41,10 +41,10 @@ const MatchItem = React.memo(({ match, isActive, onSelect, onMouseEnter }: { mat
           <TeamLogo logo={match.awayTeam.logo} className="w-5 h-5 rounded-full bg-black ring-1 ring-white/10" />
         </div>
         <div>
-          <div className={cn("text-sm font-medium", isActive ? 'text-white' : 'text-zinc-300')}>
-            {match.homeTeam.name} <span className="text-zinc-600 text-xs mx-1">vs</span> {match.awayTeam.name}
+          <div className={cn("text-sm font-medium", isActive ? 'text-slate-900' : 'text-slate-500')}>
+            {match.homeTeam.name} <span className="text-slate-500 text-xs mx-1">vs</span> {match.awayTeam.name}
           </div>
-          <div className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide flex items-center gap-2">
+          <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wide flex items-center gap-2">
             {match.leagueId}
             {match.status === MatchStatus.LIVE && <span className="text-rose-500 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" /> LIVE</span>}
           </div>
@@ -52,7 +52,7 @@ const MatchItem = React.memo(({ match, isActive, onSelect, onMouseEnter }: { mat
       </div>
 
       <div className="flex items-center gap-3 pr-2">
-        {isActive && <CornerDownLeft size={14} className="text-zinc-500" />}
+        {isActive && <CornerDownLeft size={14} className="text-slate-500" />}
       </div>
     </li>
   );
@@ -109,17 +109,17 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ matches, onSelect, isOp
       />
 
       <div className={cn(
-        "relative w-full max-w-[640px] rounded-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col shadow-2xl",
+        "relative w-full max-w-[640px] rounded-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col shadow-sm",
         ESSENCE.glass.panel
       )}>
 
         {/* Search Header */}
-        <div className="flex items-center px-4 py-4 border-b border-white/5 bg-white/[0.02]">
-          <Search className="w-5 h-5 text-zinc-500 mr-3" strokeWidth={2} />
+        <div className="flex items-center px-4 py-4 border-b border-white/5 bg-slate-50">
+          <Search className="w-5 h-5 text-slate-500 mr-3" strokeWidth={2} />
           <input
             ref={inputRef}
             type="text"
-            className="flex-1 bg-transparent border-none text-lg text-white placeholder-zinc-600 focus:outline-none font-medium"
+            className="flex-1 bg-transparent border-none text-lg text-slate-900 placeholder-slate-500 focus:outline-none font-medium"
             placeholder="Search teams..."
             value={query}
             onChange={(e) => { setQuery(e.target.value); setActiveIndex(0); }}
@@ -132,9 +132,9 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ matches, onSelect, isOp
         </div>
 
         {/* Results */}
-        <div className="py-2 max-h-[400px] overflow-y-auto custom-scrollbar bg-[#09090B]">
+        <div className="py-2 max-h-[400px] overflow-y-auto custom-scrollbar bg-slate-50">
           {filteredMatches.length === 0 ? (
-            <div className="py-12 text-center text-zinc-600 flex flex-col items-center gap-2">
+            <div className="py-12 text-center text-slate-500 flex flex-col items-center gap-2">
               <Search size={24} className="opacity-20" />
               <p className="text-sm">No matches found.</p>
             </div>
@@ -154,7 +154,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ matches, onSelect, isOp
         </div>
 
         {/* Footer */}
-        <div className="bg-[#0C0C0E] border-t border-white/5 px-4 py-2 flex items-center justify-between text-[10px] text-zinc-500 font-medium">
+        <div className="bg-[#0C0C0E] border-t border-white/5 px-4 py-2 flex items-center justify-between text-[10px] text-slate-500 font-medium">
           <span className="flex items-center gap-1.5"><Bot size={10} className="text-violet-500" /> Powered by Sharp Edge AI</span>
           <div className="hidden sm:flex items-center gap-3">
             <span className="flex items-center gap-1"><Kbd>↑</Kbd><Kbd>↓</Kbd> to navigate</span>

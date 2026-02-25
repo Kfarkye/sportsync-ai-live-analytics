@@ -32,19 +32,19 @@ const BettingResultCell = memo(({ value, label, status, highlight, className }: 
         "glass-material", // Base material
         status === 'winning' ? "border-emerald-500/40 bg-emerald-500/[0.08] shadow-[0_0_20px_rgba(16,185,129,0.1)]" :
           status === 'losing' ? "opacity-30 grayscale border-white/[0.02]" :
-            highlight ? "bg-white/[0.06] border-white/20" : "bg-black/40 border-white/[0.04]",
+            highlight ? "bg-slate-100 border-white/20" : "bg-white/40 border-slate-200",
         flashClass,
         className
       )}
     >
       {label && (
-        <span className="text-[8px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-2 select-none">
+        <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 select-none">
           {label}
         </span>
       )}
       <span className={cn(
         "font-mono-ledger text-[18px] tracking-tighter leading-none",
-        status === 'winning' ? "text-emerald-400 font-bold" : "text-white font-medium"
+        status === 'winning' ? "text-emerald-400 font-bold" : "text-slate-900 font-medium"
       )}>
         {value || '—'}
       </span>

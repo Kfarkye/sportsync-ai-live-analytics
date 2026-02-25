@@ -107,7 +107,7 @@ const EDGE_COLORS: Record<'high' | 'med' | 'low', { text: string; bg: string; do
 const CONVERGENCE_COLORS: Record<ConvergenceTier, { text: string; bg: string; border: string }> = {
   STRONG: { text: 'text-emerald-400', bg: 'bg-emerald-500/5', border: 'border-emerald-500/15' },
   MODERATE: { text: 'text-amber-400', bg: 'bg-amber-500/5', border: 'border-amber-500/15' },
-  WEAK: { text: 'text-zinc-400', bg: 'bg-zinc-500/5', border: 'border-zinc-500/15' },
+  WEAK: { text: 'text-slate-400', bg: 'bg-zinc-500/5', border: 'border-zinc-500/15' },
 };
 
 const CONVERGENCE_COPY: Record<ConvergenceTier, string> = {
@@ -235,7 +235,7 @@ const BSORow: FC<{ label: string; count: number; max: number; colorClass: string
             key={i}
             className={cn(
               'w-2 h-2 rounded-full transition-all duration-200',
-              i < count ? colorClass : 'bg-white/[0.06] border border-white/[0.08]',
+              i < count ? colorClass : 'bg-slate-100 border border-slate-200',
             )}
             style={i < count ? { boxShadow: `0 0 4px currentColor` } : undefined}
           />
@@ -367,22 +367,22 @@ const PitchLog: FC<PitchLogProps> = memo(({ pitches }) => {
           key={`log-${p.seq}-${i}`}
           className={cn(
             'grid grid-cols-[24px_1fr_1fr_50px] items-center py-2',
-            i < pitches.length - 1 && 'border-b border-white/[0.06]',
+            i < pitches.length - 1 && 'border-b border-slate-200',
           )}
         >
           <div
             className={cn(
               'w-[18px] h-[18px] rounded-full flex items-center justify-center',
-              'font-mono text-[8px] font-extrabold text-white',
+              'font-mono text-[8px] font-extrabold text-slate-900',
               PITCH_COLORS[p.result],
             )}
           >
             {pitches.length - i}
           </div>
-          <span className="text-xs font-medium text-white">
+          <span className="text-xs font-medium text-slate-900">
             {PITCH_LABELS[p.result] || p.result}
           </span>
-          <span className="text-xs text-zinc-400">{p.type}</span>
+          <span className="text-xs text-slate-400">{p.type}</span>
           <span className={cn(ESSENCE.type.dataSm, 'text-right')}>
             {p.mph}mph
           </span>
@@ -447,15 +447,15 @@ const Matchup: FC<MatchupProps> = memo(({ pitcher, batter, awayColor, homeColor,
           'flex flex-col items-center px-3 py-1.5 rounded-lg border',
           pcHot
             ? 'bg-orange-500/10 border-orange-500/20'
-            : 'bg-white/[0.03] border-white/[0.06]',
+            : 'bg-slate-50 border-slate-200',
         )}
         aria-label={`Pitch count: ${pitcher.pitchCount}`}
       >
-        <span className="font-mono text-[7px] font-semibold tracking-[0.12em] text-zinc-500">P-CT</span>
+        <span className="font-mono text-[7px] font-semibold tracking-[0.12em] text-slate-500">P-CT</span>
         <span
           className={cn(
             'font-mono text-xl font-extrabold leading-none',
-            pcHot ? 'text-orange-500' : 'text-white',
+            pcHot ? 'text-orange-500' : 'text-slate-900',
           )}
         >
           {pitcher.pitchCount}
@@ -493,13 +493,13 @@ const DueUp: FC<DueUpProps> = memo(({ teamName, teamColor, players }) => {
     <Card className="!p-3">
       <div className="flex items-center gap-1.5 mb-2.5">
         <div className="w-[3px] h-2.5 rounded-sm" style={{ background: teamColor }} />
-        <span className="text-xs font-semibold text-zinc-400">{teamName} Due Up</span>
+        <span className="text-xs font-semibold text-slate-400">{teamName} Due Up</span>
       </div>
       <div className="grid grid-cols-2 gap-2">
         {players.slice(0, 2).map((p, i) => (
           <div
             key={`due-${i}`}
-            className="p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.06]"
+            className="p-2.5 rounded-lg bg-slate-50 border border-slate-200"
           >
             <span className={ESSENCE.tier.t3Meta}>{i === 0 ? 'ON DECK' : 'IN THE HOLE'}</span>
             <div className={cn(ESSENCE.tier.t2Team, 'mt-1')}>{p.name}</div>
@@ -507,8 +507,8 @@ const DueUp: FC<DueUpProps> = memo(({ teamName, teamColor, players }) => {
               {p.position} ({p.bats})
             </div>
             <div className="flex justify-between mt-1">
-              <span className="font-mono text-[9px] text-zinc-500">Today</span>
-              <span className="font-mono text-[10px] font-bold text-white">{p.todayLine}</span>
+              <span className="font-mono text-[9px] text-slate-500">Today</span>
+              <span className="font-mono text-[10px] font-bold text-slate-900">{p.todayLine}</span>
             </div>
           </div>
         ))}
@@ -551,7 +551,7 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
     <div
       className={cn(
         'font-mono text-[10px] text-center py-1.5 transition-all duration-300',
-        active ? 'font-bold text-white border-b-2 border-orange-500' : val ? 'text-zinc-400' : 'text-zinc-600',
+        active ? 'font-bold text-slate-900 border-b-2 border-orange-500' : val ? 'text-slate-400' : 'text-slate-500',
       )}
     >
       {val}
@@ -564,7 +564,7 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
     isAway,
   }) => (
     <div style={{ display: 'grid', gridTemplateColumns: cols }}>
-      <div className="font-mono text-[10px] font-extrabold tracking-wider text-white py-1.5">
+      <div className="font-mono text-[10px] font-extrabold tracking-wider text-slate-900 py-1.5">
         {team.abbreviation || team.shortName}
       </div>
       {Array.from({ length: innings }).map((_, i) => {
@@ -576,12 +576,12 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
         return <ScoreCell key={i} val={val} active={active} />;
       })}
       <div />
-      <div className="font-mono text-[10px] font-extrabold text-white text-center py-1.5">
+      <div className="font-mono text-[10px] font-extrabold text-slate-900 text-center py-1.5">
         {team.score}
       </div>
       {/* H and E — derive from linescores or show dash */}
-      <div className="font-mono text-[10px] font-extrabold text-white text-center py-1.5">-</div>
-      <div className="font-mono text-[10px] font-extrabold text-white text-center py-1.5">-</div>
+      <div className="font-mono text-[10px] font-extrabold text-slate-900 text-center py-1.5">-</div>
+      <div className="font-mono text-[10px] font-extrabold text-slate-900 text-center py-1.5">-</div>
     </div>
   );
 
@@ -599,7 +599,7 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
         <HeaderCell label="E" />
       </div>
       <TeamRow team={away} scores={awayScores} isAway />
-      <div className="h-px bg-white/[0.06]" />
+      <div className="h-px bg-slate-100" />
       <TeamRow team={home} scores={homeScores} isAway={false} />
     </Card>
   );
@@ -642,8 +642,8 @@ export const BaseballScoringSummary: FC<BaseballScoringSummaryProps> = memo(({
             {play.inningLabel && (
               <div
                 className={cn(
-                  'text-[11px] font-bold text-zinc-400 py-2',
-                  i > 0 && 'border-t border-white/[0.06]',
+                  'text-[11px] font-bold text-slate-400 py-2',
+                  i > 0 && 'border-t border-slate-200',
                 )}
               >
                 {play.inningLabel}
@@ -660,12 +660,12 @@ export const BaseballScoringSummary: FC<BaseballScoringSummaryProps> = memo(({
               >
                 {teamLabel}
               </div>
-              <span className="flex-1 text-xs text-white leading-relaxed">
+              <span className="flex-1 text-xs text-slate-900 leading-relaxed">
                 {play.description}
               </span>
               <div className="flex gap-2.5 flex-shrink-0">
-                <span className="font-mono text-[11px] font-bold text-white">{play.awayScore}</span>
-                <span className="font-mono text-[11px] font-bold text-white">{play.homeScore}</span>
+                <span className="font-mono text-[11px] font-bold text-slate-900">{play.awayScore}</span>
+                <span className="font-mono text-[11px] font-bold text-slate-900">{play.homeScore}</span>
               </div>
             </div>
           </div>
@@ -694,7 +694,7 @@ const EdgeSignalCard: FC<EdgeSignalCardProps> = memo(({ label, icon, data }) => 
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-zinc-400">{icon}</span>
+          <span className="text-slate-400">{icon}</span>
           <span className={ESSENCE.tier.t2Label}>{label}</span>
         </div>
         <div className={cn('flex items-center gap-1.5 px-2 py-1 rounded-full', colors.bg)}>
@@ -706,17 +706,17 @@ const EdgeSignalCard: FC<EdgeSignalCardProps> = memo(({ label, icon, data }) => 
       </div>
 
       {/* Detail */}
-      <p className="text-xs text-zinc-400 leading-relaxed mb-2.5">{data.detail}</p>
+      <p className="text-xs text-slate-400 leading-relaxed mb-2.5">{data.detail}</p>
 
       {/* Cited Inputs */}
       {data.inputs.length > 0 && (
-        <div className="border-t border-white/[0.06] pt-2">
+        <div className="border-t border-slate-200 pt-2">
           <span className={cn(ESSENCE.tier.t3Meta, 'block mb-1.5')}>INPUTS</span>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1">
             {data.inputs.map((inp, j) => (
               <div key={j} className="flex justify-between py-0.5">
-                <span className="font-mono text-[9px] text-zinc-500">{inp.field}</span>
-                <span className="font-mono text-[9px] font-semibold text-white">{inp.value}</span>
+                <span className="font-mono text-[9px] text-slate-500">{inp.field}</span>
+                <span className="font-mono text-[9px] font-semibold text-slate-900">{inp.value}</span>
               </div>
             ))}
           </div>
@@ -771,12 +771,12 @@ export const BaseballEdgePanel: FC<BaseballEdgePanelProps> = memo(({ edge }) => 
             return (
               <div key={item.label} className="flex-1">
                 <div className="flex justify-between mb-1">
-                  <span className="font-mono text-[8px] font-semibold text-zinc-500">{item.label}</span>
+                  <span className="font-mono text-[8px] font-semibold text-slate-500">{item.label}</span>
                   <span className={cn('font-mono text-[8px] font-semibold', c.text)}>
                     {item.signal.signal.toUpperCase()}
                   </span>
                 </div>
-                <div className="h-1 rounded-sm bg-white/[0.04] overflow-hidden">
+                <div className="h-1 rounded-sm bg-slate-50 overflow-hidden">
                   <motion.div
                     className={cn('h-full rounded-sm', c.dot)}
                     initial={{ width: 0 }}
@@ -791,7 +791,7 @@ export const BaseballEdgePanel: FC<BaseballEdgePanelProps> = memo(({ edge }) => 
         </div>
 
         {/* Thesis */}
-        <p className="text-xs font-semibold text-white leading-relaxed">
+        <p className="text-xs font-semibold text-slate-900 leading-relaxed">
           {CONVERGENCE_COPY[tier]}
         </p>
       </div>
@@ -822,7 +822,7 @@ BaseballEdgePanel.displayName = 'BaseballEdgePanel';
 // ============================================================================
 
 const FreshnessBadge: FC<{ ts: number | undefined; className?: string }> = memo(({ ts, className }) => (
-  <span className={cn('font-mono text-[8px] text-zinc-600', className)}>
+  <span className={cn('font-mono text-[8px] text-slate-500', className)}>
     Updated {relativeTime(ts)}
   </span>
 ));
@@ -896,7 +896,7 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
       {/* View Toggle (live only) */}
       {isLive && (
         <div
-          className="flex rounded-lg overflow-hidden border border-white/[0.06]"
+          className="flex rounded-lg overflow-hidden border border-slate-200"
           role="group"
           aria-label="View toggle"
         >
@@ -909,8 +909,8 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
                 'flex-1 min-h-[44px] flex items-center justify-center',
                 'text-xs font-bold transition-all duration-200',
                 view === opt
-                  ? 'text-white bg-white/[0.06]'
-                  : 'text-zinc-500 hover:text-zinc-300',
+                  ? 'text-slate-900 bg-slate-100'
+                  : 'text-slate-500 hover:text-slate-600',
               )}
             >
               {opt === 'atbat' ? 'At-Bat' : 'Runners'}
@@ -977,7 +977,7 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
                 size={120}
               />
               <BSO balls={balls} strikes={strikes} outs={outs} />
-              <span className="font-mono text-[10px] text-zinc-500 tracking-wider">
+              <span className="font-mono text-[10px] text-slate-500 tracking-wider">
                 {runners.first || runners.second || runners.third ? 'Runners on base' : 'Bases empty'}
               </span>
             </Card>
@@ -1007,7 +1007,7 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
           >
             {(battingTeam.abbreviation || battingTeam.shortName || '').slice(0, 2)}
           </div>
-          <span className="text-[13px] font-extrabold text-white">
+          <span className="text-[13px] font-extrabold text-slate-900">
             {formatInning(inning, inningHalf)}
           </span>
         </div>
