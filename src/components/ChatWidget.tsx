@@ -362,6 +362,7 @@ interface ChatContextPayload {
   conversation_id?: string | null;
   gameContext?: GameContext | null;
   run_id: string;
+  live_snapshot?: any;
 }
 
 type ConnectionStatus = "connected" | "reconnecting" | "offline";
@@ -3071,7 +3072,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     return () => ro.disconnect();
   }, []);
 
-  const { session_id, conversation_id } = useChatContext({ match: currentMatch });
+  const { session_id, conversation_id, getChatPayload } = useChatContext({ match: currentMatch });
   const connectionStatus = useConnectionHealth();
   const canSend = useSendGuard();
 
@@ -3345,8 +3346,13 @@ const InnerChatWidget: FC<ChatWidgetProps & {
         wireMessages[wireMessages.length - 1].content = buildWireContent(text || "Analyze this.", currentAttachments);
       }
 
+      const livePayload = getChatPayload();
       const context: ChatContextPayload = {
-        session_id, conversation_id, gameContext: normalizedContext, run_id: generateId(),
+        session_id: livePayload.session_id,
+        conversation_id: livePayload.conversation_id,
+        gameContext: livePayload.current_match || normalizedContext,
+        run_id: generateId(),
+        live_snapshot: livePayload.live_snapshot,
       };
 
       const controller = new AbortController();
