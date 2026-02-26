@@ -59,6 +59,8 @@ import {
 } from "framer-motion";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import BetSlipReviewArea from "./bet-slip/BetSlipReviewArea";
+import type { AppBetSlip } from "../../lib/schemas/betSlipSchema";
 import { useChatContext } from "../hooks/useChatContext";
 import { useAppStore } from "../store/appStore";
 import {
@@ -3028,6 +3030,10 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   const prevMsgCountRef = useRef(0);
   const wasStreamingRef = useRef(false);
   const [retryCount, setRetryCount] = useState(0);
+
+  // ── Sweat My Slip: Dedicated OCR state (decoupled from chat history) ──
+  const [isExtractingSlip, setIsExtractingSlip] = useState(false);
+  const [pendingSlipData, setPendingSlipData] = useState<AppBetSlip | null>(null);
   const [srAnnouncement, setSrAnnouncement] = useState("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -3199,6 +3205,68 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     if ((!text && !attachments.length) || isProcessing || sendingRef.current) return;
     if (!canSend()) return;
     if (connectionStatus === "offline") return;
+
+    // ── Sweat My Slip: Intercept image attachments for OCR extraction ──
+    const imageAttachment = attachments.find(att => att.mimeType?.startsWith('image/'));
+    if (imageAttachment && !queryOverride) {
+      const slipText = text || "Can you track this slip for me?";
+      sendingRef.current = true;
+      setIsProcessing(true);
+      setInput("");
+      setAttachments([]);
+      setShouldAutoScroll(true);
+      triggerHaptic();
+
+      // Add user message to chat
+      const userMsgId = generateId();
+      const now = new Date().toISOString();
+      dispatch({
+        type: "APPEND_BATCH", messages: [
+          { id: userMsgId, role: "user" as const, content: slipText, timestamp: now },
+        ]
+      });
+
+      setIsExtractingSlip(true);
+
+      try {
+        // 🛡️ Strip Data URI prefix if it exists to prevent double-prefixing crash
+        const cleanBase64 = imageAttachment.base64.replace(/^data:image\/[a-z+]+;base64,/i, '');
+
+        const response = await fetch('/api/extract-slip', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: cleanBase64,
+            mimeType: imageAttachment.mimeType || 'image/jpeg',
+          }),
+        });
+
+        if (!response.ok) throw new Error(`Server responded with status ${response.status}`);
+        const result = await response.json();
+        if (!result.success || !result.data) throw new Error(result.error || 'Failed to parse image');
+
+        // Show the review UI
+        setPendingSlipData(result.data);
+        dispatch({
+          type: "APPEND_BATCH", messages: [
+            { id: generateId(), role: "assistant" as const, content: "I've extracted the legs from your slip. Please verify the highlighted fields below before I track it.", timestamp: new Date().toISOString() },
+          ]
+        });
+        trackAction('slip.extracted', { legCount: result.data.legs.length, sportsbook: result.data.sportsbook });
+      } catch (err) {
+        console.error('[Slip OCR] Error:', err);
+        dispatch({
+          type: "APPEND_BATCH", messages: [
+            { id: generateId(), role: "assistant" as const, content: "❌ Sorry, I couldn't read the odds on that slip clearly. Please try a higher-resolution screenshot, or tell me the picks manually.", timestamp: new Date().toISOString() },
+          ]
+        });
+      } finally {
+        setIsExtractingSlip(false);
+        setIsProcessing(false);
+        sendingRef.current = false;
+      }
+      return; // Exit early — don't enter the normal streaming flow
+    }
 
     sendingRef.current = true;
     const sendStart = Date.now();
@@ -3442,6 +3510,53 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                 </motion.div>
               ) : (
                 messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} verdictOutcomes={verdictOutcomes} showCitations={showCitations} />)
+              )}
+
+              {/* 🔄 Sweat My Slip: OCR Loading State */}
+              {isExtractingSlip && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mx-2 mb-4 p-4 rounded-2xl border border-amber-400/20 bg-amber-500/5"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-[12px] font-semibold text-amber-400 tracking-wide">Scanning slip via Gemini Vision...</span>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* 🌟 Sweat My Slip: Verification Form */}
+              {pendingSlipData && (
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mx-2 mb-4"
+                >
+                  <BetSlipReviewArea
+                    initialData={pendingSlipData}
+                    onConfirm={(verifiedSlip) => {
+                      setPendingSlipData(null);
+                      dispatch({
+                        type: "APPEND_BATCH", messages: [
+                          { id: generateId(), role: "assistant" as const, content: `✅ **Slip Tracked!** You're sweating a **$${verifiedSlip.total_stake || '?'}** wager across **${verifiedSlip.legs.length} legs**. I'll monitor these in your dashboard.`, timestamp: new Date().toISOString() },
+                        ]
+                      });
+                      trackAction('slip.confirmed', { legCount: verifiedSlip.legs.length, sportsbook: verifiedSlip.sportsbook });
+                      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]);
+                      }
+                    }}
+                    onCancel={() => {
+                      setPendingSlipData(null);
+                      dispatch({
+                        type: "APPEND_BATCH", messages: [
+                          { id: generateId(), role: "assistant" as const, content: "No worries — slip discarded. You can upload another one anytime.", timestamp: new Date().toISOString() },
+                        ]
+                      });
+                    }}
+                  />
+                </motion.div>
               )}
             </AnimatePresence>
           </div>
