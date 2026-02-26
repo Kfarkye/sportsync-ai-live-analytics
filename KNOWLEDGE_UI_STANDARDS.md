@@ -192,3 +192,35 @@ For visual anchoring, use these curated sources:
 - [6] Rotowire: DraftKings Interface Review
 - [7] Medium: "The 20% Human Rule for AI Design"
 - [8] Design Systems Collective: Component-by-Component Iteration
+
+## 5. ZERO-AI LITMUS TEST (THE CRAFTSMANSHIP LAYER)
+
+To fully graduate from "less vibe-coded" to "Zero-AI" (meaning if you paste a screenshot into GPT-4o, it fails to recreate it because the UI is too idiosyncratic), you must implement these friction points.
+
+### 5.1 "Ugly" Data Density
+AI defaults to consumer landing pages: airy white backgrounds and `p-6` padding everywhere.
+* **Go Dense:** Use 12px-13px fonts, tight padding (`p-1.5`, `p-2`), and high information density like a Bloomberg Terminal or Linear.
+* **Complex Tables > Cards:** Render dense data in tables with frozen headers and inline interactions, not spaced-out, identical grid cards.
+* **Monospace Alignment:** Enforce tabular-nums for ALL odds, timestamps, and IDs so they perfectly vertically align.
+
+### 5.2 Wabi-Sabi (Intentional Tension)
+AI thinks in standard standard flexboxes (`gap-4`, perfectly centered). Break the grid intentionally.
+* **Spatial Tension:** Use a 70/30 split layout. Jam text into corners. Leave unpredictable, asymmetrical whitespace.
+* **Overlap:** Manually position badges or images so they break out of their parent containers (`absolute -top-2 -right-2`).
+* **Analog Texture:** Instead of pure hex codes, introduce a subtle SVG grain or noise filter over dark backgrounds to remove the "plastic" feel.
+
+### 5.3 Useless Physics & The "Juice"
+AI stops at basic hover states (`hover:bg-gray-100`). Human craftsmanship adds "juice" that serves no functional purpose other than delight.
+* **Spring Physics:** Modals shouldn't just fade—they should bounce slightly (`type: "spring", bounce: 0.4`).
+* **Sound Design:** (Advanced) Add subtle, satisfying clicks/thwacks when switches are toggled.
+* **Magnetic Cursors:** Use custom cursors that snap to elements or invert text colors.
+
+### 5.4 "Un-Computable" Copy
+Kill all HR-approved buzzwords: "Seamless", "Unlock", "Elevate", "Supercharge".
+* **Be Brutally Direct:** Write "Manage Team" instead of "Empower your workflow".
+* **Specific Error States:** Instead of "Oops! Something went wrong", write: "Database connection timed out. Retrying in 5s... (Check your API keys)."
+
+### 5.5 The "Inspect Element" Test
+A true craftsman leaves marks where only other developers look.
+* **Custom Selections:** Style the text highlighting (`::selection`) to match the brand, not the browser default blue.
+* **Console Easter Eggs:** Leave ASCII art or a hiring message in the `console.log()` for anyone who opens dev tools.
