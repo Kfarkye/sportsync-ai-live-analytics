@@ -3089,12 +3089,17 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   // ── Auto-fire: Contextual opening analysis on AI tab open ──
   const autoFiredMatchRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!inline || !normalizedContext?.match_id) return;
+    const matchId = normalizedContext?.match_id;
+
+    // Guard 1: Must be inline (AI tab) with a valid match
+    if (!inline || !matchId) return;
+    // Guard 2: If there's already conversation history, don't interrupt
     if (msgState.ordered.length > 0) return;
-    if (autoFiredMatchRef.current === normalizedContext.match_id) return;
+    // Guard 3: Strict exactly-once per match execution
+    if (autoFiredMatchRef.current === matchId) return;
+    // Guard 4: Don't stack requests
     if (isProcessing || sendingRef.current) return;
 
-    autoFiredMatchRef.current = normalizedContext.match_id;
     const phase = deriveGamePhase(normalizedContext);
     const matchup = getMatchupLabel(normalizedContext) || "this game";
 
@@ -3105,16 +3110,26 @@ const InnerChatWidget: FC<ChatWidgetProps & {
           ? `${matchup} just finished. How did the line perform? Any takeaways for future spots?`
           : `Give me the full sharp report on ${matchup}. What's the best bet and why?`;
 
-    // Short delay to allow mount animations to settle
+    // Delay allows mount animations to settle.
+    // By setting the ref INSIDE the timeout, we natively support React Strict Mode
+    // (the immediate unmount clears the timer before the ref is locked).
     const timer = setTimeout(() => {
-      if (mountedRef.current && !sendingRef.current) {
+      if (mountedRef.current && !sendingRef.current && autoFiredMatchRef.current !== matchId) {
+        autoFiredMatchRef.current = matchId;
         handleSend(autoQuery);
       }
     }, 600);
 
+    // If the user sends a message manually within 600ms, this cleanup runs,
+    // cancelling the auto-fire so they don't get double requests.
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inline, normalizedContext?.match_id]);
+  }, [
+    inline,
+    normalizedContext?.match_id,
+    msgState.ordered.length,
+    isProcessing,
+  ]);
 
   // Auto-scroll
   useEffect(() => {
