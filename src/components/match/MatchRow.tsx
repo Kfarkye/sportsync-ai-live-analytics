@@ -73,7 +73,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
       aria-label={`${match.awayTeam.name} vs ${match.homeTeam.name}`}
       onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(match); } }}
       className={cn(
-        "group relative flex items-center justify-between px-3 py-4 md:px-5 md:py-5 cursor-pointer transform-gpu",
+        "group relative flex items-center justify-between px-3 py-2.5 md:px-5 md:py-3 cursor-pointer transform-gpu",
         "focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none focus-visible:ring-inset",
         "bg-white",
         "transition-all duration-300",
@@ -91,7 +91,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
       )} />
 
       {/* Team Data */}
-      <div className="flex flex-col gap-3 flex-1 min-w-0 pr-6">
+      <div className="flex flex-col gap-2 flex-1 min-w-0 pr-6">
         {[match.awayTeam, match.homeTeam].map((team, idx) => {
           const isHome = idx === 1;
           const score = isHome ? match.homeScore : match.awayScore;

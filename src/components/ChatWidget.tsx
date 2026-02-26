@@ -3384,12 +3384,16 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                   animate={{ opacity: 1, scale: 1 }}
                   className="h-full flex flex-col items-center justify-center text-center opacity-40"
                 >
-                  <div className="w-20 h-20 rounded-[24px] border border-slate-200 bg-slate-50 flex items-center justify-center mb-6">
+                  <div className="w-16 h-16 rounded-[20px] border border-slate-200 bg-slate-50 flex items-center justify-center mb-5">
                     <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
                   </div>
-                  <p className={SYSTEM.type.mono}>System Ready</p>
-                  <p className="text-[10px] text-slate-400 mt-1.5 tracking-wide">
-                    {deriveGamePhase(normalizedContext) === "live" ? "Games are live — ask for in-play edge" : deriveGamePhase(normalizedContext) === "postgame" ? "Markets closed — review your record" : "Pre-game window — find today's edge"}
+                  <p className="text-[13px] font-semibold text-slate-900 tracking-tight">Edge Intelligence</p>
+                  <p className="text-[11px] text-slate-400 mt-1.5 tracking-wide max-w-[260px] leading-relaxed">
+                    {deriveGamePhase(normalizedContext) === "live"
+                      ? "Games are live. Ask for in-play splits, momentum shifts, or live prop edges."
+                      : deriveGamePhase(normalizedContext) === "postgame"
+                        ? "Markets are closed. Review your record or ask about tomorrow's slate."
+                        : "Pre-game window is open. Ask for injury impacts, line movement, or sharp action."}
                   </p>
                 </motion.div>
               ) : (
@@ -3401,7 +3405,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
           {/* Scroll anchor — visible when user has scrolled up */}
           <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
 
-          <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-20 bg-gradient-to-t from-[#08080A] via-[#08080A]/95 to-transparent pointer-events-none">
+          <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-6 backdrop-blur-xl bg-white/80 border-t border-slate-200/60 pointer-events-none">
             <div className="pointer-events-auto relative">
               <AnimatePresence>
                 {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}
