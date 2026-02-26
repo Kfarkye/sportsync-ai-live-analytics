@@ -270,7 +270,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" />
                                         <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Watchlist</span>
                                     </div>
-                                    <div className="border-t border-slate-200">
+                                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                                         {favorites.map(match => (
                                             <MatchRow
                                                 key={`fav-${match.id}`}
@@ -307,9 +307,9 @@ const MatchList: React.FC<MatchListProps> = ({
                                         >
                                             {/* Pure Typography League Header */}
                                             {selectedSportKey === 'all' && (
-                                                <div className="px-4 pt-8 pb-3 flex items-baseline justify-between">
+                                                <div className="px-4 pt-6 pb-3 flex items-baseline justify-between">
                                                     <div className="flex items-baseline gap-3">
-                                                        <h3 className="text-xs font-medium text-slate-900/90 tracking-wide uppercase">
+                                                        <h3 className="text-xs font-semibold text-slate-900/90 tracking-wide uppercase">
                                                             {leagueName}
                                                         </h3>
                                                         <span className="text-[10px] font-normal text-slate-500 tracking-wide">
@@ -322,7 +322,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                                 </div>
                                             )}
 
-                                            <div className="border-b border-slate-200">
+                                            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                                                 {leagueMatches.map(match => (
                                                     <MatchRow
                                                         key={match.id}
