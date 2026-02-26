@@ -82,7 +82,7 @@ const PropCard: React.FC<{ player: RosterPlayer; teamColor: string }> = ({ playe
                 </div>
 
                 {/* Main Data: Line & Over/Under */}
-                <div className="flex items-end justify-between bg-black/40 rounded-md p-4 border border-white/[0.03]">
+                <div className="flex items-end justify-between bg-slate-50 rounded-md p-4 border border-slate-100">
                     <div className="flex flex-col">
                         <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-2">
                             Projected Line
@@ -99,7 +99,7 @@ const PropCard: React.FC<{ player: RosterPlayer; teamColor: string }> = ({ playe
 
                     {/* Over/Under Buttons */}
                     <div className="flex gap-2">
-                        <button className="flex flex-col items-center justify-center bg-[#0F0F0F] hover:bg-emerald-500/10 border border-slate-200 hover:border-emerald-500/30 rounded-md h-12 w-14 transition-all duration-300 group/btn">
+                        <button className="flex flex-col items-center justify-center bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-md h-12 w-14 transition-all duration-300 group/btn">
                             <span className="text-[8px] font-bold text-slate-500 uppercase mb-1 group-hover/btn:text-emerald-500/70">
                                 Over
                             </span>
@@ -107,7 +107,7 @@ const PropCard: React.FC<{ player: RosterPlayer; teamColor: string }> = ({ playe
                                 {player.prop.over}
                             </span>
                         </button>
-                        <button className="flex flex-col items-center justify-center bg-[#0F0F0F] hover:bg-rose-500/10 border border-slate-200 hover:border-rose-500/30 rounded-md h-12 w-14 transition-all duration-300 group/btn">
+                        <button className="flex flex-col items-center justify-center bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 rounded-md h-12 w-14 transition-all duration-300 group/btn">
                             <span className="text-[8px] font-bold text-slate-500 uppercase mb-1 group-hover/btn:text-rose-500/70">
                                 Under
                             </span>
@@ -148,7 +148,7 @@ const LineupProps: React.FC<LineupPropsProps> = ({ homeRoster, awayRoster, homeT
     const activeTeam = activeTab === 'home' ? homeTeam : awayTeam;
 
     return (
-        <div className="bg-[#080808] border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
             {/* Tab Header */}
             <div className="flex border-b border-slate-200 bg-white">
                 <button
@@ -191,7 +191,7 @@ const LineupProps: React.FC<LineupPropsProps> = ({ homeRoster, awayRoster, homeT
             </div>
 
             {/* Content Grid */}
-            <div className="p-5 bg-[#080808] min-h-[320px]">
+            <div className="p-5 bg-white min-h-[320px]">
                 <AnimatePresence mode='wait'>
                     <MotionDiv
                         key={activeTab}

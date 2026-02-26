@@ -53,9 +53,9 @@ const travelFlagLabels: Record<string, string> = {
 const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading }) => {
     if (loading) {
         return (
-            <div className="rounded-[20px] bg-[#111113] border border-white/[0.04] p-6">
+            <div className="rounded-[20px] bg-white border border-slate-200 p-6">
                 <div className="flex items-center justify-center h-32">
-                    <div className="w-6 h-6 border-2 border-zinc-800 border-t-zinc-500 rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-400 rounded-full animate-spin" />
                 </div>
             </div>
         );
@@ -63,10 +63,10 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
 
     if (!context) {
         return (
-            <div className="rounded-[20px] bg-[#111113] border border-white/[0.04] p-6">
+            <div className="rounded-[20px] bg-white border border-slate-200 p-6">
                 <div className="flex flex-col items-center justify-center h-32 text-center">
-                    <Activity className="w-8 h-8 text-zinc-700 mb-3" />
-                    <p className="text-[13px] text-zinc-600">No pregame context available</p>
+                    <Activity className="w-8 h-8 text-slate-300 mb-3" />
+                    <p className="text-[13px] text-slate-400">No pregame context available</p>
                 </div>
             </div>
         );
@@ -82,15 +82,15 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
         <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-[20px] bg-[#111113] border border-white/[0.04] overflow-hidden"
+            className="rounded-[20px] bg-white border border-slate-200 overflow-hidden"
         >
             {/* Header */}
-            <div className="px-6 py-4 border-b border-white/[0.04]">
+            <div className="px-6 py-4 border-b border-slate-100">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-[13px] font-semibold text-zinc-300 uppercase tracking-wider">
+                    <h3 className="text-[13px] font-semibold text-slate-600 uppercase tracking-wider">
                         Watch Tags
                     </h3>
-                    <span className="text-[10px] text-zinc-600 font-mono">
+                    <span className="text-[10px] text-slate-400 font-mono">
                         {new Date(context.generated_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                     </span>
                 </div>
@@ -116,14 +116,14 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
                                     >
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[13px] font-medium text-zinc-200">
+                                                <span className="text-[13px] font-medium text-slate-700">
                                                     {injury.player}
                                                 </span>
-                                                <span className="text-[10px] text-zinc-600">
+                                                <span className="text-[10px] text-slate-400">
                                                     {injury.team}
                                                 </span>
                                             </div>
-                                            <p className="text-[11px] text-zinc-500 mt-0.5">
+                                            <p className="text-[11px] text-slate-400 mt-0.5">
                                                 {injury.note}
                                             </p>
                                         </div>
@@ -188,7 +188,7 @@ const PregameWatchTags: React.FC<PregameWatchTagsProps> = ({ context, loading })
                             {context.market_signals.public.map((p, idx) => (
                                 <div
                                     key={`public-${idx}`}
-                                    className="px-3 py-2 rounded-xl bg-zinc-800/50 border border-zinc-700/50"
+                                    className="px-3 py-2 rounded-xl bg-slate-100/50 border border-slate-200"
                                 >
                                     <div className="flex items-center gap-2">
                                         <Users className="w-3 h-3 text-zinc-500" />

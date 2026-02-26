@@ -296,6 +296,133 @@ const StatsGridSkeleton = memo(() => (
   </div>
 ));
 
+/**
+ * GameInfoStrip — Non-LLM game metadata strip
+ * Shows start date/time, venue, records, and key market data directly from match props
+ */
+const GameInfoStrip = memo(({ match }: { match: Match }) => {
+  const dateObj = new Date(match.startTime);
+  const isValidDate = !isNaN(dateObj.getTime());
+
+  const fullDateStr = isValidDate
+    ? dateObj.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    })
+    : '';
+  const timeStr = isValidDate
+    ? dateObj.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    })
+    : '';
+
+  const odds = match.current_odds || match.odds;
+  const homeRecord = match.homeTeam?.record;
+  const awayRecord = match.awayTeam?.record;
+  // venue may exist at runtime from ESPN extended data but isn't on the base Match type
+  const venue = (match as unknown as Record<string, unknown>).venue as { name?: string; city?: string; state?: string } | undefined;
+  const venueName = venue?.name || match.homeTeam?.stadium || match.court;
+
+  const spreadVal = odds?.homeSpread ?? odds?.spread;
+  const totalVal = odds?.total ?? odds?.overUnder;
+  const homeML = odds?.moneylineHome ?? odds?.homeWin ?? odds?.home_ml;
+  const awayML = odds?.moneylineAway ?? odds?.awayWin ?? odds?.away_ml;
+
+  const fmtOdds = (v?: string | number) => {
+    if (v === undefined || v === null) return '—';
+    const num = typeof v === 'string' ? parseFloat(v) : v;
+    if (isNaN(num)) return String(v);
+    return num > 0 ? `+${num}` : `${num}`;
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-6">
+      {/* Date/Time Row */}
+      {isValidDate && (
+        <div className="px-5 py-4 border-b border-slate-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[13px] font-semibold text-slate-900">{fullDateStr}</div>
+              <div className="text-[12px] text-slate-500 mt-0.5">{timeStr}</div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                {match.leagueId?.toUpperCase()}
+              </span>
+            </div>
+          </div>
+          {venueName && (
+            <div className="mt-2 text-[11px] text-slate-400">
+              {venueName}
+              {venue?.city && <span className="text-slate-300"> · {venue.city}{venue.state ? `, ${venue.state}` : ''}</span>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Records + Key Market Data */}
+      <div className="grid grid-cols-2 divide-x divide-slate-100">
+        {/* Records */}
+        <div className="px-5 py-3">
+          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Records</div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-medium text-slate-600 truncate">
+                {match.awayTeam?.abbreviation || match.awayTeam?.shortName}
+              </span>
+              <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">
+                {awayRecord || '—'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-medium text-slate-600 truncate">
+                {match.homeTeam?.abbreviation || match.homeTeam?.shortName}
+              </span>
+              <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">
+                {homeRecord || '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Key Lines */}
+        <div className="px-5 py-3">
+          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Key Lines</div>
+          <div className="space-y-1.5">
+            {spreadVal !== undefined && spreadVal !== null && (
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">Spread</span>
+                <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">{fmtOdds(spreadVal)}</span>
+              </div>
+            )}
+            {totalVal !== undefined && totalVal !== null && (
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">Total</span>
+                <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">O/U {totalVal}</span>
+              </div>
+            )}
+            {(homeML !== undefined || awayML !== undefined) && !spreadVal && (
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">ML</span>
+                <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">
+                  {fmtOdds(awayML)} / {fmtOdds(homeML)}
+                </span>
+              </div>
+            )}
+            {spreadVal === undefined && totalVal === undefined && homeML === undefined && (
+              <div className="text-[11px] text-slate-400 italic">No lines available</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 // ============================================================================
 // SECTION 3: INTELLIGENT COORDINATE ENGINE
 // ============================================================================
@@ -1229,6 +1356,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       </header>
 
       <main className="relative z-10 pb-safe-offset-24 min-h-screen max-w-[840px] mx-auto pt-8 px-4 md:px-0">
+        <GameInfoStrip match={match} />
         <LayoutGroup>
           <AnimatePresence mode="wait">
             <motion.div key={activeTab} {...ANIMATION.slideUp}>

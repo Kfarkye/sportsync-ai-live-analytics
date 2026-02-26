@@ -5,60 +5,60 @@ import { motion } from 'framer-motion';
 const MotionButton = motion.button;
 
 interface AnalysisTriggerProps {
-  title: string;
-  subtitle: string;
-  icon: React.ElementType;
-  onClick: () => void;
-  isActive: boolean;
-  colorClass?: string; // Optional accent color for icon/glow
-  isLoading?: boolean;
+    title: string;
+    subtitle: string;
+    icon: React.ElementType;
+    onClick: () => void;
+    isActive: boolean;
+    colorClass?: string; // Optional accent color for icon/glow
+    isLoading?: boolean;
 }
 
-const AnalysisTrigger: React.FC<AnalysisTriggerProps> = ({ 
-    title, 
-    subtitle, 
-    icon: Icon, 
-    onClick, 
-    isActive, 
+const AnalysisTrigger: React.FC<AnalysisTriggerProps> = ({
+    title,
+    subtitle,
+    icon: Icon,
+    onClick,
+    isActive,
     colorClass = "text-black",
     isLoading = false
 }) => {
-  return (
-    <MotionButton
-        onClick={onClick}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className="w-full h-full min-h-[80px] group relative outline-none text-left"
-    >
-        <div className={`
+    return (
+        <MotionButton
+            onClick={onClick}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full h-full min-h-[80px] group relative outline-none text-left"
+        >
+            <div className={`
             absolute inset-0 rounded-2xl transition-all duration-300
-            ${isActive 
-                ? 'bg-white opacity-100 shadow-[0_10px_30px_-10px_rgba(255,255,255,0.3)] border border-white' 
-                : 'bg-[#111] border border-white/10 hover:bg-[#161616] opacity-100'
-            }
+            ${isActive
+                    ? 'bg-white opacity-100 shadow-[0_4px_20px_-6px_rgba(0,0,0,0.1)] border border-slate-200'
+                    : 'bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 opacity-100'
+                }
         `} />
-        
-        <div className="relative z-10 flex items-center justify-between p-4 h-full">
-            <div className="flex items-center gap-3">
-                <div className={`
+
+            <div className="relative z-10 flex items-center justify-between p-4 h-full">
+                <div className="flex items-center gap-3">
+                    <div className={`
                     w-10 h-10 rounded-xl flex items-center justify-center transition-colors
                     ${isActive ? 'bg-black/5 text-black' : 'bg-white border border-white/10 text-slate-500 group-hover:text-slate-900'}
                 `}>
-                    {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Icon size={18} className={isActive ? "" : ""} />}
-                </div>
-                
-                <div>
-                    <div className={`text-[13px] font-bold tracking-tight ${isActive ? 'text-black' : 'text-slate-900'}`}>
-                        {title}
+                        {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Icon size={18} className={isActive ? "" : ""} />}
                     </div>
-                    <div className={`text-[10px] font-medium tracking-wide uppercase ${isActive ? 'text-black/60' : 'text-slate-500'}`}>
-                        {subtitle}
+
+                    <div>
+                        <div className={`text-[13px] font-bold tracking-tight ${isActive ? 'text-black' : 'text-slate-900'}`}>
+                            {title}
+                        </div>
+                        <div className={`text-[10px] font-medium tracking-wide uppercase ${isActive ? 'text-black/60' : 'text-slate-500'}`}>
+                            {subtitle}
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </MotionButton>
-  );
+        </MotionButton>
+    );
 };
 
 export default AnalysisTrigger;

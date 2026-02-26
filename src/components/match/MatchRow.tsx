@@ -56,14 +56,18 @@ const MatchRow: React.FC<MatchRowProps> = ({
   const showScores = isLive || isFinal;
   const isTennis = match.sport === Sport.TENNIS;
 
-  const { startTimeStr, roundStr } = useMemo(() => ({
-    startTimeStr: new Date(match.startTime)
-      .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-      .replace(' ', ''),
-    roundStr: match.round
-      ? match.round.replace('Qualifying ', 'Q').replace('Round of ', 'R').replace('Round ', 'R')
-      : null
-  }), [match.startTime, match.round]);
+  const { startTimeStr, dateStr, roundStr } = useMemo(() => {
+    const d = new Date(match.startTime);
+    return {
+      startTimeStr: d
+        .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+        .replace(' ', ''),
+      dateStr: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+      roundStr: match.round
+        ? match.round.replace('Qualifying ', 'Q').replace('Round of ', 'R').replace('Round ', 'R')
+        : null
+    };
+  }, [match.startTime, match.round]);
 
   return (
     <motion.div
@@ -178,8 +182,8 @@ const MatchRow: React.FC<MatchRowProps> = ({
               </span>
             )}
             {!isTennis && (
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                START
+              <span className="text-[9px] font-medium text-slate-400 tracking-wide">
+                {dateStr}
               </span>
             )}
           </>
