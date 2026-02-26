@@ -4,11 +4,16 @@
 
 import React, { useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
-import { MatchRowProps } from '@/types/matchList';
+import { MatchRowProps as BaseMatchRowProps } from '@/types/matchList';
 import TeamLogo from '../shared/TeamLogo';
 import { cn, ESSENCE } from '@/lib/essence';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { Sport, Linescore } from '@/types';
+
+// Extend base props with selection state for List ↔ Detail coordination
+interface MatchRowProps extends BaseMatchRowProps {
+  isSelected?: boolean;
+}
 
 const PHYSICS_MOTION = { type: "spring", stiffness: 400, damping: 25 };
 
@@ -42,9 +47,10 @@ const TennisSetScores: React.FC<{ linescores?: Linescore[] }> = ({ linescores })
 
 const MatchRow: React.FC<MatchRowProps> = ({
   match,
-  isPinned,
-  isLive,
-  isFinal,
+  isPinned = false,
+  isLive = false,
+  isFinal = false,
+  isSelected = false,
   onSelect,
 }) => {
   const showScores = isLive || isFinal;
@@ -75,19 +81,19 @@ const MatchRow: React.FC<MatchRowProps> = ({
       className={cn(
         "group relative flex items-center justify-between px-3 py-2.5 md:px-5 md:py-3 cursor-pointer transform-gpu",
         "focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none focus-visible:ring-inset",
-        "bg-white",
-        "transition-all duration-300",
-        // Crisp border divider
+        "transition-colors duration-200",
         "border-b border-slate-200/60",
-        "last:border-b-0"
+        "last:border-b-0",
+        isSelected ? "bg-slate-50" : "bg-white hover:bg-slate-50/50"
       )}
     >
-      {/* Left Edge Indicator */}
       <div className={cn(
-        "absolute left-0 top-0 bottom-0 w-[3px] transition-all duration-300 ease-out z-10 rounded-r-full",
+        "absolute left-0 top-0 bottom-0 transition-all duration-300 ease-out z-10 rounded-r-[2px]",
         isPinned
-          ? "bg-amber-500 opacity-100"
-          : "bg-slate-900 scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100"
+          ? "bg-amber-500 w-[3px] opacity-100"
+          : isSelected
+            ? "bg-slate-900 w-1 opacity-100"
+            : "bg-slate-300 w-1 scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100"
       )} />
 
       {/* Team Data */}
