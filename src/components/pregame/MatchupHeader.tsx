@@ -70,9 +70,9 @@ const MatchupHeader: React.FC<MatchupHeaderProps> = memo(({
     }, [startTime]);
 
     return (
-        <div className="bg-white border-b border-slate-200 pt-8 flex flex-col items-center font-sans w-full">
+        <div className="flex flex-col items-center font-sans w-full mt-2">
             {/* Date / Status Pill */}
-            <div className="bg-slate-50 border border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full mb-8">
+            <div className="bg-slate-50 border border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full mb-6">
                 {dayStr}
                 {broadcast && (
                     <span className="ml-2 text-slate-400">

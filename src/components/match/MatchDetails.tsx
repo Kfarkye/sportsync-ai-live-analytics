@@ -1300,7 +1300,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   return (
     <div className="min-h-[100dvh] text-black relative overflow-y-auto overflow-x-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white pb-safe-offset-24">
       <LiveSweatProvider latestPlayByPlayText={playByPlayText} aiTriggers={sweatTriggers}>
-        <header className="sticky top-0 z-50 bg-[#FBFBFD]/70 dark:bg-black/70 backdrop-blur-[24px] saturate-[1.2] border-b border-black/[0.03] pt-safe transition-colors duration-500">
+        <header className="sticky top-0 z-50 bg-[#FBFBFD]/80 backdrop-blur-[24px] saturate-[1.2] border-b border-black/[0.03] pt-safe transition-colors duration-500">
           <div className="flex items-center justify-between px-6 py-4">
             <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-black/5 rounded-full transition-all duration-300">
               <BackArrow />
@@ -1328,7 +1328,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
             <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
 
-            <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar px-6 max-w-full relative h-[42px] mask-edges">
+            <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar px-6 max-w-full relative h-[42px]">
               {TABS.map((tab, i) => (
                 <button
                   key={tab.id}
