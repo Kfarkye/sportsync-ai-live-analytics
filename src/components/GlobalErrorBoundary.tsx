@@ -49,17 +49,20 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
                             <Activity className="w-8 h-8 text-red-500/60" />
                         </div>
 
-                        <h1 className="text-xl font-bold mb-3 tracking-tight">Something went wrong</h1>
-                        <p className="text-slate-500 text-sm mb-8 leading-relaxed">
-                            We've encountered a critical error. The application has been paused to prevent further issues.
+                        <h1 className="text-xl font-bold mb-3 tracking-tight">Application Halted</h1>
+                        <p className="text-slate-500 text-sm mb-2 leading-relaxed">
+                            A critical rendering error interrupted the session.
+                        </p>
+                        <p className="text-slate-400 text-xs mb-8 leading-relaxed font-mono">
+                            {this.state.error?.message || 'Unknown exception'}
                         </p>
 
                         <button
                             onClick={this.handleReset}
-                            className="flex items-center gap-2 px-6 py-3 bg-slate-50 text-black rounded-full text-sm font-bold uppercase tracking-wider hover:bg-slate-200 transition-all active:scale-95"
+                            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-sm text-sm font-bold uppercase tracking-wider hover:bg-slate-800 transition-all active:scale-95"
                         >
                             <RefreshCcw size={16} />
-                            Restart App
+                            Restart
                         </button>
 
                         {process.env.NODE_ENV === 'development' && (

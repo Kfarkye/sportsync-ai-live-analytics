@@ -136,7 +136,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ matches, onSelect, isOp
           {filteredMatches.length === 0 ? (
             <div className="py-12 text-center text-slate-500 flex flex-col items-center gap-2">
               <Search size={24} className="opacity-20" />
-              <p className="text-sm">No matches found.</p>
+              <p className="text-sm text-slate-400">No commands match this query. Try a shorter keyword.</p>
             </div>
           ) : (
             <ul className="space-y-0.5">

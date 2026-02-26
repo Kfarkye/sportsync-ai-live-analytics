@@ -56,6 +56,8 @@ html {
 body {
   min-height: 100%;
   margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
   background-color: var(--color-background);
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
@@ -93,8 +95,27 @@ input, textarea {
 }
 
 ::selection {
-  background-color: rgba(15, 23, 42, 0.15);
-  color: #0F172A;
+  background-color: rgba(15, 23, 42, 0.25);
+  color: inherit;
+}
+
+/* ==========================================================================
+   §3.1  ANALOG GRAIN — Microscopic matte finish (2% opacity)
+         Felt subconsciously as premium frosted glass, never seen as a filter.
+         Matches Apple Vibrancy anti-banding technique.
+   ========================================================================== */
+
+.grain-overlay::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  mix-blend-mode: overlay;
 }
 
 /* ==========================================================================
@@ -248,4 +269,21 @@ a[href*="google.com/search"]:not([class]) { display: none; }
     #E2E8F0 85%,
     transparent
   );
+}
+
+/* ==========================================================================
+   §12  FOCUS-VISIBLE — SOTA Accessibility Ring
+         WCAG 2.2 AA / Apple HIG / Material 3 compliant.
+         2px offset creates a physical "snap" gap between element and ring.
+   ========================================================================== */
+
+*:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+  border-radius: inherit;
+  transition: outline-offset 0.1s var(--ease-apple);
+}
+
+*:focus:not(:focus-visible) {
+  outline: none;
 }

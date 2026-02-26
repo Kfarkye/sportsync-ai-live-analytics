@@ -217,7 +217,7 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                                 <div className="text-[7px] text-zinc-600 mt-1 italic">Normalized in-app for Rest of Game offsets</div>
                             </>
                         ) : (
-                            <div className="text-zinc-600 italic py-2 text-center underline decoration-dotted">No raw instrumentation found in current payload</div>
+                            <div className="text-zinc-600 italic py-2 text-center underline decoration-dotted">Awaiting provider telemetry. Run a query to populate instrumentation.</div>
                         )}
                     </div>
                 </section>
