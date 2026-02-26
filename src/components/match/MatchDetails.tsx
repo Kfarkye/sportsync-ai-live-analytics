@@ -337,25 +337,28 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
     return num > 0 ? `+${num}` : `${num}`;
   };
 
+  const hasAnyLine = spreadVal !== undefined || totalVal !== undefined || homeML !== undefined || awayML !== undefined;
+
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-6">
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-6">
       {/* Date/Time Row */}
       {isValidDate && (
         <div className="px-5 py-4 border-b border-slate-100">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-[13px] font-semibold text-slate-900">{fullDateStr}</div>
+              <div className="text-[13px] font-semibold text-slate-900 tracking-[-0.01em]">{fullDateStr}</div>
               <div className="text-[12px] text-slate-500 mt-0.5">{timeStr}</div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 uppercase tracking-widest">
                 {match.leagueId?.toUpperCase()}
               </span>
             </div>
           </div>
           {venueName && (
-            <div className="mt-2 text-[11px] text-slate-400">
-              {venueName}
+            <div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-400">
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="opacity-50 shrink-0"><path d="M8 0a5.53 5.53 0 0 0-5.5 5.5C2.5 10.65 8 16 8 16s5.5-5.35 5.5-10.5A5.53 5.53 0 0 0 8 0zm0 7.5a2 2 0 1 1 0-4 2 2 0 0 1 0 4z" /></svg>
+              <span>{venueName}</span>
               {venue?.city && <span className="text-slate-300"> · {venue.city}{venue.state ? `, ${venue.state}` : ''}</span>}
             </div>
           )}
@@ -392,31 +395,35 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
         {/* Key Lines */}
         <div className="px-5 py-3">
           <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Key Lines</div>
-          <div className="space-y-1.5">
-            {spreadVal !== undefined && spreadVal !== null && (
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400">Spread</span>
-                <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">{fmtOdds(spreadVal)}</span>
-              </div>
-            )}
-            {totalVal !== undefined && totalVal !== null && (
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400">Total</span>
-                <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">O/U {totalVal}</span>
-              </div>
-            )}
-            {(homeML !== undefined || awayML !== undefined) && !spreadVal && (
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400">ML</span>
-                <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">
-                  {fmtOdds(awayML)} / {fmtOdds(homeML)}
-                </span>
-              </div>
-            )}
-            {spreadVal === undefined && totalVal === undefined && homeML === undefined && (
-              <div className="text-[11px] text-slate-400 italic">No lines available</div>
-            )}
-          </div>
+          {hasAnyLine ? (
+            <div className="space-y-1.5">
+              {spreadVal !== undefined && spreadVal !== null && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400">Spread</span>
+                  <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">{fmtOdds(spreadVal)}</span>
+                </div>
+              )}
+              {totalVal !== undefined && totalVal !== null && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400">Total</span>
+                  <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">O/U {totalVal}</span>
+                </div>
+              )}
+              {(homeML !== undefined || awayML !== undefined) && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400">ML</span>
+                  <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">
+                    {fmtOdds(awayML)} / {fmtOdds(homeML)}
+                  </span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 py-1">
+              <div className="w-1 h-1 rounded-full bg-slate-300" />
+              <span className="text-[11px] text-slate-400">Lines pending — market not yet open</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1104,9 +1111,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
   if (!match?.homeTeam) return <MatchupLoader className="h-screen" label="Synchronizing Hub" />;
 
-  const TABS = isSched
+  const TABS = useMemo(() => isSched
     ? [{ id: 'DETAILS', label: 'Matchup' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }]
-    : [{ id: 'OVERVIEW', label: 'Game' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }];
+    : [{ id: 'OVERVIEW', label: 'Game' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }],
+    [isSched]);
 
   const fallbackLiveState: LiveState | undefined = match.lastPlay
     ? { lastPlay: { text: match.lastPlay.text, type: { text: match.lastPlay.type } } }
@@ -1345,7 +1353,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   }, [isEdgeTab, match, pregameIntel]);
 
   return (
-    <div className="min-h-screen text-slate-900 relative overflow-y-auto font-sans bg-slate-50">
+    <div className="min-h-[100dvh] text-slate-900 relative overflow-y-auto font-sans bg-slate-50">
       {/* Removed: cinematic mesh gradient backgrounds */}
 
       <header className="sticky top-0 z-50 bg-white border-b border-slate-200 pt-safe">
@@ -1354,7 +1362,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             <BackArrow />
           </button>
           <div className="flex items-center gap-4">
-            <span className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase hidden md:block">{match.leagueId?.toUpperCase()} // {match.id.slice(-4)}</span>
+            <span className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase hidden md:block">{match.leagueId?.toUpperCase()}</span>
             <ConnectionBadge status={connectionStatus} />
           </div>
         </div>
@@ -1371,7 +1379,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         </nav>
       </header>
 
-      <main className="relative z-10 pb-safe-offset-24 min-h-screen max-w-[840px] mx-auto pt-8 px-4 md:px-0">
+      <main className="relative z-10 pb-safe-offset-24 max-w-[840px] mx-auto pt-8 px-4 md:px-0">
         <GameInfoStrip match={match} />
         <LayoutGroup>
           <AnimatePresence mode="wait">
@@ -1448,12 +1456,12 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   <div className="w-full h-px bg-slate-200" />
                 </div>
               )}
-              {activeTab === 'CHAT' && (<div className="max-w-3xl mx-auto h-[700px]"><ChatWidget currentMatch={match as any} inline /></div>)}
+              {activeTab === 'CHAT' && (<div className="max-w-3xl mx-auto h-[calc(100dvh-220px)] min-h-[400px]"><ChatWidget currentMatch={match as any} inline /></div>)}
             </motion.div>
           </AnimatePresence>
         </LayoutGroup>
       </main>
-      <TechnicalDebugView match={match as any} />
+      {process.env['NODE_ENV'] === 'development' && <TechnicalDebugView match={match as any} />}
     </div>
   );
 };
