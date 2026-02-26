@@ -66,6 +66,7 @@ import {
   BaseballEdgePanel,
   useBaseballLive,
 } from '@/components/baseball';
+import { LiveSweatProvider, type AIWatchTrigger } from '@/context/LiveSweatContext';
 
 // ============================================================================
 // SECTION 2: STRICT TYPE DEFINITIONS (AUDIT FIX)
@@ -167,162 +168,117 @@ interface EdgeState {
 }
 
 // ============================================================================
-// 🎨 DESIGN TOKENS & PHYSICS
+// 🎨 DESIGN TOKENS & PHYSICS (APPLE / PORSCHE SPEC)
 // ============================================================================
 
-const PHYSICS_SWITCH = { type: "spring", stiffness: 380, damping: 35, mass: 0.8 };
+const PHYSICS = {
+  SPRING: { type: "spring" as const, stiffness: 450, damping: 40, mass: 0.8 },
+  CAMERA: { type: 'spring' as const, stiffness: 60, damping: 20, mass: 1.2 },
+  SLIDE_UP: {
+    initial: { opacity: 0, y: 12, filter: 'blur(8px)' },
+    animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+    exit: { opacity: 0, y: -8, filter: 'blur(4px)' },
+    transition: { type: 'spring' as const, stiffness: 350, damping: 32 }
+  }
+};
 
 const CONFIG = {
-  polling: {
-    LIVE_MS: 3000,
-    PREGAME_MS: 60000,
-    SOCKET_FRESH_MS: 8000,
-  },
-  nhlShots: {
-    MIN_MS: 15000,
-  },
+  polling: { LIVE_MS: 3000, PREGAME_MS: 60000, SOCKET_FRESH_MS: 8000 },
+  nhlShots: { MIN_MS: 15000 },
   coordinates: {
     BASKETBALL: { x: 50, y: 28.125 },
     FOOTBALL: { x: 60, y: 26.65 },
     SOCCER: { x: 50, y: 50 },
   },
-  forecast: {
-    SPARKLINE_POINTS: 12,
-    MAX_HISTORY: 20,
-  },
-};
-
-const ANIMATION = {
-  camera: { type: 'spring' as const, stiffness: 60, damping: 20, mass: 1.2 },
-  slideUp: {
-    initial: { opacity: 0 },
-    animate: { opacity: 1 },
-    exit: { opacity: 0 },
-  },
+  forecast: { SPARKLINE_POINTS: 12, MAX_HISTORY: 20 },
 };
 
 // ============================================================================
-// 💎 MICRO-COMPONENTS (PURE GEOMETRY - NO ICONS)
+// 💎 MICRO-COMPONENTS (PURE CSS GEOMETRY & HARDWARE DETAILS)
 // ============================================================================
 
-// Pure CSS Animated Plus/Minus Toggle
 const ToggleSwitch = ({ expanded }: { expanded: boolean }) => (
-  <div className="relative w-2.5 h-2.5 flex items-center justify-center opacity-40 group-hover:opacity-100 transition-opacity duration-300">
+  <div className="relative w-3.5 h-3.5 flex items-center justify-center opacity-40 group-hover:opacity-100 transition-all duration-300 cursor-pointer pointer-events-none">
     <span className={cn(
-      "absolute w-full h-[1px] bg-slate-900 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+      "absolute w-full h-[1.5px] bg-black transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] rounded-full",
       expanded ? "rotate-180" : "rotate-0"
     )} />
     <span className={cn(
-      "absolute w-full h-[1px] bg-slate-900 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+      "absolute w-full h-[1.5px] bg-black transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] rounded-full",
       expanded ? "rotate-180 opacity-0" : "rotate-90 opacity-100"
     )} />
   </div>
 );
 
-// Pure CSS Back Arrow
 const BackArrow = () => (
-  <div className="relative w-3 h-3 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity">
-    <span className="absolute w-2.5 h-[1.5px] bg-current origin-left rotate-45 -translate-y-[0px] -translate-x-[1px]" />
-    <span className="absolute w-2.5 h-[1.5px] bg-current origin-left -rotate-45 translate-y-[0px] -translate-x-[1px]" />
-    <span className="absolute w-3 h-[1.5px] bg-current translate-x-1" />
+  <div className="relative w-4 h-4 flex items-center justify-center opacity-50 group-hover:opacity-100 transition-all duration-300">
+    <span className="absolute w-[11px] h-[1.5px] bg-black origin-left rotate-45 -translate-y-[0.5px] -translate-x-[2px] rounded-full" />
+    <span className="absolute w-[11px] h-[1.5px] bg-black origin-left -rotate-45 translate-y-[0.5px] -translate-x-[2px] rounded-full" />
+    <span className="absolute w-[15px] h-[1.5px] bg-black rounded-full" />
   </div>
 );
 
-// --- DEFINED MISSING COMPONENTS ---
-
-const EdgeStateBadge = memo(({ edgeState }: { edgeState: EdgeState }) => (
-  <div className={cn(
-    "flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-bold tracking-[0.2em] uppercase transition-colors duration-500 border",
-    edgeState.state === 'PLAY' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-      edgeState.state === 'LEAN' ? "bg-amber-50 text-amber-700 border-amber-200" :
-        "bg-slate-50 text-slate-500 border-slate-200"
-  )}>
-    <span className="relative flex h-1.5 w-1.5 mr-1">
-      <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-        edgeState.state === 'PLAY' ? "bg-emerald-500" : "bg-amber-500 hidden")} />
-      <span className={cn("relative inline-flex rounded-full h-1.5 w-1.5",
-        edgeState.state === 'PLAY' ? "bg-emerald-600" : edgeState.state === 'LEAN' ? "bg-amber-600" : "bg-slate-400")} />
-    </span>
-    <span>{edgeState.side || 'NEUTRAL'}</span>
-    <div className="w-px h-2 bg-current opacity-20 mx-1" />
-    <span className="font-mono">{edgeState.edgePoints > 0 ? '+' : ''}{edgeState.edgePoints.toFixed(1)}</span>
-  </div>
-));
-
-const ForecastSparkline = memo(({ points }: { points: ForecastPoint[] }) => {
-  if (points.length < 2) return null;
-  const values = points.map(p => p.fairTotal);
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const range = max - min || 1;
+// Milled hardware LED indicator
+const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'connecting' }) => {
+  const isConnected = status === 'connected';
+  const isConnecting = status === 'connecting';
 
   return (
-    <div className="flex items-end gap-[2px] h-4 w-16 opacity-80" title="Live Model Trend">
-      {points.slice(-10).map((p, i) => (
-        <div
-          key={i}
-          className={cn(
-            "w-1 rounded-[1px] transition-all duration-300",
-            p.edgeState === 'PLAY' ? "bg-emerald-500" :
-              p.edgeState === 'LEAN' ? "bg-amber-500" : "bg-zinc-700"
-          )}
-          style={{ height: `${Math.max(20, ((p.fairTotal - min) / range) * 100)}%` }}
-        />
-      ))}
+    <div className="flex items-center gap-2.5">
+      <span className="text-[9px] font-mono text-black/40 tracking-[0.25em] uppercase hidden sm:block font-medium mt-[1px]">
+        {isConnected ? 'SYNCED' : isConnecting ? 'SYNCING...' : 'OFFLINE'}
+      </span>
+      <div className="flex items-center justify-center w-[20px] h-[20px] bg-[#FAFAFA] border border-black/5 rounded-full shadow-[inset_0_1px_2px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.02)]">
+        {isConnected && <span className="w-1.5 h-1.5 rounded-full bg-black shadow-[0_0_6px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.4)]" />}
+        {isConnecting && <span className="w-1.5 h-1.5 rounded-full bg-black/40 animate-pulse shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]" />}
+        {!isConnected && !isConnecting && <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]" />}
+      </div>
     </div>
   );
 });
 
+// Apple-style bone screen shimmer
+const SkeletonShimmer = ({ className }: { className?: string }) => (
+  <div className={cn("relative overflow-hidden bg-black/[0.02] ring-1 ring-black/[0.03]", className)}>
+    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-black/[0.03] to-transparent" />
+  </div>
+);
+
 const OddsCardSkeleton = memo(() => (
-  <div className="animate-pulse space-y-4 p-4 border border-slate-200 rounded-xl bg-white">
+  <div className="space-y-5 p-6 rounded-[16px] bg-white ring-1 ring-black/[0.04] shadow-[0_4px_30px_rgba(0,0,0,0.02)]">
     <div className="flex justify-between items-center">
-      <div className="h-2 w-20 bg-slate-100 rounded-full" />
-      <div className="h-2 w-8 bg-slate-100 rounded-full" />
+      <SkeletonShimmer className="h-2 w-24 rounded-full" />
+      <SkeletonShimmer className="h-2 w-10 rounded-full" />
     </div>
-    <div className="space-y-2">
-      <div className="h-8 w-full bg-slate-50 rounded-lg" />
-      <div className="h-8 w-full bg-slate-50 rounded-lg" />
+    <div className="space-y-3">
+      <SkeletonShimmer className="h-12 w-full rounded-[10px]" />
+      <SkeletonShimmer className="h-12 w-full rounded-[10px]" />
     </div>
   </div>
 ));
 
 const StatsGridSkeleton = memo(() => (
-  <div className="animate-pulse grid grid-cols-2 gap-4 mt-4">
+  <div className="grid grid-cols-2 gap-4 mt-4">
     {[...Array(6)].map((_, i) => (
-      <div key={i} className="h-10 bg-slate-50 rounded-lg border border-slate-200" />
+      <SkeletonShimmer key={i} className="h-14 rounded-[12px]" />
     ))}
   </div>
 ));
 
 /**
- * GameInfoStrip — Non-LLM game metadata strip
- * Shows start date/time, venue, records, and key market data directly from match props
+ * GameInfoStrip — Spec Card Readout
  */
 const GameInfoStrip = memo(({ match }: { match: Match }) => {
   const dateObj = new Date(match.startTime);
   const isValidDate = !isNaN(dateObj.getTime());
 
-  const fullDateStr = isValidDate
-    ? dateObj.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    })
-    : '';
-  const timeStr = isValidDate
-    ? dateObj.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZoneName: 'short'
-    })
-    : '';
+  const fullDateStr = isValidDate ? dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  const timeStr = isValidDate ? dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : '';
 
   const odds = match.current_odds || match.odds;
   const homeRecord = match.homeTeam?.record;
   const awayRecord = match.awayTeam?.record;
-  // venue may exist at runtime from ESPN extended data but isn't on the base Match type
-  const venue = (match as unknown as Record<string, unknown>).venue as { name?: string; city?: string; state?: string } | undefined;
+  const venue = (match as unknown as Record<string, unknown>)['venue'] as { name?: string; city?: string; state?: string } | undefined;
   const venueName = venue?.name || match.homeTeam?.stadium || match.court;
 
   const spreadVal = odds?.homeSpread ?? odds?.spread;
@@ -340,88 +296,83 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
   const hasAnyLine = spreadVal !== undefined || totalVal !== undefined || homeML !== undefined || awayML !== undefined;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-6">
-      {/* Date/Time Row */}
+    <div className="bg-white rounded-[20px] overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.03)] ring-1 ring-black/[0.03] mb-12 relative z-10 transition-all duration-500">
+      {/* Upper Context Header */}
       {isValidDate && (
-        <div className="px-5 py-4 border-b border-slate-100">
+        <div className="px-6 py-6 border-b border-black/[0.03]">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-[13px] font-semibold text-slate-900 tracking-[-0.01em]">{fullDateStr}</div>
-              <div className="text-[12px] text-slate-500 mt-0.5">{timeStr}</div>
+              <div className="text-[14px] font-semibold text-black tracking-tight">{fullDateStr}</div>
+              <div className="text-[12px] text-black/40 font-medium font-mono tabular-nums tracking-wide mt-1">{timeStr}</div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+              <span className="px-3 py-1.5 bg-[#F8F8F9] rounded-[6px] ring-1 ring-black/[0.03] text-[9.5px] font-bold text-black/50 uppercase tracking-[0.25em]">
                 {match.leagueId?.toUpperCase()}
               </span>
             </div>
           </div>
           {venueName && (
-            <div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-400">
+            <div className="mt-5 flex items-center gap-2.5 text-[10px] text-black/40 font-mono tracking-[0.2em] uppercase">
               <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="opacity-50 shrink-0"><path d="M8 0a5.53 5.53 0 0 0-5.5 5.5C2.5 10.65 8 16 8 16s5.5-5.35 5.5-10.5A5.53 5.53 0 0 0 8 0zm0 7.5a2 2 0 1 1 0-4 2 2 0 0 1 0 4z" /></svg>
               <span>{venueName}</span>
-              {venue?.city && <span className="text-slate-300"> · {venue.city}{venue.state ? `, ${venue.state}` : ''}</span>}
+              {venue?.city && <span className="text-black/30"> / {venue.city}{venue.state ? `, ${venue.state}` : ''}</span>}
             </div>
           )}
         </div>
       )}
 
-      {/* Records + Key Market Data */}
-      <div className={cn("grid divide-x divide-slate-100", (homeRecord || awayRecord) ? "grid-cols-2" : "grid-cols-1")}>
-        {/* Records */}
+      {/* Grid Specs */}
+      <div className={cn("grid divide-y sm:divide-y-0 sm:divide-x divide-black/[0.03]", (homeRecord || awayRecord) ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
         {(homeRecord || awayRecord) && (
-          <div className="px-5 py-3">
-            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Records</div>
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] font-medium text-slate-600 truncate">
-                  {match.awayTeam?.abbreviation || match.awayTeam?.shortName}
-                </span>
-                <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">
-                  {awayRecord || '—'}
-                </span>
+          <div className="px-6 py-6 bg-[#FCFCFC]/80">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-1.5 h-1.5 rounded-sm bg-black/20" />
+              <div className="text-[9px] font-bold text-black/30 uppercase tracking-[0.25em]">Season Context</div>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between group">
+                <span className="text-[13px] font-medium text-black/70 group-hover:text-black transition-colors truncate pr-4">{match.awayTeam?.name || match.awayTeam?.shortName}</span>
+                <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">{awayRecord || '—'}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] font-medium text-slate-600 truncate">
-                  {match.homeTeam?.abbreviation || match.homeTeam?.shortName}
-                </span>
-                <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">
-                  {homeRecord || '—'}
-                </span>
+              <div className="flex items-center justify-between group">
+                <span className="text-[13px] font-medium text-black/70 group-hover:text-black transition-colors truncate pr-4">{match.homeTeam?.name || match.homeTeam?.shortName}</span>
+                <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">{homeRecord || '—'}</span>
               </div>
             </div>
           </div>
         )}
-
-        {/* Key Lines */}
-        <div className="px-5 py-3">
-          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Key Lines</div>
+        <div className="px-6 py-6 bg-[#FCFCFC]/80">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-1.5 h-1.5 rounded-sm bg-black/20" />
+            <div className="text-[9px] font-bold text-black/30 uppercase tracking-[0.25em]">Closing Lines</div>
+          </div>
           {hasAnyLine ? (
-            <div className="space-y-1.5">
+            <div className="space-y-4">
               {spreadVal !== undefined && spreadVal !== null && (
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400">Spread</span>
-                  <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">{fmtOdds(spreadVal)}</span>
+                <div className="flex items-center justify-between group">
+                  <span className="text-[13px] font-medium text-black/50 group-hover:text-black/80 transition-colors">Spread</span>
+                  <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">{fmtOdds(spreadVal)}</span>
                 </div>
               )}
               {totalVal !== undefined && totalVal !== null && (
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400">Total</span>
-                  <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">O/U {totalVal}</span>
+                <div className="flex items-center justify-between group">
+                  <span className="text-[13px] font-medium text-black/50 group-hover:text-black/80 transition-colors">Total</span>
+                  <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">O/U {totalVal}</span>
                 </div>
               )}
               {(homeML !== undefined || awayML !== undefined) && (
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400">ML</span>
-                  <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">
-                    {fmtOdds(awayML)} / {fmtOdds(homeML)}
+                <div className="flex items-center justify-between group">
+                  <span className="text-[13px] font-medium text-black/50 group-hover:text-black/80 transition-colors">Moneyline</span>
+                  <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">
+                    {fmtOdds(awayML)} <span className="text-black/20 mx-1">/</span> {fmtOdds(homeML)}
                   </span>
                 </div>
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 py-1">
-              <div className="w-1 h-1 rounded-full bg-slate-300" />
-              <span className="text-[11px] text-slate-400">Lines pending — market not yet open</span>
+            <div className="flex items-center gap-2.5 py-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-black/10 animate-pulse" />
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/40">Market Offline</span>
             </div>
           )}
         </div>
@@ -534,47 +485,41 @@ function normalizeColor(color: string | undefined, fallback: string): string {
 // ============================================================================
 
 const BroadcastOverlay = memo(() => (
-  <div className="absolute inset-0 z-[5] pointer-events-none select-none mix-blend-overlay opacity-30">
-    <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))]" style={{ backgroundSize: "100% 2px, 3px 100%" }} />
+  <div className="absolute inset-0 z-[5] pointer-events-none select-none mix-blend-overlay opacity-[0.08]">
+    <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0)_50%,rgba(0,0,0,0.8)_50%),linear-gradient(90deg,rgba(255,255,255,0.02),rgba(0,0,0,0.01),rgba(255,255,255,0.02))]" style={{ backgroundSize: "100% 2px, 3px 100%" }} />
   </div>
 ));
 
 const BasketballCourt = memo(({ children }: { children?: ReactNode }) => (
-  <svg viewBox="0 0 100 56.25" className="w-full h-full shadow-sm select-none">
+  <svg viewBox="0 0 100 56.25" className="w-full h-full select-none bg-white">
     <defs>
       <radialGradient id="courtGlow" cx="0.5" cy="0.5" r="0.8">
-        <stop offset="0%" stopColor="#2a2a2a" stopOpacity="1" />
-        <stop offset="100%" stopColor="#111111" stopOpacity="1" />
+        <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+        <stop offset="100%" stopColor="#f8f8f8" stopOpacity="1" />
       </radialGradient>
-      <pattern id="woodGrain" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
-        <path d="M0 8L8 0M-2 2L2 -2M6 10L10 6" stroke="currentColor" strokeWidth="0.03" className="text-slate-900/5" />
-      </pattern>
       <linearGradient id="floorShine" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="white" stopOpacity="0" />
-        <stop offset="45%" stopColor="white" stopOpacity="0" />
-        <stop offset="50%" stopColor="white" stopOpacity="0.03" />
-        <stop offset="55%" stopColor="white" stopOpacity="0" />
-        <stop offset="100%" stopColor="white" stopOpacity="0" />
+        <stop offset="0%" stopColor="white" stopOpacity="0.4" />
+        <stop offset="50%" stopColor="white" stopOpacity="0" />
       </linearGradient>
     </defs>
     <rect width="100" height="56.25" fill="url(#courtGlow)" />
-    <rect width="100" height="56.25" fill="url(#woodGrain)" />
-    <g fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.6">
+    {/* Crisp 0.5px etched lines */}
+    <g fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="0.5">
       <rect x="2" y="2" width="96" height="52.25" />
       <line x1="50" y1="2" x2="50" y2="54.25" />
       <circle cx="50" cy="28.125" r="6" />
       <g>
-        <path d="M2,18.125 h14 v20 h-14" fill="#18181b" fillOpacity="0.4" />
-        <circle cx="16" cy="28.125" r="6" strokeDasharray="3 3" />
+        <path d="M2,18.125 h14 v20 h-14" fill="rgba(0,0,0,0.01)" />
+        <circle cx="16" cy="28.125" r="6" strokeDasharray="2 2" />
         <path d="M2,5.125 a23,23 0 0 1 0,46" />
-        <circle cx="5.25" cy="28.125" r="0.75" fill="#ec4899" stroke="none" />
+        <circle cx="5.25" cy="28.125" r="0.75" fill="rgba(0,0,0,0.9)" stroke="none" />
         <line x1="4" y1="25.125" x2="4" y2="31.125" strokeWidth="0.8" />
       </g>
       <g transform="scale(-1, 1) translate(-100, 0)">
-        <path d="M2,18.125 h14 v20 h-14" fill="#18181b" fillOpacity="0.4" />
-        <circle cx="16" cy="28.125" r="6" strokeDasharray="3 3" />
+        <path d="M2,18.125 h14 v20 h-14" fill="rgba(0,0,0,0.01)" />
+        <circle cx="16" cy="28.125" r="6" strokeDasharray="2 2" />
         <path d="M2,5.125 a23,23 0 0 1 0,46" />
-        <circle cx="5.25" cy="28.125" r="0.75" fill="#3b82f6" stroke="none" />
+        <circle cx="5.25" cy="28.125" r="0.75" fill="rgba(0,0,0,0.9)" stroke="none" />
         <line x1="4" y1="25.125" x2="4" y2="31.125" strokeWidth="0.8" />
       </g>
     </g>
@@ -584,25 +529,15 @@ const BasketballCourt = memo(({ children }: { children?: ReactNode }) => (
 ));
 
 const Gridiron = memo(({ children }: { children?: ReactNode }) => (
-  <svg viewBox="0 0 120 53.3" className="w-full h-full shadow-sm select-none bg-emerald-950">
-    <defs>
-      <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#064e3b" />
-        <stop offset="100%" stopColor="#022c22" />
-      </linearGradient>
-      <filter id="grassNoise">
-        <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" />
-      </filter>
-    </defs>
-    <rect width="120" height="53.3" fill="url(#grass)" />
-    <rect width="120" height="53.3" filter="url(#grassNoise)" opacity="0.1" />
-    <g stroke="rgba(255,255,255,0.4)" strokeWidth="0.5" fill="none">
-      <rect x="0" y="0" width="10" height="53.3" fill="rgba(0,0,0,0.2)" />
-      <rect x="110" y="0" width="10" height="53.3" fill="rgba(0,0,0,0.2)" />
+  <svg viewBox="0 0 120 53.3" className="w-full h-full select-none bg-white">
+    <rect width="120" height="53.3" fill="#ffffff" />
+    <g stroke="rgba(0,0,0,0.08)" strokeWidth="0.5" fill="none">
+      <rect x="0" y="0" width="10" height="53.3" fill="rgba(0,0,0,0.01)" />
+      <rect x="110" y="0" width="10" height="53.3" fill="rgba(0,0,0,0.01)" />
       {Array.from({ length: 9 }).map((_, i) => (
         <line key={i} x1={(i + 2) * 10} y1="0" x2={(i + 2) * 10} y2="53.3" />
       ))}
-      <g fill="rgba(255,255,255,0.4)" stroke="none" fontSize="4" fontWeight="bold" textAnchor="middle">
+      <g fill="rgba(0,0,0,0.12)" stroke="none" fontSize="4" fontWeight="600" textAnchor="middle" fontFamily="monospace">
         <text x="30" y="10" transform="rotate(180 30 10)">20</text><text x="30" y="47">20</text>
         <text x="60" y="10" transform="rotate(180 60 10)">50</text><text x="60" y="47">50</text>
         <text x="90" y="10" transform="rotate(180 90 10)">20</text><text x="90" y="47">20</text>
@@ -616,19 +551,16 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
   const sport = match.sport?.toUpperCase() || 'UNKNOWN';
   const lastPlay = liveState?.lastPlay;
 
-  const ballPos = useMemo(() =>
-    parseCoordinate(lastPlay?.coordinate, lastPlay?.text || '', sport),
-    [lastPlay, sport]);
-
-  const primaryColor = useMemo(() => normalizeColor(match.homeTeam.color, '#3b82f6'), [match.homeTeam.color]);
+  const ballPos = useMemo(() => parseCoordinate(lastPlay?.coordinate, lastPlay?.text || '', sport), [lastPlay, sport]);
+  const primaryColor = useMemo(() => normalizeColor(match.homeTeam.color, '#000000'), [match.homeTeam.color]);
 
   const renderCourt = () => {
     if (sport.includes('BASKETBALL') || sport.includes('NBA') || sport.includes('NCAAM')) {
       return (
         <BasketballCourt>
-          <motion.g initial={{ x: 50, y: 28 }} animate={{ x: ballPos.x, y: ballPos.y }} transition={ANIMATION.camera}>
-            <motion.circle r="4" fill={primaryColor} opacity="0.3" animate={{ scale: [1, 2.5, 1], opacity: [0.4, 0, 0.4] }} transition={{ repeat: Infinity, duration: 1.5 }} />
-            <circle r="1.5" fill="#fff" className="shadow-sm" />
+          <motion.g initial={{ x: 50, y: 28 }} animate={{ x: ballPos.x, y: ballPos.y }} transition={PHYSICS.CAMERA}>
+            <motion.circle r="6" fill={primaryColor} opacity="0.08" animate={{ scale: [1, 2.2, 1], opacity: [0.12, 0, 0.12] }} transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }} />
+            <circle r="1.5" fill="#000" className="shadow-sm" />
           </motion.g>
         </BasketballCourt>
       );
@@ -636,55 +568,61 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
     if (sport.includes('FOOTBALL') || sport.includes('NFL') || sport.includes('CFB') || sport.includes('NCAAF')) {
       return (
         <Gridiron>
-          <motion.circle cx="0" cy="0" r="1.5" fill="#fff" initial={{ x: 60, y: 26 }} animate={{ x: ballPos.x, y: ballPos.y }} transition={ANIMATION.camera} />
+          <motion.circle cx="0" cy="0" r="1.5" fill="#000" className="shadow-sm" initial={{ x: 60, y: 26 }} animate={{ x: ballPos.x, y: ballPos.y }} transition={PHYSICS.CAMERA} />
         </Gridiron>
       );
     }
 
-    // Fallback UI for unsupported telemetry sports (e.g. Soccer) to prevent massive empty boxes
     const hasTelemetry = match.lastPlay || liveState?.lastPlay;
     if (!hasTelemetry) {
       return (
-        <div className="flex flex-col items-center justify-center h-full w-full bg-[#0a0a0a]">
-          <div className="flex items-center gap-2 px-3 py-1 bg-black rounded-sm border border-slate-800 shadow-xl mb-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-slate-500 animate-pulse" />
-            <span className="text-[9px] text-slate-400 font-mono tracking-widest">TELEMETRY LINK UNAVAILABLE</span>
+        <div className="relative flex flex-col items-center justify-center h-full w-full bg-[#FAFAFA] overflow-hidden">
+          {/* Subtle grid background */}
+          <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.5) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+
+          <div className="flex flex-col items-center gap-3 z-10">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-black/5 rounded-[4px] shadow-sm">
+              <div className="w-1.5 h-1.5 rounded-full bg-black/30" />
+              <span className="text-[9px] text-black/50 font-mono tracking-[0.25em] uppercase">Telemetry Unlinked</span>
+            </div>
           </div>
-          <span className="text-[11px] text-slate-600 font-medium">Broadcast signal restricted for this event.</span>
         </div>
       );
     }
 
-    return <LiveGameTracker match={match} liveState={liveState} showHeader={false} headerVariant="embedded" />;
+    return <LiveGameTracker match={match} liveState={liveState as any} showHeader={false} headerVariant="embedded" />;
   };
 
+  const periodLabel = match.period ? `P${match.period}` : '';
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="relative w-full aspect-video overflow-hidden bg-slate-50 border-y border-slate-200 z-0 shadow-sm">
+    <div className="flex flex-col gap-5">
+      <div className="relative w-full aspect-video overflow-hidden rounded-[16px] bg-white ring-1 ring-black/[0.04] shadow-[0_2px_12px_rgba(0,0,0,0.02)] z-0">
         <div className="absolute inset-0 z-0">{renderCourt()}</div>
         <BroadcastOverlay />
         <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
           {match.possession && (
-            <div className="px-2 py-px bg-white/90 backdrop-blur text-slate-600 text-[9px] tracking-widest font-mono border border-slate-200 uppercase">
-              POSS // <span className="text-slate-900 font-bold">{match.possession}</span>
+            <div className="px-3 py-1.5 bg-white/90 backdrop-blur-md text-black/80 text-[9px] tracking-[0.2em] font-mono rounded-[6px] ring-1 ring-black/5 uppercase shadow-sm">
+              POSS <span className="text-black/20 mx-1">/</span> <span className="text-black font-bold">{match.possession}</span>
             </div>
           )}
         </div>
       </div>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start gap-4 px-1">
-        <div className="w-1 h-8 bg-blue-500 shrink-0 opacity-80" />
+
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start gap-4 px-2">
+        <div className="w-[1.5px] h-10 bg-black/[0.08] shrink-0 mt-1 rounded-full" />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] font-mono">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[9px] font-bold text-black/40 uppercase tracking-[0.25em] font-mono">
               {(lastPlay?.type?.text || "LIVE FEED").toUpperCase()}
             </span>
-            <span className="text-[9px] text-slate-500 font-mono tracking-widest">
-              {match.displayClock || "00:00"} // P{match.period}
+            <span className="text-[9px] text-black/30 font-mono tracking-[0.2em] tabular-nums">
+              {match.displayClock || "00:00"}{periodLabel ? ` / ${periodLabel}` : ''}
             </span>
           </div>
           <AnimatePresence mode="wait">
-            <motion.p key={lastPlay?.text || "waiting"} initial={{ opacity: 0, x: 5 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -5 }} className="text-[13px] font-medium text-slate-900 leading-snug truncate">
-              {lastPlay?.text || "Waiting for signal..."}
+            <motion.p key={lastPlay?.text || "waiting"} initial={{ opacity: 0, y: 2 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -2 }} className="text-[14px] font-medium text-black/90 leading-snug truncate">
+              {lastPlay?.text || "Synchronizing broadcast sequence..."}
             </motion.p>
           </AnimatePresence>
         </div>
@@ -708,19 +646,32 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const effectiveOpen = collapsible ? isOpen : true;
 
+  // Render format "01 // TITLE" into "01" (ghosted) and "TITLE" (bold)
+  const parts = label.split(' // ');
+  const numberPart = parts.length > 1 ? parts[0] : '';
+  const titlePart = parts.length > 1 ? parts[1] : label;
+
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn("group relative border-t border-slate-200 transition-all duration-500", collapsible ? "cursor-pointer" : "cursor-default")} onClick={() => collapsible && setIsOpen(!isOpen)}>
-      <div className="py-6 flex flex-col md:flex-row md:items-start gap-5 md:gap-0">
-        <div className="w-full md:w-[140px] shrink-0 flex items-center justify-between md:block select-none">
-          <span className={cn("text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-300 font-mono block", effectiveOpen ? "text-slate-900" : "text-slate-400 group-hover:text-slate-600")}>{label}</span>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className={cn("group relative border-t border-black/[0.03] transition-all duration-500", collapsible ? "cursor-pointer" : "cursor-default")}
+      onClick={() => collapsible && setIsOpen(!isOpen)}
+    >
+      <div className="py-8 flex flex-col md:flex-row md:items-start gap-5 md:gap-10 px-2 md:px-0">
+        <div className="w-full md:w-[150px] shrink-0 flex items-center justify-between md:block select-none mt-[2px] overflow-hidden">
+          <span className="text-[10px] uppercase transition-all duration-300 font-mono block tracking-[0.25em] md:group-hover:translate-x-1">
+            {numberPart && <span className="text-black/30 mr-2">{numberPart}</span>}
+            <span className={cn("font-semibold", effectiveOpen ? "text-black/80" : "text-black/40 group-hover:text-black/60")}>{titlePart}</span>
+          </span>
           {collapsible && <div className="md:hidden block"><ToggleSwitch expanded={effectiveOpen} /></div>}
         </div>
         <div className="flex-1 min-w-0 relative">
-          {collapsible && <div className="hidden md:block absolute right-0 top-1"><ToggleSwitch expanded={effectiveOpen} /></div>}
+          {collapsible && <div className="hidden md:block absolute right-0 top-1 z-10"><ToggleSwitch expanded={effectiveOpen} /></div>}
           <AnimatePresence initial={false}>
             {effectiveOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={PHYSICS_SWITCH} className="overflow-hidden">
-                <div className="animate-in fade-in duration-700 fill-mode-forwards">{children}</div>
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={PHYSICS.SPRING} className="overflow-hidden">
+                <div className="animate-in fade-in duration-700 fill-mode-forwards pt-3 md:pt-0 md:pr-12">{children}</div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -731,39 +682,16 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
 };
 
 // ============================================================================
-// SECTION 6: UI HELPERS
+// SECTION 6: SWIPEABLE HEADER 
 // ============================================================================
-
-const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'connecting' }) => {
-  const base = "flex items-center justify-center w-7 h-7 bg-slate-50 border border-slate-200 rounded-full";
-  if (status === 'connected') {
-    return (
-      <div className={base}>
-        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-      </div>
-    );
-  }
-  if (status === 'connecting') {
-    return (
-      <div className={base}>
-        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500 animate-pulse" />
-      </div>
-    );
-  }
-  return (
-    <div className={base}>
-      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
-    </div>
-  );
-});
 
 const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: { match: ExtendedMatch; isScheduled: boolean; onSwipe: (dir: number) => void }) => {
   const x = useMotionValue(0);
   return (
-    <motion.div style={{ x }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={(_, i) => { if (i.offset.x > 100) onSwipe(-1); else if (i.offset.x < -100) onSwipe(1); }} className="pb-6 px-4 cursor-grab active:cursor-grabbing">
+    <motion.div style={{ x }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={(_, i) => { if (i.offset.x > 100) onSwipe(-1); else if (i.offset.x < -100) onSwipe(1); }} className="pb-4 px-6 cursor-grab active:cursor-grabbing">
       <AnimatePresence mode="wait">
-        <motion.div key={match.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          {isScheduled ? <MatchupHeader matchId={match.id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} startTime={match.startTime} sport={match.sport} currentOdds={match.current_odds} /> : <ScoreHeader match={match} variant="embedded" />}
+        <motion.div key={match.id} initial={{ opacity: 0, scale: 0.99, filter: 'blur(2px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 1.01, filter: 'blur(2px)' }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
+          {isScheduled ? <MatchupHeader matchId={match.id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} startTime={match.startTime} sport={match.sport} currentOdds={match.current_odds as any} /> : <ScoreHeader match={match} variant="embedded" />}
         </motion.div>
       </AnimatePresence>
     </motion.div>
@@ -1106,7 +1034,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     if (!matches.length) return;
     const idx = matches.findIndex(m => m.id === match.id);
     if (idx === -1) return;
-    onSelectMatch?.(matches[(idx + dir + matches.length) % matches.length]);
+    onSelectMatch?.(matches[(idx + dir + matches.length) % matches.length] as any);
   }, [matches, match.id, onSelectMatch]);
 
   if (!match?.homeTeam) return <MatchupLoader className="h-screen" label="Synchronizing Hub" />;
@@ -1311,16 +1239,16 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
     if (meta?.type === 'TOTAL') {
       bestOdds = meta.side === 'OVER'
-        ? (oddsMarket?.overOdds ?? oddsMarket?.over ?? oddsMarket?.totalOver)
-        : (oddsMarket?.underOdds ?? oddsMarket?.under);
+        ? (oddsMarket?.overOdds ?? oddsMarket?.over ?? oddsMarket?.totalOver) as any
+        : (oddsMarket?.underOdds ?? oddsMarket?.under) as any;
     } else if (meta?.type === 'SPREAD') {
       bestOdds = meta.side === 'HOME'
-        ? (oddsMarket?.homeSpreadOdds ?? oddsMarket?.homeSpread)
-        : (oddsMarket?.awaySpreadOdds ?? oddsMarket?.awaySpread);
+        ? (oddsMarket?.homeSpreadOdds ?? oddsMarket?.homeSpread) as any
+        : (oddsMarket?.awaySpreadOdds ?? oddsMarket?.awaySpread) as any;
     } else if (meta?.type === 'MONEYLINE') {
       bestOdds = meta.side === 'HOME'
-        ? (oddsMarket?.moneylineHome ?? oddsMarket?.home_ml)
-        : (oddsMarket?.moneylineAway ?? oddsMarket?.away_ml);
+        ? (oddsMarket?.moneylineHome ?? oddsMarket?.home_ml) as any
+        : (oddsMarket?.moneylineAway ?? oddsMarket?.away_ml) as any;
     }
 
     const confidence = pregameIntel.confidence_score;
@@ -1340,7 +1268,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       side: pickText.toUpperCase().startsWith('UNDER') ? 'UNDER' : 'OVER',
       line: 0,
       statType: 'Edge',
-      bestOdds,
+      bestOdds: bestOdds ? String(bestOdds) : 'N/A',
       bestBook: oddsMarket?.provider || 'Market',
       affiliateLink: undefined,
       dvpRank: 0,
@@ -1352,115 +1280,165 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     });
   }, [isEdgeTab, match, pregameIntel]);
 
+  const playByPlayText = liveState?.lastPlay?.text || match.lastPlay?.text || '';
+
+  // Generate dynamic Live Sweat triggers from available props and game context
+  const sweatTriggers: AIWatchTrigger[] = useMemo(() => {
+    const base: AIWatchTrigger[] = [
+      { entityId: 'global_score', keywords: ['touchdown', 'goal', 'home run', 'three pointer', 'dunk'] }
+    ];
+    if (!match.dbProps) return base;
+
+    // Extract prop names for fuzzy trigger mapping
+    const propTriggers = match.dbProps.map(prop => ({
+      entityId: prop.playerName,
+      keywords: prop.playerName.split(' ').filter(n => n.length > 2)
+    }));
+    return [...base, ...propTriggers];
+  }, [match.dbProps]);
+
   return (
-    <div className="min-h-[100dvh] text-slate-900 relative overflow-y-auto font-sans bg-slate-50">
-      {/* Removed: cinematic mesh gradient backgrounds */}
-
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 pt-safe">
-        <div className="flex items-center justify-between px-6 py-4">
-          <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-slate-100 rounded-full transition-all duration-300">
-            <BackArrow />
-          </button>
-          <div className="flex items-center gap-4">
-            <span className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase hidden md:block">{match.leagueId?.toUpperCase()}</span>
-            <ConnectionBadge status={connectionStatus} />
-          </div>
-        </div>
-        {error && (<motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2"><div className="bg-red-50 border border-red-200 text-red-600 text-[10px] uppercase font-mono py-1 px-3 text-center">Data Stream Interrupted</div></motion.div>)}
-        <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
-        {/* Editorial Navigation Tabs */}
-        <nav className="flex justify-center gap-8 max-w-md mx-auto px-4 border-t border-slate-100">
-          {TABS.map((tab, i) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("relative py-4 group outline-none", i === TABS.length - 1 && "ml-2")}>
-              <span className={cn("text-[11px] font-bold uppercase tracking-widest transition-all duration-150", activeTab === tab.id ? "text-slate-900" : "text-slate-400 group-hover:text-slate-600")}>{tab.label}</span>
-              {activeTab === tab.id && (<motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-900" />)}
+    <div className="min-h-[100dvh] text-black relative overflow-y-auto overflow-x-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white pb-safe-offset-24">
+      <LiveSweatProvider latestPlayByPlayText={playByPlayText} aiTriggers={sweatTriggers}>
+        <header className="sticky top-0 z-50 bg-[#FBFBFD]/70 dark:bg-black/70 backdrop-blur-[24px] saturate-[1.2] border-b border-black/[0.03] pt-safe transition-colors duration-500">
+          <div className="flex items-center justify-between px-6 py-4">
+            <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-black/5 rounded-full transition-all duration-300">
+              <BackArrow />
             </button>
-          ))}
-        </nav>
-      </header>
+            <div className="flex items-center gap-4">
+              <span className="text-[10px] font-bold text-black/40 tracking-[0.25em] uppercase hidden md:block mt-[1px]">
+                {match.leagueId?.toUpperCase()}
+              </span>
+              <ConnectionBadge status={connectionStatus} />
+            </div>
+          </div>
+          {error && (
+            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2 overflow-hidden">
+              <div className="bg-red-50 border border-red-200 text-red-600 text-[10px] uppercase tracking-[0.2em] font-mono py-1.5 px-3 text-center rounded-[6px] shadow-[0_0_10px_rgba(239,68,68,0.1)]">
+                Telemetry Link Offline
+              </div>
+            </motion.div>
+          )}
 
-      <main className="relative z-10 pb-safe-offset-24 max-w-[840px] mx-auto pt-8 px-4 md:px-0">
-        <GameInfoStrip match={match} />
-        <LayoutGroup>
-          <AnimatePresence mode="wait">
-            <motion.div key={activeTab} {...ANIMATION.slideUp}>
-              {activeTab === 'OVERVIEW' && (
-                <div className="space-y-0">
-                  <SpecSheetRow label="01 // BROADCAST" defaultOpen={true} collapsible={false}>
-                    {isBaseball ? (
-                      <BaseballGamePanel match={match} baseballData={baseballData} />
-                    ) : (
-                      <CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} />
-                    )}
-                  </SpecSheetRow>
-                  <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-slate-200" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
-                  {liveState?.ai_analysis && <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={true}><LiveAIInsight match={match} /></SpecSheetRow>}
-                  <div className="w-full h-px bg-slate-200" />
-                </div>
-              )}
-              {activeTab === 'DETAILS' && (
-                <div className="space-y-0">
-                  <SafePregameIntelCards match={match} />
-                  <div className="mt-8">
-                    <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>{isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}</SpecSheetRow>
-                    <SpecSheetRow label="05 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
-                    <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
-                    <SpecSheetRow label="07 // CONTEXT" defaultOpen={true}>{match.context ? <MatchupContextPills {...match.context} sport={match.sport} /> : <div className="text-slate-500 italic text-xs">No context available.</div>}</SpecSheetRow>
+          <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
+
+          {/* Gradient scroll-mask wrapper */}
+          <div className="relative w-full overflow-hidden shrink-0 mt-2">
+            {/* Scroll mask gradients */}
+            <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
+
+            <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar px-6 max-w-full relative h-[42px] mask-edges">
+              {TABS.map((tab, i) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "relative h-full text-[11.5px] font-semibold uppercase tracking-[0.2em] transition-all duration-300 whitespace-nowrap outline-none flex items-center shrink-0",
+                    activeTab === tab.id ? "text-black" : "text-black/40 hover:text-black/60",
+                    i === TABS.length - 1 && "pr-6" // Extra padding for last scroll item
+                  )}
+                >
+                  {tab.label}
+                  {activeTab === tab.id && (
+                    <motion.div
+                      layoutId="activeTab"
+                      className="absolute bottom-0 left-0 right-0 h-[2px] bg-black rounded-t-[2px]"
+                      transition={PHYSICS.SPRING}
+                    />
+                  )}
+                </button>
+              ))}
+            </nav>
+            {/* Subtle separator line extending full width */}
+            <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-black/[0.04]" />
+          </div>
+        </header>
+
+        <main className="relative z-10 max-w-[840px] mx-auto pt-6 px-4 md:px-0">
+          <GameInfoStrip match={match} />
+
+          <LayoutGroup>
+            <AnimatePresence mode="wait">
+              <motion.div key={activeTab} {...PHYSICS.SLIDE_UP}>
+                {activeTab === 'OVERVIEW' && (
+                  <div className="space-y-0">
+                    <SpecSheetRow label="01 // BROADCAST" defaultOpen={true} collapsible={false}>
+                      {isBaseball ? (
+                        <BaseballGamePanel match={match} baseballData={baseballData} />
+                      ) : (
+                        <CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} />
+                      )}
+                    </SpecSheetRow>
+                    <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-slate-200" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
+                    {liveState?.ai_analysis && <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={true}><LiveAIInsight match={match} /></SpecSheetRow>}
                     <div className="w-full h-px bg-slate-200" />
                   </div>
-                </div>
-              )}
-              {activeTab === 'PROPS' && (
-                <div className="space-y-0">
-                  <div className="flex justify-end mb-4 pr-4"><button onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')} className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 transition-colors">SWITCH VIEW</button></div>
-                  <SpecSheetRow label="01 // PLAYER MKTS" defaultOpen={true} collapsible={false}>{propView === 'classic' ? <ClassicPlayerProps match={match} /> : <CinematicPlayerProps match={match} />}</SpecSheetRow>
-                  <div className="w-full h-px bg-slate-200" />
-                </div>
-              )}
-              {activeTab === 'DATA' && (
-                <div className="space-y-0">
-                  {(gameEdgeCardData || insightCardData) && (
-                    <div className="mb-12 space-y-6">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Shareable Insights</span>
-                      </div>
-                      {gameEdgeCardData && (
-                        <div className="space-y-3">
-                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">Game Edge</span>
-                          <InsightCard data={gameEdgeCardData} />
-                        </div>
-                      )}
-                      {insightCardData && (
-                        <div className="space-y-3">
-                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">Player Prop</span>
-                          <InsightCard data={insightCardData} />
-                        </div>
-                      )}
+                )}
+                {activeTab === 'DETAILS' && (
+                  <div className="space-y-0">
+                    <SafePregameIntelCards match={match} />
+                    <div className="mt-8">
+                      <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>{isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}</SpecSheetRow>
+                      <SpecSheetRow label="05 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
+                      <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
+                      <SpecSheetRow label="07 // CONTEXT" defaultOpen={true}>{match.context ? <MatchupContextPills {...match.context} sport={match.sport} /> : <div className="text-slate-500 italic text-xs">No context available.</div>}</SpecSheetRow>
+                      <div className="w-full h-px bg-slate-200" />
                     </div>
-                  )}
-                  {isBaseball && baseballData?.edge && (
-                    <div className="mb-12">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                          Edge Convergence
-                        </span>
+                  </div>
+                )}
+                {activeTab === 'PROPS' && (
+                  <div className="space-y-0">
+                    <div className="flex justify-end mb-4 pr-4"><button onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')} className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 transition-colors">SWITCH VIEW</button></div>
+                    <SpecSheetRow label="01 // PLAYER MKTS" defaultOpen={true} collapsible={false}>{propView === 'classic' ? <ClassicPlayerProps match={match} /> : <CinematicPlayerProps match={match} />}</SpecSheetRow>
+                    <div className="w-full h-px bg-slate-200" />
+                  </div>
+                )}
+                {activeTab === 'DATA' && (
+                  <div className="space-y-0">
+                    {(gameEdgeCardData || insightCardData) && (
+                      <div className="mb-12 space-y-6">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1 h-1 rounded-full bg-emerald-400" />
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Shareable Insights</span>
+                        </div>
+                        {gameEdgeCardData && (
+                          <div className="space-y-3">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">Game Edge</span>
+                            <InsightCard data={gameEdgeCardData!} />
+                          </div>
+                        )}
+                        {insightCardData && (
+                          <div className="space-y-3">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">Player Prop</span>
+                            <InsightCard data={insightCardData!} />
+                          </div>
+                        )}
                       </div>
-                      <BaseballEdgePanel edge={baseballData.edge} />
-                    </div>
-                  )}
-                  <div className="mb-12"><ForecastHistoryTable matchId={match.id} /></div>
-                  <SpecSheetRow label="01 // BOX SCORE" defaultOpen={true}><BoxScore match={match} /></SpecSheetRow>
-                  <SpecSheetRow label="02 // ANALYSIS" defaultOpen={false}><SafePregameIntelCards match={match} /></SpecSheetRow>
-                  <div className="w-full h-px bg-slate-200" />
-                </div>
-              )}
-              {activeTab === 'CHAT' && (<div className="max-w-3xl mx-auto h-[calc(100dvh-220px)] min-h-[400px]"><ChatWidget currentMatch={match as any} inline /></div>)}
-            </motion.div>
-          </AnimatePresence>
-        </LayoutGroup>
-      </main>
+                    )}
+                    {isBaseball && (baseballData as any)?.edge && (
+                      <div className="mb-12">
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="w-1 h-1 rounded-full bg-emerald-400" />
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                            Edge Convergence
+                          </span>
+                        </div>
+                        <BaseballEdgePanel edge={(baseballData as any).edge} />
+                      </div>
+                    )}
+                    <div className="mb-12"><ForecastHistoryTable matchId={match.id} /></div>
+                    <SpecSheetRow label="01 // BOX SCORE" defaultOpen={true}><BoxScore match={match} /></SpecSheetRow>
+                    <SpecSheetRow label="02 // ANALYSIS" defaultOpen={false}><SafePregameIntelCards match={match} /></SpecSheetRow>
+                    <div className="w-full h-px bg-slate-200" />
+                  </div>
+                )}
+                {activeTab === 'CHAT' && (<div className="max-w-3xl mx-auto h-[calc(100dvh-220px)] min-h-[400px]"><ChatWidget currentMatch={match as any} inline /></div>)}
+              </motion.div>
+            </AnimatePresence>
+          </LayoutGroup>
+        </main>
+      </LiveSweatProvider>
       {process.env['NODE_ENV'] === 'development' && <TechnicalDebugView match={match as any} />}
     </div>
   );

@@ -5,6 +5,7 @@ import { Match, StatItem, Team, PlayerPropBet, Sport } from '@/types';
 import TeamLogo from '../shared/TeamLogo';
 import { cn, ESSENCE } from '@/lib/essence';
 import { getMatchDisplayStats, hasLineScoreData } from '../../utils/statDisplay';
+import { useIsEntityPulsing } from '@/context/LiveSweatContext';
 
 // ============================================================================
 // 1. LINE SCORE GRID - ELITE EDITION
@@ -69,7 +70,7 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
       return `${raw}(${entry.tiebreak})`;
     }
     if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
-    if (typeof raw === 'string' && raw.trim().length > 0) return raw;
+    if (typeof raw === 'string' && (raw as string).trim().length > 0) return raw as string;
     return '-';
   };
   const getPeriodLabel = (period: number) => {
@@ -316,8 +317,8 @@ TeamStatsGrid.displayName = 'TeamStatsGrid';
 
 interface PlayerPropGroup {
   playerName: string;
-  headshotUrl?: string;
-  team?: string;
+  headshotUrl?: string | undefined;
+  team?: string | undefined;
   props: PlayerPropBet[];
 }
 
@@ -338,9 +339,9 @@ export const ClassicPlayerProps: React.FC<{ match: Match }> = memo(({ match }) =
       if (!map.has(p.playerName)) {
         map.set(p.playerName, {
           playerName: p.playerName,
-          headshotUrl: p.headshotUrl,
-          team: p.team,
-          props: []
+          headshotUrl: p.headshotUrl || undefined,
+          team: p.team || undefined,
+          props: [] as PlayerPropBet[]
         });
       }
       map.get(p.playerName)!.props.push(p);
@@ -362,76 +363,87 @@ export const ClassicPlayerProps: React.FC<{ match: Match }> = memo(({ match }) =
   return (
     <div className="space-y-4">
       {groups.map((group) => (
-        <div
-          key={group.playerName}
-          className="group bg-slate-50 border border-slate-200 rounded-2xl p-4 transition-all active:scale-[0.99] touch-pan-y"
-        >
-          {/* Player Identity — Concise for mobile */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="relative w-10 h-10 rounded-full bg-zinc-900 overflow-hidden ring-1 ring-white/10">
-              {group.headshotUrl ? (
-                <img
-                  src={group.headshotUrl}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <User size={16} className="text-slate-400" />
-                </div>
-              )}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <h4 className="text-[15px] font-bold text-slate-900 tracking-tight truncate leading-none">
-                {group.playerName}
-              </h4>
-              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1 opacity-70">
-                {group.team}
-              </p>
-            </div>
-          </div>
-
-          {/* High-Density Row Layout */}
-          <div className="space-y-1">
-            {group.props.map((prop, j) => {
-              const isOver = prop.side === 'over';
-
-              return (
-                <div
-                  key={j}
-                  className="flex items-center justify-between py-3 px-3 rounded-xl bg-slate-50 border border-white/[0.02] transition-colors active:bg-slate-100"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-1 h-3 rounded-full",
-                      isOver ? "bg-emerald-500/40" : "bg-rose-500/40"
-                    )} />
-                    <span className="text-[12px] text-slate-400 font-medium">
-                      {prop.betType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <span className="text-[15px] font-black font-mono text-slate-900 tabular-nums tracking-tighter">
-                      {prop.lineValue}
-                    </span>
-
-                    <div className={cn(
-                      "flex items-center justify-center min-w-[56px] py-1 px-2 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all",
-                      isOver
-                        ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
-                        : "text-rose-400 bg-rose-500/10 border border-rose-500/20"
-                    )}>
-                      {prop.side}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <ClassicPlayerGroup key={group.playerName} group={group} />
       ))}
+    </div>
+  );
+});
+
+const ClassicPlayerGroup = memo(({ group }: { group: PlayerPropGroup }) => {
+  const isPulsing = useIsEntityPulsing(group.playerName);
+
+  return (
+    <div
+      className={cn(
+        "group bg-slate-50 border rounded-2xl p-4 transition-all duration-300 active:scale-[0.99] touch-pan-y",
+        isPulsing ? "border-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.15)] ring-1 ring-emerald-400/50" : "border-slate-200"
+      )}
+    >
+      {/* Player Identity — Concise for mobile */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className={cn("relative w-10 h-10 rounded-full overflow-hidden ring-1 ring-white/10 transition-colors duration-300", isPulsing ? "bg-emerald-950" : "bg-zinc-900")}>
+          {group.headshotUrl ? (
+            <img
+              src={group.headshotUrl}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <User size={16} className={isPulsing ? "text-emerald-400" : "text-slate-400"} />
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h4 className={cn("text-[15px] font-bold tracking-tight truncate leading-none transition-colors", isPulsing ? "text-emerald-500" : "text-slate-900")}>
+            {group.playerName}
+          </h4>
+          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1 opacity-70">
+            {group.team}
+          </p>
+        </div>
+      </div>
+
+      {/* High-Density Row Layout */}
+      <div className="space-y-1">
+        {group.props.map((prop, j) => {
+          const isOver = prop.side === 'over';
+
+          return (
+            <div
+              key={j}
+              className={cn("flex items-center justify-between py-3 px-3 rounded-xl transition-all duration-300 active:bg-slate-100", isPulsing ? "bg-emerald-50/50 border border-emerald-500/10" : "bg-slate-50 border border-white/[0.02]")}
+            >
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-1 h-3 rounded-full transition-all duration-500",
+                  isOver ? "bg-emerald-500/40" : "bg-rose-500/40",
+                  isPulsing && isOver && "bg-emerald-400 animate-pulse"
+                )} />
+                <span className={cn("text-[12px] font-medium transition-colors", isPulsing ? "text-emerald-700/80" : "text-slate-400")}>
+                  {prop.betType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <span className={cn("text-[15px] font-black font-mono tabular-nums tracking-tighter transition-colors", isPulsing ? "text-emerald-600" : "text-slate-900")}>
+                  {prop.lineValue}
+                </span>
+
+                <div className={cn(
+                  "flex items-center justify-center min-w-[56px] py-1 px-2 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all",
+                  isOver
+                    ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
+                    : "text-rose-400 bg-rose-500/10 border border-rose-500/20"
+                )}>
+                  {prop.side}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 });
