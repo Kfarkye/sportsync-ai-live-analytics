@@ -338,28 +338,28 @@ function normalizeMatch(raw: RawMatch | undefined): Match | null {
     const situationRaw = raw.situation;
     const situation: Match['situation'] | undefined = situationRaw
         ? {
-              yardLine: (() => {
-                  const v = situationRaw.yardLine;
-                  if (typeof v === 'number') return Math.max(0, Math.min(100, v));
-                  if (typeof v === 'string') {
-                      const n = parseInt(v.replace(/\D/g, ''), 10);
-                      return Number.isFinite(n)
-                          ? Math.max(0, Math.min(100, n))
-                          : 50;
-                  }
-                  return 50;
-              })(),
-              down: safeNumber(situationRaw.down, 1),
-              distance: safeNumber(situationRaw.distance, 10),
-              possessionId: situationRaw.possessionId
-                  ? String(situationRaw.possessionId)
-                  : undefined,
-              possessionText: situationRaw.possession,
-              isRedZone: situationRaw.isRedZone,
-              downDistanceText: situationRaw.downDistanceText,
-              ballX: situationRaw.ballX,
-              ballY: situationRaw.ballY,
-          }
+            yardLine: (() => {
+                const v = situationRaw.yardLine;
+                if (typeof v === 'number') return Math.max(0, Math.min(100, v));
+                if (typeof v === 'string') {
+                    const n = parseInt(v.replace(/\D/g, ''), 10);
+                    return Number.isFinite(n)
+                        ? Math.max(0, Math.min(100, n))
+                        : 50;
+                }
+                return 50;
+            })(),
+            down: safeNumber(situationRaw.down, 1),
+            distance: safeNumber(situationRaw.distance, 10),
+            possessionId: situationRaw.possessionId
+                ? String(situationRaw.possessionId)
+                : undefined,
+            possessionText: situationRaw.possession,
+            isRedZone: situationRaw.isRedZone,
+            downDistanceText: situationRaw.downDistanceText,
+            ballX: situationRaw.ballX,
+            ballY: situationRaw.ballY,
+        }
         : undefined;
 
     return {
@@ -371,10 +371,10 @@ function normalizeMatch(raw: RawMatch | undefined): Match | null {
         situation,
         currentDrive: raw.currentDrive
             ? {
-                  ...raw.currentDrive,
-                  plays: safeNumber(raw.currentDrive.plays),
-                  yards: safeNumber(raw.currentDrive.yards),
-              }
+                ...raw.currentDrive,
+                plays: safeNumber(raw.currentDrive.plays),
+                yards: safeNumber(raw.currentDrive.yards),
+            }
             : undefined,
         lastPlay: raw.lastPlay
             ? { ...raw.lastPlay, id: raw.lastPlay.id ?? '', text: raw.lastPlay.text ?? '' }
@@ -500,10 +500,10 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
         const totalHit: GameViewModel['betting']['totalHit'] = !hasTotal
             ? null
             : totalScore > total
-              ? 'OVER'
-              : totalScore < total
-                ? 'UNDER'
-                : 'PUSH';
+                ? 'OVER'
+                : totalScore < total
+                    ? 'UNDER'
+                    : 'PUSH';
         const windSpd = pickWindSpeed(match);
         const league = String(match.league || match.sport || '').toUpperCase();
         const isPregame =
@@ -529,10 +529,10 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
                 displayDate: formatDate(match.date),
                 hasData: Boolean(
                     match.displayClock ||
-                        match.period ||
-                        match.situation ||
-                        match.currentDrive ||
-                        match.lastPlay
+                    match.period ||
+                    match.situation ||
+                    match.currentDrive ||
+                    match.lastPlay
                 ),
                 league: league.replace(/_/g, ' '),
             },
@@ -663,10 +663,10 @@ const DataValue = ({
             size === 'hero'
                 ? 'text-5xl sm:text-6xl md:text-8xl font-light'
                 : size === 'xl'
-                  ? 'text-4xl sm:text-5xl font-light'
-                  : size === 'lg'
-                    ? 'text-2xl sm:text-3xl'
-                    : 'text-sm',
+                    ? 'text-4xl sm:text-5xl font-light'
+                    : size === 'lg'
+                        ? 'text-2xl sm:text-3xl'
+                        : 'text-sm',
             className
         )}
     >
@@ -696,8 +696,8 @@ const FieldSchematic: FC<{ viewModel: GameViewModel }> = memo(({ viewModel }) =>
                     ? 100 - n
                     : n
                 : isHome
-                  ? n
-                  : 100 - n;
+                    ? n
+                    : 100 - n;
         }
         yard = Math.max(0, Math.min(100, yard));
         const dist = safeNumber(gameplay.situation.distance, 10);
@@ -1093,7 +1093,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
             <header
                 className={cn(
                     'relative w-full flex flex-col items-center overflow-hidden select-none',
-                    isEmbedded ? 'bg-[#050506] pt-4' : 'bg-[#050506] pt-6 border-b border-slate-200'
+                    isEmbedded ? 'bg-slate-50 pt-4' : 'bg-slate-50 pt-6 border-b border-slate-200'
                 )}
             >
                 {/* Top Status Bar: [Back] [Date/League] [Dot] */}
@@ -1126,7 +1126,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                             className={cn(
                                 'w-2 h-2 rounded-full',
                                 meta.isFinished || isPregame
-                                    ? 'bg-zinc-800'
+                                    ? 'bg-slate-300'
                                     : 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
                             )}
                             aria-hidden="true"
@@ -1134,18 +1134,16 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                     </div>
                 )}
 
-                {/* Cinematic Atmosphere */}
+                {/* Subtle team color wash — Editorial Light */}
                 <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                    <div className="absolute top-[10%] left-1/2 -translate-x-1/2 w-[120%] h-[60%] bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.03)_0%,transparent_70%)] blur-[60px]" />
                     <div
-                        className="absolute top-[30%] -left-[20%] w-[80%] h-[80%] blur-[120px] opacity-20"
+                        className="absolute top-[20%] -left-[20%] w-[80%] h-[80%] blur-[120px] opacity-[0.06]"
                         style={{ background: teams.away.color }}
                     />
                     <div
-                        className="absolute top-[30%] -right-[20%] w-[80%] h-[80%] blur-[120px] opacity-20"
+                        className="absolute top-[20%] -right-[20%] w-[80%] h-[80%] blur-[120px] opacity-[0.06]"
                         style={{ background: teams.home.color }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050506]/40 to-[#050506]" />
                 </div>
 
                 {/* Horizontal Face-Off (Grid for Precision Center) */}
@@ -1164,11 +1162,11 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 style={{ background: teams.away.color }}
                             />
                             <div className={cn('flex items-center justify-center bg-slate-50 rounded-full border border-slate-200', logoSize)}>
-                            <TeamLogo
-                                logo={teams.away.logo}
-                                className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
-                            />
-                        </div>
+                                <TeamLogo
+                                    logo={teams.away.logo}
+                                    className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
+                                />
+                            </div>
                         </div>
                         <div className="text-center">
                             {/* Name on Pregame, Abbr on Live */}
@@ -1234,11 +1232,11 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                 style={{ background: teams.home.color }}
                             />
                             <div className={cn('flex items-center justify-center bg-slate-50 rounded-full border border-slate-200', logoSize)}>
-                            <TeamLogo
-                                logo={teams.home.logo}
-                                className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
-                            />
-                        </div>
+                                <TeamLogo
+                                    logo={teams.home.logo}
+                                    className={cn(logoImgSize, 'object-contain drop-shadow-2xl opacity-90')}
+                                />
+                            </div>
                         </div>
                         <div className="text-center">
                             <h2 className={cn(nameText, 'font-bold text-slate-900 tracking-tight leading-tight')}>
@@ -1279,7 +1277,7 @@ export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: Scor
                                     <motion.div
                                         layoutId="tab"
                                         transition={reduceMotion ? { duration: 0 } : TOKENS.animation.spring}
-                                        className="absolute bottom-0 left-0 right-0 h-[2px] bg-white"
+                                        className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-900"
                                     />
                                 )}
                             </button>
