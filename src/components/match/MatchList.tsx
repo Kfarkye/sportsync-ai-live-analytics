@@ -209,7 +209,7 @@ const MatchList: React.FC<MatchListProps> = ({
 
         let featured = matches.find(m => isMatchLive(m) && pinnedMatchIds.has(m.id)) ||
             matches.find(m => isMatchLive(m)) ||
-            matches[0];
+            matches[0] || null;
 
         // Headlines Logic
         // Select top 2 games from priority leagues
