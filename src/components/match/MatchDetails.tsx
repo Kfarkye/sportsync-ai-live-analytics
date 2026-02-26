@@ -109,8 +109,10 @@ type EspnExtendedMatch = Partial<ExtendedMatch> & {
   statistics?: Match['stats'];
 };
 
-interface LiveState extends Partial<ExtendedMatch> {
+interface LiveState extends Partial<Omit<ExtendedMatch, 'lastPlay'>> {
   lastPlay?: {
+    id?: string;
+    clock?: string;
     text?: string;
     coordinate?: { x: number; y: number } | string;
     type?: { text: string };
@@ -144,10 +146,6 @@ interface ExtendedMatch extends Match {
   possession?: string;
   displayClock?: string;
   context?: Record<string, ContextValue>;
-  closing_odds?: Match['closing_odds'];
-  opening_odds?: Match['opening_odds'];
-  dbProps?: Match['dbProps'];
-  stats?: Match['stats'];
   // Strictly typed extensions for sub-objects to avoid casting in assignments
   homeTeam: Match['homeTeam'] & { last5?: RecentFormGame[] };
   awayTeam: Match['awayTeam'] & { last5?: RecentFormGame[] };
@@ -165,7 +163,7 @@ interface EdgeState {
   side: 'OVER' | 'UNDER' | null;
   state: 'PLAY' | 'LEAN' | 'NEUTRAL';
   edgePoints: number;
-  confidence?: number;
+  confidence?: number | undefined;
 }
 
 // ============================================================================
@@ -365,29 +363,31 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
       )}
 
       {/* Records + Key Market Data */}
-      <div className="grid grid-cols-2 divide-x divide-slate-100">
+      <div className={cn("grid divide-x divide-slate-100", (homeRecord || awayRecord) ? "grid-cols-2" : "grid-cols-1")}>
         {/* Records */}
-        <div className="px-5 py-3">
-          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Records</div>
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] font-medium text-slate-600 truncate">
-                {match.awayTeam?.abbreviation || match.awayTeam?.shortName}
-              </span>
-              <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">
-                {awayRecord || '—'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] font-medium text-slate-600 truncate">
-                {match.homeTeam?.abbreviation || match.homeTeam?.shortName}
-              </span>
-              <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">
-                {homeRecord || '—'}
-              </span>
+        {(homeRecord || awayRecord) && (
+          <div className="px-5 py-3">
+            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Records</div>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-medium text-slate-600 truncate">
+                  {match.awayTeam?.abbreviation || match.awayTeam?.shortName}
+                </span>
+                <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">
+                  {awayRecord || '—'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-medium text-slate-600 truncate">
+                  {match.homeTeam?.abbreviation || match.homeTeam?.shortName}
+                </span>
+                <span className="text-[12px] font-mono font-semibold text-slate-900 tabular-nums">
+                  {homeRecord || '—'}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Key Lines */}
         <div className="px-5 py-3">
@@ -633,6 +633,21 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
         </Gridiron>
       );
     }
+
+    // Fallback UI for unsupported telemetry sports (e.g. Soccer) to prevent massive empty boxes
+    const hasTelemetry = match.lastPlay || liveState?.lastPlay;
+    if (!hasTelemetry) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full w-full bg-[#0a0a0a]">
+          <div className="flex items-center gap-2 px-3 py-1 bg-black rounded-sm border border-slate-800 shadow-xl mb-3">
+            <div className="w-1.5 h-1.5 rounded-full bg-slate-500 animate-pulse" />
+            <span className="text-[9px] text-slate-400 font-mono tracking-widest">TELEMETRY LINK UNAVAILABLE</span>
+          </div>
+          <span className="text-[11px] text-slate-600 font-medium">Broadcast signal restricted for this event.</span>
+        </div>
+      );
+    }
+
     return <LiveGameTracker match={match} liveState={liveState} showHeader={false} headerVariant="embedded" />;
   };
 
@@ -792,9 +807,9 @@ function computeMatchSignature(m: ExtendedMatch): string {
     String(m.homeScore ?? ''),
     String(m.awayScore ?? ''),
     m.lastPlay?.text || '',
-    hashStable(m.current_odds ?? null),
-    hashStable(m.stats ?? null),
-    hashStable(m.playerStats ?? null)
+    hashStable(m.current_odds as any ?? null),
+    hashStable(m.stats as any ?? null),
+    hashStable(m.playerStats as any ?? null)
   ].join('|');
 }
 
@@ -856,7 +871,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
       const fairTotal = signals.deterministic_fair_total || 0;
       const marketTotal = signals.market_total || 0;
       const diff = fairTotal - marketTotal;
-      const newEdge: EdgeState = { side: diff > 0 ? 'OVER' : diff < 0 ? 'UNDER' : null, state: rec.side !== 'PASS' && rec.side !== 'AVOID' ? 'PLAY' : Math.abs(diff) > 1.5 ? 'LEAN' : 'NEUTRAL', edgePoints: diff, confidence: aiAnalysis.sharp_data.confidence_level };
+      const newEdge: EdgeState = { side: diff > 0 ? 'OVER' : diff < 0 ? 'UNDER' : null, state: rec.side !== 'PASS' && rec.side !== 'AVOID' ? 'PLAY' : Math.abs(diff) > 1.5 ? 'LEAN' : 'NEUTRAL', edgePoints: diff, confidence: aiAnalysis.sharp_data.confidence_level ?? undefined };
       setEdgeState(newEdge);
       setForecastHistory(prev => {
         const newPoint: ForecastPoint = { clock: live.clock || '', fairTotal, marketTotal, edgeState: newEdge.state, timestamp: Date.now() };
@@ -893,7 +908,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           const createdAt = parseTsMs(newLive.created_at, receivedAt);
           if (createdAt <= lastLiveCreatedAtRef.current) return;
           lastLiveCreatedAtRef.current = createdAt; lastLiveReceivedAtRef.current = receivedAt;
-          const nextLiveSig = hashStable(newLive);
+          const nextLiveSig = hashStable(newLive as any);
           if (nextLiveSig !== liveSigRef.current) { liveSigRef.current = nextLiveSig; processLiveState(newLive); }
         }
       })
@@ -973,7 +988,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           return 'line';
         };
 
-        const toPropBet = (p: DbPlayerPropRow): PlayerPropBet => ({
+        const toPropBet = (p: DbPlayerPropRow) => ({
           id: `${cur.id}:${p.player_name || 'player'}:${p.bet_type || 'prop'}:${p.line_value ?? ''}`,
           userId: 'system',
           matchId: cur.id,
@@ -982,8 +997,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           team: p.team || undefined,
           opponent: p.opponent || undefined,
           playerName: p.player_name || '',
-          playerId: p.player_id || undefined,
-          espnPlayerId: p.espn_player_id || undefined,
+          playerId: p.player_id || p.espn_player_id || undefined,
           headshotUrl: p.headshot_url || undefined,
           betType: normalizePropType(p.bet_type),
           marketLabel: p.market_label || undefined,
@@ -1001,14 +1015,16 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           avgL5: p.avg_l5 ? Number(p.avg_l5) : undefined,
           aiRationale: p.ai_rationale || undefined,
           analysisStatus: p.analysis_status || undefined,
-          analysisTs: p.analysis_ts || undefined
-        });
+          analysisTs: p.analysis_ts || undefined,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }) as unknown as PlayerPropBet;
 
         nextMatch.dbProps = props.map(toPropBet);
       } else if (props !== null) nextMatch.dbProps = [];
       const nextSig = computeMatchSignature(nextMatch);
       if (nextSig !== matchSigRef.current) { matchRef.current = nextMatch; matchSigRef.current = nextSig; setMatch(nextMatch); }
-      if (live) { const receivedAt = Date.now(); const createdAt = parseTsMs(live.created_at, receivedAt); if (createdAt > lastLiveCreatedAtRef.current) { lastLiveCreatedAtRef.current = createdAt; lastLiveReceivedAtRef.current = receivedAt; const nextLiveSig = hashStable(live); if (nextLiveSig !== liveSigRef.current) { liveSigRef.current = nextLiveSig; processLiveState(live); } } }
+      if (live) { const receivedAt = Date.now(); const createdAt = parseTsMs(live.created_at, receivedAt); if (createdAt > lastLiveCreatedAtRef.current) { lastLiveCreatedAtRef.current = createdAt; lastLiveReceivedAtRef.current = receivedAt; const nextLiveSig = hashStable(live as any); if (nextLiveSig !== liveSigRef.current) { liveSigRef.current = nextLiveSig; processLiveState(live); } } }
       if (isGameScheduled(cur.status) && !nextMatch.homeTeam.last5) { try { const [hForm, aForm] = await Promise.all([fetchTeamLastFive(cur.homeTeam.id, cur.sport, cur.leagueId), fetchTeamLastFive(cur.awayTeam.id, cur.sport, cur.leagueId)]); nextMatch.homeTeam.last5 = hForm; nextMatch.awayTeam.last5 = aForm; setMatch({ ...nextMatch }); matchRef.current = nextMatch; } catch (e) { console.warn('Form Fetch Error', e); } }
       void maybeFetchNhlShots(nextMatch);
       setConnectionStatus('connected'); setError(null); setIsInitialLoad(false);
@@ -1032,8 +1048,8 @@ function useKeyboardNavigation(matches: Match[], currentMatchId: string, onSelec
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const idx = matches.findIndex((m) => m.id === currentMatchId);
       if (idx === -1) return;
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); onSelectMatch(matches[(idx - 1 + matches.length) % matches.length]); }
-      else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); onSelectMatch(matches[(idx + 1) % matches.length]); }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); const prev = matches[(idx - 1 + matches.length) % matches.length]; if (prev) onSelectMatch(prev); }
+      else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); const next = matches[(idx + 1) % matches.length]; if (next) onSelectMatch(next); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -1432,12 +1448,12 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   <div className="w-full h-px bg-slate-200" />
                 </div>
               )}
-              {activeTab === 'CHAT' && (<div className="max-w-3xl mx-auto h-[700px]"><ChatWidget currentMatch={match} inline /></div>)}
+              {activeTab === 'CHAT' && (<div className="max-w-3xl mx-auto h-[700px]"><ChatWidget currentMatch={match as any} inline /></div>)}
             </motion.div>
           </AnimatePresence>
         </LayoutGroup>
       </main>
-      <TechnicalDebugView match={match} />
+      <TechnicalDebugView match={match as any} />
     </div>
   );
 };

@@ -86,7 +86,7 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
             const { data, error } = await supabase.functions.invoke('ingest-odds', {
                 body: { sport_key: sportKey },
                 headers: {
-                    'x-cron-secret': "XVAVO7RWXpT0fsTdXBr5OmHlR8MrEKeJ"
+                    'x-cron-secret': localStorage.getItem('DEBUG_CRON_SECRET') || process.env['NEXT_PUBLIC_CRON_SECRET'] || (import.meta as any).env?.VITE_CRON_SECRET || ""
                 }
             });
 
@@ -107,7 +107,7 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
                 }));
                 refreshDebugData();
             }
-        } catch (e: Error | { message?: string } | string) {
+        } catch (e: any) {
             const msg = typeof e === 'string' ? e : e?.message;
             setDebugData(prev => ({ ...prev, lastIngestStatus: 'error', lastIngestError: msg }));
         }

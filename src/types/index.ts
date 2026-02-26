@@ -128,6 +128,15 @@ export interface PlayerPropBet {
   sourceAttribution?: string;
   provider?: string;
 
+  // Analytics & AI
+  fantasyDvpRank?: number;
+  l5HitRate?: number;
+  l5Values?: number[];
+  avgL5?: number;
+  aiRationale?: string;
+  analysisStatus?: string;
+  analysisTs?: string;
+
   notes?: string;
   createdAt: string;
   updatedAt: string;
