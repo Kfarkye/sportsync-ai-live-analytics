@@ -61,6 +61,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import BetSlipReviewArea from "./bet-slip/BetSlipReviewArea";
 import type { AppBetSlip } from "../../lib/schemas/betSlipSchema";
+import { useBetLink, type SupportedBook } from "../hooks/useBetLink";
 import { useChatContext } from "../hooks/useChatContext";
 import { useAppStore } from "../store/appStore";
 import {
@@ -1858,12 +1859,25 @@ const EdgeVerdictCard: FC<{
     : "";
   const headline = teamDisplay + (qualifierForShare ? ` ${qualifierForShare}` : "");
 
+  const { handleDeepLink } = useBetLink();
+
   const handleToggle = useCallback((selection: "tail" | "fade") => {
     const next = outcome === selection ? null : selection;
     triggerHaptic();
     trackAction(`verdict.${selection}`, { trackingKey, selected: next === selection, cardIndex });
     onTrack?.(trackingKey, next);
-  }, [cardIndex, onTrack, outcome, trackingKey]);
+
+    // Phase 2: Actionability — Wire deep linking router for Tail selection
+    if (next === "tail") {
+      // Future-proofing: Read preferred sportsbook from User Settings Context. 
+      // Hardcoded to DraftKings for V1 launch parity.
+      const preferredBook: SupportedBook = "DraftKings";
+
+      // We pass the canonical team name so the sportsbook search engine handles the query reliably 
+      // (e.g. "Rhode Island Rams" instead of "+2.5 Rhode Island")
+      handleDeepLink(preferredBook, teamDisplay);
+    }
+  }, [cardIndex, onTrack, outcome, trackingKey, handleDeepLink, teamDisplay]);
 
   const handleShare = useCallback(() => {
     if (shareState !== "idle") return;
