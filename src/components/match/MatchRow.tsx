@@ -102,7 +102,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
           return (
             <div key={team.id || idx} className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4 min-w-0 flex-1">
-                <div className="relative w-8 h-8 shrink-0 flex items-center justify-center">
+                <div className="relative w-6 h-6 shrink-0 flex items-center justify-center">
                   {isTennis && team.flag ? (
                     <div className="w-5 h-3.5 overflow-hidden rounded-[1px]">
                       <img src={team.flag} alt="" className="w-full h-full object-cover" />
@@ -145,22 +145,22 @@ const MatchRow: React.FC<MatchRowProps> = ({
       {/* Status Metadata */}
       <div className="flex flex-col items-end gap-1 pl-6 min-w-[80px] border-l border-slate-200 py-1 select-none">
         {isLive ? (
-          <>
-            <div className="flex items-center gap-1.5">
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-1.5 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="motion-reduce:hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600"></span>
               </span>
-              <span className="text-[9px] font-bold text-red-600 uppercase tracking-[0.2em] font-mono">
+              <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest font-mono mt-[1px]">
                 {match.displayClock || 'LIVE'}
               </span>
             </div>
-            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.1em] mt-0.5">
+            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest pr-0.5">
               {isTennis && roundStr ? roundStr : getPeriodDisplay(match)}
             </span>
-          </>
+          </div>
         ) : isFinal ? (
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">FINAL</span>
+          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded uppercase tracking-widest">FINAL</span>
         ) : (
           <>
             <span className="text-[13px] font-mono font-medium text-slate-700 tabular-nums tracking-wide group-hover:text-slate-900 transition-colors">
