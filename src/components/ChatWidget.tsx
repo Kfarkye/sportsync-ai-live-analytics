@@ -3387,13 +3387,12 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                   <div className="w-16 h-16 rounded-[20px] border border-slate-200 bg-slate-50 flex items-center justify-center mb-5">
                     <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
                   </div>
-                  <p className="text-[13px] font-semibold text-slate-900 tracking-tight">Edge Intelligence</p>
-                  <p className="text-[11px] text-slate-400 mt-1.5 tracking-wide max-w-[260px] leading-relaxed">
+                  <p className="text-[11px] text-slate-400 tracking-wide max-w-[240px] leading-relaxed">
                     {deriveGamePhase(normalizedContext) === "live"
-                      ? "Games are live. Ask for in-play splits, momentum shifts, or live prop edges."
+                      ? "Games are live. Ask for splits, momentum, or live props."
                       : deriveGamePhase(normalizedContext) === "postgame"
-                        ? "Markets are closed. Review your record or ask about tomorrow's slate."
-                        : "Pre-game window is open. Ask for injury impacts, line movement, or sharp action."}
+                        ? "Markets closed. Review your record or scout tomorrow."
+                        : "Pre-game window. Ask for injuries, line moves, or sharp action."}
                   </p>
                 </motion.div>
               ) : (
