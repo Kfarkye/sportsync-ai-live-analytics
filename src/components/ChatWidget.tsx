@@ -3086,6 +3086,36 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     };
   }, []);
 
+  // ── Auto-fire: Contextual opening analysis on AI tab open ──
+  const autoFiredMatchRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!inline || !normalizedContext?.match_id) return;
+    if (msgState.ordered.length > 0) return;
+    if (autoFiredMatchRef.current === normalizedContext.match_id) return;
+    if (isProcessing || sendingRef.current) return;
+
+    autoFiredMatchRef.current = normalizedContext.match_id;
+    const phase = deriveGamePhase(normalizedContext);
+    const matchup = getMatchupLabel(normalizedContext) || "this game";
+
+    const autoQuery =
+      phase === "live"
+        ? `Give me a sharp live read on ${matchup}. What's the current edge and what should I be watching for?`
+        : phase === "postgame"
+          ? `${matchup} just finished. How did the line perform? Any takeaways for future spots?`
+          : `Give me the full sharp report on ${matchup}. What's the best bet and why?`;
+
+    // Short delay to allow mount animations to settle
+    const timer = setTimeout(() => {
+      if (mountedRef.current && !sendingRef.current) {
+        handleSend(autoQuery);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inline, normalizedContext?.match_id]);
+
   // Auto-scroll
   useEffect(() => {
     const el = scrollRef.current;
