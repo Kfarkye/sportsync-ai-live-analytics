@@ -22,7 +22,7 @@ import { ESSENCE } from '@/lib/essence';
 
 // ─── Native iOS Physics & Hardware Config ────────────────────────────────────
 const IOS_SPRING = { type: 'spring', stiffness: 400, damping: 30, mass: 0.8 };
-const GPU_ACCEL = { transform: 'translateZ(0)', willChange: 'transform, opacity' };
+const GPU_ACCEL = {};
 const MotionDiv = motion.div;
 
 interface MatchListProps {
@@ -112,7 +112,7 @@ const TeamMarketBlock = memo(({
                 {prob !== undefined && prob > 0 ? (
                     <button
                         type="button"
-                        className="text-[11px] font-bold tabular-nums px-2.5 py-1.5 rounded-md transition-all duration-200 w-full text-center active:scale-95 will-change-transform"
+                        className="text-[11px] font-bold tabular-nums px-2.5 py-1.5 rounded-md transition-all duration-200 w-full text-center active:scale-95"
                         style={{
                             color: isFav ? '#059669' : '#64748B',
                             backgroundColor: isFav ? '#ECFDF5' : '#F8FAFC',
@@ -176,7 +176,7 @@ const FeaturedHero = memo(({ match, onClick, isLive }: { match: Match; onClick: 
                                 <motion.span
                                     animate={{ scale: [1, 2.8], opacity: [0.6, 0] }}
                                     transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
-                                    className="absolute inset-0 rounded-full bg-rose-500 will-change-transform"
+                                    className="absolute inset-0 rounded-full bg-rose-500"
                                 />
                                 <span className="relative rounded-full h-1.5 w-1.5 bg-rose-600" />
                             </span>
@@ -391,8 +391,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                                 {/* 🍎 Apple HIG: Deep Glassmorphic Sticky Header */}
                                                 {selectedSportKey === 'all' && (
                                                     <div
-                                                        className="sticky top-[64px] z-10 flex items-center justify-between px-4 lg:px-2 pt-4 pb-3 mb-1 bg-white/50 border-b border-transparent"
-                                                        style={{ backdropFilter: 'saturate(180%) blur(24px)', WebkitBackdropFilter: 'saturate(180%) blur(24px)' }}
+                                                        className="sticky top-[64px] z-10 flex items-center justify-between px-4 lg:px-2 pt-4 pb-3 mb-1 bg-[#FBFBFD] border-b border-white"
                                                     >
                                                         <div className="flex items-center gap-3">
                                                             <h3 className="text-[12px] font-black uppercase tracking-[0.08em] text-slate-900">
