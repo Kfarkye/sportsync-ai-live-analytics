@@ -7,7 +7,7 @@
 // Ref: https://www.danbillson.com/blog/animating-height-in-react
 // ===================================================================
 
-import React, { useMemo, useState, useCallback, memo } from 'react';
+import React, { useMemo, useState, useCallback, memo, useRef } from 'react';
 import useMeasure from 'react-use-measure';
 import { Match } from '@/types';
 import { LEAGUES } from '@/constants';
@@ -40,6 +40,39 @@ interface MatchListProps {
 
 const ACCORDION_SPRING = { type: 'spring' as const, duration: 0.35, bounce: 0 };
 const STAGGER_DELAY = 0.04;
+
+// ============================================================================
+// OPTIMIZED MATCH ROW WRAPPER — Stable callbacks (Netflix/Meta pattern)
+// Prevents map() from generating new inline arrow closures per MatchRow.
+// Without this, every parent render creates fresh onSelect/onToggle identities,
+// which defeats React.memo() on MatchRow (the most-rendered component).
+// Ref: https://react.dev/reference/react/useCallback
+// ============================================================================
+
+const OptimizedMatchRow = memo(({
+    match, isPinned, isLive, isFinal, onSelect, onToggle,
+}: {
+    match: Match; isPinned: boolean; isLive: boolean; isFinal: boolean;
+    onSelect: (m: Match) => void; onToggle: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
+}) => {
+    const handleSelect = useCallback(() => onSelect(match), [match, onSelect]);
+    const handleToggle = useCallback(
+        (e: React.MouseEvent | React.KeyboardEvent) => onToggle(match.id, e),
+        [match.id, onToggle]
+    );
+
+    return (
+        <MatchRow
+            match={match}
+            isPinned={isPinned}
+            isLive={isLive}
+            isFinal={isFinal}
+            onSelect={handleSelect}
+            onTogglePin={handleToggle}
+        />
+    );
+});
+OptimizedMatchRow.displayName = 'OptimizedMatchRow';
 
 // ============================================================================
 // FEATURED HERO WIDGET — Sidebar headline card
@@ -86,7 +119,7 @@ const FeaturedHero = memo(({
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         {isLive ? (
-                            <div className="px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/30 flex items-center gap-1.5">
+                            <div className="px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/30 flex items-center gap-1.5" aria-live="polite">
                                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                                 <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest">
                                     Live
@@ -94,7 +127,7 @@ const FeaturedHero = memo(({
                             </div>
                         ) : (
                             <div className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest" suppressHydrationWarning>
                                     {new Date(match.startTime).toLocaleTimeString([], {
                                         hour: 'numeric',
                                         minute: '2-digit',
@@ -103,7 +136,7 @@ const FeaturedHero = memo(({
                             </div>
                         )}
                     </div>
-                    <span className="text-[10px] font-bold text-slate-900/30 uppercase tracking-[0.2em]">
+                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">
                         {match.leagueId}
                     </span>
                 </div>
@@ -116,7 +149,7 @@ const FeaturedHero = memo(({
                             name={match.awayTeam.name}
                             className="w-12 h-12 object-contain drop-shadow-sm"
                         />
-                        <span className="text-sm font-bold text-slate-900 tracking-tight">
+                        <span className="text-sm font-bold text-white tracking-tight">
                             {match.awayTeam.abbreviation ||
                                 match.awayTeam.name.substring(0, 3).toUpperCase()}
                         </span>
@@ -124,13 +157,13 @@ const FeaturedHero = memo(({
 
                     <div className="flex flex-col items-center">
                         {isLive ? (
-                            <div className="text-3xl font-mono font-bold text-slate-900 tracking-tighter tabular-nums flex items-center gap-3">
+                            <div className="text-3xl font-mono font-bold text-white tracking-tighter tabular-nums flex items-center gap-3">
                                 <span>{match.awayScore}</span>
-                                <span className="text-slate-900/20">-</span>
+                                <span className="text-white/20">-</span>
                                 <span>{match.homeScore}</span>
                             </div>
                         ) : (
-                            <span className="text-2xl font-black text-slate-900/20 italic">
+                            <span className="text-2xl font-black text-white/20 italic">
                                 VS
                             </span>
                         )}
@@ -142,7 +175,7 @@ const FeaturedHero = memo(({
                             name={match.homeTeam.name}
                             className="w-12 h-12 object-contain drop-shadow-sm"
                         />
-                        <span className="text-sm font-bold text-slate-900 tracking-tight">
+                        <span className="text-sm font-bold text-white tracking-tight">
                             {match.homeTeam.abbreviation ||
                                 match.homeTeam.name.substring(0, 3).toUpperCase()}
                         </span>
@@ -151,7 +184,7 @@ const FeaturedHero = memo(({
 
                 {/* Footer caption */}
                 <div className="flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-slate-900/40 uppercase tracking-[0.2em] truncate max-w-[200px]">
+                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] truncate max-w-[200px]">
                         {isLive ? getPeriodDisplay(match) : 'Headline Event'}
                     </span>
                 </div>
@@ -300,18 +333,19 @@ const LeagueGroup = memo(({
                     isExpanded &&
                     'bg-white border border-slate-200 border-t-0 rounded-b-xl shadow-sm'
                 )}
+                style={{ contentVisibility: isExpanded ? 'visible' : 'auto' }}
                 aria-hidden={!isExpanded}
             >
                 <div ref={measureRef} className="flex flex-col">
                     {leagueMatches.map((match) => (
-                        <MatchRow
+                        <OptimizedMatchRow
                             key={match.id}
                             match={match}
                             isPinned={pinnedMatchIds.has(match.id)}
                             isLive={isMatchLive(match)}
                             isFinal={isMatchFinal(match)}
-                            onSelect={() => onSelectMatch(match)}
-                            onTogglePin={(e) => onTogglePin(match.id, e)}
+                            onSelect={onSelectMatch}
+                            onToggle={onTogglePin}
                         />
                     ))}
                 </div>
@@ -336,6 +370,18 @@ const MatchList: React.FC<MatchListProps> = ({
     isMatchFinal,
     onOpenPricing,
 }) => {
+    // ── Stable callback proxies (Netflix/Meta pattern) ──────────────────
+    // useRef stores the latest closure so the function identity never changes.
+    // This prevents the entire LeagueGroup → OptimizedMatchRow tree from
+    // re-rendering when the parent's onSelectMatch/onTogglePin changes identity.
+    const callbacksRef = useRef({ onSelectMatch, onTogglePin });
+    callbacksRef.current = { onSelectMatch, onTogglePin };
+
+    const handleSelect = useCallback((m: Match) => callbacksRef.current.onSelectMatch(m), []);
+    const handleToggle = useCallback(
+        (id: string, e: React.MouseEvent | React.KeyboardEvent) => callbacksRef.current.onTogglePin(id, e),
+        []
+    );
     const { groupedMatches, featuredMatches } = useMemo(() => {
         const groups: Map<string, Match[]> = new Map();
 
@@ -441,8 +487,8 @@ const MatchList: React.FC<MatchListProps> = ({
                                                 pinnedMatchIds={pinnedMatchIds}
                                                 isMatchLive={isMatchLive}
                                                 isMatchFinal={isMatchFinal}
-                                                onSelectMatch={onSelectMatch}
-                                                onTogglePin={onTogglePin}
+                                                onSelectMatch={handleSelect}
+                                                onTogglePin={handleToggle}
                                                 groupIndex={groupIndex}
                                             />
                                         );
