@@ -297,7 +297,7 @@ const MatchList: React.FC<MatchListProps> = ({
 
         // Extract side-bar hero matches
         const majors = new Set(['nba', 'nfl', 'ncaaf', 'ncaab', 'epl', 'mlb', 'nhl', 'ucl']);
-        const validHeroes = rest.filter(item => majors.has(item.match.leagueId.toLowerCase()) && !item.isFinal);
+        const validHeroes = rest.filter(item => item.match.leagueId && majors.has(item.match.leagueId.toLowerCase()) && !item.isFinal);
         const headlines = sortMatches(validHeroes).slice(0, 2);
 
         return {
@@ -384,8 +384,8 @@ const MatchList: React.FC<MatchListProps> = ({
                                                 key={leagueId}
                                                 initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
                                                 transition={{ ...IOS_SPRING, delay: Math.min(groupIndex * 0.05, 0.4) }}
-                                                // ⚡️ PERFORMANCE: DOM Off-screen Culling
-                                                style={{ ...GPU_ACCEL, contentVisibility: 'auto', containIntrinsicSize: 'auto 600px' }}
+                                                // ⚡️ PERFORMANCE: GPU Offloading (iOS Safari content-visibility Black Screen fix)
+                                                style={GPU_ACCEL}
                                             >
 
                                                 {/* 🍎 Apple HIG: Deep Glassmorphic Sticky Header */}
