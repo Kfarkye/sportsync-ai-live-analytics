@@ -1,12 +1,28 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// MatchList.tsx — ESSENCE v13 · Cupertino Glass × Financial Terminal
+//
+// DESIGN PHILOSOPHY:
+//   · Jony Ive   → Hardware-like continuous curves, diffuse shadows, fluid spring 
+//                  physics, frosted glass, and absolute typographic hierarchy.
+//   · Kalshi     → Data-dense binary market blocks. Match probabilities are 
+//                  visualized as executable contracts rather than passive text.
+//   · Production → Memoized components, framer-motion orchestration, zero-jank 
+//                  hardware-accelerated layout transitions.
+// ═══════════════════════════════════════════════════════════════════════════════
 
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import { Match, MatchStatus } from '@/types';
 import { LEAGUES } from '@/constants';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
-import { LayoutGroup, motion } from 'framer-motion';
+import { LayoutGroup, motion, AnimatePresence } from 'framer-motion';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { useAppStore } from '../../store/appStore';
+import { ESSENCE } from '@/lib/essence';
+
+// ─── Animation Physics ───────────────────────────────────────────────────────
+const SPRING_CONFIG = { type: 'spring', bounce: 0, duration: 0.4 };
+const MotionDiv = motion.div;
 
 interface MatchListProps {
     matches: Match[];
@@ -19,148 +35,185 @@ interface MatchListProps {
     onOpenPricing: () => void;
 }
 
-const MotionDiv = motion.div;
-
-// ============================================================================
-// WIDGETS
-// ============================================================================
-
-const FeaturedMatchWidget = ({ match, onClick }: { match: Match; onClick: () => void }) => {
-    const isLive = match.status === MatchStatus.LIVE ||
-        String(match.status).includes('IN_PROGRESS') ||
-        String(match.status).includes('HALF');
-
-    return (
-        <div
-            onClick={onClick}
-            className="relative overflow-hidden cursor-pointer group transition-all duration-300 mb-8"
-        >
-            {/* Minimalist Header */}
-            <div className="flex items-center justify-between mb-4 px-1">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Featured Match</span>
-                {isLive && (
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30] animate-pulse" />
-                        <span className="text-[11px] font-medium text-[#FF3B30]">Live</span>
-                    </div>
-                )}
+// ─── Skeleton (Fluid Shimmer) ────────────────────────────────────────────────
+const RowSkeleton: React.FC = memo(() => (
+    <div
+        className="flex items-center h-[68px] px-5 border-b last:border-b-0 relative overflow-hidden"
+        style={{ borderColor: ESSENCE.colors.border.ghost, backgroundColor: ESSENCE.colors.surface.pure }}
+    >
+        <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-slate-200/40 to-transparent z-10" />
+        <div className="flex flex-col gap-2.5 flex-1 opacity-40">
+            <div className="flex items-center gap-3">
+                <div className="w-5 h-5 rounded-full bg-slate-300" />
+                <div className="h-2.5 w-28 rounded-full bg-slate-300" />
             </div>
-
-            {/* Main Content */}
-            <div className="relative py-2">
-                <div className="flex items-center justify-between gap-8">
-                    <div className="flex flex-col items-center gap-3 flex-1">
-                        <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-16 h-16 object-contain drop-shadow-lg" />
-                        <span className="text-sm font-medium text-slate-700 tracking-tight">{match.awayTeam.name}</span>
-                    </div>
-
-                    <div className="flex flex-col items-center min-w-[120px]">
-                        <div className="text-5xl font-light text-slate-900 tracking-tighter tabular-nums flex items-center gap-4">
-                            <span>{match.awayScore}</span>
-                            <span className="text-slate-400 text-3xl font-thin">:</span>
-                            <span>{match.homeScore}</span>
-                        </div>
-                        <div className="mt-3">
-                            <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">
-                                {match.displayClock || new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col items-center gap-3 flex-1">
-                        <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-16 h-16 object-contain drop-shadow-lg" />
-                        <span className="text-sm font-medium text-slate-700 tracking-tight">{match.homeTeam.name}</span>
-                    </div>
-                </div>
+            <div className="flex items-center gap-3">
+                <div className="w-5 h-5 rounded-full bg-slate-300" />
+                <div className="h-2.5 w-24 rounded-full bg-slate-300" />
             </div>
         </div>
-    );
-};
+        <div className="w-16 h-4 rounded-full bg-slate-300 opacity-40" />
+    </div>
+));
+RowSkeleton.displayName = 'RowSkeleton';
 
-const FeaturedHero = ({ match, onClick, isLive }: { match: Match; onClick: () => void; isLive: boolean }) => {
-    const homeColor = match.homeTeam.color || '#1c1c1e';
-    const awayColor = match.awayTeam.color || '#1c1c1e';
-    const bgGradient = `linear-gradient(135deg, ${awayColor}15 0%, #09090b 50%, ${homeColor}15 100%)`;
+// ─── Featured Hero Components ────────────────────────────────────────────────
+
+const TeamMarketBlock = memo(({
+    team, prob, isFav
+}: {
+    team: Match['homeTeam']; prob?: number; isFav: boolean
+}) => {
+    const teamName = team.abbreviation || team.shortName || team.name.substring(0, 3).toUpperCase();
 
     return (
-        <div
+        <div className="flex flex-col items-center gap-2.5 flex-1 min-w-0">
+            <TeamLogo logo={team.logo} name={team.name} className="w-12 h-12 object-contain drop-shadow-sm" />
+            <span
+                className="text-[12px] font-semibold tracking-[-0.01em] text-center truncate w-full"
+                style={{ color: ESSENCE.colors.text.primary }}
+                title={team.name}
+            >
+                {teamName}
+            </span>
+            {prob !== undefined && prob > 0 && (
+                <span
+                    className="text-[11px] font-bold tabular-nums px-2.5 py-1 rounded-md transition-colors w-full text-center"
+                    style={{
+                        color: isFav ? ESSENCE.colors.accent.emerald : ESSENCE.colors.text.tertiary,
+                        border: `1px solid ${isFav ? 'rgba(16,185,129,0.25)' : ESSENCE.colors.border.ghost}`,
+                        backgroundColor: isFav ? 'rgba(16,185,129,0.06)' : 'transparent',
+                    }}
+                >
+                    {Math.round(prob)}%
+                </span>
+            )}
+        </div>
+    );
+});
+TeamMarketBlock.displayName = 'TeamMarketBlock';
+
+const FeaturedHero: React.FC<{
+    match: Match;
+    onClick: () => void;
+    isLive: boolean;
+}> = memo(({ match, onClick, isLive }) => {
+    const homeProb = match.predictor?.homeTeamChance ?? match.win_probability?.home;
+    const awayProb = match.predictor?.awayTeamChance ?? match.win_probability?.away;
+    const homeFav = (homeProb ?? 0) >= (awayProb ?? 0);
+
+    return (
+        <motion.div
+            role="button"
+            tabIndex={0}
             onClick={onClick}
-            className="relative h-[160px] rounded-2xl border border-white/10 overflow-hidden cursor-pointer group transition-all duration-500 hover:border-white/20 hover:shadow-sm"
-            style={{ background: '#09090b' }}
+            whileHover={{ y: -2, scale: 0.99 }}
+            whileTap={{ scale: 0.97 }}
+            transition={SPRING_CONFIG}
+            className="relative overflow-hidden cursor-pointer group"
+            style={{
+                borderRadius: 24, // Continuous Squircle
+                border: `1px solid ${ESSENCE.colors.border.default}`,
+                backgroundColor: ESSENCE.colors.surface.pure,
+                boxShadow: `0 8px 32px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.02)`,
+            }}
         >
-            {/* Dynamic Background */}
-            <div className="absolute inset-0 opacity-60 transition-opacity duration-500 group-hover:opacity-80" style={{ background: bgGradient }} />
-            <div className="absolute inset-0 bg-black/20" /> {/* Dimmer */}
+            {/* Live ambient gradient glow */}
+            <AnimatePresence>
+                {isLive && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.5 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute top-0 inset-x-0 h-[3px]"
+                        style={{ background: `linear-gradient(90deg, transparent, ${ESSENCE.colors.accent.rose} 20%, ${ESSENCE.colors.accent.rose} 80%, transparent)` }}
+                    />
+                )}
+            </AnimatePresence>
 
-            <div className="relative z-10 h-full flex flex-col justify-between p-5">
-                {/* Top Row: Status */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        {isLive && (
-                            <div className="px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/30 flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                                <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest">Live</span>
-                            </div>
-                        )}
-                        {!isLive && (
-                            <div className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                    {new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-900/30 uppercase tracking-[0.2em]">{match.leagueId}</span>
-                </div>
-
-                {/* Middle Row: Matchup */}
-                <div className="flex items-center justify-between px-2">
-                    <div className="flex flex-col items-center gap-2">
-                        <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-12 h-12 object-contain drop-shadow-sm" />
-                        <span className="text-sm font-bold text-slate-900 tracking-tight">{match.awayTeam.abbreviation || match.awayTeam.name.substring(0, 3).toUpperCase()}</span>
-                    </div>
-
-                    <div className="flex flex-col items-center">
-                        {isLive ? (
-                            <div className="text-3xl font-mono font-bold text-slate-900 tracking-tighter tabular-nums flex items-center gap-3">
-                                <span>{match.awayScore}</span>
-                                <span className="text-slate-900/20">-</span>
-                                <span>{match.homeScore}</span>
-                            </div>
-                        ) : (
-                            <span className="text-2xl font-black text-slate-900/20 italic">VS</span>
-                        )}
-                    </div>
-
-                    <div className="flex flex-col items-center gap-2">
-                        <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-12 h-12 object-contain drop-shadow-sm" />
-                        <span className="text-sm font-bold text-slate-900 tracking-tight">{match.homeTeam.abbreviation || match.homeTeam.name.substring(0, 3).toUpperCase()}</span>
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-slate-900/40 uppercase tracking-[0.2em] truncate max-w-[200px]">
-                        {isLive ? getPeriodDisplay(match) : 'Headline Event'}
+            <div className="p-5">
+                {/* Status Header */}
+                <div className="flex items-center justify-between mb-5">
+                    {isLive ? (
+                        <div className="flex items-center gap-1.5 bg-red-50/80 backdrop-blur-sm px-2 py-0.5 rounded-md border border-red-100">
+                            <span className="relative flex h-1.5 w-1.5 items-center justify-center">
+                                <motion.span
+                                    animate={{ scale: [1, 2.5], opacity: [0.6, 0] }}
+                                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                                    className="absolute inset-0 rounded-full bg-red-500"
+                                />
+                                <span className="relative rounded-full h-1.5 w-1.5 bg-red-600" />
+                            </span>
+                            <span className="text-[10px] font-bold text-red-600 uppercase tracking-[0.1em]">Live</span>
+                        </div>
+                    ) : (
+                        <span
+                            className="text-[11px] font-medium tracking-wide tabular-nums"
+                            style={{ color: ESSENCE.colors.text.secondary }}
+                        >
+                            {new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        </span>
+                    )}
+                    <span
+                        className="text-[10px] font-bold uppercase tracking-[0.15em]"
+                        style={{ color: ESSENCE.colors.text.muted }}
+                    >
+                        {match.leagueId?.toUpperCase() || match.sport}
                     </span>
                 </div>
+
+                {/* Matchup Data Visualization */}
+                <div className="flex items-center justify-between gap-4">
+                    <TeamMarketBlock team={match.awayTeam} prob={awayProb} isFav={!homeFav} />
+
+                    <div className="flex flex-col items-center shrink-0 px-2">
+                        {isLive || match.homeScore > 0 || match.awayScore > 0 ? (
+                            <div className="flex items-baseline gap-2.5">
+                                <span
+                                    className="text-3xl font-semibold tabular-nums tracking-[-0.04em]"
+                                    style={{ color: ESSENCE.colors.text.primary, fontFamily: 'system-ui, -apple-system' }}
+                                >
+                                    {match.awayScore}
+                                </span>
+                                <span className="text-xl font-light opacity-30 mb-1" style={{ color: ESSENCE.colors.text.primary }}>:</span>
+                                <span
+                                    className="text-3xl font-semibold tabular-nums tracking-[-0.04em]"
+                                    style={{ color: ESSENCE.colors.text.primary, fontFamily: 'system-ui, -apple-system' }}
+                                >
+                                    {match.homeScore}
+                                </span>
+                            </div>
+                        ) : (
+                            <span className="text-[13px] font-bold uppercase tracking-widest opacity-20" style={{ color: ESSENCE.colors.text.primary }}>
+                                VS
+                            </span>
+                        )}
+
+                        <AnimatePresence>
+                            {isLive && (
+                                <motion.span
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    className="text-[10px] font-semibold uppercase tracking-[0.1em] mt-1.5"
+                                    style={{ color: ESSENCE.colors.text.tertiary }}
+                                >
+                                    {getPeriodDisplay(match)}
+                                </motion.span>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    <TeamMarketBlock team={match.homeTeam} prob={homeProb} isFav={homeFav} />
+                </div>
             </div>
-        </div>
+        </motion.div>
     );
-};
+});
+FeaturedHero.displayName = 'FeaturedHero';
 
-const MatchRowSkeleton = () => (
-    <div className="w-full h-[72px] border-b border-slate-200 flex items-center animate-pulse">
-        <div className="w-[80px] h-full border-r border-slate-200 bg-white/[0.01]" />
-        <div className="flex-1 px-6 flex flex-col gap-2">
-            <div className="h-3 w-32 bg-white/5 rounded" />
-            <div className="h-3 w-24 bg-white/5 rounded" />
-        </div>
-    </div>
-);
-
-// ============================================================================
+// ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
-// ============================================================================
+// ═══════════════════════════════════════════════════════════════════════════════
 
 const MatchList: React.FC<MatchListProps> = ({
     matches,
@@ -175,7 +228,8 @@ const MatchList: React.FC<MatchListProps> = ({
     const { selectedSport } = useAppStore();
     const selectedSportKey = String(selectedSport);
 
-    const { favorites, groupedMatches, featuredMatch, featuredMatches } = useMemo(() => {
+    // ── Data Orchestration ─────────────────────────────────────────────────────
+    const { favorites, groupedMatches, featuredMatches } = useMemo(() => {
         const favs: Match[] = [];
         const rest: Match[] = [];
 
@@ -190,7 +244,6 @@ const MatchList: React.FC<MatchListProps> = ({
             groups.get(m.leagueId)?.push(m);
         });
 
-        // Sort live first inside groups
         groups.forEach((groupMatches) => {
             groupMatches.sort((a, b) => {
                 const isALive = isMatchLive(a);
@@ -207,181 +260,287 @@ const MatchList: React.FC<MatchListProps> = ({
             return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
         });
 
-        let featured = matches.find(m => isMatchLive(m) && pinnedMatchIds.has(m.id)) ||
-            matches.find(m => isMatchLive(m)) ||
-            matches[0] || null;
-
-        // Headlines Logic
-        // Select top 2 games from priority leagues
-        const majors = new Set(['nba', 'nfl', 'ncaaf', 'ncaab']);
+        // Extract top 2 active majors for the sidebar headlines
+        const majors = new Set(['nba', 'nfl', 'ncaaf', 'ncaab', 'epl', 'mlb', 'nhl']);
         const possibleHeadlines = matches
             .filter(m => majors.has(m.leagueId.toLowerCase()) && !isMatchFinal(m))
             .sort((a, b) => {
-                // 1. Live overrides all
                 const aLive = isMatchLive(a);
                 const bLive = isMatchLive(b);
                 if (aLive !== bLive) return aLive ? -1 : 1;
-
-                // 2. Start time ascending (soonest first)
                 return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
             });
 
-        // If not enough majors, look at everything
         const headlines = possibleHeadlines.length > 0
             ? possibleHeadlines.slice(0, 2)
             : matches.filter(m => !isMatchFinal(m)).slice(0, 2);
 
-        return { favorites: favs, groupedMatches: sortedGroups, featuredMatch: featured, featuredMatches: headlines };
-    }, [matches, pinnedMatchIds, isMatchLive]);
+        return { favorites: favs, groupedMatches: sortedGroups, featuredMatches: headlines };
+    }, [matches, pinnedMatchIds, isMatchLive, isMatchFinal]);
 
+    // ── Loading State ──────────────────────────────────────────────────────────
     if (isLoading && matches.length === 0) {
         return (
-            <div className="max-w-7xl mx-auto w-full pt-4">
-                <div className="border-t border-slate-200">
-                    {[1, 2, 3, 4, 5, 6].map(i => <MatchRowSkeleton key={i} />)}
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={SPRING_CONFIG}
+                className="max-w-7xl mx-auto w-full pt-4 lg:px-6"
+            >
+                <div
+                    className="overflow-hidden"
+                    style={{
+                        borderRadius: 20,
+                        border: `1px solid ${ESSENCE.colors.border.default}`,
+                        backgroundColor: ESSENCE.colors.surface.pure,
+                        boxShadow: ESSENCE.shadows.sm,
+                    }}
+                >
+                    {[...Array(6)].map((_, i) => <RowSkeleton key={`skel-${i}`} />)}
                 </div>
-            </div>
+            </motion.div>
         );
     }
 
+    // ── Empty State ────────────────────────────────────────────────────────────
     if (matches.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500">
-                <span className="text-xl mb-4 opacity-50">∅</span>
-                <span className="text-sm font-medium uppercase tracking-widest opacity-70">No Action</span>
-            </div>
+            <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={SPRING_CONFIG}
+                className="flex flex-col items-center justify-center min-h-[50vh] gap-3"
+            >
+                <span className="text-4xl font-light opacity-20" style={{ color: ESSENCE.colors.text.primary }}>∅</span>
+                <span
+                    className="text-[11px] font-bold uppercase tracking-[0.2em]"
+                    style={{ color: ESSENCE.colors.text.muted }}
+                >
+                    No Scheduled Events
+                </span>
+            </motion.div>
         );
     }
 
+    // ── Feed Layout ────────────────────────────────────────────────────────────
     return (
         <div className="min-h-screen bg-transparent pb-32">
             <LayoutGroup>
                 <div className="max-w-7xl mx-auto px-0 lg:px-6 w-full">
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-12 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8 lg:gap-12 items-start">
 
-                        {/* FEED COLUMN */}
-                        <div className="min-w-0 flex flex-col gap-10">
+                        {/* ═══ PRIMARY FEED COLUMN ══════════════════════════════════ */}
+                        <div className="min-w-0 flex flex-col gap-10 pt-4">
 
-
-                            {/* Favorites */}
-                            {favorites.length > 0 && (
-                                <section className="px-0">
-                                    <div className="flex items-center gap-2 mb-4 px-4 lg:px-1">
-                                        <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" />
-                                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Watchlist</span>
-                                    </div>
-                                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                                        {favorites.map(match => (
-                                            <MatchRow
-                                                key={`fav-${match.id}`}
-                                                match={match}
-                                                isPinned={true}
-                                                isLive={isMatchLive(match)}
-                                                isFinal={isMatchFinal(match)}
-                                                onSelect={() => onSelectMatch(match)}
-                                                onTogglePin={(e) => onTogglePin(match.id, e)}
+                            {/* Watchlist */}
+                            <AnimatePresence mode="popLayout">
+                                {favorites.length > 0 && (
+                                    <MotionDiv
+                                        layout
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        transition={SPRING_CONFIG}
+                                    >
+                                        <div className="flex items-center gap-2 mb-3.5 px-4 lg:px-2">
+                                            <span
+                                                className="w-[6px] h-[6px] rounded-full shadow-[0_0_8px_rgba(251,191,36,0.6)]"
+                                                style={{ backgroundColor: ESSENCE.colors.accent.amber }}
                                             />
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
+                                            <span
+                                                className="text-[11px] font-bold uppercase tracking-[0.12em]"
+                                                style={{ color: ESSENCE.colors.text.tertiary }}
+                                            >
+                                                Watchlist
+                                            </span>
+                                        </div>
+                                        <div
+                                            className="overflow-hidden"
+                                            style={{
+                                                borderRadius: 20,
+                                                border: `1px solid ${ESSENCE.colors.border.default}`,
+                                                backgroundColor: ESSENCE.colors.surface.pure,
+                                                boxShadow: `0 4px 20px rgba(0,0,0,0.02)`,
+                                            }}
+                                        >
+                                            {favorites.map(match => (
+                                                <MatchRow
+                                                    key={`fav-${match.id}`}
+                                                    match={match}
+                                                    isPinned={true}
+                                                    isLive={isMatchLive(match)}
+                                                    isFinal={isMatchFinal(match)}
+                                                    onSelect={() => onSelectMatch(match)}
+                                                    onTogglePin={(e) => onTogglePin(match.id, e)}
+                                                />
+                                            ))}
+                                        </div>
+                                    </MotionDiv>
+                                )}
+                            </AnimatePresence>
 
                             {/* League Groups */}
                             <div className="space-y-8">
-                                {groupedMatches.map(([leagueId, leagueMatches], groupIndex) => {
-                                    const leagueConfig = LEAGUES.find(l => l.id === leagueId);
-                                    const leagueName = leagueConfig?.name || leagueId.toUpperCase();
+                                <AnimatePresence>
+                                    {groupedMatches.map(([leagueId, leagueMatches], groupIndex) => {
+                                        const leagueConfig = LEAGUES.find(l => l.id === leagueId);
+                                        const leagueName = leagueConfig?.name || leagueId.toUpperCase();
+                                        const liveCount = leagueMatches.filter(m => isMatchLive(m)).length;
 
-                                    // Get earliest game time for header
-                                    const earliestTime = leagueMatches.length > 0
-                                        ? new Date(Math.min(...leagueMatches.map(m => new Date(m.startTime).getTime())))
-                                            .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-                                        : '';
-
-                                    return (
-                                        <MotionDiv
-                                            key={leagueId}
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: groupIndex * 0.05 }}
-                                        >
-                                            {/* Pure Typography League Header */}
-                                            {selectedSportKey === 'all' && (
-                                                <div className="px-4 pt-6 pb-3 flex items-baseline justify-between">
-                                                    <div className="flex items-baseline gap-3">
-                                                        <h3 className="text-xs font-semibold text-slate-900/90 tracking-wide uppercase">
-                                                            {leagueName}
-                                                        </h3>
-                                                        <span className="text-[10px] font-normal text-slate-500 tracking-wide">
-                                                            {earliestTime}
+                                        return (
+                                            <MotionDiv
+                                                layout="position"
+                                                key={leagueId}
+                                                initial={{ opacity: 0, y: 15 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ ...SPRING_CONFIG, delay: groupIndex * 0.05 }}
+                                            >
+                                                {/* Glassmorphic Sticky Header */}
+                                                {selectedSportKey === 'all' && (
+                                                    <div className="sticky top-[64px] z-10 flex items-center justify-between px-4 lg:px-2 pt-4 pb-3 mb-1 bg-white/70 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60">
+                                                        <div className="flex items-center gap-2.5">
+                                                            <h3
+                                                                className="text-[12px] font-bold uppercase tracking-[0.08em]"
+                                                                style={{ color: ESSENCE.colors.text.primary }}
+                                                            >
+                                                                {leagueName}
+                                                            </h3>
+                                                            {liveCount > 0 && (
+                                                                <span
+                                                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold tabular-nums tracking-wide"
+                                                                    style={{ backgroundColor: 'rgba(16,185,129,0.1)', color: ESSENCE.colors.accent.emerald }}
+                                                                >
+                                                                    <motion.span
+                                                                        animate={{ opacity: [1, 0.4, 1] }}
+                                                                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                                                        className="w-[4px] h-[4px] rounded-full bg-current"
+                                                                    />
+                                                                    {liveCount} Live
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <span
+                                                            className="text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full"
+                                                            style={{ color: ESSENCE.colors.text.muted, backgroundColor: ESSENCE.colors.border.ghost }}
+                                                        >
+                                                            {leagueMatches.length}
                                                         </span>
                                                     </div>
-                                                    <span className="text-[10px] font-normal text-slate-500 tabular-nums tracking-wide">
-                                                        {leagueMatches.length}
-                                                    </span>
-                                                </div>
-                                            )}
+                                                )}
 
-                                            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                                                {leagueMatches.map(match => (
-                                                    <MatchRow
-                                                        key={match.id}
-                                                        match={match}
-                                                        isPinned={pinnedMatchIds.has(match.id)}
-                                                        isLive={isMatchLive(match)}
-                                                        isFinal={isMatchFinal(match)}
-                                                        onSelect={() => onSelectMatch(match)}
-                                                        onTogglePin={(e) => onTogglePin(match.id, e)}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </MotionDiv>
-                                    );
-                                })}
+                                                {/* Inset Group Card */}
+                                                <div
+                                                    className="overflow-hidden"
+                                                    style={{
+                                                        borderRadius: 20,
+                                                        border: `1px solid ${ESSENCE.colors.border.default}`,
+                                                        backgroundColor: ESSENCE.colors.surface.pure,
+                                                        boxShadow: `0 4px 20px rgba(0,0,0,0.02)`,
+                                                    }}
+                                                >
+                                                    {leagueMatches.map(match => (
+                                                        <MatchRow
+                                                            key={match.id}
+                                                            match={match}
+                                                            isPinned={pinnedMatchIds.has(match.id)}
+                                                            isLive={isMatchLive(match)}
+                                                            isFinal={isMatchFinal(match)}
+                                                            onSelect={() => onSelectMatch(match)}
+                                                            onTogglePin={(e) => onTogglePin(match.id, e)}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </MotionDiv>
+                                        );
+                                    })}
+                                </AnimatePresence>
                             </div>
                         </div>
 
-                        {/* SIDEBAR WIDGETS (Desktop) - Synced to 112px + gap */}
-                        <div className="hidden lg:flex flex-col sticky top-[128px] space-y-6">
+                        {/* ═══ SIDEBAR (Desktop intelligence layer) ═══════════ */}
+                        <div className="hidden lg:flex flex-col sticky top-24 space-y-8 pt-4">
 
-                            {/* HEADLINE ACTS (Moved to Sidebar) */}
+                            {/* Headline Events */}
                             {featuredMatches.length > 0 && (
-                                <section className="mb-2">
-                                    <div className="flex items-center gap-2 mb-3 px-1">
-                                        <span className="w-1.5 h-1.5 bg-brand-cyan rounded-full shadow-glow-cyan-sm animate-pulse" />
-                                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Headline Events</span>
+                                <section>
+                                    <div className="flex items-center gap-2 mb-3.5 px-2">
+                                        <span
+                                            className="w-1.5 h-1.5 rounded-full"
+                                            style={{ backgroundColor: ESSENCE.colors.text.primary }}
+                                        />
+                                        <span
+                                            className="text-[10px] font-bold uppercase tracking-[0.15em]"
+                                            style={{ color: ESSENCE.colors.text.tertiary }}
+                                        >
+                                            Headlines
+                                        </span>
                                     </div>
                                     <div className="flex flex-col gap-4">
-                                        {featuredMatches.map(match => (
-                                            <FeaturedHero
+                                        {featuredMatches.map((match, idx) => (
+                                            <MotionDiv
                                                 key={`feat-${match.id}`}
-                                                match={match}
-                                                onClick={() => onSelectMatch(match)}
-                                                isLive={isMatchLive(match)}
-                                            />
+                                                initial={{ opacity: 0, x: 10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ ...SPRING_CONFIG, delay: idx * 0.1 }}
+                                            >
+                                                <FeaturedHero
+                                                    match={match}
+                                                    onClick={() => onSelectMatch(match)}
+                                                    isLive={isMatchLive(match)}
+                                                />
+                                            </MotionDiv>
                                         ))}
                                     </div>
                                 </section>
                             )}
 
-                            {/* Promo Widget */}
-                            <div className="p-8 rounded-2xl bg-zinc-900/30 border border-slate-200 relative overflow-hidden group">
-                                <h3 className="text-[11px] font-bold text-[#2997FF] uppercase tracking-widest mb-3">
+                            {/* Obsidian / Titanium "Pro Access" Terminal Card */}
+                            <motion.div
+                                whileHover={{ y: -2, boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}
+                                transition={SPRING_CONFIG}
+                                className="overflow-hidden relative group p-8 flex flex-col items-start cursor-pointer"
+                                onClick={onOpenPricing}
+                                style={{
+                                    borderRadius: 24,
+                                    backgroundColor: '#0F1115', // Premium Matte Black
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                }}
+                            >
+                                {/* Iridescent background mesh / Glass reflection */}
+                                <div
+                                    className="absolute inset-0 opacity-20 pointer-events-none transition-opacity duration-500 group-hover:opacity-30"
+                                    style={{ background: 'radial-gradient(circle at 100% 0%, rgba(59,130,246,0.4) 0%, transparent 50%), radial-gradient(circle at 0% 100%, rgba(139,92,246,0.3) 0%, transparent 50%)' }}
+                                />
+
+                                <span className="relative z-10 text-[10px] font-black uppercase tracking-[0.2em] text-white/50 mb-1">
+                                    Terminal
+                                </span>
+                                <h4 className="relative z-10 text-[18px] font-semibold tracking-tight text-white mb-2">
                                     Pro Access
-                                </h3>
-                                <p className="text-[13px] text-slate-400 mb-6 leading-relaxed font-medium tracking-tight">
-                                    Real-time institutional feeds and sharp money indicators.
+                                </h4>
+                                <p className="relative z-10 mt-1 mb-7 leading-relaxed text-[13px] text-white/60 font-light text-balance">
+                                    Real-time institutional feeds, sharp money indicators, and AI-powered edge detection.
                                 </p>
-                                <button onClick={onOpenPricing} className="w-full py-3 bg-white hover:bg-zinc-200 text-black text-[11px] font-bold uppercase tracking-widest rounded-full transition-colors flex items-center justify-center">
-                                    Upgrade
+                                <button
+                                    className="relative z-10 w-full py-3 rounded-xl font-bold uppercase tracking-[0.12em] transition-colors duration-200 bg-white text-black hover:bg-slate-200 text-[11px]"
+                                >
+                                    Upgrade Tier
                                 </button>
-                            </div>
+                            </motion.div>
                         </div>
+
                     </div>
                 </div>
             </LayoutGroup>
+
+            {/* Global Hardware-Accelerated Keyframes */}
+            <style>{`
+        @keyframes shimmer {
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
         </div>
     );
 };
 
-export default MatchList;
+export default memo(MatchList);
