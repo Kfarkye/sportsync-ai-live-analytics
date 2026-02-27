@@ -1,8 +1,8 @@
-
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
-import { X, Check } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Sport } from '@/types';
+import { ESSENCE } from '@/lib/essence';
 
 const MotionDiv = motion.div;
 
@@ -15,102 +15,139 @@ interface MobileSportDrawerProps {
   selectedSport: SportFilter;
   liveCounts: Record<string, number>;
   orderedSports: Sport[];
-  sportConfig: Record<string, { label: string; icon: string }>;
+  sportConfig: Record<string, { label: string; icon?: string }>; // Icon structurally ignored
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// DESIGN SYSTEM - Pure Typography, Black Glassmorphism
+// CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const SPORT_CATEGORIES: Record<string, string[]> = {
-  'Pro Leagues': ['NFL', 'NBA', 'BASEBALL', 'HOCKEY', 'WNBA'],
-  'College': ['COLLEGE_FOOTBALL', 'COLLEGE_BASKETBALL'],
-  'Global': ['SOCCER', 'MMA', 'TENNIS', 'GOLF']
-};
+const CATEGORIES: { label: string; keys: string[] }[] = [
+  { label: 'Pro', keys: ['NFL', 'NBA', 'BASEBALL', 'HOCKEY', 'WNBA'] },
+  { label: 'College', keys: ['COLLEGE_FOOTBALL', 'COLLEGE_BASKETBALL'] },
+  { label: 'Global', keys: ['SOCCER', 'MMA', 'TENNIS', 'GOLF'] },
+];
+
+// Heavier, luxurious spring physics (feels like sliding a physical pane of glass)
+const SHEET_SPRING = { type: 'spring' as const, damping: 36, stiffness: 380, mass: 1.1 };
+const TAP_SPRING = { duration: 0.1, ease: 'easeOut' };
+const CHECK_SPRING = { type: 'spring' as const, stiffness: 500, damping: 32, mass: 0.4 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// COMPONENTS
+// LIVE INDICATOR
+// A static, piercing emerald diode paired with rigid tabular numbers. 
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const SportCard: React.FC<{
-  sport: SportFilter;
-  config: { label: string; icon: string };
+const LivePulse: React.FC<{ count: number; isSelected: boolean }> = ({ count, isSelected }) => (
+  <span className="inline-flex items-center gap-2" aria-label={`${count} active events`}>
+    <span
+      className="rounded-full flex-shrink-0"
+      style={{
+        width: 6,
+        height: 6,
+        backgroundColor: isSelected ? '#34D399' : '#00D395', // Kalshi Signature Green
+        boxShadow: isSelected ? '0 0 8px rgba(52, 211, 153, 0.4)' : 'none',
+      }}
+    />
+    <span
+      className="font-medium"
+      style={{
+        fontSize: 13,
+        color: isSelected ? 'rgba(255,255,255,0.7)' : '#8E8E93',
+        fontVariantNumeric: 'tabular-nums',
+        letterSpacing: '0.01em',
+      }}
+    >
+      {count}
+    </span>
+  </span>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SPORT ROW
+// 56px height. Absolute edge-to-edge flush. Pure typography.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const SportRow: React.FC<{
+  label: string;
   isSelected: boolean;
   liveCount: number;
   onSelect: () => void;
-}> = ({ config, isSelected, liveCount, onSelect }) => {
-
+}> = ({ label, isSelected, liveCount, onSelect }) => {
   return (
     <motion.button
       onClick={onSelect}
-      whileTap={{ scale: 0.98 }}
-      className="relative w-full text-left group"
+      whileTap={{ backgroundColor: isSelected ? '#000000' : '#F2F2F7' }}
+      transition={TAP_SPRING}
+      className="relative w-full flex items-center justify-between text-left outline-none"
+      style={{
+        padding: '0 20px',
+        height: 56, // Upgraded to 56px for ultimate touch luxury
+        backgroundColor: isSelected ? '#000000' : '#FFFFFF',
+        transition: 'background-color 0.15s ease-out',
+        zIndex: isSelected ? 10 : 1, // Elevate selected item over the group canvas
+      }}
+      role="option"
+      aria-selected={isSelected}
     >
-      {/* Black Glass Card */}
-      <div className={`
-                relative overflow-hidden rounded-2xl transition-all duration-300
-                ${isSelected
-          ? 'bg-slate-100 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]'
-          : 'bg-slate-50 hover:bg-slate-50 shadow-[0_2px_8px_rgba(0,0,0,0.2)]'
-        }
-                border border-slate-200
-                backdrop-blur-xl
-            `}>
-        {/* Content */}
-        <div className="relative flex items-center justify-between px-5 py-4">
-          <div className="flex flex-col">
-            {/* League Name - Primary Typography */}
-            <span className={`
-                            text-[17px] font-semibold tracking-[-0.02em] transition-all duration-200
-                            ${isSelected
-                ? 'text-slate-900'
-                : 'text-slate-600 group-hover:text-slate-900'
-              }
-                        `}>
-              {config.label}
-            </span>
+      <span
+        className="font-medium truncate transition-colors duration-200"
+        style={{
+          fontSize: 17, // Classic iOS body size
+          fontWeight: isSelected ? 600 : 500, // Typographic hierarchy shift
+          letterSpacing: '-0.02em',
+          color: isSelected ? '#FFFFFF' : '#111111',
+        }}
+      >
+        {label}
+      </span>
 
-            {/* Live Count - Secondary */}
-            {liveCount > 0 && (
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className={`
-                                    w-1.5 h-1.5 rounded-full animate-pulse
-                                    ${isSelected ? 'bg-white' : 'bg-rose-500'}
-                                `} />
-                <span className={`
-                                    text-[11px] font-medium tracking-wide
-                                    ${isSelected ? 'text-slate-900/70' : 'text-slate-500'}
-                                `}>
-                  {liveCount} live
-                </span>
-              </div>
-            )}
-          </div>
+      <span className="flex items-center gap-4 flex-shrink-0">
+        {liveCount > 0 && <LivePulse count={liveCount} isSelected={isSelected} />}
 
-          {/* Selection Indicator */}
+        {/* Brutalist 2.5px checkmark stroke. Geometric and confident. */}
+        <div style={{ width: 14, display: 'flex', justifyContent: 'center' }}>
           <AnimatePresence mode="wait">
             {isSelected && (
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
+              <motion.svg
+                key="check"
+                initial={{ scale: 0.6, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                transition={{ type: "spring", bounce: 0.4, duration: 0.4 }}
-                className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-[0_4px_12px_rgba(255,255,255,0.2)]"
+                exit={{ scale: 0.6, opacity: 0 }}
+                transition={CHECK_SPRING}
+                width="14" height="14" viewBox="0 0 16 16" fill="none"
+                aria-hidden="true"
               >
-                <Check size={12} strokeWidth={3} className="text-black" />
-              </motion.div>
+                <path
+                  d="M2.5 8.5L6 12L13.5 3.5"
+                  stroke="#FFFFFF"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </motion.svg>
             )}
           </AnimatePresence>
         </div>
-
-        {/* Subtle bottom highlight for selected */}
-        {isSelected && (
-          <div className="absolute bottom-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-        )}
-      </div>
+      </span>
     </motion.button>
   );
 };
+
+// True Retina 0.5px hairline separator. 
+// Uses a scale transform because standard '0.5px' height doesn't render consistently across devices.
+const Separator: React.FC<{ hidden?: boolean }> = ({ hidden }) => (
+  <div
+    style={{
+      marginLeft: 20,
+      height: 1,
+      backgroundColor: hidden ? 'transparent' : 'rgba(0,0,0,0.08)',
+      transform: 'scaleY(0.5)',
+      transformOrigin: 'bottom',
+      transition: 'background-color 0.15s ease-out'
+    }}
+  />
+);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -123,164 +160,203 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
   selectedSport,
   liveCounts,
   orderedSports,
-  sportConfig
+  sportConfig,
 }) => {
-  // Group sports by category
-  const groupedSports = useMemo(() => {
-    const groups: { category: string; sports: Sport[] }[] = [];
+  // ── Handlers ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isOpen, onClose]);
 
-    Object.entries(SPORT_CATEGORIES).forEach(([category, sportKeys]) => {
-      const sportsInCategory = orderedSports.filter(s => sportKeys.includes(s));
-      if (sportsInCategory.length > 0) {
-        groups.push({ category, sports: sportsInCategory });
-      }
-    });
+  const groups = useMemo(() =>
+    CATEGORIES
+      .map(({ label, keys }) => ({
+        label,
+        sports: orderedSports.filter(s => keys.includes(s)),
+      }))
+      .filter(g => g.sports.length > 0),
+    [orderedSports],
+  );
 
-    // Add any remaining sports
-    const categorizedSports = Object.values(SPORT_CATEGORIES).flat();
-    const uncategorized = orderedSports.filter(s => !categorizedSports.includes(s));
-    if (uncategorized.length > 0) {
-      groups.push({ category: 'Other', sports: uncategorized });
-    }
+  const totalLive = useMemo(
+    () => Object.values(liveCounts).reduce((a, b) => a + b, 0),
+    [liveCounts],
+  );
 
-    return groups;
-  }, [orderedSports]);
+  const pick = useCallback(
+    (sport: SportFilter) => { onSelect(sport); onClose(); },
+    [onSelect, onClose],
+  );
 
-  // Calculate total live
-  const totalLive = useMemo(() =>
-    Object.values(liveCounts).reduce((a, b) => a + b, 0),
-    [liveCounts]);
-
-  const onDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    if (info.offset.y > 100 || info.velocity.y > 500) {
-      onClose();
-    }
-  };
+  const onDragEnd = useCallback(
+    (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+      if (info.offset.y > 100 || info.velocity.y > 500) onClose();
+    },
+    [onClose],
+  );
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop - Deep Black */}
+          {/* ── Scrim ────────────────────────────────────────── */}
           <MotionDiv
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[100]"
+            className="fixed inset-0 z-[100]"
+            style={{
+              backgroundColor: 'rgba(0,0,0,0.3)',
+              backdropFilter: 'blur(16px)',       // Deep cinematic glass blur
+              WebkitBackdropFilter: 'blur(16px)',
+            }}
             aria-hidden="true"
           />
 
-          {/* Drawer - Black Glassmorphism */}
+          {/* ── Sheet ────────────────────────────────────────── */}
           <MotionDiv
-            initial={{ y: "100%" }}
+            initial={{ y: '100%' }}
             animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{
-              type: "spring",
-              damping: 34,
-              stiffness: 400,
-              mass: 0.8
-            }}
+            exit={{ y: '100%' }}
+            transition={SHEET_SPRING}
             drag="y"
             dragConstraints={{ top: 0 }}
-            dragElastic={0.05}
+            dragElastic={0.04}
             onDragEnd={onDragEnd}
-            className="fixed bottom-0 left-0 right-0 z-[101] flex flex-col max-h-[88vh] rounded-t-[24px] overflow-hidden"
+            className="fixed bottom-0 inset-x-0 z-[101] flex flex-col max-h-[92vh] overflow-hidden"
             style={{
-              background: 'linear-gradient(180deg, rgba(12,12,12,0.98) 0%, rgba(0,0,0,0.99) 100%)',
-              borderTop: '1px solid rgba(255,255,255,0.06)',
-              boxShadow: '0 -24px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.04)'
+              backgroundColor: '#F2F2F7', // Exact iOS Grouped Background color
+              borderRadius: '32px 32px 0 0', // Massive, hardware-like corner radii
+              boxShadow: '0 -10px 40px rgba(0,0,0,0.15)',
+              willChange: 'transform',
             }}
-            role="dialog"
+            role="listbox"
             aria-modal="true"
-            aria-label="Select League"
+            aria-label="Select Market"
           >
-            {/* Handle */}
-            <div className="w-full flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing">
-              <div className="w-8 h-1 bg-white/10 rounded-full" />
+            {/* ── Drag Handle ─────────────────────────────────── */}
+            <div className="flex justify-center pt-3 pb-4 cursor-grab active:cursor-grabbing">
+              <div
+                className="rounded-full"
+                style={{
+                  width: 36,
+                  height: 5,
+                  backgroundColor: '#3C3C43',
+                  opacity: 0.25,
+                }}
+              />
             </div>
 
-            {/* Header - Pure Typography */}
-            <div className="px-6 pt-2 pb-5">
-              <h2 className="text-[28px] font-bold text-slate-900 tracking-[-0.03em] leading-none">
-                Leagues
-              </h2>
-              {totalLive > 0 && (
-                <p className="text-[13px] text-slate-500 font-medium mt-2 tracking-[-0.01em]">
-                  {totalLive} games in progress
-                </p>
-              )}
+            {/* ── Header ───────────────────────────────────────── */}
+            <div className="flex items-end justify-between px-6 pb-6">
+              <div>
+                <h2
+                  className="font-semibold"
+                  style={{
+                    fontSize: 28, // Pushed to iOS Large Title proportions
+                    color: '#000000',
+                    letterSpacing: '-0.04em',
+                    lineHeight: '1.1',
+                  }}
+                >
+                  Markets
+                </h2>
+                {totalLive > 0 && (
+                  <p
+                    className="font-medium mt-1"
+                    style={{
+                      fontSize: 14,
+                      color: '#8E8E93',
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    {totalLive} active events
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={onClose}
+                className="flex items-center justify-center rounded-full transition-colors active:scale-95 hover:bg-black/10"
+                style={{
+                  width: 32,
+                  height: 32,
+                  backgroundColor: 'rgba(0,0,0,0.06)',
+                  color: '#000000',
+                  marginBottom: 4, // Optical alignment with the massive header text
+                }}
+                aria-label="Close"
+              >
+                <X size={16} strokeWidth={2.5} />
+              </button>
             </div>
 
-            {/* Close Button - Minimal */}
-            <button
-              onClick={onClose}
-              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center bg-slate-50 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-all duration-200 border border-slate-200"
+            {/* ── Scrollable ───────────────────────────────────── */}
+            <div
+              className="flex-1 overflow-y-auto overscroll-contain"
+              style={{ padding: '0 20px 48px' }}
             >
-              <X size={16} strokeWidth={2} />
-            </button>
-
-            {/* Scrollable Content */}
-            <div className="overflow-y-auto px-4 pb-12 flex-1 custom-scrollbar">
-              <div className="space-y-8">
-                {/* GLOBAL ALL SPORTS OPTION */}
-                <div>
-                  <div className="flex items-center gap-3 px-1 mb-3">
-                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.12em]">
-                      Universe
-                    </span>
-                    <div className="flex-1 h-px bg-slate-50" />
-                  </div>
-                  <SportCard
-                    sport={'all'}
-                    config={{ label: 'All Sports', icon: '🌎' }}
+              {/* All Sports — Solo Row */}
+              <div style={{ marginBottom: 32 }}>
+                <div style={{ borderRadius: 16, overflow: 'hidden' }}>
+                  <SportRow
+                    label="All Markets"
                     isSelected={selectedSport === 'all'}
                     liveCount={totalLive}
-                    onSelect={() => {
-                      onSelect('all');
-                      onClose();
-                    }}
+                    onSelect={() => pick('all')}
                   />
                 </div>
-
-                {groupedSports.map(({ category, sports }) => (
-                  <div key={category}>
-                    {/* Category Label - Subtle Typography */}
-                    <div className="flex items-center gap-3 px-1 mb-3">
-                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.12em]">
-                        {category}
-                      </span>
-                      <div className="flex-1 h-px bg-slate-50" />
-                    </div>
-
-                    {/* Sport Cards */}
-                    <div className="space-y-2">
-                      {sports.map((sport) => {
-                        const config = sportConfig[sport];
-                        if (!config) return null;
-
-                        return (
-                          <SportCard
-                            key={sport}
-                            sport={sport}
-                            config={config}
-                            isSelected={selectedSport === sport}
-                            liveCount={liveCounts[sport] || 0}
-                            onSelect={() => {
-                              onSelect(sport);
-                              onClose();
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
               </div>
 
-              {/* Safe Area */}
+              {/* Category Groups */}
+              {groups.map(({ label, sports }) => (
+                <div key={label} style={{ marginBottom: 32 }}>
+                  {/* Micro-typographic Header */}
+                  <p
+                    className="font-bold uppercase"
+                    style={{
+                      fontSize: 11,
+                      color: '#8E8E93',
+                      letterSpacing: '0.12em', // Extreme tracking for authority
+                      paddingLeft: 20,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {label}
+                  </p>
+
+                  <div style={{ borderRadius: 16, overflow: 'hidden' }}>
+                    {sports.map((sport, i) => {
+                      const config = sportConfig[sport];
+                      if (!config) return null;
+
+                      const len = sports.length;
+
+                      // Intelligence: Hide hairlines that neighbor a black selected row 
+                      // to prevent an awkward gray line bleeding against the pure matte black.
+                      const isNextSelected = i < len - 1 && selectedSport === sports[i + 1];
+                      const isCurrentlySelected = selectedSport === sport;
+                      const hideSeparator = isCurrentlySelected || isNextSelected;
+
+                      return (
+                        <React.Fragment key={sport}>
+                          {i > 0 && <Separator hidden={hideSeparator} />}
+                          <SportRow
+                            label={config.label}
+                            isSelected={isCurrentlySelected}
+                            liveCount={liveCounts[sport] || 0}
+                            onSelect={() => pick(sport)}
+                          />
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
               <div className="h-safe-bottom" />
             </div>
           </MotionDiv>
