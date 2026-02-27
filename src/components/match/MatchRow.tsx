@@ -29,8 +29,8 @@ const ProbPill = memo(({ value, isFavorite }: { value: number | undefined; isFav
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center tabular-nums font-semibold select-none w-[46px] h-[22px] rounded-[6px] text-[11px] shrink-0 border",
-        isFavorite ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-transparent text-slate-400 border-slate-200"
+        "inline-flex items-center justify-center tabular-nums font-medium select-none w-[46px] h-[22px] rounded-[6px] text-[11px] shrink-0 border",
+        isFavorite ? "bg-emerald-50/60 text-emerald-500 border-emerald-100" : "bg-transparent text-slate-400 border-slate-100"
       )}
       title={`${pct}% win probability`}
     >
@@ -65,10 +65,10 @@ const OddsChip = memo(({ label, value }: { label: string; value: string | number
   }
   return (
     <span className="inline-flex items-center gap-1.5 select-none" aria-label={`${label} ${display}`}>
-      <span className="font-bold uppercase text-[9px] tracking-widest text-slate-400" aria-hidden="true">
+      <span className="font-semibold uppercase text-[9px] tracking-widest text-slate-300" aria-hidden="true">
         {label}
       </span>
-      <span className="font-mono font-semibold tabular-nums text-[11px] text-slate-600">
+      <span className="font-mono font-medium tabular-nums text-[11px] text-slate-500">
         {display}
       </span>
     </span>
@@ -84,7 +84,7 @@ const PinButton = memo(({ isPinned, onToggle }: { isPinned: boolean; onToggle?: 
     onClick={(e) => { e.stopPropagation(); onToggle?.(e); }}
     onPointerDown={(e) => e.stopPropagation()}
     className={cn(
-      "shrink-0 p-0.5 rounded transition-all duration-200",
+      "shrink-0 p-2 -m-1.5 rounded transition-all duration-200",
       isPinned
         ? "opacity-100"
         : "opacity-0 group-hover:opacity-60 hover:!opacity-100"
@@ -238,7 +238,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                   {team.name}
                 </span>
                 {team.record && !isLive && (
-                  <span className="text-[10px] font-medium text-slate-400 tabular-nums shrink-0 hidden sm:inline">
+                  <span className="text-[10px] font-medium text-slate-300 tabular-nums shrink-0 hidden sm:inline">
                     {team.record}
                   </span>
                 )}
@@ -287,20 +287,20 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                 </span>
               </div>
             </div>
-            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest pr-0.5">
+            <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest pr-0.5">
               {isTennis && roundStr ? roundStr : getPeriodDisplay(match)}
             </span>
           </div>
         ) : isFinal ? (
           <div className="flex items-center gap-1.5">
             <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded uppercase tracking-widest">FINAL</span>
+            <span className="text-[10px] font-semibold text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded uppercase tracking-widest">FINAL</span>
           </div>
         ) : (
           <>
             <div className="flex items-center gap-1.5">
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-              <span className="text-[13px] font-mono font-medium text-slate-700 tabular-nums tracking-wide group-hover:text-slate-900 transition-colors" suppressHydrationWarning>
+              <span className="text-[13px] font-mono font-medium text-slate-600 tabular-nums tracking-wide group-hover:text-slate-800 transition-colors" suppressHydrationWarning>
                 {startTimeStr}
               </span>
             </div>
