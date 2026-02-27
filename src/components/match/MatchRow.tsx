@@ -1,10 +1,3 @@
-// ===================================================================
-// MatchRow.tsx — Editorial Light (Hardened)
-// ===================================================================
-// Production fixes: forwardRef, null-team guard, interactive pin,
-// suppressHydrationWarning, math-safe score comparison.
-// ===================================================================
-
 import React, { useMemo, memo, forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import { MatchRowProps as BaseMatchRowProps } from '@/types/matchList';
@@ -19,6 +12,70 @@ interface MatchRowProps extends BaseMatchRowProps {
 }
 
 const PHYSICS_MOTION = { type: "spring" as const, stiffness: 400, damping: 25 };
+
+const LOGO_W = 24;
+const LOGO_GAP = 16;
+const SCORE_W = 32;
+const PROB_W = 46;
+const TEAM_INDENT = LOGO_W + LOGO_GAP;
+
+const isValidOdd = (val: string | number | null | undefined): boolean => val !== null && val !== undefined && val !== '-' && val !== '';
+
+const ProbPill = memo(({ value, isFavorite }: { value: number | undefined; isFavorite: boolean }) => {
+  if (value === undefined || value === null || isNaN(value)) return <span className="w-[46px] shrink-0" aria-hidden="true" />;
+  const pct = Math.round(value);
+  if (pct <= 0 || isNaN(pct)) return <span className="w-[46px] shrink-0" aria-hidden="true" />;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center justify-center tabular-nums font-semibold select-none w-[46px] h-[22px] rounded-[6px] text-[11px] shrink-0 border",
+        isFavorite ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-transparent text-slate-400 border-slate-200"
+      )}
+      title={`${pct}% win probability`}
+    >
+      {pct}%
+    </span>
+  );
+});
+ProbPill.displayName = 'ProbPill';
+
+const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number | null | undefined; isWinner: boolean; isLoser: boolean }) => (
+  <span
+    className={cn(
+      "inline-flex items-center justify-center font-mono tabular-nums font-bold select-none w-[32px] h-[24px] rounded-[6px] text-[15px] shrink-0",
+      isLoser ? "text-slate-400" : "text-slate-900",
+      isWinner ? "bg-slate-100" : "bg-transparent"
+    )}
+  >
+    {score ?? '-'}
+  </span>
+));
+ScoreCell.displayName = 'ScoreCell';
+
+const OddsChip = memo(({ label, value }: { label: string; value: string | number | null | undefined }) => {
+  if (!isValidOdd(value)) return null;
+  let display = String(value);
+  if (label === 'SPR') {
+    const num = Number(value);
+    if (!isNaN(num)) {
+      if (num === 0) display = 'PK';
+      else if (num > 0 && !display.startsWith('+')) display = `+${display}`;
+    }
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 select-none" aria-label={`${label} ${display}`}>
+      <span className="font-bold uppercase text-[9px] tracking-widest text-slate-400" aria-hidden="true">
+        {label}
+      </span>
+      <span className="font-mono font-semibold tabular-nums text-[11px] text-slate-600">
+        {display}
+      </span>
+    </span>
+  );
+});
+OddsChip.displayName = 'OddsChip';
+
 
 // Interactive Pin Toggle — clickable star with Framer bubbling guard
 const PinButton = memo(({ isPinned, onToggle }: { isPinned: boolean; onToggle?: ((e: any) => void) | undefined }) => (
@@ -83,6 +140,15 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const showScores = isLive || isFinal;
   const isTennis = match.sport === Sport.TENNIS;
 
+  const homeProb = match.win_probability?.home;
+  const awayProb = match.win_probability?.away;
+  const homeFav = typeof homeProb === 'number' && typeof awayProb === 'number' ? homeProb > awayProb : false;
+
+  const spread = match.odds?.homeSpread ?? match.odds?.spread;
+  const total = match.odds?.overUnder ?? match.odds?.total;
+  const hasOdds = isValidOdd(spread) || isValidOdd(total);
+  const hasProb = homeProb !== undefined || awayProb !== undefined;
+
   const { startTimeStr, dateStr, roundStr } = useMemo(() => {
     const d = new Date(match.startTime);
     return {
@@ -129,7 +195,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       )} />
 
       {/* Team Data */}
-      <div className="flex flex-col gap-2 flex-1 min-w-0 pr-6 pl-1.5 md:pl-0">
+      <div className="flex flex-col flex-1 min-w-0 pr-6 pl-1.5 md:pl-0 pt-0.5 pb-1 gap-1.5">
         {[match.awayTeam, match.homeTeam].map((team, idx) => {
           // Guard against malformed API payloads where one team is null
           if (!team) return null;
@@ -142,50 +208,67 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           const numScore = Number(score);
           const numOther = Number(otherScore);
           const hasScores = score != null && otherScore != null && !isNaN(numScore) && !isNaN(numOther);
+          const isWinner = isFinal && hasScores && numScore > numOther;
           const isLoser = isFinal && hasScores && numScore < numOther;
 
-          return (
-            <div key={team.id || idx} className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 min-w-0 flex-1">
-                <div className="relative w-6 h-6 shrink-0 flex items-center justify-center">
-                  {isTennis && team.flag ? (
-                    <div className="w-5 h-3.5 overflow-hidden rounded-[1px]">
-                      <img src={team.flag} alt="" className="w-full h-full object-cover" />
-                    </div>
-                  ) : (
-                    <TeamLogo
-                      logo={team.logo}
-                      name={team.name}
-                      className="w-full h-full object-contain relative z-10 transition-transform duration-300 group-hover:scale-110"
-                    />
-                  )}
-                </div>
+          const prob = isHome ? homeProb : awayProb;
+          const isFav = isHome ? homeFav : !homeFav;
 
+          return (
+            <div key={team.id || idx} className="flex items-center gap-3">
+              <div className="shrink-0 flex items-center justify-center" style={{ width: LOGO_W, height: LOGO_W }} aria-hidden="true">
+                {isTennis && team.flag ? (
+                  <div className="w-[18px] h-[13px] overflow-hidden rounded-[1px]">
+                    <img src={team.flag} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <TeamLogo
+                    logo={team.logo}
+                    name={team.name}
+                    className="w-full h-full object-contain relative z-10 transition-transform duration-300 group-hover:scale-110"
+                  />
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0 flex items-baseline gap-2">
                 <span className={cn(
                   "text-[15px] tracking-tight truncate transition-colors duration-300 select-none",
                   isLoser ? "text-slate-400 font-medium" : "text-slate-900 font-semibold"
                 )}>
                   {team.name}
                 </span>
+                {team.record && !isLive && (
+                  <span className="text-[10px] font-medium text-slate-400 tabular-nums shrink-0 hidden sm:inline">
+                    {team.record}
+                  </span>
+                )}
               </div>
 
               {showScores && (
-                <div className="shrink-0">
+                <div className="shrink-0 flex items-center justify-end" style={{ width: isTennis ? 'auto' : SCORE_W }}>
                   {isTennis ? (
                     <TennisSetScores linescores={team.linescores} />
                   ) : (
-                    <span className={cn(
-                      "font-mono text-[16px] tabular-nums leading-none tracking-tight transition-colors duration-300",
-                      isLoser ? "text-slate-400 font-medium" : "text-slate-900 font-bold"
-                    )}>
-                      {score ?? '-'}
-                    </span>
+                    <ScoreCell score={score} isWinner={isWinner} isLoser={isLoser} />
                   )}
+                </div>
+              )}
+
+              {hasProb && !isFinal && (
+                <div className="shrink-0" style={{ width: PROB_W }}>
+                  <ProbPill value={prob} isFavorite={isFav} />
                 </div>
               )}
             </div>
           );
         })}
+
+        {hasOdds && !isFinal && !isLive && (
+          <div className="flex items-center gap-4 mt-1" style={{ paddingLeft: TEAM_INDENT }}>
+            <OddsChip label="SPR" value={spread} />
+            <OddsChip label="O/U" value={total} />
+          </div>
+        )}
       </div>
 
       {/* Status Metadata */}
