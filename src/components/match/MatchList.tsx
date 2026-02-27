@@ -1,528 +1,500 @@
-// ═══════════════════════════════════════════════════════════════════════════════
-// MatchList.tsx — ESSENCE v14 · Cupertino Glass × Financial Terminal (PASS II)
-//
-// ⚡️ PERF (Meta/Netflix Standard): 
-//     Ref-backed stable callbacks, zero inline allocations, O(1) sort keys,
-//     and `content-visibility: auto` native off-screen DOM culling.
-//
-// 🍎 UI (Apple HIG Standard): 
-//     GPU-composited transforms, `saturate(180%) blur(24px)` sticky materials, 
-//     mathematically precise iOS spring timing (stiffness: 400, damping: 30).
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===================================================================
+// MatchList.tsx — Production Editorial Feed
+// ===================================================================
+// Architecture: League-grouped accordion feed with sidebar hero widgets.
+// Accordion: useMeasure + motion spring (precise height measurement).
+// Ref: https://motion.dev/docs/react-layout-animations
+// Ref: https://www.danbillson.com/blog/animating-height-in-react
+// ===================================================================
 
-import React, { useMemo, memo, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, memo } from 'react';
+import useMeasure from 'react-use-measure';
 import { Match } from '@/types';
 import { LEAGUES } from '@/constants';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
-import { LayoutGroup, motion, AnimatePresence } from 'framer-motion';
+import { LayoutGroup, motion } from 'framer-motion';
 import { getPeriodDisplay } from '../../utils/matchUtils';
-import { useAppStore } from '../../store/appStore';
-import { ESSENCE } from '@/lib/essence';
+import { cn } from '@/lib/essence';
 
-// ─── Native iOS Physics & Hardware Config ────────────────────────────────────
-const IOS_SPRING = { type: 'spring', stiffness: 400, damping: 30, mass: 0.8 };
-const GPU_ACCEL = {};
-const MotionDiv = motion.div;
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface MatchListProps {
-    matches: Match[];
-    onSelectMatch: (match: Match) => void;
-    isLoading: boolean;
-    pinnedMatchIds: ReadonlySet<string>;
-    onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
-    isMatchLive: (match: Match) => boolean;
-    isMatchFinal: (match: Match) => boolean;
-    onOpenPricing: () => void;
+  matches: Match[];
+  onSelectMatch: (match: Match) => void;
+  isLoading: boolean;
+  pinnedMatchIds: ReadonlySet<string>;
+  onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
+  isMatchLive: (match: Match) => boolean;
+  isMatchFinal: (match: Match) => boolean;
+  onOpenPricing: () => void;
 }
 
-// ─── Memoized Wrapper for External MatchRow ──────────────────────────────────
-// Prevents the parent's map() from generating new inline arrow functions.
-const OptimizedMatchRow = memo(({
-    match, isPinned, isLive, isFinal, onSelect, onToggle
+// ============================================================================
+// ANIMATION CONSTANTS
+// Ref: Apple HIG recommends 200-350ms for expand/collapse transitions.
+// Spring with bounce: 0 matches iOS native accordion feel.
+// ============================================================================
+
+const ACCORDION_SPRING = { type: 'spring' as const, duration: 0.35, bounce: 0 };
+const STAGGER_DELAY = 0.04;
+
+// ============================================================================
+// FEATURED HERO WIDGET — Sidebar headline card
+// ============================================================================
+
+const FeaturedHero = memo(({
+  match,
+  onClick,
+  isLive,
 }: {
-    match: Match; isPinned: boolean; isLive: boolean; isFinal: boolean;
-    onSelect: (m: Match) => void; onToggle: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
+  match: Match;
+  onClick: () => void;
+  isLive: boolean;
 }) => {
-    const handleSelect = useCallback(() => onSelect(match), [match, onSelect]);
-    const handleToggle = useCallback((e: React.MouseEvent | React.KeyboardEvent) => onToggle(match.id, e), [match.id, onToggle]);
+  const homeColor = match.homeTeam.color || '#1c1c1e';
+  const awayColor = match.awayTeam.color || '#1c1c1e';
 
-    return (
-        <MatchRow
-            match={match}
-            isPinned={isPinned}
-            isLive={isLive}
-            isFinal={isFinal}
-            onSelect={handleSelect}
-            onTogglePin={handleToggle}
-        />
-    );
-}, (prev, next) => (
-    prev.match.id === next.match.id &&
-    prev.isPinned === next.isPinned &&
-    prev.isLive === next.isLive &&
-    prev.isFinal === next.isFinal &&
-    // Deep comparison of highly volatile socket data to prevent useless renders
-    prev.match.homeScore === next.match.homeScore &&
-    prev.match.awayScore === next.match.awayScore &&
-    prev.match.status === next.match.status
-));
-OptimizedMatchRow.displayName = 'OptimizedMatchRow';
-
-// ─── Skeleton (Fluid Shimmer via GPU) ────────────────────────────────────────
-const RowSkeleton: React.FC = memo(() => (
+  return (
     <div
-        className="flex items-center h-[68px] px-5 border-b last:border-b-0 relative overflow-hidden bg-white"
-        style={{ borderColor: ESSENCE.colors.border.ghost }}
+      onClick={onClick}
+      className="relative h-[160px] rounded-2xl border border-white/10 overflow-hidden cursor-pointer group transition-all duration-500 hover:border-white/20 hover:shadow-sm"
+      style={{ background: '#09090b' }}
+      role="button"
+      tabIndex={0}
+      aria-label={`${match.awayTeam.name} vs ${match.homeTeam.name}`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
     >
-        <div
-            className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_cubic-bezier(0.4,0,0.2,1)] bg-gradient-to-r from-transparent via-slate-200/50 to-transparent z-10"
-            style={{ willChange: 'transform' }}
-        />
-        <div className="flex flex-col gap-2.5 flex-1 opacity-40 mix-blend-multiply">
-            <div className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-slate-300" />
-                <div className="h-2.5 w-28 rounded-full bg-slate-300" />
-            </div>
-            <div className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-slate-300" />
-                <div className="h-2.5 w-24 rounded-full bg-slate-300" />
-            </div>
+      {/* Dynamic gradient — team colors at 15% opacity for subtlety */}
+      <div
+        className="absolute inset-0 opacity-60 transition-opacity duration-500 group-hover:opacity-80"
+        style={{
+          background: `linear-gradient(135deg, ${awayColor}15 0%, #09090b 50%, ${homeColor}15 100%)`,
+        }}
+      />
+      <div className="absolute inset-0 bg-black/20" />
+
+      <div className="relative z-10 h-full flex flex-col justify-between p-5">
+        {/* Status Row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {isLive ? (
+              <div className="px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/30 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest">
+                  Live
+                </span>
+              </div>
+            ) : (
+              <div className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                  {new Date(match.startTime).toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </div>
+            )}
+          </div>
+          <span className="text-[10px] font-bold text-slate-900/30 uppercase tracking-[0.2em]">
+            {match.leagueId}
+          </span>
         </div>
-        <div className="w-16 h-4 rounded-full bg-slate-300 opacity-40" />
-    </div>
-));
-RowSkeleton.displayName = 'RowSkeleton';
 
-// ─── Kalshi Market Data Blocks ───────────────────────────────────────────────
-const TeamMarketBlock = memo(({
-    team, prob, isFav
-}: {
-    team: Match['homeTeam']; prob?: number; isFav: boolean
-}) => {
-    const teamName = team.abbreviation || team.shortName || team.name.substring(0, 3).toUpperCase();
-
-    return (
-        <div className="flex flex-col items-center gap-2.5 flex-1 min-w-0 group">
-            <TeamLogo logo={team.logo} name={team.name} className="w-11 h-11 object-contain drop-shadow-sm transition-transform duration-300 group-hover:scale-105" />
-            <span className="text-[12px] font-semibold tracking-[-0.01em] text-center truncate w-full text-slate-900 antialiased">
-                {teamName}
+        {/* Matchup — centered logos + score */}
+        <div className="flex items-center justify-between px-2">
+          <div className="flex flex-col items-center gap-2">
+            <TeamLogo
+              logo={match.awayTeam.logo}
+              name={match.awayTeam.name}
+              className="w-12 h-12 object-contain drop-shadow-sm"
+            />
+            <span className="text-sm font-bold text-slate-900 tracking-tight">
+              {match.awayTeam.abbreviation ||
+                match.awayTeam.name.substring(0, 3).toUpperCase()}
             </span>
-            <div className="h-[28px] w-full flex items-center justify-center">
-                {prob !== undefined && prob > 0 ? (
-                    <button
-                        type="button"
-                        className="text-[11px] font-bold tabular-nums px-2.5 py-1.5 rounded-md transition-all duration-200 w-full text-center active:scale-95"
-                        style={{
-                            color: isFav ? '#059669' : '#64748B',
-                            backgroundColor: isFav ? '#ECFDF5' : '#F8FAFC',
-                            // Hardware inset lip mimics physical Kalshi executable
-                            boxShadow: isFav
-                                ? 'inset 0 0 0 1px rgba(16,185,129,0.25), 0 1px 2px rgba(0,0,0,0.04)'
-                                : 'inset 0 0 0 1px rgba(0,0,0,0.06)',
-                        }}
-                    >
-                        {Math.round(prob)}%
-                    </button>
-                ) : (
-                    <span className="w-full h-[1px] bg-slate-100" />
-                )}
-            </div>
+          </div>
+
+          <div className="flex flex-col items-center">
+            {isLive ? (
+              <div className="text-3xl font-mono font-bold text-slate-900 tracking-tighter tabular-nums flex items-center gap-3">
+                <span>{match.awayScore}</span>
+                <span className="text-slate-900/20">-</span>
+                <span>{match.homeScore}</span>
+              </div>
+            ) : (
+              <span className="text-2xl font-black text-slate-900/20 italic">
+                VS
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col items-center gap-2">
+            <TeamLogo
+              logo={match.homeTeam.logo}
+              name={match.homeTeam.name}
+              className="w-12 h-12 object-contain drop-shadow-sm"
+            />
+            <span className="text-sm font-bold text-slate-900 tracking-tight">
+              {match.homeTeam.abbreviation ||
+                match.homeTeam.name.substring(0, 3).toUpperCase()}
+            </span>
+          </div>
         </div>
-    );
+
+        {/* Footer caption */}
+        <div className="flex items-center justify-center">
+          <span className="text-[10px] font-bold text-slate-900/40 uppercase tracking-[0.2em] truncate max-w-[200px]">
+            {isLive ? getPeriodDisplay(match) : 'Headline Event'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 });
-TeamMarketBlock.displayName = 'TeamMarketBlock';
 
-// ─── Featured Hero Component (Apple Glassmorphism) ───────────────────────────
-const FeaturedHero = memo(({ match, onClick, isLive }: { match: Match; onClick: (m: Match) => void; isLive: boolean }) => {
-    const homeProb = match.predictor?.homeTeamChance ?? match.win_probability?.home;
-    const awayProb = match.predictor?.awayTeamChance ?? match.win_probability?.away;
-    const homeFav = (homeProb ?? 0) >= (awayProb ?? 0);
-
-    const handleClick = useCallback(() => onClick(match), [match, onClick]);
-
-    return (
-        <motion.article
-            role="button"
-            tabIndex={0}
-            onClick={handleClick}
-            whileHover={{ y: -2, scale: 0.995 }}
-            whileTap={{ scale: 0.98 }}
-            transition={IOS_SPRING}
-            className="relative overflow-hidden cursor-pointer group bg-white"
-            style={{
-                ...GPU_ACCEL,
-                borderRadius: 24, // Continuous squircle math approximation
-                border: `1px solid ${ESSENCE.colors.border.default}`,
-                boxShadow: `0 8px 32px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.02)`,
-            }}
-        >
-            {/* Live ambient gradient glow */}
-            <AnimatePresence>
-                {isLive && (
-                    <motion.div
-                        initial={{ opacity: 0 }} animate={{ opacity: 0.7 }} exit={{ opacity: 0 }}
-                        className="absolute top-0 inset-x-0 h-[3px]"
-                        style={{ background: `linear-gradient(90deg, transparent, #E11D48 20%, #E11D48 80%, transparent)` }}
-                    />
-                )}
-            </AnimatePresence>
-
-            <div className="p-5">
-                <header className="flex items-center justify-between mb-6">
-                    {isLive ? (
-                        <div className="flex items-center gap-1.5 bg-rose-50/80 backdrop-blur-md px-2 py-0.5 rounded border border-rose-100/50">
-                            <span className="relative flex h-1.5 w-1.5 items-center justify-center">
-                                <motion.span
-                                    animate={{ scale: [1, 2.8], opacity: [0.6, 0] }}
-                                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
-                                    className="absolute inset-0 rounded-full bg-rose-500"
-                                />
-                                <span className="relative rounded-full h-1.5 w-1.5 bg-rose-600" />
-                            </span>
-                            <span className="text-[10px] font-black text-rose-600 uppercase tracking-[0.12em] mt-[1px]">Live</span>
-                        </div>
-                    ) : (
-                        <time className="text-[11px] font-semibold tracking-wide tabular-nums text-slate-500">
-                            {new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                        </time>
-                    )}
-                    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
-                        {match.leagueId?.toUpperCase() || match.sport}
-                    </span>
-                </header>
-
-                <div className="flex items-center justify-between gap-4">
-                    <TeamMarketBlock team={match.awayTeam} prob={awayProb} isFav={!homeFav} />
-
-                    <div className="flex flex-col items-center shrink-0 px-3 min-w-[70px]">
-                        {isLive || match.homeScore > 0 || match.awayScore > 0 ? (
-                            <div className="flex items-baseline gap-2.5">
-                                <span className="text-3xl font-bold tabular-nums tracking-tighter text-slate-900 font-sans">
-                                    {match.awayScore}
-                                </span>
-                                <span className="text-xl font-light opacity-30 text-slate-900 mb-1 relative -top-0.5">:</span>
-                                <span className="text-3xl font-bold tabular-nums tracking-tighter text-slate-900 font-sans">
-                                    {match.homeScore}
-                                </span>
-                            </div>
-                        ) : (
-                            <span className="text-[12px] font-black uppercase tracking-[0.2em] text-slate-300">
-                                VS
-                            </span>
-                        )}
-
-                        <AnimatePresence>
-                            {isLive && (
-                                <motion.span
-                                    initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
-                                    className="text-[10px] font-bold uppercase tracking-[0.1em] mt-2 text-slate-500"
-                                >
-                                    {getPeriodDisplay(match)}
-                                </motion.span>
-                            )}
-                        </AnimatePresence>
-                    </div>
-
-                    <TeamMarketBlock team={match.homeTeam} prob={homeProb} isFav={homeFav} />
-                </div>
-            </div>
-        </motion.article>
-    );
-});
 FeaturedHero.displayName = 'FeaturedHero';
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// MAIN COMPONENT — MATCH LIST
-// ═══════════════════════════════════════════════════════════════════════════════
+// ============================================================================
+// SKELETON — Shimmer placeholder matching MatchRow geometry
+// ============================================================================
+
+const MatchRowSkeleton = () => (
+  <div className="w-full h-[72px] border-b border-slate-200 flex items-center animate-pulse">
+    <div className="w-[80px] h-full border-r border-slate-200 bg-white/[0.01]" />
+    <div className="flex-1 px-6 flex flex-col gap-2">
+      <div className="h-3 w-32 bg-white/5 rounded" />
+      <div className="h-3 w-24 bg-white/5 rounded" />
+    </div>
+  </div>
+);
+
+// ============================================================================
+// LEAGUE GROUP — Accordion with useMeasure for precise height animation
+// ============================================================================
+// Pattern: motion.div wrapper animates to measured height via spring.
+// Inner div holds the ref so ResizeObserver tracks actual content bounds.
+// Ref: react-use-measure (3.4M weekly downloads, pmndrs ecosystem)
+// ============================================================================
+
+const LeagueGroup = memo(({
+  leagueId,
+  leagueName,
+  leagueMatches,
+  pinnedMatchIds,
+  isMatchLive,
+  isMatchFinal,
+  onSelectMatch,
+  onTogglePin,
+  groupIndex,
+}: {
+  leagueId: string;
+  leagueName: string;
+  leagueMatches: Match[];
+  pinnedMatchIds: ReadonlySet<string>;
+  isMatchLive: (match: Match) => boolean;
+  isMatchFinal: (match: Match) => boolean;
+  onSelectMatch: (match: Match) => void;
+  onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
+  groupIndex: number;
+}) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [measureRef, bounds] = useMeasure();
+
+  // Safe time parsing — filters NaN from malformed API responses
+  const upcomingMatches = leagueMatches.filter((m) => !isMatchFinal(m));
+  const validTimes = upcomingMatches
+    .map((m) => new Date(m.startTime).getTime())
+    .filter((t) => !isNaN(t));
+
+  const earliestTime =
+    validTimes.length > 0
+      ? new Date(Math.min(...validTimes)).toLocaleTimeString([], {
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : '';
+
+  const toggle = useCallback(() => setIsExpanded((prev) => !prev), []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: groupIndex * STAGGER_DELAY }}
+      className="flex flex-col relative"
+    >
+      {/* League Header — flush, sticky, 44px min touch target (Apple HIG) */}
+      <button
+        type="button"
+        onClick={toggle}
+        className={cn(
+          'flex items-center justify-between w-full min-h-[44px] px-4 py-3',
+          'bg-white/95 backdrop-blur-md',
+          'sticky top-[56px] lg:top-[64px] z-20',
+          'transition-colors hover:bg-slate-50',
+          'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-300',
+          isExpanded
+            ? 'border border-slate-200 border-b-0 rounded-t-xl'
+            : 'border border-slate-200 rounded-xl shadow-sm'
+        )}
+        aria-expanded={isExpanded}
+        aria-controls={`league-content-${leagueId}`}
+      >
+        <div className="flex items-center gap-2">
+          <h3 className="text-[11px] font-bold text-slate-900 tracking-wide uppercase">
+            {leagueName}
+          </h3>
+          <span className="text-[14px] text-slate-300 leading-none" aria-hidden="true">
+            ·
+          </span>
+          <span className="text-[11px] font-medium text-slate-500">
+            {leagueMatches.length} {leagueMatches.length === 1 ? 'game' : 'games'}
+          </span>
+          {earliestTime && (
+            <>
+              <span className="text-[14px] text-slate-300 leading-none" aria-hidden="true">
+                ·
+              </span>
+              <span className="text-[11px] font-medium text-slate-500">
+                {earliestTime}
+              </span>
+            </>
+          )}
+        </div>
+        <motion.svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-slate-400"
+          animate={{ rotate: isExpanded ? 0 : -90 }}
+          transition={{ duration: 0.2 }}
+        >
+          <path d="m6 9 6 6 6-6" />
+        </motion.svg>
+      </button>
+
+      {/* Accordion Body — useMeasure drives precise spring animation */}
+      <motion.div
+        id={`league-content-${leagueId}`}
+        animate={{
+          height: isExpanded ? bounds.height || 'auto' : 0,
+          opacity: isExpanded ? 1 : 0,
+        }}
+        transition={ACCORDION_SPRING}
+        className={cn(
+          'overflow-hidden relative z-10 -mt-[1px]',
+          isExpanded &&
+            'bg-white border border-slate-200 border-t-0 rounded-b-xl shadow-sm'
+        )}
+        aria-hidden={!isExpanded}
+      >
+        <div ref={measureRef} className="flex flex-col">
+          {leagueMatches.map((match) => (
+            <MatchRow
+              key={match.id}
+              match={match}
+              isPinned={pinnedMatchIds.has(match.id)}
+              isLive={isMatchLive(match)}
+              isFinal={isMatchFinal(match)}
+              onSelect={() => onSelectMatch(match)}
+              onTogglePin={(e) => onTogglePin(match.id, e)}
+            />
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+});
+
+LeagueGroup.displayName = 'LeagueGroup';
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 
 const MatchList: React.FC<MatchListProps> = ({
-    matches,
-    onSelectMatch,
-    isLoading,
-    pinnedMatchIds,
-    onTogglePin,
-    isMatchLive,
-    isMatchFinal,
-    onOpenPricing,
+  matches,
+  onSelectMatch,
+  isLoading,
+  pinnedMatchIds,
+  onTogglePin,
+  isMatchLive,
+  isMatchFinal,
+  onOpenPricing,
 }) => {
-    const { selectedSport } = useAppStore();
-    const selectedSportKey = String(selectedSport);
+  const { groupedMatches, featuredMatches } = useMemo(() => {
+    const groups: Map<string, Match[]> = new Map();
 
-    // ── ⚡️ STABLE CALLBACK REFERENCES (Netflix/Meta pattern) ────────────────
-    // Proxies external methods so the identity never changes for the deep React tree.
-    const callbacksRef = useRef({ onSelectMatch, onTogglePin });
-    callbacksRef.current = { onSelectMatch, onTogglePin };
+    // Group ALL matches by league
+    matches.forEach((m) => {
+      if (!groups.has(m.leagueId)) groups.set(m.leagueId, []);
+      groups.get(m.leagueId)?.push(m);
+    });
 
-    const handleSelect = useCallback((m: Match) => callbacksRef.current.onSelectMatch(m), []);
-    const handleToggle = useCallback((id: string, e: React.MouseEvent | React.KeyboardEvent) => callbacksRef.current.onTogglePin(id, e), []);
+    // Sort within groups: Pinned -> Live -> Soonest
+    groups.forEach((groupMatches) => {
+      groupMatches.sort((a, b) => {
+        const aPinned = pinnedMatchIds.has(a.id);
+        const bPinned = pinnedMatchIds.has(b.id);
+        if (aPinned !== bPinned) return aPinned ? -1 : 1;
 
-    // ── O(N) Data Orchestration ────────────────────────────────────────────────
-    const { favorites, groupedMatches, featuredMatches } = useMemo(() => {
-        type EnrichedMatch = { match: Match; isLive: boolean; isFinal: boolean; timeMs: number };
-        const favs: EnrichedMatch[] = [];
-        const rest: EnrichedMatch[] = [];
-        const groupsMap = new Map<string, EnrichedMatch[]>();
+        const aLive = isMatchLive(a);
+        const bLive = isMatchLive(b);
+        if (aLive !== bLive) return aLive ? -1 : 1;
 
-        // Single pass to resolve volatile metrics, avoiding repetitive deep calls during sort
-        for (let i = 0; i < matches.length; i++) {
-            const m = matches[i];
-            const isLive = isMatchLive(m);
-            const isFinal = isMatchFinal(m);
-            const timeMs = new Date(m.startTime).getTime();
-
-            const item = { match: m, isLive, isFinal, timeMs };
-            if (pinnedMatchIds.has(m.id)) {
-                favs.push(item);
-            } else {
-                rest.push(item);
-                let group = groupsMap.get(m.leagueId);
-                if (!group) { group = []; groupsMap.set(m.leagueId, group); }
-                group.push(item);
-            }
-        }
-
-        const sortMatches = (arr: EnrichedMatch[]) => arr.sort((a, b) => {
-            if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
-            return a.timeMs - b.timeMs;
-        });
-
-        const sortedGroups = Array.from(groupsMap.entries())
-            .map(([id, items]) => [id, sortMatches(items)] as const)
-            .sort((a, b) => {
-                const idxA = LEAGUES.findIndex(l => l.id === a[0]);
-                const idxB = LEAGUES.findIndex(l => l.id === b[0]);
-                return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
-            });
-
-        // Extract side-bar hero matches
-        const majors = new Set(['nba', 'nfl', 'ncaaf', 'ncaab', 'epl', 'mlb', 'nhl', 'ucl']);
-        const validHeroes = rest.filter(item => item.match.leagueId && majors.has(item.match.leagueId.toLowerCase()) && !item.isFinal);
-        const headlines = sortMatches(validHeroes).slice(0, 2);
-
-        return {
-            favorites: sortMatches(favs),
-            groupedMatches: sortedGroups,
-            featuredMatches: headlines.length > 0 ? headlines : rest.filter(i => !i.isFinal).slice(0, 2)
-        };
-    }, [matches, pinnedMatchIds, isMatchLive, isMatchFinal]);
-
-    // ── Rendering states ───────────────────────────────────────────────────────
-    if (isLoading && matches.length === 0) {
         return (
-            <div className="max-w-7xl mx-auto w-full pt-4 lg:px-6">
-                <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-                    {[...Array(6)].map((_idx, i) => <RowSkeleton key={`skel-${i}`} />)}
-                </div>
-            </div>
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
         );
-    }
+      });
+    });
 
-    if (matches.length === 0) {
+    // Sort league groups by LEAGUES constant order
+    const sortedGroups = Array.from(groups.entries()).sort((a, b) => {
+      const idxA = LEAGUES.findIndex((l) => l.id === a[0]);
+      const idxB = LEAGUES.findIndex((l) => l.id === b[0]);
+      return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+    });
+
+    // Headline selection: major league live/upcoming, fallback to any
+    const majors = new Set(['nba', 'nfl', 'ncaaf', 'ncaab']);
+    const possibleHeadlines = matches
+      .filter((m) => majors.has(m.leagueId.toLowerCase()) && !isMatchFinal(m))
+      .sort((a, b) => {
+        const aLive = isMatchLive(a);
+        const bLive = isMatchLive(b);
+        if (aLive !== bLive) return aLive ? -1 : 1;
         return (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4" style={GPU_ACCEL}>
-                <span className="text-5xl font-light opacity-10 text-slate-900">∅</span>
-                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                    No Market Events
-                </span>
-            </div>
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
         );
-    }
+      });
 
+    const headlines =
+      possibleHeadlines.length > 0
+        ? possibleHeadlines.slice(0, 2)
+        : matches.filter((m) => !isMatchFinal(m)).slice(0, 2);
+
+    return { groupedMatches: sortedGroups, featuredMatches: headlines };
+  }, [matches, pinnedMatchIds, isMatchLive, isMatchFinal]);
+
+  // -- Loading State ---------------------------------------------------------
+
+  if (isLoading && matches.length === 0) {
     return (
-        <div className="min-h-screen bg-transparent pb-32">
-            <LayoutGroup>
-                <div className="max-w-7xl mx-auto px-0 lg:px-6 w-full">
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8 lg:gap-12 items-start">
-
-                        {/* ═══ PRIMARY FEED COLUMN ══════════════════════════════════ */}
-                        <div className="min-w-0 flex flex-col gap-10 pt-4">
-
-                            {/* Watchlist Container */}
-                            <AnimatePresence mode="popLayout">
-                                {favorites.length > 0 && (
-                                    <MotionDiv
-                                        layout="position"
-                                        initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-                                        transition={IOS_SPRING}
-                                        style={GPU_ACCEL}
-                                    >
-                                        <div className="flex items-center gap-2 mb-3.5 px-4 lg:px-2">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
-                                            <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">
-                                                Watchlist
-                                            </span>
-                                        </div>
-                                        <div className="overflow-hidden rounded-[24px] border border-amber-200/50 bg-white shadow-[0_8px_30px_rgba(251,191,36,0.05)]">
-                                            {favorites.map(item => (
-                                                <OptimizedMatchRow
-                                                    key={`fav-${item.match.id}`}
-                                                    match={item.match}
-                                                    isPinned={true}
-                                                    isLive={item.isLive}
-                                                    isFinal={item.isFinal}
-                                                    onSelect={handleSelect}
-                                                    onToggle={handleToggle}
-                                                />
-                                            ))}
-                                        </div>
-                                    </MotionDiv>
-                                )}
-                            </AnimatePresence>
-
-                            {/* Main League Loop */}
-                            <div className="space-y-8">
-                                <AnimatePresence>
-                                    {groupedMatches.map(([leagueId, leagueItems], groupIndex) => {
-                                        const leagueConfig = LEAGUES.find(l => l.id === leagueId);
-                                        const leagueName = leagueConfig?.name || leagueId.toUpperCase();
-                                        const liveCount = leagueItems.filter(m => m.isLive).length;
-
-                                        return (
-                                            <MotionDiv
-                                                layout="position"
-                                                key={leagueId}
-                                                initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
-                                                transition={{ ...IOS_SPRING, delay: Math.min(groupIndex * 0.05, 0.4) }}
-                                                // ⚡️ PERFORMANCE: GPU Offloading (iOS Safari content-visibility Black Screen fix)
-                                                style={GPU_ACCEL}
-                                            >
-
-                                                {/* 🍎 Apple HIG: Deep Glassmorphic Sticky Header */}
-                                                {selectedSportKey === 'all' && (
-                                                    <div
-                                                        className="sticky top-[64px] z-10 flex items-center justify-between px-4 lg:px-2 pt-4 pb-3 mb-1 bg-[#FBFBFD] border-b border-white"
-                                                    >
-                                                        <div className="flex items-center gap-3">
-                                                            <h3 className="text-[12px] font-black uppercase tracking-[0.08em] text-slate-900">
-                                                                {leagueName}
-                                                            </h3>
-                                                            {liveCount > 0 && (
-                                                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold tabular-nums tracking-wide bg-emerald-50 text-emerald-600 border border-emerald-100/50">
-                                                                    <motion.span
-                                                                        animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                                                                        className="w-[4px] h-[4px] rounded-full bg-current"
-                                                                    />
-                                                                    {liveCount} Live
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <span className="text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full text-slate-500 bg-slate-100/80">
-                                                            {leagueItems.length}
-                                                        </span>
-                                                    </div>
-                                                )}
-
-                                                {/* Group Render Block */}
-                                                <div className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
-                                                    {leagueItems.map(item => (
-                                                        <OptimizedMatchRow
-                                                            key={item.match.id}
-                                                            match={item.match}
-                                                            isPinned={pinnedMatchIds.has(item.match.id)}
-                                                            isLive={item.isLive}
-                                                            isFinal={item.isFinal}
-                                                            onSelect={handleSelect}
-                                                            onToggle={handleToggle}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </MotionDiv>
-                                        );
-                                    })}
-                                </AnimatePresence>
-                            </div>
-                        </div>
-
-                        {/* ═══ DESKTOP SIDEBAR (Financial / Pro Intel) ═══════════════ */}
-                        <aside className="hidden lg:flex flex-col sticky top-24 space-y-8 pt-4" style={GPU_ACCEL}>
-
-                            {/* Headline Events Block */}
-                            {featuredMatches.length > 0 && (
-                                <section>
-                                    <div className="flex items-center gap-2 mb-3.5 px-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-800" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
-                                            Market Headlines
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-col gap-4">
-                                        {featuredMatches.map((item, idx) => (
-                                            <MotionDiv
-                                                key={`feat-${item.match.id}`}
-                                                initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
-                                                transition={{ ...IOS_SPRING, delay: idx * 0.1 }}
-                                            >
-                                                <FeaturedHero
-                                                    match={item.match}
-                                                    onClick={handleSelect}
-                                                    isLive={item.isLive}
-                                                />
-                                            </MotionDiv>
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
-
-                            {/* 🍎 Apple Titanium Terminal Card */}
-                            <motion.div
-                                role="button"
-                                tabIndex={0}
-                                onClick={onOpenPricing}
-                                whileHover={{ y: -2, scale: 0.995 }}
-                                whileTap={{ scale: 0.98 }}
-                                transition={IOS_SPRING}
-                                className="overflow-hidden relative group p-8 flex flex-col items-start cursor-pointer shadow-2xl shadow-black/10"
-                                style={{
-                                    borderRadius: 24,
-                                    backgroundColor: '#090A0C', // Deep OLED black
-                                    border: '1px solid rgba(255,255,255,0.08)',
-                                }}
-                            >
-                                {/* Simulated physical metallic grain/gradient */}
-                                <div
-                                    className="absolute inset-0 opacity-[0.15] pointer-events-none transition-opacity duration-700 group-hover:opacity-30"
-                                    style={{
-                                        background: 'radial-gradient(120% 120% at 100% 0%, #3B82F6 0%, transparent 50%), radial-gradient(120% 120% at 0% 100%, #8B5CF6 0%, transparent 50%)',
-                                        mixBlendMode: 'screen'
-                                    }}
-                                />
-
-                                <span className="relative z-10 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-1">
-                                    Terminal Data
-                                </span>
-                                <h4 className="relative z-10 text-[18px] font-bold tracking-tight text-white mb-2">
-                                    Pro Access
-                                </h4>
-                                <p className="relative z-10 mt-1 mb-7 leading-relaxed text-[13px] text-white/60 font-medium text-balance antialiased">
-                                    Real-time institutional feeds, sharp money indicators, and AI-powered edge detection.
-                                </p>
-
-                                <div className="relative z-10 w-full py-3.5 rounded-xl font-bold uppercase tracking-[0.12em] transition-all duration-300 bg-white text-black text-center text-[11px] hover:bg-slate-200 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
-                                    Upgrade Tier
-                                </div>
-                            </motion.div>
-                        </aside>
-
-                    </div>
-                </div>
-            </LayoutGroup>
-
-            {/* Hardware-Accelerated Shimmer Keyframe */}
-            <style>{`
-        @keyframes shimmer {
-          0% { transform: translate3d(-100%, 0, 0); }
-          100% { transform: translate3d(100%, 0, 0); }
-        }
-      `}</style>
+      <div className="max-w-7xl mx-auto w-full pt-4">
+        <div className="border-t border-slate-200">
+          {Array.from({ length: 6 }, (_, i) => (
+            <MatchRowSkeleton key={i} />
+          ))}
         </div>
+      </div>
     );
+  }
+
+  // -- Empty State -----------------------------------------------------------
+
+  if (matches.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500">
+        <span className="text-xl mb-4 opacity-50">∅</span>
+        <span className="text-sm font-medium uppercase tracking-widest opacity-70">
+          No Action
+        </span>
+      </div>
+    );
+  }
+
+  // -- Feed ------------------------------------------------------------------
+
+  return (
+    <div className="min-h-screen bg-transparent pb-32">
+      <LayoutGroup>
+        <div className="max-w-7xl mx-auto px-0 lg:px-6 w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-12 items-start">
+            {/* FEED COLUMN */}
+            <div className="min-w-0 flex flex-col gap-10">
+              <div className="space-y-8 pt-6">
+                {groupedMatches.map(
+                  ([leagueId, leagueMatches], groupIndex) => {
+                    const leagueConfig = LEAGUES.find(
+                      (l) => l.id === leagueId
+                    );
+                    return (
+                      <LeagueGroup
+                        key={leagueId}
+                        leagueId={leagueId}
+                        leagueName={leagueConfig?.name || leagueId.toUpperCase()}
+                        leagueMatches={leagueMatches}
+                        pinnedMatchIds={pinnedMatchIds}
+                        isMatchLive={isMatchLive}
+                        isMatchFinal={isMatchFinal}
+                        onSelectMatch={onSelectMatch}
+                        onTogglePin={onTogglePin}
+                        groupIndex={groupIndex}
+                      />
+                    );
+                  }
+                )}
+              </div>
+            </div>
+
+            {/* SIDEBAR — Desktop only, sticky below header */}
+            <div className="hidden lg:flex flex-col sticky top-[128px] space-y-6 pt-6">
+              {featuredMatches.length > 0 && (
+                <section className="mb-2">
+                  <div className="flex items-center gap-2 mb-3 px-1">
+                    <span className="w-1.5 h-1.5 bg-brand-cyan rounded-full shadow-glow-cyan-sm animate-pulse" />
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
+                      Headline Events
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    {featuredMatches.map((match) => (
+                      <FeaturedHero
+                        key={`feat-${match.id}`}
+                        match={match}
+                        onClick={() => onSelectMatch(match)}
+                        isLive={isMatchLive(match)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Pro Upsell */}
+              <div className="p-8 rounded-2xl bg-zinc-900/30 border border-slate-200 relative overflow-hidden group">
+                <h3 className="text-[11px] font-bold text-[#2997FF] uppercase tracking-widest mb-3">
+                  Pro Access
+                </h3>
+                <p className="text-[13px] text-slate-400 mb-6 leading-relaxed font-medium tracking-tight">
+                  Real-time institutional feeds and sharp money indicators.
+                </p>
+                <button
+                  onClick={onOpenPricing}
+                  className="w-full py-3 bg-white hover:bg-zinc-200 text-black text-[11px] font-bold uppercase tracking-widest rounded-full transition-colors flex items-center justify-center"
+                >
+                  Upgrade
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </LayoutGroup>
+    </div>
+  );
 };
 
-export default memo(MatchList, (prev, next) => {
-    // Ultra-strict shallow array comparison prevents MatchList from re-rendering
-    // unless the actual physical length or memory reference of matches changes.
-    return prev.matches === next.matches &&
-        prev.isLoading === next.isLoading &&
-        prev.pinnedMatchIds === next.pinnedMatchIds;
-});
+export default MatchList;
