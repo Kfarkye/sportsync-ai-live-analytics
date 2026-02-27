@@ -1,8 +1,11 @@
 // ===================================================================
-// MatchRow.tsx — Editorial Light
+// MatchRow.tsx — Editorial Light (Hardened)
+// ===================================================================
+// Production fixes: forwardRef, null-team guard, interactive pin,
+// suppressHydrationWarning, math-safe score comparison.
 // ===================================================================
 
-import React, { useMemo, memo } from 'react';
+import React, { useMemo, memo, forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import { MatchRowProps as BaseMatchRowProps } from '@/types/matchList';
 import TeamLogo from '../shared/TeamLogo';
@@ -15,18 +18,32 @@ interface MatchRowProps extends BaseMatchRowProps {
   isSelected?: boolean;
 }
 
-const PHYSICS_MOTION = { type: "spring", stiffness: 400, damping: 25 };
+const PHYSICS_MOTION = { type: "spring" as const, stiffness: 400, damping: 25 };
 
-// Minimal Inline Pin Indicator (visual only)
-const PinnedStar = memo(() => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-amber-500 shrink-0">
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-  </svg>
+// Interactive Pin Toggle — clickable star with Framer bubbling guard
+const PinButton = memo(({ isPinned, onToggle }: { isPinned: boolean; onToggle?: ((e: any) => void) | undefined }) => (
+  <button
+    type="button"
+    onClick={(e) => { e.stopPropagation(); onToggle?.(e); }}
+    onPointerDown={(e) => e.stopPropagation()}
+    className={cn(
+      "shrink-0 p-0.5 rounded transition-all duration-200",
+      isPinned
+        ? "opacity-100"
+        : "opacity-0 group-hover:opacity-60 hover:!opacity-100"
+    )}
+    aria-label={isPinned ? 'Unpin game' : 'Pin game'}
+    title={isPinned ? 'Unpin game' : 'Pin game'}
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className={cn("shrink-0 transition-colors", isPinned ? "text-amber-500" : "text-slate-400")}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  </button>
 ));
-PinnedStar.displayName = 'PinnedStar';
+PinButton.displayName = 'PinButton';
 
 // Tennis Set Scores
-const TennisSetScores: React.FC<{ linescores?: Linescore[] }> = memo(({ linescores }) => {
+const TennisSetScores: React.FC<{ linescores?: Linescore[] | undefined }> = memo(({ linescores }) => {
   if (!linescores || linescores.length === 0) return <span className="text-[11px] text-slate-400 font-mono tracking-widest">-</span>;
 
   return (
@@ -54,14 +71,15 @@ const TennisSetScores: React.FC<{ linescores?: Linescore[] }> = memo(({ linescor
 });
 TennisSetScores.displayName = 'TennisSetScores';
 
-const MatchRow: React.FC<MatchRowProps> = ({
+const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   match,
   isPinned = false,
   isLive = false,
   isFinal = false,
   isSelected = false,
   onSelect,
-}) => {
+  onTogglePin,
+}, ref) => {
   const showScores = isLive || isFinal;
   const isTennis = match.sport === Sport.TENNIS;
 
@@ -80,17 +98,18 @@ const MatchRow: React.FC<MatchRowProps> = ({
 
   return (
     <motion.div
+      ref={ref}
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       whileHover={{ scale: 1.002, backgroundColor: "#F8FAFC", zIndex: 10 }}
       whileTap={{ scale: 0.998 }}
       transition={PHYSICS_MOTION}
-      onClick={() => onSelect(match)}
+      onClick={() => onSelect?.(match)}
       role="button"
       tabIndex={0}
-      aria-label={`${match.awayTeam.name} vs ${match.homeTeam.name}`}
-      onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(match); } }}
+      aria-label={`${match.awayTeam?.name || 'Away Team'} vs ${match.homeTeam?.name || 'Home Team'}`}
+      onKeyDown={(e: React.KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onSelect?.(match); } }}
       className={cn(
         "group relative flex items-center justify-between px-3 py-2.5 md:px-5 md:py-3 cursor-pointer transform-gpu min-h-[44px]",
         "focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none focus-visible:ring-inset",
@@ -112,10 +131,18 @@ const MatchRow: React.FC<MatchRowProps> = ({
       {/* Team Data */}
       <div className="flex flex-col gap-2 flex-1 min-w-0 pr-6 pl-1.5 md:pl-0">
         {[match.awayTeam, match.homeTeam].map((team, idx) => {
+          // Guard against malformed API payloads where one team is null
+          if (!team) return null;
+
           const isHome = idx === 1;
           const score = isHome ? match.homeScore : match.awayScore;
           const otherScore = isHome ? match.awayScore : match.homeScore;
-          const isLoser = isFinal && (typeof score === 'number' && typeof otherScore === 'number' && score < otherScore);
+
+          // Math-safe: coerce to Number to prevent string comparison bugs ("10" < "9")
+          const numScore = Number(score);
+          const numOther = Number(otherScore);
+          const hasScores = score != null && otherScore != null && !isNaN(numScore) && !isNaN(numOther);
+          const isLoser = isFinal && hasScores && numScore < numOther;
 
           return (
             <div key={team.id || idx} className="flex items-center justify-between gap-4">
@@ -166,7 +193,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
         {isLive ? (
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1.5">
-              {isPinned && <PinnedStar />}
+              <PinButton isPinned={isPinned} onToggle={onTogglePin} />
               <div className="flex items-center gap-1.5 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
                 <span className="relative flex h-1.5 w-1.5 shrink-0">
                   <span className="motion-reduce:hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -183,14 +210,14 @@ const MatchRow: React.FC<MatchRowProps> = ({
           </div>
         ) : isFinal ? (
           <div className="flex items-center gap-1.5">
-            {isPinned && <PinnedStar />}
+            <PinButton isPinned={isPinned} onToggle={onTogglePin} />
             <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded uppercase tracking-widest">FINAL</span>
           </div>
         ) : (
           <>
             <div className="flex items-center gap-1.5">
-              {isPinned && <PinnedStar />}
-              <span className="text-[13px] font-mono font-medium text-slate-700 tabular-nums tracking-wide group-hover:text-slate-900 transition-colors">
+              <PinButton isPinned={isPinned} onToggle={onTogglePin} />
+              <span className="text-[13px] font-mono font-medium text-slate-700 tabular-nums tracking-wide group-hover:text-slate-900 transition-colors" suppressHydrationWarning>
                 {startTimeStr}
               </span>
             </div>
@@ -200,7 +227,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
               </span>
             )}
             {!isTennis && (
-              <span className="text-[9px] font-medium text-slate-400 tracking-wide">
+              <span className="text-[9px] font-medium text-slate-400 tracking-wide" suppressHydrationWarning>
                 {dateStr}
               </span>
             )}
@@ -209,6 +236,8 @@ const MatchRow: React.FC<MatchRowProps> = ({
       </div>
     </motion.div>
   );
-};
+});
+
+MatchRow.displayName = 'MatchRow';
 
 export default memo(MatchRow);
