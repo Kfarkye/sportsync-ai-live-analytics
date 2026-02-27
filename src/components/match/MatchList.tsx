@@ -301,7 +301,7 @@ const MatchList: React.FC<MatchListProps> = ({
         const headlines = sortMatches(validHeroes).slice(0, 2);
 
         return {
-            favorites,
+            favorites: sortMatches(favs),
             groupedMatches: sortedGroups,
             featuredMatches: headlines.length > 0 ? headlines : rest.filter(i => !i.isFinal).slice(0, 2)
         };
