@@ -259,7 +259,7 @@ const OddsCardSkeleton = memo(() => (
 
 const StatsGridSkeleton = memo(() => (
   <div className="grid grid-cols-2 gap-4 mt-4">
-    {[...Array(6)].map((_, i) => (
+    {[...Array(6)].map((_idx, i) => (
       <SkeletonShimmer key={i} className="h-14 rounded-[12px]" />
     ))}
   </div>
@@ -534,7 +534,7 @@ const Gridiron = memo(({ children }: { children?: ReactNode }) => (
     <g stroke="rgba(0,0,0,0.08)" strokeWidth="0.5" fill="none">
       <rect x="0" y="0" width="10" height="53.3" fill="rgba(0,0,0,0.01)" />
       <rect x="110" y="0" width="10" height="53.3" fill="rgba(0,0,0,0.01)" />
-      {Array.from({ length: 9 }).map((_, i) => (
+      {Array.from({ length: 9 }).map((_idx, i) => (
         <line key={i} x1={(i + 2) * 10} y1="0" x2={(i + 2) * 10} y2="53.3" />
       ))}
       <g fill="rgba(0,0,0,0.12)" stroke="none" fontSize="4" fontWeight="600" textAnchor="middle" fontFamily="monospace">
@@ -688,7 +688,7 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
 const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: { match: ExtendedMatch; isScheduled: boolean; onSwipe: (dir: number) => void }) => {
   const x = useMotionValue(0);
   return (
-    <motion.div style={{ x }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={(_, i) => { if (i.offset.x > 100) onSwipe(-1); else if (i.offset.x < -100) onSwipe(1); }} className="pb-4 px-6 cursor-grab active:cursor-grabbing">
+    <motion.div style={{ x }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={(_e, i) => { if (i.offset.x > 100) onSwipe(-1); else if (i.offset.x < -100) onSwipe(1); }} className="pb-4 px-6 cursor-grab active:cursor-grabbing">
       <AnimatePresence mode="wait">
         <motion.div key={match.id} initial={{ opacity: 0, scale: 0.99, filter: 'blur(2px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 1.01, filter: 'blur(2px)' }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
           {isScheduled ? <MatchupHeader matchId={match.id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} startTime={match.startTime} sport={match.sport} currentOdds={match.current_odds as any} /> : <ScoreHeader match={match} variant="embedded" />}

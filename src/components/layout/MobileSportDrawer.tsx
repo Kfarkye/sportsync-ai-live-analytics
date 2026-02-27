@@ -191,7 +191,7 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
   );
 
   const onDragEnd = useCallback(
-    (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
       if (info.offset.y > 100 || info.velocity.y > 500) onClose();
     },
     [onClose],

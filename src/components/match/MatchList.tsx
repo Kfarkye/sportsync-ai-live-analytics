@@ -312,7 +312,7 @@ const MatchList: React.FC<MatchListProps> = ({
         return (
             <div className="max-w-7xl mx-auto w-full pt-4 lg:px-6">
                 <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-                    {[...Array(6)].map((_, i) => <RowSkeleton key={`skel-${i}`} />)}
+                    {[...Array(6)].map((_idx, i) => <RowSkeleton key={`skel-${i}`} />)}
                 </div>
             </div>
         );
