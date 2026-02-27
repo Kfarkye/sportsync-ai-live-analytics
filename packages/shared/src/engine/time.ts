@@ -1,8 +1,15 @@
 
 import { Match, Sport } from "../types.ts";
-import { ExtendedMatch } from "../types.ts";
+import type { ExtendedMatch } from "../types.ts";
 import { SYSTEM_GATES } from "../gates.ts";
-import { isBasketball, isFootball } from "./utils.ts";
+
+// Inlined from utils.ts to break circular dependency (utils → time → utils)
+function isBasketball(s: Sport): boolean {
+    return s === Sport.NBA || s === Sport.BASKETBALL || s === Sport.COLLEGE_BASKETBALL;
+}
+function isFootball(s: Sport): boolean {
+    return s === Sport.NFL || s === Sport.COLLEGE_FOOTBALL;
+}
 
 // Pre-compiled Regex
 const REGEX = {

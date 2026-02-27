@@ -3,7 +3,7 @@
 // ENGINE TYPES
 // =============================================================================
 
-import { Match, Sport, Team, MarketEfficiency } from "./index.ts";
+import type { Match, Sport, Team, MarketEfficiency } from "./index.ts";
 
 export interface WeatherInfo {
     wind_speed: string | number;

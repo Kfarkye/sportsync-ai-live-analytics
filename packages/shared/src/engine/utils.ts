@@ -1,6 +1,6 @@
 
 import { Match, Sport } from "../types.ts";
-import { ExtendedMatch } from "../types.ts";
+import type { ExtendedMatch } from "../types.ts";
 import { SYSTEM_GATES } from "../gates.ts";
 import { getRemainingSeconds, getBaseballState } from "./time.ts";
 
