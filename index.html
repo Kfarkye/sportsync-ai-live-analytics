@@ -4,37 +4,45 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>SportSync AI</title>
+  <title>The Drip — Live Sports Intelligence</title>
+  <meta name="description"
+    content="Editorial-grade live sports analytics, AI-powered predictions, and betting intelligence." />
 
   <!-- PWA -->
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#09090b" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="SportSync" />
+  <meta name="theme-color" content="#F8FAFC" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="The Drip" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 
-  <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600;700&display=swap"
+  <!-- Fonts (INVARIANT 8: Geist + Geist Mono only) -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600;700&display=swap"
     rel="stylesheet">
   <style>
     body {
       font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background-color: #09090b;
-      color: #FAFAFA;
+      background-color: #F8FAFC;
+      color: #0f172a;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
+      margin: 0;
     }
 
-    .glass-panel {
-      background: rgba(30, 41, 59, 0.7);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+    /* Pre-React fallback loading state */
+    #root:empty::after {
+      content: 'Loading…';
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-size: 14px;
+      color: #94a3b8;
+      letter-spacing: 0.05em;
     }
 
     .live-pulse {
-      animation: pulse-red 2s infinite;
+      animation: pulse-red 2.4s infinite;
     }
 
     @keyframes pulse-red {
