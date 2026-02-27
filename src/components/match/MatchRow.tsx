@@ -323,4 +323,4 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
 MatchRow.displayName = 'MatchRow';
 
-export default memo(MatchRow);
+export default MatchRow;
