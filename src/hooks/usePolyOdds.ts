@@ -124,6 +124,8 @@ export function usePolyOdds(options: UsePolyOddsOptions = {}) {
                     // Keep highest-volume moneyline per game (multiple markets exist)
                     if (!existing || (row.volume ?? 0) > (existing.volume ?? 0)) {
                         map[row.game_id] = row;
+                        const strippedId = row.game_id.split('_')[0];
+                        if (strippedId) map[strippedId] = row;
                     }
                 }
             }

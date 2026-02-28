@@ -900,8 +900,18 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           awayScore: Math.max(espn.awayScore ?? 0, nextMatch.awayScore ?? 0)
         };
       }
-      if (db && !isGameFinal(nextMatch.status)) { nextMatch.current_odds = db.current_odds; if ((db.home_score || 0) > (nextMatch.homeScore || 0)) nextMatch.homeScore = db.home_score; if ((db.away_score || 0) > (nextMatch.awayScore || 0)) nextMatch.awayScore = db.away_score; }
-      if (db) { if (db.closing_odds) nextMatch.closing_odds = db.closing_odds; if (db.opening_odds) nextMatch.opening_odds = db.opening_odds; if (db.odds) nextMatch.odds = db.odds; }
+      if (db && !isGameFinal(nextMatch.status)) {
+        const espnOdds = nextMatch.odds;
+        const hasEspnOdds = espnOdds?.hasOdds;
+        nextMatch.current_odds = hasEspnOdds ? espnOdds : (db.current_odds || espnOdds);
+        if ((db.home_score || 0) > (nextMatch.homeScore || 0)) nextMatch.homeScore = db.home_score;
+        if ((db.away_score || 0) > (nextMatch.awayScore || 0)) nextMatch.awayScore = db.away_score;
+      }
+      if (db) {
+        if (db.closing_odds) nextMatch.closing_odds = db.closing_odds;
+        if (db.opening_odds) nextMatch.opening_odds = db.opening_odds;
+        if (db.odds && !isGameInProgress(nextMatch.status)) nextMatch.odds = db.odds;
+      }
       if (props?.length) {
         const normalizePropType = (value?: string | null): PropBetType => {
           const raw = (value || '').toLowerCase();
@@ -1419,12 +1429,15 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                           homePolyProb={polyData.homeProb}
                           awayPolyProb={polyData.awayProb}
                           volume={polyData.volume}
-                          {...(Number(match.current_odds?.moneylineHome || match.current_odds?.home_ml || 0) !== 0
-                            ? { homeMoneyline: Number(match.current_odds?.moneylineHome || match.current_odds?.home_ml) }
-                            : {})}
-                          {...(Number(match.current_odds?.moneylineAway || match.current_odds?.away_ml || 0) !== 0
-                            ? { awayMoneyline: Number(match.current_odds?.moneylineAway || match.current_odds?.away_ml) }
-                            : {})}
+                          {...(() => {
+                            const o = match.current_odds || match.odds;
+                            const home = Number(o?.moneylineHome || o?.homeWin || o?.home_ml || 0);
+                            const away = Number(o?.moneylineAway || o?.awayWin || o?.away_ml || 0);
+                            return {
+                              ...(home !== 0 ? { homeMoneyline: home } : {}),
+                              ...(away !== 0 ? { awayMoneyline: away } : {})
+                            };
+                          })()}
                         />
                         <MarketEdgeCard
                           homeTeam={match.homeTeam.shortName || match.homeTeam.name}

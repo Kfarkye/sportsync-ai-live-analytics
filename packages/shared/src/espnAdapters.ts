@@ -112,6 +112,14 @@ export const EspnAdapters = {
             }
         }
 
+        // Normalize: ensure moneylineHome/moneylineAway are always set alongside homeWin/awayWin
+        if (result.homeWin !== undefined && (result as any).moneylineHome === undefined) {
+            (result as any).moneylineHome = result.homeWin;
+        }
+        if (result.awayWin !== undefined && (result as any).moneylineAway === undefined) {
+            (result as any).moneylineAway = result.awayWin;
+        }
+
         return result;
     },
     Events: (data: any, sport: Sport): MatchEvent[] => {
