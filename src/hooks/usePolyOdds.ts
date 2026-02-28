@@ -172,6 +172,10 @@ export function findPolyForMatch(
     let row = matchId ? polyResult.map[matchId] : undefined;
     let flipped = false;
 
+    if (row && homeTeamName) {
+        flipped = !teamsMatch(row.home_team_name, homeTeamName);
+    }
+
     if (!row && homeTeamName && awayTeamName) {
         // Slow path: fuzzy team-name match against deduplicated high-volume map
         const uniqueMarkets = Object.values(polyResult.map);
