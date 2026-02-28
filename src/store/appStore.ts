@@ -8,6 +8,14 @@ export type ViewType = 'FEED' | 'LIVE' | 'NBA' | 'TITAN';
 export type LiveTabType = 'LIVE' | 'NEXT' | 'ENDED';
 export type LiveLayoutType = 'LIST' | 'GRID';
 
+/**
+ * OddsLens display modes:
+ *   PROB  — Polymarket probability native (58%)     — default for everyone
+ *   ODDS  — Traditional American odds (-142)        — for degens
+ *   EDGE  — Market divergence (+5.6%)               — for sharps
+ */
+export type OddsLensMode = 'PROB' | 'ODDS' | 'EDGE';
+
 interface AppState {
   // --- Selection State ---
   selectedSport: Sport;
@@ -17,6 +25,9 @@ interface AppState {
   liveTab: LiveTabType;
   liveFilter: string;
   liveLayout: LiveLayoutType;
+
+  // --- OddsLens ---
+  oddsLens: OddsLensMode;
 
   // --- UI State (Modals) ---
   isCmdkOpen: boolean;
@@ -35,6 +46,8 @@ interface AppState {
   setLiveTab: (tab: LiveTabType) => void;
   setLiveFilter: (filter: string) => void;
   setLiveLayout: (layout: LiveLayoutType) => void;
+  setOddsLens: (mode: OddsLensMode) => void;
+  toggleOddsLens: () => void;
 
   toggleCmdk: (open?: boolean) => void;
   toggleAuthModal: (open?: boolean) => void;
@@ -62,6 +75,8 @@ export const useAppStore = create<AppState>()(
       liveFilter: '',
       liveLayout: 'LIST',
 
+      oddsLens: 'PROB' as OddsLensMode,
+
       isCmdkOpen: false,
       isAuthModalOpen: false,
       isSportDrawerOpen: false,
@@ -86,6 +101,12 @@ export const useAppStore = create<AppState>()(
       setLiveTab: (tab) => set({ liveTab: tab }),
       setLiveFilter: (filter) => set({ liveFilter: filter }),
       setLiveLayout: (layout) => set({ liveLayout: layout }),
+      setOddsLens: (mode) => set({ oddsLens: mode }),
+      toggleOddsLens: () => set((s) => {
+        const cycle: OddsLensMode[] = ['PROB', 'ODDS', 'EDGE'];
+        const idx = cycle.indexOf(s.oddsLens);
+        return { oddsLens: cycle[(idx + 1) % cycle.length] };
+      }),
 
       toggleCmdk: (open) => set((s) => ({ isCmdkOpen: open ?? !s.isCmdkOpen })),
       toggleAuthModal: (open) => set((s) => ({ isAuthModalOpen: open ?? !s.isAuthModalOpen })),
@@ -110,7 +131,8 @@ export const useAppStore = create<AppState>()(
         selectedSport: state.selectedSport,
         // We don't persist selectedDate if it's "Today" by default, or maybe we do
         activeView: state.activeView,
-        showLanding: state.showLanding
+        showLanding: state.showLanding,
+        oddsLens: state.oddsLens,
       })
     }
   )

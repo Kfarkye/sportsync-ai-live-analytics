@@ -71,16 +71,61 @@ class InstitutionalKernel {
     try {
       console.log(`[Kernel-Execute] Initiating live analysis for ${dbId}`);
 
+      // ── Pack live match data ──────────────────────────────────────────
+      // This is the moat. Everyone has pregame narratives.
+      // Nobody is synthesizing live match data into a readable thesis.
+      const liveStats = (match.stats || []).map(s => ({
+        label: s.label,
+        home: s.homeValue,
+        away: s.awayValue,
+      }));
+
+      const keyEvents = (match.events || [])
+        .filter(e => e.type === 'goal' || e.type === 'score' || e.type === 'card')
+        .slice(-10)  // Last 10 key events
+        .map(e => ({
+          time: e.time || e.clock || '',
+          type: e.type,
+          detail: e.detail || e.description || e.text || '',
+        }));
+
+      const leaders = (match.leaders || []).slice(0, 4).map(l => ({
+        stat: l.displayName || l.name,
+        player: l.leaders?.[0]?.athlete?.displayName || l.leaders?.[0]?.athlete?.fullName || '',
+        value: l.leaders?.[0]?.displayValue || '',
+      }));
+
       const { data, error } = await supabase.functions.invoke('analyze-match', {
         body: {
           match_id: dbId,
           sport: match.sport,
           snapshot: {
             score: `${match.awayScore}-${match.homeScore}`,
+            home_score: match.homeScore,
+            away_score: match.awayScore,
             clock: match.displayClock || "0:00",
+            period: match.period,
+            status: match.status,
+            home_team: match.homeTeam?.name || match.homeTeam?.shortName || 'Home',
+            away_team: match.awayTeam?.name || match.awayTeam?.shortName || 'Away',
             market_total: match.current_odds?.total || match.odds?.overUnder || 0,
-            fair_total: match.ai_signals?.deterministic_fair_total || 0
+            fair_total: match.ai_signals?.deterministic_fair_total || 0,
+            league_id: match.leagueId,
           },
+          // Live match data — the AI reads the game, not the preview
+          live_stats: liveStats,
+          key_events: keyEvents,
+          leaders: leaders,
+          predictor: match.predictor ? {
+            homeChance: match.predictor.homeTeamChance,
+            awayChance: match.predictor.awayTeamChance,
+          } : null,
+          advanced_metrics: match.advancedMetrics || null,
+          last_play: match.lastPlay ? {
+            text: match.lastPlay.text,
+            clock: match.lastPlay.clock,
+            type: match.lastPlay.type,
+          } : null,
           ai_signals: match.ai_signals
         }
       });

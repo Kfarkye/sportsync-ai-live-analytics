@@ -2,13 +2,24 @@ import React, { useMemo, memo, forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import { MatchRowProps as BaseMatchRowProps } from '@/types/matchList';
 import TeamLogo from '../shared/TeamLogo';
+import { OddsLensPill } from '../shared/OddsLens';
 import { cn } from '@/lib/essence';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { Sport, Linescore } from '@/types';
 
-// Extend base props with selection state for List ↔ Detail coordination
+// Extend base props with poly data + selection state
 interface MatchRowProps extends BaseMatchRowProps {
   isSelected?: boolean;
+  /** Polymarket probability for home team (0–100) */
+  polyHomeProb?: number;
+  /** Polymarket probability for away team (0–100) */
+  polyAwayProb?: number;
+  /** Edge value for home team (divergence %) */
+  homeEdge?: number;
+  /** Edge value for away team (divergence %) */
+  awayEdge?: number;
+  /** Data source: 'poly' if Polymarket data available */
+  probSource?: 'poly' | 'espn';
 }
 
 const PHYSICS_MOTION = { type: "spring" as const, stiffness: 400, damping: 25 };
@@ -16,7 +27,7 @@ const PHYSICS_MOTION = { type: "spring" as const, stiffness: 400, damping: 25 };
 const LOGO_W = 24;
 const LOGO_GAP = 16;
 const SCORE_W = 32;
-const PROB_W = 46;
+const PROB_W = 52;
 const TEAM_INDENT = LOGO_W + LOGO_GAP;
 
 const isValidOdd = (val: string | number | null | undefined): boolean => val !== null && val !== undefined && val !== '-' && val !== '';
@@ -39,7 +50,6 @@ const ProbPill = memo(({ value, isFavorite }: { value: number | undefined; isFav
   );
 });
 ProbPill.displayName = 'ProbPill';
-
 const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number | null | undefined; isWinner: boolean; isLoser: boolean }) => (
   <span
     className={cn(
@@ -134,15 +144,22 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   isLive = false,
   isFinal = false,
   isSelected = false,
+  polyHomeProb,
+  polyAwayProb,
+  homeEdge,
+  awayEdge,
+  probSource = 'espn',
   onSelect,
   onTogglePin,
 }, ref) => {
   const showScores = isLive || isFinal;
   const isTennis = match.sport === Sport.TENNIS;
 
-  const homeProb = match.win_probability?.home;
-  const awayProb = match.win_probability?.away;
+  // Priority: Polymarket (real money) > ESPN (model estimate)
+  const homeProb = polyHomeProb ?? match.win_probability?.home;
+  const awayProb = polyAwayProb ?? match.win_probability?.away;
   const homeFav = typeof homeProb === 'number' && typeof awayProb === 'number' ? homeProb > awayProb : false;
+  const source = polyHomeProb !== undefined ? 'poly' : 'espn';
 
   const spread = match.odds?.homeSpread ?? match.odds?.spread;
   const total = match.odds?.overUnder ?? match.odds?.total;
@@ -256,7 +273,12 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
               {hasProb && !isFinal && (
                 <div className="shrink-0" style={{ width: PROB_W }}>
-                  <ProbPill value={prob} isFavorite={isFav} />
+                  <OddsLensPill
+                    value={prob}
+                    isFavorite={isFav}
+                    edge={isHome ? homeEdge : awayEdge}
+                    source={source}
+                  />
                 </div>
               )}
             </div>

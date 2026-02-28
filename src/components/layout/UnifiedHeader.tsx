@@ -5,6 +5,7 @@ import { Trophy, ChevronDown, Calendar, ChevronLeft, ChevronRight, Search, Grid3
 import { useAppStore } from '../../store/appStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeekNavigation } from '../../hooks/useWeekNavigation';
+import { OddsLensToggle } from '../shared/OddsLens';
 import { SPORT_CONFIG, LEAGUES } from '@/constants';
 import { Sport } from '@/types';
 import { cn, ESSENCE } from '@/lib/essence';
@@ -111,7 +112,8 @@ export const UnifiedHeader: FC = () => {
                     </div>
 
                     {/* Global Actions */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                        <OddsLensToggle />
                         <button
                             onClick={() => toggleCmdk()}
                             className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all active:scale-95"
