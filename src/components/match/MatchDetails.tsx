@@ -1318,7 +1318,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   }, [match.dbProps]);
 
   return (
-    <div className="min-h-[100dvh] text-black relative overflow-y-auto overflow-x-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white pb-safe-offset-24">
+    <div className="min-h-[100dvh] text-black relative overflow-y-auto overflow-x-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white pb-[calc(env(safe-area-inset-bottom)+6rem)]">
       <LiveSweatProvider latestPlayByPlayText={playByPlayText} aiTriggers={sweatTriggers}>
         <header className="sticky top-0 z-50 bg-[#FBFBFD]/80 backdrop-blur-[24px] saturate-[1.2] border-b border-black/[0.03] pt-safe transition-colors duration-500">
           <div className="flex items-center justify-between px-6 py-4">

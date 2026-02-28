@@ -35,7 +35,7 @@ export const MobileNavBar = () => {
     ];
 
     return (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] z-[45] font-sans print:hidden">
+        <div className="fixed left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] z-[45] font-sans print:hidden md:hidden bottom-[calc(1.5rem+env(safe-area-inset-bottom))]">
             {/* iOS Frosted Glass Container */}
             <div className="bg-white/85 backdrop-blur-xl border border-slate-200/80 rounded-full px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.08)] flex items-center justify-between">
                 {/* View Tabs */}
