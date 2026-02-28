@@ -79,6 +79,7 @@ function normalizeTeam(name: string): string {
 }
 
 function teamsMatch(polyName: string, matchName: string): boolean {
+    if (!polyName || !matchName) return false;
     const pn = normalizeTeam(polyName);
     const mn = normalizeTeam(matchName);
     return pn.includes(mn) || mn.includes(pn);
@@ -102,7 +103,6 @@ export function usePolyOdds(options: UsePolyOddsOptions = {}) {
             let query = supabase
                 .from('v_poly_moneyline')
                 .select('*')
-                .not('home_team_name', 'in', '("Over","Under","Yes","No")')
                 .order('game_start_time', { ascending: true });
 
             if (leagueId) {
@@ -171,8 +171,9 @@ export function findPolyForMatch(
     let flipped = false;
 
     if (!row && homeTeamName && awayTeamName) {
-        // Slow path: fuzzy team-name match
-        for (const candidate of polyResult.rows) {
+        // Slow path: fuzzy team-name match against deduplicated high-volume map
+        const uniqueMarkets = Object.values(polyResult.map);
+        for (const candidate of uniqueMarkets) {
             // Direct orientation: poly_home ↔ espn_home, poly_away ↔ espn_away
             const directHome = teamsMatch(candidate.home_team_name, homeTeamName);
             const directAway = teamsMatch(candidate.away_team_name, awayTeamName);
