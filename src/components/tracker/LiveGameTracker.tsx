@@ -284,7 +284,7 @@ const DarkPanel = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'> & {
 ));
 DarkPanel.displayName = 'DarkPanel';
 
-const Label = ({ children }: { children: ReactNode }) => <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] leading-none m-0">{children}</h3>;
+const Label = ({ children, className }: { children: ReactNode; className?: string }) => <h3 className={cn("text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] leading-none m-0", className)}>{children}</h3>;
 const DataValue = ({ value, size = 'lg', className }: { value: string | number; size?: 'lg' | 'xl'; className?: string; }) => <span className={cn('font-mono font-medium tracking-tighter tabular-nums text-white leading-none', size === 'xl' ? 'text-4xl font-light' : 'text-2xl', className)}>{value}</span>;
 
 const EmptyState = ({ icon, message }: { icon: ReactNode; message: string }) => (
@@ -751,7 +751,7 @@ const TabNavigation = memo(({ activeTab, onTabChange, trackerId }: { activeTab: 
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
             e.preventDefault();
             const newIndex = e.key === 'ArrowRight' ? (index + 1) % TABS.length : (index - 1 + TABS.length) % TABS.length;
-            onTabChange(TABS[newIndex]);
+            onTabChange(TABS[newIndex] as TabKey);
             document.getElementById(`tab-${TABS[newIndex]}-${trackerId}`)?.focus();
         }
     }, [onTabChange, trackerId]);
