@@ -99,7 +99,7 @@ export function usePolyOdds(options: UsePolyOddsOptions = {}) {
       if (!isSupabaseConfigured()) return { map: {}, rows: [] };
 
       let query = supabase
-        .from('v_poly_live')
+        .from('v_poly_moneyline')
         .select('*')
         .not('home_team_name', 'in', '("Over","Under","Yes","No")')
         .order('game_start_time', { ascending: true });
@@ -119,7 +119,11 @@ export function usePolyOdds(options: UsePolyOddsOptions = {}) {
       const map: PolyOddsMap = {};
       for (const row of rows) {
         if (row.game_id) {
-          map[row.game_id] = row;
+          const existing = map[row.game_id];
+          // Keep highest-volume moneyline per game (multiple markets exist)
+          if (!existing || (row.volume ?? 0) > (existing.volume ?? 0)) {
+            map[row.game_id] = row;
+          }
         }
       }
 
