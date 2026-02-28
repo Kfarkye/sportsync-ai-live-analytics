@@ -23,7 +23,7 @@ const INTEL_CONCURRENCY = Number(Deno.env.get("PREGAME_INTEL_MAX_CONCURRENCY") ?
 const INTEL_LEASE_TTL_SEC = Number(Deno.env.get("PREGAME_INTEL_LEASE_TTL_SEC") ?? "150");
 const INTEL_MAX_WAIT_MS = Number(Deno.env.get("PREGAME_INTEL_MAX_WAIT_MS") ?? "8000");
 const INTEL_WAIT_STEP_MS = Number(Deno.env.get("PREGAME_INTEL_WAIT_STEP_MS") ?? "1200");
-const INTEL_PRIMARY_MODEL = Deno.env.get("PREGAME_INTEL_MODEL") ?? "gemini-2.5-flash";
+const INTEL_PRIMARY_MODEL = Deno.env.get("PREGAME_INTEL_MODEL") ?? "gemini-3-flash-preview";
 const INTEL_FALLBACK_MODEL = Deno.env.get("PREGAME_INTEL_FALLBACK_MODEL") ?? "gemini-2.0-flash";
 
 class QueueFullError extends Error {}

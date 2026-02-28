@@ -113,7 +113,7 @@ Deno.serve(async (req: any) => {
         };
 
         const result = await executeAnalyticalQuery(prompt, {
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             responseSchema,
             temperature: 0.2
         });

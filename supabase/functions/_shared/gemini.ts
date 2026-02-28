@@ -26,7 +26,7 @@ export async function executeAnalyticalQuery(prompt: string | any[], options: an
         if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
 
         const ai = new GoogleGenAI({ apiKey });
-        const modelName = options.model || 'gemini-2.5-flash';
+        const modelName = options.model || 'gemini-3-flash-preview';
 
         // 2. CONFLICT RESOLUTION: "Soft-Schema" Injection
         // We DO NOT pass options.responseSchema to the API config if we want Deep Thinking/Tools.
@@ -245,7 +245,7 @@ export async function* executeStreamingAnalyticalQuery(prompt: string | any[], o
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
     const ai = new GoogleGenAI({ apiKey });
-    const modelName = options.model || 'gemini-2.5-flash';
+    const modelName = options.model || 'gemini-3-flash-preview';
 
     // Apply Soft-Schema Logic to Streaming as well
     let systemInstruction = options.systemInstruction || "";
@@ -319,7 +319,7 @@ export async function executeMultimodalQuery(prompt: string | any[], options: an
     if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
     const ai = new GoogleGenAI({ apiKey });
     return await ai.models.generateContent({
-        model: options.model || 'gemini-2.5-flash',
+        model: options.model || 'gemini-3-flash-preview',
         contents: [{ role: 'user', parts: Array.isArray(prompt) ? prompt : [{ text: String(prompt || " ") }] }],
         config: {
             temperature: options.temperature,

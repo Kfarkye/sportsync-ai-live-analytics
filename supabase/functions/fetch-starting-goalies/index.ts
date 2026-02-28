@@ -84,7 +84,7 @@ serve(async (req) => {
     const ai = new GoogleGenAI({ apiKey: Deno.env.get('GEMINI_API_KEY') || '' });
 
     // Use Gemini 3 Flash for fast, accurate goalie lookups with grounded search
-    const modelName = 'gemini-2.5-flash';
+    const modelName = 'gemini-3-flash-preview';
 
     try {
         const startTime = Date.now();

@@ -196,7 +196,7 @@ Deno.serve(async (req: Request) => {
         };
 
         const result = await executeAnalyticalQuery(prompt, {
-          model: "gemini-2.5-flash",
+          model: "gemini-3-flash-preview",
           tools: [{ googleSearch: {} }],
           responseSchema,
           thinkingBudget: 16000
