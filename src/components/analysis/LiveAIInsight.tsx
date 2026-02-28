@@ -61,7 +61,11 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                 deterministic_signals: liveState?.deterministic_signals,
                 last_play: liveState?.last_play || match.lastPlay,
                 sport: match.sport,
-                league_id: match.leagueId
+                league_id: match.leagueId,
+                stats: match.stats,
+                events: match.events,
+                leaders: match.leaders,
+                predictor: match.predictor
             };
 
             const dbId = getDbMatchId(match.id, match.leagueId || '');
