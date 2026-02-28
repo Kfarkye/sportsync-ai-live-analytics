@@ -17,7 +17,7 @@ Deno.serve(async (req: Request) => {
             const response = await executeMultimodalQuery(
                 `Professional, sharp betting brief: ${payload.text}`,
                 {
-                    model: "gemini-3-flash-preview",
+                    model: "gemini-2.5-flash",
                     responseModalities: ["AUDIO"],
                     speechConfig: {
                         voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
@@ -33,7 +33,7 @@ Deno.serve(async (req: Request) => {
             const response = await executeMultimodalQuery(
                 `A tactical sports scouting diagram for ${payload.away} vs ${payload.home}. Blueprint aesthetic, dark mode, neon accents, cinematic depth.`,
                 {
-                    model: 'gemini-3-flash-preview',
+                    model: 'gemini-2.5-flash',
                     imageConfig: { aspectRatio: "16:9" }
                 }
             );

@@ -2,7 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { executeAnalyticalQuery, safeJsonParse } from "../_shared/gemini.ts";
 
-const GEMINI_MODEL = "gemini-3-flash-preview";
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",

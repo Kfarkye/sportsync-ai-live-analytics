@@ -234,7 +234,7 @@ Deno.serve(async (req: Request) => {
     const geminiStart = Date.now();
 
     const { text, thoughts, sources } = await executeAnalyticalQuery(prompt, {
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       systemInstruction: AUDITOR_INSTRUCTION,
       responseSchema: AUDIT_SCHEMA,
       thinkingBudget: 32768,

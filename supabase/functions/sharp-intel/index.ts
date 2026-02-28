@@ -10,8 +10,8 @@ import { executeStreamingAnalyticalQuery, executeAnalyticalQuery, executeEmbeddi
 const CONFIG = {
     TIMEOUT_MS: 45000,
     MODELS: {
-        PRIMARY: "gemini-3-flash-preview",
-        FALLBACK: "gemini-3-flash-preview"
+        PRIMARY: "gemini-2.5-flash",
+        FALLBACK: "gemini-2.5-flash"
     }
 };
 

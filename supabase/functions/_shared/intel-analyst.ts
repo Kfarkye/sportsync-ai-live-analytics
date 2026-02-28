@@ -55,7 +55,7 @@ export const analyzeMatchup = async (matchup: MatchupContext) => {
 
     try {
         const { text } = await executeAnalyticalQuery(prompt, {
-            model: "gemini-3-flash-preview",
+            model: "gemini-2.5-flash",
             temperature: 0.7,
             thinkingBudget: 2048, // Flash doesn't need much thinking for summary tasks
             tools: [] // Fast generation, no search needed as context is provided

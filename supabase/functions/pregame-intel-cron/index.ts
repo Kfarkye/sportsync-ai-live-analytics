@@ -151,7 +151,7 @@ OPERATING PRINCIPLES:
     Identify logical friction and perform a clinical audit.`;
 
     const { text } = await executeAnalyticalQuery([{ text: prompt }], {
-        model: "gemini-3-flash-preview", // Kept original model preference
+        model: "gemini-2.5-flash", // Kept original model preference
         systemInstruction: SYSTEM_INSTRUCTION,
         responseSchema: QUANT_INTEL_SCHEMA,
         thinkingBudget: 32768,

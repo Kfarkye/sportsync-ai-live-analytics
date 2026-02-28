@@ -142,7 +142,7 @@ Evaluate through the Triple Confluence Gate:
 Score each gate 0-100. Set pass_gate=true ONLY if ALL gates have strong evidence (60+ each).`;
 
         const { text } = await executeAnalyticalQuery([{ text: prompt }], {
-            model: "gemini-3-flash-preview",
+            model: "gemini-2.5-flash",
             systemInstruction: SYSTEM_INSTRUCTION,
             responseSchema: SHARP_PICK_SCHEMA,
             thinkingBudget: 16384,

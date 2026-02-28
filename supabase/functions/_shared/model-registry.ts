@@ -15,7 +15,7 @@ export interface ModelConfig {
 
 export const MODEL_REGISTRY: ModelConfig[] = [
     {
-        id: 'gemini-3-flash-preview',
+        id: 'gemini-2.5-flash',
         displayName: 'Gemini 3 Flash',
         apiProvider: 'google',
         strengths: ['Speed', 'Grounding Search', 'Long Context', 'Multimodal'],
@@ -24,7 +24,7 @@ export const MODEL_REGISTRY: ModelConfig[] = [
         timeout: 45000
     },
     {
-        id: 'gemini-3-flash-preview',
+        id: 'gemini-2.5-flash',
         displayName: 'Gemini 3 Pro',
         apiProvider: 'google',
         strengths: ['Deep Reasoning', 'Complex Analysis', 'Accuracy'],
