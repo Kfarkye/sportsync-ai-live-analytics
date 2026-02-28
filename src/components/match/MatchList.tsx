@@ -16,6 +16,7 @@ import TeamLogo from '../shared/TeamLogo';
 import { LayoutGroup, motion } from 'framer-motion';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { cn } from '@/lib/essence';
+import { usePolyOdds, findPolyForMatch, calcEdge, americanToImpliedProb, polyProbToPercent, type PolyOddsResult } from '@/hooks/usePolyOdds';
 
 // ============================================================================
 // TYPES
@@ -50,16 +51,43 @@ const STAGGER_DELAY = 0.04;
 // ============================================================================
 
 const OptimizedMatchRow = memo(({
-    match, isPinned, isLive, isFinal, onSelect, onToggle,
+    match, isPinned, isLive, isFinal, onSelect, onToggle, polyResult,
 }: {
     match: Match; isPinned: boolean; isLive: boolean; isFinal: boolean;
     onSelect: (m: Match) => void; onToggle: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
+    polyResult?: PolyOddsResult;
 }) => {
     const handleSelect = useCallback(() => onSelect(match), [match, onSelect]);
     const handleToggle = useCallback(
         (e: React.MouseEvent | React.KeyboardEvent) => onToggle(match.id, e),
         [match.id, onToggle]
     );
+
+    // Derive poly props for this specific match — already oriented to ESPN home/away
+    const poly = findPolyForMatch(
+        polyResult,
+        match.id,
+        match.homeTeam?.name || match.homeTeam?.shortName,
+        match.awayTeam?.name || match.awayTeam?.shortName,
+    );
+
+    let polyHomeProb: number | undefined;
+    let polyAwayProb: number | undefined;
+    let homeEdge: number | undefined;
+    let awayEdge: number | undefined;
+    let probSource: 'poly' | 'espn' | undefined;
+
+    if (poly) {
+        polyHomeProb = polyProbToPercent(poly.homeProb);
+        polyAwayProb = polyProbToPercent(poly.awayProb);
+        probSource = 'poly';
+
+        // Compute edge if we have moneyline odds
+        const homeML = Number(match.odds?.moneylineHome || match.odds?.home_ml || 0);
+        const awayML = Number(match.odds?.moneylineAway || match.odds?.away_ml || 0);
+        if (homeML !== 0) homeEdge = calcEdge(poly.homeProb, americanToImpliedProb(homeML));
+        if (awayML !== 0) awayEdge = calcEdge(poly.awayProb, americanToImpliedProb(awayML));
+    }
 
     return (
         <MatchRow
@@ -69,6 +97,11 @@ const OptimizedMatchRow = memo(({
             isFinal={isFinal}
             onSelect={handleSelect}
             onTogglePin={handleToggle}
+            {...(polyHomeProb !== undefined ? { polyHomeProb } : {})}
+            {...(polyAwayProb !== undefined ? { polyAwayProb } : {})}
+            {...(homeEdge !== undefined ? { homeEdge } : {})}
+            {...(awayEdge !== undefined ? { awayEdge } : {})}
+            {...(probSource ? { probSource } : {})}
         />
     );
 });
@@ -227,6 +260,7 @@ const LeagueGroup = memo(({
     onSelectMatch,
     onTogglePin,
     groupIndex,
+    polyResult,
 }: {
     leagueId: string;
     leagueName: string;
@@ -237,6 +271,7 @@ const LeagueGroup = memo(({
     onSelectMatch: (match: Match) => void;
     onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
     groupIndex: number;
+    polyResult?: PolyOddsResult;
 }) => {
     const [isExpanded, setIsExpanded] = useState(true);
     const [measureRef, bounds] = useMeasure();
@@ -346,6 +381,7 @@ const LeagueGroup = memo(({
                             isFinal={isMatchFinal(match)}
                             onSelect={onSelectMatch}
                             onToggle={onTogglePin}
+                            {...(polyResult ? { polyResult } : {})}
                         />
                     ))}
                 </div>
@@ -382,6 +418,10 @@ const MatchList: React.FC<MatchListProps> = ({
         (id: string, e: React.MouseEvent | React.KeyboardEvent) => callbacksRef.current.onTogglePin(id, e),
         []
     );
+
+    // ── Polymarket probability data ────────────────────────────────────
+    const { data: polyResult } = usePolyOdds();
+
     const { groupedMatches, featuredMatches } = useMemo(() => {
         const groups: Map<string, Match[]> = new Map();
 
@@ -490,6 +530,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                                 onSelectMatch={handleSelect}
                                                 onTogglePin={handleToggle}
                                                 groupIndex={groupIndex}
+                                                {...(polyResult ? { polyResult } : {})}
                                             />
                                         );
                                     }

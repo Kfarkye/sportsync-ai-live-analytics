@@ -58,6 +58,9 @@ import RecentForm from '../pregame/RecentForm';
 import SafePregameIntelCards from '../pregame/PregameIntelCards';
 import OddsCard from '../betting/OddsCard';
 import { GoalieMatchup } from '../GoalieMatchup';
+import EdgeCard from './EdgeCard';
+import MarketEdgeCard from './MarketEdgeCard';
+import { usePolyOdds, findPolyForMatch, type PolyMatchOriented } from '@/hooks/usePolyOdds';
 import { MatchupLoader, MatchupContextPills } from '../ui';
 import ChatWidget from '../ChatWidget';
 import { TechnicalDebugView } from '../TechnicalDebugView';
@@ -1016,6 +1019,13 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const [pregameIntel, setPregameIntel] = useState<PregameIntelResponse | null>(null);
   useKeyboardNavigation(matches, match.id, onSelectMatch);
 
+  // ── Polymarket probability data ────────────────────────────────────
+  const { data: polyResult } = usePolyOdds();
+  const polyData: PolyMatchOriented | null = useMemo(
+    () => findPolyForMatch(polyResult, match.id, match.homeTeam?.name, match.awayTeam?.name),
+    [polyResult, match.id, match.homeTeam?.name, match.awayTeam?.name]
+  );
+
   const isSched = useMemo(() => isGameScheduled(match?.status), [match?.status]);
   const isLive = isGameInProgress(match.status);
   const homeColor = useMemo(() => normalizeColor(match?.homeTeam?.color, '#3B82F6'), [match.homeTeam]);
@@ -1396,6 +1406,42 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                 )}
                 {activeTab === 'DATA' && (
                   <div className="space-y-0">
+                    {/* ── Polymarket Intelligence Section ─────────────── */}
+                    {polyData && match.homeTeam && match.awayTeam && (
+                      <div className="mb-12 space-y-6">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1 h-1 rounded-full bg-indigo-400" />
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Market Intelligence</span>
+                        </div>
+                        <EdgeCard
+                          homeTeam={match.homeTeam.shortName || match.homeTeam.name}
+                          awayTeam={match.awayTeam.shortName || match.awayTeam.name}
+                          homePolyProb={polyData.homeProb}
+                          awayPolyProb={polyData.awayProb}
+                          volume={polyData.volume}
+                          {...(Number(match.current_odds?.moneylineHome || match.current_odds?.home_ml || 0) !== 0
+                            ? { homeMoneyline: Number(match.current_odds?.moneylineHome || match.current_odds?.home_ml) }
+                            : {})}
+                          {...(Number(match.current_odds?.moneylineAway || match.current_odds?.away_ml || 0) !== 0
+                            ? { awayMoneyline: Number(match.current_odds?.moneylineAway || match.current_odds?.away_ml) }
+                            : {})}
+                        />
+                        <MarketEdgeCard
+                          homeTeam={match.homeTeam.shortName || match.homeTeam.name}
+                          awayTeam={match.awayTeam.shortName || match.awayTeam.name}
+                          homePolyProb={polyData.homeProb}
+                          awayPolyProb={polyData.awayProb}
+                          volume={polyData.volume}
+                          gameStartTime={polyData.gameStartTime}
+                          {...(Number(match.current_odds?.moneylineHome || match.current_odds?.home_ml || 0) !== 0
+                            ? { homeMoneyline: Number(match.current_odds?.moneylineHome || match.current_odds?.home_ml) }
+                            : {})}
+                          {...(Number(match.current_odds?.moneylineAway || match.current_odds?.away_ml || 0) !== 0
+                            ? { awayMoneyline: Number(match.current_odds?.moneylineAway || match.current_odds?.away_ml) }
+                            : {})}
+                        />
+                      </div>
+                    )}
                     {(gameEdgeCardData || insightCardData) && (
                       <div className="mb-12 space-y-6">
                         <div className="flex items-center gap-2">
