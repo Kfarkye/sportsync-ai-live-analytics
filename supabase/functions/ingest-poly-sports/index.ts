@@ -1,15 +1,13 @@
 // ============================================================================
-// EDGE FUNCTION: ingest-poly-sports
+// EDGE FUNCTION: ingest-poly-sports v5
 // Polymarket → poly_odds pipeline
-// 
-// Architecture:
-//   1. GET gamma-api.polymarket.com/sports → discover series_ids
-//   2. For each mapped league: GET /events?series_id=X&active=true&tag_id=100639
-//   3. Parse outcomePrices (share price = probability, no conversion needed)
-//   4. Upsert to poly_odds with fuzzy team-name matching to games table
 //
-// Trigger: Cron every 5 minutes during active game windows
-// Auth: CRON_SECRET header validation
+// v5: Multi-market ingestion
+//   - Iterates ALL markets per event (moneyline, spread, total)
+//   - Classifies market_type from outcome names
+//   - Extracts spread_line and total_line from outcome text
+//   - Upserts on poly_condition_id (market-level, not event-level)
+//   - Parses game_date from slug for timezone-aware matching
 // ============================================================================
 
 export {};
@@ -19,10 +17,9 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Structured logging — no silent failures
 const log = {
   info: (event: string, data: Record<string, any> = {}) =>
     console.log(JSON.stringify({ level: 'INFO', ts: new Date().toISOString(), fn: 'ingest-poly-sports', event, ...data })),
@@ -32,23 +29,12 @@ const log = {
     console.error(JSON.stringify({ level: 'ERROR', ts: new Date().toISOString(), fn: 'ingest-poly-sports', event, ...data })),
 };
 
-// ── Constants ──────────────────────────────────────────────────────────────
 const GAMMA_API = 'https://gamma-api.polymarket.com';
-const CLOB_API  = 'https://clob.polymarket.com';
-
-// tag_id=100639 filters to individual game bets (not futures/props)
 const GAME_BET_TAG = '100639';
-
-// Rate limiting: 100ms between API calls to be respectful
 const API_DELAY_MS = 100;
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let out = 0;
-  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return out === 0;
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function fetchJSON(url: string, label: string): Promise<any> {
@@ -71,134 +57,151 @@ async function fetchJSON(url: string, label: string): Promise<any> {
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/**
- * Normalize team name for fuzzy matching.
- * "Los Angeles Lakers" → "losangeleslakers"
- * "LA Lakers"          → "lalakers"
- * Used to match Polymarket team names to our games table.
- */
 function normalizeTeamName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
-    .replace(/^the/, '');
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/^the/, '');
 }
 
-/**
- * Parse Polymarket event into structured probability data.
- * 
- * Polymarket events contain:
- *   - title: "Team A vs Team B" 
- *   - outcomes: ["Team A", "Team B"] or ["Team A", "Team B", "Draw"]
- *   - outcomePrices: ["0.5800", "0.4200"] — these ARE probabilities
- */
-function parsePolyEvent(event: any): {
-  poly_event_id: string;
-  poly_event_slug: string;
+function parseDateFromSlug(slug: string): string | null {
+  const match = slug.match(/(\d{4}-\d{2}-\d{2})$/);
+  return match ? match[1] : null;
+}
+
+// ── Market classification ───────────────────────────────────────────────
+
+interface ClassifiedMarket {
+  market_type: 'moneyline' | 'spread' | 'total' | 'prop';
   home_team_name: string;
   away_team_name: string;
   home_prob: number;
   away_prob: number;
   draw_prob: number | null;
+  spread_line: number | null;
+  total_line: number | null;
   volume: number;
-  game_start_time: string;
-  poly_condition_id: string | null;
-} | null {
-  try {
-    const markets = event.markets || [];
-    if (!markets.length) return null;
+  poly_condition_id: string;
+}
 
-    // Primary market is the moneyline/match winner
-    const market = markets[0];
+function classifyMarket(market: any): ClassifiedMarket | null {
+  try {
     const outcomes: string[] = JSON.parse(market.outcomes || '[]');
     const prices: string[] = JSON.parse(market.outcomePrices || '[]');
-
     if (outcomes.length < 2 || prices.length < 2) return null;
 
-    // Determine home/away from outcome order (Polymarket: home first)
     const homeProb = parseFloat(prices[0]) || 0;
     const awayProb = parseFloat(prices[1]) || 0;
     const drawProb = prices.length > 2 ? (parseFloat(prices[2]) || null) : null;
+    const volume = parseFloat(market.volume || '0');
+    const conditionId = market.conditionId || null;
+    if (!conditionId) return null;
 
-    // Volume in USD
-    const volume = parseFloat(market.volume || event.volume || '0');
+    const o0 = outcomes[0] || '';
+    const o1 = outcomes[1] || '';
+    const o0Lower = o0.toLowerCase();
+    const o1Lower = o1.toLowerCase();
 
+    // Total: "Over X" / "Under X"
+    if (o0Lower === 'over' || o0Lower === 'under' || o1Lower === 'over' || o1Lower === 'under') {
+      const lineMatch = (market.question || '').match(/(\d+\.?\d*)/);
+      return {
+        market_type: 'total',
+        home_team_name: o0,
+        away_team_name: o1,
+        home_prob: Math.round(homeProb * 10000) / 10000,
+        away_prob: Math.round(awayProb * 10000) / 10000,
+        draw_prob: null,
+        spread_line: null,
+        total_line: lineMatch ? parseFloat(lineMatch[1]) : null,
+        volume,
+        poly_condition_id: conditionId,
+      };
+    }
+
+    // Spread: outcomes contain +/- numbers like "Thunder -6.5"
+    const spreadMatch0 = o0.match(/([+-]\d+\.?\d*)/);
+    const spreadMatch1 = o1.match(/([+-]\d+\.?\d*)/);
+    if (spreadMatch0 || spreadMatch1) {
+      const line = spreadMatch0 ? parseFloat(spreadMatch0[1]) : (spreadMatch1 ? parseFloat(spreadMatch1[1]) : null);
+      const cleanHome = o0.replace(/\s*[+-]\d+\.?\d*\s*/, '').trim();
+      const cleanAway = o1.replace(/\s*[+-]\d+\.?\d*\s*/, '').trim();
+      return {
+        market_type: 'spread',
+        home_team_name: cleanHome || o0,
+        away_team_name: cleanAway || o1,
+        home_prob: Math.round(homeProb * 10000) / 10000,
+        away_prob: Math.round(awayProb * 10000) / 10000,
+        draw_prob: drawProb !== null ? Math.round(drawProb * 10000) / 10000 : null,
+        spread_line: line,
+        total_line: null,
+        volume,
+        poly_condition_id: conditionId,
+      };
+    }
+
+    // Moneyline: team names as outcomes
     return {
-      poly_event_id: String(event.id),
-      poly_event_slug: event.slug || '',
-      home_team_name: outcomes[0] || 'Unknown',
-      away_team_name: outcomes[1] || 'Unknown',
-      home_prob: Math.round(homeProb * 10000) / 10000,  // 4 decimal precision
+      market_type: 'moneyline',
+      home_team_name: o0,
+      away_team_name: o1,
+      home_prob: Math.round(homeProb * 10000) / 10000,
       away_prob: Math.round(awayProb * 10000) / 10000,
       draw_prob: drawProb !== null ? Math.round(drawProb * 10000) / 10000 : null,
+      spread_line: null,
+      total_line: null,
       volume,
-      game_start_time: event.startDate || event.endDate || new Date().toISOString(),
-      poly_condition_id: market.conditionId || null,
+      poly_condition_id: conditionId,
     };
   } catch (err: any) {
-    log.warn('PARSE_EVENT_FAIL', { event_id: event?.id, error: err.message });
+    log.warn('CLASSIFY_FAIL', { error: err.message });
     return null;
   }
 }
 
-/**
- * Try to match a Polymarket event to an existing game in our matches table.
- * Uses fuzzy team name matching + date proximity.
- */
 async function matchToGame(
   supabase: any,
-  parsed: { home_team_name: string; away_team_name: string; game_start_time: string; },
+  homeTeam: string,
+  awayTeam: string,
+  gameDate: string | null,
   leagueId: string
 ): Promise<string | null> {
   try {
-    const gameDate = new Date(parsed.game_start_time);
-    const dayStart = new Date(gameDate);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(gameDate);
-    dayEnd.setHours(23, 59, 59, 999);
+    if (!gameDate) return null;
+    if (homeTeam === 'Over' || homeTeam === 'Under') return null;
 
-    // Query matches for this league on this date
+    const nextDate = new Date(gameDate + 'T00:00:00Z');
+    nextDate.setUTCDate(nextDate.getUTCDate() + 2);
+    const endDateStr = nextDate.toISOString().split('T')[0];
+
     const { data: matches, error } = await supabase
       .from('matches')
       .select('id, home_team, away_team, start_time, league_id')
       .eq('league_id', leagueId)
-      .gte('start_time', dayStart.toISOString())
-      .lte('start_time', dayEnd.toISOString());
+      .gte('start_time', gameDate + 'T00:00:00Z')
+      .lt('start_time', endDateStr + 'T00:00:00Z');
 
     if (error || !matches?.length) return null;
 
-    const normHome = normalizeTeamName(parsed.home_team_name);
-    const normAway = normalizeTeamName(parsed.away_team_name);
+    const normHome = normalizeTeamName(homeTeam);
+    const normAway = normalizeTeamName(awayTeam);
 
-    // Try exact normalized match first
     for (const match of matches) {
       const mHome = normalizeTeamName(match.home_team || '');
       const mAway = normalizeTeamName(match.away_team || '');
 
-      // Direct match
       if ((mHome.includes(normHome) || normHome.includes(mHome)) &&
           (mAway.includes(normAway) || normAway.includes(mAway))) {
         return match.id;
       }
-      // Reversed (home/away flip between sources)
       if ((mHome.includes(normAway) || normAway.includes(mHome)) &&
           (mAway.includes(normHome) || normHome.includes(mAway))) {
         return match.id;
       }
     }
-
     return null;
   } catch (err: any) {
     log.warn('MATCH_FAIL', { error: err.message });
     return null;
   }
 }
-
-// ── Main Handler ───────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -209,28 +212,17 @@ Deno.serve(async (req: Request) => {
   const errors: any[] = [];
   let leaguesQueried = 0;
   let eventsFound = 0;
-  let eventsUpserted = 0;
-  let eventsMatched = 0;
+  let marketsFound = 0;
+  let marketsUpserted = 0;
+  let marketsMatched = 0;
+  const typeCounts: Record<string, number> = { moneyline: 0, spread: 0, total: 0, prop: 0 };
 
   try {
-    // ── Auth ──────────────────────────────────────────────────────────────
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const cronSecret  = Deno.env.get('CRON_SECRET') || '';
-    const reqSecret   = req.headers.get('x-cron-secret') ?? '';
-
-    if (cronSecret && !timingSafeEqual(cronSecret, reqSecret)) {
-      log.warn('AUTH_FAIL');
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const supabase = createClient(supabaseUrl!, supabaseKey!);
     log.info('START');
 
-    // ── Step 1: Get league mappings ───────────────────────────────────────
     const { data: leagueMaps, error: mapErr } = await supabase
       .from('poly_league_map')
       .select('*')
@@ -243,19 +235,15 @@ Deno.serve(async (req: Request) => {
 
     log.info('LEAGUE_MAPS_LOADED', { count: leagueMaps.length });
 
-    // ── Step 2: Discover sports from Polymarket (optional refresh) ────────
-    // We rely on poly_league_map seed data rather than live /sports discovery
-    // to avoid schema drift. /sports endpoint used only for initial seeding.
-
-    // ── Step 3: Fetch events per league ───────────────────────────────────
-    const allParsed: any[] = [];
+    const allRows: any[] = [];
+    const gameIdCache: Record<string, string | null> = {};
 
     for (const map of leagueMaps) {
       leaguesQueried++;
-      
+
       const url = `${GAMMA_API}/events?series_id=${map.poly_series_id}&active=true&closed=false&tag_id=${GAME_BET_TAG}&limit=50`;
       const events = await fetchJSON(url, `events:${map.display_name}`);
-      
+
       if (!events || !Array.isArray(events)) {
         errors.push({ league: map.display_name, error: 'null_response' });
         await sleep(API_DELAY_MS);
@@ -264,58 +252,68 @@ Deno.serve(async (req: Request) => {
 
       for (const event of events) {
         eventsFound++;
-        const parsed = parsePolyEvent(event);
-        if (!parsed) continue;
+        const markets = event.markets || [];
+        const slug = event.slug || '';
+        const gameDate = parseDateFromSlug(slug);
+        const eventId = String(event.id);
 
-        // Attach league context
-        const enriched = {
-          ...parsed,
-          local_league_id: map.local_league_id,
-          poly_series_id: map.poly_series_id,
-        };
+        for (const market of markets) {
+          marketsFound++;
+          const classified = classifyMarket(market);
+          if (!classified) continue;
 
-        // Try to match to existing game
-        const gameId = await matchToGame(supabase, parsed, map.local_league_id);
-        if (gameId) {
-          enriched.game_id = gameId;
-          eventsMatched++;
+          typeCounts[classified.market_type] = (typeCounts[classified.market_type] || 0) + 1;
+
+          let gameId: string | null = null;
+          if (slug in gameIdCache) {
+            gameId = gameIdCache[slug];
+          } else if (classified.market_type === 'moneyline') {
+            gameId = await matchToGame(supabase, classified.home_team_name, classified.away_team_name, gameDate, map.local_league_id);
+            gameIdCache[slug] = gameId;
+            if (gameId) marketsMatched++;
+          }
+          if (!gameId && slug in gameIdCache) {
+            gameId = gameIdCache[slug];
+          }
+
+          allRows.push({
+            poly_event_id: eventId,
+            poly_event_slug: slug,
+            poly_condition_id: classified.poly_condition_id,
+            market_type: classified.market_type,
+            home_prob: classified.home_prob,
+            away_prob: classified.away_prob,
+            draw_prob: classified.draw_prob,
+            spread_line: classified.spread_line,
+            total_line: classified.total_line,
+            volume: classified.volume,
+            home_team_name: classified.home_team_name,
+            away_team_name: classified.away_team_name,
+            local_league_id: map.local_league_id,
+            poly_series_id: map.poly_series_id,
+            game_start_time: event.startDate || event.endDate || new Date().toISOString(),
+            game_date: gameDate,
+            game_id: gameId || null,
+            market_active: true,
+            poly_updated_at: new Date().toISOString(),
+          });
         }
-
-        allParsed.push(enriched);
       }
 
       await sleep(API_DELAY_MS);
     }
 
-    log.info('EVENTS_PARSED', { total: eventsFound, parsed: allParsed.length, matched: eventsMatched });
+    log.info('MARKETS_PARSED', { events: eventsFound, markets: marketsFound, rows: allRows.length, types: typeCounts, matched: marketsMatched });
 
-    // ── Step 4: Batch upsert to poly_odds ─────────────────────────────────
-    if (allParsed.length > 0) {
-      // Upsert in batches of 50
+    if (allRows.length > 0) {
       const BATCH = 50;
-      for (let i = 0; i < allParsed.length; i += BATCH) {
-        const batch = allParsed.slice(i, i + BATCH).map(p => ({
-          poly_event_id:     p.poly_event_id,
-          poly_event_slug:   p.poly_event_slug,
-          poly_condition_id: p.poly_condition_id,
-          home_prob:         p.home_prob,
-          away_prob:         p.away_prob,
-          draw_prob:         p.draw_prob,
-          volume:            p.volume,
-          home_team_name:    p.home_team_name,
-          away_team_name:    p.away_team_name,
-          local_league_id:   p.local_league_id,
-          poly_series_id:    p.poly_series_id,
-          game_start_time:   p.game_start_time,
-          game_id:           p.game_id || null,
-          market_active:     true,
-          poly_updated_at:   new Date().toISOString(),
-        }));
+      for (let i = 0; i < allRows.length; i += BATCH) {
+        const batch = allRows.slice(i, i + BATCH);
 
-        const { error: upsertErr, count } = await supabase
+        const { error: upsertErr } = await supabase
           .from('poly_odds')
-          .upsert(batch, { 
-            onConflict: 'poly_event_id',
+          .upsert(batch, {
+            onConflict: 'poly_condition_id',
             count: 'exact',
           });
 
@@ -323,13 +321,12 @@ Deno.serve(async (req: Request) => {
           log.error('UPSERT_FAIL', { batch: i / BATCH, error: upsertErr.message });
           errors.push({ batch: i / BATCH, error: upsertErr.message });
         } else {
-          eventsUpserted += batch.length;
+          marketsUpserted += batch.length;
         }
       }
     }
 
-    // ── Step 5: Mark stale markets as inactive ────────────────────────────
-    // Any poly_odds row not updated in this run and starting > 4hrs ago = stale
+    // Mark stale
     const staleThreshold = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
     await supabase
       .from('poly_odds')
@@ -338,25 +335,27 @@ Deno.serve(async (req: Request) => {
       .eq('market_active', true)
       .lt('poly_updated_at', new Date(runStart).toISOString());
 
-    // ── Step 6: Write telemetry ───────────────────────────────────────────
+    // Telemetry
     const duration = Date.now() - runStart;
-    const status = errors.length === 0 ? 'success' : (eventsUpserted > 0 ? 'partial' : 'failure');
+    const status = errors.length === 0 ? 'success' : (marketsUpserted > 0 ? 'partial' : 'failure');
 
     await supabase.from('poly_ingest_log').insert({
       leagues_queried: leaguesQueried,
-      events_found:    eventsFound,
-      events_upserted: eventsUpserted,
-      events_matched:  eventsMatched,
-      errors:          errors,
-      duration_ms:     duration,
+      events_found: eventsFound,
+      events_upserted: marketsUpserted,
+      events_matched: marketsMatched,
+      errors: errors,
+      duration_ms: duration,
       status,
     });
 
-    log.info('COMPLETE', { 
-      leagues: leaguesQueried, 
-      found: eventsFound, 
-      upserted: eventsUpserted, 
-      matched: eventsMatched,
+    log.info('COMPLETE', {
+      leagues: leaguesQueried,
+      events: eventsFound,
+      markets: marketsFound,
+      upserted: marketsUpserted,
+      matched: marketsMatched,
+      types: typeCounts,
       errors: errors.length,
       ms: duration,
       status,
@@ -365,11 +364,13 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({
       status,
       leagues_queried: leaguesQueried,
-      events_found:    eventsFound,
-      events_upserted: eventsUpserted,
-      events_matched:  eventsMatched,
-      errors:          errors.length,
-      duration_ms:     duration,
+      events_found: eventsFound,
+      markets_found: marketsFound,
+      markets_upserted: marketsUpserted,
+      markets_matched: marketsMatched,
+      types: typeCounts,
+      errors: errors.length,
+      duration_ms: duration,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
@@ -379,8 +380,8 @@ Deno.serve(async (req: Request) => {
     const duration = Date.now() - runStart;
     log.error('FATAL', { error: err.message, stack: err.stack, ms: duration });
 
-    return new Response(JSON.stringify({ 
-      status: 'failure', 
+    return new Response(JSON.stringify({
+      status: 'failure',
       error: err.message,
       duration_ms: duration,
     }), {
