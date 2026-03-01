@@ -15,7 +15,7 @@ import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
 import { LayoutGroup, motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/essence';
-import { getTeamColor } from '@/lib/teamColors';
+import { getTeamColor, getTeamLogo } from '@/lib/teamColors';
 import {
     usePolyOdds,
     findPolyForMatch,
@@ -196,6 +196,10 @@ const MarketPulseRow = memo(({ poly, match, onSelect, isLast }: {
     const awayColor = getTeamColor(poly.away_team_name) || match?.awayTeam?.color || '#a1a1aa';
     const homeColor = getTeamColor(poly.home_team_name) || match?.homeTeam?.color || '#a1a1aa';
 
+    // Match logo → static ESPN CDN map → empty
+    const awayLogo = match?.awayTeam?.logo || getTeamLogo(poly.away_team_name);
+    const homeLogo = match?.homeTeam?.logo || getTeamLogo(poly.home_team_name);
+
     const handleClick = useCallback(() => {
         if (match) onSelect(match);
     }, [match, onSelect]);
@@ -214,8 +218,8 @@ const MarketPulseRow = memo(({ poly, match, onSelect, isLast }: {
             <div className="flex justify-between items-center mb-1.5">
                 <div className="flex items-center gap-2 min-w-0">
                     <div className="w-[18px] h-[18px] rounded-full bg-zinc-100 flex items-center justify-center shrink-0 border border-black/5 overflow-hidden">
-                        {match?.awayTeam?.logo ? (
-                            <TeamLogo logo={match.awayTeam.logo} name={poly.away_team_name} className="w-3.5 h-3.5 object-contain" />
+                        {awayLogo ? (
+                            <TeamLogo logo={awayLogo} name={poly.away_team_name} className="w-3.5 h-3.5 object-contain" />
                         ) : <span className="w-3 h-3 block" />}
                     </div>
                     <span className={cn(
@@ -232,8 +236,8 @@ const MarketPulseRow = memo(({ poly, match, onSelect, isLast }: {
             <div className="flex justify-between items-center mb-2.5">
                 <div className="flex items-center gap-2 min-w-0">
                     <div className="w-[18px] h-[18px] rounded-full bg-zinc-100 flex items-center justify-center shrink-0 border border-black/5 overflow-hidden">
-                        {match?.homeTeam?.logo ? (
-                            <TeamLogo logo={match.homeTeam.logo} name={poly.home_team_name} className="w-3.5 h-3.5 object-contain" />
+                        {homeLogo ? (
+                            <TeamLogo logo={homeLogo} name={poly.home_team_name} className="w-3.5 h-3.5 object-contain" />
                         ) : <span className="w-3 h-3 block" />}
                     </div>
                     <span className={cn(
