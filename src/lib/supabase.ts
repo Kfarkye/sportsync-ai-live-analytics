@@ -5,8 +5,8 @@ import { createClient } from '@supabase/supabase-js';
 // ====================================================================================
 
 // Retrieve configuration using static access only to prevent bundling of all VITE_ env vars
-const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = ((import.meta as any).env.VITE_SUPABASE_URL || '').trim();
+const supabaseAnonKey = ((import.meta as any).env.VITE_SUPABASE_ANON_KEY || '').trim();
 
 // Debug Logging
 const isKeyValid = supabaseAnonKey && supabaseAnonKey.length > 20 && !supabaseAnonKey.startsWith('Missing');

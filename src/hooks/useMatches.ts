@@ -19,7 +19,7 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
   const SUPABASE_URL = getSupabaseUrl();
   // FIX: Provide Vite the exact string to replace at build-time
   // @ts-ignore - Vite needs this exact string format for replacement, despite TS warnings
-  const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY.trim();
 
   console.log("Calling fetch-matches v2 for DB-first schedule + odds:", dateStr);
 
