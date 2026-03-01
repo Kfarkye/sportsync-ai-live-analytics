@@ -28,7 +28,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSport, onSelectSport }) => {
                 onClick={() => onSelectSport(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                     activeSport === item.id 
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
+                    ? 'bg-slate-800 text-white border border-slate-700' 
                     : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                 }`}
                 >

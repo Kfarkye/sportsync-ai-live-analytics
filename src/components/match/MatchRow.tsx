@@ -27,7 +27,7 @@ const PHYSICS_MOTION = { type: "spring" as const, stiffness: 400, damping: 25 };
 const LOGO_W = 24;
 const LOGO_GAP = 16;
 const SCORE_W = 32;
-const PROB_W = 52;
+const PROB_W = 88;
 const TEAM_INDENT = LOGO_W + LOGO_GAP;
 
 const isValidOdd = (val: string | number | null | undefined): boolean => val !== null && val !== undefined && val !== '-' && val !== '';
@@ -41,7 +41,7 @@ const ProbPill = memo(({ value, isFavorite }: { value: number | undefined; isFav
     <span
       className={cn(
         "inline-flex items-center justify-center tabular-nums font-medium select-none w-[46px] h-[22px] rounded-[6px] text-[11px] shrink-0 border",
-        isFavorite ? "bg-emerald-50/60 text-emerald-500 border-emerald-100" : "bg-transparent text-slate-400 border-slate-100"
+        isFavorite ? "bg-slate-50 text-slate-700 border-slate-200" : "bg-transparent text-slate-400 border-slate-100"
       )}
       title={`${pct}% win probability`}
     >
@@ -301,7 +301,6 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
               <div className="flex items-center gap-1.5 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
                 <span className="relative flex h-1.5 w-1.5 shrink-0">
-                  <span className="motion-reduce:hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600"></span>
                 </span>
                 <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest font-mono mt-[1px]">

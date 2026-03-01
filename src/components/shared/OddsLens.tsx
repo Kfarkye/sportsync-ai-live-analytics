@@ -61,17 +61,17 @@ function getPillColors(mode: OddsLensMode, value: number | undefined, isFavorite
     return { text: '#dc2626', bg: 'rgba(220,38,38,0.03)', border: 'rgba(220,38,38,0.15)' };
   }
 
-  // ODDS mode: favorite (negative odds) = emerald
+  // ODDS mode: favorite (negative odds) = dark neutral
   if (mode === 'ODDS') {
     const isNeg = value !== undefined && value >= 50;
     return isNeg
-      ? { text: '#059669', bg: 'rgba(16,185,129,0.04)', border: 'rgba(16,185,129,0.25)' }
+      ? { text: '#0f172a', bg: 'rgba(15,23,42,0.03)', border: '#cbd5e1' }
       : { text: '#94a3b8', bg: 'transparent', border: '#e2e8f0' };
   }
 
-  // PROB mode: favorite = emerald
+  // PROB mode: favorite = dark neutral, underdog = muted
   return isFavorite
-    ? { text: '#059669', bg: 'rgba(16,185,129,0.04)', border: 'rgba(16,185,129,0.25)' }
+    ? { text: '#0f172a', bg: 'rgba(15,23,42,0.03)', border: '#cbd5e1' }
     : { text: '#94a3b8', bg: 'transparent', border: '#e2e8f0' };
 }
 
@@ -114,15 +114,20 @@ export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavori
     toggleOddsLens();
   }, [toggleOddsLens]);
 
+  // Mini bar dimensions
+  const showMiniBar = oddsLens === 'PROB' && value !== undefined;
+  const barWidth = 36;
+  const barHeight = 3;
+
   return (
     <button
       type="button"
       onClick={handleClick}
       aria-label={`${display} — tap to switch format`}
-      className="inline-flex items-center justify-center tabular-nums font-semibold select-none cursor-pointer transition-all duration-150 hover:opacity-80 active:scale-95 relative"
+      className="inline-flex items-center justify-center gap-1.5 tabular-nums font-semibold select-none cursor-pointer transition-all duration-150 hover:opacity-80 active:scale-95 relative"
       style={{
         fontSize: isEdgeMode ? 10 : 11,
-        minWidth: isOddsMode ? 48 : isEdgeMode ? 52 : 42,
+        minWidth: isOddsMode ? 48 : isEdgeMode ? 52 : showMiniBar ? 82 : 42,
         height: 22,
         padding: '0 6px',
         borderRadius: 6,
@@ -134,11 +139,34 @@ export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavori
         outline: 'none',
       }}
     >
-      {display}
+      <span>{display}</span>
+      {showMiniBar && (
+        <span
+          style={{
+            display: 'inline-flex',
+            width: barWidth,
+            height: barHeight,
+            borderRadius: barHeight / 2,
+            backgroundColor: '#e2e8f0',
+            overflow: 'hidden',
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              width: `${value}%`,
+              height: '100%',
+              borderRadius: barHeight / 2,
+              backgroundColor: isFavorite ? '#334155' : '#cbd5e1',
+              transition: 'width 0.4s ease',
+            }}
+          />
+        </span>
+      )}
       {isPoly && oddsLens === 'PROB' && (
         <span
           className="absolute -top-0.5 -right-0.5 w-1 h-1 rounded-full"
-          style={{ backgroundColor: '#059669' }}
+          style={{ backgroundColor: '#334155' }}
           aria-label="Polymarket data"
         />
       )}
