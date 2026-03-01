@@ -194,7 +194,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       aria-label={`${match.awayTeam?.name || 'Away Team'} vs ${match.homeTeam?.name || 'Home Team'}`}
       onKeyDown={(e: React.KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onSelect?.(match); } }}
       className={cn(
-        "group relative flex items-center justify-between px-3 py-2.5 md:px-5 md:py-3 cursor-pointer transform-gpu min-h-[44px]",
+        "group relative flex items-center justify-between px-3 py-2 sm:px-5 sm:py-3 cursor-pointer transform-gpu min-h-[44px]",
         "focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none focus-visible:ring-inset",
         "transition-colors duration-200",
         "border-b border-slate-200/60",
@@ -212,7 +212,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       )} />
 
       {/* Team Data */}
-      <div className="flex flex-col flex-1 min-w-0 pr-6 pl-1.5 md:pl-0 pt-0.5 pb-1 gap-1.5">
+      <div className="flex flex-col flex-1 min-w-0 pr-3 sm:pr-6 pl-1.5 sm:pl-0 pt-0.5 pb-0.5 sm:pb-1 gap-1 sm:gap-1.5">
         {[match.awayTeam, match.homeTeam].map((team, idx) => {
           // Guard against malformed API payloads where one team is null
           if (!team) return null;
@@ -294,7 +294,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       </div>
 
       {/* Status Metadata */}
-      <div className="flex flex-col items-end gap-1 pl-6 min-w-[80px] border-l border-slate-200 py-1 select-none">
+      <div className="flex flex-col items-end gap-1 pl-3 sm:pl-6 min-w-[70px] sm:min-w-[80px] border-l border-slate-200 py-1 select-none">
         {isLive ? (
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1.5">

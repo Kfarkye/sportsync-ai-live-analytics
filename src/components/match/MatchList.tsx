@@ -413,7 +413,7 @@ const LeagueGroup = memo(({
                 type="button"
                 onClick={toggle}
                 className={cn(
-                    'flex items-center justify-between w-full min-h-[44px] px-4 py-3',
+                    'flex items-center justify-between w-full min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2.5 sm:py-3',
                     'bg-zinc-50/80 backdrop-blur-sm sticky top-[92px] z-10 border-b border-zinc-200/60',
                     'transition-colors hover:bg-zinc-100',
                     'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400',
@@ -584,7 +584,7 @@ const MatchList: React.FC<MatchListProps> = ({
     // Steal #5: Upgraded loading skeleton
     if (isLoading && matches.length === 0) {
         return (
-            <div className="min-h-screen bg-[#F9F9FA] pb-32 pt-4 lg:pt-6">
+            <div className="min-h-screen bg-[#F9F9FA] pb-8 pt-2 sm:pt-6 lg:pt-6">
                 <div className="max-w-7xl mx-auto w-full px-0 lg:px-6" aria-busy="true" aria-label="Loading matches">
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-8 items-start">
                         <div className="flex flex-col w-full rounded-xl overflow-hidden bg-white ring-1 ring-zinc-950/5 shadow-sm">
@@ -621,14 +621,14 @@ const MatchList: React.FC<MatchListProps> = ({
     }
 
     return (
-        <div className="min-h-screen bg-[#F9F9FA] pb-32">
+        <div className="min-h-screen bg-[#F9F9FA] pb-8">
             <LayoutGroup id="editorial-feed">
                 <div className="max-w-7xl mx-auto px-0 lg:px-6 w-full">
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-8 items-start">
 
                         {/* MAIN COLUMN */}
-                        <div className="min-w-0 flex flex-col gap-10">
-                            <div className="space-y-8 pt-6">
+                        <div className="min-w-0 flex flex-col">
+                            <div className="space-y-3 sm:space-y-6 pt-2 sm:pt-6">
                                 {groupedMatches.map(([leagueId, enrichedMatchArray], groupIndex) => {
                                     const leagueConfig = LEAGUES.find((l) => l.id.toLowerCase() === leagueId);
                                     return (
