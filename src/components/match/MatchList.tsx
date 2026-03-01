@@ -178,11 +178,10 @@ function formatVolume(vol: number): string {
     return `$${vol}`;
 }
 
-const MarketPulseRow = memo(({ poly, match, onSelect, isLast }: {
+const MarketPulseRow = memo(({ poly, match, onSelect }: {
     poly: PolyOdds;
     match?: Match;
     onSelect: (m: Match) => void;
-    isLast: boolean;
 }) => {
     const homeProb = Math.round(poly.home_prob * 100);
     const awayProb = Math.round(poly.away_prob * 100);
@@ -205,9 +204,8 @@ const MarketPulseRow = memo(({ poly, match, onSelect, isLast }: {
             type="button"
             onClick={handleClick}
             className={cn(
-                "group w-full text-left px-3.5 py-3 transition-colors duration-150 outline-none",
-                match ? "hover:bg-zinc-50 cursor-pointer focus-visible:bg-zinc-50" : "opacity-80 cursor-default",
-                !isLast && "border-b border-zinc-100"
+                "group w-full text-left px-3.5 py-3 transition-colors duration-150 outline-none [-webkit-tap-highlight-color:transparent]",
+                match ? "hover:bg-zinc-50 cursor-pointer focus-visible:bg-zinc-50" : "opacity-80 cursor-default"
             )}
         >
             {/* Away row */}
@@ -265,14 +263,13 @@ MarketPulseRow.displayName = 'MarketPulseRow';
 // FEATURED PROP ROW — Player headshot prop widget
 // ============================================================================
 
-const PropRow = memo(({ prop, isLast }: { prop: FeaturedProp; isLast: boolean }) => {
+const PropRow = memo(({ prop }: { prop: FeaturedProp }) => {
     const isPlus = prop.odds_american > 0;
     const statLabel = STAT_LABELS[prop.bet_type] || prop.bet_type.replace(/_/g, ' ').toUpperCase();
 
     return (
         <div className={cn(
-            "group flex items-center gap-3 px-3.5 py-3 transition-colors duration-150 hover:bg-zinc-50 cursor-pointer",
-            !isLast && "border-b border-zinc-100"
+            "group flex items-center gap-3 px-3.5 py-3 transition-colors duration-150 hover:bg-zinc-50 cursor-pointer [-webkit-tap-highlight-color:transparent]"
         )}>
             {/* Headshot */}
             <div className="relative w-10 h-10 shrink-0">
@@ -379,7 +376,7 @@ const LeagueGroup = memo(({
 }: {
     leagueId: string; leagueName: string; enrichedMatches: EnrichedMatch[];
     onSelectMatch: (match: Match) => void; onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
-    groupIndex: number; polyResult?: PolyOddsResult;
+    groupIndex: number; polyResult?: PolyOddsResult; isMounted?: boolean;
 }) => {
     const [isExpanded, setIsExpanded] = useState(true);
     const [measureRef, bounds] = useMeasure();
@@ -387,6 +384,7 @@ const LeagueGroup = memo(({
 
     // O(1) mathematical extraction, impervious to sorting index changes
     const earliestTime = useMemo(() => {
+        if (!isMounted) return '';
         const earliestMs = enrichedMatches.reduce((min, em) => {
             if (em.isFinal) return min;
             return em.timeMs < min ? em.timeMs : min;
@@ -395,7 +393,7 @@ const LeagueGroup = memo(({
         return earliestMs === Number.MAX_SAFE_INTEGER
             ? ''
             : new Date(earliestMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    }, [enrichedMatches]);
+    }, [enrichedMatches, isMounted]);
 
     return (
         <motion.div
@@ -409,7 +407,7 @@ const LeagueGroup = memo(({
                 type="button"
                 onClick={toggle}
                 className={cn(
-                    'flex items-center justify-between w-full min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2.5 sm:py-3',
+                    'flex items-center justify-between w-full min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2.5 sm:py-3 [-webkit-tap-highlight-color:transparent]',
                     'bg-zinc-50/80 backdrop-blur-sm sticky top-[92px] z-10 border-b border-zinc-200/60',
                     'transition-colors hover:bg-zinc-100',
                     'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400',
@@ -453,10 +451,10 @@ const LeagueGroup = memo(({
                         transition={ACCORDION_SPRING}
                         className={cn(
                             'overflow-hidden relative z-10 -mt-[1px]',
-                            'bg-white border border-slate-200 border-t-0 rounded-b-xl shadow-sm'
+                            'bg-white ring-1 ring-zinc-950/[0.04] border-t-0 rounded-b-xl shadow-sm'
                         )}
                     >
-                        <div ref={measureRef} className="flex flex-col">
+                        <div ref={measureRef} className="flex flex-col divide-y divide-zinc-100/80">
                             {enrichedMatches.map(({ match, isPinned, isLive, isFinal }) => (
                                 <OptimizedMatchRow
                                     key={match.id}
@@ -489,6 +487,9 @@ const MatchList: React.FC<MatchListProps> = ({
     const handleSelect = useEventCallback(onSelectMatch);
     const handleToggle = useEventCallback(onTogglePin);
     const handlePricing = useEventCallback(onOpenPricing);
+
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => setIsMounted(true), []);
 
     const { data: polyResult } = usePolyOdds();
     const { data: featuredProps = [] } = useFeaturedProps(4);
@@ -618,7 +619,7 @@ const MatchList: React.FC<MatchListProps> = ({
     }
 
     return (
-        <div className="min-h-screen bg-[#F9F9FA] pb-8">
+        <div className="min-h-screen bg-[#F9F9FA]" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
             <LayoutGroup id="editorial-feed">
                 <div className="max-w-7xl mx-auto px-0 lg:px-6 w-full">
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-8 items-start">
@@ -638,6 +639,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                             onTogglePin={handleToggle}
                                             groupIndex={groupIndex}
                                             polyResult={polyResult}
+                                            isMounted={isMounted}
                                         />
                                     );
                                 })}
@@ -656,15 +658,17 @@ const MatchList: React.FC<MatchListProps> = ({
                                             </div>
                                             <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">Via Polymarket</span>
                                         </div>
+                                        <div className="divide-y divide-zinc-100/80">
                                         {pulseMarkets.slice(0, 3).map(({ poly, match }, i) => (
                                             <MarketPulseRow
                                                 key={`mobile-${poly.poly_event_slug || i}`}
                                                 poly={poly}
                                                 match={match}
                                                 onSelect={handleSelect}
-                                                isLast={i === Math.min(pulseMarkets.length, 3) - 1}
+                                                
                                             />
                                         ))}
+                                        </div>
                                     </section>
                                 )}
 
@@ -683,9 +687,11 @@ const MatchList: React.FC<MatchListProps> = ({
                                                 {featuredProps[0]?.event_date === todayIso ? 'Today' : 'Tomorrow'}
                                             </span>
                                         </div>
+                                        <div className="divide-y divide-zinc-100/80">
                                         {featuredProps.slice(0, 3).map((prop, i) => (
-                                            <PropRow key={`mobile-${prop.player_name}${prop.bet_type}`} prop={prop} isLast={i === Math.min(featuredProps.length, 3) - 1} />
+                                            <PropRow key={`mobile-${prop.player_name}${prop.bet_type}`} prop={prop}  />
                                         ))}
+                                        </div>
                                     </section>
                                 )}
 
@@ -707,15 +713,17 @@ const MatchList: React.FC<MatchListProps> = ({
                                         </div>
                                         <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">Via Polymarket</span>
                                     </div>
+                                    <div className="divide-y divide-zinc-100/80">
                                     {pulseMarkets.map(({ poly, match }, i) => (
                                         <MarketPulseRow
                                             key={poly.poly_event_slug || i}
                                             poly={poly}
                                             match={match}
                                             onSelect={handleSelect}
-                                            isLast={i === pulseMarkets.length - 1}
+                                            
                                         />
                                     ))}
+                                    </div>
                                 </section>
                             )}
 
@@ -735,9 +743,11 @@ const MatchList: React.FC<MatchListProps> = ({
                                             {featuredProps[0]?.event_date === todayIso ? 'Today' : 'Tomorrow'}
                                         </span>
                                     </div>
+                                    <div className="divide-y divide-zinc-100/80">
                                     {featuredProps.map((prop, i) => (
-                                        <PropRow key={prop.player_name + prop.bet_type} prop={prop} isLast={i === featuredProps.length - 1} />
+                                        <PropRow key={prop.player_name + prop.bet_type} prop={prop}  />
                                     ))}
+                                    </div>
                                 </section>
                             )}
 

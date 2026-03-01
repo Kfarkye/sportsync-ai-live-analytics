@@ -190,11 +190,9 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       aria-label={`${match.awayTeam?.name || 'Away Team'} vs ${match.homeTeam?.name || 'Home Team'}`}
       onKeyDown={(e: React.KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onSelect?.(match); } }}
       className={cn(
-        "group relative flex items-center justify-between px-3 py-2.5 sm:px-5 sm:py-3 cursor-pointer transform-gpu min-h-[52px]",
+        "group relative flex items-center justify-between px-3 py-2.5 sm:px-5 sm:py-3 cursor-pointer transform-gpu min-h-[52px] [-webkit-tap-highlight-color:transparent]",
         "focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none focus-visible:ring-inset",
         "transition-colors duration-200",
-        "border-b border-slate-200/60",
-        "last:border-b-0",
         isSelected ? "bg-slate-50" : "bg-white hover:bg-slate-50/50"
       )}
     >
