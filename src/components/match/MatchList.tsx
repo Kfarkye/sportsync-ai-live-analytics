@@ -132,16 +132,21 @@ const OptimizedMatchRow = memo(({
         let edgeA: number | undefined;
         let source: 'poly' | 'espn' | undefined;
 
+        const homeML = parseAmericanOdds(match.odds?.moneylineHome ?? match.odds?.home_ml);
+        const awayML = parseAmericanOdds(match.odds?.moneylineAway ?? match.odds?.away_ml);
+
         if (poly) {
             polyH = polyProbToPercent(poly.homeProb);
             polyA = polyProbToPercent(poly.awayProb);
             source = 'poly';
 
-            const homeML = parseAmericanOdds(match.odds?.moneylineHome ?? match.odds?.home_ml);
-            const awayML = parseAmericanOdds(match.odds?.moneylineAway ?? match.odds?.away_ml);
-
             if (homeML !== 0) edgeH = calcEdge(poly.homeProb, americanToImpliedProb(homeML));
             if (awayML !== 0) edgeA = calcEdge(poly.awayProb, americanToImpliedProb(awayML));
+        } else if (homeML !== 0 && awayML !== 0) {
+            // Fallback: derive client-side probability from sportsbook moneyline
+            polyH = americanToImpliedProb(homeML) * 100;
+            polyA = americanToImpliedProb(awayML) * 100;
+            source = 'espn';
         }
 
         return { polyHomeProb: polyH, polyAwayProb: polyA, homeEdge: edgeH, awayEdge: edgeA, probSource: source };
