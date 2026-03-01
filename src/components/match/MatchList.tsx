@@ -24,6 +24,7 @@ import {
     type PolyOddsResult,
     type PolyOdds
 } from '@/hooks/usePolyOdds';
+import { useFeaturedProps, STAT_LABELS, type FeaturedProp } from '@/hooks/useFeaturedProps';
 
 // ============================================================================
 // TYPES & PIPELINES
@@ -276,6 +277,51 @@ const MarketPulseRow = memo(({ poly, matchMap, onSelect, isLast }: {
 MarketPulseRow.displayName = 'MarketPulseRow';
 
 // ============================================================================
+// FEATURED PROP ROW — Player headshot prop widget
+// ============================================================================
+
+const PropRow = memo(({ prop, isLast }: { prop: FeaturedProp; isLast: boolean }) => {
+    const isPlus = prop.odds_american > 0;
+    const statLabel = STAT_LABELS[prop.bet_type] || prop.bet_type.toUpperCase();
+
+    return (
+        <div
+            className={cn(
+                "flex items-center gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-zinc-50 cursor-pointer",
+                !isLast && "border-b border-zinc-100"
+            )}
+        >
+            {/* Headshot */}
+            <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-100 border border-zinc-200 shrink-0">
+                <img
+                    src={prop.headshot_url}
+                    alt=""
+                    className="w-full h-full object-cover object-top"
+                    loading="lazy"
+                />
+            </div>
+            {/* Name + Team */}
+            <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] font-medium text-zinc-900 truncate">{prop.player_name}</div>
+                <div className="font-mono text-[9.5px] text-zinc-400 tracking-[0.04em] mt-px">
+                    {prop.team.split(' ').pop()} · {statLabel}
+                </div>
+            </div>
+            {/* Line + Odds */}
+            <div className="text-right shrink-0">
+                <div className="font-mono text-[12px] font-semibold text-zinc-900 tracking-[-0.01em]">
+                    O {Number(prop.line_value)}
+                </div>
+                <div className="font-mono text-[10px] text-zinc-500 mt-px">
+                    {isPlus ? '+' : ''}{prop.odds_american}
+                </div>
+            </div>
+        </div>
+    );
+});
+PropRow.displayName = 'PropRow';
+
+// ============================================================================
 // SKELETON
 // ============================================================================
 
@@ -408,6 +454,7 @@ const MatchList: React.FC<MatchListProps> = ({
     const handlePricing = useEventCallback(onOpenPricing);
 
     const { data: polyResult } = usePolyOdds();
+    const { data: featuredProps = [] } = useFeaturedProps(4);
 
     const { groupedMatches, featuredMatches } = useMemo(() => {
         // 1. SCHWARTZIAN TRANSFORM: Pre-parse times & booleans in O(N) to prevent O(N log N) bottlenecks
@@ -532,18 +579,28 @@ const MatchList: React.FC<MatchListProps> = ({
                                         <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">Via Polymarket</span>
                                     </div>
                                     {(() => {
-                                        // Build match map for logo/color lookups
                                         const matchMap = new Map<string, Match>();
                                         matches.forEach((m) => {
                                             matchMap.set(m.id, m);
                                             const stripped = m.id.split('_')[0];
                                             if (stripped) matchMap.set(stripped, m);
                                         });
-                                        // Top markets sorted by volume
-                                        const topMarkets = [...polyResult.rows]
-                                            .filter((r) => r.home_prob > 0 && r.away_prob > 0)
-                                            .sort((a, b) => (b.volume || 0) - (a.volume || 0))
+                                        // Filter: exclude resolved markets (>95% or <5%), dedupe by team pair
+                                        const seen = new Set<string>();
+                                        const topMarkets = polyResult.rows
+                                            .filter((r) => {
+                                                if (r.home_prob < 0.05 || r.home_prob > 0.95) return false;
+                                                if (r.away_prob < 0.05 || r.away_prob > 0.95) return false;
+                                                const key = [r.home_team_name, r.away_team_name].sort().join('|');
+                                                if (seen.has(key)) return false;
+                                                seen.add(key);
+                                                return true;
+                                            })
+                                            .sort((a, b) => new Date(b.game_start_time).getTime() - new Date(a.game_start_time).getTime())
                                             .slice(0, 5);
+                                        if (topMarkets.length === 0) return (
+                                            <div className="px-3.5 py-4 text-center text-[11px] text-zinc-400">No active markets</div>
+                                        );
                                         return topMarkets.map((poly, i) => (
                                             <MarketPulseRow
                                                 key={poly.poly_event_slug || i}
@@ -554,6 +611,27 @@ const MatchList: React.FC<MatchListProps> = ({
                                             />
                                         ));
                                     })()}
+                                </section>
+                            )}
+
+                            {/* Featured Props */}
+                            {featuredProps.length > 0 && (
+                                <section
+                                    className="rounded-xl bg-white border border-zinc-200 overflow-hidden"
+                                    aria-label="Featured Props"
+                                >
+                                    <div className="px-3.5 py-2.5 border-b border-zinc-100 bg-zinc-50/50 flex justify-between items-center">
+                                        <div className="flex items-center gap-1.5">
+                                            <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="#a1a1aa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M1 10L5 6L8 9L13 4"/><path d="M9 4H13V8"/>
+                                            </svg>
+                                            <span className="font-mono text-[10px] font-semibold tracking-[0.1em] text-zinc-400 uppercase">Featured Props</span>
+                                        </div>
+                                        <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">Tomorrow</span>
+                                    </div>
+                                    {featuredProps.map((prop, i) => (
+                                        <PropRow key={prop.player_name + prop.bet_type} prop={prop} isLast={i === featuredProps.length - 1} />
+                                    ))}
                                 </section>
                             )}
 
