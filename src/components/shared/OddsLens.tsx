@@ -81,7 +81,6 @@ interface OddsLensPillProps {
   value: number | undefined;
   isFavorite: boolean;
   edge?: number;
-  source?: 'poly' | 'espn';
 }
 
 export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavorite, edge }) => {

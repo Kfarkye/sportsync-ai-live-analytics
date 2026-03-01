@@ -18,8 +18,6 @@ interface MatchRowProps extends BaseMatchRowProps {
   homeEdge?: number;
   /** Edge value for away team (divergence %) */
   awayEdge?: number;
-  /** Data source: 'poly' if Polymarket data available */
-  probSource?: 'poly' | 'espn';
 }
 
 const PHYSICS_MOTION = { type: "spring" as const, stiffness: 400, damping: 25 };
@@ -148,7 +146,6 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   polyAwayProb,
   homeEdge,
   awayEdge,
-  probSource = 'espn',
   onSelect,
   onTogglePin,
 }, ref) => {
@@ -159,7 +156,6 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const homeProb = polyHomeProb ?? match.win_probability?.home;
   const awayProb = polyAwayProb ?? match.win_probability?.away;
   const homeFav = typeof homeProb === 'number' && typeof awayProb === 'number' ? homeProb > awayProb : false;
-  const source = polyHomeProb !== undefined ? 'poly' : 'espn';
 
   const spread = match.odds?.homeSpread ?? match.odds?.spread;
   const total = match.odds?.overUnder ?? match.odds?.total;
@@ -277,7 +273,6 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                     value={prob}
                     isFavorite={isFav}
                     edge={isHome ? homeEdge : awayEdge}
-                    source={source}
                   />
                 </div>
               )}

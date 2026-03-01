@@ -118,7 +118,7 @@ const OptimizedMatchRow = memo(({
     const handleSelect = useCallback(() => onSelect(match), [match, onSelect]);
     const handleToggle = useCallback((e: React.MouseEvent | React.KeyboardEvent) => onToggle(match.id, e), [match.id, onToggle]);
 
-    const { polyHomeProb, polyAwayProb, homeEdge, awayEdge, probSource } = useMemo(() => {
+    const { polyHomeProb, polyAwayProb, homeEdge, awayEdge } = useMemo(() => {
         const poly = findPolyForMatch(
             polyResult,
             match.id,
@@ -130,7 +130,6 @@ const OptimizedMatchRow = memo(({
         let polyA: number | undefined;
         let edgeH: number | undefined;
         let edgeA: number | undefined;
-        let source: 'poly' | 'espn' | undefined;
 
         const homeML = parseAmericanOdds(match.odds?.moneylineHome ?? match.odds?.home_ml);
         const awayML = parseAmericanOdds(match.odds?.moneylineAway ?? match.odds?.away_ml);
@@ -138,7 +137,6 @@ const OptimizedMatchRow = memo(({
         if (poly) {
             polyH = polyProbToPercent(poly.homeProb);
             polyA = polyProbToPercent(poly.awayProb);
-            source = 'poly';
 
             if (homeML !== 0) edgeH = calcEdge(poly.homeProb, americanToImpliedProb(homeML));
             if (awayML !== 0) edgeA = calcEdge(poly.awayProb, americanToImpliedProb(awayML));
@@ -146,10 +144,9 @@ const OptimizedMatchRow = memo(({
             // Fallback: derive client-side probability from sportsbook moneyline
             polyH = americanToImpliedProb(homeML) * 100;
             polyA = americanToImpliedProb(awayML) * 100;
-            source = 'espn';
         }
 
-        return { polyHomeProb: polyH, polyAwayProb: polyA, homeEdge: edgeH, awayEdge: edgeA, probSource: source };
+        return { polyHomeProb: polyH, polyAwayProb: polyA, homeEdge: edgeH, awayEdge: edgeA };
     }, [polyResult, match]);
 
     return (
@@ -165,7 +162,6 @@ const OptimizedMatchRow = memo(({
                 {...(polyAwayProb !== undefined ? { polyAwayProb } : {})}
                 {...(homeEdge !== undefined ? { homeEdge } : {})}
                 {...(awayEdge !== undefined ? { awayEdge } : {})}
-                {...(probSource ? { probSource } : {})}
             />
         </motion.div>
     );
