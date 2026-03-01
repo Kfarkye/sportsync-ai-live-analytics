@@ -492,6 +492,7 @@ const MatchList: React.FC<MatchListProps> = ({
 
     const { data: polyResult } = usePolyOdds();
     const { data: featuredProps = [] } = useFeaturedProps(4);
+    const todayIso = new Date().toISOString().split('T')[0];
 
     // Steal #1: Pre-resolve Market Pulse pipeline outside render loop
     const pulseMarkets = useMemo(() => {
@@ -641,6 +642,55 @@ const MatchList: React.FC<MatchListProps> = ({
                                     );
                                 })}
                             </div>
+
+                            {/* Mobile widgets parity for sidebar content */}
+                            <div className="lg:hidden px-3 sm:px-0 pt-4 space-y-4">
+                                {pulseMarkets.length > 0 && (
+                                    <section className="rounded-xl bg-white border border-zinc-200 overflow-hidden" aria-label="Market Pulse">
+                                        <div className="px-3.5 py-2.5 border-b border-zinc-100 bg-zinc-50/50 flex justify-between items-center">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-zinc-100 border border-zinc-200/80 text-zinc-500">
+                                                    <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+                                                </div>
+                                                <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-zinc-700 uppercase">Market Pulse</span>
+                                            </div>
+                                            <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">Via Polymarket</span>
+                                        </div>
+                                        {pulseMarkets.slice(0, 3).map(({ poly, match }, i) => (
+                                            <MarketPulseRow
+                                                key={`mobile-${poly.poly_event_slug || i}`}
+                                                poly={poly}
+                                                match={match}
+                                                onSelect={handleSelect}
+                                                isLast={i === Math.min(pulseMarkets.length, 3) - 1}
+                                            />
+                                        ))}
+                                    </section>
+                                )}
+
+                                {featuredProps.length > 0 && (
+                                    <section className="rounded-xl bg-white border border-zinc-200 overflow-hidden" aria-label="Featured Props">
+                                        <div className="px-3.5 py-2.5 border-b border-zinc-100 bg-zinc-50/50 flex justify-between items-center">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-zinc-100 border border-zinc-200/80 text-zinc-500">
+                                                    <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M1 10L5 6L8 9L13 4" /><path d="M9 4H13V8" />
+                                                    </svg>
+                                                </div>
+                                                <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-zinc-700 uppercase">Featured Props</span>
+                                            </div>
+                                            <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">
+                                                {featuredProps[0]?.event_date === todayIso ? 'Today' : 'Tomorrow'}
+                                            </span>
+                                        </div>
+                                        {featuredProps.slice(0, 3).map((prop, i) => (
+                                            <PropRow key={`mobile-${prop.player_name}${prop.bet_type}`} prop={prop} isLast={i === Math.min(featuredProps.length, 3) - 1} />
+                                        ))}
+                                    </section>
+                                )}
+
+                                <PremiumProCTA onPricing={handlePricing} />
+                            </div>
                         </div>
 
                         {/* SIDEBAR WIDGETS */}
@@ -682,7 +732,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                             <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-zinc-700 uppercase">Featured Props</span>
                                         </div>
                                         <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">
-                                            {featuredProps[0]?.event_date === new Date().toISOString().split('T')[0] ? 'Today' : 'Tomorrow'}
+                                            {featuredProps[0]?.event_date === todayIso ? 'Today' : 'Tomorrow'}
                                         </span>
                                     </div>
                                     {featuredProps.map((prop, i) => (

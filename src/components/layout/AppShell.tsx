@@ -10,7 +10,7 @@ import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
 import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { cn } from '@/lib/essence';
-import { LAYOUT, ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
+import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
 
 const CommandPalette = lazy(() => import('../modals/CommandPalette'));
 const AuthModal = lazy(() => import('../modals/AuthModal'));
@@ -30,6 +30,7 @@ const AppShell: FC = () => {
     isPricingModalOpen, isRankingsDrawerOpen, isGlobalChatOpen, toggleCmdk,
     toggleAuthModal, togglePricingModal,
     toggleSportDrawer, toggleRankingsDrawer, setShowLanding,
+    setSelectedDate,
     closeAllOverlays
   } = useAppStore();
 
@@ -70,22 +71,23 @@ const AppShell: FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); toggleCmdk(); }
-      if (e.key === 'Escape') { if (selectedMatch) setSelectedMatch(null); }
+      if (e.key === 'Escape') { selectedMatch ? setSelectedMatch(null) : closeAllOverlays(); }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [toggleCmdk, selectedMatch, setSelectedMatch]);
+  }, [toggleCmdk, selectedMatch, setSelectedMatch, closeAllOverlays]);
 
   if (showLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
 
   return (
-    <div className="min-h-screen h-screen bg-zinc-100 text-zinc-900 font-sans selection:bg-zinc-900/10 relative flex flex-col antialiased">
+    <div className="min-h-screen h-[var(--vvh,100vh)] bg-zinc-100 text-zinc-900 font-sans selection:bg-zinc-900/10 relative flex flex-col antialiased">
       <UnifiedHeader />
 
       <MotionMain
-        className="flex-1 w-full overflow-y-auto"
+        id="main-content"
+        className="flex-1 w-full overflow-y-auto overscroll-contain"
       >
-        <div className="max-w-7xl mx-auto px-4 md:px-6 pb-8">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
           <AnimatePresence mode="wait">
             {activeView === 'FEED' && (
               <MotionDiv
@@ -121,6 +123,13 @@ const AppShell: FC = () => {
                     <p className="text-slate-500 text-[13px] mt-2 max-w-[200px] leading-relaxed">
                       Check back later or navigate to another date in the timeline.
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDate(new Date())}
+                      className="mt-5 px-4 py-2 rounded-full border border-zinc-200 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-zinc-900 hover:border-zinc-300 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-100"
+                    >
+                      Back to Today
+                    </button>
                   </div>
                 )}
 
@@ -158,6 +167,22 @@ const AppShell: FC = () => {
 
           </AnimatePresence>
         </div>
+
+        {/* Global Legal & Responsibility Footer (inside scroll context) */}
+        <footer className="w-full border-t border-zinc-200 bg-gradient-to-b from-transparent to-zinc-50/80">
+          <div className="max-w-7xl mx-auto px-7 py-9 md:py-10">
+            <div className="flex flex-col items-center text-center gap-3 opacity-70">
+              <span className="text-[11px] text-zinc-500 max-w-2xl">
+                Quantitative decision-support for entertainment only. Not financial advice.
+              </span>
+              <div className="flex items-center gap-3.5">
+                <span className="font-mono text-[9.5px] text-zinc-500 tracking-[0.04em]">21+</span>
+                <span className="text-zinc-300">·</span>
+                <span className="font-mono text-[9.5px] text-zinc-500 tracking-[0.04em]">1-800-GAMBLER</span>
+              </div>
+            </div>
+          </div>
+        </footer>
       </MotionMain>
 
       <AnimatePresence>
@@ -204,20 +229,6 @@ const AppShell: FC = () => {
       )}
 
       <ChatWidget currentMatch={selectedMatch} matches={matches} />
-
-      {/* Global Legal & Responsibility Footer */}
-      <footer className="w-full max-w-7xl mx-auto px-7 py-[18px] border-t border-zinc-200 opacity-60">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] text-zinc-400">
-            Quantitative decision-support for entertainment only. Not financial advice.
-          </span>
-          <div className="flex items-center gap-3.5">
-            <span className="font-mono text-[9.5px] text-zinc-400 tracking-[0.04em]">21+</span>
-            <span className="text-zinc-300">·</span>
-            <span className="font-mono text-[9.5px] text-zinc-400 tracking-[0.04em]">1-800-GAMBLER</span>
-          </div>
-        </div>
-      </footer>
 
       <Suspense fallback={null}>
         <CommandPalette isOpen={isCmdkOpen} onClose={() => toggleCmdk(false)} matches={matches} onSelect={setSelectedMatch} />
