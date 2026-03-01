@@ -691,7 +691,7 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
 const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: { match: ExtendedMatch; isScheduled: boolean; onSwipe: (dir: number) => void }) => {
   const x = useMotionValue(0);
   return (
-    <motion.div style={{ x }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={(_e, i) => { if (i.offset.x > 100) onSwipe(-1); else if (i.offset.x < -100) onSwipe(1); }} className="pb-4 px-6 cursor-grab active:cursor-grabbing">
+    <motion.div style={{ x }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={(_e, i) => { if (i.offset.x > 100) onSwipe(-1); else if (i.offset.x < -100) onSwipe(1); }} className="mx-auto w-full max-w-[1280px] cursor-grab px-4 pb-3 pt-1 sm:px-6 md:px-8 active:cursor-grabbing">
       <AnimatePresence mode="wait">
         <motion.div key={match.id} initial={{ opacity: 0, scale: 0.99, filter: 'blur(2px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 1.01, filter: 'blur(2px)' }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
           {isScheduled ? <MatchupHeader matchId={match.id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} startTime={match.startTime} sport={match.sport} currentOdds={match.current_odds as any} /> : <ScoreHeader match={match} variant="embedded" />}
@@ -1320,7 +1320,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   return (
     <div className="min-h-[100dvh] text-black relative overflow-y-auto overflow-x-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white pb-[calc(env(safe-area-inset-bottom)+6rem)]">
       <LiveSweatProvider latestPlayByPlayText={playByPlayText} aiTriggers={sweatTriggers}>
-        <header className="sticky top-0 z-50 bg-[#FBFBFD]/80 backdrop-blur-[24px] saturate-[1.2] border-b border-black/[0.03] pt-safe transition-colors duration-500">
+        <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-[#FBFBFD]/92 pt-safe backdrop-blur-[24px] saturate-[1.2] transition-colors duration-500">
           <div className="flex items-center justify-between px-6 py-4">
             <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-black/5 rounded-full transition-all duration-300">
               <BackArrow />
@@ -1343,12 +1343,12 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
 
           {/* Gradient scroll-mask wrapper */}
-          <div className="relative w-full overflow-hidden shrink-0 mt-2">
+          <div className="relative mt-1.5 w-full shrink-0 overflow-hidden">
             {/* Scroll mask gradients */}
             <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
             <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
 
-            <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar px-6 max-w-full relative h-[42px]">
+            <nav className="relative flex h-[42px] max-w-full items-center gap-6 overflow-x-auto px-6 no-scrollbar">
               {TABS.map((tab, i) => (
                 <button
                   key={tab.id}
@@ -1375,7 +1375,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           </div>
         </header>
 
-        <main className="relative z-10 max-w-[840px] mx-auto pt-6 px-4 md:px-0">
+        <main className="relative z-10 mx-auto max-w-[860px] px-4 pt-5 md:px-0">
           <GameInfoStrip match={match} />
 
           <LayoutGroup>
@@ -1390,9 +1390,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         <CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} />
                       )}
                     </SpecSheetRow>
-                    <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-slate-200" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
+                    <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-zinc-200" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
                     {liveState?.ai_analysis && <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={true}><LiveAIInsight match={match} /></SpecSheetRow>}
-                    <div className="w-full h-px bg-slate-200" />
+                    <div className="w-full h-px bg-zinc-200" />
                   </div>
                 )}
                 {activeTab === 'DETAILS' && (
@@ -1402,8 +1402,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>{isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}</SpecSheetRow>
                       <SpecSheetRow label="05 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
                       <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
-                      <SpecSheetRow label="07 // CONTEXT" defaultOpen={true}>{match.context ? <MatchupContextPills {...match.context} sport={match.sport} /> : <div className="text-slate-500 italic text-xs">No context available.</div>}</SpecSheetRow>
-                      <div className="w-full h-px bg-slate-200" />
+                      <SpecSheetRow label="07 // CONTEXT" defaultOpen={true}>{match.context ? <MatchupContextPills {...match.context} sport={match.sport} /> : <div className="text-zinc-500 italic text-xs">No context available.</div>}</SpecSheetRow>
+                      <div className="w-full h-px bg-zinc-200" />
                     </div>
                   </div>
                 )}
@@ -1413,13 +1413,13 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       <button
                         type="button"
                         onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')}
-                        className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 transition-colors"
+                        className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 transition-colors hover:text-zinc-900"
                       >
                         {propView === 'classic' ? 'VIEW: CLASSIC' : 'VIEW: CINEMATIC'}
                       </button>
                     </div>
                     <SpecSheetRow label="01 // PLAYER MKTS" defaultOpen={true} collapsible={false}>{propView === 'classic' ? <ClassicPlayerProps match={match} /> : <CinematicPlayerProps match={match} />}</SpecSheetRow>
-                    <div className="w-full h-px bg-slate-200" />
+                    <div className="w-full h-px bg-zinc-200" />
                   </div>
                 )}
                 {activeTab === 'DATA' && (
@@ -1429,7 +1429,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       <div className="mb-12 space-y-6">
                         <div className="flex items-center gap-2">
                           <div className="w-1 h-1 rounded-full bg-indigo-400" />
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Market Intelligence</span>
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Market Intelligence</span>
                         </div>
                         <EdgeCard
                           homeTeam={match.homeTeam.shortName || match.homeTeam.name}
@@ -1467,17 +1467,17 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       <div className="mb-12 space-y-6">
                         <div className="flex items-center gap-2">
                           <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Shareable Insights</span>
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Shareable Insights</span>
                         </div>
                         {gameEdgeCardData && (
                           <div className="space-y-3">
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">Game Edge</span>
+                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Game Edge</span>
                             <InsightCard data={gameEdgeCardData!} />
                           </div>
                         )}
                         {insightCardData && (
                           <div className="space-y-3">
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">Player Prop</span>
+                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Player Prop</span>
                             <InsightCard data={insightCardData!} />
                           </div>
                         )}
@@ -1487,7 +1487,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       <div className="mb-12">
                         <div className="flex items-center gap-2 mb-4">
                           <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">
                             Edge Convergence
                           </span>
                         </div>
@@ -1497,7 +1497,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     <div className="mb-12"><ForecastHistoryTable matchId={match.id} /></div>
                     <SpecSheetRow label="01 // BOX SCORE" defaultOpen={true}><BoxScore match={match} /></SpecSheetRow>
                     <SpecSheetRow label="02 // ANALYSIS" defaultOpen={false}><SafePregameIntelCards match={match} /></SpecSheetRow>
-                    <div className="w-full h-px bg-slate-200" />
+                    <div className="w-full h-px bg-zinc-200" />
                   </div>
                 )}
                 {activeTab === 'CHAT' && (<div className="max-w-3xl mx-auto h-[calc(100dvh-220px)] min-h-[400px]"><ChatWidget currentMatch={match as any} inline /></div>)}

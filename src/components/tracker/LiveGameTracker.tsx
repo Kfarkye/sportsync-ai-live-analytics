@@ -668,7 +668,14 @@ AITab.displayName = 'AITab';
 // ============================================================================
 
 const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedded }: { meta: MetaSlice; teams: TeamsSlice; gameplay: GameplaySlice; betting: BettingSlice; onBack?: () => void; isEmbedded: boolean; }) => (
-    <header className={cn('relative w-full flex flex-col items-center overflow-hidden select-none border border-white/5 bg-[#0A0A0B]', isEmbedded ? 'rounded-[18px] shadow-[0_20px_45px_rgba(2,6,23,0.35)]' : 'rounded-none', !isEmbedded && 'pt-6')}>
+    <header className={cn(
+        'relative w-full flex flex-col items-center overflow-hidden select-none border',
+        isEmbedded
+            ? 'rounded-[20px] border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 shadow-[0_22px_48px_rgba(15,23,42,0.24)]'
+            : 'rounded-none border-white/5 bg-[#0A0A0B]',
+        !isEmbedded && 'pt-6'
+    )}>
+        {isEmbedded && <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" aria-hidden="true" />}
         {!isEmbedded && (
             <div className="absolute top-4 z-20 flex w-full items-center justify-between px-6">
                 <button type="button" onClick={onBack} disabled={!onBack} aria-label="Go Back" className={cn('flex items-center gap-2 rounded p-1 text-zinc-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500', !onBack && 'pointer-events-none opacity-0')}>
@@ -693,12 +700,12 @@ const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedd
         {isEmbedded && (
             <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
                 {gameplay.isRedZone && !meta.isFinished && (
-                    <div className="flex animate-pulse items-center gap-1 rounded-full border border-red-500/25 bg-red-500/10 px-2 py-0.5 text-red-400" role="status">
+                    <div className="flex animate-pulse items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-red-300" role="status">
                         <AlertCircle size={9} aria-hidden="true" />
                         <span className="text-[8px] font-bold tracking-widest uppercase">RZ</span>
                     </div>
                 )}
-                <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 backdrop-blur-md" role="status" aria-live="polite">
+                <div className="flex items-center gap-1.5 rounded-full border border-zinc-700/80 bg-zinc-900/80 px-2.5 py-1 backdrop-blur-md" role="status" aria-live="polite">
                     <span className={cn("h-1.5 w-1.5 rounded-full", meta.isPregame || meta.isFinished ? "bg-zinc-500" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse")} aria-hidden="true" />
                     <span className={cn("text-[8px] font-bold tracking-widest uppercase", meta.isPregame || meta.isFinished ? "text-zinc-400" : "text-red-500")}>
                         {meta.isFinished ? 'FINAL' : meta.isPregame ? 'UPCOMING' : 'LIVE'}
@@ -708,13 +715,13 @@ const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedd
         )}
 
         <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-            <div className="absolute top-[10%] -left-[10%] w-[50%] h-[80%] blur-[120px] opacity-[0.15] translate-z-0 rounded-full" style={{ background: teams.away.color }} />
-            <div className="absolute top-[10%] -right-[10%] w-[50%] h-[80%] blur-[120px] opacity-[0.15] translate-z-0 rounded-full" style={{ background: teams.home.color }} />
+            <div className={cn('absolute top-[10%] -left-[10%] h-[80%] w-[50%] translate-z-0 rounded-full blur-[120px]', isEmbedded ? 'opacity-[0.22]' : 'opacity-[0.15]')} style={{ background: teams.away.color }} />
+            <div className={cn('absolute top-[10%] -right-[10%] h-[80%] w-[50%] translate-z-0 rounded-full blur-[120px]', isEmbedded ? 'opacity-[0.22]' : 'opacity-[0.15]')} style={{ background: teams.home.color }} />
         </div>
 
-        <div className={cn('relative z-10 grid w-full max-w-5xl grid-cols-[1fr_auto_1fr] items-center', isEmbedded ? 'mb-5 mt-10 gap-3 px-3 sm:gap-6 sm:px-6' : 'mb-8 mt-16 gap-4 px-4 sm:gap-12 sm:px-8')}>
+        <div className={cn('relative z-10 grid w-full max-w-5xl grid-cols-[1fr_auto_1fr] items-center', isEmbedded ? 'mb-4 mt-8 gap-3 px-3 sm:gap-5 sm:px-6' : 'mb-8 mt-16 gap-4 px-4 sm:gap-12 sm:px-8')}>
             <TeamDisplay team={teams.away} compact={isEmbedded} />
-            <div className={cn('flex flex-col items-center justify-center', isEmbedded ? 'min-w-[114px] pt-2' : 'min-w-[140px] pt-4')} aria-live="polite" aria-label={`Score: ${teams.away.name} ${teams.away.score}, ${teams.home.name} ${teams.home.score}`}>
+            <div className={cn('flex flex-col items-center justify-center', isEmbedded ? 'min-w-[108px] pt-1.5' : 'min-w-[140px] pt-4')} aria-live="polite" aria-label={`Score: ${teams.away.name} ${teams.away.score}, ${teams.home.name} ${teams.home.score}`}>
                 {meta.isPregame ? (
                     <div className="flex flex-col items-center gap-2">
                         <span className={cn('font-medium tracking-tighter tabular-nums text-white', isEmbedded ? 'text-3xl sm:text-4xl' : 'text-4xl sm:text-5xl')} suppressHydrationWarning>
@@ -728,11 +735,11 @@ const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedd
                 ) : (
                     <div className="flex flex-col items-center gap-3">
                         <div className={cn('flex items-center', isEmbedded ? 'gap-3 sm:gap-4' : 'gap-4 sm:gap-8')}>
-                            <span className={cn('font-light tabular-nums tracking-tighter text-white drop-shadow-lg', isEmbedded ? 'text-4xl sm:text-5xl' : 'text-5xl sm:text-7xl')}>{teams.away.score}</span>
+                            <span className={cn('font-light tabular-nums tracking-tighter text-white drop-shadow-lg', isEmbedded ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-7xl')}>{teams.away.score}</span>
                             <span className={cn('font-light text-zinc-700', isEmbedded ? 'text-2xl' : 'text-3xl')} aria-hidden="true">-</span>
-                            <span className={cn('font-light tabular-nums tracking-tighter text-white drop-shadow-lg', isEmbedded ? 'text-4xl sm:text-5xl' : 'text-5xl sm:text-7xl')}>{teams.home.score}</span>
+                            <span className={cn('font-light tabular-nums tracking-tighter text-white drop-shadow-lg', isEmbedded ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-7xl')}>{teams.home.score}</span>
                         </div>
-                        <div className={cn('flex items-center gap-2 rounded-full border px-3 py-1', isEmbedded ? 'border-white/10 bg-[#111113]/95' : 'border-white/5 bg-[#111113]/80')}>
+                        <div className={cn('flex items-center gap-2 rounded-full border px-3 py-1', isEmbedded ? 'border-zinc-700/80 bg-zinc-900/80' : 'border-white/5 bg-[#111113]/80')}>
                             <span className={cn('font-mono font-medium tracking-widest text-amber-400', isEmbedded ? 'text-[10px]' : 'text-[11px]')} suppressHydrationWarning>{meta.displayClock}</span>
                         </div>
                     </div>
@@ -742,13 +749,13 @@ const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedd
         </div>
 
         {!meta.isPregame && (
-            <div className={cn('w-full max-w-4xl px-6 sm:px-12', isEmbedded ? 'mb-5 mt-1' : 'mb-8 mt-2')}>
+            <div className={cn('w-full max-w-4xl px-6 sm:px-12', isEmbedded ? 'mb-4 mt-1' : 'mb-8 mt-2')}>
                 <div className={cn('mb-2 flex justify-between px-1 font-bold uppercase tracking-widest', isEmbedded ? 'text-[8.5px] text-zinc-400' : 'text-[9px] text-zinc-500')} aria-hidden="true">
                     <span>{teams.away.abbr} {gameplay.winProbabilityAway}%</span>
                     <span>Win Prob</span>
                     <span>{gameplay.winProbabilityHome}% {teams.home.abbr}</span>
                 </div>
-                <div className={cn('relative flex w-full overflow-hidden rounded-full bg-white/5', isEmbedded ? 'h-1.5' : 'h-1.5')} aria-hidden="true">
+                <div className={cn('relative flex w-full overflow-hidden rounded-full', isEmbedded ? 'h-1.5 bg-zinc-800/85' : 'h-1.5 bg-white/5')} aria-hidden="true">
                     <div className="absolute top-0 bottom-0 left-1/2 w-px bg-white/20 z-10" />
                     <motion.div className="h-full" style={{ backgroundColor: teams.away.color }} initial={{ width: '50%' }} animate={{ width: `${gameplay.winProbabilityAway}%` }} transition={TOKENS.animation.spring} />
                     <motion.div className="h-full" style={{ backgroundColor: teams.home.color }} initial={{ width: '50%' }} animate={{ width: `${gameplay.winProbabilityHome}%` }} transition={TOKENS.animation.spring} />
