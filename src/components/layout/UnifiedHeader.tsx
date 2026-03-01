@@ -117,7 +117,7 @@ export const UnifiedHeader: FC = () => {
         <header className="sticky top-0 z-40 w-full bg-white print:hidden pt-safe">
             {/* ─── PRIMARY ROW: Brand + Sport Tabs + Actions ──── */}
             <div className="max-w-7xl mx-auto w-full">
-                <div className="h-[52px] px-4 md:px-7 flex items-center justify-between border-b border-zinc-200">
+                <div className="h-[50px] px-4 md:px-7 flex items-center justify-between border-b border-zinc-200">
                     <div className="flex items-center gap-5">
                         {/* Serif wordmark */}
                         <button
@@ -170,9 +170,10 @@ export const UnifiedHeader: FC = () => {
                     {/* Right: LIVE + Lens + Search + User */}
                     <div className="flex items-center gap-2">
                         <button
+                            type="button"
                             onClick={handleLiveClick}
                             className={cn(
-                                "flex items-center gap-1.5 px-2.5 py-[5px] rounded-md text-[11px] font-semibold tracking-[0.04em] transition-all active:scale-95 select-none border",
+                                "h-[34px] flex items-center gap-1.5 px-3 rounded-lg text-[11px] font-semibold tracking-[0.04em] transition-all active:scale-95 select-none border",
                                 activeView === 'LIVE'
                                     ? "bg-zinc-900 border-zinc-900 text-white"
                                     : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
@@ -187,16 +188,18 @@ export const UnifiedHeader: FC = () => {
                         <div className="hidden md:flex"><OddsLensToggle /></div>
 
                         <button
+                            type="button"
                             onClick={() => toggleCmdk()}
-                            className="w-[30px] h-[30px] flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95"
+                            className="w-[34px] h-[34px] flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95"
                         >
                             <Search size={15} strokeWidth={1.8} />
                         </button>
 
                         {user ? (
                             <button
+                                type="button"
                                 onClick={() => toggleAuthModal(true)}
-                                className="relative w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 p-0.5 active:scale-95 transition-transform"
+                                className="relative w-[34px] h-[34px] rounded-full bg-zinc-100 border border-zinc-200 p-0.5 active:scale-95 transition-transform"
                             >
                                 <div className="w-full h-full rounded-full bg-zinc-200 flex items-center justify-center text-[10px] font-bold text-zinc-700 uppercase tracking-tighter">
                                     {user.email?.[0]}
@@ -204,8 +207,9 @@ export const UnifiedHeader: FC = () => {
                             </button>
                         ) : (
                             <button
+                                type="button"
                                 onClick={() => toggleAuthModal(true)}
-                                className="w-[30px] h-[30px] rounded-md flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 active:scale-95 transition-all"
+                                className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 active:scale-95 transition-all"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
                                     <circle cx="8" cy="5.5" r="3"/><path d="M2 14.5c0-3 2.7-5 6-5s6 2 6 5"/>
@@ -218,7 +222,7 @@ export const UnifiedHeader: FC = () => {
 
             {/* ─── SECONDARY ROW: Date Strip ──────────────────── */}
             <div className="max-w-7xl mx-auto w-full">
-                <div className="h-10 px-4 md:px-7 flex items-center justify-between border-b border-zinc-100">
+                <div className="h-[44px] px-4 md:px-7 flex items-center justify-between border-b border-zinc-100">
                     <AnimatePresence mode="wait">
                         {activeView === 'FEED' ? (
                             <MotionDiv
@@ -231,13 +235,14 @@ export const UnifiedHeader: FC = () => {
                                 {/* Left: < Date TODAY > */}
                                 <div className="flex items-center gap-1">
                                     <button
+                                        type="button"
                                         onClick={() => setSelectedDate(-navStep)}
-                                        className="w-[26px] h-[26px] flex items-center justify-center text-zinc-400 hover:text-zinc-900 border border-zinc-200 rounded-md transition-all active:scale-90"
+                                        className="w-[34px] h-[34px] flex items-center justify-center text-zinc-500 hover:text-zinc-900 border border-zinc-200 rounded-lg transition-all active:scale-90"
                                     >
-                                        <ChevronLeft size={14} />
+                                        <ChevronLeft size={16} />
                                     </button>
 
-                                    <button className="flex items-center gap-2 px-3.5 py-1 rounded-md border border-zinc-200 bg-zinc-50/50 hover:bg-zinc-100 transition-colors select-none">
+                                    <button type="button" className="h-[34px] flex items-center gap-2 px-3.5 rounded-lg border border-zinc-200 bg-zinc-50/50 hover:bg-zinc-100 transition-colors select-none">
                                         <span className="text-[13px] font-medium text-zinc-900">{dateDisplay.label}</span>
                                         {dateDisplay.isToday && (
                                             <span
@@ -253,10 +258,11 @@ export const UnifiedHeader: FC = () => {
                                     </button>
 
                                     <button
+                                        type="button"
                                         onClick={() => setSelectedDate(navStep)}
-                                        className="w-[26px] h-[26px] flex items-center justify-center text-zinc-400 hover:text-zinc-900 border border-zinc-200 rounded-md transition-all active:scale-90"
+                                        className="w-[34px] h-[34px] flex items-center justify-center text-zinc-500 hover:text-zinc-900 border border-zinc-200 rounded-lg transition-all active:scale-90"
                                     >
-                                        <ChevronRight size={14} />
+                                        <ChevronRight size={16} />
                                     </button>
                                 </div>
 

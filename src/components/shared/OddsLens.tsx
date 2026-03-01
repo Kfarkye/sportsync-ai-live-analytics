@@ -53,7 +53,7 @@ function getPillColors(mode: OddsLensMode, value: number | undefined, isFavorite
   // EDGE mode: green = positive edge, red = negative, neutral = no edge
   if (mode === 'EDGE') {
     if (edge === undefined || edge === null || Math.abs(edge) < 0.5) {
-      return { text: '#94a3b8', bg: 'transparent', border: '#e2e8f0' };
+      return { text: '#64748b', bg: 'transparent', border: '#cbd5e1' };
     }
     if (edge > 0) {
       return { text: '#059669', bg: 'rgba(5,150,105,0.04)', border: 'rgba(5,150,105,0.2)' };
@@ -66,13 +66,13 @@ function getPillColors(mode: OddsLensMode, value: number | undefined, isFavorite
     const isNeg = value !== undefined && value >= 50;
     return isNeg
       ? { text: '#0f172a', bg: 'rgba(15,23,42,0.03)', border: '#cbd5e1' }
-      : { text: '#94a3b8', bg: 'transparent', border: '#e2e8f0' };
+      : { text: '#64748b', bg: 'transparent', border: '#cbd5e1' };
   }
 
   // PROB mode: favorite = dark neutral, underdog = muted
   return isFavorite
     ? { text: '#0f172a', bg: 'rgba(15,23,42,0.03)', border: '#cbd5e1' }
-    : { text: '#94a3b8', bg: 'transparent', border: '#e2e8f0' };
+    : { text: '#64748b', bg: 'transparent', border: '#cbd5e1' };
 }
 
 // ─── OddsLensPill ──────────────────────────────────────────────────────────

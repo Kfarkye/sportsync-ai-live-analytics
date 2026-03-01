@@ -625,7 +625,7 @@ const MatchList: React.FC<MatchListProps> = ({
 
                         {/* MAIN COLUMN */}
                         <div className="min-w-0 flex flex-col">
-                            <div className="space-y-3 sm:space-y-6 pt-2 sm:pt-6">
+                            <div className="space-y-3 sm:space-y-6 pt-0 sm:pt-4">
                                 {groupedMatches.map(([leagueId, enrichedMatchArray], groupIndex) => {
                                     const leagueConfig = LEAGUES.find((l) => l.id.toLowerCase() === leagueId);
                                     return (

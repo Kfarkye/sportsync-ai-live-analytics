@@ -39,7 +39,7 @@ const ProbPill = memo(({ value, isFavorite }: { value: number | undefined; isFav
     <span
       className={cn(
         "inline-flex items-center justify-center tabular-nums font-medium select-none w-[46px] h-[22px] rounded-[6px] text-[11px] shrink-0 border",
-        isFavorite ? "bg-slate-50 text-slate-700 border-slate-200" : "bg-transparent text-slate-400 border-slate-100"
+        isFavorite ? "bg-slate-50 text-slate-800 border-slate-300" : "bg-transparent text-slate-500 border-slate-200"
       )}
       title={`${pct}% win probability`}
     >
@@ -52,7 +52,7 @@ const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number |
   <span
     className={cn(
       "inline-flex items-center justify-center font-mono tabular-nums font-bold select-none w-[32px] h-[24px] rounded-[6px] text-[15px] shrink-0",
-      isLoser ? "text-slate-400" : "text-slate-900",
+      isLoser ? "text-slate-500" : "text-slate-900",
       isWinner ? "bg-slate-100" : "bg-transparent"
     )}
   >
@@ -73,10 +73,10 @@ const OddsChip = memo(({ label, value }: { label: string; value: string | number
   }
   return (
     <span className="inline-flex items-center gap-1.5 select-none" aria-label={`${label} ${display}`}>
-      <span className="font-semibold uppercase text-[9px] tracking-widest text-slate-300" aria-hidden="true">
+      <span className="font-semibold uppercase text-[9px] tracking-widest text-slate-400" aria-hidden="true">
         {label}
       </span>
-      <span className="font-mono font-medium tabular-nums text-[11px] text-slate-500">
+      <span className="font-mono font-medium tabular-nums text-[11px] text-slate-600">
         {display}
       </span>
     </span>
@@ -190,7 +190,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       aria-label={`${match.awayTeam?.name || 'Away Team'} vs ${match.homeTeam?.name || 'Home Team'}`}
       onKeyDown={(e: React.KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onSelect?.(match); } }}
       className={cn(
-        "group relative flex items-center justify-between px-3 py-2 sm:px-5 sm:py-3 cursor-pointer transform-gpu min-h-[44px]",
+        "group relative flex items-center justify-between px-3 py-2.5 sm:px-5 sm:py-3 cursor-pointer transform-gpu min-h-[52px]",
         "focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none focus-visible:ring-inset",
         "transition-colors duration-200",
         "border-b border-slate-200/60",
@@ -246,12 +246,12 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
               <div className="flex-1 min-w-0 flex items-baseline gap-2">
                 <span className={cn(
                   "text-[15px] tracking-tight truncate transition-colors duration-300 select-none",
-                  isLoser ? "text-slate-400 font-medium" : "text-slate-900 font-semibold"
+                  isLoser ? "text-slate-500 font-medium" : "text-slate-900 font-semibold"
                 )}>
                   {team.name}
                 </span>
                 {team.record && !isLive && (
-                  <span className="text-[10px] font-medium text-slate-300 tabular-nums shrink-0 hidden sm:inline">
+                  <span className="text-[10px] font-medium text-slate-400 tabular-nums shrink-0 hidden sm:inline">
                     {team.record}
                   </span>
                 )}
@@ -307,13 +307,13 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         ) : isFinal ? (
           <div className="flex items-center gap-1.5">
             <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-            <span className="text-[10px] font-semibold text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded uppercase tracking-widest">FINAL</span>
+            <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded uppercase tracking-widest">FINAL</span>
           </div>
         ) : (
           <>
             <div className="flex items-center gap-1.5">
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-              <span className="text-[13px] font-mono font-medium text-slate-600 tabular-nums tracking-wide group-hover:text-slate-800 transition-colors" suppressHydrationWarning>
+              <span className="text-[13px] font-mono font-semibold text-slate-700 tabular-nums tracking-wide group-hover:text-slate-900 transition-colors" suppressHydrationWarning>
                 {startTimeStr}
               </span>
             </div>
@@ -323,7 +323,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
               </span>
             )}
             {!isTennis && (
-              <span className="text-[9px] font-medium text-slate-400 tracking-wide" suppressHydrationWarning>
+              <span className="text-[9px] font-medium text-slate-500 tracking-wide" suppressHydrationWarning>
                 {dateStr}
               </span>
             )}
