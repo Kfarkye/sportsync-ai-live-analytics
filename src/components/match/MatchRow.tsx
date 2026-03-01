@@ -299,11 +299,8 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1.5">
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-              <div className="flex items-center gap-1.5 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
-                <span className="relative flex h-1.5 w-1.5 shrink-0">
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600"></span>
-                </span>
-                <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest font-mono mt-[1px]">
+              <div className="flex items-center gap-1.5 bg-zinc-50 px-1.5 py-0.5 rounded border border-zinc-200">
+                <span className="text-[10px] font-bold text-zinc-900 uppercase tracking-widest font-mono mt-[1px]">
                   {match.displayClock || 'LIVE'}
                 </span>
               </div>

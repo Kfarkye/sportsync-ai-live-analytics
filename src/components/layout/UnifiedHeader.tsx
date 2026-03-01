@@ -174,12 +174,11 @@ export const UnifiedHeader: FC = () => {
                             className={cn(
                                 "flex items-center gap-1.5 px-2.5 py-[5px] rounded-md text-[11px] font-semibold tracking-[0.04em] transition-all active:scale-95 select-none border",
                                 activeView === 'LIVE'
-                                    ? "bg-red-50 border-red-200 text-red-600"
-                                    : "bg-red-50/50 border-red-100/80 text-red-500 hover:bg-red-50"
+                                    ? "bg-zinc-900 border-zinc-900 text-white"
+                                    : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
                             )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
-                            <svg width="6" height="6" viewBox="0 0 6 6"><circle cx="3" cy="3" r="3" fill="currentColor"/></svg>
                             LIVE
                         </button>
 
@@ -242,10 +241,8 @@ export const UnifiedHeader: FC = () => {
                                         <span className="text-[13px] font-medium text-zinc-900">{dateDisplay.label}</span>
                                         {dateDisplay.isToday && (
                                             <span
-                                                className="text-[9.5px] font-semibold tracking-[0.03em] px-1.5 py-px rounded-[3px]"
+                                                className="text-[9.5px] font-bold tracking-[0.04em] text-zinc-900 px-1.5 py-px"
                                                 style={{
-                                                    color: '#22c55e',
-                                                    backgroundColor: 'rgba(34,197,94,0.06)',
                                                     fontFamily: "ui-monospace, SFMono-Regular, monospace",
                                                 }}
                                             >
