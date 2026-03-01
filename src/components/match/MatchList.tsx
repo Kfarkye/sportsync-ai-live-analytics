@@ -321,10 +321,10 @@ const LeagueGroup = memo(({
                 onClick={toggle}
                 className={cn(
                     'flex items-center justify-between w-full min-h-[44px] px-4 py-3',
-                    'bg-white sticky top-[56px] lg:top-[64px] z-20',
-                    'transition-colors hover:bg-slate-50',
+                    'bg-slate-50 sticky top-0 z-10 border-b border-black/[0.06]',
+                    'transition-colors hover:bg-slate-100',
                     'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-500',
-                    isExpanded ? 'border border-slate-200 border-b-0 rounded-t-xl shadow-sm' : 'border border-slate-200 rounded-xl shadow-sm'
+                    isExpanded ? 'border border-slate-200 border-b-black/[0.06] rounded-t-xl shadow-sm' : 'border border-slate-200 border-b-transparent rounded-xl shadow-sm'
                 )}
                 aria-expanded={isExpanded}
                 aria-controls={`league-content-${leagueId}`}
