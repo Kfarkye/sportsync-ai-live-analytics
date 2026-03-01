@@ -15,6 +15,7 @@ import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
 import { LayoutGroup, motion } from 'framer-motion';
 import { cn } from '@/lib/essence';
+import { getTeamColor } from '@/lib/teamColors';
 import {
     usePolyOdds,
     findPolyForMatch,
@@ -215,8 +216,8 @@ const MarketPulseRow = memo(({ poly, matchMap, onSelect, isLast }: {
         return undefined;
     }, [poly, matchMap]);
 
-    const awayColor = match?.awayTeam?.color || '#a1a1aa';
-    const homeColor = match?.homeTeam?.color || '#a1a1aa';
+    const awayColor = getTeamColor(poly.away_team_name) || match?.awayTeam?.color || '#a1a1aa';
+    const homeColor = getTeamColor(poly.home_team_name) || match?.homeTeam?.color || '#a1a1aa';
 
     const handleClick = useCallback(() => {
         if (match) onSelect(match);
@@ -647,7 +648,9 @@ const MatchList: React.FC<MatchListProps> = ({
                                             </svg>
                                             <span className="font-mono text-[10px] font-semibold tracking-[0.1em] text-zinc-400 uppercase">Featured Props</span>
                                         </div>
-                                        <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">Tomorrow</span>
+                                        <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">
+                                            {featuredProps[0]?.event_date === new Date().toISOString().split('T')[0] ? 'Today' : 'Tomorrow'}
+                                        </span>
                                     </div>
                                     {featuredProps.map((prop, i) => (
                                         <PropRow key={prop.player_name + prop.bet_type} prop={prop} isLast={i === featuredProps.length - 1} />
