@@ -10,6 +10,7 @@ import ChatWidget from '../ChatWidget';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
 import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
+import { cn } from '@/lib/essence';
 import { LAYOUT, ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
 
 const CommandPalette = lazy(() => import('../modals/CommandPalette'));
@@ -27,7 +28,7 @@ const AppShell: FC = () => {
     activeView, selectedDate, selectedSport, selectedMatch,
     setSelectedMatch, setSelectedSport, showLanding, isCmdkOpen,
     isAuthModalOpen, isSportDrawerOpen,
-    isPricingModalOpen, isRankingsDrawerOpen, toggleCmdk,
+    isPricingModalOpen, isRankingsDrawerOpen, isGlobalChatOpen, toggleCmdk,
     toggleAuthModal, togglePricingModal,
     toggleSportDrawer, toggleRankingsDrawer, setShowLanding,
     closeAllOverlays
@@ -79,7 +80,7 @@ const AppShell: FC = () => {
   if (showLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
 
   return (
-    <div className="min-h-screen h-screen bg-slate-50 text-slate-900 font-sans selection:bg-slate-900/10 relative flex flex-col antialiased">
+    <div className="min-h-screen h-screen bg-zinc-100 text-zinc-900 font-sans selection:bg-zinc-900/10 relative flex flex-col antialiased">
       <UnifiedHeader />
 
       <MotionMain
@@ -183,20 +184,40 @@ const AppShell: FC = () => {
         )}
       </AnimatePresence>
 
+      {/* Desktop AI FAB — only visible on md+ when chat is closed */}
+      {!selectedMatch && (
+        <button
+          onClick={() => useAppStore.getState().toggleGlobalChat()}
+          className={cn(
+            "fixed bottom-5 right-5 z-50 hidden md:flex items-center justify-center",
+            "w-11 h-11 rounded-xl transition-all active:scale-90",
+            "bg-zinc-900 text-white shadow-lg shadow-zinc-900/20 hover:bg-zinc-800",
+            isGlobalChatOpen && "rotate-45"
+          )}
+          aria-label={isGlobalChatOpen ? 'Close AI' : 'Open AI Analysis'}
+        >
+          {isGlobalChatOpen ? (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M4 4L12 12M12 4L4 12"/></svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+              <path d="M9 1L11.5 6.5L17 9L11.5 11.5L9 17L6.5 11.5L1 9L6.5 6.5L9 1Z" fill="currentColor" opacity="0.85"/>
+            </svg>
+          )}
+        </button>
+      )}
+
       <ChatWidget currentMatch={selectedMatch} matches={matches} />
 
       {/* Global Legal & Responsibility Footer */}
-      <footer className="w-full max-w-7xl mx-auto px-6 py-12 border-t border-slate-200 opacity-60">
-        <div className="flex flex-col items-center text-center space-y-4">
-          <p className="text-[10px] font-medium leading-relaxed max-w-2xl text-slate-400">
-            SportSync AI provides a quantitative decision-support environment for entertainment purposes only.
-            We are not a sportsbook and do not provide financial advice or guarantee outcome success.
-            Analytical confidence levels represent model weights, not mathematical probability of real-world results.
-          </p>
-          <div className="flex items-center gap-6 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
-            <span>Must be 21+</span>
-            <span className="w-1 h-1 rounded-full bg-slate-300" />
-            <span>Problem? 1-800-GAMBLER</span>
+      <footer className="w-full max-w-7xl mx-auto px-7 py-[18px] border-t border-zinc-200 opacity-60">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] text-zinc-400">
+            Quantitative decision-support for entertainment only. Not financial advice.
+          </span>
+          <div className="flex items-center gap-3.5">
+            <span className="font-mono text-[9.5px] text-zinc-400 tracking-[0.04em]">21+</span>
+            <span className="text-zinc-300">·</span>
+            <span className="font-mono text-[9.5px] text-zinc-400 tracking-[0.04em]">1-800-GAMBLER</span>
           </div>
         </div>
       </footer>

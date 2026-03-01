@@ -16,12 +16,7 @@ const MotionDiv = motion.div;
 // Inline pulse indicator for active chat
 const EdgePulse = () => (
     <div className="relative w-5 h-5 flex items-center justify-center">
-        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-        <motion.div
-            className="absolute inset-0 rounded-full bg-emerald-500/30"
-            animate={{ scale: [1, 2], opacity: [0.5, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
-        />
+        <div className="w-2 h-2 rounded-full bg-zinc-900" />
     </div>
 );
 
@@ -71,7 +66,7 @@ export const MobileNavBar = () => {
                     onClick={() => toggleGlobalChat()}
                     className={cn(
                         "flex flex-col items-center gap-1.5 transition-colors duration-200 active:scale-95",
-                        isGlobalChatOpen ? "text-emerald-600" : "text-slate-400 hover:text-slate-600"
+                        isGlobalChatOpen ? "text-zinc-900" : "text-slate-400 hover:text-slate-600"
                     )}
                     title="Edge AI"
                 >

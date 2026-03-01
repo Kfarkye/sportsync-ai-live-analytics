@@ -14,7 +14,6 @@ import { LEAGUES } from '@/constants';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
 import { LayoutGroup, motion } from 'framer-motion';
-import { getPeriodDisplay } from '../../utils/matchUtils';
 import { cn } from '@/lib/essence';
 import {
     usePolyOdds,
@@ -22,7 +21,8 @@ import {
     calcEdge,
     americanToImpliedProb,
     polyProbToPercent,
-    type PolyOddsResult
+    type PolyOddsResult,
+    type PolyOdds
 } from '@/hooks/usePolyOdds';
 
 // ============================================================================
@@ -173,104 +173,107 @@ const OptimizedMatchRow = memo(({
 OptimizedMatchRow.displayName = 'OptimizedMatchRow';
 
 // ============================================================================
-// FEATURED HERO WIDGET
+// MARKET PULSE ROW — Polymarket sidebar widget row
 // ============================================================================
 
-const FeaturedHero = memo(({ match, onSelect, isLive }: { match: Match; onSelect: (m: Match) => void; isLive: boolean }) => {
-    const handleClick = useCallback(() => onSelect(match), [match, onSelect]);
+function formatVolume(vol: number): string {
+    if (vol >= 1_000_000) return `$${(vol / 1_000_000).toFixed(1)}M`;
+    if (vol >= 1_000) return `$${(vol / 1_000).toFixed(0)}K`;
+    return `$${vol}`;
+}
 
-    const homeColor = match.homeTeam?.color || '#1c1c1e';
-    const awayColor = match.awayTeam?.color || '#1c1c1e';
+const MarketPulseRow = memo(({ poly, matchMap, onSelect, isLast }: {
+    poly: PolyOdds;
+    matchMap: Map<string, Match>;
+    onSelect: (m: Match) => void;
+    isLast: boolean;
+}) => {
+    const homeProb = Math.round(poly.home_prob * 100);
+    const awayProb = Math.round(poly.away_prob * 100);
+    const favIsAway = awayProb > homeProb;
 
-    const safeHomeName = match.homeTeam?.name ?? 'TBA';
-    const safeAwayName = match.awayTeam?.name ?? 'TBA';
+    // Attempt to resolve match for logos + team colors
+    const match = poly.game_id ? matchMap.get(poly.game_id) || matchMap.get(poly.game_id.split('_')[0]) : undefined;
+    const awayColor = match?.awayTeam?.color || '#a1a1aa';
+    const homeColor = match?.homeTeam?.color || '#a1a1aa';
 
-    // Interpolate critical info into the root ARIA label so assistive tech doesn't miss it
-    const ariaAnnouncement = `Featured Match: ${safeAwayName} ${isLive && match.awayScore != null ? match.awayScore : ''} versus ${safeHomeName} ${isLive && match.homeScore != null ? match.homeScore : ''}. ${isLive ? 'Live right now.' : 'Upcoming event.'}`;
-
-    const timeMs = parseSafeDateMs(match.startTime);
+    const handleClick = useCallback(() => {
+        if (match) onSelect(match);
+    }, [match, onSelect]);
 
     return (
         <button
             type="button"
             onClick={handleClick}
             className={cn(
-                "relative h-[160px] w-full text-left rounded-2xl border border-slate-200 overflow-hidden cursor-pointer group",
-                "transition-all duration-300 hover:border-slate-300 hover:shadow-sm",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50"
+                "w-full text-left px-3.5 py-2.5 transition-colors hover:bg-zinc-50 cursor-pointer",
+                !isLast && "border-b border-zinc-100"
             )}
-            style={{ background: '#ffffff' }}
-            aria-label={ariaAnnouncement}
         >
-            <div
-                className="absolute inset-0 opacity-70 transition-opacity duration-300 group-hover:opacity-90 pointer-events-none"
-                style={{
-                    // CSS color-mix handles malformed 3-char hex strings flawlessly
-                    background: `linear-gradient(135deg, color-mix(in srgb, ${awayColor} 8%, transparent) 0%, #ffffff 50%, color-mix(in srgb, ${homeColor} 8%, transparent) 100%)`,
-                }}
-            />
-            <div className="absolute inset-0 bg-white/70 pointer-events-none" />
-
-            {/* aria-hidden restricts the screen reader to ONLY read the button's aria-label */}
-            <div className="relative z-10 h-full flex flex-col justify-between p-5 pointer-events-none" aria-hidden="true">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        {isLive ? (
-                            <div className="px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                <span className="text-[9px] font-bold text-rose-600 uppercase tracking-widest">Live</span>
-                            </div>
-                        ) : (
-                            <div className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200">
-                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest" suppressHydrationWarning>
-                                    {timeMs === Number.MAX_SAFE_INTEGER ? 'TBA' : new Date(timeMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                        {match.leagueId}
-                    </span>
+            {/* Away row */}
+            <div className="flex justify-between items-center mb-1.5">
+                <div className="flex items-center gap-2 min-w-0">
+                    {match?.awayTeam?.logo ? (
+                        <TeamLogo logo={match.awayTeam.logo} name={poly.away_team_name} className="w-4 h-4 object-contain shrink-0" />
+                    ) : (
+                        <span className="w-4 h-4 shrink-0" />
+                    )}
+                    <span className={cn(
+                        "text-[12px] truncate",
+                        favIsAway ? "font-semibold text-zinc-900" : "font-normal text-zinc-400"
+                    )}>{poly.away_team_name}</span>
                 </div>
-
-                <div className="flex items-center justify-between px-2">
-                    <div className="flex flex-col items-center gap-2">
-                        <TeamLogo logo={match.awayTeam?.logo} name={safeAwayName} className="w-12 h-12 object-contain drop-shadow-sm" />
-                        <span className="text-sm font-bold text-slate-900 tracking-tight">
-                            {match.awayTeam?.abbreviation || safeAwayName.substring(0, 3).toUpperCase()}
-                        </span>
-                    </div>
-
-                    <div className="flex flex-col items-center">
-                        {isLive ? (
-                            <div className="text-3xl font-mono font-bold text-slate-900 tracking-tighter tabular-nums flex items-center gap-3">
-                                <span>{match.awayScore ?? 0}</span>
-                                <span className="text-slate-300">-</span>
-                                <span>{match.homeScore ?? 0}</span>
-                            </div>
-                        ) : (
-                            <span className="text-2xl font-black text-slate-300 italic">VS</span>
-                        )}
-                    </div>
-
-                    <div className="flex flex-col items-center gap-2">
-                        <TeamLogo logo={match.homeTeam?.logo} name={safeHomeName} className="w-12 h-12 object-contain drop-shadow-sm" />
-                        <span className="text-sm font-bold text-slate-900 tracking-tight">
-                            {match.homeTeam?.abbreviation || safeHomeName.substring(0, 3).toUpperCase()}
-                        </span>
-                    </div>
+                <span className={cn(
+                    "font-mono text-[11px] font-semibold tabular-nums shrink-0",
+                    favIsAway ? "text-zinc-900" : "text-zinc-400"
+                )}>{awayProb}%</span>
+            </div>
+            {/* Home row */}
+            <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2 min-w-0">
+                    {match?.homeTeam?.logo ? (
+                        <TeamLogo logo={match.homeTeam.logo} name={poly.home_team_name} className="w-4 h-4 object-contain shrink-0" />
+                    ) : (
+                        <span className="w-4 h-4 shrink-0" />
+                    )}
+                    <span className={cn(
+                        "text-[12px] truncate",
+                        !favIsAway ? "font-semibold text-zinc-900" : "font-normal text-zinc-400"
+                    )}>{poly.home_team_name}</span>
                 </div>
-
-                <div className="flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] truncate max-w-[200px]">
-                        {isLive ? getPeriodDisplay(match) : 'Headline Event'}
-                    </span>
-                </div>
+                <span className={cn(
+                    "font-mono text-[11px] font-semibold tabular-nums shrink-0",
+                    !favIsAway ? "text-zinc-900" : "text-zinc-400"
+                )}>{homeProb}%</span>
+            </div>
+            {/* Dual prob bar — team brand colors */}
+            <div className="flex h-1 rounded-full overflow-hidden gap-px">
+                <div
+                    className="rounded-l-full transition-all duration-500"
+                    style={{
+                        width: `${awayProb}%`,
+                        backgroundColor: awayColor,
+                        opacity: favIsAway ? 0.85 : 0.2,
+                    }}
+                />
+                <div
+                    className="rounded-r-full transition-all duration-500"
+                    style={{
+                        width: `${homeProb}%`,
+                        backgroundColor: homeColor,
+                        opacity: !favIsAway ? 0.85 : 0.2,
+                    }}
+                />
+            </div>
+            {/* Meta row */}
+            <div className="flex justify-between items-center mt-1.5">
+                <span className="font-mono text-[9px] text-zinc-400 tracking-[0.04em] uppercase">{poly.local_league_id}</span>
+                <span className="font-mono text-[9px] text-zinc-400">{formatVolume(poly.volume)} vol</span>
             </div>
         </button>
     );
 });
-FeaturedHero.displayName = 'FeaturedHero';
+MarketPulseRow.displayName = 'MarketPulseRow';
 
 // ============================================================================
 // SKELETON
@@ -326,24 +329,24 @@ const LeagueGroup = memo(({
                 onClick={toggle}
                 className={cn(
                     'flex items-center justify-between w-full min-h-[44px] px-4 py-3',
-                    'bg-slate-50 sticky top-0 z-10 border-b border-black/[0.06]',
-                    'transition-colors hover:bg-slate-100',
-                    'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-500',
-                    isExpanded ? 'border border-slate-200 border-b-black/[0.06] rounded-t-xl shadow-sm' : 'border border-slate-200 border-b-transparent rounded-xl shadow-sm'
+                    'bg-zinc-50/80 backdrop-blur-sm sticky top-[92px] z-10 border-b border-zinc-200/60',
+                    'transition-colors hover:bg-zinc-100',
+                    'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400',
+                    isExpanded ? 'border border-zinc-200 border-b-zinc-200/60 rounded-t-xl shadow-sm' : 'border border-zinc-200 border-b-transparent rounded-xl shadow-sm'
                 )}
                 aria-expanded={isExpanded}
                 aria-controls={`league-content-${leagueId}`}
             >
                 <div className="flex items-center gap-2">
-                    <h3 className="text-[11px] font-bold text-slate-900 tracking-wide uppercase">{leagueName}</h3>
-                    <span className="text-[14px] text-slate-300 leading-none" aria-hidden="true">·</span>
-                    <span className="text-[11px] font-medium text-slate-500">
+                    <h3 className="text-[11px] font-bold text-zinc-900 tracking-wide uppercase" style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace", letterSpacing: "0.08em" }}>{leagueName}</h3>
+                    <span className="text-[14px] text-zinc-300 leading-none" aria-hidden="true">·</span>
+                    <span className="text-[11px] font-medium text-zinc-500">
                         {enrichedMatches.length} {enrichedMatches.length === 1 ? 'game' : 'games'}
                     </span>
                     {earliestTime && (
                         <>
-                            <span className="text-[14px] text-slate-300 leading-none" aria-hidden="true">·</span>
-                            <span className="text-[11px] font-medium text-slate-500" suppressHydrationWarning>
+                            <span className="text-[14px] text-zinc-300 leading-none" aria-hidden="true">·</span>
+                            <span className="text-[11px] font-medium text-zinc-500" suppressHydrationWarning>
                                 {earliestTime}
                             </span>
                         </>
@@ -485,10 +488,10 @@ const MatchList: React.FC<MatchListProps> = ({
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-32">
+        <div className="min-h-screen bg-zinc-100 pb-32">
             <LayoutGroup id="editorial-feed">
                 <div className="max-w-7xl mx-auto px-0 lg:px-6 w-full">
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-12 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-8 items-start">
 
                         {/* MAIN COLUMN */}
                         <div className="min-w-0 flex flex-col gap-10">
@@ -512,50 +515,65 @@ const MatchList: React.FC<MatchListProps> = ({
                         </div>
 
                         {/* SIDEBAR WIDGETS */}
-                        <aside className="hidden lg:flex flex-col sticky top-[128px] space-y-6 pt-6">
-                            {featuredMatches.length > 0 && (
-                                <section className="mb-2" aria-label="Headline Events">
-                                    <div className="flex items-center gap-2 mb-3 px-1">
-                                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
-                                        <h2 className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest m-0">
-                                            Headline Events
-                                        </h2>
+                        <aside className="hidden lg:flex flex-col sticky top-[104px] gap-3.5 pt-6">
+                            {/* Market Pulse — Polymarket */}
+                            {polyResult && polyResult.rows.length > 0 && (
+                                <section
+                                    className="rounded-xl bg-white border border-zinc-200 overflow-hidden"
+                                    aria-label="Market Pulse"
+                                >
+                                    <div className="px-3.5 py-2.5 border-b border-zinc-100 bg-zinc-50/50 flex justify-between items-center">
+                                        <div className="flex items-center gap-1.5">
+                                            <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                                                <path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="#3b82f6" strokeWidth="1.3" fill="rgba(59,130,246,0.06)"/>
+                                            </svg>
+                                            <span className="font-mono text-[10px] font-semibold tracking-[0.1em] text-zinc-400 uppercase">Market Pulse</span>
+                                        </div>
+                                        <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">Via Polymarket</span>
                                     </div>
-                                    <div className="flex flex-col gap-4">
-                                        {featuredMatches.map((data) => (
-                                            <FeaturedHero
-                                                key={`feat-${data.match.id}`}
-                                                match={data.match}
+                                    {(() => {
+                                        // Build match map for logo/color lookups
+                                        const matchMap = new Map<string, Match>();
+                                        matches.forEach((m) => {
+                                            matchMap.set(m.id, m);
+                                            const stripped = m.id.split('_')[0];
+                                            if (stripped) matchMap.set(stripped, m);
+                                        });
+                                        // Top markets sorted by volume
+                                        const topMarkets = [...polyResult.rows]
+                                            .filter((r) => r.home_prob > 0 && r.away_prob > 0)
+                                            .sort((a, b) => (b.volume || 0) - (a.volume || 0))
+                                            .slice(0, 5);
+                                        return topMarkets.map((poly, i) => (
+                                            <MarketPulseRow
+                                                key={poly.poly_event_slug || i}
+                                                poly={poly}
+                                                matchMap={matchMap}
                                                 onSelect={handleSelect}
-                                                isLive={data.isLive}
+                                                isLast={i === topMarkets.length - 1}
                                             />
-                                        ))}
-                                    </div>
+                                        ));
+                                    })()}
                                 </section>
                             )}
 
-                            {/* Pro Upsell Widget */}
-                            <section className="p-7 rounded-2xl bg-white border border-slate-200 relative overflow-hidden shadow-sm">
-                                <div className="relative z-10">
-                                    <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">
-                                        Pro Access
-                                    </h3>
-                                    <p className="text-[13px] text-slate-600 mb-6 leading-relaxed font-medium tracking-tight">
-                                        Full prop analysis, L5 hit rates, AI rationale, and real-time line movement alerts.
-                                    </p>
-                                    <button
-                                        type="button"
-                                        onClick={handlePricing}
-                                        className={cn(
-                                            "w-full py-3 bg-slate-900 hover:bg-slate-800 text-white",
-                                            "text-[11px] font-bold uppercase tracking-widest rounded-full",
-                                            "transition-colors flex items-center justify-center outline-none",
-                                            "focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-900 focus-visible:ring-offset-white"
-                                        )}
-                                    >
-                                        Upgrade
-                                    </button>
-                                </div>
+                            {/* Pro CTA */}
+                            <section className="rounded-xl bg-white border border-zinc-200 p-[18px]">
+                                <h3
+                                    className="font-mono text-[9.5px] font-semibold tracking-[0.1em] text-zinc-500 uppercase mb-2"
+                                >
+                                    Pro Access
+                                </h3>
+                                <p className="text-[13px] text-zinc-500 leading-relaxed mb-3.5">
+                                    Full prop analysis, L5 hit rates, AI rationale, and real-time line movement alerts.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={handlePricing}
+                                    className="w-full py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-[12px] font-semibold rounded-lg transition-colors tracking-[-0.01em] outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900"
+                                >
+                                    Upgrade
+                                </button>
                             </section>
                         </aside>
 
