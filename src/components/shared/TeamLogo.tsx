@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { cn } from '@/lib/essence';
 
 interface TeamLogoProps {
@@ -32,6 +32,9 @@ const getOptimizedLogoUrl = (url: string | undefined): string | null => {
   }
 };
 
+const MAX_RETRIES = 2;
+const RETRY_DELAYS = [1500, 4000]; // ms — backoff schedule
+
 const TeamLogo: React.FC<TeamLogoProps> = ({
   logo,
   name = 'Team',
@@ -42,19 +45,51 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
 }) => {
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const optimizedSrc = React.useMemo(() => getOptimizedLogoUrl(logo), [logo]);
 
+  // Reset state only when the actual URL changes
   useEffect(() => {
     setError(false);
     setLoaded(false);
+    setRetryCount(0);
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
   }, [optimizedSrc]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    };
+  }, []);
+
+  const handleError = () => {
+    if (retryCount < MAX_RETRIES) {
+      // Schedule a retry with backoff
+      const delay = RETRY_DELAYS[retryCount] || 4000;
+      retryTimerRef.current = setTimeout(() => {
+        setRetryCount(prev => prev + 1);
+        setError(false); // Reset error to trigger re-render → img re-mount
+      }, delay);
+    }
+    setError(true);
+  };
 
   const fallback = abbreviation
     ? (abbreviation || '').slice(0, 3).toUpperCase()
     : (name || '').slice(0, 2).toUpperCase();
 
-  const hasValidSource = !!optimizedSrc && !error;
+  // Append retry count as cache-buster so the browser doesn't serve a cached error
+  const srcWithRetry = optimizedSrc && retryCount > 0
+    ? `${optimizedSrc}${optimizedSrc.includes('?') ? '&' : '?'}_r=${retryCount}`
+    : optimizedSrc;
+
+  const hasValidSource = !!srcWithRetry && !error;
 
   // --- Variant: Card (Match Header Style) — Clean on white, NO GLOWS ---
   if (variant === 'card') {
@@ -71,13 +106,13 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
       >
         {hasValidSource ? (
           <img
-            src={optimizedSrc || undefined}
+            src={srcWithRetry || undefined}
             alt={name}
             className={cn(
               "w-[70%] h-[70%] object-contain transition-all duration-300 will-change-transform",
               loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
             )}
-            onError={() => setError(true)}
+            onError={handleError}
             onLoad={() => setLoaded(true)}
             loading="lazy"
             decoding="async"
@@ -114,13 +149,13 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
         <div className="absolute inset-0 bg-slate-100 animate-pulse rounded-full" />
       )}
       <img
-        src={optimizedSrc || undefined}
+        src={srcWithRetry || undefined}
         alt={name}
         className={cn(
           "w-full h-full object-contain transition-all duration-300",
           loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
         )}
-        onError={() => setError(true)}
+        onError={handleError}
         onLoad={() => setLoaded(true)}
         loading="lazy"
         decoding="async"
