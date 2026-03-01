@@ -84,7 +84,7 @@ interface OddsLensPillProps {
   source?: 'poly' | 'espn';
 }
 
-export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavorite, edge, source }) => {
+export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavorite, edge }) => {
   const oddsLens = useAppStore((s) => s.oddsLens);
   const toggleOddsLens = useAppStore((s) => s.toggleOddsLens);
 
@@ -107,7 +107,6 @@ export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavori
   const colors = getPillColors(oddsLens, value, isFavorite, edge);
   const isOddsMode = oddsLens === 'ODDS';
   const isEdgeMode = oddsLens === 'EDGE';
-  const isPoly = source === 'poly';
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -162,13 +161,6 @@ export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavori
             }}
           />
         </span>
-      )}
-      {isPoly && oddsLens === 'PROB' && (
-        <span
-          className="absolute -top-0.5 -right-0.5 w-1 h-1 rounded-full"
-          style={{ backgroundColor: '#334155' }}
-          aria-label="Polymarket data"
-        />
       )}
     </button>
   );
