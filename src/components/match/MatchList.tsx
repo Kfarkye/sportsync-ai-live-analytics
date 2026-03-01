@@ -217,7 +217,7 @@ const FeaturedHero = memo(({ match, onSelect, isLive }: { match: Match; onSelect
                     <div className="flex items-center gap-2">
                         {isLive ? (
                             <div className="px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                                 <span className="text-[9px] font-bold text-rose-600 uppercase tracking-widest">Live</span>
                             </div>
                         ) : (
@@ -516,7 +516,7 @@ const MatchList: React.FC<MatchListProps> = ({
                             {featuredMatches.length > 0 && (
                                 <section className="mb-2" aria-label="Headline Events">
                                     <div className="flex items-center gap-2 mb-3 px-1">
-                                        <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full shadow-[0_0_8px_rgba(6,182,212,0.35)] animate-pulse" />
+                                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
                                         <h2 className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest m-0">
                                             Headline Events
                                         </h2>
@@ -536,13 +536,12 @@ const MatchList: React.FC<MatchListProps> = ({
 
                             {/* Pro Upsell Widget */}
                             <section className="p-7 rounded-2xl bg-white border border-slate-200 relative overflow-hidden shadow-sm">
-                                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-60 pointer-events-none" />
                                 <div className="relative z-10">
-                                    <h3 className="text-[11px] font-bold text-[#2997FF] uppercase tracking-widest mb-3">
+                                    <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">
                                         Pro Access
                                     </h3>
                                     <p className="text-[13px] text-slate-600 mb-6 leading-relaxed font-medium tracking-tight">
-                                        Unlock real-time institutional feeds and sharp money indicators.
+                                        Full prop analysis, L5 hit rates, AI rationale, and real-time line movement alerts.
                                     </p>
                                     <button
                                         type="button"
