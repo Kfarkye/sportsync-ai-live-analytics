@@ -294,17 +294,17 @@ const EmptyState = ({ icon, message }: { icon: ReactNode; message: string }) => 
     </div>
 );
 
-const TeamDisplay: FC<{ team: TeamsSlice['home'] }> = memo(({ team }) => (
-    <div className="flex flex-col items-center gap-3 text-center">
-        <div className="relative mb-2">
-            <div className="absolute inset-[-10px] rounded-full blur-2xl opacity-40 translate-z-0 pointer-events-none" style={{ background: team.color }} aria-hidden="true" />
-            <div className="relative z-10 flex items-center justify-center bg-[#111113] rounded-full border border-white/10 w-20 h-20 sm:w-24 sm:h-24 shadow-2xl">
-                <TeamLogo logo={team.logo} name={team.name} className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
+const TeamDisplay: FC<{ team: TeamsSlice['home']; compact?: boolean }> = memo(({ team, compact = false }) => (
+    <div className={cn('flex flex-col items-center text-center', compact ? 'gap-2.5' : 'gap-3')}>
+        <div className={cn('relative', compact ? 'mb-1.5' : 'mb-2')}>
+            <div className={cn('absolute rounded-full blur-2xl opacity-40 translate-z-0 pointer-events-none', compact ? 'inset-[-8px]' : 'inset-[-10px]')} style={{ background: team.color }} aria-hidden="true" />
+            <div className={cn('relative z-10 flex items-center justify-center rounded-full border border-white/10 bg-[#111113] shadow-2xl', compact ? 'h-14 w-14 sm:h-16 sm:w-16' : 'h-20 w-20 sm:h-24 sm:w-24')}>
+                <TeamLogo logo={team.logo} name={team.name} className={cn('object-contain', compact ? 'h-8 w-8 sm:h-10 sm:w-10' : 'h-12 w-12 sm:h-16 sm:w-16')} />
             </div>
         </div>
         <div className="text-center">
-            <h2 className="text-[15px] sm:text-[20px] font-bold text-white tracking-tight leading-tight">{team.name}</h2>
-            <span className="mt-1 text-[11px] font-medium text-zinc-500 tabular-nums tracking-wide font-mono">{team.record}</span>
+            <h2 className={cn('font-bold tracking-tight leading-tight text-white', compact ? 'text-[13px] sm:text-[16px]' : 'text-[15px] sm:text-[20px]')}>{team.name}</h2>
+            <span className={cn('mt-1 font-medium text-zinc-500 tabular-nums tracking-wide font-mono', compact ? 'text-[10px]' : 'text-[11px]')}>{team.record}</span>
         </div>
     </div>
 ));
@@ -668,25 +668,41 @@ AITab.displayName = 'AITab';
 // ============================================================================
 
 const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedded }: { meta: MetaSlice; teams: TeamsSlice; gameplay: GameplaySlice; betting: BettingSlice; onBack?: () => void; isEmbedded: boolean; }) => (
-    <header className={cn('relative w-full flex flex-col items-center overflow-hidden select-none bg-[#0A0A0B]', !isEmbedded && 'pt-6')}>
+    <header className={cn('relative w-full flex flex-col items-center overflow-hidden select-none border border-white/5 bg-[#0A0A0B]', isEmbedded ? 'rounded-[18px] shadow-[0_20px_45px_rgba(2,6,23,0.35)]' : 'rounded-none', !isEmbedded && 'pt-6')}>
         {!isEmbedded && (
-            <div className="absolute top-4 flex items-center justify-between w-full px-6 z-20">
-                <button type="button" onClick={onBack} disabled={!onBack} aria-label="Go Back" className={cn('flex items-center gap-2 text-zinc-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded p-1', !onBack && 'opacity-0 pointer-events-none')}>
+            <div className="absolute top-4 z-20 flex w-full items-center justify-between px-6">
+                <button type="button" onClick={onBack} disabled={!onBack} aria-label="Go Back" className={cn('flex items-center gap-2 rounded p-1 text-zinc-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500', !onBack && 'pointer-events-none opacity-0')}>
                     <ArrowLeft size={16} strokeWidth={2.5} aria-hidden="true" />
                 </button>
                 <div className="flex items-center gap-3">
                     {gameplay.isRedZone && !meta.isFinished && (
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-red-500/10 border border-red-500/20 rounded-full text-red-500 animate-pulse" role="status">
+                        <div className="flex animate-pulse items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-red-500" role="status">
                             <AlertCircle size={10} aria-hidden="true" />
                             <span className="text-[9px] font-bold tracking-widest uppercase">Red Zone</span>
                         </div>
                     )}
-                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md" role="status" aria-live="polite">
+                    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 backdrop-blur-md" role="status" aria-live="polite">
                         <span className={cn("w-1.5 h-1.5 rounded-full", meta.isPregame || meta.isFinished ? "bg-zinc-500" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse")} aria-hidden="true" />
                         <span className={cn("text-[9px] font-bold tracking-widest uppercase", meta.isPregame || meta.isFinished ? "text-zinc-400" : "text-red-500")}>
                             {meta.isFinished ? 'FINAL' : meta.isPregame ? 'UPCOMING' : 'LIVE'}
                         </span>
                     </div>
+                </div>
+            </div>
+        )}
+        {isEmbedded && (
+            <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
+                {gameplay.isRedZone && !meta.isFinished && (
+                    <div className="flex animate-pulse items-center gap-1 rounded-full border border-red-500/25 bg-red-500/10 px-2 py-0.5 text-red-400" role="status">
+                        <AlertCircle size={9} aria-hidden="true" />
+                        <span className="text-[8px] font-bold tracking-widest uppercase">RZ</span>
+                    </div>
+                )}
+                <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 backdrop-blur-md" role="status" aria-live="polite">
+                    <span className={cn("h-1.5 w-1.5 rounded-full", meta.isPregame || meta.isFinished ? "bg-zinc-500" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse")} aria-hidden="true" />
+                    <span className={cn("text-[8px] font-bold tracking-widest uppercase", meta.isPregame || meta.isFinished ? "text-zinc-400" : "text-red-500")}>
+                        {meta.isFinished ? 'FINAL' : meta.isPregame ? 'UPCOMING' : 'LIVE'}
+                    </span>
                 </div>
             </div>
         )}
@@ -696,43 +712,43 @@ const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedd
             <div className="absolute top-[10%] -right-[10%] w-[50%] h-[80%] blur-[120px] opacity-[0.15] translate-z-0 rounded-full" style={{ background: teams.home.color }} />
         </div>
 
-        <div className={cn('relative z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4 sm:gap-12 w-full max-w-5xl px-4 sm:px-8', isEmbedded ? 'mt-8 mb-6' : 'mt-16 mb-8')}>
-            <TeamDisplay team={teams.away} />
-            <div className="flex flex-col items-center justify-center min-w-[140px] pt-4" aria-live="polite" aria-label={`Score: ${teams.away.name} ${teams.away.score}, ${teams.home.name} ${teams.home.score}`}>
+        <div className={cn('relative z-10 grid w-full max-w-5xl grid-cols-[1fr_auto_1fr] items-center', isEmbedded ? 'mb-5 mt-10 gap-3 px-3 sm:gap-6 sm:px-6' : 'mb-8 mt-16 gap-4 px-4 sm:gap-12 sm:px-8')}>
+            <TeamDisplay team={teams.away} compact={isEmbedded} />
+            <div className={cn('flex flex-col items-center justify-center', isEmbedded ? 'min-w-[114px] pt-2' : 'min-w-[140px] pt-4')} aria-live="polite" aria-label={`Score: ${teams.away.name} ${teams.away.score}, ${teams.home.name} ${teams.home.score}`}>
                 {meta.isPregame ? (
                     <div className="flex flex-col items-center gap-2">
-                        <span className="text-4xl sm:text-5xl font-medium tracking-tighter tabular-nums text-white" suppressHydrationWarning>
+                        <span className={cn('font-medium tracking-tighter tabular-nums text-white', isEmbedded ? 'text-3xl sm:text-4xl' : 'text-4xl sm:text-5xl')} suppressHydrationWarning>
                             {meta.displayClock || formatLocalTime(meta.timestampMs)}
                         </span>
-                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em]" suppressHydrationWarning>
+                        <span className={cn('font-bold uppercase tracking-[0.15em] text-zinc-500', isEmbedded ? 'text-[9px]' : 'text-[10px]')} suppressHydrationWarning>
                             {formatLocalDate(meta.timestampMs)}
                         </span>
-                        {betting.matchupStr && <span className="px-3 py-1 bg-white/5 rounded border border-white/10 text-[10px] font-mono text-zinc-300 mt-2">{betting.matchupStr}</span>}
+                        {betting.matchupStr && <span className={cn('mt-2 rounded border border-white/10 bg-white/5 px-3 py-1 font-mono text-zinc-300', isEmbedded ? 'text-[9px]' : 'text-[10px]')}>{betting.matchupStr}</span>}
                     </div>
                 ) : (
                     <div className="flex flex-col items-center gap-3">
-                        <div className="flex items-center gap-4 sm:gap-8">
-                            <span className="text-5xl sm:text-7xl font-light text-white tabular-nums tracking-tighter drop-shadow-lg">{teams.away.score}</span>
-                            <span className="text-zinc-700 text-3xl font-light" aria-hidden="true">-</span>
-                            <span className="text-5xl sm:text-7xl font-light text-white tabular-nums tracking-tighter drop-shadow-lg">{teams.home.score}</span>
+                        <div className={cn('flex items-center', isEmbedded ? 'gap-3 sm:gap-4' : 'gap-4 sm:gap-8')}>
+                            <span className={cn('font-light tabular-nums tracking-tighter text-white drop-shadow-lg', isEmbedded ? 'text-4xl sm:text-5xl' : 'text-5xl sm:text-7xl')}>{teams.away.score}</span>
+                            <span className={cn('font-light text-zinc-700', isEmbedded ? 'text-2xl' : 'text-3xl')} aria-hidden="true">-</span>
+                            <span className={cn('font-light tabular-nums tracking-tighter text-white drop-shadow-lg', isEmbedded ? 'text-4xl sm:text-5xl' : 'text-5xl sm:text-7xl')}>{teams.home.score}</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-1 bg-[#111113]/80 rounded-full border border-white/5">
-                            <span className="text-[11px] font-mono font-medium tracking-widest text-amber-500" suppressHydrationWarning>{meta.displayClock}</span>
+                        <div className={cn('flex items-center gap-2 rounded-full border px-3 py-1', isEmbedded ? 'border-white/10 bg-[#111113]/95' : 'border-white/5 bg-[#111113]/80')}>
+                            <span className={cn('font-mono font-medium tracking-widest text-amber-400', isEmbedded ? 'text-[10px]' : 'text-[11px]')} suppressHydrationWarning>{meta.displayClock}</span>
                         </div>
                     </div>
                 )}
             </div>
-            <TeamDisplay team={teams.home} />
+            <TeamDisplay team={teams.home} compact={isEmbedded} />
         </div>
 
         {!meta.isPregame && (
-            <div className="w-full px-6 sm:px-12 max-w-4xl mt-2 mb-8">
-                <div className="flex justify-between text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1" aria-hidden="true">
+            <div className={cn('w-full max-w-4xl px-6 sm:px-12', isEmbedded ? 'mb-5 mt-1' : 'mb-8 mt-2')}>
+                <div className={cn('mb-2 flex justify-between px-1 font-bold uppercase tracking-widest', isEmbedded ? 'text-[8.5px] text-zinc-400' : 'text-[9px] text-zinc-500')} aria-hidden="true">
                     <span>{teams.away.abbr} {gameplay.winProbabilityAway}%</span>
                     <span>Win Prob</span>
                     <span>{gameplay.winProbabilityHome}% {teams.home.abbr}</span>
                 </div>
-                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden flex relative" aria-hidden="true">
+                <div className={cn('relative flex w-full overflow-hidden rounded-full bg-white/5', isEmbedded ? 'h-1.5' : 'h-1.5')} aria-hidden="true">
                     <div className="absolute top-0 bottom-0 left-1/2 w-px bg-white/20 z-10" />
                     <motion.div className="h-full" style={{ backgroundColor: teams.away.color }} initial={{ width: '50%' }} animate={{ width: `${gameplay.winProbabilityAway}%` }} transition={TOKENS.animation.spring} />
                     <motion.div className="h-full" style={{ backgroundColor: teams.home.color }} initial={{ width: '50%' }} animate={{ width: `${gameplay.winProbabilityHome}%` }} transition={TOKENS.animation.spring} />
@@ -757,7 +773,7 @@ const TabNavigation = memo(({ activeTab, onTabChange, trackerId }: { activeTab: 
     }, [onTabChange, trackerId]);
 
     return (
-        <nav className="w-full flex items-center justify-center gap-8 border-b border-white/5 pb-0 overflow-x-auto no-scrollbar px-4 bg-[#0A0A0B]" role="tablist" aria-label="Game Tracker Views">
+        <nav className="no-scrollbar flex w-full items-center justify-center gap-6 overflow-x-auto border-b border-white/10 bg-[#0A0A0B] px-4 pb-0 sm:gap-8" role="tablist" aria-label="Game Tracker Views">
             {TABS.map((tab, idx) => (
                 <button
                     key={tab}
@@ -769,14 +785,14 @@ const TabNavigation = memo(({ activeTab, onTabChange, trackerId }: { activeTab: 
                     type="button"
                     onClick={() => onTabChange(tab)}
                     onKeyDown={(e) => handleKeyDown(e, idx)}
-                    className={cn('text-[10px] sm:text-[11px] font-bold tracking-[0.15em] transition-colors pb-4 relative shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-white/50 rounded-sm', activeTab === tab ? 'text-white' : 'text-zinc-500 hover:text-zinc-300')}
+                    className={cn('relative shrink-0 rounded-sm pb-3.5 text-[11px] font-bold tracking-[0.15em] text-zinc-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:text-[12px]', activeTab === tab ? 'text-white' : 'hover:text-zinc-200')}
                 >
                     {tab}
                     {activeTab === tab && (
                         <motion.div
                             layoutId={`tab-indicator-${trackerId}`}
                             transition={reduceMotion ? { duration: 0 } : TOKENS.animation.spring}
-                            className="absolute bottom-0 left-0 right-0 h-[2px] bg-white rounded-t-full shadow-[0_-2px_8px_rgba(255,255,255,0.4)]"
+                            className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full bg-zinc-100 shadow-[0_-2px_8px_rgba(248,250,252,0.35)]"
                             aria-hidden="true"
                         />
                     )}

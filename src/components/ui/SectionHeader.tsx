@@ -1,7 +1,7 @@
 
 import React, { memo, ReactNode } from 'react';
 import { LucideIcon } from 'lucide-react';
-import { cn, ESSENCE } from '@/lib/essence';
+import { cn } from '@/lib/essence';
 
 /**
  * SectionHeader - Unified Section Header System
@@ -32,9 +32,9 @@ interface SectionHeaderProps {
 
 // M-04: All section headers get identical neutral treatment — no semantic color
 const ACCENT_COLORS: Record<AccentVariant, string> = {
-    default: 'bg-zinc-600',
-    live: 'bg-zinc-600',     // M-04: No emerald on section headers
-    final: 'bg-zinc-600'
+    default: 'bg-zinc-500',
+    live: 'bg-zinc-500',     // M-04: No emerald on section headers
+    final: 'bg-zinc-500'
 };
 
 export const SectionHeader = memo(({
@@ -62,10 +62,10 @@ export const SectionHeader = memo(({
                     "w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-300",
                     ACCENT_COLORS[accent]
                 )} />
-                {Icon && <Icon size={11} strokeWidth={2.5} className="text-zinc-500" />}
-                {/* M-04: All section headers zinc-500, 12px, 500 weight, 0.12em tracking */}
+                {Icon && <Icon size={11} strokeWidth={2.5} className="text-zinc-600" />}
+                {/* M-04: All section headers neutral, 12px, 500 weight, 0.12em tracking */}
                 <span className={cn(
-                    "text-[12px] font-medium text-zinc-500 uppercase tracking-[0.12em] leading-none",
+                    "text-[12px] font-medium text-zinc-700 uppercase tracking-[0.12em] leading-none",
                     centered && "pl-0" // Remove relative offset if centered
                 )}>
                     {displayTitle}
@@ -103,7 +103,7 @@ export const CardHeader = memo(({ title, rightAccessory, showDivider = false, cl
     return (
         <div className={cn("mb-4", className)}>
             <div className="flex items-center justify-between">
-                <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">
+                <h4 className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em]">
                     {title}
                 </h4>
                 {rightAccessory && (
@@ -112,7 +112,7 @@ export const CardHeader = memo(({ title, rightAccessory, showDivider = false, cl
                     </div>
                 )}
             </div>
-            {showDivider && <div className="h-[1px] bg-white/[0.04] mt-3" />}
+            {showDivider && <div className="mt-3 h-[1px] bg-zinc-200" />}
         </div>
     );
 });

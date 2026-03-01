@@ -73,7 +73,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                     initial={{ opacity: 0 }} 
                     animate={{ opacity: 1 }} 
                     exit={{ opacity: 0 }}
-                    className="absolute inset-0 bg-black/80 backdrop-blur-xl" 
+                    className="absolute inset-0 bg-zinc-950/55 backdrop-blur-[2px]" 
                     onClick={onClose} 
                 />
                 
@@ -82,46 +82,46 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                    className="relative bg-white border border-white/10 w-full max-w-5xl rounded-[32px] overflow-hidden shadow-sm flex flex-col max-h-[90vh]"
+                    className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[32px] border border-zinc-200 bg-white shadow-[0_26px_70px_rgba(15,23,42,0.2)]"
                 >
                     {/* Header */}
-                    <div className="relative flex flex-col items-center justify-center pt-10 pb-6 px-6 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
+                    <div className="relative flex flex-col items-center justify-center border-b border-zinc-200 bg-gradient-to-b from-zinc-50 to-white px-6 pb-6 pt-10">
                         <button 
                             onClick={onClose} 
-                            className="absolute top-6 right-6 p-2 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-900 transition-colors"
+                            className="absolute right-5 top-5 rounded-full border border-zinc-200 bg-white p-2 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800"
                         >
                             <X size={20} />
                         </button>
 
                         <div className="flex items-center gap-2 mb-4">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-sm shadow-violet-500/20">
-                                <Zap size={16} className="text-slate-900 fill-white" />
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-zinc-900 to-zinc-700 shadow-sm shadow-zinc-900/25">
+                                <Zap size={16} className="text-white" />
                             </div>
-                            <span className="text-sm font-bold text-slate-900 tracking-widest uppercase">The Drip Pro</span>
+                            <span className="text-sm font-bold tracking-widest uppercase text-zinc-900">The Drip Pro</span>
                         </div>
-                        <h2 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight text-center mb-6">
+                        <h2 className="mb-6 text-center text-3xl font-bold tracking-tight text-zinc-900 md:text-4xl">
                             Upgrade Your Edge
                         </h2>
 
                         {/* Toggle */}
-                        <div className="flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/5 relative">
+                        <div className="relative flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-100 p-1">
                             <button 
                                 onClick={() => setBillingCycle('monthly')}
-                                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all relative z-10 ${billingCycle === 'monthly' ? 'text-slate-900' : 'text-slate-500 hover:text-slate-500'}`}
+                                className={`relative z-10 rounded-full px-4 py-1.5 text-xs font-bold transition-all ${billingCycle === 'monthly' ? 'text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
                             >
                                 Monthly
                             </button>
                             <button 
                                 onClick={() => setBillingCycle('yearly')}
-                                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all relative z-10 flex items-center gap-2 ${billingCycle === 'yearly' ? 'text-slate-900' : 'text-slate-500 hover:text-slate-500'}`}
+                                className={`relative z-10 flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold transition-all ${billingCycle === 'yearly' ? 'text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
                             >
-                                Yearly <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">-20%</span>
+                                Yearly <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] text-emerald-700">-20%</span>
                             </button>
                             
                             {/* Sliding pill */}
                             <MotionDiv 
                                 layout
-                                className="absolute top-1 bottom-1 w-[80px] bg-white/10 rounded-full border border-white/5 shadow-inner"
+                                className="absolute bottom-1 top-1 w-[80px] rounded-full border border-zinc-200 bg-white shadow-sm"
                                 initial={false}
                                 animate={{ left: billingCycle === 'monthly' ? 4 : 88, width: billingCycle === 'monthly' ? 82 : 110 }}
                                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -130,59 +130,59 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-white">
+                    <div className="custom-scrollbar flex-1 overflow-y-auto bg-zinc-50/40 p-6 md:p-10">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {PRICING_TIERS.map((tier) => {
                                 const Icon = tier.icon;
                                 const isPopular = tier.popular;
                                 
                                 // Dynamic Styles based on tier
-                                const borderClass = isPopular ? 'border-emerald-500/30' : 'border-white/10';
-                                const bgClass = isPopular ? 'bg-gradient-to-b from-emerald-950/20 to-transparent' : 'bg-slate-50';
+                                const borderClass = isPopular ? 'border-emerald-300' : 'border-zinc-200';
+                                const bgClass = isPopular ? 'bg-gradient-to-b from-emerald-50 to-white' : 'bg-white';
                                 const btnClass = isPopular 
-                                    ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-sm shadow-emerald-500/20' 
-                                    : 'bg-white/10 hover:bg-white/20 text-slate-900';
+                                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20' 
+                                    : 'bg-zinc-900 hover:bg-zinc-800 text-white';
 
                                 return (
                                     <div 
                                         key={tier.id}
                                         className={`
-                                            relative rounded-3xl p-6 border flex flex-col transition-all duration-300 group
+                                            group relative flex flex-col rounded-3xl border p-6 transition-all duration-300
                                             ${borderClass} ${bgClass}
-                                            hover:border-white/20 hover:bg-slate-50
+                                            hover:-translate-y-0.5 hover:shadow-[0_18px_30px_rgba(15,23,42,0.08)]
                                         `}
                                     >
                                         {isPopular && (
-                                            <div className="absolute -top-px left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-50" />
+                                            <div className="absolute -top-px left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-60" />
                                         )}
 
                                         <div className="mb-6">
                                             <div className="flex justify-between items-start mb-4">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isPopular ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-slate-400'}`}>
+                                                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${isPopular ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-600'}`}>
                                                     <Icon size={20} />
                                                 </div>
                                                 {isPopular && (
-                                                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full uppercase tracking-wider border border-emerald-500/20">
+                                                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
                                                         Best Value
                                                     </span>
                                                 )}
                                             </div>
-                                            <h3 className="text-lg font-bold text-slate-900 mb-1">{tier.name}</h3>
-                                            <p className="text-xs text-slate-400 h-8 leading-relaxed">{tier.description}</p>
+                                            <h3 className="mb-1 text-lg font-bold text-zinc-900">{tier.name}</h3>
+                                            <p className="h-8 text-xs leading-relaxed text-zinc-600">{tier.description}</p>
                                         </div>
 
                                         <div className="mb-8">
                                             <div className="flex items-baseline gap-1">
-                                                <span className="text-3xl font-bold text-slate-900 tracking-tight">{tier.price}</span>
-                                                {tier.price !== 'Free' && <span className="text-slate-500 text-sm">{tier.period}</span>}
+                                                <span className="text-3xl font-bold tracking-tight text-zinc-900">{tier.price}</span>
+                                                {tier.price !== 'Free' && <span className="text-sm text-zinc-600">{tier.period}</span>}
                                             </div>
                                         </div>
 
                                         <div className="space-y-3 flex-1 mb-8">
                                             {tier.features.map((feat, i) => (
                                                 <div key={i} className="flex items-start gap-3 text-sm">
-                                                    <Check size={16} className={`shrink-0 mt-0.5 ${isPopular ? 'text-emerald-400' : 'text-slate-500'}`} strokeWidth={3} />
-                                                    <span className="text-slate-500">{feat}</span>
+                                                    <Check size={16} className={`shrink-0 mt-0.5 ${isPopular ? 'text-emerald-700' : 'text-zinc-600'}`} strokeWidth={3} />
+                                                    <span className="text-zinc-700">{feat}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -198,15 +198,15 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                             })}
                         </div>
                         
-                        <div className="mt-12 flex flex-col items-center justify-center text-center gap-4">
+                        <div className="mt-12 flex flex-col items-center justify-center gap-4 text-center">
                             <div className="flex -space-x-2">
                                 {[1,2,3,4].map(i => (
-                                    <div key={i} className="w-8 h-8 rounded-full bg-slate-300 border-2 border-[#050505] flex items-center justify-center text-[10px] text-slate-400">
+                                    <div key={i} className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-zinc-200 text-[10px] text-zinc-600">
                                         User
                                     </div>
                                 ))}
                             </div>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-zinc-600">
                                 Trusted by 10,000+ sharps. Cancel anytime. Secure payment via Stripe.
                             </p>
                         </div>

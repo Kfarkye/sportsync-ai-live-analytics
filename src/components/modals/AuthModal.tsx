@@ -43,23 +43,23 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     if (!isSupabaseConfigured()) {
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}></div>
-                <div className="relative bg-[#111] border border-red-500/20 w-full max-w-md rounded-3xl p-8 shadow-sm animate-in fade-in zoom-in-95 duration-200">
-                    <button onClick={onClose} className="absolute top-6 right-6 text-slate-500 hover:text-slate-900 transition-colors">
+                <div className="absolute inset-0 bg-zinc-950/55 backdrop-blur-[2px]" onClick={onClose}></div>
+                <div className="relative w-full max-w-md rounded-[28px] border border-red-200 bg-white p-8 shadow-[0_24px_60px_rgba(15,23,42,0.22)] animate-in fade-in zoom-in-95 duration-200">
+                    <button onClick={onClose} className="absolute right-4 top-4 rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700">
                         <X size={20} />
                     </button>
                     <div className="text-center py-6">
-                        <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-red-200 bg-red-50">
                             <ShieldAlert size={32} className="text-red-500" />
                         </div>
-                        <h2 className="text-xl font-bold text-slate-900 mb-2">Authentication Unavailable</h2>
-                        <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                        <h2 className="mb-2 text-xl font-bold text-zinc-900">Authentication Unavailable</h2>
+                        <p className="mb-6 text-sm leading-relaxed text-zinc-600">
                             The backend connection is missing API keys. You can still browse live scores and odds in <strong>Guest Mode</strong>.
                         </p>
                         <div className="flex flex-col gap-3">
                             <button
                                 onClick={onClose}
-                                className="bg-white text-black font-bold px-6 py-3 rounded-xl hover:bg-zinc-200 transition-colors text-sm w-full"
+                                className="w-full rounded-xl bg-zinc-900 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-zinc-800"
                             >
                                 Continue as Guest
                             </button>
@@ -72,41 +72,41 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}></div>
+            <div className="absolute inset-0 bg-zinc-950/55 backdrop-blur-[2px]" onClick={onClose}></div>
 
-            <div className="relative bg-[#111] border border-white/10 w-full max-w-md rounded-3xl p-8 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative w-full max-w-md rounded-[28px] border border-zinc-200 bg-white p-7 shadow-[0_24px_60px_rgba(15,23,42,0.22)] animate-in fade-in zoom-in-95 duration-200 sm:p-8">
                 <button
                     onClick={onClose}
-                    className="absolute top-6 right-6 text-slate-500 hover:text-slate-900 transition-colors"
+                    className="absolute right-4 top-4 rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
                 >
                     <X size={20} />
                 </button>
 
                 <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                    <h2 className="mb-2 text-2xl font-bold text-zinc-900">
                         {isLogin ? 'Welcome Back' : 'Join Sharp Edge'}
                     </h2>
-                    <p className="text-slate-400 text-sm">
+                    <p className="text-sm text-zinc-600">
                         {isLogin ? 'Sign in to sync your pins and track your bets.' : 'Create an account to start tracking your sharp picks.'}
                     </p>
                 </div>
 
                 <form onSubmit={handleAuth} className="space-y-4">
                     {error && (
-                        <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-lg text-red-400 text-xs">
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
                             {error}
                         </div>
                     )}
 
                     <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Email</label>
+                        <label className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">Email</label>
                         <div className="relative">
-                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-slate-900 placeholder-slate-500 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/30 transition-all"
+                                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-10 pr-4 text-zinc-900 placeholder-zinc-400 transition-all focus:border-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-200"
                                 placeholder="sharp@edge.ai"
                                 required
                             />
@@ -114,14 +114,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password</label>
+                        <label className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">Password</label>
                         <div className="relative">
-                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
                             <input
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-slate-900 placeholder-slate-500 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/30 transition-all"
+                                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-10 pr-4 text-zinc-900 placeholder-zinc-400 transition-all focus:border-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-200"
                                 placeholder="••••••••"
                                 required
                             />
@@ -131,7 +131,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-white text-black font-bold py-3.5 rounded-xl hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2 mt-4"
+                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 py-3.5 font-bold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                         {loading ? <Loader2 size={18} className="animate-spin" /> : (
                             <>
@@ -145,7 +145,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <div className="mt-6 text-center">
                     <button
                         onClick={() => setIsLogin(!isLogin)}
-                        className="text-xs text-slate-500 hover:text-slate-900 transition-colors"
+                        className="text-xs text-zinc-600 transition-colors hover:text-zinc-900"
                     >
                         {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
                     </button>
