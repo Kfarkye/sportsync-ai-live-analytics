@@ -1043,7 +1043,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const displayStats = useMemo(() => getMatchDisplayStats(match, 8), [match]);
 
   const [activeTab, setActiveTab] = useState(isSched ? 'DETAILS' : 'OVERVIEW');
-  const [propView, setPropView] = useState<'classic' | 'cinematic'>('cinematic');
+  const [propView, setPropView] = useState<'classic' | 'cinematic'>('classic');
 
   useEffect(() => {
     if (isSched && activeTab === 'OVERVIEW') setActiveTab('DETAILS');
@@ -1409,7 +1409,15 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                 )}
                 {activeTab === 'PROPS' && (
                   <div className="space-y-0">
-                    <div className="flex justify-end mb-4 pr-4"><button onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')} className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 transition-colors">SWITCH VIEW</button></div>
+                    <div className="flex justify-end mb-4 pr-4">
+                      <button
+                        type="button"
+                        onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')}
+                        className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 transition-colors"
+                      >
+                        {propView === 'classic' ? 'VIEW: CLASSIC' : 'VIEW: CINEMATIC'}
+                      </button>
+                    </div>
                     <SpecSheetRow label="01 // PLAYER MKTS" defaultOpen={true} collapsible={false}>{propView === 'classic' ? <ClassicPlayerProps match={match} /> : <CinematicPlayerProps match={match} />}</SpecSheetRow>
                     <div className="w-full h-px bg-slate-200" />
                   </div>

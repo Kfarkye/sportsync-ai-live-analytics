@@ -154,13 +154,13 @@ export const ApplePlayerCard: React.FC<{
             transition={{ delay: index * 0.05, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
                 "group relative rounded-[32px] overflow-hidden transition-all duration-500 transform-gpu",
-                "bg-surface-elevated/80 backdrop-blur-[24px] border-[0.5px] border-white/10",
-                "shadow-[0_0_0_1px_rgba(255,255,255,0.04),_0_20px_50px_-12px_rgba(0,0,0,0.55)]",
+                "bg-white/95 backdrop-blur-[24px] border border-slate-200/80",
+                "shadow-[0_0_0_1px_rgba(15,23,42,0.03),_0_20px_50px_-12px_rgba(15,23,42,0.14)]",
                 "after:content-[''] after:absolute after:inset-0 after:opacity-[0.03] after:pointer-events-none",
                 "after:bg-[url('data:image/svg+xml,%3Csvg viewBox=%270 0 256 256%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.8%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27 opacity=%270.05%27/%3E%3C/svg%3E')]"
             )}
             style={{
-                boxShadow: '0 0 0 1px rgba(255,255,255,0.05), 0 20px 50px -12px rgba(0,0,0,0.5)'
+                boxShadow: '0 0 0 1px rgba(15,23,42,0.04), 0 20px 50px -12px rgba(15,23,42,0.16)'
             }}
         >
             {/* Ambient Background Glow (Dynamic) */}
@@ -204,12 +204,12 @@ export const ApplePlayerCard: React.FC<{
                     <div className="flex-1 min-w-0">
                         <motion.h3
                             layout
-                            className="text-[21px] font-semibold text-white tracking-tight truncate leading-tight"
+                            className="text-[21px] font-semibold text-slate-900 tracking-tight truncate leading-tight"
                         >
                             {group.playerName}
                         </motion.h3>
                         {group.team && (
-                            <p className="text-label font-semibold text-zinc-500 mt-1 uppercase tracking-[0.22em]">
+                            <p className="text-label font-semibold text-slate-500 mt-1 uppercase tracking-[0.22em]">
                                 {group.team}
                             </p>
                         )}
@@ -226,21 +226,21 @@ export const ApplePlayerCard: React.FC<{
                         >
                             <div className={cn(
                                 "text-[40px] font-bold tabular-nums leading-none tracking-tighter filter drop-shadow-sm",
-                                isFinal ? (isTargetMet ? "text-emerald-400" : "text-rose-400") : (isBusted ? "text-rose-400" : "text-white")
+                                isFinal ? (isTargetMet ? "text-emerald-600" : "text-rose-600") : (isBusted ? "text-rose-600" : "text-slate-900")
                             )}>
                                 {currentValue}
                             </div>
-                            <div className="text-label font-semibold text-zinc-600 uppercase tracking-[0.25em] mt-1">ACTUAL</div>
+                            <div className="text-label font-semibold text-slate-500 uppercase tracking-[0.25em] mt-1">ACTUAL</div>
                         </motion.div>
                     )}
                 </div>
 
                 {/* Stat Type Selector — iOS Native Segmented Feel */}
-                <div className="flex items-center justify-between gap-2 mb-7 bg-overlay-dim p-1 rounded-2xl ring-1 ring-white/[0.05]">
+                <div className="flex items-center justify-between gap-2 mb-7 bg-slate-50 p-1 rounded-2xl ring-1 ring-slate-200">
                     {hasMultipleProps && (
                         <button
                             onClick={prevProp}
-                            className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:text-white transition-all active:scale-90 tap-feedback"
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 transition-all active:scale-90 tap-feedback"
                         >
                             <ChevronLeft size={20} strokeWidth={2} />
                         </button>
@@ -254,7 +254,7 @@ export const ApplePlayerCard: React.FC<{
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 1.1, y: -4 }}
                                 transition={ESSENCE.transition.spring}
-                                className="text-small font-semibold text-zinc-300 tracking-[0.26em] uppercase"
+                                className="text-small font-semibold text-slate-600 tracking-[0.26em] uppercase"
                             >
                                 {formatMarketLabel(currentProp.main.betType, currentProp.main.marketLabel)}
                             </motion.span>
@@ -264,7 +264,7 @@ export const ApplePlayerCard: React.FC<{
                     {hasMultipleProps && (
                         <button
                             onClick={nextProp}
-                            className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:text-white transition-all active:scale-90 tap-feedback"
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 transition-all active:scale-90 tap-feedback"
                         >
                             <ChevronRight size={20} strokeWidth={2} />
                         </button>
@@ -284,8 +284,8 @@ export const ApplePlayerCard: React.FC<{
                             <span
                                 className="text-[80px] font-black tabular-nums leading-[0.92] tracking-tight"
                                 style={{
-                                    color: '#fff',
-                                    textShadow: '0 0 40px rgba(255,255,255,0.1)'
+                                    color: '#0f172a',
+                                    textShadow: '0 0 28px rgba(15,23,42,0.08)'
                                 }}
                             >
                                 {lineDisplay}
@@ -301,11 +301,11 @@ export const ApplePlayerCard: React.FC<{
 
                 {/* Progress — Optimized for iOS tactile feedback */}
                 {showResults && (
-                    <div className="space-y-5 bg-overlay-subtle p-5 rounded-3xl border border-edge-subtle">
+                    <div className="space-y-5 bg-slate-50 p-5 rounded-3xl border border-slate-200">
                         {/* Progress Bar with Internal Glow */}
                         <div
                             className="h-2 w-full rounded-full overflow-hidden relative"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
+                            style={{ backgroundColor: 'rgba(148,163,184,0.25)' }}
                         >
                             <motion.div
                                 initial={{ width: 0 }}
@@ -324,12 +324,12 @@ export const ApplePlayerCard: React.FC<{
 
                         {/* Status Labeling */}
                         <div className="flex justify-between items-center text-footnote font-semibold uppercase tracking-widest">
-                            <span className="text-zinc-600 tabular-nums">
-                                LIVE <span className="text-zinc-400">{currentValue}</span> • LINE <span className="text-zinc-400">{lineDisplay}</span>
+                            <span className="text-slate-600 tabular-nums">
+                                LIVE <span className="text-slate-500">{currentValue}</span> • LINE <span className="text-slate-500">{lineDisplay}</span>
                             </span>
                             <span className={cn(
                                 "py-1 px-3 rounded-full",
-                                isTargetMet ? "bg-emerald-500/10 text-emerald-400" : (isFinal || isBusted ? "bg-rose-500/10 text-rose-400" : "bg-white/5 text-zinc-500")
+                                isTargetMet ? "bg-emerald-500/10 text-emerald-600" : (isFinal || isBusted ? "bg-rose-500/10 text-rose-600" : "bg-slate-100 text-slate-500")
                             )}>
                                 {isFinal
                                     ? (isTargetMet ? 'CLEARED' : 'MISSED')
@@ -353,8 +353,8 @@ export const ApplePlayerCard: React.FC<{
                                 className={cn(
                                     "transition-all duration-500 rounded-full",
                                     i === activePropIndex
-                                        ? "w-8 h-1 bg-white"
-                                        : "w-1 h-1 bg-zinc-800 hover:bg-zinc-600"
+                                        ? "w-8 h-1 bg-slate-900"
+                                        : "w-1 h-1 bg-slate-300 hover:bg-slate-400"
                                 )}
                             />
                         ))}
@@ -514,8 +514,8 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
                 <div className="flex items-center gap-4">
                     <img src={team.logo} alt="" className="w-10 h-10 object-contain" />
                     <div>
-                        <h2 className="text-title-lg font-bold text-white tracking-tight">{team.name}</h2>
-                        <span className="text-small text-zinc-500 font-medium">
+                        <h2 className="text-title-lg font-bold text-slate-900 tracking-tight">{team.name}</h2>
+                        <span className="text-small text-slate-500 font-medium">
                             {players.length} {players.length === 1 ? 'Player' : 'Players'}
                         </span>
                     </div>
@@ -536,10 +536,10 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
             {(awayPlayers.length > 0 && homePlayers.length > 0) && (
                 <div className="relative py-4">
                     <div className="absolute inset-0 flex items-center">
-                        <div className="w-full h-px bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
+                        <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
                     </div>
                     <div className="relative flex justify-center">
-                        <span className="px-6 bg-surface-elevated text-caption font-black text-zinc-700 uppercase tracking-ultra">vs</span>
+                        <span className="px-6 bg-surface-elevated text-caption font-black text-slate-500 uppercase tracking-ultra">vs</span>
                     </div>
                 </div>
             )}
