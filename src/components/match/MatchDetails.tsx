@@ -234,7 +234,7 @@ const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'con
       <div className="flex items-center justify-center w-[20px] h-[20px] bg-[#FAFAFA] border border-black/5 rounded-full shadow-[inset_0_1px_2px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.02)]">
         {isConnected && <span className="w-1.5 h-1.5 rounded-full bg-black shadow-[0_0_6px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.4)]" />}
         {isConnecting && <span className="w-1.5 h-1.5 rounded-full bg-black/40 animate-pulse shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]" />}
-        {!isConnected && !isConnecting && <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]" />}
+        {!isConnected && !isConnecting && <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]" />}
       </div>
     </div>
   );

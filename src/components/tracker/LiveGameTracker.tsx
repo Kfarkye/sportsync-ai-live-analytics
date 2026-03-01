@@ -689,8 +689,7 @@ const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedd
                         </div>
                     )}
                     <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 backdrop-blur-md" role="status" aria-live="polite">
-                        <span className={cn("w-1.5 h-1.5 rounded-full", meta.isPregame || meta.isFinished ? "bg-zinc-500" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse")} aria-hidden="true" />
-                        <span className={cn("text-[9px] font-bold tracking-widest uppercase", meta.isPregame || meta.isFinished ? "text-zinc-400" : "text-red-500")}>
+                        <span className={cn("text-[9px] font-bold tracking-widest uppercase", meta.isPregame || meta.isFinished ? "text-zinc-400" : "text-white")}>
                             {meta.isFinished ? 'FINAL' : meta.isPregame ? 'UPCOMING' : 'LIVE'}
                         </span>
                     </div>
@@ -706,8 +705,7 @@ const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedd
                     </div>
                 )}
                 <div className="flex items-center gap-1.5 rounded-full border border-zinc-700/80 bg-zinc-900/80 px-2.5 py-1 backdrop-blur-md" role="status" aria-live="polite">
-                    <span className={cn("h-1.5 w-1.5 rounded-full", meta.isPregame || meta.isFinished ? "bg-zinc-500" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse")} aria-hidden="true" />
-                    <span className={cn("text-[8px] font-bold tracking-widest uppercase", meta.isPregame || meta.isFinished ? "text-zinc-400" : "text-red-500")}>
+                    <span className={cn("text-[8px] font-bold tracking-widest uppercase", meta.isPregame || meta.isFinished ? "text-zinc-400" : "text-white")}>
                         {meta.isFinished ? 'FINAL' : meta.isPregame ? 'UPCOMING' : 'LIVE'}
                     </span>
                 </div>
