@@ -1,7 +1,8 @@
+// deno-lint-ignore-file no-explicit-any
 import { getCanonicalMatchId, toLocalGameDate } from "./match-registry.ts";
 
 // -------------------------------------------------------------------------
-// LEAGUE & SPORT DEFINITIONS (Preserve detectSportFromLeague)
+// LEAGUE & SPORT DEFINITIONS
 // -------------------------------------------------------------------------
 const SOCCER_LEAGUES = [
   "ita.1",
@@ -101,7 +102,10 @@ export type MatchDossier = {
   valuation: {
     fair_line: number;
     delta: number;
+    has_model: boolean; // 🚨 LAYER 2 FIX: True if a proprietary stats model generated this delta
   };
+  polymarket_anchor: any | null;       // 🚨 LAYER 4 FIX: Real-world probabilities
+  polymarket_player_props: any[];      // 🚨 LAYER 4 FIX: Micro-market anchors
 };
 
 type DossierOverrides = Partial<{
@@ -122,6 +126,16 @@ type DossierOverrides = Partial<{
 
 const isFiniteNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
+// Safe parser to handle API anomalies where numbers are passed as strings
+const safeParseFloat = (v: unknown): number | null => {
+  if (isFiniteNumber(v)) return v as number;
+  if (typeof v === "string") {
+    const parsed = parseFloat(v);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
 const APEX_CONFIG = {
   INJURY_WEIGHT: 0.4,
   MAX_INJURY_SCORE: 10.0,
@@ -133,7 +147,7 @@ const APEX_CONFIG = {
 };
 
 // -------------------------------------------------------------------------
-// MATCH DOSSIER BUILDER (import-safe)
+// MATCH DOSSIER BUILDER
 // -------------------------------------------------------------------------
 export async function buildMatchDossier(
   matchId: string,
@@ -141,7 +155,7 @@ export async function buildMatchDossier(
   overrides: DossierOverrides = {},
   opts: { season?: string } = {}
 ): Promise<MatchDossier> {
-  const dbId = getCanonicalMatchId(matchId, overrides.league ?? overrides.league_id);
+  const dbId = getCanonicalMatchId(matchId, overrides.league ?? overrides.league_id ?? "");
 
   const { data: match } = await supabase
     .from("matches")
@@ -150,7 +164,8 @@ export async function buildMatchDossier(
     )
     .eq("id", dbId)
     .maybeSingle()
-    .then((r: any) => r || { data: null });
+    .then((r: any) => r || { data: null })
+    .catch(() => ({ data: null })); // Prevent DB outage from completely crashing
 
   const leagueId = overrides.league ?? overrides.league_id ?? match?.league_id ?? "nba";
   const sport = overrides.sport ?? match?.sport ?? detectSportFromLeague(leagueId);
@@ -163,20 +178,25 @@ export async function buildMatchDossier(
   const awayTeam = overrides.away_team ?? match?.away_team ?? "Away";
 
   const odds = (overrides.current_odds ?? match?.current_odds ?? {}) as Record<string, any>;
-  const currentSpread =
+
+  // Audited safe parsing for spreads and totals to prevent string pollution
+  const currentSpread = safeParseFloat(
     overrides.current_spread ??
     match?.current_spread ??
     match?.odds_home_spread_safe ??
     odds?.homeSpread ??
     odds?.spread_home_value ??
-    null;
-  const currentTotal =
+    null
+  );
+
+  const currentTotal = safeParseFloat(
     overrides.current_total ??
     match?.current_total ??
     match?.odds_total_safe ??
     odds?.total ??
     odds?.total_value ??
-    null;
+    null
+  );
 
   const homeMl = overrides.home_ml ?? match?.home_ml ?? null;
   const awayMl = overrides.away_ml ?? match?.away_ml ?? null;
@@ -185,17 +205,31 @@ export async function buildMatchDossier(
   const oddsEventId = match?.odds_api_event_id ?? null;
 
   const leagueKey = String(leagueId || "nba").toLowerCase();
-  const shouldFetchPriors = leagueKey === "nba" && sport === "nba";
+  const sportKey = String(sport || "nba").toLowerCase();
+  const shouldFetchPriors = leagueKey === "nba" && sportKey === "nba";
 
-  const [homeContext, awayContext, homePriors, awayPriors] = await Promise.all([
-    supabase.from("team_game_context").select("*").eq("team", homeTeam).eq("game_date", gameDate).maybeSingle().then((r: any) => r.data),
-    supabase.from("team_game_context").select("*").eq("team", awayTeam).eq("game_date", gameDate).maybeSingle().then((r: any) => r.data),
+  // 🚨 LAYER 2/4 FIX: Fetch Poly data in parallel with existing priors using "game_id"
+  // Explicitly catching DB rejections to prevent crashing the worker thread
+  const [homeContext, awayContext, homePriors, awayPriors, polyOdds, polyPlayerProps] = await Promise.all([
+    supabase.from("team_game_context").select("*").eq("team", homeTeam).eq("game_date", gameDate).maybeSingle().then((r: any) => r.data).catch(() => null),
+    supabase.from("team_game_context").select("*").eq("team", awayTeam).eq("game_date", gameDate).maybeSingle().then((r: any) => r.data).catch(() => null),
     shouldFetchPriors
-      ? supabase.from("nba_team_priors").select("*").eq("team", homeTeam).eq("season", season).single().then((r: any) => r.data)
+      ? supabase.from("nba_team_priors").select("*").eq("team", homeTeam).eq("season", season).maybeSingle().then((r: any) => r.data).catch(() => null)
       : Promise.resolve(null),
     shouldFetchPriors
-      ? supabase.from("nba_team_priors").select("*").eq("team", awayTeam).eq("season", season).single().then((r: any) => r.data)
+      ? supabase.from("nba_team_priors").select("*").eq("team", awayTeam).eq("season", season).maybeSingle().then((r: any) => r.data).catch(() => null)
       : Promise.resolve(null),
+    supabase.from("poly_odds").select("*").eq("game_id", dbId).maybeSingle().then((r: any) => r.data).catch(() => null),
+    supabase.from("poly_player_props").select("*").eq("game_id", dbId).then((r: any) => {
+      const data = Array.isArray(r.data) ? r.data : [];
+      // Securely map the fields early to standardize object structure with strict fallbacks
+      return data.map((p: any) => ({
+        ...p,
+        over_prob: p.over_prob ?? p.price ?? null,
+        stat_type: p.stat_type ?? p.market_type ?? "Prop",
+        prop_line: p.prop_line ?? p.line ?? 0
+      }));
+    }).catch(() => [])
   ]);
 
   const forensicHome: ForensicTeamContext = {
@@ -218,17 +252,14 @@ export async function buildMatchDossier(
     ats_last_10: awayContext?.ats_last_10 || 0.5,
   };
 
-  let h_o = 110,
-    h_d = 110,
-    a_o = 110,
-    a_d = 110;
+  let h_o = 110, h_d = 110, a_o = 110, a_d = 110;
   if (homePriors) {
-    h_o = homePriors.o_rating;
-    h_d = homePriors.d_rating;
+    h_o = homePriors.o_rating ?? 110;
+    h_d = homePriors.d_rating ?? 110;
   }
   if (awayPriors) {
-    a_o = awayPriors.o_rating;
-    a_d = awayPriors.d_rating;
+    a_o = awayPriors.o_rating ?? 110;
+    a_d = awayPriors.d_rating ?? 110;
   }
 
   const calcEff = (o: number, d: number, f: ForensicTeamContext) => {
@@ -244,10 +275,13 @@ export async function buildMatchDossier(
 
   const h_eff = calcEff(h_o, h_d, forensicHome);
   const a_eff = calcEff(a_o, a_d, forensicAway);
+
+  // 🚨 Explicitly track if we have a proprietary model powering this delta
   const hasModelPriors = shouldFetchPriors && !!homePriors && !!awayPriors;
+
   const rawFairLine = -1 * ((h_eff - a_eff) + APEX_CONFIG.HOME_COURT);
-  const fairLine = hasModelPriors ? rawFairLine : isFiniteNumber(currentSpread) ? currentSpread : 0;
-  const delta = isFiniteNumber(currentSpread) && hasModelPriors ? Math.abs(currentSpread - fairLine) : 0;
+  const fairLine = hasModelPriors ? rawFairLine : (currentSpread ?? 0);
+  const delta = currentSpread !== null && hasModelPriors ? Math.abs(currentSpread - fairLine) : 0;
 
   return {
     match_id: dbId,
@@ -264,8 +298,8 @@ export async function buildMatchDossier(
       away: forensicAway,
     },
     market_snapshot: {
-      spread: isFiniteNumber(currentSpread) ? currentSpread : null,
-      total: isFiniteNumber(currentTotal) ? currentTotal : null,
+      spread: currentSpread,
+      total: currentTotal,
       home_ml: homeMl,
       away_ml: awayMl,
       spread_juice: spreadJuice,
@@ -274,6 +308,9 @@ export async function buildMatchDossier(
     valuation: {
       fair_line: fairLine,
       delta,
+      has_model: hasModelPriors, // Pipeline is now aware if the math is real or a fallback
     },
+    polymarket_anchor: polyOdds || null,
+    polymarket_player_props: polyPlayerProps || []
   };
 }

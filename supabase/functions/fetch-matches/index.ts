@@ -1,114 +1,267 @@
+/**
+ * fetch-matches v2 — DB-First Architecture
+ * 
+ * WHAT CHANGED (v127 → v2):
+ *   Old: 17 parallel ESPN API calls per page load → race conditions → flickering UI
+ *   New: 1 Supabase query → deterministic, instant, zero external dependency
+ *
+ * WHY:
+ *   The matches table is already populated by ingest-live-games (cron, every minute).
+ *   It contains full team JSONB (logo, color, displayName), scores, status, periods.
+ *   Reading from DB instead of ESPN eliminates:
+ *     - 17+ network round-trips per page load
+ *     - ESPN rate-limiting causing "No Games Today" flashes
+ *     - Race conditions from parallel fetches resolving at different times
+ *     - The entire espn-proxy edge function as a frontend dependency
+ *
+ * ARCHITECTURE:
+ *   Browser → fetch-matches (1 call) → matches table (DB)
+ *                                     → market_feeds table (odds)
+ *                                     → closing_lines table (closing odds)
+ *   
+ *   ESPN is NO LONGER called at read-time.
+ *   ingest-live-games writes to matches table on a cron schedule.
+ *   This function only reads.
+ */
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
-import { getCanonicalMatchId } from '../_shared/match-registry.ts'
+
+declare const Deno: any;
+
+// ─── CORS ────────────────────────────────────────────────────────────────────
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-client-timeout, x-trace-id',
     'Access-Control-Max-Age': '86400',
-    'X-Content-Type-Options': 'nosniff'
+    'X-Content-Type-Options': 'nosniff',
+};
+
+// ─── LEAGUE CONFIG ───────────────────────────────────────────────────────────
+
+const LEAGUE_ODDS_MAP: Record<string, string> = {
+    'nfl': 'americanfootball_nfl',
+    'nba': 'basketball_nba',
+    'mlb': 'baseball_mlb',
+    'nhl': 'icehockey_nhl',
+    'college-football': 'americanfootball_ncaaf',
+    'mens-college-basketball': 'basketball_ncaab',
+    'eng.1': 'soccer_epl',
+    'ita.1': 'soccer_italy_serie_a',
+    'esp.1': 'soccer_spain_la_liga',
+    'ger.1': 'soccer_germany_bundesliga',
+    'uefa.champions': 'soccer_uefa_champs_league',
+};
+
+const ALL_LEAGUE_IDS = Object.keys(LEAGUE_ODDS_MAP);
+
+// ─── DATE UTILITIES ──────────────────────────────────────────────────────────
+
+/**
+ * Betting Slate Date — mirrors frontend getBettingSlateDate().
+ * Uses Pacific Time with the "3 AM Rule": games from 12AM–3AM PT belong to
+ * the previous calendar day's betting slate.
+ */
+function toBettingSlateDate(dateStr: string): { windowStart: string; windowEnd: string } {
+    // Parse the requested date as a calendar day
+    const [year, month, day] = dateStr.split('-').map(Number);
+
+    // Betting slate window: requested day 10:00 UTC (3AM PT) through next day 10:00 UTC
+    // This captures all games that a Pacific Time user would consider "today's games"
+    const windowStart = new Date(Date.UTC(year, month - 1, day, 10, 0, 0));
+    const windowEnd = new Date(Date.UTC(year, month - 1, day + 1, 10, 0, 0));
+
+    return {
+        windowStart: windowStart.toISOString(),
+        windowEnd: windowEnd.toISOString(),
+    };
 }
 
-// Fallback configuration if client payload is missing/malformed
-const DEFAULT_LEAGUES = [
-    { id: 'nfl', sport: 'NFL', apiEndpoint: 'football/nfl', oddsKey: 'americanfootball_nfl' },
-    { id: 'nba', sport: 'NBA', apiEndpoint: 'basketball/nba', oddsKey: 'basketball_nba' },
-    { id: 'mlb', sport: 'BASEBALL', apiEndpoint: 'baseball/mlb', oddsKey: 'baseball_mlb' },
-    { id: 'nhl', sport: 'HOCKEY', apiEndpoint: 'hockey/nhl', oddsKey: 'icehockey_nhl' },
-    { id: 'college-football', sport: 'COLLEGE_FOOTBALL', apiEndpoint: 'football/college-football', oddsKey: 'americanfootball_ncaaf' },
-    { id: 'mens-college-basketball', sport: 'COLLEGE_BASKETBALL', apiEndpoint: 'basketball/mens-college-basketball', oddsKey: 'basketball_ncaab' },
-    { id: 'eng.1', sport: 'SOCCER', apiEndpoint: 'soccer/eng.1', oddsKey: 'soccer_epl' },
-    { id: 'ita.1', sport: 'SOCCER', apiEndpoint: 'soccer/ita.1', oddsKey: 'soccer_italy_serie_a' },
-    { id: 'esp.1', sport: 'SOCCER', apiEndpoint: 'soccer/esp.1', oddsKey: 'soccer_spain_la_liga' },
-    { id: 'ger.1', sport: 'SOCCER', apiEndpoint: 'soccer/ger.1', oddsKey: 'soccer_germany_bundesliga' },
-    { id: 'uefa.champions', sport: 'SOCCER', apiEndpoint: 'soccer/uefa.champions', oddsKey: 'soccer_uefa_champs_league' }
-];
+/**
+ * Football-specific: expand date to Thu–Wed week window.
+ * NFL/CFB games span Thu through Mon, so a single date query misses the slate.
+ */
+function toFootballWeekWindow(dateStr: string): { windowStart: string; windowEnd: string } {
+    const d = new Date(dateStr + 'T12:00:00Z');
+    const dayOfWeek = d.getDay(); // 0=Sun, 4=Thu
+    const daysFromThursday = (dayOfWeek + 7 - 4) % 7;
 
-declare const Deno: any;
+    const thursday = new Date(d);
+    thursday.setDate(d.getDate() - daysFromThursday);
+    thursday.setUTCHours(10, 0, 0, 0); // 3AM PT
+
+    const wednesday = new Date(thursday);
+    wednesday.setDate(thursday.getDate() + 7);
+
+    return {
+        windowStart: thursday.toISOString(),
+        windowEnd: wednesday.toISOString(),
+    };
+}
+
+// ─── ODDS HELPERS ────────────────────────────────────────────────────────────
+
+const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function formatPrice(p: any): string | null {
+    if (p === undefined || p === null) return null;
+    if (Math.abs(p) >= 100) return p > 0 ? `+${Math.round(p)}` : `${Math.round(p)}`;
+    return p >= 2.0 ? `+${Math.round((p - 1) * 100)}` : `${Math.round(-100 / (p - 1))}`;
+}
+
+// ─── MAIN ────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
-    // Handle CORS preflight
     if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders })
+        return new Response('ok', { headers: corsHeaders });
     }
+
+    const t0 = Date.now();
 
     try {
         const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
         const SUPABASE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-        const ODDS_API_KEY = Deno.env.get('ODDS_API_KEY');
 
         if (!SUPABASE_URL || !SUPABASE_KEY) {
-            console.error("Missing Supabase Keys");
-            return new Response(JSON.stringify({
-                error: "Server Configuration Error",
-                matches: []
-            }), {
-                status: 500,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
+            return errorResponse('Server configuration error', 500);
         }
 
         const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // --- ROBUST BODY PARSING ---
+        // ── Parse Request ──────────────────────────────────────────────────────
+
         let body: any = {};
         try {
-            // Try reading as text first to avoid stream issues
             const text = await req.text();
-            if (text && text.trim().length > 0) {
-                body = JSON.parse(text);
+            if (text?.trim()) body = JSON.parse(text);
+        } catch { body = {}; }
+
+        // Date: URL param > body > today
+        const urlDate = new URL(req.url).searchParams.get('date');
+        const date = urlDate || body.date || new Date().toISOString().split('T')[0];
+
+        // Leagues: body > all
+        let leagueIds: string[] = ALL_LEAGUE_IDS;
+        if (body.leagues && Array.isArray(body.leagues) && body.leagues.length > 0) {
+            leagueIds = body.leagues.map((l: any) => typeof l === 'string' ? l : l.id).filter(Boolean);
+        }
+
+        // Single league filter (for league-specific views)
+        const leagueFilter = body.leagueId || new URL(req.url).searchParams.get('league');
+        if (leagueFilter) {
+            leagueIds = [leagueFilter];
+        }
+
+        console.log(`[fetch-matches-v2] date=${date} leagues=${leagueIds.length}`);
+
+        // ── 1. Fetch Matches from DB ───────────────────────────────────────────
+
+        // Separate football leagues (week window) from daily leagues
+        const footballLeagues = leagueIds.filter(id => id === 'nfl' || id === 'college-football');
+        const dailyLeagues = leagueIds.filter(id => id !== 'nfl' && id !== 'college-football');
+
+        const matchPromises: Promise<any[]>[] = [];
+
+        // Daily leagues — single day window
+        if (dailyLeagues.length > 0) {
+            const { windowStart, windowEnd } = toBettingSlateDate(date);
+            matchPromises.push(
+                supabase
+                    .from('matches')
+                    .select('*')
+                    .in('league_id', dailyLeagues)
+                    .gte('start_time', windowStart)
+                    .lt('start_time', windowEnd)
+                    .order('start_time', { ascending: true })
+                    .then(({ data, error }: any) => {
+                        if (error) { console.error('[DB] Daily query error:', error); return []; }
+                        return data || [];
+                    })
+            );
+        }
+
+        // Football leagues — week window
+        if (footballLeagues.length > 0) {
+            const { windowStart, windowEnd } = toFootballWeekWindow(date);
+            matchPromises.push(
+                supabase
+                    .from('matches')
+                    .select('*')
+                    .in('league_id', footballLeagues)
+                    .gte('start_time', windowStart)
+                    .lt('start_time', windowEnd)
+                    .order('start_time', { ascending: true })
+                    .then(({ data, error }: any) => {
+                        if (error) { console.error('[DB] Football query error:', error); return []; }
+                        return data || [];
+                    })
+            );
+        }
+
+        const matchResults = await Promise.all(matchPromises);
+        const dbMatches = matchResults.flat();
+
+        console.log(`[fetch-matches-v2] DB returned ${dbMatches.length} matches`);
+
+        // ── 2. Fetch Odds (parallel with matches, from market_feeds) ───────────
+
+        const oddsKeys = [...new Set(
+            leagueIds.map(id => LEAGUE_ODDS_MAP[id]).filter(Boolean)
+        )];
+
+        let oddsMap = new Map<string, any>();
+
+        if (oddsKeys.length > 0) {
+            try {
+                const { data: feeds } = await supabase
+                    .from('market_feeds')
+                    .select('home_team, away_team, raw_bookmakers, last_updated, sport_key, best_spread, best_total, best_h2h')
+                    .in('sport_key', oddsKeys)
+                    .gte('commence_time', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
+                    .order('last_updated', { ascending: false });
+
+                if (feeds) {
+                    for (const f of feeds) {
+                        // Key by normalized team names for fuzzy matching
+                        const key = `${normalize(f.home_team)}|${normalize(f.away_team)}`;
+                        if (!oddsMap.has(key)) {
+                            oddsMap.set(key, {
+                                home_team: f.home_team,
+                                away_team: f.away_team,
+                                sport_key: f.sport_key,
+                                bookmakers: typeof f.raw_bookmakers === 'string' ? JSON.parse(f.raw_bookmakers) : f.raw_bookmakers,
+                                best_spread: f.best_spread,
+                                best_total: f.best_total,
+                                best_h2h: f.best_h2h,
+                                last_updated: f.last_updated,
+                            });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('[Odds] Feed fetch failed:', e);
             }
-        } catch (e) {
-            console.warn("Body parsing failed:", e);
-            // Try invalidating body
-            body = {};
         }
 
-        // --- DEFAULTS & VALIDATION ---
-        let { date, leagues, oddsSportKey, clientTimezoneOffset } = body;
+        // ── 3. Fetch Closing Lines ─────────────────────────────────────────────
 
-        // CHECK URL PARAMS FOR DATE (Prioritize Query Param)
-        const urlObj = new URL(req.url);
-        const urlDate = urlObj.searchParams.get('date');
-        if (urlDate) {
-            date = urlDate;
-            console.log(`[Info] Date found in URL Query: ${date}`);
-        }
+        let closingMap = new Map<string, any>();
 
-        // Default to TODAY if date is still missing
-        if (!date) {
-            date = new Date().toISOString().split('T')[0];
-            console.log(`[Warn] Date missing in payload/query, defaulting to ${date}`);
-        } else {
-            console.log(`[Info] Using Date: ${date}`);
-        }
-
-        // Default to configured leagues if missing
-        if (!leagues || !Array.isArray(leagues) || leagues.length === 0) {
-            console.log("[Warn] Leagues parameter missing or invalid. Using default list.");
-            leagues = DEFAULT_LEAGUES;
-        }
-
-        // 1. Fetch ESPN Data
-        const espnMatches = await fetchEspnData(leagues, new Date(date));
-
-        // 2. Fetch Closing Lines from DB
-        let closingLinesMap = new Map();
-        try {
-            const matchIds = espnMatches.map((m: any) => m.id);
-            if (matchIds.length > 0) {
-                // Fetch in chunks to avoid URL length limits if any
+        if (dbMatches.length > 0) {
+            try {
+                const matchIds = dbMatches.map(m => m.id);
                 const chunkSize = 50;
+
                 for (let i = 0; i < matchIds.length; i += chunkSize) {
                     const chunk = matchIds.slice(i, i + chunkSize);
-
-                    const { data: dbData } = await supabase
+                    const { data } = await supabase
                         .from('closing_lines')
                         .select('*')
                         .in('match_id', chunk);
 
-                    if (dbData) {
-                        dbData.forEach((row: any) => {
-                            closingLinesMap.set(row.match_id, {
+                    if (data) {
+                        for (const row of data) {
+                            closingMap.set(row.match_id, {
                                 provider: row.provider,
                                 homeSpread: row.home_spread,
                                 awaySpread: row.away_spread,
@@ -116,292 +269,218 @@ Deno.serve(async (req: Request) => {
                                 homeWin: row.home_ml,
                                 awayWin: row.away_ml,
                                 draw: row.draw_ml,
-                                spread: row.home_spread
+                                spread: row.home_spread,
                             });
-                        });
+                        }
                     }
                 }
+            } catch (e) {
+                console.error('[Closing] Fetch failed:', e);
             }
-        } catch (e) {
-            console.error("Closing Lines Fetch Error:", e);
         }
 
-        // 3. Fetch Live Odds from DB Cache (Market Feeds)
-        let oddsData: any[] = [];
-        let feedsCount = 0;
-        let oldestDataAt = new Date().toISOString();
-        let keysToFetch: string[] = [];
-        try {
-            if (!ODDS_API_KEY) {
-                console.warn("[Odds] ODDS_API_KEY missing in fetch-matches env; will still request ingest-odds refresh.");
+        // ── 4. Shape Response ──────────────────────────────────────────────────
+
+        const matches = dbMatches.map(m => {
+            // Extract team display names for odds matching
+            const homeDisplayName = m.homeTeam?.displayName || m.home_team || '';
+            const awayDisplayName = m.awayTeam?.displayName || m.away_team || '';
+
+            // Build the match object in the shape the frontend expects
+            const match: any = {
+                id: m.id,
+                leagueId: m.leagueId || m.league_id,
+                sport: m.sport,
+                startTime: m.startTime || m.start_time,
+                status: m.status,
+                displayClock: m.display_clock,
+                period: m.period,
+                homeTeam: m.homeTeam || {
+                    id: m.home_team_id,
+                    name: m.home_team,
+                    displayName: m.home_team,
+                },
+                awayTeam: m.awayTeam || {
+                    id: m.away_team_id,
+                    name: m.away_team,
+                    displayName: m.away_team,
+                },
+                homeScore: m.home_score ?? 0,
+                awayScore: m.away_score ?? 0,
+            };
+
+            // Ensure team objects have required fields
+            if (match.homeTeam && !match.homeTeam.score) {
+                match.homeTeam.score = String(m.home_score ?? 0);
+            }
+            if (match.awayTeam && !match.awayTeam.score) {
+                match.awayTeam.score = String(m.away_score ?? 0);
             }
 
-            if (oddsSportKey && oddsSportKey !== 'all') {
-                keysToFetch = [oddsSportKey];
-            } else {
-                keysToFetch = leagues.map((l: any) => l.oddsKey).filter((k: any) => k);
-            }
-            keysToFetch = [...new Set(keysToFetch)];
-
-            if (keysToFetch.length > 0) {
-                // Fetch from market_feeds which is the active ingestion table
-                const { data: feeds } = await supabase
-                    .from('market_feeds')
-                    .select('home_team, away_team, raw_bookmakers, last_updated, sport_key, best_spread, best_total, best_h2h')
-                    .in('sport_key', keysToFetch)
-                    .gte('commence_time', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-                    .order('last_updated', { ascending: false });
-
-                if (feeds && feeds.length > 0) {
-                    feedsCount = feeds.length;
-                    oldestDataAt = feeds[feeds.length - 1].last_updated;
-                    oddsData = feeds.map((f: any) => ({
-                        home_team: f.home_team,
-                        away_team: f.away_team,
-                        sport_key: f.sport_key,
-                        bookmakers: typeof f.raw_bookmakers === 'string' ? JSON.parse(f.raw_bookmakers) : f.raw_bookmakers,
-                        best_spread: f.best_spread,
-                        best_total: f.best_total,
-                        best_h2h: f.best_h2h,
-                        last_updated: f.last_updated
-                    }));
-                }
-            }
-
-            // --- IMPROVED STALE CHECK: Check PER SPORT ---
-            const STALE_THRESHOLD_MS = 30 * 1000; // Lowered to 30s for real-time responsiveness
-            const sportsToRefresh = [];
-            for (const key of keysToFetch) {
-                const sportFeeds = oddsData.filter(o => o.sport_key === key);
-                // CRITICAL: Use Math.min to ensure that if even ONE game in the sport is stale, 
-                // we trigger a refresh. Taking the max (newest) can hide stale games for the rest of the league.
-                const oldestForSport = sportFeeds.length > 0
-                    ? Math.min(...sportFeeds.map(o => new Date(o.last_updated).getTime()))
-                    : 0;
-
-                if (oldestForSport < Date.now() - STALE_THRESHOLD_MS) {
-                    sportsToRefresh.push(key);
-                }
-            }
-
-            if (sportsToRefresh.length > 0) {
-                console.log(`[Odds] Refreshing ${sportsToRefresh.length} stale sports: ${sportsToRefresh.join(', ')}`);
-                supabase.functions.invoke('ingest-odds', {
-                    body: { sport_keys: sportsToRefresh }
-                }).catch((e: any) => console.error("Sync trigger failed", e));
-            }
-        } catch (e) {
-            console.error("Odds feed fetch failed", e);
-        }
-
-        // 4. Merge Data
-        const mergedData = espnMatches.map((match: any) => {
-            // A. Attach Closing Odds
-            const closing = closingLinesMap.get(match.id);
+            // Attach closing odds
+            const closing = closingMap.get(m.id);
             if (closing) {
                 match.closing_odds = closing;
             }
 
-            // B. Attach Live Odds
-            if (!oddsData.length) {
-                return { ...match, odds: { hasOdds: false } };
-            }
-
-            const matchHome = normalize(match.homeTeam.name);
-            const matchAway = normalize(match.awayTeam.name);
-
-            const oddsMatch = oddsData.find((o: any) => {
-                const oHome = normalize(o.home_team);
-                const oAway = normalize(o.away_team);
-                // Simple fuzzy match or check if either contains the other
-                return (oHome.includes(matchHome) || matchHome.includes(oHome)) &&
-                    (oAway.includes(matchAway) || matchAway.includes(oAway));
-            });
-
-            if (oddsMatch) {
-                // PRIMARY SOURCE: Pre-calculated "Best Lines" from Ingest Service (includes Zombie Filter)
-                const precalc = {
-                    spread: oddsMatch.best_spread,
-                    total: oddsMatch.best_total,
-                    h2h: oddsMatch.best_h2h
+            // Attach live odds — try safe columns first, then market_feeds fuzzy match
+            if (m.odds_home_ml_safe || m.odds_home_spread_safe || m.odds_total_safe) {
+                match.odds = {
+                    hasOdds: true,
+                    provider: 'Consensus',
+                    homeSpread: m.odds_home_spread_safe != null
+                        ? (m.odds_home_spread_safe > 0 ? `+${m.odds_home_spread_safe}` : `${m.odds_home_spread_safe}`)
+                        : null,
+                    overUnder: m.odds_total_safe != null ? `${m.odds_total_safe}` : null,
+                    moneylineHome: formatPrice(m.odds_home_ml_safe),
+                    moneylineAway: formatPrice(m.odds_away_ml_safe),
+                    homeML: formatPrice(m.odds_home_ml_safe),
+                    awayML: formatPrice(m.odds_away_ml_safe),
+                    lastUpdated: m.last_odds_update,
                 };
+            } else {
+                // Fuzzy match against market_feeds
+                const matchHome = normalize(homeDisplayName);
+                const matchAway = normalize(awayDisplayName);
 
-                // Fallback: Re-derive from raw books (Legacy behavior)
-                // Sort by last_update descending to get the most real-time data
-                const sortedBooks = [...(oddsMatch.bookmakers || [])].sort((a: any, b: any) =>
-                    new Date(b.last_update).getTime() - new Date(a.last_update).getTime()
-                );
-                const freshestBook = sortedBooks[0];
+                let oddsMatch: any = null;
 
-                if (precalc.spread || precalc.total || precalc.h2h) {
-                    // Extract Point/Price from Best Line Structure
-                    const homeSpread = precalc.spread?.home?.point;
-                    const overUnder = precalc.total?.over?.point;
-                    const homeML = precalc.h2h?.home?.price;
-                    const awayML = precalc.h2h?.away?.price;
+                // Try exact key match first
+                const exactKey = `${matchHome}|${matchAway}`;
+                if (oddsMap.has(exactKey)) {
+                    oddsMatch = oddsMap.get(exactKey);
+                } else {
+                    // Fuzzy scan
+                    for (const [, o] of oddsMap) {
+                        const oHome = normalize(o.home_team);
+                        const oAway = normalize(o.away_team);
+                        if ((oHome.includes(matchHome) || matchHome.includes(oHome)) &&
+                            (oAway.includes(matchAway) || matchAway.includes(oAway))) {
+                            oddsMatch = o;
+                            break;
+                        }
+                    }
+                }
 
-                    // Provider preference: Spread -> Total -> ML -> Freshest Book
-                    const provider = precalc.spread?.home?.bookmaker ||
-                        precalc.total?.over?.bookmaker ||
-                        precalc.h2h?.home?.bookmaker ||
-                        freshestBook?.title ||
-                        'Consensus';
+                if (oddsMatch) {
+                    const precalc = {
+                        spread: oddsMatch.best_spread,
+                        total: oddsMatch.best_total,
+                        h2h: oddsMatch.best_h2h,
+                    };
 
-                    return {
-                        ...match,
-                        odds_api_event_id: oddsMatch.id,
-                        odds: {
+                    if (precalc.spread || precalc.total || precalc.h2h) {
+                        const homeSpread = precalc.spread?.home?.point;
+                        const overUnder = precalc.total?.over?.point;
+                        const homeML = precalc.h2h?.home?.price;
+                        const awayML = precalc.h2h?.away?.price;
+
+                        const provider = precalc.spread?.home?.bookmaker ||
+                            precalc.total?.over?.bookmaker ||
+                            precalc.h2h?.home?.bookmaker ||
+                            'Consensus';
+
+                        match.odds = {
                             hasOdds: true,
-                            provider: provider,
+                            provider,
                             homeSpread: homeSpread !== undefined ? (homeSpread > 0 ? `+${homeSpread}` : `${homeSpread}`) : null,
                             overUnder: overUnder !== undefined ? `${overUnder}` : null,
                             moneylineHome: formatPrice(homeML),
                             moneylineAway: formatPrice(awayML),
                             homeML: formatPrice(homeML),
                             awayML: formatPrice(awayML),
-                            lastUpdated: oddsMatch.last_updated
-                        }
-                    };
-                } else if (freshestBook) {
-                    // LEGACY FALLBACK
-                    const homeML = getMarket(freshestBook, 'h2h', oddsMatch.home_team, 'price');
-                    const awayML = getMarket(freshestBook, 'h2h', oddsMatch.away_team, 'price');
+                            lastUpdated: oddsMatch.last_updated,
+                        };
+                    } else {
+                        // Try raw bookmakers fallback
+                        const sortedBooks = [...(oddsMatch.bookmakers || [])].sort((a: any, b: any) =>
+                            new Date(b.last_update).getTime() - new Date(a.last_update).getTime()
+                        );
+                        const freshestBook = sortedBooks[0];
 
-                    return {
-                        ...match,
-                        odds_api_event_id: oddsMatch.id,
-                        odds: {
-                            hasOdds: true,
-                            provider: freshestBook.title,
-                            homeSpread: getMarket(freshestBook, 'spreads', oddsMatch.home_team),
-                            overUnder: getMarket(freshestBook, 'totals', 'Over'),
-                            moneylineHome: homeML,
-                            moneylineAway: awayML,
-                            homeML: homeML, // Alias
-                            awayML: awayML, // Alias
-                            lastUpdated: oddsMatch.last_updated
+                        if (freshestBook) {
+                            const getMarket = (book: any, key: string, outcomeName: string, mode: 'point' | 'price' = 'point') => {
+                                const mkt = book.markets?.find((x: any) => x.key === key);
+                                if (!mkt) return null;
+                                const outcome = mkt.outcomes?.find((x: any) =>
+                                    x.name === outcomeName || normalize(x.name) === normalize(outcomeName)
+                                );
+                                if (!outcome) return null;
+                                if (mode === 'price') return formatPrice(outcome.price);
+                                return outcome.point != null ? (outcome.point > 0 ? `+${outcome.point}` : `${outcome.point}`) : null;
+                            };
+
+                            match.odds = {
+                                hasOdds: true,
+                                provider: freshestBook.title,
+                                homeSpread: getMarket(freshestBook, 'spreads', oddsMatch.home_team),
+                                overUnder: getMarket(freshestBook, 'totals', 'Over'),
+                                moneylineHome: getMarket(freshestBook, 'h2h', oddsMatch.home_team, 'price'),
+                                moneylineAway: getMarket(freshestBook, 'h2h', oddsMatch.away_team, 'price'),
+                                homeML: getMarket(freshestBook, 'h2h', oddsMatch.home_team, 'price'),
+                                awayML: getMarket(freshestBook, 'h2h', oddsMatch.away_team, 'price'),
+                                lastUpdated: oddsMatch.last_updated,
+                            };
+                        } else {
+                            match.odds = { hasOdds: false };
                         }
-                    };
+                    }
+                } else {
+                    match.odds = { hasOdds: false };
                 }
             }
 
-            return { ...match, odds: { hasOdds: false } };
+            return match;
         });
 
-        return new Response(JSON.stringify(mergedData), {
+        // ── 5. Trigger Stale Odds Refresh (fire-and-forget) ────────────────────
+
+        const STALE_THRESHOLD_MS = 60_000; // 60s
+        const sportsToRefresh: string[] = [];
+
+        for (const key of oddsKeys) {
+            const feeds = [...oddsMap.values()].filter(o => o.sport_key === key);
+            const oldest = feeds.length > 0
+                ? Math.min(...feeds.map((o: any) => new Date(o.last_updated).getTime()))
+                : 0;
+            if (oldest < Date.now() - STALE_THRESHOLD_MS) {
+                sportsToRefresh.push(key);
+            }
+        }
+
+        if (sportsToRefresh.length > 0) {
+            supabase.functions.invoke('ingest-odds-v3', {
+                body: { sport_keys: sportsToRefresh },
+            }).catch((e: any) => console.error('[Odds] Refresh trigger failed:', e));
+        }
+
+        // ── 6. Return ──────────────────────────────────────────────────────────
+
+        const elapsed = Date.now() - t0;
+        console.log(`[fetch-matches-v2] Returning ${matches.length} matches in ${elapsed}ms`);
+
+        return new Response(JSON.stringify(matches), {
             headers: {
                 ...corsHeaders,
                 'Content-Type': 'application/json',
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0'
-            }
+                'X-Matches-Count': String(matches.length),
+                'X-Source': 'db',
+                'X-Elapsed-Ms': String(elapsed),
+            },
         });
 
     } catch (err: any) {
-        console.error("Critical Error:", err);
-        // Return empty matches array instead of erroring out completely to keep UI alive
-        return new Response(JSON.stringify({ error: err.message, matches: [] }), {
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        console.error('[fetch-matches-v2] Critical error:', err);
+        return errorResponse(err.message, 200); // 200 to keep UI alive
     }
-})
+});
 
-// --- HELPERS ---
+// ─── ERROR RESPONSE ──────────────────────────────────────────────────────────
 
-const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-const getMarket = (book: any, key: string, outcomeName: string, mode: 'point' | 'price' = 'point') => {
-    const m = book.markets.find((x: any) => x.key === key);
-    if (!m) return null;
-    const o = m.outcomes.find((x: any) => x.name === outcomeName || (key === 'spreads' && normalize(x.name) === normalize(outcomeName)));
-    if (!o) return null;
-
-    if (mode === 'price') {
-        const p = o.price;
-        if (p === undefined || p === null) return null;
-        // Handle American odds formatting
-        if (Math.abs(p) >= 100) return p > 0 ? `+${Math.round(p)}` : `${Math.round(p)}`;
-        // Handle Decimal -> American conversion
-        return p >= 2.0 ? `+${Math.round((p - 1) * 100)}` : `${Math.round(-100 / (p - 1))}`;
-    }
-
-    return o.point != null ? (o.point > 0 ? `+${o.point}` : `${o.point}`) : null;
-};
-
-function getFootballDateRange(date: Date): string {
-    const d = new Date(date);
-    const day = d.getDay(); // 0=Sun ... 4=Thu
-    const diff = (day + 7 - 4) % 7;
-    const start = new Date(d);
-    start.setDate(d.getDate() - diff);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-
-    const fmt = (dt: Date) => {
-        const y = dt.getFullYear();
-        const m = String(dt.getMonth() + 1).padStart(2, '0');
-        const dy = String(dt.getDate()).padStart(2, '0');
-        return `${y}${m}${dy}`;
-    };
-    return `${fmt(start)}-${fmt(end)}`;
-}
-
-const formatPrice = (p: any) => {
-    if (p === undefined || p === null) return null;
-    // Handle American odds formatting
-    if (Math.abs(p) >= 100) return p > 0 ? `+${Math.round(p)}` : `${Math.round(p)}`;
-    // Handle Decimal -> American conversion
-    return p >= 2.0 ? `+${Math.round((p - 1) * 100)}` : `${Math.round(-100 / (p - 1))}`;
-};
-
-async function fetchEspnData(leagues: any[], date: Date) {
-    const defaultDateStr = date.toISOString().split('T')[0].replace(/-/g, '');
-    console.log(`[ESPN] Parallel fetch for ${leagues.length} leagues, date: ${date.toISOString()}`);
-
-    const tasks = leagues.map(async (league) => {
-        try {
-            let dateParam = defaultDateStr;
-            if (league.sport === 'NFL' || league.sport === 'COLLEGE_FOOTBALL') {
-                dateParam = getFootballDateRange(date);
-            }
-
-            const url = `https://site.api.espn.com/apis/site/v2/sports/${league.apiEndpoint}/scoreboard?dates=${dateParam}&limit=100&_t=${Date.now()}`;
-            const res = await fetch(url);
-
-            if (res.ok) {
-                const data = await res.json();
-                return (data.events || []).map((e: any) => {
-                    const c = e.competitions?.[0];
-                    if (!c) return null;
-                    const h = c.competitors?.find((x: any) => x.homeAway === 'home');
-                    const a = c.competitors?.find((x: any) => x.homeAway === 'away');
-                    if (!h || !a) return null;
-
-                    return {
-                        id: getCanonicalMatchId(e.id, league.id),
-                        leagueId: league.id,
-                        sport: league.sport,
-                        startTime: e.date,
-                        status: e.status.type.name,
-                        displayClock: e.status.displayClock,
-                        period: e.status.period,
-                        homeTeam: { id: h.team.id, name: h.team.displayName, logo: h.team.logo, score: h.score, record: h.records?.[0]?.summary },
-                        awayTeam: { id: a.team.id, name: a.team.displayName, logo: a.team.logo, score: a.score, record: a.records?.[0]?.summary },
-                        homeScore: parseInt(h.score || '0'),
-                        awayScore: parseInt(a.score || '0')
-                    };
-                }).filter((e: any) => e !== null);
-            }
-            return [];
-        } catch (e) {
-            console.error(`ESPN Fail ${league.id}`, e);
-            return [];
-        }
+function errorResponse(message: string, status: number) {
+    return new Response(JSON.stringify({ error: message, matches: [] }), {
+        status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
-    const nestedResults = await Promise.all(tasks);
-    const results = nestedResults.flat();
-    return results.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 }

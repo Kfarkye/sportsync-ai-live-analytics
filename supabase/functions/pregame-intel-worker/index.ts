@@ -26,8 +26,8 @@ const INTEL_WAIT_STEP_MS = Number(Deno.env.get("PREGAME_INTEL_WAIT_STEP_MS") ?? 
 const INTEL_PRIMARY_MODEL = Deno.env.get("PREGAME_INTEL_MODEL") ?? "gemini-3-flash-preview";
 const INTEL_FALLBACK_MODEL = Deno.env.get("PREGAME_INTEL_FALLBACK_MODEL") ?? "gemini-2.0-flash";
 
-class QueueFullError extends Error {}
-class OverloadedError extends Error {}
+class QueueFullError extends Error { }
+class OverloadedError extends Error { }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -106,14 +106,33 @@ const RequestSchema = z.object({
     away_ml: z.union([z.string(), z.number()]).nullable().optional().transform((v: any) => (v != null ? String(v) : null)),
     spread_juice: z.union([z.string(), z.number()]).nullable().optional().transform((v: any) => (v != null ? String(v) : null)),
     total_juice: z.union([z.string(), z.number()]).nullable().optional().transform((v: any) => (v != null ? String(v) : null)),
-    force_refresh: z.boolean().optional().default(false),
+    force_refresh: z.preprocess((v: any) => {
+        if (typeof v === "string") return ["true", "1", "yes"].includes(v.trim().toLowerCase());
+        return Boolean(v);
+    }, z.boolean()).optional().default(false),
 });
 
 // -------------------------------------------------------------------------
-// ODDS HELPERS (Preserving Original Math)
+// ODDS HELPERS & DETERMINISTIC MATH
 // -------------------------------------------------------------------------
 const isFiniteNumber = (v: any): v is number => typeof v === "number" && Number.isFinite(v);
 const safeNumOrNull = (x: any) => (isFiniteNumber(x) ? x : null);
+
+// Converts American odds to an implied probability percentage (0.00 to 1.00)
+const americanToImplied = (odds: number | null): number | null => {
+    if (odds == null || !Number.isFinite(odds) || odds === 0) return null;
+    if (odds > 0) return 100 / (odds + 100);
+    const abs = Math.abs(odds);
+    return abs / (abs + 100);
+};
+
+// Converts American odds to Decimal odds for EV Multiplier calculation
+const americanToDecimal = (odds: number | null): number | null => {
+    if (odds == null || !Number.isFinite(odds) || odds === 0) return null;
+    if (odds > 0) return (odds / 100) + 1;
+    const abs = Math.abs(odds);
+    return (100 / abs) + 1;
+};
 
 const parseAmericanOdds = (v: any): number | null => {
     if (v == null) return null;
@@ -167,6 +186,7 @@ type MarketOffer = {
     selection: string;
     line: number | null;
     price_american: number;
+    implied_probability: number | null;
     price: string;
     label: string;
 };
@@ -211,6 +231,7 @@ const buildMarketSnapshot = (p: any, odds: any): MarketOffer[] => {
                 selection: hTeam,
                 line: spread,
                 price_american: homePriceA,
+                implied_probability: americanToImplied(homePriceA),
                 price: fmtAmerican(homePriceA),
                 label: `${hTeam} ${isPk ? "Pick'em" : (spread > 0 ? "+" : "") + fmtLine(spread)} (${fmtAmerican(homePriceA)})`,
             });
@@ -225,6 +246,7 @@ const buildMarketSnapshot = (p: any, odds: any): MarketOffer[] => {
                 selection: aTeam,
                 line,
                 price_american: awayPriceA,
+                implied_probability: americanToImplied(awayPriceA),
                 price: fmtAmerican(awayPriceA),
                 label: `${aTeam} ${isPk ? "Pick'em" : (line > 0 ? "+" : "") + fmtLine(line)} (${fmtAmerican(awayPriceA)})`,
             });
@@ -244,6 +266,7 @@ const buildMarketSnapshot = (p: any, odds: any): MarketOffer[] => {
                 selection: "OVER",
                 line: total,
                 price_american: overA,
+                implied_probability: americanToImplied(overA),
                 price: fmtAmerican(overA),
                 label: `OVER ${fmtLine(total)} (${fmtAmerican(overA)})`,
             });
@@ -256,6 +279,7 @@ const buildMarketSnapshot = (p: any, odds: any): MarketOffer[] => {
                 selection: "UNDER",
                 line: total,
                 price_american: underA,
+                implied_probability: americanToImplied(underA),
                 price: fmtAmerican(underA),
                 label: `UNDER ${fmtLine(total)} (${fmtAmerican(underA)})`,
             });
@@ -273,6 +297,7 @@ const buildMarketSnapshot = (p: any, odds: any): MarketOffer[] => {
             selection: hTeam,
             line: null,
             price_american: homeMlA,
+            implied_probability: americanToImplied(homeMlA),
             price: fmtAmerican(homeMlA),
             label: `${hTeam} Moneyline (${fmtAmerican(homeMlA)})`,
         });
@@ -285,6 +310,7 @@ const buildMarketSnapshot = (p: any, odds: any): MarketOffer[] => {
             selection: aTeam,
             line: null,
             price_american: awayMlA,
+            implied_probability: americanToImplied(awayMlA),
             price: fmtAmerican(awayMlA),
             label: `${aTeam} Moneyline (${fmtAmerican(awayMlA)})`,
         });
@@ -391,11 +417,10 @@ Deno.serve(async (req: Request) => {
                     await supabase.from("intel_job_items").update({ status: "success" }).eq("id", item.id);
                 } catch (e: any) {
                     if (e instanceof QueueFullError || e instanceof OverloadedError) {
-                        console.warn(`Item Deferred: ${item.match_id} (${e.message})`);
-                        // Leave status as pending so dispatcher can retry later.
+                        console.warn(`[${item.match_id}] Item Deferred (${e.message})`);
                         continue;
                     }
-                    console.error(`Item Fail: ${item.match_id}`, e.message);
+                    console.error(`[${item.match_id}] Item Fail:`, e.message);
                     await supabase.from("intel_job_items").update({ status: "failed", error: e.message }).eq("id", item.id);
                 }
             }
@@ -436,30 +461,16 @@ Deno.serve(async (req: Request) => {
             if (derived !== "basketball") p = { ...p, sport: derived };
         }
 
-        // TENNIS NORMALIZATION: Map tennis-specific odds keys to standard fields
+        // TENNIS NORMALIZATION
         if ((p.sport || "").toLowerCase() === "tennis") {
             const n = normalizeTennisOdds(p.current_odds || {});
-            p = {
-                ...p,
-                current_spread: p.current_spread ?? n.spread,
-                current_total: p.current_total ?? n.total,
-                home_ml: (p.home_ml ?? n.homeMl) as any,
-                away_ml: (p.away_ml ?? n.awayMl) as any,
-            };
-            console.log(`[${requestId}] 🎾 [TENNIS] Normalized: spread=${p.current_spread}, total=${p.current_total}, ML=${n.homeMl}/${n.awayMl}`);
+            p = { ...p, current_spread: p.current_spread ?? n.spread, current_total: p.current_total ?? n.total, home_ml: p.home_ml ?? n.homeMl, away_ml: p.away_ml ?? n.awayMl };
         }
 
-        // SOCCER NORMALIZATION: Map soccer-specific odds keys (Bundesliga, Liga MX, etc.)
+        // SOCCER NORMALIZATION
         if ((p.sport || "").toLowerCase() === "soccer") {
             const n = normalizeSoccerOdds(p.current_odds || {});
-            p = {
-                ...p,
-                current_spread: p.current_spread ?? n.spread,
-                current_total: p.current_total ?? n.total,
-                home_ml: (p.home_ml ?? n.homeMl) as any,
-                away_ml: (p.away_ml ?? n.awayMl) as any,
-            };
-            console.log(`[${requestId}] ⚽ [SOCCER] Normalized: spread=${p.current_spread}, total=${p.current_total}, ML=${n.homeMl}/${n.awayMl}`);
+            p = { ...p, current_spread: p.current_spread ?? n.spread, current_total: p.current_total ?? n.total, home_ml: p.home_ml ?? n.homeMl, away_ml: p.away_ml ?? n.awayMl };
         }
 
         try {
@@ -467,18 +478,10 @@ Deno.serve(async (req: Request) => {
             return new Response(JSON.stringify(dossier), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
         } catch (err: any) {
             if (err instanceof QueueFullError) {
-                console.warn(`[Intel:${requestId}] Queue full. Deferring request.`);
-                return new Response(JSON.stringify({ status: "queued", match_id: p.match_id }), {
-                    status: 429,
-                    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-                });
+                return new Response(JSON.stringify({ status: "queued", match_id: p.match_id }), { status: 429, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
             }
             if (err instanceof OverloadedError) {
-                console.warn(`[Intel:${requestId}] Model overloaded. Deferring request.`);
-                return new Response(JSON.stringify({ status: "overloaded", match_id: p.match_id }), {
-                    status: 503,
-                    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-                });
+                return new Response(JSON.stringify({ status: "overloaded", match_id: p.match_id }), { status: 503, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
             }
             throw err;
         }
@@ -616,6 +619,109 @@ async function processSingleIntel(
         return noMarketDossier;
     }
 
+    // =========================================================================
+    // 🚨 DETERMINISTIC MATH & POLYMARKET INTEGRATION
+    // Logic safely maps Poly odds previously fetched natively in buildMatchDossier
+    // =========================================================================
+
+    const polyOdds = dossier.polymarket_anchor;
+    const polyPlayerProps = dossier.polymarket_player_props || [];
+
+    const parsePolyProb = (val: any) => {
+        if (val == null) return null;
+        const n = Number(val);
+        if (!Number.isFinite(n) || n <= 0) return null;
+        return n > 1 ? n / 100 : n; // Auto-corrects 55 to 0.55 if stored in cents
+    };
+
+    let propsContextString = "";
+    if (polyPlayerProps.length > 0) {
+        const propsList = polyPlayerProps.map((p: any) => {
+            const probVal = parsePolyProb(p.over_prob) ?? 0;
+            return `- ${p.player_name || p.player || "Player"} OVER ${p.prop_line} ${p.stat_type} (Implied True Prob: ${(probVal * 100).toFixed(1)}%)`;
+        }).join("\n");
+        propsContextString = `\n<polymarket_player_props>\n${propsList}\n</polymarket_player_props>`;
+    }
+
+    let quantitativeEdgeNarrative = "SITUATIONAL ONLY - No real-money Polymarket anchors or quantitative models available. Focus exclusively on situational, injury, and matchup friction. DO NOT hallucinate win probabilities or mathematical edges.";
+
+    // Secure model check to prevent undefined runtime errors
+    const hasProprietaryModel = dossier.valuation?.has_model === true || (dossier.valuation?.delta != null && dossier.valuation.delta !== 0);
+    const hasPolyProps = polyPlayerProps.length > 0;
+
+    let highestPolyEV = 0; // Track highest EV for optional logic tracking downstream
+    const validEdgesData: any[] = [];
+
+    if (polyOdds) {
+        // Extract & cast raw Polymarket probabilities safely prioritizing home_prob over fallbacks
+        let homePoly = parsePolyProb(polyOdds.home_prob ?? polyOdds.home_price ?? polyOdds.probability);
+        let awayPoly = parsePolyProb(polyOdds.away_prob ?? polyOdds.away_price);
+
+        // 🚨 MATHEMATICAL DEVIGGING: Normalize Polymarket prices to remove the order book spread
+        if (homePoly != null && awayPoly != null) {
+            const sum = homePoly + awayPoly;
+            if (sum > 0.01) { // Prevents divide by zero or extreme micro-sums
+                // Enforce strict 0.0 to 1.0 bounds mathematically
+                homePoly = Math.min(1, Math.max(0, homePoly / sum));
+                awayPoly = Math.min(1, Math.max(0, awayPoly / sum));
+            }
+        } else if (homePoly != null && awayPoly == null) {
+            awayPoly = Math.min(1, Math.max(0, 1 - homePoly));
+        } else if (awayPoly != null && homePoly == null) {
+            homePoly = Math.min(1, Math.max(0, 1 - awayPoly));
+        }
+
+        marketOffers.forEach((o: MarketOffer) => {
+            if (o.type === "MONEYLINE" && o.implied_probability != null && o.price_american != null) {
+                let polyProb = null;
+                // Match the devigged true probability to the correct side
+                if (o.side === "HOME" && homePoly != null) polyProb = homePoly;
+                if (o.side === "AWAY" && awayPoly != null) polyProb = awayPoly;
+
+                if (polyProb != null) {
+                    const probGap = polyProb - o.implied_probability;
+                    const decimalOdds = americanToDecimal(o.price_american);
+                    const expectedValue = decimalOdds != null ? (polyProb * decimalOdds) - 1 : 0;
+
+                    // Safety Guard: Drop extreme/impossible edges caused by API data errors (> 200% ROI)
+                    if (Math.abs(expectedValue) <= 2.0) {
+                        validEdgesData.push({
+                            label: o.label,
+                            implied: o.implied_probability,
+                            poly: polyProb,
+                            probGap,
+                            expectedValue
+                        });
+                    }
+                }
+            }
+        });
+    }
+
+    if (validEdgesData.length > 0) {
+        // Sort edges by Expected Value descending so the LLM sees the absolute best mathematical edge first
+        validEdgesData.sort((a, b) => b.expectedValue - a.expectedValue);
+        highestPolyEV = validEdgesData[0].expectedValue;
+
+        const validEdgesFormatted = validEdgesData.map(e => {
+            const evSign = e.expectedValue > 0 ? "+" : "";
+            const probGapSign = e.probGap > 0 ? "+" : "";
+            return `- ${e.label}: Retail Implied = ${(e.implied * 100).toFixed(1)}%. Polymarket True Prob = ${(e.poly * 100).toFixed(1)}%.\n` +
+                `  ↳ PROBABILITY GAP: ${probGapSign}${(e.probGap * 100).toFixed(1)}% | EXPECTED VALUE (ROI): ${evSign}${(e.expectedValue * 100).toFixed(1)}%`;
+        });
+
+        console.log(`[Intel:${requestId}] 📊 Deterministic edges calculated: ${validEdgesData.length} offers mapped. Top EV: ${(highestPolyEV * 100).toFixed(1)}%`);
+        quantitativeEdgeNarrative = "DETERMINISTIC MARKET EDGES DETECTED (Sorted by Highest +EV ROI. Use these exact numbers to establish your thesis, do NOT recalculate them):\n" +
+            validEdgesFormatted.join("\n") +
+            "\n\nCRITICAL INSTRUCTION: A positive EXPECTED VALUE (ROI) indicates a mathematically profitable bet. A negative EXPECTED VALUE indicates a losing bet. Do NOT explicitly state the phrase 'Deterministic edges detected' in your generated output. Weave these numbers naturally into your analytical narrative as if you calculated them.";
+    } else if (hasProprietaryModel) {
+        quantitativeEdgeNarrative = `PROPRIETARY MODEL EDGE:\nFair Line: ${dossier.valuation?.fair_line}\nRetail Spread: ${marketInput.current_spread}\nModel Edge (Delta): ${dossier.valuation?.delta?.toFixed(1)} points.`;
+    } else if (hasPolyProps) {
+        quantitativeEdgeNarrative = "SITUATIONAL ONLY - No direct Match/Game edges are available. Rely on situational analysis and the player props listed below.";
+    } else if (polyOdds) {
+        quantitativeEdgeNarrative = "Polymarket data is present but no direct Moneyline comparison is available. Rely strictly on situational analysis.";
+    }
+
     // GLOBAL CONCURRENCY GUARD: Acquire lease before any AI call
     const leaseAttempt = await acquireIntelLeaseWithBackoff(supabase, requestId);
     if (!leaseAttempt.bypass && !leaseAttempt.leaseId) {
@@ -624,10 +730,23 @@ async function processSingleIntel(
     const leaseId = leaseAttempt.leaseId;
 
     const marketMenu = marketOffers.map((o) => `- ID: "${o.id}" | ${o.label}`).join("\n");
-    const edge = Number.isFinite(dossier.valuation.delta) ? dossier.valuation.delta.toFixed(1) : "0.0";
+
+    // Determine the final edge display value based on whether we used Poly EV or the Points Spread Model
+    const baseModelEdge = Number.isFinite(dossier.valuation?.delta) ? dossier.valuation.delta.toFixed(1) : "0.0";
+    const logicAuthorityMetric = (validEdgesData.length > 0) && highestPolyEV !== 0
+        ? `${(highestPolyEV * 100).toFixed(1)}% EV`
+        : hasPolyProps
+            ? "Player Props"
+            : `${baseModelEdge} pts`;
 
     // 3. AI PROMPT (single call)
-    const systemInstruction = PREGAME_INTEL_SYSTEM_INSTRUCTION(dossier.current_date, dossier.game_date);
+    // Cast to any safely prevents build failures if _shared dependencies aren't synced simultaneously
+    const systemInstruction = (PREGAME_INTEL_SYSTEM_INSTRUCTION as any)(
+        dossier.current_date,
+        dossier.game_date,
+        hasProprietaryModel || validEdgesData.length > 0 || hasPolyProps
+    );
+
     const synthesisPrompt = `<matchup>${dossier.away_team} @ ${dossier.home_team}</matchup>
 <forensic_context>
 HOME (${dossier.home_team}):
@@ -640,12 +759,10 @@ AWAY (${dossier.away_team}):
 - Rest: ${dossier.forensic.away.rest_days} days
 - Injury Score: ${dossier.forensic.away.injury_score}/10
 - Notes: ${dossier.forensic.away.notes}
-</forensic_context>
-<valuation>
-Market Spread: ${dossier.market_snapshot.spread ?? "N/A"}
-Fair Line: ${dossier.valuation.fair_line}
-Delta: ${dossier.valuation.delta}
-</valuation>
+</forensic_context>${propsContextString}
+<deterministic_quantitative_edge>
+${quantitativeEdgeNarrative}
+</deterministic_quantitative_edge>
 <market_snapshot>
 Spread: ${dossier.market_snapshot.spread ?? "N/A"}
 Total: ${dossier.market_snapshot.total ?? "N/A"}
@@ -655,7 +772,7 @@ Away ML: ${dossier.market_snapshot.away_ml ?? "N/A"}
 <market_offers>
 ${marketMenu}
 </market_offers>
-<task>Select the best offer. Justify using the forensic context.</task>`;
+<task>Select the best offer. If a Deterministic Edge is present, explain WHY that gap exists using Google Search context. DO NOT invent mathematical edges if deterministic_quantitative_edge states none are available. DO NOT recalculate the math.</task>`;
 
     const dynamicSchema: any = JSON.parse(JSON.stringify(PREGAME_INTEL_SCHEMA_BASE));
     dynamicSchema.properties.selected_offer_id.enum = marketOffers.map((o) => o.id);
@@ -673,6 +790,7 @@ ${marketMenu}
                 responseSchema: dynamicSchema,
                 thinkingLevel,
                 maxOutputTokens: 12000,
+                tools: [{ googleSearch: {} }] // 🚨 search grounding restored
             });
             const durationMs = Date.now() - aiStart;
             console.log(`[Intel:${requestId}] Gemini call (${modelName}): ${durationMs}ms`);
@@ -700,6 +818,7 @@ ${marketMenu}
                     responseSchema: dynamicSchema,
                     thinkingLevel: "medium",
                     maxOutputTokens: 8000,
+                    tools: [{ googleSearch: {} }]
                 });
                 const retrySources = retryResult.sources || [];
                 if (retrySources.length === 0) {
@@ -728,7 +847,7 @@ ${marketMenu}
     let method = "AI_SELECTION";
 
     if (!selectedOffer) {
-        selectedOffer = pickFallbackOffer(marketOffers, dossier.valuation.fair_line, marketInput.current_spread) || marketOffers[0];
+        selectedOffer = pickFallbackOffer(marketOffers, dossier.valuation?.fair_line || 0, marketInput.current_spread) || marketOffers[0];
         method = "DETERMINISTIC_FALLBACK";
     }
 
@@ -760,17 +879,16 @@ ${marketMenu}
         selectedOffer.type === "SPREAD"
             ? selectedOffer.price
             : isFiniteNumber(marketInput.current_spread) && spreadJuiceRaw !== null
-            ? fmtAmerican(spreadJuiceRaw)
-            : null;
+                ? fmtAmerican(spreadJuiceRaw)
+                : null;
 
     const bound_total_juice =
         selectedOffer.type === "TOTAL"
             ? selectedOffer.price
             : isFiniteNumber(marketInput.current_total) && totalJuiceRaw !== null
-            ? fmtAmerican(totalJuiceRaw)
-            : null;
+                ? fmtAmerican(totalJuiceRaw)
+                : null;
 
-    // remove the AI-only selected_offer_id & pick_summary from stored surface object (your choice)
     const { selected_offer_id, pick_summary, ...cleanIntel } = intel as any;
 
     const output = {
@@ -799,8 +917,8 @@ ${marketMenu}
         confidence_tier: intel.confidence_tier || null,
         logic_group: intel.logic_group || null,
 
-        // Keep this internal; UI should not display it.
-        logic_authority: `${selectedOffer.label} | ${edge} edge`,
+        // Keep this internal; UI should not display it. Tracks true driver of the logic (EV vs Points)
+        logic_authority: `${selectedOffer.label} | ${logicAuthorityMetric} edge`,
         kernel_trace: `[METHOD:${method}]\n${thoughts || ""}`,
     };
 

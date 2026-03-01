@@ -4,21 +4,10 @@ declare const EdgeRuntime: { waitUntil: (promise: Promise<any>) => void };
 
 /**
  * PREGAME INTEL CRON (Mission Critical Discovery & Rectification)
- * v4.0 - Production Master (Audit Compliant)
- * 
- * Objectives:
- *  - Identify gaps in pregame_intel coverage for the upcoming slate.
- *  - Rectify intel deficiencies via prioritized batching.
- *  - Act as a Targeted Originator for on-demand requests.
- * 
- * v4.0 Fixes:
- *  - Added EdgeRuntime.waitUntil to prevent early termination (The "32 Event" fix)
- *  - Added processInBatches for controlled concurrency (prevents thundering herd)
- *  - Increased FETCH_LIMIT to 350 for full Saturday boards
+ * v6.0 - Production Master (Self-DDOS Protection & Resiliency)
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { executeAnalyticalQuery, safeJsonParse } from "../_shared/gemini.ts";
 import { getCanonicalMatchId, toLocalGameDate } from "../_shared/match-registry.ts";
 import { validateEdgeAuth } from "../_shared/env.ts";
 
@@ -29,83 +18,29 @@ const CORS_HEADERS = {
     "Content-Type": "application/json",
 };
 
-/**
- * CLINICAL TACTICAL SCHEMA (The Computer Group Standard)
- * Preserved full fidelity: Enums, structure, and descriptions.
- */
-const QUANT_INTEL_SCHEMA = {
-    type: "object",
-    description: "A clinical tactical audit of a sports matchup for the syndicate.",
-    properties: {
-        recommended_pick: {
-            type: "string",
-            description: "A concise, command-level betting pick for the syndicate. Format: 'TEAM +/-SPREAD', 'TEAM ML', or 'O/U VALUE'. e.g. 'MAGIC -3' or 'UNDER 220.5'."
-        },
-        logic_authority: {
-            type: "string",
-            description: "Binary reasoning chain: Variables -> Python Simulation Results -> Friction Identification. Max 500 chars."
-        },
-        executive_summary: {
-            type: "object",
-            properties: {
-                spot: { type: "string", description: "Situational context (e.g. Back-to-back, altitude, revenge spot)" },
-                driver: { type: "string", description: "Primary tactical reason for the edge (e.g. Poisson simulation delta)" },
-                verdict: { type: "string", description: "Final clinical verdict on market efficiency." }
-            },
-            required: ["spot", "driver", "verdict"]
-        },
-        derived_scorecard: {
-            type: "object",
-            properties: {
-                headline: { type: "string" },
-                briefing: { type: "string" },
-                cards: {
-                    type: "array",
-                    items: {
-                        type: "object",
-                        properties: {
-                            category: {
-                                type: "string",
-                                enum: ["CONTRARIAN", "PLAYER_TREND", "INJURY", "ATS_TRENDS", "SCHEDULE", "LINE_MOVEMENT", "SHARP_ACTION", "WEATHER", "REFEREE", "SITUATIONAL", "STORYLINE"],
-                            },
-                            thesis: { type: "string" },
-                            market_implication: { type: "string" },
-                            details: { type: "array", items: { type: "string" } },
-                            impact: { type: "string", enum: ["HIGH", "MEDIUM", "NEUTRAL"] },
-                            confidence_score: { type: "number", description: "1-100 scale of conviction." },
-                            true_probability: { type: "number" }
-                        },
-                        required: ["category", "thesis", "market_implication", "impact", "confidence_score", "true_probability"]
-                    }
-                }
-            },
-            required: ["headline", "briefing", "cards"]
-        }
-    },
-    required: ["recommended_pick", "logic_authority", "executive_summary", "derived_scorecard"]
-};
-
 // === OPTIMIZED CONFIGURATION ===
 const CONFIG = {
-    LOOKAHEAD_HOURS: 120,    // Kept original 5-day lookahead
-    FETCH_LIMIT: 350,        // UPGRADE: See full Saturday board (was 100)
-    BATCH_SIZE: 50,          // UPGRADE: Process 50 games per run (was 40)
-    CONCURRENCY: 10,         // NEW: Max concurrent workers (prevents timeouts)
-    TIMEOUT_MS: 180_000,     // Extended to 3m for larger batches
-    STALE_HOURS: 12,         // Kept original freshness
-    THROTTLE_MINS: 14        // Kept original throttle
+    LOOKAHEAD_HOURS: 120,
+    FETCH_LIMIT: 350,
+    BATCH_SIZE: 50,
+    // 🚨 Self-DDOS Fix: Lowered to 3 to align with the Worker's max concurrency limit (2)
+    CONCURRENCY: 3,
+    TIMEOUT_MS: 180_000,
+    STALE_HOURS: 12,
+    THROTTLE_MINS: 14
 };
 
-// Volatility Guard Thresholds (in points)
 const VOLATILITY_THRESHOLDS: Record<string, { spread: number, total: number }> = {
     'nba': { spread: 1.0, total: 2.0 },
     'nfl': { spread: 0.5, total: 1.0 },
     'mlb': { spread: 0.5, total: 0.5 },
-    'ncaab': { spread: 1.5, total: 2.5 }, // Added NCAAB specific guard
+    'ncaab': { spread: 1.5, total: 2.5 },
     'default': { spread: 1.0, total: 1.5 }
 };
 
 // === UTILITIES ===
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
     let timer: number | undefined;
@@ -117,7 +52,17 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
     });
 }
 
-// NEW: Controlled Concurrency Processor (Prevents Thundering Herd)
+const isFiniteNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const safeParseFloat = (v: unknown): number | null => {
+    if (isFiniteNumber(v)) return v;
+    if (typeof v === "string") {
+        const parsed = parseFloat(v.replace(/[^\d.-]/g, ""));
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+};
+
+// Controlled Concurrency Processor
 async function processInBatches<T, R>(
     items: T[],
     batchSize: number,
@@ -126,60 +71,67 @@ async function processInBatches<T, R>(
     const results: PromiseSettledResult<R>[] = [];
     for (let i = 0; i < items.length; i += batchSize) {
         const chunk = items.slice(i, i + batchSize);
-        // Process chunk in parallel, but wait for chunk to finish before starting next
         const chunkResults = await Promise.allSettled(chunk.map(processor));
         results.push(...chunkResults);
     }
     return results;
 }
 
-/**
- * DOSSIER GENERATOR (Targeted Originator Mode)
- */
-async function generateDossier(body: any) {
-    const { home_team, away_team, league, match_metadata } = body;
+// 🚨 WORKER RETRY GUARD: Catches 429s, 503s, and network drops to prevent batch failures
+async function fetchWorkerWithRetry(url: string, payload: any, headers: any, maxRetries = 3) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
+            const text = await res.text().catch(() => "");
 
-    const SYSTEM_INSTRUCTION = `ROLE: Lead Originator for The Computer Group.
-MISSION: Identify mathematical friction via deep reasoning and forensic grounding.
-OPERATING PRINCIPLES:
-1. AXIOMATIC TRUTH: The provided Fair Value is the core mathematical truth.
-2. MATH INTERNAL: Use codeExecution (scipy.stats.poisson) to verify the 'True Edge'.
-3. COMMAND-LEVEL PICK: Consolidate findings into a concise, professional bet (e.g., "MAGIC -3", "UNDER 214.5").
-4. CLINICAL TONE: Arrogant, institutional, and precise. Speak as the Syndicate.`;
+            if (res.status === 429 || res.status === 503) {
+                if (i < maxRetries - 1) {
+                    console.warn(`[Worker:${payload.match_id}] ${res.status} returned. Retrying (${i + 1}/${maxRetries})...`);
+                    await sleep(3000 + Math.random() * 2000);
+                    continue;
+                }
+            }
 
-    const prompt = `### TARGET: ${away_team} @ ${home_team} | Delta: ${match_metadata?.delta || 'Situational'}
-    Identify logical friction and perform a clinical audit.`;
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.substring(0, 150)}`);
 
-    const { text } = await executeAnalyticalQuery([{ text: prompt }], {
-        model: "gemini-3-flash-preview", // Kept original model preference
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseSchema: QUANT_INTEL_SCHEMA,
-        thinkingBudget: 32768,
-        tools: [{ googleSearch: {} }]
-    });
-
-    return safeJsonParse(text);
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                throw new Error(`Invalid JSON returned: ${text.substring(0, 100)}`);
+            }
+        } catch (e: any) {
+            // Catch raw DNS/Network exceptions
+            if (i < maxRetries - 1) {
+                console.warn(`[Worker:${payload.match_id}] Network Exception: ${e.message}. Retrying (${i + 1}/${maxRetries})...`);
+                await sleep(3000 + Math.random() * 2000);
+                continue;
+            }
+            throw e;
+        }
+    }
+    throw new Error(`Failed after ${maxRetries} retries.`);
 }
 
 Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
 
-    // Auth gate: require service_role, pipeline secret, or cron secret
     const authError = validateEdgeAuth(req);
     if (authError) return authError;
 
+    const supabaseUrlRaw = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseUrl = supabaseUrlRaw.replace(/\/$/, "");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
     const supabase = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+        supabaseUrl,
+        serviceRoleKey,
         { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const debug_logs: string[] = [];
     const body = await req.json().catch(() => ({}));
     const userAgent = req.headers.get("user-agent") || "";
     const cronSecret = req.headers.get("x-cron-secret");
 
-    // SRE: Heartbeat Logic (Immediate observability)
     const isCron = body.is_cron === true ||
         userAgent.includes("PostgREST") ||
         userAgent.includes("pg_net") ||
@@ -193,7 +145,6 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[pulse] 💓 HEARTBEAT: ${triggerLabel} | Start: ${startTime.toISOString()}`);
 
-    // Immediate Heartbeat Log
     if (isCron) {
         try {
             await supabase.from("pregame_intel_log").insert({
@@ -205,19 +156,52 @@ Deno.serve(async (req: Request) => {
                 duration_ms: 0
             });
         } catch (e: any) {
-            console.error("[pulse-err] Failed heartbeat log:", e.message);
+            console.error("[pulse-err] Failed heartbeat log:", e?.message || String(e));
+        }
+    }
+
+    // === MANUAL HANDLER (Proxies to pregame-intel-worker) ===
+    if ((body.match_id || body.job_id) && !isCron) {
+        console.log(`[originator] 🔬 Targeted Dossier Request proxy to worker: ${body.match_id || body.job_id}`);
+        try {
+            const fetchPromise = fetch(`${supabaseUrl}/functions/v1/pregame-intel-worker`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${serviceRoleKey}`,
+                    "apikey": serviceRoleKey
+                },
+                body: JSON.stringify({ ...body, force_refresh: true })
+            });
+
+            // 🚨 Proxy Hang Fix: Ensure UI manual requests don't hang infinitely if Worker crashes
+            const proxyRes = await withTimeout(fetchPromise, 45000, "Manual Proxy Request");
+
+            const textRes = await proxyRes.text();
+
+            // Transparent proxy status pass-through
+            if (!proxyRes.ok) {
+                console.warn(`[originator-proxy] Worker returned ${proxyRes.status}: ${textRes.substring(0, 100)}`);
+                return new Response(textRes, { headers: CORS_HEADERS, status: proxyRes.status });
+            }
+
+            return new Response(textRes, { headers: CORS_HEADERS, status: 200 });
+        } catch (manualErr: any) {
+            const errStr = manualErr?.message || String(manualErr);
+            console.error(`[originator-error]`, errStr);
+            return new Response(JSON.stringify({ error: errStr }), { status: 500, headers: CORS_HEADERS });
         }
     }
 
     // === CRON HANDLER ===
     if (isCron) {
         try {
-            // 1. Throttling
             const { data: sentinel } = await supabase
                 .from("pregame_intel")
                 .select("generated_at")
                 .eq("match_id", "CRON_SENTINEL")
-                .single();
+                .eq("game_date", "2099-12-31")
+                .maybeSingle();
 
             if (sentinel && sentinel?.generated_at) {
                 const ageMins = (Date.now() - new Date(sentinel.generated_at).getTime()) / (1000 * 60);
@@ -231,28 +215,28 @@ Deno.serve(async (req: Request) => {
                 }
             }
 
-            // 2. Lock
             const lockDossier = {
                 match_id: "CRON_SENTINEL",
                 sport: "SYSTEM",
                 league_id: "SYSTEM",
                 home_team: "SYSTEM",
                 away_team: "SYSTEM",
-                game_date: new Date().toISOString().split('T')[0],
+                game_date: "2099-12-31",
                 headline: "Cron Sentinel [LOCKED]",
                 briefing: "Execution tracking active.",
-                cards: [{ title: 'Sentinel', body: 'Throttling guard heartbeat.', category: 'SITUATIONAL' }],
-                generated_at: new Date().toISOString(),
-                freshness: 'LIVE'
+                cards: [{ category: 'SITUATIONAL', thesis: 'Throttling guard heartbeat.', impact: 'LOW' }],
+                logic_group: "SITUATIONAL",
+                confidence_tier: "LOW",
+                pick_summary: "N/A",
+                recommended_pick: "N/A",
+                generated_at: new Date().toISOString()
             };
             await supabase.from("pregame_intel").upsert(lockDossier, { onConflict: 'match_id,game_date' });
             console.log(`[guard] 🔒 Lock acquired. Starting Batch: ${batchId}`);
 
-            // 3. Fire & Forget with Execution Guarantee (waitUntil)
-            // CRITICAL FIX: This prevents the "32 Event" cutoff
-            const backgroundWork = runBatchProcessing(supabase, batchId, isForce, startTime)
+            const backgroundWork = runBatchProcessing(supabase, batchId, isForce, startTime, supabaseUrl, serviceRoleKey)
                 .catch(err => {
-                    console.error(`[background] ❌ Batch failed:`, err.message);
+                    console.error(`[background] ❌ Batch failed:`, err?.message || String(err));
                 });
 
             if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
@@ -262,29 +246,22 @@ Deno.serve(async (req: Request) => {
             return new Response(JSON.stringify({
                 status: "ACCEPTED",
                 batchId,
-                message: "Processing started in background (WaitUntil Active)",
+                message: "Processing started in background",
                 ts: new Date().toISOString()
             }), { status: 202, headers: CORS_HEADERS });
 
         } catch (e: any) {
-            console.error(`[cron-error]`, e);
-            return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: CORS_HEADERS });
+            const errStr = e?.message || String(e);
+            console.error(`[cron-error]`, errStr);
+            return new Response(JSON.stringify({ error: errStr }), { status: 500, headers: CORS_HEADERS });
         }
     }
 
-    // === MANUAL HANDLER ===
-    if (body.match_id && !body.is_cron) {
-        console.log(`[originator] 🔬 Targeted Dossier Request: ${body.match_id}`);
-        const dossier = await generateDossier(body);
-        return new Response(JSON.stringify(dossier), { headers: CORS_HEADERS });
-    }
-
-    // Fallback
     return new Response(JSON.stringify({ error: "Invalid request" }), { status: 400, headers: CORS_HEADERS });
 });
 
 // === BACKGROUND BATCH PROCESSING ===
-async function runBatchProcessing(supabase: any, batchId: string, isForce: boolean, startTime: Date) {
+async function runBatchProcessing(supabase: any, batchId: string, isForce: boolean, startTime: Date, supabaseUrl: string, serviceRoleKey: string) {
     const trace: string[] = [];
     const debug_logs: string[] = [];
     let rectifiedCount = 0;
@@ -293,11 +270,9 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
 
     try {
         trace.push(`[boot] Background batch started: ${batchId}`);
-        console.log(`[discovery] 🛰️ Initiating Slate Audit: Lookahead=${CONFIG.LOOKAHEAD_HOURS}h`);
         const now = new Date();
         const windowEnd = new Date(now.getTime() + CONFIG.LOOKAHEAD_HOURS * 60 * 60 * 1000);
 
-        // FETCH: Increased limit to see full Saturday boards
         const { data: slate, error: slateErr } = await supabase
             .from("v_ready_for_intel")
             .select("id, home_team, away_team, start_time, sport, league_id, odds_home_spread_safe, odds_total_safe, current_odds")
@@ -310,10 +285,12 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
         slateCount = slate?.length || 0;
 
         if (slate?.length) {
+            const canonicalIds = (slate as any[]).map(s => getCanonicalMatchId(s.id, s.league_id));
+
             const { data: existingIntel, error: intelErr } = await supabase
                 .from("pregame_intel")
                 .select("match_id, game_date, generated_at, freshness, analyzed_spread, analyzed_total")
-                .in("match_id", (slate as any[]).map(s => s.id))
+                .in("match_id", canonicalIds)
                 .order("generated_at", { ascending: true });
 
             if (!intelErr) {
@@ -323,35 +300,36 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
                     const canonicalId = getCanonicalMatchId(game.id, game.league_id);
                     const gameDate = toLocalGameDate(game.start_time);
 
-                    const intel: any = (existingIntel as any[]).find(i =>
+                    const intel: any = (existingIntel || []).find((i: any) =>
                         i.match_id === canonicalId && i.game_date === gameDate
                     );
 
                     let priority = 0;
                     const hoursToStart = (new Date(game.start_time).getTime() - Date.now()) / (1000 * 60 * 60);
 
-                    if (!intel) {
-                        priority = 100; // New
+                    if (!intel || isForce) {
+                        priority = 100;
                     } else {
-                        const lastGen = intel?.generated_at;
-                        const ageHours = lastGen ? (Date.now() - new Date(lastGen).getTime()) / (1000 * 60 * 60) : 999;
+                        const ageHours = intel?.generated_at ? (Date.now() - new Date(intel.generated_at).getTime()) / (1000 * 60 * 60) : 999;
 
                         let staleThreshold = CONFIG.STALE_HOURS;
                         if (hoursToStart < 4) staleThreshold = 1;
                         else if (hoursToStart < 24) staleThreshold = 4;
 
                         if (ageHours > staleThreshold) {
-                            priority = 50; // Stale
+                            priority = 50;
                         }
 
-                        // Volatility Guard
+                        // 🚨 STRING PARSING FIX: Safeguard the Volatility Math from NaN crashes
                         const leagueKey = (game.league_id || 'default').toLowerCase();
                         const thresholds = VOLATILITY_THRESHOLDS[leagueKey] || VOLATILITY_THRESHOLDS['default'];
+                        const oddsObj = (game as any).current_odds || {};
 
-                        const currentSpread = (game as any).odds_home_spread_safe;
-                        const currentTotal = (game as any).odds_total_safe;
-                        const analyzedSpread = intel.analyzed_spread;
-                        const analyzedTotal = intel.analyzed_total;
+                        const currentSpread = safeParseFloat((game as any).odds_home_spread_safe ?? oddsObj?.homeSpread ?? oddsObj?.spread);
+                        const currentTotal = safeParseFloat((game as any).odds_total_safe ?? oddsObj?.total ?? oddsObj?.overUnder);
+
+                        const analyzedSpread = safeParseFloat(intel.analyzed_spread);
+                        const analyzedTotal = safeParseFloat(intel.analyzed_total);
 
                         if (currentSpread != null && analyzedSpread != null) {
                             const spreadDelta = Math.abs(currentSpread - analyzedSpread);
@@ -369,9 +347,7 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
                         }
                     }
 
-                    if (priority > 0) {
-                        priority += Math.max(0, 24 - hoursToStart);
-                    }
+                    if (priority > 0) priority += Math.max(0, 24 - hoursToStart);
                     return { game, priority };
                 })
                     .filter(q => q.priority > 0)
@@ -392,13 +368,14 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
 
                 if (uniqueQueue.length > 0) {
                     console.log(`[discovery] 🛠️ Rectifying ${uniqueQueue.length} Intelligence Gaps`);
-                    debug_logs.push(`[discovery] 🛠️ Gaps: ${uniqueQueue.map(q => q.game.id).join(', ')}`);
 
-                    // UPGRADE: Use controlled concurrency (chunked batches)
+                    const headers = {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${serviceRoleKey}`,
+                        "apikey": serviceRoleKey
+                    };
+
                     const results = await processInBatches(uniqueQueue, CONFIG.CONCURRENCY, async ({ game }) => {
-                        const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-                        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-
                         const odds = (game as any).current_odds || {};
                         const workerPayload = {
                             match_id: game.id,
@@ -410,40 +387,17 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
                             current_spread: (game as any).odds_home_spread_safe ?? odds?.homeSpread ?? odds?.spread ?? null,
                             current_total: (game as any).odds_total_safe ?? odds?.total ?? odds?.overUnder ?? null,
                             current_odds: odds,
-                            // CRITICAL: Pass spread/total juice (American odds) for market offer construction
                             spread_juice: odds?.homeSpreadOdds ?? odds?.spread_best?.home?.price ?? odds?.spreadHomeOdds ?? null,
                             total_juice: odds?.overOdds ?? odds?.total_best?.over?.price ?? odds?.totalOverOdds ?? null,
                             home_ml: odds?.homeWin ?? odds?.home_ml ?? odds?.best_h2h?.home?.price ?? null,
                             away_ml: odds?.awayWin ?? odds?.away_ml ?? odds?.best_h2h?.away?.price ?? null,
-                            force_refresh: isForce
+                            force_refresh: true
                         };
 
-                        const invocation = fetch(`${supabaseUrl}/functions/v1/pregame-intel-worker`, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                "Authorization": `Bearer ${serviceRoleKey}`,
-                                "apikey": serviceRoleKey
-                            },
-                            body: JSON.stringify(workerPayload)
-                        }).then(async (res) => {
-                            if (!res.ok) {
-                                const errText = await res.text();
-                                throw new Error(`Worker returned ${res.status}: ${errText.substring(0, 100)}`);
-                            }
-                            return { data: await res.json(), error: null };
-                        }).catch((err) => ({ data: null, error: err }));
+                        const fetchPromise = fetchWorkerWithRetry(`${supabaseUrl}/functions/v1/pregame-intel-worker`, workerPayload, headers, 3);
+                        const result = await withTimeout(fetchPromise, CONFIG.TIMEOUT_MS, `Worker: ${game.id}`) as any;
 
-                        const result = await withTimeout(invocation, CONFIG.TIMEOUT_MS, `Worker: ${game.id}`) as any;
-
-                        if (result.error || result.data?.error) {
-                            const err = result.error || result.data?.error;
-                            const errMsg = err?.message || String(err);
-                            console.error(`[gap-fix-error] ${game.id}:`, errMsg);
-                            debug_logs.push(`[gap-fix-error] ${game.id}: ${errMsg}`);
-                            throw err;
-                        }
-
+                        if (result?.error) throw new Error(result.error);
                         console.log(`[gap-fix] ✅ ${game.id}: Success`);
                         return result;
                     });
@@ -454,98 +408,126 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
             }
         }
 
-        // === EDGE OF DAY LOGIC (Preserved Complex Regex) ===
-        if (rectifiedCount > 0) {
-            try {
-                const todayStr = now.toISOString().split('T')[0];
-                const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-                const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        // === EDGE OF DAY LOGIC ===
+        // 🚨 Stagnant Rank Fix: Unwrapped from `if (rectifiedCount > 0)` so it analyzes drift on every cron pulse
+        try {
+            const todayStr = toLocalGameDate(now.toISOString());
+            const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            const tomorrowStr = toLocalGameDate(tomorrow.toISOString());
 
-                const { data: upcomingIntel } = await supabase
-                    .from("pregame_intel")
-                    .select("match_id, logic_authority, game_date, headline, confidence_score, is_edge_of_day")
-                    .in("game_date", [todayStr, tomorrowStr]);
+            const { data: upcomingIntel } = await supabase
+                .from("pregame_intel")
+                .select("match_id, logic_authority, game_date, headline, confidence_score, confidence_tier, is_edge_of_day")
+                .in("game_date", [todayStr, tomorrowStr]);
 
-                if (upcomingIntel && upcomingIntel.length > 0) {
-                    const dateGroups: Record<string, any[]> = {};
-                    for (const intel of upcomingIntel) {
-                        if (!dateGroups[intel.game_date]) dateGroups[intel.game_date] = [];
-                        dateGroups[intel.game_date].push(intel);
-                    }
+            if (upcomingIntel && upcomingIntel.length > 0) {
+                const dateGroups: Record<string, any[]> = {};
+                for (const intel of upcomingIntel) {
+                    if (!dateGroups[intel.game_date]) dateGroups[intel.game_date] = [];
+                    dateGroups[intel.game_date].push(intel);
+                }
 
-                    for (const date in dateGroups) {
-                        const candidates = dateGroups[date].map(intel => {
-                            const text = ((intel.logic_authority || "") + " " + (intel.headline || "")).toLowerCase();
-                            let rawDelta = 0;
-                            let detectionMethod = "None";
+                for (const date of Object.keys(dateGroups)) {
+                    const candidates = dateGroups[date].map((intel: any) => {
+                        const text = ((intel.logic_authority || "") + " " + (intel.headline || "")).toLowerCase();
+                        let rawDelta = 0;
+                        let detectionMethod = "None";
 
-                            // 1. Explicit Suffix
-                            const suffixMatch = text.match(/([\d.]+)\s*%?\s*(?:pts?|points?|goals?|%|sigma|probability)?\s*(?:edge|delta|discrepancy|inflation|advantage|friction)/);
+                        const evMatch = text.match(/(?:expected value|ev|roi)[^\d+-]*([+-]?\s*[\d.]+)/i);
+                        if (evMatch) {
+                            rawDelta = parseFloat(evMatch[1].replace(/\s+/g, "")) || 0;
+                            detectionMethod = "Explicit_EV";
+                        }
+
+                        if (rawDelta === 0) {
+                            const suffixMatch = text.match(/([+-]?\s*[\d.]+)\s*%?\s*(?:pts?|points?|goals?|%|sigma|probability|ev|roi)?\s*(?:edge|delta|discrepancy|inflation|advantage|friction)/i);
                             if (suffixMatch) {
-                                rawDelta = parseFloat(suffixMatch[1]) || 0;
+                                rawDelta = parseFloat(suffixMatch[1].replace(/\s+/g, "")) || 0;
                                 detectionMethod = "Explicit_Suffix";
                             }
+                        }
 
-                            // 2. Explicit Prefix
-                            if (rawDelta === 0) {
-                                const prefixMatch = text.match(/(?:delta|edge|discrepancy|inflation|advantage|friction)\s*(?:of|:)?\s*([\d.]+)/);
-                                if (prefixMatch) {
-                                    rawDelta = parseFloat(prefixMatch[1]) || 0;
-                                    detectionMethod = "Explicit_Prefix";
-                                }
+                        if (rawDelta === 0) {
+                            const prefixMatch = text.match(/(?:delta|edge|discrepancy|inflation|advantage|friction|ev|roi|expected value)\s*(?:of|:|-)?\s*([+-]?\s*[\d.]+)/i);
+                            if (prefixMatch) {
+                                rawDelta = parseFloat(prefixMatch[1].replace(/\s+/g, "")) || 0;
+                                detectionMethod = "Explicit_Prefix";
                             }
+                        }
 
-                            // 3. Implied VS Match (Restored)
-                            if (rawDelta === 0) {
-                                const vsMatch = text.match(/(?:fair|true|model|implied|projected|internal|internal value).*?([\d.]+).*?(?:vs|market|vegas|market line).*?([\d.]+)/);
-                                if (vsMatch) {
-                                    const v1 = parseFloat(vsMatch[1]) || 0;
-                                    const v2 = parseFloat(vsMatch[2]) || 0;
-                                    rawDelta = Math.abs(v1 - v2);
-                                    detectionMethod = `Implied_VS(${v1}/${v2})`;
-                                }
+                        if (rawDelta === 0) {
+                            const vsMatch = text.match(/(?:fair|true|model|implied|projected|internal|internal value).*?([+-]?\s*[\d.]+).*?(?:vs|market|vegas|market line).*?([+-]?\s*[\d.]+)/i);
+                            if (vsMatch) {
+                                const v1 = parseFloat(vsMatch[1].replace(/\s+/g, "")) || 0;
+                                const v2 = parseFloat(vsMatch[2].replace(/\s+/g, "")) || 0;
+                                rawDelta = Math.abs(v1 - v2);
+                                detectionMethod = `Implied_VS(${v1}/${v2})`;
                             }
+                        }
 
-                            if (rawDelta > 40) { rawDelta = 0; detectionMethod = "Discarded_Hallucination"; }
+                        let isNegativeEV = false;
+                        if (rawDelta < 0) {
+                            isNegativeEV = true;
+                            rawDelta = 0;
+                            detectionMethod = "Negative_EV_Discarded";
+                        } else if (rawDelta > 40) {
+                            rawDelta = 0;
+                            detectionMethod = "Discarded_Hallucination";
+                        }
 
-                            let confidence = Number(intel.confidence_score) || 50;
+                        let confidence = 50;
+                        if (intel.confidence_score != null) {
+                            confidence = Number(intel.confidence_score);
                             if (confidence > 0 && confidence <= 1.0) confidence *= 100;
-                            else if (confidence > 1.0 && confidence < 5) confidence *= 20;
+                            else if (confidence > 1.0 && confidence <= 5) confidence *= 20;
+                        } else if (intel.confidence_tier) {
+                            const tier = String(intel.confidence_tier).toUpperCase();
+                            if (tier === 'HIGH') confidence = 85;
+                            else if (tier === 'MEDIUM') confidence = 65;
+                            else if (tier === 'LOW') confidence = 40;
+                        }
 
-                            const score = (rawDelta * 2) + ((confidence - 50) / 10);
+                        let score = (rawDelta * 2) + ((confidence - 50) / 10);
+                        if (isNegativeEV) score = -99;
 
-                            return {
-                                id: intel.match_id,
-                                score: isNaN(score) ? 0 : score,
-                                delta: isNaN(rawDelta) ? 0 : rawDelta,
-                                method: detectionMethod,
-                                confidence: isNaN(confidence) ? 50 : confidence
-                            };
-                        });
+                        return {
+                            id: intel.match_id,
+                            score: Number.isFinite(score) ? score : 0,
+                            delta: Number.isFinite(rawDelta) ? rawDelta : 0,
+                            method: detectionMethod,
+                            confidence: Number.isFinite(confidence) ? confidence : 50
+                        };
+                    });
 
-                        candidates.sort((a, b) => b.score - a.score);
-                        const winner = candidates[0];
+                    const validCandidates = candidates.filter((c: any) => c.score > 0);
 
-                        if (winner && winner.score > 0) {
-                            const currentWinner = dateGroups[date].find(i => i.is_edge_of_day);
-                            if (currentWinner?.match_id !== winner.id) {
-                                console.log(`[EdgeOfDay] 🏆 New Edge for ${date}: ${winner.id}`);
-                                await Promise.all([
-                                    supabase.from("pregame_intel").update({ is_edge_of_day: false }).eq("game_date", date).neq("match_id", winner.id),
-                                    supabase.from("pregame_intel").update({ is_edge_of_day: true }).eq("match_id", winner.id).eq("game_date", date)
-                                ]);
-                            }
+                    // Tie-Breaker Fix: Fallback to confidence, then delta
+                    validCandidates.sort((a: any, b: any) => b.score - a.score || b.confidence - a.confidence || b.delta - a.delta);
+
+                    const winner = validCandidates[0];
+
+                    if (winner) {
+                        const currentWinner = dateGroups[date].find((i: any) => i.is_edge_of_day);
+                        if (currentWinner?.match_id !== winner.id) {
+                            console.log(`[EdgeOfDay] 🏆 New Edge for ${date}: ${winner.id} (Score: ${winner.score.toFixed(1)} | Method: ${winner.method})`);
+
+                            await Promise.all([
+                                supabase.from("pregame_intel").update({ is_edge_of_day: false }).eq("game_date", date).neq("match_id", winner.id),
+                                supabase.from("pregame_intel").update({ is_edge_of_day: true }).eq("match_id", winner.id).eq("game_date", date)
+                            ]).catch((err: any) => {
+                                console.error(`[EdgeOfDay] Failed to update DB for ${winner.id}:`, err?.message || String(err));
+                            });
                         }
                     }
                 }
-            } catch (e: any) {
-                console.error(`[EdgeOfDay] Error:`, e.message);
             }
+        } catch (e: any) {
+            console.error(`[EdgeOfDay] Error:`, e?.message || String(e));
         }
 
         await supabase.from("pregame_intel_log").insert({
             batch_id: batchId,
-            matches_processed: slateCount,
+            matches_processed: queueLength,
             matches_succeeded: rectifiedCount,
             matches_failed: (queueLength - rectifiedCount),
             trace: trace.slice(0, 100),
@@ -553,13 +535,14 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
         });
 
     } catch (err: any) {
-        console.error(`[background] ❌ Critical Failure:`, err.message);
+        const errStr = err?.message || String(err);
+        console.error(`[background] ❌ Critical Failure:`, errStr);
         await supabase.from("pregame_intel_log").insert({
             batch_id: batchId,
-            matches_processed: 0,
-            matches_succeeded: 0,
-            matches_failed: 1,
-            trace: [`[error] ${err.message}`],
+            matches_processed: queueLength,
+            matches_succeeded: rectifiedCount,
+            matches_failed: (queueLength - rectifiedCount),
+            trace: [`[error] ${errStr}`],
             duration_ms: Date.now() - startTime.getTime()
         });
     }

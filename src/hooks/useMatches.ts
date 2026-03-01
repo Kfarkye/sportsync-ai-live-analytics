@@ -1,9 +1,7 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { isSupabaseConfigured, getSupabaseUrl } from '../lib/supabase';
 import { formatLocalDate, safeParseDate } from '../utils/dateUtils';
-import { fetchAllMatches } from '../services/espnService'; // Fallback
 import { Match } from '@/types';
-import { LEAGUES } from '@/constants';
 
 const fetchMatches = async (date: Date): Promise<Match[]> => {
   // Defensive check for Safari/Mobile hangs
@@ -14,35 +12,39 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
 
   const dateStr = formatLocalDate(date);
 
-  // 1. Client-Side Fetch (Guarantees Correct Schedule/Date)
-  console.log("Using client-side service for date:", dateStr);
-  const baseMatches = await fetchAllMatches(LEAGUES || [], date);
-
-  if (isSupabaseConfigured() && baseMatches.length > 0) {
-    try {
-      // 2. Merge Premium Odds (Client-Side DB Query)
-      // ARCHITECTURE: We use a 5-second timeout to prevent stalling on mobile/slow networks.
-      // If it fails, the user still gets ESPN base scores.
-      const { mergePremiumOdds } = await import('../services/oddsService');
-      console.log("Merging premium odds client-side with 5s timeout...");
-
-      const timeout = new Promise<Match[]>((_, reject) =>
-        setTimeout(() => reject(new Error("Premium odds merge timed out")), 5000)
-      );
-
-      const enrichedMatches = await Promise.race([
-        mergePremiumOdds(baseMatches),
-        timeout
-      ]);
-
-      return enrichedMatches;
-    } catch (err) {
-      console.warn("Premium odds enrichment skipped or timed out:", err);
-      return baseMatches;
-    }
+  if (!isSupabaseConfigured()) {
+    console.warn("Supabase not configured. Cannot call fetch-matches.");
+    return [];
   }
 
-  return baseMatches;
+  try {
+    const SUPABASE_URL = getSupabaseUrl();
+    const SUPABASE_ANON_KEY = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+
+    // 1. Single DB-First Query (Eliminates 17x fan-out and race conditions)
+    console.log("Calling fetch-matches v2 for DB-first schedule + odds:", dateStr);
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-matches?date=${dateStr}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}), // omitting leagueId to fetch all leagues
+    });
+
+    if (!res.ok) {
+      console.error("fetch-matches returned an error status:", res.status);
+      return [];
+    }
+
+    const matches = await res.json();
+    return matches || [];
+
+  } catch (err) {
+    console.error("fetch-matches catch block:", err);
+    return [];
+  }
 };
 
 export const useMatches = (selectedDate: Date | string) => {
@@ -59,8 +61,7 @@ export const useMatches = (selectedDate: Date | string) => {
       const data = query.state.data as Match[] | undefined;
       const hasLiveMatch = data?.some(m =>
         m.status === 'STATUS_IN_PROGRESS' ||
-        m.status === 'IN_PROGRESS' ||
-        m.current_odds?.isLive
+        m.status === 'IN_PROGRESS'
       );
       return hasLiveMatch ? 5000 : 15000;
     },

@@ -3,30 +3,70 @@ declare const Deno: any;
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { computeAISignals } from '../_shared/gameStateEngine.ts'
 import { EspnAdapters, Safe } from '../_shared/espnAdapters.ts'
-import { Sport } from '../_shared/types.ts'
-import { getCanonicalMatchId, LEAGUE_SUFFIX_MAP, generateDeterministicId, resolveCanonicalMatch } from '../_shared/match-registry.ts'
+import { getCanonicalMatchId, generateDeterministicId, resolveCanonicalMatch } from '../_shared/match-registry.ts'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
+}
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
+
+// 🚨 FINAL FIX: Insulates DB canonical sports from ESPN URL/Engine sports.
 const MONITOR_LEAGUES = [
-  { id: 'nfl', sport_type: Sport.NFL, endpoint: 'football/nfl' },
-  { id: 'nba', sport_type: Sport.NBA, endpoint: 'basketball/nba' },
-  { id: 'mlb', sport_type: Sport.BASEBALL, endpoint: 'baseball/mlb' },
-  { id: 'nhl', sport_type: Sport.HOCKEY, endpoint: 'hockey/nhl' },
-  { id: 'ncaab', sport_type: Sport.COLLEGE_BASKETBALL, endpoint: 'basketball/mens-college-basketball' },
-  { id: 'epl', sport_type: Sport.SOCCER, endpoint: 'soccer/eng.1' },
-  { id: 'seriea', sport_type: Sport.SOCCER, endpoint: 'soccer/ita.1' },
-  { id: 'bundesliga', sport_type: Sport.SOCCER, endpoint: 'soccer/ger.1' },
-  { id: 'atp', sport_type: Sport.TENNIS, endpoint: 'tennis/atp' },
-  { id: 'wta', sport_type: Sport.TENNIS, endpoint: 'tennis/wta' }
+  { id: 'nfl', db_sport: 'americanfootball', espn_sport: 'football', endpoint: 'football/nfl' },
+  { id: 'nba', db_sport: 'basketball', espn_sport: 'basketball', endpoint: 'basketball/nba' },
+  { id: 'wnba', db_sport: 'basketball', espn_sport: 'basketball', endpoint: 'basketball/wnba' },
+  { id: 'mlb', db_sport: 'baseball', espn_sport: 'baseball', endpoint: 'baseball/mlb' },
+  { id: 'nhl', db_sport: 'icehockey', espn_sport: 'hockey', endpoint: 'hockey/nhl' },
+  { id: 'mens-college-basketball', db_sport: 'basketball', espn_sport: 'basketball', endpoint: 'basketball/mens-college-basketball', groups: '50' },
+  { id: 'college-football', db_sport: 'americanfootball', espn_sport: 'football', endpoint: 'football/college-football', groups: '80' },
+  { id: 'epl', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/eng.1' },
+  { id: 'seriea', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/ita.1' },
+  { id: 'bundesliga', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/ger.1' },
+  { id: 'laliga', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/esp.1' },
+  { id: 'ligue1', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/fra.1' },
+  { id: 'mls', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/usa.1' },
+  { id: 'ucl', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/uefa.champions' },
+  { id: 'uel', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/uefa.europa' },
+  { id: 'atp', db_sport: 'tennis', espn_sport: 'tennis', endpoint: 'tennis/atp' },
+  { id: 'wta', db_sport: 'tennis', espn_sport: 'tennis', endpoint: 'tennis/wta' }
 ];
 
 const Logger = {
   info: (msg: string, data: any) => console.log(JSON.stringify({ level: 'INFO', msg, ...data })),
-  error: (msg: string, error: any) => console.error(JSON.stringify({ level: 'ERROR', msg, error: error.message }))
+  warn: (msg: string, data: any) => console.warn(JSON.stringify({ level: 'WARN', msg, ...data })),
+  error: (msg: string, error: any) => console.error(JSON.stringify({ level: 'ERROR', msg, error: error.message || error }))
 };
+
+// Extraction Wrapper to prevent a single bad metric from tanking the whole game payload
+const safeExtract = (name: string, fn: () => any) => {
+  try { return fn() || null; }
+  catch (e: any) {
+    Logger.error(`Extraction Failed: ${name}`, { error: e.message || String(e) });
+    return null;
+  }
+};
+
+// Safe DB Type Converters
+function parseAmerican(val: any): number | null {
+  if (val === null || val === undefined) return null;
+  const strVal = String(val).trim().toLowerCase();
+  if (strVal === 'ev' || strVal === 'even') return 100;
+  const num = parseInt(strVal.replace('+', ''), 10);
+  return isNaN(num) ? null : num;
+}
+
+function parseLine(val: any): number | null {
+  if (val == null) return null;
+  if (typeof val === 'string' && val.toLowerCase() === 'pk') return 0;
+  const num = parseFloat(String(val));
+  return isNaN(num) ? null : num;
+}
 
 async function fetchWithRetry(url: string) {
   for (let i = 0; i < 3; i++) {
@@ -46,8 +86,9 @@ const getCompetitorName = (c: any) => c?.team?.displayName || c?.athlete?.displa
 
 /** Retry a Supabase upsert up to 3 times with exponential backoff. */
 async function upsertWithRetry(table: string, payload: any, retries = 3) {
+  const onConflict = table === 'closing_lines' ? 'match_id' : 'id';
   for (let attempt = 1; attempt <= retries; attempt++) {
-    const { error } = await supabase.from(table).upsert(payload);
+    const { error } = await supabase.from(table).upsert(payload, { onConflict });
     if (!error) return;
     Logger.error(`DB_UPSERT_RETRY`, { table, attempt, maxRetries: retries, error: error.message } as any);
     if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
@@ -56,19 +97,21 @@ async function upsertWithRetry(table: string, payload: any, retries = 3) {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok');
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
   const stats = { processed: 0, live: 0, errors: [] as string[], snapshots: 0 };
   const { target_match_id, dates } = await req.json().catch(() => ({}));
 
   for (const league of MONITOR_LEAGUES) {
     try {
       const dateParam = dates || new Date().toISOString().split('T')[0].replace(/-/g, '');
-      const res = await fetchWithRetry(`${ESPN_BASE}/${league.endpoint}/scoreboard?dates=${dateParam}`);
+      const groupsParam = league.groups ? `&groups=${league.groups}` : '';
+      const res = await fetchWithRetry(`${ESPN_BASE}/${league.endpoint}/scoreboard?dates=${dateParam}${groupsParam}`);
       const data = await res.json();
       let events = data.events || [];
 
       // FLATTEN TENNIS
-      if (league.sport_type === Sport.TENNIS) {
+      if (league.db_sport === 'tennis') {
         events = events.flatMap((t: any) =>
           (t.groupings || []).flatMap((g: any) =>
             (g.competitions || []).map((c: any) => ({
@@ -79,7 +122,12 @@ Deno.serve(async (req: Request) => {
       }
 
       for (const event of events) {
-        if (target_match_id && !target_match_id.includes(event.id)) continue;
+        // Safe robust check for string OR array targets
+        if (target_match_id) {
+          const targets = Array.isArray(target_match_id) ? target_match_id : [target_match_id];
+          if (!targets.some((t: string) => t.includes(event.id))) continue;
+        }
+
         const state = event.status?.type?.state;
         if (!['in', 'post'].includes(state)) {
           const mins = (new Date(event.date).getTime() - Date.now()) / 60000;
@@ -91,7 +139,7 @@ Deno.serve(async (req: Request) => {
       stats.errors.push(`${league.id}: ${e.message}`);
     }
   }
-  return new Response(JSON.stringify(stats), { headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify(stats), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 });
 
 async function processGame(event: any, league: any, stats: any) {
@@ -107,36 +155,53 @@ async function processGame(event: any, league: any, stats: any) {
     const home = comp.competitors.find((c: any) => c.homeAway === 'home');
     const away = comp.competitors.find((c: any) => c.homeAway === 'away');
 
-    let homeScore = Safe.score(home?.score);
-    let awayScore = Safe.score(away?.score);
-    let extraData: any = {};
+    let homeScore = Safe.score(home?.score) ?? 0;
+    let awayScore = Safe.score(away?.score) ?? 0;
+
+    let manualSituationData: any = {};
 
     // TENNIS GAME COUNTING
-    if (league.sport_type === Sport.TENNIS) {
+    if (league.db_sport === 'tennis') {
       const hGames = (home?.linescores || []).reduce((a: number, b: any) => a + (parseInt(b.value) || 0), 0);
       const aGames = (away?.linescores || []).reduce((a: number, b: any) => a + (parseInt(b.value) || 0), 0);
-      extraData = { home_games_won: hGames, away_games_won: aGames };
+      manualSituationData = { home_games_won: hGames, away_games_won: aGames };
     }
 
     let canonicalId = await resolveCanonicalMatch(supabase, getCompetitorName(home), getCompetitorName(away), event.date, league.id);
     if (!canonicalId) canonicalId = generateDeterministicId(getCompetitorName(home), getCompetitorName(away), event.date, league.id);
 
-    await upsertWithRetry('canonical_games', {
-      id: canonicalId, league_id: league.id, sport: league.sport_type,
-      home_team_name: getCompetitorName(home), away_team_name: getCompetitorName(away),
-      commence_time: event.date, status: comp.status?.type?.name
-    });
+    try {
+      await upsertWithRetry('canonical_games', {
+        id: canonicalId, league_id: league.id, sport: league.db_sport,
+        home_team_name: getCompetitorName(home), away_team_name: getCompetitorName(away),
+        commence_time: event.date, status: comp.status?.type?.name
+      });
+    } catch (err) {
+      // Non-fatal if canonical_games table is missing or errors out during setup
+    }
 
-    // SRE: AUTHORITY MERGE
-    const { data: existingMatch } = await supabase.from('matches').select('home_score, away_score, current_odds, opening_odds, is_closing_locked').eq('id', dbMatchId).maybeSingle();
-    const { data: premiumFeed } = await supabase.rpc('resolve_market_feed', { p_match_id: matchId, p_canonical_id: canonicalId });
+    // Safely pull existing matches to merge odds without fetching non-existent DB columns
+    const { data: existingMatch } = await supabase.from('matches').select('home_score, away_score, current_odds, opening_odds, closing_odds, is_closing_locked').eq('id', dbMatchId).maybeSingle();
 
-    let finalMarketOdds = EspnAdapters.Odds(comp, data.pickcenter);
+    // SAFE RPC CALL: Prevents crash if the RPC function isn't created in the database yet
+    let premiumFeed = null;
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('resolve_market_feed', { p_match_id: matchId, p_canonical_id: canonicalId });
+      if (!rpcError && rpcData) {
+        premiumFeed = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+      }
+    } catch (e) {
+      // Safe fail if RPC isn't deployed yet
+    }
+
+    let finalMarketOdds = EspnAdapters.Odds(comp, data.pickcenter) || {};
     if (premiumFeed && !premiumFeed.is_stale) {
       finalMarketOdds = {
         homeSpread: premiumFeed.spread?.home?.point,
         awaySpread: premiumFeed.spread?.away?.point,
         total: premiumFeed.total?.over?.point,
+        homeWin: premiumFeed.h2h?.home?.price,
+        awayWin: premiumFeed.h2h?.away?.price,
         isInstitutional: true,
         provider: "Institutional"
       };
@@ -154,25 +219,52 @@ async function processGame(event: any, league: any, stats: any) {
       }
     }
 
-    const match: any = {
-      id: dbMatchId, canonical_id: canonicalId, league_id: league.id, sport: league.sport_type,
-      status: comp.status?.type?.name, home_team: getCompetitorName(home), away_team: getCompetitorName(away),
-      home_score: homeScore, away_score: awayScore, extra_data: extraData,
-      current_odds: finalMarketOdds, last_updated: new Date().toISOString()
+    // Safely crafted match payload targeting only real SQL columns
+    const homeNameStr = getCompetitorName(home);
+    const awayNameStr = getCompetitorName(away);
+    const matchPayload: any = {
+      id: dbMatchId,
+      league_id: league.id,
+      sport: league.db_sport,
+      status: comp.status?.type?.name,
+      period: comp.status?.period,
+      display_clock: comp.status?.displayClock,
+      home_score: homeScore,
+      away_score: awayScore,
+      current_odds: finalMarketOdds,
+      last_updated: new Date().toISOString(),
+      opening_odds: existingMatch?.opening_odds || finalMarketOdds,
+      extra_data: Object.keys(manualSituationData).length > 0 ? manualSituationData : null
     };
-
-    match.opening_odds = existingMatch?.opening_odds || match.current_odds;
+    if (homeNameStr !== 'Unknown') matchPayload.home_team = homeNameStr;
+    if (awayNameStr !== 'Unknown') matchPayload.away_team = awayNameStr;
 
     // CLOSING LINE LOGIC
-    let isClosingLocked = existingMatch?.is_closing_locked || false;
-    const isLiveGame = ['LIVE', 'IN_PROGRESS', 'HALFTIME', 'STATUS_IN_PROGRESS'].some(k => match.status?.toUpperCase().includes(k));
+    // Safe check uses true explicit boolean if present, otherwise checks JSON existence.
+    let isClosingLocked = existingMatch?.is_closing_locked || !!existingMatch?.closing_odds;
+    const isLiveGame = ['LIVE', 'IN_PROGRESS', 'HALFTIME', 'STATUS_IN_PROGRESS', 'STATUS_FINAL'].some(k => (matchPayload.status || '').toUpperCase().includes(k));
 
-    if (!isClosingLocked && isLiveGame && finalMarketOdds.homeSpread) {
-      match.closing_odds = finalMarketOdds;
-      isClosingLocked = true;
-      await upsertWithRetry('closing_lines', { match_id: dbMatchId, league_id: league.id, ...finalMarketOdds });
+    // Support Moneyline closing lock for Tennis and Soccer if spread isn't present
+    // Explicit null check prevents 0 (Pick'em spread) from evaluating to false and bypassing the lock
+    const hasMarketOdds = finalMarketOdds?.homeSpread != null || finalMarketOdds?.homeWin != null;
+
+    if (!isClosingLocked && isLiveGame && hasMarketOdds) {
+      matchPayload.closing_odds = finalMarketOdds;
+      matchPayload.is_closing_locked = true;
+
+      const closingPayload = {
+        match_id: dbMatchId,
+        league_id: league.id,
+        home_spread: parseLine(finalMarketOdds.homeSpread),
+        away_spread: parseLine(finalMarketOdds.awaySpread),
+        total: parseLine(finalMarketOdds.total),
+        home_ml: parseAmerican(finalMarketOdds.homeWin), // 🚨 Ensures safe INTEGER cast
+        away_ml: parseAmerican(finalMarketOdds.awayWin)  // 🚨 Ensures safe INTEGER cast
+      };
+      await upsertWithRetry('closing_lines', closingPayload);
+    } else if (isClosingLocked && existingMatch?.closing_odds) {
+      matchPayload.closing_odds = existingMatch.closing_odds; // Explicitly preserve if already locked
     }
-    match.is_closing_locked = isClosingLocked;
 
     // SNAPSHOTS (T-60 / T-0)
     const minsToStart = (new Date(event.date).getTime() - Date.now()) / 60000;
@@ -180,34 +272,68 @@ async function processGame(event: any, league: any, stats: any) {
     const inT0 = minsToStart > -10 && minsToStart < 15;
     let t60_snapshot, t0_snapshot;
 
-    if ((inT60 || inT0) && finalMarketOdds.homeSpread) {
-      const { data: s } = await supabase.from('live_game_state').select('t60_snapshot, t0_snapshot').eq('id', dbMatchId).maybeSingle();
-      if (inT60 && !s?.t60_snapshot) {
+    const { data: s } = await supabase.from('live_game_state').select('odds').eq('id', dbMatchId).maybeSingle();
+    const currentOddsState = s?.odds || {}; // Fallback prevents null reference if odds column is fully NULL
+
+    if ((inT60 || inT0) && hasMarketOdds) {
+      if (inT60 && !currentOddsState.t60_snapshot) {
         t60_snapshot = { odds: finalMarketOdds, timestamp: new Date().toISOString() };
         stats.snapshots++;
         Logger.info("T-60 Captured", { dbMatchId });
       }
-      if (inT0 && !s?.t0_snapshot) {
+      if (inT0 && !currentOddsState.t0_snapshot) {
         t0_snapshot = { odds: finalMarketOdds, timestamp: new Date().toISOString() };
         stats.snapshots++;
         Logger.info("T-0 Captured", { dbMatchId });
       }
     }
 
-    await upsertWithRetry('matches', match);
-    const aiSignals = computeAISignals(match);
+    await upsertWithRetry('matches', matchPayload);
+    const aiSignals = computeAISignals(matchPayload);
 
-    const statePayload: any = {
-      id: dbMatchId, home_score: homeScore, away_score: awayScore, extra_data: extraData,
-      deterministic_signals: aiSignals, odds: { current: match.current_odds }, updated_at: new Date().toISOString()
+    // Context Retrieval using safeExtract
+    const espnSituation = safeExtract('Situation', () => EspnAdapters.Situation(data)) || {};
+    const mergedSituation = { ...espnSituation, ...manualSituationData };
+
+    // 🚨 RESTORED: THE CONTEXTUAL INTELLIGENCE MOAT
+    const statePayload = {
+      id: dbMatchId,
+      league_id: league.id,
+      sport: league.db_sport,
+      game_status: matchPayload.status || 'SCHEDULED',
+      canonical_id: canonicalId,
+      period: comp.status?.period,
+      clock: comp.status?.displayClock,
+      home_score: homeScore,
+      away_score: awayScore,
+
+      // Contextual Intelligence Extraction
+      // 🚨 PASSES league.espn_sport so the Adapters parse correctly!
+      situation: Object.keys(mergedSituation).length > 0 ? mergedSituation : null,
+      last_play: safeExtract('LastPlay', () => EspnAdapters.LastPlay(data)),
+      current_drive: safeExtract('Drive', () => EspnAdapters.Drive(data)),
+      recent_plays: safeExtract('RecentPlays', () => EspnAdapters.RecentPlays(data)),
+      stats: safeExtract('Stats', () => EspnAdapters.Stats(data, league.espn_sport)),
+      player_stats: safeExtract('PlayerStats', () => EspnAdapters.PlayerStats(data)),
+      leaders: safeExtract('Leaders', () => EspnAdapters.Leaders(data)),
+      momentum: safeExtract('Momentum', () => EspnAdapters.Momentum(data)),
+      advanced_metrics: safeExtract('AdvancedMetrics', () => EspnAdapters.AdvancedMetrics(data)),
+      match_context: safeExtract('Context', () => EspnAdapters.Context(data)),
+      predictor: safeExtract('Predictor', () => EspnAdapters.Predictor(data)),
+
+      deterministic_signals: aiSignals,
+      odds: {
+        current: matchPayload.current_odds,
+        t60_snapshot: t60_snapshot || currentOddsState.t60_snapshot,
+        t0_snapshot: t0_snapshot || currentOddsState.t0_snapshot
+      },
+      updated_at: new Date().toISOString()
     };
-    if (t60_snapshot) statePayload.t60_snapshot = t60_snapshot;
-    if (t0_snapshot) statePayload.t0_snapshot = t0_snapshot;
 
     await upsertWithRetry('live_game_state', statePayload);
     stats.processed++;
     stats.live++;
   } catch (e: any) {
-    supabase.from('matches').update({ last_ingest_error: e.message }).eq('id', dbMatchId);
+    Logger.error('ProcessGame Failed', { matchId: dbMatchId, error: e.message || e });
   }
 }

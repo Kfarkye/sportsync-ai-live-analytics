@@ -1,9 +1,15 @@
-
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { getCanonicalMatchId } from '../_shared/match-registry.ts'
 
 declare const Deno: {
   env: { get(key: string): string | undefined }
   serve(handler: (req: Request) => Promise<Response>): void
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 }
 
 // Configuration
@@ -25,36 +31,36 @@ const CONFIG = {
   },
 } as const
 
-// League Registry
+// League Registry (Decoupled ESPN API path vs DB schema)
 interface LeagueConfig {
-  sport: string
+  dbSport: string    // DB canonical sport
+  espnSport: string  // URL path sport
   league: string
   leagueId: string
   label: string
-  hasDrawLine: boolean
   groups?: string
 }
 
 const MONITORED_LEAGUES: LeagueConfig[] = [
-  { sport: 'football', league: 'nfl', leagueId: 'nfl', label: 'NFL', hasDrawLine: false },
-  { sport: 'basketball', league: 'nba', leagueId: 'nba', label: 'NBA', hasDrawLine: false },
-  { sport: 'baseball', league: 'mlb', leagueId: 'mlb', label: 'MLB', hasDrawLine: false },
-  { sport: 'hockey', league: 'nhl', leagueId: 'nhl', label: 'NHL', hasDrawLine: false },
-  { sport: 'basketball', league: 'wnba', leagueId: 'wnba', label: 'WNBA', hasDrawLine: false },
-  { sport: 'basketball', league: 'mens-college-basketball', leagueId: 'mens-college-basketball', label: 'NCAAB', hasDrawLine: false, groups: '50' },
-  { sport: 'football', league: 'college-football', leagueId: 'college-football', label: 'NCAAF', hasDrawLine: false, groups: '80' },
-  { sport: 'soccer', league: 'eng.1', leagueId: 'epl', label: 'EPL', hasDrawLine: true },
-  { sport: 'soccer', league: 'esp.1', leagueId: 'laliga', label: 'La Liga', hasDrawLine: true },
-  { sport: 'soccer', league: 'ger.1', leagueId: 'bundesliga', label: 'Bundesliga', hasDrawLine: true },
-  { sport: 'soccer', league: 'ita.1', leagueId: 'seriea', label: 'Serie A', hasDrawLine: true },
-  { sport: 'soccer', league: 'fra.1', leagueId: 'ligue1', label: 'Ligue 1', hasDrawLine: true },
-  { sport: 'soccer', league: 'usa.1', leagueId: 'mls', label: 'MLS', hasDrawLine: true },
-  { sport: 'soccer', league: 'uefa.champions', leagueId: 'ucl', label: 'UCL', hasDrawLine: true },
-  { sport: 'soccer', league: 'uefa.europa', leagueId: 'uel', label: 'UEL', hasDrawLine: true },
-  { sport: 'mma', league: 'ufc', leagueId: 'ufc', label: 'UFC', hasDrawLine: false },
-  { sport: 'tennis', league: 'atp', leagueId: 'atp', label: 'ATP', hasDrawLine: false },
-  { sport: 'tennis', league: 'wta', leagueId: 'wta', label: 'WTA', hasDrawLine: false },
-  { sport: 'golf', league: 'pga', leagueId: 'pga', label: 'PGA', hasDrawLine: false },
+  { dbSport: 'americanfootball', espnSport: 'football', league: 'nfl', leagueId: 'nfl', label: 'NFL' },
+  { dbSport: 'basketball', espnSport: 'basketball', league: 'nba', leagueId: 'nba', label: 'NBA' },
+  { dbSport: 'baseball', espnSport: 'baseball', league: 'mlb', leagueId: 'mlb', label: 'MLB' },
+  { dbSport: 'icehockey', espnSport: 'hockey', league: 'nhl', leagueId: 'nhl', label: 'NHL' },
+  { dbSport: 'basketball', espnSport: 'basketball', league: 'wnba', leagueId: 'wnba', label: 'WNBA' },
+  { dbSport: 'basketball', espnSport: 'basketball', league: 'mens-college-basketball', leagueId: 'mens-college-basketball', label: 'NCAAB', groups: '50' },
+  { dbSport: 'americanfootball', espnSport: 'football', league: 'college-football', leagueId: 'college-football', label: 'NCAAF', groups: '80' },
+  { dbSport: 'soccer', espnSport: 'soccer', league: 'eng.1', leagueId: 'epl', label: 'EPL' },
+  { dbSport: 'soccer', espnSport: 'soccer', league: 'esp.1', leagueId: 'laliga', label: 'La Liga' },
+  { dbSport: 'soccer', espnSport: 'soccer', league: 'ger.1', leagueId: 'bundesliga', label: 'Bundesliga' },
+  { dbSport: 'soccer', espnSport: 'soccer', league: 'ita.1', leagueId: 'seriea', label: 'Serie A' },
+  { dbSport: 'soccer', espnSport: 'soccer', league: 'fra.1', leagueId: 'ligue1', label: 'Ligue 1' },
+  { dbSport: 'soccer', espnSport: 'soccer', league: 'usa.1', leagueId: 'mls', label: 'MLS' },
+  { dbSport: 'soccer', espnSport: 'soccer', league: 'uefa.champions', leagueId: 'ucl', label: 'UCL' },
+  { dbSport: 'soccer', espnSport: 'soccer', league: 'uefa.europa', leagueId: 'uel', label: 'UEL' },
+  { dbSport: 'mma', espnSport: 'mma', league: 'ufc', leagueId: 'ufc', label: 'UFC' },
+  { dbSport: 'tennis', espnSport: 'tennis', league: 'atp', leagueId: 'atp', label: 'ATP' },
+  { dbSport: 'tennis', espnSport: 'tennis', league: 'wta', leagueId: 'wta', label: 'WTA' },
+  { dbSport: 'golf', espnSport: 'golf', league: 'pga', leagueId: 'pga', label: 'PGA' },
 ]
 
 // Types
@@ -71,29 +77,24 @@ interface TeamRecord {
 interface MatchRecord {
   id: string
   league_id: string
-  home_team_id: string | null
-  away_team_id: string | null
-  home_team: string | null
-  away_team: string | null
+  sport: string
+  home_team_id?: string
+  away_team_id?: string
+  home_team?: string
+  away_team?: string
   start_time: string
   status: string
-  ingest_trace?: string[]
-  last_ingest_error?: string
+  opening_odds?: any
 }
 
 interface OpeningLineRecord {
   match_id: string
-  sport: string
-  source: string
   home_spread: number | null
   away_spread: number | null
   total: number | null
-  home_ml: string | null
-  away_ml: string | null
-  draw_ml: string | null
+  home_ml: number | null
+  away_ml: number | null
   provider: string | null
-  home_team: string | null
-  away_team: string | null
 }
 
 interface CaptureResult {
@@ -125,11 +126,6 @@ interface ESPNEvent {
 interface ESPNCompetition {
   competitors?: ESPNCompetitor[]
   odds?: ESPNOdds[]
-  venue?: {
-    fullName?: string
-    city?: string
-    state?: string
-  }
 }
 
 interface ESPNCompetitor {
@@ -158,11 +154,9 @@ interface ESPNOdds {
   moneyline?: {
     home?: { open?: { odds?: string | number }; current?: { odds?: string | number } }
     away?: { open?: { odds?: string | number }; current?: { odds?: string | number } }
-    draw?: { open?: { odds?: string | number }; current?: { odds?: string | number } }
   }
   homeTeamOdds?: { moneyLine?: string | number }
   awayTeamOdds?: { moneyLine?: string | number }
-  drawOdds?: { moneyLine?: string | number }
 }
 
 // Logging
@@ -205,6 +199,7 @@ function normalizeOdds(val: string | number | null | undefined): string | null {
   return strVal
 }
 
+// Safe Type Converters
 function parseSpreadValue(val: string | number | null | undefined): number | null {
   if (val === null || val === undefined) return null
   const num = parseFloat(String(val))
@@ -217,6 +212,14 @@ function parseTotalValue(val: string | number | null | undefined): number | null
   const cleaned = strVal.replace(/^[ou]/i, '').trim()
   const num = parseFloat(cleaned)
   return isNaN(num) ? null : num
+}
+
+function parseAmerican(val: string | number | null | undefined): number | null {
+  if (val === null || val === undefined) return null;
+  const str = String(val).toLowerCase().trim();
+  if (str === 'ev' || str === 'even') return 100;
+  const num = parseInt(str.replace('+', ''), 10);
+  return isNaN(num) ? null : num;
 }
 
 // HTTP Utilities
@@ -274,10 +277,8 @@ function extractTeams(event: ESPNEvent, leagueConfig: LeagueConfig): TeamRecord[
     const team = competitor.team as any
     if (!team?.id) continue
 
-    // Robust name resolution
     let resolvedName = team.displayName || team.name || team.shortDisplayName || team.shortName || 'Unknown';
 
-    // Filter out generic placeholders
     if (resolvedName.toLowerCase().includes('home team') || resolvedName.toLowerCase().includes('away team')) {
       resolvedName = 'Unknown';
     }
@@ -292,32 +293,17 @@ function extractTeams(event: ESPNEvent, leagueConfig: LeagueConfig): TeamRecord[
       league_id: leagueConfig.leagueId,
     })
   }
-
   return teams
 }
 
-function extractMatch(event: ESPNEvent, leagueConfig: LeagueConfig): MatchRecord | null {
+function extractMatch(event: ESPNEvent, leagueConfig: LeagueConfig): MatchRecord {
   const competition = event.competitions?.[0]
   const homeCompetitor = competition?.competitors?.find(c => c.homeAway === 'home')
   const awayCompetitor = competition?.competitors?.find(c => c.homeAway === 'away')
 
-  // Standardize ID to Canonical Form
-  const canonicalId = (event.id.includes('_')) ? event.id : `${event.id}_${leagueConfig.leagueId.replace('mens-college-basketball', 'ncaab').replace('college-football', 'ncaaf').replace('soccer-', '')}`;
-  // Actually, let's use a mapping to be safe or just the existing logic if available.
-  // I'll use a simple manual mapping here to avoid importing shared if it's too complex for Deno without import maps.
-  let suffix = `_${leagueConfig.leagueId}`;
-  if (leagueConfig.leagueId === 'mens-college-basketball') suffix = '_ncaab';
-  if (leagueConfig.leagueId === 'college-football') suffix = '_ncaaf';
-  if (leagueConfig.leagueId === 'nba') suffix = '_nba';
-  if (leagueConfig.leagueId === 'nfl') suffix = '_nfl';
-  if (leagueConfig.leagueId === 'mlb') suffix = '_mlb';
-  if (leagueConfig.leagueId === 'nhl') suffix = '_nhl';
-
-  const finalId = (event.id.includes('_')) ? event.id : `${event.id}${suffix}`;
-
+  const finalId = getCanonicalMatchId(event.id, leagueConfig.leagueId);
   const statusName = event.status?.type?.name || event.status?.type?.state || 'STATUS_SCHEDULED'
 
-  // Robust name resolution
   const getResolvedName = (comp: any) => {
     const team = comp?.team;
     if (!team) return null;
@@ -326,28 +312,26 @@ function extractMatch(event: ESPNEvent, leagueConfig: LeagueConfig): MatchRecord
     return name;
   };
 
-  return {
+  // 🚨 FIXED: Only attaches keys if they exist so it doesn't overwrite DB with nulls
+  const matchRecord: MatchRecord = {
     id: finalId,
     league_id: leagueConfig.leagueId,
-    home_team_id: homeCompetitor?.team?.id || null,
-    away_team_id: awayCompetitor?.team?.id || null,
-    home_team: getResolvedName(homeCompetitor),
-    away_team: getResolvedName(awayCompetitor),
+    sport: leagueConfig.dbSport,
     start_time: event.date,
     status: statusName,
   }
-}
 
-function getCanonicalEventId(eventId: string, leagueConfig: LeagueConfig): string {
-  if (eventId.includes('_')) return eventId;
-  let suffix = `_${leagueConfig.leagueId}`;
-  if (leagueConfig.leagueId === 'mens-college-basketball') suffix = '_ncaab';
-  if (leagueConfig.leagueId === 'college-football') suffix = '_ncaaf';
-  if (leagueConfig.leagueId === 'nba') suffix = '_nba';
-  if (leagueConfig.leagueId === 'nfl') suffix = '_nfl';
-  if (leagueConfig.leagueId === 'mlb') suffix = '_mlb';
-  if (leagueConfig.leagueId === 'nhl') suffix = '_nhl';
-  return `${eventId}${suffix}`;
+  const hId = homeCompetitor?.team?.id;
+  if (hId) matchRecord.home_team_id = hId;
+  const aId = awayCompetitor?.team?.id;
+  if (aId) matchRecord.away_team_id = aId;
+
+  const hName = getResolvedName(homeCompetitor);
+  if (hName) matchRecord.home_team = hName;
+  const aName = getResolvedName(awayCompetitor);
+  if (aName) matchRecord.away_team = aName;
+
+  return matchRecord;
 }
 
 function extractOpeningLine(event: ESPNEvent, leagueConfig: LeagueConfig): OpeningLineRecord | null {
@@ -368,42 +352,33 @@ function extractOpeningLine(event: ESPNEvent, leagueConfig: LeagueConfig): Openi
 
   const total = parseTotalValue(odds.total?.over?.open?.line)
     ?? parseTotalValue(odds.total?.over?.current?.line)
-    // Fallback: Some leagues like NBA might put the total directly in overUnder if detailed markets aren't fully formed
     ?? parseTotalValue(odds.overUnder)
     ?? parseTotalValue((odds as any).total?.line);
 
-  const homeMl = normalizeOdds(odds.moneyline?.home?.open?.odds)
+  const homeMlRaw = normalizeOdds(odds.moneyline?.home?.open?.odds)
     ?? normalizeOdds(odds.moneyline?.home?.current?.odds)
     ?? normalizeOdds(odds.homeTeamOdds?.moneyLine)
 
-  const awayMl = normalizeOdds(odds.moneyline?.away?.open?.odds)
+  const awayMlRaw = normalizeOdds(odds.moneyline?.away?.open?.odds)
     ?? normalizeOdds(odds.moneyline?.away?.current?.odds)
     ?? normalizeOdds(odds.awayTeamOdds?.moneyLine)
 
-  let drawMl: string | null = null
-  if (leagueConfig.hasDrawLine) {
-    drawMl = normalizeOdds(odds.moneyline?.draw?.open?.odds)
-      ?? normalizeOdds(odds.moneyline?.draw?.current?.odds)
-      ?? normalizeOdds(odds.drawOdds?.moneyLine)
-  }
-
-  // Sanity Guard: Moneyline extreme values
-  // Placeholder detection for -5000 (+/- 51 decimal) or similar outliers
   const isExtremeML = (ml: string | null) => {
     if (!ml) return false;
+    if (ml.toUpperCase() === 'EVEN' || ml.toUpperCase() === 'EV') return false;
     const val = Math.abs(parseInt(ml.replace('+', ''), 10));
-    return val >= 4000 || val <= 101; // Filter out -5000 style placeholders and extremely low juice s
+    if (isNaN(val)) return false;
+    return val >= 4000 || val < 100;
   };
 
-  const cleanHomeMl = isExtremeML(homeMl) ? null : homeMl;
-  const cleanAwayMl = isExtremeML(awayMl) ? null : awayMl;
+  const cleanHomeMl = isExtremeML(homeMlRaw) ? null : parseAmerican(homeMlRaw);
+  const cleanAwayMl = isExtremeML(awayMlRaw) ? null : parseAmerican(awayMlRaw);
 
-  // Sanity Guard: Total reasonableness by sport
   let cleanTotal = total;
   if (total !== null) {
-    const s = leagueConfig.sport.toLowerCase();
+    const s = leagueConfig.dbSport.toLowerCase();
     if (s === 'basketball' && (total < 100 || total > 280)) cleanTotal = null;
-    if (s === 'football' && (total < 20 || total > 85)) cleanTotal = null;
+    if (s === 'americanfootball' && (total < 20 || total > 85)) cleanTotal = null;
     if (s === 'baseball' && (total < 5 || total > 20)) cleanTotal = null;
     if (s === 'soccer' && (total < 1 || total > 10)) cleanTotal = null;
   }
@@ -416,31 +391,14 @@ function extractOpeningLine(event: ESPNEvent, leagueConfig: LeagueConfig): Openi
 
   if (!hasValidLine) return null
 
-  const homeCompetitor = competition?.competitors?.find(c => c.homeAway === 'home')
-  const awayCompetitor = competition?.competitors?.find(c => c.homeAway === 'away')
-
-  // Robust name resolution for opening lines
-  const getResolvedName = (comp: any) => {
-    const team = comp?.team;
-    if (!team) return null;
-    const name = team.displayName || team.name || team.shortDisplayName || team.shortName || null;
-    if (name?.toLowerCase().includes('home team') || name?.toLowerCase().includes('away team')) return null;
-    return name;
-  };
-
   return {
-    match_id: getCanonicalEventId(event.id, leagueConfig),
-    sport: leagueConfig.label,
-    source: leagueConfig.league,
+    match_id: getCanonicalMatchId(event.id, leagueConfig.leagueId),
     home_spread: homeSpread,
     away_spread: awaySpread,
     total: cleanTotal,
     home_ml: cleanHomeMl,
     away_ml: cleanAwayMl,
-    draw_ml: drawMl,
-    provider: odds.provider?.name || null,
-    home_team: getResolvedName(homeCompetitor),
-    away_team: getResolvedName(awayCompetitor),
+    provider: odds.provider?.name || null
   }
 }
 
@@ -483,80 +441,41 @@ function generateDateRange(days: number): string[] {
 // Database Operations
 async function upsertTeams(supabase: SupabaseClient, teams: TeamRecord[]): Promise<number> {
   if (teams.length === 0) return 0
-
-  const { error } = await supabase
-    .from('teams')
-    .upsert(teams, { onConflict: 'id', ignoreDuplicates: false })
-
+  const { error } = await supabase.from('teams').upsert(teams, { onConflict: 'id', ignoreDuplicates: false })
   if (error) {
     log.error('Failed to upsert teams', { error: error.message, count: teams.length })
     return 0
   }
-
   return teams.length
 }
 
-async function upsertMatch(supabase: SupabaseClient, match: MatchRecord, openingOdds?: any): Promise<boolean> {
-  const payload: any = { ...match }
-  if (openingOdds) {
-    payload.opening_odds = openingOdds
-  }
-
-  const { error } = await supabase
-    .from('matches')
-    .upsert(payload, { onConflict: 'id', ignoreDuplicates: false })
-
+async function upsertMatch(supabase: SupabaseClient, match: MatchRecord): Promise<boolean> {
+  const { error } = await supabase.from('matches').upsert(match, { onConflict: 'id', ignoreDuplicates: false })
   if (error) {
     log.error('Failed to upsert match', { match_id: match.id, error: error.message })
     return false
   }
-
   return true
 }
 
 async function insertOpeningLine(supabase: SupabaseClient, record: OpeningLineRecord): Promise<boolean> {
-  // Check if already captured
-  const existenceCheck = await supabase
-    .from('opening_lines')
-    .select('match_id')
-    .eq('match_id', record.match_id)
-    .maybeSingle()
+  const existenceCheck = await supabase.from('opening_lines').select('match_id').eq('match_id', record.match_id).maybeSingle()
+  if (existenceCheck.error || existenceCheck.data) return false
 
-  if (existenceCheck.error) {
-    log.error('Existence check failed', {
-      match_id: record.match_id,
-      code: existenceCheck.error.code,
-      error: existenceCheck.error.message,
-    })
-    return false
-  }
-
-  if (existenceCheck.data) {
-    return false // Already exists
-  }
-
-  // Insert new opening line
-  const insertResult = await supabase
-    .from('opening_lines')
-    .insert(record)
-
+  const insertResult = await supabase.from('opening_lines').insert(record)
   if (insertResult.error) {
-    if (insertResult.error.code === '23505') {
-      return false // Race condition, already inserted
+    if (insertResult.error.code !== '23505') {
+      log.error('Database insert failed', { match_id: record.match_id, error: insertResult.error.message })
     }
-    log.error('Database insert failed', {
-      match_id: record.match_id,
-      code: insertResult.error.code,
-      error: insertResult.error.message
-    })
     return false
   }
-
   return true
 }
 
 // Main Handler
-Deno.serve(async (_req: Request): Promise<Response> => {
+Deno.serve(async (req: Request): Promise<Response> => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
   const startTime = Date.now()
 
   const result: CaptureResult = {
@@ -572,41 +491,24 @@ Deno.serve(async (_req: Request): Promise<Response> => {
   }
 
   try {
-    const supabase: SupabaseClient = createClient(
-      CONFIG.supabase.url,
-      CONFIG.supabase.serviceRoleKey
-    )
-
+    const supabase: SupabaseClient = createClient(CONFIG.supabase.url, CONFIG.supabase.serviceRoleKey)
     const dates = generateDateRange(CONFIG.capture.scanWindowDays)
-    log.info('Starting opening lines capture', {
-      dates: dates.length,
-      leagues: MONITORED_LEAGUES.length
-    })
 
     for (const league of MONITORED_LEAGUES) {
       for (const dateStr of dates) {
         try {
           const groupsParam = league.groups ? `&groups=${league.groups}` : ''
-          const url = `${CONFIG.espn.baseUrl}/${league.sport}/${league.league}/scoreboard?dates=${dateStr}&limit=${CONFIG.capture.maxEventsPerRequest}${groupsParam}`
+          const url = `${CONFIG.espn.baseUrl}/${league.espnSport}/${league.league}/scoreboard?dates=${dateStr}&limit=${CONFIG.capture.maxEventsPerRequest}${groupsParam}`
 
           const res = await fetchWithRetry(url)
-          if (!res) {
-            result.errors.push({
-              league: league.label,
-              date: dateStr,
-              message: 'Failed to fetch after retries',
-              retryable: true,
-            })
-            continue
-          }
+          if (!res) continue
 
           const data = await res.json()
-          const events: ESPNEvent[] = data.events || []
+          const events: ESPNEvent[] = data?.events || []
 
           for (const event of events) {
             result.scanned++
             const trace: string[] = []
-            trace.push(`[Init] Scanning match ${event.id} on ${dateStr} for ${league.label}`)
 
             const gameState = event.status?.type?.state
             if (gameState !== 'pre') {
@@ -614,107 +516,54 @@ Deno.serve(async (_req: Request): Promise<Response> => {
               continue
             }
 
-            // Step 1: Upsert teams
             const teams = extractTeams(event, league)
             const teamsUpserted = await upsertTeams(supabase, teams)
             result.teams_upserted += teamsUpserted
 
-            // Step 2: Upsert match
             const match = extractMatch(event, league)
+            const record = extractOpeningLine(event, league)
+
+            // 🚨 FIXED: Never overwrites opening odds unless we are officially inserting a true brand new opening line
+            let insertedNewOpeningLine = false;
+            if (record) {
+              insertedNewOpeningLine = await insertOpeningLine(supabase, record)
+              if (insertedNewOpeningLine) {
+                result.new_openers++
+                trace.push(`[Success] Opening line persisted`)
+              }
+            } else {
+              result.skipped_no_odds++
+            }
+
             if (match) {
-              match.ingest_trace = trace
+              if (record && insertedNewOpeningLine) {
+                match.opening_odds = {
+                  homeSpread: record.home_spread,
+                  awaySpread: record.away_spread,
+                  total: record.total,
+                  homeWin: record.home_ml,
+                  awayWin: record.away_ml,
+                  provider: record.provider
+                }
+              }
               const matchUpserted = await upsertMatch(supabase, match)
               if (matchUpserted) {
                 result.matches_upserted++
-                trace.push(`[Match] Upserted core match metadata`)
-              } else {
-                trace.push(`[Match] Failed to upsert match metadata`)
               }
             }
 
-            // Step 3: Extract and insert opening line
-            const record = extractOpeningLine(event, league)
-            if (!record) {
-              result.skipped_no_odds++
-              trace.push(`[Skip] No valid opening odds found in ESPN response`)
-
-              // Still update the trace in the match record to explain why no odds
-              if (match) {
-                await supabase.from('matches').update({ ingest_trace: trace }).eq('id', match.id);
-              }
-              continue
-            }
-
-            trace.push(`[Odds] Extracted opening odds from ${record.provider || 'ESPN'}: S:${record.home_spread ?? 'N/A'}/${record.away_spread ?? 'N/A'} T:${record.total ?? 'N/A'}`);
-
-            const inserted = await insertOpeningLine(supabase, record)
-            if (inserted) {
-              result.new_openers++
-              trace.push(`[Success] Opening line persisted to registry`)
-              log.info('Captured opening line', {
-                match_id: record.match_id,
-                league: league.label,
-                provider: record.provider,
-              })
-            } else {
-              trace.push(`[Sync] Opening line already exists or skipped`)
-            }
-
-            // Final trace update
-            if (match) {
-              await supabase.from('matches').update({ ingest_trace: trace }).eq('id', match.id);
-            }
           }
-
           await sleep(CONFIG.capture.rateLimitDelayMs)
-
         } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : String(err)
-          log.error('League processing error', {
-            league: league.label,
-            date: dateStr,
-            error: errorMsg
-          })
-          result.errors.push({
-            league: league.label,
-            date: dateStr,
-            message: errorMsg,
-            retryable: false,
-          })
+          result.errors.push({ league: league.label, date: dateStr, message: String(err), retryable: false })
         }
       }
       result.leagues_processed.push(league.label)
     }
 
     result.duration_ms = Date.now() - startTime
-
-    log.info('Capture complete', {
-      scanned: result.scanned,
-      new_openers: result.new_openers,
-      teams_upserted: result.teams_upserted,
-      matches_upserted: result.matches_upserted,
-      errors: result.errors.length,
-      duration_ms: result.duration_ms,
-    })
-
-    return new Response(JSON.stringify(result, null, 2), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
-
+    return new Response(JSON.stringify(result, null, 2), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error)
-    log.error('Fatal error in capture service', { error: errorMsg })
-
-    return new Response(
-      JSON.stringify({
-        error: errorMsg,
-        duration_ms: Date.now() - startTime
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    )
+    return new Response(JSON.stringify({ error: String(error), duration_ms: Date.now() - startTime }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 })
