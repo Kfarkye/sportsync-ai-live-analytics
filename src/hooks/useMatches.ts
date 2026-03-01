@@ -4,7 +4,6 @@ import { formatLocalDate, safeParseDate } from '../utils/dateUtils';
 import { Match } from '@/types';
 
 const fetchMatches = async (date: Date): Promise<Match[]> => {
-  // Defensive check for Safari/Mobile hangs
   if (!date || isNaN(date.getTime())) {
     console.error("useMatches: Invalid date provided to fetchMatches");
     return [];
@@ -17,34 +16,35 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
     return [];
   }
 
-  try {
-    const SUPABASE_URL = getSupabaseUrl();
-    const SUPABASE_ANON_KEY = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+  const SUPABASE_URL = getSupabaseUrl();
+  // FIX: Provide Vite the exact string to replace at build-time
+  // @ts-ignore - Vite needs this exact string format for replacement, despite TS warnings
+  const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    // 1. Single DB-First Query (Eliminates 17x fan-out and race conditions)
-    console.log("Calling fetch-matches v2 for DB-first schedule + odds:", dateStr);
+  console.log("Calling fetch-matches v2 for DB-first schedule + odds:", dateStr);
 
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-matches?date=${dateStr}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}), // omitting leagueId to fetch all leagues
-    });
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-matches?date=${dateStr}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    // Safe fallback: send date in body too, just in case the Edge Function expects it there
+    body: JSON.stringify({ date: dateStr }),
+  });
 
-    if (!res.ok) {
-      console.error("fetch-matches returned an error status:", res.status);
-      return [];
-    }
-
-    const matches = await res.json();
-    return matches || [];
-
-  } catch (err) {
-    console.error("fetch-matches catch block:", err);
-    return [];
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("fetch-matches failed:", res.status, errText);
+    // FIX: MUST throw the error so React Query catches it, retries, and shows error states
+    throw new Error(`fetch-matches failed: ${res.status} ${errText}`);
   }
+
+  const data = await res.json();
+
+  // FIX: Safely extract matches in case Edge Function returns { data: [...] } or { matches: [...] }
+  const matches = Array.isArray(data) ? data : (data?.data || data?.matches || []);
+  return matches;
 };
 
 export const useMatches = (selectedDate: Date | string) => {
