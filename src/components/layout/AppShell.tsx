@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore, usePinStore } from '../../store/appStore';
 import { useMatches } from '../../hooks/useMatches';
 import { UnifiedHeader } from './UnifiedHeader';
-import { MobileNavBar } from './MobileNavBar';
 import MatchList from '../match/MatchList';
 import MatchDetails from '../match/MatchDetails';
 import ChatWidget from '../ChatWidget';
@@ -86,7 +85,7 @@ const AppShell: FC = () => {
       <MotionMain
         className="flex-1 w-full overflow-y-auto"
       >
-        <div className="max-w-7xl mx-auto px-4 md:px-6 pb-32">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 pb-8">
           <AnimatePresence mode="wait">
             {activeView === 'FEED' && (
               <MotionDiv
@@ -160,8 +159,6 @@ const AppShell: FC = () => {
           </AnimatePresence>
         </div>
       </MotionMain>
-
-      <MobileNavBar />
 
       <AnimatePresence>
         {selectedMatch && (

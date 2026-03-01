@@ -126,7 +126,7 @@ export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavori
       className="inline-flex items-center justify-center gap-1.5 tabular-nums font-semibold select-none cursor-pointer transition-all duration-150 hover:opacity-80 active:scale-95 relative"
       style={{
         fontSize: isEdgeMode ? 10 : 11,
-        minWidth: isOddsMode ? 48 : isEdgeMode ? 52 : showMiniBar ? 82 : 42,
+        minWidth: isOddsMode ? 48 : isEdgeMode ? 52 : 42,
         height: 22,
         padding: '0 6px',
         borderRadius: 6,
@@ -141,8 +141,8 @@ export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavori
       <span>{display}</span>
       {showMiniBar && (
         <span
+          className="hidden sm:inline-flex"
           style={{
-            display: 'inline-flex',
             width: barWidth,
             height: barHeight,
             borderRadius: barHeight / 2,
