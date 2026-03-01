@@ -193,8 +193,28 @@ const MarketPulseRow = memo(({ poly, matchMap, onSelect, isLast }: {
     const awayProb = Math.round(poly.away_prob * 100);
     const favIsAway = awayProb > homeProb;
 
-    // Attempt to resolve match for logos + team colors
-    const match = poly.game_id ? matchMap.get(poly.game_id) || matchMap.get(poly.game_id.split('_')[0]) : undefined;
+    // Resolve match: try game_id first, then fuzzy team-name match
+    const match = useMemo(() => {
+        if (poly.game_id) {
+            const direct = matchMap.get(poly.game_id) || matchMap.get(poly.game_id.split('_')[0]);
+            if (direct) return direct;
+        }
+        // Fuzzy: find any match where team names overlap
+        const normPoly = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+        const polyHome = normPoly(poly.home_team_name);
+        const polyAway = normPoly(poly.away_team_name);
+        for (const m of matchMap.values()) {
+            const mHome = normPoly(m.homeTeam?.name || '');
+            const mAway = normPoly(m.awayTeam?.name || '');
+            if ((mHome.includes(polyHome) || polyHome.includes(mHome)) &&
+                (mAway.includes(polyAway) || polyAway.includes(mAway))) return m;
+            // Check flipped orientation
+            if ((mHome.includes(polyAway) || polyAway.includes(mHome)) &&
+                (mAway.includes(polyHome) || polyHome.includes(mAway))) return m;
+        }
+        return undefined;
+    }, [poly, matchMap]);
+
     const awayColor = match?.awayTeam?.color || '#a1a1aa';
     const homeColor = match?.homeTeam?.color || '#a1a1aa';
 

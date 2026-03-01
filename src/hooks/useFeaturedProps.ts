@@ -44,7 +44,7 @@ export function useFeaturedProps(limit = 4) {
         queryFn: async () => {
             if (!isSupabaseConfigured()) return [];
 
-            // Fetch upcoming props with headshots, prioritizing tomorrow then today
+            // Fetch upcoming props with headshots, prioritizing star players (highest lines)
             const { data, error } = await supabase
                 .from('player_prop_bets')
                 .select('player_name, team, bet_type, line_value, odds_american, side, headshot_url, event_date, league')
@@ -53,26 +53,19 @@ export function useFeaturedProps(limit = 4) {
                 .in('bet_type', ['points', 'rebounds', 'assists', 'threes_made', 'pra', 'steals', 'blocks'])
                 .in('side', ['over'])  // Overs are more engaging visually
                 .order('event_date', { ascending: true })
-                .order('odds_american', { ascending: true })  // Closest to even money first
+                .order('line_value', { ascending: false })  // Highest lines = biggest names
                 .limit(80);  // Fetch enough to deduplicate
 
             if (error || !data) return [];
 
-            // Curate: unique players, varied stat types
+            // Curate: unique players, prefer highest lines (star power)
             const seen = new Set<string>();
-            const seenStats = new Set<string>();
             const curated: FeaturedProp[] = [];
 
             for (const row of data) {
                 if (curated.length >= limit) break;
-                const key = row.player_name;
-                if (seen.has(key)) continue;
-
-                // Prefer variety in stat types
-                if (seenStats.size < 3 && seenStats.has(row.bet_type) && data.length > 20) continue;
-
-                seen.add(key);
-                seenStats.add(row.bet_type);
+                if (seen.has(row.player_name)) continue;
+                seen.add(row.player_name);
                 curated.push(row as FeaturedProp);
             }
 
