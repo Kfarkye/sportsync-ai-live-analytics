@@ -119,7 +119,7 @@ const SofaStats: React.FC<SofaStatsProps> = ({ homeTeam, awayTeam }) => {
                     }
 
                     return (
-                        <div key={idx} className="group relative py-3 sm:py-4 flex flex-col gap-2.5 px-1 hover:bg-slate-50 transition-colors rounded-xl">
+                        <div key={idx} className="group relative flex flex-col gap-2.5 rounded-xl px-1 py-3 transition-colors hover:bg-zinc-50 sm:py-4">
                             {/* Stat Info */}
                             <div className="flex justify-between items-center relative z-10 h-5">
                                 {/* Away Value */}
@@ -133,7 +133,7 @@ const SofaStats: React.FC<SofaStatsProps> = ({ homeTeam, awayTeam }) => {
                                     <span
                                         className={cn(
                                             "text-[14px] sm:text-[15px] font-bold tabular-nums transition-colors duration-300",
-                                            awayIsAlpha ? "text-slate-900" : "text-slate-500"
+                                            awayIsAlpha ? "text-zinc-900" : "text-zinc-500"
                                         )}
                                     >
                                         {stat.away}
@@ -142,7 +142,7 @@ const SofaStats: React.FC<SofaStatsProps> = ({ homeTeam, awayTeam }) => {
 
                                 {/* Label */}
                                 <div className="flex-1 flex justify-center px-4">
-                                    <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500 group-hover:text-slate-600 transition-colors text-center truncate">
+                                    <span className="truncate text-center text-[9px] font-bold uppercase tracking-[0.1em] text-zinc-500 transition-colors group-hover:text-zinc-700 sm:text-[10px]">
                                         {stat.label}
                                     </span>
                                 </div>
@@ -152,7 +152,7 @@ const SofaStats: React.FC<SofaStatsProps> = ({ homeTeam, awayTeam }) => {
                                     <span
                                         className={cn(
                                             "text-[14px] sm:text-[15px] font-bold tabular-nums transition-colors duration-300 text-right",
-                                            homeIsAlpha ? "text-slate-900" : "text-slate-500"
+                                            homeIsAlpha ? "text-zinc-900" : "text-zinc-500"
                                         )}
                                     >
                                         {stat.home}
@@ -167,7 +167,7 @@ const SofaStats: React.FC<SofaStatsProps> = ({ homeTeam, awayTeam }) => {
                             </div>
 
                             {/* Advanced Comparison Bar */}
-                            <div className="relative h-[4px] w-full bg-slate-50 rounded-full overflow-hidden">
+                            <div className="relative h-[4px] w-full overflow-hidden rounded-full bg-zinc-100">
                                 <div className="absolute inset-0 flex">
                                     {/* Away Side (Left) */}
                                     <div className="relative flex-1 h-full flex justify-end">
@@ -177,7 +177,7 @@ const SofaStats: React.FC<SofaStatsProps> = ({ homeTeam, awayTeam }) => {
                                             transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
                                             className="h-full rounded-l-full relative"
                                             style={{
-                                                backgroundColor: awayIsAlpha ? awayColor : (isEqual ? '#4b5563' : 'rgba(255,255,255,0.06)'),
+                                                backgroundColor: awayIsAlpha ? awayColor : (isEqual ? '#71717a' : '#d4d4d8'),
                                             }}
                                         >
                                             {awayIsAlpha && <div className="absolute inset-0 bg-white/10 mix-blend-overlay" />}
@@ -185,7 +185,7 @@ const SofaStats: React.FC<SofaStatsProps> = ({ homeTeam, awayTeam }) => {
                                     </div>
 
                                     {/* Midpoint Notch */}
-                                    <div className="w-0.5 bg-black/20 shrink-0 z-10" />
+                                    <div className="z-10 w-0.5 shrink-0 bg-zinc-300" />
 
                                     {/* Home Side (Right) */}
                                     <div className="relative flex-1 h-full flex justify-start">
@@ -195,7 +195,7 @@ const SofaStats: React.FC<SofaStatsProps> = ({ homeTeam, awayTeam }) => {
                                             transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
                                             className="h-full rounded-r-full relative"
                                             style={{
-                                                backgroundColor: homeIsAlpha ? homeColor : (isEqual ? '#4b5563' : 'rgba(255,255,255,0.06)'),
+                                                backgroundColor: homeIsAlpha ? homeColor : (isEqual ? '#71717a' : '#d4d4d8'),
                                             }}
                                         >
                                             {homeIsAlpha && <div className="absolute inset-0 bg-white/10 mix-blend-overlay" />}

@@ -31,18 +31,18 @@ const MetricRow = ({
   const widthPct = max > 0 ? Math.max((value / max) * 100, 2) : 0; // Min 2% width if val > 0
 
   return (
-    <div className="flex flex-col gap-2 mb-4 group/row">
+    <div className="group/row mb-4 flex flex-col gap-2">
       <div className="flex justify-between items-center text-[10px]">
-        <div className="flex items-center gap-1.5 text-slate-500 group-hover/row:text-slate-600 transition-colors">
+        <div className="flex items-center gap-1.5 text-zinc-500 transition-colors group-hover/row:text-zinc-700">
           <Icon size={10} strokeWidth={2.5} />
           <span className="font-bold uppercase tracking-[0.15em]">{label}</span>
         </div>
-        <span className="font-sans font-semibold text-slate-900 tabular-nums tracking-tight">
-          {value.toFixed(1)} <span className="text-slate-500 text-[9px] font-sans font-normal">PPG</span>
+        <span className="font-sans font-semibold text-zinc-900 tabular-nums tracking-tight">
+          {value.toFixed(1)} <span className="text-zinc-500 text-[9px] font-sans font-normal">PPG</span>
         </span>
       </div>
 
-      <div className="h-2 w-full bg-slate-50 rounded-full overflow-hidden relative">
+      <div className="relative h-2 w-full overflow-hidden rounded-full border border-zinc-200 bg-zinc-100">
         <MotionDiv
           initial={{ width: 0 }}
           animate={{ width: `${widthPct}%` }}
@@ -71,7 +71,7 @@ const VenueSplitsCard: React.FC<VenueSplitsCardProps> = ({ data, teamColor = '#4
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1.0] }}
-      className="relative flex flex-col py-4 border-b border-slate-200 last:border-0"
+      className="relative flex flex-col border-b border-zinc-200 py-4 last:border-0"
     >
 
       {/* Header */}
@@ -79,13 +79,13 @@ const VenueSplitsCard: React.FC<VenueSplitsCardProps> = ({ data, teamColor = '#4
         <div className="flex items-center gap-4">
           <MotionDiv
             whileHover={{ rotate: 5, scale: 1.1 }}
-            className="w-12 h-12 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center shadow-sm backdrop-blur-md"
+            className="flex h-12 w-12 items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-100 shadow-sm"
           >
             <TeamLogo logo={data.team.logo_url} name={data.team.name} className="w-8 h-8 object-contain drop-shadow-md" />
           </MotionDiv>
           <div className="flex flex-col">
-            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] leading-none mb-1.5">Team Analysis</span>
-            <h3 className="text-lg font-bold text-slate-900 tracking-tight leading-none truncate max-w-[140px]">
+            <span className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.2em] leading-none text-zinc-600">Team Analysis</span>
+            <h3 className="max-w-[140px] truncate text-lg font-bold leading-none tracking-tight text-zinc-900">
               {data.team.name}
             </h3>
           </div>
@@ -93,13 +93,13 @@ const VenueSplitsCard: React.FC<VenueSplitsCardProps> = ({ data, teamColor = '#4
 
         {/* Delta Badge - Forensic Pill */}
         <div
-          className="flex flex-col items-end justify-center px-2 py-1 rounded-lg border bg-slate-50 border-slate-200"
+          className="flex flex-col items-end justify-center rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1"
         >
-          <span className="text-[8px] font-black uppercase tracking-widest mb-0.5 text-slate-500">
+          <span className="mb-0.5 text-[8px] font-black uppercase tracking-widest text-zinc-600">
             Home Edge
           </span>
-          <div className="flex items-center gap-1 font-mono font-bold text-sm leading-none text-slate-900">
-            {isPositive ? <ArrowUpRight size={12} style={{ color: teamColor }} /> : <ArrowDownRight size={12} className="text-rose-400" />}
+          <div className="flex items-center gap-1 font-mono text-sm font-bold leading-none text-zinc-900">
+            {isPositive ? <ArrowUpRight size={12} style={{ color: teamColor }} /> : <ArrowDownRight size={12} className="text-rose-600" />}
             {Math.abs(delta).toFixed(1)}
           </div>
         </div>
@@ -126,26 +126,26 @@ const VenueSplitsCard: React.FC<VenueSplitsCardProps> = ({ data, teamColor = '#4
       </div>
 
       {/* Footer Context */}
-      <div className="py-2 flex items-center justify-between opacity-60">
+      <div className="flex items-center justify-between py-2">
 
         <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-1.5 text-slate-500">
+          <div className="flex items-center gap-1.5 text-zinc-500">
             <TrendingUp size={10} />
             <span className="text-[9px] font-bold uppercase tracking-widest">L3 Trend</span>
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-xs font-sans font-semibold tabular-nums text-slate-600 group-hover:text-slate-900 transition-colors">{data.recency?.last_3_avg?.toFixed(1) || '-'}</span>
-            <span className="text-[9px] text-slate-500">PPG</span>
+            <span className="text-xs font-sans font-semibold tabular-nums text-zinc-700 transition-colors group-hover:text-zinc-900">{data.recency?.last_3_avg?.toFixed(1) || '-'}</span>
+            <span className="text-[9px] text-zinc-500">PPG</span>
           </div>
         </div>
 
         <div className="flex flex-col items-end gap-0.5">
-          <div className="flex items-center gap-1.5 text-slate-500">
+          <div className="flex items-center gap-1.5 text-zinc-500">
             <span className="text-[9px] font-bold uppercase tracking-widest">Sample</span>
             <Activity size={10} />
           </div>
-          <span className="text-xs font-sans font-semibold tabular-nums text-slate-600 group-hover:text-slate-900 transition-colors">
-            {data.games?.total || 0} <span className="text-[9px] text-slate-500 font-sans font-normal">Gms</span>
+          <span className="text-xs font-sans font-semibold tabular-nums text-zinc-700 transition-colors group-hover:text-zinc-900">
+            {data.games?.total || 0} <span className="text-[9px] text-zinc-500 font-sans font-normal">Gms</span>
           </span>
         </div>
 

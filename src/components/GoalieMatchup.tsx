@@ -43,7 +43,7 @@ const GoalieCard = ({
 
   return (
     <div className={cn(
-      "relative flex flex-col p-6 rounded-2xl border bg-slate-100 backdrop-blur-xl border-slate-200 overflow-hidden group transition-all duration-500 hover:border-white/10",
+      "group relative flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 transition-all duration-500 hover:border-zinc-300",
       isHome ? "items-end text-right" : "items-start text-left"
     )}>
       {/* Cinematic Ambient Glow */}
@@ -59,14 +59,14 @@ const GoalieCard = ({
       <div className={cn(
         "relative z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.15em] border mb-6 transition-all duration-500",
         isConfirmed
-          ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-          : "bg-amber-500/10 border-amber-500/20 text-amber-400",
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700 shadow-[0_0_15px_rgba(16,185,129,0.08)]"
+          : "border-amber-200 bg-amber-50 text-amber-700",
         isHome ? "flex-row-reverse" : "flex-row"
       )}>
         {isConfirmed ? (
           <div className="relative">
             <CheckCircle2 size={12} strokeWidth={3} />
-            <div className="absolute inset-0 bg-emerald-400 blur-sm animate-pulse opacity-50" />
+            <div className="absolute inset-0 animate-pulse bg-emerald-500 blur-sm opacity-25" />
           </div>
         ) : (
           <AlertCircle size={12} strokeWidth={3} />
@@ -85,7 +85,7 @@ const GoalieCard = ({
             className="absolute inset-[-4px] rounded-full blur-sm opacity-20 group-hover/headshot:opacity-40 transition-opacity duration-500"
             style={{ background: teamColor }}
           />
-          <div className="relative w-16 h-16 rounded-full bg-slate-200 border border-white/10 overflow-hidden shadow-sm flex items-center justify-center p-0.5 ring-1 ring-white/5 ring-inset">
+          <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-zinc-200 bg-zinc-100 p-0.5 shadow-sm ring-1 ring-zinc-200 ring-inset">
             {headshotUrl && !imgError ? (
               <img
                 src={headshotUrl}
@@ -94,41 +94,41 @@ const GoalieCard = ({
                 onError={() => setImgError(true)}
               />
             ) : (
-              <div className="w-full h-full p-2.5 flex items-center justify-center bg-slate-100">
-                <TeamLogo logo={team.logo} name={team.name} className="w-full h-full object-contain opacity-40 grayscale group-hover/headshot:opacity-60 transition-opacity" />
+              <div className="flex h-full w-full items-center justify-center bg-zinc-100 p-2.5">
+                <TeamLogo logo={team.logo} name={team.name} className="h-full w-full object-contain grayscale opacity-40 transition-opacity group-hover/headshot:opacity-60" />
               </div>
             )}
           </div>
         </div>
 
         <div className="flex flex-col">
-          <h4 className="text-[18px] font-bold text-slate-900 tracking-tight leading-tight group-hover:text-slate-900/90 transition-colors">
+          <h4 className="text-[18px] font-bold leading-tight tracking-tight text-zinc-900 transition-colors group-hover:text-zinc-700">
             {goalie.name || 'Unannounced'}
           </h4>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{team.shortName}</span>
-            <div className="w-1 h-1 rounded-full bg-slate-200" />
-            <span className="text-[10px] font-bold text-slate-500 font-mono italic">Primary Netminder</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{team.shortName}</span>
+            <div className="h-1 w-1 rounded-full bg-zinc-300" />
+            <span className="text-[10px] font-mono font-bold italic text-zinc-500">Primary Netminder</span>
           </div>
         </div>
       </div>
 
       {/* The Stats Ledger (Digital Monospace) */}
       <div className={cn(
-        "relative z-10 grid grid-cols-3 gap-6 w-full py-4 border-y border-slate-200",
+        "relative z-10 grid w-full grid-cols-3 gap-6 border-y border-zinc-200 py-4",
         isHome ? "text-right" : "text-left"
       )}>
         <div className="flex flex-col gap-1">
-          <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">GAA</span>
-          <span className="text-xl font-mono font-black text-slate-700 tabular-nums">{gaa || '0.00'}</span>
+          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">GAA</span>
+          <span className="text-xl font-mono font-black tabular-nums text-zinc-700">{gaa || '0.00'}</span>
         </div>
-        <div className="flex flex-col gap-1 border-x border-slate-200 px-4">
-          <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">SV%</span>
-          <span className="text-xl font-mono font-black text-slate-900 tabular-nums tracking-tighter">{svPct || '.000'}</span>
+        <div className="flex flex-col gap-1 border-x border-zinc-200 px-4">
+          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">SV%</span>
+          <span className="text-xl font-mono font-black tabular-nums tracking-tighter text-zinc-900">{svPct || '.000'}</span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">Record</span>
-          <span className="text-xl font-mono font-black text-slate-600 tabular-nums">{record || '---'}</span>
+          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">Record</span>
+          <span className="text-xl font-mono font-black tabular-nums text-zinc-700">{record || '---'}</span>
         </div>
       </div>
 
@@ -137,11 +137,11 @@ const GoalieCard = ({
         <div className="relative z-10 mt-5 w-full space-y-3">
           {bettingInsight && (
             <div className={cn(
-              "flex items-start gap-2.5 p-2.5 rounded-xl bg-emerald-500/[0.03] border border-emerald-500/10",
+              "flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5",
               isHome ? "flex-row-reverse" : "flex-row"
             )}>
-              <TrendingUp size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-              <p className="text-[11px] leading-relaxed font-medium text-slate-600">{bettingInsight}</p>
+              <TrendingUp size={14} className="mt-0.5 shrink-0 text-emerald-600" />
+              <p className="text-[11px] font-medium leading-relaxed text-zinc-700">{bettingInsight}</p>
             </div>
           )}
           {reasoning && (
@@ -149,8 +149,8 @@ const GoalieCard = ({
               "flex items-start gap-2.5 px-1",
               isHome ? "flex-row-reverse" : "flex-row"
             )}>
-              <Info size={13} className="text-slate-500 shrink-0 mt-0.5" />
-              <p className="text-[11px] leading-relaxed text-slate-500 italic font-medium">{reasoning}</p>
+              <Info size={13} className="mt-0.5 shrink-0 text-zinc-500" />
+              <p className="text-[11px] font-medium italic leading-relaxed text-zinc-600">{reasoning}</p>
             </div>
           )}
         </div>
@@ -237,22 +237,22 @@ export const GoalieMatchup: React.FC<GoalieMatchupProps> = ({ matchId, homeTeam,
       {/* Section Header */}
       <div className="flex items-center justify-between mb-5 px-1">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
-            <Shield size={14} className="text-indigo-400" />
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-2">
+            <Shield size={14} className="text-indigo-600" />
           </div>
           <div>
-            <h3 className="text-[12px] font-black text-slate-900 uppercase tracking-[0.3em]">Netminder Duet</h3>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Primary Personnel Context</p>
+            <h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-zinc-900">Netminder Duet</h3>
+            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500">Primary Personnel Context</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">
-          <div className="w-1.5 h-1.5 rounded-full bg-slate-200 animate-pulse" />
+        <div className="flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500">
+          <div className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-pulse" />
           <span>Authoritative Intelligence</span>
         </div>
       </div>
 
       {/* Verses Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+      <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-100 shadow-sm md:grid-cols-2">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
