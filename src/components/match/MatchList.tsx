@@ -372,7 +372,7 @@ const MatchRowSkeleton = () => (
 // ============================================================================
 
 const LeagueGroup = memo(({
-    leagueId, leagueName, enrichedMatches, onSelectMatch, onTogglePin, groupIndex, polyResult,
+    leagueId, leagueName, enrichedMatches, onSelectMatch, onTogglePin, groupIndex, polyResult, isMounted,
 }: {
     leagueId: string; leagueName: string; enrichedMatches: EnrichedMatch[];
     onSelectMatch: (match: Match) => void; onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
