@@ -5,7 +5,7 @@ import { computeAISignals } from '../_shared/gameStateEngine.ts'
 import { EspnAdapters, Safe } from '../_shared/espnAdapters.ts'
 import { getCanonicalMatchId, generateDeterministicId, resolveCanonicalMatch } from '../_shared/match-registry.ts'
 import { writeCurrentOdds } from '../_shared/current-odds-writer.ts'
-
+import { toCanonicalOdds } from '../_shared/odds-contract.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
@@ -357,7 +357,15 @@ async function processGame(event: any, league: any, stats: any) {
 
     // DELEGATE ODDS TO CONTRACT ARCHITECTURE
     const isExistingExternal = existingMatch?.current_odds?.provider && String(existingMatch.current_odds.provider).toLowerCase() !== 'espn';
+
+    let canonicalOddsPayload = null;
     if (finalOddsHasKeys && (!isExistingExternal || espnOdds.provider)) {
+      canonicalOddsPayload = toCanonicalOdds(finalMarketOdds, {
+        provider: finalMarketOdds.provider || 'ESPN',
+        isLive: isLiveGame,
+        updatedAt: new Date().toISOString()
+      });
+
       await writeCurrentOdds({
         supabase,
         matchId: dbMatchId,
@@ -365,10 +373,13 @@ async function processGame(event: any, league: any, stats: any) {
         provider: finalMarketOdds.provider || 'ESPN',
         isLive: isLiveGame,
         updatedAt: new Date().toISOString()
-      }).catch(e => console.error("writeCurrentOdds failed", e));
+      }).catch((e: any) => console.error("writeCurrentOdds failed", e));
     }
 
+    const effectiveOdds = (isExistingExternal && existingMatch?.current_odds) ? existingMatch.current_odds : canonicalOddsPayload;
+    matchPayload.current_odds = effectiveOdds;
     const aiSignals = computeAISignals(matchPayload);
+    delete matchPayload.current_odds;
 
     // Context Retrieval using safeExtract
     const espnSituation = safeExtract('Situation', () => EspnAdapters.Situation(data)) || {};
@@ -402,7 +413,7 @@ async function processGame(event: any, league: any, stats: any) {
 
       deterministic_signals: aiSignals,
       odds: {
-        current: cleanFinalOdds,
+        current: effectiveOdds,
         t60_snapshot: t60_snapshot || currentOddsState.t60_snapshot || null,
         t0_snapshot: t0_snapshot || currentOddsState.t0_snapshot || null
       },

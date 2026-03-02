@@ -920,8 +920,9 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
       }
       if (db && !isGameFinal(nextMatch.status)) {
         const espnOdds = nextMatch.odds;
-        const hasEspnOdds = espnOdds?.hasOdds;
-        nextMatch.current_odds = hasEspnOdds ? espnOdds : (db.current_odds || espnOdds);
+        const dbOdds = db.current_odds;
+        const isDbExternal = dbOdds?.provider && String(dbOdds.provider).toLowerCase() !== 'espn' && String(dbOdds.provider).toLowerCase() !== 'none';
+        nextMatch.current_odds = isDbExternal ? dbOdds : (espnOdds?.hasOdds ? espnOdds : (dbOdds || espnOdds));
         if ((db.home_score || 0) > (nextMatch.homeScore || 0)) nextMatch.homeScore = db.home_score;
         if ((db.away_score || 0) > (nextMatch.awayScore || 0)) nextMatch.awayScore = db.away_score;
       }
