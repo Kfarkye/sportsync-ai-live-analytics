@@ -216,6 +216,8 @@ export default function ReportsPage() {
   const [resultsSort, setResultsSort] = useState<ResultsSort>('latest');
   const [standingsSort, setStandingsSort] = useState<StandingsSort>('cover');
   const [minGames, setMinGames] = useState<number>(5);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
+  const [showMoreMetrics, setShowMoreMetrics] = useState<boolean>(false);
 
   useEffect(() => {
     let active = true;
@@ -395,6 +397,9 @@ export default function ReportsPage() {
 
     return {
       sample: filteredMatches.length,
+      atsBets,
+      totalBets,
+      moneylineDecisions,
       avgGoals: avg(totalGoals, filteredMatches.length),
       homeWinPct: pct(homeWins, filteredMatches.length),
       drawPct: pct(draws, filteredMatches.length),
@@ -435,6 +440,30 @@ export default function ReportsPage() {
 
   const selectedLeague = leagueOptions.find((league) => league.id === leagueId);
   const leagueLabel = selectedLeague?.label || LEAGUE_LABELS[leagueId] || leagueId.toUpperCase();
+  const primaryMetrics = summary
+    ? [
+      { label: 'Sample (n)', value: String(summary.sample), context: 'Matches' },
+      { label: 'Home Cover %', value: `${summary.homeCoverPct.toFixed(1)}%`, context: `ATS n=${summary.atsBets}` },
+      { label: 'Over %', value: `${summary.overPct.toFixed(1)}%`, context: `Totals n=${summary.totalBets}` },
+      { label: 'Favorites Win %', value: `${summary.favoriteWinPct.toFixed(1)}%`, context: `ML n=${summary.moneylineDecisions}` },
+    ]
+    : [];
+
+  const moreMetrics = summary
+    ? [
+      { label: 'Avg Goals', value: summary.avgGoals.toFixed(2), valueClass: 'text-slate-900' },
+      { label: 'BTTS %', value: `${summary.bttsPct.toFixed(1)}%`, valueClass: 'text-slate-900' },
+      { label: 'Underdog Win %', value: `${summary.dogWinPct.toFixed(1)}%`, valueClass: 'text-slate-900' },
+      { label: 'Home ATS ROI', value: `${summary.homeSpreadRoiPct.toFixed(1)}%`, valueClass: summary.homeSpreadRoiPct >= 0 ? 'text-emerald-600' : 'text-rose-600' },
+      { label: 'Over ROI', value: `${summary.overRoiPct.toFixed(1)}%`, valueClass: summary.overRoiPct >= 0 ? 'text-emerald-600' : 'text-rose-600' },
+      { label: 'Close Games', value: `${summary.closeGamePct.toFixed(1)}%`, valueClass: 'text-slate-900' },
+      { label: 'Avg Corners', value: summary.avgCorners.toFixed(1), valueClass: 'text-slate-900' },
+      { label: 'Avg Cards', value: summary.avgCards.toFixed(1), valueClass: 'text-slate-900' },
+      { label: 'Avg Pass %', value: `${summary.avgPassPct.toFixed(1)}%`, valueClass: 'text-slate-900' },
+      { label: 'Avg Shot Accuracy', value: `${summary.avgShotAcc.toFixed(1)}%`, valueClass: 'text-slate-900' },
+      { label: 'W-D-L Split', value: `${summary.homeWinPct.toFixed(1)} / ${summary.drawPct.toFixed(1)} / ${summary.awayWinPct.toFixed(1)}`, valueClass: 'text-slate-900' },
+    ]
+    : [];
 
   return (
     <div className="h-[var(--vvh,100vh)] overflow-y-auto overscroll-y-contain bg-slate-50 text-slate-900">
@@ -462,21 +491,24 @@ export default function ReportsPage() {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5 space-y-4">
           <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div className="flex flex-wrap gap-2">
-              {leagueOptions.map((league) => (
-                <button
-                  key={league.id}
-                  type="button"
-                  onClick={() => setLeagueId(league.id)}
-                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                    leagueId === league.id
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                  }`}
-                >
-                  {league.label}
-                </button>
-              ))}
+            <div className="space-y-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Basic Filters</div>
+              <div className="flex flex-wrap gap-2">
+                {leagueOptions.map((league) => (
+                  <button
+                    key={league.id}
+                    type="button"
+                    onClick={() => setLeagueId(league.id)}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                      leagueId === league.id
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                    }`}
+                  >
+                    {league.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
@@ -497,8 +529,8 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <div className="xl:col-span-2">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Team Filter</label>
               <input
                 value={search}
@@ -522,105 +554,146 @@ export default function ReportsPage() {
               </select>
             </div>
 
-            {view === 'results' ? (
-              <>
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Result Type</label>
-                  <select
-                    value={resultFilter}
-                    onChange={(event) => setResultFilter(event.target.value as ResultFilter)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
-                  >
-                    <option value="all">All</option>
-                    <option value="home">Home wins</option>
-                    <option value="away">Away wins</option>
-                    <option value="draw">Draws</option>
-                    <option value="over">Overs</option>
-                    <option value="under">Unders</option>
-                    <option value="upset">Upsets</option>
-                  </select>
-                </div>
+            <div className="flex items-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setDateWindow('all');
+                  setResultFilter('all');
+                  setOnlyWithLines(false);
+                  setResultsSort('latest');
+                  setStandingsSort('cover');
+                  setMinGames(5);
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilters((prev) => !prev)}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                {showAdvancedFilters ? 'Hide Advanced' : 'Advanced Filters'}
+              </button>
+            </div>
+          </div>
 
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Sort</label>
-                  <select
-                    value={resultsSort}
-                    onChange={(event) => setResultsSort(event.target.value as ResultsSort)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
-                  >
-                    <option value="latest">Latest</option>
-                    <option value="goals">Highest scoring</option>
-                    <option value="upset">Biggest upset line</option>
-                  </select>
-                </div>
+          <div className={`overflow-hidden transition-[max-height,opacity] duration-200 ${showAdvancedFilters ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 md:p-4">
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Advanced Filters</div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {view === 'results' ? (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Result Type</label>
+                      <select
+                        value={resultFilter}
+                        onChange={(event) => setResultFilter(event.target.value as ResultFilter)}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
+                      >
+                        <option value="all">All</option>
+                        <option value="home">Home wins</option>
+                        <option value="away">Away wins</option>
+                        <option value="draw">Draws</option>
+                        <option value="over">Overs</option>
+                        <option value="under">Unders</option>
+                        <option value="upset">Upsets</option>
+                      </select>
+                    </div>
 
-                <label className="inline-flex items-center gap-2 self-end rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={onlyWithLines}
-                    onChange={(event) => setOnlyWithLines(event.target.checked)}
-                    className="accent-slate-900"
-                  />
-                  Lines only
-                </label>
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Standings Sort</label>
-                  <select
-                    value={standingsSort}
-                    onChange={(event) => setStandingsSort(event.target.value as StandingsSort)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
-                  >
-                    <option value="cover">Cover %</option>
-                    <option value="atsRoi">ATS ROI %</option>
-                    <option value="points">Points</option>
-                    <option value="goalDiff">Goal Diff</option>
-                  </select>
-                </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Sort</label>
+                      <select
+                        value={resultsSort}
+                        onChange={(event) => setResultsSort(event.target.value as ResultsSort)}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
+                      >
+                        <option value="latest">Latest</option>
+                        <option value="goals">Highest scoring</option>
+                        <option value="upset">Biggest upset line</option>
+                      </select>
+                    </div>
 
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Min Games</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={40}
-                    value={minGames}
-                    onChange={(event) => setMinGames(Math.max(1, Math.min(40, Number(event.target.value) || 1)))}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
-                  />
-                </div>
-                <div className="self-end text-xs text-slate-500">Filtered rows: {filteredStandings.length}</div>
-              </>
-            )}
+                    <label className="inline-flex h-[42px] items-center gap-2 self-end rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={onlyWithLines}
+                        onChange={(event) => setOnlyWithLines(event.target.checked)}
+                        className="accent-slate-900"
+                      />
+                      Lines only
+                    </label>
+
+                    <div className="self-end text-xs text-slate-500">Filtered matches: {filteredMatches.length}</div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Standings Sort</label>
+                      <select
+                        value={standingsSort}
+                        onChange={(event) => setStandingsSort(event.target.value as StandingsSort)}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
+                      >
+                        <option value="cover">Cover %</option>
+                        <option value="atsRoi">ATS ROI %</option>
+                        <option value="points">Points</option>
+                        <option value="goalDiff">Goal Diff</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Min Games</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={40}
+                        value={minGames}
+                        onChange={(event) => setMinGames(Math.max(1, Math.min(40, Number(event.target.value) || 1)))}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
+                      />
+                    </div>
+
+                    <div className="self-end text-xs text-slate-500">Filtered rows: {filteredStandings.length}</div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </section>
 
         {summary && (
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            {[
-              { label: 'Sample', value: String(summary.sample) },
-              { label: 'Avg Goals', value: summary.avgGoals.toFixed(2) },
-              { label: 'Home Cover %', value: `${summary.homeCoverPct.toFixed(1)}%` },
-              { label: 'Over %', value: `${summary.overPct.toFixed(1)}%` },
-              { label: 'BTTS %', value: `${summary.bttsPct.toFixed(1)}%` },
-              { label: 'Favorite Win %', value: `${summary.favoriteWinPct.toFixed(1)}%` },
-              { label: 'Underdog Win %', value: `${summary.dogWinPct.toFixed(1)}%` },
-              { label: 'Home ATS ROI', value: `${summary.homeSpreadRoiPct.toFixed(1)}%` },
-              { label: 'Over ROI', value: `${summary.overRoiPct.toFixed(1)}%` },
-              { label: 'Close Games', value: `${summary.closeGamePct.toFixed(1)}%` },
-              { label: 'Avg Corners', value: summary.avgCorners.toFixed(1) },
-              { label: 'Avg Cards', value: summary.avgCards.toFixed(1) },
-              { label: 'Avg Pass %', value: `${summary.avgPassPct.toFixed(1)}%` },
-              { label: 'Avg Shot Accuracy', value: `${summary.avgShotAcc.toFixed(1)}%` },
-              { label: 'W-D-L Split', value: `${summary.homeWinPct.toFixed(1)} / ${summary.drawPct.toFixed(1)} / ${summary.awayWinPct.toFixed(1)}` },
-            ].map((stat) => (
-              <article key={stat.label} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{stat.label}</div>
-                <div className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{stat.value}</div>
-              </article>
-            ))}
+          <section className="space-y-2">
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {primaryMetrics.map((metric) => (
+                <article key={metric.label} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{metric.label}</div>
+                  <div className="mt-1 text-[1.55rem] leading-none font-semibold tabular-nums text-slate-900">{metric.value}</div>
+                  <div className="mt-1 text-[11px] text-slate-500">{metric.context}</div>
+                </article>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowMoreMetrics((prev) => !prev)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
+            >
+              {showMoreMetrics ? 'Hide More Metrics' : 'More Metrics'}
+            </button>
+
+            {showMoreMetrics && (
+              <div className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white px-3 py-3">
+                {moreMetrics.map((metric) => (
+                  <div key={metric.label} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">{metric.label}</span>
+                    <span className={`text-sm font-semibold tabular-nums ${metric.valueClass}`}>{metric.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
@@ -691,18 +764,27 @@ export default function ReportsPage() {
           <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-[980px] w-full text-sm">
-                <thead className="bg-slate-50">
+                <thead>
                   <tr className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
-                    <th className="px-4 py-3 text-left">Team</th>
-                    <th className="px-3 py-3 text-right">W-D-L</th>
-                    <th className="px-3 py-3 text-right">Pts</th>
-                    <th className="px-3 py-3 text-right">GD</th>
-                    <th className="px-3 py-3 text-right">ATS</th>
-                    <th className="px-3 py-3 text-right">Cover %</th>
-                    <th className="px-3 py-3 text-right">ATS ROI</th>
-                    <th className="px-3 py-3 text-right">O/U</th>
-                    <th className="px-3 py-3 text-right">BTTS %</th>
-                    <th className="px-3 py-3 text-right">Avg Goals</th>
+                    <th className="sticky top-[53px] z-20 bg-slate-50/95 backdrop-blur px-4 py-3 text-left">Team</th>
+                    <th className="sticky top-[53px] z-20 bg-slate-50/95 backdrop-blur px-3 py-3 text-right">W-D-L</th>
+                    <th className="sticky top-[53px] z-20 bg-slate-50/95 backdrop-blur px-3 py-3 text-right">Pts</th>
+                    <th className="sticky top-[53px] z-20 bg-slate-50/95 backdrop-blur px-3 py-3 text-right">GD</th>
+                    <th className="sticky top-[53px] z-20 bg-slate-50/95 backdrop-blur px-3 py-3 text-right">ATS</th>
+                    <th className="sticky top-[53px] z-20 bg-slate-50/95 backdrop-blur px-3 py-3 text-right">
+                      <span>Cover %</span>
+                      <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">ATS n</span>
+                    </th>
+                    <th className="sticky top-[53px] z-20 bg-slate-50/95 backdrop-blur px-3 py-3 text-right">
+                      <span>ATS ROI %</span>
+                      <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">ATS n</span>
+                    </th>
+                    <th className="sticky top-[53px] z-20 bg-slate-50/95 backdrop-blur px-3 py-3 text-right">O/U</th>
+                    <th className="sticky top-[53px] z-20 bg-slate-50/95 backdrop-blur px-3 py-3 text-right">
+                      <span>BTTS %</span>
+                      <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">Games n</span>
+                    </th>
+                    <th className="sticky top-[53px] z-20 bg-slate-50/95 backdrop-blur px-3 py-3 text-right">Avg Goals</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -715,12 +797,27 @@ export default function ReportsPage() {
                       </td>
                       <td className="px-3 py-3 text-right tabular-nums text-slate-600">{row.wins}-{row.draws}-{row.losses}</td>
                       <td className="px-3 py-3 text-right tabular-nums font-semibold text-slate-900">{row.points}</td>
-                      <td className={`px-3 py-3 text-right tabular-nums font-semibold ${row.goalDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{row.goalDiff >= 0 ? `+${row.goalDiff}` : row.goalDiff}</td>
+                      <td className="px-3 py-3 text-right tabular-nums font-semibold text-slate-700">{row.goalDiff >= 0 ? `+${row.goalDiff}` : row.goalDiff}</td>
                       <td className="px-3 py-3 text-right tabular-nums text-slate-600">{row.atsCovered}-{row.atsFailed}-{row.atsPush}</td>
-                      <td className={`px-3 py-3 text-right tabular-nums font-semibold ${row.coverPct >= 55 ? 'text-emerald-600' : row.coverPct <= 45 ? 'text-rose-600' : 'text-slate-700'}`}>{row.coverPct.toFixed(1)}%</td>
-                      <td className={`px-3 py-3 text-right tabular-nums font-semibold ${row.atsRoiPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{row.atsRoiPct.toFixed(1)}%</td>
+                      <td className="px-3 py-3 text-right tabular-nums" title={`ATS sample n=${row.atsBets}`}>
+                        <div className="inline-flex flex-col items-end leading-tight">
+                          <span className="font-semibold text-slate-700">{row.coverPct.toFixed(1)}%</span>
+                          <span className="mt-1 text-[10px] text-slate-500">n={row.atsBets}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums" title={`ATS sample n=${row.atsBets}`}>
+                        <div className="inline-flex flex-col items-end leading-tight">
+                          <span className={`font-semibold ${row.atsRoiPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{row.atsRoiPct.toFixed(1)}%</span>
+                          <span className="mt-1 text-[10px] text-slate-500">n={row.atsBets}</span>
+                        </div>
+                      </td>
                       <td className="px-3 py-3 text-right tabular-nums text-slate-600">{row.over}-{row.under}-{row.ouPush}</td>
-                      <td className="px-3 py-3 text-right tabular-nums text-slate-700">{row.bttsPct.toFixed(1)}%</td>
+                      <td className="px-3 py-3 text-right tabular-nums" title={`Games sample n=${row.played}`}>
+                        <div className="inline-flex flex-col items-end leading-tight">
+                          <span className="font-semibold text-slate-700">{row.bttsPct.toFixed(1)}%</span>
+                          <span className="mt-1 text-[10px] text-slate-500">n={row.played}</span>
+                        </div>
+                      </td>
                       <td className="px-3 py-3 text-right tabular-nums text-slate-700">{row.avgGoals.toFixed(2)}</td>
                     </tr>
                   ))}
