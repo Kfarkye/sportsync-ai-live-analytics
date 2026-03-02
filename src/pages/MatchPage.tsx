@@ -261,16 +261,34 @@ function StatComparisonRow({
   const awayPct = Math.max(0, 100 - homePct);
 
   return (
-    <div className="grid grid-cols-[64px_1fr_110px_1fr_64px] items-center gap-3 py-3 border-b border-slate-100 last:border-b-0">
-      <div className="text-right text-sm font-semibold tabular-nums text-slate-700">{row.homeDisplay}</div>
-      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-        <div className="h-full rounded-full" style={{ width: `${homePct}%`, backgroundColor: homeColor }} />
+    <div className="border-b border-slate-100 last:border-b-0 py-2.5 sm:py-3">
+      <div className="sm:hidden">
+        <div className="flex items-center justify-between gap-2 text-xs font-semibold tabular-nums">
+          <span className="text-slate-700">{row.homeDisplay}</span>
+          <span className="uppercase tracking-[0.1em] text-[10px] text-slate-500">{row.label}</span>
+          <span className="text-slate-700">{row.awayDisplay}</span>
+        </div>
+        <div className="mt-1.5 grid grid-cols-2 gap-2">
+          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${homePct}%`, backgroundColor: homeColor }} />
+          </div>
+          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-full rounded-full ml-auto" style={{ width: `${awayPct}%`, backgroundColor: awayColor }} />
+          </div>
+        </div>
       </div>
-      <div className="text-center text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">{row.label}</div>
-      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-        <div className="h-full rounded-full ml-auto" style={{ width: `${awayPct}%`, backgroundColor: awayColor }} />
+
+      <div className="hidden sm:grid sm:grid-cols-[64px_1fr_110px_1fr_64px] items-center gap-3">
+        <div className="text-right text-sm font-semibold tabular-nums text-slate-700">{row.homeDisplay}</div>
+        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-full rounded-full" style={{ width: `${homePct}%`, backgroundColor: homeColor }} />
+        </div>
+        <div className="text-center text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">{row.label}</div>
+        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-full rounded-full ml-auto" style={{ width: `${awayPct}%`, backgroundColor: awayColor }} />
+        </div>
+        <div className="text-left text-sm font-semibold tabular-nums text-slate-700">{row.awayDisplay}</div>
       </div>
-      <div className="text-left text-sm font-semibold tabular-nums text-slate-700">{row.awayDisplay}</div>
     </div>
   );
 }
@@ -285,10 +303,10 @@ function OddsQuoteCell({
   isWinner: boolean;
 }) {
   return (
-    <div className={`rounded-lg border px-3 py-3 text-center ${isWinner ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</div>
-      <div className={`mt-1 text-xl font-semibold tabular-nums ${isWinner ? 'text-emerald-700' : 'text-slate-900'}`}>{fmtOdds(odds)}</div>
-      <div className="mt-1 text-[11px] text-slate-500">{odds != null ? `${(impliedProb(odds) * 100).toFixed(1)}% implied` : 'No line'}</div>
+    <div className={`rounded-lg border px-2.5 sm:px-3 py-2.5 sm:py-3 text-center ${isWinner ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+      <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</div>
+      <div className={`mt-1 text-lg sm:text-xl font-semibold tabular-nums ${isWinner ? 'text-emerald-700' : 'text-slate-900'}`}>{fmtOdds(odds)}</div>
+      <div className="mt-1 text-[10px] sm:text-[11px] text-slate-500">{odds != null ? `${(impliedProb(odds) * 100).toFixed(1)}% implied` : 'No line'}</div>
       {isWinner && <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">Result</div>}
     </div>
   );
@@ -296,18 +314,18 @@ function OddsQuoteCell({
 
 function LineupPlayerRow({ player, accentColor }: { player: LineupPlayer; accentColor: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-2">
-      <div className="w-6 text-right text-[11px] font-semibold tabular-nums" style={{ color: accentColor }}>
+    <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 sm:px-2.5 py-1.5 sm:py-2">
+      <div className="w-5 sm:w-6 text-right text-[10px] sm:text-[11px] font-semibold tabular-nums" style={{ color: accentColor }}>
         {player.jersey || '—'}
       </div>
       <div className="h-4 w-px" style={{ backgroundColor: accentColor, opacity: 0.35 }} />
       <div className="min-w-0 flex-1">
-        <div className={`truncate text-sm ${player.redCards > 0 ? 'text-rose-700 line-through' : 'text-slate-800'} font-medium`}>
+        <div className={`truncate text-[13px] sm:text-sm ${player.redCards > 0 ? 'text-rose-700 line-through' : 'text-slate-800'} font-medium`}>
           {player.name}
         </div>
-        <div className="text-[11px] text-slate-500">{player.position || 'Position n/a'}</div>
+        <div className="text-[10px] sm:text-[11px] text-slate-500">{player.position || 'Position n/a'}</div>
       </div>
-      <div className="flex items-center gap-1 text-[10px] font-semibold tabular-nums">
+      <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold tabular-nums">
         {player.goals > 0 && <span className="text-slate-700">G{player.goals}</span>}
         {player.assists > 0 && <span className="text-slate-500">A{player.assists}</span>}
         {player.yellowCards > 0 && <span className="text-amber-600">Y{player.yellowCards}</span>}
@@ -572,123 +590,123 @@ export default function MatchPage() {
   return (
     <div className="h-[var(--vvh,100vh)] overflow-y-auto bg-slate-50 text-slate-900" style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.45s ease-out' }}>
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-        <div className="mx-auto w-full max-w-6xl px-4 md:px-6 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="mx-auto w-full max-w-6xl px-4 md:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             <Link
               to="/reports"
-              className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+              className="rounded-md border border-slate-200 px-2 sm:px-2.5 py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50 whitespace-nowrap"
             >
               Reports
             </Link>
             <Link
               to={teamUrl(match.home_team)}
-              className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+              className="rounded-md border border-slate-200 px-2 sm:px-2.5 py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50 whitespace-nowrap"
             >
               {homeAbbr}
             </Link>
             <Link
               to={teamUrl(match.away_team)}
-              className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+              className="rounded-md border border-slate-200 px-2 sm:px-2.5 py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50 whitespace-nowrap"
             >
               {awayAbbr}
             </Link>
           </div>
-          <div className="text-[11px] font-medium text-slate-500">{leagueLabel} · {formattedDate}</div>
+          <div className="hidden sm:block text-[11px] font-medium text-slate-500">{leagueLabel} · {formattedDate}</div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 md:px-6 py-8 space-y-6">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 space-y-5">
+      <main className="mx-auto w-full max-w-6xl px-4 md:px-6 py-5 md:py-8 space-y-4 md:space-y-6">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 space-y-4 md:space-y-5">
           <div className="flex items-center justify-between gap-3">
             <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: homeColor }} />
               {leagueLabel}
             </div>
-            <div className="text-[11px] font-medium text-slate-500">{formattedDate}</div>
+            <div className="text-[10px] sm:text-[11px] font-medium text-slate-500">{formattedDate}</div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-5">
-            <Link to={teamUrl(match.home_team)} className="flex flex-col items-center gap-2 text-center rounded-xl border border-slate-200 bg-slate-50 py-4 hover:bg-slate-100 transition">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-5">
+            <Link to={teamUrl(match.home_team)} className="flex flex-col items-center gap-1.5 sm:gap-2 text-center rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 sm:py-4 hover:bg-slate-100 transition">
               {homeMeta?.logo_url ? (
-                <img src={homeMeta.logo_url} alt={match.home_team} className="h-14 w-14 object-contain" />
+                <img src={homeMeta.logo_url} alt={match.home_team} className="h-10 w-10 sm:h-14 sm:w-14 object-contain" />
               ) : (
-                <div className="h-14 w-14 rounded-full flex items-center justify-center text-xl font-bold" style={{ backgroundColor: homeColor, color: C.surface }}>
+                <div className="h-10 w-10 sm:h-14 sm:w-14 rounded-full flex items-center justify-center text-base sm:text-xl font-bold" style={{ backgroundColor: homeColor, color: C.surface }}>
                   {match.home_team.slice(0, 1)}
                 </div>
               )}
-              <div className="text-sm font-semibold text-slate-900">{match.home_team}</div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{homeAbbr}</div>
+              <div className="text-[13px] sm:text-sm font-semibold text-slate-900 leading-tight">{match.home_team}</div>
+              <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{homeAbbr}</div>
             </Link>
 
-            <div className="text-center px-2">
-              <div className="flex items-end justify-center gap-3">
-                <span className="text-5xl md:text-6xl font-semibold leading-none tabular-nums tracking-tight">{match.home_score}</span>
-                <span className="text-3xl text-slate-300 leading-none">-</span>
-                <span className="text-5xl md:text-6xl font-semibold leading-none tabular-nums tracking-tight">{match.away_score}</span>
+            <div className="text-center px-1 sm:px-2">
+              <div className="flex items-end justify-center gap-2 sm:gap-3">
+                <span className="text-4xl sm:text-5xl md:text-6xl font-semibold leading-none tabular-nums tracking-tight">{match.home_score}</span>
+                <span className="text-2xl sm:text-3xl text-slate-300 leading-none">-</span>
+                <span className="text-4xl sm:text-5xl md:text-6xl font-semibold leading-none tabular-nums tracking-tight">{match.away_score}</span>
               </div>
-              <div className="mt-2 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+              <div className="mt-1.5 sm:mt-2 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600">
                 {statusLabel || 'Final'}
               </div>
             </div>
 
-            <Link to={teamUrl(match.away_team)} className="flex flex-col items-center gap-2 text-center rounded-xl border border-slate-200 bg-slate-50 py-4 hover:bg-slate-100 transition">
+            <Link to={teamUrl(match.away_team)} className="flex flex-col items-center gap-1.5 sm:gap-2 text-center rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 sm:py-4 hover:bg-slate-100 transition">
               {awayMeta?.logo_url ? (
-                <img src={awayMeta.logo_url} alt={match.away_team} className="h-14 w-14 object-contain" />
+                <img src={awayMeta.logo_url} alt={match.away_team} className="h-10 w-10 sm:h-14 sm:w-14 object-contain" />
               ) : (
-                <div className="h-14 w-14 rounded-full flex items-center justify-center text-xl font-bold" style={{ backgroundColor: awayColor, color: C.surface }}>
+                <div className="h-10 w-10 sm:h-14 sm:w-14 rounded-full flex items-center justify-center text-base sm:text-xl font-bold" style={{ backgroundColor: awayColor, color: C.surface }}>
                   {match.away_team.slice(0, 1)}
                 </div>
               )}
-              <div className="text-sm font-semibold text-slate-900">{match.away_team}</div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{awayAbbr}</div>
+              <div className="text-[13px] sm:text-sm font-semibold text-slate-900 leading-tight">{match.away_team}</div>
+              <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{awayAbbr}</div>
             </Link>
           </div>
 
           {venueParts.length > 0 && (
-            <div className="text-center text-xs text-slate-500">{venueParts.join(' · ')}</div>
+            <div className="text-center text-[11px] sm:text-xs text-slate-500">{venueParts.join(' · ')}</div>
           )}
 
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <article className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Total Shots</div>
-              <div className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{totalShots}</div>
-              <div className="mt-1 text-[11px] text-slate-500">{totalOnTarget} on target</div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <article className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+              <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Total Shots</div>
+              <div className="mt-0.5 sm:mt-1 text-lg sm:text-xl font-semibold tabular-nums text-slate-900">{totalShots}</div>
+              <div className="mt-0.5 sm:mt-1 text-[10px] sm:text-[11px] text-slate-500">{totalOnTarget} on target</div>
             </article>
-            <article className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Possession Split</div>
-              <div className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{match.home_possession ?? '—'}% / {match.away_possession ?? '—'}%</div>
-              <div className="mt-1 text-[11px] text-slate-500">Home vs Away</div>
+            <article className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+              <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Possession</div>
+              <div className="mt-0.5 sm:mt-1 text-lg sm:text-xl font-semibold tabular-nums text-slate-900">{match.home_possession ?? '—'}% / {match.away_possession ?? '—'}%</div>
+              <div className="mt-0.5 sm:mt-1 text-[10px] sm:text-[11px] text-slate-500">Home vs Away</div>
             </article>
-            <article className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Total Goals</div>
-              <div className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{totalGoals}</div>
-              <div className="mt-1 text-[11px] text-slate-500">Full-time output</div>
+            <article className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+              <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Total Goals</div>
+              <div className="mt-0.5 sm:mt-1 text-lg sm:text-xl font-semibold tabular-nums text-slate-900">{totalGoals}</div>
+              <div className="mt-0.5 sm:mt-1 text-[10px] sm:text-[11px] text-slate-500">Full-time output</div>
             </article>
-            <article className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Corners</div>
-              <div className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{totalCorners}</div>
-              <div className="mt-1 text-[11px] text-slate-500">Set-piece volume</div>
+            <article className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+              <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Corners</div>
+              <div className="mt-0.5 sm:mt-1 text-lg sm:text-xl font-semibold tabular-nums text-slate-900">{totalCorners}</div>
+              <div className="mt-0.5 sm:mt-1 text-[10px] sm:text-[11px] text-slate-500">Set-piece volume</div>
             </article>
           </div>
         </section>
 
         {matchEvents.length > 0 && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+          <section className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 md:p-5">
             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Match Momentum</div>
-            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+            <div className="mt-2 sm:mt-3 rounded-lg border border-slate-200 bg-slate-50 p-1.5 sm:p-2">
               <MomentumArc events={matchEvents} homeColor={homeColor} awayColor={awayColor} homeAbbr={homeAbbr} awayAbbr={awayAbbr} />
             </div>
           </section>
         )}
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-2">
+        <section className="rounded-2xl border border-slate-200 bg-white p-1.5 sm:p-2">
           <div className="flex gap-1 overflow-x-auto no-scrollbar">
             {tabs.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                className={`rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] whitespace-nowrap transition ${tab === item.id ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
+                className={`rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.12em] whitespace-nowrap transition ${tab === item.id ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
               >
                 {item.label}
               </button>
@@ -697,10 +715,10 @@ export default function MatchPage() {
         </section>
 
         {tab === 'overview' && (
-          <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <section className="grid gap-3 sm:gap-4 lg:grid-cols-[1.2fr_0.8fr]">
             <article className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800">Key Moments</div>
-              <div className="p-3 md:p-4 space-y-1">
+              <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100 text-sm font-semibold text-slate-800">Key Moments</div>
+              <div className="p-2.5 sm:p-3 md:p-4 space-y-1">
                 {timelineEvents.length === 0 ? (
                   <div className="text-sm text-slate-500">No timeline events available.</div>
                 ) : (
@@ -714,13 +732,16 @@ export default function MatchPage() {
                           : 'text-amber-700';
 
                     return (
-                      <div key={`${event.raw}-${event.type}-${index}`} className="grid grid-cols-[44px_1fr_auto] gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-                        <div className="text-[11px] font-semibold tabular-nums text-slate-500 text-right">{event.raw}</div>
+                      <div key={`${event.raw}-${event.type}-${index}`} className="grid grid-cols-[36px_1fr] sm:grid-cols-[44px_1fr_auto] gap-2 sm:gap-3 rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+                        <div className="text-[10px] sm:text-[11px] font-semibold tabular-nums text-slate-500 text-right">{event.raw}</div>
                         <div className="min-w-0">
-                          <div className={`text-sm font-semibold ${markerTone}`}>{event.player}</div>
-                          {event.detail && <div className="text-[11px] text-slate-500 mt-0.5">{event.detail}</div>}
+                          <div className={`text-[13px] sm:text-sm font-semibold ${markerTone}`}>{event.player}</div>
+                          {event.detail && <div className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5">{event.detail}</div>}
+                          <div className="mt-0.5 sm:hidden text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                            {marker} · {event.side === 'home' ? homeAbbr : awayAbbr}
+                          </div>
                         </div>
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 self-center">
+                        <div className="hidden sm:block text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 self-center">
                           {marker} · {event.side === 'home' ? homeAbbr : awayAbbr}
                         </div>
                       </div>
@@ -731,17 +752,17 @@ export default function MatchPage() {
             </article>
 
             <div className="space-y-4">
-              <article className="rounded-2xl border border-slate-200 bg-white p-4">
+              <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Match Summary</div>
-                <p className="mt-3 text-sm leading-7 text-slate-700">{summaryText}</p>
+                <p className="mt-2.5 sm:mt-3 text-[13px] sm:text-sm leading-6 sm:leading-7 text-slate-700">{summaryText}</p>
               </article>
 
-              <article className="rounded-2xl border border-slate-200 bg-white p-4">
+              <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Market Close</div>
-                <div className="mt-3 space-y-2 text-sm">
-                  <div className="flex items-center justify-between gap-3">
+                <div className="mt-2.5 sm:mt-3 space-y-2 text-xs sm:text-sm">
+                  <div className="flex items-start sm:items-center justify-between gap-3">
                     <span className="text-slate-500">Moneyline winner</span>
-                    <span className="font-semibold text-slate-900">
+                    <span className="font-semibold text-slate-900 text-right">
                       {mlResult === 'home' ? match.home_team : mlResult === 'away' ? match.away_team : 'Draw'}
                     </span>
                   </div>
@@ -765,12 +786,12 @@ export default function MatchPage() {
 
         {tab === 'stats' && (
           <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
+            <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100 flex items-center justify-between gap-3">
               <div className="text-sm font-semibold text-slate-800">Stat Comparison</div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{homeAbbr} vs {awayAbbr}</div>
             </div>
 
-            <div className="px-4 py-3">
+            <div className="px-3 sm:px-4 py-2 sm:py-3">
               {statRows.map((row) => (
                 <StatComparisonRow key={row.label} row={row} homeColor={homeColor} awayColor={awayColor} />
               ))}
@@ -779,8 +800,8 @@ export default function MatchPage() {
         )}
 
         {tab === 'odds' && hasOdds && (
-          <section className="grid gap-4 lg:grid-cols-2">
-            <article className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+          <section className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+            <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 space-y-2.5 sm:space-y-3">
               <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Closing Moneyline</div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <OddsQuoteCell label={match.home_team} odds={match.dk_home_ml} isWinner={mlResult === 'home'} />
@@ -789,18 +810,18 @@ export default function MatchPage() {
               </div>
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+            <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 space-y-2.5 sm:space-y-3">
               <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Spread + Total</div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
-                <div className="flex items-center justify-between text-sm">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2.5 sm:py-3">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-slate-500">{match.home_team}</span>
                   <span className="font-semibold tabular-nums text-slate-900">{homeSpreadText} ({fmtOdds(match.dk_home_spread_price)})</span>
                 </div>
-                <div className="mt-2 flex items-center justify-between text-sm">
+                <div className="mt-2 flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-slate-500">{match.away_team}</span>
                   <span className="font-semibold tabular-nums text-slate-900">{awaySpreadText} ({fmtOdds(match.dk_away_spread_price)})</span>
                 </div>
-                <div className="mt-3 border-t border-slate-200 pt-2 text-sm">
+                <div className="mt-2.5 sm:mt-3 border-t border-slate-200 pt-2 text-xs sm:text-sm">
                   <span className="text-slate-500">Result: </span>
                   <span className={`font-semibold ${spreadResult?.result === 'covered' ? 'text-emerald-700' : spreadResult?.result === 'failed' ? 'text-rose-700' : 'text-slate-700'}`}>
                     {spreadResult ? spreadResult.result.toUpperCase() : 'OFF'}
@@ -808,16 +829,16 @@ export default function MatchPage() {
                 </div>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
-                <div className="flex items-center justify-between text-sm">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2.5 sm:py-3">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-slate-500">Over {match.dk_total ?? '—'}</span>
                   <span className="font-semibold tabular-nums text-slate-900">{fmtOdds(match.dk_over_price)}</span>
                 </div>
-                <div className="mt-2 flex items-center justify-between text-sm">
+                <div className="mt-2 flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-slate-500">Under {match.dk_total ?? '—'}</span>
                   <span className="font-semibold tabular-nums text-slate-900">{fmtOdds(match.dk_under_price)}</span>
                 </div>
-                <div className="mt-3 border-t border-slate-200 pt-2 text-sm">
+                <div className="mt-2.5 sm:mt-3 border-t border-slate-200 pt-2 text-xs sm:text-sm">
                   <span className="text-slate-500">Result: </span>
                   <span className="font-semibold text-slate-900">{totalResult ? `${String(totalResult.result).toUpperCase()} (${totalGoals})` : 'OFF'}</span>
                 </div>
@@ -827,7 +848,7 @@ export default function MatchPage() {
         )}
 
         {tab === 'lineups' && (
-          <section className="grid gap-4 lg:grid-cols-2">
+          <section className="grid gap-3 sm:gap-4 lg:grid-cols-2">
             {[
               { label: match.home_team, players: homeLineup, accent: homeColor, logo: homeMeta?.logo_url },
               { label: match.away_team, players: awayLineup, accent: awayColor, logo: awayMeta?.logo_url },
@@ -837,13 +858,13 @@ export default function MatchPage() {
 
               return (
                 <article key={sidePanel.label} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                  <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100 flex items-center gap-2">
                     {sidePanel.logo && <img src={sidePanel.logo} alt={sidePanel.label} className="h-5 w-5 object-contain" />}
                     <div className="text-sm font-semibold text-slate-800">{sidePanel.label}</div>
                     <div className="ml-auto text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{starters.length} starters</div>
                   </div>
 
-                  <div className="p-3 space-y-2">
+                  <div className="p-2.5 sm:p-3 space-y-1.5 sm:space-y-2">
                     {starters.length === 0 && <div className="text-sm text-slate-500">No lineup data available.</div>}
                     {starters.map((player, idx) => (
                       <LineupPlayerRow key={`${sidePanel.label}-starter-${idx}`} player={player} accentColor={sidePanel.accent} />
