@@ -118,10 +118,10 @@ export const LeaguePage: FC<LeaguePageProps> = ({ leagueId, query }) => {
 
       {matches ? (
         <div className="space-y-6 sm:space-y-8">
-          <Card>
-            <CardHeader className="flex flex-wrap items-center gap-3">
-              <SectionLabel>Matchday Navigation</SectionLabel>
-              {matchdays.length > 0 ? (
+          {matchdays.length > 0 ? (
+            <Card>
+              <CardHeader className="flex flex-wrap items-center gap-3">
+                <SectionLabel>Matchday Navigation</SectionLabel>
                 <div className="flex flex-wrap items-center gap-2">
                   <a
                     href={POSTGAME_SSG_ROUTES.league(leagueId)}
@@ -143,9 +143,9 @@ export const LeaguePage: FC<LeaguePageProps> = ({ leagueId, query }) => {
                     </a>
                   ))}
                 </div>
-              ) : null}
-            </CardHeader>
-          </Card>
+              </CardHeader>
+            </Card>
+          ) : null}
 
           <Card>
             <CardHeader>

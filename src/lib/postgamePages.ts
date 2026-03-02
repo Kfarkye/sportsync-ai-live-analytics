@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
-export const SOCCER_LEAGUES = ['epl', 'laliga', 'seriea', 'bundesliga', 'ligue1', 'mls'] as const;
+export const SOCCER_LEAGUES = ['epl', 'laliga', 'seriea', 'bundesliga', 'ligue1', 'mls', 'ucl', 'uel'] as const;
 export type SoccerLeagueId = (typeof SOCCER_LEAGUES)[number];
 
 export interface MatchOddsSnapshot {
@@ -91,7 +91,43 @@ export interface SoccerMatchDetail extends SoccerMatchCard {
   timeline: MatchEvent[];
   events: MatchEvent[];
   lineups: TeamLineup[];
+  bet365TeamOdds: Bet365TeamOddsSnapshot | null;
+  playerScorerOdds: PlayerScorerOddsRow[];
   raw: Record<string, unknown>;
+}
+
+export interface Bet365TeamOddsSnapshot {
+  homeFractional: string | null;
+  drawFractional: string | null;
+  awayFractional: string | null;
+  homeDecimal: number | null;
+  drawDecimal: number | null;
+  awayDecimal: number | null;
+  ouHandicap: number | null;
+  overFractional: string | null;
+  underFractional: string | null;
+  overDecimal: number | null;
+  underDecimal: number | null;
+  dcHomeDrawFractional: string | null;
+  dcDrawAwayFractional: string | null;
+  dcHomeAwayFractional: string | null;
+  ftResult: string | null;
+  totalGoals: number | null;
+}
+
+export interface PlayerScorerOddsRow {
+  id: string;
+  playerName: string;
+  pool: string;
+  oddsFractional: string | null;
+  oddsDecimal: number | null;
+  impliedProb: number | null;
+  scored: boolean | null;
+  goalsScored: number | null;
+  firstGoal: boolean | null;
+  lastGoal: boolean | null;
+  result: string | null;
+  profitDecimal: number | null;
 }
 
 export interface TeamDirectoryItem {
@@ -160,6 +196,8 @@ const LEAGUE_LABELS: Record<string, string> = {
   bundesliga: 'Bundesliga',
   ligue1: 'Ligue 1',
   mls: 'MLS',
+  ucl: 'Champions League',
+  uel: 'Europa League',
 };
 
 const LEGACY_LEAGUE_MAP: Record<string, string> = {
@@ -169,6 +207,8 @@ const LEGACY_LEAGUE_MAP: Record<string, string> = {
   'ger.1': 'bundesliga',
   'fra.1': 'ligue1',
   'usa.1': 'mls',
+  'uefa.champions': 'ucl',
+  'uefa.europa': 'uel',
 };
 
 const BOX_SCORE_KEYS: Array<{ key: string; label: string; home: string[]; away: string[]; pct?: boolean }> = [
@@ -322,7 +362,7 @@ export const buildMatchSlug = (row: UnknownRecord): string => {
 
 export const parseMatchSlug = (
   slug: string,
-): { leagueId: string; homeSlug: string; awaySlug: string; date: string } | null => {
+): { leagueId: string | null; homeSlug: string; awaySlug: string; date: string } | null => {
   const normalized = slug.trim().toLowerCase();
   const dateMatch = normalized.match(/^(.*)-(\d{4}-\d{2}-\d{2})$/);
   if (!dateMatch) return null;
@@ -337,7 +377,14 @@ export const parseMatchSlug = (
   if (!awaySlug) return null;
 
   const league = SOCCER_LEAGUES.find((candidate) => left.startsWith(`${candidate}-`));
-  if (!league) return null;
+  if (!league) {
+    return {
+      leagueId: null,
+      homeSlug: left,
+      awaySlug,
+      date,
+    };
+  }
 
   const homeSlug = left.slice(league.length + 1);
   if (!homeSlug) return null;
@@ -648,7 +695,79 @@ const toMatchDetail = (row: UnknownRecord): SoccerMatchDetail => {
     timeline: extractTimeline(events),
     events,
     lineups: extractLineups(row, base.homeTeam, base.awayTeam),
+    bet365TeamOdds: null,
+    playerScorerOdds: [],
     raw: row,
+  };
+};
+
+const mapBet365TeamOdds = (row: UnknownRecord): Bet365TeamOddsSnapshot => ({
+  homeFractional: parseStringSafe(readValue(row, ['b365_home_frac'])),
+  drawFractional: parseStringSafe(readValue(row, ['b365_draw_frac'])),
+  awayFractional: parseStringSafe(readValue(row, ['b365_away_frac'])),
+  homeDecimal: parseFloatSafe(readValue(row, ['b365_home_dec'])),
+  drawDecimal: parseFloatSafe(readValue(row, ['b365_draw_dec'])),
+  awayDecimal: parseFloatSafe(readValue(row, ['b365_away_dec'])),
+  ouHandicap: parseFloatSafe(readValue(row, ['b365_ou_handicap'])),
+  overFractional: parseStringSafe(readValue(row, ['b365_over_frac'])),
+  underFractional: parseStringSafe(readValue(row, ['b365_under_frac'])),
+  overDecimal: parseFloatSafe(readValue(row, ['b365_over_dec'])),
+  underDecimal: parseFloatSafe(readValue(row, ['b365_under_dec'])),
+  dcHomeDrawFractional: parseStringSafe(readValue(row, ['b365_dc_home_draw_frac'])),
+  dcDrawAwayFractional: parseStringSafe(readValue(row, ['b365_dc_draw_away_frac'])),
+  dcHomeAwayFractional: parseStringSafe(readValue(row, ['b365_dc_home_away_frac'])),
+  ftResult: parseStringSafe(readValue(row, ['ft_result'])),
+  totalGoals: parseIntSafe(readValue(row, ['total_goals'])),
+});
+
+const mapPlayerScorerOddsRow = (row: UnknownRecord, index: number): PlayerScorerOddsRow => ({
+  id: parseStringSafe(readValue(row, ['id'])) ?? `row-${index}`,
+  playerName: parseStringSafe(readValue(row, ['player_name'])) ?? 'Unknown',
+  pool: parseStringSafe(readValue(row, ['pool'])) ?? 'unknown',
+  oddsFractional: parseStringSafe(readValue(row, ['odds_fractional'])),
+  oddsDecimal: parseFloatSafe(readValue(row, ['odds_decimal'])),
+  impliedProb: parseFloatSafe(readValue(row, ['implied_prob'])),
+  scored: parseBooleanSafe(readValue(row, ['scored'])),
+  goalsScored: parseIntSafe(readValue(row, ['goals_scored'])),
+  firstGoal: parseBooleanSafe(readValue(row, ['first_goal'])),
+  lastGoal: parseBooleanSafe(readValue(row, ['last_goal'])),
+  result: parseStringSafe(readValue(row, ['result'])),
+  profitDecimal: parseFloatSafe(readValue(row, ['profit_decimal'])),
+});
+
+const enrichV6Odds = async (match: SoccerMatchDetail): Promise<SoccerMatchDetail> => {
+  const matchId = parseStringSafe(readValue(match.raw, ['match_id'])) ?? match.id;
+  const espnEventId = parseStringSafe(readValue(match.raw, ['espn_event_id'])) ?? match.id.split('_')[0];
+
+  const [teamOddsRes, playerOddsRes] = await Promise.all([
+    supabase
+      .from('soccer_bet365_team_odds')
+      .select('*')
+      .or(`match_id.eq.${matchId},espn_event_id.eq.${espnEventId}`)
+      .limit(1),
+    supabase
+      .from('soccer_player_odds')
+      .select('*')
+      .or(`match_id.eq.${matchId},espn_event_id.eq.${espnEventId}`)
+      .order('pool', { ascending: true })
+      .order('odds_decimal', { ascending: true })
+      .limit(300),
+  ]);
+
+  const teamOdds =
+    teamOddsRes.error || !teamOddsRes.data || teamOddsRes.data.length === 0
+      ? null
+      : mapBet365TeamOdds((teamOddsRes.data[0] ?? {}) as UnknownRecord);
+
+  const playerOdds =
+    playerOddsRes.error || !playerOddsRes.data
+      ? []
+      : playerOddsRes.data.map((row, index) => mapPlayerScorerOddsRow((row ?? {}) as UnknownRecord, index));
+
+  return {
+    ...match,
+    bet365TeamOdds: teamOdds,
+    playerScorerOdds: playerOdds,
   };
 };
 
@@ -703,25 +822,32 @@ export async function fetchMatchBySlug(slug: string): Promise<SoccerMatchDetail 
   const dayStart = `${parsed.date}T00:00:00.000Z`;
   const dayEnd = nextUtcDateIso(parsed.date);
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('soccer_postgame')
     .select(postgameSelect)
-    .eq('league_id', parsed.leagueId)
     .gte('start_time', dayStart)
     .lt('start_time', dayEnd)
     .order('start_time', { ascending: true });
+
+  if (parsed.leagueId) {
+    query = query.eq('league_id', parsed.leagueId);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
 
   const rows = (data ?? []).map((row) => toMatchDetail((row ?? {}) as UnknownRecord));
   const exact = rows.find((row) => row.slug === slug);
-  if (exact) return exact;
+  if (exact) return enrichV6Odds(exact);
 
-  return (
+  const found =
     rows.find(
       (row) => slugifyTeam(row.homeTeam) === parsed.homeSlug && slugifyTeam(row.awayTeam) === parsed.awaySlug,
-    ) ?? null
-  );
+    ) ?? null;
+
+  if (!found) return null;
+  return enrichV6Odds(found);
 }
 
 export async function fetchTeamsInLeague(leagueId: string): Promise<TeamDirectoryItem[]> {

@@ -44,10 +44,42 @@ const boolLabel = (value: boolean | null): string => {
   return value ? 'Yes' : 'No';
 };
 
+const poolLabel = (pool: string): string => {
+  if (pool === 'anytime') return 'Anytime';
+  if (pool === 'first') return 'First Goal';
+  if (pool === 'last') return 'Last Goal';
+  if (pool === 'live_anytime') return 'Live Anytime';
+  return pool;
+};
+
+const resultTone = (result: string | null): string => {
+  if (result === 'win') return 'text-emerald-300';
+  if (result === 'loss') return 'text-rose-300';
+  return 'text-zinc-300';
+};
+
 export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
   const { data, isLoading, error } = useMatchBySlug(slug);
 
   const timelineEvents = useMemo(() => data?.timeline ?? [], [data]);
+  const scorerOddsByPool = useMemo(() => {
+    const rows = data?.playerScorerOdds ?? [];
+    const buckets = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const key = row.pool || 'unknown';
+      const list = buckets.get(key) ?? [];
+      list.push(row);
+      buckets.set(key, list);
+    }
+
+    return Array.from(buckets.entries()).map(([pool, rowsInPool]) => ({
+      pool,
+      rows: rowsInPool
+        .slice()
+        .sort((a, b) => (a.oddsDecimal ?? Number.MAX_SAFE_INTEGER) - (b.oddsDecimal ?? Number.MAX_SAFE_INTEGER))
+        .slice(0, 8),
+    }));
+  }, [data]);
 
   return (
     <PageShell>
@@ -55,7 +87,11 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
 
       {isLoading ? <LoadingBlock label="Loading match page…" /> : null}
       {error ? <EmptyBlock message={`Failed to load match: ${error.message}`} /> : null}
-      {!isLoading && !error && !data ? <EmptyBlock message="Match not found for this slug." /> : null}
+      {!isLoading && !error && !data ? (
+        <EmptyBlock
+          message={`Match not found: ${slug}. Try either /match/{league}-{home}-vs-{away}-{date} or /match/{home}-vs-{away}-{date}.`}
+        />
+      ) : null}
 
       {data ? (
         <div className="space-y-6 sm:space-y-8">
@@ -199,6 +235,48 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
             </Card>
           ) : null}
 
+          {data.bet365TeamOdds ? (
+            <Card>
+              <CardHeader>
+                <SectionLabel>Bet365 Team Markets</SectionLabel>
+              </CardHeader>
+              <CardBody>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <MetricCell
+                    label="3-Way Moneyline"
+                    value={
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <DataPill>{data.homeTeam} {data.bet365TeamOdds.homeFractional ?? '—'}</DataPill>
+                        <DataPill>Draw {data.bet365TeamOdds.drawFractional ?? '—'}</DataPill>
+                        <DataPill>{data.awayTeam} {data.bet365TeamOdds.awayFractional ?? '—'}</DataPill>
+                      </div>
+                    }
+                  />
+                  <MetricCell
+                    label="Goal Line O/U"
+                    value={
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <DataPill>Line {data.bet365TeamOdds.ouHandicap ?? '—'}</DataPill>
+                        <DataPill>Over {data.bet365TeamOdds.overFractional ?? '—'}</DataPill>
+                        <DataPill>Under {data.bet365TeamOdds.underFractional ?? '—'}</DataPill>
+                      </div>
+                    }
+                  />
+                  <MetricCell
+                    label="Double Chance"
+                    value={
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <DataPill>1X {data.bet365TeamOdds.dcHomeDrawFractional ?? '—'}</DataPill>
+                        <DataPill>X2 {data.bet365TeamOdds.dcDrawAwayFractional ?? '—'}</DataPill>
+                        <DataPill>12 {data.bet365TeamOdds.dcHomeAwayFractional ?? '—'}</DataPill>
+                      </div>
+                    }
+                  />
+                </div>
+              </CardBody>
+            </Card>
+          ) : null}
+
           <Card>
             <CardHeader>
               <SectionLabel>v5 Game Flow</SectionLabel>
@@ -289,6 +367,35 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                     </div>
                   ))}
                 </div>
+              </CardBody>
+            </Card>
+          ) : null}
+
+          {scorerOddsByPool.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <SectionLabel>Bet365 Player Scorer Odds</SectionLabel>
+              </CardHeader>
+              <CardBody className="space-y-4">
+                {scorerOddsByPool.map((bucket) => (
+                  <div key={bucket.pool}>
+                    <div className="mb-2 text-[10px] uppercase tracking-[0.14em] text-zinc-500">{poolLabel(bucket.pool)}</div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      {bucket.rows.map((row) => (
+                        <div key={row.id} className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs">
+                          <div className="truncate font-medium text-zinc-100">{row.playerName}</div>
+                          <div className="mt-1 flex items-center justify-between text-zinc-400">
+                            <span>{row.oddsFractional ?? '—'}</span>
+                            <span>{row.impliedProb === null ? '—' : `${row.impliedProb.toFixed(1)}%`}</span>
+                          </div>
+                          <div className={`mt-1 text-[10px] uppercase tracking-[0.08em] ${resultTone(row.result)}`}>
+                            {row.result ?? 'ungraded'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </CardBody>
             </Card>
           ) : null}
