@@ -56,15 +56,16 @@ const safeExtract = (name: string, fn: () => any) => {
 function parseAmerican(val: any): number | null {
   if (val === null || val === undefined) return null;
   const strVal = String(val).trim().toLowerCase();
-  if (strVal === 'ev' || strVal === 'even') return 100;
+  if (strVal === 'ev' || strVal === 'even' || strVal === 'pk' || strVal === 'pick') return 100;
   const num = parseInt(strVal.replace('+', ''), 10);
   return isNaN(num) ? null : num;
 }
 
 function parseLine(val: any): number | null {
   if (val == null) return null;
-  if (typeof val === 'string' && val.toLowerCase() === 'pk') return 0;
-  const num = parseFloat(String(val));
+  const strVal = String(val).toLowerCase().trim();
+  if (strVal === 'pk' || strVal === 'even' || strVal === 'pick') return 0;
+  const num = parseFloat(strVal);
   return isNaN(num) ? null : num;
 }
 
@@ -122,10 +123,10 @@ Deno.serve(async (req: Request) => {
       }
 
       for (const event of events) {
-        // Safe robust check for string OR array targets
+        // Safe robust check for string OR array targets (Casted to String to prevent type crashes)
         if (target_match_id) {
           const targets = Array.isArray(target_match_id) ? target_match_id : [target_match_id];
-          if (!targets.some((t: string) => t.includes(event.id))) continue;
+          if (!targets.some((t: any) => String(t).includes(String(event.id)))) continue;
         }
 
         const state = event.status?.type?.state;
@@ -152,8 +153,8 @@ async function processGame(event: any, league: any, stats: any) {
     const comp = data.header?.competitions?.[0];
     if (!comp) return;
 
-    const home = comp.competitors.find((c: any) => c.homeAway === 'home');
-    const away = comp.competitors.find((c: any) => c.homeAway === 'away');
+    const home = comp.competitors?.find((c: any) => c.homeAway === 'home');
+    const away = comp.competitors?.find((c: any) => c.homeAway === 'away');
 
     let homeScore = Safe.score(home?.score) ?? 0;
     let awayScore = Safe.score(away?.score) ?? 0;
@@ -194,17 +195,75 @@ async function processGame(event: any, league: any, stats: any) {
       // Safe fail if RPC isn't deployed yet
     }
 
-    let finalMarketOdds = EspnAdapters.Odds(comp, data.pickcenter) || {};
+    // --- 🚨 FIXED ODDS RESOLUTION & CLOBBER PROTECTION ---
+    let finalMarketOdds = existingMatch?.current_odds || {};
+    let espnOdds = EspnAdapters.Odds(comp, data.pickcenter) || {};
+
+    // Fallback to basic /scoreboard details if deep /summary Pickcenter returns empty (Fixes NBA missing odds)
+    if (espnOdds.homeSpread == null && espnOdds.homeWin == null && espnOdds.total == null) {
+      const sbOdds = event.competitions?.[0]?.odds?.[0] || comp.odds?.[0];
+      if (sbOdds) {
+        espnOdds = {
+          total: sbOdds.overUnder ?? null,
+          homeWin: sbOdds.homeTeamOdds?.moneyLine ?? sbOdds.moneyline?.home ?? null,
+          awayWin: sbOdds.awayTeamOdds?.moneyLine ?? sbOdds.moneyline?.away ?? null,
+          homeSpread: sbOdds.homeTeamOdds?.spread ?? sbOdds.spread?.home ?? null,
+          awaySpread: sbOdds.awayTeamOdds?.spread ?? sbOdds.spread?.away ?? null,
+          provider: sbOdds.provider?.name || 'ESPN'
+        };
+
+        // Deep fallback parsing (e.g. "BOS -5.5" or "EVEN") if structured objects aren't available
+        if (typeof sbOdds.details === 'string' && espnOdds.homeSpread == null) {
+          const detailStr = sbOdds.details.toUpperCase();
+          if (detailStr === 'EVEN' || detailStr === 'PK' || detailStr.includes('PICK')) {
+            espnOdds.homeSpread = 0;
+            espnOdds.awaySpread = 0;
+          } else {
+            const match = sbOdds.details.match(/([A-Z0-9]+)\s+([+-]?\d+\.?\d*)/i);
+            if (match) {
+              const val = parseFloat(match[2]);
+              const teamAbbr = match[1].toUpperCase();
+
+              const homeAbbr = (home?.team?.abbreviation || home?.athlete?.abbreviation || '').toUpperCase();
+              const awayAbbr = (away?.team?.abbreviation || away?.athlete?.abbreviation || '').toUpperCase();
+
+              if (homeAbbr === teamAbbr && homeAbbr !== '') {
+                espnOdds.homeSpread = val;
+                espnOdds.awaySpread = -val;
+              } else if (awayAbbr === teamAbbr && awayAbbr !== '') {
+                espnOdds.awaySpread = val;
+                espnOdds.homeSpread = -val;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Determine Final Odds Injection
     if (premiumFeed && !premiumFeed.is_stale) {
       finalMarketOdds = {
-        homeSpread: premiumFeed.spread?.home?.point,
-        awaySpread: premiumFeed.spread?.away?.point,
-        total: premiumFeed.total?.over?.point,
-        homeWin: premiumFeed.h2h?.home?.price,
-        awayWin: premiumFeed.h2h?.away?.price,
+        homeSpread: premiumFeed.spread?.home?.point ?? null,
+        awaySpread: premiumFeed.spread?.away?.point ?? null,
+        total: premiumFeed.total?.over?.point ?? null,
+        homeWin: premiumFeed.h2h?.home?.price ?? null,
+        awayWin: premiumFeed.h2h?.away?.price ?? null,
         isInstitutional: true,
         provider: "Institutional"
       };
+    } else {
+      // DO NOT overwrite live-odds-tracker's bookmaker data. Only update if the DB source is empty or an ESPN variant
+      const hasEspnOdds = espnOdds.homeSpread != null || espnOdds.homeWin != null || espnOdds.total != null;
+
+      // Strict lowercasing of arrays to match string comparison
+      const isExistingExternal = finalMarketOdds?.provider &&
+        !['espn', 'espn bet', 'espnbet', 'pickcenter', 'consensus'].some(p =>
+          String(finalMarketOdds.provider).toLowerCase().includes(p)
+        );
+
+      if (hasEspnOdds && !isExistingExternal) {
+        finalMarketOdds = { ...espnOdds, provider: espnOdds.provider || 'ESPN' };
+      }
     }
 
     // MONOTONICITY GUARD — never let scores regress
@@ -222,6 +281,12 @@ async function processGame(event: any, league: any, stats: any) {
     // Safely crafted match payload targeting only real SQL columns
     const homeNameStr = getCompetitorName(home);
     const awayNameStr = getCompetitorName(away);
+    const hasOpeningOdds = existingMatch?.opening_odds && Object.keys(existingMatch.opening_odds).length > 0;
+    const finalOddsHasKeys = Object.keys(finalMarketOdds).length > 0;
+
+    // Convert {} to explicitly null to protect Postgres from malformed JSON type casting bugs
+    const cleanFinalOdds = finalOddsHasKeys ? finalMarketOdds : null;
+
     const matchPayload: any = {
       id: dbMatchId,
       league_id: league.id,
@@ -231,9 +296,9 @@ async function processGame(event: any, league: any, stats: any) {
       display_clock: comp.status?.displayClock,
       home_score: homeScore,
       away_score: awayScore,
-      current_odds: finalMarketOdds,
+      current_odds: cleanFinalOdds,
       last_updated: new Date().toISOString(),
-      opening_odds: existingMatch?.opening_odds || finalMarketOdds,
+      opening_odds: hasOpeningOdds ? existingMatch.opening_odds : cleanFinalOdds,
       extra_data: Object.keys(manualSituationData).length > 0 ? manualSituationData : null
     };
     if (homeNameStr !== 'Unknown') matchPayload.home_team = homeNameStr;
@@ -246,20 +311,20 @@ async function processGame(event: any, league: any, stats: any) {
 
     // Support Moneyline closing lock for Tennis and Soccer if spread isn't present
     // Explicit null check prevents 0 (Pick'em spread) from evaluating to false and bypassing the lock
-    const hasMarketOdds = finalMarketOdds?.homeSpread != null || finalMarketOdds?.homeWin != null;
+    const hasMarketOdds = cleanFinalOdds?.homeSpread != null || cleanFinalOdds?.homeWin != null;
 
     if (!isClosingLocked && isLiveGame && hasMarketOdds) {
-      matchPayload.closing_odds = finalMarketOdds;
+      matchPayload.closing_odds = cleanFinalOdds;
       matchPayload.is_closing_locked = true;
 
       const closingPayload = {
         match_id: dbMatchId,
         league_id: league.id,
-        home_spread: parseLine(finalMarketOdds.homeSpread),
-        away_spread: parseLine(finalMarketOdds.awaySpread),
-        total: parseLine(finalMarketOdds.total),
-        home_ml: parseAmerican(finalMarketOdds.homeWin), // 🚨 Ensures safe INTEGER cast
-        away_ml: parseAmerican(finalMarketOdds.awayWin)  // 🚨 Ensures safe INTEGER cast
+        home_spread: parseLine(cleanFinalOdds.homeSpread),
+        away_spread: parseLine(cleanFinalOdds.awaySpread),
+        total: parseLine(cleanFinalOdds.total),
+        home_ml: parseAmerican(cleanFinalOdds.homeWin), // 🚨 Ensures safe INTEGER cast
+        away_ml: parseAmerican(cleanFinalOdds.awayWin)  // 🚨 Ensures safe INTEGER cast
       };
       await upsertWithRetry('closing_lines', closingPayload);
     } else if (isClosingLocked && existingMatch?.closing_odds) {
@@ -277,12 +342,12 @@ async function processGame(event: any, league: any, stats: any) {
 
     if ((inT60 || inT0) && hasMarketOdds) {
       if (inT60 && !currentOddsState.t60_snapshot) {
-        t60_snapshot = { odds: finalMarketOdds, timestamp: new Date().toISOString() };
+        t60_snapshot = { odds: cleanFinalOdds, timestamp: new Date().toISOString() };
         stats.snapshots++;
         Logger.info("T-60 Captured", { dbMatchId });
       }
       if (inT0 && !currentOddsState.t0_snapshot) {
-        t0_snapshot = { odds: finalMarketOdds, timestamp: new Date().toISOString() };
+        t0_snapshot = { odds: cleanFinalOdds, timestamp: new Date().toISOString() };
         stats.snapshots++;
         Logger.info("T-0 Captured", { dbMatchId });
       }
@@ -323,9 +388,9 @@ async function processGame(event: any, league: any, stats: any) {
 
       deterministic_signals: aiSignals,
       odds: {
-        current: matchPayload.current_odds,
-        t60_snapshot: t60_snapshot || currentOddsState.t60_snapshot,
-        t0_snapshot: t0_snapshot || currentOddsState.t0_snapshot
+        current: cleanFinalOdds,
+        t60_snapshot: t60_snapshot || currentOddsState.t60_snapshot || null,
+        t0_snapshot: t0_snapshot || currentOddsState.t0_snapshot || null
       },
       updated_at: new Date().toISOString()
     };
