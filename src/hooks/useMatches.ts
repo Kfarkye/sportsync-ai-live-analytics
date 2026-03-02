@@ -30,9 +30,6 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
     headers: {
       'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type': 'application/json',
-      // Bypass potential browser/edge network caching
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
     },
     cache: 'no-store',
     // Safe fallback: send date in body too, just in case the Edge Function expects it there
