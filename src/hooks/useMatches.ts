@@ -23,12 +23,18 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
 
   console.log("Calling fetch-matches v2 for DB-first schedule + odds:", dateStr);
 
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-matches?date=${dateStr}`, {
+  // FIX: Added cache-buster query param (_t) to guarantee the edge/CDN 
+  // does not cache the request and force a 60s stale response.
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-matches?date=${dateStr}&_t=${Date.now()}`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type': 'application/json',
+      // Bypass potential browser/edge network caching
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
     },
+    cache: 'no-store',
     // Safe fallback: send date in body too, just in case the Edge Function expects it there
     body: JSON.stringify({ date: dateStr }),
   });
@@ -59,12 +65,29 @@ export const useMatches = (selectedDate: Date | string) => {
     // ADAPTIVE POLLING: 5s if game is live, else 15s.
     refetchInterval: (query): number | false => {
       const data = query.state.data as Match[] | undefined;
-      const hasLiveMatch = data?.some(m =>
-        m.status === 'STATUS_IN_PROGRESS' ||
-        m.status === 'IN_PROGRESS'
-      );
+      const hasLiveMatch = data?.some(m => {
+        // FIX: isLiveStatus doesn't match STATUS_IN_PROGRESS
+        // Safely check status and isLiveStatus (even if not strictly typed in Match yet)
+        const match = m as any;
+        const status = String(match.status || '').toUpperCase();
+        const liveStatus = String(match.isLiveStatus || '').toUpperCase();
+
+        return (
+          match.isLiveStatus === true ||
+          liveStatus === 'STATUS_IN_PROGRESS' ||
+          liveStatus === 'IN_PROGRESS' ||
+          status === 'STATUS_IN_PROGRESS' ||
+          status === 'IN_PROGRESS' ||
+          status === 'LIVE' ||
+          status === 'IN' ||
+          status.includes('IN_PROGRESS')
+        );
+      });
       return hasLiveMatch ? 5000 : 15000;
     },
+    // FIX: Feed polls at 60s not 15s. Browsers throttle inactive tabs to 60s 
+    // unless refetchIntervalInBackground is strictly set to true.
+    refetchIntervalInBackground: true,
     refetchOnMount: true,
     retry: 1,
     placeholderData: keepPreviousData,
