@@ -52,6 +52,14 @@ const LEAGUE_ODDS_MAP: Record<string, string> = {
     'uefa.champions': 'soccer_uefa_champs_league',
 };
 
+const LEAGUE_SPORT_MAP: Record<string, string> = {
+    'nfl': 'NFL', 'nba': 'NBA', 'mlb': 'BASEBALL', 'nhl': 'HOCKEY',
+    'college-football': 'COLLEGE_FOOTBALL', 'mens-college-basketball': 'COLLEGE_BASKETBALL',
+    'eng.1': 'SOCCER', 'ita.1': 'SOCCER', 'esp.1': 'SOCCER', 'ger.1': 'SOCCER',
+    'usa.1': 'SOCCER', 'fra.1': 'SOCCER', 'mex.1': 'SOCCER', 'uefa.champions': 'SOCCER',
+    'wnba': 'WNBA', 'ufc': 'MMA', 'pga': 'GOLF', 'atp': 'TENNIS', 'wta': 'TENNIS'
+};
+
 const ALL_LEAGUE_IDS = Object.keys(LEAGUE_ODDS_MAP);
 
 // ─── GLOBALS (WARM START POOLING) ────────────────────────────────────────────
@@ -413,7 +421,7 @@ Deno.serve(async (req: Request) => {
             const match: any = {
                 id: m.id,
                 leagueId: m.leagueId || m.league_id,
-                sport: m.sport || '',
+                sport: m.sport || LEAGUE_SPORT_MAP[m.leagueId || m.league_id] || m.leagueId || m.league_id || '',
                 startTime: m.startTime || m.start_time,
                 status: m.status || 'STATUS_SCHEDULED',
                 displayClock: m.display_clock || '0:00',
