@@ -1,6 +1,5 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
+import { writeCurrentOdds } from '../_shared/current-odds-writer.ts'
 // ============================================================================
 // 1. CONFIGURATION
 // ============================================================================
@@ -249,6 +248,7 @@ async function processLeague(sport: string, leagueId: string, apiKey: string, me
     const updates: any[] = [];
     const snapshots: any[] = [];
     const closingLines: any[] = [];
+    const oddsWritePromises: Promise<void>[] = [];
 
     const suffix = SUFFIX_MAP[leagueId] || `_${sport}`;
 
@@ -349,12 +349,15 @@ async function processLeague(sport: string, leagueId: string, apiKey: string, me
 
         // Only update odds if they exist (don't overwrite with nulls)
         if (odds.provider !== 'none') {
-            payload.current_odds = {
-                ...odds,
-                updated_at: new Date().toISOString(),
-                isInstitutional: true,
-                isLive: true
-            };
+            oddsWritePromises.push(writeCurrentOdds({
+                supabase,
+                matchId,
+                rawOdds: odds,
+                provider: odds.provider || 'Odds API',
+                isLive: true,
+                updatedAt: new Date().toISOString()
+            }).catch(e => { metrics.errors.push(`[Odds Sync] ${matchId}: ${e.message || String(e)}`) }));
+
             payload.odds_api_event_id = oddsMatch?.id;
 
             // Flattened Columns for easier querying
@@ -404,6 +407,10 @@ async function processLeague(sport: string, leagueId: string, apiKey: string, me
 
     if (closingLines.length > 0) {
         await supabase.from('closing_lines').upsert(closingLines, { onConflict: 'match_id' });
+    }
+
+    if (oddsWritePromises.length > 0) {
+        await Promise.all(oddsWritePromises);
     }
 
     console.log(`[Tracker] ${leagueId}: ${updates.length} matches scanned, ${snapshots.length} snapshots created.`);

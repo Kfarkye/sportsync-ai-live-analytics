@@ -4,6 +4,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { computeAISignals } from '../_shared/gameStateEngine.ts'
 import { EspnAdapters, Safe } from '../_shared/espnAdapters.ts'
 import { getCanonicalMatchId, generateDeterministicId, resolveCanonicalMatch } from '../_shared/match-registry.ts'
+import { writeCurrentOdds } from '../_shared/current-odds-writer.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -296,7 +297,6 @@ async function processGame(event: any, league: any, stats: any) {
       display_clock: comp.status?.displayClock,
       home_score: homeScore,
       away_score: awayScore,
-      current_odds: cleanFinalOdds,
       last_updated: new Date().toISOString(),
       opening_odds: hasOpeningOdds ? existingMatch.opening_odds : cleanFinalOdds,
       extra_data: Object.keys(manualSituationData).length > 0 ? manualSituationData : null
@@ -354,6 +354,20 @@ async function processGame(event: any, league: any, stats: any) {
     }
 
     await upsertWithRetry('matches', matchPayload);
+
+    // DELEGATE ODDS TO CONTRACT ARCHITECTURE
+    const isExistingExternal = existingMatch?.current_odds?.provider && String(existingMatch.current_odds.provider).toLowerCase() !== 'espn';
+    if (finalOddsHasKeys && (!isExistingExternal || espnOdds.provider)) {
+      await writeCurrentOdds({
+        supabase,
+        matchId: dbMatchId,
+        rawOdds: finalMarketOdds,
+        provider: finalMarketOdds.provider || 'ESPN',
+        isLive: isLiveGame,
+        updatedAt: new Date().toISOString()
+      }).catch(e => console.error("writeCurrentOdds failed", e));
+    }
+
     const aiSignals = computeAISignals(matchPayload);
 
     // Context Retrieval using safeExtract

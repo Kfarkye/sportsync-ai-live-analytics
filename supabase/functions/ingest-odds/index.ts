@@ -4,6 +4,7 @@ declare const Deno: any;
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { getCanonicalLeagueId, resolveCanonicalMatch, normalizeTeam } from '../_shared/match-registry.ts'
+import { writeCurrentOdds } from '../_shared/current-odds-writer.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -290,6 +291,7 @@ async function syncToMatches(supabase: any, oddsData: any[], sportKey: string, r
     mappings?.forEach((m: any) => mapLookup.set(m.external_id, m.canonical_id))
 
     const bulkUpdates: any[] = []
+    const oddsWritePromises: Promise<void>[] = []
     const feedCanonicalUpdates: any[] = []
     let resolvedCount = 0
     let failedCount = 0
@@ -421,9 +423,18 @@ async function syncToMatches(supabase: any, oddsData: any[], sportKey: string, r
 
         if (nowMs - lastUpd < 30000 && !hasMoved) continue;
 
+        oddsWritePromises.push(writeCurrentOdds({
+            supabase,
+            matchId,
+            rawOdds: newOdds,
+            provider: newOdds.provider,
+            isLive: true,
+            updatedAt: new Date().toISOString()
+        }).catch(e => { Logger.error('WRITE_ODDS_ERROR', { matchId, error: String(e) }) }));
+
+        // Still update odds_event_id and last_updated via bulk if we want
         bulkUpdates.push({
             id: matchId,
-            current_odds: newOdds,
             last_odds_update: new Date().toISOString(),
             odds_api_event_id: event.id
         });
@@ -438,6 +449,10 @@ async function syncToMatches(supabase: any, oddsData: any[], sportKey: string, r
                 Logger.info('BULK_UPDATE_SUCCESS', { endpoint: 'ingest-odds', batch_size: c.length })
             }
         }
+    }
+
+    if (oddsWritePromises.length) {
+        await Promise.all(oddsWritePromises);
     }
 
     if (feedCanonicalUpdates.length) {
