@@ -1,48 +1,59 @@
-// ═══════════════════════════════════════════════════════════════
-// SSOT Bridge — all values derived from ESSENCE v12 (Editorial Light)
-// Analytics pages import from here; this file imports from ESSENCE only.
-// ═══════════════════════════════════════════════════════════════
+// ============================================================================
+// SSOT Bridge — Analytics pages import from here ONLY.
+// All values are forwarded from ESSENCE (the single design source of truth).
+// No hex literals outside of ESSENCE. No per-page palette objects.
+//
+// SSOT COLOR RULES:
+// - UI accent: ESSENCE.colors.accent.primary only (links, focus, primary buttons)
+// - Outcomes only: ESSENCE.colors.accent.success / danger (win/loss). Push uses text3.
+// - Team colors only in logos + tiny markers + charts. Never for tabs/buttons/borders.
+// - Do not use emerald/amber/violet/cyan keys directly in UI components.
+// ============================================================================
 
 import { ESSENCE } from './essence';
 
-// ── Colors — mapped 1:1 from ESSENCE ────────────────────────────
+// ── Colors — direct semantic mapping from ESSENCE ────────────────
 export const color = {
-    bg: ESSENCE.colors.surface.base,     // #F8FAFC (slate-50)
-    surface: ESSENCE.colors.surface.card,     // #FFFFFF
-    surface2: ESSENCE.colors.surface.subtle,   // #F1F5F9 (slate-100)
-    border: ESSENCE.colors.border.default,   // #E2E8F0 (slate-200)
+    bg: ESSENCE.colors.surface.base,
+    surface: ESSENCE.colors.surface.card,
+    surface2: ESSENCE.colors.surface.subtle,
+    border: ESSENCE.colors.border.default,
 
-    text: ESSENCE.colors.text.primary,        // #0F172A (slate-900)
-    text2: ESSENCE.colors.text.secondary,      // #64748B (slate-500)
-    text3: ESSENCE.colors.text.tertiary,       // #94A3B8 (slate-400)
+    text: ESSENCE.colors.text.primary,
+    text2: ESSENCE.colors.text.secondary,
+    text3: ESSENCE.colors.text.tertiary,
 
-    accent: ESSENCE.colors.accent.emerald,     // #10B981
+    // ✅ UI accent — primary, NOT win
+    accent: ESSENCE.colors.accent.primary,
 
-    win: ESSENCE.colors.accent.emerald,       // #10B981
-    loss: ESSENCE.colors.accent.rose,          // #F43F5E
+    // ✅ Outcome semantics
+    win: ESSENCE.colors.accent.success,
+    loss: ESSENCE.colors.accent.danger,
 } as const;
 
-// ── Typography — same families ESSENCE enforces ─────────────────
+// ── Typography ───────────────────────────────────────────────────
 export const font = {
     mono: `'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`,
     sans: `'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif`,
     serif: `'Newsreader', Georgia, 'Times New Roman', serif`,
 } as const;
 
-// ── Radius — forwarded from ESSENCE ─────────────────────────────
+// ── Radius + Spacing — forwarded from ESSENCE ────────────────────
 export const radius = ESSENCE.radius;
-
-// ── Spacing ─────────────────────────────────────────────────────
 export const spacing = ESSENCE.spacing;
 
-// ── Helpers ─────────────────────────────────────────────────────
-export function fmtOdds(n: number | null | undefined): string {
-    if (n == null) return '—';
-    return n > 0 ? `+${n}` : String(n);
-}
+// ── Helpers (namespaced to avoid collisions with postgame.ts) ────
+export const fmt = {
+    odds(n: number | null | undefined): string {
+        if (n == null) return '—';
+        return n > 0 ? `+${n}` : String(n);
+    },
+    spread(n: number): string {
+        if (n > 0) return `+${n}`;
+        if (n === 0) return 'PK';
+        return String(n);
+    },
+} as const;
 
-export function fmtSpread(n: number): string {
-    if (n > 0) return `+${n}`;
-    if (n === 0) return 'PK';
-    return String(n);
-}
+// Convenience export
+export const SSOT = { color, font, radius, spacing, fmt } as const;

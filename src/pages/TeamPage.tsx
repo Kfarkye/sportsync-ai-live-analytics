@@ -10,7 +10,7 @@ import {
     getTotalResult,
 } from '../lib/postgame';
 import { formatMatchDate, matchUrl } from '../lib/slugs';
-import { color as C, font, fmtSpread } from '../lib/tokens';
+import { color as C, font, fmt } from '../lib/tokens';
 
 const FONT = font.mono;
 const SANS = font.sans;
@@ -397,7 +397,7 @@ export default function TeamPage() {
                                             <div style={{ fontFamily: FONT }}>
                                                 {spreadRes ? (
                                                     <div style={{ color: didCoverSpread ? C.win : spreadFailed ? C.text3 : C.text2, fontSize: 13, fontWeight: 700 }}>
-                                                        {spreadForTeam != null ? <span style={{ opacity: 0.6, marginRight: 8 }}>{fmtSpread(spreadForTeam)}</span> : null}
+                                                        {spreadForTeam != null ? <span style={{ opacity: 0.6, marginRight: 8 }}>{fmt.spread(spreadForTeam)}</span> : null}
                                                         {didCoverSpread ? 'Covered ✓' : spreadFailed ? 'Failed ✕' : 'Push —'}
                                                     </div>
                                                 ) : (
