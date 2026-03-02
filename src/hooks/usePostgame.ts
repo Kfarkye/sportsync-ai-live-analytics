@@ -9,7 +9,7 @@ import {
   type SoccerMatchDetail,
   type TeamDirectoryItem,
   type TeamPagePayload,
-} from '@/lib/postgame';
+} from '@/lib/postgamePages';
 
 const FIVE_MIN = 1000 * 60 * 5;
 const TEN_MIN = 1000 * 60 * 10;

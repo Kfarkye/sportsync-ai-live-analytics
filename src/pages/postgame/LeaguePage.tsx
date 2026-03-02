@@ -1,5 +1,5 @@
 import React, { type FC, useMemo } from 'react';
-import { POSTGAME_SSG_ROUTES, formatMatchDateLabel, formatPct, formatSignedNumber, leagueLabel } from '@/lib/postgame';
+import { POSTGAME_SSG_ROUTES, formatMatchDateLabel, formatPct, formatSignedNumber, leagueLabel } from '@/lib/postgamePages';
 import { useLeagueMatches, useTeamsInLeague } from '@/hooks/usePostgame';
 import {
   Card,

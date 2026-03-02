@@ -1,5 +1,5 @@
 import React, { type FC } from 'react';
-import { formatMatchDateLabel, formatPct, formatSignedNumber, leagueLabel } from '@/lib/postgame';
+import { formatMatchDateLabel, formatPct, formatSignedNumber, leagueLabel } from '@/lib/postgamePages';
 import { useTeamPage } from '@/hooks/usePostgame';
 import {
   Card,

@@ -1,5 +1,5 @@
 import React, { type FC, useMemo } from 'react';
-import { formatMatchDateLabel, formatPct, formatSignedNumber } from '@/lib/postgame';
+import { formatMatchDateLabel, formatPct, formatSignedNumber } from '@/lib/postgamePages';
 import { useMatchBySlug } from '@/hooks/usePostgame';
 import {
   Card,

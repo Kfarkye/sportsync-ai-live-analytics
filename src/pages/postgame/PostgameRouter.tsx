@@ -1,5 +1,5 @@
 import React, { type FC, useMemo } from 'react';
-import { SOCCER_LEAGUES } from '@/lib/postgame';
+import { SOCCER_LEAGUES } from '@/lib/postgamePages';
 import SoccerHubPage from './SoccerHubPage';
 import LeaguePage from './LeaguePage';
 import TeamPage from './TeamPage';

@@ -1,5 +1,5 @@
 import React, { type FC } from 'react';
-import { formatMatchDateLabel, POSTGAME_SSG_ROUTES } from '@/lib/postgame';
+import { formatMatchDateLabel, POSTGAME_SSG_ROUTES } from '@/lib/postgamePages';
 import { useSoccerHub } from '@/hooks/usePostgame';
 import {
   Card,
