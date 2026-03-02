@@ -79,6 +79,9 @@ const parseSafeDateMs = (dateString?: string): number => {
     return Number.isNaN(ms) ? Number.MAX_SAFE_INTEGER : ms;
 };
 
+/** Normalize team name for fuzzy matching: lowercase, alphanumeric only */
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
 /** Safely parse American odds, preventing TypeErrors on malformed API objects */
 const parseAmericanOdds = (odds?: unknown): number => {
     if (odds === undefined || odds === null) return 0;
@@ -451,7 +454,7 @@ const LeagueGroup = memo(({
                         transition={ACCORDION_SPRING}
                         className={cn(
                             'overflow-hidden relative z-10 -mt-[1px]',
-                            'bg-white ring-1 ring-zinc-950/[0.04] border-t-0 rounded-b-xl shadow-sm'
+                            'bg-white ring-1 ring-zinc-950/[0.04] rounded-b-xl shadow-sm'
                         )}
                     >
                         <div ref={measureRef} className="flex flex-col divide-y divide-zinc-100/80">
@@ -493,7 +496,7 @@ const MatchList: React.FC<MatchListProps> = ({
 
     const { data: polyResult } = usePolyOdds();
     const { data: featuredProps = [] } = useFeaturedProps(4);
-    const todayIso = new Date().toISOString().split('T')[0];
+    const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
 
     // Steal #1: Pre-resolve Market Pulse pipeline outside render loop
     const pulseMarkets = useMemo(() => {
@@ -506,7 +509,6 @@ const MatchList: React.FC<MatchListProps> = ({
             if (stripped && !matchMap.has(stripped)) matchMap.set(stripped, m);
         }
 
-        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
         const resolveMatch = (poly: PolyOdds) => {
             if (poly.game_id) {
                 const direct = matchMap.get(poly.game_id) || matchMap.get(poly.game_id.split('_')[0]);
@@ -582,7 +584,7 @@ const MatchList: React.FC<MatchListProps> = ({
     // Steal #5: Upgraded loading skeleton
     if (isLoading && matches.length === 0) {
         return (
-            <div className="min-h-screen bg-[#F9F9FA] pb-8 pt-2 sm:pt-6 lg:pt-6">
+            <div className="min-h-screen bg-[#F9F9FA] pt-2 sm:pt-6 lg:pt-6" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
                 <div className="max-w-7xl mx-auto w-full px-0 lg:px-6" aria-busy="true" aria-label="Loading matches">
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-8 items-start">
                         <div className="flex flex-col w-full rounded-xl overflow-hidden bg-white ring-1 ring-zinc-950/5 shadow-sm">
@@ -606,6 +608,7 @@ const MatchList: React.FC<MatchListProps> = ({
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
                 className="flex flex-col items-center justify-center min-h-[50vh] text-zinc-400 select-none bg-[#F9F9FA] px-6 text-center"
+                style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}
             >
                 <div className="w-14 h-14 rounded-[14px] bg-white ring-1 ring-zinc-900/5 flex items-center justify-center mb-4 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)]">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -665,7 +668,6 @@ const MatchList: React.FC<MatchListProps> = ({
                                                 poly={poly}
                                                 match={match}
                                                 onSelect={handleSelect}
-                                                
                                             />
                                         ))}
                                         </div>
@@ -689,7 +691,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                         </div>
                                         <div className="divide-y divide-zinc-100/80">
                                         {featuredProps.slice(0, 3).map((prop, i) => (
-                                            <PropRow key={`mobile-${prop.player_name}${prop.bet_type}`} prop={prop}  />
+                                            <PropRow key={`mobile-${prop.player_name}${prop.bet_type}`} prop={prop} />
                                         ))}
                                         </div>
                                     </section>
@@ -720,7 +722,6 @@ const MatchList: React.FC<MatchListProps> = ({
                                             poly={poly}
                                             match={match}
                                             onSelect={handleSelect}
-                                            
                                         />
                                     ))}
                                     </div>
@@ -745,7 +746,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                     </div>
                                     <div className="divide-y divide-zinc-100/80">
                                     {featuredProps.map((prop, i) => (
-                                        <PropRow key={prop.player_name + prop.bet_type} prop={prop}  />
+                                        <PropRow key={prop.player_name + prop.bet_type} prop={prop} />
                                     ))}
                                     </div>
                                 </section>
