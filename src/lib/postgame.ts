@@ -215,6 +215,23 @@ export async function fetchAllMatches(): Promise<SoccerPostgame[]> {
   return data as SoccerPostgame[];
 }
 
+/** Fetch distinct league IDs from soccer postgame table */
+export async function fetchLeagueIds(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('soccer_postgame')
+    .select('league_id')
+    .not('league_id', 'is', null);
+
+  if (error || !data) return [];
+
+  const set = new Set<string>();
+  for (const row of data as Array<{ league_id?: string | null }>) {
+    if (row.league_id) set.add(row.league_id);
+  }
+
+  return [...set].sort();
+}
+
 /** Fetch the most recent N matches with odds */
 export async function fetchRecentMatches(limit: number = 50): Promise<SoccerPostgame[]> {
   const { data, error } = await supabase
