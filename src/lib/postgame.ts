@@ -148,8 +148,8 @@ export function fmtOdds(odds: number | null): string {
 
 /** Fetch a single match by slug components */
 export async function fetchMatchBySlug(
-  homeSlug: string, 
-  awaySlug: string, 
+  homeSlug: string,
+  awaySlug: string,
   date: string
 ): Promise<SoccerPostgame | null> {
   // Convert slug back to search terms: "arsenal" → "%arsenal%"
@@ -172,7 +172,7 @@ export async function fetchMatchBySlug(
 
 /** Fetch all matches for a team (home or away) */
 export async function fetchTeamMatches(
-  teamSearchTerm: string, 
+  teamSearchTerm: string,
   leagueId?: string
 ): Promise<SoccerPostgame[]> {
   const search = teamSearchTerm.replace(/-/g, ' ');
@@ -199,6 +199,30 @@ export async function fetchLeagueMatches(leagueId: string): Promise<SoccerPostga
     .select('*')
     .eq('league_id', leagueId)
     .order('start_time', { ascending: false });
+
+  if (error || !data) return [];
+  return data as SoccerPostgame[];
+}
+
+/** Fetch all matches across all leagues */
+export async function fetchAllMatches(): Promise<SoccerPostgame[]> {
+  const { data, error } = await supabase
+    .from('soccer_postgame')
+    .select('*')
+    .order('start_time', { ascending: false });
+
+  if (error || !data) return [];
+  return data as SoccerPostgame[];
+}
+
+/** Fetch the most recent N matches with odds */
+export async function fetchRecentMatches(limit: number = 50): Promise<SoccerPostgame[]> {
+  const { data, error } = await supabase
+    .from('soccer_postgame')
+    .select('*')
+    .not('dk_home_ml', 'is', null)
+    .order('start_time', { ascending: false })
+    .limit(limit);
 
   if (error || !data) return [];
   return data as SoccerPostgame[];

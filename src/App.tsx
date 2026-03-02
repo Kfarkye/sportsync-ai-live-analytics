@@ -23,6 +23,7 @@ const MatchPage = lazy(() => import('./pages/MatchPage'));
 const TeamPage = lazy(() => import('./pages/TeamPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const ESPNAnatomy = lazy(() => import('./pages/ESPNAnatomy'));
+const TrendsPage = lazy(() => import('./pages/TrendsPage'));
 
 const App: FC = () => {
   React.useEffect(() => {
@@ -56,6 +57,7 @@ const App: FC = () => {
               <Route path="/team/:slug" element={<Suspense fallback={<div>Loading...</div>}><TeamPage /></Suspense>} />
               <Route path="/reports" element={<Suspense fallback={<div>Loading...</div>}><ReportsPage /></Suspense>} />
               <Route path="/anatomy" element={<Suspense fallback={<div>Loading...</div>}><ESPNAnatomy /></Suspense>} />
+              <Route path="/trends" element={<Suspense fallback={<div>Loading...</div>}><TrendsPage /></Suspense>} />
               <Route path="*" element={<AppShell />} />
             </Routes>
           </BrowserRouter>
