@@ -8,9 +8,15 @@
 // Core Layout
 export { Card } from './Card';
 export { default as CardDefault } from './Card';
+export { Page } from './Page';
+export { default as PageDefault } from './Page';
 
 // Headers & Titles
 export { SectionHeader, CardHeader } from './SectionHeader';
+export { Pill } from './Pill';
+export { default as PillDefault } from './Pill';
+export { TableRail } from './TableRail';
+export { default as TableRailDefault } from './TableRail';
 
 // Status Indicators
 export { StatusChip } from './StatusChip';

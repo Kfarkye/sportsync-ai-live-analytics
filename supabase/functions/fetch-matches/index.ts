@@ -24,6 +24,7 @@
  */
 
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
+import { getRequestId, jsonResponse, safeJsonBody, weakEtag, type TimingMetric } from '../_shared/http.ts';
 
 declare const Deno: any;
 
@@ -61,6 +62,34 @@ const LEAGUE_SPORT_MAP: Record<string, string> = {
 };
 
 const ALL_LEAGUE_IDS = Object.keys(LEAGUE_ODDS_MAP);
+const MAX_PAGE_SIZE = 300;
+const DEFAULT_PAGE_SIZE = 140;
+const MATCH_SELECT_COLUMNS = [
+    'id',
+    'league_id',
+    'leagueId',
+    'sport',
+    'start_time',
+    'startTime',
+    'status',
+    'display_clock',
+    'period',
+    'home_score',
+    'away_score',
+    'homeTeam',
+    'awayTeam',
+    'home_team',
+    'away_team',
+    'home_team_id',
+    'away_team_id',
+    'current_odds',
+    'odds_home_ml_safe',
+    'odds_away_ml_safe',
+    'odds_draw_ml_safe',
+    'odds_home_spread_safe',
+    'odds_total_safe',
+    'last_odds_update',
+].join(',');
 
 // ─── GLOBALS (WARM START POOLING) ────────────────────────────────────────────
 
@@ -260,68 +289,120 @@ function calculateSimilarity(t1: Set<string>, t2: Set<string>, threshold: number
     return (2 * intersection) / totalSize;
 }
 
+function toPageSize(raw: unknown): number {
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return DEFAULT_PAGE_SIZE;
+    return Math.max(1, Math.min(MAX_PAGE_SIZE, Math.floor(parsed)));
+}
+
+function isLiveStatus(status: string): boolean {
+    const s = (status || '').toUpperCase();
+    return s.includes('IN_PROGRESS') ||
+        s.includes('HALFTIME') ||
+        s === 'HT' ||
+        s.includes('LIVE') ||
+        s.includes('PERIOD') ||
+        ['Q1', 'Q2', 'Q3', 'Q4', '1Q', '2Q', '3Q', '4Q'].some(q => s.includes(q));
+}
+
+function isFinalStatus(status: string): boolean {
+    const s = (status || '').toUpperCase();
+    return s.includes('FINAL') || s.includes('COMPLETED') || s === 'FT' || s.includes('POSTPONED') || s.includes('CANCELED');
+}
+
 // ─── MAIN ────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
     const tStart = Date.now();
-    const traceId = req.headers.get('x-trace-id') || crypto.randomUUID();
+    const requestId = getRequestId(req);
+    const timings: TimingMetric[] = [];
 
     try {
         const supabase = getSupabase();
 
-        // ── Parse Request ──────────────────────────────────────────────────────
-        let body: any = {};
-        try {
-            const text = await req.text();
-            if (text?.trim()) body = JSON.parse(text);
-        } catch { /* Fallback */ }
+        // ── Parse + Validate Request ─────────────────────────────────────────
+        const parseStart = Date.now();
+        const parsedBody = await safeJsonBody<any>(req, 64 * 1024);
+        if (!parsedBody.ok) {
+            return jsonResponse(
+                { error: parsedBody.error, matches: [] },
+                {
+                    status: 400,
+                    cors: corsHeaders,
+                    requestId,
+                    cacheControl: 'no-store',
+                }
+            );
+        }
 
+        const body = parsedBody.value || {};
         const urlParams = new URL(req.url).searchParams;
         const date = parseDateSafely(urlParams.get('date') || body.date);
+        const pageSize = toPageSize(urlParams.get('limit') ?? body.limit);
 
         let leagueIds: string[] = ALL_LEAGUE_IDS;
         if (Array.isArray(body.leagues) && body.leagues.length > 0) {
-            leagueIds = body.leagues.map((l: any) => typeof l === 'string' ? l : l.id).filter(Boolean);
+            leagueIds = body.leagues
+                .map((l: any) => (typeof l === 'string' ? l : l?.id))
+                .filter(Boolean);
         }
+
         const leagueFilter = body.leagueId || urlParams.get('league');
         if (leagueFilter) leagueIds = [leagueFilter];
 
-        // ── 1. Construct Concurrent DB Queries ─────────────────────────────────
+        leagueIds = [...new Set(leagueIds)].filter((id) => ALL_LEAGUE_IDS.includes(id));
+        if (leagueIds.length === 0) leagueIds = ALL_LEAGUE_IDS;
+        timings.push({ name: 'parse', dur: Date.now() - parseStart, desc: 'parse+validate' });
+
+        // ── 1. Construct Concurrent DB Queries ───────────────────────────────
+        const dbStart = Date.now();
         const footballLeagues = leagueIds.filter(id => id === 'nfl' || id === 'college-football');
         const dailyLeagues = leagueIds.filter(id => id !== 'nfl' && id !== 'college-football');
         const oddsKeys = [...new Set(leagueIds.map(id => LEAGUE_ODDS_MAP[id]).filter(Boolean))];
+        const bucketCount = (dailyLeagues.length > 0 ? 1 : 0) + (footballLeagues.length > 0 ? 1 : 0);
+        const bucketPageSize = Math.max(20, Math.ceil(pageSize / Math.max(1, bucketCount)));
 
         const dbPromises: Promise<any>[] = [];
 
         if (dailyLeagues.length > 0) {
             const { windowStart, windowEnd } = toBettingSlateDate(date);
             dbPromises.push(
-                supabase.from('matches').select('*').in('league_id', dailyLeagues)
-                    .gte('start_time', windowStart).lt('start_time', windowEnd)
+                supabase
+                    .from('matches')
+                    .select(MATCH_SELECT_COLUMNS)
+                    .in('league_id', dailyLeagues)
+                    .gte('start_time', windowStart)
+                    .lt('start_time', windowEnd)
                     .order('start_time', { ascending: true })
+                    .limit(bucketPageSize)
             );
         }
 
         if (footballLeagues.length > 0) {
             const { windowStart, windowEnd } = toFootballWeekWindow(date);
             dbPromises.push(
-                supabase.from('matches').select('*').in('league_id', footballLeagues)
-                    .gte('start_time', windowStart).lt('start_time', windowEnd)
+                supabase
+                    .from('matches')
+                    .select(MATCH_SELECT_COLUMNS)
+                    .in('league_id', footballLeagues)
+                    .gte('start_time', windowStart)
+                    .lt('start_time', windowEnd)
                     .order('start_time', { ascending: true })
+                    .limit(bucketPageSize)
             );
         }
 
         const feedsPromise = oddsKeys.length > 0
-            ? supabase.from('market_feeds')
+            ? supabase
+                .from('market_feeds')
                 .select('match_id, home_team, away_team, raw_bookmakers, last_updated, sport_key, best_spread, best_total, best_h2h, commence_time')
                 .in('sport_key', oddsKeys)
                 .gte('commence_time', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
                 .order('last_updated', { ascending: false })
             : Promise.resolve({ data: [], error: null });
 
-        // Fault Tolerance Promise Wrapper
         const settled = await Promise.allSettled([feedsPromise, ...dbPromises]);
 
         const feedsResult = settled[0];
@@ -333,13 +414,29 @@ Deno.serve(async (req: Request) => {
             if (res.status === 'fulfilled' && res.value?.data) dbMatches.push(...res.value.data);
         }
 
+        timings.push({ name: 'db', dur: Date.now() - dbStart, desc: 'matches+feeds' });
+
         if (dbMatches.length === 0) {
-            return new Response(JSON.stringify([]), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Elapsed-Ms': String(Date.now() - tStart) },
+            const elapsed = Date.now() - tStart;
+            const cacheControl = 'public, max-age=10, stale-while-revalidate=20';
+            const etag = weakEtag(`${date}|${leagueIds.join(',')}|0`);
+            if (req.headers.get('if-none-match') === etag) {
+                return new Response(null, {
+                    status: 304,
+                    headers: { ...corsHeaders, 'Cache-Control': cacheControl, ETag: etag, 'X-Request-Id': requestId },
+                });
+            }
+            return jsonResponse([], {
+                cors: corsHeaders,
+                requestId,
+                cacheControl,
+                timings,
+                extraHeaders: { ETag: etag, 'X-Elapsed-Ms': String(elapsed), 'X-Matches-Count': '0' },
             });
         }
 
-        // ── 2. Process Odds Feeds (Lazy Parsing & Bucketing) ───────────────────
+        // ── 2. Process Odds Feeds (Lazy Parsing & Bucketing) ─────────────────
+        const oddsStart = Date.now();
         const exactOddsMap = new Map<string, any>();
         const sportBuckets = new Map<string, any[]>();
 
@@ -374,7 +471,10 @@ Deno.serve(async (req: Request) => {
             }
         }
 
-        // ── 3. Fetch Closing Lines ─────────────────────────────────────────────
+        timings.push({ name: 'odds_map', dur: Date.now() - oddsStart, desc: 'odds lookup indexing' });
+
+        // ── 3. Fetch Closing Lines ────────────────────────────────────────────
+        const closingStart = Date.now();
         const closingMap = new Map<string, any>();
         const matchIds = dbMatches.map(m => m.id).filter(Boolean);
 
@@ -407,10 +507,14 @@ Deno.serve(async (req: Request) => {
                         }
                     }
                 }
-            } catch (e) { console.error(`[${traceId}] Closing Fetch failed:`, e); }
+            } catch (e) {
+                console.error(JSON.stringify({ level: 'warn', requestId, message: 'closing_lines_fetch_failed', error: String(e) }));
+            }
         }
+        timings.push({ name: 'closing', dur: Date.now() - closingStart, desc: 'closing lines join' });
 
-        // ── 4. Shape Response ──────────────────────────────────────────────────
+        // ── 4. Shape Response ────────────────────────────────────────────────
+        const shapeStart = Date.now();
         const matches = dbMatches.map(m => {
             const homeObj = typeof m.homeTeam === 'object' && m.homeTeam ? m.homeTeam : { displayName: m.home_team, name: m.home_team };
             const awayObj = typeof m.awayTeam === 'object' && m.awayTeam ? m.awayTeam : { displayName: m.away_team, name: m.away_team };
@@ -440,17 +544,9 @@ Deno.serve(async (req: Request) => {
             const closing = closingMap.get(m.id);
             if (closing) match.closing_odds = closing;
 
-            const statusUpper = match.status.toUpperCase();
-
-            const isFinal = statusUpper.includes('FINAL') || statusUpper.includes('COMPLETED') || statusUpper === 'FT' || statusUpper.includes('POSTPONED') || statusUpper.includes('CANCELED');
-
-            // FIX: Removed greedy 'Q' match and replaced with exact period boundaries
-            const isInProgress = statusUpper.includes('IN_PROGRESS') ||
-                statusUpper.includes('HALFTIME') ||
-                statusUpper === 'HT' ||
-                statusUpper.includes('LIVE') ||
-                statusUpper.includes('PERIOD') ||
-                ['Q1', 'Q2', 'Q3', 'Q4', '1Q', '2Q', '3Q', '4Q'].some(q => statusUpper.includes(q));
+            const statusUpper = String(match.status || '').toUpperCase();
+            const isFinal = isFinalStatus(statusUpper);
+            const isInProgress = isLiveStatus(statusUpper);
 
             let resolvedOdds: any = null;
 
@@ -642,6 +738,11 @@ Deno.serve(async (req: Request) => {
             return match;
         });
 
+        const shapedMatches = matches
+            .sort((a: any, b: any) => Date.parse(a.startTime || '') - Date.parse(b.startTime || ''))
+            .slice(0, pageSize);
+        timings.push({ name: 'shape', dur: Date.now() - shapeStart, desc: 'response shaping' });
+
         // ── 5. Trigger Stale Odds Refresh ──────────────────────────────────────
 
         const STALE_THRESHOLD_MS = 60_000;
@@ -670,36 +771,69 @@ Deno.serve(async (req: Request) => {
         if (sportsToRefresh.size > 0) {
             supabase.functions.invoke('ingest-odds-v3', {
                 body: { sport_keys: Array.from(sportsToRefresh) },
-                headers: { 'x-trace-id': traceId }
-            }).catch((e: any) => console.error(`[${traceId}] Odds refresh trigger failed:`, e));
+                headers: { 'x-trace-id': requestId, 'x-request-id': requestId }
+            }).catch((e: any) => console.error(JSON.stringify({ level: 'warn', requestId, message: 'odds_refresh_trigger_failed', error: String(e) })));
         }
 
         // ── 6. Return ──────────────────────────────────────────────────────────
         const elapsed = Date.now() - tStart;
-        console.log(`[${traceId}] Returning ${matches.length} matches in ${elapsed}ms`);
+        const hasLiveGames = shapedMatches.some((m: any) => isLiveStatus(String(m.status || '')));
+        const cacheControl = hasLiveGames
+            ? 'public, max-age=3, stale-while-revalidate=7'
+            : 'public, max-age=20, stale-while-revalidate=60';
+        const etag = weakEtag(`${date}|${leagueIds.join(',')}|${shapedMatches.length}|${hasLiveGames ? 'live' : 'stale'}`);
 
-        return new Response(JSON.stringify(matches), {
-            headers: {
-                ...corsHeaders,
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'X-Matches-Count': String(matches.length),
+        if (req.headers.get('if-none-match') === etag) {
+            return new Response(null, {
+                status: 304,
+                headers: {
+                    ...corsHeaders,
+                    'Cache-Control': cacheControl,
+                    ETag: etag,
+                    'X-Request-Id': requestId,
+                    'X-Elapsed-Ms': String(elapsed),
+                },
+            });
+        }
+
+        console.log(JSON.stringify({
+            level: 'info',
+            requestId,
+            fn: 'fetch-matches',
+            date,
+            leagues: leagueIds,
+            count: shapedMatches.length,
+            hasLiveGames,
+            elapsedMs: elapsed,
+        }));
+
+        return jsonResponse(shapedMatches, {
+            cors: corsHeaders,
+            requestId,
+            cacheControl,
+            timings: [...timings, { name: 'total', dur: elapsed, desc: 'request total' }],
+            extraHeaders: {
+                ETag: etag,
+                'X-Matches-Count': String(shapedMatches.length),
                 'X-Source': 'db',
                 'X-Elapsed-Ms': String(elapsed),
-                'X-Trace-Id': traceId
             },
         });
 
     } catch (err: any) {
-        console.error('Critical error:', err);
-        return errorResponse(err.message || 'Internal Server Error', 200);
+        const elapsed = Date.now() - tStart;
+        const message = err?.message || 'Internal Server Error';
+        console.error(JSON.stringify({ level: 'error', requestId, fn: 'fetch-matches', message, elapsedMs: elapsed }));
+        return jsonResponse(
+            { error: message, matches: [] },
+            {
+                status: 500,
+                cors: corsHeaders,
+                requestId,
+                cacheControl: 'no-store',
+                timings: [...timings, { name: 'total', dur: elapsed, desc: 'request total' }],
+                extraHeaders: { 'X-Elapsed-Ms': String(elapsed) },
+            }
+        );
     }
 });
-
-// ─── ERROR RESPONSE ──────────────────────────────────────────────────────────
-function errorResponse(message: string, status: number) {
-    return new Response(JSON.stringify({ error: message, matches: [] }), {
-        status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-}

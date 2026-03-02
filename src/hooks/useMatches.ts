@@ -3,6 +3,8 @@ import { isSupabaseConfigured, getSupabaseUrl } from '../lib/supabase';
 import { formatLocalDate, safeParseDate } from '../utils/dateUtils';
 import { Match } from '@/types';
 
+const matchCache = new Map<string, { etag: string; data: Match[] }>();
+
 const fetchMatches = async (date: Date): Promise<Match[]> => {
   if (!date || isNaN(date.getTime())) {
     console.error("useMatches: Invalid date provided to fetchMatches");
@@ -21,20 +23,19 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
   // @ts-ignore - Vite needs this exact string format for replacement, despite TS warnings
   const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY.trim();
 
-  console.log("Calling fetch-matches v2 for DB-first schedule + odds:", dateStr);
-
-  // FIX: Added cache-buster query param (_t) to guarantee the edge/CDN 
-  // does not cache the request and force a 60s stale response.
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-matches?date=${dateStr}&_t=${Date.now()}`, {
+  const cached = matchCache.get(dateStr);
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-matches?date=${dateStr}&limit=140`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type': 'application/json',
+      ...(cached?.etag ? { 'If-None-Match': cached.etag } : {}),
     },
-    cache: 'no-store',
     // Safe fallback: send date in body too, just in case the Edge Function expects it there
-    body: JSON.stringify({ date: dateStr }),
+    body: JSON.stringify({ date: dateStr, limit: 140 }),
   });
+
+  if (res.status === 304 && cached) return cached.data;
 
   if (!res.ok) {
     const errText = await res.text();
@@ -47,6 +48,8 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
 
   // FIX: Safely extract matches in case Edge Function returns { data: [...] } or { matches: [...] }
   const matches = Array.isArray(data) ? data : (data?.data || data?.matches || []);
+  const etag = res.headers.get('etag');
+  if (etag) matchCache.set(dateStr, { etag, data: matches });
   return matches;
 };
 
@@ -58,7 +61,7 @@ export const useMatches = (selectedDate: Date | string) => {
   const matches = useQuery({
     queryKey: ['matches', dateKey],
     queryFn: () => fetchMatches(dateObj),
-    staleTime: 5000,
+    staleTime: 15_000,
     // ADAPTIVE POLLING: 5s if game is live, else 15s.
     refetchInterval: (query): number | false => {
       const data = query.state.data as Match[] | undefined;
@@ -80,12 +83,12 @@ export const useMatches = (selectedDate: Date | string) => {
           status.includes('IN_PROGRESS')
         );
       });
-      return hasLiveMatch ? 5000 : 15000;
+      return hasLiveMatch ? 7000 : 30000;
     },
     // FIX: Feed polls at 60s not 15s. Browsers throttle inactive tabs to 60s 
     // unless refetchIntervalInBackground is strictly set to true.
     refetchIntervalInBackground: true,
-    refetchOnMount: true,
+    refetchOnMount: false,
     retry: 1,
     placeholderData: keepPreviousData,
   });

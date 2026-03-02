@@ -37,7 +37,7 @@ import {
 
 import { type Match } from '@/types';
 import TeamLogo from '../shared/TeamLogo';
-import { cn } from '@/lib/essence';
+import { cn, ESSENCE } from '@/lib/essence';
 import { isGameFinished } from '../../utils/matchUtils';
 import { computeAISignals } from '../../services/gameStateEngine';
 
@@ -213,8 +213,8 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
 
     // ── Slice 2: TEAMS ───────────────────────────────────────────────────────
     const teamsSlice = useMemo<TeamsSlice>(() => ({
-        home: { id: String(match.homeTeam.id), abbr: match.homeTeam.abbreviation || 'HOME', name: match.homeTeam.shortName || match.homeTeam.name || 'Home', logo: match.homeTeam.logo || '', color: normalizeColor(match.homeTeam.color, '#3b82f6'), score: homeScore, record: String(match.homeTeam.record || ''), isPossessing: possId === String(match.homeTeam.id) },
-        away: { id: String(match.awayTeam.id), abbr: match.awayTeam.abbreviation || 'AWAY', name: match.awayTeam.shortName || match.awayTeam.name || 'Away', logo: match.awayTeam.logo || '', color: normalizeColor(match.awayTeam.color, '#ef4444'), score: awayScore, record: String(match.awayTeam.record || ''), isPossessing: possId === String(match.awayTeam.id) },
+        home: { id: String(match.homeTeam.id), abbr: match.homeTeam.abbreviation || 'HOME', name: match.homeTeam.shortName || match.homeTeam.name || 'Home', logo: match.homeTeam.logo || '', color: normalizeColor(match.homeTeam.color, ESSENCE.colors.accent.primary), score: homeScore, record: String(match.homeTeam.record || ''), isPossessing: possId === String(match.homeTeam.id) },
+        away: { id: String(match.awayTeam.id), abbr: match.awayTeam.abbreviation || 'AWAY', name: match.awayTeam.shortName || match.awayTeam.name || 'Away', logo: match.awayTeam.logo || '', color: normalizeColor(match.awayTeam.color, ESSENCE.colors.accent.danger), score: awayScore, record: String(match.awayTeam.record || ''), isPossessing: possId === String(match.awayTeam.id) },
     }), [homeScore, awayScore, possId, match.homeTeam, match.awayTeam]);
 
     // ── Slice 3: GAMEPLAY ────────────────────────────────────────────────────
@@ -238,9 +238,17 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
 
     // ── Slice 4: BETTING ─────────────────────────────────────────────────────
     const bettingSlice = useMemo<BettingSlice>(() => {
-        const source = !isFinal && match.live_odds ? { data: match.live_odds, label: 'Live Lines' } :
-            isFinal && match.closing_odds ? { data: match.closing_odds, label: 'Closing Lines' } :
-                match.current_odds ? { data: match.current_odds, label: 'Current Lines' } : { data: match.odds || match.opening_odds || null, label: 'Market Lines' };
+        const normalizedOdds = (match.odds as OddsLike | null) || null;
+        const normalizedIsLive = Boolean((normalizedOdds as { isLive?: boolean } | null)?.isLive);
+        const source = isFinal && match.closing_odds
+            ? { data: match.closing_odds, label: 'Closing Lines' }
+            : !isFinal && (match.live_odds || normalizedIsLive)
+                ? { data: match.live_odds || normalizedOdds, label: 'Live Lines' }
+                : normalizedOdds
+                    ? { data: normalizedOdds, label: 'Current Lines' }
+                    : match.current_odds
+                        ? { data: match.current_odds, label: 'Current Lines' }
+                        : { data: match.opening_odds || null, label: 'Opening Lines' };
 
         const spread = extractOddsValue(source.data, ['homeSpread', 'spread']) ?? 0;
         const total = extractOddsValue(source.data, ['total', 'overUnder', 'over_under']) ?? 0;
@@ -256,7 +264,22 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
         return {
             signals: computeAISignals(pseudoMatch), spread, total, openingSpread: opS, openingTotal: opT,
             hasSpread, hasTotal: total > 0, matchupStr,
-            moneyline: { home: String((source.data as OddsLike)?.moneylineHome ?? '-'), away: String((source.data as OddsLike)?.moneylineAway ?? '-') },
+            moneyline: {
+                home: String(
+                    (source.data as OddsLike)?.moneylineHome ??
+                    (source.data as OddsLike)?.homeWin ??
+                    (source.data as OddsLike)?.home_ml ??
+                    (source.data as { moneyline?: { home?: Numberish } })?.moneyline?.home ??
+                    '-'
+                ),
+                away: String(
+                    (source.data as OddsLike)?.moneylineAway ??
+                    (source.data as OddsLike)?.awayWin ??
+                    (source.data as OddsLike)?.away_ml ??
+                    (source.data as { moneyline?: { away?: Numberish } })?.moneyline?.away ??
+                    '-'
+                ),
+            },
             linesLabel: source.label,
             lineMovement: { spread: opS !== null && opS !== spread ? { from: opS, to: spread, diff: spread - opS } : null, total: opT !== null && opT !== total ? { from: opT, to: total, diff: total - opT } : null }
         };
@@ -667,101 +690,129 @@ AITab.displayName = 'AITab';
 // 6. DECOUPLED HEADER CONTROLLERS (Prevents Layout Thrashing on Tab Switch)
 // ============================================================================
 
-const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedded }: { meta: MetaSlice; teams: TeamsSlice; gameplay: GameplaySlice; betting: BettingSlice; onBack?: () => void; isEmbedded: boolean; }) => (
-    <header className={cn(
-        'relative w-full flex flex-col items-center overflow-hidden select-none border',
-        isEmbedded
-            ? 'rounded-[20px] border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 shadow-[0_22px_48px_rgba(15,23,42,0.24)]'
-            : 'rounded-none border-white/5 bg-[#0A0A0B]',
-        !isEmbedded && 'pt-6'
-    )}>
-        {isEmbedded && <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" aria-hidden="true" />}
-        {!isEmbedded && (
-            <div className="absolute top-4 z-20 flex w-full items-center justify-between px-6">
-                <button type="button" onClick={onBack} disabled={!onBack} aria-label="Go Back" className={cn('flex items-center gap-2 rounded p-1 text-zinc-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500', !onBack && 'pointer-events-none opacity-0')}>
-                    <ArrowLeft size={16} strokeWidth={2.5} aria-hidden="true" />
-                </button>
-                <div className="flex items-center gap-3">
+const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedded }: { meta: MetaSlice; teams: TeamsSlice; gameplay: GameplaySlice; betting: BettingSlice; onBack?: () => void; isEmbedded: boolean; }) => {
+    const isLiveShell = !meta.isPregame && !meta.isFinished;
+    const statusLabel = meta.isFinished ? 'FINAL' : meta.isPregame ? 'UPCOMING' : 'LIVE';
+    const shellClass = isEmbedded
+        ? isLiveShell
+            ? 'rounded-[20px] border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 shadow-[0_16px_36px_rgba(15,23,42,0.20)]'
+            : 'rounded-[20px] border-slate-200 bg-white shadow-sm'
+        : isLiveShell
+            ? 'rounded-2xl border-slate-800 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950'
+            : 'rounded-2xl border-slate-200 bg-white';
+
+    const primaryText = isLiveShell ? 'text-white' : 'text-slate-900';
+    const secondaryText = isLiveShell ? 'text-slate-400' : 'text-slate-500';
+    const badgeContainerClass = isLiveShell
+        ? 'border-white/10 bg-white/5'
+        : 'border-slate-200 bg-slate-50';
+    const badgeTextClass = isLiveShell ? 'text-white' : 'text-slate-700';
+
+    return (
+        <header className={cn('relative w-full flex flex-col items-center overflow-hidden select-none border', shellClass, !isEmbedded && 'pt-6')}>
+            {isEmbedded && isLiveShell && (
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" aria-hidden="true" />
+            )}
+            {!isEmbedded && (
+                <div className="absolute top-4 z-20 flex w-full items-center justify-between px-6">
+                    <button
+                        type="button"
+                        onClick={onBack}
+                        disabled={!onBack}
+                        aria-label="Go Back"
+                        className={cn(
+                            'flex items-center gap-2 rounded p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500',
+                            isLiveShell ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900',
+                            !onBack && 'pointer-events-none opacity-0'
+                        )}
+                    >
+                        <ArrowLeft size={16} strokeWidth={2.5} aria-hidden="true" />
+                    </button>
+                    <div className="flex items-center gap-3">
+                        {gameplay.isRedZone && !meta.isFinished && (
+                            <div className="flex animate-pulse items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-red-500" role="status">
+                                <AlertCircle size={10} aria-hidden="true" />
+                                <span className="text-[9px] font-bold tracking-widest uppercase">Red Zone</span>
+                            </div>
+                        )}
+                        <div className={cn('flex items-center gap-2 rounded-full border px-3 py-1 backdrop-blur-md', badgeContainerClass)} role="status" aria-live="polite">
+                            <span className={cn('text-[9px] font-bold tracking-widest uppercase', badgeTextClass)}>{statusLabel}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isEmbedded && (
+                <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
                     {gameplay.isRedZone && !meta.isFinished && (
-                        <div className="flex animate-pulse items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-red-500" role="status">
-                            <AlertCircle size={10} aria-hidden="true" />
-                            <span className="text-[9px] font-bold tracking-widest uppercase">Red Zone</span>
+                        <div className="flex animate-pulse items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-red-500" role="status">
+                            <AlertCircle size={9} aria-hidden="true" />
+                            <span className="text-[8px] font-bold tracking-widest uppercase">RZ</span>
                         </div>
                     )}
-                    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 backdrop-blur-md" role="status" aria-live="polite">
-                        <span className={cn("text-[9px] font-bold tracking-widest uppercase", meta.isPregame || meta.isFinished ? "text-zinc-400" : "text-white")}>
-                            {meta.isFinished ? 'FINAL' : meta.isPregame ? 'UPCOMING' : 'LIVE'}
-                        </span>
+                    <div className={cn('flex items-center gap-1.5 rounded-full border px-2.5 py-1 backdrop-blur-md', badgeContainerClass)} role="status" aria-live="polite">
+                        <span className={cn('text-[8px] font-bold tracking-widest uppercase', badgeTextClass)}>{statusLabel}</span>
                     </div>
                 </div>
-            </div>
-        )}
-        {isEmbedded && (
-            <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
-                {gameplay.isRedZone && !meta.isFinished && (
-                    <div className="flex animate-pulse items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-red-300" role="status">
-                        <AlertCircle size={9} aria-hidden="true" />
-                        <span className="text-[8px] font-bold tracking-widest uppercase">RZ</span>
-                    </div>
-                )}
-                <div className="flex items-center gap-1.5 rounded-full border border-zinc-700/80 bg-zinc-900/80 px-2.5 py-1 backdrop-blur-md" role="status" aria-live="polite">
-                    <span className={cn("text-[8px] font-bold tracking-widest uppercase", meta.isPregame || meta.isFinished ? "text-zinc-400" : "text-white")}>
-                        {meta.isFinished ? 'FINAL' : meta.isPregame ? 'UPCOMING' : 'LIVE'}
-                    </span>
-                </div>
-            </div>
-        )}
+            )}
 
-        <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-            <div className={cn('absolute top-[10%] -left-[10%] h-[80%] w-[50%] translate-z-0 rounded-full blur-[120px]', isEmbedded ? 'opacity-[0.22]' : 'opacity-[0.15]')} style={{ background: teams.away.color }} />
-            <div className={cn('absolute top-[10%] -right-[10%] h-[80%] w-[50%] translate-z-0 rounded-full blur-[120px]', isEmbedded ? 'opacity-[0.22]' : 'opacity-[0.15]')} style={{ background: teams.home.color }} />
-        </div>
+            <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+                <div className={cn('absolute top-[10%] -left-[10%] h-[80%] w-[50%] translate-z-0 rounded-full blur-[120px]', isLiveShell ? 'opacity-[0.18]' : 'opacity-[0.10]')} style={{ background: teams.away.color }} />
+                <div className={cn('absolute top-[10%] -right-[10%] h-[80%] w-[50%] translate-z-0 rounded-full blur-[120px]', isLiveShell ? 'opacity-[0.18]' : 'opacity-[0.10]')} style={{ background: teams.home.color }} />
+            </div>
 
-        <div className={cn('relative z-10 grid w-full max-w-5xl grid-cols-[1fr_auto_1fr] items-center', isEmbedded ? 'mb-4 mt-8 gap-3 px-3 sm:gap-5 sm:px-6' : 'mb-8 mt-16 gap-4 px-4 sm:gap-12 sm:px-8')}>
-            <TeamDisplay team={teams.away} compact={isEmbedded} />
-            <div className={cn('flex flex-col items-center justify-center', isEmbedded ? 'min-w-[108px] pt-1.5' : 'min-w-[140px] pt-4')} aria-live="polite" aria-label={`Score: ${teams.away.name} ${teams.away.score}, ${teams.home.name} ${teams.home.score}`}>
-                {meta.isPregame ? (
-                    <div className="flex flex-col items-center gap-2">
-                        <span className={cn('font-medium tracking-tighter tabular-nums text-white', isEmbedded ? 'text-3xl sm:text-4xl' : 'text-4xl sm:text-5xl')} suppressHydrationWarning>
-                            {meta.displayClock || formatLocalTime(meta.timestampMs)}
-                        </span>
-                        <span className={cn('font-bold uppercase tracking-[0.15em] text-zinc-500', isEmbedded ? 'text-[9px]' : 'text-[10px]')} suppressHydrationWarning>
-                            {formatLocalDate(meta.timestampMs)}
-                        </span>
-                        {betting.matchupStr && <span className={cn('mt-2 rounded border border-white/10 bg-white/5 px-3 py-1 font-mono text-zinc-300', isEmbedded ? 'text-[9px]' : 'text-[10px]')}>{betting.matchupStr}</span>}
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center gap-3">
-                        <div className={cn('flex items-center', isEmbedded ? 'gap-3 sm:gap-4' : 'gap-4 sm:gap-8')}>
-                            <span className={cn('font-light tabular-nums tracking-tighter text-white drop-shadow-lg', isEmbedded ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-7xl')}>{teams.away.score}</span>
-                            <span className={cn('font-light text-zinc-700', isEmbedded ? 'text-2xl' : 'text-3xl')} aria-hidden="true">-</span>
-                            <span className={cn('font-light tabular-nums tracking-tighter text-white drop-shadow-lg', isEmbedded ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-7xl')}>{teams.home.score}</span>
+            <div className={cn('relative z-10 grid w-full max-w-5xl grid-cols-[1fr_auto_1fr] items-center', isEmbedded ? 'mb-4 mt-8 gap-3 px-3 sm:gap-5 sm:px-6' : 'mb-8 mt-16 gap-4 px-4 sm:gap-12 sm:px-8')}>
+                <TeamDisplay team={teams.away} compact={isEmbedded} />
+                <div className={cn('flex flex-col items-center justify-center', isEmbedded ? 'min-w-[108px] pt-1.5' : 'min-w-[140px] pt-4')} aria-live="polite" aria-label={`Score: ${teams.away.name} ${teams.away.score}, ${teams.home.name} ${teams.home.score}`}>
+                    {meta.isPregame ? (
+                        <div className="flex flex-col items-center gap-2">
+                            <span className={cn('font-medium tracking-tighter tabular-nums', primaryText, isEmbedded ? 'text-3xl sm:text-4xl' : 'text-4xl sm:text-5xl')} suppressHydrationWarning>
+                                {meta.displayClock || formatLocalTime(meta.timestampMs)}
+                            </span>
+                            <span className={cn('font-bold uppercase tracking-[0.15em]', secondaryText, isEmbedded ? 'text-[9px]' : 'text-[10px]')} suppressHydrationWarning>
+                                {formatLocalDate(meta.timestampMs)}
+                            </span>
+                            {betting.matchupStr && <span className={cn('mt-2 rounded border px-3 py-1 font-mono', badgeContainerClass, badgeTextClass, isEmbedded ? 'text-[9px]' : 'text-[10px]')}>{betting.matchupStr}</span>}
                         </div>
-                        <div className={cn('flex items-center gap-2 rounded-full border px-3 py-1', isEmbedded ? 'border-zinc-700/80 bg-zinc-900/80' : 'border-white/5 bg-[#111113]/80')}>
-                            <span className={cn('font-mono font-medium tracking-widest text-amber-400', isEmbedded ? 'text-[10px]' : 'text-[11px]')} suppressHydrationWarning>{meta.displayClock}</span>
+                    ) : (
+                        <div className="flex flex-col items-center gap-3">
+                            <div className={cn('flex items-center', isEmbedded ? 'gap-3 sm:gap-4' : 'gap-4 sm:gap-8')}>
+                                <span className={cn('font-light tabular-nums tracking-tighter', primaryText, isLiveShell && 'drop-shadow-lg', isEmbedded ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-7xl')}>{teams.away.score}</span>
+                                <span className={cn('font-light', secondaryText, isEmbedded ? 'text-2xl' : 'text-3xl')} aria-hidden="true">-</span>
+                                <span className={cn('font-light tabular-nums tracking-tighter', primaryText, isLiveShell && 'drop-shadow-lg', isEmbedded ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-7xl')}>{teams.home.score}</span>
+                            </div>
+                            <div className={cn('flex items-center gap-2 rounded-full border px-3 py-1', badgeContainerClass)}>
+                                <span
+                                    className={cn('font-mono font-medium tracking-widest', isEmbedded ? 'text-[10px]' : 'text-[11px]')}
+                                    style={{ color: isLiveShell ? ESSENCE.colors.text.tertiary : ESSENCE.colors.accent.primary }}
+                                    suppressHydrationWarning
+                                >
+                                    {meta.displayClock}
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
+                <TeamDisplay team={teams.home} compact={isEmbedded} />
             </div>
-            <TeamDisplay team={teams.home} compact={isEmbedded} />
-        </div>
 
-        {!meta.isPregame && (
-            <div className={cn('w-full max-w-4xl px-6 sm:px-12', isEmbedded ? 'mb-4 mt-1' : 'mb-8 mt-2')}>
-                <div className={cn('mb-2 flex justify-between px-1 font-bold uppercase tracking-widest', isEmbedded ? 'text-[8.5px] text-zinc-400' : 'text-[9px] text-zinc-500')} aria-hidden="true">
-                    <span>{teams.away.abbr} {gameplay.winProbabilityAway}%</span>
-                    <span>Win Prob</span>
-                    <span>{gameplay.winProbabilityHome}% {teams.home.abbr}</span>
+            {!meta.isPregame && (
+                <div className={cn('w-full max-w-4xl px-6 sm:px-12', isEmbedded ? 'mb-4 mt-1' : 'mb-8 mt-2')}>
+                    <div className={cn('mb-2 flex justify-between px-1 font-bold uppercase tracking-widest', isEmbedded ? 'text-[8.5px]' : 'text-[9px]', secondaryText)} aria-hidden="true">
+                        <span>{teams.away.abbr} {gameplay.winProbabilityAway}%</span>
+                        <span>Win Prob</span>
+                        <span>{gameplay.winProbabilityHome}% {teams.home.abbr}</span>
+                    </div>
+                    <div className={cn('relative flex w-full overflow-hidden rounded-full', isEmbedded ? 'h-1.5' : 'h-1.5')} style={{ background: isLiveShell ? 'rgba(255,255,255,0.10)' : ESSENCE.colors.overlay.muted }} aria-hidden="true">
+                        <div className="absolute top-0 bottom-0 left-1/2 w-px z-10" style={{ background: isLiveShell ? 'rgba(255,255,255,0.25)' : ESSENCE.colors.border.strong }} />
+                        <motion.div className="h-full" style={{ backgroundColor: teams.away.color }} initial={{ width: '50%' }} animate={{ width: `${gameplay.winProbabilityAway}%` }} transition={TOKENS.animation.spring} />
+                        <motion.div className="h-full" style={{ backgroundColor: teams.home.color }} initial={{ width: '50%' }} animate={{ width: `${gameplay.winProbabilityHome}%` }} transition={TOKENS.animation.spring} />
+                    </div>
                 </div>
-                <div className={cn('relative flex w-full overflow-hidden rounded-full', isEmbedded ? 'h-1.5 bg-zinc-800/85' : 'h-1.5 bg-white/5')} aria-hidden="true">
-                    <div className="absolute top-0 bottom-0 left-1/2 w-px bg-white/20 z-10" />
-                    <motion.div className="h-full" style={{ backgroundColor: teams.away.color }} initial={{ width: '50%' }} animate={{ width: `${gameplay.winProbabilityAway}%` }} transition={TOKENS.animation.spring} />
-                    <motion.div className="h-full" style={{ backgroundColor: teams.home.color }} initial={{ width: '50%' }} animate={{ width: `${gameplay.winProbabilityHome}%` }} transition={TOKENS.animation.spring} />
-                </div>
-            </div>
-        )}
-    </header>
-));
+            )}
+        </header>
+    );
+});
 ScoreHeaderHero.displayName = 'ScoreHeaderHero';
 
 const TabNavigation = memo(({ activeTab, onTabChange, trackerId }: { activeTab: TabKey; onTabChange: (t: TabKey) => void; trackerId: string; }) => {
@@ -778,7 +829,7 @@ const TabNavigation = memo(({ activeTab, onTabChange, trackerId }: { activeTab: 
     }, [onTabChange, trackerId]);
 
     return (
-        <nav className="no-scrollbar flex w-full items-center justify-center gap-6 overflow-x-auto border-b border-white/10 bg-[#0A0A0B] px-4 pb-0 sm:gap-8" role="tablist" aria-label="Game Tracker Views">
+        <nav className="no-scrollbar flex w-full items-center justify-center gap-6 overflow-x-auto border-b border-slate-200 bg-white px-4 pb-0 sm:gap-8" role="tablist" aria-label="Game Tracker Views">
             {TABS.map((tab, idx) => (
                 <button
                     key={tab}
@@ -790,14 +841,14 @@ const TabNavigation = memo(({ activeTab, onTabChange, trackerId }: { activeTab: 
                     type="button"
                     onClick={() => onTabChange(tab)}
                     onKeyDown={(e) => handleKeyDown(e, idx)}
-                    className={cn('relative shrink-0 rounded-sm pb-3.5 text-[11px] font-bold tracking-[0.15em] text-zinc-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:text-[12px]', activeTab === tab ? 'text-white' : 'hover:text-zinc-200')}
+                    className={cn('relative shrink-0 rounded-sm pb-3.5 text-[11px] font-bold tracking-[0.15em] text-slate-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-slate-300 sm:text-[12px]', activeTab === tab ? 'text-slate-900' : 'hover:text-slate-700')}
                 >
                     {tab}
                     {activeTab === tab && (
                         <motion.div
                             layoutId={`tab-indicator-${trackerId}`}
                             transition={reduceMotion ? { duration: 0 } : TOKENS.animation.spring}
-                            className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full bg-zinc-100 shadow-[0_-2px_8px_rgba(248,250,252,0.35)]"
+                            className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full bg-slate-900"
                             aria-hidden="true"
                         />
                     )}
@@ -811,7 +862,7 @@ TabNavigation.displayName = 'TabNavigation';
 // Backward compatible ScoreHeader export for isolated embedded usage
 export const ScoreHeader: FC<{ match: Match; onBack?: () => void; variant?: ScoreHeaderVariant }> = memo(({ match, onBack, variant = 'full' }) => {
     const vm = useGameViewModel(match as ExtendedMatch);
-    if (!vm) return <div className="h-[360px] bg-[#0A0A0B] animate-pulse" />;
+    if (!vm) return <div className="h-[360px] bg-slate-100 animate-pulse" />;
     return <ScoreHeaderHero meta={vm.meta} teams={vm.teams} gameplay={vm.gameplay} betting={vm.betting} onBack={onBack} isEmbedded={variant === 'embedded'} />;
 });
 ScoreHeader.displayName = 'ScoreHeader';

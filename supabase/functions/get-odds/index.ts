@@ -1,5 +1,6 @@
 // Fix: Add Deno global declaration for TypeScript compatibility
 declare const Deno: any;
+import { getRequestId, jsonResponse, safeJsonBody, weakEtag, type TimingMetric } from "../_shared/http.ts";
 
 /**
  * Enhanced Edge Function for The Odds API - Paid Tier
@@ -79,114 +80,133 @@ const normalize = (name: any): string => {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 };
 
+const ACTIONS = new Set([
+  'featured_odds',
+  'events',
+  'player_props',
+  'alternate_lines',
+  'historical',
+  'scores',
+  'available_markets',
+  'find_event',
+]);
+
+const CACHE_POLICIES: Record<string, string> = {
+  featured_odds: 'public, max-age=10, stale-while-revalidate=20',
+  events: 'public, max-age=60, stale-while-revalidate=180',
+  player_props: 'public, max-age=20, stale-while-revalidate=40',
+  alternate_lines: 'public, max-age=20, stale-while-revalidate=40',
+  historical: 'public, max-age=300, stale-while-revalidate=600',
+  scores: 'public, max-age=10, stale-while-revalidate=20',
+  available_markets: 'public, max-age=120, stale-while-revalidate=300',
+  find_event: 'public, max-age=60, stale-while-revalidate=120',
+};
+
 Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  try {
-    // Parse request body - handle empty body gracefully
-    let body: any = {};
-    try {
-      const text = await req.text();
-      if (text) {
-        body = JSON.parse(text);
-      }
-    } catch (e) {
-      // Empty or invalid JSON body - use defaults
+  const requestId = getRequestId(req);
+  const tStart = Date.now();
+  const timings: TimingMetric[] = [];
+
+  const respond = (
+    payload: unknown,
+    status = 200,
+    action = 'featured_odds',
+    extraHeaders: Record<string, string> = {}
+  ) => {
+    const cacheControl = status >= 400 ? 'no-store' : (CACHE_POLICIES[action] || 'public, max-age=15, stale-while-revalidate=30');
+    const etag = status >= 400 ? null : weakEtag(`${action}|${JSON.stringify(payload).slice(0, 8192)}`);
+
+    if (etag && req.headers.get('if-none-match') === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: {
+          ...corsHeaders,
+          'X-Request-Id': requestId,
+          'X-Action': action,
+          'Cache-Control': cacheControl,
+          ETag: etag,
+        },
+      });
     }
 
-    const {
-      action,
-      sport,
-      homeTeam,
-      awayTeam,
-      eventId,
-      markets,
-      regions,
-      date,
-      daysFrom
-    } = body;
+    return jsonResponse(payload, {
+      status,
+      cors: corsHeaders,
+      requestId,
+      cacheControl,
+      timings: [...timings, { name: 'total', dur: Date.now() - tStart, desc: 'request total' }],
+      extraHeaders: { ...extraHeaders, 'X-Action': action, ...(etag ? { ETag: etag } : {}) },
+    });
+  };
 
-    // Get API key
+  const fetchJson = async (url: string, action: string) => {
+    const t0 = Date.now();
+    const res = await fetch(url);
+    timings.push({ name: `upstream_${action}`, dur: Date.now() - t0, desc: 'odds-api' });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`[${action}] Odds API error ${res.status}: ${errText.slice(0, 250)}`);
+    }
+    return await res.json();
+  };
+
+  try {
+    const parseStart = Date.now();
+    const parsedBody = await safeJsonBody<any>(req, 64 * 1024);
+    if (!parsedBody.ok) return respond({ error: parsedBody.error }, 400, 'featured_odds');
+    const body = parsedBody.value || {};
+    timings.push({ name: 'parse', dur: Date.now() - parseStart, desc: 'parse+validate' });
+
+    const action = String(body.action || 'featured_odds').toLowerCase();
+    if (!ACTIONS.has(action)) {
+      return respond({
+        error: `Unknown action: ${action}`,
+        availableActions: Array.from(ACTIONS),
+      }, 400, 'featured_odds');
+    }
+
+    const sportStr = String(body.sport || 'nba').toLowerCase();
+    const sportKey = SPORT_KEYS[sportStr] || sportStr || 'basketball_nba';
+    const requestRegions = typeof body.regions === 'string' && body.regions.trim() ? body.regions : 'us,us2';
+    const eventId = typeof body.eventId === 'string' ? body.eventId : '';
+    const homeTeam = typeof body.homeTeam === 'string' ? body.homeTeam : '';
+    const awayTeam = typeof body.awayTeam === 'string' ? body.awayTeam : '';
+    const includeRaw = body.includeRaw === true;
+    const limit = Math.max(1, Math.min(250, Number(body.limit || 60) || 60));
+    const daysFrom = Math.max(1, Math.min(7, Number(body.daysFrom || 1) || 1));
+
     const API_KEY = Deno.env.get('ODDS_API_KEY');
     if (!API_KEY) {
-      return new Response(JSON.stringify({ error: 'Missing ODDS_API_KEY in Supabase Secrets' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return respond({ error: 'Missing ODDS_API_KEY in Supabase Secrets', error_code: 'MISSING_ODDS_API_KEY' }, 500, action);
     }
 
-    // Resolve sport key
-    const sportStr = String(sport || 'nba').toLowerCase();
-    const sportKey = SPORT_KEYS[sportStr] || sportStr || 'basketball_nba';
-    const requestRegions = regions || 'us,us2';
-
-    // =========================================================================
-    // ACTION: Get Featured Odds (h2h, spreads, totals) - DEFAULT for no action
-    // =========================================================================
-    if (!action || action === 'featured_odds') {
-      const url = `${BASE_URL}/sports/${sportKey}/odds?apiKey=${API_KEY}&regions=${requestRegions}&markets=h2h,spreads,totals&oddsFormat=american&includeLinks=true&_t=${Date.now()}`;
-      const res = await fetch(url);
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error('Odds API error:', res.status, errorText);
-        return new Response(JSON.stringify({ error: `Odds API error: ${res.status}`, events: [] }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const data = await res.json();
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (action === 'featured_odds') {
+      const url = `${BASE_URL}/sports/${sportKey}/odds?apiKey=${API_KEY}&regions=${requestRegions}&markets=h2h,spreads,totals&oddsFormat=american&includeLinks=true`;
+      const data = await fetchJson(url, action);
+      const slimmed = Array.isArray(data) ? data.slice(0, limit) : [];
+      return respond(slimmed, 200, action, { 'X-Result-Count': String(slimmed.length) });
     }
 
-    // =========================================================================
-    // ACTION: Get all events for a sport
-    // =========================================================================
     if (action === 'events') {
       const url = `${BASE_URL}/sports/${sportKey}/events?apiKey=${API_KEY}`;
-      const res = await fetch(url);
-
-      if (!res.ok) {
-        return new Response(JSON.stringify({ error: `Events API error: ${res.status}`, events: [] }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const data = await res.json();
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      const data = await fetchJson(url, action);
+      const slimmed = Array.isArray(data) ? data.slice(0, limit) : [];
+      return respond(slimmed, 200, action, { 'X-Result-Count': String(slimmed.length) });
     }
 
-    // =========================================================================
-    // ACTION: Get Player Props for a specific event
-    // =========================================================================
     if (action === 'player_props') {
       if (!eventId) {
-        return new Response(JSON.stringify({ error: 'eventId required for player_props', props: [] }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return respond({ error: 'eventId required for player_props', error_code: 'MISSING_EVENT_ID', props: [] }, 400, action);
       }
 
-      const propMarkets = markets || PLAYER_PROP_MARKETS[sportKey] || 'player_points';
-      const url = `${BASE_URL}/sports/${sportKey}/events/${eventId}/odds?apiKey=${API_KEY}&regions=us&markets=${propMarkets}&oddsFormat=american&_t=${Date.now()}`;
+      const propMarkets = body.markets || PLAYER_PROP_MARKETS[sportKey] || 'player_points';
+      const url = `${BASE_URL}/sports/${sportKey}/events/${eventId}/odds?apiKey=${API_KEY}&regions=us&markets=${propMarkets}&oddsFormat=american`;
+      const data = await fetchJson(url, action);
 
-      const res = await fetch(url);
-      if (!res.ok) {
-        return new Response(JSON.stringify({ error: `Props API error: ${res.status}`, props: [] }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const data = await res.json();
-
-      // Process into structured props
       const playerProps: Record<string, any> = {};
       const bookmakers = data.bookmakers || [];
       const book = bookmakers.find((b: any) => b.key === 'draftkings') ||
@@ -196,7 +216,6 @@ Deno.serve(async (req: Request) => {
       if (book) {
         for (const market of book.markets || []) {
           const label = MARKET_LABELS[market.key] || market.key.replace(/_/g, ' ').toUpperCase();
-
           for (const outcome of market.outcomes || []) {
             const playerName = outcome.description;
             if (!playerName) continue;
@@ -222,215 +241,124 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      return new Response(JSON.stringify({ props: Object.values(playerProps), raw: data }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return respond(
+        includeRaw
+          ? { props: Object.values(playerProps), raw: data }
+          : { props: Object.values(playerProps) },
+        200,
+        action,
+        { 'X-Result-Count': String(Object.keys(playerProps).length) }
+      );
     }
 
-    // =========================================================================
-    // ACTION: Get Alternate Lines
-    // =========================================================================
     if (action === 'alternate_lines') {
       if (!eventId) {
-        return new Response(JSON.stringify({ error: 'eventId required for alternate_lines' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return respond({ error: 'eventId required for alternate_lines', error_code: 'MISSING_EVENT_ID' }, 400, action);
       }
-
       const url = `${BASE_URL}/sports/${sportKey}/events/${eventId}/odds?apiKey=${API_KEY}&regions=us&markets=alternate_spreads,alternate_totals&oddsFormat=american`;
-
-      const res = await fetch(url);
-      if (!res.ok) {
-        return new Response(JSON.stringify({ error: `Alternates API error: ${res.status}` }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const data = await res.json();
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      const data = await fetchJson(url, action);
+      return respond(data, 200, action);
     }
 
-    // =========================================================================
-    // ACTION: Get Historical Odds (Line Movement)
-    // =========================================================================
     if (action === 'historical') {
+      const date = typeof body.date === 'string' ? body.date : '';
       if (!date) {
-        return new Response(JSON.stringify({ error: 'date required for historical odds (ISO 8601 format)' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return respond({ error: 'date required for historical odds (ISO 8601 format)', error_code: 'MISSING_DATE' }, 400, action);
       }
-
       const url = `${BASE_URL}/historical/sports/${sportKey}/odds?apiKey=${API_KEY}&date=${date}&regions=us&markets=h2h,spreads,totals`;
-
-      const res = await fetch(url);
-      if (!res.ok) {
-        return new Response(JSON.stringify({ error: `Historical API error: ${res.status}` }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const data = await res.json();
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      const data = await fetchJson(url, action);
+      return respond(data, 200, action);
     }
 
-    // =========================================================================
-    // ACTION: Get Live Scores from Odds API
-    // =========================================================================
     if (action === 'scores') {
-      const days = daysFrom || 1;
-      const url = `${BASE_URL}/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=${days}`;
-
-      const res = await fetch(url);
-      if (!res.ok) {
-        return new Response(JSON.stringify({ error: `Scores API error: ${res.status}`, scores: [] }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const data = await res.json();
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      const url = `${BASE_URL}/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=${daysFrom}`;
+      const data = await fetchJson(url, action);
+      const slimmed = Array.isArray(data) ? data.slice(0, limit) : [];
+      return respond(slimmed, 200, action, { 'X-Result-Count': String(slimmed.length) });
     }
 
-    // =========================================================================
-    // ACTION: Get All Available Markets for an Event
-    // =========================================================================
     if (action === 'available_markets') {
       if (!eventId) {
-        return new Response(JSON.stringify({ error: 'eventId required for available_markets' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return respond({ error: 'eventId required for available_markets', error_code: 'MISSING_EVENT_ID' }, 400, action);
       }
-
       const url = `${BASE_URL}/sports/${sportKey}/events/${eventId}/markets?apiKey=${API_KEY}`;
-
-      const res = await fetch(url);
-      if (!res.ok) {
-        return new Response(JSON.stringify({ error: `Markets API error: ${res.status}` }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const data = await res.json();
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      const data = await fetchJson(url, action);
+      return respond(data, 200, action);
     }
 
-    // =========================================================================
-    // ACTION: Find event by team names and return props
-    // =========================================================================
-    if (action === 'find_event' || (homeTeam && awayTeam)) {
-      if (!homeTeam || !awayTeam) {
-        return new Response(JSON.stringify({ error: 'homeTeam and awayTeam required for find_event', eventId: null, props: {} }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
+    // find_event
+    if (!homeTeam || !awayTeam) {
+      return respond({ error: 'homeTeam and awayTeam required for find_event', error_code: 'MISSING_TEAMS', eventId: null, props: {} }, 400, action);
+    }
 
-      // Find the event ID first
-      const eventsRes = await fetch(`${BASE_URL}/sports/${sportKey}/events?apiKey=${API_KEY}`);
-      if (!eventsRes.ok) {
-        return new Response(JSON.stringify({ error: 'Failed to fetch events', eventId: null, props: {} }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
+    const events = await fetchJson(`${BASE_URL}/sports/${sportKey}/events?apiKey=${API_KEY}`, action);
+    const h = normalize(homeTeam);
+    const a = normalize(awayTeam);
 
-      const events = await eventsRes.json();
+    const match = Array.isArray(events) ? events.find((e: any) => {
+      const eh = normalize(e.home_team);
+      const ea = normalize(e.away_team);
+      return (eh && (eh.includes(h) || h.includes(eh))) && (ea && (ea.includes(a) || a.includes(ea)));
+    }) : null;
 
-      const h = normalize(homeTeam);
-      const a = normalize(awayTeam);
+    if (!match) {
+      return respond({ eventId: null, props: {}, message: 'No matching event found' }, 200, action);
+    }
 
-      const match = events.find((e: any) => {
-        const eh = normalize(e.home_team);
-        const ea = normalize(e.away_team);
-        return (eh && (eh.includes(h) || h.includes(eh))) && (ea && (ea.includes(a) || a.includes(ea)));
-      });
+    const propMarkets = PLAYER_PROP_MARKETS[sportKey] || 'player_points';
+    const oddsData = await fetchJson(
+      `${BASE_URL}/sports/${sportKey}/events/${match.id}/odds?apiKey=${API_KEY}&regions=us&markets=${propMarkets}&oddsFormat=american`,
+      action
+    );
 
-      if (!match) {
-        return new Response(JSON.stringify({ eventId: null, props: {}, message: 'No matching event found' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
+    const bookmakers = oddsData.bookmakers || [];
+    const book = bookmakers.find((b: any) => b.key === 'draftkings') ||
+      bookmakers.find((b: any) => b.key === 'fanduel') ||
+      bookmakers[0];
 
-      // Fetch props for this event
-      const propMarkets = PLAYER_PROP_MARKETS[sportKey] || 'player_points';
-      const oddsUrl = `${BASE_URL}/sports/${sportKey}/events/${match.id}/odds?apiKey=${API_KEY}&regions=us&markets=${propMarkets}&oddsFormat=american`;
-
-      const oddsRes = await fetch(oddsUrl);
-      const oddsData = await oddsRes.json();
-
-      const bookmakers = oddsData.bookmakers || [];
-      const book = bookmakers.find((b: any) => b.key === 'draftkings') ||
-        bookmakers.find((b: any) => b.key === 'fanduel') ||
-        bookmakers[0];
-
-      const playerProps: Record<string, any> = {};
-
-      if (book) {
-        for (const m of book.markets || []) {
-          const label = MARKET_LABELS[m.key] || 'PROP';
-          for (const outcome of m.outcomes || []) {
-            const playerName = outcome.description || outcome.name;
-            if (!playerName) continue;
-
-            const key = normalize(playerName);
-            if (!key) continue;
-
-            if (!playerProps[key]) {
-              playerProps[key] = {
-                label,
-                line: outcome.point,
-                overPrice: '',
-                underPrice: '',
-                bookmaker: book.title
-              };
-            }
-
-            if (outcome.name === 'Over') playerProps[key].overPrice = String(outcome.price);
-            if (outcome.name === 'Under') playerProps[key].underPrice = String(outcome.price);
+    const playerProps: Record<string, any> = {};
+    if (book) {
+      for (const m of book.markets || []) {
+        const label = MARKET_LABELS[m.key] || 'PROP';
+        for (const outcome of m.outcomes || []) {
+          const playerName = outcome.description || outcome.name;
+          if (!playerName) continue;
+          const key = normalize(playerName);
+          if (!key) continue;
+          if (!playerProps[key]) {
+            playerProps[key] = {
+              label,
+              line: outcome.point,
+              overPrice: '',
+              underPrice: '',
+              bookmaker: book.title
+            };
           }
+          if (outcome.name === 'Over') playerProps[key].overPrice = String(outcome.price);
+          if (outcome.name === 'Under') playerProps[key].underPrice = String(outcome.price);
         }
       }
-
-      return new Response(JSON.stringify({ eventId: match.id, props: playerProps }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
     }
 
-    // =========================================================================
-    // UNKNOWN ACTION - Return helpful error
-    // =========================================================================
-    return new Response(JSON.stringify({
-      error: `Unknown action: ${action}`,
-      availableActions: [
-        'featured_odds (default)',
-        'events',
-        'player_props (requires eventId)',
-        'alternate_lines (requires eventId)',
-        'historical (requires date)',
-        'scores',
-        'available_markets (requires eventId)',
-        'find_event (requires homeTeam, awayTeam)'
-      ]
-    }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    const response = { eventId: match.id, props: playerProps };
+    console.log(JSON.stringify({
+      level: 'info',
+      requestId,
+      fn: 'get-odds',
+      action,
+      sportKey,
+      resultCount: Object.keys(playerProps).length,
+      elapsedMs: Date.now() - tStart,
+    }));
+    return respond(response, 200, action, { 'X-Result-Count': String(Object.keys(playerProps).length) });
   } catch (error: any) {
-    console.error('Edge function error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error(JSON.stringify({
+      level: 'error',
+      requestId,
+      fn: 'get-odds',
+      message: error?.message || 'Internal server error',
+      elapsedMs: Date.now() - tStart,
+    }));
+    return respond({ error: error?.message || 'Internal server error', error_code: 'INTERNAL' }, 500, 'featured_odds');
   }
 });

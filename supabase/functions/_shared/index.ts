@@ -189,12 +189,9 @@ export interface MatchOdds {
   under?: string | number;
   moneylineHome?: string | number;
   moneylineAway?: string | number;
-  moneylineDraw?: string | number;
   home_ml?: string | number;
   away_ml?: string | number;
   draw_ml?: string | number;
-  over_odds?: string | number;
-  under_odds?: string | number;
   overOdds?: string | number;
   underOdds?: string | number;
   total?: string | number;
@@ -204,11 +201,11 @@ export interface MatchOdds {
   awaySpreadOdds?: string | number;
   home_spread?: string | number;
   away_spread?: string | number;
+
   winProbability?: number;
   draftkingsLink?: string;
 }
 
-export type OddsState = 'open' | 'live' | 'settled';
 export interface WeatherInfo {
   temp?: number | string;
   condition?: string;
@@ -241,7 +238,7 @@ export interface RosterPlayer {
   status?: string;
 }
 
-export type TraceEntry = Record<string, any>;
+export type TraceEntry = JsonRecord;
 
 export interface TopPerformer {
   name?: string;
@@ -1053,21 +1050,6 @@ export interface AISignals {
   // v6.0: Structured Observability
   trace_id?: string;
   trace_dump?: Record<string, unknown>;
-
-  // v7.0: Spread + ML edge signals (was totals-only)
-  market_edge?: {
-    spread?: {
-      opening: number;
-      current: number;
-      movement: number;       // current - opening (negative = moved toward home)
-    };
-    moneyline?: {
-      home_no_vig: number;    // devigged true probability (0-1)
-      away_no_vig: number;
-      draw_no_vig?: number;
-      value_side: 'home' | 'away' | 'draw' | null;
-    };
-  };
 }
 
 export interface PublicNarrative {
@@ -1192,5 +1174,5 @@ export interface NarrativeIntel {
   sources?: { title: string; url: string }[];
 }
 
-export * from './oddsUtils.ts';
+export * from './odds.ts';
 export * from './engine.ts';

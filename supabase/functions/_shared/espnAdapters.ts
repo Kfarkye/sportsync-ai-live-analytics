@@ -112,6 +112,14 @@ export const EspnAdapters = {
             }
         }
 
+        // Normalize: ensure moneylineHome/moneylineAway are always set alongside homeWin/awayWin
+        if (result.homeWin !== undefined && (result as any).moneylineHome === undefined) {
+            (result as any).moneylineHome = result.homeWin;
+        }
+        if (result.awayWin !== undefined && (result as any).moneylineAway === undefined) {
+            (result as any).moneylineAway = result.awayWin;
+        }
+
         return result;
     },
     Events: (data: any, sport: Sport): MatchEvent[] => {
@@ -168,7 +176,7 @@ export const EspnAdapters = {
                 metrics.yardsPerRush = Safe.number(findStat('yardsPerRushAttempt'));
                 const compTotal = findStat('completionAttempts');
                 if (compTotal && compTotal.includes('/')) {
-                    const [made, att] = compTotal.split('/').map((n: string) => Safe.number(n));
+                    const [made, att] = compTotal.split('/').map(n => Safe.number(n));
                     metrics.completionPct = (made / Math.max(att, 1)) * 100;
                 }
                 metrics.thirdDownEff = Safe.number(findStat('thirdDownEff')?.split('/')?.[0]) / Math.max(Safe.number(findStat('thirdDownEff')?.split('/')?.[1]), 1) * 100;
@@ -243,19 +251,19 @@ export const EspnAdapters = {
         const weatherData = gameInfo?.weather;
         return {
             weather: weatherData ? {
-                temp: Safe.string(weatherData.temperature) || '',
-                condition: Safe.string(weatherData.displayValue || weatherData.condition) || ''
+                temp: Safe.string(weatherData.temperature),
+                condition: Safe.string(weatherData.displayValue || weatherData.condition)
             } : undefined,
             venue: venueData ? {
-                name: Safe.string(venueData.fullName) || '',
-                city: Safe.string(venueData.address?.city) || '',
-                state: Safe.string(venueData.address?.state) || '',
+                name: Safe.string(venueData.fullName),
+                city: Safe.string(venueData.address?.city),
+                state: Safe.string(venueData.address?.state),
                 indoor: Safe.bool(venueData.indoor)
             } : undefined,
             attendance: gameInfo?.attendance ? Safe.number(gameInfo.attendance) : undefined,
             broadcasts: data.header?.competitions?.[0]?.broadcasts?.map((b: any) => ({
                 market: Safe.string(b.market),
-                names: Array.isArray(b.names) ? b.names.map((n: any) => String(n)) : []
+                names: Array.isArray(b.names) ? b.names.map(n => String(n)) : []
             })) || []
         };
     },
@@ -347,24 +355,12 @@ export const EspnAdapters = {
         if (!lastPlayData && Array.isArray(data.plays) && data.plays.length > 0) lastPlayData = data.plays[data.plays.length - 1];
         if (!lastPlayData) return undefined;
         return {
-            id: Safe.string(lastPlayData.id) || '',
-            text: Safe.string(lastPlayData.text) || '',
-            clock: Safe.string(lastPlayData.clock?.displayValue) || '',
-            type: Safe.string(lastPlayData.type?.text) || '',
+            id: Safe.string(lastPlayData.id),
+            text: Safe.string(lastPlayData.text),
+            clock: Safe.string(lastPlayData.clock?.displayValue),
+            type: Safe.string(lastPlayData.type?.text),
             statYardage: Safe.number(lastPlayData.statYardage),
             probability: lastPlayData.probability ? { homeWinPercentage: Safe.number(lastPlayData.probability.homeWinPercentage) } : undefined
         };
-    },
-    RecentPlays: (data: any, sport: Sport): any[] => {
-        const plays = data.drives?.current?.plays || data.plays || [];
-        if (!Array.isArray(plays)) return [];
-        return plays.slice(-20).map((p: any) => ({
-            id: Safe.string(p.id) || '',
-            text: Safe.string(p.text) || '',
-            clock: Safe.string(p.clock?.displayValue) || '',
-            period: Safe.number(p.period?.number),
-            type: Safe.string(p.type?.text) || '',
-            statYardage: Safe.number(p.statYardage)
-        }));
     }
 };

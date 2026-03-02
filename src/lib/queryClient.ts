@@ -5,10 +5,12 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // Data fresh for 5 mins (Google quality baseline)
-      gcTime: 1000 * 60 * 60, // Keep in cache for 1h
+      staleTime: 1000 * 60, // Global default: 60s freshness
+      gcTime: 1000 * 60 * 30, // Keep cache for 30m
       retry: 1,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+      structuralSharing: true,
     },
   },
 });
@@ -23,6 +25,6 @@ if (typeof window !== 'undefined') {
   persistQueryClient({
     queryClient,
     persister: localStoragePersister,
-    maxAge: 1000 * 60 * 60, // 1 hour — prevents serving stale scores after app reopen
+    maxAge: 1000 * 60 * 20, // 20m persistence cap for live-data app
   });
 }

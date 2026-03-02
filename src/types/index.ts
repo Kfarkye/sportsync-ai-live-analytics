@@ -3,8 +3,6 @@
 // Edit in packages/shared/src/types and run `npm run sync:shared`.
 // ============================================================================
 
-export type JsonRecord = Record<string, any>;
-
 export enum Sport {
   NBA = 'NBA',
   NFL = 'NFL',
@@ -127,15 +125,6 @@ export interface PlayerPropBet {
   confidenceScore?: number;
   sourceAttribution?: string;
   provider?: string;
-
-  // Analytics & AI
-  fantasyDvpRank?: number;
-  l5HitRate?: number;
-  l5Values?: number[];
-  avgL5?: number;
-  aiRationale?: string;
-  analysisStatus?: string;
-  analysisTs?: string;
 
   notes?: string;
   createdAt: string;
@@ -1061,16 +1050,6 @@ export interface AISignals {
   // v6.0: Structured Observability
   trace_id?: string;
   trace_dump?: Record<string, unknown>;
-
-  // v7.0: Audit Engine & Oracle Moat
-  technical_audit?: {
-    audit_id: string;
-    veracity_grade: 'AAA' | 'AA' | 'A' | 'B' | 'FAIL';
-    market_dislocation_pts: number;
-    sync_latency_ms: number;
-    is_sealed: boolean;
-    permalink?: string;
-  };
 }
 
 export interface PublicNarrative {

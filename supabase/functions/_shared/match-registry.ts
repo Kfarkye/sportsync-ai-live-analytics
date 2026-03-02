@@ -33,43 +33,42 @@ const CONFIG = {
 
 export const LEAGUE_SUFFIX_MAP: Readonly<Record<string, string>> = Object.freeze({
     'nfl': '_nfl', 'americanfootball_nfl': '_nfl',
-    'college-football': '_ncaaf', 'americanfootball_ncaaf': '_ncaaf', 'ncaaf': '_ncaaf',
+    'college-football': '_ncaaf', 'americanfootball_ncaaf': '_ncaaf',
     'nba': '_nba', 'basketball_nba': '_nba',
-    'mens-college-basketball': '_ncaab', 'basketball_ncaab': '_ncaab', 'ncaab': '_ncaab',
+    'mens-college-basketball': '_ncaab', 'basketball_ncaab': '_ncaab',
     'wnba': '_wnba', 'basketball_wnba': '_wnba',
     'mlb': '_mlb', 'baseball_mlb': '_mlb',
     'nhl': '_nhl', 'icehockey_nhl': '_nhl',
-    'epl': '_epl', 'eng.1': '_epl', 'soccer_epl': '_epl',
-    'mls': '_mls', 'usa.1': '_mls', 'soccer_usa_mls': '_mls',
-    'laliga': '_laliga', 'esp.1': '_laliga', 'soccer_spain_la_liga': '_laliga',
-    'bundesliga': '_bundesliga', 'ger.1': '_bundesliga', 'soccer_germany_bundesliga': '_bundesliga',
-    'seriea': '_seriea', 'ita.1': '_seriea', 'soccer_italy_serie_a': '_seriea',
-    'ligue1': '_ligue1', 'fra.1': '_ligue1', 'soccer_france_ligue_one': '_ligue1',
-    'ucl': '_ucl', 'uefa.champions': '_ucl', 'soccer_uefa_champions_league': '_ucl',
-    'uel': '_uel', 'uefa.europa': '_uel', 'soccer_uefa_europa_league': '_uel',
-    'afcon': '_afcon', 'caf.nations': '_afcon', 'soccer_caf_nations': '_afcon',
-    'worldcup': '_worldcup', 'fifa.world': '_worldcup', 'soccer_fifa_world_cup': '_worldcup',
+    'eng.1': '_epl', 'soccer_epl': '_epl',
+    'usa.1': '_mls', 'soccer_usa_mls': '_mls',
+    'esp.1': '_laliga', 'soccer_spain_la_liga': '_laliga',
+    'ger.1': '_bundesliga', 'soccer_germany_bundesliga': '_bundesliga',
+    'ita.1': '_seriea', 'soccer_italy_serie_a': '_seriea',
+    'fra.1': '_ligue1', 'soccer_france_ligue_one': '_ligue1',
+    'uefa.champions': '_ucl', 'soccer_uefa_champions_league': '_ucl',
+    'uefa.europa': '_uel', 'soccer_uefa_europa_league': '_uel',
+    'caf.nations': '_afcon', 'soccer_caf_nations': '_afcon',
+    'fifa.world': '_worldcup', 'soccer_fifa_world_cup': '_worldcup',
     'atp': '_tennis', 'wta': '_tennis', 'tennis_atp': '_tennis', 'tennis_wta': '_tennis'
 });
 
-// 🚨 BUG 1 FIX: Reverse map all external inputs directly to their canonical DB league_id values
 export const LEAGUE_ID_MAP: Readonly<Record<string, string>> = Object.freeze({
     'nba': 'nba', 'basketball_nba': 'nba',
     'nfl': 'nfl', 'americanfootball_nfl': 'nfl',
-    'college-football': 'college-football', 'americanfootball_ncaaf': 'college-football', 'ncaaf': 'college-football',
-    'mens-college-basketball': 'mens-college-basketball', 'basketball_ncaab': 'mens-college-basketball', 'ncaab': 'mens-college-basketball',
+    'ncaaf': 'college-football', 'americanfootball_ncaaf': 'college-football',
+    'ncaab': 'mens-college-basketball', 'basketball_ncaab': 'mens-college-basketball',
     'mlb': 'mlb', 'baseball_mlb': 'mlb',
     'nhl': 'nhl', 'icehockey_nhl': 'nhl',
-    'epl': 'epl', 'eng.1': 'epl', 'soccer_epl': 'epl',
-    'laliga': 'laliga', 'esp.1': 'laliga', 'soccer_spain_la_liga': 'laliga',
-    'mls': 'mls', 'usa.1': 'mls', 'soccer_usa_mls': 'mls',
-    'bundesliga': 'bundesliga', 'ger.1': 'bundesliga', 'soccer_germany_bundesliga': 'bundesliga',
-    'seriea': 'seriea', 'ita.1': 'seriea', 'soccer_italy_serie_a': 'seriea',
-    'ligue1': 'ligue1', 'fra.1': 'ligue1', 'soccer_france_ligue_one': 'ligue1',
-    'ucl': 'ucl', 'uefa.champions': 'ucl', 'soccer_uefa_champions_league': 'ucl', 'soccer_uefa_champs_league': 'ucl',
-    'uel': 'uel', 'uefa.europa': 'uel', 'soccer_uefa_europa_league': 'uel',
-    'afcon': 'afcon', 'caf.nations': 'afcon', 'soccer_caf_nations': 'afcon',
-    'worldcup': 'worldcup', 'fifa.world': 'worldcup', 'soccer_fifa_world_cup': 'worldcup',
+    'epl': 'eng.1', 'soccer_epl': 'eng.1',
+    'laliga': 'esp.1', 'soccer_spain_la_liga': 'esp.1',
+    'mls': 'usa.1', 'soccer_usa_mls': 'usa.1',
+    'bundesliga': 'ger.1', 'soccer_germany_bundesliga': 'ger.1',
+    'seriea': 'ita.1', 'soccer_italy_serie_a': 'ita.1',
+    'ligue1': 'fra.1', 'soccer_france_ligue_one': 'fra.1',
+    'ucl': 'uefa.champions', 'soccer_uefa_champions_league': 'uefa.champions', 'soccer_uefa_champs_league': 'uefa.champions',
+    'uel': 'uefa.europa', 'soccer_uefa_europa_league': 'uefa.europa',
+    'afcon': 'caf.nations', 'soccer_caf_nations': 'caf.nations',
+    'worldcup': 'fifa.world', 'soccer_fifa_world_cup': 'fifa.world',
     'wnba': 'wnba', 'basketball_wnba': 'wnba',
     'atp': 'atp', 'wta': 'wta', 'tennis_atp': 'atp', 'tennis_wta': 'wta'
 });
@@ -189,10 +188,8 @@ export const normalizeTeam = (name: string, leagueId?: string): string => {
     // 6. Strip Punctuation
     clean = clean.replace(/['".]/g, '');
 
-    // 7. Remove Noise words (ONLY truly generic prefixes/suffixes).
-    // "united", "city", "real", "inter", "ac" are IDENTITY words:
-    //   Manchester United ≠ Manchester City, Inter Milan ≠ AC Milan
-    clean = clean.replace(/\b(the|fc|afc|sc|club|cf)\b/g, '');
+    // 7. Remove Noise words
+    clean = clean.replace(/\b(the|fc|afc|sc|club|cf|united|city|real|inter|ac)\b/g, '');
 
     // 8. Final: strip non-alphanumeric
     return clean.replace(/[^a-z0-9]/g, '').trim() || 'unknown';
@@ -226,7 +223,7 @@ export const getCanonicalMatchId = (rawId: string, leagueId?: string): string =>
     if (!rawId) return '';
     if (rawId.includes('_')) return rawId;
     const normalizedLeague = getCanonicalLeagueId(leagueId || '');
-    const suffix = LEAGUE_SUFFIX_MAP[normalizedLeague] || `_${normalizedLeague}`;
+    const suffix = LEAGUE_SUFFIX_MAP[normalizedLeague] || '';
     return `${rawId}${suffix}`;
 };
 
@@ -300,7 +297,14 @@ export async function resolveCanonicalMatch(
             windowEnd: windowEnd.toISOString()
         });
 
-        const expectedSuffix = LEAGUE_SUFFIX_MAP[canonicalLeague] || `_${canonicalLeague}`;
+        // Get the expected suffix for this league
+        const LEAGUE_SUFFIX = {
+            'nba': '_nba', 'nfl': '_nfl', 'nhl': '_nhl', 'mlb': '_mlb',
+            'college-football': '_ncaaf', 'mens-college-basketball': '_ncaab',
+            'eng.1': '_epl', 'ita.1': '_seriea', 'esp.1': '_laliga', 'ger.1': '_bundesliga',
+            'uefa.champions': '_ucl', 'uefa.europa': '_uel', 'fifa.world': '_worldcup'
+        } as Record<string, string>;
+        const expectedSuffix = LEAGUE_SUFFIX[canonicalLeague] || `_${canonicalLeague}`;
 
         const { data: matches, error } = await supabase
             .from("matches")
@@ -462,3 +466,5 @@ export const toLocalGameDate = (isoStr: string | Date): string => {
 
     return dateStr;
 };
+
+

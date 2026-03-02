@@ -1,78 +1,73 @@
-import React, { memo } from "react";
-import { cn, ESSENCE } from "@/lib/essence";
-import { motion } from "framer-motion";
+import React, { memo } from 'react';
+import { motion } from 'framer-motion';
+import { cn, ESSENCE } from '@/lib/essence';
 
 const MotionDiv = motion.div;
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-    children?: React.ReactNode;
-    variant?: "default" | "glass" | "solid" | "elevated" | "flush";
-    hover?: boolean;
-    edgeLight?: boolean;
-    livePulse?: boolean;
-    isLoading?: boolean;
-    noPadding?: boolean;
-    className?: string;
+  children?: React.ReactNode;
+  variant?: 'default' | 'glass' | 'solid' | 'elevated' | 'flush';
+  hover?: boolean;
+  livePulse?: boolean;
+  isLoading?: boolean;
+  noPadding?: boolean;
+  className?: string;
 }
 
-/**
- * Card — Editorial Light Surface
- * Clean white card with crisp slate-200 border. No shadows, no glows.
- */
+const CARD_VARIANTS: Record<NonNullable<CardProps['variant']>, string> = {
+  default: ESSENCE.card.base,
+  glass: cn('backdrop-blur-xl', ESSENCE.tw.surface.subtle, ESSENCE.tw.border.default, ESSENCE.card.radius),
+  solid: cn('bg-white', ESSENCE.tw.border.default, ESSENCE.card.radius),
+  elevated: cn('bg-white', ESSENCE.tw.border.default, ESSENCE.card.radius, 'shadow-sm'),
+  flush: 'bg-transparent border-0 rounded-none',
+};
+
 export const Card = memo(({
-    children,
-    className,
-    variant = "default",
-    hover = false,
-    edgeLight = false,
-    livePulse = false,
-    isLoading = false,
-    noPadding = false,
-    ...rest
+  children,
+  className,
+  variant = 'default',
+  hover = false,
+  livePulse = false,
+  isLoading = false,
+  noPadding = false,
+  ...rest
 }: CardProps) => {
-    const baseStyles = cn("relative overflow-hidden transition-all duration-300", ESSENCE.card.radius);
+  return (
+    <MotionDiv
+      className={cn(
+        'relative overflow-hidden transition-all duration-300',
+        ESSENCE.card.radius,
+        CARD_VARIANTS[variant],
+        hover && 'hover:-translate-y-0.5 hover:border-slate-300',
+        !noPadding && variant !== 'flush' && ESSENCE.card.padding,
+        className
+      )}
+      {...rest}
+    >
+      {livePulse && (
+        <div
+          className="absolute top-0 left-0 right-0 h-px z-20 motion-safe:animate-pulse"
+          style={{ background: ESSENCE.colors.accent.success }}
+        />
+      )}
 
-    const variants = {
-        default: ESSENCE.card.base,
-        glass: cn("bg-white/90 backdrop-blur-xl", "border border-slate-200"),
-        solid: cn("bg-white", "border border-slate-200"),
-        elevated: cn("bg-white", "border border-slate-200", ESSENCE.card.radius, "shadow-sm"),
-        flush: "bg-transparent border-0 rounded-none",
-    };
+      {isLoading && (
+        <div className="absolute inset-0 z-20 overflow-hidden" aria-hidden="true">
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(90deg, transparent 0%, rgba(15,23,42,0.06) 50%, transparent 100%)',
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 1.5s infinite',
+            }}
+          />
+        </div>
+      )}
 
-    const hoverStyles = hover ? "hover:border-slate-300 hover:-translate-y-0.5" : "";
-
-    return (
-        <MotionDiv
-            className={cn(
-                baseStyles,
-                variants[variant],
-                hoverStyles,
-                !noPadding && variant !== 'flush' && ESSENCE.card.padding,
-                className
-            )}
-            {...rest}
-        >
-            {/* Live pulse indicator — subtle top border color */}
-            {livePulse && (
-                <div className="absolute top-0 left-0 right-0 h-px z-20 bg-emerald-400 motion-safe:animate-pulse" />
-            )}
-
-            {/* Shimmer skeleton */}
-            {isLoading && (
-                <div className="absolute inset-0 z-20 overflow-hidden">
-                    <div
-                        className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-100 to-transparent"
-                        style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' }}
-                    />
-                </div>
-            )}
-
-            <div className={cn("relative z-10 h-full", isLoading && "opacity-0")}>
-                {children}
-            </div>
-        </MotionDiv>
-    );
+      <div className={cn('relative z-10 h-full', isLoading && 'opacity-0')}>{children}</div>
+    </MotionDiv>
+  );
 });
 
 Card.displayName = 'Card';
