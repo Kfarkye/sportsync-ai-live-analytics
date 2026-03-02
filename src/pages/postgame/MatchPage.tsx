@@ -8,7 +8,6 @@ import {
   DataPill,
   EmptyBlock,
   LoadingBlock,
-  MetricCell,
   PageShell,
   SectionLabel,
   TopNav,
@@ -19,11 +18,36 @@ interface MatchPageProps {
   slug: string;
 }
 
-const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
+type TimelineEvent = {
+  type: string;
+  minute: number | null;
+  minuteLabel: string;
+  teamSide: 'home' | 'away' | 'neutral';
+  playerName: string | null;
+  detail: string | null;
+};
 
-const minToPercent = (minute: number | null): number => {
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(Math.max(value, min), max);
+
+const minuteToPercent = (minute: number | null): number => {
   if (minute === null) return 0;
   return clamp((minute / 95) * 100, 0, 100);
+};
+
+const boolLabel = (value: boolean | null): string => {
+  if (value === null) return '—';
+  return value ? 'Yes' : 'No';
+};
+
+const sideLabel = (
+  side: 'home' | 'away' | 'neutral',
+  homeTeam: string,
+  awayTeam: string,
+): string => {
+  if (side === 'home') return homeTeam;
+  if (side === 'away') return awayTeam;
+  return 'Neutral';
 };
 
 const eventTypeLabel = (type: string): string => {
@@ -31,17 +55,6 @@ const eventTypeLabel = (type: string): string => {
   if (type === 'card') return 'Card';
   if (type === 'substitution') return 'Sub';
   return 'Event';
-};
-
-const sideLabel = (side: 'home' | 'away' | 'neutral', homeTeam: string, awayTeam: string): string => {
-  if (side === 'home') return homeTeam;
-  if (side === 'away') return awayTeam;
-  return 'Neutral';
-};
-
-const boolLabel = (value: boolean | null): string => {
-  if (value === null) return '—';
-  return value ? 'Yes' : 'No';
 };
 
 const poolLabel = (pool: string): string => {
@@ -52,19 +65,658 @@ const poolLabel = (pool: string): string => {
   return pool;
 };
 
-const resultTone = (result: string | null): string => {
-  if (result === 'win') return 'text-emerald-700';
-  if (result === 'loss') return 'text-rose-700';
-  return 'text-slate-700';
+const impliedProb = (moneyline: number | null): number | null => {
+  if (moneyline === null) return null;
+  if (moneyline > 0) return (100 / (moneyline + 100)) * 100;
+  return (Math.abs(moneyline) / (Math.abs(moneyline) + 100)) * 100;
+};
+
+const parseNumeric = (value: string | number): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+
+  const cleaned = String(value)
+    .replace('%', '')
+    .replace(/,/g, '')
+    .trim();
+
+  if (cleaned.length === 0 || cleaned === '—') return null;
+
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const scoreTone = (home: number | null, away: number | null): string => {
+  if (home === null || away === null) return 'border-slate-200 bg-slate-50 text-slate-400';
+  const total = home + away;
+  if (total === 0) return 'border-slate-200 bg-slate-100 text-slate-600';
+  if (total >= 4) return 'border-rose-200 bg-rose-50 text-rose-700';
+  if (home === away) return 'border-amber-200 bg-amber-50 text-amber-700';
+  return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+};
+
+const badgeTone = (
+  tone: 'neutral' | 'success' | 'danger' | 'warning' | 'info',
+): string => {
+  if (tone === 'success') return 'border-emerald-200 bg-emerald-100 text-emerald-700';
+  if (tone === 'danger') return 'border-rose-200 bg-rose-100 text-rose-700';
+  if (tone === 'warning') return 'border-amber-200 bg-amber-100 text-amber-700';
+  if (tone === 'info') return 'border-sky-200 bg-sky-100 text-sky-700';
+  return 'border-slate-200 bg-slate-100 text-slate-600';
+};
+
+const ScorePill: FC<{ home: number | null; away: number | null; large?: boolean }> = ({
+  home,
+  away,
+  large = false,
+}) => {
+  const size = large ? 'px-5 py-2 text-3xl tracking-tight' : 'px-2 py-0.5 text-sm';
+
+  return (
+    <span className={`inline-flex items-center rounded-xl border font-semibold tabular-nums ${size} ${scoreTone(home, away)}`}>
+      {home ?? '—'}
+      <span className="mx-2 font-normal text-slate-300">-</span>
+      {away ?? '—'}
+    </span>
+  );
+};
+
+const Badge: FC<{ children: React.ReactNode; tone?: 'neutral' | 'success' | 'danger' | 'warning' | 'info' }> = ({
+  children,
+  tone = 'neutral',
+}) => (
+  <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${badgeTone(tone)}`}>
+    {children}
+  </span>
+);
+
+const SplitBar: FC<{ home: number; away: number }> = ({ home, away }) => {
+  const total = home + away || 1;
+  const homePct = (home / total) * 100;
+
+  return (
+    <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+      <div className="h-full bg-slate-700" style={{ width: `${homePct}%` }} />
+      <div className="h-full bg-rose-500" style={{ width: `${100 - homePct}%` }} />
+    </div>
+  );
+};
+
+const MiniBar: FC<{ value: number; max: number; tone?: 'neutral' | 'warm' | 'cool' }> = ({
+  value,
+  max,
+  tone = 'neutral',
+}) => {
+  const pct = Math.min((value / Math.max(max, 1)) * 100, 100);
+  const fill = tone === 'warm' ? 'bg-rose-500' : tone === 'cool' ? 'bg-sky-500' : 'bg-slate-700';
+
+  return (
+    <div className="h-1.5 w-8 overflow-hidden rounded-full bg-slate-200">
+      <div className={`h-full ${fill}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+};
+
+const Subsection: FC<{ title: string; right?: React.ReactNode }> = ({ title, right }) => (
+  <div className="mb-2 mt-5 flex items-center justify-between first:mt-0">
+    <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</h3>
+    {right ? <span className="text-xs tabular-nums text-slate-400">{right}</span> : null}
+  </div>
+);
+
+const TimelineStrip: FC<{ events: TimelineEvent[]; homeTeam: string; awayTeam: string }> = ({
+  events,
+  homeTeam,
+  awayTeam,
+}) => {
+  const goals = useMemo(() => events.filter((event) => event.type === 'goal'), [events]);
+  const cards = useMemo(() => events.filter((event) => event.type === 'card'), [events]);
+
+  const running = useMemo(() => {
+    let home = 0;
+    let away = 0;
+
+    return goals.map((goal) => {
+      if (goal.teamSide === 'home') home += 1;
+      if (goal.teamSide === 'away') away += 1;
+      return {
+        ...goal,
+        score: `${home}-${away}`,
+      };
+    });
+  }, [goals]);
+
+  return (
+    <div>
+      <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50" style={{ height: 56 }}>
+        <div className="absolute inset-y-0 left-[47.4%] w-px bg-slate-200" />
+        <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-slate-200" />
+
+        {[15, 30, 60, 75].map((minute) => (
+          <div key={minute} className="absolute inset-y-0 w-px bg-slate-100" style={{ left: `${minuteToPercent(minute)}%` }} />
+        ))}
+
+        {goals.map((event, index) => {
+          const isHome = event.teamSide === 'home';
+          return (
+            <div
+              key={`goal-${index}`}
+              className="absolute flex -translate-x-1/2 flex-col items-center"
+              style={{
+                left: `${minuteToPercent(event.minute)}%`,
+                top: isHome ? 4 : undefined,
+                bottom: isHome ? undefined : 4,
+              }}
+              title={`${event.minuteLabel} ${sideLabel(event.teamSide, homeTeam, awayTeam)} ${event.playerName ?? ''}`}
+            >
+              <div className={`h-2 w-2 rounded-full ${isHome ? 'bg-slate-800' : 'bg-rose-500'}`} />
+              <span className={`mt-0.5 text-[8px] font-semibold ${isHome ? 'text-slate-700' : 'text-rose-700'}`}>
+                {event.minuteLabel}
+              </span>
+            </div>
+          );
+        })}
+
+        {cards.map((event, index) => (
+          <div
+            key={`card-${index}`}
+            className="absolute -translate-x-1/2"
+            style={{ left: `${minuteToPercent(event.minute)}%`, top: event.teamSide === 'home' ? 3 : undefined, bottom: event.teamSide === 'home' ? undefined : 3 }}
+          >
+            <div className="h-1.5 w-1 rounded-sm bg-amber-500/80" />
+          </div>
+        ))}
+
+        <span className="absolute left-2 top-1 text-[9px] text-slate-400">0'</span>
+        <span className="absolute left-[47.4%] top-1 -translate-x-1/2 text-[9px] text-slate-400">HT</span>
+        <span className="absolute right-2 top-1 text-[9px] text-slate-400">90'</span>
+      </div>
+
+      <div className="mt-2 flex items-center gap-4 text-[10px] text-slate-500">
+        <div className="flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-slate-800" />
+          <span>{homeTeam}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+          <span>{awayTeam}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="h-1.5 w-1 rounded-sm bg-amber-500" />
+          <span>Card</span>
+        </div>
+      </div>
+
+      {running.length > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs tabular-nums text-slate-400">0-0</span>
+          {running.map((goal, index) => (
+            <React.Fragment key={`seq-${index}`}>
+              <span className="text-[10px] text-slate-300">→</span>
+              <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 ${goal.teamSide === 'home' ? 'border-slate-200 bg-slate-100' : 'border-rose-200 bg-rose-100'}`}>
+                <span className={`text-xs font-semibold tabular-nums ${goal.teamSide === 'home' ? 'text-slate-700' : 'text-rose-700'}`}>
+                  {goal.score}
+                </span>
+                <span className="text-[9px] text-slate-400">{goal.minuteLabel}</span>
+              </span>
+            </React.Fragment>
+          ))}
+        </div>
+      ) : null}
+
+      {goals.length > 0 ? (
+        <div className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+          {running.map((goal, index) => {
+            const isHome = goal.teamSide === 'home';
+            return (
+              <div key={`goal-detail-${index}`} className={`rounded-md border px-3 py-2 ${isHome ? 'border-slate-200 bg-slate-50' : 'border-rose-200 bg-rose-50/60'}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-xs font-semibold ${isHome ? 'text-slate-700' : 'text-rose-700'}`}>{goal.minuteLabel}</span>
+                  <span className="text-xs tabular-nums text-slate-500">{goal.score}</span>
+                </div>
+                <div className="mt-1 truncate text-xs font-medium text-slate-800">{goal.playerName ?? 'Goal'}</div>
+                <div className="text-[10px] text-slate-500">{sideLabel(goal.teamSide, homeTeam, awayTeam)}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+const BoxScoreTable: FC<{
+  rows: Array<{ key: string; label: string; home: string | number; away: string | number }>;
+  homeTeam: string;
+  awayTeam: string;
+}> = ({ rows, homeTeam, awayTeam }) => (
+  <div className="overflow-x-auto">
+    <table className="min-w-full border-collapse text-sm">
+      <thead className="border-b-2 border-slate-200">
+        <tr className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <th className="py-2.5 pl-4 pr-3 text-left">Stat</th>
+          <th className="w-20 px-2 py-2.5 text-right">{homeTeam}</th>
+          <th className="w-24 px-2 py-2.5 text-center" />
+          <th className="w-20 px-2 py-2.5 text-left">{awayTeam}</th>
+          <th className="w-20 px-2 py-2.5 text-right">Δ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, index) => {
+          const home = parseNumeric(row.home);
+          const away = parseNumeric(row.away);
+          const homeWins = home !== null && away !== null && home > away;
+          const awayWins = home !== null && away !== null && away > home;
+
+          let deltaText = '—';
+          let deltaClass = 'text-slate-400';
+
+          if (home !== null && away !== null) {
+            const total = home + away;
+            if (total > 0) {
+              const delta = (home / total) * 100 - 50;
+              deltaText = `${delta > 0 ? '+' : ''}${delta.toFixed(0)}%`;
+              deltaClass = delta > 10 ? 'text-slate-700' : delta < -10 ? 'text-rose-700' : 'text-slate-500';
+            } else {
+              deltaText = '0%';
+              deltaClass = 'text-slate-500';
+            }
+          }
+
+          return (
+            <tr key={row.key} className={index < rows.length - 1 ? 'border-b border-slate-100' : ''}>
+              <td className="py-2.5 pl-4 pr-3 text-xs text-slate-600">{row.label}</td>
+              <td className={`px-2 py-2.5 text-right text-xs tabular-nums ${homeWins ? 'font-semibold text-slate-800' : 'text-slate-500'}`}>
+                {row.home}
+              </td>
+              <td className="px-2 py-2.5">{home !== null && away !== null ? <SplitBar home={home} away={away} /> : null}</td>
+              <td className={`px-2 py-2.5 text-left text-xs tabular-nums ${awayWins ? 'font-semibold text-rose-700' : 'text-slate-500'}`}>
+                {row.away}
+              </td>
+              <td className={`px-2 py-2.5 text-right text-[11px] tabular-nums ${deltaClass}`}>{deltaText}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+);
+
+const OddsSection: FC<{
+  data: {
+    homeTeam: string;
+    awayTeam: string;
+    homeScore: number | null;
+    awayScore: number | null;
+    odds: {
+      homeMoneyline: number | null;
+      drawMoneyline: number | null;
+      awayMoneyline: number | null;
+      spread: number | null;
+      homeSpreadPrice: number | null;
+      awaySpreadPrice: number | null;
+      total: number | null;
+      overPrice: number | null;
+      underPrice: number | null;
+    };
+  };
+}> = ({ data }) => {
+  const totalGoals =
+    data.homeScore !== null && data.awayScore !== null ? data.homeScore + data.awayScore : null;
+  const margin =
+    data.homeScore !== null && data.awayScore !== null ? data.homeScore - data.awayScore : null;
+
+  const spreadCover =
+    data.odds.spread !== null && margin !== null ? margin + data.odds.spread > 0 : null;
+
+  const overHit =
+    data.odds.total !== null && totalGoals !== null ? totalGoals > data.odds.total : null;
+  const push =
+    data.odds.total !== null && totalGoals !== null ? totalGoals === data.odds.total : false;
+
+  const legs = [
+    {
+      label: data.homeTeam,
+      line: data.odds.homeMoneyline,
+      won:
+        data.homeScore !== null && data.awayScore !== null
+          ? data.homeScore > data.awayScore
+          : false,
+    },
+    {
+      label: 'Draw',
+      line: data.odds.drawMoneyline,
+      won:
+        data.homeScore !== null && data.awayScore !== null
+          ? data.homeScore === data.awayScore
+          : false,
+    },
+    {
+      label: data.awayTeam,
+      line: data.odds.awayMoneyline,
+      won:
+        data.homeScore !== null && data.awayScore !== null
+          ? data.homeScore < data.awayScore
+          : false,
+    },
+  ];
+
+  return (
+    <div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-collapse text-sm">
+          <thead className="border-b-2 border-slate-200">
+            <tr className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+              <th className="py-2.5 pl-4 pr-3 text-left">Outcome</th>
+              <th className="px-3 py-2.5 text-right">Line</th>
+              <th className="px-3 py-2.5 text-right">Impl %</th>
+              <th className="px-3 py-2.5 text-right">Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {legs.map((leg, index) => {
+              const ip = impliedProb(leg.line);
+              return (
+                <tr key={leg.label} className={`${index < legs.length - 1 ? 'border-b border-slate-100' : ''} ${leg.won ? 'bg-emerald-50/70' : ''}`}>
+                  <td className={`py-2.5 pl-4 pr-3 text-xs ${leg.won ? 'font-semibold text-emerald-700' : 'text-slate-700'}`}>
+                    {leg.label}
+                  </td>
+                  <td className="px-3 py-2.5 text-right text-xs tabular-nums text-slate-600">
+                    {leg.line !== null ? formatSignedNumber(leg.line, 0) : '—'}
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    {ip !== null ? (
+                      <div className="inline-flex items-center justify-end gap-1.5">
+                        <MiniBar value={ip} max={100} tone={leg.won ? 'neutral' : 'cool'} />
+                        <span className="text-[11px] tabular-nums text-slate-500">{ip.toFixed(1)}%</span>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    {leg.won ? <Badge tone="success">Winner</Badge> : <span className="text-[11px] text-slate-400">—</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <Subsection title="Lines & Coverage" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-slate-200 px-4 py-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Spread</span>
+            {spreadCover !== null ? <Badge tone={spreadCover ? 'success' : 'danger'}>{spreadCover ? 'Covered' : 'Missed'}</Badge> : null}
+          </div>
+          <div className="flex items-end gap-3">
+            <span className="text-2xl font-semibold tabular-nums text-slate-800">
+              {data.odds.spread !== null ? formatSignedNumber(data.odds.spread, 1) : '—'}
+            </span>
+            <div className="pb-0.5 text-xs text-slate-500">
+              H {data.odds.homeSpreadPrice !== null ? formatSignedNumber(data.odds.homeSpreadPrice, 0) : '—'} · A{' '}
+              {data.odds.awaySpreadPrice !== null ? formatSignedNumber(data.odds.awaySpreadPrice, 0) : '—'}
+            </div>
+          </div>
+          {margin !== null && data.odds.spread !== null ? (
+            <div className="mt-1.5 text-xs text-slate-500">
+              Margin {margin > 0 ? '+' : ''}
+              {margin} · Adj {(margin + data.odds.spread) > 0 ? '+' : ''}
+              {(margin + data.odds.spread).toFixed(1)}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="rounded-lg border border-slate-200 px-4 py-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Total</span>
+            {overHit !== null ? (
+              push ? (
+                <Badge tone="warning">Push</Badge>
+              ) : overHit ? (
+                <Badge tone="danger">Over</Badge>
+              ) : (
+                <Badge tone="info">Under</Badge>
+              )
+            ) : null}
+          </div>
+          <div className="flex items-end gap-3">
+            <span className="text-2xl font-semibold tabular-nums text-slate-800">{data.odds.total ?? '—'}</span>
+            <div className="pb-0.5 text-xs text-slate-500">
+              O {data.odds.overPrice !== null ? formatSignedNumber(data.odds.overPrice, 0) : '—'} · U{' '}
+              {data.odds.underPrice !== null ? formatSignedNumber(data.odds.underPrice, 0) : '—'}
+            </div>
+          </div>
+          {totalGoals !== null && data.odds.total !== null ? (
+            <div className="mt-1.5 text-xs text-slate-500">
+              Actual {totalGoals} · {totalGoals > data.odds.total ? '+' : ''}
+              {(totalGoals - data.odds.total).toFixed(1)} vs line
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const GameFlowGrouped: FC<{
+  gameFlow: {
+    htFtResult: string | null;
+    firstGoalInterval: string | null;
+    firstGoalTeam: string | null;
+    lastGoalMinute: number | null;
+    goals1HPct: number | null;
+    btts: boolean | null;
+    homeGoals1H: number | null;
+    awayGoals1H: number | null;
+    homeGoals2H: number | null;
+    awayGoals2H: number | null;
+    lateGoals: number | null;
+    stoppageTimeGoals: number | null;
+    penaltyAwarded: boolean | null;
+    totalPenalties: number | null;
+  };
+  homeTeam: string;
+}> = ({ gameFlow, homeTeam }) => {
+  const sections = [
+    {
+      title: 'Timing',
+      rows: [
+        { label: 'HT / FT Pattern', value: gameFlow.htFtResult ?? '—' },
+        { label: 'First Goal Window', value: gameFlow.firstGoalInterval ?? '—' },
+        {
+          label: 'First Goal Team',
+          value: gameFlow.firstGoalTeam ?? '—',
+          badge:
+            gameFlow.firstGoalTeam === homeTeam
+              ? { text: 'Home', tone: 'neutral' as const }
+              : gameFlow.firstGoalTeam
+                ? { text: 'Away', tone: 'danger' as const }
+                : null,
+        },
+        {
+          label: 'Last Goal Minute',
+          value: gameFlow.lastGoalMinute !== null ? `${gameFlow.lastGoalMinute}'` : '—',
+        },
+        {
+          label: 'Goals in 1H',
+          value: formatPct(gameFlow.goals1HPct),
+          bar:
+            typeof gameFlow.goals1HPct === 'number'
+              ? { value: gameFlow.goals1HPct, max: 100, tone: 'neutral' as const }
+              : null,
+        },
+      ],
+    },
+    {
+      title: 'Structure',
+      rows: [
+        {
+          label: 'BTTS',
+          value: boolLabel(gameFlow.btts),
+          badge: gameFlow.btts === true ? { text: 'Yes', tone: 'success' as const } : null,
+        },
+        {
+          label: 'Half Splits',
+          value: `${gameFlow.homeGoals1H ?? '—'}-${gameFlow.awayGoals1H ?? '—'} / ${gameFlow.homeGoals2H ?? '—'}-${gameFlow.awayGoals2H ?? '—'}`,
+        },
+        {
+          label: 'Late Goals (85+)',
+          value: String(gameFlow.lateGoals ?? '—'),
+          badge:
+            typeof gameFlow.lateGoals === 'number' && gameFlow.lateGoals > 0
+              ? { text: String(gameFlow.lateGoals), tone: 'danger' as const }
+              : null,
+        },
+        {
+          label: 'Stoppage Goals',
+          value: String(gameFlow.stoppageTimeGoals ?? '—'),
+          badge:
+            typeof gameFlow.stoppageTimeGoals === 'number' && gameFlow.stoppageTimeGoals > 0
+              ? { text: String(gameFlow.stoppageTimeGoals), tone: 'warning' as const }
+              : null,
+        },
+      ],
+    },
+    {
+      title: 'Discipline',
+      rows: [
+        {
+          label: 'Penalty Awarded',
+          value: boolLabel(gameFlow.penaltyAwarded),
+          badge: gameFlow.penaltyAwarded ? { text: 'Yes', tone: 'warning' as const } : null,
+        },
+        {
+          label: 'Total Penalties',
+          value: String(gameFlow.totalPenalties ?? '—'),
+        },
+      ],
+    },
+  ];
+
+  return (
+    <div>
+      {sections.map((section, sectionIndex) => (
+        <div key={section.title} className={sectionIndex > 0 ? 'mt-4 border-t border-slate-200 pt-4' : ''}>
+          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{section.title}</div>
+          <div className="divide-y divide-slate-100">
+            {section.rows.map((row) => (
+              <div key={row.label} className="flex items-center justify-between gap-3 py-2">
+                <span className="text-sm text-slate-600">{row.label}</span>
+                <div className="flex items-center gap-2">
+                  {'bar' in row && row.bar ? <MiniBar value={row.bar.value} max={row.bar.max} tone={row.bar.tone} /> : null}
+                  {'badge' in row && row.badge ? <Badge tone={row.badge.tone}>{row.badge.text}</Badge> : null}
+                  <span className="text-xs font-semibold tabular-nums text-slate-800">{row.value}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ScorerTable: FC<{
+  rows: Array<{
+    id: string;
+    playerName: string;
+    oddsFractional: string | null;
+    impliedProb: number | null;
+    result: string | null;
+  }>;
+}> = ({ rows }) => (
+  <div className="overflow-x-auto">
+    <table className="min-w-full border-collapse text-sm">
+      <thead className="border-b-2 border-slate-200">
+        <tr className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <th className="py-2 pl-4 pr-3 text-left">Player</th>
+          <th className="px-3 py-2 text-right">Odds</th>
+          <th className="px-3 py-2 text-right">Impl %</th>
+          <th className="px-3 py-2 text-right">Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, index) => {
+          const isWin = row.result === 'win';
+          const isLoss = row.result === 'loss';
+          return (
+            <tr key={row.id} className={`${index < rows.length - 1 ? 'border-b border-slate-100' : ''} ${isWin ? 'bg-emerald-50/70' : ''}`}>
+              <td className={`py-2 pl-4 pr-3 text-xs ${isWin ? 'font-semibold text-emerald-700' : 'text-slate-700'}`}>
+                {row.playerName}
+              </td>
+              <td className="px-3 py-2 text-right text-xs tabular-nums text-slate-600">{row.oddsFractional ?? '—'}</td>
+              <td className="px-3 py-2 text-right">
+                {row.impliedProb !== null ? (
+                  <div className="inline-flex items-center justify-end gap-1.5">
+                    <MiniBar value={row.impliedProb} max={80} tone={row.impliedProb > 40 ? 'warm' : 'neutral'} />
+                    <span className="text-[11px] tabular-nums text-slate-500">{row.impliedProb.toFixed(1)}%</span>
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-slate-400">—</span>
+                )}
+              </td>
+              <td className="px-3 py-2 text-right">
+                {row.result ? <Badge tone={isWin ? 'success' : isLoss ? 'danger' : 'neutral'}>{row.result}</Badge> : <span className="text-[11px] text-slate-400">—</span>}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+);
+
+const MatchSignals: FC<{
+  homeScore: number | null;
+  awayScore: number | null;
+  gameFlow: {
+    btts: boolean | null;
+    lateGoals: number | null;
+    lastGoalMinute: number | null;
+    stoppageTimeGoals: number | null;
+    penaltyAwarded: boolean | null;
+  };
+  odds: { total: number | null };
+}> = ({ homeScore, awayScore, gameFlow, odds }) => {
+  if (homeScore === null || awayScore === null) return null;
+
+  const total = homeScore + awayScore;
+  const margin = homeScore - awayScore;
+
+  const signals: Array<{ label: string; tone: 'neutral' | 'success' | 'danger' | 'warning' | 'info' }> = [];
+
+  if (total === 0) signals.push({ label: 'Scoreless', tone: 'info' });
+  if (total >= 4) signals.push({ label: `${total} Goals`, tone: 'danger' });
+  if (gameFlow.btts) signals.push({ label: 'BTTS', tone: 'success' });
+  if ((gameFlow.lateGoals ?? 0) > 0) signals.push({ label: `Late Goal ${gameFlow.lastGoalMinute ?? ''}`.trim(), tone: 'danger' });
+  if ((gameFlow.stoppageTimeGoals ?? 0) > 0) signals.push({ label: 'Stoppage Goal', tone: 'warning' });
+  if (gameFlow.penaltyAwarded) signals.push({ label: 'Penalty', tone: 'warning' });
+  if (odds.total !== null && total > odds.total) signals.push({ label: `Over ${odds.total}`, tone: 'danger' });
+  if (odds.total !== null && total < odds.total) signals.push({ label: `Under ${odds.total}`, tone: 'info' });
+  if (Math.abs(margin) >= 3) signals.push({ label: `${Math.abs(margin)}-Goal Margin`, tone: 'success' });
+
+  if (signals.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap justify-center gap-1.5">
+      {signals.map((signal) => (
+        <Badge key={signal.label} tone={signal.tone}>{signal.label}</Badge>
+      ))}
+    </div>
+  );
 };
 
 export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
   const { data, isLoading, error } = useMatchBySlug(slug);
 
   const timelineEvents = useMemo(() => data?.timeline ?? [], [data]);
+
   const scorerOddsByPool = useMemo(() => {
     const rows = data?.playerScorerOdds ?? [];
     const buckets = new Map<string, typeof rows>();
+
     for (const row of rows) {
       const key = row.pool || 'unknown';
       const list = buckets.get(key) ?? [];
@@ -72,13 +724,33 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
       buckets.set(key, list);
     }
 
-    return Array.from(buckets.entries()).map(([pool, rowsInPool]) => ({
+    return Array.from(buckets.entries()).map(([pool, poolRows]) => ({
       pool,
-      rows: rowsInPool
+      rows: poolRows
         .slice()
-        .sort((a, b) => (a.oddsDecimal ?? Number.MAX_SAFE_INTEGER) - (b.oddsDecimal ?? Number.MAX_SAFE_INTEGER))
-        .slice(0, 8),
+        .sort(
+          (a, b) =>
+            (a.oddsDecimal ?? Number.MAX_SAFE_INTEGER) -
+            (b.oddsDecimal ?? Number.MAX_SAFE_INTEGER),
+        )
+        .slice(0, 10),
     }));
+  }, [data]);
+
+  const eventsWithScore = useMemo(() => {
+    let home = 0;
+    let away = 0;
+
+    return (data?.events ?? []).map((event) => {
+      const isGoal = event.type === 'goal';
+      if (isGoal && event.teamSide === 'home') home += 1;
+      if (isGoal && event.teamSide === 'away') away += 1;
+
+      return {
+        ...event,
+        scoreAfter: isGoal ? `${home}-${away}` : null,
+      };
+    });
   }, [data]);
 
   return (
@@ -88,34 +760,69 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
       {isLoading ? <LoadingBlock label="Loading match page…" /> : null}
       {error ? <EmptyBlock message={`Failed to load match: ${error.message}`} /> : null}
       {!isLoading && !error && !data ? (
-        <EmptyBlock
-          message={`Match not found: ${slug}. Try either /match/{league}-{home}-vs-{away}-{date} or /match/{home}-vs-{away}-{date}.`}
-        />
+        <EmptyBlock message={`Match not found: ${slug}. Try /match/{league}-{home}-vs-{away}-{date} or /match/{home}-vs-{away}-{date}.`} />
       ) : null}
 
       {data ? (
-        <div className="space-y-6 sm:space-y-8">
+        <div className="space-y-5 sm:space-y-6">
           <Card>
-            <CardBody className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">{data.leagueName}</p>
-                  <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-                    {data.homeTeam} vs {data.awayTeam}
-                  </h1>
-                </div>
-                <DataPill className="text-sm">
-                  <ValueText>
-                    {data.homeScore ?? '—'}-{data.awayScore ?? '—'}
-                  </ValueText>
-                </DataPill>
+            <CardBody>
+              <div className="mb-5 flex items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{data.leagueName}</span>
+                {data.matchday ? <DataPill className="text-[10px]">MD {data.matchday}</DataPill> : null}
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <MetricCell label="Date" value={<span className="text-xs text-slate-700">{formatMatchDateLabel(data.startTime)}</span>} />
-                <MetricCell label="Venue" value={data.venue ?? '—'} />
-                <MetricCell label="Referee" value={data.referee ?? '—'} />
-                <MetricCell label="Matchday" value={data.matchday ?? '—'} />
+              <div className="flex items-center justify-center gap-8 py-1">
+                <div className="min-w-0 flex-1 text-right">
+                  <div className="truncate text-lg font-semibold tracking-tight text-slate-900">{data.homeTeam}</div>
+                  <div className="mt-0.5 text-[10px] uppercase tracking-[0.1em] text-slate-400">Home</div>
+                </div>
+                <ScorePill home={data.homeScore} away={data.awayScore} large />
+                <div className="min-w-0 flex-1 text-left">
+                  <div className="truncate text-lg font-semibold tracking-tight text-slate-900">{data.awayTeam}</div>
+                  <div className="mt-0.5 text-[10px] uppercase tracking-[0.1em] text-slate-400">Away</div>
+                </div>
+              </div>
+
+              {data.gameFlow.homeGoals1H !== null || data.gameFlow.awayGoals1H !== null ? (
+                <div className="mt-2 flex justify-center gap-5">
+                  <div className="inline-flex items-center gap-1.5 text-xs">
+                    <span className="font-semibold uppercase tracking-[0.12em] text-slate-400">1H</span>
+                    <span className="font-semibold tabular-nums text-slate-700">
+                      {data.gameFlow.homeGoals1H ?? 0}-{data.gameFlow.awayGoals1H ?? 0}
+                    </span>
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 text-xs">
+                    <span className="font-semibold uppercase tracking-[0.12em] text-slate-400">2H</span>
+                    <span className="font-semibold tabular-nums text-slate-700">
+                      {data.gameFlow.homeGoals2H ?? 0}-{data.gameFlow.awayGoals2H ?? 0}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-3 flex flex-col items-center gap-2.5">
+                <div className="flex flex-wrap items-center justify-center gap-2.5 text-xs text-slate-500">
+                  {data.homeScore !== null && data.awayScore !== null ? (
+                    data.homeScore > data.awayScore ? (
+                      <Badge tone="success">{data.homeTeam} Win</Badge>
+                    ) : data.homeScore < data.awayScore ? (
+                      <Badge tone="danger">{data.awayTeam} Win</Badge>
+                    ) : (
+                      <Badge tone="warning">Draw</Badge>
+                    )
+                  ) : null}
+                  <span>{formatMatchDateLabel(data.startTime)}</span>
+                  {data.venue ? <span>· {data.venue}</span> : null}
+                  {data.referee ? <span>· {data.referee}</span> : null}
+                </div>
+
+                <MatchSignals
+                  homeScore={data.homeScore}
+                  awayScore={data.awayScore}
+                  gameFlow={data.gameFlow}
+                  odds={data.odds}
+                />
               </div>
             </CardBody>
           </Card>
@@ -123,39 +830,10 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
           {timelineEvents.length > 0 ? (
             <Card>
               <CardHeader>
-                <SectionLabel>Score Timeline</SectionLabel>
+                <SectionLabel>Match Timeline</SectionLabel>
               </CardHeader>
               <CardBody>
-                <div className="relative h-14 rounded-md border border-slate-200 bg-slate-50">
-                  <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-slate-700" />
-                  <span className="absolute left-2 top-2 text-[10px] text-slate-500">0'</span>
-                  <span className="absolute right-2 top-2 text-[10px] text-slate-500">90'</span>
-
-                  {timelineEvents.map((event, index) => (
-                    <div
-                      key={`${event.type}-${event.minuteLabel}-${index}`}
-                      className="absolute top-1/2"
-                      style={{ left: `${minToPercent(event.minute)}%` }}
-                      title={`${event.minuteLabel} ${sideLabel(event.teamSide, data.homeTeam, data.awayTeam)} ${event.playerName ?? ''}`}
-                    >
-                      <div className="h-3 w-0.5 -translate-y-1/2 bg-slate-200" />
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {timelineEvents.map((event, index) => (
-                    <div key={`tl-${index}-${event.minuteLabel}`} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-slate-700">{eventTypeLabel(event.type)}</span>
-                        <ValueText>{event.minuteLabel}</ValueText>
-                      </div>
-                      <div className="mt-1 text-slate-500">
-                        {sideLabel(event.teamSide, data.homeTeam, data.awayTeam)} {event.playerName ? `· ${event.playerName}` : ''}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <TimelineStrip events={timelineEvents} homeTeam={data.homeTeam} awayTeam={data.awayTeam} />
               </CardBody>
             </Card>
           ) : null}
@@ -163,74 +841,27 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
           {data.boxScore.length > 0 ? (
             <Card>
               <CardHeader>
-                <SectionLabel>Box Score</SectionLabel>
+                <div className="flex items-center justify-between">
+                  <SectionLabel>Box Score</SectionLabel>
+                  <span className="text-xs text-slate-500">with delta</span>
+                </div>
               </CardHeader>
               <CardBody className="p-0">
-                <table className="min-w-full border-collapse text-left text-sm">
-                  <thead className="border-b border-slate-200">
-                    <tr className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
-                      <th className="px-4 py-3 font-medium">Stat</th>
-                      <th className="px-4 py-3 font-medium">{data.homeTeam}</th>
-                      <th className="px-4 py-3 font-medium">{data.awayTeam}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.boxScore.map((row) => (
-                      <tr key={row.key} className="border-b border-slate-200 text-slate-800">
-                        <td className="px-4 py-3 text-slate-500">{row.label}</td>
-                        <td className="px-4 py-3">
-                          <ValueText>{row.home}</ValueText>
-                        </td>
-                        <td className="px-4 py-3">
-                          <ValueText>{row.away}</ValueText>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <BoxScoreTable rows={data.boxScore} homeTeam={data.homeTeam} awayTeam={data.awayTeam} />
               </CardBody>
             </Card>
           ) : null}
 
-          {(data.odds.homeMoneyline !== null || data.odds.total !== null || data.odds.spread !== null) ? (
+          {data.odds.homeMoneyline !== null || data.odds.total !== null || data.odds.spread !== null ? (
             <Card>
               <CardHeader>
-                <SectionLabel>DraftKings Closing Odds</SectionLabel>
+                <div className="flex items-center justify-between">
+                  <SectionLabel>DraftKings Closing Odds</SectionLabel>
+                  <span className="text-xs text-slate-500">implied prob + coverage</span>
+                </div>
               </CardHeader>
               <CardBody>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <MetricCell
-                    label="Moneyline"
-                    value={
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        <DataPill>{data.homeTeam} {formatSignedNumber(data.odds.homeMoneyline, 0)}</DataPill>
-                        <DataPill>Draw {formatSignedNumber(data.odds.drawMoneyline, 0)}</DataPill>
-                        <DataPill>{data.awayTeam} {formatSignedNumber(data.odds.awayMoneyline, 0)}</DataPill>
-                      </div>
-                    }
-                  />
-                  <MetricCell
-                    label="Spread"
-                    value={
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        <DataPill>
-                          {formatSignedNumber(data.odds.spread, 1)} ({formatSignedNumber(data.odds.homeSpreadPrice, 0)})
-                        </DataPill>
-                        <DataPill>{formatSignedNumber(data.odds.awaySpreadPrice, 0)}</DataPill>
-                      </div>
-                    }
-                  />
-                  <MetricCell
-                    label="Total"
-                    value={
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        <DataPill>{data.odds.total ?? '—'}</DataPill>
-                        <DataPill>Over {formatSignedNumber(data.odds.overPrice, 0)}</DataPill>
-                        <DataPill>Under {formatSignedNumber(data.odds.underPrice, 0)}</DataPill>
-                      </div>
-                    }
-                  />
-                </div>
+                <OddsSection data={data} />
               </CardBody>
             </Card>
           ) : null}
@@ -241,37 +872,32 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                 <SectionLabel>Bet365 Team Markets</SectionLabel>
               </CardHeader>
               <CardBody>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <MetricCell
-                    label="3-Way Moneyline"
-                    value={
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        <DataPill>{data.homeTeam} {data.bet365TeamOdds.homeFractional ?? '—'}</DataPill>
-                        <DataPill>Draw {data.bet365TeamOdds.drawFractional ?? '—'}</DataPill>
-                        <DataPill>{data.awayTeam} {data.bet365TeamOdds.awayFractional ?? '—'}</DataPill>
-                      </div>
-                    }
-                  />
-                  <MetricCell
-                    label="Goal Line O/U"
-                    value={
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        <DataPill>Line {data.bet365TeamOdds.ouHandicap ?? '—'}</DataPill>
-                        <DataPill>Over {data.bet365TeamOdds.overFractional ?? '—'}</DataPill>
-                        <DataPill>Under {data.bet365TeamOdds.underFractional ?? '—'}</DataPill>
-                      </div>
-                    }
-                  />
-                  <MetricCell
-                    label="Double Chance"
-                    value={
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        <DataPill>1X {data.bet365TeamOdds.dcHomeDrawFractional ?? '—'}</DataPill>
-                        <DataPill>X2 {data.bet365TeamOdds.dcDrawAwayFractional ?? '—'}</DataPill>
-                        <DataPill>12 {data.bet365TeamOdds.dcHomeAwayFractional ?? '—'}</DataPill>
-                      </div>
-                    }
-                  />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border border-slate-200 px-4 py-3">
+                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">3-Way</div>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between"><span className="text-slate-600">{data.homeTeam}</span><span className="font-semibold tabular-nums text-slate-700">{data.bet365TeamOdds.homeFractional ?? '—'}</span></div>
+                      <div className="flex items-center justify-between"><span className="text-slate-600">Draw</span><span className="font-semibold tabular-nums text-slate-700">{data.bet365TeamOdds.drawFractional ?? '—'}</span></div>
+                      <div className="flex items-center justify-between"><span className="text-slate-600">{data.awayTeam}</span><span className="font-semibold tabular-nums text-slate-700">{data.bet365TeamOdds.awayFractional ?? '—'}</span></div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-200 px-4 py-3">
+                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Double Chance</div>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between"><span className="text-slate-600">1X</span><span className="font-semibold tabular-nums text-slate-700">{data.bet365TeamOdds.dcHomeDrawFractional ?? '—'}</span></div>
+                      <div className="flex items-center justify-between"><span className="text-slate-600">X2</span><span className="font-semibold tabular-nums text-slate-700">{data.bet365TeamOdds.dcDrawAwayFractional ?? '—'}</span></div>
+                      <div className="flex items-center justify-between"><span className="text-slate-600">12</span><span className="font-semibold tabular-nums text-slate-700">{data.bet365TeamOdds.dcHomeAwayFractional ?? '—'}</span></div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-200 px-4 py-3">
+                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Goal Line</div>
+                    <div className="text-2xl font-semibold tabular-nums text-slate-800">{data.bet365TeamOdds.ouHandicap ?? '—'}</div>
+                    <div className="mt-1.5 text-xs text-slate-500">
+                      O {data.bet365TeamOdds.overFractional ?? '—'} · U {data.bet365TeamOdds.underFractional ?? '—'}
+                    </div>
+                  </div>
                 </div>
               </CardBody>
             </Card>
@@ -279,30 +905,13 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
 
           <Card>
             <CardHeader>
-              <SectionLabel>v5 Game Flow</SectionLabel>
+              <div className="flex items-center justify-between">
+                <SectionLabel>v5 Game Flow</SectionLabel>
+                <span className="text-xs text-slate-500">{data.gameFlow.drainVersion ?? 'v5'}</span>
+              </div>
             </CardHeader>
             <CardBody>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <MetricCell label="Drain Version" value={data.gameFlow.drainVersion ?? '—'} />
-                <MetricCell label="HT / FT" value={data.gameFlow.htFtResult ?? '—'} />
-                <MetricCell label="BTTS" value={boolLabel(data.gameFlow.btts)} />
-                <MetricCell label="First Goal Team" value={data.gameFlow.firstGoalTeam ?? '—'} />
-                <MetricCell label="First Goal Window" value={data.gameFlow.firstGoalInterval ?? '—'} />
-                <MetricCell label="Last Goal Minute" value={<ValueText>{data.gameFlow.lastGoalMinute ?? '—'}</ValueText>} />
-                <MetricCell
-                  label="Half Splits"
-                  value={
-                    <ValueText>
-                      {data.gameFlow.homeGoals1H ?? '—'}-{data.gameFlow.awayGoals1H ?? '—'} / {data.gameFlow.homeGoals2H ?? '—'}-{data.gameFlow.awayGoals2H ?? '—'}
-                    </ValueText>
-                  }
-                />
-                <MetricCell label="Goals 1H %" value={formatPct(data.gameFlow.goals1HPct)} />
-                <MetricCell label="Late Goals" value={<ValueText>{data.gameFlow.lateGoals ?? '—'}</ValueText>} />
-                <MetricCell label="Stoppage Goals" value={<ValueText>{data.gameFlow.stoppageTimeGoals ?? '—'}</ValueText>} />
-                <MetricCell label="Penalty Awarded" value={boolLabel(data.gameFlow.penaltyAwarded)} />
-                <MetricCell label="Total Penalties" value={<ValueText>{data.gameFlow.totalPenalties ?? '—'}</ValueText>} />
-              </div>
+              <GameFlowGrouped gameFlow={data.gameFlow} homeTeam={data.homeTeam} />
             </CardBody>
           </Card>
 
@@ -313,59 +922,83 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
               </CardHeader>
               <CardBody>
                 <div className="grid gap-4 lg:grid-cols-2">
-                  {data.lineups.map((lineup) => (
-                    <div key={`${lineup.side}-${lineup.teamName}`} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                      <div className="mb-2 flex items-center justify-between">
-                        <div className="text-sm font-semibold text-slate-900">{lineup.teamName}</div>
-                        <DataPill>{lineup.formation ?? 'Formation —'}</DataPill>
+                  {data.lineups.map((lineup) => {
+                    const isHome = lineup.side === 'home';
+                    return (
+                      <div key={`${lineup.side}-${lineup.teamName}`} className="rounded-xl border border-slate-200 px-4 py-3">
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <div>
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                              {isHome ? 'Home' : 'Away'}
+                            </div>
+                            <div className="mt-0.5 text-sm font-semibold text-slate-800">{lineup.teamName}</div>
+                          </div>
+                          {lineup.formation ? <DataPill>{lineup.formation}</DataPill> : null}
+                        </div>
+
+                        {lineup.starters.length > 0 ? (
+                          <div>
+                            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Starting XI</div>
+                            <div className="flex flex-wrap gap-1">
+                              {lineup.starters.map((player) => (
+                                <span key={`${lineup.side}-starter-${player}`} className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-700">
+                                  {player}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {lineup.substitutes.length > 0 ? (
+                          <div className="mt-2.5">
+                            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Substitutes</div>
+                            <div className="flex flex-wrap gap-1">
+                              {lineup.substitutes.map((player) => (
+                                <span key={`${lineup.side}-sub-${player}`} className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-500">
+                                  {player}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                      {lineup.starters.length > 0 ? (
-                        <div>
-                          <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">Starting XI</div>
-                          <div className="flex flex-wrap gap-1.5 text-xs text-slate-700">
-                            {lineup.starters.map((player) => (
-                              <span key={`${lineup.side}-st-${player}`} className="rounded border border-slate-200 px-2 py-1">
-                                {player}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                      {lineup.substitutes.length > 0 ? (
-                        <div className="mt-3">
-                          <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">Substitutes</div>
-                          <div className="flex flex-wrap gap-1.5 text-xs text-slate-500">
-                            {lineup.substitutes.map((player) => (
-                              <span key={`${lineup.side}-sub-${player}`} className="rounded border border-slate-200 px-2 py-1">
-                                {player}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardBody>
             </Card>
           ) : null}
 
-          {data.events.length > 0 ? (
+          {eventsWithScore.length > 0 ? (
             <Card>
               <CardHeader>
-                <SectionLabel>Events</SectionLabel>
+                <div className="flex items-center justify-between">
+                  <SectionLabel>Events</SectionLabel>
+                  <span className="text-xs tabular-nums text-slate-500">{eventsWithScore.length} events</span>
+                </div>
               </CardHeader>
               <CardBody className="p-0">
-                <div className="divide-y divide-slate-200">
-                  {data.events.map((event, index) => (
-                    <div key={`ev-${index}-${event.minuteLabel}-${event.type}`} className="flex flex-wrap items-center gap-2 px-4 py-3 text-sm sm:px-5">
-                      <DataPill>{event.minuteLabel}</DataPill>
-                      <DataPill className="text-slate-500">{eventTypeLabel(event.type)}</DataPill>
-                      <span className="text-slate-800">{sideLabel(event.teamSide, data.homeTeam, data.awayTeam)}</span>
-                      {event.playerName ? <span className="text-slate-500">· {event.playerName}</span> : null}
-                      {event.detail ? <span className="text-slate-500">· {event.detail}</span> : null}
-                    </div>
-                  ))}
+                <div>
+                  {eventsWithScore.map((event, index) => {
+                    const isGoal = event.type === 'goal';
+                    const isHome = event.teamSide === 'home';
+                    return (
+                      <div key={`event-${index}-${event.minuteLabel}`} className={`flex items-center gap-2.5 px-4 py-2.5 ${index < eventsWithScore.length - 1 ? 'border-b border-slate-100' : ''} ${isGoal ? (isHome ? 'bg-slate-50' : 'bg-rose-50/50') : ''}`}>
+                        <span className={`text-xs tabular-nums ${isGoal ? (isHome ? 'font-semibold text-slate-700' : 'font-semibold text-rose-700') : 'text-slate-500'}`}>
+                          {event.minuteLabel}
+                        </span>
+                        <Badge tone={isGoal ? (isHome ? 'neutral' : 'danger') : event.type === 'card' ? 'warning' : 'neutral'}>
+                          {eventTypeLabel(event.type)}
+                        </Badge>
+                        <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
+                          {sideLabel(event.teamSide, data.homeTeam, data.awayTeam)}
+                          {event.playerName ? <span className="text-slate-500"> · {event.playerName}</span> : null}
+                          {event.detail ? <span className="text-slate-400"> · {event.detail}</span> : null}
+                        </span>
+                        {event.scoreAfter ? <span className="text-xs font-semibold tabular-nums text-slate-600">{event.scoreAfter}</span> : null}
+                      </div>
+                    );
+                  })}
                 </div>
               </CardBody>
             </Card>
@@ -376,29 +1009,21 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
               <CardHeader>
                 <SectionLabel>Bet365 Player Scorer Odds</SectionLabel>
               </CardHeader>
-              <CardBody className="space-y-4">
+              <CardBody className="space-y-4 p-0">
                 {scorerOddsByPool.map((bucket) => (
                   <div key={bucket.pool}>
-                    <div className="mb-2 text-[10px] uppercase tracking-[0.14em] text-slate-500">{poolLabel(bucket.pool)}</div>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                      {bucket.rows.map((row) => (
-                        <div key={row.id} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-                          <div className="truncate font-medium text-slate-900">{row.playerName}</div>
-                          <div className="mt-1 flex items-center justify-between text-slate-500">
-                            <span>{row.oddsFractional ?? '—'}</span>
-                            <span>{row.impliedProb === null ? '—' : `${row.impliedProb.toFixed(1)}%`}</span>
-                          </div>
-                          <div className={`mt-1 text-[10px] uppercase tracking-[0.08em] ${resultTone(row.result)}`}>
-                            {row.result ?? 'ungraded'}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <div className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{poolLabel(bucket.pool)}</div>
+                    <ScorerTable rows={bucket.rows} />
                   </div>
                 ))}
               </CardBody>
             </Card>
           ) : null}
+
+          <div className="flex items-center justify-between border-t border-slate-200 pb-4 pt-3">
+            <span className="text-xs text-slate-500">thedrip.to</span>
+            <span className="text-xs tabular-nums text-slate-500">soccer_postgame · {data.leagueName} · {formatMatchDateLabel(data.startTime)}</span>
+          </div>
         </div>
       ) : null}
     </PageShell>
