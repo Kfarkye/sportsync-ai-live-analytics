@@ -110,7 +110,6 @@ export default function TrendsPage() {
         <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS }}>
             <style>{`
                 * { box-sizing: border-box; }
-                html, body { overflow-x: hidden; }
                 ::selection { background: rgba(59,130,246,0.3); }
                 .sticky-nav { position: sticky; top: 0; z-index: 50; background: rgba(6,6,6,0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid ${C.border}; }
                 .kpi { padding: 24px; background: rgba(255,255,255,0.015); border: 1px solid ${C.border}; border-radius: 16px; transition: all 0.2s; }
