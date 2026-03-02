@@ -105,8 +105,65 @@ const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 function formatPrice(p: any): string | null {
     if (p === undefined || p === null) return null;
-    if (Math.abs(p) >= 100) return p > 0 ? `+${Math.round(p)}` : `${Math.round(p)}`;
-    return p >= 2.0 ? `+${Math.round((p - 1) * 100)}` : `${Math.round(-100 / (p - 1))}`;
+    const n = Number(p);
+    if (isNaN(n)) return null;
+    if (Math.abs(n) >= 100) return n > 0 ? `+${Math.round(n)}` : `${Math.round(n)}`;
+    // Decimal odds → American conversion (rare; most pipelines store American)
+    return n >= 2.0 ? `+${Math.round((n - 1) * 100)}` : `${Math.round(-100 / (n - 1))}`;
+}
+
+function formatSpread(v: any): string | null {
+    if (v === undefined || v === null) return null;
+    const n = Number(v);
+    if (isNaN(n)) return null;
+    if (n === 0) return 'PK';
+    return n > 0 ? `+${n}` : `${n}`;
+}
+
+/**
+ * Extract a normalized match.odds object from the current_odds JSONB column.
+ * current_odds is written by ingest-live-games and contains institutional-grade
+ * data (BallDontLie + The Odds API consensus).
+ */
+function extractFromCurrentOdds(raw: any, source: string): any | null {
+    const co = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!co) return null;
+
+    // Schema-agnostic field resolution:
+    // ingest-odds writes:       homeWin, homeSpread, homeSpreadOdds, overOdds, drawWin
+    // live-odds-tracker writes: home_ml, spread_home/spread_home_value, spread_best.home.price, total_best.over.price, draw_ml
+    const homeML   = co.homeWin ?? co.home_ml ?? co.moneylineHome;
+    const awayML   = co.awayWin ?? co.away_ml ?? co.moneylineAway;
+    const drawML   = co.drawWin ?? co.draw_ml ?? co.draw;
+    const homeSpr  = co.homeSpread ?? co.spread_home ?? co.spread_home_value;
+    const awaySpr  = co.awaySpread ?? co.spread_away;
+    const total    = co.total ?? co.total_value ?? co.overUnder;
+    const hSprOdds = co.homeSpreadOdds ?? co.spread_best?.home?.price;
+    const aSprOdds = co.awaySpreadOdds ?? co.spread_best?.away?.price;
+    const oOdds    = co.overOdds ?? co.total_best?.over?.price;
+    const uOdds    = co.underOdds ?? co.total_best?.under?.price;
+
+    // Must have at least one meaningful field
+    if (homeML == null && awayML == null && homeSpr == null && total == null) return null;
+
+    return {
+        hasOdds: true,
+        provider: co.provider || 'Consensus',
+        oddsSource: source,
+        homeSpread: formatSpread(homeSpr),
+        awaySpread: formatSpread(awaySpr),
+        overUnder: total != null ? `${total}` : null,
+        moneylineHome: formatPrice(homeML),
+        moneylineAway: formatPrice(awayML),
+        homeML: formatPrice(homeML),
+        awayML: formatPrice(awayML),
+        drawML: formatPrice(drawML),
+        homeSpreadOdds: formatPrice(hSprOdds),
+        awaySpreadOdds: formatPrice(aSprOdds),
+        overOdds: formatPrice(oOdds),
+        underOdds: formatPrice(uOdds),
+        lastUpdated: co.lastUpdated ?? co.updated_at ?? null,
+    };
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────────────────
@@ -317,116 +374,179 @@ Deno.serve(async (req: Request) => {
                 match.awayTeam.score = String(m.away_score ?? 0);
             }
 
-            // Attach closing odds
+            // ── Attach Closing Lines (always, if available) ─────────────────
             const closing = closingMap.get(m.id);
             if (closing) {
                 match.closing_odds = closing;
             }
 
-            // Attach live odds — try safe columns first, then market_feeds fuzzy match
-            if (m.odds_home_ml_safe || m.odds_home_spread_safe || m.odds_total_safe) {
-                match.odds = {
-                    hasOdds: true,
-                    provider: 'Consensus',
-                    homeSpread: m.odds_home_spread_safe != null
-                        ? (m.odds_home_spread_safe > 0 ? `+${m.odds_home_spread_safe}` : `${m.odds_home_spread_safe}`)
-                        : null,
-                    overUnder: m.odds_total_safe != null ? `${m.odds_total_safe}` : null,
-                    moneylineHome: formatPrice(m.odds_home_ml_safe),
-                    moneylineAway: formatPrice(m.odds_away_ml_safe),
-                    homeML: formatPrice(m.odds_home_ml_safe),
-                    awayML: formatPrice(m.odds_away_ml_safe),
-                    lastUpdated: m.last_odds_update,
-                };
-            } else {
-                // Fuzzy match against market_feeds
-                const matchHome = normalize(homeDisplayName);
-                const matchAway = normalize(awayDisplayName);
+            // ── Always pass current_odds to frontend for detail view ──────
+            if (m.current_odds) {
+                match.current_odds = typeof m.current_odds === 'string'
+                    ? JSON.parse(m.current_odds)
+                    : m.current_odds;
+            }
 
-                let oddsMatch: any = null;
+            // ── Determine game phase ─────────────────────────────────────────
+            const isFinal = m.status?.includes('FINAL') || m.status?.includes('POSTPONED');
+            const isInProgress = m.status?.includes('IN_PROGRESS') || m.status?.includes('HALFTIME') || m.status?.includes('END_PERIOD');
 
-                // Try exact key match first
-                const exactKey = `${matchHome}|${matchAway}`;
-                if (oddsMap.has(exactKey)) {
-                    oddsMatch = oddsMap.get(exactKey);
+            // ── FINAL GAMES ──────────────────────────────────────────────────
+            // Priority: closing_lines → current_odds snapshot → nothing
+            if (isFinal) {
+                if (closing) {
+                    match.odds = {
+                        hasOdds: true,
+                        provider: 'Closing',
+                        oddsSource: 'closing',
+                        homeSpread: formatSpread(closing.homeSpread),
+                        awaySpread: formatSpread(closing.awaySpread),
+                        overUnder: closing.overUnder != null ? `${closing.overUnder}` : null,
+                        moneylineHome: formatPrice(closing.homeWin),
+                        moneylineAway: formatPrice(closing.awayWin),
+                        homeML: formatPrice(closing.homeWin),
+                        awayML: formatPrice(closing.awayWin),
+                        drawML: formatPrice(closing.draw),
+                        homeSpreadOdds: formatPrice(closing.homeSpreadOdds),
+                        awaySpreadOdds: formatPrice(closing.awaySpreadOdds),
+                        overOdds: formatPrice(closing.overOdds),
+                        underOdds: formatPrice(closing.underOdds),
+                    };
                 } else {
-                    // Fuzzy scan
-                    for (const [, o] of oddsMap) {
-                        const oHome = normalize(o.home_team);
-                        const oAway = normalize(o.away_team);
-                        if ((oHome.includes(matchHome) || matchHome.includes(oHome)) &&
-                            (oAway.includes(matchAway) || matchAway.includes(oAway))) {
-                            oddsMatch = o;
-                            break;
+                    // Fallback: current_odds has the last pre-final snapshot
+                    match.odds = extractFromCurrentOdds(m.current_odds, 'current_odds_final') || { hasOdds: false };
+                }
+            }
+            // ── LIVE GAMES ───────────────────────────────────────────────────
+            // current_odds has real-time institutional data — use it
+            else if (isInProgress) {
+                const co = extractFromCurrentOdds(m.current_odds, 'live_current_odds');
+                if (co) {
+                    co.isLive = true;
+                    match.odds = co;
+                } else {
+                    match.odds = { hasOdds: false };
+                }
+            }
+            // ── SCHEDULED GAMES ──────────────────────────────────────────────
+            // Priority: current_odds → safe columns → market_feeds
+            else {
+                // Priority 1: current_odds JSONB (BDL/Odds API consensus)
+                const co = extractFromCurrentOdds(m.current_odds, 'current_odds');
+                if (co) {
+                    match.odds = co;
+                }
+                // Priority 2: Safe columns (legacy path)
+                else if (m.odds_home_ml_safe || m.odds_home_spread_safe || m.odds_total_safe) {
+                    const homeSprNum = m.odds_home_spread_safe != null ? Number(m.odds_home_spread_safe) : null;
+                    const awaySprNum = homeSprNum != null && !isNaN(homeSprNum) ? homeSprNum * -1 : null;
+                    match.odds = {
+                        hasOdds: true,
+                        provider: 'Consensus',
+                        oddsSource: 'safe_columns',
+                        homeSpread: formatSpread(m.odds_home_spread_safe),
+                        awaySpread: formatSpread(awaySprNum),
+                        overUnder: m.odds_total_safe != null ? `${m.odds_total_safe}` : null,
+                        moneylineHome: formatPrice(m.odds_home_ml_safe),
+                        moneylineAway: formatPrice(m.odds_away_ml_safe),
+                        homeML: formatPrice(m.odds_home_ml_safe),
+                        awayML: formatPrice(m.odds_away_ml_safe),
+                        lastUpdated: m.last_odds_update,
+                    };
+                }
+                // Priority 3: market_feeds fuzzy match
+                else {
+                    const matchHome = normalize(homeDisplayName);
+                    const matchAway = normalize(awayDisplayName);
+
+                    let oddsMatch: any = null;
+                    const exactKey = `${matchHome}|${matchAway}`;
+                    if (oddsMap.has(exactKey)) {
+                        oddsMatch = oddsMap.get(exactKey);
+                    } else {
+                        for (const [, o] of oddsMap) {
+                            const oHome = normalize(o.home_team);
+                            const oAway = normalize(o.away_team);
+                            if ((oHome.includes(matchHome) || matchHome.includes(oHome)) &&
+                                (oAway.includes(matchAway) || matchAway.includes(oAway))) {
+                                oddsMatch = o;
+                                break;
+                            }
                         }
                     }
-                }
 
-                if (oddsMatch) {
-                    const precalc = {
-                        spread: oddsMatch.best_spread,
-                        total: oddsMatch.best_total,
-                        h2h: oddsMatch.best_h2h,
-                    };
+                    if (oddsMatch) {
+                        const precalc = { spread: oddsMatch.best_spread, total: oddsMatch.best_total, h2h: oddsMatch.best_h2h };
 
-                    if (precalc.spread || precalc.total || precalc.h2h) {
-                        const homeSpread = precalc.spread?.home?.point;
-                        const overUnder = precalc.total?.over?.point;
-                        const homeML = precalc.h2h?.home?.price;
-                        const awayML = precalc.h2h?.away?.price;
+                        if (precalc.spread || precalc.total || precalc.h2h) {
+                            const homeSpreadPt = precalc.spread?.home?.point;
+                            const homeSpreadPx = precalc.spread?.home?.price;
+                            const awaySpreadPx = precalc.spread?.away?.price;
+                            const totalPt = precalc.total?.over?.point;
+                            const overPx = precalc.total?.over?.price;
+                            const underPx = precalc.total?.under?.price;
+                            const homeMLPx = precalc.h2h?.home?.price;
+                            const awayMLPx = precalc.h2h?.away?.price;
+                            const drawMLPx = precalc.h2h?.draw?.price;
 
-                        const provider = precalc.spread?.home?.bookmaker ||
-                            precalc.total?.over?.bookmaker ||
-                            precalc.h2h?.home?.bookmaker ||
-                            'Consensus';
-
-                        match.odds = {
-                            hasOdds: true,
-                            provider,
-                            homeSpread: homeSpread !== undefined ? (homeSpread > 0 ? `+${homeSpread}` : `${homeSpread}`) : null,
-                            overUnder: overUnder !== undefined ? `${overUnder}` : null,
-                            moneylineHome: formatPrice(homeML),
-                            moneylineAway: formatPrice(awayML),
-                            homeML: formatPrice(homeML),
-                            awayML: formatPrice(awayML),
-                            lastUpdated: oddsMatch.last_updated,
-                        };
-                    } else {
-                        // Try raw bookmakers fallback
-                        const sortedBooks = [...(oddsMatch.bookmakers || [])].sort((a: any, b: any) =>
-                            new Date(b.last_update).getTime() - new Date(a.last_update).getTime()
-                        );
-                        const freshestBook = sortedBooks[0];
-
-                        if (freshestBook) {
-                            const getMarket = (book: any, key: string, outcomeName: string, mode: 'point' | 'price' = 'point') => {
-                                const mkt = book.markets?.find((x: any) => x.key === key);
-                                if (!mkt) return null;
-                                const outcome = mkt.outcomes?.find((x: any) =>
-                                    x.name === outcomeName || normalize(x.name) === normalize(outcomeName)
-                                );
-                                if (!outcome) return null;
-                                if (mode === 'price') return formatPrice(outcome.price);
-                                return outcome.point != null ? (outcome.point > 0 ? `+${outcome.point}` : `${outcome.point}`) : null;
-                            };
+                            const provider = precalc.spread?.home?.bookmaker || precalc.total?.over?.bookmaker || precalc.h2h?.bookmaker || 'Consensus';
 
                             match.odds = {
-                                hasOdds: true,
-                                provider: freshestBook.title,
-                                homeSpread: getMarket(freshestBook, 'spreads', oddsMatch.home_team),
-                                overUnder: getMarket(freshestBook, 'totals', 'Over'),
-                                moneylineHome: getMarket(freshestBook, 'h2h', oddsMatch.home_team, 'price'),
-                                moneylineAway: getMarket(freshestBook, 'h2h', oddsMatch.away_team, 'price'),
-                                homeML: getMarket(freshestBook, 'h2h', oddsMatch.home_team, 'price'),
-                                awayML: getMarket(freshestBook, 'h2h', oddsMatch.away_team, 'price'),
+                                hasOdds: true, provider, oddsSource: 'market_feeds',
+                                homeSpread: formatSpread(homeSpreadPt),
+                                homeSpreadOdds: formatPrice(homeSpreadPx),
+                                awaySpreadOdds: formatPrice(awaySpreadPx),
+                                overUnder: totalPt !== undefined ? `${totalPt}` : null,
+                                overOdds: formatPrice(overPx),
+                                underOdds: formatPrice(underPx),
+                                moneylineHome: formatPrice(homeMLPx),
+                                moneylineAway: formatPrice(awayMLPx),
+                                homeML: formatPrice(homeMLPx),
+                                awayML: formatPrice(awayMLPx),
+                                drawML: formatPrice(drawMLPx),
                                 lastUpdated: oddsMatch.last_updated,
                             };
                         } else {
-                            match.odds = { hasOdds: false };
+                            const sortedBooks = [...(oddsMatch.bookmakers || [])].sort((a: any, b: any) =>
+                                new Date(b.last_update).getTime() - new Date(a.last_update).getTime()
+                            );
+                            const freshestBook = sortedBooks[0];
+                            if (freshestBook) {
+                                const getMarket = (book: any, key: string, outcomeName: string, mode: 'point' | 'price' = 'point') => {
+                                    const mkt = book.markets?.find((x: any) => x.key === key);
+                                    if (!mkt) return null;
+                                    const outcome = mkt.outcomes?.find((x: any) => x.name === outcomeName || normalize(x.name) === normalize(outcomeName));
+                                    if (!outcome) return null;
+                                    return mode === 'price' ? formatPrice(outcome.price) : formatSpread(outcome.point);
+                                };
+                                const getDrawPrice = (book: any) => {
+                                    const mkt = book.markets?.find((x: any) => x.key === 'h2h');
+                                    if (!mkt) return null;
+                                    const draw = mkt.outcomes?.find((o: any) => ['Draw', 'Tie', 'X'].includes(o.name));
+                                    return draw ? formatPrice(draw.price) : null;
+                                };
+                                match.odds = {
+                                    hasOdds: true, provider: freshestBook.title, oddsSource: 'raw_bookmakers',
+                                    homeSpread: getMarket(freshestBook, 'spreads', oddsMatch.home_team),
+                                    overUnder: getMarket(freshestBook, 'totals', 'Over'),
+                                    moneylineHome: getMarket(freshestBook, 'h2h', oddsMatch.home_team, 'price'),
+                                    moneylineAway: getMarket(freshestBook, 'h2h', oddsMatch.away_team, 'price'),
+                                    homeML: getMarket(freshestBook, 'h2h', oddsMatch.home_team, 'price'),
+                                    awayML: getMarket(freshestBook, 'h2h', oddsMatch.away_team, 'price'),
+                                    drawML: getDrawPrice(freshestBook),
+                                    homeSpreadOdds: getMarket(freshestBook, 'spreads', oddsMatch.home_team, 'price'),
+                                    awaySpreadOdds: getMarket(freshestBook, 'spreads', oddsMatch.away_team, 'price'),
+                                    overOdds: getMarket(freshestBook, 'totals', 'Over', 'price'),
+                                    underOdds: getMarket(freshestBook, 'totals', 'Under', 'price'),
+                                    lastUpdated: oddsMatch.last_updated,
+                                };
+                            } else {
+                                match.odds = { hasOdds: false };
+                            }
                         }
+                    } else {
+                        match.odds = { hasOdds: false };
                     }
-                } else {
-                    match.odds = { hasOdds: false };
                 }
             }
 

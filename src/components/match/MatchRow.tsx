@@ -70,6 +70,9 @@ const OddsChip = memo(({ label, value }: { label: string; value: string | number
       if (num === 0) display = 'PK';
       else if (num > 0 && !display.startsWith('+')) display = `+${display}`;
     }
+  } else if (label === 'ML') {
+    const num = Number(value);
+    if (!isNaN(num) && num > 0 && !display.startsWith('+')) display = `+${display}`;
   }
   return (
     <span className="inline-flex items-center gap-1.5 select-none" aria-label={`${label} ${display}`}>
@@ -157,9 +160,10 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const awayProb = polyAwayProb ?? match.win_probability?.away;
   const homeFav = typeof homeProb === 'number' && typeof awayProb === 'number' ? homeProb > awayProb : false;
 
-  const spread = match.odds?.homeSpread ?? match.odds?.spread;
+  const spread = match.odds?.homeSpread ?? match.odds?.spread ?? match.odds?.spread_home;
   const total = match.odds?.overUnder ?? match.odds?.total;
-  const hasOdds = isValidOdd(spread) || isValidOdd(total);
+  const homeML = match.odds?.moneylineHome ?? match.odds?.homeML ?? match.odds?.homeWin ?? match.odds?.home_ml;
+  const hasOdds = isValidOdd(spread) || isValidOdd(total) || isValidOdd(homeML);
   const hasProb = homeProb !== undefined || awayProb !== undefined;
 
   const { startTimeStr, dateStr, roundStr } = useMemo(() => {
@@ -282,6 +286,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           <div className="flex items-center gap-4 mt-1" style={{ paddingLeft: TEAM_INDENT }}>
             <OddsChip label="SPR" value={spread} />
             <OddsChip label="O/U" value={total} />
+            <OddsChip label="ML" value={homeML} />
           </div>
         )}
       </div>

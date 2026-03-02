@@ -284,10 +284,12 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
   const venue = (match as unknown as Record<string, unknown>)['venue'] as { name?: string; city?: string; state?: string } | undefined;
   const venueName = venue?.name || match.homeTeam?.stadium || match.court;
 
-  const spreadVal = odds?.homeSpread ?? odds?.spread;
-  const totalVal = odds?.total ?? odds?.overUnder;
-  const homeML = odds?.moneylineHome ?? odds?.homeWin ?? odds?.home_ml;
-  const awayML = odds?.moneylineAway ?? odds?.awayWin ?? odds?.away_ml;
+  // Schema-agnostic field reads (handles both ingest-odds + live-odds-tracker)
+  const spreadVal = odds?.homeSpread ?? odds?.spread ?? odds?.spread_home ?? odds?.spread_home_value;
+  const totalVal = odds?.total ?? odds?.overUnder ?? odds?.total_value;
+  const homeML = odds?.moneylineHome ?? odds?.homeWin ?? odds?.home_ml ?? odds?.homeML;
+  const awayML = odds?.moneylineAway ?? odds?.awayWin ?? odds?.away_ml ?? odds?.awayML;
+  const drawML = odds?.drawML ?? odds?.drawWin ?? odds?.draw_ml ?? odds?.draw;
 
   const fmtOdds = (v?: string | number) => {
     if (v === undefined || v === null) return '—';
@@ -296,6 +298,13 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
     return num > 0 ? `+${num}` : `${num}`;
   };
 
+  // State-aware label
+  const isFinal = isGameFinal(match.status);
+  const isLive = isGameInProgress(match.status);
+  const hasLiveFlag = !!(odds as any)?.isLive;
+  const linesLabel = isFinal ? 'Closing Lines' : (isLive && hasLiveFlag) ? 'Live Lines' : isLive ? 'Opening Lines' : 'Game Lines';
+
+  const isSoccer = match.sport === Sport.SOCCER || match.sport === ('SOCCER' as any);
   const hasAnyLine = spreadVal !== undefined || totalVal !== undefined || homeML !== undefined || awayML !== undefined;
 
   return (
@@ -347,7 +356,7 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
         <div className="px-6 py-6 bg-[#FCFCFC]/80">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-1.5 h-1.5 rounded-sm bg-black/20" />
-            <div className="text-[9px] font-bold text-black/30 uppercase tracking-[0.25em]">Closing Lines</div>
+            <div className="text-[9px] font-bold text-black/30 uppercase tracking-[0.25em]">{linesLabel}</div>
           </div>
           {hasAnyLine ? (
             <div className="space-y-4">
@@ -369,6 +378,12 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
                   <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">
                     {fmtOdds(awayML)} <span className="text-black/20 mx-1">/</span> {fmtOdds(homeML)}
                   </span>
+                </div>
+              )}
+              {isSoccer && drawML != null && (
+                <div className="flex items-center justify-between group">
+                  <span className="text-[13px] font-medium text-black/50 group-hover:text-black/80 transition-colors">Draw</span>
+                  <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">{fmtOdds(drawML)}</span>
                 </div>
               )}
             </div>
@@ -910,7 +925,6 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
       if (db) {
         if (db.closing_odds) nextMatch.closing_odds = db.closing_odds;
         if (db.opening_odds) nextMatch.opening_odds = db.opening_odds;
-        if (db.odds && !isGameInProgress(nextMatch.status)) nextMatch.odds = db.odds;
       }
       if (props?.length) {
         const normalizePropType = (value?: string | null): PropBetType => {
