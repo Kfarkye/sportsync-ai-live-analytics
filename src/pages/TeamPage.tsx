@@ -10,32 +10,12 @@ import {
     getTotalResult,
 } from '../lib/postgame';
 import { formatMatchDate, matchUrl } from '../lib/slugs';
+import { color as C, font, fmtSpread } from '../lib/tokens';
 
-const FONT = `'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
-const SANS = `'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif`;
-const SERIF = `'Newsreader', Georgia, 'Times New Roman', serif`;
+const FONT = font.mono;
+const SANS = font.sans;
+const SERIF = font.serif;
 
-const C = {
-    bg: '#060606',
-    surface: '#0D0D0D',
-    surface2: '#141414',
-    border: 'rgba(255,255,255,0.06)',
-    text: '#F8F8F8',
-    text2: '#A0A0A0',
-    text3: '#666666',
-    accent: '#3B82F6',
-    green: '#10B981',
-    red: '#EF4444',
-    amber: '#F59E0B',
-    purple: '#8B5CF6',
-    cyan: '#06B6D4',
-};
-
-function fmtSpread(n: number) {
-    if (n > 0) return `+${n}`;
-    if (n === 0) return 'PK';
-    return String(n);
-}
 
 export default function TeamPage() {
     const { slug } = useParams<{ slug: string }>();
@@ -152,13 +132,13 @@ export default function TeamPage() {
         .tp-container { max-width: var(--container); margin: 0 auto; padding-left: var(--pad); padding-right: var(--pad); position: relative; z-index: 10; }
 
         .hero-glow { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-        .hero-glow::before { content: ''; position: absolute; top: -20%; left: 20%; width: 60%; height: 60%; background: ${teamColor}; opacity: 0.08; filter: blur(140px); border-radius: 50%; }
+        .hero-glow::before { content: ''; position: absolute; top: -20%; left: 20%; width: 60%; height: 60%; background: ${teamColor}; opacity: 0.08; filter: blur(100px); border-radius: 50%; }
 
         .sticky {
           position: sticky;
           top: 0;
           z-index: 100;
-          background: rgba(6,6,6,0.82);
+          background: rgba(255,255,255,0.88);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
           border-bottom: 1px solid ${C.border};
@@ -179,7 +159,7 @@ export default function TeamPage() {
           border-radius: 8px;
           line-height: 1;
         }
-        .nav-link:hover { color: #fff; background: rgba(255,255,255,0.03); border-color: ${C.border}; }
+        .nav-link:hover { color: #fff; background: rgba(15,23,42,0.03); border-color: ${C.border}; }
         .nav-link:focus-visible { outline: 2px solid rgba(59,130,246,0.55); outline-offset: 2px; }
 
         main.tp-main { padding-top: clamp(34px, 6vw, 64px); padding-bottom: 60px; }
@@ -196,13 +176,13 @@ export default function TeamPage() {
           width: clamp(108px, 16vw, 140px);
           height: clamp(108px, 16vw, 140px);
           border-radius: 24px;
-          background: rgba(255,255,255,0.03);
+          background: rgba(15,23,42,0.03);
           border: 1px solid ${C.border};
           display: flex;
           align-items: center;
           justify-content: center;
           margin-bottom: 28px;
-          box-shadow: 0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+          box-shadow: 0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 rgba(15,23,42,0.05);
           transform: rotate(-4deg);
           overflow: hidden;
         }
@@ -287,7 +267,7 @@ export default function TeamPage() {
           gap: 20px;
           align-items: center;
           padding: 22px 32px;
-          background: rgba(255,255,255,0.012);
+          background: rgba(15,23,42,0.012);
           border: 1px solid ${C.border};
           border-radius: 16px;
           text-decoration: none;
@@ -296,11 +276,11 @@ export default function TeamPage() {
           position: relative;
           overflow: hidden;
         }
-        .match-row:hover { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); transform: translateX(4px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .match-row:hover { background: rgba(15,23,42,0.03); border-color: rgba(15,23,42,0.08); transform: translateX(4px); box-shadow: 0 8px 24px rgba(0,0,0,0.04); }
         .match-row::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: transparent; transition: background 0.2s; }
 
         .match-row-cover { background: rgba(16,185,129,0.02); border-color: rgba(16,185,129,0.15); }
-        .match-row-cover::before { background: ${C.green}; }
+        .match-row-cover::before { background: ${C.win}; }
         .match-row-fail { background: rgba(239,68,68,0.01); }
 
         @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
@@ -338,7 +318,7 @@ export default function TeamPage() {
                         <div className="statBlock">
                             <div className="statLabel">AGAINST THE SPREAD</div>
                             <div className="statLine">
-                                <span className="statMain" style={{ color: Number(coverPct) >= 50 ? C.green : C.text }}>
+                                <span className="statMain" style={{ color: Number(coverPct) >= 50 ? C.win : C.text }}>
                                     {record.ats.covered}-{record.ats.failed}
                                 </span>
                                 <span className="statPush">-{record.ats.push}</span>
@@ -402,21 +382,21 @@ export default function TeamPage() {
                                         >
                                             <div style={{ color: C.text3, fontSize: 12, fontFamily: FONT }}>{formatMatchDate(m.start_time)}</div>
 
-                                            <div style={{ fontFamily: SANS, fontWeight: 650, fontSize: 18, color: '#fff' }}>
+                                            <div style={{ fontFamily: SANS, fontWeight: 650, fontSize: 18, color: C.text }}>
                                                 <span style={{ color: C.text3, marginRight: 8 }}>{isHome ? 'vs' : '@'}</span>
                                                 {opp}
                                             </div>
 
                                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: isWin ? C.accent : C.text3 }} />
-                                                <span style={{ fontFamily: SERIF, fontSize: 24, color: '#fff', letterSpacing: '-0.04em' }}>
+                                                <span style={{ fontFamily: SERIF, fontSize: 24, color: C.text, letterSpacing: '-0.04em' }}>
                                                     {isHome ? `${m.home_score}-${m.away_score}` : `${m.away_score}-${m.home_score}`}
                                                 </span>
                                             </div>
 
                                             <div style={{ fontFamily: FONT }}>
                                                 {spreadRes ? (
-                                                    <div style={{ color: didCoverSpread ? C.green : spreadFailed ? C.text3 : C.text2, fontSize: 13, fontWeight: 700 }}>
+                                                    <div style={{ color: didCoverSpread ? C.win : spreadFailed ? C.text3 : C.text2, fontSize: 13, fontWeight: 700 }}>
                                                         {spreadForTeam != null ? <span style={{ opacity: 0.6, marginRight: 8 }}>{fmtSpread(spreadForTeam)}</span> : null}
                                                         {didCoverSpread ? 'Covered ✓' : spreadFailed ? 'Failed ✕' : 'Push —'}
                                                     </div>

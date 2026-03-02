@@ -8,25 +8,11 @@ import {
     fmtOdds,
 } from '../lib/postgame';
 import { matchUrl, formatMatchDate, LEAGUE_LABELS, LEAGUE_SHORT } from '../lib/slugs';
+import { color as C, font } from '../lib/tokens';
 
-const FONT = `'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
-const SANS = `'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif`;
-const SERIF = `'Newsreader', Georgia, 'Times New Roman', serif`;
-
-const C = {
-    bg: '#060606',
-    surface: '#0C0C0C',
-    border: 'rgba(255,255,255,0.06)',
-    text: '#F0F0F0',
-    text2: '#9A9A9A',
-    text3: '#555',
-    green: '#10B981',
-    red: '#EF4444',
-    amber: '#F59E0B',
-    accent: '#3B82F6',
-    purple: '#8B5CF6',
-    cyan: '#06B6D4',
-};
+const FONT = font.mono;
+const SANS = font.sans;
+const SERIF = font.serif;
 
 type LeagueAgg = { n: number; hc: number; at: number; ov: number; ot: number; g: number };
 
@@ -211,7 +197,7 @@ export default function TrendsPage() {
         <div className="tp-page" style={{ background: C.bg, minHeight: '100vh', color: C.text, fontFamily: SANS }}>
             <style>{`
         * { box-sizing: border-box; }
-        ::selection { background: rgba(59,130,246,0.30); }
+        ::selection { background: rgba(59,130,246,0.20); }
 
         .tp-page {
           --pad: clamp(16px, 3.6vw, 24px);
@@ -225,7 +211,7 @@ export default function TrendsPage() {
           position: sticky;
           top: 0;
           z-index: 50;
-          background: rgba(6,6,6,0.86);
+          background: rgba(255,255,255,0.92);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
           border-bottom: 1px solid ${C.border};
@@ -246,7 +232,7 @@ export default function TrendsPage() {
           line-height: 1;
           transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
         }
-        .tp-chipLink:hover { color: ${C.text2}; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.10); }
+        .tp-chipLink:hover { color: ${C.text2}; background: rgba(15,23,42,0.03); border-color: rgba(15,23,42,0.10); }
         .tp-chipLink:focus-visible { outline: 2px solid rgba(59,130,246,0.55); outline-offset: 2px; }
 
         .tp-main { padding-top: clamp(30px, 5vw, 56px); padding-bottom: 100px; }
@@ -266,12 +252,12 @@ export default function TrendsPage() {
 
         .kpi {
           padding: 20px;
-          background: rgba(255,255,255,0.015);
+          background: rgba(15,23,42,0.015);
           border: 1px solid ${C.border};
           border-radius: 16px;
           transition: background 180ms ease, border-color 180ms ease;
         }
-        .kpi:hover { background: rgba(255,255,255,0.025); border-color: rgba(255,255,255,0.09); }
+        .kpi:hover { background: rgba(15,23,42,0.025); border-color: rgba(15,23,42,0.09); }
 
         .kpiGrid {
           display: grid;
@@ -286,7 +272,7 @@ export default function TrendsPage() {
         .kpiLabel { font-size: 13px; color: ${C.text2}; margin-top: 10px; font-weight: 600; }
         .kpiSub { font-family: ${FONT}; font-size: 10px; color: ${C.text3}; margin-top: 3px; }
 
-        .bar-track { height: 5px; background: rgba(255,255,255,0.04); border-radius: 3px; overflow: hidden; margin-top: 14px; }
+        .bar-track { height: 5px; background: rgba(15,23,42,0.04); border-radius: 3px; overflow: hidden; margin-top: 14px; }
         .bar-fill { height: 100%; border-radius: 3px; transition: width 900ms cubic-bezier(0.4,0,0.2,1); }
 
         .tp-section { margin-bottom: var(--section); }
@@ -323,7 +309,7 @@ export default function TrendsPage() {
           transition: background 150ms ease, border-color 150ms ease;
           border: 1px solid transparent;
         }
-        .lg-row:hover { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.05); }
+        .lg-row:hover { background: rgba(15,23,42,0.02); border-color: rgba(15,23,42,0.05); }
 
         .tp-twoCol {
           display: grid;
@@ -350,14 +336,14 @@ export default function TrendsPage() {
           gap: 12px;
           align-items: center;
           padding: 14px 18px;
-          background: rgba(255,255,255,0.012);
+          background: rgba(15,23,42,0.012);
           border: 1px solid ${C.border};
           border-radius: 12px;
           text-decoration: none;
           color: inherit;
           transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
         }
-        .game-row:hover { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); transform: translateY(-1px); }
+        .game-row:hover { background: rgba(15,23,42,0.03); border-color: rgba(15,23,42,0.08); transform: translateY(-1px); }
         .game-row:focus-visible { outline: 2px solid rgba(59,130,246,0.55); outline-offset: 2px; }
 
         .gr-main { min-width: 0; }
@@ -411,14 +397,14 @@ export default function TrendsPage() {
                             val: `${data.ats.pct.toFixed(1)}%`,
                             label: 'Home Cover Rate',
                             sub: `${data.ats.homeCovers} of ${data.ats.total}`,
-                            color: data.ats.pct >= 50 ? C.green : C.red,
+                            color: data.ats.pct >= 50 ? C.win : C.loss,
                             pct: data.ats.pct,
                         },
                         {
                             val: `${data.ou.pct.toFixed(1)}%`,
                             label: 'Overs Rate',
                             sub: `${data.ou.overs} of ${data.ou.total}`,
-                            color: data.ou.pct >= 50 ? C.amber : C.cyan,
+                            color: data.ou.pct >= 50 ? C.text2 : C.text3,
                             pct: data.ou.pct,
                         },
                         {
@@ -470,14 +456,14 @@ export default function TrendsPage() {
                                         style={{
                                             fontFamily: FONT,
                                             fontSize: 13,
-                                            color: l.hcPct > 52 ? C.green : l.hcPct < 48 ? C.red : C.text,
+                                            color: l.hcPct > 52 ? C.win : l.hcPct < 48 ? C.loss : C.text,
                                             textAlign: 'center',
                                             fontWeight: 700,
                                         }}
                                     >
                                         {l.hcPct.toFixed(1)}%
                                     </span>
-                                    <span style={{ fontFamily: FONT, fontSize: 13, color: l.ovPct > 52 ? C.amber : C.text, textAlign: 'center' }}>
+                                    <span style={{ fontFamily: FONT, fontSize: 13, color: l.ovPct > 52 ? C.text2 : C.text, textAlign: 'center' }}>
                                         {l.ovPct.toFixed(1)}%
                                     </span>
                                     <span style={{ fontFamily: FONT, fontSize: 13, color: C.text2, textAlign: 'center' }}>{l.avgG.toFixed(2)}</span>
@@ -492,13 +478,13 @@ export default function TrendsPage() {
                     <div className="kpi">
                         <div style={{ fontFamily: FONT, fontSize: 10, color: C.text3, letterSpacing: '0.08em', marginBottom: 16 }}>ATS SPLIT</div>
                         <div className="split-bar" style={{ marginBottom: 16 }}>
-                            <div style={{ width: `${data.ats.split.homePct}%`, background: C.green }} />
-                            <div style={{ width: `${data.ats.split.awayPct}%`, background: C.red }} />
+                            <div style={{ width: `${data.ats.split.homePct}%`, background: C.win }} />
+                            <div style={{ width: `${data.ats.split.awayPct}%`, background: C.loss }} />
                             <div style={{ width: `${data.ats.split.pushPct}%`, background: C.text3 }} />
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontFamily: FONT }}>
-                            <span style={{ color: C.green }}>Home {data.ats.homeCovers}</span>
-                            <span style={{ color: C.red }}>Away {data.ats.awayCovers}</span>
+                            <span style={{ color: C.win }}>Home {data.ats.homeCovers}</span>
+                            <span style={{ color: C.loss }}>Away {data.ats.awayCovers}</span>
                             <span style={{ color: C.text3 }}>Push {data.ats.pushes}</span>
                         </div>
                     </div>
@@ -506,13 +492,13 @@ export default function TrendsPage() {
                     <div className="kpi">
                         <div style={{ fontFamily: FONT, fontSize: 10, color: C.text3, letterSpacing: '0.08em', marginBottom: 16 }}>O/U SPLIT</div>
                         <div className="split-bar" style={{ marginBottom: 16 }}>
-                            <div style={{ width: `${data.ou.split.overPct}%`, background: C.amber }} />
-                            <div style={{ width: `${data.ou.split.underPct}%`, background: C.cyan }} />
+                            <div style={{ width: `${data.ou.split.overPct}%`, background: C.text2 }} />
+                            <div style={{ width: `${data.ou.split.underPct}%`, background: C.text3 }} />
                             <div style={{ width: `${data.ou.split.pushPct}%`, background: C.text3 }} />
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontFamily: FONT }}>
-                            <span style={{ color: C.amber }}>Over {data.ou.overs}</span>
-                            <span style={{ color: C.cyan }}>Under {data.ou.unders}</span>
+                            <span style={{ color: C.text2 }}>Over {data.ou.overs}</span>
+                            <span style={{ color: C.text3 }}>Under {data.ou.unders}</span>
                             <span style={{ color: C.text3 }}>Push {data.ou.push}</span>
                         </div>
                     </div>
@@ -544,7 +530,7 @@ export default function TrendsPage() {
 
                                         <div className="gr-score">{m.home_score}-{m.away_score}</div>
 
-                                        <div className="gr-right" style={{ color: C.green, fontWeight: 800 }}>
+                                        <div className="gr-right" style={{ color: C.win, fontWeight: 800 }}>
                                             {line == null ? '—' : fmtOdds(line)}
                                         </div>
                                     </Link>
@@ -572,7 +558,7 @@ export default function TrendsPage() {
                                         </div>
                                     </div>
 
-                                    <div className="gr-score" style={{ color: C.amber }}>
+                                    <div className="gr-score" style={{ color: C.text2 }}>
                                         {m.home_score}-{m.away_score}
                                     </div>
 

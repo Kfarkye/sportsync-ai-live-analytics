@@ -10,23 +10,11 @@ import {
     TeamRecord,
 } from '../lib/postgame';
 import { matchUrl, teamUrl, formatMatchDate, LEAGUE_LABELS } from '../lib/slugs';
+import { color as C, font } from '../lib/tokens';
 
-const FONT = `'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
-const SANS = `'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif`;
-const SERIF = `'Newsreader', Georgia, 'Times New Roman', serif`;
-
-const C = {
-    bg: '#060606',
-    surface: '#0C0C0C',
-    border: 'rgba(255,255,255,0.06)',
-    text: '#F0F0F0',
-    text2: '#9A9A9A',
-    text3: '#555',
-    green: '#10B981',
-    red: '#EF4444',
-    amber: '#F59E0B',
-    accent: '#3B82F6',
-};
+const FONT = font.mono;
+const SANS = font.sans;
+const SERIF = font.serif;
 
 const LEAGUES = [
     { id: 'epl', label: 'Premier League' },
@@ -151,7 +139,7 @@ export default function ReportsPage() {
         <div className="rp-page" style={{ background: C.bg, minHeight: '100vh', color: C.text, fontFamily: SANS }}>
             <style>{`
         * { box-sizing: border-box; }
-        ::selection { background: rgba(59,130,246,0.30); }
+        ::selection { background: rgba(59,130,246,0.20); }
 
         .rp-page {
           --pad: clamp(16px, 3.6vw, 24px);
@@ -165,7 +153,7 @@ export default function ReportsPage() {
           position: sticky;
           top: 0;
           z-index: 50;
-          background: rgba(6,6,6,0.86);
+          background: rgba(255,255,255,0.92);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
           border-bottom: 1px solid ${C.border};
@@ -192,7 +180,7 @@ export default function ReportsPage() {
           line-height: 1;
           transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
         }
-        .rp-chipLink:hover { color: ${C.text2}; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.10); }
+        .rp-chipLink:hover { color: ${C.text2}; background: rgba(15,23,42,0.03); border-color: rgba(15,23,42,0.10); }
         .rp-chipLink:focus-visible { outline: 2px solid rgba(59,130,246,0.55); outline-offset: 2px; }
 
         .rp-main { padding-top: clamp(30px, 5vw, 56px); padding-bottom: 100px; }
@@ -232,12 +220,12 @@ export default function ReportsPage() {
           color: ${C.text3};
           line-height: 1;
         }
-        .pill:hover { color: ${C.text2}; background: rgba(255,255,255,0.03); }
+        .pill:hover { color: ${C.text2}; background: rgba(15,23,42,0.03); }
         .pill:active { transform: translateY(1px); }
         .pill:focus-visible { outline: 2px solid rgba(59,130,246,0.55); outline-offset: 2px; }
         .pill[data-on="true"] { color: #fff; background: rgba(255,255,255,0.07); border-color: ${C.border}; }
 
-        .toggle { display: flex; background: rgba(255,255,255,0.03); padding: 3px; border-radius: 12px; border: 1px solid ${C.border}; }
+        .toggle { display: flex; background: rgba(15,23,42,0.03); padding: 3px; border-radius: 12px; border: 1px solid ${C.border}; }
         .toggle button { all: unset; cursor: pointer; padding: 8px 18px; border-radius: 9px; font-size: 13px; font-weight: 600; color: ${C.text3}; transition: background 150ms ease, color 150ms ease; line-height: 1; }
         .toggle button[data-on="true"] { color: ${C.bg}; background: ${C.text}; }
         .toggle button:focus-visible { outline: 2px solid rgba(59,130,246,0.55); outline-offset: 2px; }
@@ -253,7 +241,7 @@ export default function ReportsPage() {
         @media (max-width: 980px) { .kpiGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (max-width: 640px) { .kpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; } }
 
-        .kpi { padding: 18px; background: rgba(255,255,255,0.015); border: 1px solid ${C.border}; border-radius: 14px; }
+        .kpi { padding: 18px; background: rgba(15,23,42,0.015); border: 1px solid ${C.border}; border-radius: 14px; }
         .kpiVal { font-family: ${SERIF}; font-size: 24px; font-weight: 400; color: #fff; line-height: 1; margin-bottom: 8px; }
         .kpiLab { font-family: ${FONT}; font-size: 10px; color: ${C.text3}; letter-spacing: 0.06em; }
 
@@ -267,7 +255,7 @@ export default function ReportsPage() {
           flex-direction: column;
           gap: 14px;
           padding: 22px;
-          background: rgba(255,255,255,0.015);
+          background: rgba(15,23,42,0.015);
           border: 1px solid ${C.border};
           border-radius: 16px;
           text-decoration: none;
@@ -275,11 +263,11 @@ export default function ReportsPage() {
           transition: transform 180ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
           will-change: transform;
         }
-        .match-card:hover { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.10); transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,0.32); }
+        .match-card:hover { background: rgba(15,23,42,0.03); border-color: rgba(15,23,42,0.10); transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,0.32); }
         @media (max-width: 520px) { .match-card { padding: 18px; } }
 
         .metaRow { display: flex; justify-content: space-between; font-size: 11px; color: ${C.text3}; font-family: ${FONT}; }
-        .linesBadge { color: ${C.green}; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; }
+        .linesBadge { color: ${C.win}; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; }
 
         .teamRow { display: flex; justify-content: space-between; align-items: center; }
         .teamName { font-weight: 650; font-size: 16px; }
@@ -324,14 +312,14 @@ export default function ReportsPage() {
           gap: 16px;
           align-items: center;
           padding: 18px 24px;
-          background: rgba(255,255,255,0.015);
+          background: rgba(15,23,42,0.015);
           border: 1px solid ${C.border};
           border-radius: 14px;
           text-decoration: none;
           color: inherit;
           transition: background 150ms ease, border-color 150ms ease;
         }
-        .rank-row:hover { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); }
+        .rank-row:hover { background: rgba(15,23,42,0.03); border-color: rgba(15,23,42,0.08); }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
       `}</style>
@@ -431,19 +419,19 @@ export default function ReportsPage() {
 
                                     <div>
                                         <div className="teamRow" style={{ marginBottom: 8 }}>
-                                            <span className="teamName" style={{ color: m.home_score >= m.away_score ? '#fff' : C.text2 }}>
+                                            <span className="teamName" style={{ color: m.home_score >= m.away_score ? '#0F172A' : C.text2 }}>
                                                 {m.home_team}
                                             </span>
-                                            <span className="score" style={{ color: m.home_score > m.away_score ? '#fff' : C.text2 }}>
+                                            <span className="score" style={{ color: m.home_score > m.away_score ? '#0F172A' : C.text2 }}>
                                                 {m.home_score}
                                             </span>
                                         </div>
 
                                         <div className="teamRow">
-                                            <span className="teamName" style={{ color: m.away_score > m.home_score ? '#fff' : C.text2 }}>
+                                            <span className="teamName" style={{ color: m.away_score > m.home_score ? '#0F172A' : C.text2 }}>
                                                 {m.away_team}
                                             </span>
-                                            <span className="score" style={{ color: m.away_score > m.home_score ? '#fff' : C.text2 }}>
+                                            <span className="score" style={{ color: m.away_score > m.home_score ? '#0F172A' : C.text2 }}>
                                                 {m.away_score}
                                             </span>
                                         </div>
@@ -456,7 +444,7 @@ export default function ReportsPage() {
                                                     ATS:{' '}
                                                     <span
                                                         style={{
-                                                            color: sr.result === 'covered' ? C.green : sr.result === 'failed' ? C.red : C.text3,
+                                                            color: sr.result === 'covered' ? C.win : sr.result === 'failed' ? C.loss : C.text3,
                                                             fontWeight: 700,
                                                         }}
                                                     >
@@ -468,7 +456,7 @@ export default function ReportsPage() {
                                             {tr && (
                                                 <span>
                                                     Total:{' '}
-                                                    <span style={{ color: tr.result === 'over' ? C.amber : C.text2, fontWeight: 600 }}>
+                                                    <span style={{ color: tr.result === 'over' ? C.text2 : C.text2, fontWeight: 600 }}>
                                                         {tr.result.charAt(0).toUpperCase() + tr.result.slice(1)} ({tr.actual})
                                                     </span>
                                                 </span>
@@ -507,7 +495,7 @@ export default function ReportsPage() {
                                             </div>
 
                                             <span style={{ fontFamily: FONT, fontSize: 13 }}>
-                                                <span style={{ color: C.green }}>{t.record.ats.covered}</span>-{t.record.ats.failed}-{t.record.ats.push}
+                                                <span style={{ color: C.win }}>{t.record.ats.covered}</span>-{t.record.ats.failed}-{t.record.ats.push}
                                             </span>
 
                                             <span
@@ -515,7 +503,7 @@ export default function ReportsPage() {
                                                     fontFamily: FONT,
                                                     fontSize: 13,
                                                     fontWeight: 800,
-                                                    color: t.coverPct >= 55 ? C.green : t.coverPct < 45 ? C.red : C.text,
+                                                    color: t.coverPct >= 55 ? C.win : t.coverPct < 45 ? C.loss : C.text,
                                                 }}
                                             >
                                                 {t.coverPct.toFixed(1)}%
