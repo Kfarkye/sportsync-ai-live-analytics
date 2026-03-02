@@ -53,9 +53,9 @@ const poolLabel = (pool: string): string => {
 };
 
 const resultTone = (result: string | null): string => {
-  if (result === 'win') return 'text-emerald-300';
-  if (result === 'loss') return 'text-rose-300';
-  return 'text-zinc-300';
+  if (result === 'win') return 'text-emerald-700';
+  if (result === 'loss') return 'text-rose-700';
+  return 'text-slate-700';
 };
 
 export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
@@ -99,8 +99,8 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
             <CardBody className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">{data.leagueName}</p>
-                  <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-100 sm:text-3xl">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">{data.leagueName}</p>
+                  <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
                     {data.homeTeam} vs {data.awayTeam}
                   </h1>
                 </div>
@@ -112,7 +112,7 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <MetricCell label="Date" value={<span className="text-xs text-zinc-300">{formatMatchDateLabel(data.startTime)}</span>} />
+                <MetricCell label="Date" value={<span className="text-xs text-slate-700">{formatMatchDateLabel(data.startTime)}</span>} />
                 <MetricCell label="Venue" value={data.venue ?? '—'} />
                 <MetricCell label="Referee" value={data.referee ?? '—'} />
                 <MetricCell label="Matchday" value={data.matchday ?? '—'} />
@@ -126,10 +126,10 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                 <SectionLabel>Score Timeline</SectionLabel>
               </CardHeader>
               <CardBody>
-                <div className="relative h-14 rounded-md border border-zinc-800 bg-zinc-900/50">
-                  <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-zinc-700" />
-                  <span className="absolute left-2 top-2 text-[10px] text-zinc-500">0'</span>
-                  <span className="absolute right-2 top-2 text-[10px] text-zinc-500">90'</span>
+                <div className="relative h-14 rounded-md border border-slate-200 bg-slate-50">
+                  <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-slate-700" />
+                  <span className="absolute left-2 top-2 text-[10px] text-slate-500">0'</span>
+                  <span className="absolute right-2 top-2 text-[10px] text-slate-500">90'</span>
 
                   {timelineEvents.map((event, index) => (
                     <div
@@ -138,19 +138,19 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                       style={{ left: `${minToPercent(event.minute)}%` }}
                       title={`${event.minuteLabel} ${sideLabel(event.teamSide, data.homeTeam, data.awayTeam)} ${event.playerName ?? ''}`}
                     >
-                      <div className="h-3 w-0.5 -translate-y-1/2 bg-zinc-200" />
+                      <div className="h-3 w-0.5 -translate-y-1/2 bg-slate-200" />
                     </div>
                   ))}
                 </div>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {timelineEvents.map((event, index) => (
-                    <div key={`tl-${index}-${event.minuteLabel}`} className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs">
+                    <div key={`tl-${index}-${event.minuteLabel}`} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-zinc-300">{eventTypeLabel(event.type)}</span>
+                        <span className="text-slate-700">{eventTypeLabel(event.type)}</span>
                         <ValueText>{event.minuteLabel}</ValueText>
                       </div>
-                      <div className="mt-1 text-zinc-400">
+                      <div className="mt-1 text-slate-500">
                         {sideLabel(event.teamSide, data.homeTeam, data.awayTeam)} {event.playerName ? `· ${event.playerName}` : ''}
                       </div>
                     </div>
@@ -167,8 +167,8 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
               </CardHeader>
               <CardBody className="p-0">
                 <table className="min-w-full border-collapse text-left text-sm">
-                  <thead className="border-b border-zinc-800">
-                    <tr className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+                  <thead className="border-b border-slate-200">
+                    <tr className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
                       <th className="px-4 py-3 font-medium">Stat</th>
                       <th className="px-4 py-3 font-medium">{data.homeTeam}</th>
                       <th className="px-4 py-3 font-medium">{data.awayTeam}</th>
@@ -176,8 +176,8 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                   </thead>
                   <tbody>
                     {data.boxScore.map((row) => (
-                      <tr key={row.key} className="border-b border-zinc-800/80 text-zinc-200">
-                        <td className="px-4 py-3 text-zinc-400">{row.label}</td>
+                      <tr key={row.key} className="border-b border-slate-200 text-slate-800">
+                        <td className="px-4 py-3 text-slate-500">{row.label}</td>
                         <td className="px-4 py-3">
                           <ValueText>{row.home}</ValueText>
                         </td>
@@ -314,17 +314,17 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
               <CardBody>
                 <div className="grid gap-4 lg:grid-cols-2">
                   {data.lineups.map((lineup) => (
-                    <div key={`${lineup.side}-${lineup.teamName}`} className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+                    <div key={`${lineup.side}-${lineup.teamName}`} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                       <div className="mb-2 flex items-center justify-between">
-                        <div className="text-sm font-semibold text-zinc-100">{lineup.teamName}</div>
+                        <div className="text-sm font-semibold text-slate-900">{lineup.teamName}</div>
                         <DataPill>{lineup.formation ?? 'Formation —'}</DataPill>
                       </div>
                       {lineup.starters.length > 0 ? (
                         <div>
-                          <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-zinc-500">Starting XI</div>
-                          <div className="flex flex-wrap gap-1.5 text-xs text-zinc-300">
+                          <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">Starting XI</div>
+                          <div className="flex flex-wrap gap-1.5 text-xs text-slate-700">
                             {lineup.starters.map((player) => (
-                              <span key={`${lineup.side}-st-${player}`} className="rounded border border-zinc-800 px-2 py-1">
+                              <span key={`${lineup.side}-st-${player}`} className="rounded border border-slate-200 px-2 py-1">
                                 {player}
                               </span>
                             ))}
@@ -333,10 +333,10 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                       ) : null}
                       {lineup.substitutes.length > 0 ? (
                         <div className="mt-3">
-                          <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-zinc-500">Substitutes</div>
-                          <div className="flex flex-wrap gap-1.5 text-xs text-zinc-400">
+                          <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">Substitutes</div>
+                          <div className="flex flex-wrap gap-1.5 text-xs text-slate-500">
                             {lineup.substitutes.map((player) => (
-                              <span key={`${lineup.side}-sub-${player}`} className="rounded border border-zinc-800 px-2 py-1">
+                              <span key={`${lineup.side}-sub-${player}`} className="rounded border border-slate-200 px-2 py-1">
                                 {player}
                               </span>
                             ))}
@@ -356,14 +356,14 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                 <SectionLabel>Events</SectionLabel>
               </CardHeader>
               <CardBody className="p-0">
-                <div className="divide-y divide-zinc-800">
+                <div className="divide-y divide-slate-200">
                   {data.events.map((event, index) => (
                     <div key={`ev-${index}-${event.minuteLabel}-${event.type}`} className="flex flex-wrap items-center gap-2 px-4 py-3 text-sm sm:px-5">
                       <DataPill>{event.minuteLabel}</DataPill>
-                      <DataPill className="text-zinc-400">{eventTypeLabel(event.type)}</DataPill>
-                      <span className="text-zinc-200">{sideLabel(event.teamSide, data.homeTeam, data.awayTeam)}</span>
-                      {event.playerName ? <span className="text-zinc-400">· {event.playerName}</span> : null}
-                      {event.detail ? <span className="text-zinc-500">· {event.detail}</span> : null}
+                      <DataPill className="text-slate-500">{eventTypeLabel(event.type)}</DataPill>
+                      <span className="text-slate-800">{sideLabel(event.teamSide, data.homeTeam, data.awayTeam)}</span>
+                      {event.playerName ? <span className="text-slate-500">· {event.playerName}</span> : null}
+                      {event.detail ? <span className="text-slate-500">· {event.detail}</span> : null}
                     </div>
                   ))}
                 </div>
@@ -379,12 +379,12 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
               <CardBody className="space-y-4">
                 {scorerOddsByPool.map((bucket) => (
                   <div key={bucket.pool}>
-                    <div className="mb-2 text-[10px] uppercase tracking-[0.14em] text-zinc-500">{poolLabel(bucket.pool)}</div>
+                    <div className="mb-2 text-[10px] uppercase tracking-[0.14em] text-slate-500">{poolLabel(bucket.pool)}</div>
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                       {bucket.rows.map((row) => (
-                        <div key={row.id} className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs">
-                          <div className="truncate font-medium text-zinc-100">{row.playerName}</div>
-                          <div className="mt-1 flex items-center justify-between text-zinc-400">
+                        <div key={row.id} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                          <div className="truncate font-medium text-slate-900">{row.playerName}</div>
+                          <div className="mt-1 flex items-center justify-between text-slate-500">
                             <span>{row.oddsFractional ?? '—'}</span>
                             <span>{row.impliedProb === null ? '—' : `${row.impliedProb.toFixed(1)}%`}</span>
                           </div>

@@ -26,9 +26,9 @@ const rangeText = (range: { min: number | null; max: number | null; avg: number 
 };
 
 const resultTone = (value: 'W' | 'D' | 'L' | '—' | 'P' | 'O' | 'U') => {
-  if (value === 'W' || value === 'O') return 'text-emerald-300';
-  if (value === 'L' || value === 'U') return 'text-rose-300';
-  return 'text-zinc-300';
+  if (value === 'W' || value === 'O') return 'text-emerald-700';
+  if (value === 'L' || value === 'U') return 'text-rose-700';
+  return 'text-slate-700';
 };
 
 export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
@@ -45,9 +45,9 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
       {data ? (
         <div className="space-y-6 sm:space-y-8">
           <header className="space-y-2">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Team</p>
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-100 sm:text-3xl">{data.teamName}</h1>
-            <p className="text-sm text-zinc-400">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">Team</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{data.teamName}</h1>
+            <p className="text-sm text-slate-500">
               {data.leagueId ? leagueLabel(data.leagueId) : 'All Leagues'} · <ValueText>{data.aggregate.matches}</ValueText> matches
             </p>
           </header>
@@ -101,18 +101,18 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
                 <MetricCell label="First Goal" value={<ValueText>{formatPct(data.trends.firstGoalRate)}</ValueText>} />
                 <MetricCell label="Scored Both Halves" value={<ValueText>{formatPct(data.trends.scoredBothHalvesRate)}</ValueText>} />
                 <MetricCell label="Late Goal Frequency" value={<ValueText>{formatPct(data.trends.lateGoalRate)}</ValueText>} />
-                <MetricCell label="ML Trend" value={<span className="text-xs text-zinc-300">{rangeText(data.trends.mlRange, 0)}</span>} />
-                <MetricCell label="Spread Trend" value={<span className="text-xs text-zinc-300">{rangeText(data.trends.spreadRange, 1)}</span>} />
-                <MetricCell label="Total Trend" value={<span className="text-xs text-zinc-300">{rangeText(data.trends.totalRange, 1)}</span>} className="sm:col-span-2 lg:col-span-1" />
+                <MetricCell label="ML Trend" value={<span className="text-xs text-slate-700">{rangeText(data.trends.mlRange, 0)}</span>} />
+                <MetricCell label="Spread Trend" value={<span className="text-xs text-slate-700">{rangeText(data.trends.spreadRange, 1)}</span>} />
+                <MetricCell label="Total Trend" value={<span className="text-xs text-slate-700">{rangeText(data.trends.totalRange, 1)}</span>} className="sm:col-span-2 lg:col-span-1" />
               </div>
 
               {data.trends.htFtDistribution.length > 0 ? (
                 <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   {data.trends.htFtDistribution.slice(0, 8).map((item) => (
-                    <div key={item.key} className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs">
-                      <div className="text-zinc-400">HT/FT</div>
-                      <div className="mt-1 font-mono text-zinc-200">
-                        {item.key} <span className="text-zinc-500">({item.count})</span>
+                    <div key={item.key} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                      <div className="text-slate-500">HT/FT</div>
+                      <div className="mt-1 font-mono text-slate-800">
+                        {item.key} <span className="text-slate-500">({item.count})</span>
                       </div>
                     </div>
                   ))}
@@ -127,12 +127,12 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
             </CardHeader>
             <CardBody className="p-0">
               {data.rows.length === 0 ? (
-                <div className="px-4 py-6 text-sm text-zinc-400">No team matches found.</div>
+                <div className="px-4 py-6 text-sm text-slate-500">No team matches found.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full border-collapse text-left text-sm">
-                    <thead className="border-b border-zinc-800">
-                      <tr className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+                    <thead className="border-b border-slate-200">
+                      <tr className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
                         <th className="px-4 py-3 font-medium">Date</th>
                         <th className="px-4 py-3 font-medium">Opponent</th>
                         <th className="px-4 py-3 font-medium">Score</th>
@@ -144,10 +144,10 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
                     </thead>
                     <tbody>
                       {data.rows.map((row) => (
-                        <tr key={row.matchId} className="border-b border-zinc-800/80 text-zinc-200">
-                          <td className="px-4 py-3 text-xs text-zinc-400">{formatMatchDateLabel(row.startTime)}</td>
+                        <tr key={row.matchId} className="border-b border-slate-200 text-slate-800">
+                          <td className="px-4 py-3 text-xs text-slate-500">{formatMatchDateLabel(row.startTime)}</td>
                           <td className="px-4 py-3">
-                            <a href={`/match/${row.matchSlug}`} className="font-medium text-zinc-100 hover:text-zinc-200">
+                            <a href={`/match/${row.matchSlug}`} className="font-medium text-slate-900 hover:text-slate-800">
                               {row.isHome ? 'vs' : '@'} {row.opponent}
                             </a>
                           </td>

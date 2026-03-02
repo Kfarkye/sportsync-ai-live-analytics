@@ -105,11 +105,11 @@ export const LeaguePage: FC<LeaguePageProps> = ({ leagueId, query }) => {
       <TopNav />
 
       <header className="mb-6 space-y-2 sm:mb-8">
-        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">League</p>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-100 sm:text-3xl">{leagueLabel(leagueId)}</h1>
-        <p className="max-w-3xl text-sm text-zinc-400">
+        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">League</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{leagueLabel(leagueId)}</h1>
+        <p className="max-w-3xl text-sm text-slate-500">
           Completed matches, closing DraftKings references, and v5 game-flow patterns. Source table:
-          <code className="mx-1 rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300">soccer_postgame</code>
+          <code className="mx-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">soccer_postgame</code>
         </p>
       </header>
 
@@ -125,7 +125,7 @@ export const LeaguePage: FC<LeaguePageProps> = ({ leagueId, query }) => {
                 <div className="flex flex-wrap items-center gap-2">
                   <a
                     href={POSTGAME_SSG_ROUTES.league(leagueId)}
-                    className="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:border-zinc-600"
+                    className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:border-slate-300"
                   >
                     All
                   </a>
@@ -135,8 +135,8 @@ export const LeaguePage: FC<LeaguePageProps> = ({ leagueId, query }) => {
                       href={`${POSTGAME_SSG_ROUTES.league(leagueId)}?matchday=${encodeURIComponent(matchday)}`}
                       className={
                         selectedMatchday === matchday
-                          ? 'rounded-md border border-zinc-500 bg-zinc-800 px-2 py-1 text-xs text-zinc-100'
-                          : 'rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:border-zinc-600'
+                          ? 'rounded-md border border-slate-400 bg-slate-100 px-2 py-1 text-xs text-slate-900'
+                          : 'rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:border-slate-300'
                       }
                     >
                       {matchday}
@@ -163,8 +163,8 @@ export const LeaguePage: FC<LeaguePageProps> = ({ leagueId, query }) => {
                 <MetricCell
                   label="Top First Goal Window"
                   value={
-                    <span className="text-sm text-zinc-200">
-                      {aggregate.topFirstGoalBucket} <span className="text-zinc-500">({aggregate.topFirstGoalCount})</span>
+                    <span className="text-sm text-slate-800">
+                      {aggregate.topFirstGoalBucket} <span className="text-slate-500">({aggregate.topFirstGoalCount})</span>
                     </span>
                   }
                 />
@@ -178,21 +178,21 @@ export const LeaguePage: FC<LeaguePageProps> = ({ leagueId, query }) => {
             </CardHeader>
             <CardBody className="p-0">
               {filteredMatches.length === 0 ? (
-                <div className="px-4 py-6 text-sm text-zinc-400">No matches for this filter.</div>
+                <div className="px-4 py-6 text-sm text-slate-500">No matches for this filter.</div>
               ) : (
-                <div className="divide-y divide-zinc-800">
+                <div className="divide-y divide-slate-200">
                   {filteredMatches.map((match) => (
                     <a
                       key={match.id}
                       href={POSTGAME_SSG_ROUTES.match(match.slug)}
-                      className="block px-4 py-4 transition-colors hover:bg-zinc-900/80 sm:px-5"
+                      className="block px-4 py-4 transition-colors hover:bg-slate-100 sm:px-5"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold text-zinc-100">
+                          <div className="text-sm font-semibold text-slate-900">
                             {match.homeTeam} vs {match.awayTeam}
                           </div>
-                          <div className="mt-1 text-xs text-zinc-400">{formatMatchDateLabel(match.startTime)}</div>
+                          <div className="mt-1 text-xs text-slate-500">{formatMatchDateLabel(match.startTime)}</div>
                         </div>
                         <div className="flex items-center gap-2">
                           <DataPill>
@@ -200,7 +200,7 @@ export const LeaguePage: FC<LeaguePageProps> = ({ leagueId, query }) => {
                               {match.homeScore ?? '—'}-{match.awayScore ?? '—'}
                             </ValueText>
                           </DataPill>
-                          <DataPill className="text-[10px] uppercase tracking-[0.12em] text-zinc-400">
+                          <DataPill className="text-[10px] uppercase tracking-[0.12em] text-slate-500">
                             {resultLabel(match.homeScore, match.awayScore)}
                           </DataPill>
                           <DataPill>SPR {formatSpread(match.odds.spread)}</DataPill>
@@ -225,10 +225,10 @@ export const LeaguePage: FC<LeaguePageProps> = ({ leagueId, query }) => {
                     <a
                       key={team.slug}
                       href={POSTGAME_SSG_ROUTES.team(team.slug, leagueId)}
-                      className="flex items-center justify-between rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-700"
+                      className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 hover:border-slate-300 hover:bg-white"
                     >
                       <span>{team.teamName}</span>
-                      <span className="font-mono text-xs text-zinc-500">{team.matchCount}</span>
+                      <span className="font-mono text-xs text-slate-500">{team.matchCount}</span>
                     </a>
                   ))}
                 </div>
