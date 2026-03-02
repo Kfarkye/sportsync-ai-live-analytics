@@ -1,46 +1,51 @@
-import React, { FC, lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+import React, { FC } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 import { AuthProvider } from './contexts/AuthContext';
 import AppShell from './components/layout/AppShell';
+import PostgameRouter from './pages/postgame/PostgameRouter';
+
+/**
+ * Root Application Component
+ * 
+ * Architecture:
+ * 1. Data Layer (QueryClient)
+ * 2. Identity Layer (AuthProvider)
+ * 3. State Layer (BettingProvider)
+ * 4. UI Shell (AppShell)
+ */
 import { GlobalErrorBoundary } from './components/GlobalErrorBoundary';
+
 import { configService } from './services/configService';
 import { bindIOSVisualViewport } from './hooks/useIOSVisualViewport';
 
-// SSOT: apply ESSENCE tokens globally once
-import { applyEssenceToRoot } from './lib/applyEssenceToRoot';
-
-// SSOT: tokenized fallback
-import { AppLoadingScreen } from './components/system/AppLoadingScreen';
-
-const MatchPage = lazy(() => import('./pages/MatchPage'));
-const TeamPage = lazy(() => import('./pages/TeamPage'));
-const ReportsPage = lazy(() => import('./pages/ReportsPage'));
-const TrendsPage = lazy(() => import('./pages/TrendsPage'));
+const isPostgamePath = (pathname: string): boolean =>
+  pathname === '/soccer' ||
+  pathname.startsWith('/league/') ||
+  pathname.startsWith('/team/') ||
+  pathname.startsWith('/match/');
 
 const App: FC = () => {
-  useEffect(() => {
-    // 0) Apply ESSENCE → CSS vars (SSOT)
-    applyEssenceToRoot();
+  const postgameMode = isPostgamePath(window.location.pathname);
 
-    // 1) Initialize Remote Config
+  React.useEffect(() => {
+    // 1. Initialize Remote Config (Hot-swapping physics gates)
     configService.init();
     configService.subscribe();
 
-    // 2) Bind iOS Visual Viewport
+    // 2. Bind iOS Visual Viewport (Fixes keyboard layout jumps)
     const unbindViewport = bindIOSVisualViewport();
 
-    // 3) Craftsmanship mark
-    // eslint-disable-next-line no-console
+    // 3. Craftsmanship mark (Inspect Element test)
     console.log(
-      "%c███ SPORTSYNC AI ███\n%cCrafted by humans who watch the games.\nEngine: Gemini 3 Flash · Protocol: Obsidian Weissach v29.1\n\nCome build with us → github.com/Kfarkye",
+      "%c\u2588\u2588\u2588 SPORTSYNC AI \u2588\u2588\u2588\n%cCrafted by humans who watch the games.\nEngine: Gemini 3 Flash \u00b7 Protocol: Obsidian Weissach v29.1\n\nCome build with us \u2192 github.com/Kfarkye",
       "font-weight:900;font-size:16px;color:#0F172A;",
       "font-size:11px;color:#64748B;line-height:1.6;"
     );
 
-    // 4) Global grain overlay
-    document.getElementById('root')?.classList.add('grain-overlay');
+    // 4. Apply grain texture to root for microscopic matte finish
+    document.getElementById("root")?.classList.add("grain-overlay");
 
     return unbindViewport;
   }, []);
@@ -49,17 +54,7 @@ const App: FC = () => {
     <GlobalErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <BrowserRouter>
-            <Suspense fallback={<AppLoadingScreen />}>
-              <Routes>
-                <Route path="/match/:slug" element={<MatchPage />} />
-                <Route path="/team/:slug" element={<TeamPage />} />
-                <Route path="/reports" element={<ReportsPage />} />
-                <Route path="/trends" element={<TrendsPage />} />
-                <Route path="*" element={<AppShell />} />
-              </Routes>
-            </Suspense>
-          </BrowserRouter>
+          {postgameMode ? <PostgameRouter /> : <AppShell />}
         </AuthProvider>
       </QueryClientProvider>
     </GlobalErrorBoundary>
