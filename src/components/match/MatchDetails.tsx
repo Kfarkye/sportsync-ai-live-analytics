@@ -301,8 +301,7 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
   // State-aware label
   const isFinal = isGameFinal(match.status);
   const isLive = isGameInProgress(match.status);
-  const hasLiveFlag = !!(odds as any)?.isLive;
-  const linesLabel = isFinal ? 'Closing Lines' : (isLive && hasLiveFlag) ? 'Live Lines' : isLive ? 'Opening Lines' : 'Game Lines';
+  const linesLabel = isFinal ? 'Closing Lines' : isLive ? 'Live Lines' : 'Game Lines';
 
   const isSoccer = match.sport === Sport.SOCCER || match.sport === ('SOCCER' as any);
   const hasAnyLine = spreadVal !== undefined || totalVal !== undefined || homeML !== undefined || awayML !== undefined;
