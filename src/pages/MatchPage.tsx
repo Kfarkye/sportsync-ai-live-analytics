@@ -559,7 +559,7 @@ export default function MatchPage() {
 
                 {/* ─── FOOTER ─── */}
                 <div style={{ padding: "10px 20px", borderTop: "1px solid rgba(255,255,255,0.03)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontFamily: "var(--f-mono)", fontSize: 7, color: "rgba(255,255,255,0.08)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Sources: ESPN · DraftKings</span>
+                    <span style={{ fontFamily: "var(--f-mono)", fontSize: 7, color: "rgba(255,255,255,0.08)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Sources: Public APIs · DraftKings</span>
                     <span style={{ fontFamily: "var(--f-sans)", fontSize: 8, fontWeight: 600, color: "rgba(255,255,255,0.1)", letterSpacing: "0.1em", textTransform: "uppercase" }}>thedrip.to</span>
                 </div>
             </div>

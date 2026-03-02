@@ -105,7 +105,6 @@ export default function ReportsPage() {
                 <div style={{ maxWidth: 1080, margin: "0 auto", padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <Link to="/" className="nav-link">← Home</Link>
-                        <Link to="/anatomy" className="nav-link">Anatomy ⇾</Link>
                         <Link to="/trends" className="nav-link">Trends ⇾</Link>
                     </div>
                 </div>
