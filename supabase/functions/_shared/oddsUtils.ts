@@ -229,7 +229,7 @@ export const normalizeOpeningLines = (dbRow: any) => {
     const isExtremeML = (ml: number | undefined) => {
         if (ml === undefined) return true;
         const absVal = Math.abs(ml);
-        return absVal >= 4000 || absVal <= 101;
+        return absVal >= 4000;
     };
 
     const hML = parseML(dbRow.home_ml);
@@ -389,8 +389,8 @@ const normalizeSource = (match: Match): OddsSource => {
 
     const totalRes = resolveGroup([
         { keys: ['overUnder', 'over_under', 'total', 'total_line', 'total.over', 'over', 'totalLine'], type: 'total' },
-        { keys: ['overOdds', 'over_odds', 'total_over_odds', 'overPrice'], type: 'price' },
-        { keys: ['underOdds', 'under_odds', 'total_under_odds', 'underPrice'], type: 'price' },
+        { keys: ['overOdds', 'over_odds', 'total_over_odds', 'overPrice', 'total_best.over.price'], type: 'price' },
+        { keys: ['underOdds', 'under_odds', 'total_under_odds', 'underPrice', 'total_best.under.price'], type: 'price' },
         { keys: ['overLine', 'over_line'], type: 'total' },
         { keys: ['underLine', 'under_line'], type: 'total' }
     ]);
@@ -550,58 +550,6 @@ export const analyzeTotal = (match: Match): TotalAnalysis => {
     };
 };
 
-// ============================================================================
-// DEVIG MODULE — No-vig probability math
-// ============================================================================
-
-/** Convert American odds to raw implied probability (0-1). Returns NaN for invalid input. */
-export const americanToImplied = (american: number): number => {
-    if (!Number.isFinite(american) || american === 0) return NaN;
-    return american < 0
-        ? Math.abs(american) / (Math.abs(american) + 100)
-        : 100 / (american + 100);
-};
-
-/** Convert probability (0-1) back to American odds. */
-export const impliedToAmerican = (prob: number): number => {
-    if (!Number.isFinite(prob) || prob <= 0 || prob >= 1) return 0;
-    return prob >= 0.5
-        ? Math.round(-100 * prob / (1 - prob))
-        : Math.round(100 * (1 - prob) / prob);
-};
-
-/** Remove vig from a 2-way market (spread sides, totals, or h2h without draw).
- *  Uses multiplicative method: each side's no-vig prob = raw / sum(raw).
- */
-export const devig2Way = (priceA: number, priceB: number): { probA: number; probB: number } => {
-    const rawA = americanToImplied(priceA);
-    const rawB = americanToImplied(priceB);
-    if (isNaN(rawA) || isNaN(rawB)) return { probA: 0.5, probB: 0.5 };
-    const total = rawA + rawB;
-    if (total <= 0) return { probA: 0.5, probB: 0.5 };
-    return { probA: rawA / total, probB: rawB / total };
-};
-
-/** Remove vig from a 3-way market (h2h with draw). */
-export const devig3Way = (
-    priceA: number, priceB: number, priceDraw: number
-): { probA: number; probB: number; probDraw: number } => {
-    const rawA = americanToImplied(priceA);
-    const rawB = americanToImplied(priceB);
-    const rawD = americanToImplied(priceDraw);
-    if (isNaN(rawA) || isNaN(rawB) || isNaN(rawD)) return { probA: 0.34, probB: 0.33, probDraw: 0.33 };
-    const total = rawA + rawB + rawD;
-    if (total <= 0) return { probA: 0.34, probB: 0.33, probDraw: 0.33 };
-    return { probA: rawA / total, probB: rawB / total, probDraw: rawD / total };
-};
-
-/** Single-price devig: given one side's American price and the total implied probability of all sides. */
-export const noVigProb = (price: number, totalImplied: number): number => {
-    const raw = americanToImplied(price);
-    if (isNaN(raw) || totalImplied <= 0) return 0;
-    return raw / totalImplied;
-};
-
 export const analyzeMoneyline = (match: Match): MoneylineAnalysis => {
     const source = normalizeSource(match);
     const isFinal = isMatchFinal(match.status);
@@ -633,92 +581,3 @@ export const analyzeMoneyline = (match: Match): MoneylineAnalysis => {
         label: 'Moneyline'
     };
 };
-
-// ============================================================================
-// DEVIG — True probability extraction from bookmaker odds
-// ============================================================================
-// Standard proportional method: removes vig by normalizing raw implied
-// probabilities to sum to 1.0. This is the most widely used approach
-// and matches the methodology used by Pinnacle's closing lines.
-//
-// For a -110/-110 line:
-//   Raw implied: 52.38% + 52.38% = 104.76% (4.76% vig)
-//   True:        50.00% + 50.00% = 100.00%
-// ============================================================================
-
-/** Convert American odds to raw implied probability (0-1). Returns null on invalid input. */
-export function americanToImplied(odds: number | string | null | undefined): number | null {
-    if (odds === null || odds === undefined) return null;
-    const n = typeof odds === 'string' ? parseFloat(odds) : odds;
-    if (!isFinite(n) || n === 0) return null;
-    // Positive: risk 100 to win N → implied = 100 / (N + 100)
-    // Negative: risk N to win 100 → implied = |N| / (|N| + 100)
-    return n > 0
-        ? 100 / (n + 100)
-        : Math.abs(n) / (Math.abs(n) + 100);
-}
-
-/** Convert true probability (0-1) to American odds. */
-export function impliedToAmerican(prob: number): number | null {
-    if (prob <= 0 || prob >= 1) return null;
-    return prob >= 0.5
-        ? Math.round(-100 * prob / (1 - prob))
-        : Math.round(100 * (1 - prob) / prob);
-}
-
-/**
- * Devig a 2-way market (spread, total). Returns true probabilities.
- * Accepts American odds for each side.
- */
-export function devig2Way(
-    oddsA: number | string | null | undefined,
-    oddsB: number | string | null | undefined,
-): { probA: number; probB: number; overround: number } | null {
-    const rawA = americanToImplied(oddsA);
-    const rawB = americanToImplied(oddsB);
-    if (rawA === null || rawB === null) return null;
-    const overround = rawA + rawB;
-    if (overround <= 0) return null;
-    return {
-        probA: rawA / overround,
-        probB: rawB / overround,
-        overround,
-    };
-}
-
-/**
- * Devig a 3-way market (soccer moneyline). Returns true probabilities.
- */
-export function devig3Way(
-    homeOdds: number | string | null | undefined,
-    awayOdds: number | string | null | undefined,
-    drawOdds: number | string | null | undefined,
-): { probHome: number; probAway: number; probDraw: number; overround: number } | null {
-    const rawH = americanToImplied(homeOdds);
-    const rawA = americanToImplied(awayOdds);
-    const rawD = americanToImplied(drawOdds);
-    if (rawH === null || rawA === null || rawD === null) return null;
-    const overround = rawH + rawA + rawD;
-    if (overround <= 0) return null;
-    return {
-        probHome: rawH / overround,
-        probAway: rawA / overround,
-        probDraw: rawD / overround,
-        overround,
-    };
-}
-
-/**
- * Get the no-vig implied probability for one side of a 2-way market.
- * This is the correct replacement for the crude `50 - (spread * 3)` heuristic.
- *
- * Usage: noVigProb(-110, -110) → 0.5 (50%)
- *        noVigProb(-150, +130) → 0.5932 (59.3%)
- */
-export function noVigProb(
-    thisOdds: number | string | null | undefined,
-    otherOdds: number | string | null | undefined,
-): number | null {
-    const result = devig2Way(thisOdds, otherOdds);
-    return result ? result.probA : null;
-}

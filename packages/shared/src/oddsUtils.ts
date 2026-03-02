@@ -389,8 +389,8 @@ const normalizeSource = (match: Match): OddsSource => {
 
     const totalRes = resolveGroup([
         { keys: ['overUnder', 'over_under', 'total', 'total_line', 'total.over', 'over', 'totalLine'], type: 'total' },
-        { keys: ['overOdds', 'over_odds', 'total_over_odds', 'overPrice'], type: 'price' },
-        { keys: ['underOdds', 'under_odds', 'total_under_odds', 'underPrice'], type: 'price' },
+        { keys: ['overOdds', 'over_odds', 'total_over_odds', 'overPrice', 'total_best.over.price'], type: 'price' },
+        { keys: ['underOdds', 'under_odds', 'total_under_odds', 'underPrice', 'total_best.under.price'], type: 'price' },
         { keys: ['overLine', 'over_line'], type: 'total' },
         { keys: ['underLine', 'under_line'], type: 'total' }
     ]);
