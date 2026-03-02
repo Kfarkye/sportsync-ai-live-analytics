@@ -298,10 +298,14 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
     return num > 0 ? `+${num}` : `${num}`;
   };
 
-  // State-aware label
+  // State-aware label — only claim "Live" if data is actually fresh
   const isFinal = isGameFinal(match.status);
   const isLive = isGameInProgress(match.status);
-  const linesLabel = isFinal ? 'Closing Lines' : isLive ? 'Live Lines' : 'Game Lines';
+  const oddsTimestamp = odds?.lastUpdated ?? odds?.updated_at ?? odds?.last_updated;
+  const gameStart = new Date(match.startTime).getTime();
+  const oddsAge = oddsTimestamp ? new Date(oddsTimestamp).getTime() : 0;
+  const oddsAreFresh = oddsAge > gameStart;
+  const linesLabel = isFinal ? 'Closing Lines' : (isLive && oddsAreFresh) ? 'Live Lines' : isLive ? 'Opening Lines' : 'Game Lines';
 
   const isSoccer = match.sport === Sport.SOCCER || match.sport === ('SOCCER' as any);
   const hasAnyLine = spreadVal !== undefined || totalVal !== undefined || homeML !== undefined || awayML !== undefined;
