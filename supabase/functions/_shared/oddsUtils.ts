@@ -133,6 +133,29 @@ export const getOddsValue = (v: any, type?: 'spread' | 'price' | 'total'): numbe
 // SYSTEM GUARDS (ANTI-CRASH)
 // ============================================================================
 
+export const americanToImplied = (odds: number | null | undefined): number | null => {
+    if (odds == null || isNaN(odds) || Math.abs(odds) > 10000 || Math.abs(odds) < 100) return null;
+    if (odds > 0) return 100 / (odds + 100);
+    return Math.abs(odds) / (Math.abs(odds) + 100);
+};
+
+export const devig2Way = (odds1: number | null | undefined, odds2: number | null | undefined): [number | null, number | null] => {
+    const imp1 = americanToImplied(odds1);
+    const imp2 = americanToImplied(odds2);
+    if (imp1 === null || imp2 === null) return [null, null];
+    const total = imp1 + imp2;
+    return [imp1 / total, imp2 / total];
+};
+
+export const devig3Way = (odds1: number | null | undefined, odds2: number | null | undefined, odds3: number | null | undefined): [number | null, number | null, number | null] => {
+    const imp1 = americanToImplied(odds1);
+    const imp2 = americanToImplied(odds2);
+    const imp3 = americanToImplied(odds3);
+    if (imp1 === null || imp2 === null || imp3 === null) return [null, null, null];
+    const total = imp1 + imp2 + imp3;
+    return [imp1 / total, imp2 / total, imp3 / total];
+};
+
 /**
  * Safely slices a string or array, preventing "Cannot read properties of undefined (reading 'slice')"
  */

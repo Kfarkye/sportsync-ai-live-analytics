@@ -189,9 +189,12 @@ export interface MatchOdds {
   under?: string | number;
   moneylineHome?: string | number;
   moneylineAway?: string | number;
+  moneylineDraw?: string | number;
   home_ml?: string | number;
   away_ml?: string | number;
   draw_ml?: string | number;
+  over_odds?: string | number;
+  under_odds?: string | number;
   overOdds?: string | number;
   underOdds?: string | number;
   total?: string | number;
@@ -201,11 +204,11 @@ export interface MatchOdds {
   awaySpreadOdds?: string | number;
   home_spread?: string | number;
   away_spread?: string | number;
-
   winProbability?: number;
   draftkingsLink?: string;
 }
 
+export type OddsState = 'open' | 'live' | 'settled';
 export interface WeatherInfo {
   temp?: number | string;
   condition?: string;
@@ -238,7 +241,7 @@ export interface RosterPlayer {
   status?: string;
 }
 
-export type TraceEntry = JsonRecord;
+export type TraceEntry = Record<string, any>;
 
 export interface TopPerformer {
   name?: string;

@@ -169,6 +169,13 @@ export const UnifiedHeader: FC = () => {
 
                     {/* Right: LIVE + Lens + Search + User */}
                     <div className="flex items-center gap-2">
+                        <a
+                            href="/reports"
+                            className="h-[34px] flex items-center gap-1.5 px-3 rounded-lg text-[11px] font-semibold tracking-[0.04em] transition-all active:scale-95 select-none border bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
+                            style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
+                        >
+                            REPORTS
+                        </a>
                         <button
                             type="button"
                             onClick={handleLiveClick}
@@ -212,7 +219,7 @@ export const UnifiedHeader: FC = () => {
                                 className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 active:scale-95 transition-all"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                                    <circle cx="8" cy="5.5" r="3"/><path d="M2 14.5c0-3 2.7-5 6-5s6 2 6 5"/>
+                                    <circle cx="8" cy="5.5" r="3" /><path d="M2 14.5c0-3 2.7-5 6-5s6 2 6 5" />
                                 </svg>
                             </button>
                         )}
@@ -254,7 +261,7 @@ export const UnifiedHeader: FC = () => {
                                                 TODAY
                                             </span>
                                         )}
-                                        <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="#a1a1aa" strokeWidth="1.5"><path d="M2 4L5 7L8 4"/></svg>
+                                        <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="#a1a1aa" strokeWidth="1.5"><path d="M2 4L5 7L8 4" /></svg>
                                     </button>
 
                                     <button

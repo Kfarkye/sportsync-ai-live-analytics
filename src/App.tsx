@@ -1,5 +1,5 @@
-
-import React, { FC } from 'react';
+import React, { FC, lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 import { AuthProvider } from './contexts/AuthContext';
@@ -18,6 +18,11 @@ import { GlobalErrorBoundary } from './components/GlobalErrorBoundary';
 
 import { configService } from './services/configService';
 import { bindIOSVisualViewport } from './hooks/useIOSVisualViewport';
+
+const MatchPage = lazy(() => import('./pages/MatchPage'));
+const TeamPage = lazy(() => import('./pages/TeamPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const ESPNAnatomy = lazy(() => import('./pages/ESPNAnatomy'));
 
 const App: FC = () => {
   React.useEffect(() => {
@@ -45,7 +50,15 @@ const App: FC = () => {
     <GlobalErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <AppShell />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/match/:slug" element={<Suspense fallback={<div>Loading...</div>}><MatchPage /></Suspense>} />
+              <Route path="/team/:slug" element={<Suspense fallback={<div>Loading...</div>}><TeamPage /></Suspense>} />
+              <Route path="/reports" element={<Suspense fallback={<div>Loading...</div>}><ReportsPage /></Suspense>} />
+              <Route path="/anatomy" element={<Suspense fallback={<div>Loading...</div>}><ESPNAnatomy /></Suspense>} />
+              <Route path="*" element={<AppShell />} />
+            </Routes>
+          </BrowserRouter>
         </AuthProvider>
       </QueryClientProvider>
     </GlobalErrorBoundary>

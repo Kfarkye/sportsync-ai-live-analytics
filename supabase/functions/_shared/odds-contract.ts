@@ -183,7 +183,7 @@ export const toCanonicalOdds = (
 
 // Hard gate: use this right before DB write.
 // If it throws, the writer must not write.
-export const assertCanonicalOdds = (o: unknown): asserts o is CanonicalOdds => {
+export function assertCanonicalOdds(o: unknown): asserts o is CanonicalOdds {
     if (!isRecord(o)) throw new Error("CanonicalOdds: not an object");
 
     const keys = [
