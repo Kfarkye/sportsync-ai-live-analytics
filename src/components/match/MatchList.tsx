@@ -411,8 +411,8 @@ const LeagueGroup = memo(({
                 onClick={toggle}
                 className={cn(
                     'flex items-center justify-between w-full min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2.5 sm:py-3 [-webkit-tap-highlight-color:transparent]',
-                    // Mobile Safari can mispaint sticky + animated children; keep sticky from sm+ only.
-                    'bg-zinc-50/80 backdrop-blur-sm border-b border-zinc-200/60 sm:sticky sm:top-[92px] z-20',
+                    // Keep group headers static so ordering never shifts behind match rows.
+                    'bg-zinc-50/80 backdrop-blur-sm border-b border-zinc-200/60 z-20',
                     'transition-colors hover:bg-zinc-100',
                     'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400',
                     isExpanded ? 'border border-zinc-200 border-b-zinc-200/60 rounded-t-xl shadow-sm' : 'border border-zinc-200 border-b-transparent rounded-xl shadow-sm'
