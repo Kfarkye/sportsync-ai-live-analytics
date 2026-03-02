@@ -11,6 +11,7 @@ import {
     fmtOdds,
 } from '../lib/postgame';
 import { parseMatchSlug, LEAGUE_SHORT, LEAGUE_LABELS, teamUrl } from '../lib/slugs';
+import { color as C } from '../lib/tokens';
 
 function parseMinute(raw: string): number {
     const m = String(raw).replace(/'/g, '').replace(/\+.*/, '');
