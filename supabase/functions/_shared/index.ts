@@ -1189,5 +1189,5 @@ export interface NarrativeIntel {
   sources?: { title: string; url: string }[];
 }
 
-export * from './odds.ts';
+export * from './oddsUtils.ts';
 export * from './engine.ts';
