@@ -437,7 +437,7 @@ export default function ReportsPage() {
   const leagueLabel = selectedLeague?.label || LEAGUE_LABELS[leagueId] || leagueId.toUpperCase();
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="h-[var(--vvh,100vh)] overflow-y-auto overscroll-y-contain bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div className="mx-auto w-full max-w-7xl px-4 md:px-6 py-3">
           <div className="flex items-center justify-between gap-4">
