@@ -421,7 +421,7 @@ Deno.serve(async (req: Request) => {
             const match: any = {
                 id: m.id,
                 leagueId: m.leagueId || m.league_id,
-                sport: m.sport || LEAGUE_SPORT_MAP[m.leagueId || m.league_id] || m.leagueId || m.league_id || '',
+                sport: LEAGUE_SPORT_MAP[m.leagueId || m.league_id] || m.sport || m.leagueId || m.league_id || '',
                 startTime: m.startTime || m.start_time,
                 status: m.status || 'STATUS_SCHEDULED',
                 displayClock: m.display_clock || '0:00',
