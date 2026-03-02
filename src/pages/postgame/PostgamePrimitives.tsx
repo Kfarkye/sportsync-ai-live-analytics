@@ -2,7 +2,7 @@ import React, { type FC, type PropsWithChildren } from 'react';
 import { cn } from '@/lib/essence';
 
 export const PageShell: FC<PropsWithChildren<{ className?: string }>> = ({ className, children }) => (
-  <div className={cn('min-h-screen bg-slate-50 text-slate-900', className)}>
+  <div className={cn('min-h-screen h-[var(--vvh,100vh)] overflow-y-auto overscroll-y-contain bg-slate-50 text-slate-900', className)}>
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">{children}</div>
   </div>
 );
