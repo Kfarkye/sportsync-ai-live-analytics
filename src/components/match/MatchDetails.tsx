@@ -45,6 +45,7 @@ import {
 // Components
 import { ScoreHeader, LiveGameTracker } from '../analysis/Gamecast';
 import { LiveAIInsight } from '../analysis/LiveAIInsight';
+import { LiveIntelligenceCard } from '../analysis/LiveIntelligenceCard';
 import { ForecastHistoryTable } from '../analysis/ForecastHistoryTable';
 import BoxScore, {
   ClassicPlayerProps,
@@ -1408,6 +1409,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         <CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} />
                       )}
                     </SpecSheetRow>
+                    {isLive && (
+                      <SpecSheetRow label="01A // LIVE CARD" defaultOpen={true} collapsible={false}>
+                        <LiveIntelligenceCard match={match} />
+                      </SpecSheetRow>
+                    )}
                     <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-zinc-200" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
                     {liveState?.ai_analysis && <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={true}><LiveAIInsight match={match} /></SpecSheetRow>}
                     <div className="w-full h-px bg-zinc-200" />
