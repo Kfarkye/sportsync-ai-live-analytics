@@ -63,6 +63,9 @@ type LiveIntelligenceRequest = {
   }>;
 };
 
+const VALID_LEANS: LiveIntelligenceLean[] = ["OVER", "UNDER", "HOME", "AWAY", "PASS"];
+const VALID_MARKETS: LiveIntelligenceMarket[] = ["TOTAL", "SPREAD", "MONEYLINE"];
+
 function normalizeNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
@@ -72,28 +75,215 @@ function normalizeNumber(value: unknown): number | null {
   return null;
 }
 
-function fallbackIntelligence(match: Match): LiveIntelligenceResponse {
+function normalizeText(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  return null;
+}
+
+function asStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => normalizeText(item))
+    .filter((item): item is string => Boolean(item));
+}
+
+function clampConfidence(value: unknown, fallback = 46): number {
+  const parsed = normalizeNumber(value);
+  if (parsed === null) return fallback;
+  return Math.max(0, Math.min(100, Math.round(parsed)));
+}
+
+function normalizeLean(value: unknown, fallback: LiveIntelligenceLean): LiveIntelligenceLean {
+  const text = normalizeText(value)?.toUpperCase() ?? "";
+  return VALID_LEANS.includes(text as LiveIntelligenceLean)
+    ? (text as LiveIntelligenceLean)
+    : fallback;
+}
+
+function normalizeMarket(value: unknown, fallback: LiveIntelligenceMarket): LiveIntelligenceMarket {
+  const text = normalizeText(value)?.toUpperCase() ?? "";
+  if (text.includes("TOTAL")) return "TOTAL";
+  if (text.includes("SPREAD")) return "SPREAD";
+  if (text.includes("ML") || text.includes("MONEY")) return "MONEYLINE";
+  return VALID_MARKETS.includes(text as LiveIntelligenceMarket)
+    ? (text as LiveIntelligenceMarket)
+    : fallback;
+}
+
+function deriveStatDrivers(match: Match): string[] {
+  return (match.stats || [])
+    .map((stat) => {
+      const home = normalizeNumber(stat.homeValue);
+      const away = normalizeNumber(stat.awayValue);
+      if (home === null || away === null) return null;
+      const delta = Math.abs(home - away);
+      if (!Number.isFinite(delta) || delta <= 0) return null;
+      const label = normalizeText(stat.label) || "Stat";
+      return {
+        delta,
+        line: `${label}: ${home} vs ${away}`,
+      };
+    })
+    .filter((entry): entry is { delta: number; line: string } => Boolean(entry))
+    .sort((a, b) => b.delta - a.delta)
+    .slice(0, 2)
+    .map((entry) => entry.line);
+}
+
+function buildDeterministicCard(match: Match): LiveIntelligenceCardPayload {
   const homeTeam = match.homeTeam?.shortName || match.homeTeam?.name || "Home";
   const awayTeam = match.awayTeam?.shortName || match.awayTeam?.name || "Away";
+  const marketTotal = normalizeNumber(
+    match.current_odds?.total ?? match.odds?.total ?? match.odds?.overUnder,
+  );
+  const fairTotal = normalizeNumber(match.ai_signals?.deterministic_fair_total);
+  const spread = normalizeNumber(
+    match.current_odds?.homeSpread ?? match.current_odds?.spread ?? match.odds?.spread,
+  );
+  const homeScore = normalizeNumber(match.homeScore);
+  const awayScore = normalizeNumber(match.awayScore);
+  const edge = marketTotal !== null && fairTotal !== null ? fairTotal - marketTotal : null;
+
+  let lean: LiveIntelligenceLean = "PASS";
+  let market: LiveIntelligenceMarket = "TOTAL";
+  if (edge !== null && edge >= 1.5) lean = "OVER";
+  if (edge !== null && edge <= -1.5) lean = "UNDER";
+
+  if (lean === "PASS" && spread !== null && homeScore !== null && awayScore !== null) {
+    const margin = homeScore - awayScore;
+    if (margin + spread >= 3) {
+      lean = "HOME";
+      market = "SPREAD";
+    } else if (margin + spread <= -3) {
+      lean = "AWAY";
+      market = "SPREAD";
+    }
+  }
+
+  const confidence =
+    edge === null
+      ? 46
+      : Math.max(50, Math.min(78, Math.round(50 + Math.abs(edge) * 8)));
+
+  const drivers = deriveStatDrivers(match);
+  const events = match.events || [];
+  const lastEvent = events[events.length - 1];
 
   return {
+    headline:
+      lean === "PASS" ? "Live Market Is Balanced" : `Live ${lean} Signal Forming`,
+    thesis:
+      edge === null
+        ? `${awayTeam} vs ${homeTeam} is active. Current line and state are still tightly coupled, so no clean dislocation yet.`
+        : `Fair total ${fairTotal?.toFixed(1)} vs market ${marketTotal?.toFixed(1)} (${edge > 0 ? "+" : ""}${edge.toFixed(1)}).`,
+    confidence,
+    lean,
+    market,
+    drivers:
+      drivers.length > 0
+        ? drivers
+        : ["No clear live stat dominance in the current state sample."],
+    watchouts: [
+      lastEvent
+        ? `Last event: ${normalizeText(lastEvent.type) || "play"} ${normalizeText(lastEvent.time || lastEvent.clock) || ""}`.trim()
+        : "No recent event spike in feed.",
+      "Recheck after next score or major possession swing.",
+    ],
+  };
+}
+
+function sanitizeCard(
+  candidate: unknown,
+  fallback: LiveIntelligenceCardPayload,
+): LiveIntelligenceCardPayload {
+  if (!candidate || typeof candidate !== "object") return fallback;
+  const record = candidate as Record<string, unknown>;
+  const drivers = asStringList(record.drivers);
+  const watchouts = asStringList(record.watchouts);
+  return {
+    headline: normalizeText(record.headline) || fallback.headline,
+    thesis: normalizeText(record.thesis) || fallback.thesis,
+    confidence: clampConfidence(record.confidence, fallback.confidence),
+    lean: normalizeLean(record.lean, fallback.lean),
+    market: normalizeMarket(record.market, fallback.market),
+    drivers: drivers.length > 0 ? drivers.slice(0, 4) : fallback.drivers,
+    watchouts: watchouts.length > 0 ? watchouts.slice(0, 3) : fallback.watchouts,
+  };
+}
+
+function mapAnalyzeMatchCard(
+  data: unknown,
+  fallback: LiveIntelligenceCardPayload,
+): LiveIntelligenceCardPayload | null {
+  if (!data || typeof data !== "object") return null;
+  const root = data as Record<string, unknown>;
+  const sharpData = root.sharp_data;
+  if (!sharpData || typeof sharpData !== "object") return null;
+  const sharp = sharpData as Record<string, unknown>;
+
+  const rec =
+    sharp.recommendation && typeof sharp.recommendation === "object"
+      ? (sharp.recommendation as Record<string, unknown>)
+      : null;
+  const bullets =
+    sharp.executive_bullets && typeof sharp.executive_bullets === "object"
+      ? (sharp.executive_bullets as Record<string, unknown>)
+      : null;
+
+  const candidate = {
+    headline:
+      normalizeText(sharp.headline) ||
+      normalizeText(sharp.market_signal) ||
+      fallback.headline,
+    thesis:
+      normalizeText(sharp.analysis) ||
+      normalizeText(sharp.the_read) ||
+      normalizeText(sharp.summary) ||
+      fallback.thesis,
+    confidence:
+      normalizeNumber(sharp.confidence_level) ??
+      normalizeNumber((sharp.confidence as Record<string, unknown> | null)?.score) ??
+      fallback.confidence,
+    lean:
+      normalizeText(rec?.side) ||
+      normalizeText(sharp.pick) ||
+      fallback.lean,
+    market:
+      normalizeText(rec?.market_type) ||
+      normalizeText(sharp.market) ||
+      fallback.market,
+    drivers: [
+      normalizeText(bullets?.driver),
+      normalizeText(bullets?.setup),
+      normalizeText(sharp.edge_explanation),
+    ].filter((entry): entry is string => Boolean(entry)),
+    watchouts: [
+      normalizeText(bullets?.caution),
+      normalizeText(bullets?.monitor),
+      normalizeText(sharp.risk),
+    ].filter((entry): entry is string => Boolean(entry)),
+  };
+
+  return sanitizeCard(candidate, fallback);
+}
+
+function fallbackIntelligence(match: Match): LiveIntelligenceResponse {
+  const fallbackCard = buildDeterministicCard(match);
+  return {
     success: true,
-    state_hash: `${match.id}-fallback`,
+    state_hash: `${computeLiveIntelligenceQueryKey(match)}-fallback`,
     cached: false,
     generated_at: new Date().toISOString(),
-    card: {
-      headline: "Live Intelligence Syncing",
-      thesis: `${awayTeam} vs ${homeTeam} is active. Waiting for enough synchronized live market context to grade a confident edge.`,
-      confidence: 42,
-      lean: "PASS",
-      market: "TOTAL",
-      drivers: ["Live context still stabilizing across score, clock, and line feeds."],
-      watchouts: ["Avoid forcing exposure until a clear movement pattern appears."],
-    },
+    card: fallbackCard,
     odds_context: {
       snapshots_table: null,
       snapshots_count: 0,
-      latest_total: normalizeNumber(match.current_odds?.total ?? match.odds?.total ?? match.odds?.overUnder),
+      latest_total: normalizeNumber(
+        match.current_odds?.total ?? match.odds?.total ?? match.odds?.overUnder,
+      ),
       move_5m: null,
       move_15m: null,
     },
@@ -180,19 +370,104 @@ export function computeLiveIntelligenceQueryKey(match: Match): string {
 }
 
 export async function fetchLiveIntelligenceCard(match: Match): Promise<LiveIntelligenceResponse> {
+  const deterministicFallback = buildDeterministicCard(match);
+  const requestKey = computeLiveIntelligenceQueryKey(match);
+
   try {
     const payload = buildLiveIntelligenceRequest(match);
     const { data, error } = await supabase.functions.invoke("live-intelligence-card", {
       body: payload,
     });
 
-    if (error || !data?.card) {
-      return fallbackIntelligence(match);
+    if (!error && data?.card) {
+      const record = data as Record<string, unknown>;
+      return {
+        success: true,
+        state_hash:
+          normalizeText(record.state_hash) ||
+          `${requestKey}-edge`,
+        cached: Boolean(record.cached),
+        generated_at: normalizeText(record.generated_at) || new Date().toISOString(),
+        card: sanitizeCard((record as { card: unknown }).card, deterministicFallback),
+        odds_context:
+          record.odds_context && typeof record.odds_context === "object"
+            ? {
+                snapshots_table:
+                  normalizeText(
+                    (record.odds_context as Record<string, unknown>).snapshots_table,
+                  ) || null,
+                snapshots_count:
+                  normalizeNumber(
+                    (record.odds_context as Record<string, unknown>).snapshots_count,
+                  ) ?? 0,
+                latest_total: normalizeNumber(
+                  (record.odds_context as Record<string, unknown>).latest_total,
+                ),
+                move_5m: normalizeNumber(
+                  (record.odds_context as Record<string, unknown>).move_5m,
+                ),
+                move_15m: normalizeNumber(
+                  (record.odds_context as Record<string, unknown>).move_15m,
+                ),
+              }
+            : {
+                snapshots_table: null,
+                snapshots_count: 0,
+                latest_total: normalizeNumber(payload.snapshot.market_total),
+                move_5m: null,
+                move_15m: null,
+              },
+      };
     }
 
-    return data as LiveIntelligenceResponse;
+    const analyzePayload = {
+      ...payload,
+      predictor: match.predictor
+        ? {
+            homeChance: match.predictor.homeTeamChance,
+            awayChance: match.predictor.awayTeamChance,
+          }
+        : null,
+      advanced_metrics: match.advancedMetrics || null,
+      last_play: match.lastPlay
+        ? {
+            text: match.lastPlay.text,
+            clock: match.lastPlay.clock,
+            type: match.lastPlay.type,
+          }
+        : null,
+      ai_signals: match.ai_signals || null,
+    };
+
+    const { data: analyzeData, error: analyzeError } = await supabase.functions.invoke(
+      "analyze-match",
+      {
+        body: analyzePayload,
+      },
+    );
+
+    if (!analyzeError) {
+      const mapped = mapAnalyzeMatchCard(analyzeData, deterministicFallback);
+      if (mapped) {
+        return {
+          success: true,
+          state_hash: `${requestKey}-legacy`,
+          cached: false,
+          generated_at: new Date().toISOString(),
+          card: mapped,
+          odds_context: {
+            snapshots_table: null,
+            snapshots_count: 0,
+            latest_total: normalizeNumber(payload.snapshot.market_total),
+            move_5m: null,
+            move_15m: null,
+          },
+        };
+      }
+    }
+
+    return fallbackIntelligence(match);
   } catch {
     return fallbackIntelligence(match);
   }
 }
-

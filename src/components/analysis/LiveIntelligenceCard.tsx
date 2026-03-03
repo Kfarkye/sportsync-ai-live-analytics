@@ -32,6 +32,12 @@ export const LiveIntelligenceCard: React.FC<Props> = ({ match }) => {
 
   const card = data.card;
   const tone = toneClass[card.lean] ?? toneClass.PASS;
+  const drivers = Array.isArray(card.drivers)
+    ? card.drivers.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+  const watchouts = Array.isArray(card.watchouts)
+    ? card.watchouts.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
 
   return (
     <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-[0_2px_20px_rgba(0,0,0,0.02)]">
@@ -67,7 +73,7 @@ export const LiveIntelligenceCard: React.FC<Props> = ({ match }) => {
             Drivers
           </div>
           <ul className="space-y-1">
-            {card.drivers.map((driver, idx) => (
+            {(drivers.length > 0 ? drivers : ["No decisive live driver yet."]).map((driver, idx) => (
               <li key={idx} className="text-[12px] text-slate-700">
                 • {driver}
               </li>
@@ -79,7 +85,7 @@ export const LiveIntelligenceCard: React.FC<Props> = ({ match }) => {
             Watchouts
           </div>
           <ul className="space-y-1">
-            {card.watchouts.map((watchout, idx) => (
+            {(watchouts.length > 0 ? watchouts : ["Wait for the next high-leverage state change."]).map((watchout, idx) => (
               <li key={idx} className="text-[12px] text-slate-700">
                 • {watchout}
               </li>
@@ -114,4 +120,3 @@ export const LiveIntelligenceCard: React.FC<Props> = ({ match }) => {
 };
 
 export default LiveIntelligenceCard;
-

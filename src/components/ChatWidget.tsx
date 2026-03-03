@@ -245,6 +245,8 @@ const SYSTEM = {
 } as const;
 
 const RETRY_CONFIG = { maxAttempts: 3, baseDelay: 1000, maxDelay: 8000, jitterFactor: 0.3 } as const;
+const CHAT_TTFB_TIMEOUT_MS = 30_000;
+const CHAT_STREAM_IDLE_TIMEOUT_MS = 25_000;
 const SEND_DEBOUNCE_MS = 300;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -1345,7 +1347,7 @@ const edgeService = {
         // 30s TTFB timeout — prevents indefinite hangs on bad networks.
         // Wraps caller signal so manual abort still works.
         const fetchController = new AbortController();
-        const ttfbTimeout = setTimeout(() => fetchController.abort(new Error("Connection timed out")), 30_000);
+        const ttfbTimeout = setTimeout(() => fetchController.abort(new Error("Connection timed out")), CHAT_TTFB_TIMEOUT_MS);
         if (signal) signal.addEventListener("abort", () => fetchController.abort(), { once: true });
 
         const res = await fetch("/api/chat", {
@@ -1370,16 +1372,26 @@ const edgeService = {
 
         const decoder = new TextDecoder();
         const parser = new SSEParser(onChunk, onDone);
+        let streamIdleTimer: ReturnType<typeof setTimeout> | null = null;
+        const resetStreamIdleTimeout = () => {
+          if (streamIdleTimer) clearTimeout(streamIdleTimer);
+          streamIdleTimer = setTimeout(() => {
+            fetchController.abort(new Error("Stream stalled"));
+          }, CHAT_STREAM_IDLE_TIMEOUT_MS);
+        };
 
         try {
+          resetStreamIdleTimeout();
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+            resetStreamIdleTimeout();
             parser.feed(decoder.decode(value, { stream: true }));
           }
           parser.flush();
         } finally {
+          if (streamIdleTimer) clearTimeout(streamIdleTimer);
           parser.ensureDone();
           try { reader.releaseLock(); } catch { /* already released */ }
         }

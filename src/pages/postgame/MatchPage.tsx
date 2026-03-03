@@ -793,10 +793,16 @@ const MatchSignals: FC<{
 export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
   const { data, isLoading, error } = useMatchBySlug(slug);
 
-  const timelineEvents = useMemo(() => data?.timeline ?? [], [data]);
+  const timelineEvents = useMemo(() => (Array.isArray(data?.timeline) ? data.timeline : []), [data]);
+  const boxScoreRows = useMemo(() => (Array.isArray(data?.boxScore) ? data.boxScore : []), [data]);
+  const lineupRows = useMemo(() => (Array.isArray(data?.lineups) ? data.lineups : []), [data]);
+  const playerScorerOddsRows = useMemo(
+    () => (Array.isArray(data?.playerScorerOdds) ? data.playerScorerOdds : []),
+    [data],
+  );
 
   const scorerOddsByPool = useMemo(() => {
-    const rows = data?.playerScorerOdds ?? [];
+    const rows = playerScorerOddsRows;
     const buckets = new Map<string, typeof rows>();
 
     for (const row of rows) {
@@ -842,10 +848,10 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
         },
       };
     });
-  }, [data]);
+  }, [playerScorerOddsRows]);
 
   const propsSummary = useMemo(() => {
-    const rows = data?.playerScorerOdds ?? [];
+    const rows = playerScorerOddsRows;
     if (rows.length === 0) {
       return {
         total: 0,
@@ -872,7 +878,7 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
       roi: settled.length > 0 ? (unitSum / settled.length) * 100 : null,
       unitSum,
     };
-  }, [data]);
+  }, [playerScorerOddsRows]);
 
   const eventsWithScore = useMemo(() => {
     let home = 0;
@@ -975,7 +981,7 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
             </Card>
           ) : null}
 
-          {data.boxScore.length > 0 ? (
+          {boxScoreRows.length > 0 ? (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -984,7 +990,7 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                 </div>
               </CardHeader>
               <CardBody className="p-0">
-                <BoxScoreTable rows={data.boxScore} homeTeam={data.homeTeam} awayTeam={data.awayTeam} />
+                <BoxScoreTable rows={boxScoreRows} homeTeam={data.homeTeam} awayTeam={data.awayTeam} />
               </CardBody>
             </Card>
           ) : null}
@@ -1052,14 +1058,14 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
             </CardBody>
           </Card>
 
-          {data.lineups.length > 0 ? (
+          {lineupRows.length > 0 ? (
             <Card>
               <CardHeader>
                 <SectionLabel>Lineups</SectionLabel>
               </CardHeader>
               <CardBody>
                 <div className="grid gap-4 lg:grid-cols-2">
-                  {data.lineups.map((lineup) => {
+                  {lineupRows.map((lineup) => {
                     const isHome = lineup.side === 'home';
                     return (
                       <div key={`${lineup.side}-${lineup.teamName}`} className="rounded-xl border border-slate-200 px-4 py-3">
