@@ -322,6 +322,57 @@ interface PlayerPropGroup {
   props: PlayerPropBet[];
 }
 
+const normalizeL5Results = (prop: PlayerPropBet): Array<'HIT' | 'MISS' | 'PUSH'> => {
+  if (Array.isArray(prop.l5Results) && prop.l5Results.length > 0) {
+    return prop.l5Results
+      .map((value) => String(value).toUpperCase())
+      .filter((value): value is 'HIT' | 'MISS' | 'PUSH' => value === 'HIT' || value === 'MISS' || value === 'PUSH')
+      .slice(0, 5);
+  }
+  if (!Array.isArray(prop.l5Values) || prop.l5Values.length === 0) return [];
+  const side = String(prop.side || '').toLowerCase();
+  const line = Number(prop.lineValue);
+  return prop.l5Values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+    .slice(0, 5)
+    .map((value) => {
+      if (side === 'under') return value < line ? 'HIT' : value > line ? 'MISS' : 'PUSH';
+      if (side === 'over') return value > line ? 'HIT' : value < line ? 'MISS' : 'PUSH';
+      return 'MISS';
+    });
+};
+
+const computeL5HitRate = (prop: PlayerPropBet, results: Array<'HIT' | 'MISS' | 'PUSH'>): number => {
+  if (typeof prop.l5HitRate === 'number' && Number.isFinite(prop.l5HitRate)) {
+    return Math.max(0, Math.min(100, Math.round(prop.l5HitRate)));
+  }
+  const settled = results.filter((value) => value !== 'PUSH');
+  if (settled.length === 0) return 0;
+  const hits = settled.filter((value) => value === 'HIT').length;
+  return Math.round((hits / settled.length) * 100);
+};
+
+const computeStreak = (results: Array<'HIT' | 'MISS' | 'PUSH'>): { label: string; count: number } | null => {
+  let count = 0;
+  let anchor: 'HIT' | 'MISS' | null = null;
+  for (const result of results) {
+    if (result === 'PUSH') continue;
+    if (!anchor) {
+      anchor = result;
+      count = 1;
+      continue;
+    }
+    if (result === anchor) {
+      count += 1;
+      continue;
+    }
+    break;
+  }
+  if (!anchor || count === 0) return null;
+  return { label: anchor === 'HIT' ? 'HIT' : 'MISS', count };
+};
+
 /**
  * ClassicPlayerProps - Apple x Stripe x Vercel Design Language
  * 
@@ -409,6 +460,9 @@ const ClassicPlayerGroup = memo(({ group }: { group: PlayerPropGroup }) => {
       <div className="space-y-1">
         {group.props.map((prop, j) => {
           const isOver = prop.side === 'over';
+          const l5Results = normalizeL5Results(prop);
+          const l5HitRate = computeL5HitRate(prop, l5Results);
+          const streak = computeStreak(l5Results);
 
           return (
             <div
@@ -421,9 +475,26 @@ const ClassicPlayerGroup = memo(({ group }: { group: PlayerPropGroup }) => {
                   isOver ? "bg-emerald-500/40" : "bg-rose-500/40",
                   isPulsing && isOver && "bg-emerald-400 animate-pulse"
                 )} />
-                <span className={cn("text-[12px] font-medium transition-colors", isPulsing ? "text-emerald-700/80" : "text-slate-400")}>
-                  {prop.betType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </span>
+                <div className="min-w-0">
+                  <span className={cn("block text-[12px] font-medium transition-colors", isPulsing ? "text-emerald-700/80" : "text-slate-400")}>
+                    {prop.betType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </span>
+                  {l5Results.length > 0 && (
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.08em] text-slate-500">
+                      <span className="font-semibold tabular-nums">L5 {l5HitRate}%</span>
+                      {streak ? (
+                        <span
+                          className={cn(
+                            "rounded px-1 py-[1px] font-bold",
+                            streak.label === 'HIT' ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700",
+                          )}
+                        >
+                          {streak.label} {streak.count}
+                        </span>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-4">

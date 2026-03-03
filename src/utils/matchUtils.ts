@@ -7,11 +7,27 @@ import { getCanonicalMatchId } from './matchRegistry';
  * Includes delayed and suspended states.
  */
 export const isGameInProgress = (status: MatchStatus | string): boolean => {
+  const normalized = String(status || '').toUpperCase();
   const inProgressStatuses = [
     MatchStatus.LIVE,
     'STATUS_IN_PROGRESS',
     'STATUS_HALFTIME',
     'STATUS_END_PERIOD',
+    'STATUS_Q1',
+    'STATUS_Q2',
+    'STATUS_Q3',
+    'STATUS_Q4',
+    'STATUS_FIRST_QUARTER',
+    'STATUS_SECOND_QUARTER',
+    'STATUS_THIRD_QUARTER',
+    'STATUS_FOURTH_QUARTER',
+    'STATUS_OVERTIME',
+    'STATUS_EXTRA_TIME',
+    'STATUS_PENALTY_SHOOTOUT',
+    'STATUS_TOP',
+    'STATUS_BOT',
+    'STATUS_MID_INNING',
+    'STATUS_END_INNING',
     'STATUS_DELAYED',
     'STATUS_RAIN_DELAY',
     'STATUS_PLAY_SUSPENDED',
@@ -21,7 +37,14 @@ export const isGameInProgress = (status: MatchStatus | string): boolean => {
     'HALFTIME',
     'IN_PROGRESS'
   ];
-  return inProgressStatuses.includes(String(status));
+  if (inProgressStatuses.includes(normalized)) return true;
+  if (/^STATUS_Q[1-4]$/.test(normalized)) return true;
+  if (/^Q[1-4]$/.test(normalized)) return true;
+  if (/^P[1-9]$/.test(normalized)) return true;
+  if (normalized.includes('IN_PROGRESS')) return true;
+  if (normalized.includes('FIRST_HALF') || normalized.includes('SECOND_HALF')) return true;
+  if (normalized.includes('TOP') || normalized.includes('BOT') || normalized.includes('INNING')) return true;
+  return false;
 };
 
 /**

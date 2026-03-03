@@ -125,6 +125,12 @@ export interface PlayerPropBet {
   confidenceScore?: number;
   sourceAttribution?: string;
   provider?: string;
+  l5HitRate?: number;
+  l5Values?: number[];
+  avgL5?: number;
+  l5Results?: Array<'HIT' | 'MISS' | 'PUSH'>;
+  streakLabel?: string;
+  streakCount?: number;
 
   notes?: string;
   createdAt: string;

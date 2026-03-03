@@ -113,6 +113,55 @@ function normalizeMarket(value: unknown, fallback: LiveIntelligenceMarket): Live
     : fallback;
 }
 
+function parseClockToSeconds(value: unknown): number | null {
+  const text = normalizeText(value);
+  if (!text) return null;
+  const parts = text.split(":");
+  if (parts.length !== 2) return null;
+  const minutes = Number(parts[0]);
+  const seconds = Number(parts[1]);
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds)) return null;
+  return minutes * 60 + seconds;
+}
+
+function regulationMinutesForSport(sport: unknown): number | null {
+  const normalized = normalizeText(sport)?.toUpperCase();
+  if (!normalized) return null;
+  if (normalized === "NBA" || normalized === "WNBA" || normalized === "BASKETBALL") return 48;
+  if (normalized === "NFL" || normalized === "NCAAF" || normalized === "FOOTBALL") return 60;
+  if (normalized === "NHL" || normalized === "HOCKEY") return 60;
+  if (normalized === "SOCCER") return 90;
+  return null;
+}
+
+function estimateProjectedTotal(match: Match): { projectedTotal: number; elapsedPct: number } | null {
+  const homeScore = normalizeNumber(match.homeScore);
+  const awayScore = normalizeNumber(match.awayScore);
+  const currentTotal = homeScore !== null && awayScore !== null ? homeScore + awayScore : null;
+  if (currentTotal === null || currentTotal <= 0) return null;
+
+  const regulationMinutes = regulationMinutesForSport(match.sport);
+  const period = normalizeNumber(match.period);
+  const clockSeconds = parseClockToSeconds(match.displayClock || match.minute);
+  if (regulationMinutes === null || period === null || clockSeconds === null) return null;
+
+  const periodMinutes =
+    regulationMinutes === 48 ? 12 :
+    regulationMinutes === 90 ? 45 :
+    regulationMinutes === 60 ? 15 :
+    null;
+  if (periodMinutes === null) return null;
+
+  const elapsedMinutes = (Math.max(1, period) - 1) * periodMinutes + (periodMinutes - clockSeconds / 60);
+  const elapsedPct = elapsedMinutes / regulationMinutes;
+  if (!Number.isFinite(elapsedPct) || elapsedPct < 0.12 || elapsedPct > 0.98) return null;
+
+  return {
+    projectedTotal: currentTotal / elapsedPct,
+    elapsedPct,
+  };
+}
+
 function deriveStatDrivers(match: Match): string[] {
   return (match.stats || [])
     .map((stat) => {
@@ -140,53 +189,77 @@ function buildDeterministicCard(match: Match): LiveIntelligenceCardPayload {
     match.current_odds?.total ?? match.odds?.total ?? match.odds?.overUnder,
   );
   const fairTotal = normalizeNumber(match.ai_signals?.deterministic_fair_total);
+  const paceProjection = estimateProjectedTotal(match);
+  const paceTotal = paceProjection ? Math.round(paceProjection.projectedTotal * 10) / 10 : null;
   const spread = normalizeNumber(
     match.current_odds?.homeSpread ?? match.current_odds?.spread ?? match.odds?.spread,
   );
   const homeScore = normalizeNumber(match.homeScore);
   const awayScore = normalizeNumber(match.awayScore);
-  const edge = marketTotal !== null && fairTotal !== null ? fairTotal - marketTotal : null;
+  const fairEdge = marketTotal !== null && fairTotal !== null ? fairTotal - marketTotal : null;
+  const paceEdge = marketTotal !== null && paceTotal !== null ? paceTotal - marketTotal : null;
+  const totalEdgeCandidates = [fairEdge, paceEdge].filter(
+    (value): value is number => value !== null && Number.isFinite(value),
+  );
+  const totalEdge =
+    totalEdgeCandidates.length > 0
+      ? totalEdgeCandidates.reduce((sum, value) => sum + value, 0) / totalEdgeCandidates.length
+      : null;
 
   let lean: LiveIntelligenceLean = "PASS";
   let market: LiveIntelligenceMarket = "TOTAL";
-  if (edge !== null && edge >= 1.5) lean = "OVER";
-  if (edge !== null && edge <= -1.5) lean = "UNDER";
+  if (totalEdge !== null && totalEdge >= 2) lean = "OVER";
+  if (totalEdge !== null && totalEdge <= -2) lean = "UNDER";
 
   if (lean === "PASS" && spread !== null && homeScore !== null && awayScore !== null) {
     const margin = homeScore - awayScore;
-    if (margin + spread >= 3) {
+    if (margin + spread >= 4) {
       lean = "HOME";
       market = "SPREAD";
-    } else if (margin + spread <= -3) {
+    } else if (margin + spread <= -4) {
       lean = "AWAY";
       market = "SPREAD";
     }
   }
 
   const confidence =
-    edge === null
-      ? 46
-      : Math.max(50, Math.min(78, Math.round(50 + Math.abs(edge) * 8)));
+    totalEdge === null
+      ? 48
+      : Math.max(52, Math.min(84, Math.round(52 + Math.abs(totalEdge) * 5)));
 
   const drivers = deriveStatDrivers(match);
   const events = match.events || [];
   const lastEvent = events[events.length - 1];
+  const clockText = normalizeText(match.displayClock || match.minute);
+
+  const contextDrivers: string[] = [];
+  if (marketTotal !== null && fairTotal !== null) {
+    contextDrivers.push(
+      `Model fair total ${fairTotal.toFixed(1)} vs market ${marketTotal.toFixed(1)} (${fairEdge && fairEdge > 0 ? "+" : ""}${fairEdge?.toFixed(1) ?? "0.0"}).`,
+    );
+  }
+  if (marketTotal !== null && paceTotal !== null && paceProjection) {
+    contextDrivers.push(
+      `Pace projection ${paceTotal.toFixed(1)} at ${(paceProjection.elapsedPct * 100).toFixed(0)}% elapsed vs market ${marketTotal.toFixed(1)}.`,
+    );
+  }
 
   return {
     headline:
       lean === "PASS" ? "Live Market Is Balanced" : `Live ${lean} Signal Forming`,
     thesis:
-      edge === null
-        ? `${awayTeam} vs ${homeTeam} is active. Current line and state are still tightly coupled, so no clean dislocation yet.`
-        : `Fair total ${fairTotal?.toFixed(1)} vs market ${marketTotal?.toFixed(1)} (${edge > 0 ? "+" : ""}${edge.toFixed(1)}).`,
+      totalEdge === null
+        ? `${awayTeam} vs ${homeTeam} is active. No stable dislocation yet between scoreboard pace and the active market.`
+        : `${awayTeam} @ ${homeTeam}: composite total edge ${totalEdge > 0 ? "+" : ""}${totalEdge.toFixed(1)} using live pace and fair-value anchors.`,
     confidence,
     lean,
     market,
     drivers:
-      drivers.length > 0
-        ? drivers
+      [...contextDrivers, ...drivers].length > 0
+        ? [...contextDrivers, ...drivers].slice(0, 4)
         : ["No clear live stat dominance in the current state sample."],
     watchouts: [
+      clockText ? `Clock state ${clockText}; re-grade after the next major swing.` : "Monitor clock and possession state before sizing.",
       lastEvent
         ? `Last event: ${normalizeText(lastEvent.type) || "play"} ${normalizeText(lastEvent.time || lastEvent.clock) || ""}`.trim()
         : "No recent event spike in feed.",

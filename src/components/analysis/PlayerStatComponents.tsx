@@ -143,6 +143,52 @@ export const ApplePlayerCard: React.FC<{
     const isTargetMet = isOverBet ? (currentValue >= line) : (currentValue <= line);
     const isBusted = !isOverBet && (currentValue > line);
 
+    const side = String(currentProp.main.side || '').toLowerCase();
+    const l5Results = (() => {
+        const explicit = (Array.isArray(currentProp.main.l5Results) ? currentProp.main.l5Results : [])
+            .map((value) => String(value).toUpperCase())
+            .filter((value): value is 'HIT' | 'MISS' | 'PUSH' => value === 'HIT' || value === 'MISS' || value === 'PUSH')
+            .slice(0, 5);
+        if (explicit.length > 0) return explicit;
+        if (!Array.isArray(currentProp.main.l5Values) || currentProp.main.l5Values.length === 0) return [];
+        return currentProp.main.l5Values
+            .map((value) => Number(value))
+            .filter((value) => Number.isFinite(value))
+            .slice(0, 5)
+            .map((value) => {
+                if (side === 'under') return value < line ? 'HIT' : value > line ? 'MISS' : 'PUSH';
+                if (side === 'over') return value > line ? 'HIT' : value < line ? 'MISS' : 'PUSH';
+                return 'MISS';
+            });
+    })();
+    const l5HitRate = typeof currentProp.main.l5HitRate === 'number' && Number.isFinite(currentProp.main.l5HitRate)
+        ? Math.max(0, Math.min(100, Math.round(currentProp.main.l5HitRate)))
+        : (() => {
+            const settled = l5Results.filter((value) => value !== 'PUSH');
+            if (settled.length === 0) return 0;
+            const hits = settled.filter((value) => value === 'HIT').length;
+            return Math.round((hits / settled.length) * 100);
+        })();
+    const streak = (() => {
+        let count = 0;
+        let anchor: 'HIT' | 'MISS' | null = null;
+        for (const result of l5Results) {
+            if (result === 'PUSH') continue;
+            if (!anchor) {
+                anchor = result;
+                count = 1;
+                continue;
+            }
+            if (result === anchor) {
+                count += 1;
+                continue;
+            }
+            break;
+        }
+        if (!anchor || count === 0) return null;
+        return { label: anchor, count };
+    })();
+
     const nextProp = () => setActivePropIndex(i => (i + 1) % uniqueProps.length);
     const prevProp = () => setActivePropIndex(i => (i - 1 + uniqueProps.length) % uniqueProps.length);
 
@@ -270,6 +316,25 @@ export const ApplePlayerCard: React.FC<{
                         </button>
                     )}
                 </div>
+
+                {l5Results.length > 0 && (
+                    <div className="mb-6 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">L5</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono font-bold tabular-nums text-slate-700">{l5HitRate}%</span>
+                            {streak && (
+                                <span
+                                    className={cn(
+                                        "rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em]",
+                                        streak.label === 'HIT' ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                                    )}
+                                >
+                                    {streak.label} {streak.count}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* The Number — Hero Element with Depth */}
                 <div className="text-center mb-10 relative">
