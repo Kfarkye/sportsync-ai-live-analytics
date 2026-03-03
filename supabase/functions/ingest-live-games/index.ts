@@ -24,7 +24,11 @@ function getSupabaseClient() {
   _supabase = createClient(url, key, { auth: { persistSession: false } });
   return _supabase;
 }
-const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
+const SCOREBOARD_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
+const SUMMARY_BASES = [
+  'https://site.api.espn.com/apis/site/v2/sports',
+  'https://site.web.api.espn.com/apis/site/v2/sports'
+];
 
 // 🚨 FINAL FIX: Insulates DB canonical sports from ESPN URL/Engine sports.
 const MONITOR_LEAGUES = [
@@ -67,7 +71,10 @@ const toAdapterSport = (espnSport: string): Sport => {
 
 // Extraction Wrapper to prevent a single bad metric from tanking the whole game payload
 const safeExtract = (name: string, fn: () => any) => {
-  try { return fn() || null; }
+  try {
+    const value = fn();
+    return value === undefined ? null : value;
+  }
   catch (e: any) {
     Logger.error(`Extraction Failed: ${name}`, { error: e.message || String(e) });
     return null;
@@ -105,6 +112,27 @@ async function fetchWithRetry(url: string) {
   throw new Error(`Failed: ${url}`);
 }
 
+async function fetchSummaryWithFallback(endpoint: string, matchId: string) {
+  const summaryUrls: string[] = [];
+  for (const base of SUMMARY_BASES) {
+    summaryUrls.push(`${base}/${endpoint}/summary?event=${matchId}`);
+    summaryUrls.push(`${base}/${endpoint}/summary?event=${matchId}&region=us&lang=en&contentorigin=espn`);
+  }
+
+  let lastError: any = null;
+  for (const url of summaryUrls) {
+    try {
+      const res = await fetchWithRetry(url);
+      return { res, url };
+    } catch (e: any) {
+      lastError = e;
+      Logger.warn('SUMMARY_FETCH_FAILED', { match_id: matchId, endpoint, url, error: e?.message || String(e) });
+    }
+  }
+
+  throw new Error(`Summary fetch failed for ${endpoint}/${matchId}: ${lastError?.message || 'unknown error'}`);
+}
+
 const getCompetitorName = (c: any) => c?.team?.displayName || c?.athlete?.displayName || 'Unknown';
 
 /** Retry a Supabase upsert up to 3 times with exponential backoff. */
@@ -140,7 +168,7 @@ Deno.serve(async (req: Request) => {
     try {
       const dateParam = dates || new Date().toISOString().split('T')[0].replace(/-/g, '');
       const groupsParam = league.groups ? `&groups=${league.groups}` : '';
-      const res = await fetchWithRetry(`${ESPN_BASE}/${league.endpoint}/scoreboard?dates=${dateParam}${groupsParam}`);
+      const res = await fetchWithRetry(`${SCOREBOARD_BASE}/${league.endpoint}/scoreboard?dates=${dateParam}${groupsParam}`);
       const data = await res.json();
       let events = data.events || [];
 
@@ -182,7 +210,7 @@ async function processGame(event: any, league: any, stats: any) {
   const dbMatchId = getCanonicalMatchId(matchId, league.id);
 
   try {
-    const res = await fetchWithRetry(`${ESPN_BASE}/${league.endpoint}/summary?event=${matchId}`);
+    const { res, url: summaryUrl } = await fetchSummaryWithFallback(league.endpoint, matchId);
     const data = await res.json();
     const comp = data.header?.competitions?.[0];
     if (!comp) return;
@@ -192,6 +220,7 @@ async function processGame(event: any, league: any, stats: any) {
       match_id: matchId,
       league_id: league.id,
       adapter_sport: adapterSport,
+      summary_host: (() => { try { return new URL(summaryUrl).host; } catch { return null; } })(),
       has_boxscore: !!data?.boxscore,
       boxscore_teams_len: Array.isArray(data?.boxscore?.teams) ? data.boxscore.teams.length : 0,
       has_players: Array.isArray(data?.boxscore?.players),
