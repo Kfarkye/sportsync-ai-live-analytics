@@ -118,16 +118,21 @@ export interface Bet365TeamOddsSnapshot {
 export interface PlayerScorerOddsRow {
   id: string;
   playerName: string;
+  teamName: string | null;
   pool: string;
   oddsFractional: string | null;
   oddsDecimal: number | null;
   impliedProb: number | null;
+  oddId: string | null;
   scored: boolean | null;
   goalsScored: number | null;
+  goalMinutes: string[];
   firstGoal: boolean | null;
   lastGoal: boolean | null;
   result: string | null;
   profitDecimal: number | null;
+  last5Results: Array<'W' | 'L' | 'P'>;
+  currentStreak: string | null;
 }
 
 export interface TeamDirectoryItem {
@@ -325,6 +330,23 @@ const parseJsonSafe = (value: unknown): unknown => {
   }
   if (Array.isArray(value) || typeof value === 'object') return value;
   return null;
+};
+
+const parseStringArraySafe = (value: unknown): string[] => {
+  const parsed = parseJsonSafe(value);
+  if (Array.isArray(parsed)) {
+    return parsed
+      .map((item) => parseStringSafe(item))
+      .filter((item): item is string => Boolean(item));
+  }
+
+  const text = parseStringSafe(value);
+  if (!text) return [];
+
+  return text
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
 };
 
 const normalizeLeagueId = (leagueId: string | null): string => {
@@ -723,17 +745,78 @@ const mapBet365TeamOdds = (row: UnknownRecord): Bet365TeamOddsSnapshot => ({
 const mapPlayerScorerOddsRow = (row: UnknownRecord, index: number): PlayerScorerOddsRow => ({
   id: parseStringSafe(readValue(row, ['id'])) ?? `row-${index}`,
   playerName: parseStringSafe(readValue(row, ['player_name'])) ?? 'Unknown',
+  teamName: parseStringSafe(readValue(row, ['team_name', 'team'])),
   pool: parseStringSafe(readValue(row, ['pool'])) ?? 'unknown',
   oddsFractional: parseStringSafe(readValue(row, ['odds_fractional'])),
   oddsDecimal: parseFloatSafe(readValue(row, ['odds_decimal'])),
   impliedProb: parseFloatSafe(readValue(row, ['implied_prob'])),
+  oddId: parseStringSafe(readValue(row, ['odd_id'])),
   scored: parseBooleanSafe(readValue(row, ['scored'])),
   goalsScored: parseIntSafe(readValue(row, ['goals_scored'])),
+  goalMinutes: parseStringArraySafe(readValue(row, ['goal_minutes'])),
   firstGoal: parseBooleanSafe(readValue(row, ['first_goal'])),
   lastGoal: parseBooleanSafe(readValue(row, ['last_goal'])),
   result: parseStringSafe(readValue(row, ['result'])),
   profitDecimal: parseFloatSafe(readValue(row, ['profit_decimal'])),
+  last5Results: [],
+  currentStreak: null,
 });
+
+const playerPoolKey = (playerName: string, pool: string): string =>
+  `${playerName.trim().toLowerCase()}::${pool.trim().toLowerCase()}`;
+
+const outcomeCode = (result: string | null): 'W' | 'L' | 'P' | null => {
+  const normalized = result?.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === 'win' || normalized === 'w') return 'W';
+  if (normalized === 'loss' || normalized === 'l') return 'L';
+  if (normalized === 'push' || normalized === 'p') return 'P';
+  return null;
+};
+
+const deriveStreak = (results: Array<'W' | 'L' | 'P'>): string | null => {
+  if (results.length === 0) return null;
+  const head = results[0];
+  let count = 1;
+  for (let index = 1; index < results.length; index += 1) {
+    if (results[index] !== head) break;
+    count += 1;
+  }
+  return `${head}${count}`;
+};
+
+const applyPlayerHistory = (
+  rows: PlayerScorerOddsRow[],
+  history: UnknownRecord[],
+  currentMatchId: string,
+): PlayerScorerOddsRow[] => {
+  const historyMap = new Map<string, Array<'W' | 'L' | 'P'>>();
+
+  for (const historyRow of history) {
+    const historyMatchId = parseStringSafe(readValue(historyRow, ['match_id']));
+    if (historyMatchId && historyMatchId === currentMatchId) continue;
+
+    const playerName = parseStringSafe(readValue(historyRow, ['player_name']));
+    const pool = parseStringSafe(readValue(historyRow, ['pool']));
+    const result = outcomeCode(parseStringSafe(readValue(historyRow, ['result'])));
+    if (!playerName || !pool || !result) continue;
+
+    const key = playerPoolKey(playerName, pool);
+    const existing = historyMap.get(key) ?? [];
+    if (existing.length >= 5) continue;
+    existing.push(result);
+    historyMap.set(key, existing);
+  }
+
+  return rows.map((row) => {
+    const last5Results = historyMap.get(playerPoolKey(row.playerName, row.pool)) ?? [];
+    return {
+      ...row,
+      last5Results,
+      currentStreak: deriveStreak(last5Results),
+    };
+  });
+};
 
 const enrichV6Odds = async (match: SoccerMatchDetail): Promise<SoccerMatchDetail> => {
   const matchId = parseStringSafe(readValue(match.raw, ['match_id'])) ?? match.id;
@@ -764,10 +847,39 @@ const enrichV6Odds = async (match: SoccerMatchDetail): Promise<SoccerMatchDetail
       ? []
       : playerOddsRes.data.map((row, index) => mapPlayerScorerOddsRow((row ?? {}) as UnknownRecord, index));
 
+  let playerOddsWithHistory = playerOdds;
+  const playerNames = Array.from(new Set(playerOdds.map((row) => row.playerName).filter(Boolean)));
+  const playerPools = Array.from(new Set(playerOdds.map((row) => row.pool).filter(Boolean)));
+
+  if (playerNames.length > 0 && playerPools.length > 0) {
+    const matchDate = isoDateFromStart(match.startTime);
+
+    let historyQuery = supabase
+      .from('soccer_player_odds')
+      .select('match_id,player_name,pool,result,match_date')
+      .in('player_name', playerNames)
+      .in('pool', playerPools)
+      .order('match_date', { ascending: false })
+      .limit(5000);
+
+    if (matchDate) {
+      historyQuery = historyQuery.lte('match_date', matchDate);
+    }
+
+    const { data: historyData, error: historyError } = await historyQuery;
+    if (!historyError && historyData) {
+      playerOddsWithHistory = applyPlayerHistory(
+        playerOdds,
+        historyData as UnknownRecord[],
+        matchId,
+      );
+    }
+  }
+
   return {
     ...match,
     bet365TeamOdds: teamOdds,
-    playerScorerOdds: playerOdds,
+    playerScorerOdds: playerOddsWithHistory,
   };
 };
 

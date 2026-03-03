@@ -71,6 +71,11 @@ const impliedProb = (moneyline: number | null): number | null => {
   return (Math.abs(moneyline) / (Math.abs(moneyline) + 100)) * 100;
 };
 
+const formatUnits = (value: number | null): string => {
+  if (value === null) return '—';
+  return `${value > 0 ? '+' : ''}${value.toFixed(2)}u`;
+};
+
 const parseNumeric = (value: string | number): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
 
@@ -622,8 +627,16 @@ const ScorerTable: FC<{
   rows: Array<{
     id: string;
     playerName: string;
+    teamName: string | null;
     oddsFractional: string | null;
     impliedProb: number | null;
+    goalsScored: number | null;
+    goalMinutes: string[];
+    firstGoal: boolean | null;
+    lastGoal: boolean | null;
+    last5Results: Array<'W' | 'L' | 'P'>;
+    currentStreak: string | null;
+    profitDecimal: number | null;
     result: string | null;
   }>;
 }> = ({ rows }) => (
@@ -632,8 +645,13 @@ const ScorerTable: FC<{
       <thead className="border-b-2 border-slate-200">
         <tr className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
           <th className="py-2 pl-4 pr-3 text-left">Player</th>
+          <th className="px-3 py-2 text-right">Flags</th>
           <th className="px-3 py-2 text-right">Odds</th>
           <th className="px-3 py-2 text-right">Impl %</th>
+          <th className="px-3 py-2 text-right">Goals</th>
+          <th className="px-3 py-2 text-right">L5</th>
+          <th className="px-3 py-2 text-right">Streak</th>
+          <th className="px-3 py-2 text-right">P/L</th>
           <th className="px-3 py-2 text-right">Result</th>
         </tr>
       </thead>
@@ -641,10 +659,28 @@ const ScorerTable: FC<{
         {rows.map((row, index) => {
           const isWin = row.result === 'win';
           const isLoss = row.result === 'loss';
+          const minutes =
+            row.goalMinutes.length > 0 ? row.goalMinutes.join(', ') : null;
+          const hasFlags = row.firstGoal || row.lastGoal;
+          const last5 = row.last5Results.slice(0, 5);
+          const paddedLast5 = [...last5, ...Array(Math.max(0, 5 - last5.length)).fill('—')];
           return (
             <tr key={row.id} className={`${index < rows.length - 1 ? 'border-b border-slate-100' : ''} ${isWin ? 'bg-emerald-50/70' : ''}`}>
-              <td className={`py-2 pl-4 pr-3 text-xs ${isWin ? 'font-semibold text-emerald-700' : 'text-slate-700'}`}>
-                {row.playerName}
+              <td className="py-2 pl-4 pr-3">
+                <div className={`text-xs ${isWin ? 'font-semibold text-emerald-700' : 'text-slate-700'}`}>
+                  {row.playerName}
+                </div>
+                {row.teamName ? <div className="mt-0.5 text-[10px] text-slate-500">{row.teamName}</div> : null}
+              </td>
+              <td className="px-3 py-2 text-right">
+                {hasFlags ? (
+                  <div className="inline-flex gap-1">
+                    {row.firstGoal ? <Badge tone="warning">First</Badge> : null}
+                    {row.lastGoal ? <Badge tone="info">Last</Badge> : null}
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-slate-400">—</span>
+                )}
               </td>
               <td className="px-3 py-2 text-right text-xs tabular-nums text-slate-600">{row.oddsFractional ?? '—'}</td>
               <td className="px-3 py-2 text-right">
@@ -653,6 +689,50 @@ const ScorerTable: FC<{
                     <MiniBar value={row.impliedProb} max={80} tone={row.impliedProb > 40 ? 'warm' : 'neutral'} />
                     <span className="text-[11px] tabular-nums text-slate-500">{row.impliedProb.toFixed(1)}%</span>
                   </div>
+                ) : (
+                  <span className="text-[11px] text-slate-400">—</span>
+                )}
+              </td>
+              <td className="px-3 py-2 text-right">
+                {typeof row.goalsScored === 'number' ? (
+                  <div className="text-right">
+                    <div className={`text-xs tabular-nums ${row.goalsScored > 0 ? 'font-semibold text-emerald-700' : 'text-slate-500'}`}>{row.goalsScored}</div>
+                    <div className="text-[10px] text-slate-400">{minutes ?? '—'}</div>
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-slate-400">—</span>
+                )}
+              </td>
+              <td className="px-3 py-2 text-right">
+                <div className="inline-flex items-center gap-1">
+                  {paddedLast5.map((value, valueIndex) => (
+                    <span
+                      key={`${row.id}-l5-${valueIndex}`}
+                      className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded border px-1 text-[10px] font-semibold ${
+                        value === 'W'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : value === 'L'
+                            ? 'border-rose-200 bg-rose-50 text-rose-700'
+                            : value === 'P'
+                              ? 'border-amber-200 bg-amber-50 text-amber-700'
+                              : 'border-slate-200 bg-slate-50 text-slate-400'
+                      }`}
+                    >
+                      {value}
+                    </span>
+                  ))}
+                </div>
+              </td>
+              <td className="px-3 py-2 text-right">
+                <span className={`text-xs tabular-nums ${row.currentStreak?.startsWith('W') ? 'font-semibold text-emerald-700' : row.currentStreak?.startsWith('L') ? 'font-semibold text-rose-700' : row.currentStreak?.startsWith('P') ? 'font-semibold text-amber-700' : 'text-slate-400'}`}>
+                  {row.currentStreak ?? '—'}
+                </span>
+              </td>
+              <td className="px-3 py-2 text-right text-xs tabular-nums">
+                {row.profitDecimal !== null ? (
+                  <span className={row.profitDecimal > 0 ? 'font-semibold text-emerald-700' : row.profitDecimal < 0 ? 'font-semibold text-rose-700' : 'text-slate-500'}>
+                    {formatUnits(row.profitDecimal)}
+                  </span>
                 ) : (
                   <span className="text-[11px] text-slate-400">—</span>
                 )}
@@ -724,17 +804,64 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
       buckets.set(key, list);
     }
 
-    return Array.from(buckets.entries()).map(([pool, poolRows]) => ({
-      pool,
-      rows: poolRows
+    return Array.from(buckets.entries()).map(([pool, poolRows]) => {
+      const sortedRows = poolRows
         .slice()
         .sort(
           (a, b) =>
             (a.oddsDecimal ?? Number.MAX_SAFE_INTEGER) -
             (b.oddsDecimal ?? Number.MAX_SAFE_INTEGER),
-        )
-        .slice(0, 10),
-    }));
+        );
+
+      const settled = sortedRows.filter((row) => row.result === 'win' || row.result === 'loss');
+      const wins = settled.filter((row) => row.result === 'win').length;
+      const losses = settled.filter((row) => row.result === 'loss').length;
+      const unitSum = settled.reduce((sum, row) => sum + (row.profitDecimal ?? 0), 0);
+
+      return {
+        pool,
+        rows: sortedRows.slice(0, 14),
+        summary: {
+          total: sortedRows.length,
+          settled: settled.length,
+          wins,
+          losses,
+          hitRate: settled.length > 0 ? (wins / settled.length) * 100 : null,
+          roi: settled.length > 0 ? (unitSum / settled.length) * 100 : null,
+          unitSum,
+        },
+      };
+    });
+  }, [data]);
+
+  const propsSummary = useMemo(() => {
+    const rows = data?.playerScorerOdds ?? [];
+    if (rows.length === 0) {
+      return {
+        total: 0,
+        settled: 0,
+        wins: 0,
+        losses: 0,
+        hitRate: null as number | null,
+        roi: null as number | null,
+        unitSum: null as number | null,
+      };
+    }
+
+    const settled = rows.filter((row) => row.result === 'win' || row.result === 'loss');
+    const wins = settled.filter((row) => row.result === 'win').length;
+    const losses = settled.filter((row) => row.result === 'loss').length;
+    const unitSum = settled.reduce((sum, row) => sum + (row.profitDecimal ?? 0), 0);
+
+    return {
+      total: rows.length,
+      settled: settled.length,
+      wins,
+      losses,
+      hitRate: settled.length > 0 ? (wins / settled.length) * 100 : null,
+      roi: settled.length > 0 ? (unitSum / settled.length) * 100 : null,
+      unitSum,
+    };
   }, [data]);
 
   const eventsWithScore = useMemo(() => {
@@ -1007,12 +1134,44 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
           {scorerOddsByPool.length > 0 ? (
             <Card>
               <CardHeader>
-                <SectionLabel>Bet365 Player Scorer Odds</SectionLabel>
+                <div className="flex items-center justify-between">
+                  <SectionLabel>Bet365 Player Scorer Odds</SectionLabel>
+                  <span className="text-xs tabular-nums text-slate-500">{propsSummary.total} props</span>
+                </div>
               </CardHeader>
               <CardBody className="space-y-4 p-0">
+                <div className="grid gap-2 px-4 pt-3 sm:grid-cols-4">
+                  <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Settled</div>
+                    <div className="text-sm font-semibold tabular-nums text-slate-800">{propsSummary.settled}</div>
+                  </div>
+                  <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Win / Loss</div>
+                    <div className="text-sm font-semibold tabular-nums text-slate-800">{propsSummary.wins}-{propsSummary.losses}</div>
+                  </div>
+                  <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Hit Rate</div>
+                    <div className="text-sm font-semibold tabular-nums text-slate-800">{formatPct(propsSummary.hitRate)}</div>
+                  </div>
+                  <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Units</div>
+                    <div className={`text-sm font-semibold tabular-nums ${propsSummary.unitSum !== null && propsSummary.unitSum > 0 ? 'text-emerald-700' : propsSummary.unitSum !== null && propsSummary.unitSum < 0 ? 'text-rose-700' : 'text-slate-800'}`}>
+                      {formatUnits(propsSummary.unitSum)}
+                    </div>
+                  </div>
+                </div>
                 {scorerOddsByPool.map((bucket) => (
                   <div key={bucket.pool}>
-                    <div className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{poolLabel(bucket.pool)}</div>
+                    <div className="flex items-center justify-between px-4 pb-1 pt-3">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{poolLabel(bucket.pool)}</div>
+                      <div className="text-[11px] tabular-nums text-slate-500">
+                        {bucket.summary.wins}-{bucket.summary.losses}
+                        <span className="text-slate-400"> · </span>
+                        {formatPct(bucket.summary.hitRate)}
+                        <span className="text-slate-400"> · </span>
+                        {bucket.summary.roi !== null ? `${bucket.summary.roi > 0 ? '+' : ''}${bucket.summary.roi.toFixed(1)}% ROI` : '— ROI'}
+                      </div>
+                    </div>
                     <ScorerTable rows={bucket.rows} />
                   </div>
                 ))}
