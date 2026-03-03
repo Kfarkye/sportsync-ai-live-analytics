@@ -6,15 +6,24 @@ import { EspnAdapters, Safe } from '../_shared/espnAdapters.ts'
 import { getCanonicalMatchId, generateDeterministicId, resolveCanonicalMatch } from '../_shared/match-registry.ts'
 import { writeCurrentOdds } from '../_shared/current-odds-writer.ts'
 import { toCanonicalOdds } from '../_shared/odds-contract.ts'
+import { Sport } from '../_shared/types.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 }
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SUPABASE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
+let _supabase: ReturnType<typeof createClient> | null = null;
+function getSupabaseClient() {
+  if (_supabase) return _supabase;
+  const url = Deno.env.get('SUPABASE_URL');
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !key) {
+    throw new Error('Missing required env vars: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+  }
+  _supabase = createClient(url, key, { auth: { persistSession: false } });
+  return _supabase;
+}
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
 
 // 🚨 FINAL FIX: Insulates DB canonical sports from ESPN URL/Engine sports.
@@ -42,6 +51,18 @@ const Logger = {
   info: (msg: string, data: any) => console.log(JSON.stringify({ level: 'INFO', msg, ...data })),
   warn: (msg: string, data: any) => console.warn(JSON.stringify({ level: 'WARN', msg, ...data })),
   error: (msg: string, error: any) => console.error(JSON.stringify({ level: 'ERROR', msg, error: error.message || error }))
+};
+
+const toAdapterSport = (espnSport: string): Sport => {
+  switch ((espnSport || '').toLowerCase()) {
+    case 'football': return Sport.NFL;
+    case 'basketball': return Sport.NBA;
+    case 'baseball': return Sport.BASEBALL;
+    case 'hockey': return Sport.HOCKEY;
+    case 'soccer': return Sport.SOCCER;
+    case 'tennis': return Sport.TENNIS;
+    default: return Sport.BASKETBALL;
+  }
 };
 
 // Extraction Wrapper to prevent a single bad metric from tanking the whole game payload
@@ -88,6 +109,7 @@ const getCompetitorName = (c: any) => c?.team?.displayName || c?.athlete?.displa
 
 /** Retry a Supabase upsert up to 3 times with exponential backoff. */
 async function upsertWithRetry(table: string, payload: any, retries = 3) {
+  const supabase = getSupabaseClient();
   const onConflict = table === 'closing_lines' ? 'match_id' : 'id';
   for (let attempt = 1; attempt <= retries; attempt++) {
     const { error } = await supabase.from(table).upsert(payload, { onConflict });
@@ -103,6 +125,16 @@ Deno.serve(async (req: Request) => {
 
   const stats = { processed: 0, live: 0, errors: [] as string[], snapshots: 0 };
   const { target_match_id, dates } = await req.json().catch(() => ({}));
+  try {
+    // Force lazy init inside request cycle so missing envs return a JSON error instead of a cold-start 503.
+    getSupabaseClient();
+  } catch (e: any) {
+    Logger.error('BOOT_INIT_FAILED', { error: e.message || e });
+    return new Response(JSON.stringify({ ok: false, error: e.message || String(e) }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
 
   for (const league of MONITOR_LEAGUES) {
     try {
@@ -145,6 +177,7 @@ Deno.serve(async (req: Request) => {
 });
 
 async function processGame(event: any, league: any, stats: any) {
+  const supabase = getSupabaseClient();
   const matchId = event.id;
   const dbMatchId = getCanonicalMatchId(matchId, league.id);
 
@@ -153,6 +186,23 @@ async function processGame(event: any, league: any, stats: any) {
     const data = await res.json();
     const comp = data.header?.competitions?.[0];
     if (!comp) return;
+    const adapterSport = toAdapterSport(league.espn_sport);
+
+    Logger.info('SUMMARY_SHAPE', {
+      match_id: matchId,
+      league_id: league.id,
+      adapter_sport: adapterSport,
+      has_boxscore: !!data?.boxscore,
+      boxscore_teams_len: Array.isArray(data?.boxscore?.teams) ? data.boxscore.teams.length : 0,
+      has_players: Array.isArray(data?.boxscore?.players),
+      has_leaders: Array.isArray(data?.leaders),
+      has_winprobability: Array.isArray(data?.winprobability),
+      has_predictor: !!data?.predictor,
+      has_game_info: !!data?.gameInfo,
+      has_plays: Array.isArray(data?.plays),
+      has_key_events: Array.isArray(data?.keyEvents),
+      has_commentary: Array.isArray(data?.commentary)
+    });
 
     const home = comp.competitors?.find((c: any) => c.homeAway === 'home');
     const away = comp.competitors?.find((c: any) => c.homeAway === 'away');
@@ -402,12 +452,12 @@ async function processGame(event: any, league: any, stats: any) {
       situation: Object.keys(mergedSituation).length > 0 ? mergedSituation : null,
       last_play: safeExtract('LastPlay', () => EspnAdapters.LastPlay(data)),
       current_drive: safeExtract('Drive', () => EspnAdapters.Drive(data)),
-      recent_plays: safeExtract('RecentPlays', () => EspnAdapters.RecentPlays(data, league.espn_sport as any)),
-      stats: safeExtract('Stats', () => EspnAdapters.Stats(data, league.espn_sport as any)),
+      recent_plays: safeExtract('RecentPlays', () => EspnAdapters.RecentPlays(data, adapterSport)),
+      stats: safeExtract('Stats', () => EspnAdapters.Stats(data, adapterSport)),
       player_stats: safeExtract('PlayerStats', () => EspnAdapters.PlayerStats(data)),
       leaders: safeExtract('Leaders', () => EspnAdapters.Leaders(data)),
       momentum: safeExtract('Momentum', () => EspnAdapters.Momentum(data)),
-      advanced_metrics: safeExtract('AdvancedMetrics', () => EspnAdapters.AdvancedMetrics(data, league.espn_sport as any)),
+      advanced_metrics: safeExtract('AdvancedMetrics', () => EspnAdapters.AdvancedMetrics(data, adapterSport)),
       match_context: safeExtract('Context', () => EspnAdapters.Context(data)),
       predictor: safeExtract('Predictor', () => EspnAdapters.Predictor(data)),
 

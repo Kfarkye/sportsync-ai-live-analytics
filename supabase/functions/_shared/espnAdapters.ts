@@ -14,6 +14,11 @@ export const Safe = {
     }
 };
 
+const asId = (value: any): string => {
+    if (value === null || value === undefined) return '';
+    return String(value);
+};
+
 export const EspnAdapters = {
     Team: (competitor: any, sport: Sport): Team => {
         if (!competitor) return { id: '0', name: 'Unknown', shortName: 'UNK', logo: '', score: 0 } as Team;
@@ -143,8 +148,17 @@ export const EspnAdapters = {
         const homeComp = competitors.find((c: any) => c.homeAway === 'home');
         const awayComp = competitors.find((c: any) => c.homeAway === 'away');
         if (!homeComp || !awayComp) return [];
-        const homeStatsObj = boxscore.teams.find((t: any) => (t?.team?.id || t?.id) === homeComp.id);
-        const awayStatsObj = boxscore.teams.find((t: any) => (t?.team?.id || t?.id) === awayComp.id);
+        const homeCompId = asId(homeComp.id || homeComp?.team?.id);
+        const awayCompId = asId(awayComp.id || awayComp?.team?.id);
+
+        const byHomeAway = (side: 'home' | 'away') =>
+            boxscore.teams.find((t: any) => t?.homeAway === side);
+
+        const byCompId = (id: string) =>
+            boxscore.teams.find((t: any) => asId(t?.team?.id || t?.id) === id);
+
+        const homeStatsObj = byHomeAway('home') || byCompId(homeCompId);
+        const awayStatsObj = byHomeAway('away') || byCompId(awayCompId);
         if (!homeStatsObj?.statistics || !awayStatsObj?.statistics) return [];
         return homeStatsObj.statistics.map((hStat: any) => {
             const aStat = awayStatsObj.statistics.find((s: any) => s.name === hStat.name);
@@ -194,6 +208,59 @@ export const EspnAdapters = {
             home: extract(boxscore.teams.find((t: any) => t.homeAway === 'home' || (t.team?.id || t.id) === homeComp?.id) || boxscore.teams[0]),
             away: extract(boxscore.teams.find((t: any) => t.homeAway === 'away' || (t.team?.id || t.id) === awayComp?.id) || boxscore.teams[1])
         };
+    },
+    RecentPlays: (data: any, sport: Sport): any[] => {
+        // Football / some baseball feeds: nested on current drive
+        const drivePlays = data?.drives?.current?.plays;
+        if (Array.isArray(drivePlays) && drivePlays.length > 0) {
+            return drivePlays.slice(-5).map((p: any) => ({
+                id: Safe.string(p.id),
+                clock: Safe.string(p.clock?.displayValue),
+                period: Safe.number(p.period?.number ?? p.period),
+                text: Safe.string(p.text || p.shortText || p.description),
+                type: Safe.string(p.type?.text),
+                teamId: Safe.string(p.team?.id)
+            }));
+        }
+
+        // Basketball/Hockey/Soccer often expose generic plays array
+        if (Array.isArray(data?.plays) && data.plays.length > 0) {
+            return data.plays.slice(-5).map((p: any) => ({
+                id: Safe.string(p.id),
+                clock: Safe.string(p.clock?.displayValue || p.clock?.value),
+                period: Safe.number(p.period?.number ?? p.period),
+                text: Safe.string(p.text || p.shortText || p.description),
+                type: Safe.string(p.type?.text),
+                teamId: Safe.string(p.team?.id)
+            }));
+        }
+
+        // Soccer fallback: key events + commentary (when plays are absent)
+        if (sport === Sport.SOCCER) {
+            const keyEvents = Array.isArray(data?.keyEvents) ? data.keyEvents.slice(-5) : [];
+            if (keyEvents.length > 0) {
+                return keyEvents.map((e: any) => ({
+                    id: Safe.string(e.id),
+                    clock: Safe.string(e.clock?.displayValue),
+                    period: Safe.number(e.period?.number ?? e.period),
+                    text: Safe.string(e.text || e.shortText || e.description),
+                    type: Safe.string(e.type?.text),
+                    teamId: Safe.string(e.team?.id)
+                }));
+            }
+            if (Array.isArray(data?.commentary) && data.commentary.length > 0) {
+                return data.commentary.slice(-5).map((c: any) => ({
+                    id: Safe.string(c.id),
+                    clock: Safe.string(c.clock?.displayValue),
+                    period: Safe.number(c.period?.number ?? c.period),
+                    text: Safe.string(c.text || c.shortText || c.description),
+                    type: Safe.string(c.type?.text),
+                    teamId: Safe.string(c.team?.id)
+                }));
+            }
+        }
+
+        return [];
     },
     PlayerStats: (data: any): TeamPlayerStats[] => {
         const players = data.boxscore?.players;
