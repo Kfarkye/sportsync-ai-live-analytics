@@ -657,12 +657,14 @@ const ScorerTable: FC<{
       </thead>
       <tbody>
         {rows.map((row, index) => {
+          const goalMinutes = Array.isArray(row.goalMinutes) ? row.goalMinutes : [];
+          const last5Results = Array.isArray(row.last5Results) ? row.last5Results : [];
           const isWin = row.result === 'win';
           const isLoss = row.result === 'loss';
           const minutes =
-            row.goalMinutes.length > 0 ? row.goalMinutes.join(', ') : null;
+            goalMinutes.length > 0 ? goalMinutes.join(', ') : null;
           const hasFlags = row.firstGoal || row.lastGoal;
-          const last5 = row.last5Results.slice(0, 5);
+          const last5 = last5Results.slice(0, 5);
           const paddedLast5 = [...last5, ...Array(Math.max(0, 5 - last5.length)).fill('—')];
           return (
             <tr key={row.id} className={`${index < rows.length - 1 ? 'border-b border-slate-100' : ''} ${isWin ? 'bg-emerald-50/70' : ''}`}>
@@ -725,7 +727,7 @@ const ScorerTable: FC<{
               </td>
               <td className="px-3 py-2 text-right">
                 <span className={`text-xs tabular-nums ${row.currentStreak?.startsWith('W') ? 'font-semibold text-emerald-700' : row.currentStreak?.startsWith('L') ? 'font-semibold text-rose-700' : row.currentStreak?.startsWith('P') ? 'font-semibold text-amber-700' : 'text-slate-400'}`}>
-                  {row.currentStreak ?? '—'}
+                  {typeof row.currentStreak === 'string' ? row.currentStreak : '—'}
                 </span>
               </td>
               <td className="px-3 py-2 text-right text-xs tabular-nums">
@@ -805,7 +807,15 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
     }
 
     return Array.from(buckets.entries()).map(([pool, poolRows]) => {
-      const sortedRows = poolRows
+      const normalizedRows = poolRows.map((row) => ({
+        ...row,
+        goalMinutes: Array.isArray(row.goalMinutes) ? row.goalMinutes : [],
+        last5Results: Array.isArray(row.last5Results) ? row.last5Results : [],
+        currentStreak:
+          typeof row.currentStreak === 'string' ? row.currentStreak : null,
+      }));
+
+      const sortedRows = normalizedRows
         .slice()
         .sort(
           (a, b) =>
