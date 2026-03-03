@@ -98,6 +98,26 @@ function parseLine(val: any): number | null {
   return isNaN(num) ? null : num;
 }
 
+function parseBool(val: any): boolean {
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'number') return val === 1;
+  if (typeof val !== 'string') return false;
+  return ['1', 'true', 'yes', 'y', 'on'].includes(val.trim().toLowerCase());
+}
+
+function parsePositiveInt(val: any): number | null {
+  if (val === null || val === undefined || val === '') return null;
+  const n = Number(val);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.floor(n);
+}
+
+function countItems(val: any): number | null {
+  if (Array.isArray(val)) return val.length;
+  if (val && typeof val === 'object') return Object.keys(val).length;
+  return null;
+}
+
 async function fetchWithRetry(url: string) {
   for (let i = 0; i < 3; i++) {
     try {
@@ -151,8 +171,34 @@ async function upsertWithRetry(table: string, payload: any, retries = 3) {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  const stats = { processed: 0, live: 0, errors: [] as string[], snapshots: 0 };
-  const { target_match_id, dates } = await req.json().catch(() => ({}));
+  const reqUrl = new URL(req.url);
+  const body = await req.json().catch(() => ({}));
+  const target_match_id = body?.target_match_id ?? reqUrl.searchParams.get('target_match_id');
+  const dates = body?.dates ?? reqUrl.searchParams.get('dates');
+  const dryRun = parseBool(body?.dry ?? reqUrl.searchParams.get('dry'));
+  const debug = parseBool(body?.debug ?? reqUrl.searchParams.get('debug'));
+  const maxGames = parsePositiveInt(body?.max_games ?? reqUrl.searchParams.get('max_games'));
+  const maxGamesCap = maxGames ? Math.min(maxGames, 50) : null;
+  const leagueParamRaw = body?.league ?? reqUrl.searchParams.get('league') ?? '';
+  const leagueFilter = new Set(
+    String(leagueParamRaw)
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const startedAt = Date.now();
+  const stats = {
+    attempted: 0,
+    processed: 0,
+    live: 0,
+    failed: 0,
+    errors: [] as string[],
+    snapshots: 0,
+    dry_run: dryRun,
+    max_games: maxGamesCap,
+    league_filter: [...leagueFilter],
+    dry_samples: [] as any[],
+  };
   try {
     // Force lazy init inside request cycle so missing envs return a JSON error instead of a cold-start 503.
     getSupabaseClient();
@@ -164,7 +210,11 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  leagueLoop:
   for (const league of MONITOR_LEAGUES) {
+    if (leagueFilter.size > 0 && !leagueFilter.has(league.id)) continue;
+    if (maxGamesCap && stats.attempted >= maxGamesCap) break;
+
     try {
       const dateParam = dates || new Date().toISOString().split('T')[0].replace(/-/g, '');
       const groupsParam = league.groups ? `&groups=${league.groups}` : '';
@@ -184,6 +234,8 @@ Deno.serve(async (req: Request) => {
       }
 
       for (const event of events) {
+        if (maxGamesCap && stats.attempted >= maxGamesCap) break leagueLoop;
+
         // Safe robust check for string OR array targets (Casted to String to prevent type crashes)
         if (target_match_id) {
           const targets = Array.isArray(target_match_id) ? target_match_id : [target_match_id];
@@ -195,17 +247,20 @@ Deno.serve(async (req: Request) => {
           const mins = (new Date(event.date).getTime() - Date.now()) / 60000;
           if (mins > 75 || mins < -20) continue;
         }
-        await processGame(event, league, stats);
+        stats.attempted++;
+        await processGame(event, league, stats, { dryRun, debug });
       }
     } catch (e: any) {
       stats.errors.push(`${league.id}: ${e.message}`);
     }
   }
+  (stats as any).elapsed_ms = Date.now() - startedAt;
+  if (!debug && stats.dry_samples.length > 5) stats.dry_samples = stats.dry_samples.slice(0, 5);
   return new Response(JSON.stringify(stats), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 });
 
-async function processGame(event: any, league: any, stats: any) {
-  const supabase = getSupabaseClient();
+async function processGame(event: any, league: any, stats: any, options: { dryRun?: boolean; debug?: boolean } = {}) {
+  const isDryRun = options.dryRun === true;
   const matchId = event.id;
   const dbMatchId = getCanonicalMatchId(matchId, league.id);
 
@@ -247,6 +302,59 @@ async function processGame(event: any, league: any, stats: any) {
       const aGames = (away?.linescores || []).reduce((a: number, b: any) => a + (parseInt(b.value) || 0), 0);
       manualSituationData = { home_games_won: hGames, away_games_won: aGames };
     }
+
+    // Context Retrieval
+    const espnSituation = safeExtract('Situation', () => EspnAdapters.Situation(data)) || {};
+    const mergedSituation = { ...espnSituation, ...manualSituationData };
+
+    // Contextual Intelligence Extraction
+    const extractedLastPlay = safeExtract('LastPlay', () => EspnAdapters.LastPlay(data));
+    const extractedDrive = safeExtract('Drive', () => EspnAdapters.Drive(data));
+    const extractedRecentPlays = safeExtract('RecentPlays', () => EspnAdapters.RecentPlays(data, adapterSport));
+    const extractedStats = safeExtract('Stats', () => EspnAdapters.Stats(data, adapterSport));
+    const extractedPlayerStats = safeExtract('PlayerStats', () => EspnAdapters.PlayerStats(data));
+    const extractedLeaders = safeExtract('Leaders', () => EspnAdapters.Leaders(data));
+    const extractedMomentum = safeExtract('Momentum', () => EspnAdapters.Momentum(data));
+    const extractedAdvancedMetrics = safeExtract('AdvancedMetrics', () => EspnAdapters.AdvancedMetrics(data, adapterSport));
+    const extractedContext = safeExtract('Context', () => EspnAdapters.Context(data));
+    const extractedPredictor = safeExtract('Predictor', () => EspnAdapters.Predictor(data));
+
+    if (isDryRun) {
+      stats.processed++;
+      stats.live++;
+      if (Array.isArray(stats.dry_samples) && stats.dry_samples.length < 10) {
+        stats.dry_samples.push({
+          match_id: dbMatchId,
+          espn_event_id: matchId,
+          league_id: league.id,
+          status: comp.status?.type?.name || null,
+          summary_host: (() => { try { return new URL(summaryUrl).host; } catch { return null; } })(),
+          extraction: {
+            situation: Object.keys(mergedSituation).length > 0,
+            last_play: extractedLastPlay != null,
+            current_drive: extractedDrive != null,
+            recent_plays: extractedRecentPlays != null,
+            stats: extractedStats != null,
+            player_stats: extractedPlayerStats != null,
+            leaders: extractedLeaders != null,
+            momentum: extractedMomentum != null,
+            advanced_metrics: extractedAdvancedMetrics != null,
+            match_context: extractedContext != null,
+            predictor: extractedPredictor != null
+          },
+          counts: {
+            recent_plays: countItems(extractedRecentPlays),
+            stats: countItems(extractedStats),
+            player_stats: countItems(extractedPlayerStats),
+            leaders: countItems(extractedLeaders),
+            momentum: countItems(extractedMomentum)
+          }
+        });
+      }
+      return;
+    }
+
+    const supabase = getSupabaseClient();
 
     let canonicalId = await resolveCanonicalMatch(supabase, getCompetitorName(home), getCompetitorName(away), event.date, league.id);
     if (!canonicalId) canonicalId = generateDeterministicId(getCompetitorName(home), getCompetitorName(away), event.date, league.id);
@@ -457,12 +565,18 @@ async function processGame(event: any, league: any, stats: any) {
 
     const effectiveOdds = (isExistingExternal && existingMatch?.current_odds) ? existingMatch.current_odds : canonicalOddsPayload;
     matchPayload.current_odds = effectiveOdds;
-    const aiSignals = computeAISignals(matchPayload);
+    let aiSignals: any = null;
+    try {
+      aiSignals = computeAISignals(matchPayload);
+    } catch (e: any) {
+      Logger.error('AI_SIGNAL_COMPUTE_FAILED', {
+        matchId: dbMatchId,
+        league_id: league.id,
+        error: e?.message || String(e)
+      });
+      aiSignals = null;
+    }
     delete matchPayload.current_odds;
-
-    // Context Retrieval using safeExtract
-    const espnSituation = safeExtract('Situation', () => EspnAdapters.Situation(data)) || {};
-    const mergedSituation = { ...espnSituation, ...manualSituationData };
 
     // 🚨 RESTORED: THE CONTEXTUAL INTELLIGENCE MOAT
     const statePayload = {
@@ -479,16 +593,16 @@ async function processGame(event: any, league: any, stats: any) {
       // Contextual Intelligence Extraction
       // 🚨 PASSES league.espn_sport so the Adapters parse correctly!
       situation: Object.keys(mergedSituation).length > 0 ? mergedSituation : null,
-      last_play: safeExtract('LastPlay', () => EspnAdapters.LastPlay(data)),
-      current_drive: safeExtract('Drive', () => EspnAdapters.Drive(data)),
-      recent_plays: safeExtract('RecentPlays', () => EspnAdapters.RecentPlays(data, adapterSport)),
-      stats: safeExtract('Stats', () => EspnAdapters.Stats(data, adapterSport)),
-      player_stats: safeExtract('PlayerStats', () => EspnAdapters.PlayerStats(data)),
-      leaders: safeExtract('Leaders', () => EspnAdapters.Leaders(data)),
-      momentum: safeExtract('Momentum', () => EspnAdapters.Momentum(data)),
-      advanced_metrics: safeExtract('AdvancedMetrics', () => EspnAdapters.AdvancedMetrics(data, adapterSport)),
-      match_context: safeExtract('Context', () => EspnAdapters.Context(data)),
-      predictor: safeExtract('Predictor', () => EspnAdapters.Predictor(data)),
+      last_play: extractedLastPlay,
+      current_drive: extractedDrive,
+      recent_plays: extractedRecentPlays,
+      stats: extractedStats,
+      player_stats: extractedPlayerStats,
+      leaders: extractedLeaders,
+      momentum: extractedMomentum,
+      advanced_metrics: extractedAdvancedMetrics,
+      match_context: extractedContext,
+      predictor: extractedPredictor,
 
       deterministic_signals: aiSignals,
       odds: {
@@ -503,6 +617,8 @@ async function processGame(event: any, league: any, stats: any) {
     stats.processed++;
     stats.live++;
   } catch (e: any) {
+    stats.failed++;
+    stats.errors.push(`${league.id}/${dbMatchId}: ${e.message || String(e)}`);
     Logger.error('ProcessGame Failed', { matchId: dbMatchId, error: e.message || e });
   }
 }
