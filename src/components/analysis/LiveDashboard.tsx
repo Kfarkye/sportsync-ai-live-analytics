@@ -77,10 +77,10 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
     const displayMatches = getActiveList();
 
     return (
-        <div className="w-full max-w-7xl mx-auto px-4 lg:px-8 pb-32 relative">
+        <div className="relative mx-auto w-full max-w-7xl px-4 pb-24 lg:px-8">
 
             {/* Content Area with Sidebar */}
-            <div className="mt-3 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 items-start">
+            <div className="mt-3 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_336px] xl:gap-8">
 
                 {/* Main Feed */}
                 <div className="min-w-0">
@@ -195,17 +195,17 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                 </div>
 
                 {/* Sidebar Feed (Desktop) */}
-                <div className="hidden lg:block sticky top-[120px] space-y-4">
+                <div className="hidden lg:flex lg:sticky lg:top-[112px] lg:flex-col lg:gap-5">
 
                     {/* Live Forecast Panel - Shows first live match's forecast */}
-                    {live.length > 0 && (
-                        <div className="rounded-[20px] overflow-hidden">
+                    {live.length > 0 ? (
+                        <div className="overflow-hidden rounded-[20px] border border-edge shadow-[0_18px_42px_-28px_rgba(0,0,0,0.5)]">
                             <LiveTotalCard match={live[0]} />
                         </div>
-                    )}
+                    ) : null}
 
                     {/* Pro Terminal: State of the Art Upsell */}
-                    <div className="p-6 rounded-[20px] bg-surface-base border border-edge relative overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                    <div className="relative overflow-hidden rounded-[20px] border border-edge bg-surface-base p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                         {/* Subtle gradient accent */}
                         <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
 

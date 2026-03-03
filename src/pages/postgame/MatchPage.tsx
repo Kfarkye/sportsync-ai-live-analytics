@@ -1,6 +1,7 @@
 import React, { type FC, useMemo } from 'react';
 import { formatMatchDateLabel, formatPct, formatSignedNumber } from '@/lib/postgamePages';
 import { useMatchBySlug } from '@/hooks/usePostgame';
+import { cn } from '@/lib/essence';
 import {
   Card,
   CardBody,
@@ -74,6 +75,13 @@ const impliedProb = (moneyline: number | null): number | null => {
 const formatUnits = (value: number | null): string => {
   if (value === null) return '—';
   return `${value > 0 ? '+' : ''}${value.toFixed(2)}u`;
+};
+
+const compactEventDetail = (detail: string | null): string | null => {
+  if (!detail) return null;
+  const cleaned = detail.replace(/\s+/g, ' ').trim();
+  if (cleaned.length <= 140) return cleaned;
+  return `${cleaned.slice(0, 137)}…`;
 };
 
 const parseNumeric = (value: string | number): number | null => {
@@ -907,7 +915,7 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
       ) : null}
 
       {data ? (
-        <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-6 sm:space-y-7">
           <Card>
             <CardBody>
               <div className="mb-5 flex items-center gap-2">
@@ -1121,24 +1129,44 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                 </div>
               </CardHeader>
               <CardBody className="p-0">
-                <div>
+                <div className="max-h-[620px] overflow-y-auto">
                   {eventsWithScore.map((event, index) => {
                     const isGoal = event.type === 'goal';
                     const isHome = event.teamSide === 'home';
+                    const compactDetail = compactEventDetail(event.detail);
                     return (
-                      <div key={`event-${index}-${event.minuteLabel}`} className={`flex items-center gap-2.5 px-4 py-2.5 ${index < eventsWithScore.length - 1 ? 'border-b border-slate-100' : ''} ${isGoal ? (isHome ? 'bg-slate-50' : 'bg-rose-50/50') : ''}`}>
-                        <span className={`text-xs tabular-nums ${isGoal ? (isHome ? 'font-semibold text-slate-700' : 'font-semibold text-rose-700') : 'text-slate-500'}`}>
-                          {event.minuteLabel}
-                        </span>
-                        <Badge tone={isGoal ? (isHome ? 'neutral' : 'danger') : event.type === 'card' ? 'warning' : 'neutral'}>
-                          {eventTypeLabel(event.type)}
-                        </Badge>
-                        <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
-                          {sideLabel(event.teamSide, data.homeTeam, data.awayTeam)}
-                          {event.playerName ? <span className="text-slate-500"> · {event.playerName}</span> : null}
-                          {event.detail ? <span className="text-slate-400"> · {event.detail}</span> : null}
-                        </span>
-                        {event.scoreAfter ? <span className="text-xs font-semibold tabular-nums text-slate-600">{event.scoreAfter}</span> : null}
+                      <div
+                        key={`event-${index}-${event.minuteLabel}`}
+                        className={cn(
+                          "grid grid-cols-[60px_minmax(0,1fr)_56px] items-start gap-3 px-4 py-3 sm:grid-cols-[68px_minmax(0,1fr)_72px]",
+                          index < eventsWithScore.length - 1 ? "border-b border-slate-100" : "",
+                          isGoal ? (isHome ? "bg-slate-50" : "bg-rose-50/50") : "",
+                        )}
+                      >
+                        <div className="space-y-1 text-left">
+                          <div className={`text-xs font-semibold tabular-nums ${isGoal ? (isHome ? 'text-slate-700' : 'text-rose-700') : 'text-slate-500'}`}>
+                            {event.minuteLabel}
+                          </div>
+                          <Badge tone={isGoal ? (isHome ? 'neutral' : 'danger') : event.type === 'card' ? 'warning' : 'neutral'}>
+                            {eventTypeLabel(event.type)}
+                          </Badge>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-slate-700">
+                            {sideLabel(event.teamSide, data.homeTeam, data.awayTeam)}
+                            {event.playerName ? <span className="text-slate-500"> · {event.playerName}</span> : null}
+                          </div>
+                          {compactDetail ? <div className="mt-0.5 text-xs leading-relaxed text-slate-500">{compactDetail}</div> : null}
+                        </div>
+                        <div className="text-right">
+                          {event.scoreAfter ? (
+                            <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-slate-600">
+                              {event.scoreAfter}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-300">—</span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

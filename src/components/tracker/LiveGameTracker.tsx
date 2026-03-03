@@ -532,22 +532,22 @@ const PropsTab = memo(({ stats }: { stats: StatsSlice }) => (
 ));
 PropsTab.displayName = 'PropsTab';
 
-const EdgeTab = memo(({ betting, teams }: { betting: BettingSlice; teams: TeamsSlice }) => {
+const EdgeTab = memo(({ betting, teams, compact = false }: { betting: BettingSlice; teams: TeamsSlice; compact?: boolean }) => {
     const renderMovement = (open: number | null, current: number, isTotal = false) => {
         const displayCur = isTotal ? current : (current === 0 ? 'PK' : current > 0 ? `+${current}` : current);
-        if (open === null || open === current) return <span className="text-zinc-300">{displayCur}</span>;
+        if (open === null || open === current) return <span className={cn("text-zinc-300", compact ? "text-[11px]" : "text-xs")}>{displayCur}</span>;
 
         const diff = current - open;
         const isUp = diff > 0;
         const displayOp = isTotal ? open : (open === 0 ? 'PK' : open > 0 ? `+${open}` : open);
 
         return (
-            <div className="flex flex-col items-end gap-0.5">
-                <div className="flex items-center gap-1.5">
-                    <span className={cn("text-xs font-bold", isUp ? "text-emerald-400" : "text-rose-400")}>{displayCur}</span>
+            <div className={cn("flex items-end", compact ? "justify-end" : "flex-col gap-0.5")}>
+                <div className="flex items-center gap-1">
+                    <span className={cn(compact ? "text-[11px] font-semibold" : "text-xs font-bold", isUp ? "text-emerald-400" : "text-rose-400")}>{displayCur}</span>
                     {isUp ? <TrendingUp size={12} className="text-emerald-400" aria-hidden="true" /> : <TrendingDown size={12} className="text-rose-400" aria-hidden="true" />}
                 </div>
-                <span className="text-[9px] text-zinc-500 line-through">Op: {displayOp}</span>
+                {!compact ? <span className="text-[9px] text-zinc-500 line-through">Op: {displayOp}</span> : null}
             </div>
         );
     };
@@ -558,41 +558,56 @@ const EdgeTab = memo(({ betting, teams }: { betting: BettingSlice; teams: TeamsS
     ], [teams, betting]);
 
     return (
-        <div className="flex flex-col pb-20 w-full" role="tabpanel" aria-label="Betting Edge">
-            <section className="bg-[#0A0A0B] px-6 py-6 border-b border-white/5">
-                <header className="flex items-center justify-between mb-5">
+        <div className={cn("flex flex-col w-full", compact ? "gap-3" : "pb-20")} role="tabpanel" aria-label="Betting Edge">
+            <section className={cn(
+                "bg-[#0A0A0B]",
+                compact ? "rounded-[20px] border border-white/5 px-4 py-4 shadow-[0_16px_36px_rgba(0,0,0,0.28)]" : "border-b border-white/5 px-6 py-6",
+            )}>
+                <header className={cn("flex items-center justify-between", compact ? "mb-3" : "mb-5")}>
                     <div className="flex items-center gap-2">
                         <History size={14} className="text-zinc-500" aria-hidden="true" />
                         <Label>Live Odds & Line Movement</Label>
                     </div>
-                    {(betting.lineMovement.spread || betting.lineMovement.total) && (
+                    {!compact && (betting.lineMovement.spread || betting.lineMovement.total) && (
                         <div className="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 rounded text-[9px] font-bold text-indigo-400 uppercase tracking-widest animate-pulse" role="status">Lines Moving</div>
                     )}
                 </header>
                 <div className="w-full" role="table" aria-label="Odds Table">
-                    <div className="grid grid-cols-[1fr_1.5fr_1.5fr_1fr] mb-3 px-2" role="row">
+                    <div className={cn(
+                        "mb-2 px-2",
+                        compact ? "grid grid-cols-[minmax(0,1.2fr)_auto_auto_auto] gap-2" : "grid grid-cols-[1fr_1.5fr_1.5fr_1fr]",
+                    )} role="row">
                         <span role="columnheader" className="text-[9px] font-bold text-zinc-600 tracking-widest uppercase">Team</span>
                         <span role="columnheader" className="text-[9px] font-bold text-zinc-600 tracking-widest uppercase text-right">Spread</span>
                         <span role="columnheader" className="text-[9px] font-bold text-zinc-600 tracking-widest uppercase text-right">Total</span>
                         <span role="columnheader" className="text-[9px] font-bold text-zinc-600 tracking-widest uppercase text-right">Money</span>
                     </div>
                     {tableRows.map((r) => (
-                        <div key={r.id} className="grid grid-cols-[1fr_1.5fr_1.5fr_1fr] py-4 border-t border-white/5 items-center px-2" role="row">
+                        <div
+                            key={r.id}
+                            className={cn(
+                                "border-t border-white/5 items-center px-2",
+                                compact
+                                    ? "grid grid-cols-[minmax(0,1.2fr)_auto_auto_auto] gap-2 py-3"
+                                    : "grid grid-cols-[1fr_1.5fr_1.5fr_1fr] py-4",
+                            )}
+                            role="row"
+                        >
                             <div className="flex items-center gap-3" role="cell">
                                 <TeamLogo logo={r.team.logo} name={r.team.name} className="w-6 h-6 object-contain" />
-                                <span className="text-xs font-bold text-white tracking-wider">{r.team.abbr}</span>
+                                <span className={cn("font-bold text-white tracking-wider", compact ? "text-[11px]" : "text-xs")}>{r.team.abbr}</span>
                             </div>
-                            <div className="text-right font-mono" role="cell">{betting.hasSpread ? renderMovement(r.openS, r.curS) : '-'}</div>
-                            <div className="text-right font-mono" role="cell">{betting.hasTotal ? renderMovement(r.openT, r.curT, true) : '-'}</div>
-                            <span className="text-xs font-mono text-zinc-400 text-right" role="cell">{r.ml}</span>
+                            <div className={cn("text-right font-mono", compact && "text-[11px]")} role="cell">{betting.hasSpread ? renderMovement(r.openS, r.curS) : '-'}</div>
+                            <div className={cn("text-right font-mono", compact && "text-[11px]")} role="cell">{betting.hasTotal ? renderMovement(r.openT, r.curT, true) : '-'}</div>
+                            <span className={cn("font-mono text-zinc-400 text-right", compact ? "text-[11px]" : "text-xs")} role="cell">{r.ml}</span>
                         </div>
                     ))}
                 </div>
             </section>
 
             {betting.signals && (
-                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <DarkPanel hover className="p-5 flex flex-col justify-between min-h-[130px]">
+                <div className={cn(compact ? "pt-0" : "grid grid-cols-1 gap-4 p-6 md:grid-cols-2")}>
+                    <DarkPanel hover className={cn("flex flex-col justify-between", compact ? "p-4 min-h-[0] rounded-[18px]" : "p-5 min-h-[130px]")}>
                         <header className="flex justify-between items-start">
                             <div className="flex items-center gap-2">
                                 <Target size={14} className="text-indigo-400" aria-hidden="true" />
@@ -602,10 +617,10 @@ const EdgeTab = memo(({ betting, teams }: { betting: BettingSlice; teams: TeamsS
                                 {betting.signals.edge_state === 'PLAY' ? 'Actionable' : 'Neutral'}
                             </div>
                         </header>
-                        <div className="mt-4 flex items-end justify-between">
+                        <div className={cn("flex items-end justify-between", compact ? "mt-3" : "mt-4")}>
                             <div>
                                 <div className="flex items-center gap-2 mb-1"><span className="text-[10px] text-zinc-500 uppercase tracking-wider">Proj Total</span></div>
-                                <DataValue value={safeNumber(betting.signals.deterministic_fair_total).toFixed(1)} size="xl" className="text-white" />
+                                <DataValue value={safeNumber(betting.signals.deterministic_fair_total).toFixed(1)} size={compact ? "lg" : "xl"} className={cn("text-white", compact && "text-[36px]")} />
                             </div>
                             <div className="text-right">
                                 <div className="flex justify-end items-center gap-1 mb-1">
@@ -929,7 +944,7 @@ LiveGameTracker.displayName = 'LiveGameTracker';
 export const LiveTotalCard: FC<{ match: Match }> = memo(({ match }) => {
     const vm = useGameViewModel(match as ExtendedMatch);
     if (!vm) return <DarkPanel className="p-6 flex justify-center"><Activity className="animate-spin text-zinc-600" aria-label="Loading betting card" /></DarkPanel>;
-    return <EdgeTab betting={vm.betting} teams={vm.teams} />;
+    return <EdgeTab betting={vm.betting} teams={vm.teams} compact />;
 });
 LiveTotalCard.displayName = 'LiveTotalCard';
 
