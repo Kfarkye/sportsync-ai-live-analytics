@@ -118,6 +118,21 @@ function countItems(val: any): number | null {
   return null;
 }
 
+function computeAISignalsSafely(matchPayload: any, context: { matchId: string; leagueId: string; mode: 'dry' | 'persist' }) {
+  try {
+    return { value: computeAISignals(matchPayload), error: null as string | null };
+  } catch (e: any) {
+    const error = e?.message || String(e);
+    Logger.error('AI_SIGNAL_COMPUTE_FAILED', {
+      matchId: context.matchId,
+      league_id: context.leagueId,
+      mode: context.mode,
+      error
+    });
+    return { value: null, error };
+  }
+}
+
 async function fetchWithRetry(url: string) {
   for (let i = 0; i < 3; i++) {
     try {
@@ -320,6 +335,23 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
     const extractedPredictor = safeExtract('Predictor', () => EspnAdapters.Predictor(data));
 
     if (isDryRun) {
+      const drySignalProbePayload = {
+        id: dbMatchId,
+        league_id: league.id,
+        sport: league.db_sport,
+        status: comp.status?.type?.name || null,
+        period: comp.status?.period || null,
+        display_clock: comp.status?.displayClock || null,
+        home_score: homeScore,
+        away_score: awayScore,
+        current_odds: EspnAdapters.Odds(comp, data.pickcenter) || null,
+      };
+      const drySignalsProbe = computeAISignalsSafely(drySignalProbePayload, {
+        matchId: dbMatchId,
+        leagueId: league.id,
+        mode: 'dry'
+      });
+
       stats.processed++;
       stats.live++;
       if (Array.isArray(stats.dry_samples) && stats.dry_samples.length < 10) {
@@ -348,6 +380,10 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
             player_stats: countItems(extractedPlayerStats),
             leaders: countItems(extractedLeaders),
             momentum: countItems(extractedMomentum)
+          },
+          signal_guard: {
+            ok: drySignalsProbe.error === null,
+            error: drySignalsProbe.error
           }
         });
       }
@@ -565,17 +601,12 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
 
     const effectiveOdds = (isExistingExternal && existingMatch?.current_odds) ? existingMatch.current_odds : canonicalOddsPayload;
     matchPayload.current_odds = effectiveOdds;
-    let aiSignals: any = null;
-    try {
-      aiSignals = computeAISignals(matchPayload);
-    } catch (e: any) {
-      Logger.error('AI_SIGNAL_COMPUTE_FAILED', {
-        matchId: dbMatchId,
-        league_id: league.id,
-        error: e?.message || String(e)
-      });
-      aiSignals = null;
-    }
+    const aiSignalResult = computeAISignalsSafely(matchPayload, {
+      matchId: dbMatchId,
+      leagueId: league.id,
+      mode: 'persist'
+    });
+    const aiSignals = aiSignalResult.value;
     delete matchPayload.current_odds;
 
     // 🚨 RESTORED: THE CONTEXTUAL INTELLIGENCE MOAT
