@@ -112,6 +112,12 @@ function parsePositiveInt(val: any): number | null {
   return Math.floor(n);
 }
 
+function effectiveMaxGamesForLeague(leagueId: string, requestedCap: number | null): number | null {
+  if (requestedCap === null) return null;
+  if (leagueId === 'mens-college-basketball') return Math.max(requestedCap, 10);
+  return requestedCap;
+}
+
 function countItems(val: any): number | null {
   if (Array.isArray(val)) return val.length;
   if (val && typeof val === 'object') return Object.keys(val).length;
@@ -210,7 +216,8 @@ Deno.serve(async (req: Request) => {
     errors: [] as string[],
     snapshots: 0,
     dry_run: dryRun,
-    max_games: maxGamesCap,
+    max_games_requested: maxGamesCap,
+    max_games_effective: maxGamesCap,
     league_filter: [...leagueFilter],
     dry_samples: [] as any[],
   };
@@ -227,8 +234,10 @@ Deno.serve(async (req: Request) => {
 
   leagueLoop:
   for (const league of MONITOR_LEAGUES) {
+    const leagueMaxGamesCap = effectiveMaxGamesForLeague(league.id, maxGamesCap);
     if (leagueFilter.size > 0 && !leagueFilter.has(league.id)) continue;
-    if (maxGamesCap && stats.attempted >= maxGamesCap) break;
+    if (leagueMaxGamesCap !== null) (stats as any).max_games_effective = leagueMaxGamesCap;
+    if (leagueMaxGamesCap && stats.attempted >= leagueMaxGamesCap) break;
 
     try {
       const dateParam = dates || new Date().toISOString().split('T')[0].replace(/-/g, '');
@@ -249,7 +258,7 @@ Deno.serve(async (req: Request) => {
       }
 
       for (const event of events) {
-        if (maxGamesCap && stats.attempted >= maxGamesCap) break leagueLoop;
+        if (leagueMaxGamesCap && stats.attempted >= leagueMaxGamesCap) break leagueLoop;
 
         // Safe robust check for string OR array targets (Casted to String to prevent type crashes)
         if (target_match_id) {
