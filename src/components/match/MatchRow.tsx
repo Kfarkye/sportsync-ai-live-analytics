@@ -20,13 +20,10 @@ interface MatchRowProps extends BaseMatchRowProps {
   awayEdge?: number;
 }
 
-const PHYSICS_MOTION = { type: "spring" as const, stiffness: 400, damping: 25 };
+const PHYSICS_MOTION = { type: "spring" as const, stiffness: 360, damping: 28 };
 
 const LOGO_W = 24;
-const LOGO_GAP = 16;
-const SCORE_W = 32;
-const PROB_W = 88;
-const TEAM_INDENT = LOGO_W + LOGO_GAP;
+const TEAM_INDENT = LOGO_W + 16;
 
 const isValidOdd = (val: string | number | null | undefined): boolean => val !== null && val !== undefined && val !== '-' && val !== '';
 
@@ -38,7 +35,7 @@ const ProbPill = memo(({ value, isFavorite }: { value: number | undefined; isFav
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center tabular-nums font-medium select-none w-[44px] h-[20px] rounded-[6px] text-[10px] shrink-0 border",
+        "inline-flex items-center justify-center tabular-nums font-medium select-none w-[44px] h-[20px] max-[390px]:w-[40px] max-[390px]:h-[18px] rounded-[6px] text-[10px] max-[390px]:text-[9px] shrink-0 border",
         isFavorite ? "bg-blue-50 text-blue-800 border-blue-200" : "bg-transparent text-slate-500 border-slate-200"
       )}
       title={`${pct}% win probability`}
@@ -51,7 +48,7 @@ ProbPill.displayName = 'ProbPill';
 const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number | null | undefined; isWinner: boolean; isLoser: boolean }) => (
   <span
     className={cn(
-      "inline-flex items-center justify-center font-mono tabular-nums font-bold select-none w-[30px] h-[22px] rounded-[6px] text-[14px] shrink-0",
+      "inline-flex items-center justify-center font-mono tabular-nums font-bold select-none w-[30px] h-[22px] max-[390px]:w-[26px] max-[390px]:h-[20px] rounded-[6px] text-[14px] max-[390px]:text-[13px] shrink-0",
       isLoser ? "text-slate-500" : "text-slate-900",
       isWinner ? "bg-blue-50" : "bg-transparent"
     )}
@@ -98,7 +95,7 @@ const PinButton = memo(({ isPinned, onToggle }: { isPinned: boolean; onToggle?: 
       "shrink-0 p-2 -m-1.5 rounded transition-all duration-200",
       isPinned
         ? "opacity-100"
-        : "opacity-0 group-hover:opacity-60 hover:!opacity-100"
+        : "opacity-0 group-hover:opacity-60 hover:!opacity-100 max-[390px]:opacity-40"
     )}
     aria-label={isPinned ? 'Unpin game' : 'Pin game'}
     title={isPinned ? 'Unpin game' : 'Pin game'}
@@ -185,7 +182,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      whileHover={{ scale: 1.002, backgroundColor: "#F8FAFC", zIndex: 10 }}
+      whileHover={{ backgroundColor: "#F8FAFC", zIndex: 10 }}
       whileTap={{ scale: 0.998 }}
       transition={PHYSICS_MOTION}
       onClick={() => onSelect?.(match)}
@@ -194,7 +191,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       aria-label={`${match.awayTeam?.name || 'Away Team'} vs ${match.homeTeam?.name || 'Home Team'}`}
       onKeyDown={(e: React.KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onSelect?.(match); } }}
       className={cn(
-        "group relative flex items-center justify-between px-3 py-2 sm:px-4 sm:py-2.5 cursor-pointer transform-gpu min-h-[50px] [-webkit-tap-highlight-color:transparent]",
+        "group relative flex items-center justify-between px-3 py-2 sm:px-4.5 sm:py-3 max-[390px]:px-2.5 max-[390px]:py-1.5 cursor-pointer transform-gpu min-h-[54px] max-[390px]:min-h-[52px] [-webkit-tap-highlight-color:transparent]",
         "focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none focus-visible:ring-inset",
         "transition-colors duration-200",
         isSelected ? "bg-blue-50/70" : "bg-white hover:bg-blue-50/45"
@@ -206,11 +203,11 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           ? "bg-amber-500 w-[3px] opacity-100"
           : isSelected
             ? "bg-[#0B63F6] w-1 opacity-100"
-            : "bg-blue-300 w-1 scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100"
+            : "bg-blue-300 w-[3px] scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100"
       )} />
 
       {/* Team Data */}
-      <div className="flex flex-col flex-1 min-w-0 pr-2.5 sm:pr-5 pl-1 sm:pl-0 pt-0.5 pb-0.5 sm:pb-1 gap-0.5 sm:gap-1">
+      <div className="flex flex-col flex-1 min-w-0 pr-2.5 sm:pr-5 max-[390px]:pr-1.5 pl-1 sm:pl-0 pt-0.5 pb-0.5 sm:pb-1.5 gap-1 sm:gap-1.5 max-[390px]:gap-0.5">
         {[match.awayTeam, match.homeTeam].map((team, idx) => {
           // Guard against malformed API payloads where one team is null
           if (!team) return null;
@@ -230,7 +227,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           const isFav = isHome ? homeFav : !homeFav;
 
           return (
-            <div key={team.id || idx} className="flex items-center gap-2.5">
+            <div key={team.id || idx} className="flex items-center gap-3 max-[390px]:gap-2">
               <div className="shrink-0 flex items-center justify-center" style={{ width: LOGO_W, height: LOGO_W }} aria-hidden="true">
                 {isTennis && team.flag ? (
                   <div className="w-[18px] h-[13px] overflow-hidden rounded-[1px]">
@@ -247,20 +244,20 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
               <div className="flex-1 min-w-0 flex items-baseline gap-2">
                 <span className={cn(
-                  "text-[14px] tracking-tight truncate transition-colors duration-300 select-none",
+                  "text-[14px] max-[390px]:text-[13px] leading-[1.15] tracking-tight truncate transition-colors duration-300 select-none",
                   isLoser ? "text-slate-500 font-medium" : "text-slate-900 font-semibold"
                 )}>
                   {team.name}
                 </span>
                 {team.record && !isLive && (
-                  <span className="text-[9px] font-medium text-slate-400 tabular-nums shrink-0 hidden sm:inline">
+                  <span className="text-[10px] font-medium text-slate-400 tabular-nums shrink-0 hidden sm:inline">
                     {team.record}
                   </span>
                 )}
               </div>
 
               {showScores && (
-                <div className="shrink-0 flex items-center justify-end" style={{ width: isTennis ? 'auto' : SCORE_W }}>
+                <div className={cn("shrink-0 flex items-center justify-end", isTennis ? "w-auto" : "w-[32px] max-[390px]:w-[26px]")}>
                   {isTennis ? (
                     <TennisSetScores linescores={team.linescores} />
                   ) : (
@@ -270,7 +267,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
               )}
 
               {hasProb && !isFinal && (
-                <div className="shrink-0" style={{ width: PROB_W }}>
+                <div className="shrink-0 w-[96px] max-[390px]:w-[82px]">
                   <OddsLensPill
                     value={prob}
                     isFavorite={isFav}
@@ -283,7 +280,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         })}
 
         {hasOdds && !isFinal && !isLive && (
-          <div className="flex items-center gap-3 mt-0.5" style={{ paddingLeft: TEAM_INDENT }}>
+          <div className="flex items-center flex-wrap gap-x-4 gap-y-1 max-[390px]:gap-x-3 mt-1 max-[390px]:mt-0.5" style={{ paddingLeft: TEAM_INDENT }}>
             <OddsChip label="SPR" value={spread} />
             <OddsChip label="O/U" value={total} />
             <OddsChip label="ML" value={homeML} />
@@ -292,31 +289,31 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       </div>
 
       {/* Status Metadata */}
-      <div className="flex flex-col items-end gap-0.5 pl-3 sm:pl-5 min-w-[68px] sm:min-w-[76px] border-l border-slate-200 py-1 select-none">
+      <div className="flex flex-col items-end gap-1 max-[390px]:gap-0.5 pl-3 sm:pl-5 max-[390px]:pl-2 min-w-[74px] sm:min-w-[82px] max-[390px]:min-w-[66px] border-l border-slate-200/90 py-1 select-none">
         {isLive ? (
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1.5">
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-              <div className="flex items-center gap-1.5 bg-zinc-50 px-1.5 py-0.5 rounded border border-zinc-200">
-                <span className="text-[9px] font-bold text-zinc-900 uppercase tracking-widest font-mono mt-[1px]">
+              <div className="flex items-center gap-1.5 bg-zinc-50 px-2 py-0.5 rounded-md border border-zinc-200">
+                <span className="text-[9px] font-bold text-zinc-900 uppercase tracking-[0.12em] font-mono mt-[1px]">
                   {match.displayClock || 'LIVE'}
                 </span>
               </div>
             </div>
-            <span className="text-[8.5px] font-semibold text-slate-500 uppercase tracking-widest pr-0.5">
+            <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.12em] pr-0.5">
               {isTennis && roundStr ? roundStr : getPeriodDisplay(match)}
             </span>
           </div>
         ) : isFinal ? (
           <div className="flex items-center gap-1.5">
             <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-            <span className="text-[9px] font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded uppercase tracking-widest">FINAL</span>
+            <span className="text-[9px] font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md uppercase tracking-[0.12em]">FINAL</span>
           </div>
         ) : (
           <>
             <div className="flex items-center gap-1.5">
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-              <span className="text-[12px] font-mono font-semibold text-slate-700 tabular-nums tracking-wide group-hover:text-slate-900 transition-colors" suppressHydrationWarning>
+              <span className="text-[12px] max-[390px]:text-[11px] font-mono font-semibold text-slate-700 tabular-nums tracking-wide group-hover:text-slate-900 transition-colors" suppressHydrationWarning>
                 {startTimeStr}
               </span>
             </div>

@@ -227,7 +227,7 @@ const MarketPulseRow = memo(({ poly, match, onSelect }: {
             type="button"
             onClick={handleClick}
             className={cn(
-                "group w-full text-left px-3.5 py-3 transition-colors duration-150 outline-none [-webkit-tap-highlight-color:transparent]",
+                "group w-full text-left px-3.5 py-3 max-[390px]:px-3 max-[390px]:py-2.5 transition-colors duration-150 outline-none [-webkit-tap-highlight-color:transparent]",
                 match ? "hover:bg-zinc-50 cursor-pointer focus-visible:bg-zinc-50" : "opacity-80 cursor-default"
             )}
         >
@@ -240,12 +240,12 @@ const MarketPulseRow = memo(({ poly, match, onSelect }: {
                         ) : <span className="w-3 h-3 block" />}
                     </div>
                     <span className={cn(
-                        "text-[12.5px] truncate tracking-tight transition-colors duration-150",
+                        "text-[12.5px] max-[390px]:text-[12px] truncate tracking-tight transition-colors duration-150",
                         favIsAway ? "font-semibold text-zinc-900" : "font-medium text-zinc-500"
                     )}>{poly.away_team_name}</span>
                 </div>
                 <span className={cn(
-                    "font-mono text-[11.5px] tabular-nums shrink-0 tracking-tight",
+                    "font-mono text-[11.5px] max-[390px]:text-[11px] tabular-nums shrink-0 tracking-tight",
                     favIsAway ? "font-bold text-zinc-900" : "font-medium text-zinc-400"
                 )}>{awayProb}%</span>
             </div>
@@ -258,12 +258,12 @@ const MarketPulseRow = memo(({ poly, match, onSelect }: {
                         ) : <span className="w-3 h-3 block" />}
                     </div>
                     <span className={cn(
-                        "text-[12.5px] truncate tracking-tight transition-colors duration-150",
+                        "text-[12.5px] max-[390px]:text-[12px] truncate tracking-tight transition-colors duration-150",
                         !favIsAway ? "font-semibold text-zinc-900" : "font-medium text-zinc-500"
                     )}>{poly.home_team_name}</span>
                 </div>
                 <span className={cn(
-                    "font-mono text-[11.5px] tabular-nums shrink-0 tracking-tight",
+                    "font-mono text-[11.5px] max-[390px]:text-[11px] tabular-nums shrink-0 tracking-tight",
                     !favIsAway ? "font-bold text-zinc-900" : "font-medium text-zinc-400"
                 )}>{homeProb}%</span>
             </div>
@@ -274,8 +274,8 @@ const MarketPulseRow = memo(({ poly, match, onSelect }: {
             </div>
             {/* Meta row */}
             <div className="flex justify-between items-center mt-2 opacity-60 group-hover:opacity-100 transition-opacity duration-300">
-                <span className="font-mono text-[9px] text-zinc-500 tracking-[0.06em] uppercase font-semibold">{poly.local_league_id}</span>
-                <span className="font-mono text-[9.5px] text-zinc-500 tracking-[0.02em] font-medium">{formatVolume(poly.volume)} vol</span>
+                <span className="font-mono text-[9px] max-[390px]:text-[8.5px] text-zinc-500 tracking-[0.06em] uppercase font-semibold">{poly.local_league_id}</span>
+                <span className="font-mono text-[9.5px] max-[390px]:text-[9px] text-zinc-500 tracking-[0.02em] font-medium">{formatVolume(poly.volume)} vol</span>
             </div>
         </button>
     );
@@ -292,18 +292,18 @@ const PropRow = memo(({ prop }: { prop: FeaturedProp }) => {
 
     return (
         <div className={cn(
-            "group flex items-center gap-3 px-3.5 py-3 transition-colors duration-150 hover:bg-zinc-50 cursor-pointer [-webkit-tap-highlight-color:transparent]"
+            "group flex items-center gap-3 max-[390px]:gap-2.5 px-3.5 max-[390px]:px-3 py-3 max-[390px]:py-2.5 transition-colors duration-150 hover:bg-zinc-50 cursor-pointer [-webkit-tap-highlight-color:transparent]"
         )}>
             {/* Headshot */}
-            <div className="relative w-10 h-10 shrink-0">
+            <div className="relative w-10 h-10 max-[390px]:w-9 max-[390px]:h-9 shrink-0">
                 <div className="w-full h-full rounded-full overflow-hidden bg-zinc-100 border border-black/5 shadow-sm">
                     <img src={prop.headshot_url} alt="" className="w-full h-full object-cover object-top" loading="lazy" />
                 </div>
             </div>
             {/* Name + Team */}
             <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <div className="text-[13px] font-semibold text-zinc-900 truncate tracking-tight leading-tight">{prop.player_name}</div>
-                <div className="font-mono text-[9.5px] text-zinc-500 tracking-[0.03em] mt-[3px] font-medium flex items-center">
+                <div className="text-[13px] max-[390px]:text-[12px] font-semibold text-zinc-900 truncate tracking-tight leading-tight">{prop.player_name}</div>
+                <div className="font-mono text-[9.5px] max-[390px]:text-[9px] text-zinc-500 tracking-[0.03em] mt-[3px] font-medium flex items-center">
                     <span className="text-zinc-400 uppercase">{prop.team.split(' ').pop()}</span>
                     <span className="mx-1.5 opacity-40">·</span>
                     <span className="text-zinc-700 font-semibold uppercase">{statLabel}</span>
@@ -313,7 +313,7 @@ const PropRow = memo(({ prop }: { prop: FeaturedProp }) => {
             <div className="text-right shrink-0 flex flex-col items-end gap-1">
                 <div className="flex items-center gap-1.5">
                     <span className="text-[9.5px] text-zinc-400 font-semibold uppercase">O</span>
-                    <span className="font-mono text-[12.5px] font-bold text-zinc-900 tabular-nums tracking-tight">
+                    <span className="font-mono text-[12.5px] max-[390px]:text-[12px] font-bold text-zinc-900 tabular-nums tracking-tight">
                         {Number(prop.line_value)}
                     </span>
                 </div>
@@ -335,7 +335,7 @@ PropRow.displayName = 'PropRow';
 
 const PremiumProCTA = memo(({ onPricing, className }: { onPricing: () => void; className?: string }) => (
     <section className={cn(
-        "relative rounded-2xl bg-[linear-gradient(145deg,#ffffff,#f4f8ff)] p-4 overflow-hidden shadow-[0_10px_24px_-12px_rgba(30,64,175,0.22)] ring-1 ring-blue-200/80",
+        "relative rounded-2xl bg-[linear-gradient(145deg,#ffffff,#f4f8ff)] p-4 max-[390px]:p-3.5 overflow-hidden shadow-[0_10px_24px_-12px_rgba(30,64,175,0.22)] ring-1 ring-blue-200/80",
         className
     )}>
         <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#0B63F6] to-transparent opacity-70" />
@@ -350,13 +350,13 @@ const PremiumProCTA = memo(({ onPricing, className }: { onPricing: () => void; c
                     Pro Access
                 </h3>
             </div>
-            <p className="text-[12px] text-slate-600 leading-relaxed mb-3.5 font-medium">
+            <p className="text-[12px] max-[390px]:text-[11.5px] text-slate-600 leading-relaxed mb-3.5 max-[390px]:mb-3 font-medium">
                 Unlock deep AI prop analysis, L5 hit rates, and real-time line movement alerts.
             </p>
             <button
                 type="button"
                 onClick={onPricing}
-                className="group/btn w-full h-[38px] bg-[#0B63F6] text-white text-[12px] font-bold rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-blue-300 flex items-center justify-center gap-2 shadow-sm hover:bg-[#0954d1]"
+                className="group/btn w-full h-[38px] max-[390px]:h-[36px] bg-[#0B63F6] text-white text-[12px] max-[390px]:text-[11px] font-bold rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-blue-300 flex items-center justify-center gap-2 shadow-sm hover:bg-[#0954d1]"
             >
                 Upgrade
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover/btn:translate-x-0.5 text-blue-100 group-hover/btn:text-white">
@@ -431,7 +431,7 @@ const LeagueGroup = memo(({
                 type="button"
                 onClick={toggle}
                 className={cn(
-                    'flex items-center justify-between w-full min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2.5 sm:py-3 [-webkit-tap-highlight-color:transparent]',
+                    'flex items-center justify-between w-full min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 max-[390px]:px-2.5 py-2.5 sm:py-3 max-[390px]:py-2 [-webkit-tap-highlight-color:transparent]',
                     // Keep group headers static so ordering never shifts behind match rows.
                     'bg-[#F8FAFC] backdrop-blur-sm border-b border-blue-200/70 z-20',
                     'transition-colors hover:bg-blue-50/80',
@@ -441,16 +441,16 @@ const LeagueGroup = memo(({
                 aria-expanded={isExpanded}
                 aria-controls={`league-content-${leagueId}`}
             >
-                <div className="flex items-center gap-2">
-                    <h3 className="text-[11px] font-bold text-blue-800 tracking-wide uppercase" style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace", letterSpacing: "0.08em" }}>{leagueName}</h3>
+                <div className="flex items-center gap-2 max-[390px]:gap-1.5 min-w-0">
+                    <h3 className="text-[11px] max-[390px]:text-[10px] font-bold text-blue-800 tracking-wide uppercase truncate" style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace", letterSpacing: "0.08em" }}>{leagueName}</h3>
                     <span className="text-[14px] text-blue-200 leading-none" aria-hidden="true">·</span>
-                    <span className="text-[11px] font-medium text-slate-600">
+                    <span className="text-[11px] max-[390px]:text-[10px] font-medium text-slate-600 whitespace-nowrap">
                         {enrichedMatches.length} {enrichedMatches.length === 1 ? 'game' : 'games'}
                     </span>
                     {earliestTime && (
                         <>
                             <span className="text-[14px] text-blue-200 leading-none" aria-hidden="true">·</span>
-                            <span className="text-[11px] font-medium text-slate-600" suppressHydrationWarning>
+                            <span className="text-[11px] max-[390px]:text-[10px] font-medium text-slate-600 whitespace-nowrap" suppressHydrationWarning>
                                 {earliestTime}
                             </span>
                         </>
@@ -656,21 +656,21 @@ const MatchList: React.FC<MatchListProps> = ({
         <div className="min-h-screen bg-[#F4F6FF]" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
             <LayoutGroup id="editorial-feed">
                 <div className="max-w-7xl mx-auto px-0 lg:px-6 w-full">
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-8 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-6 sm:gap-8 items-start">
 
                         {/* MAIN COLUMN */}
                         <div className="min-w-0 flex flex-col">
-                            <div className="space-y-3 sm:space-y-5 pt-0 sm:pt-4">
-                                <div className="px-3 sm:px-0">
+                            <div className="space-y-3.5 sm:space-y-6 pt-0 sm:pt-4">
+                                <div className="px-2.5 sm:px-0">
                                     <div className={cn(
-                                        "inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
+                                        "inline-flex items-center gap-2 max-[390px]:gap-1.5 rounded-lg border px-3 max-[390px]:px-2.5 py-1.5 text-[10px] max-[390px]:text-[9px] font-semibold uppercase tracking-[0.1em]",
                                         isDataStale
                                             ? "border-amber-200 bg-amber-50 text-amber-700"
                                             : "border-blue-200 bg-white text-blue-700"
                                     )}>
-                                        <span>Last updated: {freshnessLabel}</span>
-                                        {isLoading ? <span className="text-slate-500">Refreshing…</span> : null}
-                                        {isDataStale ? <span className="text-amber-700">Feed may be stale</span> : null}
+                                        <span className="font-mono tracking-[0.06em] normal-case text-[10px] max-[390px]:text-[9px]">Last updated {freshnessLabel}</span>
+                                        {isLoading ? <span className="text-slate-500 font-medium normal-case">Refreshing…</span> : null}
+                                        {isDataStale ? <span className="text-amber-700 font-semibold normal-case">Data may be stale</span> : null}
                                     </div>
                                 </div>
                                 {groupedMatches.map(([leagueId, enrichedMatchArray], groupIndex) => {
@@ -692,17 +692,17 @@ const MatchList: React.FC<MatchListProps> = ({
                             </div>
 
                             {/* Mobile widgets parity for sidebar content */}
-                            <div className="lg:hidden px-3 sm:px-0 pt-3 space-y-3">
+                            <div className="lg:hidden px-2.5 sm:px-0 pt-2.5 space-y-2.5">
                                 {pulseMarkets.length > 0 && (
                                     <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Market Pulse">
-                                        <div className="px-3 py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
+                                        <div className="px-3.5 max-[390px]:px-3 py-2.5 max-[390px]:py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                     <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
                                                 </div>
-                                                <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-blue-800 uppercase">Market Pulse</span>
+                                                <span className="font-mono text-[10px] max-[390px]:text-[9px] font-bold tracking-[0.1em] text-blue-800 uppercase">Market Pulse</span>
                                             </div>
-                                            <span className="font-mono text-[8.5px] text-blue-300 tracking-[0.03em] uppercase">Via Polymarket</span>
+                                            <span className="font-mono text-[8.5px] max-[390px]:text-[8px] text-blue-300 tracking-[0.03em] uppercase">Via Polymarket</span>
                                         </div>
                                         <div className="divide-y divide-slate-100/80">
                                         {pulseMarkets.slice(0, 3).map(({ poly, match }, i) => (
@@ -719,21 +719,21 @@ const MatchList: React.FC<MatchListProps> = ({
 
                                 {featuredProps.length > 0 && (
                                     <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Featured Props">
-                                        <div className="px-3 py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
+                                        <div className="px-3.5 max-[390px]:px-3 py-2.5 max-[390px]:py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                     <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                                         <path d="M1 10L5 6L8 9L13 4" /><path d="M9 4H13V8" />
                                                     </svg>
                                                 </div>
-                                                <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-blue-800 uppercase">Featured Props</span>
+                                                <span className="font-mono text-[10px] max-[390px]:text-[9px] font-bold tracking-[0.1em] text-blue-800 uppercase">Featured Props</span>
                                             </div>
-                                            <span className="font-mono text-[8.5px] text-blue-300 tracking-[0.03em] uppercase">
+                                            <span className="font-mono text-[8.5px] max-[390px]:text-[8px] text-blue-300 tracking-[0.03em] uppercase">
                                                 {featuredProps[0]?.event_date === todayIso ? 'Today' : 'Tomorrow'}
                                             </span>
                                         </div>
                                         <div className="divide-y divide-slate-100/80">
-                                        {featuredProps.slice(0, 3).map((prop, i) => (
+                                        {featuredProps.slice(0, 3).map((prop) => (
                                             <PropRow key={`mobile-${prop.player_name}${prop.bet_type}`} prop={prop} />
                                         ))}
                                         </div>
@@ -749,7 +749,7 @@ const MatchList: React.FC<MatchListProps> = ({
                             {/* Market Pulse — Polymarket (now memoized) */}
                             {pulseMarkets.length > 0 && (
                                 <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Market Pulse">
-                                    <div className="px-3 py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
+                                    <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                         <div className="flex items-center gap-2">
                                             <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                 <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
@@ -774,7 +774,7 @@ const MatchList: React.FC<MatchListProps> = ({
                             {/* Featured Props */}
                             {featuredProps.length > 0 && (
                                 <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Featured Props">
-                                    <div className="px-3 py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
+                                    <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                         <div className="flex items-center gap-2">
                                             <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                 <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -788,7 +788,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                         </span>
                                     </div>
                                     <div className="divide-y divide-slate-100/80">
-                                    {featuredProps.map((prop, i) => (
+                                    {featuredProps.map((prop) => (
                                         <PropRow key={prop.player_name + prop.bet_type} prop={prop} />
                                     ))}
                                     </div>
