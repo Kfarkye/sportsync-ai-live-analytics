@@ -31,15 +31,15 @@ const TEAM_INDENT = LOGO_W + LOGO_GAP;
 const isValidOdd = (val: string | number | null | undefined): boolean => val !== null && val !== undefined && val !== '-' && val !== '';
 
 const ProbPill = memo(({ value, isFavorite }: { value: number | undefined; isFavorite: boolean }) => {
-  if (value === undefined || value === null || isNaN(value)) return <span className="w-[46px] shrink-0" aria-hidden="true" />;
+  if (value === undefined || value === null || isNaN(value)) return <span className="w-[44px] shrink-0" aria-hidden="true" />;
   const pct = Math.round(value);
-  if (pct <= 0 || isNaN(pct)) return <span className="w-[46px] shrink-0" aria-hidden="true" />;
+  if (pct <= 0 || isNaN(pct)) return <span className="w-[44px] shrink-0" aria-hidden="true" />;
 
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center tabular-nums font-medium select-none w-[46px] h-[22px] rounded-[6px] text-[11px] shrink-0 border",
-        isFavorite ? "bg-slate-50 text-slate-800 border-slate-300" : "bg-transparent text-slate-500 border-slate-200"
+        "inline-flex items-center justify-center tabular-nums font-medium select-none w-[44px] h-[20px] rounded-[6px] text-[10px] shrink-0 border",
+        isFavorite ? "bg-blue-50 text-blue-800 border-blue-200" : "bg-transparent text-slate-500 border-slate-200"
       )}
       title={`${pct}% win probability`}
     >
@@ -51,9 +51,9 @@ ProbPill.displayName = 'ProbPill';
 const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number | null | undefined; isWinner: boolean; isLoser: boolean }) => (
   <span
     className={cn(
-      "inline-flex items-center justify-center font-mono tabular-nums font-bold select-none w-[32px] h-[24px] rounded-[6px] text-[15px] shrink-0",
+      "inline-flex items-center justify-center font-mono tabular-nums font-bold select-none w-[30px] h-[22px] rounded-[6px] text-[14px] shrink-0",
       isLoser ? "text-slate-500" : "text-slate-900",
-      isWinner ? "bg-slate-100" : "bg-transparent"
+      isWinner ? "bg-blue-50" : "bg-transparent"
     )}
   >
     {score ?? '-'}
@@ -76,10 +76,10 @@ const OddsChip = memo(({ label, value }: { label: string; value: string | number
   }
   return (
     <span className="inline-flex items-center gap-1.5 select-none" aria-label={`${label} ${display}`}>
-      <span className="font-semibold uppercase text-[9px] tracking-widest text-slate-400" aria-hidden="true">
+      <span className="font-semibold uppercase text-[8.5px] tracking-widest text-slate-400" aria-hidden="true">
         {label}
       </span>
-      <span className="font-mono font-medium tabular-nums text-[11px] text-slate-600">
+      <span className="font-mono font-medium tabular-nums text-[10px] text-slate-600">
         {display}
       </span>
     </span>
@@ -194,10 +194,10 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       aria-label={`${match.awayTeam?.name || 'Away Team'} vs ${match.homeTeam?.name || 'Home Team'}`}
       onKeyDown={(e: React.KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onSelect?.(match); } }}
       className={cn(
-        "group relative flex items-center justify-between px-3 py-2.5 sm:px-5 sm:py-3 cursor-pointer transform-gpu min-h-[52px] [-webkit-tap-highlight-color:transparent]",
+        "group relative flex items-center justify-between px-3 py-2 sm:px-4 sm:py-2.5 cursor-pointer transform-gpu min-h-[50px] [-webkit-tap-highlight-color:transparent]",
         "focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none focus-visible:ring-inset",
         "transition-colors duration-200",
-        isSelected ? "bg-slate-50" : "bg-white hover:bg-slate-50/50"
+        isSelected ? "bg-blue-50/70" : "bg-white hover:bg-blue-50/45"
       )}
     >
       <div className={cn(
@@ -205,12 +205,12 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         isPinned
           ? "bg-amber-500 w-[3px] opacity-100"
           : isSelected
-            ? "bg-slate-900 w-1 opacity-100"
-            : "bg-slate-300 w-1 scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100"
+            ? "bg-[#0B63F6] w-1 opacity-100"
+            : "bg-blue-300 w-1 scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100"
       )} />
 
       {/* Team Data */}
-      <div className="flex flex-col flex-1 min-w-0 pr-3 sm:pr-6 pl-1.5 sm:pl-0 pt-0.5 pb-0.5 sm:pb-1 gap-1 sm:gap-1.5">
+      <div className="flex flex-col flex-1 min-w-0 pr-2.5 sm:pr-5 pl-1 sm:pl-0 pt-0.5 pb-0.5 sm:pb-1 gap-0.5 sm:gap-1">
         {[match.awayTeam, match.homeTeam].map((team, idx) => {
           // Guard against malformed API payloads where one team is null
           if (!team) return null;
@@ -230,7 +230,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           const isFav = isHome ? homeFav : !homeFav;
 
           return (
-            <div key={team.id || idx} className="flex items-center gap-3">
+            <div key={team.id || idx} className="flex items-center gap-2.5">
               <div className="shrink-0 flex items-center justify-center" style={{ width: LOGO_W, height: LOGO_W }} aria-hidden="true">
                 {isTennis && team.flag ? (
                   <div className="w-[18px] h-[13px] overflow-hidden rounded-[1px]">
@@ -247,13 +247,13 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
               <div className="flex-1 min-w-0 flex items-baseline gap-2">
                 <span className={cn(
-                  "text-[15px] tracking-tight truncate transition-colors duration-300 select-none",
+                  "text-[14px] tracking-tight truncate transition-colors duration-300 select-none",
                   isLoser ? "text-slate-500 font-medium" : "text-slate-900 font-semibold"
                 )}>
                   {team.name}
                 </span>
                 {team.record && !isLive && (
-                  <span className="text-[10px] font-medium text-slate-400 tabular-nums shrink-0 hidden sm:inline">
+                  <span className="text-[9px] font-medium text-slate-400 tabular-nums shrink-0 hidden sm:inline">
                     {team.record}
                   </span>
                 )}
@@ -283,7 +283,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         })}
 
         {hasOdds && !isFinal && !isLive && (
-          <div className="flex items-center gap-4 mt-1" style={{ paddingLeft: TEAM_INDENT }}>
+          <div className="flex items-center gap-3 mt-0.5" style={{ paddingLeft: TEAM_INDENT }}>
             <OddsChip label="SPR" value={spread} />
             <OddsChip label="O/U" value={total} />
             <OddsChip label="ML" value={homeML} />
@@ -292,41 +292,41 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       </div>
 
       {/* Status Metadata */}
-      <div className="flex flex-col items-end gap-1 pl-3 sm:pl-6 min-w-[70px] sm:min-w-[80px] border-l border-slate-200 py-1 select-none">
+      <div className="flex flex-col items-end gap-0.5 pl-3 sm:pl-5 min-w-[68px] sm:min-w-[76px] border-l border-slate-200 py-1 select-none">
         {isLive ? (
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1.5">
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
               <div className="flex items-center gap-1.5 bg-zinc-50 px-1.5 py-0.5 rounded border border-zinc-200">
-                <span className="text-[10px] font-bold text-zinc-900 uppercase tracking-widest font-mono mt-[1px]">
+                <span className="text-[9px] font-bold text-zinc-900 uppercase tracking-widest font-mono mt-[1px]">
                   {match.displayClock || 'LIVE'}
                 </span>
               </div>
             </div>
-            <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest pr-0.5">
+            <span className="text-[8.5px] font-semibold text-slate-500 uppercase tracking-widest pr-0.5">
               {isTennis && roundStr ? roundStr : getPeriodDisplay(match)}
             </span>
           </div>
         ) : isFinal ? (
           <div className="flex items-center gap-1.5">
             <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-            <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded uppercase tracking-widest">FINAL</span>
+            <span className="text-[9px] font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded uppercase tracking-widest">FINAL</span>
           </div>
         ) : (
           <>
             <div className="flex items-center gap-1.5">
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-              <span className="text-[13px] font-mono font-semibold text-slate-700 tabular-nums tracking-wide group-hover:text-slate-900 transition-colors" suppressHydrationWarning>
+              <span className="text-[12px] font-mono font-semibold text-slate-700 tabular-nums tracking-wide group-hover:text-slate-900 transition-colors" suppressHydrationWarning>
                 {startTimeStr}
               </span>
             </div>
             {isTennis && roundStr && (
-              <span className="text-[9px] font-medium text-slate-500 uppercase tracking-wider">
+              <span className="text-[8.5px] font-medium text-slate-500 uppercase tracking-wider">
                 {roundStr}
               </span>
             )}
             {!isTennis && (
-              <span className="text-[9px] font-medium text-slate-500 tracking-wide" suppressHydrationWarning>
+              <span className="text-[8.5px] font-medium text-slate-500 tracking-wide" suppressHydrationWarning>
                 {dateStr}
               </span>
             )}

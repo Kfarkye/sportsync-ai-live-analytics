@@ -26,6 +26,10 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
   const isBaseball = sportKey.includes('BASEBALL') || leagueKey.includes('mlb');
   const isSoccer = sportKey.includes('SOCCER') || leagueKey.includes('mls');
   const isHockey = sportKey.includes('HOCKEY') || leagueKey.includes('nhl');
+  const isCollegeBasketball = leagueKey.includes('mens-college-basketball') ||
+    leagueKey.includes('womens-college-basketball') ||
+    leagueKey.includes('ncaab') ||
+    leagueKey.includes('ncaawb');
   const isBasketball = sportKey.includes('BASKETBALL') || leagueKey.includes('nba') || leagueKey.includes('wnba');
   const isFootball = sportKey.includes('FOOTBALL') || leagueKey.includes('nfl') || leagueKey.includes('cfb');
 
@@ -38,6 +42,7 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
       if (isHockey) return 3;
       if (isBaseball) return 9;
       if (isFootball) return 4;
+      if (isCollegeBasketball) return 2;
       if (isBasketball) return 4;
       if (typeof match.regulationPeriods === 'number' && match.regulationPeriods > 0) {
         return match.regulationPeriods;
@@ -54,10 +59,39 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
     isHockey,
     isBaseball,
     isFootball,
+    isCollegeBasketball,
     isBasketball,
   ]);
 
-  const periodRange = Array.from({ length: periods }, (_, i) => i + 1);
+  const periodRange = useMemo(() => {
+    if (!isCollegeBasketball) {
+      return Array.from({ length: periods }, (_, i) => i + 1);
+    }
+
+    const visiblePeriods = new Set<number>([1, 2]);
+    const lines = [...(match.homeTeam.linescores || []), ...(match.awayTeam.linescores || [])];
+
+    lines.forEach((entry) => {
+      const period = Number(entry?.period);
+      if (!Number.isFinite(period) || period <= 2) return;
+
+      const value = entry?.value;
+      const hasValue = typeof value === 'number'
+        ? Number.isFinite(value)
+        : typeof value === 'string'
+          ? value.trim().length > 0
+          : false;
+
+      const label = String(entry?.label || '').toUpperCase();
+      const isOvertimeLabel = label.includes('OT');
+
+      if (hasValue || isOvertimeLabel) {
+        visiblePeriods.add(period);
+      }
+    });
+
+    return Array.from(visiblePeriods).sort((a, b) => a - b);
+  }, [isCollegeBasketball, periods, match.homeTeam.linescores, match.awayTeam.linescores]);
 
   const getScore = (team: Team, period: number) => {
     const list = team.linescores || [];
@@ -74,10 +108,18 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
     return '-';
   };
   const getPeriodLabel = (period: number) => {
+    if (isCollegeBasketball && period <= 2) return `H${period}`;
+
     const label =
       match.homeTeam.linescores?.find(l => l.period === period)?.label ||
       match.awayTeam.linescores?.find(l => l.period === period)?.label;
     if (label) return String(label).toUpperCase();
+
+    if (isCollegeBasketball && period > 2) {
+      const otIndex = period - 2;
+      return otIndex <= 1 ? 'OT' : `OT${otIndex}`;
+    }
+
     if (isTennis) return `S${period}`;
     if (isSoccer && period <= 2) return `H${period}`;
     if (isBaseball) return String(period);

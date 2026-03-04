@@ -99,17 +99,16 @@ const AppShell: FC = () => {
       className={cn(
         // Layout
         'min-h-screen h-[var(--vvh,100vh)] relative flex flex-col antialiased',
-        // SSOT surfaces/text (Editorial Light)
-        ESSENCE.tw.surface.subtle, // bg-slate-50
-        'text-slate-900 font-sans',
+        // Yahoo-inspired shell surface
+        'bg-[#F4F6FF] text-slate-900 font-sans',
         // selection rule
-        'selection:bg-slate-900/10'
+        'selection:bg-blue-300/30'
       )}
     >
       <UnifiedHeader />
 
       <MotionMain id="main-content" className="flex-1 w-full overflow-y-auto overscroll-contain">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-3">
           <AnimatePresence mode="wait">
             {activeView === 'FEED' && (
               <MotionDiv
@@ -122,16 +121,11 @@ const AppShell: FC = () => {
                 {/* LOADING STATE */}
                 {isLoading && filteredMatches.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 opacity-80">
-                    <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin mb-4" />
+                    <div className="w-6 h-6 border-2 border-blue-200 border-t-[#0B63F6] rounded-full animate-spin mb-4" />
                     <p className={cn(ESSENCE.tier.t2Header, 'text-slate-500')}>Syncing Sports Data</p>
                     <button
                       onClick={() => window.location.reload()}
-                      className={cn(
-                        ESSENCE.nav.pill,
-                        'mt-6 px-4 py-1.5',
-                        'text-[10px] font-medium text-slate-600',
-                        'hover:bg-slate-100 active:scale-95'
-                      )}
+                      className={cn('mt-6 px-4 py-1.5 rounded-full border border-blue-200 bg-white text-[10px] font-medium text-blue-700 hover:bg-blue-50 active:scale-95')}
                     >
                       Force Refresh
                     </button>
@@ -215,7 +209,7 @@ const AppShell: FC = () => {
                 <Suspense
                   fallback={
                     <div className="flex items-center justify-center py-24">
-                      <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
+                      <div className="w-6 h-6 border-2 border-blue-200 border-t-[#0B63F6] rounded-full animate-spin" />
                     </div>
                   }
                 >
@@ -227,7 +221,7 @@ const AppShell: FC = () => {
         </div>
 
         {/* Global Legal & Responsibility Footer (inside scroll context) */}
-        <footer className={cn('w-full', ESSENCE.tw.divider, 'bg-gradient-to-b from-transparent to-slate-50/80')}>
+        <footer className={cn('w-full border-t border-slate-200/80 bg-gradient-to-b from-transparent to-[#EFF6FF]/80')}>
           <div className="max-w-7xl mx-auto px-7 py-9 md:py-10">
             <div className="flex flex-col items-center text-center gap-3 opacity-80">
               <span className="text-[11px] text-slate-600 max-w-2xl">

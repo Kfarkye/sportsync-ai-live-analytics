@@ -1524,7 +1524,47 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     <div className="w-full h-px bg-zinc-200" />
                   </div>
                 )}
-                {activeTab === 'CHAT' && (<div className="max-w-3xl mx-auto h-[calc(100dvh-220px)] min-h-[400px]"><ChatWidget currentMatch={match as any} inline /></div>)}
+                {activeTab === 'CHAT' && (
+                  <div className="mx-auto w-full max-w-[1120px] pb-8">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+                      <aside className="order-1 space-y-4 lg:order-2 lg:sticky lg:top-24">
+                        <div className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[0_10px_36px_-28px_rgba(0,0,0,0.45)]">
+                          <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/45">
+                            AI Context
+                          </div>
+                          <div className="mt-2 text-[13px] leading-relaxed text-black/70">
+                            {isLive
+                              ? "Live workflow is active. Use this rail to anchor your read before drilling into chat."
+                              : isSched
+                                ? "Pregame workflow is active. Ask for market context, lineup impact, and pre-open risk."
+                                : "Postgame workflow is active. Use chat for line review and trend carry-forward."}
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            <span className="rounded-md border border-black/[0.08] bg-black/[0.02] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-black/60">
+                              {match.status || "STATUS"}
+                            </span>
+                            <span className="rounded-md border border-black/[0.08] bg-black/[0.02] px-2 py-1 text-[10px] font-semibold tabular-nums text-black/70">
+                              {match.awayScore ?? 0}-{match.homeScore ?? 0}
+                            </span>
+                            <span className="rounded-md border border-black/[0.08] bg-black/[0.02] px-2 py-1 text-[10px] font-semibold tabular-nums text-black/70">
+                              {match.displayClock || (match.minute ? `${match.minute}'` : (isSched ? "PRE" : "FINAL"))}
+                            </span>
+                            {(match.current_odds?.total ?? match.odds?.overUnder ?? null) !== null && (
+                              <span className="rounded-md border border-black/[0.08] bg-black/[0.02] px-2 py-1 text-[10px] font-semibold tabular-nums text-black/70">
+                                Total {match.current_odds?.total ?? match.odds?.overUnder}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {isLive ? <LiveIntelligenceCard match={match} /> : null}
+                      </aside>
+
+                      <div className="order-2 lg:order-1 h-[calc(100dvh-190px)] min-h-[520px] overflow-hidden rounded-[22px] border border-black/[0.06] bg-white shadow-[0_14px_42px_-28px_rgba(0,0,0,0.36)]">
+                        <ChatWidget currentMatch={match as any} inline />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             </AnimatePresence>
           </LayoutGroup>

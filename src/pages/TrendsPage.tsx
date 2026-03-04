@@ -361,7 +361,7 @@ export default function TrendsPage() {
             {summary && (
               <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 {[
-                  { label: 'Sample', value: String(summary.sample) },
+                  { label: 'Sample Size', value: `n = ${summary.sample}` },
                   { label: 'Home Cover %', value: `${summary.homeCoverPct.toFixed(1)}%` },
                   { label: 'Over %', value: `${summary.overPct.toFixed(1)}%` },
                   { label: 'Favorite Win %', value: `${summary.favoriteWinPct.toFixed(1)}%` },
@@ -386,30 +386,30 @@ export default function TrendsPage() {
             <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800">League Breakdown</div>
               <div className="overflow-x-auto">
-                <table className="min-w-[900px] w-full text-sm">
-                  <thead className="bg-slate-50">
+                <table className="min-w-[900px] w-full text-[13px]">
+                  <thead className="bg-slate-50 border-b border-slate-200">
                     <tr className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
-                      <th className="px-4 py-3 text-left">League</th>
-                      <th className="px-3 py-3 text-right">Games</th>
-                      <th className="px-3 py-3 text-right">Home ATS</th>
-                      <th className="px-3 py-3 text-right">Over %</th>
-                      <th className="px-3 py-3 text-right">BTTS %</th>
-                      <th className="px-3 py-3 text-right">Avg Goals</th>
-                      <th className="px-3 py-3 text-right">Avg Corners</th>
-                      <th className="px-3 py-3 text-right">Avg Cards</th>
+                      <th className="px-4 py-2.5 text-left">League</th>
+                      <th className="px-3 py-2.5 text-right">Games</th>
+                      <th className="px-3 py-2.5 text-right">Home ATS</th>
+                      <th className="px-3 py-2.5 text-right">Over %</th>
+                      <th className="px-3 py-2.5 text-right">BTTS %</th>
+                      <th className="px-3 py-2.5 text-right">Avg Goals</th>
+                      <th className="px-3 py-2.5 text-right">Avg Corners</th>
+                      <th className="px-3 py-2.5 text-right">Avg Cards</th>
                     </tr>
                   </thead>
                   <tbody>
                     {byLeague.map((row) => (
-                      <tr key={row.leagueId} className="border-t border-slate-100 hover:bg-slate-50/60">
-                        <td className="px-4 py-3 font-semibold text-slate-900">{row.label}</td>
-                        <td className="px-3 py-3 text-right tabular-nums text-slate-600">{row.games}</td>
-                        <td className="px-3 py-3 text-right tabular-nums text-slate-700">{row.homeCoverPct.toFixed(1)}%</td>
-                        <td className="px-3 py-3 text-right tabular-nums text-slate-700">{row.overPct.toFixed(1)}%</td>
-                        <td className="px-3 py-3 text-right tabular-nums text-slate-700">{row.bttsPct.toFixed(1)}%</td>
-                        <td className="px-3 py-3 text-right tabular-nums text-slate-700">{row.avgGoals.toFixed(2)}</td>
-                        <td className="px-3 py-3 text-right tabular-nums text-slate-700">{row.avgCorners.toFixed(1)}</td>
-                        <td className="px-3 py-3 text-right tabular-nums text-slate-700">{row.avgCards.toFixed(1)}</td>
+                      <tr key={row.leagueId} className="border-t border-slate-100 hover:bg-blue-50/45">
+                        <td className="px-4 py-2.5 font-semibold text-slate-900">{row.label}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{row.games}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.homeCoverPct.toFixed(1)}%</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.overPct.toFixed(1)}%</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.bttsPct.toFixed(1)}%</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgGoals.toFixed(2)}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgCorners.toFixed(1)}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgCards.toFixed(1)}</td>
                       </tr>
                     ))}
                   </tbody>

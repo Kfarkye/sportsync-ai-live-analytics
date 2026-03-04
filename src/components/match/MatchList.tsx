@@ -335,12 +335,12 @@ PropRow.displayName = 'PropRow';
 
 const PremiumProCTA = memo(({ onPricing, className }: { onPricing: () => void; className?: string }) => (
     <section className={cn(
-        "relative rounded-2xl bg-[linear-gradient(145deg,#ffffff,#f4f8ff)] p-5 overflow-hidden shadow-[0_10px_24px_-12px_rgba(30,64,175,0.22)] ring-1 ring-blue-200/80",
+        "relative rounded-2xl bg-[linear-gradient(145deg,#ffffff,#f4f8ff)] p-4 overflow-hidden shadow-[0_10px_24px_-12px_rgba(30,64,175,0.22)] ring-1 ring-blue-200/80",
         className
     )}>
         <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#0B63F6] to-transparent opacity-70" />
         <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-2.5">
                 <div className="flex items-center justify-center w-[20px] h-[20px] rounded bg-[#0B63F6] text-white shadow-[0_8px_14px_-8px_rgba(11,99,246,0.45)]">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
@@ -350,13 +350,13 @@ const PremiumProCTA = memo(({ onPricing, className }: { onPricing: () => void; c
                     Pro Access
                 </h3>
             </div>
-            <p className="text-[12.5px] text-slate-600 leading-relaxed mb-4 font-medium">
+            <p className="text-[12px] text-slate-600 leading-relaxed mb-3.5 font-medium">
                 Unlock deep AI prop analysis, L5 hit rates, and real-time line movement alerts.
             </p>
             <button
                 type="button"
                 onClick={onPricing}
-                className="group/btn w-full h-[40px] bg-[#0B63F6] text-white text-[12.5px] font-bold rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-blue-300 flex items-center justify-center gap-2 shadow-sm hover:bg-[#0954d1]"
+                className="group/btn w-full h-[38px] bg-[#0B63F6] text-white text-[12px] font-bold rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-blue-300 flex items-center justify-center gap-2 shadow-sm hover:bg-[#0954d1]"
             >
                 Upgrade
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover/btn:translate-x-0.5 text-blue-100 group-hover/btn:text-white">
@@ -617,7 +617,7 @@ const MatchList: React.FC<MatchListProps> = ({
         return (
             <div className="min-h-screen bg-[#F4F6FF] pt-2 sm:pt-6 lg:pt-6" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
                 <div className="max-w-7xl mx-auto w-full px-0 lg:px-6" aria-busy="true" aria-label="Loading matches">
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-8 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-6 items-start">
                         <div className="flex flex-col w-full rounded-2xl overflow-hidden bg-white ring-1 ring-slate-200 shadow-[0_14px_28px_-20px_rgba(30,64,175,0.22)]">
                             {Array.from({ length: 8 }, (_, i) => <MatchRowSkeleton key={`skel-${i}`} />)}
                         </div>
@@ -660,7 +660,7 @@ const MatchList: React.FC<MatchListProps> = ({
 
                         {/* MAIN COLUMN */}
                         <div className="min-w-0 flex flex-col">
-                            <div className="space-y-3 sm:space-y-6 pt-0 sm:pt-4">
+                            <div className="space-y-3 sm:space-y-5 pt-0 sm:pt-4">
                                 <div className="px-3 sm:px-0">
                                     <div className={cn(
                                         "inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
@@ -692,10 +692,10 @@ const MatchList: React.FC<MatchListProps> = ({
                             </div>
 
                             {/* Mobile widgets parity for sidebar content */}
-                            <div className="lg:hidden px-3 sm:px-0 pt-4 space-y-4">
+                            <div className="lg:hidden px-3 sm:px-0 pt-3 space-y-3">
                                 {pulseMarkets.length > 0 && (
                                     <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Market Pulse">
-                                        <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
+                                        <div className="px-3 py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                     <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
@@ -719,7 +719,7 @@ const MatchList: React.FC<MatchListProps> = ({
 
                                 {featuredProps.length > 0 && (
                                     <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Featured Props">
-                                        <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
+                                        <div className="px-3 py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                     <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -745,11 +745,11 @@ const MatchList: React.FC<MatchListProps> = ({
                         </div>
 
                         {/* SIDEBAR WIDGETS */}
-                        <aside className="hidden lg:flex flex-col sticky top-[104px] gap-4 pt-6">
+                        <aside className="hidden lg:flex flex-col sticky top-[104px] gap-3 pt-4">
                             {/* Market Pulse — Polymarket (now memoized) */}
                             {pulseMarkets.length > 0 && (
                                 <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Market Pulse">
-                                    <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
+                                    <div className="px-3 py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                         <div className="flex items-center gap-2">
                                             <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                 <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
@@ -774,7 +774,7 @@ const MatchList: React.FC<MatchListProps> = ({
                             {/* Featured Props */}
                             {featuredProps.length > 0 && (
                                 <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Featured Props">
-                                    <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
+                                    <div className="px-3 py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                         <div className="flex items-center gap-2">
                                             <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                 <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

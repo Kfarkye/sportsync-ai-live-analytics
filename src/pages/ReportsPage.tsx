@@ -442,10 +442,10 @@ export default function ReportsPage() {
   const leagueLabel = selectedLeague?.label || LEAGUE_LABELS[leagueId] || leagueId.toUpperCase();
   const primaryMetrics = summary
     ? [
-      { label: 'Sample (n)', value: String(summary.sample), context: 'Matches' },
-      { label: 'Home Cover %', value: `${summary.homeCoverPct.toFixed(1)}%`, context: `ATS n=${summary.atsBets}` },
-      { label: 'Over %', value: `${summary.overPct.toFixed(1)}%`, context: `Totals n=${summary.totalBets}` },
-      { label: 'Favorites Win %', value: `${summary.favoriteWinPct.toFixed(1)}%`, context: `ML n=${summary.moneylineDecisions}` },
+      { label: 'Sample Size', value: `n = ${summary.sample}`, context: 'Matches analyzed' },
+      { label: 'Home Cover %', value: `${summary.homeCoverPct.toFixed(1)}%`, context: `ATS n = ${summary.atsBets}` },
+      { label: 'Over %', value: `${summary.overPct.toFixed(1)}%`, context: `Totals n = ${summary.totalBets}` },
+      { label: 'Favorites Win %', value: `${summary.favoriteWinPct.toFixed(1)}%`, context: `ML n = ${summary.moneylineDecisions}` },
     ]
     : [];
 
@@ -711,21 +711,21 @@ export default function ReportsPage() {
                 <Link
                   key={match.id}
                   to={matchUrl(match.home_team, match.away_team, match.start_time)}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_20px_34px_-24px_rgba(30,64,175,0.26)]"
+                  className="rounded-2xl border border-slate-200 bg-white p-3 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_20px_34px_-24px_rgba(30,64,175,0.26)]"
                 >
-                  <div className="flex items-center justify-between text-[11px] font-medium text-slate-500">
+                  <div className="flex items-center justify-between text-[10px] font-medium text-slate-500">
                     <span>{formatMatchDate(match.start_time)}</span>
                     <span>{LEAGUE_LABELS[match.league_id] || match.league_id}</span>
                   </div>
 
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-2 space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className={`text-base font-semibold ${homeWinner ? 'text-slate-900' : 'text-slate-600'}`}>{match.home_team}</span>
-                      <span className={`text-2xl font-semibold tabular-nums ${homeWinner ? 'text-slate-900' : 'text-slate-500'}`}>{match.home_score}</span>
+                      <span className={`text-[15px] font-semibold ${homeWinner ? 'text-slate-900' : 'text-slate-600'}`}>{match.home_team}</span>
+                      <span className={`text-[1.6rem] font-semibold tabular-nums leading-none ${homeWinner ? 'text-slate-900' : 'text-slate-500'}`}>{match.home_score}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className={`text-base font-semibold ${awayWinner ? 'text-slate-900' : 'text-slate-600'}`}>{match.away_team}</span>
-                      <span className={`text-2xl font-semibold tabular-nums ${awayWinner ? 'text-slate-900' : 'text-slate-500'}`}>{match.away_score}</span>
+                      <span className={`text-[15px] font-semibold ${awayWinner ? 'text-slate-900' : 'text-slate-600'}`}>{match.away_team}</span>
+                      <span className={`text-[1.6rem] font-semibold tabular-nums leading-none ${awayWinner ? 'text-slate-900' : 'text-slate-500'}`}>{match.away_score}</span>
                     </div>
                   </div>
 
@@ -736,7 +736,7 @@ export default function ReportsPage() {
                     <div className="text-right">Cards {safeN(match.home_yellow_cards) + safeN(match.away_yellow_cards) + safeN(match.home_red_cards) + safeN(match.away_red_cards)}</div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-slate-100 pt-3 text-[11px]">
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-slate-100 pt-2 text-[11px]">
                     {spread && (
                       <span className="text-slate-500">
                         ATS{' '}
@@ -763,62 +763,62 @@ export default function ReportsPage() {
         ) : (
           <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-[0_18px_36px_-28px_rgba(30,64,175,0.22)]">
             <div className="overflow-x-auto">
-              <table className="min-w-[980px] w-full text-sm">
+              <table className="min-w-[980px] w-full text-[13px]">
                 <thead>
-                  <tr className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
-                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-4 py-3 text-left">Team</th>
-                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-3 text-right">W-D-L</th>
-                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-3 text-right">Pts</th>
-                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-3 text-right">GD</th>
-                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-3 text-right">ATS</th>
-                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-3 text-right">
+                  <tr className="border-b border-slate-200 text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-4 py-2.5 text-left">Team</th>
+                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">W-D-L</th>
+                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">Pts</th>
+                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">GD</th>
+                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">ATS</th>
+                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">
                       <span>Cover %</span>
-                      <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">ATS n</span>
+                      <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">Sample n</span>
                     </th>
-                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-3 text-right">
+                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">
                       <span>ATS ROI %</span>
-                      <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">ATS n</span>
+                      <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">Sample n</span>
                     </th>
-                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-3 text-right">O/U</th>
-                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-3 text-right">
+                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">O/U</th>
+                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">
                       <span>BTTS %</span>
-                      <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">Games n</span>
+                      <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">Sample n</span>
                     </th>
-                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-3 text-right">Avg Goals</th>
+                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">Avg Goals</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredStandings.map((row, idx) => (
                     <tr key={row.name} className="border-t border-slate-100 hover:bg-blue-50/45">
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2.5">
                         <Link to={teamUrl(row.name)} className="font-semibold text-slate-900 hover:underline">
                           {idx + 1}. {row.name}
                         </Link>
                       </td>
-                      <td className="px-3 py-3 text-right tabular-nums text-slate-600">{row.wins}-{row.draws}-{row.losses}</td>
-                      <td className="px-3 py-3 text-right tabular-nums font-semibold text-slate-900">{row.points}</td>
-                      <td className="px-3 py-3 text-right tabular-nums font-semibold text-slate-700">{row.goalDiff >= 0 ? `+${row.goalDiff}` : row.goalDiff}</td>
-                      <td className="px-3 py-3 text-right tabular-nums text-slate-600">{row.atsCovered}-{row.atsFailed}-{row.atsPush}</td>
-                      <td className="px-3 py-3 text-right tabular-nums" title={`ATS sample n=${row.atsBets}`}>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{row.wins}-{row.draws}-{row.losses}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-slate-900">{row.points}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-slate-700">{row.goalDiff >= 0 ? `+${row.goalDiff}` : row.goalDiff}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{row.atsCovered}-{row.atsFailed}-{row.atsPush}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums" title={`ATS sample (n = ${row.atsBets})`}>
                         <div className="inline-flex flex-col items-end leading-tight">
                           <span className="font-semibold text-slate-700">{row.coverPct.toFixed(1)}%</span>
-                          <span className="mt-1 text-[10px] text-slate-500">n={row.atsBets}</span>
+                          <span className="mt-1 text-[10px] text-slate-500">n = {row.atsBets}</span>
                         </div>
                       </td>
-                      <td className="px-3 py-3 text-right tabular-nums" title={`ATS sample n=${row.atsBets}`}>
+                      <td className="px-3 py-2.5 text-right tabular-nums" title={`ATS sample (n = ${row.atsBets})`}>
                         <div className="inline-flex flex-col items-end leading-tight">
                           <span className={`font-semibold ${row.atsRoiPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{row.atsRoiPct.toFixed(1)}%</span>
-                          <span className="mt-1 text-[10px] text-slate-500">n={row.atsBets}</span>
+                          <span className="mt-1 text-[10px] text-slate-500">n = {row.atsBets}</span>
                         </div>
                       </td>
-                      <td className="px-3 py-3 text-right tabular-nums text-slate-600">{row.over}-{row.under}-{row.ouPush}</td>
-                      <td className="px-3 py-3 text-right tabular-nums" title={`Games sample n=${row.played}`}>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{row.over}-{row.under}-{row.ouPush}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums" title={`Games sample (n = ${row.played})`}>
                         <div className="inline-flex flex-col items-end leading-tight">
                           <span className="font-semibold text-slate-700">{row.bttsPct.toFixed(1)}%</span>
-                          <span className="mt-1 text-[10px] text-slate-500">n={row.played}</span>
+                          <span className="mt-1 text-[10px] text-slate-500">n = {row.played}</span>
                         </div>
                       </td>
-                      <td className="px-3 py-3 text-right tabular-nums text-slate-700">{row.avgGoals.toFixed(2)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgGoals.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
