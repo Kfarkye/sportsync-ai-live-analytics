@@ -23,7 +23,6 @@ interface LiveDashboardProps {
 }
 
 type LayoutType = 'GRID' | 'LIST';
-
 const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, isMatchLive, pinnedMatchIds, onTogglePin }) => {
     const { liveTab: activeTab, liveFilter: searchTerm, liveLayout: layout } = useAppStore();
 
@@ -77,7 +76,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
     const displayMatches = getActiveList();
 
     return (
-        <div className="relative mx-auto w-full max-w-7xl px-4 pb-24 lg:px-8">
+        <div className="relative mx-auto w-full max-w-7xl px-4 pb-20 lg:px-8">
 
             {/* Content Area with Sidebar */}
             <div className="mt-3 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_336px] xl:gap-8">
@@ -129,19 +128,19 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                                         transition={{ ...ESSENCE.transition.soft, delay: 0.1 }}
                                         className="col-span-full py-20 flex flex-col items-center justify-center relative"
                                     >
-                                        {/* Ambient Glass Glow */}
+                                        {/* Ambient Glow */}
                                         <div className={cn(
-                                            "absolute w-[400px] h-[400px] rounded-full blur-[120px] opacity-[0.06] pointer-events-none",
-                                            activeTab === 'LIVE' ? "bg-emerald-500" : activeTab === 'NEXT' ? "bg-violet-500" : "bg-zinc-500"
+                                            "absolute w-[400px] h-[400px] rounded-full blur-[120px] opacity-[0.12] pointer-events-none",
+                                            activeTab === 'LIVE' ? "bg-blue-400" : activeTab === 'NEXT' ? "bg-blue-400" : "bg-slate-400"
                                         )} />
 
-                                        {/* Icon Container — Precision Material */}
+                                        {/* Icon Container */}
                                         <motion.div
                                             animate={activeTab === 'LIVE' ? { scale: [1, 1.02, 1] } : {}}
                                             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                                             className={cn(
                                                 "relative w-24 h-24 rounded-[28px] flex items-center justify-center mb-8",
-                                                "bg-surface-elevated/80 backdrop-blur-xl border border-white/10 shadow-[inner_0_1px_0_rgba(255,255,255,0.05),_0_20px_40px_rgba(0,0,0,0.4)]",
+                                                "bg-white border border-slate-200 shadow-[0_20px_40px_-24px_rgba(30,64,175,0.26)]",
                                             )}
                                         >
                                             <Radio
@@ -149,14 +148,14 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                                                 strokeWidth={1.2}
                                                 className={cn(
                                                     "transition-colors duration-500",
-                                                    activeTab === 'LIVE' ? "text-emerald-500/80" : activeTab === 'NEXT' ? "text-violet-500/80" : "text-zinc-600"
+                                                    activeTab === 'LIVE' ? "text-blue-600" : activeTab === 'NEXT' ? "text-blue-600" : "text-slate-500"
                                                 )}
                                             />
                                             {activeTab === 'LIVE' && (
                                                 <motion.div
                                                     animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
                                                     transition={{ duration: 2, repeat: Infinity }}
-                                                    className="absolute inset-0 rounded-[28px] border border-emerald-500/30"
+                                                    className="absolute inset-0 rounded-[28px] border border-blue-400/40"
                                                 />
                                             )}
                                         </motion.div>
@@ -164,12 +163,12 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                                         {/* Content Hierarchy */}
                                         <h3 className={cn(
                                             "text-body-sm font-black uppercase tracking-ultra mb-3 transition-colors duration-500",
-                                            activeTab === 'LIVE' ? "text-emerald-500/80" : activeTab === 'NEXT' ? "text-violet-400/80" : "text-zinc-500"
+                                            activeTab === 'LIVE' ? "text-blue-700" : activeTab === 'NEXT' ? "text-blue-700" : "text-slate-600"
                                         )}>
                                             {activeTab === 'LIVE' ? 'No Live Games' : activeTab === 'NEXT' ? 'No Upcoming Games' : 'No Completed Games'}
                                         </h3>
 
-                                        <p className="text-small text-zinc-500 font-medium tracking-tight max-w-[240px] text-center leading-relaxed">
+                                        <p className="text-small text-slate-600 font-medium tracking-tight max-w-[240px] text-center leading-relaxed">
                                             {activeTab === 'LIVE'
                                                 ? "Check back shortly for active match sessions or view upcoming games."
                                                 : activeTab === 'NEXT'
@@ -181,7 +180,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                                         {activeTab !== 'NEXT' && (
                                             <button
                                                 onClick={() => useAppStore.getState().setLiveTab('NEXT')}
-                                                className="mt-10 px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-caption font-bold uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-white/10 active:scale-95 transition-all duration-300 shadow-lg"
+                                                className="mt-10 px-6 py-2.5 rounded-full bg-white border border-blue-200 text-caption font-bold uppercase tracking-widest text-blue-700 hover:text-blue-800 hover:bg-blue-50 active:scale-95 transition-all duration-300 shadow-sm"
                                             >
                                                 View Schedule
                                             </button>
@@ -199,23 +198,23 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
 
                     {/* Live Forecast Panel - Shows first live match's forecast */}
                     {live.length > 0 ? (
-                        <div className="overflow-hidden rounded-[20px] border border-edge shadow-[0_18px_42px_-28px_rgba(0,0,0,0.5)]">
+                        <div className="overflow-hidden rounded-[20px] border border-slate-200 shadow-[0_20px_38px_-28px_rgba(30,64,175,0.28)] bg-white">
                             <LiveTotalCard match={live[0]} />
                         </div>
                     ) : null}
 
-                    {/* Pro Terminal: State of the Art Upsell */}
-                    <div className="relative overflow-hidden rounded-[20px] border border-edge bg-surface-base p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                    {/* Pro Terminal */}
+                    <div className="relative overflow-hidden rounded-[20px] border border-slate-200 bg-white p-6 shadow-[0_20px_38px_-28px_rgba(30,64,175,0.24)]">
                         {/* Subtle gradient accent */}
-                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
+                        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-blue-500/70 to-transparent" />
 
-                        <h3 className="text-caption font-black text-violet-400 uppercase tracking-widest mb-3">
+                        <h3 className="text-caption font-black text-blue-700 uppercase tracking-widest mb-3">
                             Pro Terminal
                         </h3>
-                        <p className="text-small text-zinc-500 leading-relaxed mb-5 font-medium">
+                        <p className="text-small text-slate-600 leading-relaxed mb-5 font-medium">
                             Access real-time order flow, sharp money splits, and institutional line movement data.
                         </p>
-                        <button className="w-full py-2.5 bg-overlay-dim text-zinc-300 text-caption font-bold uppercase tracking-loose rounded-xl border border-edge-strong hover:bg-overlay-emphasis hover:border-edge-heavy hover:text-white transition-all duration-200">
+                        <button className="w-full py-2.5 bg-blue-50 text-blue-700 text-caption font-bold uppercase tracking-loose rounded-xl border border-blue-200 hover:bg-blue-100 hover:border-blue-300 hover:text-blue-800 transition-all duration-200">
                             Unlock Data
                         </button>
                     </div>

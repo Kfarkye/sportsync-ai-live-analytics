@@ -299,9 +299,23 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
 // 4. SHARED UI PRIMITIVES
 // ============================================================================
 
-const DarkPanel = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'> & { hover?: boolean }>(({ children, className, hover = false, ...props }, ref) => (
-    <div ref={ref} className={cn('relative overflow-hidden bg-[#111113] rounded-xl border border-white/5 shadow-lg', hover && 'transition-colors duration-200 hover:bg-[#16161a]', className)} {...props}>
-        <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: TOKENS.assets.noise }} aria-hidden="true" />
+const DarkPanel = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'> & { hover?: boolean; tone?: 'dark' | 'light' }>(
+    ({ children, className, hover = false, tone = 'dark', ...props }, ref) => (
+    <div
+        ref={ref}
+        className={cn(
+            'relative overflow-hidden rounded-xl border',
+            tone === 'dark'
+                ? 'bg-[#111113] border-white/5 shadow-lg'
+                : 'bg-white border-slate-200 shadow-[0_14px_28px_-24px_rgba(30,64,175,0.22)]',
+            hover && (tone === 'dark' ? 'transition-colors duration-200 hover:bg-[#16161a]' : 'transition-colors duration-200 hover:bg-slate-50'),
+            className,
+        )}
+        {...props}
+    >
+        {tone === 'dark' ? (
+            <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: TOKENS.assets.noise }} aria-hidden="true" />
+        ) : null}
         <div className="relative z-10 h-full">{children}</div>
     </div>
 ));
@@ -535,7 +549,7 @@ PropsTab.displayName = 'PropsTab';
 const EdgeTab = memo(({ betting, teams, compact = false }: { betting: BettingSlice; teams: TeamsSlice; compact?: boolean }) => {
     const renderMovement = (open: number | null, current: number, isTotal = false) => {
         const displayCur = isTotal ? current : (current === 0 ? 'PK' : current > 0 ? `+${current}` : current);
-        if (open === null || open === current) return <span className={cn("text-zinc-300", compact ? "text-[11px]" : "text-xs")}>{displayCur}</span>;
+        if (open === null || open === current) return <span className={cn(compact ? "text-slate-700 text-[11px]" : "text-zinc-300 text-xs")}>{displayCur}</span>;
 
         const diff = current - open;
         const isUp = diff > 0;
@@ -560,16 +574,17 @@ const EdgeTab = memo(({ betting, teams, compact = false }: { betting: BettingSli
     return (
         <div className={cn("flex flex-col w-full", compact ? "gap-3" : "pb-20")} role="tabpanel" aria-label="Betting Edge">
             <section className={cn(
-                "bg-[#0A0A0B]",
-                compact ? "rounded-[20px] border border-white/5 px-4 py-4 shadow-[0_16px_36px_rgba(0,0,0,0.28)]" : "border-b border-white/5 px-6 py-6",
+                compact
+                    ? "rounded-[20px] border border-slate-200 bg-white px-4 py-4 shadow-[0_16px_32px_-24px_rgba(30,64,175,0.26)]"
+                    : "bg-[#0A0A0B] border-b border-white/5 px-6 py-6",
             )}>
                 <header className={cn("flex items-center justify-between", compact ? "mb-3" : "mb-5")}>
                     <div className="flex items-center gap-2">
-                        <History size={14} className="text-zinc-500" aria-hidden="true" />
-                        <Label>Live Odds & Line Movement</Label>
+                        <History size={14} className={compact ? "text-slate-500" : "text-zinc-500"} aria-hidden="true" />
+                        <Label className={compact ? "text-slate-500" : undefined}>Live Odds & Line Movement</Label>
                     </div>
                     {!compact && (betting.lineMovement.spread || betting.lineMovement.total) && (
-                        <div className="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 rounded text-[9px] font-bold text-indigo-400 uppercase tracking-widest animate-pulse" role="status">Lines Moving</div>
+                        <div className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-[9px] font-bold text-blue-400 uppercase tracking-widest animate-pulse" role="status">Lines Moving</div>
                     )}
                 </header>
                 <div className="w-full" role="table" aria-label="Odds Table">
@@ -577,16 +592,17 @@ const EdgeTab = memo(({ betting, teams, compact = false }: { betting: BettingSli
                         "mb-2 px-2",
                         compact ? "grid grid-cols-[minmax(0,1.2fr)_auto_auto_auto] gap-2" : "grid grid-cols-[1fr_1.5fr_1.5fr_1fr]",
                     )} role="row">
-                        <span role="columnheader" className="text-[9px] font-bold text-zinc-600 tracking-widest uppercase">Team</span>
-                        <span role="columnheader" className="text-[9px] font-bold text-zinc-600 tracking-widest uppercase text-right">Spread</span>
-                        <span role="columnheader" className="text-[9px] font-bold text-zinc-600 tracking-widest uppercase text-right">Total</span>
-                        <span role="columnheader" className="text-[9px] font-bold text-zinc-600 tracking-widest uppercase text-right">Money</span>
+                        <span role="columnheader" className={cn("text-[9px] font-bold tracking-widest uppercase", compact ? "text-slate-500" : "text-zinc-600")}>Team</span>
+                        <span role="columnheader" className={cn("text-[9px] font-bold tracking-widest uppercase text-right", compact ? "text-slate-500" : "text-zinc-600")}>Spread</span>
+                        <span role="columnheader" className={cn("text-[9px] font-bold tracking-widest uppercase text-right", compact ? "text-slate-500" : "text-zinc-600")}>Total</span>
+                        <span role="columnheader" className={cn("text-[9px] font-bold tracking-widest uppercase text-right", compact ? "text-slate-500" : "text-zinc-600")}>Money</span>
                     </div>
                     {tableRows.map((r) => (
                         <div
                             key={r.id}
                             className={cn(
-                                "border-t border-white/5 items-center px-2",
+                                "border-t items-center px-2",
+                                compact ? "border-slate-100" : "border-white/5",
                                 compact
                                     ? "grid grid-cols-[minmax(0,1.2fr)_auto_auto_auto] gap-2 py-3"
                                     : "grid grid-cols-[1fr_1.5fr_1.5fr_1fr] py-4",
@@ -595,11 +611,11 @@ const EdgeTab = memo(({ betting, teams, compact = false }: { betting: BettingSli
                         >
                             <div className="flex items-center gap-3" role="cell">
                                 <TeamLogo logo={r.team.logo} name={r.team.name} className="w-6 h-6 object-contain" />
-                                <span className={cn("font-bold text-white tracking-wider", compact ? "text-[11px]" : "text-xs")}>{r.team.abbr}</span>
+                                <span className={cn("font-bold tracking-wider", compact ? "text-[11px] text-slate-800" : "text-xs text-white")}>{r.team.abbr}</span>
                             </div>
                             <div className={cn("text-right font-mono", compact && "text-[11px]")} role="cell">{betting.hasSpread ? renderMovement(r.openS, r.curS) : '-'}</div>
                             <div className={cn("text-right font-mono", compact && "text-[11px]")} role="cell">{betting.hasTotal ? renderMovement(r.openT, r.curT, true) : '-'}</div>
-                            <span className={cn("font-mono text-zinc-400 text-right", compact ? "text-[11px]" : "text-xs")} role="cell">{r.ml}</span>
+                            <span className={cn("font-mono text-right", compact ? "text-[11px] text-slate-500" : "text-xs text-zinc-400")} role="cell">{r.ml}</span>
                         </div>
                     ))}
                 </div>
@@ -607,27 +623,27 @@ const EdgeTab = memo(({ betting, teams, compact = false }: { betting: BettingSli
 
             {betting.signals && (
                 <div className={cn(compact ? "pt-0" : "grid grid-cols-1 gap-4 p-6 md:grid-cols-2")}>
-                    <DarkPanel hover className={cn("flex flex-col justify-between", compact ? "p-4 min-h-[0] rounded-[18px]" : "p-5 min-h-[130px]")}>
+                    <DarkPanel tone={compact ? "light" : "dark"} hover className={cn("flex flex-col justify-between", compact ? "p-4 min-h-[0] rounded-[18px]" : "p-5 min-h-[130px]")}>
                         <header className="flex justify-between items-start">
                             <div className="flex items-center gap-2">
-                                <Target size={14} className="text-indigo-400" aria-hidden="true" />
-                                <Label className="text-indigo-400/80">AI Model Edge</Label>
+                                <Target size={14} className="text-blue-400" aria-hidden="true" />
+                                <Label className="text-blue-400/80">AI Model Edge</Label>
                             </div>
-                            <div className={cn('px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border', betting.signals.edge_state === 'PLAY' ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10' : 'text-zinc-500 border-white/5 bg-white/5')} role="status">
+                            <div className={cn('px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border', betting.signals.edge_state === 'PLAY' ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10' : compact ? 'text-slate-500 border-slate-200 bg-slate-50' : 'text-zinc-500 border-white/5 bg-white/5')} role="status">
                                 {betting.signals.edge_state === 'PLAY' ? 'Actionable' : 'Neutral'}
                             </div>
                         </header>
                         <div className={cn("flex items-end justify-between", compact ? "mt-3" : "mt-4")}>
                             <div>
-                                <div className="flex items-center gap-2 mb-1"><span className="text-[10px] text-zinc-500 uppercase tracking-wider">Proj Total</span></div>
-                                <DataValue value={safeNumber(betting.signals.deterministic_fair_total).toFixed(1)} size={compact ? "lg" : "xl"} className={cn("text-white", compact && "text-[36px]")} />
+                                <div className="flex items-center gap-2 mb-1"><span className={cn("text-[10px] uppercase tracking-wider", compact ? "text-slate-500" : "text-zinc-500")}>Proj Total</span></div>
+                                <DataValue value={safeNumber(betting.signals.deterministic_fair_total).toFixed(1)} size={compact ? "lg" : "xl"} className={cn(compact ? "text-slate-900 text-[36px]" : "text-white")} />
                             </div>
                             <div className="text-right">
                                 <div className="flex justify-end items-center gap-1 mb-1">
-                                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Mkt</span>
-                                    <span className="text-xs font-mono text-zinc-300">{betting.signals.market_total}</span>
+                                    <span className={cn("text-[10px] uppercase tracking-wider", compact ? "text-slate-500" : "text-zinc-500")}>Mkt</span>
+                                    <span className={cn("text-xs font-mono", compact ? "text-slate-700" : "text-zinc-300")}>{betting.signals.market_total}</span>
                                 </div>
-                                <div className={cn('flex items-center justify-end gap-0.5 text-lg font-mono font-bold', betting.signals.edge_state === 'PLAY' ? (safeNumber(betting.signals.deterministic_fair_total) > safeNumber(betting.signals.market_total) ? 'text-emerald-400' : 'text-rose-400') : 'text-zinc-600')}>
+                                <div className={cn('flex items-center justify-end gap-0.5 text-lg font-mono font-bold', betting.signals.edge_state === 'PLAY' ? (safeNumber(betting.signals.deterministic_fair_total) > safeNumber(betting.signals.market_total) ? 'text-emerald-500' : 'text-rose-500') : compact ? 'text-slate-500' : 'text-zinc-600')}>
                                     {betting.signals.edge_state === 'PLAY' && (safeNumber(betting.signals.deterministic_fair_total) > safeNumber(betting.signals.market_total) ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />)}
                                     {betting.signals.edge_state === 'PLAY' ? `${Math.abs(safeNumber(betting.signals.edge_points)).toFixed(1)} pt` : '-'}
                                 </div>
@@ -943,8 +959,72 @@ LiveGameTracker.displayName = 'LiveGameTracker';
 
 export const LiveTotalCard: FC<{ match: Match }> = memo(({ match }) => {
     const vm = useGameViewModel(match as ExtendedMatch);
-    if (!vm) return <DarkPanel className="p-6 flex justify-center"><Activity className="animate-spin text-zinc-600" aria-label="Loading betting card" /></DarkPanel>;
-    return <EdgeTab betting={vm.betting} teams={vm.teams} compact />;
+    if (!vm) {
+        return (
+            <section className="rounded-[20px] border border-slate-200 bg-white p-6 flex justify-center">
+                <Activity className="animate-spin text-blue-500" aria-label="Loading betting card" />
+            </section>
+        );
+    }
+
+    const spreadText = vm.betting.hasSpread
+        ? vm.betting.spread === 0
+            ? 'PK'
+            : vm.betting.spread > 0
+                ? `+${vm.betting.spread}`
+                : `${vm.betting.spread}`
+        : '—';
+    const totalText = vm.betting.hasTotal ? String(vm.betting.total) : '—';
+    const homeMl = vm.betting.moneyline.home || '—';
+    const awayMl = vm.betting.moneyline.away || '—';
+    const edgePts = vm.betting.signals ? safeNumber(vm.betting.signals.edge_points) : 0;
+    const edgeState = vm.betting.signals?.edge_state || 'PASS';
+    const signalSide = edgePts > 0 ? 'OVER' : edgePts < 0 ? 'UNDER' : 'PASS';
+
+    return (
+        <section className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_18px_32px_-24px_rgba(30,64,175,0.28)]">
+            <header className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-blue-700">Live Odds Snapshot</p>
+                    <h3 className="mt-1 text-[17px] font-semibold tracking-tight text-slate-900">
+                        {vm.teams.away.abbr} @ {vm.teams.home.abbr}
+                    </h3>
+                </div>
+                <span className={cn(
+                    "rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em]",
+                    edgeState === 'PLAY'
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-slate-200 bg-slate-50 text-slate-600"
+                )}>
+                    {signalSide}
+                </span>
+            </header>
+
+            <div className="mt-3 space-y-2">
+                <div className="grid grid-cols-[1fr_auto] items-center">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">Spread</span>
+                    <span className="font-mono text-[13px] font-semibold text-slate-900">{spreadText}</span>
+                </div>
+                <div className="grid grid-cols-[1fr_auto] items-center">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">Total</span>
+                    <span className="font-mono text-[13px] font-semibold text-slate-900">{totalText}</span>
+                </div>
+                <div className="grid grid-cols-[1fr_auto] items-center">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">ML</span>
+                    <span className="font-mono text-[13px] font-semibold text-slate-900">{awayMl} / {homeMl}</span>
+                </div>
+                <div className="grid grid-cols-[1fr_auto] items-center border-t border-slate-100 pt-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">AI Edge</span>
+                    <span className={cn(
+                        "font-mono text-[13px] font-semibold",
+                        edgePts > 0.25 ? "text-blue-700" : edgePts < -0.25 ? "text-blue-700" : "text-slate-600"
+                    )}>
+                        {edgeState === 'PLAY' ? `${edgePts > 0 ? '+' : ''}${edgePts.toFixed(1)} pts` : 'No edge'}
+                    </span>
+                </div>
+            </div>
+        </section>
+    );
 });
 LiveTotalCard.displayName = 'LiveTotalCard';
 

@@ -11,7 +11,7 @@
      - Aligned :root variables with ESSENCE design system
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -22,12 +22,14 @@
    ========================================================================== */
 
 :root {
-  /* Palette — Editorial Light */
-  --color-background: #F8FAFC;  /* slate-50 */
+  /* Palette — Yahoo Sports inspired light */
+  --color-background: #F4F6FF;
   --color-surface: #FFFFFF;
-  --color-text-primary: #0F172A;  /* slate-900 */
-  --color-text-secondary: #64748B; /* slate-500 */
-  --color-border: #E2E8F0; /* slate-200 */
+  --color-text-primary: #111827;
+  --color-text-secondary: #5B6478;
+  --color-border: #DDE3F0;
+  --color-accent: #0B63F6;
+  --color-accent-soft: #F2E9FF;
 
   /* Motion */
   --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -50,15 +52,15 @@ html {
   -webkit-overflow-scrolling: touch;
   -webkit-text-size-adjust: 100%;
   color-scheme: light;
-  background-color: var(--color-background);
+  background: radial-gradient(circle at top, #eef1ff 0%, var(--color-background) 45%);
 }
 
 body {
   min-height: 100%;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-variant-numeric: tabular-nums;
-  background-color: var(--color-background);
+  background: radial-gradient(circle at top, #eef1ff 0%, var(--color-background) 45%);
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -79,7 +81,8 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* ==========================================================================
@@ -95,7 +98,7 @@ input, textarea {
 }
 
 ::selection {
-  background-color: rgba(15, 23, 42, 0.25);
+  background-color: rgba(96, 1, 210, 0.18);
   color: inherit;
 }
 
@@ -197,9 +200,24 @@ input, textarea {
    §8  SCROLLBARS (Stealth Mode)
    ========================================================================== */
 
-/* Primary: Hidden scrollbar (App-like feel) */
+/* Primary: subtle visible scrollbar */
 ::-webkit-scrollbar {
-  display: none;
+  display: block;
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(83, 94, 125, 0.24);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(83, 94, 125, 0.42);
 }
 
 .no-scrollbar {

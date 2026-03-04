@@ -6,7 +6,6 @@ import { useAppStore } from '../../store/appStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeekNavigation } from '../../hooks/useWeekNavigation';
 import { OddsLensToggle } from '../shared/OddsLens';
-import { SPORT_CONFIG } from '@/constants';
 import { Sport } from '@/types';
 import { cn, ESSENCE } from '@/lib/essence';
 
@@ -114,26 +113,25 @@ export const UnifiedHeader: FC = () => {
     }, [selectedDate]);
 
     return (
-        <header className="sticky top-0 z-40 w-full bg-white print:hidden pt-safe">
+        <header className="sticky top-0 z-40 w-full bg-white/95 supports-[backdrop-filter]:bg-white/85 backdrop-blur-md print:hidden pt-safe shadow-[0_1px_0_rgba(17,24,39,0.06)]">
             {/* ─── PRIMARY ROW: Brand + Sport Tabs + Actions ──── */}
             <div className="max-w-7xl mx-auto w-full">
-                <div className="h-[50px] px-4 md:px-7 flex items-center justify-between border-b border-zinc-200">
+                <div className="h-[52px] px-4 md:px-7 flex items-center justify-between border-b border-slate-200/90">
                     <div className="flex items-center gap-5">
-                        {/* Serif wordmark */}
+                        {/* Wordmark */}
                         <button
                             onClick={() => toggleSportDrawer(true)}
                             className="flex items-center select-none active:scale-[0.97] transition-transform md:cursor-default"
                         >
                             <span
-                                className="text-[20px] tracking-[-0.02em] text-zinc-900 italic leading-none"
-                                style={{ fontFamily: "'Instrument Serif', Georgia, serif" }}
+                                className="text-[22px] tracking-[-0.03em] text-[#0B63F6] leading-none font-extrabold"
                             >
                                 The Drip
                             </span>
                         </button>
 
                         {/* Divider */}
-                        <div className="hidden md:block w-px h-[18px] bg-zinc-200" />
+                        <div className="hidden md:block w-px h-[18px] bg-slate-200" />
 
                         {/* Inline Sport Tabs */}
                         <nav className="hidden md:flex items-center gap-0.5">
@@ -149,13 +147,13 @@ export const UnifiedHeader: FC = () => {
                                             onClick={() => handleSportTab(sport)}
                                             className={cn(
                                                 "relative px-2.5 py-[5px] rounded-md text-[12.5px] tracking-tight transition-colors select-none",
-                                                isActive ? "font-semibold text-zinc-900" : "font-normal text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50"
+                                                isActive ? "font-semibold text-[#312E81]" : "font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50"
                                             )}
                                         >
                                             {isActive && (
                                                 <MotionSpan
                                                     layoutId="sport-active-pill"
-                                                    className="absolute inset-0 rounded-md bg-zinc-100"
+                                                    className="absolute inset-0 rounded-md bg-[#EFF6FF] ring-1 ring-[#BFDBFE]"
                                                     transition={ESSENCE.transition.spring}
                                                 />
                                             )}
@@ -171,7 +169,7 @@ export const UnifiedHeader: FC = () => {
                     <div className="flex items-center gap-2">
                         <a
                             href="/reports"
-                            className="h-[34px] flex items-center gap-1.5 px-3 rounded-lg text-[11px] font-semibold tracking-[0.04em] transition-all active:scale-95 select-none border bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
+                            className="h-[34px] flex items-center gap-1.5 px-3 rounded-lg text-[11px] font-semibold tracking-[0.04em] transition-all active:scale-95 select-none border bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
                             REPORTS
@@ -182,22 +180,22 @@ export const UnifiedHeader: FC = () => {
                             className={cn(
                                 "h-[34px] flex items-center gap-1.5 px-3 rounded-lg text-[11px] font-semibold tracking-[0.04em] transition-all active:scale-95 select-none border",
                                 activeView === 'LIVE'
-                                    ? "bg-zinc-900 border-zinc-900 text-white"
-                                    : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
+                                    ? "bg-[#0B63F6] border-[#0B63F6] text-white shadow-[0_8px_20px_-10px_rgba(11,99,246,0.5)]"
+                                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
                             )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
                             LIVE
                         </button>
 
-                        <div className="hidden md:block w-px h-[18px] bg-zinc-200 mx-0.5" />
+                        <div className="hidden md:block w-px h-[18px] bg-slate-200 mx-0.5" />
 
                         <div className="hidden md:flex"><OddsLensToggle /></div>
 
                         <button
                             type="button"
                             onClick={() => toggleCmdk()}
-                            className="w-[34px] h-[34px] flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95"
+                            className="w-[34px] h-[34px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-all active:scale-95"
                         >
                             <Search size={15} strokeWidth={1.8} />
                         </button>
@@ -206,9 +204,9 @@ export const UnifiedHeader: FC = () => {
                             <button
                                 type="button"
                                 onClick={() => toggleAuthModal(true)}
-                                className="relative w-[34px] h-[34px] rounded-full bg-zinc-100 border border-zinc-200 p-0.5 active:scale-95 transition-transform"
+                                className="relative w-[34px] h-[34px] rounded-full bg-slate-100 border border-slate-300 p-0.5 active:scale-95 transition-transform"
                             >
-                                <div className="w-full h-full rounded-full bg-zinc-200 flex items-center justify-center text-[10px] font-bold text-zinc-700 uppercase tracking-tighter">
+                                <div className="w-full h-full rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-700 uppercase tracking-tighter">
                                     {user.email?.[0]}
                                 </div>
                             </button>
@@ -216,7 +214,7 @@ export const UnifiedHeader: FC = () => {
                             <button
                                 type="button"
                                 onClick={() => toggleAuthModal(true)}
-                                className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 active:scale-95 transition-all"
+                                className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-50 active:scale-95 transition-all"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
                                     <circle cx="8" cy="5.5" r="3" /><path d="M2 14.5c0-3 2.7-5 6-5s6 2 6 5" />
@@ -229,7 +227,7 @@ export const UnifiedHeader: FC = () => {
 
             {/* ─── SECONDARY ROW: Date Strip ──────────────────── */}
             <div className="max-w-7xl mx-auto w-full">
-                <div className="h-[44px] px-4 md:px-7 flex items-center justify-between border-b border-zinc-100">
+                <div className="h-[46px] px-4 md:px-7 flex items-center justify-between border-b border-slate-200/80">
                     <AnimatePresence mode="wait">
                         {activeView === 'FEED' ? (
                             <MotionDiv
@@ -244,16 +242,16 @@ export const UnifiedHeader: FC = () => {
                                     <button
                                         type="button"
                                         onClick={() => setSelectedDate(-navStep)}
-                                        className="w-[34px] h-[34px] flex items-center justify-center text-zinc-500 hover:text-zinc-900 border border-zinc-200 rounded-lg transition-all active:scale-90"
+                                        className="w-[34px] h-[34px] flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-300 rounded-lg bg-white transition-all active:scale-90"
                                     >
                                         <ChevronLeft size={16} />
                                     </button>
 
-                                    <button type="button" className="h-[34px] flex items-center gap-2 px-3.5 rounded-lg border border-zinc-200 bg-zinc-50/50 hover:bg-zinc-100 transition-colors select-none">
-                                        <span className="text-[13px] font-medium text-zinc-900">{dateDisplay.label}</span>
+                                    <button type="button" className="h-[34px] flex items-center gap-2 px-3.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors select-none">
+                                        <span className="text-[13px] font-semibold text-slate-900">{dateDisplay.label}</span>
                                         {dateDisplay.isToday && (
                                             <span
-                                                className="text-[9.5px] font-bold tracking-[0.04em] text-zinc-900 px-1.5 py-px"
+                                                className="text-[9.5px] font-bold tracking-[0.06em] text-[#1E40AF] px-1.5 py-px rounded bg-[#EFF6FF]"
                                                 style={{
                                                     fontFamily: "ui-monospace, SFMono-Regular, monospace",
                                                 }}
@@ -261,13 +259,13 @@ export const UnifiedHeader: FC = () => {
                                                 TODAY
                                             </span>
                                         )}
-                                        <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="#a1a1aa" strokeWidth="1.5"><path d="M2 4L5 7L8 4" /></svg>
+                                        <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="#64748B" strokeWidth="1.5"><path d="M2 4L5 7L8 4" /></svg>
                                     </button>
 
                                     <button
                                         type="button"
                                         onClick={() => setSelectedDate(navStep)}
-                                        className="w-[34px] h-[34px] flex items-center justify-center text-zinc-500 hover:text-zinc-900 border border-zinc-200 rounded-lg transition-all active:scale-90"
+                                        className="w-[34px] h-[34px] flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-300 rounded-lg bg-white transition-all active:scale-90"
                                     >
                                         <ChevronRight size={16} />
                                     </button>
@@ -279,7 +277,7 @@ export const UnifiedHeader: FC = () => {
                                         <button
                                             key={qd.value}
                                             onClick={() => handleWeekSelect(qd.value)}
-                                            className="px-2.5 py-1 rounded-[5px] text-[11px] text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 transition-all select-none"
+                                            className="px-2.5 py-1 rounded-[5px] text-[11px] text-slate-500 hover:text-[#1D4ED8] hover:bg-[#EFF6FF] transition-all select-none"
                                         >
                                             {qd.label}
                                         </button>
@@ -294,7 +292,7 @@ export const UnifiedHeader: FC = () => {
                                 exit={{ opacity: 0 }}
                                 className="flex-1 flex items-center justify-between gap-4"
                             >
-                                <div className="flex items-center bg-zinc-50 rounded-lg p-0.5 border border-zinc-200">
+                                <div className="flex items-center bg-slate-50 rounded-lg p-0.5 border border-slate-300">
                                     {(['LIVE', 'NEXT', 'ENDED'] as const).map((tab) => {
                                         const labels = { LIVE: 'Live', NEXT: 'Upcoming', ENDED: 'Completed' };
                                         const isActive = liveTab === tab;
@@ -304,7 +302,7 @@ export const UnifiedHeader: FC = () => {
                                                 onClick={() => setLiveTab(tab)}
                                                 className={cn(
                                                     "relative px-3 py-1.5 rounded-md text-[11px] font-semibold tracking-tight transition-colors",
-                                                    isActive ? "text-zinc-900 bg-white shadow-sm" : "text-zinc-400 hover:text-zinc-600"
+                                                    isActive ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700"
                                                 )}
                                             >
                                                 {labels[tab]}
@@ -314,25 +312,25 @@ export const UnifiedHeader: FC = () => {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="relative">
-                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={12} />
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={12} />
                                         <input
                                             type="text"
                                             placeholder="Search..."
                                             value={liveFilter}
                                             onChange={(e) => setLiveFilter(e.target.value)}
-                                            className="w-28 bg-zinc-50 border border-zinc-200 rounded-lg py-1.5 pl-7 pr-2 text-[11px] text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:border-zinc-300 transition-all"
+                                            className="w-28 bg-white border border-slate-300 rounded-lg py-1.5 pl-7 pr-2 text-[11px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#93C5FD] transition-all"
                                         />
                                     </div>
-                                    <div className="flex bg-zinc-50 rounded-lg p-0.5 border border-zinc-200">
+                                    <div className="flex bg-slate-50 rounded-lg p-0.5 border border-slate-300">
                                         <button
                                             onClick={() => setLiveLayout('LIST')}
-                                            className={cn("p-1.5 rounded-md transition-colors", liveLayout === 'LIST' ? "text-zinc-900 bg-white shadow-sm" : "text-zinc-400 hover:text-zinc-600")}
+                                            className={cn("p-1.5 rounded-md transition-colors", liveLayout === 'LIST' ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700")}
                                         >
                                             <List size={14} />
                                         </button>
                                         <button
                                             onClick={() => setLiveLayout('GRID')}
-                                            className={cn("p-1.5 rounded-md transition-colors", liveLayout === 'GRID' ? "text-zinc-900 bg-white shadow-sm" : "text-zinc-400 hover:text-zinc-600")}
+                                            className={cn("p-1.5 rounded-md transition-colors", liveLayout === 'GRID' ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700")}
                                         >
                                             <Grid3X3 size={14} />
                                         </button>

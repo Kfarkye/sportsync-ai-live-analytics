@@ -68,6 +68,7 @@ function useEventCallback<T extends (...args: any[]) => any>(fn: T): T {
 
 const ACCORDION_SPRING = { type: 'spring' as const, duration: 0.35, bounce: 0 };
 const STAGGER_DELAY = 0.04;
+const STALE_THRESHOLD_MS = 10 * 60 * 1000;
 
 const LEAGUE_WEIGHTS = new Map(LEAGUES.map((l, i) => [l.id.toLowerCase(), i]));
 
@@ -77,6 +78,25 @@ const parseSafeDateMs = (dateString?: string): number => {
     const normalized = dateString.includes('T') ? dateString : dateString.replace(' ', 'T');
     const ms = Date.parse(normalized);
     return Number.isNaN(ms) ? Number.MAX_SAFE_INTEGER : ms;
+};
+
+const parseUpdatedAtMs = (match: Match): number => {
+    const lastUpdatedMs = match.last_updated ? Date.parse(match.last_updated) : Number.NaN;
+    if (!Number.isNaN(lastUpdatedMs) && Number.isFinite(lastUpdatedMs)) return lastUpdatedMs;
+
+    const fetchedAt = typeof match.fetched_at === 'number' ? match.fetched_at : Number.NaN;
+    if (!Number.isNaN(fetchedAt) && Number.isFinite(fetchedAt)) return fetchedAt;
+
+    return 0;
+};
+
+const formatAgeLabel = (ageMs: number): string => {
+    if (ageMs < 60_000) return 'just now';
+    const mins = Math.floor(ageMs / 60_000);
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    const rem = mins % 60;
+    return rem === 0 ? `${hours}h ago` : `${hours}h ${rem}m ago`;
 };
 
 /** Normalize team name for fuzzy matching: lowercase, alphanumeric only */
@@ -315,30 +335,31 @@ PropRow.displayName = 'PropRow';
 
 const PremiumProCTA = memo(({ onPricing, className }: { onPricing: () => void; className?: string }) => (
     <section className={cn(
-        "relative rounded-xl bg-[linear-gradient(145deg,#18181b,#09090b)] p-5 overflow-hidden shadow-[0_8px_24px_-8px_rgba(0,0,0,0.2)] ring-1 ring-white/10",
+        "relative rounded-2xl bg-[linear-gradient(145deg,#ffffff,#f4f8ff)] p-5 overflow-hidden shadow-[0_10px_24px_-12px_rgba(30,64,175,0.22)] ring-1 ring-blue-200/80",
         className
     )}>
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#0B63F6] to-transparent opacity-70" />
         <div className="relative z-10">
             <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center justify-center w-[20px] h-[20px] rounded bg-white text-black shadow-[0_0_12px_rgba(255,255,255,0.15)]">
+                <div className="flex items-center justify-center w-[20px] h-[20px] rounded bg-[#0B63F6] text-white shadow-[0_8px_14px_-8px_rgba(11,99,246,0.45)]">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                     </svg>
                 </div>
-                <h3 className="font-mono text-[10px] font-bold tracking-[0.14em] text-white uppercase">
+                <h3 className="font-mono text-[10px] font-bold tracking-[0.14em] text-blue-700 uppercase">
                     Pro Access
                 </h3>
             </div>
-            <p className="text-[12.5px] text-zinc-400 leading-relaxed mb-4 font-medium">
+            <p className="text-[12.5px] text-slate-600 leading-relaxed mb-4 font-medium">
                 Unlock deep AI prop analysis, L5 hit rates, and real-time line movement alerts.
             </p>
             <button
                 type="button"
                 onClick={onPricing}
-                className="group/btn w-full h-[40px] bg-white text-zinc-950 text-[12.5px] font-bold rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 focus-visible:ring-white flex items-center justify-center gap-2 shadow-sm"
+                className="group/btn w-full h-[40px] bg-[#0B63F6] text-white text-[12.5px] font-bold rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-blue-300 flex items-center justify-center gap-2 shadow-sm hover:bg-[#0954d1]"
             >
                 Upgrade
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover/btn:translate-x-0.5 text-zinc-400 group-hover/btn:text-zinc-950">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover/btn:translate-x-0.5 text-blue-100 group-hover/btn:text-white">
                     <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
                 </svg>
             </button>
@@ -412,34 +433,34 @@ const LeagueGroup = memo(({
                 className={cn(
                     'flex items-center justify-between w-full min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2.5 sm:py-3 [-webkit-tap-highlight-color:transparent]',
                     // Keep group headers static so ordering never shifts behind match rows.
-                    'bg-zinc-50/80 backdrop-blur-sm border-b border-zinc-200/60 z-20',
-                    'transition-colors hover:bg-zinc-100',
-                    'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400',
-                    isExpanded ? 'border border-zinc-200 border-b-zinc-200/60 rounded-t-xl shadow-sm' : 'border border-zinc-200 border-b-transparent rounded-xl shadow-sm'
+                    'bg-[#F8FAFC] backdrop-blur-sm border-b border-blue-200/70 z-20',
+                    'transition-colors hover:bg-blue-50/80',
+                    'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300',
+                    isExpanded ? 'border border-blue-200 border-b-blue-200/70 rounded-t-xl shadow-[0_12px_24px_-20px_rgba(30,64,175,0.36)]' : 'border border-blue-200 border-b-transparent rounded-xl shadow-[0_12px_24px_-20px_rgba(30,64,175,0.36)]'
                 )}
                 aria-expanded={isExpanded}
                 aria-controls={`league-content-${leagueId}`}
             >
                 <div className="flex items-center gap-2">
-                    <h3 className="text-[11px] font-bold text-zinc-900 tracking-wide uppercase" style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace", letterSpacing: "0.08em" }}>{leagueName}</h3>
-                    <span className="text-[14px] text-zinc-300 leading-none" aria-hidden="true">·</span>
-                    <span className="text-[11px] font-medium text-zinc-500">
+                    <h3 className="text-[11px] font-bold text-blue-800 tracking-wide uppercase" style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace", letterSpacing: "0.08em" }}>{leagueName}</h3>
+                    <span className="text-[14px] text-blue-200 leading-none" aria-hidden="true">·</span>
+                    <span className="text-[11px] font-medium text-slate-600">
                         {enrichedMatches.length} {enrichedMatches.length === 1 ? 'game' : 'games'}
                     </span>
                     {earliestTime && (
                         <>
-                            <span className="text-[14px] text-zinc-300 leading-none" aria-hidden="true">·</span>
-                            <span className="text-[11px] font-medium text-zinc-500" suppressHydrationWarning>
+                            <span className="text-[14px] text-blue-200 leading-none" aria-hidden="true">·</span>
+                            <span className="text-[11px] font-medium text-slate-600" suppressHydrationWarning>
                                 {earliestTime}
                             </span>
                         </>
                     )}
                 </div>
-                <motion.svg
+                    <motion.svg
                     xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                     fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                    className="text-slate-400" animate={{ rotate: isExpanded ? 0 : -90 }} transition={{ duration: 0.2 }}
-                >
+                        className="text-blue-400" animate={{ rotate: isExpanded ? 0 : -90 }} transition={{ duration: 0.2 }}
+                    >
                     <path d="m6 9 6 6 6-6" />
                 </motion.svg>
             </button>
@@ -455,7 +476,7 @@ const LeagueGroup = memo(({
                         transition={ACCORDION_SPRING}
                         className={cn(
                             'overflow-hidden relative z-0 -mt-[1px]',
-                            'bg-white ring-1 ring-zinc-950/[0.04] rounded-b-xl shadow-sm'
+                            'bg-white ring-1 ring-blue-200/80 rounded-b-xl shadow-[0_14px_28px_-20px_rgba(30,64,175,0.28)]'
                         )}
                     >
                         <div ref={measureRef} className="flex flex-col divide-y divide-zinc-100/80">
@@ -498,6 +519,15 @@ const MatchList: React.FC<MatchListProps> = ({
     const { data: polyResult } = usePolyOdds();
     const { data: featuredProps = [] } = useFeaturedProps(4);
     const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const latestDataUpdatedMs = useMemo(() => {
+        return matches.reduce((latest, match) => {
+            const updatedMs = parseUpdatedAtMs(match);
+            return updatedMs > latest ? updatedMs : latest;
+        }, 0);
+    }, [matches]);
+    const dataAgeMs = latestDataUpdatedMs > 0 ? Math.max(0, Date.now() - latestDataUpdatedMs) : null;
+    const isDataStale = dataAgeMs !== null && dataAgeMs > STALE_THRESHOLD_MS;
+    const freshnessLabel = dataAgeMs === null ? 'unknown' : formatAgeLabel(dataAgeMs);
 
     // Steal #1: Pre-resolve Market Pulse pipeline outside render loop
     const pulseMarkets = useMemo(() => {
@@ -585,15 +615,15 @@ const MatchList: React.FC<MatchListProps> = ({
     // Steal #5: Upgraded loading skeleton
     if (isLoading && matches.length === 0) {
         return (
-            <div className="min-h-screen bg-[#F9F9FA] pt-2 sm:pt-6 lg:pt-6" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
+            <div className="min-h-screen bg-[#F4F6FF] pt-2 sm:pt-6 lg:pt-6" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
                 <div className="max-w-7xl mx-auto w-full px-0 lg:px-6" aria-busy="true" aria-label="Loading matches">
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-8 items-start">
-                        <div className="flex flex-col w-full rounded-xl overflow-hidden bg-white ring-1 ring-zinc-950/5 shadow-sm">
+                        <div className="flex flex-col w-full rounded-2xl overflow-hidden bg-white ring-1 ring-slate-200 shadow-[0_14px_28px_-20px_rgba(30,64,175,0.22)]">
                             {Array.from({ length: 8 }, (_, i) => <MatchRowSkeleton key={`skel-${i}`} />)}
                         </div>
                         <aside className="hidden lg:flex flex-col gap-4">
-                            <div className="h-[280px] bg-white ring-1 ring-black/5 rounded-xl shadow-sm animate-pulse" />
-                            <div className="h-[240px] bg-white ring-1 ring-black/5 rounded-xl shadow-sm animate-pulse" style={{ animationDelay: '100ms' }} />
+                            <div className="h-[280px] bg-white ring-1 ring-slate-200 rounded-2xl shadow-sm animate-pulse" />
+                            <div className="h-[240px] bg-white ring-1 ring-slate-200 rounded-2xl shadow-sm animate-pulse" style={{ animationDelay: '100ms' }} />
                         </aside>
                     </div>
                 </div>
@@ -608,7 +638,7 @@ const MatchList: React.FC<MatchListProps> = ({
                 initial={{ opacity: 0, scale: 0.99 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className="flex flex-col items-center justify-center min-h-[50vh] text-zinc-400 select-none bg-[#F9F9FA] px-6 text-center"
+                className="flex flex-col items-center justify-center min-h-[50vh] text-zinc-400 select-none bg-[#F4F6FF] px-6 text-center"
                 style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}
             >
                 <div className="w-14 h-14 rounded-[14px] bg-white ring-1 ring-zinc-900/5 flex items-center justify-center mb-4 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)]">
@@ -623,7 +653,7 @@ const MatchList: React.FC<MatchListProps> = ({
     }
 
     return (
-        <div className="min-h-screen bg-[#F9F9FA]" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
+        <div className="min-h-screen bg-[#F4F6FF]" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
             <LayoutGroup id="editorial-feed">
                 <div className="max-w-7xl mx-auto px-0 lg:px-6 w-full">
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-8 items-start">
@@ -631,6 +661,18 @@ const MatchList: React.FC<MatchListProps> = ({
                         {/* MAIN COLUMN */}
                         <div className="min-w-0 flex flex-col">
                             <div className="space-y-3 sm:space-y-6 pt-0 sm:pt-4">
+                                <div className="px-3 sm:px-0">
+                                    <div className={cn(
+                                        "inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
+                                        isDataStale
+                                            ? "border-amber-200 bg-amber-50 text-amber-700"
+                                            : "border-blue-200 bg-white text-blue-700"
+                                    )}>
+                                        <span>Last updated: {freshnessLabel}</span>
+                                        {isLoading ? <span className="text-slate-500">Refreshing…</span> : null}
+                                        {isDataStale ? <span className="text-amber-700">Feed may be stale</span> : null}
+                                    </div>
+                                </div>
                                 {groupedMatches.map(([leagueId, enrichedMatchArray], groupIndex) => {
                                     const leagueConfig = LEAGUES.find((l) => l.id.toLowerCase() === leagueId);
                                     return (
@@ -652,17 +694,17 @@ const MatchList: React.FC<MatchListProps> = ({
                             {/* Mobile widgets parity for sidebar content */}
                             <div className="lg:hidden px-3 sm:px-0 pt-4 space-y-4">
                                 {pulseMarkets.length > 0 && (
-                                    <section className="rounded-xl bg-white border border-zinc-200 overflow-hidden" aria-label="Market Pulse">
-                                        <div className="px-3.5 py-2.5 border-b border-zinc-100 bg-zinc-50/50 flex justify-between items-center">
+                                    <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Market Pulse">
+                                        <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                             <div className="flex items-center gap-2">
-                                                <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-zinc-100 border border-zinc-200/80 text-zinc-500">
+                                                <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                     <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
                                                 </div>
-                                                <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-zinc-700 uppercase">Market Pulse</span>
+                                                <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-blue-800 uppercase">Market Pulse</span>
                                             </div>
-                                            <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">Via Polymarket</span>
+                                            <span className="font-mono text-[8.5px] text-blue-300 tracking-[0.03em] uppercase">Via Polymarket</span>
                                         </div>
-                                        <div className="divide-y divide-zinc-100/80">
+                                        <div className="divide-y divide-slate-100/80">
                                         {pulseMarkets.slice(0, 3).map(({ poly, match }, i) => (
                                             <MarketPulseRow
                                                 key={`mobile-${poly.poly_event_slug || i}`}
@@ -676,21 +718,21 @@ const MatchList: React.FC<MatchListProps> = ({
                                 )}
 
                                 {featuredProps.length > 0 && (
-                                    <section className="rounded-xl bg-white border border-zinc-200 overflow-hidden" aria-label="Featured Props">
-                                        <div className="px-3.5 py-2.5 border-b border-zinc-100 bg-zinc-50/50 flex justify-between items-center">
+                                    <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Featured Props">
+                                        <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                             <div className="flex items-center gap-2">
-                                                <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-zinc-100 border border-zinc-200/80 text-zinc-500">
+                                                <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                     <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                                         <path d="M1 10L5 6L8 9L13 4" /><path d="M9 4H13V8" />
                                                     </svg>
                                                 </div>
-                                                <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-zinc-700 uppercase">Featured Props</span>
+                                                <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-blue-800 uppercase">Featured Props</span>
                                             </div>
-                                            <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">
+                                            <span className="font-mono text-[8.5px] text-blue-300 tracking-[0.03em] uppercase">
                                                 {featuredProps[0]?.event_date === todayIso ? 'Today' : 'Tomorrow'}
                                             </span>
                                         </div>
-                                        <div className="divide-y divide-zinc-100/80">
+                                        <div className="divide-y divide-slate-100/80">
                                         {featuredProps.slice(0, 3).map((prop, i) => (
                                             <PropRow key={`mobile-${prop.player_name}${prop.bet_type}`} prop={prop} />
                                         ))}
@@ -706,17 +748,17 @@ const MatchList: React.FC<MatchListProps> = ({
                         <aside className="hidden lg:flex flex-col sticky top-[104px] gap-4 pt-6">
                             {/* Market Pulse — Polymarket (now memoized) */}
                             {pulseMarkets.length > 0 && (
-                                <section className="rounded-xl bg-white border border-zinc-200 overflow-hidden" aria-label="Market Pulse">
-                                    <div className="px-3.5 py-2.5 border-b border-zinc-100 bg-zinc-50/50 flex justify-between items-center">
+                                <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Market Pulse">
+                                    <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                         <div className="flex items-center gap-2">
-                                            <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-zinc-100 border border-zinc-200/80 text-zinc-500">
+                                            <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                 <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
                                             </div>
-                                            <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-zinc-700 uppercase">Market Pulse</span>
+                                            <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-blue-800 uppercase">Market Pulse</span>
                                         </div>
-                                        <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">Via Polymarket</span>
+                                        <span className="font-mono text-[8.5px] text-blue-300 tracking-[0.03em] uppercase">Via Polymarket</span>
                                     </div>
-                                    <div className="divide-y divide-zinc-100/80">
+                                    <div className="divide-y divide-slate-100/80">
                                     {pulseMarkets.map(({ poly, match }, i) => (
                                         <MarketPulseRow
                                             key={poly.poly_event_slug || i}
@@ -731,21 +773,21 @@ const MatchList: React.FC<MatchListProps> = ({
 
                             {/* Featured Props */}
                             {featuredProps.length > 0 && (
-                                <section className="rounded-xl bg-white border border-zinc-200 overflow-hidden" aria-label="Featured Props">
-                                    <div className="px-3.5 py-2.5 border-b border-zinc-100 bg-zinc-50/50 flex justify-between items-center">
+                                <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Featured Props">
+                                    <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                         <div className="flex items-center gap-2">
-                                            <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-zinc-100 border border-zinc-200/80 text-zinc-500">
+                                            <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                 <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                                     <path d="M1 10L5 6L8 9L13 4"/><path d="M9 4H13V8"/>
                                                 </svg>
                                             </div>
-                                            <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-zinc-700 uppercase">Featured Props</span>
+                                            <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-blue-800 uppercase">Featured Props</span>
                                         </div>
-                                        <span className="font-mono text-[8.5px] text-zinc-300 tracking-[0.03em] uppercase">
+                                        <span className="font-mono text-[8.5px] text-blue-300 tracking-[0.03em] uppercase">
                                             {featuredProps[0]?.event_date === todayIso ? 'Today' : 'Tomorrow'}
                                         </span>
                                     </div>
-                                    <div className="divide-y divide-zinc-100/80">
+                                    <div className="divide-y divide-slate-100/80">
                                     {featuredProps.map((prop, i) => (
                                         <PropRow key={prop.player_name + prop.bet_type} prop={prop} />
                                     ))}
