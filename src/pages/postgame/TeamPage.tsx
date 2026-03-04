@@ -1,6 +1,7 @@
 import React, { type FC } from 'react';
 import { formatMatchDateLabel, formatPct, formatSignedNumber, leagueLabel } from '@/lib/postgamePages';
 import { useTeamPage } from '@/hooks/usePostgame';
+import { useTeamHistory } from '@/hooks/useTeamHistory';
 import {
   Card,
   CardBody,
@@ -34,6 +35,24 @@ const resultTone = (value: 'W' | 'D' | 'L' | '—' | 'P' | 'O' | 'U') => {
 export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
   const leagueParam = query.get('league');
   const { data, isLoading, error } = useTeamPage(teamSlug, leagueParam);
+  const {
+    data: historyRows = [],
+    isLoading: isHistoryLoading,
+    error: historyError,
+  } = useTeamHistory(teamSlug, leagueParam);
+
+  const seasonRows = historyRows.length > 0 ? historyRows : (data?.rows ?? []);
+  const seasonRecord = seasonRows.reduce(
+    (acc, row) => {
+      if (row.result === 'W') acc.wins += 1;
+      if (row.result === 'D') acc.draws += 1;
+      if (row.result === 'L') acc.losses += 1;
+      acc.goalsFor += row.teamScore ?? 0;
+      acc.goalsAgainst += row.oppScore ?? 0;
+      return acc;
+    },
+    { wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 },
+  );
 
   return (
     <PageShell>
@@ -48,9 +67,13 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">Team</p>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{data.teamName}</h1>
             <p className="text-sm text-slate-500">
-              {data.leagueId ? leagueLabel(data.leagueId) : 'All Leagues'} · <ValueText>{data.aggregate.matches}</ValueText> matches
+              {data.leagueId ? leagueLabel(data.leagueId) : 'All Leagues'} · <ValueText>{seasonRows.length}</ValueText> matches
             </p>
           </header>
+
+          {historyError ? (
+            <EmptyBlock message={`Team history fallback active (using postgame rows): ${historyError.message}`} />
+          ) : null}
 
           <Card>
             <CardHeader>
@@ -62,7 +85,7 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
                   label="Record"
                   value={
                     <ValueText>
-                      {data.aggregate.wins}-{data.aggregate.draws}-{data.aggregate.losses}
+                      {seasonRecord.wins}-{seasonRecord.draws}-{seasonRecord.losses}
                     </ValueText>
                   }
                 />
@@ -70,7 +93,7 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
                   label="Goals"
                   value={
                     <ValueText>
-                      {data.aggregate.goalsFor}:{data.aggregate.goalsAgainst}
+                      {seasonRecord.goalsFor}:{seasonRecord.goalsAgainst}
                     </ValueText>
                   }
                 />
@@ -126,7 +149,9 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
               <SectionLabel>Season Results</SectionLabel>
             </CardHeader>
             <CardBody className="p-0">
-              {data.rows.length === 0 ? (
+              {isHistoryLoading && (data?.rows?.length ?? 0) === 0 ? (
+                <div className="px-4 py-6 text-sm text-slate-500">Loading team history…</div>
+              ) : seasonRows.length === 0 ? (
                 <div className="px-4 py-6 text-sm text-slate-500">No team matches found.</div>
               ) : (
                 <div className="overflow-x-auto">
@@ -143,7 +168,7 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.rows.map((row) => (
+                      {seasonRows.map((row) => (
                         <tr key={row.matchId} className="border-b border-slate-200 text-slate-800">
                           <td className="px-4 py-3 text-xs text-slate-500">{formatMatchDateLabel(row.startTime)}</td>
                           <td className="px-4 py-3">

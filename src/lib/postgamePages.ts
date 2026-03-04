@@ -212,8 +212,30 @@ const LEGACY_LEAGUE_MAP: Record<string, string> = {
   'ger.1': 'bundesliga',
   'fra.1': 'ligue1',
   'usa.1': 'mls',
+  'mex.1': 'liga_mx',
   'uefa.champions': 'ucl',
   'uefa.europa': 'uel',
+};
+
+const POSTGAME_TO_MATCHES_LEAGUE_MAP: Record<string, string> = {
+  epl: 'eng.1',
+  laliga: 'esp.1',
+  seriea: 'ita.1',
+  bundesliga: 'ger.1',
+  ligue1: 'fra.1',
+  mls: 'usa.1',
+  ucl: 'uefa.champions',
+  uel: 'uefa.europa',
+  liga_mx: 'mex.1',
+  'eng.1': 'eng.1',
+  'esp.1': 'esp.1',
+  'ita.1': 'ita.1',
+  'ger.1': 'ger.1',
+  'fra.1': 'fra.1',
+  'usa.1': 'usa.1',
+  'mex.1': 'mex.1',
+  'uefa.champions': 'uefa.champions',
+  'uefa.europa': 'uefa.europa',
 };
 
 const BOX_SCORE_KEYS: Array<{ key: string; label: string; home: string[]; away: string[]; pct?: boolean }> = [
@@ -1079,6 +1101,86 @@ const parseTeamStats = (detail: SoccerMatchDetail, isHome: boolean): {
   };
 };
 
+type MatchHistoryRecord = {
+  id: string | null;
+  league_id: string | null;
+  home_team: string | null;
+  away_team: string | null;
+  home_score: number | null;
+  away_score: number | null;
+  start_time: string | null;
+  status: string | null;
+};
+
+const toMatchesLeagueId = (league: string | null | undefined): string | null => {
+  if (!league) return null;
+  const normalized = normalizeLeagueId(league).toLowerCase();
+  return POSTGAME_TO_MATCHES_LEAGUE_MAP[normalized] ?? normalized;
+};
+
+const toTeamSeasonRowFromMatch = (record: MatchHistoryRecord, teamSlug: string): TeamSeasonRow | null => {
+  const homeTeam = parseStringSafe(record.home_team);
+  const awayTeam = parseStringSafe(record.away_team);
+  const startTime = parseStringSafe(record.start_time);
+  const matchId = parseStringSafe(record.id);
+
+  if (!homeTeam || !awayTeam || !startTime || !matchId) return null;
+
+  const homeSlug = slugifyTeam(homeTeam);
+  const awaySlug = slugifyTeam(awayTeam);
+  if (homeSlug !== teamSlug && awaySlug !== teamSlug) return null;
+
+  const isHome = homeSlug === teamSlug;
+  const teamScore = parseIntSafe(isHome ? record.home_score : record.away_score);
+  const oppScore = parseIntSafe(isHome ? record.away_score : record.home_score);
+
+  return {
+    matchId,
+    matchSlug: buildMatchSlug(record as unknown as UnknownRecord),
+    startTime,
+    opponent: isHome ? awayTeam : homeTeam,
+    isHome,
+    teamScore,
+    oppScore,
+    result: matchResult(teamScore, oppScore),
+    atsResult: '—',
+    ouResult: '—',
+    spread: null,
+    total: null,
+    moneyline: null,
+  };
+};
+
+export async function fetchTeamHistoryRows(teamSlug: string, league?: string): Promise<TeamSeasonRow[]> {
+  ensureConfigured();
+
+  const matchesLeagueId = toMatchesLeagueId(league ?? null);
+  const searchTerm = teamSlug.replace(/-/g, ' ').replace(/[^a-z0-9\s]/gi, '').trim();
+
+  let query = supabase
+    .from('matches')
+    .select('id,league_id,home_team,away_team,home_score,away_score,start_time,status')
+    .in('status', ['STATUS_FINAL', 'STATUS_FULL_TIME'])
+    .order('start_time', { ascending: false })
+    .limit(2000);
+
+  if (matchesLeagueId) {
+    query = query.eq('league_id', matchesLeagueId);
+  }
+
+  if (searchTerm) {
+    query = query.or(`home_team.ilike.%${searchTerm}%,away_team.ilike.%${searchTerm}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return ((data as MatchHistoryRecord[] | null) ?? [])
+    .map((row) => toTeamSeasonRowFromMatch(row, teamSlug))
+    .filter((row): row is TeamSeasonRow => row !== null)
+    .sort((a, b) => Date.parse(b.startTime) - Date.parse(a.startTime));
+}
+
 export async function fetchTeamMatches(teamSlug: string, league?: string): Promise<TeamPagePayload | null> {
   ensureConfigured();
 
@@ -1132,6 +1234,7 @@ export async function fetchTeamMatches(teamSlug: string, league?: string): Promi
     const side = teamFromRow(detail, teamSlug);
     const isHome = side?.isHome ?? true;
     const teamName = side?.name ?? fallbackName;
+    const teamSpread = detail.odds.spread === null ? null : isHome ? detail.odds.spread : -detail.odds.spread;
 
     const teamScore = isHome ? detail.homeScore : detail.awayScore;
     const oppScore = isHome ? detail.awayScore : detail.homeScore;
@@ -1170,7 +1273,7 @@ export async function fetchTeamMatches(teamSlug: string, league?: string): Promi
 
     const moneyline = isHome ? detail.odds.homeMoneyline : detail.odds.awayMoneyline;
     mlValues.push(moneyline);
-    spreadValues.push(detail.odds.spread);
+    spreadValues.push(teamSpread);
     totalValues.push(detail.odds.total);
 
     return {
@@ -1184,7 +1287,7 @@ export async function fetchTeamMatches(teamSlug: string, league?: string): Promi
       result,
       atsResult: atsOutcome(isHome, detail.homeScore, detail.awayScore, detail.odds.spread),
       ouResult: ouOutcome(detail.homeScore, detail.awayScore, detail.odds.total),
-      spread: detail.odds.spread,
+      spread: teamSpread,
       total: detail.odds.total,
       moneyline,
     };
