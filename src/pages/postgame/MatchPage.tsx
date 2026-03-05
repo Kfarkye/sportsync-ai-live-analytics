@@ -2,6 +2,7 @@ import React, { type FC, useMemo } from 'react';
 import { formatMatchDateLabel, formatPct, formatSignedNumber } from '@/lib/postgamePages';
 import { useMatchBySlug } from '@/hooks/usePostgame';
 import { cn } from '@/lib/essence';
+import { CalendarClock, Flag, House, MapPin, Shield, UserRound } from 'lucide-react';
 import {
   Card,
   CardBody,
@@ -107,6 +108,14 @@ const scoreTone = (home: number | null, away: number | null): string => {
   return 'border-emerald-200 bg-emerald-50 text-emerald-700';
 };
 
+const teamInitials = (teamName: string): string => {
+  const normalized = teamName.trim();
+  if (!normalized) return 'TM';
+  const parts = normalized.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
+};
+
 const badgeTone = (
   tone: 'neutral' | 'success' | 'danger' | 'warning' | 'info',
 ): string => {
@@ -141,6 +150,27 @@ const Badge: FC<{ children: React.ReactNode; tone?: 'neutral' | 'success' | 'dan
     {children}
   </span>
 );
+
+const TeamIdentityBadge: FC<{ teamName: string; side: 'home' | 'away' }> = ({ teamName, side }) => {
+  const isHome = side === 'home';
+  const iconClass = isHome ? 'text-slate-600' : 'text-rose-600';
+  const badgeClass = isHome
+    ? 'border-slate-200 bg-slate-100 text-slate-700'
+    : 'border-rose-200 bg-rose-100 text-rose-700';
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-[11px] font-semibold tracking-tight ${badgeClass}`}>
+        {teamInitials(teamName)}
+      </span>
+      {isHome ? (
+        <House size={12} className={iconClass} aria-hidden="true" />
+      ) : (
+        <Flag size={12} className={iconClass} aria-hidden="true" />
+      )}
+    </div>
+  );
+};
 
 const SplitBar: FC<{ home: number; away: number }> = ({ home, away }) => {
   const total = home + away || 1;
@@ -769,7 +799,8 @@ const MatchSignals: FC<{
     penaltyAwarded: boolean | null;
   };
   odds: { total: number | null };
-}> = ({ homeScore, awayScore, gameFlow, odds }) => {
+  className?: string;
+}> = ({ homeScore, awayScore, gameFlow, odds, className }) => {
   if (homeScore === null || awayScore === null) return null;
 
   const total = homeScore + awayScore;
@@ -790,7 +821,7 @@ const MatchSignals: FC<{
   if (signals.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap justify-center gap-1.5">
+    <div className={cn('flex flex-wrap gap-1.5', className)}>
       {signals.map((signal) => (
         <Badge key={signal.label} tone={signal.tone}>{signal.label}</Badge>
       ))}
@@ -918,42 +949,10 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
         <div className="space-y-6 sm:space-y-7">
           <Card>
             <CardBody>
-              <div className="mb-5 flex items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{data.leagueName}</span>
-                {data.matchday ? <DataPill className="text-[10px]">MD {data.matchday}</DataPill> : null}
-              </div>
-
-              <div className="flex items-center justify-center gap-8 py-1">
-                <div className="min-w-0 flex-1 text-right">
-                  <div className="truncate text-lg font-semibold tracking-tight text-slate-900">{data.homeTeam}</div>
-                  <div className="mt-0.5 text-[10px] uppercase tracking-[0.1em] text-slate-400">Home</div>
-                </div>
-                <ScorePill home={data.homeScore} away={data.awayScore} large />
-                <div className="min-w-0 flex-1 text-left">
-                  <div className="truncate text-lg font-semibold tracking-tight text-slate-900">{data.awayTeam}</div>
-                  <div className="mt-0.5 text-[10px] uppercase tracking-[0.1em] text-slate-400">Away</div>
-                </div>
-              </div>
-
-              {data.gameFlow.homeGoals1H !== null || data.gameFlow.awayGoals1H !== null ? (
-                <div className="mt-2 flex justify-center gap-5">
-                  <div className="inline-flex items-center gap-1.5 text-xs">
-                    <span className="font-semibold uppercase tracking-[0.12em] text-slate-400">1H</span>
-                    <span className="font-semibold tabular-nums text-slate-700">
-                      {data.gameFlow.homeGoals1H ?? 0}-{data.gameFlow.awayGoals1H ?? 0}
-                    </span>
-                  </div>
-                  <div className="inline-flex items-center gap-1.5 text-xs">
-                    <span className="font-semibold uppercase tracking-[0.12em] text-slate-400">2H</span>
-                    <span className="font-semibold tabular-nums text-slate-700">
-                      {data.gameFlow.homeGoals2H ?? 0}-{data.gameFlow.awayGoals2H ?? 0}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="mt-3 flex flex-col items-center gap-2.5">
-                <div className="flex flex-wrap items-center justify-center gap-2.5 text-xs text-slate-500">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{data.leagueName}</span>
+                  {data.matchday ? <DataPill className="text-[10px]">MD {data.matchday}</DataPill> : null}
                   {data.homeScore !== null && data.awayScore !== null ? (
                     data.homeScore > data.awayScore ? (
                       <Badge tone="success">{data.homeTeam} Win</Badge>
@@ -963,17 +962,91 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                       <Badge tone="warning">Draw</Badge>
                     )
                   ) : null}
-                  <span>{formatMatchDateLabel(data.startTime)}</span>
-                  {data.venue ? <span>· {data.venue}</span> : null}
-                  {data.referee ? <span>· {data.referee}</span> : null}
                 </div>
 
-                <MatchSignals
-                  homeScore={data.homeScore}
-                  awayScore={data.awayScore}
-                  gameFlow={data.gameFlow}
-                  odds={data.odds}
-                />
+                <div className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr] sm:gap-6">
+                  <div className="min-w-0">
+                    <div className="flex items-center justify-end gap-2.5">
+                      <div className="min-w-0 text-right">
+                        <div className="truncate text-lg font-semibold tracking-tight text-slate-900">{data.homeTeam}</div>
+                        <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                          <House size={11} aria-hidden="true" />
+                          Home
+                        </div>
+                      </div>
+                      <TeamIdentityBadge teamName={data.homeTeam} side="home" />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <ScorePill home={data.homeScore} away={data.awayScore} large />
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2.5">
+                      <TeamIdentityBadge teamName={data.awayTeam} side="away" />
+                      <div className="min-w-0 text-left">
+                        <div className="truncate text-lg font-semibold tracking-tight text-slate-900">{data.awayTeam}</div>
+                        <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                          <Flag size={11} aria-hidden="true" />
+                          Away
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {data.gameFlow.homeGoals1H !== null || data.gameFlow.awayGoals1H !== null ? (
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">1st Half</div>
+                      <div className="mt-0.5 text-sm font-semibold tabular-nums text-slate-700">
+                        {data.gameFlow.homeGoals1H ?? 0}-{data.gameFlow.awayGoals1H ?? 0}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">2nd Half</div>
+                      <div className="mt-0.5 text-sm font-semibold tabular-nums text-slate-700">
+                        {data.gameFlow.homeGoals2H ?? 0}-{data.gameFlow.awayGoals2H ?? 0}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-4 grid gap-2">
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                    <span className="inline-flex items-center gap-1.5">
+                      <CalendarClock size={12} aria-hidden="true" />
+                      {formatMatchDateLabel(data.startTime)}
+                    </span>
+                    {data.venue ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <MapPin size={12} aria-hidden="true" />
+                        {data.venue}
+                      </span>
+                    ) : null}
+                    {data.referee ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <UserRound size={12} aria-hidden="true" />
+                        {data.referee}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                    <div className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      <Shield size={12} aria-hidden="true" />
+                      Match Tags
+                    </div>
+                    <MatchSignals
+                      homeScore={data.homeScore}
+                      awayScore={data.awayScore}
+                      gameFlow={data.gameFlow}
+                      odds={data.odds}
+                      className="justify-start"
+                    />
+                  </div>
+                </div>
               </div>
             </CardBody>
           </Card>
