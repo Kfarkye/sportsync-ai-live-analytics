@@ -283,8 +283,8 @@ export default function TrendsPage() {
             <Link to="/" className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50">
               Home
             </Link>
-            <Link to="/reports" className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50">
-              Reports
+            <Link to="/edge" className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50">
+              Edge
             </Link>
           </div>
           <span className="text-xs text-slate-500">{filteredMatches.length} matches in view</span>

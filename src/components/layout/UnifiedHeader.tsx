@@ -66,7 +66,9 @@ export const UnifiedHeader: FC = () => {
         [liveStatusMatches]
     );
     const hasActiveLiveGames = liveGamesCount > 0;
-    const isReportsPage = typeof window !== 'undefined' && window.location.pathname.includes('/reports');
+    const isEdgePage = typeof window !== 'undefined' && (
+        window.location.pathname.includes('/edge') || window.location.pathname.includes('/reports')
+    );
 
     useEffect(() => {
         const container = weekScrollRef.current;
@@ -177,16 +179,16 @@ export const UnifiedHeader: FC = () => {
                     {/* Right: LIVE + Lens + Search + User */}
                     <div className="flex items-center gap-2 max-[390px]:gap-1">
                         <a
-                            href="/reports"
+                            href="/edge"
                             className={cn(
                                 "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border",
-                                isReportsPage
+                                isEdgePage
                                     ? "bg-[#0A0A0A] border-[#0A0A0A] text-white"
                                     : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
                             )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
-                            REPORTS
+                            EDGE
                         </a>
                         <button
                             type="button"

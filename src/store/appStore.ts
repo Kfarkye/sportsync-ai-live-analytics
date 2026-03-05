@@ -10,11 +10,11 @@ export type LiveLayoutType = 'LIST' | 'GRID';
 
 /**
  * OddsLens display modes:
- *   PROB  — Polymarket probability native (58%)     — default for everyone
- *   ODDS  — Traditional American odds (-142)        — for degens
- *   EDGE  — Market divergence (+5.6%)               — for sharps
+ *   IMPLIED   — Implied probability (58%)
+ *   AMERICAN  — Traditional American odds (-142)
+ *   DECIMAL   — Decimal odds (1.70)
  */
-export type OddsLensMode = 'PROB' | 'ODDS' | 'EDGE';
+export type OddsLensMode = 'IMPLIED' | 'AMERICAN' | 'DECIMAL';
 
 interface AppState {
   // --- Selection State ---
@@ -75,7 +75,7 @@ export const useAppStore = create<AppState>()(
       liveFilter: '',
       liveLayout: 'LIST',
 
-      oddsLens: 'PROB' as OddsLensMode,
+      oddsLens: 'AMERICAN' as OddsLensMode,
 
       isCmdkOpen: false,
       isAuthModalOpen: false,
@@ -103,7 +103,7 @@ export const useAppStore = create<AppState>()(
       setLiveLayout: (layout) => set({ liveLayout: layout }),
       setOddsLens: (mode) => set({ oddsLens: mode }),
       toggleOddsLens: () => set((s) => {
-        const cycle: OddsLensMode[] = ['PROB', 'ODDS', 'EDGE'];
+        const cycle: OddsLensMode[] = ['IMPLIED', 'AMERICAN', 'DECIMAL'];
         const idx = cycle.indexOf(s.oddsLens);
         return { oddsLens: cycle[(idx + 1) % cycle.length] };
       }),

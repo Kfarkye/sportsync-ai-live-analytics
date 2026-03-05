@@ -144,11 +144,28 @@ export const getDrivePlayCount = (drive: Drive | undefined): number | string => 
 
 export const getInitialDateContext = (): Date => new Date();
 
+const APP_STATE_STORAGE_KEY = 'sharpedge_app_state_v1';
+
+const readPersistedSport = (): Sport | 'all' | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(APP_STATE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { state?: { selectedSport?: Sport | 'all' } };
+    const candidate = parsed?.state?.selectedSport;
+    if (candidate === 'all') return 'all';
+    return candidate && Object.values(Sport).includes(candidate as Sport) ? (candidate as Sport) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const hasPersistedSportContext = (): boolean => readPersistedSport() !== null;
+
 export const getInitialSportContext = (): Sport => {
-  const today = new Date();
-  const day = today.getDay();
-  const isNFLDay = day === 4 || day === 0 || day === 1;
-  return isNFLDay ? Sport.NFL : Sport.NBA;
+  const persisted = readPersistedSport();
+  if (persisted) return persisted as Sport;
+  return Sport.SOCCER;
 };
 
 export const getDbMatchId = (id: string, leagueId?: string): string => {

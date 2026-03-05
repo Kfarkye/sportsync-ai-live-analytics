@@ -6,6 +6,8 @@ import { cn, ESSENCE } from '@/lib/essence';
 import { motion } from 'framer-motion';
 import { getLeagueDisplayName } from '@/constants';
 import { analyzeSpread, analyzeMoneyline } from '../../utils/oddsUtils';
+import { useAppStore } from '@/store/appStore';
+import { formatOddsByMode } from '@/lib/oddsDisplay';
 
 const MotionDiv = motion.div;
 
@@ -44,6 +46,8 @@ const MatchCard: React.FC<MatchCardProps> = ({
     onSelect,
     onTogglePin
 }) => {
+    const oddsMode = useAppStore((state) => state.oddsLens);
+
     if (viewMode === 'LIST') {
         return (
             <MatchRow
@@ -95,9 +99,17 @@ const MatchCard: React.FC<MatchCardProps> = ({
             }
         }
 
-        const mlVal = isHome ? odds.ml.home : odds.ml.away;
-        if (mlVal && mlVal !== '-') {
-            return mlVal;
+        const rawMoneyline = isHome
+            ? (match.odds?.moneylineHome ?? match.odds?.homeWin ?? match.odds?.home_ml ?? match.odds?.homeML)
+            : (match.odds?.moneylineAway ?? match.odds?.awayWin ?? match.odds?.away_ml ?? match.odds?.awayML);
+        const formattedMoneyline = formatOddsByMode(rawMoneyline, oddsMode, 'moneyline');
+        if (formattedMoneyline) {
+            return formattedMoneyline;
+        }
+
+        const mlFallback = isHome ? odds.ml.home : odds.ml.away;
+        if (mlFallback && mlFallback !== '-') {
+            return mlFallback;
         }
 
         return null;

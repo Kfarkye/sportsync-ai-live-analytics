@@ -1,5 +1,5 @@
 import React, { FC, lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 import { AuthProvider } from './contexts/AuthContext';
@@ -55,7 +55,8 @@ const App: FC = () => {
                 <Route path="/league/:slug" element={<PostgameRouter />} />
                 <Route path="/team/:slug" element={<PostgameRouter />} />
                 <Route path="/match/:slug" element={<PostgameRouter />} />
-                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/edge" element={<ReportsPage />} />
+                <Route path="/reports" element={<Navigate to="/edge" replace />} />
                 <Route path="/trends" element={<TrendsPage />} />
                 <Route path="*" element={<AppShell />} />
               </Routes>

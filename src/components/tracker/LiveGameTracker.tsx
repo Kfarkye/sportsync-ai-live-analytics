@@ -40,6 +40,8 @@ import TeamLogo from '../shared/TeamLogo';
 import { cn, ESSENCE } from '@/lib/essence';
 import { isGameFinished } from '../../utils/matchUtils';
 import { computeAISignals } from '../../services/gameStateEngine';
+import { useAppStore } from '@/store/appStore';
+import { formatOddsByMode } from '@/lib/oddsDisplay';
 
 // ============================================================================
 // 1. STRICT TYPE DEFINITIONS & VIEW-MODEL SLICES
@@ -959,6 +961,7 @@ LiveGameTracker.displayName = 'LiveGameTracker';
 
 export const LiveTotalCard: FC<{ match: Match }> = memo(({ match }) => {
     const vm = useGameViewModel(match as ExtendedMatch);
+    const oddsMode = useAppStore((state) => state.oddsLens);
     if (!vm) {
         return (
             <section className="rounded-[20px] border border-slate-200 bg-white p-6 flex justify-center">
@@ -975,11 +978,36 @@ export const LiveTotalCard: FC<{ match: Match }> = memo(({ match }) => {
                 : `${vm.betting.spread}`
         : '—';
     const totalText = vm.betting.hasTotal ? String(vm.betting.total) : '—';
-    const homeMl = vm.betting.moneyline.home || '—';
-    const awayMl = vm.betting.moneyline.away || '—';
+    const homeMlRaw = vm.betting.moneyline.home || '—';
+    const awayMlRaw = vm.betting.moneyline.away || '—';
+    const homeMl = formatOddsByMode(homeMlRaw, oddsMode, 'moneyline') ?? '—';
+    const awayMl = formatOddsByMode(awayMlRaw, oddsMode, 'moneyline') ?? '—';
     const edgePts = vm.betting.signals ? safeNumber(vm.betting.signals.edge_points) : 0;
     const edgeState = vm.betting.signals?.edge_state || 'PASS';
     const signalSide = edgePts > 0 ? 'OVER' : edgePts < 0 ? 'UNDER' : 'PASS';
+    const structuralContext = (() => {
+        const spreadMove = vm.betting.lineMovement.spread;
+        if (spreadMove && Math.abs(spreadMove.diff) >= 0.5) {
+            const from = spreadMove.from > 0 ? `+${spreadMove.from}` : `${spreadMove.from}`;
+            const to = spreadMove.to > 0 ? `+${spreadMove.to}` : `${spreadMove.to}`;
+            return `Line opened ${from}, moved to ${to} on market pressure`;
+        }
+        const totalMove = vm.betting.lineMovement.total;
+        if (totalMove && Math.abs(totalMove.diff) >= 1) {
+            const shift = totalMove.diff > 0 ? '+' : '';
+            return `Total moved ${shift}${totalMove.diff.toFixed(1)} from open (${totalMove.from} → ${totalMove.to})`;
+        }
+        const modelFair = vm.betting.signals?.deterministic_fair_total;
+        const marketTotal = vm.betting.signals?.market_total;
+        if (typeof modelFair === 'number' && typeof marketTotal === 'number' && Number.isFinite(modelFair) && Number.isFinite(marketTotal)) {
+            const delta = modelFair - marketTotal;
+            if (Math.abs(delta) >= 1) {
+                const sign = delta > 0 ? '+' : '';
+                return `Fair total ${modelFair.toFixed(1)} vs market ${marketTotal.toFixed(1)} (${sign}${delta.toFixed(1)})`;
+            }
+        }
+        return null;
+    })();
 
     return (
         <section className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_18px_32px_-24px_rgba(30,64,175,0.28)]">
@@ -1022,6 +1050,11 @@ export const LiveTotalCard: FC<{ match: Match }> = memo(({ match }) => {
                         {edgeState === 'PLAY' ? `${edgePts > 0 ? '+' : ''}${edgePts.toFixed(1)} pts` : 'No edge'}
                     </span>
                 </div>
+                {structuralContext ? (
+                    <p className="border-t border-slate-100 pt-2 text-[11px] leading-relaxed text-slate-600">
+                        {structuralContext}
+                    </p>
+                ) : null}
             </div>
         </section>
     );

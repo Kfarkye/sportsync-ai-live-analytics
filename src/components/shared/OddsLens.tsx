@@ -1,14 +1,14 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// OddsLens.tsx — Three-mode probability intelligence display
+// OddsLens.tsx — Three-mode odds display system
 //
 // The Drip shows predictions the way they should be read:
 //
-//   PROB  → "58%"    — Polymarket probability, no vig, real money conviction
-//   ODDS  → "-138"   — American odds, for the traditional bettors
-//   EDGE  → "+5.6%"  — Divergence between prediction market and sportsbooks
+//   IMPLIED   → "58.0%" — Implied probability
+//   AMERICAN  → "-138"  — American odds
+//   DECIMAL   → "1.72"  — Decimal odds
 //
 // Design: Jony Ive minimalism. The pill is tappable (Apple Stocks pattern).
-// Every tap cycles PROB → ODDS → EDGE globally across all pills.
+// Every tap cycles IMPLIED → AMERICAN → DECIMAL globally across all pills.
 //
 // Data hierarchy:
 //   Polymarket share price (primary) → sportsbook implied prob (comparison)
@@ -19,7 +19,7 @@
 //   American → implied: neg → |odds|/(|odds|+100) | pos → 100/(odds+100)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import React, { useCallback, memo } from 'react';
+import React, { memo } from 'react';
 import { useAppStore, type OddsLensMode } from '@/store/appStore';
 
 // ─── Conversions ───────────────────────────────────────────────────────────
@@ -34,11 +34,10 @@ export function probToAmerican(prob: number): string {
   return `+${Math.round(((1 - p) / p) * 100)}`;
 }
 
-/** Format edge value with sign */
-function formatEdge(edge: number | undefined): string {
-  if (edge === undefined || edge === null || isNaN(edge)) return '-';
-  const sign = edge > 0 ? '+' : '';
-  return `${sign}${edge.toFixed(1)}%`;
+function probToDecimal(prob: number): string {
+  if (prob <= 0 || prob >= 100) return '-';
+  const decimal = 100 / prob;
+  return decimal.toFixed(2);
 }
 
 // ─── Color Logic ───────────────────────────────────────────────────────────
@@ -49,27 +48,21 @@ interface PillColors {
   border: string;
 }
 
-function getPillColors(mode: OddsLensMode, value: number | undefined, isFavorite: boolean, edge?: number): PillColors {
-  // EDGE mode: green = positive edge, red = negative, neutral = no edge
-  if (mode === 'EDGE') {
-    if (edge === undefined || edge === null || Math.abs(edge) < 0.5) {
-      return { text: '#64748b', bg: 'transparent', border: '#cbd5e1' };
-    }
-    if (edge > 0) {
-      return { text: '#059669', bg: 'rgba(5,150,105,0.04)', border: 'rgba(5,150,105,0.2)' };
-    }
-    return { text: '#dc2626', bg: 'rgba(220,38,38,0.03)', border: 'rgba(220,38,38,0.15)' };
-  }
-
-  // ODDS mode: favorite (negative odds) = dark neutral
-  if (mode === 'ODDS') {
+function getPillColors(mode: OddsLensMode, value: number | undefined, isFavorite: boolean): PillColors {
+  if (mode === 'AMERICAN') {
     const isNeg = value !== undefined && value >= 50;
     return isNeg
       ? { text: '#0f172a', bg: 'rgba(15,23,42,0.03)', border: '#cbd5e1' }
       : { text: '#64748b', bg: 'transparent', border: '#cbd5e1' };
   }
 
-  // PROB mode: favorite = dark neutral, underdog = muted
+  if (mode === 'DECIMAL') {
+    return isFavorite
+      ? { text: '#0f172a', bg: 'rgba(15,23,42,0.03)', border: '#cbd5e1' }
+      : { text: '#64748b', bg: 'transparent', border: '#cbd5e1' };
+  }
+
+  // IMPLIED
   return isFavorite
     ? { text: '#0f172a', bg: 'rgba(15,23,42,0.03)', border: '#cbd5e1' }
     : { text: '#64748b', bg: 'transparent', border: '#cbd5e1' };
@@ -80,12 +73,10 @@ function getPillColors(mode: OddsLensMode, value: number | undefined, isFavorite
 interface OddsLensPillProps {
   value: number | undefined;
   isFavorite: boolean;
-  edge?: number;
 }
 
-export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavorite, edge }) => {
+export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavorite }) => {
   const oddsLens = useAppStore((s) => s.oddsLens);
-  const toggleOddsLens = useAppStore((s) => s.toggleOddsLens);
 
   if (value === undefined || value === null || value <= 0 || value > 100) {
     return <span className="w-[46px] shrink-0" aria-hidden="true" />;
@@ -93,48 +84,40 @@ export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavori
 
   let display: string;
   switch (oddsLens) {
-    case 'ODDS':
+    case 'AMERICAN':
       display = probToAmerican(value);
       break;
-    case 'EDGE':
-      display = formatEdge(edge);
+    case 'DECIMAL':
+      display = probToDecimal(value);
       break;
     default:
-      display = `${Math.round(value)}%`;
+      display = `${value.toFixed(1)}%`;
   }
 
-  const colors = getPillColors(oddsLens, value, isFavorite, edge);
-  const isOddsMode = oddsLens === 'ODDS';
-  const isEdgeMode = oddsLens === 'EDGE';
-
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    toggleOddsLens();
-  }, [toggleOddsLens]);
+  const colors = getPillColors(oddsLens, value, isFavorite);
+  const isOddsMode = oddsLens === 'AMERICAN';
+  const isDecimalMode = oddsLens === 'DECIMAL';
 
   // Mini bar dimensions
-  const showMiniBar = oddsLens === 'PROB' && value !== undefined;
+  const showMiniBar = oddsLens === 'IMPLIED' && value !== undefined;
   const barWidth = 36;
   const barHeight = 3;
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      aria-label={`${display} — tap to switch format`}
-      className="inline-flex items-center justify-center gap-1.5 tabular-nums font-semibold select-none cursor-pointer transition-all duration-150 hover:opacity-80 active:scale-95 relative"
+    <span
+      aria-label={display}
+      className="inline-flex items-center justify-center gap-1.5 tabular-nums font-semibold select-none relative"
       style={{
-        fontSize: isEdgeMode ? 10 : 11,
-        minWidth: isOddsMode ? 48 : isEdgeMode ? 52 : 42,
+        fontSize: isDecimalMode ? 10 : 11,
+        minWidth: isOddsMode ? 48 : isDecimalMode ? 52 : 42,
         height: 22,
         padding: '0 6px',
         borderRadius: 6,
-        letterSpacing: isOddsMode || isEdgeMode ? '-0.02em' : '-0.01em',
-        fontFamily: isOddsMode || isEdgeMode ? 'ui-monospace, SFMono-Regular, monospace' : 'inherit',
+        letterSpacing: isOddsMode || isDecimalMode ? '-0.02em' : '-0.01em',
+        fontFamily: isOddsMode || isDecimalMode ? 'ui-monospace, SFMono-Regular, monospace' : 'inherit',
         color: colors.text,
         border: `1px solid ${colors.border}`,
         backgroundColor: colors.bg,
-        outline: 'none',
       }}
     >
       <span>{display}</span>
@@ -161,7 +144,7 @@ export const OddsLensPill: React.FC<OddsLensPillProps> = memo(({ value, isFavori
           />
         </span>
       )}
-    </button>
+    </span>
   );
 });
 OddsLensPill.displayName = 'OddsLensPill';
@@ -169,9 +152,9 @@ OddsLensPill.displayName = 'OddsLensPill';
 // ─── OddsLensToggle ────────────────────────────────────────────────────────
 
 const MODE_LABELS: Record<OddsLensMode, { icon: string; label: string }> = {
-  PROB: { icon: '%', label: 'Probability' },
-  ODDS: { icon: '±', label: 'American Odds' },
-  EDGE: { icon: 'Δ', label: 'Market Edge' },
+  IMPLIED: { icon: '%', label: 'Implied Probability' },
+  AMERICAN: { icon: '±', label: 'American Odds' },
+  DECIMAL: { icon: '△', label: 'Decimal Odds' },
 };
 
 export const OddsLensToggle: React.FC<{ className?: string }> = memo(({ className }) => {
@@ -188,7 +171,7 @@ export const OddsLensToggle: React.FC<{ className?: string }> = memo(({ classNam
       role="radiogroup"
       aria-label="Odds display format"
     >
-      {(['PROB', 'ODDS', 'EDGE'] as OddsLensMode[]).map((mode) => {
+      {(['IMPLIED', 'AMERICAN', 'DECIMAL'] as OddsLensMode[]).map((mode) => {
         const active = oddsLens === mode;
         const { icon, label } = MODE_LABELS[mode];
 
@@ -232,9 +215,9 @@ OddsLensToggle.displayName = 'OddsLensToggle';
 // ─── OddsLensLabel ─────────────────────────────────────────────────────────
 
 const MODE_DESCRIPTIONS: Record<OddsLensMode, string> = {
-  PROB: 'Prediction market probability',
-  ODDS: 'American odds format',
-  EDGE: 'Market vs books divergence',
+  IMPLIED: 'Implied probability format',
+  AMERICAN: 'American odds format',
+  DECIMAL: 'Decimal odds format',
 };
 
 export const OddsLensLabel: React.FC = memo(() => {

@@ -8,9 +8,10 @@ import MatchDetails from '../match/MatchDetails';
 import ChatWidget from '../ChatWidget';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
-import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
+import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
+import { Sport } from '@/types';
 
 const CommandPalette = lazy(() => import('../modals/CommandPalette'));
 const AuthModal = lazy(() => import('../modals/AuthModal'));
@@ -48,6 +49,8 @@ const AppShell: FC = () => {
   } = useAppStore();
 
   const { pinnedMatchIds, togglePin } = usePinStore();
+  const [defaultSportResolved, setDefaultSportResolved] = React.useState(false);
+  const persistedSportExists = React.useMemo(() => hasPersistedSportContext(), []);
 
   // 1) Fetch data (date-filtered in hook)
   const { data: matches = [], isLoading } = useMatches(selectedDate);
@@ -91,6 +94,27 @@ const AppShell: FC = () => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [toggleCmdk, selectedMatch, setSelectedMatch, closeAllOverlays]);
+
+  useEffect(() => {
+    if (defaultSportResolved || persistedSportExists || isLoading) return;
+    if (!matches.length) {
+      setDefaultSportResolved(true);
+      return;
+    }
+
+    const hasSoccerGames = matches.some((m) => String(m.sport).toUpperCase() === Sport.SOCCER);
+    if (!hasSoccerGames && selectedSport === Sport.SOCCER) {
+      setSelectedSport(Sport.NBA);
+    }
+    setDefaultSportResolved(true);
+  }, [
+    defaultSportResolved,
+    persistedSportExists,
+    isLoading,
+    matches,
+    selectedSport,
+    setSelectedSport,
+  ]);
 
   if (showLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
 

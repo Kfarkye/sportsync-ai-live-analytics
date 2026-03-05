@@ -3,9 +3,11 @@ import { motion } from 'framer-motion';
 import { MatchRowProps as BaseMatchRowProps } from '@/types/matchList';
 import TeamLogo from '../shared/TeamLogo';
 import { OddsLensPill } from '../shared/OddsLens';
+import { useAppStore } from '@/store/appStore';
 import { cn } from '@/lib/essence';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { Sport, Linescore } from '@/types';
+import { formatOddsByMode } from '@/lib/oddsDisplay';
 
 // Extend base props with poly data + selection state
 interface MatchRowProps extends BaseMatchRowProps {
@@ -40,7 +42,11 @@ const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number |
 ));
 ScoreCell.displayName = 'ScoreCell';
 
-const OddsChip = memo(({ label, value }: { label: string; value: string | number | null | undefined }) => {
+const OddsChip = memo(({ label, value, mode }: {
+  label: string;
+  value: string | number | null | undefined;
+  mode: ReturnType<typeof useAppStore.getState>['oddsLens'];
+}) => {
   if (!isValidOdd(value)) return null;
   let display = String(value);
   if (label === 'SPR') {
@@ -50,8 +56,9 @@ const OddsChip = memo(({ label, value }: { label: string; value: string | number
       else if (num > 0 && !display.startsWith('+')) display = `+${display}`;
     }
   } else if (label === 'ML') {
-    const num = Number(value);
-    if (!isNaN(num) && num > 0 && !display.startsWith('+')) display = `+${display}`;
+    const converted = formatOddsByMode(value, mode, 'moneyline');
+    if (!converted) return null;
+    display = converted;
   }
   return (
     <span className="inline-flex items-center gap-1.5 select-none" aria-label={`${label} ${display}`}>
@@ -133,6 +140,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 }, ref) => {
   const showScores = isLive || isFinal;
   const isTennis = match.sport === Sport.TENNIS;
+  const oddsLens = useAppStore((state) => state.oddsLens);
 
   // Priority: Polymarket (real money) > ESPN (model estimate)
   const homeProb = polyHomeProb ?? match.win_probability?.home;
@@ -251,7 +259,6 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                   <OddsLensPill
                     value={prob}
                     isFavorite={isFav}
-                    edge={isHome ? homeEdge : awayEdge}
                   />
                 </div>
               )}
@@ -261,9 +268,9 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
         {hasOdds && !isFinal && !isLive && (
           <div className="flex items-center flex-wrap gap-x-4 gap-y-1 max-[390px]:gap-x-3 mt-1 max-[390px]:mt-0.5" style={{ paddingLeft: TEAM_INDENT }}>
-            <OddsChip label="SPR" value={spread} />
-            <OddsChip label="O/U" value={total} />
-            <OddsChip label="ML" value={homeML} />
+            <OddsChip label="SPR" value={spread} mode={oddsLens} />
+            <OddsChip label="O/U" value={total} mode={oddsLens} />
+            <OddsChip label="ML" value={homeML} mode={oddsLens} />
           </div>
         )}
       </div>

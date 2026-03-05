@@ -259,7 +259,7 @@ export default function ReportsPage() {
 
         setMatches(leagueMatches);
         setTeamRows(computeStandings(leagueMatches, teams));
-        document.title = `${LEAGUE_LABELS[leagueId] ?? leagueId} Reports | The Drip`;
+        document.title = `${LEAGUE_LABELS[leagueId] ?? leagueId} Edge | The Drip`;
       } finally {
         if (active) setLoading(false);
       }
@@ -773,6 +773,10 @@ export default function ReportsPage() {
                     <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">ATS</th>
                     <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">
                       <span>Cover %</span>
+                      <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">Sample n</span>
+                    </th>
+                    <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">
+                      <span>ATS ROI %</span>
                       <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">Sample n</span>
                     </th>
                     <th className="sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-right">

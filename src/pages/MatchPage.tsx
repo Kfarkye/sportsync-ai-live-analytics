@@ -545,10 +545,10 @@ export default function MatchPage() {
       <div className="h-[var(--vvh,100vh)] bg-slate-50 text-slate-900 flex flex-col items-center justify-center gap-4 px-4 text-center">
         <div className="text-2xl font-semibold tracking-tight">Match not found</div>
         <Link
-          to="/reports"
+          to="/edge"
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
         >
-          Back to Reports
+          Back to Edge
         </Link>
       </div>
     );
@@ -593,10 +593,10 @@ export default function MatchPage() {
         <div className="mx-auto w-full max-w-6xl px-4 md:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             <Link
-              to="/reports"
+              to="/edge"
               className="rounded-md border border-slate-200 px-2 sm:px-2.5 py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50 whitespace-nowrap"
             >
-              Reports
+              Edge
             </Link>
             <Link
               to={teamUrl(match.home_team)}

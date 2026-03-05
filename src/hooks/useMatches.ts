@@ -45,9 +45,15 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
   }
 
   const data = await res.json();
+  const fetchedAt = Date.now();
 
   // FIX: Safely extract matches in case Edge Function returns { data: [...] } or { matches: [...] }
-  const matches = Array.isArray(data) ? data : (data?.data || data?.matches || []);
+  const rawMatches = Array.isArray(data) ? data : (data?.data || data?.matches || []);
+  const matches: Match[] = rawMatches.map((item: Match) => (
+    typeof item?.fetched_at === 'number'
+      ? item
+      : { ...item, fetched_at: fetchedAt }
+  ));
   const etag = res.headers.get('etag');
   if (etag) matchCache.set(dateStr, { etag, data: matches });
   return matches;
