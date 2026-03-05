@@ -190,40 +190,58 @@ function mergeMatchWithLiveState(base: ExtendedMatch, liveState: Partial<Extende
 }
 
 function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
-    if (!match || !match.homeTeam || !match.awayTeam) return null;
+    const hasCoreMatch = Boolean(match && match.homeTeam && match.awayTeam);
 
-    const isFinal = isGameFinished(match.status);
-    const isPregame = !isFinal && (match.status === 'SCHEDULED' || match.status === 'PREGAME' || safeNumber(match.period, 0) === 0);
-    const league = String(match.league || match.sport || '').toUpperCase();
+    const isFinal = isGameFinished(match?.status || '');
+    const isPregame = !isFinal && ((match?.status || '') === 'SCHEDULED' || (match?.status || '') === 'PREGAME' || safeNumber(match?.period, 0) === 0);
+    const league = String(match?.league || match?.sport || '').toUpperCase();
 
-    const homeScore = safeNumber(match.homeScore);
-    const awayScore = safeNumber(match.awayScore);
-    const possId = match.situation?.possessionId ? String(match.situation.possessionId) : null;
+    const homeScore = safeNumber(match?.homeScore);
+    const awayScore = safeNumber(match?.awayScore);
+    const possId = match?.situation?.possessionId ? String(match.situation.possessionId) : null;
 
     // ── Slice 1: META ────────────────────────────────────────────────────────
     const metaSlice = useMemo<MetaSlice>(() => ({
-        id: String(match.id || `match-${Date.now()}`),
+        id: String(match?.id || `match-${Date.now()}`),
         isFootball: ['NFL', 'CFB'].some((s) => league.includes(s)),
         isBasketball: ['NBA', 'CBB'].some((s) => league.includes(s)),
         isFinished: isFinal,
         isPregame,
-        displayClock: match.displayClock || '',
-        timestampMs: parseSafeDateMs(match.date),
-        hasData: Boolean(match.displayClock || match.period || match.situation),
+        displayClock: match?.displayClock || '',
+        timestampMs: parseSafeDateMs(match?.date),
+        hasData: Boolean(match?.displayClock || match?.period || match?.situation),
         league: league.replace(/_/g, ' '),
-    }), [match.id, match.displayClock, match.date, match.status, match.period, match.situation, isFinal, isPregame, league]);
+    }), [match?.id, match?.displayClock, match?.date, match?.status, match?.period, match?.situation, isFinal, isPregame, league]);
 
     // ── Slice 2: TEAMS ───────────────────────────────────────────────────────
     const teamsSlice = useMemo<TeamsSlice>(() => ({
-        home: { id: String(match.homeTeam.id), abbr: match.homeTeam.abbreviation || 'HOME', name: match.homeTeam.shortName || match.homeTeam.name || 'Home', logo: match.homeTeam.logo || '', color: normalizeColor(match.homeTeam.color, ESSENCE.colors.accent.primary), score: homeScore, record: String(match.homeTeam.record || ''), isPossessing: possId === String(match.homeTeam.id) },
-        away: { id: String(match.awayTeam.id), abbr: match.awayTeam.abbreviation || 'AWAY', name: match.awayTeam.shortName || match.awayTeam.name || 'Away', logo: match.awayTeam.logo || '', color: normalizeColor(match.awayTeam.color, ESSENCE.colors.accent.danger), score: awayScore, record: String(match.awayTeam.record || ''), isPossessing: possId === String(match.awayTeam.id) },
-    }), [homeScore, awayScore, possId, match.homeTeam, match.awayTeam]);
+        home: {
+            id: String(match?.homeTeam?.id || 'home'),
+            abbr: match?.homeTeam?.abbreviation || 'HOME',
+            name: match?.homeTeam?.shortName || match?.homeTeam?.name || 'Home',
+            logo: match?.homeTeam?.logo || '',
+            color: normalizeColor(match?.homeTeam?.color, ESSENCE.colors.accent.primary),
+            score: homeScore,
+            record: String(match?.homeTeam?.record || ''),
+            isPossessing: possId === String(match?.homeTeam?.id || ''),
+        },
+        away: {
+            id: String(match?.awayTeam?.id || 'away'),
+            abbr: match?.awayTeam?.abbreviation || 'AWAY',
+            name: match?.awayTeam?.shortName || match?.awayTeam?.name || 'Away',
+            logo: match?.awayTeam?.logo || '',
+            color: normalizeColor(match?.awayTeam?.color, ESSENCE.colors.accent.danger),
+            score: awayScore,
+            record: String(match?.awayTeam?.record || ''),
+            isPossessing: possId === String(match?.awayTeam?.id || ''),
+        },
+    }), [homeScore, awayScore, possId, match?.homeTeam, match?.awayTeam]);
 
     // ── Slice 3: GAMEPLAY ────────────────────────────────────────────────────
     const gameplaySlice = useMemo<GameplaySlice>(() => {
-        const wpHome = match.winProbability?.home ?? calculateWinProbability(homeScore, awayScore, safeNumber(match.period, 1), isFinal);
+        const wpHome = match?.winProbability?.home ?? calculateWinProbability(homeScore, awayScore, safeNumber(match?.period, 1), isFinal);
 
-        let momentumData = match.momentumData?.length ? match.momentumData : [];
+        let momentumData = match?.momentumData?.length ? match.momentumData : [];
         if (!momentumData.length && !isPregame) {
             let cur = 0;
             momentumData = Array.from({ length: isFinal ? 40 : 25 }).map((_, i) => {
@@ -232,14 +250,34 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
             });
         }
 
-        const recentPlays = match.recentPlays?.length ? match.recentPlays.slice(-50)
-            : (match.lastPlay?.text ? [{ text: match.lastPlay.text, clock: match.displayClock || DEFAULT_CLOCK, teamAbbr: (possId === String(match.homeTeam.id) ? match.homeTeam.abbreviation : match.awayTeam.abbreviation) || '' }] : []);
+        const recentPlays = match?.recentPlays?.length ? match.recentPlays.slice(-50)
+            : (match?.lastPlay?.text ? [{
+                text: match.lastPlay.text,
+                clock: match.displayClock || DEFAULT_CLOCK,
+                teamAbbr: (possId === String(match?.homeTeam?.id || '') ? match?.homeTeam?.abbreviation : match?.awayTeam?.abbreviation) || ''
+            }] : []);
 
-        return { isRedZone: !!match.situation?.isRedZone, winProbabilityHome: wpHome, winProbabilityAway: 100 - wpHome, momentumData, recentPlays };
-    }, [match.situation?.isRedZone, match.winProbability, match.momentumData, match.recentPlays, match.lastPlay, homeScore, awayScore, isFinal, isPregame, match.period, match.displayClock, possId, match.homeTeam, match.awayTeam]);
+        return { isRedZone: !!match?.situation?.isRedZone, winProbabilityHome: wpHome, winProbabilityAway: 100 - wpHome, momentumData, recentPlays };
+    }, [match?.situation?.isRedZone, match?.winProbability, match?.momentumData, match?.recentPlays, match?.lastPlay, homeScore, awayScore, isFinal, isPregame, match?.period, match?.displayClock, possId, match?.homeTeam, match?.awayTeam]);
 
     // ── Slice 4: BETTING ─────────────────────────────────────────────────────
     const bettingSlice = useMemo<BettingSlice>(() => {
+        if (!match || !match.homeTeam || !match.awayTeam) {
+            return {
+                signals: null,
+                spread: 0,
+                total: 0,
+                openingSpread: null,
+                openingTotal: null,
+                hasSpread: false,
+                hasTotal: false,
+                moneyline: { home: '-', away: '-' },
+                matchupStr: '',
+                linesLabel: 'Current Lines',
+                lineMovement: { spread: null, total: null },
+            };
+        }
+
         const normalizedOdds = (match.odds as OddsLike | null) || null;
         const normalizedIsLive = Boolean((normalizedOdds as { isLive?: boolean } | null)?.isLive);
         const source = isFinal && match.closing_odds
@@ -289,12 +327,18 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
 
     // ── Slice 5: STATS ───────────────────────────────────────────────────────
     const statsSlice = useMemo<StatsSlice>(() => ({
-        homeTeamStats: match.homeTeamStats || null, awayTeamStats: match.awayTeamStats || null, playerProps: match.playerProps || [],
-    }), [match.homeTeamStats, match.awayTeamStats, match.playerProps]);
+        homeTeamStats: match?.homeTeamStats || null,
+        awayTeamStats: match?.awayTeamStats || null,
+        playerProps: match?.playerProps || [],
+    }), [match?.homeTeamStats, match?.awayTeamStats, match?.playerProps]);
 
     // Root Assembly
-    return useMemo(() => ({ meta: metaSlice, teams: teamsSlice, gameplay: gameplaySlice, betting: bettingSlice, stats: statsSlice }),
-        [metaSlice, teamsSlice, gameplaySlice, bettingSlice, statsSlice]);
+    const assembled = useMemo(
+        () => ({ meta: metaSlice, teams: teamsSlice, gameplay: gameplaySlice, betting: bettingSlice, stats: statsSlice }),
+        [metaSlice, teamsSlice, gameplaySlice, bettingSlice, statsSlice]
+    );
+
+    return hasCoreMatch ? assembled : null;
 }
 
 // ============================================================================
