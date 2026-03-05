@@ -2,7 +2,9 @@ import React, { type FC, useMemo } from 'react';
 import { formatMatchDateLabel, formatPct, formatSignedNumber } from '@/lib/postgamePages';
 import { useMatchBySlug } from '@/hooks/usePostgame';
 import { cn } from '@/lib/essence';
-import { CalendarClock, Flag, House, MapPin, Shield, UserRound } from 'lucide-react';
+import { getTeamLogo } from '@/lib/teamColors';
+import { CalendarClock, Flag, House, Info, MapPin, Shield, UserRound } from 'lucide-react';
+import TeamLogo from '@/components/shared/TeamLogo';
 import {
   Card,
   CardBody,
@@ -116,6 +118,86 @@ const teamInitials = (teamName: string): string => {
   return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
 };
 
+const toRecord = (value: unknown): Record<string, unknown> | null => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+};
+
+const readStringFromRaw = (
+  raw: Record<string, unknown> | undefined,
+  keys: string[],
+): string | null => {
+  if (!raw) return null;
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
+const readTeamIdFromRaw = (
+  raw: Record<string, unknown> | undefined,
+  keys: string[],
+): number | null => {
+  if (!raw) return null;
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return Math.trunc(value);
+    }
+    if (typeof value === 'string') {
+      const parsed = Number.parseInt(value.trim(), 10);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+};
+
+const maybeSoccerLogoByTeamId = (teamId: number | null): string | null => {
+  if (!teamId || teamId <= 0) return null;
+  return `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+};
+
+const resolveMatchTeamLogo = (
+  detail: Record<string, unknown> | undefined,
+  side: 'home' | 'away',
+  teamName: string,
+): string | undefined => {
+  const sideKey = side === 'home' ? 'home' : 'away';
+
+  const directLogo = readStringFromRaw(detail, [
+    `${sideKey}_team_logo`,
+    `${sideKey}_logo`,
+    `${sideKey}TeamLogo`,
+    `${sideKey}Logo`,
+    `${sideKey}_badge`,
+    `${sideKey}_badge_url`,
+  ]);
+  if (directLogo) return directLogo;
+
+  const root = toRecord(detail);
+  const sideObj = root ? toRecord(root[sideKey]) : null;
+  const sideObjLogo = readStringFromRaw(sideObj ?? undefined, ['logo', 'logo_url', 'badge', 'badge_url']);
+  if (sideObjLogo) return sideObjLogo;
+
+  const teamId = readTeamIdFromRaw(detail, [
+    `${sideKey}_team_id`,
+    `${sideKey}TeamId`,
+    `${sideKey}_id`,
+    `${sideKey}_competitor_id`,
+    `${sideKey}CompetitorId`,
+    `${sideKey}_espn_team_id`,
+  ]);
+  const logoById = maybeSoccerLogoByTeamId(teamId);
+  if (logoById) return logoById;
+
+  return getTeamLogo(teamName);
+};
+
 const badgeTone = (
   tone: 'neutral' | 'success' | 'danger' | 'warning' | 'info',
 ): string => {
@@ -151,18 +233,22 @@ const Badge: FC<{ children: React.ReactNode; tone?: 'neutral' | 'success' | 'dan
   </span>
 );
 
-const TeamIdentityBadge: FC<{ teamName: string; side: 'home' | 'away' }> = ({ teamName, side }) => {
+const TeamIdentityBadge: FC<{ teamName: string; side: 'home' | 'away'; logoUrl?: string }> = ({
+  teamName,
+  side,
+  logoUrl,
+}) => {
   const isHome = side === 'home';
   const iconClass = isHome ? 'text-slate-600' : 'text-rose-600';
-  const badgeClass = isHome
-    ? 'border-slate-200 bg-slate-100 text-slate-700'
-    : 'border-rose-200 bg-rose-100 text-rose-700';
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-[11px] font-semibold tracking-tight ${badgeClass}`}>
-        {teamInitials(teamName)}
-      </span>
+      <TeamLogo
+        logo={logoUrl}
+        name={teamName}
+        abbreviation={teamInitials(teamName)}
+        className="h-8 w-8"
+      />
       {isHome ? (
         <House size={12} className={iconClass} aria-hidden="true" />
       ) : (
@@ -171,6 +257,23 @@ const TeamIdentityBadge: FC<{ teamName: string; side: 'home' | 'away' }> = ({ te
     </div>
   );
 };
+
+const MatchTagLegend: FC = () => (
+  <span className="relative inline-flex items-center group/legend">
+    <button
+      type="button"
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 transition-colors hover:text-slate-600"
+      aria-label="Show badge legend"
+    >
+      <Info size={12} aria-hidden="true" />
+    </button>
+    <span className="pointer-events-none absolute right-0 top-6 z-20 w-56 rounded-md border border-slate-200 bg-white p-2 text-[10px] leading-4 text-slate-500 opacity-0 shadow-lg transition-opacity group-hover/legend:opacity-100 group-focus-within/legend:opacity-100">
+      <span className="block"><strong className="font-semibold text-slate-700">BTTS</strong>: Both teams scored.</span>
+      <span className="block"><strong className="font-semibold text-slate-700">Under/Over</strong>: Total goals vs closing line.</span>
+      <span className="block"><strong className="font-semibold text-slate-700">Penalty</strong>: Penalty awarded in match.</span>
+    </span>
+  </span>
+);
 
 const SplitBar: FC<{ home: number; away: number }> = ({ home, away }) => {
   const total = home + away || 1;
@@ -935,6 +1038,16 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
     });
   }, [data]);
 
+  const homeTeamLogo = useMemo(
+    () => resolveMatchTeamLogo(data?.raw, 'home', data?.homeTeam ?? 'Home'),
+    [data?.raw, data?.homeTeam],
+  );
+
+  const awayTeamLogo = useMemo(
+    () => resolveMatchTeamLogo(data?.raw, 'away', data?.awayTeam ?? 'Away'),
+    [data?.raw, data?.awayTeam],
+  );
+
   return (
     <PageShell>
       <TopNav />
@@ -974,7 +1087,7 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                           Home
                         </div>
                       </div>
-                      <TeamIdentityBadge teamName={data.homeTeam} side="home" />
+                      <TeamIdentityBadge teamName={data.homeTeam} side="home" logoUrl={homeTeamLogo} />
                     </div>
                   </div>
 
@@ -984,7 +1097,7 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2.5">
-                      <TeamIdentityBadge teamName={data.awayTeam} side="away" />
+                      <TeamIdentityBadge teamName={data.awayTeam} side="away" logoUrl={awayTeamLogo} />
                       <div className="min-w-0 text-left">
                         <div className="truncate text-lg font-semibold tracking-tight text-slate-900">{data.awayTeam}</div>
                         <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-slate-400">
@@ -1034,9 +1147,12 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                   </div>
 
                   <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-                    <div className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      <Shield size={12} aria-hidden="true" />
-                      Match Tags
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        <Shield size={12} aria-hidden="true" />
+                        Match Tags
+                      </div>
+                      <MatchTagLegend />
                     </div>
                     <MatchSignals
                       homeScore={data.homeScore}
