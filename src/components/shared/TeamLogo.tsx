@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { cn } from '@/lib/essence';
+import { getTeamColor } from '@/lib/teamColors';
 
 interface TeamLogoProps {
   logo?: string;
@@ -9,6 +10,7 @@ interface TeamLogoProps {
   abbreviation?: string;
   variant?: 'default' | 'card';
   isLive?: boolean;
+  teamColor?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -35,13 +37,39 @@ const getOptimizedLogoUrl = (url: string | undefined): string | null => {
 const MAX_RETRIES = 2;
 const RETRY_DELAYS = [1500, 4000]; // ms — backoff schedule
 
+const colorFromName = (name: string): string => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue} 65% 40%)`;
+};
+
+const hexToRgb = (hex: string): [number, number, number] | null => {
+  const cleaned = hex.trim().replace('#', '');
+  if (!/^[\da-fA-F]{3}$|^[\da-fA-F]{6}$/.test(cleaned)) return null;
+  const full = cleaned.length === 3 ? cleaned.split('').map((c) => c + c).join('') : cleaned;
+  const int = Number.parseInt(full, 16);
+  return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
+};
+
+const textColorForBackground = (color: string): string => {
+  const rgb = color.startsWith('#') ? hexToRgb(color) : null;
+  if (!rgb) return '#FFFFFF';
+  const [r, g, b] = rgb.map((v) => v / 255);
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.62 ? '#0A0A0A' : '#FFFFFF';
+};
+
 const TeamLogo: React.FC<TeamLogoProps> = ({
   logo,
   name = 'Team',
   className = "w-8 h-8",
   abbreviation,
   variant = 'default',
-  isLive = false
+  isLive = false,
+  teamColor,
 }) => {
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -49,6 +77,14 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const optimizedSrc = React.useMemo(() => getOptimizedLogoUrl(logo), [logo]);
+  const fallbackColor = React.useMemo(
+    () => teamColor || getTeamColor(name) || colorFromName(name),
+    [name, teamColor]
+  );
+  const fallbackTextColor = React.useMemo(
+    () => textColorForBackground(fallbackColor),
+    [fallbackColor]
+  );
 
   // Reset state only when the actual URL changes
   useEffect(() => {
@@ -105,22 +141,33 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
         title={name}
       >
         {hasValidSource ? (
-          <img
-            src={srcWithRetry || undefined}
-            alt={name}
-            className={cn(
-              "w-[70%] h-[70%] object-contain transition-all duration-300 will-change-transform",
-              loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
-            )}
-            onError={handleError}
-            onLoad={() => setLoaded(true)}
-            loading="lazy"
-            decoding="async"
-          />
+          <>
+            {!loaded ? (
+              <div
+                className="absolute h-[70%] w-[70%] rounded-full animate-pulse"
+                style={{ backgroundColor: fallbackColor, opacity: 0.22 }}
+              />
+            ) : null}
+            <img
+              src={srcWithRetry || undefined}
+              alt={name}
+              className={cn(
+                "w-[70%] h-[70%] object-contain transition-all duration-300 will-change-transform",
+                loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
+              )}
+              onError={handleError}
+              onLoad={() => setLoaded(true)}
+              loading="lazy"
+              decoding="async"
+            />
+          </>
         ) : (
-          <span className="text-slate-400 font-black text-[0.4em] tracking-tighter">
+          <div
+            className="h-[70%] w-[70%] rounded-full flex items-center justify-center font-black text-[0.38em] tracking-tighter"
+            style={{ backgroundColor: fallbackColor, color: fallbackTextColor }}
+          >
             {fallback}
-          </span>
+          </div>
         )}
       </div>
     );
@@ -131,10 +178,10 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
     return (
       <div
         className={cn(
-          "flex items-center justify-center bg-slate-100 rounded-full text-slate-500 font-black tracking-tighter border border-slate-200 overflow-hidden select-none",
+          "flex items-center justify-center rounded-full font-black tracking-tighter border border-black/10 overflow-hidden select-none",
           className
         )}
-        style={{ fontSize: '0.4em' }}
+        style={{ fontSize: '0.4em', backgroundColor: fallbackColor, color: fallbackTextColor }}
         aria-label={name}
         title={name}
       >
@@ -146,7 +193,7 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
   return (
     <div className={cn("relative overflow-hidden shrink-0", className)}>
       {!loaded && (
-        <div className="absolute inset-0 bg-slate-100 animate-pulse rounded-full" />
+        <div className="absolute inset-0 animate-pulse rounded-full" style={{ backgroundColor: fallbackColor, opacity: 0.22 }} />
       )}
       <img
         src={srcWithRetry || undefined}

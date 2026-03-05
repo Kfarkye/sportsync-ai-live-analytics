@@ -22,35 +22,17 @@ interface MatchRowProps extends BaseMatchRowProps {
 
 const PHYSICS_MOTION = { type: "spring" as const, stiffness: 360, damping: 28 };
 
-const LOGO_W = 24;
+const LOGO_W = 28;
 const TEAM_INDENT = LOGO_W + 16;
 
 const isValidOdd = (val: string | number | null | undefined): boolean => val !== null && val !== undefined && val !== '-' && val !== '';
 
-const ProbPill = memo(({ value, isFavorite }: { value: number | undefined; isFavorite: boolean }) => {
-  if (value === undefined || value === null || isNaN(value)) return <span className="w-[44px] shrink-0" aria-hidden="true" />;
-  const pct = Math.round(value);
-  if (pct <= 0 || isNaN(pct)) return <span className="w-[44px] shrink-0" aria-hidden="true" />;
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center justify-center tabular-nums font-medium select-none w-[44px] h-[20px] max-[390px]:w-[40px] max-[390px]:h-[18px] rounded-[6px] text-[10px] max-[390px]:text-[9px] shrink-0 border",
-        isFavorite ? "bg-blue-50 text-blue-800 border-blue-200" : "bg-transparent text-slate-500 border-slate-200"
-      )}
-      title={`${pct}% win probability`}
-    >
-      {pct}%
-    </span>
-  );
-});
-ProbPill.displayName = 'ProbPill';
 const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number | null | undefined; isWinner: boolean; isLoser: boolean }) => (
   <span
     className={cn(
-      "inline-flex items-center justify-center font-mono tabular-nums font-bold select-none w-[30px] h-[22px] max-[390px]:w-[26px] max-[390px]:h-[20px] rounded-[6px] text-[14px] max-[390px]:text-[13px] shrink-0",
-      isLoser ? "text-slate-500" : "text-slate-900",
-      isWinner ? "bg-blue-50" : "bg-transparent"
+      "inline-flex items-center justify-center font-mono tabular-nums font-semibold select-none w-[30px] h-[22px] max-[390px]:w-[26px] max-[390px]:h-[20px] rounded-[6px] text-[14px] max-[390px]:text-[13px] shrink-0",
+      isLoser ? "text-[#888888]" : "text-[#0A0A0A]",
+      isWinner ? "font-bold" : "font-semibold"
     )}
   >
     {score ?? '-'}
@@ -156,19 +138,16 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const homeProb = polyHomeProb ?? match.win_probability?.home;
   const awayProb = polyAwayProb ?? match.win_probability?.away;
   const homeFav = typeof homeProb === 'number' && typeof awayProb === 'number' ? homeProb > awayProb : false;
-
   const spread = match.odds?.homeSpread ?? match.odds?.spread ?? match.odds?.spread_home;
   const total = match.odds?.overUnder ?? match.odds?.total;
   const homeML = match.odds?.moneylineHome ?? match.odds?.homeML ?? match.odds?.homeWin ?? match.odds?.home_ml;
   const hasOdds = isValidOdd(spread) || isValidOdd(total) || isValidOdd(homeML);
-  const hasProb = homeProb !== undefined || awayProb !== undefined;
 
   const { startTimeStr, dateStr, roundStr } = useMemo(() => {
     const d = new Date(match.startTime);
     return {
       startTimeStr: d
-        .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-        .replace(' ', ''),
+        .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
       dateStr: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
       roundStr: match.round
         ? match.round.replace('Qualifying ', 'Q').replace('Round of ', 'R').replace('Round ', 'R')
@@ -191,7 +170,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       aria-label={`${match.awayTeam?.name || 'Away Team'} vs ${match.homeTeam?.name || 'Home Team'}`}
       onKeyDown={(e: React.KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onSelect?.(match); } }}
       className={cn(
-        "group relative flex items-center justify-between px-3 py-2 sm:px-4.5 sm:py-3 max-[390px]:px-2.5 max-[390px]:py-1.5 cursor-pointer transform-gpu min-h-[54px] max-[390px]:min-h-[52px] [-webkit-tap-highlight-color:transparent]",
+        "group relative flex items-center justify-between px-4 py-4 sm:px-4 sm:py-4 max-[390px]:px-3 max-[390px]:py-3 cursor-pointer transform-gpu min-h-[64px] max-[390px]:min-h-[58px] [-webkit-tap-highlight-color:transparent]",
         "focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none focus-visible:ring-inset",
         "transition-colors duration-200",
         isSelected ? "bg-blue-50/70" : "bg-white hover:bg-blue-50/45"
@@ -237,6 +216,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                   <TeamLogo
                     logo={team.logo}
                     name={team.name}
+                    teamColor={team.color}
                     className="w-full h-full object-contain relative z-10 transition-transform duration-300 group-hover:scale-110"
                   />
                 )}
@@ -245,7 +225,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
               <div className="flex-1 min-w-0 flex items-baseline gap-2">
                 <span className={cn(
                   "text-[14px] max-[390px]:text-[13px] leading-[1.15] tracking-tight truncate transition-colors duration-300 select-none",
-                  isLoser ? "text-slate-500 font-medium" : "text-slate-900 font-semibold"
+                  isLoser ? "text-[#888888] font-medium" : "text-[#0A0A0A] font-medium"
                 )}>
                   {team.name}
                 </span>
@@ -266,7 +246,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                 </div>
               )}
 
-              {hasProb && !isFinal && (
+              {!isLive && (homeProb !== undefined || awayProb !== undefined) && (
                 <div className="shrink-0 w-[96px] max-[390px]:w-[82px]">
                   <OddsLensPill
                     value={prob}
@@ -294,26 +274,30 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1.5">
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-              <div className="flex items-center gap-1.5 bg-zinc-50 px-2 py-0.5 rounded-md border border-zinc-200">
-                <span className="text-[9px] font-bold text-zinc-900 uppercase tracking-[0.12em] font-mono mt-[1px]">
+              <div className="flex items-center gap-1.5 rounded-md px-2 py-0.5 border border-emerald-200 bg-emerald-50/70">
+                <span className="relative inline-flex h-2.5 w-2.5 items-center justify-center">
+                  <span className="absolute inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500/30 animate-ping [animation-duration:2s]" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                </span>
+                <span className="text-[10px] font-semibold text-[#0A0A0A] font-mono tabular-nums tracking-[0.06em]">
                   {match.displayClock || 'LIVE'}
                 </span>
               </div>
             </div>
-            <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.12em] pr-0.5">
+            <span className="text-[9px] font-medium text-[#888888] uppercase tracking-[0.12em] pr-0.5">
               {isTennis && roundStr ? roundStr : getPeriodDisplay(match)}
             </span>
           </div>
         ) : isFinal ? (
           <div className="flex items-center gap-1.5">
             <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-            <span className="text-[9px] font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md uppercase tracking-[0.12em]">FINAL</span>
+            <span className="text-[9px] font-semibold text-[#555555] bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md uppercase tracking-[0.12em] font-mono">FINAL</span>
           </div>
         ) : (
           <>
             <div className="flex items-center gap-1.5">
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-              <span className="text-[12px] max-[390px]:text-[11px] font-mono font-semibold text-slate-700 tabular-nums tracking-wide group-hover:text-slate-900 transition-colors" suppressHydrationWarning>
+              <span className="text-[12px] max-[390px]:text-[11px] font-mono font-semibold text-[#0A0A0A] tabular-nums tracking-wide group-hover:text-slate-900 transition-colors" suppressHydrationWarning>
                 {startTimeStr}
               </span>
             </div>
@@ -323,7 +307,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
               </span>
             )}
             {!isTennis && (
-              <span className="text-[8.5px] font-medium text-slate-500 tracking-wide" suppressHydrationWarning>
+              <span className="text-[8.5px] font-medium text-[#888888] tracking-wide" suppressHydrationWarning>
                 {dateStr}
               </span>
             )}

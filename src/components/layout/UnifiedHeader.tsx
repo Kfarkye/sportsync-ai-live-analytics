@@ -5,8 +5,10 @@ import { ChevronLeft, ChevronRight, Search, Grid3X3, List } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeekNavigation } from '../../hooks/useWeekNavigation';
+import { useMatches } from '../../hooks/useMatches';
 import { OddsLensToggle } from '../shared/OddsLens';
 import { Sport } from '@/types';
+import { isGameInProgress } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 
 const MotionSpan = motion.span;
@@ -57,7 +59,14 @@ export const UnifiedHeader: FC = () => {
 
     const weekScrollRef = useRef<HTMLDivElement>(null);
     const weekOptions = useWeekNavigation(selectedDate, selectedSport);
+    const { data: liveStatusMatches = [] } = useMatches(selectedDate);
     const navStep = (selectedSport === Sport.NFL || selectedSport === Sport.COLLEGE_FOOTBALL) ? 7 : 1;
+    const liveGamesCount = useMemo(
+        () => liveStatusMatches.filter((m) => isGameInProgress(m.status)).length,
+        [liveStatusMatches]
+    );
+    const hasActiveLiveGames = liveGamesCount > 0;
+    const isReportsPage = typeof window !== 'undefined' && window.location.pathname.includes('/reports');
 
     useEffect(() => {
         const container = weekScrollRef.current;
@@ -169,7 +178,12 @@ export const UnifiedHeader: FC = () => {
                     <div className="flex items-center gap-2 max-[390px]:gap-1">
                         <a
                             href="/reports"
-                            className="h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
+                            className={cn(
+                                "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border",
+                                isReportsPage
+                                    ? "bg-[#0A0A0A] border-[#0A0A0A] text-white"
+                                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
+                            )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
                             REPORTS
@@ -186,6 +200,12 @@ export const UnifiedHeader: FC = () => {
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
                             LIVE
+                            {hasActiveLiveGames ? (
+                                <span className="relative inline-flex h-2 w-2 items-center justify-center" aria-label={`${liveGamesCount} live games`}>
+                                    <span className="absolute inline-flex h-2 w-2 rounded-full bg-emerald-400/40 animate-ping [animation-duration:2s]" />
+                                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                                </span>
+                            ) : null}
                         </button>
 
                         <div className="hidden md:block w-px h-[18px] bg-slate-200 mx-0.5" />
@@ -195,16 +215,16 @@ export const UnifiedHeader: FC = () => {
                         <button
                             type="button"
                             onClick={() => toggleCmdk()}
-                            className="w-[34px] h-[34px] max-[390px]:w-[32px] max-[390px]:h-[32px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-all active:scale-95"
+                            className="w-11 h-11 max-[390px]:w-10 max-[390px]:h-10 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-all active:scale-95"
                         >
-                            <Search size={15} strokeWidth={1.8} />
+                            <Search size={24} strokeWidth={1.8} />
                         </button>
 
                         {user ? (
                             <button
                                 type="button"
                                 onClick={() => toggleAuthModal(true)}
-                                className="relative w-[34px] h-[34px] max-[390px]:w-[32px] max-[390px]:h-[32px] rounded-full bg-slate-100 border border-slate-300 p-0.5 active:scale-95 transition-transform"
+                                className="relative w-11 h-11 max-[390px]:w-10 max-[390px]:h-10 rounded-full bg-slate-100 border border-slate-300 p-0.5 active:scale-95 transition-transform"
                             >
                                 <div className="w-full h-full rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-700 uppercase tracking-tighter">
                                     {user.email?.[0]}
@@ -214,9 +234,9 @@ export const UnifiedHeader: FC = () => {
                             <button
                                 type="button"
                                 onClick={() => toggleAuthModal(true)}
-                                className="w-[34px] h-[34px] max-[390px]:w-[32px] max-[390px]:h-[32px] rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-50 active:scale-95 transition-all"
+                                className="w-11 h-11 max-[390px]:w-10 max-[390px]:h-10 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-50 active:scale-95 transition-all"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
                                     <circle cx="8" cy="5.5" r="3" /><path d="M2 14.5c0-3 2.7-5 6-5s6 2 6 5" />
                                 </svg>
                             </button>
