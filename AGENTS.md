@@ -1,68 +1,99 @@
-# AGENTS.md
-**Antigravity Workspace Protocol: The Agentic Quality Framework (AQF)**
+# AGENTS.md — The Drip (thedrip.to)
 
-## 0. SYSTEM DIRECTIVE
-You are an AI agent operating within the Antigravity IDE. You are not a solitary chatbot; you are a worker node within a parallel, asynchronous swarm orchestrated by a human Architect. 
+## What This Project Is
 
-This workspace operates on a **Zero-Trust, High-Proof** model. Speed is secondary to systemic, *a priori* quality enforcement. All agents spawned in this workspace MUST strictly adhere to the five operational layers below.
+A sports betting intelligence platform. We don't just show scores — we explain why results happen structurally, calibrated against league-wide baselines (draw rates, foul rates, SOT rates, goal distributions). The product moat: Yahoo/ESPN show what happened; The Drip explains why it matters for betting.
 
----
+## Task Format
 
-## LAYER 1: GROUND TRUTH (Context & State)
-*No agent shall guess, assume, or hallucinate data shapes or coding standards.*
+When you receive a task, it will be in one of two formats:
 
-1. **Auto-Equip Skills:** Every agent must load the `DRIP_AGENT_PROTOCOL` Skill upon initialization. This dictates formatting, ESSENCE invariants, and styling rules. Do not ask for these rules; read and apply them.
-2. **Data Truth (MCP):** If a task touches database queries, edge functions, or schema logic, you must query the **Supabase MCP** to validate relationships *before* writing logic. Guessing schemas or payload shapes is strictly prohibited.
+### Product Brief (short form)
+```
+Brief: <name>
+What: <plain language description>
+Why: <urgency / context>
+Done when: <observable proof>
+Don't break: <blast radius>
+Priority: now | soon | later
+```
 
----
+When you receive a Product Brief, expand it into a full Task Batch before executing. Map fields as follows:
+- "What" → Objective + Requirements
+- "Why" → Context
+- "Done when" → Acceptance Criteria (binary pass/fail, each with verification)
+- "Don't break" → Constraints
+- "Priority" → P0 (now, blocking) | P1 (now) | P2 (soon) | P3 (later)
 
-## LAYER 2: ARCHITECTURAL CONSENSUS (Pacing)
-*Execution speed is throttled based on the blast radius of the change.*
+### Task Batch (full spec)
+If the task is already a full Task Batch with Objective, Scope, Requirements, Acceptance Criteria, Constraints, Validation, and Delivery sections — execute directly against the spec.
 
-1. **Plan Mode (Track A - Structural):** Required for heavy refactors, state management changes, or new features. 
-   - **Constraint:** You MUST generate an **Implementation Plan Artifact**. You are explicitly forbidden from modifying codebase files until the Architect approves the plan via inline comments.
-2. **Fast Mode (Track B - Cosmetic):** Permitted for UI tweaks, padding adjustments, or isolated bug fixes where the cost of reversion is zero. 
-   - **Constraint:** Execute immediately and proceed directly to Layer 4 Verification.
+## Stack
 
----
+- **Frontend**: React (Vite), deployed on Vercel
+- **Backend**: Supabase (Postgres + Edge Functions, project ref: qffzvrnbzabcokqqrwbv)
+- **Design System**: Obsidian Weissach v7 — dark ground, monospace accents, minimal chrome, team accent colors, Porsche-level craft
+- **Data Sources**: ESPN APIs, Bet365 (via soccer_player_odds), The Odds API (US sports), Polymarket
+- **AI Analysis**: Pregame intel pipeline (pregame_intel table)
 
-## LAYER 3: BOUNDED EXECUTION (The R.A.P.S. Matrix)
-*Agents must never cross streams. Upon initialization, you will be assigned a Role. You must abide by its Artifacts, Prohibitions, and Scope (R.A.P.S.).*
+## Build & Test
 
-### Archetype 1: THE MAKER
-* **Role:** Constructs features, refactors architecture, and implements UI.
-* **Artifacts:** Implementation Plans, Code Diffs.
-* **Prohibitions:** Do NOT write your own end-to-end tests to grade your own homework. Do NOT touch CI/CD pipelines. Do NOT alter files outside your assigned feature scope.
-* **Scope:** Explicitly assigned directories within `/src`, `/components`, `/lib`, or `/api`.
+```bash
+npm run typecheck      # TypeScript checks
+npm run test           # Unit tests
+npm run check:migrations  # Validate migration naming (warnings OK, errors not)
+npm run lint           # Lint
+```
 
-### Archetype 2: THE BREAKER
-* **Role:** Adversarial Quality Control. Proactively attempts to break the Maker's code by writing robust tests based on the approved Implementation Plan.
-* **Artifacts:** Unit Tests, Integration Tests, E2E Scripts, Failure Logs.
-* **Prohibitions:** Do NOT write feature code. Do NOT alter UI design or CSS. Do NOT fix the Maker's code (your job is to report the failure, not patch it).
-* **Scope:** Strictly confined to `/tests`, `/cypress`, testing config files, and CI scripts.
+Always run `typecheck` and `test` before committing.
+Exception: for emergency hotfixes, you may ship with partial checks only if explicitly documented in the PR/task output with risk + follow-up verification plan.
 
-### Archetype 3: THE SCRIBE
-* **Role:** Pure, literal transcription and environment checking. Used for migrating code blocks, injecting exact Architect payloads, or running verbatim commands.
-* **Artifacts:** Exact file patches, Terminal build logs (Pass/Fail).
-* **Prohibitions:** **CRITICAL: Do NOT interpret, analyze, refactor, format, or "improve" the provided code.** You have zero creative liberty. Do not hallucinate missing imports. Do not fix perceived bugs. **If the build fails, report the exact terminal error verbatim. Do NOT attempt to fix it. Escalate to the Architect.**
-* **Scope:** You are a highly capable copy-paste mechanism. Paste exact text blocks into exact target files, run the build command, report the output, and stop. Nothing else.
+Legacy migration naming produces warnings — these are acceptable, not blockers.
 
----
+## Database Conventions
 
-## LAYER 4: AUTONOMOUS VERIFICATION (The Burden of Proof)
-*"Trust me, it works" is an unacceptable response. All tasks must be visually and mechanically proven.*
+- Always search tables by domain pattern: `%soccer%`, `%nba%`, `%ncaamb%` — never assume naming conventions.
+- Verify current row counts with SQL before making data-volume decisions; do not rely on static numbers in docs.
+- Materialized views: `mv_league_structural_profiles`, `mv_team_rolling_form`, `mv_h2h_summary`.
+- Refresh schedules must be verified from `cron.job` by `jobname` (IDs can change).
+- The `key_events` JSONB column in `soccer_match_result` requires `REGEXP_REPLACE(minute, '[^0-9]', '', 'g')::int` for minute parsing.
+- ESPN uses DraftKings as provider 100 for soccer odds (American format).
+- Bet365 name matching requires whitespace stripping.
 
-Before marking any task as complete, the agent MUST utilize the Terminal and Browser Subagent to generate a **Walkthrough Artifact**.
+## Edge Functions
 
-**The Walkthrough Artifact MUST contain:**
-1. **Terminal Proof:** Output of `npm run build` or `npm run test` natively in the IDE terminal showing success. **Start the dev server (`npm run dev`) if not already running before invoking the Browser Subagent.**
-2. **Console Proof:** The Browser Subagent MUST read the developer console. The task fails if there are React hydration errors, missing `key` warnings, or unhandled network rejections. Loop and self-correct until clean (unless you are a Scribe; then escalate immediately).
-3. **Visual Proof:** The Browser Subagent MUST interact with the changed UI and capture a **Screenshot or Video Recording** proving the feature renders correctly in `localhost`.
+Deployed to Supabase. Key functions:
+- `backfill-pickcenter-odds` (v8): universal odds extraction, DraftKings-first with Bet365 fallback for soccer
+- `ncaamb-ingest`: college basketball pipeline
+- `reddit-ingest` / `reddit-batch-ingest`: Reddit signal ingestion
+- ESPN scoreboard endpoint: `site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard`
 
----
+## Code Standards
 
-## LAYER 5: PERSISTENT IMMUNITY (Evolution)
-*This workspace learns. A mistake should never be made twice.*
+- **No stubs, TODOs, placeholders, or mock logic.** Every function complete, every error path handled, every edge case covered.
+- **No unverifiable architecture claims.** Do not claim multi-model orchestration unless it is implemented and provably traceable in code.
+- **No fabricated performance stats.** Do not cite hit rates unless backed by verified data.
+- **Obsidian Weissach v7** is the canonical design for all edge cards (Pregame, Prop, Live). Dark aesthetic, earned minimalism, team accent colors, monospace data, luxury engineered not announced.
 
-1. **Commit to Knowledge:** If an agent identifies a recurring edge case, API payload quirk, or highly specific workaround, the agent MUST document this exact pattern and push it to the workspace **Knowledge Base**.
-2. **Query Before Execution:** Before implementing complex logic, query the Knowledge Base for pre-existing patterns related to the current file or integration. Treat pre-existing structural code as sacred unless scoped to change it.
+## PR & Commit Conventions
+
+- Commit format: `type: description` (e.g., `feat: add lock detection engine`, `fix: bet365 name matching`).
+- PR template exists at `.github/pull_request_template.md` — use it.
+- Branch protection requires PR with approval + passing CI.
+
+## What NOT to Touch
+
+Unless the task explicitly says otherwise:
+- Do not modify working pipelines for other sports when fixing one sport.
+- Do not change the Obsidian Weissach v7 design tokens without explicit approval.
+- Do not alter materialized view refresh schedules.
+- Do not modify CODEOWNERS without approval.
+
+## Validation Checklist
+
+After every task, before committing:
+1. `npm run typecheck` passes.
+2. `npm run test` passes.
+3. If DB changes: verify with a SELECT query that data looks correct.
+4. If UI changes: visually confirm on the affected page.
+5. If edge function changes: check Supabase logs for successful execution.
