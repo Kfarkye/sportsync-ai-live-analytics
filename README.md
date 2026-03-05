@@ -59,6 +59,28 @@ npm install
 npm run dev
 ```
 
+## Quality & Operations
+
+```bash
+# Lint + type safety
+npm run lint
+npm run typecheck
+
+# Production build validation
+npm run build
+
+# Supabase migration guard
+npm run check:migrations
+```
+
+Operational references:
+- [Enterprise baseline](./docs/ops/ENTERPRISE_BASELINE.md)
+- [SLOs](./docs/ops/SLOS.md)
+- [Release checklist](./docs/ops/RELEASE_CHECKLIST.md)
+- [Branch protection](./docs/ops/BRANCH_PROTECTION.md)
+- [Runbook: ingest 503](./docs/runbooks/INGEST_LIVE_GAMES_503.md)
+- [Runbook: stale scoreboard](./docs/runbooks/STALE_SCOREBOARD_DATA.md)
+
 ## SSOT & Shared Code
 
 - Canonical source of truth lives in `packages/shared/src`

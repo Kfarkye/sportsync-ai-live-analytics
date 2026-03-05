@@ -1,0 +1,16 @@
+# Default owner for the full repository.
+* @Kfarkye
+
+# Runtime-critical paths
+supabase/functions/** @Kfarkye
+supabase/migrations/** @Kfarkye
+api/** @Kfarkye
+
+# Product surface and shared logic
+src/** @Kfarkye
+packages/shared/** @Kfarkye
+
+# Governance and delivery controls
+.github/** @Kfarkye
+docs/ops/** @Kfarkye
+docs/runbooks/** @Kfarkye
