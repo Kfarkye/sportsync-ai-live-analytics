@@ -1,214 +1,185 @@
-
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/essence';
-import { getTeamColor } from '@/lib/teamColors';
 
 interface TeamLogoProps {
   logo?: string;
   name?: string;
   className?: string;
   abbreviation?: string;
+  sport?: string;
+  color?: string;
   variant?: 'default' | 'card';
   isLive?: boolean;
-  teamColor?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Optimization Utility — CDN proxy for caching, WebP, and resizing
-// ---------------------------------------------------------------------------
-const getOptimizedLogoUrl = (url: string | undefined): string | null => {
-  if (!url || url === '-' || url === 'undefined' || url.includes('placeholder')) {
-    return null;
-  }
-
-  if (url.includes('espncdn.com')) {
-    if (url.includes('?')) return url;
-    return `${url}?w=128&h=128&scale=crop`;
-  }
-
-  try {
-    const encoded = encodeURIComponent(url);
-    return `https://wsrv.nl/?url=${encoded}&w=128&h=128&fit=contain&output=webp&q=80`;
-  } catch (e) {
-    return url;
-  }
+const NBA_ESPN_ABBREV_MAP: Record<string, string> = {
+  ATL: 'atl',
+  BOS: 'bos',
+  BKN: 'bkn',
+  CHA: 'cha',
+  CHI: 'chi',
+  CLE: 'cle',
+  DAL: 'dal',
+  DEN: 'den',
+  DET: 'det',
+  GSW: 'gs',
+  HOU: 'hou',
+  IND: 'ind',
+  LAC: 'lac',
+  LAL: 'lal',
+  MEM: 'mem',
+  MIA: 'mia',
+  MIL: 'mil',
+  MIN: 'min',
+  NOP: 'no',
+  NYK: 'ny',
+  OKC: 'okc',
+  ORL: 'orl',
+  PHI: 'phi',
+  PHX: 'phx',
+  POR: 'por',
+  SAC: 'sac',
+  SAS: 'sa',
+  TOR: 'tor',
+  UTA: 'utah',
+  WAS: 'wsh',
 };
 
-const MAX_RETRIES = 2;
-const RETRY_DELAYS = [1500, 4000]; // ms — backoff schedule
-
-const colorFromName = (name: string): string => {
-  let hash = 0;
-  for (let i = 0; i < name.length; i += 1) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue} 65% 40%)`;
+const SPORT_PATH_MAP: Record<string, string> = {
+  NBA: 'nba',
+  WNBA: 'wnba',
+  NFL: 'nfl',
+  NCAAF: 'ncf',
+  COLLEGE_FOOTBALL: 'ncf',
+  HOCKEY: 'nhl',
+  NHL: 'nhl',
+  BASEBALL: 'mlb',
+  MLB: 'mlb',
+  SOCCER: 'soccer',
+  MLS: 'soccer',
 };
 
-const hexToRgb = (hex: string): [number, number, number] | null => {
-  const cleaned = hex.trim().replace('#', '');
-  if (!/^[\da-fA-F]{3}$|^[\da-fA-F]{6}$/.test(cleaned)) return null;
-  const full = cleaned.length === 3 ? cleaned.split('').map((c) => c + c).join('') : cleaned;
-  const int = Number.parseInt(full, 16);
-  return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
+const toColor = (value?: string): string => {
+  if (!value) return '#4F46E5';
+  if (value.startsWith('#')) return value;
+  return `#${value}`;
 };
 
-const textColorForBackground = (color: string): string => {
-  const rgb = color.startsWith('#') ? hexToRgb(color) : null;
-  if (!rgb) return '#FFFFFF';
-  const [r, g, b] = rgb.map((v) => v / 255);
-  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return luminance > 0.62 ? '#0A0A0A' : '#FFFFFF';
+const initialsFromName = (name?: string): string => {
+  const text = (name || '').trim();
+  if (!text) return 'TM';
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0] || ''}${words[1][0] || ''}`.toUpperCase();
+};
+
+const normalizeSportPath = (sport?: string, logo?: string): string | undefined => {
+  const normalized = String(sport || '').toUpperCase();
+  if (SPORT_PATH_MAP[normalized]) return SPORT_PATH_MAP[normalized];
+
+  const fromLogo = logo?.match(/teamlogos\/([^/]+)/i)?.[1];
+  if (fromLogo) return fromLogo.toLowerCase();
+  return undefined;
+};
+
+const normalizeAbbreviation = (abbr?: string, sportPath?: string): string | undefined => {
+  const value = (abbr || '').trim().toUpperCase();
+  if (!value) return undefined;
+  if (sportPath === 'nba') return NBA_ESPN_ABBREV_MAP[value] || value.toLowerCase();
+  return value.toLowerCase();
+};
+
+const buildEspnLogoUrl = (sportPath?: string, abbreviation?: string): string | undefined => {
+  if (!sportPath || !abbreviation) return undefined;
+  return `https://a.espncdn.com/i/teamlogos/${sportPath}/500/${abbreviation}.png`;
 };
 
 const TeamLogo: React.FC<TeamLogoProps> = ({
   logo,
   name = 'Team',
-  className = "w-8 h-8",
+  className = 'w-8 h-8',
   abbreviation,
+  sport,
+  color,
   variant = 'default',
   isLive = false,
-  teamColor,
 }) => {
-  const [error, setError] = useState(false);
+  const [sourceIndex, setSourceIndex] = useState(0);
   const [loaded, setLoaded] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [failed, setFailed] = useState(false);
 
-  const optimizedSrc = React.useMemo(() => getOptimizedLogoUrl(logo), [logo]);
-  const fallbackColor = React.useMemo(
-    () => teamColor || getTeamColor(name) || colorFromName(name),
-    [name, teamColor]
-  );
-  const fallbackTextColor = React.useMemo(
-    () => textColorForBackground(fallbackColor),
-    [fallbackColor]
-  );
+  const sportPath = useMemo(() => normalizeSportPath(sport, logo), [sport, logo]);
+  const normalizedAbbr = useMemo(() => normalizeAbbreviation(abbreviation, sportPath), [abbreviation, sportPath]);
+  const espnLogo = useMemo(() => buildEspnLogoUrl(sportPath, normalizedAbbr), [sportPath, normalizedAbbr]);
 
-  // Reset state only when the actual URL changes
+  const sources = useMemo(() => {
+    const output: string[] = [];
+    if (espnLogo) output.push(espnLogo);
+    if (logo && !output.includes(logo)) output.push(logo);
+    return output;
+  }, [espnLogo, logo]);
+
+  const currentSource = sources[sourceIndex];
+  const fallbackText = (abbreviation || initialsFromName(name)).slice(0, 3).toUpperCase();
+  const fallbackColor = toColor(color);
+
   useEffect(() => {
-    setError(false);
+    setSourceIndex(0);
     setLoaded(false);
-    setRetryCount(0);
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
-  }, [optimizedSrc]);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-    };
-  }, []);
+    setFailed(false);
+  }, [espnLogo, logo]);
 
   const handleError = () => {
-    if (retryCount < MAX_RETRIES) {
-      // Schedule a retry with backoff
-      const delay = RETRY_DELAYS[retryCount] || 4000;
-      retryTimerRef.current = setTimeout(() => {
-        setRetryCount(prev => prev + 1);
-        setError(false); // Reset error to trigger re-render → img re-mount
-      }, delay);
+    if (sourceIndex < sources.length - 1) {
+      setSourceIndex((prev) => prev + 1);
+      setLoaded(false);
+      return;
     }
-    setError(true);
+    setFailed(true);
   };
 
-  const fallback = abbreviation
-    ? (abbreviation || '').slice(0, 3).toUpperCase()
-    : (name || '').slice(0, 2).toUpperCase();
-
-  // Append retry count as cache-buster so the browser doesn't serve a cached error
-  const srcWithRetry = optimizedSrc && retryCount > 0
-    ? `${optimizedSrc}${optimizedSrc.includes('?') ? '&' : '?'}_r=${retryCount}`
-    : optimizedSrc;
-
-  const hasValidSource = !!srcWithRetry && !error;
-
-  // --- Variant: Card (Match Header Style) — Clean on white, NO GLOWS ---
-  if (variant === 'card') {
-    return (
-      <div
-        className={cn(
-          "relative flex items-center justify-center shrink-0 select-none overflow-hidden",
-          "bg-slate-50 rounded-2xl border border-slate-200",
-          isLive && "ring-1 ring-rose-300",
-          className
-        )}
-        aria-label={name}
-        title={name}
-      >
-        {hasValidSource ? (
-          <>
-            {!loaded ? (
-              <div
-                className="absolute h-[70%] w-[70%] rounded-full animate-pulse"
-                style={{ backgroundColor: fallbackColor, opacity: 0.22 }}
-              />
-            ) : null}
-            <img
-              src={srcWithRetry || undefined}
-              alt={name}
-              className={cn(
-                "w-[70%] h-[70%] object-contain transition-all duration-300 will-change-transform",
-                loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
-              )}
-              onError={handleError}
-              onLoad={() => setLoaded(true)}
-              loading="lazy"
-              decoding="async"
-            />
-          </>
-        ) : (
-          <div
-            className="h-[70%] w-[70%] rounded-full flex items-center justify-center font-black text-[0.38em] tracking-tighter"
-            style={{ backgroundColor: fallbackColor, color: fallbackTextColor }}
-          >
-            {fallback}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // --- Variant: Default (Icon/List Style) — Clean PNG, no drop-shadows ---
-  if (!hasValidSource) {
-    return (
-      <div
-        className={cn(
-          "flex items-center justify-center rounded-full font-black tracking-tighter border border-black/10 overflow-hidden select-none",
-          className
-        )}
-        style={{ fontSize: '0.4em', backgroundColor: fallbackColor, color: fallbackTextColor }}
-        aria-label={name}
-        title={name}
-      >
-        {fallback}
-      </div>
-    );
-  }
+  const isCard = variant === 'card';
+  const containerClasses = cn(
+    'relative shrink-0 overflow-hidden select-none flex items-center justify-center',
+    isCard ? 'rounded-2xl border border-[#E5E5E5] bg-[#F8F8F8]' : 'rounded-full bg-[#F8F8F8]',
+    isLive && 'ring-1 ring-[#00C896]/35',
+    className
+  );
 
   return (
-    <div className={cn("relative overflow-hidden shrink-0", className)}>
-      {!loaded && (
-        <div className="absolute inset-0 animate-pulse rounded-full" style={{ backgroundColor: fallbackColor, opacity: 0.22 }} />
+    <div className={containerClasses} aria-label={name} title={name}>
+      {!failed && currentSource && !loaded && (
+        <div className={cn('absolute inset-0 animate-pulse', isCard ? 'bg-[#E5E5E5]/65' : 'bg-[#E5E5E5]/85')} />
       )}
-      <img
-        src={srcWithRetry || undefined}
-        alt={name}
-        className={cn(
-          "w-full h-full object-contain transition-all duration-300",
-          loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
-        )}
-        onError={handleError}
-        onLoad={() => setLoaded(true)}
-        loading="lazy"
-        decoding="async"
-      />
+
+      {!failed && currentSource ? (
+        <img
+          src={currentSource}
+          alt={name}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={handleError}
+          className={cn(
+            'h-full w-full object-contain transition-opacity duration-200',
+            loaded ? 'opacity-100' : 'opacity-0'
+          )}
+        />
+      ) : (
+        <div
+          className={cn(
+            'h-full w-full flex items-center justify-center text-white font-semibold tracking-[0.03em]',
+            NUMERIC_FALLBACK_CLASS
+          )}
+          style={{ backgroundColor: fallbackColor }}
+        >
+          {fallbackText}
+        </div>
+      )}
     </div>
   );
 };
+
+const NUMERIC_FALLBACK_CLASS = 'text-[0.42em]';
 
 export default memo(TeamLogo);
