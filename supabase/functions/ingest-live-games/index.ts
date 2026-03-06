@@ -14,6 +14,7 @@ const corsHeaders = {
 }
 
 let _supabase: ReturnType<typeof createClient> | null = null;
+let _contextSnapshotAvailable = true;
 function getSupabaseClient() {
   if (_supabase) return _supabase;
   const url = Deno.env.get('SUPABASE_URL');
@@ -186,18 +187,6 @@ async function upsertWithRetry(table: string, payload: any, retries = 3) {
     Logger.error(`DB_UPSERT_RETRY`, { table, attempt, maxRetries: retries, error: error.message } as any);
     if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
     else throw new Error(`${table} upsert failed after ${retries} attempts: ${error.message}`);
-  }
-}
-
-/** Retry a Supabase insert up to 3 times with exponential backoff. */
-async function insertWithRetry(table: string, payload: any, retries = 3) {
-  const supabase = getSupabaseClient();
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    const { error } = await supabase.from(table).insert(payload);
-    if (!error) return;
-    Logger.error(`DB_INSERT_RETRY`, { table, attempt, maxRetries: retries, error: error.message } as any);
-    if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
-    else throw new Error(`${table} insert failed after ${retries} attempts: ${error.message}`);
   }
 }
 
@@ -693,16 +682,31 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
     };
 
     await upsertWithRetry('live_game_state', statePayload);
-    try {
-      await insertWithRetry('live_context_snapshots', contextSnapshotPayload);
-      stats.context_snapshots++;
-    } catch (snapshotErr: any) {
-      // Non-fatal to avoid blocking core ingest if snapshot table is unavailable.
-      Logger.warn('CONTEXT_SNAPSHOT_INSERT_FAILED', {
-        match_id: dbMatchId,
-        league_id: league.id,
-        error: snapshotErr?.message || String(snapshotErr)
-      });
+    if (_contextSnapshotAvailable) {
+      const supabase = getSupabaseClient();
+      const { error: contextSnapshotError } = await supabase
+        .from('live_context_snapshots')
+        .insert(contextSnapshotPayload);
+
+      if (!contextSnapshotError) {
+        stats.context_snapshots++;
+      } else {
+        const errMsg = contextSnapshotError.message || String(contextSnapshotError);
+        if (errMsg.toLowerCase().includes('live_context_snapshots') && errMsg.toLowerCase().includes('does not exist')) {
+          _contextSnapshotAvailable = false;
+          Logger.warn('CONTEXT_SNAPSHOT_DISABLED', {
+            reason: 'table_missing',
+            error: errMsg
+          });
+        } else {
+          // Non-fatal: never block ingest on snapshot archive write.
+          Logger.warn('CONTEXT_SNAPSHOT_INSERT_FAILED', {
+            match_id: dbMatchId,
+            league_id: league.id,
+            error: errMsg
+          });
+        }
+      }
     }
     stats.processed++;
     stats.live++;
