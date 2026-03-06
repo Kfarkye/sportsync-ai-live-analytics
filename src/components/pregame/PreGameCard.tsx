@@ -5,7 +5,7 @@
 // ===================================================================
 
 import React, { Component, useMemo, useState } from 'react';
-import { Match, Sport } from '@/types';
+import { Match, MatchOdds, Sport } from '@/types';
 import { usePreGameData } from '../../hooks/usePreGameData';
 import { useScoringSplits } from '../../hooks/useScoringSplits';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
@@ -27,6 +27,7 @@ import { PregameIntelCards } from './PregameIntelCards';
 import { usePregameIntel } from '../../hooks/usePregameIntel';
 import SofaStats from './SofaStats';
 import { PropMarketListView } from '../analysis/PropMarketListView';
+import { americanToImpliedProb, calcEdge, getPolyData, usePolyOdds } from '../../hooks/usePolyOdds';
 
 export type PreGameTabId = 'DETAILS' | 'PROPS' | 'DATA' | 'CHAT';
 
@@ -44,6 +45,50 @@ interface PreGameCardProps {
 // "Aluminum Switch" Physics: High stiffness, critical damping
 const PHYSICS_SWITCH = { type: "spring", stiffness: 380, damping: 35, mass: 0.8 };
 const STAGGER_DELAY = 0.05;
+
+const parseMoneyline = (value: string | number | null | undefined): number | null => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') {
+        if (!Number.isFinite(value) || value === 0) return null;
+        return value;
+    }
+
+    const trimmed = value.trim().toUpperCase();
+    if (!trimmed || trimmed === '-' || trimmed === '—') return null;
+    if (trimmed === 'EVEN' || trimmed === 'EV') return 100;
+
+    const cleaned = trimmed.replace(/[^\d+-]/g, '');
+    if (!cleaned) return null;
+    const parsed = Number.parseInt(cleaned, 10);
+    if (!Number.isFinite(parsed) || parsed === 0) return null;
+    return parsed;
+};
+
+const resolveBookMoneylines = (match: Match): { home: number | null; away: number | null } => {
+    const current: Partial<MatchOdds> = match.current_odds || match.odds || {};
+    const opening: Partial<MatchOdds> = match.opening_odds || {};
+
+    const home =
+        parseMoneyline(current.homeWin ?? current.home_ml ?? current.moneylineHome) ??
+        parseMoneyline(opening.homeWin ?? opening.home_ml ?? opening.moneylineHome);
+
+    const away =
+        parseMoneyline(current.awayWin ?? current.away_ml ?? current.moneylineAway) ??
+        parseMoneyline(opening.awayWin ?? opening.away_ml ?? opening.moneylineAway);
+
+    return { home, away };
+};
+
+const formatProb = (value: number | null): string => {
+    if (value === null || !Number.isFinite(value)) return 'n/a';
+    return `${(value * 100).toFixed(1)}%`;
+};
+
+const formatGap = (value: number | null): string => {
+    if (value === null || !Number.isFinite(value)) return 'n/a';
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value.toFixed(1)}pp`;
+};
 
 // ─────────────────────────────────────────────────────────────────
 // 💎 MICRO-COMPONENTS (PURE GEOMETRY)
@@ -191,6 +236,116 @@ const VenueSplitsSection = ({ match }: { match: Match }) => {
     );
 };
 
+interface PolyGapSectionProps {
+    homeTeam: string;
+    awayTeam: string;
+    homePolyProb: number;
+    awayPolyProb: number;
+    homeBookProb: number | null;
+    awayBookProb: number | null;
+    homeGap: number | null;
+    awayGap: number | null;
+    volume: number;
+}
+
+const PolyGapSection = ({
+    homeTeam,
+    awayTeam,
+    homePolyProb,
+    awayPolyProb,
+    homeBookProb,
+    awayBookProb,
+    homeGap,
+    awayGap,
+    volume,
+}: PolyGapSectionProps) => {
+    const strongestGap = (() => {
+        const homeAbs = homeGap === null ? -1 : Math.abs(homeGap);
+        const awayAbs = awayGap === null ? -1 : Math.abs(awayGap);
+        if (homeAbs < 0 && awayAbs < 0) return null;
+        return homeAbs >= awayAbs
+            ? { team: homeTeam, gap: homeGap }
+            : { team: awayTeam, gap: awayGap };
+    })();
+
+    const rows = [
+        {
+            team: awayTeam,
+            polyProb: awayPolyProb,
+            bookProb: awayBookProb,
+            gap: awayGap,
+        },
+        {
+            team: homeTeam,
+            polyProb: homePolyProb,
+            bookProb: homeBookProb,
+            gap: homeGap,
+        },
+    ];
+
+    return (
+        <div className="rounded-xl border border-white/[0.10] bg-white/[0.02] px-4 py-3">
+            <div className="mb-3 flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">
+                    Prediction Market vs Sportsbook
+                </span>
+                {volume > 0 ? (
+                    <span className="text-[10px] font-mono tabular-nums text-zinc-500">
+                        ${Math.round(volume).toLocaleString()} volume
+                    </span>
+                ) : null}
+            </div>
+
+            <div className="grid grid-cols-[minmax(0,1fr)_70px_70px_76px] border-b border-white/[0.08] pb-2 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-600">
+                <span>Team</span>
+                <span className="text-center">Poly</span>
+                <span className="text-center">Book</span>
+                <span className="text-right">Gap</span>
+            </div>
+
+            <div className="divide-y divide-white/[0.06]">
+                {rows.map((row) => (
+                    <div key={row.team} className="grid grid-cols-[minmax(0,1fr)_70px_70px_76px] items-center py-2.5">
+                        <span className="truncate text-[12px] font-semibold text-zinc-100">
+                            {row.team}
+                        </span>
+                        <span className="text-center font-mono text-[12px] tabular-nums text-zinc-200">
+                            {formatProb(row.polyProb)}
+                        </span>
+                        <span className="text-center font-mono text-[12px] tabular-nums text-zinc-400">
+                            {formatProb(row.bookProb)}
+                        </span>
+                        <span className={cn(
+                            "text-right font-mono text-[12px] font-semibold tabular-nums",
+                            row.gap === null
+                                ? "text-zinc-500"
+                                : row.gap > 0
+                                    ? "text-emerald-400"
+                                    : row.gap < 0
+                                        ? "text-rose-400"
+                                        : "text-zinc-300"
+                        )}>
+                            {formatGap(row.gap)}
+                        </span>
+                    </div>
+                ))}
+            </div>
+
+            {strongestGap ? (
+                <div className="mt-3 rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2 text-[11px] text-zinc-300">
+                    Strongest divergence: <span className="font-semibold text-zinc-100">{strongestGap.team}</span>{' '}
+                    <span className={cn(
+                        "font-mono tabular-nums font-semibold",
+                        strongestGap.gap !== null && strongestGap.gap > 0 ? "text-emerald-400" : "text-rose-400"
+                    )}>
+                        {formatGap(strongestGap.gap)}
+                    </span>
+                </div>
+            ) : null}
+        </div>
+    );
+};
+
 // 🛡️ Error Boundary for production safety
 class DebugBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
     public state = { hasError: false, error: null };
@@ -208,6 +363,10 @@ class DebugBoundary extends Component<{ children: React.ReactNode }, { hasError:
 
 const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, onPropViewChange }) => {
     const { data, isLoading, error } = usePreGameData(match.id, match.sport, match.leagueId);
+    const { data: polyOddsResult } = usePolyOdds({
+        leagueId: match.leagueId,
+        enabled: activeTab === 'DETAILS'
+    });
 
     // Fetch coaching data for the context row
     const { data: coachData } = useMatchupCoaches(match.homeTeam.id, match.awayTeam.id, match.sport);
@@ -220,6 +379,30 @@ const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, o
         match.leagueId,
         typeof match.startTime === 'string' ? match.startTime : match.startTime?.toISOString()
     );
+
+    const polyGap = useMemo(() => {
+        const poly = getPolyData(polyOddsResult, match.id, match.homeTeam.name, match.awayTeam.name);
+        if (!poly) return null;
+
+        const bookMoneylines = resolveBookMoneylines(match);
+        const homeBookProb = bookMoneylines.home !== null ? americanToImpliedProb(bookMoneylines.home) : null;
+        const awayBookProb = bookMoneylines.away !== null ? americanToImpliedProb(bookMoneylines.away) : null;
+
+        if (homeBookProb === null && awayBookProb === null) return null;
+
+        return {
+            homePolyProb: poly.homeProb,
+            awayPolyProb: poly.awayProb,
+            homeBookProb,
+            awayBookProb,
+            homeGap: homeBookProb !== null ? calcEdge(poly.homeProb, homeBookProb) : null,
+            awayGap: awayBookProb !== null ? calcEdge(poly.awayProb, awayBookProb) : null,
+            volume: poly.volume,
+        };
+    }, [
+        polyOddsResult,
+        match,
+    ]);
 
     // --- LOADING & ERROR STATES ---
     if (isLoading && !data) {
@@ -260,6 +443,22 @@ const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, o
                         <SpecSheetRow label="01 // MARKET" defaultOpen={true} collapsible={false}>
                             <PregameOdds match={match} />
                         </SpecSheetRow>
+
+                        {polyGap && (
+                            <SpecSheetRow label="01A // POLY GAP" defaultOpen={true} collapsible={false}>
+                                <PolyGapSection
+                                    homeTeam={match.homeTeam.shortName || match.homeTeam.name}
+                                    awayTeam={match.awayTeam.shortName || match.awayTeam.name}
+                                    homePolyProb={polyGap.homePolyProb}
+                                    awayPolyProb={polyGap.awayPolyProb}
+                                    homeBookProb={polyGap.homeBookProb}
+                                    awayBookProb={polyGap.awayBookProb}
+                                    homeGap={polyGap.homeGap}
+                                    awayGap={polyGap.awayGap}
+                                    volume={polyGap.volume}
+                                />
+                            </SpecSheetRow>
+                        )}
 
                         {/* 02 // CONDITIONS (Context) */}
                         <SpecSheetRow label="02 // CONDITIONS" defaultOpen={true}>
