@@ -15,20 +15,22 @@ import React, {
   useMemo,
   useCallback,
   useRef,
+  useId,
   memo,
   type FC,
   type ReactNode,
 } from 'react';
-import { motion, AnimatePresence, useMotionValue, LayoutGroup } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 
 // ============================================================================
 // SECTION 1: IMPORTS
 // ============================================================================
 
-import { Sport } from '@/types';
+import { MatchStatus, Sport } from '@/types';
 import type { Match, RecentFormGame, ShotEvent, PlayerPropBet, PropBetType } from '@/types';
 import { cn, ESSENCE } from '@/lib/essence';
 import { getMatchDisplayStats } from '../../utils/statDisplay';
+import { calculateBettingOutcome } from '../../utils/bettingCalculations';
 
 // Services
 import { fetchMatchDetailsExtended, fetchTeamLastFive } from '../../services/espnService';
@@ -43,10 +45,10 @@ import {
 } from '../../utils/matchUtils';
 
 // Components
-import { ScoreHeader, LiveGameTracker } from '../analysis/Gamecast';
+import { LiveGameTracker } from '../analysis/Gamecast';
 import { LiveAIInsight } from '../analysis/LiveAIInsight';
-import { LiveIntelligenceCard } from '../analysis/LiveIntelligenceCard';
 import { ForecastHistoryTable } from '../analysis/ForecastHistoryTable';
+import { EdgeAnalysisCard } from '../analysis/EdgeAnalysisCard';
 import BoxScore, {
   ClassicPlayerProps,
   TeamStatsGrid,
@@ -54,23 +56,19 @@ import BoxScore, {
 } from '../analysis/BoxScore';
 import { CinematicPlayerProps } from '../analysis/PlayerStatComponents';
 import InsightCard, { toInsightCard } from '../analysis/InsightCard';
-import MatchupHeader from '../pregame/MatchupHeader';
 import RecentForm from '../pregame/RecentForm';
 import SafePregameIntelCards from '../pregame/PregameIntelCards';
 import OddsCard from '../betting/OddsCard';
 import { GoalieMatchup } from '../GoalieMatchup';
-import EdgeCard from './EdgeCard';
-import MarketEdgeCard from './MarketEdgeCard';
-import { usePolyOdds, findPolyForMatch, type PolyMatchOriented } from '@/hooks/usePolyOdds';
 import { MatchupLoader, MatchupContextPills } from '../ui';
 import ChatWidget from '../ChatWidget';
 import { TechnicalDebugView } from '../TechnicalDebugView';
+import TeamLogo from '../shared/TeamLogo';
 import {
   BaseballGamePanel,
   BaseballEdgePanel,
   useBaseballLive,
 } from '@/components/baseball';
-import { LiveSweatProvider, type AIWatchTrigger } from '@/context/LiveSweatContext';
 
 // ============================================================================
 // SECTION 2: STRICT TYPE DEFINITIONS (AUDIT FIX)
@@ -114,10 +112,8 @@ type EspnExtendedMatch = Partial<ExtendedMatch> & {
   statistics?: Match['stats'];
 };
 
-interface LiveState extends Partial<Omit<ExtendedMatch, 'lastPlay'>> {
+interface LiveState extends Partial<ExtendedMatch> {
   lastPlay?: {
-    id?: string;
-    clock?: string;
     text?: string;
     coordinate?: { x: number; y: number } | string;
     type?: { text: string };
@@ -151,6 +147,10 @@ interface ExtendedMatch extends Match {
   possession?: string;
   displayClock?: string;
   context?: Record<string, ContextValue>;
+  closing_odds?: Match['closing_odds'];
+  opening_odds?: Match['opening_odds'];
+  dbProps?: Match['dbProps'];
+  stats?: Match['stats'];
   // Strictly typed extensions for sub-objects to avoid casting in assignments
   homeTeam: Match['homeTeam'] & { last5?: RecentFormGame[] };
   awayTeam: Match['awayTeam'] & { last5?: RecentFormGame[] };
@@ -168,240 +168,136 @@ interface EdgeState {
   side: 'OVER' | 'UNDER' | null;
   state: 'PLAY' | 'LEAN' | 'NEUTRAL';
   edgePoints: number;
-  confidence?: number | undefined;
+  confidence?: number;
 }
 
 // ============================================================================
-// 🎨 DESIGN TOKENS & PHYSICS (APPLE / PORSCHE SPEC)
+// 🎨 DESIGN TOKENS & PHYSICS
 // ============================================================================
 
-const PHYSICS = {
-  SPRING: { type: "spring" as const, stiffness: 450, damping: 40, mass: 0.8 },
-  CAMERA: { type: 'spring' as const, stiffness: 60, damping: 20, mass: 1.2 },
-  SLIDE_UP: {
-    initial: { opacity: 0, y: 12, filter: 'blur(8px)' },
-    animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-    exit: { opacity: 0, y: -8, filter: 'blur(4px)' },
-    transition: { type: 'spring' as const, stiffness: 350, damping: 32 }
-  }
-};
+const PHYSICS_SWITCH = { type: "spring", stiffness: 380, damping: 35, mass: 0.8 };
 
 const CONFIG = {
-  polling: { LIVE_MS: 3000, PREGAME_MS: 60000, SOCKET_FRESH_MS: 8000 },
-  nhlShots: { MIN_MS: 15000 },
+  polling: {
+    LIVE_MS: 3000,
+    PREGAME_MS: 60000,
+    SOCKET_FRESH_MS: 8000,
+  },
+  nhlShots: {
+    MIN_MS: 15000,
+  },
   coordinates: {
     BASKETBALL: { x: 50, y: 28.125 },
     FOOTBALL: { x: 60, y: 26.65 },
     SOCCER: { x: 50, y: 50 },
   },
-  forecast: { SPARKLINE_POINTS: 12, MAX_HISTORY: 20 },
+  forecast: {
+    SPARKLINE_POINTS: 12,
+    MAX_HISTORY: 20,
+  },
+};
+
+const ANIMATION = {
+  camera: { type: 'spring' as const, stiffness: 60, damping: 20, mass: 1.2 },
+  slideUp: {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+  },
 };
 
 // ============================================================================
-// 💎 MICRO-COMPONENTS (PURE CSS GEOMETRY & HARDWARE DETAILS)
+// 💎 MICRO-COMPONENTS (PURE GEOMETRY - NO ICONS)
 // ============================================================================
 
+// Pure CSS Animated Plus/Minus Toggle
 const ToggleSwitch = ({ expanded }: { expanded: boolean }) => (
-  <div className="relative w-3.5 h-3.5 flex items-center justify-center opacity-40 group-hover:opacity-100 transition-all duration-300 cursor-pointer pointer-events-none">
+  <div className="relative w-2.5 h-2.5 flex items-center justify-center opacity-40 group-hover:opacity-100 transition-opacity duration-300">
     <span className={cn(
-      "absolute w-full h-[1.5px] bg-black transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] rounded-full",
+      "absolute w-full h-[1px] bg-[#555555] transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
       expanded ? "rotate-180" : "rotate-0"
     )} />
     <span className={cn(
-      "absolute w-full h-[1.5px] bg-black transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] rounded-full",
+      "absolute w-full h-[1px] bg-[#555555] transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
       expanded ? "rotate-180 opacity-0" : "rotate-90 opacity-100"
     )} />
   </div>
 );
 
+// Pure CSS Back Arrow
 const BackArrow = () => (
-  <div className="relative w-4 h-4 flex items-center justify-center opacity-50 group-hover:opacity-100 transition-all duration-300">
-    <span className="absolute w-[11px] h-[1.5px] bg-black origin-left rotate-45 -translate-y-[0.5px] -translate-x-[2px] rounded-full" />
-    <span className="absolute w-[11px] h-[1.5px] bg-black origin-left -rotate-45 translate-y-[0.5px] -translate-x-[2px] rounded-full" />
-    <span className="absolute w-[15px] h-[1.5px] bg-black rounded-full" />
+  <div className="relative w-3 h-3 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity">
+    <span className="absolute w-2.5 h-[1.5px] bg-current origin-left rotate-45 -translate-y-[0px] -translate-x-[1px]" />
+    <span className="absolute w-2.5 h-[1.5px] bg-current origin-left -rotate-45 translate-y-[0px] -translate-x-[1px]" />
+    <span className="absolute w-3 h-[1.5px] bg-current translate-x-1" />
   </div>
 );
 
-// Milled hardware LED indicator
-const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'connecting' }) => {
-  const isConnected = status === 'connected';
-  const isConnecting = status === 'connecting';
+// --- DEFINED MISSING COMPONENTS ---
+
+const EdgeStateBadge = memo(({ edgeState }: { edgeState: EdgeState }) => (
+  <div className={cn(
+    "flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-bold tracking-[0.2em] uppercase transition-colors duration-500 border backdrop-blur-md",
+    edgeState.state === 'PLAY' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]" :
+      edgeState.state === 'LEAN' ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+        "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+  )}>
+    <span className="relative flex h-1.5 w-1.5 mr-1">
+      <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+        edgeState.state === 'PLAY' ? "bg-emerald-400" : "bg-amber-400 hidden")} />
+      <span className={cn("relative inline-flex rounded-full h-1.5 w-1.5",
+        edgeState.state === 'PLAY' ? "bg-emerald-500" : edgeState.state === 'LEAN' ? "bg-amber-500" : "bg-zinc-500")} />
+    </span>
+    <span>{edgeState.side || 'NEUTRAL'}</span>
+    <div className="w-px h-2 bg-current opacity-20 mx-1" />
+    <span className="font-mono">{edgeState.edgePoints > 0 ? '+' : ''}{edgeState.edgePoints.toFixed(1)}</span>
+  </div>
+));
+
+const ForecastSparkline = memo(({ points }: { points: ForecastPoint[] }) => {
+  if (points.length < 2) return null;
+  const values = points.map(p => p.fairTotal);
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = max - min || 1;
 
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="text-[9px] font-mono text-black/40 tracking-[0.25em] uppercase hidden sm:block font-medium mt-[1px]">
-        {isConnected ? 'SYNCED' : isConnecting ? 'SYNCING...' : 'OFFLINE'}
-      </span>
-      <div className="flex items-center justify-center w-[20px] h-[20px] bg-[#FAFAFA] border border-black/5 rounded-full shadow-[inset_0_1px_2px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.02)]">
-        {isConnected && <span className="w-1.5 h-1.5 rounded-full bg-black shadow-[0_0_6px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.4)]" />}
-        {isConnecting && <span className="w-1.5 h-1.5 rounded-full bg-black/40 animate-pulse shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]" />}
-        {!isConnected && !isConnecting && <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]" />}
-      </div>
+    <div className="flex items-end gap-[2px] h-4 w-16 opacity-80" title="Live Model Trend">
+      {points.slice(-10).map((p, i) => (
+        <div
+          key={i}
+          className={cn(
+            "w-1 rounded-[1px] transition-all duration-300",
+            p.edgeState === 'PLAY' ? "bg-emerald-500" :
+              p.edgeState === 'LEAN' ? "bg-amber-500" : "bg-zinc-700"
+          )}
+          style={{ height: `${Math.max(20, ((p.fairTotal - min) / range) * 100)}%` }}
+        />
+      ))}
     </div>
   );
 });
 
-// Apple-style bone screen shimmer
-const SkeletonShimmer = ({ className }: { className?: string }) => (
-  <div className={cn("relative overflow-hidden bg-black/[0.02] ring-1 ring-black/[0.03]", className)}>
-    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-black/[0.03] to-transparent" />
-  </div>
-);
-
 const OddsCardSkeleton = memo(() => (
-  <div className="space-y-5 p-6 rounded-[16px] bg-white ring-1 ring-black/[0.04] shadow-[0_4px_30px_rgba(0,0,0,0.02)]">
+  <div className="animate-pulse space-y-4 p-4 border border-white/5 rounded-xl bg-white/[0.02]">
     <div className="flex justify-between items-center">
-      <SkeletonShimmer className="h-2 w-24 rounded-full" />
-      <SkeletonShimmer className="h-2 w-10 rounded-full" />
+      <div className="h-2 w-20 bg-white/10 rounded-full" />
+      <div className="h-2 w-8 bg-white/10 rounded-full" />
     </div>
-    <div className="space-y-3">
-      <SkeletonShimmer className="h-12 w-full rounded-[10px]" />
-      <SkeletonShimmer className="h-12 w-full rounded-[10px]" />
+    <div className="space-y-2">
+      <div className="h-8 w-full bg-white/5 rounded-lg" />
+      <div className="h-8 w-full bg-white/5 rounded-lg" />
     </div>
   </div>
 ));
 
 const StatsGridSkeleton = memo(() => (
-  <div className="grid grid-cols-2 gap-4 mt-4">
-    {[...Array(6)].map((_idx, i) => (
-      <SkeletonShimmer key={i} className="h-14 rounded-[12px]" />
+  <div className="animate-pulse grid grid-cols-2 gap-4 mt-4">
+    {[...Array(6)].map((_, i) => (
+      <div key={i} className="h-10 bg-white/5 rounded-lg border border-white/5" />
     ))}
   </div>
 ));
-
-/**
- * GameInfoStrip — Spec Card Readout
- */
-const GameInfoStrip = memo(({ match }: { match: Match }) => {
-  const dateObj = new Date(match.startTime);
-  const isValidDate = !isNaN(dateObj.getTime());
-
-  const fullDateStr = isValidDate ? dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '';
-  const timeStr = isValidDate ? dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : '';
-
-  const odds = match.current_odds || match.odds;
-  const homeRecord = match.homeTeam?.record;
-  const awayRecord = match.awayTeam?.record;
-  const venue = (match as unknown as Record<string, unknown>)['venue'] as { name?: string; city?: string; state?: string } | undefined;
-  const venueName = venue?.name || match.homeTeam?.stadium || match.court;
-
-  // Schema-agnostic field reads (handles both ingest-odds + live-odds-tracker)
-  const spreadVal = odds?.homeSpread ?? odds?.spread ?? odds?.spread_home ?? odds?.spread_home_value;
-  const totalVal = odds?.total ?? odds?.overUnder ?? odds?.total_value;
-  const homeML = odds?.moneylineHome ?? odds?.homeWin ?? odds?.home_ml ?? odds?.homeML;
-  const awayML = odds?.moneylineAway ?? odds?.awayWin ?? odds?.away_ml ?? odds?.awayML;
-  const drawML = odds?.drawML ?? odds?.drawWin ?? odds?.draw_ml ?? odds?.draw;
-
-  const fmtOdds = (v?: string | number) => {
-    if (v === undefined || v === null) return '—';
-    const num = typeof v === 'string' ? parseFloat(v) : v;
-    if (isNaN(num)) return String(v);
-    return num > 0 ? `+${num}` : `${num}`;
-  };
-
-  // State-aware label — only claim "Live" if data is actually fresh
-  const isFinal = isGameFinal(match.status);
-  const isLive = isGameInProgress(match.status);
-  const oddsTimestamp = odds?.lastUpdated ?? odds?.updated_at ?? odds?.last_updated;
-  const gameStart = new Date(match.startTime).getTime();
-  const oddsAge = oddsTimestamp ? new Date(oddsTimestamp).getTime() : 0;
-  const oddsAreFresh = oddsAge > gameStart;
-  const linesLabel = isFinal ? 'Closing Lines' : (isLive && oddsAreFresh) ? 'Live Lines' : isLive ? 'Opening Lines' : 'Game Lines';
-
-  const isSoccer = match.sport === Sport.SOCCER || match.sport === ('SOCCER' as any);
-  const hasAnyLine = spreadVal !== undefined || totalVal !== undefined || homeML !== undefined || awayML !== undefined;
-
-  return (
-    <div className="bg-white rounded-[20px] overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.03)] ring-1 ring-black/[0.03] mb-12 relative z-10 transition-all duration-500">
-      {/* Upper Context Header */}
-      {isValidDate && (
-        <div className="px-6 py-6 border-b border-black/[0.03]">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[14px] font-semibold text-black tracking-tight">{fullDateStr}</div>
-              <div className="text-[12px] text-black/40 font-medium font-mono tabular-nums tracking-wide mt-1">{timeStr}</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1.5 bg-[#F8F8F9] rounded-[6px] ring-1 ring-black/[0.03] text-[9.5px] font-bold text-black/50 uppercase tracking-[0.25em]">
-                {match.leagueId?.toUpperCase()}
-              </span>
-            </div>
-          </div>
-          {venueName && (
-            <div className="mt-5 flex items-center gap-2.5 text-[10px] text-black/40 font-mono tracking-[0.2em] uppercase">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="opacity-50 shrink-0"><path d="M8 0a5.53 5.53 0 0 0-5.5 5.5C2.5 10.65 8 16 8 16s5.5-5.35 5.5-10.5A5.53 5.53 0 0 0 8 0zm0 7.5a2 2 0 1 1 0-4 2 2 0 0 1 0 4z" /></svg>
-              <span>{venueName}</span>
-              {venue?.city && <span className="text-black/30"> / {venue.city}{venue.state ? `, ${venue.state}` : ''}</span>}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Grid Specs */}
-      <div className={cn("grid divide-y sm:divide-y-0 sm:divide-x divide-black/[0.03]", (homeRecord || awayRecord) ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
-        {(homeRecord || awayRecord) && (
-          <div className="px-6 py-6 bg-[#FCFCFC]/80">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-1.5 h-1.5 rounded-sm bg-black/20" />
-              <div className="text-[9px] font-bold text-black/30 uppercase tracking-[0.25em]">Season Context</div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between group">
-                <span className="text-[13px] font-medium text-black/70 group-hover:text-black transition-colors truncate pr-4">{match.awayTeam?.name || match.awayTeam?.shortName}</span>
-                <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">{awayRecord || '—'}</span>
-              </div>
-              <div className="flex items-center justify-between group">
-                <span className="text-[13px] font-medium text-black/70 group-hover:text-black transition-colors truncate pr-4">{match.homeTeam?.name || match.homeTeam?.shortName}</span>
-                <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">{homeRecord || '—'}</span>
-              </div>
-            </div>
-          </div>
-        )}
-        <div className="px-6 py-6 bg-[#FCFCFC]/80">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-1.5 h-1.5 rounded-sm bg-black/20" />
-            <div className="text-[9px] font-bold text-black/30 uppercase tracking-[0.25em]">{linesLabel}</div>
-          </div>
-          {hasAnyLine ? (
-            <div className="space-y-4">
-              {spreadVal !== undefined && spreadVal !== null && (
-                <div className="flex items-center justify-between group">
-                  <span className="text-[13px] font-medium text-black/50 group-hover:text-black/80 transition-colors">Spread</span>
-                  <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">{fmtOdds(spreadVal)}</span>
-                </div>
-              )}
-              {totalVal !== undefined && totalVal !== null && (
-                <div className="flex items-center justify-between group">
-                  <span className="text-[13px] font-medium text-black/50 group-hover:text-black/80 transition-colors">Total</span>
-                  <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">O/U {totalVal}</span>
-                </div>
-              )}
-              {(homeML !== undefined || awayML !== undefined) && (
-                <div className="flex items-center justify-between group">
-                  <span className="text-[13px] font-medium text-black/50 group-hover:text-black/80 transition-colors">Moneyline</span>
-                  <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">
-                    {fmtOdds(awayML)} <span className="text-black/20 mx-1">/</span> {fmtOdds(homeML)}
-                  </span>
-                </div>
-              )}
-              {isSoccer && drawML != null && (
-                <div className="flex items-center justify-between group">
-                  <span className="text-[13px] font-medium text-black/50 group-hover:text-black/80 transition-colors">Draw</span>
-                  <span className="text-[13px] font-mono font-medium text-black tabular-nums tracking-tight">{fmtOdds(drawML)}</span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2.5 py-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-black/10 animate-pulse" />
-              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/40">Market Offline</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-});
 
 // ============================================================================
 // SECTION 3: INTELLIGENT COORDINATE ENGINE
@@ -507,41 +403,47 @@ function normalizeColor(color: string | undefined, fallback: string): string {
 // ============================================================================
 
 const BroadcastOverlay = memo(() => (
-  <div className="absolute inset-0 z-[5] pointer-events-none select-none mix-blend-overlay opacity-[0.08]">
-    <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0)_50%,rgba(0,0,0,0.8)_50%),linear-gradient(90deg,rgba(255,255,255,0.02),rgba(0,0,0,0.01),rgba(255,255,255,0.02))]" style={{ backgroundSize: "100% 2px, 3px 100%" }} />
+  <div className="absolute inset-0 z-0 pointer-events-none select-none mix-blend-overlay opacity-30">
+    <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))]" style={{ backgroundSize: "100% 2px, 3px 100%" }} />
   </div>
 ));
 
 const BasketballCourt = memo(({ children }: { children?: ReactNode }) => (
-  <svg viewBox="0 0 100 56.25" className="w-full h-full select-none bg-white">
+  <svg viewBox="0 0 100 56.25" className="w-full h-full drop-shadow-2xl select-none">
     <defs>
       <radialGradient id="courtGlow" cx="0.5" cy="0.5" r="0.8">
-        <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-        <stop offset="100%" stopColor="#f8f8f8" stopOpacity="1" />
+        <stop offset="0%" stopColor="#2a2a2a" stopOpacity="1" />
+        <stop offset="100%" stopColor="#111111" stopOpacity="1" />
       </radialGradient>
+      <pattern id="woodGrain" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+        <path d="M0 8L8 0M-2 2L2 -2M6 10L10 6" stroke="currentColor" strokeWidth="0.03" className="text-white/5" />
+      </pattern>
       <linearGradient id="floorShine" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="white" stopOpacity="0.4" />
-        <stop offset="50%" stopColor="white" stopOpacity="0" />
+        <stop offset="0%" stopColor="white" stopOpacity="0" />
+        <stop offset="45%" stopColor="white" stopOpacity="0" />
+        <stop offset="50%" stopColor="white" stopOpacity="0.03" />
+        <stop offset="55%" stopColor="white" stopOpacity="0" />
+        <stop offset="100%" stopColor="white" stopOpacity="0" />
       </linearGradient>
     </defs>
     <rect width="100" height="56.25" fill="url(#courtGlow)" />
-    {/* Crisp 0.5px etched lines */}
-    <g fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="0.5">
+    <rect width="100" height="56.25" fill="url(#woodGrain)" />
+    <g fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.6">
       <rect x="2" y="2" width="96" height="52.25" />
       <line x1="50" y1="2" x2="50" y2="54.25" />
       <circle cx="50" cy="28.125" r="6" />
       <g>
-        <path d="M2,18.125 h14 v20 h-14" fill="rgba(0,0,0,0.01)" />
-        <circle cx="16" cy="28.125" r="6" strokeDasharray="2 2" />
+        <path d="M2,18.125 h14 v20 h-14" fill="#18181b" fillOpacity="0.4" />
+        <circle cx="16" cy="28.125" r="6" strokeDasharray="3 3" />
         <path d="M2,5.125 a23,23 0 0 1 0,46" />
-        <circle cx="5.25" cy="28.125" r="0.75" fill="rgba(0,0,0,0.9)" stroke="none" />
+        <circle cx="5.25" cy="28.125" r="0.75" fill="#ec4899" stroke="none" />
         <line x1="4" y1="25.125" x2="4" y2="31.125" strokeWidth="0.8" />
       </g>
       <g transform="scale(-1, 1) translate(-100, 0)">
-        <path d="M2,18.125 h14 v20 h-14" fill="rgba(0,0,0,0.01)" />
-        <circle cx="16" cy="28.125" r="6" strokeDasharray="2 2" />
+        <path d="M2,18.125 h14 v20 h-14" fill="#18181b" fillOpacity="0.4" />
+        <circle cx="16" cy="28.125" r="6" strokeDasharray="3 3" />
         <path d="M2,5.125 a23,23 0 0 1 0,46" />
-        <circle cx="5.25" cy="28.125" r="0.75" fill="rgba(0,0,0,0.9)" stroke="none" />
+        <circle cx="5.25" cy="28.125" r="0.75" fill="#3b82f6" stroke="none" />
         <line x1="4" y1="25.125" x2="4" y2="31.125" strokeWidth="0.8" />
       </g>
     </g>
@@ -551,15 +453,25 @@ const BasketballCourt = memo(({ children }: { children?: ReactNode }) => (
 ));
 
 const Gridiron = memo(({ children }: { children?: ReactNode }) => (
-  <svg viewBox="0 0 120 53.3" className="w-full h-full select-none bg-white">
-    <rect width="120" height="53.3" fill="#ffffff" />
-    <g stroke="rgba(0,0,0,0.08)" strokeWidth="0.5" fill="none">
-      <rect x="0" y="0" width="10" height="53.3" fill="rgba(0,0,0,0.01)" />
-      <rect x="110" y="0" width="10" height="53.3" fill="rgba(0,0,0,0.01)" />
-      {Array.from({ length: 9 }).map((_idx, i) => (
+  <svg viewBox="0 0 120 53.3" className="w-full h-full drop-shadow-2xl select-none bg-emerald-950">
+    <defs>
+      <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#064e3b" />
+        <stop offset="100%" stopColor="#022c22" />
+      </linearGradient>
+      <filter id="grassNoise">
+        <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" />
+      </filter>
+    </defs>
+    <rect width="120" height="53.3" fill="url(#grass)" />
+    <rect width="120" height="53.3" filter="url(#grassNoise)" opacity="0.1" />
+    <g stroke="rgba(255,255,255,0.4)" strokeWidth="0.5" fill="none">
+      <rect x="0" y="0" width="10" height="53.3" fill="rgba(0,0,0,0.2)" />
+      <rect x="110" y="0" width="10" height="53.3" fill="rgba(0,0,0,0.2)" />
+      {Array.from({ length: 9 }).map((_, i) => (
         <line key={i} x1={(i + 2) * 10} y1="0" x2={(i + 2) * 10} y2="53.3" />
       ))}
-      <g fill="rgba(0,0,0,0.12)" stroke="none" fontSize="4" fontWeight="600" textAnchor="middle" fontFamily="monospace">
+      <g fill="rgba(255,255,255,0.4)" stroke="none" fontSize="4" fontWeight="bold" textAnchor="middle">
         <text x="30" y="10" transform="rotate(180 30 10)">20</text><text x="30" y="47">20</text>
         <text x="60" y="10" transform="rotate(180 60 10)">50</text><text x="60" y="47">50</text>
         <text x="90" y="10" transform="rotate(180 90 10)">20</text><text x="90" y="47">20</text>
@@ -573,16 +485,19 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
   const sport = match.sport?.toUpperCase() || 'UNKNOWN';
   const lastPlay = liveState?.lastPlay;
 
-  const ballPos = useMemo(() => parseCoordinate(lastPlay?.coordinate, lastPlay?.text || '', sport), [lastPlay, sport]);
-  const primaryColor = useMemo(() => normalizeColor(match.homeTeam.color, '#000000'), [match.homeTeam.color]);
+  const ballPos = useMemo(() =>
+    parseCoordinate(lastPlay?.coordinate, lastPlay?.text || '', sport),
+    [lastPlay, sport]);
+
+  const primaryColor = useMemo(() => normalizeColor(match.homeTeam.color, '#3b82f6'), [match.homeTeam.color]);
 
   const renderCourt = () => {
     if (sport.includes('BASKETBALL') || sport.includes('NBA') || sport.includes('NCAAM')) {
       return (
         <BasketballCourt>
-          <motion.g initial={{ x: 50, y: 28 }} animate={{ x: ballPos.x, y: ballPos.y }} transition={PHYSICS.CAMERA}>
-            <motion.circle r="6" fill={primaryColor} opacity="0.08" animate={{ scale: [1, 2.2, 1], opacity: [0.12, 0, 0.12] }} transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }} />
-            <circle r="1.5" fill="#000" className="shadow-sm" />
+          <motion.g initial={{ x: 50, y: 28 }} animate={{ x: ballPos.x, y: ballPos.y }} transition={ANIMATION.camera}>
+            <motion.circle r="4" fill={primaryColor} opacity="0.3" animate={{ scale: [1, 2.5, 1], opacity: [0.4, 0, 0.4] }} transition={{ repeat: Infinity, duration: 1.5 }} />
+            <circle r="1.5" fill="#fff" className="drop-shadow-[0_0_8px_rgba(255,255,255,1)]" />
           </motion.g>
         </BasketballCourt>
       );
@@ -590,61 +505,40 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
     if (sport.includes('FOOTBALL') || sport.includes('NFL') || sport.includes('CFB') || sport.includes('NCAAF')) {
       return (
         <Gridiron>
-          <motion.circle cx="0" cy="0" r="1.5" fill="#000" className="shadow-sm" initial={{ x: 60, y: 26 }} animate={{ x: ballPos.x, y: ballPos.y }} transition={PHYSICS.CAMERA} />
+          <motion.circle cx="0" cy="0" r="1.5" fill="#fff" initial={{ x: 60, y: 26 }} animate={{ x: ballPos.x, y: ballPos.y }} transition={ANIMATION.camera} />
         </Gridiron>
       );
     }
-
-    const hasTelemetry = match.lastPlay || liveState?.lastPlay;
-    if (!hasTelemetry) {
-      return (
-        <div className="relative flex flex-col items-center justify-center h-full w-full bg-[#FAFAFA] overflow-hidden">
-          {/* Subtle grid background */}
-          <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.5) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-
-          <div className="flex flex-col items-center gap-3 z-10">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-black/5 rounded-[4px] shadow-sm">
-              <div className="w-1.5 h-1.5 rounded-full bg-black/30" />
-              <span className="text-[9px] text-black/50 font-mono tracking-[0.25em] uppercase">Telemetry Unlinked</span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return <LiveGameTracker match={match} liveState={liveState as any} showHeader={false} headerVariant="embedded" />;
+    return <LiveGameTracker match={match} liveState={liveState} showHeader={false} headerVariant="embedded" />;
   };
 
-  const periodLabel = match.period ? `P${match.period}` : '';
-
   return (
-    <div className="flex flex-col gap-5">
-      <div className="relative w-full aspect-video overflow-hidden rounded-[16px] bg-white ring-1 ring-black/[0.04] shadow-[0_2px_12px_rgba(0,0,0,0.02)] z-0">
+    <div className="flex flex-col gap-3">
+      <div className="relative w-full aspect-video overflow-hidden bg-black border-y border-white/10 z-0 shadow-2xl">
         <div className="absolute inset-0 z-0">{renderCourt()}</div>
         <BroadcastOverlay />
-        <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+        <div className="absolute top-4 left-4 z-[1] flex items-center gap-2">
           {match.possession && (
-            <div className="px-3 py-1.5 bg-white/90 backdrop-blur-md text-black/80 text-[9px] tracking-[0.2em] font-mono rounded-[6px] ring-1 ring-black/5 uppercase shadow-sm">
-              POSS <span className="text-black/20 mx-1">/</span> <span className="text-black font-bold">{match.possession}</span>
+            <div className="px-2 py-px bg-black/80 backdrop-blur text-zinc-300 text-[9px] tracking-widest font-mono border border-white/10 uppercase">
+              POSS // <span className="text-white font-bold">{match.possession}</span>
             </div>
           )}
         </div>
       </div>
-
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start gap-4 px-2">
-        <div className="w-[1.5px] h-10 bg-black/[0.08] shrink-0 mt-1 rounded-full" />
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start gap-4 px-1">
+        <div className="w-1 h-8 bg-blue-500 shrink-0 opacity-80" />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[9px] font-bold text-black/40 uppercase tracking-[0.25em] font-mono">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-[0.2em] font-mono">
               {(lastPlay?.type?.text || "LIVE FEED").toUpperCase()}
             </span>
-            <span className="text-[9px] text-black/30 font-mono tracking-[0.2em] tabular-nums">
-              {match.displayClock || "00:00"}{periodLabel ? ` / ${periodLabel}` : ''}
+            <span className="text-[9px] text-zinc-600 font-mono tracking-widest">
+              {match.displayClock || "00:00"} // P{match.period}
             </span>
           </div>
           <AnimatePresence mode="wait">
-            <motion.p key={lastPlay?.text || "waiting"} initial={{ opacity: 0, y: 2 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -2 }} className="text-[14px] font-medium text-black/90 leading-snug truncate">
-              {lastPlay?.text || "Synchronizing broadcast sequence..."}
+            <motion.p key={lastPlay?.text || "waiting"} initial={{ opacity: 0, x: 5 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -5 }} className="text-[13px] font-medium text-white leading-snug truncate">
+              {lastPlay?.text || "Waiting for signal..."}
             </motion.p>
           </AnimatePresence>
         </div>
@@ -667,33 +561,59 @@ interface SpecSheetRowProps {
 const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true }: SpecSheetRowProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const effectiveOpen = collapsible ? isOpen : true;
-
-  // Render format "01 // TITLE" into "01" (ghosted) and "TITLE" (bold)
-  const parts = label.split(' // ');
-  const numberPart = parts.length > 1 ? parts[0] : '';
-  const titlePart = parts.length > 1 ? parts[1] : label;
+  const contentId = useId();
+  const safeLabel = label.replace(/\s*\/\/\s*/g, ' ').trim();
+  const toggleOpen = () => {
+    if (!collapsible) return;
+    setIsOpen((prev) => !prev);
+  };
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!collapsible) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleOpen();
+    }
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className={cn("group relative border-t border-black/[0.03] transition-all duration-500", collapsible ? "cursor-pointer" : "cursor-default")}
-      onClick={() => collapsible && setIsOpen(!isOpen)}
+      className={cn(
+        "group relative border-t border-[#E5E5E5] transition-all duration-500",
+        collapsible
+          ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4D4D4] focus-visible:ring-offset-0"
+          : "cursor-default"
+      )}
+      onClick={toggleOpen}
+      onKeyDown={handleKeyDown}
+      role={collapsible ? "button" : undefined}
+      tabIndex={collapsible ? 0 : undefined}
+      aria-expanded={collapsible ? effectiveOpen : undefined}
+      aria-controls={collapsible ? contentId : undefined}
+      aria-label={collapsible ? `${safeLabel} section` : undefined}
     >
-      <div className="py-8 flex flex-col md:flex-row md:items-start gap-5 md:gap-10 px-2 md:px-0">
-        <div className="w-full md:w-[150px] shrink-0 flex items-center justify-between md:block select-none mt-[2px] overflow-hidden">
-          <span className="text-[10px] uppercase transition-all duration-300 font-mono block tracking-[0.25em] md:group-hover:translate-x-1">
-            {numberPart && <span className="text-black/30 mr-2">{numberPart}</span>}
-            <span className={cn("font-semibold", effectiveOpen ? "text-black/80" : "text-black/40 group-hover:text-black/60")}>{titlePart}</span>
-          </span>
+      <div className={cn("absolute -top-[1px] left-0 h-[1px] bg-[#D4D4D4] transition-all duration-500 ease-out z-[1] shadow-[0_0_8px_rgba(212,212,212,0.5)]", effectiveOpen ? "w-full opacity-100" : "w-0 opacity-0")} />
+      <div className="py-6 flex flex-col md:flex-row md:items-start gap-5 md:gap-0">
+        <div className="w-full md:w-[140px] shrink-0 flex items-center justify-between md:block select-none">
+          <span className={cn("text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-300 font-mono block", effectiveOpen ? "text-[#0A0A0A]" : "text-[#888888] group-hover:text-[#555555]")}>{label}</span>
           {collapsible && <div className="md:hidden block"><ToggleSwitch expanded={effectiveOpen} /></div>}
         </div>
         <div className="flex-1 min-w-0 relative">
-          {collapsible && <div className="hidden md:block absolute right-0 top-1 z-10"><ToggleSwitch expanded={effectiveOpen} /></div>}
+          {collapsible && <div className="hidden md:block absolute right-0 top-1"><ToggleSwitch expanded={effectiveOpen} /></div>}
           <AnimatePresence initial={false}>
             {effectiveOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={PHYSICS.SPRING} className="overflow-hidden">
-                <div className="animate-in fade-in duration-700 fill-mode-forwards pt-3 md:pt-0 md:pr-12">{children}</div>
+              <motion.div
+                id={contentId}
+                role="region"
+                aria-label={safeLabel}
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={PHYSICS_SWITCH}
+                className="overflow-hidden"
+              >
+                <div className="animate-in fade-in duration-700 fill-mode-forwards">{children}</div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -704,19 +624,418 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
 };
 
 // ============================================================================
-// SECTION 6: SWIPEABLE HEADER 
+// SECTION 6: UI HELPERS
 // ============================================================================
 
-const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: { match: ExtendedMatch; isScheduled: boolean; onSwipe: (dir: number) => void }) => {
-  const x = useMotionValue(0);
+const DESIGN_TOKENS = {
+  background: '#FFFFFF',
+  surface: '#F8F8F8',
+  surfaceRaised: '#F2F2F2',
+  border: '#E5E5E5',
+  borderActive: '#D4D4D4',
+  textPrimary: '#0A0A0A',
+  textSecondary: '#555555',
+  textMuted: '#888888',
+  liveGreen: '#00C896',
+  alertRed: '#E54D4D',
+};
+
+const NUMERIC_TEXT_CLASS = `font-mono [font-variant-numeric:tabular-nums] [font-feature-settings:"tnum"] tracking-[0.02em]`;
+
+const NAV_BAR_HEIGHT = 64;
+const SCORE_HEADER_EXPANDED = 132;
+const SCORE_HEADER_COMPACT = 52;
+
+type CoreSport = 'SOCCER' | 'BASKETBALL' | 'FOOTBALL' | 'HOCKEY' | 'BASEBALL' | 'OTHER';
+type MatchTabId = 'SUMMARY' | 'STATS' | 'LINEUPS' | 'BOX_SCORE' | 'AI' | 'ODDS';
+type StatSection = 'Attack' | 'Defense' | 'Discipline';
+
+interface ClockDisplayModel {
+  primary: string;
+  secondary?: string;
+  isLive: boolean;
+  isFinal: boolean;
+  finalLabel?: string;
+}
+
+interface ComparisonStat {
+  label: string;
+  awayDisplay: string;
+  homeDisplay: string;
+  awayValue: number;
+  homeValue: number;
+  section: StatSection;
+}
+
+interface BettingOutcomeRow {
+  market: 'SPREAD' | 'TOTAL' | 'ML';
+  selection: string;
+  result: string;
+  verdict: string;
+  won: boolean | null;
+}
+
+const toTeamAbbreviation = (team?: Match['homeTeam']): string =>
+  team?.abbreviation || team?.shortName || team?.name?.slice(0, 3).toUpperCase() || 'TEAM';
+
+const formatSigned = (value: number, precision = 1): string => {
+  const fixed = Number(value.toFixed(precision));
+  if (fixed > 0) return `+${fixed}`;
+  return `${fixed}`;
+};
+
+const formatAmericanOdds = (value: number | undefined): string => {
+  if (value === undefined || !Number.isFinite(value)) return '';
+  if (value > 0) return `+${Math.trunc(value)}`;
+  return `${Math.trunc(value)}`;
+};
+
+const getCoreSport = (match: Match): CoreSport => {
+  const sport = String(match.sport || '').toUpperCase();
+  const league = String(match.leagueId || '').toUpperCase();
+  if (sport.includes('SOCCER') || league.includes('MLS') || league.includes('EPL')) return 'SOCCER';
+  if (sport.includes('BASEBALL') || league.includes('MLB')) return 'BASEBALL';
+  if (sport.includes('HOCKEY') || league.includes('NHL')) return 'HOCKEY';
+  if (sport.includes('FOOTBALL') || league.includes('NFL') || league.includes('NCAAF')) return 'FOOTBALL';
+  if (sport.includes('BASKETBALL') || league.includes('NBA') || league.includes('WNBA') || league.includes('NCAAB')) return 'BASKETBALL';
+  return 'OTHER';
+};
+
+const toOrdinalPeriod = (period: number): string => {
+  if (period === 1) return '1ST';
+  if (period === 2) return '2ND';
+  if (period === 3) return '3RD';
+  if (period === 4) return '4TH';
+  return `${period}TH`;
+};
+
+const useScrollCollapse = (threshold = 40): boolean => {
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setCollapsed(window.scrollY > threshold);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [threshold]);
+
+  return collapsed;
+};
+
+const getBreakClockLabel = (status: string, sport: CoreSport): string | null => {
+  const s = status.toUpperCase();
+  if (s.includes('HALF')) return sport === 'SOCCER' ? 'HT' : 'HALF';
+  if (s.includes('INTERMISSION')) return 'INT';
+  if (s.includes('END_PERIOD')) return sport === 'HOCKEY' ? 'INT' : 'END OF PERIOD';
+  if (s.includes('RAIN_DELAY')) return 'RAIN DELAY';
+  return null;
+};
+
+const getScoreClockModel = (
+  match: Match,
+  currentOdds: Match['current_odds'] | Match['closing_odds'] | Match['opening_odds'] | Match['odds'] | undefined
+): ClockDisplayModel => {
+  const sport = getCoreSport(match);
+  const status = String(match.status || '').toUpperCase();
+  const displayClock = String(match.displayClock || '').trim();
+  const period = Math.max(1, match.period || 1);
+  const spread = getOddsSpreadValue(currentOdds);
+  const total = getOddsTotalValue(currentOdds);
+
+  if (isGameFinal(match.status)) {
+    const hasOvertime = status.includes('OT') || status.includes('AET') || status.includes('SO');
+    return {
+      primary: hasOvertime ? 'FINAL/OT' : 'FINAL',
+      isLive: false,
+      isFinal: true,
+      finalLabel: hasOvertime ? 'FINAL/OT' : 'FINAL',
+    };
+  }
+
+  const breakLabel = getBreakClockLabel(status, sport);
+  if (breakLabel) {
+    return {
+      primary: breakLabel,
+      isLive: false,
+      isFinal: false,
+    };
+  }
+
+  if (isGameScheduled(match.status)) {
+    const date = new Date(match.startTime);
+    const primary = Number.isNaN(date.getTime())
+      ? 'TBD'
+      : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const details: string[] = [];
+    if (spread !== undefined) details.push(`SPREAD ${formatSigned(spread)}`);
+    if (total !== undefined) details.push(`TOTAL ${total}`);
+    return {
+      primary,
+      secondary: details.join(' · '),
+      isLive: false,
+      isFinal: false,
+    };
+  }
+
+  if (sport === 'SOCCER') {
+    const rawMinute = String(match.minute || displayClock).replace(/\s/g, '');
+    const minute = rawMinute.endsWith("'") ? rawMinute : `${rawMinute || '0'}'`;
+    return { primary: minute, isLive: true, isFinal: false };
+  }
+
+  if (sport === 'BASEBALL') {
+    const normalizedClock = displayClock
+      .toUpperCase()
+      .replace('BOTTOM', 'BOT')
+      .replace('TOP', 'TOP')
+      .replace('MIDDLE', 'MID')
+      .trim();
+    const inning = Math.max(1, period);
+    const primary = normalizedClock || `TOP ${inning}`;
+    const outs = typeof match.situation?.outs === 'number' ? `${match.situation.outs} OUT${match.situation.outs === 1 ? '' : 'S'}` : undefined;
+    return {
+      primary,
+      secondary: outs && !primary.startsWith('MID') ? outs : undefined,
+      isLive: true,
+      isFinal: false,
+    };
+  }
+
+  if (sport === 'HOCKEY') {
+    return {
+      primary: `${toOrdinalPeriod(period)} · ${displayClock || '00:00'}`,
+      isLive: true,
+      isFinal: false,
+    };
+  }
+
+  if (sport === 'FOOTBALL') {
+    const downDistance = match.situation?.downDistanceText?.toUpperCase();
+    return {
+      primary: `${period > 4 ? 'OT' : `Q${period}`} · ${displayClock || '00:00'}`,
+      secondary: downDistance || undefined,
+      isLive: true,
+      isFinal: false,
+    };
+  }
+
+  return {
+    primary: `${period > 4 ? 'OT' : `Q${period}`} · ${displayClock || '00:00'}`,
+    isLive: true,
+    isFinal: false,
+  };
+};
+
+const getStatSection = (label: string): StatSection => {
+  const value = label.toLowerCase();
+  if (/foul|card|penalt|offside|turnover|ejection|pim/.test(value)) return 'Discipline';
+  if (/tackle|save|block|interception|clearance|steal|rebound|hit|takeaway|giveaway/.test(value)) return 'Defense';
+  return 'Attack';
+};
+
+const parseComparableValue = (raw: string): number => {
+  const value = String(raw || '').trim();
+  if (!value) return 0;
+  if (value.includes('/')) {
+    const [head] = value.split('/');
+    const n = Number(head.replace(/[^\d.-]/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  }
+  const n = Number(value.replace(/[^\d.+-]/g, ''));
+  return Number.isFinite(n) ? n : 0;
+};
+
+const getOddsFieldNumber = (
+  odds: Match['current_odds'] | Match['opening_odds'] | Match['closing_odds'] | Match['odds'] | undefined,
+  keys: string[]
+): number | undefined => parseOddsNumber(readOddsField(odds as Match['current_odds'], keys));
+
+const buildFinalBettingRows = (
+  match: Match,
+  closingOdds: Match['current_odds'] | Match['opening_odds'] | Match['closing_odds'] | Match['odds'] | undefined
+): BettingOutcomeRow[] => {
+  if (!isGameFinal(match.status) || !closingOdds) return [];
+
+  const rows: BettingOutcomeRow[] = [];
+  const homeAbbr = toTeamAbbreviation(match.homeTeam);
+  const awayAbbr = toTeamAbbreviation(match.awayTeam);
+  const sport = getCoreSport(match);
+  const totalLabel = sport === 'SOCCER' || sport === 'HOCKEY' ? 'goals' : sport === 'BASEBALL' ? 'runs' : 'points';
+
+  const bettingOutcome = calculateBettingOutcome({
+    ...match,
+    status: MatchStatus.FINISHED,
+    odds: closingOdds as Match['odds'],
+  });
+
+  const homeSpread = getOddsFieldNumber(closingOdds, ['dk_spread', 'homeSpread', 'home_spread', 'spread_home', 'spread']);
+  const spreadPriceHome = getOddsFieldNumber(closingOdds, ['dk_home_spread_price', 'homeSpreadOdds', 'home_spread_odds']);
+  const spreadPriceAway = getOddsFieldNumber(closingOdds, ['dk_away_spread_price', 'awaySpreadOdds', 'away_spread_odds']);
+
+  if (homeSpread !== undefined) {
+    const pickHome = homeSpread <= 0;
+    const selectedTeam = pickHome ? homeAbbr : awayAbbr;
+    const selectedLine = pickHome ? homeSpread : homeSpread * -1;
+    const selectedPrice = pickHome ? spreadPriceHome : spreadPriceAway;
+
+    let won: boolean | null = null;
+    if (bettingOutcome?.spread) {
+      if (bettingOutcome.spread.isPush) won = null;
+      else won = bettingOutcome.spread.teamId === (pickHome ? match.homeTeam.id : match.awayTeam.id);
+    } else {
+      const margin = (match.homeScore || 0) + homeSpread - (match.awayScore || 0);
+      won = margin === 0 ? null : pickHome ? margin > 0 : margin < 0;
+    }
+
+    rows.push({
+      market: 'SPREAD',
+      selection: `${selectedTeam} ${formatSigned(selectedLine)}${selectedPrice !== undefined ? ` (${formatAmericanOdds(selectedPrice)})` : ''}`,
+      result: `${match.homeTeam.name} ${match.homeScore}-${match.awayScore} ${match.awayTeam.name}`,
+      verdict: won === null ? 'PUSH' : won ? 'COVERED ✓' : 'MISSED ✗',
+      won,
+    });
+  }
+
+  const totalLine = getOddsFieldNumber(closingOdds, ['dk_total', 'total', 'overUnder', 'over_under', 'total_line', 'over']);
+  const overPrice = getOddsFieldNumber(closingOdds, ['dk_over_price', 'overOdds', 'over_odds', 'totalOver']);
+  if (totalLine !== undefined) {
+    const actual = (match.homeScore || 0) + (match.awayScore || 0);
+    const won = actual === totalLine ? null : actual > totalLine;
+    rows.push({
+      market: 'TOTAL',
+      selection: `Over ${totalLine}${overPrice !== undefined ? ` (${formatAmericanOdds(overPrice)})` : ''}`,
+      result: `${actual} ${totalLabel}`,
+      verdict: won === null ? 'PUSH' : won ? 'HIT ✓' : 'MISSED ✗',
+      won,
+    });
+  }
+
+  const homeMl = getOddsFieldNumber(closingOdds, ['dk_home_ml', 'home_ml', 'moneylineHome', 'homeWin']);
+  const awayMl = getOddsFieldNumber(closingOdds, ['dk_away_ml', 'away_ml', 'moneylineAway', 'awayWin']);
+  const drawMl = getOddsFieldNumber(closingOdds, ['dk_draw_ml', 'draw_ml', 'draw']);
+  if (homeMl !== undefined || awayMl !== undefined || drawMl !== undefined) {
+    const options = [
+      homeMl !== undefined ? { team: homeAbbr, side: 'HOME' as const, price: homeMl } : null,
+      awayMl !== undefined ? { team: awayAbbr, side: 'AWAY' as const, price: awayMl } : null,
+      drawMl !== undefined ? { team: 'DRAW', side: 'DRAW' as const, price: drawMl } : null,
+    ].filter(Boolean) as Array<{ team: string; side: 'HOME' | 'AWAY' | 'DRAW'; price: number }>;
+
+    options.sort((a, b) => {
+      if (a.price < 0 && b.price >= 0) return -1;
+      if (a.price >= 0 && b.price < 0) return 1;
+      if (a.price < 0 && b.price < 0) return a.price - b.price;
+      return a.price - b.price;
+    });
+
+    const pick = options[0];
+    const winnerSide: 'HOME' | 'AWAY' | 'DRAW' =
+      match.homeScore === match.awayScore ? 'DRAW' : match.homeScore > match.awayScore ? 'HOME' : 'AWAY';
+    const won = pick ? pick.side === winnerSide : null;
+
+    rows.push({
+      market: 'ML',
+      selection: pick ? `${pick.team} ML (${formatAmericanOdds(pick.price)})` : 'ML',
+      result: winnerSide === 'DRAW' ? 'Draw' : winnerSide === 'HOME' ? `${homeAbbr} won` : `${awayAbbr} won`,
+      verdict: won === null ? 'PUSH' : won ? 'WON ✓' : 'LOST ✗',
+      won,
+    });
+  }
+
+  return rows;
+};
+
+const ComparisonStatRow: FC<{
+  label: string;
+  awayDisplay: string;
+  homeDisplay: string;
+  awayValue: number;
+  homeValue: number;
+  awayColor: string;
+  homeColor: string;
+}> = memo(({ label, awayDisplay, homeDisplay, awayValue, homeValue, awayColor, homeColor }) => {
+  const max = Math.max(awayValue, homeValue, 1);
+  const awayPct = (awayValue / max) * 100;
+  const homePct = (homeValue / max) * 100;
+  const awayLeading = awayValue > homeValue;
+  const homeLeading = homeValue > awayValue;
+
   return (
-    <motion.div style={{ x }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={(_e, i) => { if (i.offset.x > 100) onSwipe(-1); else if (i.offset.x < -100) onSwipe(1); }} className="mx-auto w-full max-w-[1280px] cursor-grab px-4 pb-3 pt-1 sm:px-6 md:px-8 active:cursor-grabbing">
-      <AnimatePresence mode="wait">
-        <motion.div key={match.id} initial={{ opacity: 0, scale: 0.99, filter: 'blur(2px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 1.01, filter: 'blur(2px)' }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
-          {isScheduled ? <MatchupHeader matchId={match.id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} startTime={match.startTime} sport={match.sport} currentOdds={match.current_odds as any} /> : <ScoreHeader match={match} variant="embedded" />}
-        </motion.div>
-      </AnimatePresence>
-    </motion.div>
+    <div className="grid grid-cols-[72px_1fr_72px] items-center gap-3 py-2">
+      <span className={cn(NUMERIC_TEXT_CLASS, 'text-right text-[13px] text-[#0A0A0A]')}>{awayDisplay}</span>
+      <div className="relative h-9 rounded-full bg-[#F2F2F2] border border-[#E5E5E5] overflow-hidden">
+        <div className="absolute inset-y-0 left-1/2 w-px bg-[#D4D4D4]" />
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${awayPct / 2}%` }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+          className="absolute right-1/2 inset-y-[9px] rounded-l-full"
+          style={{ backgroundColor: awayColor, opacity: awayLeading ? 0.8 : 0.6 }}
+        />
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${homePct / 2}%` }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+          className="absolute left-1/2 inset-y-[9px] rounded-r-full"
+          style={{ backgroundColor: homeColor, opacity: homeLeading ? 0.8 : 0.6 }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center px-2">
+          <span className="text-[12px] font-normal text-[#555555] text-center truncate">{label}</span>
+        </div>
+      </div>
+      <span className={cn(NUMERIC_TEXT_CLASS, 'text-[13px] text-[#0A0A0A]')}>{homeDisplay}</span>
+    </div>
+  );
+});
+
+const BettingRowsTable: FC<{ rows: BettingOutcomeRow[]; compact?: boolean }> = memo(({ rows, compact = false }) => {
+  if (!rows.length) return null;
+  const renderRows = compact ? rows.slice(0, 2) : rows;
+
+  return (
+    <div className="divide-y divide-[#E5E5E5] rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF]">
+      {renderRows.map((row) => (
+        <div key={row.market} className="grid grid-cols-[64px_1fr_1fr_auto] gap-3 p-3 items-center">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#555555]">{row.market}</span>
+          <span className={cn(NUMERIC_TEXT_CLASS, 'text-[12px] text-[#0A0A0A]')}>{row.selection}</span>
+          <span className={cn(NUMERIC_TEXT_CLASS, 'text-[12px] text-[#555555]')}>{row.result}</span>
+          <span className={cn('text-[12px] font-semibold', row.won === null ? 'text-[#555555]' : row.won ? 'text-[#00C896]' : 'text-[#E54D4D]')}>
+            {row.verdict}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+});
+
+const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'connecting' }) => {
+  const base = 'flex items-center justify-center w-7 h-7 rounded-full border border-[#E5E5E5] bg-[#FFFFFF]';
+  if (status === 'connected') {
+    return (
+      <div className={base}>
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full rounded-full bg-[#00C896]/45 blur-[4px]" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00C896]" />
+        </span>
+      </div>
+    );
+  }
+  if (status === 'connecting') {
+    return (
+      <div className={base}>
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full rounded-full bg-[#00C896]/45 blur-[4px] animate-pulse" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00C896]" />
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className={base}>
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full rounded-full bg-[#E54D4D]/50 blur-[4px]" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E54D4D]" />
+      </span>
+    </div>
   );
 });
 
@@ -764,9 +1083,9 @@ function computeMatchSignature(m: ExtendedMatch): string {
     String(m.homeScore ?? ''),
     String(m.awayScore ?? ''),
     m.lastPlay?.text || '',
-    hashStable(m.current_odds as any ?? null),
-    hashStable(m.stats as any ?? null),
-    hashStable(m.playerStats as any ?? null)
+    hashStable(m.current_odds ?? null),
+    hashStable(m.stats ?? null),
+    hashStable(m.playerStats ?? null)
   ].join('|');
 }
 
@@ -795,6 +1114,58 @@ function parseTsMs(v: string | number | Date | null | undefined, fallbackMs: num
   if (typeof v === 'string') { const t = new Date(v).getTime(); return Number.isFinite(t) ? t : fallbackMs; }
   if (v instanceof Date) { const t = v.getTime(); return Number.isFinite(t) ? t : fallbackMs; }
   return fallbackMs;
+}
+
+function readOddsField(
+  odds: Match['current_odds'] | Match['opening_odds'] | Match['closing_odds'] | undefined,
+  keys: readonly string[]
+): unknown {
+  if (!odds) return undefined;
+  const record = odds as unknown as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (value !== null && value !== undefined && `${value}`.trim() !== '') return value;
+  }
+  return undefined;
+}
+
+function parseOddsNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return undefined;
+  const raw = value.trim().toUpperCase();
+  if (!raw) return undefined;
+  if (raw === 'PK' || raw === 'PICK' || raw === 'EV' || raw === 'EVEN') return 0;
+  const num = Number(raw.replace(/[^\d.\-]/g, ''));
+  return Number.isFinite(num) ? num : undefined;
+}
+
+function getOddsSpreadValue(
+  odds: Match['current_odds'] | Match['opening_odds'] | Match['closing_odds'] | undefined
+): number | undefined {
+  const home = parseOddsNumber(
+    readOddsField(odds, ['homeSpread', 'home_spread', 'spread_home', 'spread_home_value', 'spread'])
+  );
+  if (home !== undefined) return home;
+  const away = parseOddsNumber(
+    readOddsField(odds, ['awaySpread', 'away_spread', 'spread_away', 'spread_away_value'])
+  );
+  return away !== undefined ? away * -1 : undefined;
+}
+
+function getOddsTotalValue(
+  odds: Match['current_odds'] | Match['opening_odds'] | Match['closing_odds'] | undefined
+): number | undefined {
+  return parseOddsNumber(
+    readOddsField(odds, ['total', 'overUnder', 'over_under', 'total_line', 'total_value', 'over'])
+  );
+}
+
+function getOddsDisplayValue(
+  odds: Match['current_odds'] | Match['opening_odds'] | Match['closing_odds'] | undefined,
+  keys: readonly string[]
+): string | number | undefined {
+  const value = readOddsField(odds, keys);
+  return (typeof value === 'string' || typeof value === 'number') ? value : undefined;
 }
 
 function useMatchPolling(initialMatch: ExtendedMatch) {
@@ -828,7 +1199,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
       const fairTotal = signals.deterministic_fair_total || 0;
       const marketTotal = signals.market_total || 0;
       const diff = fairTotal - marketTotal;
-      const newEdge: EdgeState = { side: diff > 0 ? 'OVER' : diff < 0 ? 'UNDER' : null, state: rec.side !== 'PASS' && rec.side !== 'AVOID' ? 'PLAY' : Math.abs(diff) > 1.5 ? 'LEAN' : 'NEUTRAL', edgePoints: diff, confidence: aiAnalysis.sharp_data.confidence_level ?? undefined };
+      const newEdge: EdgeState = { side: diff > 0 ? 'OVER' : diff < 0 ? 'UNDER' : null, state: rec.side !== 'PASS' && rec.side !== 'AVOID' ? 'PLAY' : Math.abs(diff) > 1.5 ? 'LEAN' : 'NEUTRAL', edgePoints: diff, confidence: aiAnalysis.sharp_data.confidence_level };
       setEdgeState(newEdge);
       setForecastHistory(prev => {
         const newPoint: ForecastPoint = { clock: live.clock || '', fairTotal, marketTotal, edgeState: newEdge.state, timestamp: Date.now() };
@@ -865,7 +1236,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           const createdAt = parseTsMs(newLive.created_at, receivedAt);
           if (createdAt <= lastLiveCreatedAtRef.current) return;
           lastLiveCreatedAtRef.current = createdAt; lastLiveReceivedAtRef.current = receivedAt;
-          const nextLiveSig = hashStable(newLive as any);
+          const nextLiveSig = hashStable(newLive);
           if (nextLiveSig !== liveSigRef.current) { liveSigRef.current = nextLiveSig; processLiveState(newLive); }
         }
       })
@@ -919,18 +1290,8 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           awayScore: Math.max(espn.awayScore ?? 0, nextMatch.awayScore ?? 0)
         };
       }
-      if (db && !isGameFinal(nextMatch.status)) {
-        const espnOdds = nextMatch.odds;
-        const dbOdds = db.current_odds;
-        const isDbExternal = dbOdds?.provider && String(dbOdds.provider).toLowerCase() !== 'espn' && String(dbOdds.provider).toLowerCase() !== 'none';
-        nextMatch.current_odds = isDbExternal ? dbOdds : (espnOdds?.hasOdds ? espnOdds : (dbOdds || espnOdds));
-        if ((db.home_score || 0) > (nextMatch.homeScore || 0)) nextMatch.homeScore = db.home_score;
-        if ((db.away_score || 0) > (nextMatch.awayScore || 0)) nextMatch.awayScore = db.away_score;
-      }
-      if (db) {
-        if (db.closing_odds) nextMatch.closing_odds = db.closing_odds;
-        if (db.opening_odds) nextMatch.opening_odds = db.opening_odds;
-      }
+      if (db && !isGameFinal(nextMatch.status)) { nextMatch.current_odds = db.current_odds; if ((db.home_score || 0) > (nextMatch.homeScore || 0)) nextMatch.homeScore = db.home_score; if ((db.away_score || 0) > (nextMatch.awayScore || 0)) nextMatch.awayScore = db.away_score; }
+      if (db) { if (db.closing_odds) nextMatch.closing_odds = db.closing_odds; if (db.opening_odds) nextMatch.opening_odds = db.opening_odds; if (db.odds) nextMatch.odds = db.odds; }
       if (props?.length) {
         const normalizePropType = (value?: string | null): PropBetType => {
           const raw = (value || '').toLowerCase();
@@ -955,7 +1316,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           return 'line';
         };
 
-        const toPropBet = (p: DbPlayerPropRow) => ({
+        const toPropBet = (p: DbPlayerPropRow): PlayerPropBet => ({
           id: `${cur.id}:${p.player_name || 'player'}:${p.bet_type || 'prop'}:${p.line_value ?? ''}`,
           userId: 'system',
           matchId: cur.id,
@@ -964,7 +1325,8 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           team: p.team || undefined,
           opponent: p.opponent || undefined,
           playerName: p.player_name || '',
-          playerId: p.player_id || p.espn_player_id || undefined,
+          playerId: p.player_id || undefined,
+          espnPlayerId: p.espn_player_id || undefined,
           headshotUrl: p.headshot_url || undefined,
           betType: normalizePropType(p.bet_type),
           marketLabel: p.market_label || undefined,
@@ -982,16 +1344,14 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           avgL5: p.avg_l5 ? Number(p.avg_l5) : undefined,
           aiRationale: p.ai_rationale || undefined,
           analysisStatus: p.analysis_status || undefined,
-          analysisTs: p.analysis_ts || undefined,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }) as unknown as PlayerPropBet;
+          analysisTs: p.analysis_ts || undefined
+        });
 
         nextMatch.dbProps = props.map(toPropBet);
       } else if (props !== null) nextMatch.dbProps = [];
       const nextSig = computeMatchSignature(nextMatch);
       if (nextSig !== matchSigRef.current) { matchRef.current = nextMatch; matchSigRef.current = nextSig; setMatch(nextMatch); }
-      if (live) { const receivedAt = Date.now(); const createdAt = parseTsMs(live.created_at, receivedAt); if (createdAt > lastLiveCreatedAtRef.current) { lastLiveCreatedAtRef.current = createdAt; lastLiveReceivedAtRef.current = receivedAt; const nextLiveSig = hashStable(live as any); if (nextLiveSig !== liveSigRef.current) { liveSigRef.current = nextLiveSig; processLiveState(live); } } }
+      if (live) { const receivedAt = Date.now(); const createdAt = parseTsMs(live.created_at, receivedAt); if (createdAt > lastLiveCreatedAtRef.current) { lastLiveCreatedAtRef.current = createdAt; lastLiveReceivedAtRef.current = receivedAt; const nextLiveSig = hashStable(live); if (nextLiveSig !== liveSigRef.current) { liveSigRef.current = nextLiveSig; processLiveState(live); } } }
       if (isGameScheduled(cur.status) && !nextMatch.homeTeam.last5) { try { const [hForm, aForm] = await Promise.all([fetchTeamLastFive(cur.homeTeam.id, cur.sport, cur.leagueId), fetchTeamLastFive(cur.awayTeam.id, cur.sport, cur.leagueId)]); nextMatch.homeTeam.last5 = hForm; nextMatch.awayTeam.last5 = aForm; setMatch({ ...nextMatch }); matchRef.current = nextMatch; } catch (e) { console.warn('Form Fetch Error', e); } }
       void maybeFetchNhlShots(nextMatch);
       setConnectionStatus('connected'); setError(null); setIsInitialLoad(false);
@@ -1015,8 +1375,8 @@ function useKeyboardNavigation(matches: Match[], currentMatchId: string, onSelec
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const idx = matches.findIndex((m) => m.id === currentMatchId);
       if (idx === -1) return;
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); const prev = matches[(idx - 1 + matches.length) % matches.length]; if (prev) onSelectMatch(prev); }
-      else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); const next = matches[(idx + 1) % matches.length]; if (next) onSelectMatch(next); }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); onSelectMatch(matches[(idx - 1 + matches.length) % matches.length]); }
+      else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); onSelectMatch(matches[(idx + 1) % matches.length]); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -1048,40 +1408,53 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const [pregameIntel, setPregameIntel] = useState<PregameIntelResponse | null>(null);
   useKeyboardNavigation(matches, match.id, onSelectMatch);
 
-  // ── Polymarket probability data ────────────────────────────────────
-  const { data: polyResult } = usePolyOdds();
-  const polyData: PolyMatchOriented | null = useMemo(
-    () => findPolyForMatch(polyResult, match.id, match.homeTeam?.name, match.awayTeam?.name),
-    [polyResult, match.id, match.homeTeam?.name, match.awayTeam?.name]
-  );
-
   const isSched = useMemo(() => isGameScheduled(match?.status), [match?.status]);
   const isLive = isGameInProgress(match.status);
   const homeColor = useMemo(() => normalizeColor(match?.homeTeam?.color, '#3B82F6'), [match.homeTeam]);
   const awayColor = useMemo(() => normalizeColor(match?.awayTeam?.color, '#EF4444'), [match.awayTeam]);
   const displayStats = useMemo(() => getMatchDisplayStats(match, 8), [match]);
 
-  const [activeTab, setActiveTab] = useState(isSched ? 'DETAILS' : 'OVERVIEW');
-  const [propView, setPropView] = useState<'classic' | 'cinematic'>('classic');
-
-  useEffect(() => {
-    if (isSched && activeTab === 'OVERVIEW') setActiveTab('DETAILS');
-    if (!isSched && activeTab === 'DETAILS') setActiveTab('OVERVIEW');
-  }, [isSched, activeTab]);
+  const [activeTab, setActiveTab] = useState<MatchTabId>('SUMMARY');
+  const [propView, setPropView] = useState<'classic' | 'cinematic'>('cinematic');
+  const nextPropView = propView === 'classic' ? 'cinematic' : 'classic';
+  const nextPropLabel = nextPropView === 'classic' ? 'Classic View' : 'Cinematic View';
 
   const handleSwipe = useCallback((dir: number) => {
     if (!matches.length) return;
     const idx = matches.findIndex(m => m.id === match.id);
     if (idx === -1) return;
-    onSelectMatch?.(matches[(idx + dir + matches.length) % matches.length] as any);
+    onSelectMatch?.(matches[(idx + dir + matches.length) % matches.length]);
   }, [matches, match.id, onSelectMatch]);
 
   if (!match?.homeTeam) return <MatchupLoader className="h-screen" label="Synchronizing Hub" />;
 
-  const TABS = useMemo(() => isSched
-    ? [{ id: 'DETAILS', label: 'Matchup' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }]
-    : [{ id: 'OVERVIEW', label: 'Game' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }],
-    [isSched]);
+  const coreSport = useMemo(() => getCoreSport(match), [match]);
+  const TABS = useMemo<{ id: MatchTabId; label: string }[]>(
+    () => coreSport === 'SOCCER'
+      ? [
+        { id: 'SUMMARY', label: 'SUMMARY' },
+        { id: 'STATS', label: 'STATS' },
+        { id: 'LINEUPS', label: 'LINEUPS' },
+        { id: 'AI', label: 'AI' },
+        { id: 'ODDS', label: 'ODDS' },
+      ]
+      : [
+        { id: 'SUMMARY', label: 'SUMMARY' },
+        { id: 'STATS', label: 'STATS' },
+        { id: 'BOX_SCORE', label: 'BOX SCORE' },
+        { id: 'AI', label: 'AI' },
+        { id: 'ODDS', label: 'ODDS' },
+      ],
+    [coreSport]
+  );
+
+  useEffect(() => {
+    if (!TABS.some((tab) => tab.id === activeTab)) {
+      setActiveTab('SUMMARY');
+    }
+  }, [TABS, activeTab]);
+  const tabButtonId = (id: string) => `match-tab-${id.toLowerCase()}`;
+  const tabPanelId = (id: string) => `match-panel-${id.toLowerCase()}`;
 
   const fallbackLiveState: LiveState | undefined = match.lastPlay
     ? { lastPlay: { text: match.lastPlay.text, type: { text: match.lastPlay.type } } }
@@ -1093,10 +1466,19 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
   }, [match.startTime]);
 
-  const isEdgeTab = activeTab === 'DATA';
+  const currentSpreadForIntel = useMemo(
+    () => getOddsSpreadValue(match.current_odds),
+    [match.current_odds]
+  );
+  const currentTotalForIntel = useMemo(
+    () => getOddsTotalValue(match.current_odds),
+    [match.current_odds]
+  );
+
+  const isAiTab = activeTab === 'AI';
 
   useEffect(() => {
-    if (!isSched || !isEdgeTab) return;
+    if (!isSched || !isAiTab) return;
     const controller = new AbortController();
     let active = true;
 
@@ -1109,8 +1491,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           match.sport || '',
           match.leagueId || '',
           startTimeISO,
-          match.current_odds?.homeSpread ? Number(match.current_odds.homeSpread) : undefined,
-          match.current_odds?.total ? Number(match.current_odds.total) : undefined,
+          currentSpreadForIntel,
+          currentTotalForIntel,
           controller.signal
         );
         if (intel) {
@@ -1145,10 +1527,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       active = false;
       controller.abort();
     };
-  }, [isSched, isEdgeTab, match.id, match.homeTeam?.name, match.awayTeam?.name, match.sport, match.leagueId, startTimeISO, match.current_odds?.homeSpread, match.current_odds?.total]);
+  }, [isSched, isAiTab, match.id, match.homeTeam?.name, match.awayTeam?.name, match.sport, match.leagueId, startTimeISO, currentSpreadForIntel, currentTotalForIntel]);
 
   const insightCardData = useMemo(() => {
-    if (!isEdgeTab) return null;
+    if (!isAiTab) return null;
     const prop = match.dbProps?.[0];
     if (!prop || typeof prop !== 'object') return null;
     const propRow = prop as Partial<PlayerPropBet> & Record<string, unknown>;
@@ -1214,10 +1596,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       l5Results,
       l5HitRate: hitRate
     });
-  }, [isEdgeTab, match]);
+  }, [isAiTab, match]);
 
   const gameEdgeCardData = useMemo(() => {
-    if (!isEdgeTab || !pregameIntel || !match.homeTeam || !match.awayTeam) return null;
+    if (!isAiTab || !pregameIntel || !match.homeTeam || !match.awayTeam) return null;
 
     const pick = pregameIntel.recommended_pick || pregameIntel.grading_metadata?.selection || '';
     const pickText = (pick || '').trim();
@@ -1278,16 +1660,16 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
     if (meta?.type === 'TOTAL') {
       bestOdds = meta.side === 'OVER'
-        ? (oddsMarket?.overOdds ?? oddsMarket?.over ?? oddsMarket?.totalOver) as any
-        : (oddsMarket?.underOdds ?? oddsMarket?.under) as any;
+        ? getOddsDisplayValue(oddsMarket, ['overOdds', 'over_odds', 'totalOver', 'total_over_odds', 'over'])
+        : getOddsDisplayValue(oddsMarket, ['underOdds', 'under_odds', 'total_under_odds', 'under']);
     } else if (meta?.type === 'SPREAD') {
       bestOdds = meta.side === 'HOME'
-        ? (oddsMarket?.homeSpreadOdds ?? oddsMarket?.homeSpread) as any
-        : (oddsMarket?.awaySpreadOdds ?? oddsMarket?.awaySpread) as any;
+        ? getOddsDisplayValue(oddsMarket, ['homeSpreadOdds', 'home_spread_odds', 'spread_home_odds', 'homeSpread', 'home_spread', 'spread_home', 'spread_home_value'])
+        : getOddsDisplayValue(oddsMarket, ['awaySpreadOdds', 'away_spread_odds', 'spread_away_odds', 'awaySpread', 'away_spread', 'spread_away', 'spread_away_value']);
     } else if (meta?.type === 'MONEYLINE') {
       bestOdds = meta.side === 'HOME'
-        ? (oddsMarket?.moneylineHome ?? oddsMarket?.home_ml) as any
-        : (oddsMarket?.moneylineAway ?? oddsMarket?.away_ml) as any;
+        ? getOddsDisplayValue(oddsMarket, ['moneylineHome', 'homeWin', 'homeML', 'home_ml', 'home_moneyline'])
+        : getOddsDisplayValue(oddsMarket, ['moneylineAway', 'awayWin', 'awayML', 'away_ml', 'away_moneyline']);
     }
 
     const confidence = pregameIntel.confidence_score;
@@ -1307,7 +1689,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       side: pickText.toUpperCase().startsWith('UNDER') ? 'UNDER' : 'OVER',
       line: 0,
       statType: 'Edge',
-      bestOdds: bestOdds ? String(bestOdds) : 'N/A',
+      bestOdds,
       bestBook: oddsMarket?.provider || 'Market',
       affiliateLink: undefined,
       dvpRank: 0,
@@ -1317,260 +1699,512 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       l5Results: [],
       l5HitRate: 0
     });
-  }, [isEdgeTab, match, pregameIntel]);
+  }, [isAiTab, match, pregameIntel]);
 
-  const playByPlayText = liveState?.lastPlay?.text || match.lastPlay?.text || '';
+  const currentOddsSource = match.current_odds || match.closing_odds || match.odds || match.opening_odds;
+  const closingOddsSource = match.closing_odds || match.current_odds || match.odds || match.opening_odds;
+  const scoreClock = useMemo(
+    () => getScoreClockModel(match, currentOddsSource),
+    [match, currentOddsSource]
+  );
+  const isCollapsed = useScrollCollapse(40);
+  const scoreShellHeight = isCollapsed ? SCORE_HEADER_COMPACT : SCORE_HEADER_EXPANDED;
 
-  // Generate dynamic Live Sweat triggers from available props and game context
-  const sweatTriggers: AIWatchTrigger[] = useMemo(() => {
-    const base: AIWatchTrigger[] = [
-      { entityId: 'global_score', keywords: ['touchdown', 'goal', 'home run', 'three pointer', 'dunk'] }
-    ];
-    if (!match.dbProps) return base;
+  const awayAbbr = toTeamAbbreviation(match.awayTeam);
+  const homeAbbr = toTeamAbbreviation(match.homeTeam);
+  const awayWinner = match.awayScore > match.homeScore;
+  const homeWinner = match.homeScore > match.awayScore;
+  const compactSummary = isGameScheduled(match.status)
+    ? `${awayAbbr} vs ${homeAbbr} · ${scoreClock.primary}`
+    : `${awayAbbr} ${match.awayScore} — ${match.homeScore} ${homeAbbr} · ${scoreClock.primary}${scoreClock.secondary ? ` ${scoreClock.secondary}` : ''}`;
 
-    // Extract prop names for fuzzy trigger mapping
-    const propTriggers = match.dbProps.map(prop => ({
-      entityId: prop.playerName,
-      keywords: prop.playerName.split(' ').filter(n => n.length > 2)
-    }));
-    return [...base, ...propTriggers];
-  }, [match.dbProps]);
+  const comparisonStats = useMemo<ComparisonStat[]>(() => {
+    const rows = getMatchDisplayStats(match, 24).map((stat) => {
+      const awayDisplay = String(stat.awayValue ?? '0');
+      const homeDisplay = String(stat.homeValue ?? '0');
+      return {
+        label: stat.label,
+        awayDisplay,
+        homeDisplay,
+        awayValue: parseComparableValue(awayDisplay),
+        homeValue: parseComparableValue(homeDisplay),
+        section: getStatSection(stat.label),
+      };
+    });
+
+    if (coreSport === 'SOCCER' && !rows.some((row) => row.label.toLowerCase().includes('xg'))) {
+      const xg = (match.stats || []).find((stat) => String(stat.label || '').toLowerCase().includes('xg'));
+      if (xg) {
+        const awayDisplay = String(xg.awayValue ?? '0');
+        const homeDisplay = String(xg.homeValue ?? '0');
+        rows.unshift({
+          label: 'xG',
+          awayDisplay,
+          homeDisplay,
+          awayValue: parseComparableValue(awayDisplay),
+          homeValue: parseComparableValue(homeDisplay),
+          section: 'Attack',
+        });
+      }
+    }
+    return rows;
+  }, [coreSport, match]);
+
+  const groupedStats = useMemo(
+    () => ({
+      Attack: comparisonStats.filter((row) => row.section === 'Attack'),
+      Defense: comparisonStats.filter((row) => row.section === 'Defense'),
+      Discipline: comparisonStats.filter((row) => row.section === 'Discipline'),
+    }),
+    [comparisonStats]
+  );
+
+  const finalBettingRows = useMemo(
+    () => buildFinalBettingRows(match, closingOddsSource),
+    [match, closingOddsSource]
+  );
+  const currentSpread = getOddsSpreadValue(currentOddsSource as Match['current_odds']);
+  const currentTotal = getOddsTotalValue(currentOddsSource as Match['current_odds']);
+  const currentHomeMl = getOddsFieldNumber(currentOddsSource, ['dk_home_ml', 'home_ml', 'moneylineHome', 'homeWin']);
+  const currentAwayMl = getOddsFieldNumber(currentOddsSource, ['dk_away_ml', 'away_ml', 'moneylineAway', 'awayWin']);
+  const currentDrawMl = getOddsFieldNumber(currentOddsSource, ['dk_draw_ml', 'draw_ml', 'draw']);
+  const currentMlDisplay = [
+    currentAwayMl !== undefined ? `${awayAbbr} ${formatAmericanOdds(currentAwayMl)}` : null,
+    currentHomeMl !== undefined ? `${homeAbbr} ${formatAmericanOdds(currentHomeMl)}` : null,
+    currentDrawMl !== undefined ? `DRAW ${formatAmericanOdds(currentDrawMl)}` : null,
+  ].filter(Boolean).join(' · ') || 'N/A';
+
+  const edgeAnalysisData = useMemo(() => {
+    const fairTotal = liveState?.deterministic_signals?.deterministic_fair_total;
+    const marketTotal = liveState?.deterministic_signals?.market_total;
+    if (!Number.isFinite(fairTotal) || !Number.isFinite(marketTotal)) return undefined;
+    const diff = Number(fairTotal) - Number(marketTotal);
+    return {
+      type: 'TOTAL' as const,
+      impliedLine: Number(marketTotal),
+      modelLine: Number(fairTotal),
+      edgePoints: Math.abs(diff),
+      edgeDirection: diff >= 0 ? 'OVER' as const : 'UNDER' as const,
+      confidence: Math.max(0.5, Math.min(0.95, edgeState?.confidence || 0.62)),
+      implications: [
+        `Model fair total ${Number(fairTotal).toFixed(1)} vs market ${Number(marketTotal).toFixed(1)}`,
+        `Directional edge: ${diff >= 0 ? 'OVER' : 'UNDER'} ${Math.abs(diff).toFixed(1)} points`,
+      ],
+      keyInjuries: [],
+      trace: {
+        pace: 100,
+        efficiency: Number(marketTotal) === 0 ? 0 : Number(fairTotal) / Number(marketTotal),
+        possessions: 98,
+      },
+      edgePercent: Number(marketTotal) === 0 ? 0 : Math.abs((diff / Number(marketTotal)) * 100),
+    };
+  }, [liveState, edgeState]);
+
+  const hasRosters = Boolean(match.rosters?.home?.length || match.rosters?.away?.length);
+  const isSoccer = coreSport === 'SOCCER';
 
   return (
-    <div className="min-h-[100dvh] text-black relative overflow-y-auto overflow-x-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white pb-[calc(env(safe-area-inset-bottom)+6rem)]">
-      <LiveSweatProvider latestPlayByPlayText={playByPlayText} aiTriggers={sweatTriggers}>
-        <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-[#FBFBFD]/92 pt-safe backdrop-blur-[24px] saturate-[1.2] transition-colors duration-500">
-          <div className="flex items-center justify-between px-6 py-4">
-            <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-black/5 rounded-full transition-all duration-300">
+    <div className="min-h-screen font-sans bg-[#FFFFFF] text-[#0A0A0A]">
+      <div className="relative isolate">
+        <div className="absolute inset-0 pointer-events-none z-0">
+          <motion.div
+            animate={{ opacity: [0.06, 0.12, 0.06] }}
+            transition={{ duration: 6, repeat: Infinity }}
+            className="absolute top-[-18%] left-[-12%] h-[52%] w-[52%] rounded-full blur-[140px]"
+            style={{ background: awayColor }}
+          />
+          <motion.div
+            animate={{ opacity: [0.06, 0.12, 0.06] }}
+            transition={{ duration: 6, repeat: Infinity, delay: 3 }}
+            className="absolute top-[-18%] right-[-12%] h-[52%] w-[52%] rounded-full blur-[140px]"
+            style={{ background: homeColor }}
+          />
+        </div>
+
+        <header
+          className="sticky top-0 z-50 border-b border-[#E5E5E5] backdrop-blur-md"
+          style={{ backgroundColor: `${DESIGN_TOKENS.background}F2`, height: NAV_BAR_HEIGHT }}
+        >
+          <div className="mx-auto flex h-full max-w-[960px] items-center justify-between px-4">
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back to matches"
+              title="Back to matches"
+              className="group flex h-10 w-10 items-center justify-center rounded-full hover:bg-[#F2F2F2] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4D4D4]"
+            >
               <BackArrow />
             </button>
-            <div className="flex items-center gap-4">
-              <span className="text-[10px] font-bold text-black/40 tracking-[0.25em] uppercase hidden md:block mt-[1px]">
-                {match.leagueId?.toUpperCase()}
+            <div className="flex items-center gap-3">
+              <span className="hidden text-[11px] font-medium tracking-[0.05em] text-[#555555] md:inline-block">
+                {String(match.leagueId || '').toUpperCase()}
               </span>
               <ConnectionBadge status={connectionStatus} />
+              <button
+                type="button"
+                className="h-8 rounded-full border border-[#E5E5E5] px-3 text-[11px] font-semibold tracking-[0.05em] text-[#555555] hover:bg-[#F2F2F2]"
+              >
+                SHARE
+              </button>
             </div>
           </div>
-          {error && (
-            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2 overflow-hidden">
-              <div className="bg-red-50 border border-red-200 text-red-600 text-[10px] uppercase tracking-[0.2em] font-mono py-1.5 px-3 text-center rounded-[6px] shadow-[0_0_10px_rgba(239,68,68,0.1)]">
-                Telemetry Link Offline
+        </header>
+
+        <section
+          className="sticky z-40 border-b border-[#E5E5E5] bg-[#F8F8F8] overflow-hidden"
+          style={{ top: NAV_BAR_HEIGHT, height: scoreShellHeight }}
+        >
+          <motion.div
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.x > 110) handleSwipe(-1);
+              if (info.offset.x < -110) handleSwipe(1);
+            }}
+            className="relative h-full cursor-grab active:cursor-grabbing"
+          >
+            <div
+              className={cn(
+                'absolute inset-0 transition-transform duration-200 ease-out',
+                isCollapsed ? 'opacity-0 translate-y-3 pointer-events-none' : 'opacity-100 translate-y-0'
+              )}
+            >
+              <div className="mx-auto grid h-full max-w-[960px] grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-4">
+                <div className="flex items-center gap-3">
+                  <TeamLogo
+                    logo={match.awayTeam.logo}
+                    name={match.awayTeam.name}
+                    abbreviation={awayAbbr}
+                    sport={String(match.sport)}
+                    color={awayColor}
+                    className="h-12 w-12"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] font-medium text-[#0A0A0A]">{match.awayTeam.shortName || match.awayTeam.name}</p>
+                    <p className={cn(NUMERIC_TEXT_CLASS, 'text-[12px] text-[#888888]')}>{awayAbbr}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center justify-center">
+                  {!isGameScheduled(match.status) && (
+                    <div className="flex items-end gap-3">
+                      <span className={cn(NUMERIC_TEXT_CLASS, 'text-[38px] leading-none', awayWinner || !scoreClock.isFinal ? 'font-bold text-[#0A0A0A]' : 'font-semibold text-[#888888]')}>
+                        {match.awayScore}
+                      </span>
+                      <span className={cn(NUMERIC_TEXT_CLASS, 'pb-1 text-[26px] text-[#888888]')}>—</span>
+                      <span className={cn(NUMERIC_TEXT_CLASS, 'text-[38px] leading-none', homeWinner || !scoreClock.isFinal ? 'font-bold text-[#0A0A0A]' : 'font-semibold text-[#888888]')}>
+                        {match.homeScore}
+                      </span>
+                    </div>
+                  )}
+                  <div className="mt-1 flex items-center gap-2">
+                    {scoreClock.isLive && (
+                      <span className="h-2 w-2 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]" />
+                    )}
+                    {scoreClock.isFinal ? (
+                      <span className="rounded-full border border-[#D4D4D4] bg-[#FFFFFF] px-2.5 py-0.5 text-[11px] font-semibold text-[#0A0A0A]">
+                        {scoreClock.finalLabel}
+                      </span>
+                    ) : (
+                      <span className={cn(NUMERIC_TEXT_CLASS, 'text-[14px] text-[#555555]')}>{scoreClock.primary}</span>
+                    )}
+                    {scoreClock.secondary && (
+                      <span className={cn(NUMERIC_TEXT_CLASS, 'text-[12px] text-[#888888]')}>{scoreClock.secondary}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3">
+                  <div className="min-w-0 text-right">
+                    <p className="truncate text-[14px] font-medium text-[#0A0A0A]">{match.homeTeam.shortName || match.homeTeam.name}</p>
+                    <p className={cn(NUMERIC_TEXT_CLASS, 'text-[12px] text-[#888888]')}>{homeAbbr}</p>
+                  </div>
+                  <TeamLogo
+                    logo={match.homeTeam.logo}
+                    name={match.homeTeam.name}
+                    abbreviation={homeAbbr}
+                    sport={String(match.sport)}
+                    color={homeColor}
+                    className="h-12 w-12"
+                  />
+                </div>
               </div>
-            </motion.div>
-          )}
+            </div>
 
-          <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
+            <div
+              className={cn(
+                'absolute inset-0 transition-transform duration-200 ease-out',
+                isCollapsed ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
+              )}
+            >
+              <div className="mx-auto flex h-full max-w-[960px] items-center justify-between px-4">
+                <div className="min-w-0 flex items-center gap-2">
+                  {scoreClock.isLive && <span className="h-2 w-2 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]" />}
+                  <span className={cn(NUMERIC_TEXT_CLASS, 'truncate text-[14px] font-semibold text-[#0A0A0A]')}>
+                    {compactSummary}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </section>
 
-          {/* Gradient scroll-mask wrapper */}
-          <div className="relative mt-1.5 w-full shrink-0 overflow-hidden">
-            {/* Scroll mask gradients */}
-            <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
-            <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
-
-            <nav className="relative flex h-[42px] max-w-full items-center gap-6 overflow-x-auto px-6 no-scrollbar">
-              {TABS.map((tab, i) => (
+        <nav
+          className="sticky z-30 border-b border-[#E5E5E5] bg-[#FFFFFF]/95 backdrop-blur-sm"
+          style={{ top: NAV_BAR_HEIGHT + scoreShellHeight }}
+          role="tablist"
+          aria-label="Match detail tabs"
+        >
+          <LayoutGroup>
+            <div className="mx-auto flex max-w-[960px] items-center gap-2 overflow-x-auto px-2 no-scrollbar">
+              {TABS.map((tab) => (
                 <button
                   key={tab.id}
+                  type="button"
+                  id={tabButtonId(tab.id)}
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  aria-controls={tabPanelId(tab.id)}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "relative h-full text-[11.5px] font-semibold uppercase tracking-[0.2em] transition-all duration-300 whitespace-nowrap outline-none flex items-center shrink-0",
-                    activeTab === tab.id ? "text-black" : "text-black/40 hover:text-black/60",
-                    i === TABS.length - 1 && "pr-6" // Extra padding for last scroll item
+                    'relative shrink-0 px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.05em] transition-opacity duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4D4D4]',
+                    activeTab === tab.id ? 'opacity-100' : 'opacity-40 hover:opacity-60'
                   )}
                 >
                   {tab.label}
                   {activeTab === tab.id && (
-                    <motion.div
-                      layoutId="activeTab"
-                      className="absolute bottom-0 left-0 right-0 h-[2px] bg-black rounded-t-[2px]"
-                      transition={PHYSICS.SPRING}
+                    <motion.span
+                      layoutId="activeTabIndicator"
+                      transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                      className="absolute bottom-0 left-1 right-1 h-[2px] rounded-full bg-[#0A0A0A]"
                     />
                   )}
                 </button>
               ))}
-            </nav>
-            {/* Subtle separator line extending full width */}
-            <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-black/[0.04]" />
-          </div>
-        </header>
-
-        <main className="relative z-10 mx-auto max-w-[860px] px-4 pt-5 md:px-0">
-          <GameInfoStrip match={match} />
-
-          <LayoutGroup>
-            <AnimatePresence mode="wait">
-              <motion.div key={activeTab} {...PHYSICS.SLIDE_UP}>
-                {activeTab === 'OVERVIEW' && (
-                  <div className="space-y-0">
-                    <SpecSheetRow label="01 // BROADCAST" defaultOpen={true} collapsible={false}>
-                      {isBaseball ? (
-                        <BaseballGamePanel match={match} baseballData={baseballData} />
-                      ) : (
-                        <CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} />
-                      )}
-                    </SpecSheetRow>
-                    {isLive && (
-                      <SpecSheetRow label="01A // LIVE CARD" defaultOpen={true} collapsible={false}>
-                        <LiveIntelligenceCard match={match} />
-                      </SpecSheetRow>
-                    )}
-                    <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-zinc-200" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
-                    {liveState?.ai_analysis && <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={true}><LiveAIInsight match={match} /></SpecSheetRow>}
-                    <div className="w-full h-px bg-zinc-200" />
-                  </div>
-                )}
-                {activeTab === 'DETAILS' && (
-                  <div className="space-y-0">
-                    <SafePregameIntelCards match={match} />
-                    <div className="mt-8">
-                      <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>{isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}</SpecSheetRow>
-                      <SpecSheetRow label="05 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
-                      <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
-                      <SpecSheetRow label="07 // CONTEXT" defaultOpen={true}>{match.context ? <MatchupContextPills {...match.context} sport={match.sport} /> : <div className="text-zinc-500 italic text-xs">No context available.</div>}</SpecSheetRow>
-                      <div className="w-full h-px bg-zinc-200" />
-                    </div>
-                  </div>
-                )}
-                {activeTab === 'PROPS' && (
-                  <div className="space-y-0">
-                    <div className="flex justify-end mb-4 pr-4">
-                      <button
-                        type="button"
-                        onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')}
-                        className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 transition-colors hover:text-zinc-900"
-                      >
-                        {propView === 'classic' ? 'VIEW: CLASSIC' : 'VIEW: CINEMATIC'}
-                      </button>
-                    </div>
-                    <SpecSheetRow label="01 // PLAYER MKTS" defaultOpen={true} collapsible={false}>{propView === 'classic' ? <ClassicPlayerProps match={match} /> : <CinematicPlayerProps match={match} />}</SpecSheetRow>
-                    <div className="w-full h-px bg-zinc-200" />
-                  </div>
-                )}
-                {activeTab === 'DATA' && (
-                  <div className="space-y-0">
-                    {/* ── Polymarket Intelligence Section ─────────────── */}
-                    {polyData && match.homeTeam && match.awayTeam && (
-                      <div className="mb-12 space-y-6">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1 h-1 rounded-full bg-indigo-400" />
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Market Intelligence</span>
-                        </div>
-                        <EdgeCard
-                          homeTeam={match.homeTeam.shortName || match.homeTeam.name}
-                          awayTeam={match.awayTeam.shortName || match.awayTeam.name}
-                          homePolyProb={polyData.homeProb}
-                          awayPolyProb={polyData.awayProb}
-                          volume={polyData.volume}
-                          {...(() => {
-                            const o = match.current_odds || match.odds;
-                            const home = Number(o?.moneylineHome || o?.homeWin || o?.home_ml || 0);
-                            const away = Number(o?.moneylineAway || o?.awayWin || o?.away_ml || 0);
-                            return {
-                              ...(home !== 0 ? { homeMoneyline: home } : {}),
-                              ...(away !== 0 ? { awayMoneyline: away } : {})
-                            };
-                          })()}
-                        />
-                        <MarketEdgeCard
-                          homeTeam={match.homeTeam.shortName || match.homeTeam.name}
-                          awayTeam={match.awayTeam.shortName || match.awayTeam.name}
-                          homePolyProb={polyData.homeProb}
-                          awayPolyProb={polyData.awayProb}
-                          volume={polyData.volume}
-                          gameStartTime={polyData.gameStartTime}
-                          {...(Number(match.current_odds?.moneylineHome || match.current_odds?.home_ml || 0) !== 0
-                            ? { homeMoneyline: Number(match.current_odds?.moneylineHome || match.current_odds?.home_ml) }
-                            : {})}
-                          {...(Number(match.current_odds?.moneylineAway || match.current_odds?.away_ml || 0) !== 0
-                            ? { awayMoneyline: Number(match.current_odds?.moneylineAway || match.current_odds?.away_ml) }
-                            : {})}
-                        />
-                      </div>
-                    )}
-                    {(gameEdgeCardData || insightCardData) && (
-                      <div className="mb-12 space-y-6">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Shareable Insights</span>
-                        </div>
-                        {gameEdgeCardData && (
-                          <div className="space-y-3">
-                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Game Edge</span>
-                            <InsightCard data={gameEdgeCardData!} />
-                          </div>
-                        )}
-                        {insightCardData && (
-                          <div className="space-y-3">
-                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Player Prop</span>
-                            <InsightCard data={insightCardData!} />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {isBaseball && (baseballData as any)?.edge && (
-                      <div className="mb-12">
-                        <div className="flex items-center gap-2 mb-4">
-                          <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">
-                            Edge Convergence
-                          </span>
-                        </div>
-                        <BaseballEdgePanel edge={(baseballData as any).edge} />
-                      </div>
-                    )}
-                    <div className="mb-12"><ForecastHistoryTable matchId={match.id} /></div>
-                    <SpecSheetRow label="01 // BOX SCORE" defaultOpen={true}><BoxScore match={match} /></SpecSheetRow>
-                    <SpecSheetRow label="02 // ANALYSIS" defaultOpen={false}><SafePregameIntelCards match={match} /></SpecSheetRow>
-                    <div className="w-full h-px bg-zinc-200" />
-                  </div>
-                )}
-                {activeTab === 'CHAT' && (
-                  <div className="mx-auto w-full max-w-[1120px] pb-8">
-                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-                      <aside className="order-1 space-y-4 lg:order-2 lg:sticky lg:top-24">
-                        <div className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[0_10px_36px_-28px_rgba(0,0,0,0.45)]">
-                          <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/45">
-                            AI Context
-                          </div>
-                          <div className="mt-2 text-[13px] leading-relaxed text-black/70">
-                            {isLive
-                              ? "Live workflow is active. Use this rail to anchor your read before drilling into chat."
-                              : isSched
-                                ? "Pregame workflow is active. Ask for market context, lineup impact, and pre-open risk."
-                                : "Postgame workflow is active. Use chat for line review and trend carry-forward."}
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-1.5">
-                            <span className="rounded-md border border-black/[0.08] bg-black/[0.02] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-black/60">
-                              {match.status || "STATUS"}
-                            </span>
-                            <span className="rounded-md border border-black/[0.08] bg-black/[0.02] px-2 py-1 text-[10px] font-semibold tabular-nums text-black/70">
-                              {match.awayScore ?? 0}-{match.homeScore ?? 0}
-                            </span>
-                            <span className="rounded-md border border-black/[0.08] bg-black/[0.02] px-2 py-1 text-[10px] font-semibold tabular-nums text-black/70">
-                              {match.displayClock || (match.minute ? `${match.minute}'` : (isSched ? "PRE" : "FINAL"))}
-                            </span>
-                            {(match.current_odds?.total ?? match.odds?.overUnder ?? null) !== null && (
-                              <span className="rounded-md border border-black/[0.08] bg-black/[0.02] px-2 py-1 text-[10px] font-semibold tabular-nums text-black/70">
-                                Total {match.current_odds?.total ?? match.odds?.overUnder}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        {isLive ? <LiveIntelligenceCard match={match} /> : null}
-                      </aside>
-
-                      <div className="order-2 lg:order-1 h-[calc(100dvh-190px)] min-h-[520px] overflow-hidden rounded-[22px] border border-black/[0.06] bg-white shadow-[0_14px_42px_-28px_rgba(0,0,0,0.36)]">
-                        <ChatWidget currentMatch={match as any} inline />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            </AnimatePresence>
+            </div>
           </LayoutGroup>
+        </nav>
+
+        <main className="relative z-[1] mx-auto min-h-screen max-w-[960px] px-4 pb-safe-offset-24 pt-5">
+          {error && (
+            <div className="mb-4 rounded-xl border border-[#E54D4D]/35 bg-[#E54D4D]/8 px-3 py-2 text-[11px] text-[#E54D4D]">
+              Live feed interrupted. Showing the latest synchronized snapshot.
+            </div>
+          )}
+
+          <section id={tabPanelId('SUMMARY')} role="tabpanel" aria-labelledby={tabButtonId('SUMMARY')} hidden={activeTab !== 'SUMMARY'} className="space-y-5">
+            <SpecSheetRow label="01 // SUMMARY" defaultOpen={true} collapsible={false}>
+              {isBaseball ? (
+                <BaseballGamePanel match={match} baseballData={baseballData} />
+              ) : (
+                <CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} />
+              )}
+            </SpecSheetRow>
+
+            <SpecSheetRow label="02 // SNAPSHOT" defaultOpen={true}>
+              <div className="space-y-6">
+                <LineScoreGrid match={match} isLive={!isGameFinal(match.status)} />
+                <div className="h-px w-full bg-[#E5E5E5]" />
+                {isInitialLoad ? (
+                  <StatsGridSkeleton />
+                ) : (
+                  <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />
+                )}
+              </div>
+            </SpecSheetRow>
+
+            {isGameFinal(match.status) && finalBettingRows.length > 0 && (
+              <SpecSheetRow label="03 // MARKET RESULT" defaultOpen={true} collapsible={false}>
+                <BettingRowsTable rows={finalBettingRows} compact />
+              </SpecSheetRow>
+            )}
+
+            {coreSport === 'HOCKEY' && (
+              <SpecSheetRow label="04 // GOALIES" defaultOpen={true}>
+                <GoalieMatchup matchId={match.id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />
+              </SpecSheetRow>
+            )}
+          </section>
+
+          <section id={tabPanelId('STATS')} role="tabpanel" aria-labelledby={tabButtonId('STATS')} hidden={activeTab !== 'STATS'} className="space-y-4">
+            <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-4">
+              {(['Attack', 'Defense', 'Discipline'] as StatSection[]).map((section, idx) => (
+                <div key={section} className={cn(idx !== 0 && 'pt-4', idx !== 0 && 'border-t border-[#E5E5E5]')}>
+                  <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.05em] text-[#555555]">{section}</p>
+                  {(groupedStats[section] || []).length === 0 ? (
+                    <p className="py-2 text-[12px] text-[#888888]">No {section.toLowerCase()} stats available.</p>
+                  ) : (
+                    (groupedStats[section] || []).map((row) => (
+                      <ComparisonStatRow
+                        key={`${section}-${row.label}`}
+                        label={row.label}
+                        awayDisplay={row.awayDisplay}
+                        homeDisplay={row.homeDisplay}
+                        awayValue={row.awayValue}
+                        homeValue={row.homeValue}
+                        awayColor={awayColor}
+                        homeColor={homeColor}
+                      />
+                    ))
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section
+            id={tabPanelId(isSoccer ? 'LINEUPS' : 'BOX_SCORE')}
+            role="tabpanel"
+            aria-labelledby={tabButtonId(isSoccer ? 'LINEUPS' : 'BOX_SCORE')}
+            hidden={activeTab !== (isSoccer ? 'LINEUPS' : 'BOX_SCORE')}
+            className="space-y-5"
+          >
+            {isSoccer && (
+              <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-4">
+                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#555555]">Lineups</p>
+                {!hasRosters ? (
+                  <p className="text-[12px] text-[#888888]">Lineups are not published yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <div>
+                      <p className="mb-2 text-[12px] font-medium text-[#0A0A0A]">{match.awayTeam.name}</p>
+                      <div className="space-y-1">
+                        {(match.rosters?.away || []).slice(0, 22).map((player, idx) => (
+                          <div key={`${player.id || player.name}-${idx}`} className="flex items-center justify-between rounded-lg border border-[#E5E5E5] px-2 py-1.5">
+                            <span className="text-[12px] text-[#0A0A0A]">{player.displayName || player.name || `Player ${idx + 1}`}</span>
+                            <span className={cn(NUMERIC_TEXT_CLASS, 'text-[11px] text-[#888888]')}>{typeof player.position === 'string' ? player.position : player.position?.abbreviation || '-'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="mb-2 text-[12px] font-medium text-[#0A0A0A]">{match.homeTeam.name}</p>
+                      <div className="space-y-1">
+                        {(match.rosters?.home || []).slice(0, 22).map((player, idx) => (
+                          <div key={`${player.id || player.name}-${idx}`} className="flex items-center justify-between rounded-lg border border-[#E5E5E5] px-2 py-1.5">
+                            <span className="text-[12px] text-[#0A0A0A]">{player.displayName || player.name || `Player ${idx + 1}`}</span>
+                            <span className={cn(NUMERIC_TEXT_CLASS, 'text-[11px] text-[#888888]')}>{typeof player.position === 'string' ? player.position : player.position?.abbreviation || '-'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <SpecSheetRow label={isSoccer ? '01 // BOX SCORE' : '01 // BOX SCORE'} defaultOpen={true}>
+              <BoxScore match={match} />
+            </SpecSheetRow>
+
+            <div className="flex justify-end pr-1">
+              <button
+                type="button"
+                onClick={() => setPropView((v) => (v === 'classic' ? 'cinematic' : 'classic'))}
+                aria-label={`Switch to ${nextPropLabel}`}
+                title={`Switch to ${nextPropLabel}`}
+                className="rounded-full border border-[#E5E5E5] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.05em] text-[#555555] hover:bg-[#F2F2F2] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4D4D4]"
+              >
+                Switch to {nextPropLabel}
+              </button>
+            </div>
+            <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-2">
+              {propView === 'classic' ? <ClassicPlayerProps match={match} /> : <CinematicPlayerProps match={match} />}
+            </div>
+          </section>
+
+          <section id={tabPanelId('AI')} role="tabpanel" aria-labelledby={tabButtonId('AI')} hidden={activeTab !== 'AI'} className="space-y-6">
+            {(gameEdgeCardData || insightCardData) && (
+              <div className="space-y-4">
+                {gameEdgeCardData && <InsightCard data={gameEdgeCardData} />}
+                {insightCardData && <InsightCard data={insightCardData} />}
+              </div>
+            )}
+
+            {edgeAnalysisData && (
+              <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF]">
+                <EdgeAnalysisCard data={edgeAnalysisData} sport={match.sport} />
+              </div>
+            )}
+
+            {liveState?.ai_analysis && (
+              <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-2">
+                <LiveAIInsight match={match} />
+              </div>
+            )}
+
+            {isBaseball && baseballData?.edge && (
+              <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-4">
+                <BaseballEdgePanel edge={baseballData.edge} />
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-4">
+              <ForecastHistoryTable matchId={match.id} />
+            </div>
+
+            <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-2">
+              <SafePregameIntelCards match={match} />
+            </div>
+
+            <div className="mx-auto h-[680px] max-w-3xl rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-2">
+              <ChatWidget currentMatch={match} inline />
+            </div>
+          </section>
+
+          <section id={tabPanelId('ODDS')} role="tabpanel" aria-labelledby={tabButtonId('ODDS')} hidden={activeTab !== 'ODDS'} className="space-y-5">
+            {isGameFinal(match.status) && finalBettingRows.length > 0 ? (
+              <BettingRowsTable rows={finalBettingRows} />
+            ) : (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-xl border border-[#E5E5E5] bg-[#FFFFFF] p-3">
+                  <p className="mb-1 text-[10px] uppercase tracking-[0.05em] text-[#555555]">Spread</p>
+                  <p className={cn(NUMERIC_TEXT_CLASS, 'text-[14px] text-[#0A0A0A]')}>
+                    {currentSpread !== undefined ? `${homeAbbr} ${formatSigned(currentSpread)}` : 'N/A'}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[#E5E5E5] bg-[#FFFFFF] p-3">
+                  <p className="mb-1 text-[10px] uppercase tracking-[0.05em] text-[#555555]">Total</p>
+                  <p className={cn(NUMERIC_TEXT_CLASS, 'text-[14px] text-[#0A0A0A]')}>
+                    {currentTotal !== undefined ? `O/U ${currentTotal}` : 'N/A'}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[#E5E5E5] bg-[#FFFFFF] p-3">
+                  <p className="mb-1 text-[10px] uppercase tracking-[0.05em] text-[#555555]">Moneyline</p>
+                  <p className={cn(NUMERIC_TEXT_CLASS, 'text-[14px] text-[#0A0A0A]')}>{currentMlDisplay}</p>
+                </div>
+              </div>
+            )}
+
+            <SpecSheetRow label="01 // MARKETS" defaultOpen={true}>
+              {isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}
+            </SpecSheetRow>
+
+            {isSched && (
+              <SpecSheetRow label="02 // TRAJECTORY" defaultOpen={false}>
+                <RecentForm
+                  homeTeam={match.homeTeam}
+                  awayTeam={match.awayTeam}
+                  homeName={match.homeTeam.name}
+                  awayName={match.awayTeam.name}
+                  homeColor={homeColor}
+                  awayColor={awayColor}
+                />
+              </SpecSheetRow>
+            )}
+
+            <SpecSheetRow label="03 // CONTEXT" defaultOpen={true}>
+              {match.context ? (
+                <MatchupContextPills {...match.context} sport={match.sport} />
+              ) : (
+                <div className="text-[12px] text-[#888888] italic">No context available.</div>
+              )}
+            </SpecSheetRow>
+          </section>
         </main>
-      </LiveSweatProvider>
-      {process.env['NODE_ENV'] === 'development' && <TechnicalDebugView match={match as any} />}
+
+        <TechnicalDebugView match={match} />
+      </div>
     </div>
   );
 };
