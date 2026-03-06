@@ -380,7 +380,7 @@ async function fetchOddsSnapshots(
   supabase: ReturnType<typeof createClient>,
   matchId: string,
 ): Promise<{ table: string | null; rows: Array<Record<string, unknown>> }> {
-  const tables = ["soccer_live_odds_snapshots", "live_odds_snapshots"];
+  const tables = ["live_context_snapshots", "soccer_live_odds_snapshots", "live_odds_snapshots"];
 
   for (const table of tables) {
     const { data, error } = await supabase

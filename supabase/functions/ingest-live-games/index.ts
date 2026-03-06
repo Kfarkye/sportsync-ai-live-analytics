@@ -189,6 +189,18 @@ async function upsertWithRetry(table: string, payload: any, retries = 3) {
   }
 }
 
+/** Retry a Supabase insert up to 3 times with exponential backoff. */
+async function insertWithRetry(table: string, payload: any, retries = 3) {
+  const supabase = getSupabaseClient();
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const { error } = await supabase.from(table).insert(payload);
+    if (!error) return;
+    Logger.error(`DB_INSERT_RETRY`, { table, attempt, maxRetries: retries, error: error.message } as any);
+    if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+    else throw new Error(`${table} insert failed after ${retries} attempts: ${error.message}`);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -215,6 +227,7 @@ Deno.serve(async (req: Request) => {
     failed: 0,
     errors: [] as string[],
     snapshots: 0,
+    context_snapshots: 0,
     dry_run: dryRun,
     max_games_requested: maxGamesCap,
     max_games_effective: maxGamesCap,
@@ -653,7 +666,44 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       updated_at: new Date().toISOString()
     };
 
+    const contextSnapshotPayload = {
+      match_id: dbMatchId,
+      league_id: league.id,
+      sport: league.db_sport,
+      game_status: matchPayload.status || 'SCHEDULED',
+      period: comp.status?.period ?? null,
+      clock: comp.status?.displayClock ?? null,
+      home_score: homeScore,
+      away_score: awayScore,
+      odds_current: effectiveOdds || null,
+      odds_total: parseLine((effectiveOdds as any)?.total),
+      odds_home_ml: parseAmerican((effectiveOdds as any)?.homeWin),
+      odds_away_ml: parseAmerican((effectiveOdds as any)?.awayWin),
+      situation: Object.keys(mergedSituation).length > 0 ? mergedSituation : null,
+      last_play: extractedLastPlay,
+      recent_plays: extractedRecentPlays,
+      stats: extractedStats,
+      leaders: extractedLeaders,
+      momentum: extractedMomentum,
+      advanced_metrics: extractedAdvancedMetrics,
+      match_context: extractedContext,
+      predictor: extractedPredictor,
+      deterministic_signals: aiSignals,
+      captured_at: new Date().toISOString()
+    };
+
     await upsertWithRetry('live_game_state', statePayload);
+    try {
+      await insertWithRetry('live_context_snapshots', contextSnapshotPayload);
+      stats.context_snapshots++;
+    } catch (snapshotErr: any) {
+      // Non-fatal to avoid blocking core ingest if snapshot table is unavailable.
+      Logger.warn('CONTEXT_SNAPSHOT_INSERT_FAILED', {
+        match_id: dbMatchId,
+        league_id: league.id,
+        error: snapshotErr?.message || String(snapshotErr)
+      });
+    }
     stats.processed++;
     stats.live++;
   } catch (e: any) {
