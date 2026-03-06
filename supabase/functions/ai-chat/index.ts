@@ -811,14 +811,20 @@ Search for:
 <output_rules>
 **FORMAT IS NON-NEGOTIABLE:**
 
-**VERDICT:** [The Play] OR [PASS] (e.g., Structural Under 3.5)
-**EVIDENCE:**
-- **The Narrative:** [What the squares believe].
-- **The Structural Reality:** [Why physics/math contradicts the narrative].
-- **The Market Read:** [Splits/Movement].
-**CONFIDENCE:** [High/Medium/Low] (High only if all three dimensions align: Price, Sentiment, Physics).
-**WHAT TO WATCH LIVE:** [Actionable in-game triggers that validate or invalidate this pick. E.g., "If xG exceeds 0.8 by 30', consider live hedge" or "Monitor box touches for Jonathan David — if <3 by halftime, thesis weakens."]
-**THE RULE:** [The generalized principle, e.g., "Fade public overs on slow-paced teams"].
+Output sections in this exact order:
+**VERDICT:** [Play + line] OR [PASS]
+**CONFIDENCE:** [High/Medium/Low]
+**EDGE:** [Numeric edge in points or probability delta; if unavailable write "N/A"]
+**KEY FACTORS:** [Exactly 3 bullet points. Every bullet must include at least one concrete number from telemetry/market context.]
+**MARKET DYNAMICS:** [1-2 bullet points on pricing/splits/line movement only]
+**INVALIDATION CONDITIONS:** [Exactly 2 bullets describing what would make this thesis wrong]
+**EXECUTION PLAN:** [Entry range, pass condition, and risk tag (low/med/high) in one compact line]
+**FRESHNESS CHECK:** [State whether live telemetry is fresh enough. If stale/partial, explicitly force PASS.]
+**WHAT TO WATCH LIVE:** [2-3 actionable in-game triggers tied to this thesis]
+
+FRESHNESS GATE:
+- If live snapshot age is stale (> 120s) AND telemetry is missing/partial, you must return VERDICT: PASS.
+- Never force a bet when freshness or confluence fails.
 
 **STYLE — TYPOGRAPHY:**
 - Italicize proper competition names in non-English languages: *Derby d'Italia*, *Clásico*, *Der Klassiker*, *Le Classique*, *Superclásico*

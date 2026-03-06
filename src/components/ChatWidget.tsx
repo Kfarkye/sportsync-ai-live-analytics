@@ -94,7 +94,7 @@ const REGEX_VERDICT_MATCH = /\bverdict\s*:/i;
 const REGEX_WATCH_PREFIX = /.*what to watch(?:\s+live)?.*?:\s*/i;
 const REGEX_WATCH_MATCH = /what to watch(?:\s+live)?/i;
 
-const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHAT TO WATCH(?:\s+LIVE)?|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT)(?:\*{0,2})?:?/i;
+const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHY(?:\s*\(.*\))?|WHAT TO WATCH(?:\s+LIVE)?|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT|INVALIDATION(?:\s+CONDITIONS)?|EXECUTION(?:\s+PLAN)?|FRESHNESS(?:\s+CHECK)?|EVIDENCE)(?:\*{0,2})?:?/i;
 // Match "MATCHUP 2: Team A vs Team B — Feb 16, 7:00 PM ET" with optional brackets, bullets, markdown.
 const REGEX_MATCHUP_LINE = /^\s*(?:\[)?\s*(?:[●•·‣-]\s*)?(?:\*{1,3}\s*)?MATCHUP(?:\s*\d+)?\s*[:—-]\s*(.+?)(?:\s*\*{1,3})?\s*(?:\])?\s*$/i;
 
@@ -1096,6 +1096,23 @@ function normalizeHeader(raw: string): string {
     .replace(/\s+PREGAME\s*$/i, "")        // Guard against "WHAT TO WATCH PREGAME"
     .replace(/:+\s*$/, "")                 // M-06: "INVALIDATION:" → "INVALIDATION"
     .trim();
+}
+
+function renderSectionHeading(children: ReactNode) {
+  const rawText = flattenText(children);
+  const normalized = normalizeHeader(rawText);
+  if (!normalized) return null;
+  if (EXCLUDED_SECTIONS.some(s => normalized.toLowerCase() === s)) return null;
+
+  return (
+    <div className="mb-3">
+      <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
+      <div className="mt-8 flex items-center gap-2.5">
+        <div className="w-1 h-1 rounded-full bg-zinc-600" />
+        <span className="text-[12px] font-mono font-medium text-slate-500 uppercase tracking-[0.12em]">{normalized}</span>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -2479,6 +2496,12 @@ const MessageBubble: FC<{
     }, []);
 
     const analysisComponents: Components = useMemo(() => ({
+      h1: ({ children }) => renderSectionHeading(children),
+      h2: ({ children }) => renderSectionHeading(children),
+      h3: ({ children }) => renderSectionHeading(children),
+      h4: ({ children }) => renderSectionHeading(children),
+      h5: ({ children }) => renderSectionHeading(children),
+      h6: ({ children }) => renderSectionHeading(children),
       p: ({ children }) => {
         const text = flattenText(children);
         if (REGEX_WATCH_MATCH.test(text)) {
@@ -2579,6 +2602,12 @@ const MessageBubble: FC<{
         let verdictCardIndex = 0;
 
         return {
+          h1: ({ children }) => renderSectionHeading(children),
+          h2: ({ children }) => renderSectionHeading(children),
+          h3: ({ children }) => renderSectionHeading(children),
+          h4: ({ children }) => renderSectionHeading(children),
+          h5: ({ children }) => renderSectionHeading(children),
+          h6: ({ children }) => renderSectionHeading(children),
           p: ({ children }) => {
             const text = flattenText(children);
 
