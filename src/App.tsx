@@ -31,7 +31,6 @@ const App: FC = () => {
     const unbindViewport = bindIOSVisualViewport();
 
     // 3) Craftsmanship mark
-    // eslint-disable-next-line no-console
     console.log(
       "%c███ SPORTSYNC AI ███\n%cCrafted by humans who watch the games.\nEngine: Gemini 3 Flash · Protocol: Obsidian Weissach v29.1\n\nCome build with us → github.com/Kfarkye",
       'font-weight:900;font-size:16px;color:#0F172A;',

@@ -508,7 +508,10 @@ export const computeAISignals = (match: Match): AISignals => {
         market_total: odds.cur.total,
         season_phase: calculateSeasonPhase(extMatch) as any,
         efficiency_matrix: efficiency as any,
-        unified_report: { stats: synthesizeTrenchStats(extMatch), efficiency: efficiency as any },
+        unified_report: {
+            stats: synthesizeTrenchStats(extMatch) as unknown as Record<string, string | number>,
+            efficiency: efficiency as any
+        },
         deterministic_fair_total: isActive ? fair.fair_total : undefined,
         deterministic_regime: isActive ? fair.regime : undefined,
         p10_total: isActive ? fair.p10 : 0,

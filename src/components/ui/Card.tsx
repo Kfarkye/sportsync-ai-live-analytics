@@ -1,10 +1,10 @@
 import React, { memo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, type HTMLMotionProps } from 'framer-motion';
 import { cn, ESSENCE } from '@/lib/essence';
 
 const MotionDiv = motion.div;
 
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface CardProps extends Omit<HTMLMotionProps<'div'>, 'ref'> {
   children?: React.ReactNode;
   variant?: 'default' | 'glass' | 'solid' | 'elevated' | 'flush';
   hover?: boolean;

@@ -83,11 +83,16 @@ type CacheEntry = {
 };
 
 type SupabaseSingle<T> = { data: T | null; error: unknown };
-type AbortableQuery = { abortSignal: (signal: AbortSignal) => Promise<unknown> };
+type AbortableQuery<T> = PromiseLike<SupabaseSingle<T>> & {
+    abortSignal?: (signal: AbortSignal) => Promise<SupabaseSingle<T>>;
+};
 
 // TRUST BOUNDARY: Supabase response
-const awaitSingle = async <T>(query: AbortableQuery, signal: AbortSignal): Promise<SupabaseSingle<T>> => {
-    return query.abortSignal(signal) as SupabaseSingle<T>;
+const awaitSingle = async <T>(query: AbortableQuery<T>, signal: AbortSignal): Promise<SupabaseSingle<T>> => {
+    if (typeof query.abortSignal === 'function') {
+        return query.abortSignal(signal);
+    }
+    return query as Promise<SupabaseSingle<T>>;
 };
 
 // ===================================================================
@@ -401,7 +406,6 @@ export const pregameIntelService = {
                     },
                     headers: {},
                     method: 'POST',
-                    // @ts-ignore
                     signal: sig
                 });
 

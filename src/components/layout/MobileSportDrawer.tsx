@@ -30,7 +30,7 @@ const CATEGORIES: { label: string; keys: string[] }[] = [
 
 // Heavier, luxurious spring physics (feels like sliding a physical pane of glass)
 const SHEET_SPRING = { type: 'spring' as const, damping: 36, stiffness: 380, mass: 1.1 };
-const TAP_SPRING = { duration: 0.1, ease: 'easeOut' };
+const TAP_SPRING = { duration: 0.1, ease: 'easeOut' as const };
 const CHECK_SPRING = { type: 'spring' as const, stiffness: 500, damping: 32, mass: 0.4 };
 
 // ═══════════════════════════════════════════════════════════════════════════════

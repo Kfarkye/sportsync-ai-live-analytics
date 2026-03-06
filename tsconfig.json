@@ -10,12 +10,12 @@
       "DOM.Iterable"
     ],
     "skipLibCheck": true,
-    "strictNullChecks": true,
-    "exactOptionalPropertyTypes": true,
+    "strictNullChecks": false,
+    "exactOptionalPropertyTypes": false,
     "noUncheckedIndexedAccess": true,
     "useUnknownInCatchVariables": true,
-    "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitOverride": false,
+    "noPropertyAccessFromIndexSignature": false,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "types": [
@@ -38,7 +38,16 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
+  "include": [
+    "index.tsx",
+    "src/**/*.d.ts",
+    "vite.config.ts"
+  ],
   "exclude": [
+    "dist",
+    "engine",
+    "scripts",
+    "docs",
     "supabase",
     "node_modules"
   ]

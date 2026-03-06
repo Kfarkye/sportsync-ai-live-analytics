@@ -28,7 +28,7 @@ export interface CacheResult<T> {
   isStale: boolean;
 }
 
-type DbValue = string | number | boolean | null | DbValue[] | { [key: string]: DbValue };
+type DbValue = unknown;
 
 export interface DailyAngleRecord {
   id: string;
@@ -247,7 +247,9 @@ export const dbService = {
       settledPnl: d.settled_pnl ? Number(d.settled_pnl) : undefined,
       openLine: d.open_line ? Number(d.open_line) : undefined,
       currentLine: d.current_line ? Number(d.current_line) : undefined,
-      lineMovement: d.line_movement ? Number(d.line_movement) : undefined
+      lineMovement: d.line_movement ? Number(d.line_movement) : undefined,
+      createdAt: d.created_at || new Date().toISOString(),
+      updatedAt: d.updated_at || new Date().toISOString()
     }));
   },
 
