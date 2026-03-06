@@ -9,6 +9,7 @@ import {
   type TimingMetric,
   weakEtag,
 } from "../_shared/http.ts";
+import { fetchAIPromptContextBundle, renderAIPromptContextBlock } from "../_shared/ai-prompt-context.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -120,6 +121,7 @@ const SYSTEM_PROMPT = `You are a live betting intelligence analyst.
 Return exactly one concise, actionable analysis card.
 Rules:
 - Use only provided live context and odds movement data.
+- If structural context is present (league profile, form, H2H, tournament tags, weather/bullpen), incorporate it explicitly.
 - Do not invent injuries, news, or stats.
 - If evidence is weak or mixed, return lean PASS.
 - Confidence is 0-100 and should be conservative.
@@ -326,6 +328,7 @@ function sanitizeCard(payload: unknown): CardPayload | null {
 function formatPrompt(
   body: RequestBody,
   oddsInfo: { latestTotal: number | null; move5m: number | null; move15m: number | null; table: string | null; count: number },
+  structuralContextBlock: string,
 ): string {
   const snapshot = body.snapshot ?? {};
   const statsLines = (body.live_stats ?? [])
@@ -358,6 +361,8 @@ ODDS SNAPSHOT CONTEXT:
 - Latest total in snapshots: ${oddsInfo.latestTotal !== null ? oddsInfo.latestTotal.toFixed(1) : "—"}
 - 5m total move: ${oddsInfo.move5m !== null ? `${oddsInfo.move5m > 0 ? "+" : ""}${oddsInfo.move5m.toFixed(1)}` : "—"}
 - 15m total move: ${oddsInfo.move15m !== null ? `${oddsInfo.move15m > 0 ? "+" : ""}${oddsInfo.move15m.toFixed(1)}` : "—"}
+
+${structuralContextBlock}
 
 LIVE STATS:
 ${statsLines || "- none"}
@@ -464,13 +469,29 @@ Deno.serve(async (req: Request) => {
     timings.push({ name: "snapshots", dur: Date.now() - snapshotStart });
 
     const moves = computeMoves(snapshots.rows);
+    const contextStart = Date.now();
+    let structuralContextBlock = "STRUCTURAL CONTEXT [DB DERIVED]: unavailable";
+    try {
+      const structuralContext = await fetchAIPromptContextBundle(supabase, {
+        matchId,
+        leagueId: normalizeText(body.league_id, ""),
+        sport: normalizeText(body.sport, ""),
+        homeTeam: normalizeText(body.snapshot?.home_team, ""),
+        awayTeam: normalizeText(body.snapshot?.away_team, ""),
+      });
+      structuralContextBlock = renderAIPromptContextBlock(structuralContext);
+    } catch {
+      structuralContextBlock = "STRUCTURAL CONTEXT [DB DERIVED]: fetch failed";
+    }
+    timings.push({ name: "structural_context", dur: Date.now() - contextStart });
+
     const prompt = formatPrompt(body, {
       latestTotal: moves.latestTotal,
       move5m: moves.move5m,
       move15m: moves.move15m,
       table: snapshots.table,
       count: snapshots.rows.length,
-    });
+    }, structuralContextBlock);
 
     const llmStart = Date.now();
     let card: CardPayload | null = null;
@@ -536,4 +557,3 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
-

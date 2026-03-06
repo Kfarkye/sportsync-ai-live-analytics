@@ -7,6 +7,7 @@ import { getActiveModel, getFallbackModel, ModelConfig } from "../_shared/model-
 import { LLMRequest } from "../_shared/llm-adapter.ts";
 import { executeGPT52StreamingQuery } from "../_shared/openai.ts";
 import { americanToImplied, devig2Way } from "../_shared/oddsUtils.ts";
+import { fetchAIPromptContextBundle, renderAIPromptContextBlock } from "../_shared/ai-prompt-context.ts";
 
 
 const CONFIG = {
@@ -528,6 +529,28 @@ Deno.serve(async (req: Request) => {
     const teamContextData = teamContextRes.status === 'fulfilled' ? teamContextRes.value : null;
     const scheduleData = scheduleRes.status === 'fulfilled' ? scheduleRes.value : [];
     const tempoData = tempoRes.status === 'fulfilled' ? tempoRes.value : [];
+    let structuralContextBlock = "STRUCTURAL CONTEXT [DB DERIVED]: unavailable";
+    try {
+      const structuralContext = await fetchAIPromptContextBundle(supabase, {
+        matchId: matchId || undefined,
+        leagueId: current_match?.league || current_match?.league_id || undefined,
+        sport: current_match?.sport || undefined,
+        homeTeam: current_match?.home_team || undefined,
+        awayTeam: current_match?.away_team || undefined,
+      });
+      structuralContextBlock = renderAIPromptContextBlock(structuralContext);
+    } catch (contextErr: any) {
+      logger.warn("STRUCTURAL_CONTEXT_FAULT", { requestId, error: contextErr?.message || String(contextErr) });
+    }
+
+    const sportLeagueKey = `${current_match?.sport || ""} ${current_match?.league || ""} ${current_match?.league_id || ""}`.toLowerCase();
+    const sportDifferentiatorDirective = sportLeagueKey.includes("soccer") || sportLeagueKey.includes("epl") || sportLeagueKey.includes("uefa")
+      ? "SOCCER DIRECTIVE: Weight draw-rate, BTTS regime, clean-sheet rate, and tournament pressure (World Cup/UEFA tags) before making any side/total recommendation."
+      : (sportLeagueKey.includes("ncaab") || sportLeagueKey.includes("college-basketball") || sportLeagueKey.includes("mens-college-basketball"))
+        ? "NCAAB DIRECTIVE: Weight March volatility, possession compression, foul-state variance, and rotation tightening before recommending totals/spreads."
+        : (sportLeagueKey.includes("mlb") || sportLeagueKey.includes("baseball"))
+          ? "MLB DIRECTIVE: Prioritize weather (wind/temp), bullpen stress signals, and late-inning run environment over generic season narratives."
+          : "SPORT DIRECTIVE: Prioritize structural factors over narrative bias.";
 
     if (lastUserText === "INIT_HISTORY") {
       return new Response(JSON.stringify({ messages: storedHistory, conversation_id: activeId }), { headers: CORS_HEADERS });
@@ -822,6 +845,8 @@ ${recentPlaysBlock}
 ${situationBlock}
 ${driveBlock}
 ${teamContextBlock}
+${structuralContextBlock}
+${sportDifferentiatorDirective}
 ${scheduleBlock}
 ${tempoBlock}
 ${ragContext ? `
