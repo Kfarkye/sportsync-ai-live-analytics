@@ -70,6 +70,7 @@ type MatchContextRow = {
   weather_info?: Record<string, unknown> | null;
   weather_forecast?: Record<string, unknown> | null;
   current_odds?: Record<string, unknown> | null;
+  referee?: string | null;
 };
 
 type LiveStateRow = {
@@ -93,6 +94,11 @@ export type AIPromptContextBundle = {
   homeForm: TeamRollingForm | null;
   awayForm: TeamRollingForm | null;
   h2h: H2HSummary | null;
+  firstGoalTiming: Record<string, unknown> | null;
+  bttsScoringProfile: Record<string, unknown> | null;
+  htftPatterns: Record<string, unknown> | null;
+  twoGoalLeadAnalysis: Record<string, unknown> | null;
+  refereeProfile: Record<string, unknown> | null;
   teamTempo: TeamTempo[];
   pregameExpectations: PregameExpectations | null;
   matchContext: MatchContextRow | null;
@@ -128,6 +134,41 @@ const formatNum = (value: number | null | undefined, digits = 2): string => {
   return Number(value).toFixed(digits);
 };
 
+const formatPctAuto = (value: unknown): string => {
+  const parsed = parseNumber(value);
+  if (parsed === null) return "—";
+  const pct = parsed >= 0 && parsed <= 1 ? parsed * 100 : parsed;
+  return `${pct.toFixed(1)}%`;
+};
+
+const pickFirstNumber = (row: Record<string, unknown> | null, keys: string[]): number | null => {
+  if (!row) return null;
+  for (const key of keys) {
+    if (!(key in row)) continue;
+    const parsed = parseNumber(row[key]);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+};
+
+const pickFirstText = (row: Record<string, unknown> | null, keys: string[]): string | null => {
+  if (!row) return null;
+  for (const key of keys) {
+    if (!(key in row)) continue;
+    const value = normalizeText(row[key]);
+    if (value) return value;
+  }
+  return null;
+};
+
+const classifyQueryError = (err: unknown): "missing_table" | "missing_column" | "other" => {
+  const message = normalizeText((err as Record<string, unknown> | null)?.message || "");
+  const lower = message.toLowerCase();
+  if (lower.includes("does not exist") && lower.includes("relation")) return "missing_table";
+  if (lower.includes("column") && lower.includes("does not exist")) return "missing_column";
+  return "other";
+};
+
 const containsAny = (value: string, keywords: string[]): boolean =>
   keywords.some((keyword) => value.includes(keyword));
 
@@ -145,6 +186,53 @@ const buildLeagueCandidates = (leagueId: string): string[] => {
     out.add("epl");
     out.add("eng.1");
     out.add("soccer_epl");
+    out.add("premier-league");
+    out.add("england-premier-league");
+  }
+
+  if (containsAny(key, ["laliga", "esp.1", "soccer_laliga"])) {
+    out.add("laliga");
+    out.add("esp.1");
+    out.add("soccer_laliga");
+    out.add("la-liga");
+    out.add("spanish-la-liga");
+  }
+
+  if (containsAny(key, ["seriea", "ita.1", "soccer_seriea"])) {
+    out.add("seriea");
+    out.add("ita.1");
+    out.add("soccer_seriea");
+    out.add("serie-a");
+    out.add("italy-serie-a");
+  }
+
+  if (containsAny(key, ["bundesliga", "ger.1", "soccer_bundesliga"])) {
+    out.add("bundesliga");
+    out.add("ger.1");
+    out.add("soccer_bundesliga");
+    out.add("germany-bundesliga");
+  }
+
+  if (containsAny(key, ["ligue1", "fra.1", "soccer_ligue1"])) {
+    out.add("ligue1");
+    out.add("fra.1");
+    out.add("soccer_ligue1");
+    out.add("ligue-1");
+    out.add("france-ligue-1");
+  }
+
+  if (containsAny(key, ["ucl", "uefa.champions", "soccer_ucl", "uefa champions"])) {
+    out.add("ucl");
+    out.add("uefa.champions");
+    out.add("soccer_ucl");
+    out.add("uefa-champions-league");
+  }
+
+  if (containsAny(key, ["uel", "uefa.europa", "soccer_uel", "uefa europa"])) {
+    out.add("uel");
+    out.add("uefa.europa");
+    out.add("soccer_uel");
+    out.add("uefa-europa-league");
   }
 
   if (containsAny(key, ["mlb", "baseball_mlb"])) {
@@ -238,6 +326,173 @@ const extractWindSummary = (matchContext: MatchContextRow | null): string | null
   return parts.join(" · ");
 };
 
+const summarizeFirstGoalTiming = (row: Record<string, unknown> | null): string | null => {
+  if (!row) return null;
+  const peakWindow = pickFirstText(row, [
+    "peak_window",
+    "top_window",
+    "most_common_window",
+    "first_goal_window",
+    "top_first_goal_bucket",
+  ]);
+  const earlyPct = pickFirstNumber(row, [
+    "first_goal_0_15_pct",
+    "pct_0_15",
+    "early_goal_pct",
+    "bucket_0_15_pct",
+  ]);
+  const avgMinute = pickFirstNumber(row, [
+    "avg_first_goal_minute",
+    "mean_first_goal_minute",
+    "first_goal_minute_avg",
+    "median_first_goal_minute",
+  ]);
+
+  const pieces: string[] = [];
+  if (peakWindow) pieces.push(`peak window ${peakWindow}`);
+  if (earlyPct !== null) pieces.push(`0-15' ${formatPctAuto(earlyPct)}`);
+  if (avgMinute !== null) pieces.push(`avg minute ${avgMinute.toFixed(1)}`);
+  if (pieces.length === 0) return null;
+  return pieces.join(" · ");
+};
+
+const summarizeBttsProfile = (row: Record<string, unknown> | null): string | null => {
+  if (!row) return null;
+  const btts = pickFirstNumber(row, ["btts_pct", "btts_rate", "both_teams_score_pct", "btts_probability"]);
+  const o25 = pickFirstNumber(row, ["over_25_pct", "over25_pct", "over_2_5_pct"]);
+  const scoreless = pickFirstNumber(row, ["scoreless_pct", "nil_nil_pct", "clean_sheet_both_pct"]);
+  const pieces: string[] = [];
+  if (btts !== null) pieces.push(`BTTS ${formatPctAuto(btts)}`);
+  if (o25 !== null) pieces.push(`O2.5 ${formatPctAuto(o25)}`);
+  if (scoreless !== null) pieces.push(`scoreless ${formatPctAuto(scoreless)}`);
+  if (pieces.length === 0) return null;
+  return pieces.join(" · ");
+};
+
+const summarizeHtftPatterns = (row: Record<string, unknown> | null): string | null => {
+  if (!row) return null;
+  const stable = pickFirstNumber(row, [
+    "same_result_htft_pct",
+    "htft_hold_pct",
+    "front_runner_hold_pct",
+  ]);
+  const comeback = pickFirstNumber(row, [
+    "comeback_pct",
+    "htft_reversal_pct",
+    "draw_to_win_pct",
+  ]);
+  const topPattern = pickFirstText(row, ["top_pattern", "most_common_pattern", "dominant_pattern", "htft_mode"]);
+  const pieces: string[] = [];
+  if (topPattern) pieces.push(`top ${topPattern}`);
+  if (stable !== null) pieces.push(`hold ${formatPctAuto(stable)}`);
+  if (comeback !== null) pieces.push(`reversal ${formatPctAuto(comeback)}`);
+  if (pieces.length === 0) return null;
+  return pieces.join(" · ");
+};
+
+const summarizeTwoGoalLead = (row: Record<string, unknown> | null): string | null => {
+  if (!row) return null;
+  const convert = pickFirstNumber(row, [
+    "two_goal_lead_win_pct",
+    "lead_converted_pct",
+    "conversion_pct",
+    "hold_pct",
+  ]);
+  const blown = pickFirstNumber(row, [
+    "blown_lead_pct",
+    "collapse_pct",
+    "failed_to_win_pct",
+  ]);
+  const drawAfterLead = pickFirstNumber(row, [
+    "draw_after_two_goal_lead_pct",
+    "draw_salvage_pct",
+  ]);
+  const pieces: string[] = [];
+  if (convert !== null) pieces.push(`conversion ${formatPctAuto(convert)}`);
+  if (blown !== null) pieces.push(`blown ${formatPctAuto(blown)}`);
+  if (drawAfterLead !== null) pieces.push(`draw-after-lead ${formatPctAuto(drawAfterLead)}`);
+  if (pieces.length === 0) return null;
+  return pieces.join(" · ");
+};
+
+const summarizeRefereeProfile = (row: Record<string, unknown> | null): string | null => {
+  if (!row) return null;
+  const name = pickFirstText(row, ["referee", "referee_name", "official_name", "name"]);
+  const cards = pickFirstNumber(row, ["cards_per_match", "avg_cards", "yellow_red_per_match"]);
+  const fouls = pickFirstNumber(row, ["fouls_per_match", "avg_fouls"]);
+  const pens = pickFirstNumber(row, ["penalties_per_match", "pen_rate", "avg_penalties"]);
+  const over = pickFirstNumber(row, ["over_25_pct", "over_rate", "over_2_5_pct"]);
+
+  const pieces: string[] = [];
+  if (name) pieces.push(name);
+  if (cards !== null) pieces.push(`cards ${cards.toFixed(2)}`);
+  if (fouls !== null) pieces.push(`fouls ${fouls.toFixed(1)}`);
+  if (pens !== null) pieces.push(`pens ${pens.toFixed(2)}`);
+  if (over !== null) pieces.push(`O2.5 ${formatPctAuto(over)}`);
+  if (pieces.length === 0) return null;
+  return pieces.join(" · ");
+};
+
+const LEAGUE_FILTER_COLUMNS = ["league_id", "league", "league_key", "competition_id", "competition"];
+const REF_FILTER_COLUMNS = ["referee", "referee_name", "official_name", "name"];
+
+async function fetchLeagueViewRow(
+  supabase: any,
+  viewName: string,
+  leagueCandidates: string[],
+): Promise<Record<string, unknown> | null> {
+  if (leagueCandidates.length === 0) return null;
+  for (const col of LEAGUE_FILTER_COLUMNS) {
+    const res = await supabase.from(viewName).select("*").in(col, leagueCandidates).limit(1).maybeSingle();
+    if (!res?.error && res?.data) return res.data as Record<string, unknown>;
+    if (res?.error) {
+      const cls = classifyQueryError(res.error);
+      if (cls === "missing_table") return null;
+      if (cls === "other") return null;
+    }
+  }
+  return null;
+}
+
+async function fetchRefereeViewRow(
+  supabase: any,
+  viewName: string,
+  referee: string,
+  leagueCandidates: string[],
+): Promise<Record<string, unknown> | null> {
+  if (!referee) return null;
+  for (const col of REF_FILTER_COLUMNS) {
+    for (const leagueCol of LEAGUE_FILTER_COLUMNS) {
+      const res = await supabase
+        .from(viewName)
+        .select("*")
+        .ilike(col, `%${referee}%`)
+        .in(leagueCol, leagueCandidates)
+        .limit(1)
+        .maybeSingle();
+      if (!res?.error && res?.data) return res.data as Record<string, unknown>;
+      if (res?.error) {
+        const cls = classifyQueryError(res.error);
+        if (cls === "missing_table") return null;
+        if (cls === "other") return null;
+      }
+    }
+    const fallback = await supabase
+      .from(viewName)
+      .select("*")
+      .ilike(col, `%${referee}%`)
+      .limit(1)
+      .maybeSingle();
+    if (!fallback?.error && fallback?.data) return fallback.data as Record<string, unknown>;
+    if (fallback?.error) {
+      const cls = classifyQueryError(fallback.error);
+      if (cls === "missing_table") return null;
+      if (cls === "other") return null;
+    }
+  }
+  return null;
+}
+
 export async function fetchAIPromptContextBundle(
   supabase: any,
   input: PromptContextInput,
@@ -247,6 +502,7 @@ export async function fetchAIPromptContextBundle(
   const awayTeam = normalizeText(input.awayTeam);
   const sportKey = inferSport(input.sport, input.leagueId);
   const leagueCandidates = buildLeagueCandidates(leagueKey || sportKey);
+  const isSoccer = containsAny(sportKey, ["soccer"]);
 
   const notes: string[] = [];
   const tags: string[] = [];
@@ -266,6 +522,10 @@ export async function fetchAIPromptContextBundle(
     homeFormRes,
     awayFormRes,
     h2hRes,
+    firstGoalTimingRes,
+    bttsScoringProfileRes,
+    htftPatternsRes,
+    twoGoalLeadRes,
     tempoRes,
     pregameRes,
     matchRes,
@@ -307,6 +567,10 @@ export async function fetchAIPromptContextBundle(
           .limit(1)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    isSoccer ? fetchLeagueViewRow(supabase, "mv_first_goal_timing", leagueCandidates) : Promise.resolve(null),
+    isSoccer ? fetchLeagueViewRow(supabase, "mv_btts_scoring_profiles", leagueCandidates) : Promise.resolve(null),
+    isSoccer ? fetchLeagueViewRow(supabase, "mv_htft_patterns", leagueCandidates) : Promise.resolve(null),
+    isSoccer ? fetchLeagueViewRow(supabase, "mv_two_goal_lead_analysis", leagueCandidates) : Promise.resolve(null),
     homeTeam || awayTeam
       ? supabase
           .from("team_tempo")
@@ -323,7 +587,7 @@ export async function fetchAIPromptContextBundle(
     input.matchId
       ? supabase
           .from("matches")
-          .select("weather_info, weather_forecast, current_odds")
+          .select("weather_info, weather_forecast, current_odds, referee")
           .eq("id", input.matchId)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -340,10 +604,18 @@ export async function fetchAIPromptContextBundle(
   const homeForm = (homeFormRes?.data || null) as TeamRollingForm | null;
   const awayForm = (awayFormRes?.data || null) as TeamRollingForm | null;
   const h2h = (h2hRes?.data || null) as H2HSummary | null;
+  const firstGoalTiming = (firstGoalTimingRes || null) as Record<string, unknown> | null;
+  const bttsScoringProfile = (bttsScoringProfileRes || null) as Record<string, unknown> | null;
+  const htftPatterns = (htftPatternsRes || null) as Record<string, unknown> | null;
+  const twoGoalLeadAnalysis = (twoGoalLeadRes || null) as Record<string, unknown> | null;
   const teamTempo = ((tempoRes?.data || []) as TeamTempo[]).slice(0, 4);
   const pregameExpectations = (pregameRes?.data || null) as PregameExpectations | null;
   const matchContext = (matchRes?.data || null) as MatchContextRow | null;
   const liveState = (liveStateRes?.data || null) as LiveStateRow | null;
+  const refereeName = normalizeText(matchContext?.referee);
+  const refereeProfile = isSoccer && refereeName
+    ? await fetchRefereeViewRow(supabase, "mv_referee_profiles", refereeName, leagueCandidates)
+    : null;
 
   if (!leagueProfile) notes.push("league_profile_missing");
   if (!homeForm || !awayForm) notes.push("rolling_form_partial");
@@ -356,6 +628,11 @@ export async function fetchAIPromptContextBundle(
     if (leagueProfile?.btts_pct !== null && leagueProfile?.btts_pct !== undefined) {
       notes.push(`soccer_btts_${Number(leagueProfile.btts_pct).toFixed(1)}pct`);
     }
+    if (!firstGoalTiming) notes.push("soccer_first_goal_view_missing");
+    if (!bttsScoringProfile) notes.push("soccer_btts_profile_missing");
+    if (!htftPatterns) notes.push("soccer_htft_view_missing");
+    if (!twoGoalLeadAnalysis) notes.push("soccer_two_goal_lead_view_missing");
+    if (refereeName && !refereeProfile) notes.push("soccer_referee_profile_missing");
   }
 
   if (containsAny(sportKey, ["ncaab", "college"])) {
@@ -379,6 +656,11 @@ export async function fetchAIPromptContextBundle(
     homeForm,
     awayForm,
     h2h,
+    firstGoalTiming,
+    bttsScoringProfile,
+    htftPatterns,
+    twoGoalLeadAnalysis,
+    refereeProfile,
     teamTempo,
     pregameExpectations,
     matchContext,
@@ -448,6 +730,20 @@ export function renderAIPromptContextBlock(bundle: AIPromptContextBundle): strin
     if (bundle.leagueProfile?.clean_sheet_pct !== null && bundle.leagueProfile?.clean_sheet_pct !== undefined) {
       lines.push(`- Soccer defensive texture: clean-sheet rate ${formatPct(bundle.leagueProfile.clean_sheet_pct)}.`);
     }
+    const firstGoalLine = summarizeFirstGoalTiming(bundle.firstGoalTiming);
+    if (firstGoalLine) lines.push(`- First-goal timing profile: ${firstGoalLine}`);
+
+    const bttsLine = summarizeBttsProfile(bundle.bttsScoringProfile);
+    if (bttsLine) lines.push(`- BTTS/scoring profile view: ${bttsLine}`);
+
+    const htftLine = summarizeHtftPatterns(bundle.htftPatterns);
+    if (htftLine) lines.push(`- HT/FT pattern profile: ${htftLine}`);
+
+    const twoGoalLine = summarizeTwoGoalLead(bundle.twoGoalLeadAnalysis);
+    if (twoGoalLine) lines.push(`- Two-goal lead dynamics: ${twoGoalLine}`);
+
+    const refereeLine = summarizeRefereeProfile(bundle.refereeProfile);
+    if (refereeLine) lines.push(`- Referee profile: ${refereeLine}`);
   }
 
   if (containsAny(bundle.sportKey, ["ncaab", "college"])) {

@@ -76,9 +76,10 @@ const STALE_THRESHOLD_MS = 10 * 60 * 1000;
 const LEAGUE_WEIGHTS = new Map(LEAGUES.map((l, i) => [l.id.toLowerCase(), i]));
 
 /** Fixes Safari's native NaN failure by ensuring Date strings contain the ISO 'T' */
-const parseSafeDateMs = (dateString?: string): number => {
+const parseSafeDateMs = (dateString?: string | Date): number => {
     if (!dateString) return Number.MAX_SAFE_INTEGER;
-    const normalized = dateString.includes('T') ? dateString : dateString.replace(' ', 'T');
+    const normalizedInput = dateString instanceof Date ? dateString.toISOString() : dateString;
+    const normalized = normalizedInput.includes('T') ? normalizedInput : normalizedInput.replace(' ', 'T');
     const ms = Date.parse(normalized);
     return Number.isNaN(ms) ? Number.MAX_SAFE_INTEGER : ms;
 };
@@ -585,7 +586,7 @@ const MatchList: React.FC<MatchListProps> = ({
         const oppNeedle = norm(prop.opponent || '');
         const eventDate = prop.event_date;
         return matches.find((m) => {
-            const matchDate = m.startTime ? m.startTime.split('T')[0] : '';
+            const matchDate = m.startTime ? new Date(m.startTime).toISOString().split('T')[0] : '';
             if (eventDate && matchDate && eventDate !== matchDate) return false;
             const home = norm(m.homeTeam?.name || '');
             const away = norm(m.awayTeam?.name || '');

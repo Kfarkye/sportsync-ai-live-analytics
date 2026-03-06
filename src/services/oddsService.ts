@@ -249,14 +249,14 @@ export const mergePremiumOdds = async (matches: Match[]): Promise<Match[]> => {
         }
 
         return match;
-      } catch (err) {
-        Logger.error("Error merging match odds", match.id, err);
+      } catch (err: unknown) {
+        Logger.error("Error merging match odds", err as LogValue, String(match.id));
         return match;
       }
     });
 
-  } catch (e) {
-    Logger.error("Critical Service Failure", e);
+  } catch (e: unknown) {
+    Logger.error("Critical Service Failure", e as LogValue);
     return matches;
   } finally {
     endServiceTimer();

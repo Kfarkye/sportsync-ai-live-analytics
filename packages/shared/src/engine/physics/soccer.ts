@@ -9,8 +9,8 @@ export function calculateSoccerEfficiency(match: ExtendedMatch): TeamEfficiencyM
     // We use a "Match Intensity" proxy based on shots/corners if available, or fall back to pace.
     return {
         sport_type: "SOCCER",
-        home: { pace: 0, efg: 0 },
-        away: { pace: 0, efg: 0 },
+        home: { xg: 0, xga: 0, ppda: 0 },
+        away: { xg: 0, xga: 0, ppda: 0 },
         context: "POISSON_DECAY"
     };
 }

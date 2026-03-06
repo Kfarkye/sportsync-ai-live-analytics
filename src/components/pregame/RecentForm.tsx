@@ -14,7 +14,7 @@ import { cn } from '@/lib/essence';
 // ─────────────────────────────────────────────────────────────────
 
 // "Aluminum Switch" Physics: High stiffness, critical damping
-const PHYSICS_SWITCH = { type: "spring", stiffness: 380, damping: 35, mass: 0.8 };
+const PHYSICS_SWITCH = { type: "spring" as const, stiffness: 380, damping: 35, mass: 0.8 };
 const STAGGER_DELAY = 0.05;
 
 // ─────────────────────────────────────────────────────────────────

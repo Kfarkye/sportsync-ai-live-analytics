@@ -63,12 +63,12 @@ const REGEX_MULTI_SPACE = /\s{2,}/g;
 // §1  STRICT TYPES
 // ─────────────────────────────────────────────────────────────────
 
-interface ExtendedMatch extends Match {
+type ExtendedMatch = Match & {
     current_odds?: { homeSpread?: number; total?: number };
     leagueId?: string;
     sport?: string;
     startTime?: string | Date;
-}
+};
 
 interface IntelSource {
     url?: string;
@@ -76,22 +76,22 @@ interface IntelSource {
     title?: string;
 }
 
-interface ExtendedIntelCard extends IntelCard {
+type ExtendedIntelCard = Omit<IntelCard, 'category'> & {
     market_implication?: string;
     details?: string[];
     thesis?: string;
     category?: string;
-}
+};
 
-interface ProcessedIntelData extends Omit<PregameIntelResponse, 'cards'> {
+type ProcessedIntelData = Omit<PregameIntelResponse, 'cards' | 'headline' | 'grading_metadata'> & {
     recommended_pick?: string;
     headline?: string;
     cards: ExtendedIntelCard[];
     confidence_tier?: string;
-    grading_metadata?: { price?: string };
+    grading_metadata?: (PregameIntelResponse['grading_metadata'] & { price?: string }) | { price?: string };
     spread_juice?: string;
     sources?: IntelSource[];
-}
+};
 
 // ─────────────────────────────────────────────────────────────────
 // §2  UTILITIES

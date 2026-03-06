@@ -54,6 +54,12 @@ export const ESSENCE = {
 
     // Semantic Accents (5 hues + muted variants)
     accent: {
+      primary:      '#34D399',
+      primaryMuted: 'rgba(52, 211, 153, 0.12)',
+      success:      '#34D399',
+      successMuted: 'rgba(52, 211, 153, 0.12)',
+      danger:       '#FB7185',
+      dangerMuted:  'rgba(251, 113, 133, 0.12)',
       emerald:      '#34D399',
       emeraldMuted: 'rgba(52, 211, 153, 0.12)',
       mintEdge:     'rgba(54, 232, 150, 0.08)',  // Card specular edge light
