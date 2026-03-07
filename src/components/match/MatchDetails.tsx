@@ -332,6 +332,28 @@ interface DbMatchRow {
   away_score?: number;
 }
 
+interface TeamGameContextRow {
+  team?: string | null;
+  game_date?: string | null;
+  situation?: string | null;
+  rest_days?: number | null;
+  fatigue_score?: number | null;
+  injury_notes?: string | null;
+  injury_impact?: number | null;
+  ats_last_10?: number | null;
+  is_b2b?: boolean | null;
+  is_second_of_b2b?: boolean | null;
+  is_3in4?: boolean | null;
+  is_4in5?: boolean | null;
+  updated_at?: string | null;
+}
+
+interface TeamContextSnapshot {
+  home?: TeamGameContextRow;
+  away?: TeamGameContextRow;
+  updatedAt?: string;
+}
+
 type EspnExtendedMatch = Partial<ExtendedMatch> & {
   statistics?: Match['stats'];
 };
@@ -447,6 +469,80 @@ const formatAmericanOdds = (value: number | undefined): string => {
 const normalizeColor = (color: string | undefined, fallback: string): string => {
   if (!color) return fallback;
   return color.startsWith('#') ? color : `#${color}`;
+};
+
+const normalizeKey = (value: string | undefined): string =>
+  (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const uniqueStrings = (values: Array<string | undefined>): string[] => {
+  const set = new Set<string>();
+  values
+    .map((value) => (value || '').trim())
+    .filter(Boolean)
+    .forEach((value) => set.add(value));
+  return Array.from(set);
+};
+
+const getTeamAliases = (team: Match['homeTeam'] | Match['awayTeam']): string[] =>
+  uniqueStrings([team.name, team.shortName, team.abbreviation]);
+
+const pickTeamContextRow = (
+  rows: TeamGameContextRow[],
+  aliases: string[]
+): TeamGameContextRow | undefined => {
+  if (!rows.length || !aliases.length) return undefined;
+  const aliasKeys = aliases.map(normalizeKey).filter(Boolean);
+
+  let best: TeamGameContextRow | undefined;
+  let bestScore = 0;
+
+  for (const row of rows) {
+    const rowTeam = (row.team || '').trim();
+    const rowKey = normalizeKey(rowTeam);
+    if (!rowKey) continue;
+
+    for (const alias of aliasKeys) {
+      if (rowKey === alias) {
+        if (4 > bestScore) {
+          best = row;
+          bestScore = 4;
+        }
+      } else if (rowKey.includes(alias) || alias.includes(rowKey)) {
+        if (2 > bestScore) {
+          best = row;
+          bestScore = 2;
+        }
+      }
+    }
+  }
+
+  return best;
+};
+
+const formatTeamContextLine = (abbr: string, row?: TeamGameContextRow): string | null => {
+  if (!row) return null;
+  const bits: string[] = [];
+  if (typeof row.rest_days === 'number') bits.push(`${row.rest_days}d rest`);
+  if (typeof row.fatigue_score === 'number') bits.push(`fatigue ${Math.round(row.fatigue_score)}`);
+  if (row.is_second_of_b2b || row.is_b2b) bits.push('B2B');
+  else if (row.is_3in4) bits.push('3 in 4');
+  else if (row.is_4in5) bits.push('4 in 5');
+  if (row.situation && row.situation !== 'Normal') bits.push(row.situation);
+  return bits.length ? `${abbr}: ${bits.join(' · ')}` : null;
+};
+
+const asContextRecord = (value: ContextValue | undefined): { [key: string]: ContextValue } | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as { [key: string]: ContextValue };
+};
+
+const asContextString = (value: ContextValue | undefined): string | undefined =>
+  typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+
+const asContextText = (value: ContextValue | undefined): string | undefined => {
+  if (typeof value === 'string' && value.trim().length > 0) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return undefined;
 };
 
 /** FNV-1a 32-bit hash — deterministic, fast, zero-dependency */
@@ -625,6 +721,23 @@ function parseTsMs(v: string | number | Date | null | undefined, fallbackMs: num
   if (typeof v === 'string') { const t = new Date(v).getTime(); return Number.isFinite(t) ? t : fallbackMs; }
   if (v instanceof Date) { const t = v.getTime(); return Number.isFinite(t) ? t : fallbackMs; }
   return fallbackMs;
+}
+
+function normalizePregameIntelFallback(
+  row: Partial<PregameIntelResponse> & { match_id?: string | null; freshness?: string | null },
+  matchId: string
+): PregameIntelResponse {
+  return {
+    ...row,
+    match_id: row.match_id || matchId,
+    generated_at: row.generated_at || new Date().toISOString(),
+    headline: row.headline || 'Intel pending.',
+    cards: Array.isArray(row.cards) ? row.cards : [],
+    sources: Array.isArray(row.sources) ? row.sources : [],
+    freshness: row.freshness === 'LIVE' || row.freshness === 'RECENT' || row.freshness === 'STALE'
+      ? row.freshness
+      : 'RECENT',
+  };
 }
 
 
@@ -1338,6 +1451,78 @@ const BettingRowsTable: FC<{ rows: BettingOutcomeRow[]; compact?: boolean }> = m
 });
 BettingRowsTable.displayName = 'BettingRowsTable';
 
+/** Database-backed intelligence snapshot for pregame and low-data states */
+const IntelligenceSnapshotCard: FC<{
+  intel: PregameIntelResponse | null;
+  teamContext: TeamContextSnapshot | null;
+  homeAbbr: string;
+  awayAbbr: string;
+}> = memo(({ intel, teamContext, homeAbbr, awayAbbr }) => {
+  const homeLine = formatTeamContextLine(homeAbbr, teamContext?.home);
+  const awayLine = formatTeamContextLine(awayAbbr, teamContext?.away);
+  const updatedLabel = teamContext?.updatedAt
+    ? new Date(teamContext.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : undefined;
+  const confidence = typeof intel?.confidence_score === 'number'
+    ? `${Math.round(intel.confidence_score <= 1 ? intel.confidence_score * 100 : intel.confidence_score)}%`
+    : undefined;
+
+  return (
+    <div className="space-y-3">
+      {intel && (
+        <div className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn(TYPE.label, 'text-[#737373]')}>INTEL</span>
+            {intel.freshness && (
+              <span className={cn(TYPE.numericXs, 'rounded-full border border-[#D4D4D4] bg-white px-2 py-0.5 text-[#737373]')}>
+                {intel.freshness}
+              </span>
+            )}
+            {confidence && (
+              <span className={cn(TYPE.numericXs, 'rounded-full border border-[#D4D4D4] bg-white px-2 py-0.5 text-[#737373]')}>
+                {confidence} confidence
+              </span>
+            )}
+          </div>
+          <p className={cn(TYPE.heading, 'mt-2 text-[#0A0A0A]')}>{intel.headline}</p>
+          {intel.briefing && (
+            <p className={cn(TYPE.body, 'mt-1 line-clamp-3 text-[#525252]')}>{intel.briefing}</p>
+          )}
+          {intel.recommended_pick && (
+            <p className={cn(TYPE.numericSm, 'mt-2 text-[#0A0A0A]')}>
+              Pick: <span className="font-semibold">{intel.recommended_pick}</span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {(homeLine || awayLine) && (
+        <div className="rounded-xl border border-[#E5E5E5] bg-white p-3">
+          <p className={cn(TYPE.label, 'text-[#737373]')}>TEAM LOAD</p>
+          <div className="mt-2 space-y-1.5">
+            {awayLine && <p className={cn(TYPE.body, 'text-[#525252]')}>{awayLine}</p>}
+            {homeLine && <p className={cn(TYPE.body, 'text-[#525252]')}>{homeLine}</p>}
+          </div>
+          {updatedLabel && (
+            <p className={cn(TYPE.numericXs, 'mt-2 text-[#A3A3A3]')}>
+              Updated {updatedLabel}
+            </p>
+          )}
+        </div>
+      )}
+
+      {!intel && !homeLine && !awayLine && (
+        <div className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3">
+          <p className={cn(TYPE.body, 'text-[#737373]')}>
+            Syncing database context for this match.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+});
+IntelligenceSnapshotCard.displayName = 'IntelligenceSnapshotCard';
+
 
 // ============================================================================
 // §9  CLOCK & SCORING ENGINE
@@ -1981,6 +2166,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
   const { data: baseballData } = useBaseballLive(match.id, match.status, isBaseball);
 
   const [pregameIntel, setPregameIntel] = useState<PregameIntelResponse | null>(null);
+  const [teamContextSnapshot, setTeamContextSnapshot] = useState<TeamContextSnapshot | null>(null);
   useKeyboardNavigation(matches, match.id, onSelectMatch);
 
   // ─── Derived State ──────────────────────────────────────────────────────
@@ -2030,6 +2216,70 @@ const MatchDetails: FC<MatchDetailsProps> = ({
     currentSpread !== undefined ? `${homeAbbr} ${formatSigned(currentSpread)}` : null,
     currentTotal !== undefined ? `O/U ${currentTotal}` : null,
   ].filter(Boolean).join(' · ');
+
+  // ─── Database Context Snapshot ──────────────────────────────────────────
+  useEffect(() => {
+    let active = true;
+
+    const fetchTeamContextSnapshot = async () => {
+      const start = new Date(match.startTime);
+      if (Number.isNaN(start.getTime())) {
+        if (active) setTeamContextSnapshot(null);
+        return;
+      }
+
+      const gameDate = start.toISOString().slice(0, 10);
+
+      try {
+        const { data } = await supabase
+          .from('team_game_context')
+          .select('team, game_date, situation, rest_days, fatigue_score, injury_notes, injury_impact, ats_last_10, is_b2b, is_second_of_b2b, is_3in4, is_4in5, updated_at')
+          .eq('game_date', gameDate)
+          .limit(64);
+
+        if (!active) return;
+
+        const rows = Array.isArray(data) ? (data as TeamGameContextRow[]) : [];
+        if (!rows.length) {
+          setTeamContextSnapshot(null);
+          return;
+        }
+
+        const homeRow = pickTeamContextRow(rows, getTeamAliases(match.homeTeam));
+        const awayRow = pickTeamContextRow(rows, getTeamAliases(match.awayTeam));
+
+        const updatedAt = [homeRow?.updated_at, awayRow?.updated_at]
+          .filter((v): v is string => typeof v === 'string' && v.length > 0)
+          .sort()
+          .at(-1);
+
+        if (!homeRow && !awayRow) {
+          setTeamContextSnapshot(null);
+          return;
+        }
+
+        setTeamContextSnapshot({
+          home: homeRow,
+          away: awayRow,
+          updatedAt,
+        });
+      } catch {
+        if (active) setTeamContextSnapshot(null);
+      }
+    };
+
+    fetchTeamContextSnapshot();
+    return () => { active = false; };
+  }, [
+    match.id,
+    match.startTime,
+    match.homeTeam.name,
+    match.homeTeam.shortName,
+    match.homeTeam.abbreviation,
+    match.awayTeam.name,
+    match.awayTeam.shortName,
+    match.awayTeam.abbreviation,
+  ]);
 
   // ─── Clock Model ────────────────────────────────────────────────────────
   const scoreClock = useMemo(
@@ -2181,19 +2431,21 @@ const MatchDetails: FC<MatchDetailsProps> = ({
   const currentTotalForIntel = useMemo(() => getOddsTotalValue(match.current_odds), [match.current_odds]);
 
   useEffect(() => {
-    if (!isSched || !isAiTab) return;
+    if (!isSched) return;
     const controller = new AbortController();
     let active = true;
 
     const fetchIntel = async () => {
       try {
-        const intel = await pregameIntelService.fetchIntel(
-          match.id, match.homeTeam?.name || '', match.awayTeam?.name || '',
-          match.sport || '', match.leagueId || '',
-          startTimeISO, currentSpreadForIntel, currentTotalForIntel,
-          controller.signal,
-        );
-        if (intel) { if (active) setPregameIntel(intel); return; }
+        if (isAiTab) {
+          const intel = await pregameIntelService.fetchIntel(
+            match.id, match.homeTeam?.name || '', match.awayTeam?.name || '',
+            match.sport || '', match.leagueId || '',
+            startTimeISO, currentSpreadForIntel, currentTotalForIntel,
+            controller.signal,
+          );
+          if (intel) { if (active) setPregameIntel(intel); return; }
+        }
 
         const leagueKey = match.leagueId?.toLowerCase() || '';
         const canonicalId = getDbMatchId(match.id, leagueKey);
@@ -2211,9 +2463,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({
 
         if (active) {
           setPregameIntel(fallback
-            ? { ...(fallback as PregameIntelResponse), match_id: (fallback as any).match_id || match.id, freshness: (fallback as any).freshness || 'RECENT' }
-            : null,
-          );
+            ? normalizePregameIntelFallback(
+                fallback as Partial<PregameIntelResponse> & { match_id?: string | null; freshness?: string | null },
+                match.id
+              )
+            : null);
         }
       } catch { if (active) setPregameIntel(null); }
     };
@@ -2444,6 +2698,69 @@ const MatchDetails: FC<MatchDetailsProps> = ({
       edgePercent: Number(marketTotal) === 0 ? 0 : Math.abs((diff / Number(marketTotal)) * 100),
     };
   }, [liveState, edgeState]);
+
+  const dbGameContext = useMemo(() => {
+    const lines = [
+      formatTeamContextLine(awayAbbr, teamContextSnapshot?.away),
+      formatTeamContextLine(homeAbbr, teamContextSnapshot?.home),
+    ].filter((line): line is string => Boolean(line));
+    return lines.length ? lines.join(' | ') : undefined;
+  }, [awayAbbr, homeAbbr, teamContextSnapshot]);
+
+  const contextPillsData = useMemo(() => {
+    const contextRecord = match.context || {};
+
+    const venueRecord = asContextRecord(contextRecord.venue);
+    const venueName = asContextString(venueRecord?.name);
+    const venue = venueName
+      ? {
+          name: venueName,
+          city: asContextString(venueRecord?.city) || '',
+          state: asContextString(venueRecord?.state) || '',
+        }
+      : undefined;
+
+    const weatherRecord = asContextRecord(contextRecord.weather);
+    const weatherTemp = asContextText(weatherRecord?.temp) || asContextText(match.weather_info?.temp as ContextValue | undefined) || asContextText(match.weather_forecast?.temp as ContextValue | undefined);
+    const weatherCondition = asContextString(weatherRecord?.condition)
+      || (typeof match.weather_info?.condition === 'string' ? match.weather_info.condition : undefined)
+      || (typeof match.weather_forecast?.condition === 'string' ? match.weather_forecast.condition : undefined);
+    const weather = weatherTemp
+      ? { temp: weatherTemp, condition: weatherCondition || '' }
+      : undefined;
+
+    const directBroadcast = asContextString(contextRecord.broadcast);
+    const broadcasts = contextRecord.broadcasts;
+    let broadcast = directBroadcast;
+    if (!broadcast && Array.isArray(broadcasts)) {
+      for (const item of broadcasts) {
+        if (broadcast) break;
+        if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+        const itemRecord = item as { [key: string]: ContextValue };
+        if (Array.isArray(itemRecord.names)) {
+          const names = (itemRecord.names as ContextValue[])
+            .map((name) => asContextString(name))
+            .filter((name): name is string => Boolean(name));
+          if (names.length) broadcast = names[0];
+        }
+        if (!broadcast) broadcast = asContextString(itemRecord.market) || undefined;
+      }
+    }
+
+    const gameContext = asContextString(contextRecord.gameContext) || dbGameContext;
+    return { venue, weather, broadcast, gameContext };
+  }, [dbGameContext, match.context, match.weather_info, match.weather_forecast]);
+
+  const hasContextPills = Boolean(
+    contextPillsData.venue
+    || contextPillsData.weather
+    || contextPillsData.broadcast
+    || contextPillsData.gameContext
+  );
+
+  const hasIntelSnapshot = Boolean(pregameIntel || teamContextSnapshot);
+  const marketResultSectionLabel = hasIntelSnapshot ? '04 // MARKET RESULT' : '03 // MARKET RESULT';
+  const goalieSectionLabel = hasIntelSnapshot ? '05 // GOALIES' : '04 // GOALIES';
 
   // ─── Fallback & Guards ────────────────────────────────────────────────
   const fallbackLiveState: LiveState | undefined = match.lastPlay
@@ -2678,14 +2995,25 @@ const MatchDetails: FC<MatchDetailsProps> = ({
               </div>
             </SpecSheetRow>
 
+            {hasIntelSnapshot && (
+              <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={isSched}>
+                <IntelligenceSnapshotCard
+                  intel={pregameIntel}
+                  teamContext={teamContextSnapshot}
+                  homeAbbr={homeAbbr}
+                  awayAbbr={awayAbbr}
+                />
+              </SpecSheetRow>
+            )}
+
             {isGameFinal(match.status) && finalBettingRows.length > 0 && (
-              <SpecSheetRow label="03 // MARKET RESULT" defaultOpen collapsible={false}>
+              <SpecSheetRow label={marketResultSectionLabel} defaultOpen collapsible={false}>
                 <BettingRowsTable rows={finalBettingRows} compact />
               </SpecSheetRow>
             )}
 
             {coreSport === 'HOCKEY' && (
-              <SpecSheetRow label="04 // GOALIES" defaultOpen>
+              <SpecSheetRow label={goalieSectionLabel} defaultOpen>
                 <GoalieMatchup matchId={match.id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />
               </SpecSheetRow>
             )}
@@ -2912,10 +3240,18 @@ const MatchDetails: FC<MatchDetailsProps> = ({
             )}
 
             <SpecSheetRow label="03 // CONTEXT" defaultOpen>
-              {match.context ? (
-                <MatchupContextPills {...match.context} sport={match.sport} />
+              {hasContextPills ? (
+                <MatchupContextPills
+                  venue={contextPillsData.venue}
+                  weather={contextPillsData.weather || null}
+                  broadcast={contextPillsData.broadcast}
+                  gameContext={contextPillsData.gameContext}
+                  sport={match.sport}
+                />
               ) : (
-                <div className={cn(TYPE.body, `text-[#A3A3A3] italic`)}>No context available.</div>
+                <div className={cn(TYPE.body, `text-[#A3A3A3] italic`)}>
+                  {pregameIntel?.headline || 'No context available.'}
+                </div>
               )}
             </SpecSheetRow>
           </section>
