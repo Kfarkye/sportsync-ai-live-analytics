@@ -270,26 +270,6 @@ const SPRING = {
   reduced:  { duration: 0 },
 } as const;
 
-/**
- * Staggered entrance variants for tab content panels.
- *
- * Parent container orchestrates child animations with staggerChildren,
- * creating a cascading reveal that communicates spatial hierarchy.
- */
-const STAGGER_VARIANTS = {
-  container: {
-    hidden:  { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.06, delayChildren: 0.02 },
-    },
-  },
-  item: {
-    hidden:  { opacity: 0, y: 8 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
-  },
-} as const;
-
 /** Polling & data pipeline configuration */
 const PIPELINE = {
   polling: {
@@ -803,16 +783,13 @@ const EdgeStateBadge = memo(({ edgeState }: { edgeState: EdgeState }) => {
 
   return (
     <div className={cn(
-      'flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-bold tracking-[0.2em] uppercase',
-      'transition-colors duration-500 border backdrop-blur-md',
-      isPlay  && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.08)]',
-      isLean  && 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-      !isPlay && !isLean && 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
+      'flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-semibold tracking-[0.08em] uppercase',
+      'transition-colors duration-200 border',
+      isPlay  && 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      isLean  && 'bg-amber-50 text-amber-700 border-amber-200',
+      !isPlay && !isLean && 'bg-zinc-50 text-zinc-600 border-zinc-200',
     )}>
       <span className="relative flex h-1.5 w-1.5 mr-1">
-        {isPlay && (
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-        )}
         <span className={cn(
           'relative inline-flex rounded-full h-1.5 w-1.5',
           isPlay ? 'bg-emerald-500' : isLean ? 'bg-amber-500' : 'bg-zinc-500',
@@ -854,7 +831,7 @@ ForecastSparkline.displayName = 'ForecastSparkline';
 
 /** Skeleton loading state — odds card placeholder */
 const OddsCardSkeleton = memo(() => (
-  <div className="animate-pulse space-y-4 p-4 border border-white/5 rounded-xl bg-white/[0.02]" aria-label="Loading odds data">
+  <div className="animate-pulse space-y-4 p-4 border border-[#E5E5E5] rounded-xl bg-white" aria-label="Loading odds data">
     <div className="flex justify-between items-center">
       <div className="h-2 w-20 bg-zinc-100 rounded-full" />
       <div className="h-2 w-8 bg-zinc-100 rounded-full" />
@@ -910,15 +887,7 @@ ConnectionBadge.displayName = 'ConnectionBadge';
 
 /** CRT scanline overlay — broadcast authenticity layer */
 const BroadcastOverlay = memo(() => (
-  <div className="absolute inset-0 z-0 pointer-events-none select-none mix-blend-overlay opacity-30" aria-hidden="true">
-    <div
-      className="absolute inset-0"
-      style={{
-        background: 'linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%), linear-gradient(90deg, rgba(255,0,0,0.06), rgba(0,255,0,0.02), rgba(0,0,255,0.06))',
-        backgroundSize: '100% 2px, 3px 100%',
-      }}
-    />
-  </div>
+  <div className="hidden" aria-hidden="true" />
 ));
 BroadcastOverlay.displayName = 'BroadcastOverlay';
 
@@ -1117,7 +1086,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative w-full aspect-video overflow-hidden bg-black border-y border-white/10 z-0 shadow-2xl">
+      <div className="relative w-full aspect-video overflow-hidden rounded-xl bg-[#0F172A] border border-[#1F2937] z-0 shadow-sm">
         <div className="absolute inset-0 z-0">{renderCourt()}</div>
         <BroadcastOverlay />
         {match.possession && (
@@ -2486,27 +2455,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({
   // ════════════════════════════════════════════════════════════════════════
 
   return (
-    <div className={`min-h-screen font-sans bg-[#FFFFFF] text-[#0A0A0A]`}>
+    <div className="min-h-screen font-sans bg-[#F7F8FA] text-[#0A0A0A]">
       <div className="relative isolate">
-
-        {/* ── Ambient Team Color Wash ─────────────────────────────────────
-             Two large blurred circles provide subtle environmental color
-             derived from team branding. Opacity pulses at 6s intervals
-             for a living, breathing feel without demanding attention. ── */}
-        <div className="absolute inset-0 pointer-events-none z-0" aria-hidden="true">
-          <motion.div
-            animate={prefersReduced ? undefined : { opacity: [0.06, 0.12, 0.06] }}
-            transition={{ duration: 6, repeat: Infinity }}
-            className="absolute top-[-18%] left-[-12%] h-[52%] w-[52%] rounded-full blur-[140px]"
-            style={{ background: awayColor, opacity: prefersReduced ? 0.08 : undefined }}
-          />
-          <motion.div
-            animate={prefersReduced ? undefined : { opacity: [0.06, 0.12, 0.06] }}
-            transition={{ duration: 6, repeat: Infinity, delay: 3 }}
-            className="absolute top-[-18%] right-[-12%] h-[52%] w-[52%] rounded-full blur-[140px]"
-            style={{ background: homeColor, opacity: prefersReduced ? 0.08 : undefined }}
-          />
-        </div>
 
         {/* ── Navigation Bar ─────────────────────────────────────────── */}
         <header
@@ -2515,7 +2465,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
             `border-b border-[#E5E5E5]`,
             ELEVATION[2],
           )}
-          style={{ backgroundColor: TOKEN.surfaceOverlay, height: DIMENSION.navHeight }}
+          style={{ backgroundColor: '#FFFFFF', height: DIMENSION.navHeight }}
         >
           <div className="mx-auto flex h-full max-w-[960px] items-center justify-between px-4">
             <button
@@ -2554,7 +2504,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
         <section
           className={cn(
             'sticky z-40 overflow-hidden transition-[height] duration-300 ease-out',
-            `border-b border-[#E5E5E5] bg-[#FAFAFA]`,
+            `border-b border-[#E5E5E5] bg-white`,
             ELEVATION[3],
           )}
           style={{ top: DIMENSION.navHeight, height: scoreShellHeight }}
@@ -2706,7 +2656,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
         </nav>
 
         {/* ── Main Content ───────────────────────────────────────────── */}
-        <main className="relative z-[1] mx-auto min-h-screen max-w-[960px] px-4 pb-safe-offset-24 pt-5">
+        <main className="relative z-[1] mx-auto min-h-screen max-w-[960px] px-4 pb-safe-offset-24 pt-6">
           {error && (
             <div className={cn(
               'mb-4 rounded-xl border px-3 py-2',
