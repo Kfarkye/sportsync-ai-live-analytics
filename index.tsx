@@ -2,6 +2,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './src/App';
+import SoccerLeagueStructuralStatsPage, { getSoccerLeagueByPathname } from './src/pages/SoccerLeagueStructuralStatsPage';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -10,11 +11,21 @@ if (!rootElement) {
 }
 
 const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+const leaguePage = getSoccerLeagueByPathname(window.location.pathname);
+
+if (leaguePage) {
+  root.render(
+    <React.StrictMode>
+      <SoccerLeagueStructuralStatsPage league={leaguePage} />
+    </React.StrictMode>
+  );
+} else {
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}
 
 // PWA: Register service worker for installability + offline shell
 if ('serviceWorker' in navigator) {
