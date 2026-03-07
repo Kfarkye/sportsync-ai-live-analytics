@@ -643,7 +643,7 @@ const DESIGN_TOKENS = {
 const NUMERIC_TEXT_CLASS = `font-mono [font-variant-numeric:tabular-nums] [font-feature-settings:"tnum"] tracking-[0.02em]`;
 
 const NAV_BAR_HEIGHT = 64;
-const SCORE_HEADER_EXPANDED = 132;
+const SCORE_HEADER_EXPANDED = 182;
 const SCORE_HEADER_COMPACT = 52;
 
 type CoreSport = 'SOCCER' | 'BASKETBALL' | 'FOOTBALL' | 'HOCKEY' | 'BASEBALL' | 'OTHER';
@@ -709,15 +709,41 @@ const toOrdinalPeriod = (period: number): string => {
   return `${period}TH`;
 };
 
-const useScrollCollapse = (threshold = 40): boolean => {
+const useScrollCollapse = (threshold = 40, hysteresis = 12): boolean => {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setCollapsed(window.scrollY > threshold);
+    let rafId: number | null = null;
+    let lastCollapsed = collapsed;
+
+    const evaluate = () => {
+      const y = window.scrollY;
+      const next =
+        y > threshold + hysteresis
+          ? true
+          : y < threshold - hysteresis
+            ? false
+            : lastCollapsed;
+
+      if (next !== lastCollapsed) {
+        lastCollapsed = next;
+        setCollapsed(next);
+      }
+      rafId = null;
+    };
+
+    const onScroll = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(evaluate);
+    };
+
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [threshold]);
+    return () => {
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, [threshold, hysteresis, collapsed]);
 
   return collapsed;
 };
@@ -1418,6 +1444,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const [propView, setPropView] = useState<'classic' | 'cinematic'>('cinematic');
   const nextPropView = propView === 'classic' ? 'cinematic' : 'classic';
   const nextPropLabel = nextPropView === 'classic' ? 'Classic View' : 'Cinematic View';
+  const swipeEnabled = matches.length > 1 && Boolean(onSelectMatch);
 
   const handleSwipe = useCallback((dir: number) => {
     if (!matches.length) return;
@@ -1425,6 +1452,14 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     if (idx === -1) return;
     onSelectMatch?.(matches[(idx + dir + matches.length) % matches.length]);
   }, [matches, match.id, onSelectMatch]);
+
+  const handleTabSelect = useCallback((tabId: MatchTabId) => {
+    setActiveTab(tabId);
+    const stickyTop = NAV_BAR_HEIGHT + SCORE_HEADER_COMPACT + 8;
+    if (window.scrollY > stickyTop + 48) {
+      window.scrollTo({ top: stickyTop, behavior: 'smooth' });
+    }
+  }, []);
 
   if (!match?.homeTeam) return <MatchupLoader className="h-screen" label="Synchronizing Hub" />;
 
@@ -1773,6 +1808,139 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     currentHomeMl !== undefined ? `${homeAbbr} ${formatAmericanOdds(currentHomeMl)}` : null,
     currentDrawMl !== undefined ? `DRAW ${formatAmericanOdds(currentDrawMl)}` : null,
   ].filter(Boolean).join(' · ') || 'N/A';
+  const awayRecord = match.awayTeam?.record || '—';
+  const homeRecord = match.homeTeam?.record || '—';
+  const spreadTotalLine = [
+    currentSpread !== undefined ? `${homeAbbr} ${formatSigned(currentSpread)}` : null,
+    currentTotal !== undefined ? `O/U ${currentTotal}` : null,
+  ].filter(Boolean).join(' · ');
+
+  const winProbability = useMemo(() => {
+    const clampPct = (value: number) => Math.max(0, Math.min(100, value));
+    const moneylineToProbability = (line: number) => {
+      if (line > 0) return 100 / (line + 100);
+      const abs = Math.abs(line);
+      return abs / (abs + 100);
+    };
+
+    let home: number | undefined;
+    let away: number | undefined;
+
+    if (typeof match.win_probability?.home === 'number') home = match.win_probability.home;
+    if (typeof match.win_probability?.away === 'number') away = match.win_probability.away;
+
+    if ((home === undefined || away === undefined) && match.predictor) {
+      if (typeof match.predictor.homeTeamChance === 'number') home = match.predictor.homeTeamChance;
+      if (typeof match.predictor.awayTeamChance === 'number') away = match.predictor.awayTeamChance;
+    }
+
+    if (home === undefined && away === undefined) {
+      const liveHome = (match.lastPlay as (Match['lastPlay'] & { probability?: { homeWinPercentage?: number } }) | undefined)?.probability?.homeWinPercentage;
+      if (typeof liveHome === 'number') {
+        home = liveHome;
+        away = 100 - liveHome;
+      }
+    }
+
+    if (home === undefined && away === undefined && typeof currentOddsSource?.winProbability === 'number') {
+      home = currentOddsSource.winProbability;
+      away = 100 - currentOddsSource.winProbability;
+    }
+
+    if ((home === undefined || away === undefined) && currentHomeMl !== undefined && currentAwayMl !== undefined) {
+      const homeRaw = moneylineToProbability(currentHomeMl);
+      const awayRaw = moneylineToProbability(currentAwayMl);
+      const total = homeRaw + awayRaw;
+      if (total > 0) {
+        home = (homeRaw / total) * 100;
+        away = (awayRaw / total) * 100;
+      }
+    }
+
+    if (home === undefined && away === undefined) {
+      home = 50;
+      away = 50;
+    } else if (home === undefined) {
+      home = 100 - away!;
+    } else if (away === undefined) {
+      away = 100 - home;
+    }
+
+    home = clampPct(home);
+    away = clampPct(away);
+    const total = home + away;
+    if (total > 0 && Math.abs(total - 100) > 0.5) {
+      home = (home / total) * 100;
+      away = 100 - home;
+    }
+
+    return {
+      home: Math.round(home),
+      away: Math.round(away),
+    };
+  }, [match.win_probability, match.predictor, match.lastPlay, currentOddsSource?.winProbability, currentHomeMl, currentAwayMl]);
+  const hasMarketLines = currentSpread !== undefined || currentTotal !== undefined || currentHomeMl !== undefined || currentAwayMl !== undefined || currentDrawMl !== undefined;
+
+  const aiContextBadges = useMemo(() => {
+    const statusBadge = isLive ? 'LIVE' : isGameFinal(match.status) ? (scoreClock.finalLabel || 'FINAL') : 'SCHEDULED';
+    const scoreBadge = isGameScheduled(match.status)
+      ? `${awayAbbr} VS ${homeAbbr}`
+      : `${awayAbbr} ${match.awayScore}-${match.homeScore} ${homeAbbr}`;
+    const clockBadge = [scoreClock.primary, scoreClock.secondary].filter(Boolean).join(' · ');
+    return [statusBadge, scoreBadge, clockBadge].filter(Boolean);
+  }, [
+    isLive,
+    match.status,
+    match.awayScore,
+    match.homeScore,
+    awayAbbr,
+    homeAbbr,
+    scoreClock.finalLabel,
+    scoreClock.primary,
+    scoreClock.secondary,
+  ]);
+
+  const aiDrivers = useMemo(() => {
+    const items: string[] = [];
+    const recommendation = liveState?.ai_analysis?.sharp_data?.recommendation;
+    const confidence = liveState?.ai_analysis?.sharp_data?.confidence_level;
+    if (recommendation?.side) {
+      const marketType = recommendation.market_type ? ` ${String(recommendation.market_type).toUpperCase()}` : '';
+      const confidenceText = typeof confidence === 'number' ? ` · ${Math.round(confidence)}% confidence` : '';
+      items.push(`${String(recommendation.side).toUpperCase()}${marketType}${confidenceText}`);
+    }
+    if (edgeState && edgeState.state !== 'NEUTRAL') {
+      items.push(`Deterministic edge ${edgeState.side || 'NEUTRAL'} ${edgeState.edgePoints > 0 ? '+' : ''}${edgeState.edgePoints.toFixed(1)} (${edgeState.state})`);
+    }
+    if (pregameIntel?.headline) {
+      items.push(pregameIntel.headline);
+    }
+    if (!items.length) {
+      items.push('Awaiting the next ai-chat stream update.');
+    }
+    return items.slice(0, 3);
+  }, [liveState?.ai_analysis, edgeState, pregameIntel?.headline]);
+
+  const aiWatchouts = useMemo(() => {
+    const items: string[] = [];
+    if (scoreClock.secondary) {
+      items.push(scoreClock.secondary);
+    }
+    if (isSched) {
+      items.push('Pregame numbers can move quickly before kickoff.');
+    }
+    if (!hasMarketLines) {
+      items.push('Lines Not Yet Posted — MONITORING MARKET');
+    }
+    const confidence = liveState?.ai_analysis?.sharp_data?.confidence_level;
+    if (typeof confidence === 'number' && confidence < 60) {
+      items.push('Confidence is below 60%; keep stake sizing disciplined.');
+    }
+    if (!items.length) {
+      items.push('No structural watchouts flagged by the live model.');
+    }
+    return items.slice(0, 3);
+  }, [scoreClock.secondary, isSched, hasMarketLines, liveState?.ai_analysis]);
 
   const edgeAnalysisData = useMemo(() => {
     const fairTotal = liveState?.deterministic_signals?.deterministic_fair_total;
@@ -1851,17 +2019,23 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         </header>
 
         <section
-          className="sticky z-40 border-b border-[#E5E5E5] bg-[#F8F8F8] overflow-hidden"
+          className="sticky z-40 overflow-hidden border-b border-[#E5E5E5] bg-[#F8F8F8] shadow-[0_8px_24px_rgba(10,10,10,0.04)] transition-[height] duration-300 ease-out"
           style={{ top: NAV_BAR_HEIGHT, height: scoreShellHeight }}
         >
           <motion.div
-            drag="x"
+            drag={swipeEnabled ? 'x' : false}
+            dragDirectionLock
+            dragMomentum={false}
+            dragElastic={0.08}
             dragConstraints={{ left: 0, right: 0 }}
             onDragEnd={(_, info) => {
               if (info.offset.x > 110) handleSwipe(-1);
               if (info.offset.x < -110) handleSwipe(1);
             }}
-            className="relative h-full cursor-grab active:cursor-grabbing"
+            className={cn(
+              'relative h-full touch-pan-y',
+              swipeEnabled && 'cursor-grab active:cursor-grabbing'
+            )}
           >
             <div
               className={cn(
@@ -1869,64 +2043,103 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                 isCollapsed ? 'opacity-0 translate-y-3 pointer-events-none' : 'opacity-100 translate-y-0'
               )}
             >
-              <div className="mx-auto grid h-full max-w-[960px] grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-4">
-                <div className="flex items-center gap-3">
-                  <TeamLogo
-                    logo={match.awayTeam.logo}
-                    name={match.awayTeam.name}
-                    abbreviation={awayAbbr}
-                    sport={String(match.sport)}
-                    color={awayColor}
-                    className="h-12 w-12"
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-[14px] font-medium text-[#0A0A0A]">{match.awayTeam.shortName || match.awayTeam.name}</p>
-                    <p className={cn(NUMERIC_TEXT_CLASS, 'text-[12px] text-[#888888]')}>{awayAbbr}</p>
-                  </div>
-                </div>
+              <div className="mx-auto h-full max-w-[960px] px-4 py-3">
+                <div className="relative flex h-full flex-col justify-between">
+                  {isLive && (
+                    <span className="absolute right-0 top-0 inline-flex items-center gap-1.5 rounded-full border border-[#00C896]/30 bg-[#00C896]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.05em] text-[#00C896]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]" />
+                      LIVE
+                    </span>
+                  )}
 
-                <div className="flex flex-col items-center justify-center">
-                  {!isGameScheduled(match.status) && (
-                    <div className="flex items-end gap-3">
-                      <span className={cn(NUMERIC_TEXT_CLASS, 'text-[38px] leading-none', awayWinner || !scoreClock.isFinal ? 'font-bold text-[#0A0A0A]' : 'font-semibold text-[#888888]')}>
-                        {match.awayScore}
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                    <div className="flex items-center gap-3">
+                      <TeamLogo
+                        logo={match.awayTeam.logo}
+                        name={match.awayTeam.name}
+                        abbreviation={awayAbbr}
+                        sport={String(match.sport)}
+                        color={awayColor}
+                        className="h-12 w-12"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-[14px] font-medium text-[#0A0A0A]">{match.awayTeam.shortName || match.awayTeam.name}</p>
+                        <p className={cn(NUMERIC_TEXT_CLASS, 'text-[12px] text-[#888888]')}>{awayRecord}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-center justify-center">
+                      {!isGameScheduled(match.status) && (
+                        <div className="flex items-end gap-3">
+                          <span className={cn(NUMERIC_TEXT_CLASS, 'text-[38px] leading-none', awayWinner || !scoreClock.isFinal ? 'font-bold text-[#0A0A0A]' : 'font-semibold text-[#888888]')}>
+                            {match.awayScore}
+                          </span>
+                          <span className={cn(NUMERIC_TEXT_CLASS, 'pb-1 text-[26px] text-[#888888]')}>—</span>
+                          <span className={cn(NUMERIC_TEXT_CLASS, 'text-[38px] leading-none', homeWinner || !scoreClock.isFinal ? 'font-bold text-[#0A0A0A]' : 'font-semibold text-[#888888]')}>
+                            {match.homeScore}
+                          </span>
+                        </div>
+                      )}
+                      <div className="mt-1 rounded-full border border-[#D4D4D4] bg-[#FFFFFF] px-3 py-0.5">
+                        <span className={cn(NUMERIC_TEXT_CLASS, 'inline-flex items-center gap-1 text-[12px] text-[#555555]')}>
+                          {scoreClock.isLive && <span className="h-1.5 w-1.5 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]" />}
+                          {scoreClock.isFinal ? scoreClock.finalLabel : scoreClock.primary}
+                        </span>
+                      </div>
+                      {scoreClock.secondary && (
+                        <p className={cn(NUMERIC_TEXT_CLASS, 'mt-1 text-[11px] text-[#888888]')}>
+                          {scoreClock.secondary}
+                        </p>
+                      )}
+                      {spreadTotalLine && (
+                        <p className={cn(NUMERIC_TEXT_CLASS, 'mt-1 text-[11px] text-[#555555]')}>
+                          {spreadTotalLine}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3">
+                      <div className="min-w-0 text-right">
+                        <p className="truncate text-[14px] font-medium text-[#0A0A0A]">{match.homeTeam.shortName || match.homeTeam.name}</p>
+                        <p className={cn(NUMERIC_TEXT_CLASS, 'text-[12px] text-[#888888]')}>{homeRecord}</p>
+                      </div>
+                      <TeamLogo
+                        logo={match.homeTeam.logo}
+                        name={match.homeTeam.name}
+                        abbreviation={homeAbbr}
+                        sport={String(match.sport)}
+                        color={homeColor}
+                        className="h-12 w-12"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className={cn(NUMERIC_TEXT_CLASS, 'text-[11px] font-medium text-[#555555]')}>
+                        {awayAbbr} {winProbability.away}%
                       </span>
-                      <span className={cn(NUMERIC_TEXT_CLASS, 'pb-1 text-[26px] text-[#888888]')}>—</span>
-                      <span className={cn(NUMERIC_TEXT_CLASS, 'text-[38px] leading-none', homeWinner || !scoreClock.isFinal ? 'font-bold text-[#0A0A0A]' : 'font-semibold text-[#888888]')}>
-                        {match.homeScore}
+                      <span className={cn(NUMERIC_TEXT_CLASS, 'text-[11px] font-medium text-[#555555]')}>
+                        {winProbability.home}% {homeAbbr}
                       </span>
                     </div>
-                  )}
-                  <div className="mt-1 flex items-center gap-2">
-                    {scoreClock.isLive && (
-                      <span className="h-2 w-2 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]" />
-                    )}
-                    {scoreClock.isFinal ? (
-                      <span className="rounded-full border border-[#D4D4D4] bg-[#FFFFFF] px-2.5 py-0.5 text-[11px] font-semibold text-[#0A0A0A]">
-                        {scoreClock.finalLabel}
-                      </span>
-                    ) : (
-                      <span className={cn(NUMERIC_TEXT_CLASS, 'text-[14px] text-[#555555]')}>{scoreClock.primary}</span>
-                    )}
-                    {scoreClock.secondary && (
-                      <span className={cn(NUMERIC_TEXT_CLASS, 'text-[12px] text-[#888888]')}>{scoreClock.secondary}</span>
-                    )}
+                    <div className="h-2 w-full overflow-hidden rounded-full border border-[#D4D4D4] bg-[#F2F2F2]">
+                      <div className="flex h-full w-full">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${winProbability.away}%` }}
+                          transition={{ duration: 0.45, ease: 'easeOut' }}
+                          style={{ background: `linear-gradient(90deg, ${awayColor}, ${awayColor}CC)` }}
+                        />
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${winProbability.home}%` }}
+                          transition={{ duration: 0.45, ease: 'easeOut' }}
+                          style={{ background: `linear-gradient(90deg, ${homeColor}CC, ${homeColor})` }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-3">
-                  <div className="min-w-0 text-right">
-                    <p className="truncate text-[14px] font-medium text-[#0A0A0A]">{match.homeTeam.shortName || match.homeTeam.name}</p>
-                    <p className={cn(NUMERIC_TEXT_CLASS, 'text-[12px] text-[#888888]')}>{homeAbbr}</p>
-                  </div>
-                  <TeamLogo
-                    logo={match.homeTeam.logo}
-                    name={match.homeTeam.name}
-                    abbreviation={homeAbbr}
-                    sport={String(match.sport)}
-                    color={homeColor}
-                    className="h-12 w-12"
-                  />
                 </div>
               </div>
             </div>
@@ -1950,7 +2163,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         </section>
 
         <nav
-          className="sticky z-30 border-b border-[#E5E5E5] bg-[#FFFFFF]/95 backdrop-blur-sm"
+          className="sticky z-30 border-b border-[#E5E5E5] bg-[#FFFFFF]/95 backdrop-blur-sm shadow-[0_4px_12px_rgba(10,10,10,0.03)] transition-[top] duration-300 ease-out"
           style={{ top: NAV_BAR_HEIGHT + scoreShellHeight }}
           role="tablist"
           aria-label="Match detail tabs"
@@ -1965,7 +2178,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   role="tab"
                   aria-selected={activeTab === tab.id}
                   aria-controls={tabPanelId(tab.id)}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabSelect(tab.id)}
                   className={cn(
                     'relative shrink-0 px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.05em] transition-opacity duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4D4D4]',
                     activeTab === tab.id ? 'opacity-100' : 'opacity-40 hover:opacity-60'
@@ -2113,42 +2326,133 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             </div>
           </section>
 
-          <section id={tabPanelId('AI')} role="tabpanel" aria-labelledby={tabButtonId('AI')} hidden={activeTab !== 'AI'} className="space-y-6">
-            {(gameEdgeCardData || insightCardData) && (
-              <div className="space-y-4">
-                {gameEdgeCardData && <InsightCard data={gameEdgeCardData} />}
-                {insightCardData && <InsightCard data={insightCardData} />}
-              </div>
-            )}
-
-            {edgeAnalysisData && (
-              <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF]">
-                <EdgeAnalysisCard data={edgeAnalysisData} sport={match.sport} />
-              </div>
-            )}
-
-            {liveState?.ai_analysis && (
-              <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-2">
-                <LiveAIInsight match={match} />
-              </div>
-            )}
-
-            {isBaseball && baseballData?.edge && (
-              <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-4">
-                <BaseballEdgePanel edge={baseballData.edge} />
-              </div>
-            )}
-
-            <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-4">
-              <ForecastHistoryTable matchId={match.id} />
-            </div>
-
+          <section id={tabPanelId('AI')} role="tabpanel" aria-labelledby={tabButtonId('AI')} hidden={activeTab !== 'AI'} className="space-y-5">
             <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-2">
               <SafePregameIntelCards match={match} />
             </div>
 
-            <div className="mx-auto h-[680px] max-w-3xl rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-2">
-              <ChatWidget currentMatch={match} inline />
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,1fr)]">
+              <div className="min-h-[680px] rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-2">
+                <ChatWidget currentMatch={match} inline />
+              </div>
+
+              <aside className="space-y-4">
+                <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-4">
+                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.05em] text-[#555555]">AI CONTEXT</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {aiContextBadges.map((badge, idx) => {
+                      const isLiveBadge = idx === 0 && badge === 'LIVE';
+                      const isFinalBadge = idx === 0 && badge.startsWith('FINAL');
+                      return (
+                        <span
+                          key={`${badge}-${idx}`}
+                          className={cn(
+                            NUMERIC_TEXT_CLASS,
+                            'rounded-full border px-2.5 py-1 text-[11px]',
+                            isLiveBadge
+                              ? 'border-[#00C896]/40 bg-[#00C896]/10 text-[#00C896]'
+                              : isFinalBadge
+                                ? 'border-[#D4D4D4] bg-[#F2F2F2] text-[#555555]'
+                                : 'border-[#E5E5E5] bg-[#F8F8F8] text-[#555555]'
+                          )}
+                        >
+                          {isLiveBadge && <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#00C896] align-middle animate-[pulse_2s_infinite]" />}
+                          {badge}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[#555555]">LIVE INTELLIGENCE</p>
+                    {edgeState && <EdgeStateBadge edgeState={edgeState} />}
+                  </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="rounded-xl border border-[#E5E5E5] bg-[#F8F8F8] p-3">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.05em] text-[#555555]">Drivers</p>
+                      <div className="space-y-1.5">
+                        {aiDrivers.map((item, idx) => (
+                          <p key={`driver-${idx}`} className="text-[12px] leading-relaxed text-[#0A0A0A]">{item}</p>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-[#E5E5E5] bg-[#F8F8F8] p-3">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.05em] text-[#555555]">Watchouts</p>
+                      <div className="space-y-1.5">
+                        {aiWatchouts.map((item, idx) => (
+                          <p key={`watch-${idx}`} className="text-[12px] leading-relaxed text-[#555555]">{item}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  {forecastHistory.length > 1 && (
+                    <div className="mt-3 flex items-center justify-end">
+                      <ForecastSparkline points={forecastHistory} />
+                    </div>
+                  )}
+                </div>
+
+                {(gameEdgeCardData || insightCardData) && (
+                  <div className="space-y-4">
+                    {gameEdgeCardData && <InsightCard data={gameEdgeCardData} />}
+                    {insightCardData && <InsightCard data={insightCardData} />}
+                  </div>
+                )}
+
+                {edgeAnalysisData && (
+                  <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF]">
+                    <EdgeAnalysisCard data={edgeAnalysisData} sport={match.sport} />
+                  </div>
+                )}
+
+                {liveState?.ai_analysis && (
+                  <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-2">
+                    <LiveAIInsight match={match} />
+                  </div>
+                )}
+
+                {isBaseball && baseballData?.edge && (
+                  <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-4">
+                    <BaseballEdgePanel edge={baseballData.edge} />
+                  </div>
+                )}
+
+                <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-4">
+                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.05em] text-[#555555]">Forecast</p>
+                  <ForecastHistoryTable matchId={match.id} />
+                </div>
+
+                <div className="rounded-2xl border border-[#E5E5E5] bg-[#FFFFFF] p-4">
+                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.05em] text-[#555555]">Market Watch</p>
+                  {hasMarketLines ? (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl border border-[#E5E5E5] bg-[#F8F8F8] p-3">
+                        <p className="mb-1 text-[10px] uppercase tracking-[0.05em] text-[#555555]">Spread</p>
+                        <p className={cn(NUMERIC_TEXT_CLASS, 'text-[14px] text-[#0A0A0A]')}>
+                          {currentSpread !== undefined ? `${homeAbbr} ${formatSigned(currentSpread)}` : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[#E5E5E5] bg-[#F8F8F8] p-3">
+                        <p className="mb-1 text-[10px] uppercase tracking-[0.05em] text-[#555555]">Total</p>
+                        <p className={cn(NUMERIC_TEXT_CLASS, 'text-[14px] text-[#0A0A0A]')}>
+                          {currentTotal !== undefined ? `O/U ${currentTotal}` : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[#E5E5E5] bg-[#F8F8F8] p-3">
+                        <p className="mb-1 text-[10px] uppercase tracking-[0.05em] text-[#555555]">Moneyline</p>
+                        <p className={cn(NUMERIC_TEXT_CLASS, 'text-[14px] text-[#0A0A0A]')}>{currentMlDisplay}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-[#E5E5E5] bg-[#F8F8F8] p-5 text-center">
+                      <p className="text-[13px] font-medium text-[#0A0A0A]">Lines Not Yet Posted</p>
+                      <p className="mt-1 text-[11px] uppercase tracking-[0.05em] text-[#888888]">MONITORING MARKET</p>
+                    </div>
+                  )}
+                </div>
+              </aside>
             </div>
           </section>
 
