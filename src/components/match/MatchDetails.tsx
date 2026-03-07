@@ -62,7 +62,7 @@ import type {
   PlayerPropBet,
   PropBetType,
 } from '@/types';
-import { cn, ESSENCE } from '@/lib/essence';
+import { cn } from '@/lib/essence';
 import { getMatchDisplayStats } from '../../utils/statDisplay';
 import { calculateBettingOutcome } from '../../utils/bettingCalculations';
 
@@ -227,8 +227,8 @@ const DIMENSION = {
  * Numeric preset uses monospace + tabular-nums for data alignment.
  */
 const TYPE = {
-  /** Section labels: 10px, bold, 0.2em tracking, uppercase, mono */
-  label:     'text-[10px] font-bold tracking-[0.2em] uppercase font-mono',
+  /** Section labels: compact metadata style */
+  label:     'text-[10px] font-semibold tracking-[0.08em] uppercase font-mono',
   /** Inline metadata: 11px, medium, 0.05em tracking */
   meta:      'text-[11px] font-medium tracking-[0.05em]',
   /** Body copy: 12px, normal weight, relaxed leading */
@@ -1092,7 +1092,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
         {match.possession && (
           <div className="absolute top-4 left-4 z-[1]">
             <div className="px-2 py-px bg-black/80 backdrop-blur text-zinc-300 text-[9px] tracking-widest font-mono border border-white/10 uppercase">
-              POSS // <span className="text-white font-bold">{match.possession}</span>
+              Possession: <span className="text-white font-bold">{match.possession}</span>
             </div>
           </div>
         )}
@@ -1104,7 +1104,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className={cn(TYPE.label, 'text-zinc-400')}>
-              {(lastPlay?.type?.text || 'LIVE FEED').toUpperCase()}
+              {(lastPlay?.type?.text || 'LAST PLAY').toUpperCase()}
             </span>
             <span className="text-[9px] text-zinc-600 font-mono tracking-widest">
               {match.displayClock || '00:00'} // P{match.period}
@@ -1118,7 +1118,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
               exit={prefersReduced ? undefined : { opacity: 0, x: -5 }}
               className={cn(TYPE.heading, 'text-white truncate')}
             >
-              {lastPlay?.text || 'Waiting for signal...'}
+              {lastPlay?.text || 'Awaiting live event...'}
             </motion.p>
           </AnimatePresence>
         </div>
