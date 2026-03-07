@@ -14,7 +14,6 @@ const corsHeaders = {
 }
 
 let _supabase: ReturnType<typeof createClient> | null = null;
-let _contextSnapshotAvailable = true;
 function getSupabaseClient() {
   if (_supabase) return _supabase;
   const url = Deno.env.get('SUPABASE_URL');
@@ -113,10 +112,10 @@ function parsePositiveInt(val: any): number | null {
   return Math.floor(n);
 }
 
-function effectiveMaxGamesForLeague(leagueId: string, requestedCap: number | null): number | null {
-  if (requestedCap === null) return null;
-  if (leagueId === 'mens-college-basketball') return Math.max(requestedCap, 10);
-  return requestedCap;
+function parseNullableNumber(val: any): number | null {
+  if (val === null || val === undefined || val === '') return null;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : null;
 }
 
 function countItems(val: any): number | null {
@@ -216,10 +215,8 @@ Deno.serve(async (req: Request) => {
     failed: 0,
     errors: [] as string[],
     snapshots: 0,
-    context_snapshots: 0,
     dry_run: dryRun,
-    max_games_requested: maxGamesCap,
-    max_games_effective: maxGamesCap,
+    max_games: maxGamesCap,
     league_filter: [...leagueFilter],
     dry_samples: [] as any[],
   };
@@ -236,10 +233,8 @@ Deno.serve(async (req: Request) => {
 
   leagueLoop:
   for (const league of MONITOR_LEAGUES) {
-    const leagueMaxGamesCap = effectiveMaxGamesForLeague(league.id, maxGamesCap);
     if (leagueFilter.size > 0 && !leagueFilter.has(league.id)) continue;
-    if (leagueMaxGamesCap !== null) (stats as any).max_games_effective = leagueMaxGamesCap;
-    if (leagueMaxGamesCap && stats.attempted >= leagueMaxGamesCap) break;
+    if (maxGamesCap && stats.attempted >= maxGamesCap) break;
 
     try {
       const dateParam = dates || new Date().toISOString().split('T')[0].replace(/-/g, '');
@@ -260,7 +255,7 @@ Deno.serve(async (req: Request) => {
       }
 
       for (const event of events) {
-        if (leagueMaxGamesCap && stats.attempted >= leagueMaxGamesCap) break leagueLoop;
+        if (maxGamesCap && stats.attempted >= maxGamesCap) break leagueLoop;
 
         // Safe robust check for string OR array targets (Casted to String to prevent type crashes)
         if (target_match_id) {
@@ -343,7 +338,12 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
     const extractedMomentum = safeExtract('Momentum', () => EspnAdapters.Momentum(data));
     const extractedAdvancedMetrics = safeExtract('AdvancedMetrics', () => EspnAdapters.AdvancedMetrics(data, adapterSport));
     const extractedContext = safeExtract('Context', () => EspnAdapters.Context(data));
+    const extractedOfficials = safeExtract('Officials', () => {
+      const competition = data.header?.competitions?.[0] || data.competitions?.[0];
+      return EspnAdapters.Officials(competition);
+    });
     const extractedPredictor = safeExtract('Predictor', () => EspnAdapters.Predictor(data));
+    const extractedOfficialsList = Array.isArray(extractedOfficials) ? extractedOfficials : [];
 
     if (isDryRun) {
       const drySignalProbePayload = {
@@ -382,7 +382,8 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
             leaders: extractedLeaders != null,
             momentum: extractedMomentum != null,
             advanced_metrics: extractedAdvancedMetrics != null,
-            match_context: extractedContext != null,
+            match_context: extractedContext != null || extractedOfficialsList.length > 0,
+            officials: extractedOfficialsList.length > 0,
             predictor: extractedPredictor != null
           },
           counts: {
@@ -390,7 +391,8 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
             stats: countItems(extractedStats),
             player_stats: countItems(extractedPlayerStats),
             leaders: countItems(extractedLeaders),
-            momentum: countItems(extractedMomentum)
+            momentum: countItems(extractedMomentum),
+            officials: extractedOfficialsList.length
           },
           signal_guard: {
             ok: drySignalsProbe.error === null,
@@ -439,6 +441,7 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       const sbOdds = event.competitions?.[0]?.odds?.[0] || comp.odds?.[0];
       if (sbOdds) {
         espnOdds = {
+          ...(EspnAdapters.Odds({ odds: [sbOdds] }) || {}),
           total: sbOdds.overUnder ?? null,
           homeWin: sbOdds.homeTeamOdds?.moneyLine ?? sbOdds.moneyline?.home ?? null,
           awayWin: sbOdds.awayTeamOdds?.moneyLine ?? sbOdds.moneyline?.away ?? null,
@@ -516,6 +519,7 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
     // Safely crafted match payload targeting only real SQL columns
     const homeNameStr = getCompetitorName(home);
     const awayNameStr = getCompetitorName(away);
+    const gameDate = Safe.string(event.date)?.split('T')[0] || new Date().toISOString().split('T')[0];
     const hasOpeningOdds = existingMatch?.opening_odds && Object.keys(existingMatch.opening_odds).length > 0;
     const finalOddsHasKeys = Object.keys(finalMarketOdds).length > 0;
 
@@ -533,6 +537,21 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       away_score: awayScore,
       last_updated: new Date().toISOString(),
       opening_odds: hasOpeningOdds ? existingMatch.opening_odds : cleanFinalOdds,
+      venue_name: extractedContext?.venue?.name ?? null,
+      venue_city: extractedContext?.venue?.city ?? null,
+      venue_state: extractedContext?.venue?.state ?? null,
+      venue_indoor: extractedContext?.venue?.indoor ?? null,
+      weather_temp: parseNullableNumber(extractedContext?.weather?.temp),
+      weather_condition: extractedContext?.weather?.condition ?? null,
+      attendance: extractedContext?.attendance ?? null,
+      broadcast: extractedContext?.broadcasts?.[0]?.names?.[0] ?? null,
+      home_spread_odds: parseAmerican(espnOdds?.homeSpreadOdds),
+      away_spread_odds: parseAmerican(espnOdds?.awaySpreadOdds),
+      over_odds: parseAmerican(espnOdds?.overOdds),
+      under_odds: parseAmerican(espnOdds?.underOdds),
+      home_win_prob: parseNullableNumber(extractedPredictor?.homeTeamChance),
+      away_win_prob: parseNullableNumber(extractedPredictor?.awayTeamChance),
+      predictor_source: extractedPredictor?.source ?? null,
       extra_data: Object.keys(manualSituationData).length > 0 ? manualSituationData : null
     };
     if (homeNameStr !== 'Unknown') matchPayload.home_team = homeNameStr;
@@ -619,6 +638,12 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
     });
     const aiSignals = aiSignalResult.value;
     delete matchPayload.current_odds;
+    const matchContextPayload = extractedContext != null || extractedOfficialsList.length > 0
+      ? {
+        ...(extractedContext || {}),
+        officials: extractedOfficialsList
+      }
+      : null;
 
     // 🚨 RESTORED: THE CONTEXTUAL INTELLIGENCE MOAT
     const statePayload = {
@@ -643,7 +668,7 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       leaders: extractedLeaders,
       momentum: extractedMomentum,
       advanced_metrics: extractedAdvancedMetrics,
-      match_context: extractedContext,
+      match_context: matchContextPayload,
       predictor: extractedPredictor,
 
       deterministic_signals: aiSignals,
@@ -655,59 +680,113 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       updated_at: new Date().toISOString()
     };
 
-    const contextSnapshotPayload = {
-      match_id: dbMatchId,
-      league_id: league.id,
-      sport: league.db_sport,
-      game_status: matchPayload.status || 'SCHEDULED',
-      period: comp.status?.period ?? null,
-      clock: comp.status?.displayClock ?? null,
-      home_score: homeScore,
-      away_score: awayScore,
-      odds_current: effectiveOdds || null,
-      odds_total: parseLine((effectiveOdds as any)?.total),
-      odds_home_ml: parseAmerican((effectiveOdds as any)?.homeWin),
-      odds_away_ml: parseAmerican((effectiveOdds as any)?.awayWin),
-      situation: Object.keys(mergedSituation).length > 0 ? mergedSituation : null,
-      last_play: extractedLastPlay,
-      recent_plays: extractedRecentPlays,
-      stats: extractedStats,
-      leaders: extractedLeaders,
-      momentum: extractedMomentum,
-      advanced_metrics: extractedAdvancedMetrics,
-      match_context: extractedContext,
-      predictor: extractedPredictor,
-      deterministic_signals: aiSignals,
-      captured_at: new Date().toISOString()
-    };
-
     await upsertWithRetry('live_game_state', statePayload);
-    if (_contextSnapshotAvailable) {
-      const supabase = getSupabaseClient();
-      const { error: contextSnapshotError } = await supabase
-        .from('live_context_snapshots')
-        .insert(contextSnapshotPayload);
 
-      if (!contextSnapshotError) {
-        stats.context_snapshots++;
-      } else {
-        const errMsg = contextSnapshotError.message || String(contextSnapshotError);
-        if (errMsg.toLowerCase().includes('live_context_snapshots') && errMsg.toLowerCase().includes('does not exist')) {
-          _contextSnapshotAvailable = false;
-          Logger.warn('CONTEXT_SNAPSHOT_DISABLED', {
-            reason: 'table_missing',
-            error: errMsg
-          });
-        } else {
-          // Non-fatal: never block ingest on snapshot archive write.
-          Logger.warn('CONTEXT_SNAPSHOT_INSERT_FAILED', {
-            match_id: dbMatchId,
-            league_id: league.id,
-            error: errMsg
-          });
+    if (extractedOfficialsList.length > 0) {
+      try {
+        const officialRows = extractedOfficialsList.map((official) => ({
+          match_id: dbMatchId,
+          game_date: gameDate,
+          sport: league.db_sport,
+          league_id: league.id,
+          official_name: official.name,
+          official_position: official.position,
+          official_order: official.order,
+          espn_official_id: official.id || null
+        }));
+        const { error } = await supabase
+          .from('game_officials')
+          .upsert(officialRows, { onConflict: 'match_id,official_name', ignoreDuplicates: true });
+        if (error) {
+          Logger.warn('OFFICIALS_UPSERT_FAILED', { match_id: dbMatchId, error: error.message });
         }
+      } catch (e: any) {
+        Logger.warn('OFFICIALS_UPSERT_FAILED', { match_id: dbMatchId, error: e?.message || String(e) });
       }
     }
+
+    const oddsWithBettingRecords = espnOdds as {
+      homeBettingRecords?: {
+        spreadRecord?: string | null;
+        overUnderRecord?: string | null;
+        moneyLineRecord?: string | null;
+        averageScore?: string | number | null;
+        favorite?: boolean;
+      };
+      awayBettingRecords?: {
+        spreadRecord?: string | null;
+        overUnderRecord?: string | null;
+        moneyLineRecord?: string | null;
+        averageScore?: string | number | null;
+        favorite?: boolean;
+      };
+    };
+
+    if ((oddsWithBettingRecords.homeBettingRecords || oddsWithBettingRecords.awayBettingRecords) && dbMatchId) {
+      const parseRecord = (value: string | null | undefined) => {
+        if (!value) return { wins: 0, losses: 0, pushes: 0 };
+        const parts = String(value).split('-').map((part) => Number(part));
+        return {
+          wins: Number.isFinite(parts[0]) ? parts[0] : 0,
+          losses: Number.isFinite(parts[1]) ? parts[1] : 0,
+          pushes: Number.isFinite(parts[2]) ? parts[2] : 0
+        };
+      };
+
+      try {
+        const homeAts = parseRecord(oddsWithBettingRecords.homeBettingRecords?.spreadRecord);
+        const homeOu = parseRecord(oddsWithBettingRecords.homeBettingRecords?.overUnderRecord);
+        const awayAts = parseRecord(oddsWithBettingRecords.awayBettingRecords?.spreadRecord);
+        const awayOu = parseRecord(oddsWithBettingRecords.awayBettingRecords?.overUnderRecord);
+
+        const { error } = await supabase.from('team_betting_records').upsert([
+          {
+            match_id: dbMatchId,
+            team_name: homeNameStr,
+            side: 'home',
+            sport: league.db_sport,
+            league_id: league.id,
+            spread_record: oddsWithBettingRecords.homeBettingRecords?.spreadRecord ?? null,
+            over_under_record: oddsWithBettingRecords.homeBettingRecords?.overUnderRecord ?? null,
+            moneyline_record: oddsWithBettingRecords.homeBettingRecords?.moneyLineRecord ?? null,
+            average_score: parseNullableNumber(oddsWithBettingRecords.homeBettingRecords?.averageScore),
+            is_favorite: oddsWithBettingRecords.homeBettingRecords?.favorite ?? false,
+            ats_wins: homeAts.wins,
+            ats_losses: homeAts.losses,
+            ats_pushes: homeAts.pushes,
+            ou_overs: homeOu.wins,
+            ou_unders: homeOu.losses,
+            ou_pushes: homeOu.pushes,
+            game_date: gameDate
+          },
+          {
+            match_id: dbMatchId,
+            team_name: awayNameStr,
+            side: 'away',
+            sport: league.db_sport,
+            league_id: league.id,
+            spread_record: oddsWithBettingRecords.awayBettingRecords?.spreadRecord ?? null,
+            over_under_record: oddsWithBettingRecords.awayBettingRecords?.overUnderRecord ?? null,
+            moneyline_record: oddsWithBettingRecords.awayBettingRecords?.moneyLineRecord ?? null,
+            average_score: parseNullableNumber(oddsWithBettingRecords.awayBettingRecords?.averageScore),
+            is_favorite: oddsWithBettingRecords.awayBettingRecords?.favorite ?? false,
+            ats_wins: awayAts.wins,
+            ats_losses: awayAts.losses,
+            ats_pushes: awayAts.pushes,
+            ou_overs: awayOu.wins,
+            ou_unders: awayOu.losses,
+            ou_pushes: awayOu.pushes,
+            game_date: gameDate
+          }
+        ], { onConflict: 'match_id,side', ignoreDuplicates: false });
+        if (error) {
+          Logger.warn('TEAM_BETTING_RECORDS_UPSERT_FAILED', { match_id: dbMatchId, error: error.message });
+        }
+      } catch (e: any) {
+        Logger.warn('TEAM_BETTING_RECORDS_UPSERT_FAILED', { match_id: dbMatchId, error: e?.message || String(e) });
+      }
+    }
+
     stats.processed++;
     stats.live++;
   } catch (e: any) {

@@ -19,6 +19,30 @@ const asId = (value: any): string => {
     return String(value);
 };
 
+type BettingRecords = {
+    spreadRecord: string | null;
+    overUnderRecord: string | null;
+    moneyLineRecord: string | null;
+    averageScore: string | number | null;
+    favorite: boolean;
+};
+
+type ExtendedMatchOdds = MatchOdds & {
+    homeBettingRecords?: BettingRecords;
+    awayBettingRecords?: BettingRecords;
+};
+
+const buildBettingRecords = (teamOdds: any): BettingRecords | undefined => {
+    if (!teamOdds) return undefined;
+    return {
+        spreadRecord: teamOdds.spreadRecord || null,
+        overUnderRecord: teamOdds.overUnderRecord || null,
+        moneyLineRecord: teamOdds.moneyLineRecord || null,
+        averageScore: teamOdds.averageScore || null,
+        favorite: teamOdds.favorite || false
+    };
+};
+
 export const EspnAdapters = {
     Team: (competitor: any, sport: Sport): Team => {
         if (!competitor) return { id: '0', name: 'Unknown', shortName: 'UNK', logo: '', score: 0 } as Team;
@@ -58,8 +82,8 @@ export const EspnAdapters = {
         };
     },
     // Enhanced Odds Adapter for Closing Lines
-    Odds: (competition: any, pickcenter?: any[]): MatchOdds => {
-        let result: MatchOdds = { provider: 'Consensus', hasOdds: false };
+    Odds: (competition: any, pickcenter?: any[]): ExtendedMatchOdds => {
+        let result: ExtendedMatchOdds = { provider: 'Consensus', hasOdds: false };
 
         // 1. Try PickCenter (Best for Closing Lines and DraftKings)
         if (pickcenter && pickcenter.length > 0) {
@@ -78,11 +102,26 @@ export const EspnAdapters = {
                 result.provider = primary.provider?.name || 'Consensus';
                 result.spread = primary.details; // e.g. "BUF -3.0"
                 result.overUnder = primary.overUnder; // e.g. 48.5
+                if (primary.overUnder !== undefined) result.total = primary.overUnder;
+                if (primary.homeTeamOdds?.spread !== undefined) result.homeSpread = primary.homeTeamOdds.spread;
+                if (primary.awayTeamOdds?.spread !== undefined) result.awaySpread = primary.awayTeamOdds.spread;
 
                 // Extract ML from PickCenter
                 if (primary.homeTeamOdds?.moneyLine) result.homeWin = primary.homeTeamOdds.moneyLine;
                 if (primary.awayTeamOdds?.moneyLine) result.awayWin = primary.awayTeamOdds.moneyLine;
                 if (primary.drawOdds?.moneyLine) result.draw = primary.drawOdds.moneyLine;
+
+                // Extract juice (spread odds / total odds)
+                if (primary.homeTeamOdds?.spreadOdds !== undefined) result.homeSpreadOdds = primary.homeTeamOdds.spreadOdds;
+                if (primary.awayTeamOdds?.spreadOdds !== undefined) result.awaySpreadOdds = primary.awayTeamOdds.spreadOdds;
+                if (primary.overOdds !== undefined) result.overOdds = primary.overOdds;
+                if (primary.underOdds !== undefined) result.underOdds = primary.underOdds;
+
+                // Extract betting records
+                const homeBettingRecords = buildBettingRecords(primary.homeTeamOdds);
+                const awayBettingRecords = buildBettingRecords(primary.awayTeamOdds);
+                if (homeBettingRecords) result.homeBettingRecords = homeBettingRecords;
+                if (awayBettingRecords) result.awayBettingRecords = awayBettingRecords;
 
                 // Extract DK Link if it's available
                 const isDK = primary.provider?.name?.toLowerCase().includes('draftkings') || primary.provider?.name?.toLowerCase().includes('draft kings');
@@ -102,6 +141,9 @@ export const EspnAdapters = {
                 result.provider = oddsData.provider?.name || 'Consensus';
                 if (oddsData.details) result.spread = oddsData.details;
                 if (oddsData.overUnder) result.overUnder = oddsData.overUnder;
+                if (oddsData.overUnder !== undefined) result.total = oddsData.overUnder;
+                if (oddsData.homeTeamOdds?.spread !== undefined) result.homeSpread = oddsData.homeTeamOdds.spread;
+                if (oddsData.awayTeamOdds?.spread !== undefined) result.awaySpread = oddsData.awayTeamOdds.spread;
             }
 
             if (!result.homeWin) {
@@ -115,6 +157,16 @@ export const EspnAdapters = {
                     if (oddsData.drawOdds?.moneyLine) result.draw = oddsData.drawOdds.moneyLine;
                 }
             }
+
+            if (oddsData.homeTeamOdds?.spreadOdds !== undefined) result.homeSpreadOdds = oddsData.homeTeamOdds.spreadOdds;
+            if (oddsData.awayTeamOdds?.spreadOdds !== undefined) result.awaySpreadOdds = oddsData.awayTeamOdds.spreadOdds;
+            if (oddsData.overOdds !== undefined) result.overOdds = oddsData.overOdds;
+            if (oddsData.underOdds !== undefined) result.underOdds = oddsData.underOdds;
+
+            const homeBettingRecords = buildBettingRecords(oddsData.homeTeamOdds);
+            const awayBettingRecords = buildBettingRecords(oddsData.awayTeamOdds);
+            if (homeBettingRecords) result.homeBettingRecords = homeBettingRecords;
+            if (awayBettingRecords) result.awayBettingRecords = awayBettingRecords;
         }
 
         // Normalize: ensure moneylineHome/moneylineAway are always set alongside homeWin/awayWin
@@ -126,6 +178,16 @@ export const EspnAdapters = {
         }
 
         return result;
+    },
+    Officials: (competition: any): { name: string; position: string; order: number; id?: string }[] => {
+        const officials = competition?.officials;
+        if (!Array.isArray(officials)) return [];
+        return officials.map((o: any, i: number) => ({
+            name: Safe.string(o.fullName || o.displayName || '') || '',
+            position: Safe.string(o.position?.displayName || o.position?.name || 'Unknown') || 'Unknown',
+            order: i,
+            id: Safe.string(o.id || o.$ref?.split('/')?.pop())
+        })).filter((o) => o.name.length > 0);
     },
     Events: (data: any, sport: Sport): MatchEvent[] => {
         const scoringPlays = data.scoringPlays;
@@ -335,13 +397,28 @@ export const EspnAdapters = {
         };
     },
     Predictor: (data: any) => {
-        const predictor = data.predictor;
+        const predictor = data.predictor
+            || data.gameInfo?.predictor
+            || data.header?.competitions?.[0]?.predictor;
         if (!predictor) return undefined;
+        const homeChance = Safe.number(
+            predictor.homeTeam?.gameChance
+            || predictor.homeTeam?.chance?.value
+            || predictor.homeTeam?.percentage
+            || predictor.homeTeam?.winPct
+        );
+        const awayChance = Safe.number(
+            predictor.awayTeam?.gameChance
+            || predictor.awayTeam?.chance?.value
+            || predictor.awayTeam?.percentage
+            || predictor.awayTeam?.winPct
+        );
         return {
-            homeTeamChance: Safe.number(predictor.homeTeam?.gameChance || predictor.homeTeam?.chance?.value),
-            awayTeamChance: Safe.number(predictor.awayTeam?.gameChance || predictor.awayTeam?.chance?.value),
+            homeTeamChance: homeChance || (awayChance ? (100 - awayChance) : 0),
+            awayTeamChance: awayChance || (homeChance ? (100 - homeChance) : 0),
             homeTeamLine: Safe.string(predictor.homeTeam?.displayLine),
             awayTeamLine: Safe.string(predictor.awayTeam?.displayLine),
+            source: Safe.string(predictor.name || predictor.source || 'ESPN')
         };
     },
     Situation: (data: any): Situation | undefined => {
