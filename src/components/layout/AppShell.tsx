@@ -1,17 +1,19 @@
 import React, { FC, lazy, Suspense, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
+import { Calendar } from 'lucide-react';
 import { useAppStore, usePinStore } from '../../store/appStore';
 import { useMatches } from '../../hooks/useMatches';
 import { UnifiedHeader } from './UnifiedHeader';
+import { MobileNavBar } from './MobileNavBar';
 import MatchList from '../match/MatchList';
+import { FeedSkeleton } from '../ui/Skeleton';
 import MatchDetails from '../match/MatchDetails';
 import ChatWidget from '../ChatWidget';
+import { ObsidianToaster, obsidianToast } from '../ui/Toast';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
-import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
-import { cn, ESSENCE } from '@/lib/essence';
+import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
-import { Sport } from '@/types';
 
 const CommandPalette = lazy(() => import('../modals/CommandPalette'));
 const AuthModal = lazy(() => import('../modals/AuthModal'));
@@ -25,43 +27,31 @@ const MotionDiv = motion.div;
 
 const AppShell: FC = () => {
   const {
-    activeView,
-    selectedDate,
-    selectedSport,
-    selectedMatch,
-    setSelectedMatch,
-    setSelectedSport,
-    showLanding,
-    isCmdkOpen,
-    isAuthModalOpen,
-    isSportDrawerOpen,
-    isPricingModalOpen,
-    isRankingsDrawerOpen,
-    isGlobalChatOpen,
-    toggleCmdk,
-    toggleAuthModal,
-    togglePricingModal,
-    toggleSportDrawer,
-    toggleRankingsDrawer,
-    setShowLanding,
+    activeView, selectedDate, selectedSport, selectedMatch,
+    setSelectedMatch, setSelectedSport, showLanding, isCmdkOpen,
+    isAuthModalOpen, isSportDrawerOpen,
+    isPricingModalOpen, isRankingsDrawerOpen, toggleCmdk,
+    toggleAuthModal, togglePricingModal,
+    toggleSportDrawer, toggleRankingsDrawer, setShowLanding,
     setSelectedDate,
-    closeAllOverlays,
+    closeAllOverlays
   } = useAppStore();
 
   const { pinnedMatchIds, togglePin } = usePinStore();
-  const [defaultSportResolved, setDefaultSportResolved] = React.useState(false);
-  const persistedSportExists = React.useMemo(() => hasPersistedSportContext(), []);
 
-  // 1) Fetch data (date-filtered in hook)
+  // 1. Fetch Data (Filtered strictly by the Hook now)
   const { data: matches = [], isLoading } = useMatches(selectedDate);
 
-  // 2) Client filter: sport only
+  // 2. Client-Side Filter: Only filter by SPORT
+  // We REMOVED the strict Date check to prevent the "Double Filtering" bug.
   const filteredMatches = useMemo(() => {
     if (!matches.length) return [];
+
     const targetSport = (selectedSport || '').toLowerCase();
 
     return matches.filter((m) => {
       const matchSport = (m.sport || '').toLowerCase();
+      // Simple Sport Check
       return targetSport === 'all' || matchSport === targetSport || matchSport.includes(targetSport);
     });
   }, [matches, selectedSport]);
@@ -75,64 +65,61 @@ const AppShell: FC = () => {
   }, [matches]);
 
   const pinnedSet = useMemo(() => new Set<string>(pinnedMatchIds), [pinnedMatchIds]);
-  const currentLeagueId = useMemo(() => LEAGUES.find((l) => l.sport === selectedSport)?.id || 'unknown', [selectedSport]);
+  const currentLeagueId = useMemo(() => LEAGUES.find(l => l.sport === selectedSport)?.id || 'unknown', [selectedSport]);
 
   // Unique key to force animation when Date/Sport changes
+  // We use the raw ISO string slice to be consistent
   const viewKey = `feed-${new Date(selectedDate).toISOString().split('T')[0]}-${selectedSport}`;
+  const isEditorial = showLanding || (activeView === 'FEED' && !selectedMatch);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const theme = isEditorial ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [isEditorial]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        toggleCmdk();
-      }
-      if (e.key === 'Escape') {
-        selectedMatch ? setSelectedMatch(null) : closeAllOverlays();
-      }
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); toggleCmdk(); }
+      if (e.key === 'Escape') { selectedMatch ? setSelectedMatch(null) : closeAllOverlays(); }
     };
-
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [toggleCmdk, selectedMatch, setSelectedMatch, closeAllOverlays]);
 
-  useEffect(() => {
-    if (defaultSportResolved || persistedSportExists || isLoading) return;
-    if (!matches.length) {
-      setDefaultSportResolved(true);
-      return;
-    }
-
-    const hasSoccerGames = matches.some((m) => String(m.sport).toUpperCase() === Sport.SOCCER);
-    if (!hasSoccerGames && selectedSport === Sport.SOCCER) {
-      setSelectedSport(Sport.NBA);
-    }
-    setDefaultSportResolved(true);
-  }, [
-    defaultSportResolved,
-    persistedSportExists,
-    isLoading,
-    matches,
-    selectedSport,
-    setSelectedSport,
-  ]);
-
-  if (showLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
+  if (showLanding) {
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="landing"
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0, scale: 0.98, filter: 'blur(8px)' }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <LandingPage onEnter={() => setShowLanding(false)} />
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
 
   return (
+    <MotionConfig reducedMotion="user">
     <div
-      className={cn(
-        // Layout
-        'min-h-screen h-[var(--vvh,100vh)] relative flex flex-col antialiased',
-        // Yahoo-inspired shell surface
-        'bg-[#F4F6FF] text-slate-900 font-sans',
-        // selection rule
-        'selection:bg-blue-300/30'
-      )}
+      className="min-h-screen h-[var(--vvh,100vh)] bg-surface-base text-ink-primary font-sans relative flex flex-col antialiased"
+      style={{ animation: 'fadeInApp 0.6s ease-out' }}
     >
+      <a href="#main-content" className="skip-link">Skip to content</a>
       <UnifiedHeader />
 
-      <MotionMain id="main-content" className="flex-1 w-full overflow-y-auto overscroll-contain">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-3">
+      <MotionMain
+        id="main-content"
+        className="flex-1 w-full overflow-y-auto overscroll-contain"
+        style={{
+          maskImage: 'linear-gradient(to bottom, transparent 0%, black 16px, black calc(100% - 32px), transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 16px, black calc(100% - 32px), transparent 100%)',
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-4 md:px-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
           <AnimatePresence mode="wait">
             {activeView === 'FEED' && (
               <MotionDiv
@@ -142,46 +129,27 @@ const AppShell: FC = () => {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
-                {/* LOADING STATE */}
+                {/* LOADING STATE — Skeleton feed */}
                 {isLoading && filteredMatches.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-24 opacity-80">
-                    <div className="w-6 h-6 border-2 border-blue-200 border-t-[#0B63F6] rounded-full animate-spin mb-4" />
-                    <p className={cn(ESSENCE.tier.t2Header, 'text-slate-500')}>Syncing Sports Data</p>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className={cn('mt-6 px-4 py-1.5 rounded-full border border-blue-200 bg-white text-[10px] font-medium text-blue-700 hover:bg-blue-50 active:scale-95')}
-                    >
-                      Force Refresh
-                    </button>
-                  </div>
+                  <FeedSkeleton />
                 )}
 
                 {/* EMPTY STATE */}
                 {!isLoading && filteredMatches.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
-                    <div className={cn('w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5', ESSENCE.tw.surface.subtle, ESSENCE.tw.border.default, 'shadow-sm')}>
-                      <span className="text-2xl text-slate-400">📅</span>
+                    <div className="w-12 h-12 rounded-2xl bg-overlay-subtle border border-edge-subtle flex items-center justify-center mb-6">
+                      <Calendar size={18} className="text-ink-tertiary" />
                     </div>
-
-                    <h3 className="text-xl font-bold text-slate-900 tracking-tight">
+                    <h3 className="text-lg font-semibold text-ink-primary tracking-tight">
                       {new Date(selectedDate).toDateString() === new Date().toDateString() ? 'No Games Today' : 'No Games Scheduled'}
                     </h3>
-
-                    <p className="text-slate-600 text-[13px] mt-2 max-w-[220px] leading-relaxed">
-                      Check back later or navigate to another date in the timeline.
+                    <p className="text-ink-tertiary text-body-sm mt-2 max-w-[260px] leading-relaxed">
+                      Check back later or pick another date in the timeline.
                     </p>
-
                     <button
                       type="button"
                       onClick={() => setSelectedDate(new Date())}
-                      className={cn(
-                        ESSENCE.nav.pill,
-                        'mt-5 px-4 py-2',
-                        'text-[10px] font-bold uppercase tracking-widest text-slate-600',
-                        'hover:text-slate-900 hover:border-slate-300',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50',
-                        'transition-all'
-                      )}
+                      className="mt-5 px-4 py-2 rounded-full border border-edge-subtle text-caption font-bold uppercase tracking-widest text-ink-secondary hover:text-ink-primary hover:border-edge transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-ghost focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
                     >
                       Back to Today
                     </button>
@@ -195,7 +163,11 @@ const AppShell: FC = () => {
                     onSelectMatch={setSelectedMatch}
                     isLoading={isLoading}
                     pinnedMatchIds={pinnedSet}
-                    onTogglePin={(id) => togglePin(id)}
+                    onTogglePin={(id) => {
+                      const wasPinned = pinnedSet.has(id);
+                      togglePin(id);
+                      obsidianToast.action(wasPinned ? 'Removed from Watchlist' : 'Added to Watchlist');
+                    }}
                     isMatchLive={(m) => isGameInProgress(m.status)}
                     isMatchFinal={(m) => isGameFinished(m.status)}
                     onOpenPricing={() => togglePricingModal(true)}
@@ -204,125 +176,81 @@ const AppShell: FC = () => {
               </MotionDiv>
             )}
 
+
             {activeView === 'LIVE' && (
-              <MotionDiv
-                key="live"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <LiveDashboard
-                  matches={matches}
-                  onSelectMatch={setSelectedMatch}
-                  isMatchLive={(m) => isGameInProgress(m.status)}
-                  pinnedMatchIds={pinnedSet}
-                  onTogglePin={togglePin}
-                />
+              <MotionDiv key="live" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
+                <LiveDashboard matches={matches} onSelectMatch={setSelectedMatch} isMatchLive={(m) => isGameInProgress(m.status)} pinnedMatchIds={pinnedSet} onTogglePin={togglePin} />
               </MotionDiv>
             )}
 
             {activeView === 'TITAN' && (
-              <MotionDiv
-                key="titan"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <Suspense
-                  fallback={
-                    <div className="flex items-center justify-center py-24">
-                      <div className="w-6 h-6 border-2 border-blue-200 border-t-[#0B63F6] rounded-full animate-spin" />
-                    </div>
-                  }
-                >
+              <MotionDiv key="titan" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
+                <Suspense fallback={<FeedSkeleton />}>
                   <TitanAnalytics />
                 </Suspense>
               </MotionDiv>
             )}
+
+
           </AnimatePresence>
         </div>
 
         {/* Global Legal & Responsibility Footer (inside scroll context) */}
-        <footer className={cn('w-full border-t border-slate-200/80 bg-gradient-to-b from-transparent to-[#EFF6FF]/80')}>
-          <div className="max-w-7xl mx-auto px-7 py-9 md:py-10">
-            <div className="flex flex-col items-center text-center gap-3 opacity-80">
-              <span className="text-[11px] text-slate-600 max-w-2xl">
-                Quantitative decision-support for entertainment only. Not financial advice.
-              </span>
-              <div className="flex items-center gap-3.5">
-                <span className="font-mono text-[9.5px] text-slate-600 tracking-[0.04em]">21+</span>
-                <span className="text-slate-300">·</span>
-                <span className="font-mono text-[9.5px] text-slate-600 tracking-[0.04em]">1-800-GAMBLER</span>
+        <footer className="w-full border-t border-edge-subtle/80 bg-gradient-to-b from-transparent to-overlay-ghost">
+          <div className="max-w-7xl mx-auto px-6 py-10 md:py-12">
+            <div className="flex flex-col items-center text-center space-y-4 opacity-60">
+              <p className="text-caption font-medium leading-relaxed max-w-2xl text-ink-tertiary">
+                SportSync AI provides a quantitative decision-support environment for entertainment purposes only.
+                We are not a sportsbook and do not provide financial advice or guarantee outcome success.
+                Analytical confidence levels represent model weights, not mathematical probability of real-world results.
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 text-label font-black uppercase tracking-widest text-ink-tertiary">
+                <span>Must be 21+</span>
+                <span className="hidden md:inline-block w-1 h-1 rounded-full bg-edge-strong" />
+                <span>Problem? 1-800-GAMBLER</span>
               </div>
             </div>
           </div>
         </footer>
       </MotionMain>
 
+      <MobileNavBar scrollTargetId="main-content" />
+
       <AnimatePresence>
         {selectedMatch && (
           <MotionDiv
-            initial={{ y: '100%' }}
+            initial={{ y: "100%" }}
             animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
-            className={cn(
-              'fixed inset-0 z-[60] overflow-hidden flex flex-col',
-              ESSENCE.tw.surface.subtle // bg-slate-50
-            )}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 32, stiffness: 350, mass: 1 }}
+            className="fixed inset-0 z-[60] bg-[#F7F8FA] overflow-hidden flex flex-col"
           >
-            {/* Sheet Handle for Mobile */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-[70] md:hidden" />
-            <MatchDetails match={selectedMatch} matches={filteredMatches} onSelectMatch={setSelectedMatch} onBack={() => setSelectedMatch(null)} />
+            {/* Sheet Handle for Mobile (Visual only since it's full screen) */}
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-overlay-emphasis rounded-full z-[70] md:hidden" />
+            <MatchDetails
+              match={selectedMatch}
+              matches={filteredMatches}
+              onSelectMatch={setSelectedMatch}
+              onBack={() => setSelectedMatch(null)}
+            />
           </MotionDiv>
         )}
       </AnimatePresence>
 
-      {/* Desktop AI FAB — only visible on md+ when chat is closed */}
-      {!selectedMatch && (
-        <button
-          onClick={() => useAppStore.getState().toggleGlobalChat()}
-          className={cn(
-            'fixed bottom-5 right-5 z-50 hidden md:flex items-center justify-center',
-            'w-11 h-11 rounded-xl transition-all active:scale-90',
-            // SSOT: ink primary action
-            'bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800',
-            isGlobalChatOpen && 'rotate-45'
-          )}
-          aria-label={isGlobalChatOpen ? 'Close AI' : 'Open AI Analysis'}
-        >
-          {isGlobalChatOpen ? (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M4 4L12 12M12 4L4 12" />
-            </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
-              <path d="M9 1L11.5 6.5L17 9L11.5 11.5L9 17L6.5 11.5L1 9L6.5 6.5L9 1Z" fill="currentColor" opacity="0.85" />
-            </svg>
-          )}
-        </button>
-      )}
-
-      <ChatWidget currentMatch={selectedMatch} matches={matches} />
+      <div data-theme="dark">
+        <ChatWidget currentMatch={selectedMatch} matches={matches} />
+      </div>
 
       <Suspense fallback={null}>
         <CommandPalette isOpen={isCmdkOpen} onClose={() => toggleCmdk(false)} matches={matches} onSelect={setSelectedMatch} />
-        <MobileSportDrawer
-          isOpen={isSportDrawerOpen}
-          onClose={() => toggleSportDrawer(false)}
-          onSelect={setSelectedSport}
-          selectedSport={selectedSport}
-          liveCounts={liveCountsBySport}
-          orderedSports={ORDERED_SPORTS}
-          sportConfig={SPORT_CONFIG}
-        />
+        <MobileSportDrawer isOpen={isSportDrawerOpen} onClose={() => toggleSportDrawer(false)} onSelect={setSelectedSport} selectedSport={selectedSport} liveCounts={liveCountsBySport} orderedSports={ORDERED_SPORTS} sportConfig={SPORT_CONFIG} />
         <RankingsDrawer isOpen={isRankingsDrawerOpen} onClose={() => toggleRankingsDrawer(false)} sport={selectedSport} leagueId={currentLeagueId} />
         <AuthModal isOpen={isAuthModalOpen} onClose={() => toggleAuthModal(false)} />
         <PricingModal isOpen={isPricingModalOpen} onClose={() => togglePricingModal(false)} />
       </Suspense>
-    </div>
+      <ObsidianToaster />
+    </div >
+    </MotionConfig>
   );
 };
 
