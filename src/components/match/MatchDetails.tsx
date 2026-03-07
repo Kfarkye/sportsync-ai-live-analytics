@@ -871,7 +871,7 @@ OddsCardSkeleton.displayName = 'OddsCardSkeleton';
 const StatsGridSkeleton = memo(() => (
   <div className="animate-pulse grid grid-cols-2 gap-4 mt-4" aria-label="Loading statistics">
     {Array.from({ length: 6 }, (_, i) => (
-      <div key={i} className={`h-10 bg-[${TOKEN.surface}] rounded-lg border border-[${TOKEN.borderSubtle}]`} />
+      <div key={i} className={`h-10 bg-[#FAFAFA] rounded-lg border border-[#E5E5E5]`} />
     ))}
   </div>
 ));
@@ -887,7 +887,7 @@ const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'con
 
   return (
     <div
-      className={`flex items-center justify-center w-7 h-7 rounded-full border border-[${TOKEN.borderSubtle}] bg-[${TOKEN.bg}]`}
+      className={`flex items-center justify-center w-7 h-7 rounded-full border border-[#E5E5E5] bg-[#FFFFFF]`}
       role="status"
       aria-label={`Connection ${status}`}
     >
@@ -1010,6 +1010,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
   const sport = match.sport?.toUpperCase() || 'UNKNOWN';
   const lastPlay = liveState?.lastPlay;
   const prefersReduced = useReducedMotion();
+  const isScheduled = isGameScheduled(match.status);
 
   const ballPos = useMemo(() =>
     parseCoordinate(lastPlay?.coordinate, lastPlay?.text || '', sport),
@@ -1022,6 +1023,70 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
   );
 
   const cameraSpring = prefersReduced ? SPRING.reduced : SPRING.camera;
+  const scheduledOdds = match.current_odds || match.opening_odds || match.odds;
+  const scheduledSpread = getOddsSpreadValue(scheduledOdds);
+  const scheduledTotal = getOddsTotalValue(scheduledOdds);
+  const kickoffLabel = useMemo(() => {
+    if (!match.startTime) return 'Start time TBD';
+    const dt = new Date(match.startTime);
+    if (Number.isNaN(dt.getTime())) return 'Start time TBD';
+    return dt.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  }, [match.startTime]);
+
+  if (isScheduled) {
+    return (
+      <div className="rounded-2xl border border-[#E5E5E5] bg-[#FAFAFA] p-4 sm:p-5">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <TeamLogo
+              logo={match.awayTeam.logo}
+              name={match.awayTeam.name}
+              abbreviation={toTeamAbbreviation(match.awayTeam)}
+              sport={String(match.sport)}
+              color={normalizeColor(match.awayTeam.color, '#EF4444')}
+              className="h-10 w-10"
+            />
+            <div className="min-w-0">
+              <p className="truncate text-[13px] font-medium text-[#0A0A0A]">{match.awayTeam.shortName || match.awayTeam.name}</p>
+              <p className={cn(TYPE.numericXs, 'text-[#A3A3A3]')}>{match.awayTeam.record || '—'}</p>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <p className={cn(TYPE.label, 'text-[#737373]')}>PREGAME</p>
+            <p className={cn(TYPE.numericSm, 'mt-1 text-[#0A0A0A]')}>{kickoffLabel}</p>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 min-w-0">
+            <div className="min-w-0 text-right">
+              <p className="truncate text-[13px] font-medium text-[#0A0A0A]">{match.homeTeam.shortName || match.homeTeam.name}</p>
+              <p className={cn(TYPE.numericXs, 'text-[#A3A3A3]')}>{match.homeTeam.record || '—'}</p>
+            </div>
+            <TeamLogo
+              logo={match.homeTeam.logo}
+              name={match.homeTeam.name}
+              abbreviation={toTeamAbbreviation(match.homeTeam)}
+              sport={String(match.sport)}
+              color={normalizeColor(match.homeTeam.color, '#3B82F6')}
+              className="h-10 w-10"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-[#E5E5E5] bg-white px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className={cn(TYPE.meta, 'text-[#737373]')}>Awaiting live feed</span>
+            <span className={cn(NUMERIC, 'text-[12px] text-[#0A0A0A]')}>
+              {[
+                scheduledSpread !== undefined ? `${toTeamAbbreviation(match.homeTeam)} ${formatSigned(scheduledSpread)}` : null,
+                scheduledTotal !== undefined ? `O/U ${scheduledTotal}` : null,
+              ].filter(Boolean).join(' · ') || 'Lines pending'}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const renderCourt = () => {
     if (sport.includes('BASKETBALL') || sport.includes('NBA') || sport.includes('NCAAM')) {
@@ -1142,11 +1207,11 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
       animate={{ opacity: 1 }}
       className={cn(
         'group relative border-t transition-all duration-500',
-        `border-[${TOKEN.borderSubtle}]`,
+        `border-[#E5E5E5]`,
         collapsible
           ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-0'
           : 'cursor-default',
-        collapsible && `focus-visible:ring-[${TOKEN.borderDefault}]`,
+        collapsible && `focus-visible:ring-[#D4D4D4]`,
       )}
       onClick={toggleOpen}
       onKeyDown={handleKeyDown}
@@ -1159,7 +1224,7 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
       {/* Active-state border highlight — animates width from 0 to full */}
       <div className={cn(
         'absolute -top-[1px] left-0 h-[1px] transition-all duration-500 ease-out z-[1]',
-        `bg-[${TOKEN.borderDefault}] shadow-[0_0_8px_rgba(212,212,212,0.4)]`,
+        `bg-[#D4D4D4] shadow-[0_0_8px_rgba(212,212,212,0.4)]`,
         effectiveOpen ? 'w-full opacity-100' : 'w-0 opacity-0',
       )} />
 
@@ -1170,8 +1235,8 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
             TYPE.label,
             'transition-colors duration-300 block',
             effectiveOpen
-              ? `text-[${TOKEN.textPrimary}]`
-              : `text-[${TOKEN.textMuted}] group-hover:text-[${TOKEN.textTertiary}]`,
+              ? `text-[#0A0A0A]`
+              : `text-[#A3A3A3] group-hover:text-[#737373]`,
           )}>
             {label}
           </span>
@@ -1236,12 +1301,12 @@ const ComparisonStatRow: FC<{
 
   return (
     <div className="grid grid-cols-[72px_1fr_72px] items-center gap-3 py-2">
-      <span className={cn(NUMERIC, `text-right text-[13px] text-[${TOKEN.textPrimary}]`)}>{awayDisplay}</span>
+      <span className={cn(NUMERIC, `text-right text-[13px] text-[#0A0A0A]`)}>{awayDisplay}</span>
       <div className={cn(
         'relative h-9 rounded-full overflow-hidden',
-        `bg-[${TOKEN.surfaceElevated}] border border-[${TOKEN.borderSubtle}]`,
+        `bg-[#F5F5F5] border border-[#E5E5E5]`,
       )}>
-        <div className={`absolute inset-y-0 left-1/2 w-px bg-[${TOKEN.borderDefault}]`} />
+        <div className={`absolute inset-y-0 left-1/2 w-px bg-[#D4D4D4]`} />
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${awayPct / 2}%` }}
@@ -1257,10 +1322,10 @@ const ComparisonStatRow: FC<{
           style={{ backgroundColor: homeColor, opacity: homeLeading ? 0.8 : 0.55 }}
         />
         <div className="absolute inset-0 flex items-center justify-center px-2">
-          <span className={cn(TYPE.body, `text-[${TOKEN.textTertiary}] text-center truncate`)}>{label}</span>
+          <span className={cn(TYPE.body, `text-[#737373] text-center truncate`)}>{label}</span>
         </div>
       </div>
-      <span className={cn(NUMERIC, `text-[13px] text-[${TOKEN.textPrimary}]`)}>{homeDisplay}</span>
+      <span className={cn(NUMERIC, `text-[13px] text-[#0A0A0A]`)}>{homeDisplay}</span>
     </div>
   );
 });
@@ -1274,16 +1339,16 @@ const BettingRowsTable: FC<{ rows: BettingOutcomeRow[]; compact?: boolean }> = m
   return (
     <div className={cn(
       'divide-y rounded-2xl border bg-white',
-      `divide-[${TOKEN.borderSubtle}] border-[${TOKEN.borderSubtle}]`,
+      `divide-[#E5E5E5] border-[#E5E5E5]`,
     )}>
       {renderRows.map((row) => (
         <div key={row.market} className="grid grid-cols-[64px_1fr_1fr_auto] gap-3 p-3 items-center">
-          <span className={cn(TYPE.meta, `font-semibold uppercase text-[${TOKEN.textTertiary}]`)}>{row.market}</span>
-          <span className={cn(TYPE.numericSm, `text-[${TOKEN.textPrimary}]`)}>{row.selection}</span>
-          <span className={cn(TYPE.numericSm, `text-[${TOKEN.textTertiary}]`)}>{row.result}</span>
+          <span className={cn(TYPE.meta, `font-semibold uppercase text-[#737373]`)}>{row.market}</span>
+          <span className={cn(TYPE.numericSm, `text-[#0A0A0A]`)}>{row.selection}</span>
+          <span className={cn(TYPE.numericSm, `text-[#737373]`)}>{row.result}</span>
           <span className={cn(
             'text-[12px] font-semibold',
-            row.won === null ? `text-[${TOKEN.textTertiary}]` : row.won ? `text-[${TOKEN.live}]` : `text-[${TOKEN.error}]`,
+            row.won === null ? `text-[#737373]` : row.won ? `text-[#00C896]` : `text-[#E54D4D]`,
           )}>
             {row.verdict}
           </span>
@@ -1883,7 +1948,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
 const Surface: FC<{ children: ReactNode; className?: string }> = ({ children, className }) => (
   <div className={cn(
     'rounded-2xl border bg-white',
-    `border-[${TOKEN.borderSubtle}]`,
+    `border-[#E5E5E5]`,
     className,
   )}>
     {children}
@@ -1894,17 +1959,17 @@ const Surface: FC<{ children: ReactNode; className?: string }> = ({ children, cl
 const MetricCard: FC<{ label: string; value: string; className?: string }> = ({ label, value, className }) => (
   <div className={cn(
     'rounded-xl border p-3',
-    `border-[${TOKEN.borderSubtle}] bg-[${TOKEN.surface}]`,
+    `border-[#E5E5E5] bg-[#FAFAFA]`,
     className,
   )}>
-    <p className={cn(TYPE.label, `mb-1 text-[${TOKEN.textTertiary}]`)}>{label}</p>
-    <p className={cn(TYPE.numeric, `text-[${TOKEN.textPrimary}]`)}>{value}</p>
+    <p className={cn(TYPE.label, `mb-1 text-[#737373]`)}>{label}</p>
+    <p className={cn(TYPE.numeric, `text-[#0A0A0A]`)}>{value}</p>
   </div>
 );
 
 /** Section header label — used in AI sidebar panels */
 const SectionLabel: FC<{ children: string }> = ({ children }) => (
-  <p className={cn(TYPE.label, `mb-3 text-[${TOKEN.textTertiary}]`)}>{children}</p>
+  <p className={cn(TYPE.label, `mb-3 text-[#737373]`)}>{children}</p>
 );
 
 
@@ -2421,7 +2486,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
   // ════════════════════════════════════════════════════════════════════════
 
   return (
-    <div className={`min-h-screen font-sans bg-[${TOKEN.bg}] text-[${TOKEN.textPrimary}]`}>
+    <div className={`min-h-screen font-sans bg-[#FFFFFF] text-[#0A0A0A]`}>
       <div className="relative isolate">
 
         {/* ── Ambient Team Color Wash ─────────────────────────────────────
@@ -2447,7 +2512,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
         <header
           className={cn(
             'sticky top-0 z-50 backdrop-blur-md',
-            `border-b border-[${TOKEN.borderSubtle}]`,
+            `border-b border-[#E5E5E5]`,
             ELEVATION[2],
           )}
           style={{ backgroundColor: TOKEN.surfaceOverlay, height: DIMENSION.navHeight }}
@@ -2459,14 +2524,14 @@ const MatchDetails: FC<MatchDetailsProps> = ({
               aria-label="Back to matches"
               className={cn(
                 'group flex h-10 w-10 items-center justify-center rounded-full transition-colors',
-                `hover:bg-[${TOKEN.surfaceElevated}]`,
-                `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[${TOKEN.borderDefault}]`,
+                `hover:bg-[#F5F5F5]`,
+                `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4D4D4]`,
               )}
             >
               <BackArrow />
             </button>
             <div className="flex items-center gap-3">
-              <span className={cn(TYPE.meta, `hidden text-[${TOKEN.textTertiary}] md:inline-block`)}>
+              <span className={cn(TYPE.meta, `hidden text-[#737373] md:inline-block`)}>
                 {String(match.leagueId || '').toUpperCase()}
               </span>
               <ConnectionBadge status={connectionStatus} />
@@ -2475,8 +2540,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                 className={cn(
                   'h-8 rounded-full border px-3',
                   TYPE.meta,
-                  `border-[${TOKEN.borderSubtle}] text-[${TOKEN.textTertiary}]`,
-                  `hover:bg-[${TOKEN.surfaceElevated}] font-semibold`,
+                  `border-[#E5E5E5] text-[#737373]`,
+                  `hover:bg-[#F5F5F5] font-semibold`,
                 )}
               >
                 SHARE
@@ -2489,7 +2554,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
         <section
           className={cn(
             'sticky z-40 overflow-hidden transition-[height] duration-300 ease-out',
-            `border-b border-[${TOKEN.borderSubtle}] bg-[${TOKEN.surface}]`,
+            `border-b border-[#E5E5E5] bg-[#FAFAFA]`,
             ELEVATION[3],
           )}
           style={{ top: DIMENSION.navHeight, height: scoreShellHeight }}
@@ -2515,9 +2580,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                     <span className={cn(
                       'absolute right-0 top-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5',
                       TYPE.label,
-                      `border border-[${TOKEN.live}]/30 bg-[${TOKEN.live}]/10 text-[${TOKEN.live}]`,
+                      `border border-[#00C896]/30 bg-[#00C896]/10 text-[#00C896]`,
                     )}>
-                      <span className={`h-1.5 w-1.5 rounded-full bg-[${TOKEN.live}] animate-[pulse_2s_infinite]`} />
+                      <span className={`h-1.5 w-1.5 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]`} />
                       LIVE
                     </span>
                   )}
@@ -2527,8 +2592,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                     <div className="flex items-center gap-3">
                       <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} abbreviation={awayAbbr} sport={String(match.sport)} color={awayColor} className="h-12 w-12" />
                       <div className="min-w-0">
-                        <p className={cn('truncate text-[14px] font-medium', `text-[${TOKEN.textPrimary}]`)}>{match.awayTeam.shortName || match.awayTeam.name}</p>
-                        <p className={cn(TYPE.numericSm, `text-[${TOKEN.textMuted}]`)}>{awayRecord}</p>
+                        <p className={cn('truncate text-[14px] font-medium', `text-[#0A0A0A]`)}>{match.awayTeam.shortName || match.awayTeam.name}</p>
+                        <p className={cn(TYPE.numericSm, `text-[#A3A3A3]`)}>{awayRecord}</p>
                       </div>
                     </div>
 
@@ -2536,29 +2601,29 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                     <div className="flex flex-col items-center justify-center">
                       {!isGameScheduled(match.status) && (
                         <div className="flex items-end gap-3">
-                          <span className={cn(TYPE.score, awayWinner || !scoreClock.isFinal ? `font-bold text-[${TOKEN.textPrimary}]` : `font-semibold text-[${TOKEN.textMuted}]`)}>{match.awayScore}</span>
-                          <span className={cn(NUMERIC, `pb-1 text-[26px] text-[${TOKEN.textMuted}]`)}>—</span>
-                          <span className={cn(TYPE.score, homeWinner || !scoreClock.isFinal ? `font-bold text-[${TOKEN.textPrimary}]` : `font-semibold text-[${TOKEN.textMuted}]`)}>{match.homeScore}</span>
+                          <span className={cn(TYPE.score, awayWinner || !scoreClock.isFinal ? `font-bold text-[#0A0A0A]` : `font-semibold text-[#A3A3A3]`)}>{match.awayScore}</span>
+                          <span className={cn(NUMERIC, `pb-1 text-[26px] text-[#A3A3A3]`)}>—</span>
+                          <span className={cn(TYPE.score, homeWinner || !scoreClock.isFinal ? `font-bold text-[#0A0A0A]` : `font-semibold text-[#A3A3A3]`)}>{match.homeScore}</span>
                         </div>
                       )}
                       <div className={cn(
                         'mt-1 rounded-full border px-3 py-0.5',
-                        `border-[${TOKEN.borderDefault}] bg-white`,
+                        `border-[#D4D4D4] bg-white`,
                       )}>
-                        <span className={cn(TYPE.numericSm, `inline-flex items-center gap-1 text-[${TOKEN.textTertiary}]`)}>
-                          {scoreClock.isLive && <span className={`h-1.5 w-1.5 rounded-full bg-[${TOKEN.live}] animate-[pulse_2s_infinite]`} />}
+                        <span className={cn(TYPE.numericSm, `inline-flex items-center gap-1 text-[#737373]`)}>
+                          {scoreClock.isLive && <span className={`h-1.5 w-1.5 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]`} />}
                           {scoreClock.isFinal ? scoreClock.finalLabel : scoreClock.primary}
                         </span>
                       </div>
-                      {scoreClock.secondary && <p className={cn(TYPE.numericXs, `mt-1 text-[${TOKEN.textMuted}]`)}>{scoreClock.secondary}</p>}
-                      {spreadTotalLine && <p className={cn(TYPE.numericXs, `mt-1 text-[${TOKEN.textTertiary}]`)}>{spreadTotalLine}</p>}
+                      {scoreClock.secondary && <p className={cn(TYPE.numericXs, `mt-1 text-[#A3A3A3]`)}>{scoreClock.secondary}</p>}
+                      {spreadTotalLine && <p className={cn(TYPE.numericXs, `mt-1 text-[#737373]`)}>{spreadTotalLine}</p>}
                     </div>
 
                     {/* Home team */}
                     <div className="flex items-center justify-end gap-3">
                       <div className="min-w-0 text-right">
-                        <p className={cn('truncate text-[14px] font-medium', `text-[${TOKEN.textPrimary}]`)}>{match.homeTeam.shortName || match.homeTeam.name}</p>
-                        <p className={cn(TYPE.numericSm, `text-[${TOKEN.textMuted}]`)}>{homeRecord}</p>
+                        <p className={cn('truncate text-[14px] font-medium', `text-[#0A0A0A]`)}>{match.homeTeam.shortName || match.homeTeam.name}</p>
+                        <p className={cn(TYPE.numericSm, `text-[#A3A3A3]`)}>{homeRecord}</p>
                       </div>
                       <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} abbreviation={homeAbbr} sport={String(match.sport)} color={homeColor} className="h-12 w-12" />
                     </div>
@@ -2567,12 +2632,12 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                   {/* Win probability bar */}
                   <div className="pt-2">
                     <div className="mb-1 flex items-center justify-between">
-                      <span className={cn(TYPE.numericXs, `font-medium text-[${TOKEN.textTertiary}]`)}>{awayAbbr} {winProbability.away}%</span>
-                      <span className={cn(TYPE.numericXs, `font-medium text-[${TOKEN.textTertiary}]`)}>{winProbability.home}% {homeAbbr}</span>
+                      <span className={cn(TYPE.numericXs, `font-medium text-[#737373]`)}>{awayAbbr} {winProbability.away}%</span>
+                      <span className={cn(TYPE.numericXs, `font-medium text-[#737373]`)}>{winProbability.home}% {homeAbbr}</span>
                     </div>
                     <div className={cn(
                       'h-2 w-full overflow-hidden rounded-full',
-                      `border border-[${TOKEN.borderDefault}] bg-[${TOKEN.surfaceElevated}]`,
+                      `border border-[#D4D4D4] bg-[#F5F5F5]`,
                     )}>
                       <div className="flex h-full w-full">
                         <motion.div initial={{ width: 0 }} animate={{ width: `${winProbability.away}%` }} transition={SPRING.bar} style={{ background: `linear-gradient(90deg, ${awayColor}, ${awayColor}CC)` }} />
@@ -2588,8 +2653,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({
             <div className={cn('absolute inset-0 transition-transform duration-200 ease-out', isCollapsed ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none')}>
               <div className="mx-auto flex h-full max-w-[960px] items-center justify-between px-4">
                 <div className="min-w-0 flex items-center gap-2">
-                  {scoreClock.isLive && <span className={`h-2 w-2 rounded-full bg-[${TOKEN.live}] animate-[pulse_2s_infinite]`} />}
-                  <span className={cn(NUMERIC, `truncate text-[14px] font-semibold text-[${TOKEN.textPrimary}]`)}>{compactSummary}</span>
+                  {scoreClock.isLive && <span className={`h-2 w-2 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]`} />}
+                  <span className={cn(NUMERIC, `truncate text-[14px] font-semibold text-[#0A0A0A]`)}>{compactSummary}</span>
                 </div>
               </div>
             </div>
@@ -2600,7 +2665,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
         <nav
           className={cn(
             'sticky z-30 backdrop-blur-sm transition-[top] duration-300 ease-out',
-            `border-b border-[${TOKEN.borderSubtle}] bg-white/95`,
+            `border-b border-[#E5E5E5] bg-white/95`,
             ELEVATION[1],
           )}
           style={{ top: DIMENSION.navHeight + scoreShellHeight }}
@@ -2622,7 +2687,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                     'relative shrink-0 px-3 py-3',
                     TYPE.meta, 'font-semibold uppercase',
                     'transition-opacity duration-150',
-                    `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[${TOKEN.borderDefault}]`,
+                    `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4D4D4]`,
                     activeTab === tab.id ? 'opacity-100' : 'opacity-40 hover:opacity-60',
                   )}
                 >
@@ -2631,7 +2696,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                     <motion.span
                       layoutId="activeTabIndicator"
                       transition={prefersReduced ? SPRING.reduced : SPRING.tab}
-                      className={`absolute bottom-0 left-1 right-1 h-[${DIMENSION.tabIndicator}px] rounded-full bg-[${TOKEN.textPrimary}]`}
+                      className={`absolute bottom-0 left-1 right-1 h-[2px] rounded-full bg-[#0A0A0A]`}
                     />
                   )}
                 </button>
@@ -2646,7 +2711,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
             <div className={cn(
               'mb-4 rounded-xl border px-3 py-2',
               TYPE.meta,
-              `border-[${TOKEN.error}]/35 bg-[${TOKEN.error}]/8 text-[${TOKEN.error}]`,
+              `border-[#E54D4D]/35 bg-[#E54D4D]/8 text-[#E54D4D]`,
             )}>
               Live feed interrupted. Showing the latest synchronized snapshot.
             </div>
@@ -2664,7 +2729,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
             <SpecSheetRow label="02 // SNAPSHOT" defaultOpen>
               <div className="space-y-6">
                 <LineScoreGrid match={match} isLive={!isGameFinal(match.status)} />
-                <div className={`h-px w-full bg-[${TOKEN.borderSubtle}]`} />
+                <div className={`h-px w-full bg-[#E5E5E5]`} />
                 {isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}
               </div>
             </SpecSheetRow>
@@ -2686,10 +2751,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({
           <section id={tabPanelId('STATS')} role="tabpanel" aria-labelledby={tabButtonId('STATS')} hidden={activeTab !== 'STATS'} className="space-y-4">
             <Surface className="p-4">
               {(['Attack', 'Defense', 'Discipline'] as StatSection[]).map((section, idx) => (
-                <div key={section} className={cn(idx !== 0 && `pt-4 border-t border-[${TOKEN.borderSubtle}]`)}>
-                  <p className={cn(TYPE.meta, `mb-2 uppercase text-[${TOKEN.textTertiary}]`)}>{section}</p>
+                <div key={section} className={cn(idx !== 0 && `pt-4 border-t border-[#E5E5E5]`)}>
+                  <p className={cn(TYPE.meta, `mb-2 uppercase text-[#737373]`)}>{section}</p>
                   {(groupedStats[section] || []).length === 0 ? (
-                    <p className={cn(TYPE.body, `py-2 text-[${TOKEN.textMuted}]`)}>No {section.toLowerCase()} stats available.</p>
+                    <p className={cn(TYPE.body, `py-2 text-[#A3A3A3]`)}>No {section.toLowerCase()} stats available.</p>
                   ) : (
                     (groupedStats[section] || []).map(row => (
                       <ComparisonStatRow key={`${section}-${row.label}`} label={row.label} awayDisplay={row.awayDisplay} homeDisplay={row.homeDisplay} awayValue={row.awayValue} homeValue={row.homeValue} awayColor={awayColor} homeColor={homeColor} />
@@ -2710,22 +2775,22 @@ const MatchDetails: FC<MatchDetailsProps> = ({
           >
             {isSoccer && (
               <Surface className="p-4">
-                <p className={cn(TYPE.meta, `mb-3 font-semibold uppercase text-[${TOKEN.textTertiary}]`)}>Lineups</p>
+                <p className={cn(TYPE.meta, `mb-3 font-semibold uppercase text-[#737373]`)}>Lineups</p>
                 {!hasRosters ? (
-                  <p className={cn(TYPE.body, `text-[${TOKEN.textMuted}]`)}>Lineups are not published yet.</p>
+                  <p className={cn(TYPE.body, `text-[#A3A3A3]`)}>Lineups are not published yet.</p>
                 ) : (
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                     {[{ team: match.awayTeam, roster: match.rosters?.away }, { team: match.homeTeam, roster: match.rosters?.home }].map(({ team, roster }) => (
                       <div key={team.id || team.name}>
-                        <p className={cn(TYPE.body, `mb-2 font-medium text-[${TOKEN.textPrimary}]`)}>{team.name}</p>
+                        <p className={cn(TYPE.body, `mb-2 font-medium text-[#0A0A0A]`)}>{team.name}</p>
                         <div className="space-y-1">
                           {(roster || []).slice(0, 22).map((player, idx) => (
                             <div key={`${player.id || player.name}-${idx}`} className={cn(
                               'flex items-center justify-between rounded-lg border px-2 py-1.5',
-                              `border-[${TOKEN.borderSubtle}]`,
+                              `border-[#E5E5E5]`,
                             )}>
-                              <span className={cn(TYPE.body, `text-[${TOKEN.textPrimary}]`)}>{player.displayName || player.name || `Player ${idx + 1}`}</span>
-                              <span className={cn(TYPE.numericXs, `text-[${TOKEN.textMuted}]`)}>{typeof player.position === 'string' ? player.position : player.position?.abbreviation || '-'}</span>
+                              <span className={cn(TYPE.body, `text-[#0A0A0A]`)}>{player.displayName || player.name || `Player ${idx + 1}`}</span>
+                              <span className={cn(TYPE.numericXs, `text-[#A3A3A3]`)}>{typeof player.position === 'string' ? player.position : player.position?.abbreviation || '-'}</span>
                             </div>
                           ))}
                         </div>
@@ -2748,9 +2813,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                 className={cn(
                   'rounded-full border px-3 py-1.5 transition-colors',
                   TYPE.label,
-                  `border-[${TOKEN.borderSubtle}] text-[${TOKEN.textTertiary}]`,
-                  `hover:bg-[${TOKEN.surfaceElevated}]`,
-                  `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[${TOKEN.borderDefault}]`,
+                  `border-[#E5E5E5] text-[#737373]`,
+                  `hover:bg-[#F5F5F5]`,
+                  `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4D4D4]`,
                 )}
               >
                 Switch to {nextPropLabel}
@@ -2783,11 +2848,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                       return (
                         <span key={`${badge}-${idx}`} className={cn(
                           NUMERIC, 'rounded-full border px-2.5 py-1 text-[11px]',
-                          isLiveBadge   && `border-[${TOKEN.live}]/40 bg-[${TOKEN.live}]/10 text-[${TOKEN.live}]`,
-                          isFinalBadge  && `border-[${TOKEN.borderDefault}] bg-[${TOKEN.surfaceElevated}] text-[${TOKEN.textTertiary}]`,
-                          !isLiveBadge && !isFinalBadge && `border-[${TOKEN.borderSubtle}] bg-[${TOKEN.surface}] text-[${TOKEN.textTertiary}]`,
+                          isLiveBadge   && `border-[#00C896]/40 bg-[#00C896]/10 text-[#00C896]`,
+                          isFinalBadge  && `border-[#D4D4D4] bg-[#F5F5F5] text-[#737373]`,
+                          !isLiveBadge && !isFinalBadge && `border-[#E5E5E5] bg-[#FAFAFA] text-[#737373]`,
                         )}>
-                          {isLiveBadge && <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[${TOKEN.live}] align-middle animate-[pulse_2s_infinite]`} />}
+                          {isLiveBadge && <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#00C896] align-middle animate-[pulse_2s_infinite]`} />}
                           {badge}
                         </span>
                       );
@@ -2802,19 +2867,19 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                     {edgeState && <EdgeStateBadge edgeState={edgeState} />}
                   </div>
                   <div className="grid grid-cols-1 gap-3">
-                    <div className={cn('rounded-xl border p-3', `border-[${TOKEN.borderSubtle}] bg-[${TOKEN.surface}]`)}>
-                      <p className={cn(TYPE.label, `mb-2 text-[${TOKEN.textTertiary}]`)}>Drivers</p>
+                    <div className={cn('rounded-xl border p-3', `border-[#E5E5E5] bg-[#FAFAFA]`)}>
+                      <p className={cn(TYPE.label, `mb-2 text-[#737373]`)}>Drivers</p>
                       <div className="space-y-1.5">
                         {aiDrivers.map((item, idx) => (
-                          <p key={`driver-${idx}`} className={cn(TYPE.body, `text-[${TOKEN.textPrimary}]`)}>{item}</p>
+                          <p key={`driver-${idx}`} className={cn(TYPE.body, `text-[#0A0A0A]`)}>{item}</p>
                         ))}
                       </div>
                     </div>
-                    <div className={cn('rounded-xl border p-3', `border-[${TOKEN.borderSubtle}] bg-[${TOKEN.surface}]`)}>
-                      <p className={cn(TYPE.label, `mb-2 text-[${TOKEN.textTertiary}]`)}>Watchouts</p>
+                    <div className={cn('rounded-xl border p-3', `border-[#E5E5E5] bg-[#FAFAFA]`)}>
+                      <p className={cn(TYPE.label, `mb-2 text-[#737373]`)}>Watchouts</p>
                       <div className="space-y-1.5">
                         {aiWatchouts.map((item, idx) => (
-                          <p key={`watch-${idx}`} className={cn(TYPE.body, `text-[${TOKEN.textTertiary}]`)}>{item}</p>
+                          <p key={`watch-${idx}`} className={cn(TYPE.body, `text-[#737373]`)}>{item}</p>
                         ))}
                       </div>
                     </div>
@@ -2869,10 +2934,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                   ) : (
                     <div className={cn(
                       'rounded-xl border p-5 text-center',
-                      `border-[${TOKEN.borderSubtle}] bg-[${TOKEN.surface}]`,
+                      `border-[#E5E5E5] bg-[#FAFAFA]`,
                     )}>
-                      <p className={cn(TYPE.heading, `text-[${TOKEN.textPrimary}]`)}>Lines Not Yet Posted</p>
-                      <p className={cn(TYPE.label, `mt-1 text-[${TOKEN.textMuted}]`)}>MONITORING MARKET</p>
+                      <p className={cn(TYPE.heading, `text-[#0A0A0A]`)}>Lines Not Yet Posted</p>
+                      <p className={cn(TYPE.label, `mt-1 text-[#A3A3A3]`)}>MONITORING MARKET</p>
                     </div>
                   )}
                 </Surface>
@@ -2906,7 +2971,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
               {match.context ? (
                 <MatchupContextPills {...match.context} sport={match.sport} />
               ) : (
-                <div className={cn(TYPE.body, `text-[${TOKEN.textMuted}] italic`)}>No context available.</div>
+                <div className={cn(TYPE.body, `text-[#A3A3A3] italic`)}>No context available.</div>
               )}
             </SpecSheetRow>
           </section>
@@ -2919,4 +2984,3 @@ const MatchDetails: FC<MatchDetailsProps> = ({
 };
 
 export default memo(MatchDetails);
-
