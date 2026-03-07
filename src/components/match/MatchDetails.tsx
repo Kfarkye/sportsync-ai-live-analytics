@@ -979,7 +979,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
   const sport = match.sport?.toUpperCase() || 'UNKNOWN';
   const lastPlay = liveState?.lastPlay;
   const prefersReduced = useReducedMotion();
-  const isScheduled = isGameScheduled(match.status);
+  const isLiveGame = isGameInProgress(match.status);
 
   const ballPos = useMemo(() =>
     parseCoordinate(lastPlay?.coordinate, lastPlay?.text || '', sport),
@@ -1002,7 +1002,13 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
     return dt.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
   }, [match.startTime]);
 
-  if (isScheduled) {
+  if (!isLiveGame) {
+    const statusLabel = isGameFinal(match.status)
+      ? 'FINAL'
+      : isGameScheduled(match.status)
+        ? 'PREGAME'
+        : 'STATUS';
+
     return (
       <div className="rounded-2xl border border-[#E5E5E5] bg-[#FAFAFA] p-4 sm:p-5">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -1022,8 +1028,10 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
           </div>
 
           <div className="text-center">
-            <p className={cn(TYPE.label, 'text-[#737373]')}>PREGAME</p>
-            <p className={cn(TYPE.numericSm, 'mt-1 text-[#0A0A0A]')}>{kickoffLabel}</p>
+            <p className={cn(TYPE.label, 'text-[#737373]')}>{statusLabel}</p>
+            <p className={cn(TYPE.numericSm, 'mt-1 text-[#0A0A0A]')}>
+              {isGameFinal(match.status) ? `${match.awayScore} - ${match.homeScore}` : kickoffLabel}
+            </p>
           </div>
 
           <div className="flex items-center justify-end gap-3 min-w-0">
@@ -1044,7 +1052,9 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
 
         <div className="mt-4 rounded-xl border border-[#E5E5E5] bg-white px-3 py-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className={cn(TYPE.meta, 'text-[#737373]')}>Awaiting live feed</span>
+            <span className={cn(TYPE.meta, 'text-[#737373]')}>
+              {isGameFinal(match.status) ? 'Game complete' : 'Awaiting live feed'}
+            </span>
             <span className={cn(NUMERIC, 'text-[12px] text-[#0A0A0A]')}>
               {[
                 scheduledSpread !== undefined ? `${toTeamAbbreviation(match.homeTeam)} ${formatSigned(scheduledSpread)}` : null,
@@ -1997,8 +2007,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
   const nextPropView = propView === 'classic' ? 'cinematic' : 'classic';
   const nextPropLabel = nextPropView === 'classic' ? 'Classic View' : 'Cinematic View';
   const swipeEnabled = matches.length > 1 && Boolean(onSelectMatch);
-  const isCollapsed = useScrollCollapse(40);
-  const scoreShellHeight = isCollapsed ? DIMENSION.scoreCompact : DIMENSION.scoreExpanded;
+  const scoreShellHeight = DIMENSION.scoreExpanded;
 
   // ─── Odds Resolution ───────────────────────────────────────────────────
   const currentOddsSource = match.current_odds || match.closing_odds || match.odds || match.opening_odds;
@@ -2027,10 +2036,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({
     () => getScoreClockModel(match, currentOddsSource),
     [match, currentOddsSource],
   );
-
-  const compactSummary = isGameScheduled(match.status)
-    ? `${awayAbbr} vs ${homeAbbr} · ${scoreClock.primary}`
-    : `${awayAbbr} ${match.awayScore} — ${match.homeScore} ${homeAbbr} · ${scoreClock.primary}${scoreClock.secondary ? ` ${scoreClock.secondary}` : ''}`;
 
   // ─── Win Probability ──────────────────────────────────────────────────
   const winProbability = useMemo(() => {
@@ -2114,11 +2119,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({
 
   const handleTabSelect = useCallback((tabId: MatchTabId) => {
     setActiveTab(tabId);
-    const stickyTop = DIMENSION.navHeight + DIMENSION.scoreCompact + 8;
+    const stickyTop = DIMENSION.navHeight + scoreShellHeight + 8;
     if (window.scrollY > stickyTop + 48) {
       window.scrollTo({ top: stickyTop, behavior: prefersReduced ? 'auto' : 'smooth' });
     }
-  }, [prefersReduced]);
+  }, [prefersReduced, scoreShellHeight]);
 
   // ─── Stats Computation ────────────────────────────────────────────────
   const comparisonStats = useMemo<ComparisonStat[]>(() => {
@@ -2522,8 +2527,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
             }}
             className={cn('relative h-full touch-pan-y', swipeEnabled && 'cursor-grab active:cursor-grabbing')}
           >
-            {/* Expanded state */}
-            <div className={cn('absolute inset-0 transition-transform duration-200 ease-out', isCollapsed ? 'opacity-0 translate-y-3 pointer-events-none' : 'opacity-100 translate-y-0')}>
+            <div className="absolute inset-0">
               <div className="mx-auto h-full max-w-[960px] px-4 py-3">
                 <div className="relative flex h-full flex-col justify-between">
                   {isLive && (
@@ -2595,16 +2599,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Collapsed state */}
-            <div className={cn('absolute inset-0 transition-transform duration-200 ease-out', isCollapsed ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none')}>
-              <div className="mx-auto flex h-full max-w-[960px] items-center justify-between px-4">
-                <div className="min-w-0 flex items-center gap-2">
-                  {scoreClock.isLive && <span className={`h-2 w-2 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]`} />}
-                  <span className={cn(NUMERIC, `truncate text-[14px] font-semibold text-[#0A0A0A]`)}>{compactSummary}</span>
                 </div>
               </div>
             </div>
