@@ -97,6 +97,13 @@ async function getPlays(sport: string, espnLeague: string, eventId: string, comp
     return data?.items || [];
 }
 
+// ─── Fallback: summary.plays for leagues where /plays can be empty live ───
+async function getSummaryPlays(sport: string, espnLeague: string, eventId: string): Promise<any[]> {
+    const url = `${ESPN_BASE}/${sport}/${espnLeague}/summary?event=${eventId}`;
+    const data = await espnFetch(url);
+    return Array.isArray(data?.plays) ? data.plays : [];
+}
+
 // ─── Fetch Soccer Commentary (richer than plays for soccer) ──────
 async function getCommentary(sport: string, espnLeague: string, eventId: string, competitionId: string): Promise<any[]> {
     if (sport !== 'soccer') return [];
@@ -314,11 +321,13 @@ Deno.serve(async (req: Request) => {
                     const lastSequence = lastRow?.sequence ?? -1;
 
                     // ── 2. Fetch events + odds in parallel ─────────────────
-                    const [plays, commentary, odds] = await Promise.all([
+                    const [playsPrimary, summaryPlays, commentary, odds] = await Promise.all([
                         getPlays(cfg.sport, cfg.espn, espnId, competitionId),
+                        getSummaryPlays(cfg.sport, cfg.espn, espnId),
                         getCommentary(cfg.sport, cfg.espn, espnId, competitionId),
                         getOdds(cfg.sport, cfg.espn, espnId, competitionId),
                     ]);
+                    const plays = playsPrimary.length > 0 ? playsPrimary : summaryPlays;
 
                     // ── 3. Filter to only new events ───────────────────────
                     const newPlays = plays.filter((p: any) => {
