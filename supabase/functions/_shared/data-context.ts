@@ -33,6 +33,8 @@ type FinalMatchRow = {
 
 const QUERY_TIMEOUT_MS = 2_000;
 const CONTEXT_MAX_CHARS = 3_000;
+const TEAM_CONTEXT_MAX_CHARS = 1_500;
+const PLAYER_CONTEXT_MAX_CHARS = 1_500;
 const ML_WINDOW = 10;
 
 const LEAGUE_ALIAS: Record<string, string[]> = {
@@ -131,6 +133,85 @@ const isSoccer = (sport: string, leagueId: string): boolean => {
 const isMlb = (sport: string, leagueId: string): boolean => {
   const s = normKey(sport);
   return s.includes("baseball") || canonicalLeagueId(leagueId) === "mlb";
+};
+
+const isNcaab = (leagueId: string): boolean => {
+  const league = canonicalLeagueId(leagueId);
+  return league === "mens-college-basketball" || league === "ncaab";
+};
+
+const stripDiacritics = (value: string): string => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+const playerKey = (value: unknown): string =>
+  stripDiacritics(normalize(value))
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const teamKey = (value: unknown): string =>
+  stripDiacritics(normalize(value))
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const namesLikelyMatch = (a: unknown, b: unknown): boolean => {
+  const ak = playerKey(a);
+  const bk = playerKey(b);
+  if (!ak || !bk) return false;
+  if (ak === bk || ak.includes(bk) || bk.includes(ak)) return true;
+
+  const aParts = ak.split(" ").filter(Boolean);
+  const bParts = bk.split(" ").filter(Boolean);
+  if (!aParts.length || !bParts.length) return false;
+
+  const aLast = aParts[aParts.length - 1];
+  const bLast = bParts[bParts.length - 1];
+  const aFirst = aParts[0] || "";
+  const bFirst = bParts[0] || "";
+  return aLast === bLast && aFirst.slice(0, 1) === bFirst.slice(0, 1);
+};
+
+const teamsLikelyMatch = (a: unknown, b: unknown): boolean => {
+  const ak = teamKey(a);
+  const bk = teamKey(b);
+  if (!ak || !bk) return false;
+  return ak === bk || ak.includes(bk) || bk.includes(ak);
+};
+
+const toInt = (value: unknown): number => {
+  const n = parseNum(value);
+  return n === null ? 0 : Math.trunc(n);
+};
+
+const readSeasonStat = (seasonStats: unknown, keys: string[]): number | null => {
+  const json = readJson(seasonStats);
+  const categories = toArray(json?.splits?.categories).concat(toArray(json?.categories));
+  for (const cat of categories) {
+    const stats = toArray(cat?.stats);
+    for (const stat of stats) {
+      const fields = [
+        normalize(stat?.name),
+        normalize(stat?.abbreviation),
+        normalize(stat?.displayName),
+        normalize(stat?.shortDisplayName),
+      ]
+        .map((x) => x.toLowerCase())
+        .join(" ");
+      if (!keys.some((k) => fields.includes(k))) continue;
+      const val = parseNum(stat?.value ?? stat?.displayValue);
+      if (val !== null) return val;
+    }
+  }
+  return null;
+};
+
+const truncateText = (text: string, limit: number): string => {
+  if (!text) return "";
+  if (text.length <= limit) return text;
+  if (limit <= 3) return text.slice(0, Math.max(limit, 0));
+  return `${text.slice(0, limit - 3).trimEnd()}...`;
 };
 
 async function withTimeout<T>(label: string, promise: Promise<T>, timeoutMs = QUERY_TIMEOUT_MS): Promise<T | null> {
@@ -349,14 +430,375 @@ const summarizeBatterFromPostgames = (team: string, rows: any[]): string | null 
   return `${team} BATTING (last ${samples.length}): ISO ${isoAvg}, WAR ${warAvg}, BB/K ${bbkAvg}, XBH ${xbhAvg}`;
 };
 
-const compactContext = (sections: string[]): string => {
+const compactContext = (sections: string[], maxChars = CONTEXT_MAX_CHARS): string => {
   const cleaned = sections
     .map((s) => s.trim())
     .filter(Boolean);
   const full = cleaned.join("\n\n");
-  if (full.length <= CONTEXT_MAX_CHARS) return full;
-  return `${full.slice(0, CONTEXT_MAX_CHARS - 3).trimEnd()}...`;
+  if (full.length <= maxChars) return full;
+  if (maxChars <= 3) return full.slice(0, Math.max(maxChars, 0));
+  return `${full.slice(0, maxChars - 3).trimEnd()}...`;
 };
+
+const lineupForTeam = (row: any, team: string): any[] => {
+  if (teamsLikelyMatch(row.home_team, team)) return toArray(readJson(row.home_lineup));
+  if (teamsLikelyMatch(row.away_team, team)) return toArray(readJson(row.away_lineup));
+  return [];
+};
+
+async function buildPlayerContext(
+  supabase: any,
+  homeTeam: string,
+  awayTeam: string,
+  leagueId: string,
+  sport: string
+): Promise<string> {
+  try {
+    const sections: string[] = [];
+    const sportKey = normKey(sport);
+    const leagueKeys = leagueCandidates(leagueId);
+
+    if (isSoccer(sportKey, leagueId)) {
+      const [homeAthletes, awayAthletes, homeRowsA, homeRowsB, awayRowsA, awayRowsB] = await Promise.all([
+        queryRows<any[]>(
+          "player_soccer_athletes_home",
+          supabase
+            .from("espn_athletes")
+            .select("full_name,position_abbr,team_name,espn_athlete_id,season_stats,league_id")
+            .in("league_id", leagueKeys)
+            .in("position_abbr", ["F", "M"])
+            .ilike("team_name", `%${homeTeam}%`)
+            .not("season_stats", "is", null)
+            .limit(40),
+        ),
+        queryRows<any[]>(
+          "player_soccer_athletes_away",
+          supabase
+            .from("espn_athletes")
+            .select("full_name,position_abbr,team_name,espn_athlete_id,season_stats,league_id")
+            .in("league_id", leagueKeys)
+            .in("position_abbr", ["F", "M"])
+            .ilike("team_name", `%${awayTeam}%`)
+            .not("season_stats", "is", null)
+            .limit(40),
+        ),
+        queryRows<any[]>(
+          "player_soccer_lineup_home_home",
+          supabase
+            .from("soccer_postgame")
+            .select("start_time,home_team,away_team,home_lineup,away_lineup,league_id")
+            .in("league_id", leagueKeys)
+            .eq("home_team", homeTeam)
+            .order("start_time", { ascending: false })
+            .limit(18),
+        ),
+        queryRows<any[]>(
+          "player_soccer_lineup_home_away",
+          supabase
+            .from("soccer_postgame")
+            .select("start_time,home_team,away_team,home_lineup,away_lineup,league_id")
+            .in("league_id", leagueKeys)
+            .eq("away_team", homeTeam)
+            .order("start_time", { ascending: false })
+            .limit(18),
+        ),
+        queryRows<any[]>(
+          "player_soccer_lineup_away_home",
+          supabase
+            .from("soccer_postgame")
+            .select("start_time,home_team,away_team,home_lineup,away_lineup,league_id")
+            .in("league_id", leagueKeys)
+            .eq("home_team", awayTeam)
+            .order("start_time", { ascending: false })
+            .limit(18),
+        ),
+        queryRows<any[]>(
+          "player_soccer_lineup_away_away",
+          supabase
+            .from("soccer_postgame")
+            .select("start_time,home_team,away_team,home_lineup,away_lineup,league_id")
+            .in("league_id", leagueKeys)
+            .eq("away_team", awayTeam)
+            .order("start_time", { ascending: false })
+            .limit(18),
+        ),
+      ]);
+
+      const toKeyPlayers = (rows: any[], team: string) => {
+        return toArray(rows)
+          .filter((r) => teamsLikelyMatch(r.team_name, team))
+          .map((row) => {
+            const goals = toInt(readSeasonStat(row.season_stats, ["totalgoals", "goals"]));
+            const assists = toInt(readSeasonStat(row.season_stats, ["goalassists", "assists"]));
+            const shots = toInt(readSeasonStat(row.season_stats, ["totalshots", "shots"]));
+            const sot = toInt(readSeasonStat(row.season_stats, ["shotsontarget", "sot"]));
+            const apps = toInt(readSeasonStat(row.season_stats, ["appearances", "apps"]));
+            const shotsPerGame = apps > 0 ? shots / apps : 0;
+            return {
+              name: normalize(row.full_name),
+              position: normalize(row.position_abbr) || "F",
+              team: normalize(row.team_name),
+              goals,
+              assists,
+              shots,
+              sot,
+              apps,
+              shotsPerGame,
+            };
+          })
+          .filter((r) => r.name)
+          .sort((a, b) => (b.goals - a.goals) || (b.shots - a.shots))
+          .slice(0, 3);
+      };
+
+      const homePlayers = toKeyPlayers(toArray(homeAthletes), homeTeam);
+      const awayPlayers = toKeyPlayers(toArray(awayAthletes), awayTeam);
+      const allPlayers = [...homePlayers.map((p) => ({ ...p, side: "home" as const })), ...awayPlayers.map((p) => ({ ...p, side: "away" as const }))];
+
+      const homeLineupRows = [...toArray(homeRowsA), ...toArray(homeRowsB)]
+        .sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())
+        .slice(0, 24);
+      const awayLineupRows = [...toArray(awayRowsA), ...toArray(awayRowsB)]
+        .sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())
+        .slice(0, 24);
+
+      const atgsRowsByPlayer = new Map<string, any[]>();
+      await Promise.all(allPlayers.map(async (player, idx) => {
+        const tokens = playerKey(player.name).split(" ").filter(Boolean);
+        const lastToken = tokens[tokens.length - 1] || player.name;
+        const rawRows = await queryRows<any[]>(
+          `player_soccer_atgs_${idx}`,
+          supabase
+            .from("soccer_player_odds")
+            .select("player_name,pool,result,implied_prob,team_name,team")
+            .eq("pool", "anytime")
+            .ilike("player_name", `%${lastToken}%`)
+            .limit(260),
+        );
+        const filtered = toArray(rawRows).filter((row) =>
+          namesLikelyMatch(row.player_name, player.name) &&
+          teamsLikelyMatch(row.team_name || row.team, player.team || (player.side === "home" ? homeTeam : awayTeam)),
+        );
+        atgsRowsByPlayer.set(`${player.side}:${player.name}`, filtered);
+      }));
+
+      const buildLastFive = (playerName: string, team: string, rows: any[]): string => {
+        let games = 0;
+        let goals = 0;
+        let assists = 0;
+        let shots = 0;
+        let starters = 0;
+
+        for (const row of rows) {
+          if (games >= 5) break;
+          const lineup = lineupForTeam(row, team);
+          if (!lineup.length) continue;
+          const playerRow = lineup.find((p: any) =>
+            namesLikelyMatch(p?.name || p?.displayName || p?.athlete?.displayName, playerName)
+          );
+          if (!playerRow) continue;
+          goals += toInt(playerRow?.goals);
+          assists += toInt(playerRow?.assists);
+          shots += toInt(playerRow?.shots);
+          const starterRaw = playerRow?.starter ?? playerRow?.isStarter;
+          const starter = typeof starterRaw === "boolean" ? starterRaw : String(starterRaw).toLowerCase() === "true";
+          if (starter) starters += 1;
+          games += 1;
+        }
+
+        if (!games) return "Last 5: no recent lineup sample";
+        return `Last 5: ${goals}G ${assists}A, avg ${(shots / games).toFixed(1)} shots, started ${starters}/${games}`;
+      };
+
+      const buildSoccerPlayerLine = (player: any, sideRows: any[]) => {
+        const atgsRows = toArray(atgsRowsByPlayer.get(`${player.side}:${player.name}`));
+        const atgsApps = atgsRows.length;
+        const atgsWins = atgsRows.filter((r) => ["win", "won", "hit"].includes(normKey(r.result))).length;
+        const atgsImpliedRows = atgsRows.map((r) => parseNum(r.implied_prob)).filter((v) => v !== null) as number[];
+        const atgsHitRate = atgsApps > 0 ? (atgsWins / atgsApps) * 100 : null;
+        const avgImplied = atgsImpliedRows.length ? atgsImpliedRows.reduce((a, b) => a + b, 0) / atgsImpliedRows.length : null;
+        const edge = atgsHitRate !== null && avgImplied !== null ? atgsHitRate - avgImplied : null;
+        const pricingTag = edge === null ? "" : edge > 2 ? "underpriced" : edge < -2 ? "overpriced" : "fairly priced";
+
+        const line1 = `${player.name} (${player.position}) — ${player.goals}G ${player.assists}A in ${player.apps || "—"} apps, ${player.shots} shots (${player.sot} SOT), ${player.shotsPerGame.toFixed(1)} shots/game`;
+        const line2 = atgsApps
+          ? `ATGS: ${atgsHitRate!.toFixed(1)}% hit rate vs ${avgImplied!.toFixed(1)}% implied (${atgsApps} games)${pricingTag ? ` — ${pricingTag}` : ""}`
+          : "ATGS: no settled anytime sample";
+        const line3 = buildLastFive(player.name, player.team, sideRows);
+        return `  ${line1}\n    ${line2}\n    ${line3}`;
+      };
+
+      const homeLines = homePlayers.map((p) => buildSoccerPlayerLine({ ...p, side: "home" }, homeLineupRows));
+      const awayLines = awayPlayers.map((p) => buildSoccerPlayerLine({ ...p, side: "away" }, awayLineupRows));
+
+      const composeSoccerPlayers = (home: string[], away: string[]): string => {
+        const chunks: string[] = [];
+        if (home.length) chunks.push(`HOME KEY PLAYERS:\n${home.join("\n")}`);
+        if (away.length) chunks.push(`AWAY KEY PLAYERS:\n${away.join("\n")}`);
+        return chunks.join("\n\n");
+      };
+
+      let soccerSection = composeSoccerPlayers([...homeLines], [...awayLines]);
+      let homeMutable = [...homeLines];
+      let awayMutable = [...awayLines];
+      while (
+        soccerSection.length > PLAYER_CONTEXT_MAX_CHARS &&
+        (homeMutable.length > 1 || awayMutable.length > 1)
+      ) {
+        if (homeMutable.length >= awayMutable.length && homeMutable.length > 1) homeMutable.pop();
+        else if (awayMutable.length > 1) awayMutable.pop();
+        else break;
+        soccerSection = composeSoccerPlayers(homeMutable, awayMutable);
+      }
+
+      if (soccerSection) sections.push(truncateText(soccerSection, PLAYER_CONTEXT_MAX_CHARS));
+    }
+
+    if (isMlb(sportKey, leagueId)) {
+      const [homeRelievers, awayRelievers] = await Promise.all([
+        queryRows<any[]>(
+          "player_mlb_relievers_home",
+          supabase
+            .from("espn_athletes")
+            .select("full_name,position_abbr,espn_athlete_id,team_name,league_id")
+            .ilike("league_id", "%mlb%")
+            .in("position_abbr", ["RP", "CP"])
+            .ilike("team_name", `%${homeTeam}%`)
+            .limit(12),
+        ),
+        queryRows<any[]>(
+          "player_mlb_relievers_away",
+          supabase
+            .from("espn_athletes")
+            .select("full_name,position_abbr,espn_athlete_id,team_name,league_id")
+            .ilike("league_id", "%mlb%")
+            .in("position_abbr", ["RP", "CP"])
+            .ilike("team_name", `%${awayTeam}%`)
+            .limit(12),
+        ),
+      ]);
+
+      const selectRelievers = (rows: any[], team: string) =>
+        toArray(rows)
+          .filter((r) => teamsLikelyMatch(r.team_name, team))
+          .sort((a, b) => {
+            const ap = normKey(a.position_abbr) === "cp" ? 0 : 1;
+            const bp = normKey(b.position_abbr) === "cp" ? 0 : 1;
+            return ap - bp;
+          })
+          .slice(0, 3);
+
+      const homeRelieverList = selectRelievers(toArray(homeRelievers), homeTeam);
+      const awayRelieverList = selectRelievers(toArray(awayRelievers), awayTeam);
+      const homeIds = homeRelieverList.map((r) => normalize(r.espn_athlete_id)).filter(Boolean);
+      const awayIds = awayRelieverList.map((r) => normalize(r.espn_athlete_id)).filter(Boolean);
+
+      const [homeRelieverLogs, awayRelieverLogs] = await Promise.all([
+        homeIds.length
+          ? queryRows<any[]>(
+            "player_mlb_reliever_logs_home",
+            supabase
+              .from("espn_game_logs")
+              .select("espn_athlete_id,game_date,stats")
+              .in("espn_athlete_id", homeIds)
+              .ilike("league_id", "%mlb%")
+              .order("game_date", { ascending: false })
+              .limit(28),
+          )
+          : Promise.resolve(null),
+        awayIds.length
+          ? queryRows<any[]>(
+            "player_mlb_reliever_logs_away",
+            supabase
+              .from("espn_game_logs")
+              .select("espn_athlete_id,game_date,stats")
+              .in("espn_athlete_id", awayIds)
+              .ilike("league_id", "%mlb%")
+              .order("game_date", { ascending: false })
+              .limit(28),
+          )
+          : Promise.resolve(null),
+      ]);
+
+      const relieverSummary = (relievers: any[], logs: any[]): string | null => {
+        if (!relievers.length) return null;
+        const rowsById = new Map<string, any[]>();
+        for (const row of toArray(logs)) {
+          const id = normalize(row.espn_athlete_id);
+          if (!id) continue;
+          if (!rowsById.has(id)) rowsById.set(id, []);
+          rowsById.get(id)!.push(row);
+        }
+
+        const lines = relievers.map((r) => {
+          const id = normalize(r.espn_athlete_id);
+          const recent = toArray(rowsById.get(id)).slice(0, 4);
+          let ip = 0;
+          let k = 0;
+          let er = 0;
+          let sv = 0;
+          for (const game of recent) {
+            const stats = readJson(game.stats) || {};
+            ip += parseNum(stats.IP) ?? 0;
+            k += parseNum(stats.K) ?? 0;
+            er += parseNum(stats.ER) ?? 0;
+            sv += parseNum(stats.SV) ?? 0;
+          }
+          return `${normalize(r.full_name)} (${normalize(r.position_abbr) || "RP"}): ${recent.length} apps, ${ip.toFixed(1)} IP, ${Math.round(k)}K, ${Math.round(er)} ER, ${Math.round(sv)} SV`;
+        });
+        return lines.join("; ");
+      };
+
+      const homeBullpen = relieverSummary(homeRelieverList, toArray(homeRelieverLogs));
+      const awayBullpen = relieverSummary(awayRelieverList, toArray(awayRelieverLogs));
+      const bullpenLines = [
+        homeBullpen ? `HOME BULLPEN: ${homeBullpen}` : null,
+        awayBullpen ? `AWAY BULLPEN: ${awayBullpen}` : null,
+      ].filter(Boolean) as string[];
+      if (bullpenLines.length) {
+        sections.push(`MLB RELIEF FORM\n${bullpenLines.join("\n")}`);
+      }
+    }
+
+    if (!isSoccer(sportKey, leagueId) && !isNcaab(leagueId)) {
+      const propRows = await queryRows<any[]>(
+        "player_props_context",
+        supabase
+          .from("player_prop_bets")
+          .select("player_name,bet_type,line_value,l5_hit_rate,avg_l5,team,opponent,league,updated_at")
+          .in("league", leagueKeys)
+          .not("l5_hit_rate", "is", null)
+          .order("l5_hit_rate", { ascending: false })
+          .limit(120),
+      );
+
+      const filteredProps = toArray(propRows)
+        .filter((row) =>
+          teamsLikelyMatch(row.team, homeTeam) ||
+          teamsLikelyMatch(row.team, awayTeam) ||
+          teamsLikelyMatch(row.opponent, homeTeam) ||
+          teamsLikelyMatch(row.opponent, awayTeam),
+        )
+        .slice(0, 18);
+
+      const dedup = new Set<string>();
+      const lines: string[] = [];
+      for (const row of filteredProps) {
+        const key = `${playerKey(row.player_name)}|${normKey(row.bet_type)}`;
+        if (dedup.has(key)) continue;
+        dedup.add(key);
+        lines.push(`${normalize(row.player_name)} ${normalize(row.bet_type)} o${fmtNum(row.line_value, 1)} — L5 hit rate ${fmtPct(row.l5_hit_rate)}, avg L5 ${fmtNum(row.avg_l5, 1)}`);
+        if (lines.length >= 6) break;
+      }
+      if (lines.length) sections.push(`PLAYER PROPS\n${lines.map((l) => `  ${l}`).join("\n")}`);
+    }
+
+    return compactContext(sections, PLAYER_CONTEXT_MAX_CHARS);
+  } catch (error) {
+    console.warn(`[data-context:player-context]`, (error as Error)?.message ?? "player context failed");
+    return "";
+  }
+}
 
 export async function buildDataContext(
   supabase: any,
@@ -549,7 +991,7 @@ export async function buildDataContextBundle(
 
   // MLB sections
   if (isMlb(sportKey, leagueId)) {
-    const [snapshotRows, homePostHome, homePostAway, awayPostHome, awayPostAway, mlbSnapshots, propRows] = await Promise.all([
+    const [snapshotRows, homePostHome, homePostAway, awayPostHome, awayPostAway, mlbSnapshots] = await Promise.all([
       queryRows<any[]>(
         "mlb_summary_snapshot",
         supabase
@@ -603,15 +1045,6 @@ export async function buildDataContextBundle(
           .ilike("league_id", "%mlb%")
           .order("snapshot_at", { ascending: false })
           .limit(260),
-      ),
-      queryRows<any[]>(
-        "mlb_props",
-        supabase
-          .from("player_prop_bets")
-          .select("player_name,bet_type,l5_hit_rate,l5_values,avg_l5,team,opponent")
-          .ilike("match_id", `%${eventId}%`)
-          .order("l5_hit_rate", { ascending: false })
-          .limit(5),
       ),
     ]);
 
@@ -721,18 +1154,6 @@ export async function buildDataContextBundle(
     if (nrfiLines.length) {
       sections.push(`NRFI SIGNALS\n${nrfiLines.join("\n")}`);
     }
-
-    const propLines = toArray(propRows)
-      .map((r) => {
-        const rate = parseNum(r.l5_hit_rate);
-        if (rate === null) return null;
-        const values = toArray(r.l5_values).slice(0, 5).map((v) => fmtNum(v, 1)).join(", ");
-        return `${normalize(r.player_name)} ${normalize(r.bet_type)}: ${fmtPct(rate)} L5 hit, avg L5 ${fmtNum(r.avg_l5, 1)}${values ? ` [${values}]` : ""}`;
-      })
-      .filter(Boolean) as string[];
-    if (propLines.length) {
-      sections.push(`PLAYER PROP FORM\n${propLines.join("\n")}`);
-    }
   }
 
   // Soccer-specific depth and referee
@@ -825,8 +1246,17 @@ export async function buildDataContextBundle(
     }
   }
 
-  const context = compactContext(sections);
+  const teamContext = compactContext(sections, TEAM_CONTEXT_MAX_CHARS);
+  const rawPlayerContext = await buildPlayerContext(supabase, homeTeam, awayTeam, leagueId, sport);
+  const reservedJoinChars = teamContext && rawPlayerContext ? 2 : 0;
+  const playerBudget = Math.min(
+    PLAYER_CONTEXT_MAX_CHARS,
+    Math.max(0, CONTEXT_MAX_CHARS - teamContext.length - reservedJoinChars),
+  );
+  const playerContext = truncateText(rawPlayerContext, playerBudget);
+
+  const context = [teamContext, playerContext].filter(Boolean).join("\n\n");
   summary.context_length = context.length;
-  summary.sections_count = sections.length;
+  summary.sections_count = sections.length + (playerContext ? 1 : 0);
   return { context, summary };
 }
