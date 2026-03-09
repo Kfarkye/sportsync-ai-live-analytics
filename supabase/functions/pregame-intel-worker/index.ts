@@ -962,6 +962,9 @@ ${taskDirective}`;
                 : null;
 
     const { selected_offer_id: aiSelectedOfferId, pick_summary, ...cleanIntel } = intel as any;
+    const contextPreview = dataContext
+        ? `${dataContext.slice(0, 180).replace(/\s+/g, " ").trim()}${dataContext.length > 360 ? " ... " : ""}${dataContext.slice(-180).replace(/\s+/g, " ").trim()}`
+        : "";
 
     const output = {
         match_id: dbId,
@@ -995,7 +998,7 @@ ${taskDirective}`;
         logic_authority: analysisOnlyMode
             ? `Analysis Only | DB context ${dataContextSummary.sections_count} sections`
             : `${selectedOffer.label} | ${logicAuthorityMetric} edge`,
-        kernel_trace: `[METHOD:${method}][DB_CONTEXT:${dataContextSummary.sections_count} sections/${dataContextSummary.context_length} chars]\n${thoughts || ""}`,
+        kernel_trace: `[METHOD:${method}][DB_CONTEXT:${dataContextSummary.sections_count} sections/${dataContextSummary.context_length} chars]${contextPreview ? `\n[DB_CONTEXT_PREVIEW:${contextPreview}]` : ""}\n${thoughts || ""}`,
     };
 
     const upsertResult = await stripUnknownColumnsAndRetryUpsert(supabase, "pregame_intel", output, {
