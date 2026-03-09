@@ -24,6 +24,18 @@
             "destination": "/api/$1"
         },
         {
+            "source": "/soccer/premier-league-structural-stats",
+            "destination": "/api/gone"
+        },
+        {
+            "source": "/soccer/champions-league-structural-stats",
+            "destination": "/api/gone"
+        },
+        {
+            "source": "/soccer/uefa-champions-league-structural-stats",
+            "destination": "/api/gone"
+        },
+        {
             "source": "/((?!api/|assets/).*)",
             "destination": "/index.html"
         }

@@ -119,11 +119,11 @@ const SOCCER_LEAGUE_PAGES: SoccerLeaguePageConfig[] = [
   },
 ];
 
-const LEAGUE_PATH_ALIASES: Record<string, string> = {
-  '/soccer/premier-league-structural-stats': '/soccer/epl-structural-stats',
-  '/soccer/champions-league-structural-stats': '/soccer/ucl-structural-stats',
-  '/soccer/uefa-champions-league-structural-stats': '/soccer/ucl-structural-stats',
-};
+export const DEPRECATED_SOCCER_STRUCTURAL_PATHS = [
+  '/soccer/premier-league-structural-stats',
+  '/soccer/champions-league-structural-stats',
+  '/soccer/uefa-champions-league-structural-stats',
+] as const;
 
 const FIRST_GOAL_BUCKET_LABELS = ['0-15', '16-30', '31-45', '46-60', '61-75', '76-90+'];
 
@@ -615,10 +615,11 @@ const readUrlOrigin = (): string => {
 
 export const getSoccerLeagueByPathname = (pathname: string): SoccerLeaguePageConfig | null => {
   const normalized = canonicalPathname(pathname);
-  const aliasResolved = LEAGUE_PATH_ALIASES[normalized] || normalized;
-
-  return SOCCER_LEAGUE_PAGES.find((league) => league.path === aliasResolved) || null;
+  return SOCCER_LEAGUE_PAGES.find((league) => league.path === normalized) || null;
 };
+
+export const isDeprecatedSoccerLeaguePathname = (pathname: string): boolean =>
+  DEPRECATED_SOCCER_STRUCTURAL_PATHS.includes(canonicalPathname(pathname) as (typeof DEPRECATED_SOCCER_STRUCTURAL_PATHS)[number]);
 
 const MetricCard: React.FC<{ label: string; value: string; accent: string; helper?: string }> = ({
   label,
@@ -627,12 +628,12 @@ const MetricCard: React.FC<{ label: string; value: string; accent: string; helpe
   helper,
 }) => {
   return (
-    <article className="rounded-2xl border border-zinc-800 bg-zinc-950/70 shadow-[0_12px_40px_rgba(0,0,0,0.35)] overflow-hidden">
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className={`h-1 w-full ${accent}`} />
       <div className="p-5">
-        <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">{label}</p>
-        <p className="mt-3 text-3xl font-semibold tracking-tight text-zinc-50">{value}</p>
-        {helper ? <p className="mt-2 text-sm text-zinc-400">{helper}</p> : null}
+        <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+        <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
+        {helper ? <p className="mt-2 text-sm text-slate-500">{helper}</p> : null}
       </div>
     </article>
   );
@@ -709,15 +710,11 @@ const SoccerLeagueStructuralStatsPage: React.FC<{ league: SoccerLeaguePageConfig
     const origin = readUrlOrigin();
     const canonicalUrl = `${origin}${league.path}`;
 
-    if (typeof window !== 'undefined' && canonicalPathname(window.location.pathname) !== league.path) {
-      window.history.replaceState({}, '', `${league.path}${window.location.search}${window.location.hash}`);
-    }
-
     const bttsText = formatPercent(snapshot.metrics.bttsRate);
     const overText = formatPercent(snapshot.metrics.over25Rate);
     const collapseText = formatPercent(snapshot.leadCollapse.collapseRate);
-    const title = `${league.name} Structural Stats: BTTS, O2.5, HT/FT Patterns | SportSync AI`;
-    const description = `${league.shortName} live structural stats from SportSync AI: BTTS ${bttsText}, Over 2.5 ${overText}, two-goal lead collapse ${collapseText}, plus first-goal timing and HT/FT pattern breakdowns.`;
+    const title = `${league.name} Structural Stats: BTTS, Over 2.5, HT/FT Patterns | SportSync AI`;
+    const description = `${league.shortName} structural stats from SportSync AI: BTTS ${bttsText}, Over 2.5 ${overText}, two-goal lead collapse ${collapseText}, first-goal timing, and HT/FT pattern breakdowns.`;
 
     document.title = title;
     ensureCanonicalTag(canonicalUrl);
@@ -779,29 +776,29 @@ const SoccerLeagueStructuralStatsPage: React.FC<{ league: SoccerLeaguePageConfig
   }, [loading, error, league.name]);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 relative overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-48 right-[-10rem] h-[36rem] w-[36rem] rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="absolute top-24 -left-24 h-[24rem] w-[24rem] rounded-full bg-indigo-500/20 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(56,189,248,0.12),transparent_30%)]" />
+        <div className="absolute -top-48 right-[-10rem] h-[36rem] w-[36rem] rounded-full bg-sky-200/40 blur-3xl" />
+        <div className="absolute top-24 -left-24 h-[24rem] w-[24rem] rounded-full bg-indigo-200/40 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.7),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(186,230,253,0.3),transparent_30%)]" />
       </div>
 
       <main className="relative mx-auto w-full max-w-6xl px-4 py-10 md:px-8 md:py-14">
         <header className="mb-8 md:mb-10">
           <a
             href="/"
-            className="inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
           >
             Live Feed
           </a>
 
           <div className="mt-6">
-            <p className="text-xs uppercase tracking-[0.18em] text-cyan-300/90">Obsidian Weissach v7 • League Structural Stats</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-50 md:text-5xl">{league.name} Structural Stats</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-300 md:text-base">{pageDescription}</p>
-            <div className="mt-4 flex flex-wrap gap-3 text-xs text-zinc-400">
-              <span className="rounded-full border border-zinc-700/80 bg-zinc-900/70 px-3 py-1">Region: {league.region}</span>
-              <span className="rounded-full border border-zinc-700/80 bg-zinc-900/70 px-3 py-1">
+            <p className="text-xs uppercase tracking-[0.18em] text-sky-700">League Structural Stats</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 md:text-5xl">{league.name} Structural Stats</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 md:text-base">{pageDescription}</p>
+            <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-600">
+              <span className="rounded-full border border-slate-300 bg-white px-3 py-1">Region: {league.region}</span>
+              <span className="rounded-full border border-slate-300 bg-white px-3 py-1">
                 Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'Syncing'}
               </span>
             </div>
@@ -809,7 +806,7 @@ const SoccerLeagueStructuralStatsPage: React.FC<{ league: SoccerLeaguePageConfig
         </header>
 
         {error ? (
-          <section className="mb-8 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+          <section className="mb-8 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
             Some views returned partial data: {error}
           </section>
         ) : null}
@@ -839,17 +836,17 @@ const SoccerLeagueStructuralStatsPage: React.FC<{ league: SoccerLeaguePageConfig
         </section>
 
         <section className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_1fr]">
-          <article className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-6 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
-            <h2 className="text-lg font-semibold tracking-tight text-zinc-50">First Goal Timing (15-Min Buckets)</h2>
-            <p className="mt-2 text-sm text-zinc-400">Share of first goals by match clock segment.</p>
+          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold tracking-tight text-slate-900">First Goal Timing (15-Min Buckets)</h2>
+            <p className="mt-2 text-sm text-slate-600">Share of first goals by match clock segment.</p>
             <div className="mt-5 space-y-3">
               {snapshot.firstGoalBuckets.map((bucket, index) => (
                 <div key={bucket.label}>
-                  <div className="mb-1 flex items-center justify-between text-xs text-zinc-300">
+                  <div className="mb-1 flex items-center justify-between text-xs text-slate-600">
                     <span className="font-semibold tracking-[0.12em]">{bucket.label}</span>
                     <span>{bucket.value.toFixed(1)}%</span>
                   </div>
-                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-800">
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
                     <div
                       className={`h-full rounded-full ${FIRST_GOAL_ACCENT_CLASSES[index]}`}
                       style={{ width: `${Math.max(0, Math.min(bucket.value, 100))}%` }}
@@ -860,22 +857,22 @@ const SoccerLeagueStructuralStatsPage: React.FC<{ league: SoccerLeaguePageConfig
             </div>
           </article>
 
-          <article className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-6 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
-            <h2 className="text-lg font-semibold tracking-tight text-zinc-50">Two-Goal Lead Collapse</h2>
-            <p className="mt-2 text-sm text-zinc-400">How often a two-goal advantage fails to hold.</p>
-            <p className="mt-5 text-4xl font-semibold tracking-tight text-rose-300">
+          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold tracking-tight text-slate-900">Two-Goal Lead Collapse</h2>
+            <p className="mt-2 text-sm text-slate-600">How often a two-goal advantage fails to hold.</p>
+            <p className="mt-5 text-4xl font-semibold tracking-tight text-rose-700">
               {formatPercent(snapshot.leadCollapse.collapseRate)}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-3">
-                <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">2-Goal Leads</p>
-                <p className="mt-1 text-lg font-semibold text-zinc-100">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-500">2-Goal Leads</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900">
                   {snapshot.leadCollapse.twoGoalLeads ?? '--'}
                 </p>
               </div>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-3">
-                <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Collapses</p>
-                <p className="mt-1 text-lg font-semibold text-zinc-100">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Collapses</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900">
                   {snapshot.leadCollapse.collapses ?? '--'}
                 </p>
               </div>
@@ -883,12 +880,12 @@ const SoccerLeagueStructuralStatsPage: React.FC<{ league: SoccerLeaguePageConfig
           </article>
         </section>
 
-        <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-6 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
-          <h2 className="text-lg font-semibold tracking-tight text-zinc-50">HT/FT Pattern Breakdown (Top 5)</h2>
-          <p className="mt-2 text-sm text-zinc-400">Most frequent halftime/fulltime state transitions.</p>
-          <div className="mt-5 overflow-hidden rounded-xl border border-zinc-800">
+        <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold tracking-tight text-slate-900">HT/FT Pattern Breakdown (Top 5)</h2>
+          <p className="mt-2 text-sm text-slate-600">Most frequent halftime/fulltime state transitions.</p>
+          <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-zinc-900/80 text-xs uppercase tracking-[0.12em] text-zinc-400">
+              <thead className="bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Pattern</th>
                   <th className="px-4 py-3">Rate</th>
@@ -898,15 +895,15 @@ const SoccerLeagueStructuralStatsPage: React.FC<{ league: SoccerLeaguePageConfig
               <tbody>
                 {snapshot.htftTopFive.length ? (
                   snapshot.htftTopFive.map((row) => (
-                    <tr key={row.pattern} className="border-t border-zinc-800/80">
-                      <td className="px-4 py-3 font-semibold text-zinc-200">{row.pattern}</td>
-                      <td className="px-4 py-3 text-zinc-300">{row.rate.toFixed(1)}%</td>
-                      <td className="px-4 py-3 text-zinc-300">{row.matches || '--'}</td>
+                    <tr key={row.pattern} className="border-t border-slate-100">
+                      <td className="px-4 py-3 font-semibold text-slate-800">{row.pattern}</td>
+                      <td className="px-4 py-3 text-slate-600">{row.rate.toFixed(1)}%</td>
+                      <td className="px-4 py-3 text-slate-600">{row.matches || '--'}</td>
                     </tr>
                   ))
                 ) : (
-                  <tr className="border-t border-zinc-800/80">
-                    <td colSpan={3} className="px-4 py-6 text-center text-zinc-400">
+                  <tr className="border-t border-slate-100">
+                    <td colSpan={3} className="px-4 py-6 text-center text-slate-500">
                       {loading ? 'Loading HT/FT patterns...' : 'No HT/FT rows available for this league.'}
                     </td>
                   </tr>
@@ -916,7 +913,7 @@ const SoccerLeagueStructuralStatsPage: React.FC<{ league: SoccerLeaguePageConfig
           </div>
         </section>
 
-        <footer className="mt-10 text-xs text-zinc-500">
+        <footer className="mt-10 text-xs text-slate-500">
           Source views: <code>mv_btts_scoring_profiles</code>, <code>mv_first_goal_timing</code>, <code>mv_htft_patterns</code>,{' '}
           <code>mv_two_goal_lead_analysis</code>
         </footer>
