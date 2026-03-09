@@ -256,6 +256,7 @@ You are "The Obsidian Ledger," a forensic sports analyst.
 - For live scores, odds, and play-by-play: use the data from the provided live endpoint URLs. These are real-time authenticated feeds refreshed every 15-30 seconds.
 - For narratives, trends, injury context, and historical performance: use Google Search.
 - If a web search result conflicts with the live endpoint data on score, odds, or play-by-play, the live endpoint is authoritative.
+- If PBP_RECENT is present in context, you MUST reference at least one concrete play (clock + event) in your analysis.
 
 **RULE 3 (ZERO HALLUCINATION):**
 - You have NO internal knowledge of today's specific lines, scores, or results.
@@ -285,6 +286,9 @@ ${MODE === "ANALYSIS" ? `
 **MARKET DYNAMICS**
 (Line movement direction, opening vs current, sharp vs public splits.)
 
+**PBP EVIDENCE**
+- [Cite 1-2 recent plays from PBP_RECENT with clock and event outcome]
+
 **WHAT TO WATCH LIVE**
 IF [Trigger Condition] → THEN [Action/Adjustment]
 
@@ -306,6 +310,7 @@ Role: Field Reporter. Direct, factual, concise.
 
 const buildDynamicInstruction = ({ marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel, staleWarning }) => {
     const now = new Date();
+    const pbpLines = Array.isArray(evidence?.pbp?.recent) ? evidence.pbp.recent : [];
     return `
 <temporal>
 TODAY: ${now.toLocaleDateString("en-US", { timeZone: "America/New_York" })}
@@ -321,6 +326,9 @@ ${[
             ...(liveDataUrls.length > 0 ? [`LIVE_DATA_URLS: ${liveDataUrls.join(", ")}`, "(Fetch these endpoints via URL Context for authoritative real-time data)"] : []),
             `ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}`,
             lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : "",
+            (isLive && pbpLines.length > 0)
+                ? `PBP_RECENT:\n${pbpLines.map((line, idx) => `${idx + 1}. ${line}`).join("\n")}`
+                : "",
             `INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}`,
             `INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}`,
             evidence.temporal?.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : "",
@@ -451,7 +459,7 @@ async function fetchESPNInjuries(teamId, sportKey) {
 }
 
 async function buildEvidencePacket(context) {
-    const packet = { injuries: { home: [], away: [] }, liveState: null, temporal: { t60: null, t0: null }, lineMovement: null };
+    const packet = { injuries: { home: [], away: [] }, liveState: null, temporal: { t60: null, t0: null }, lineMovement: null, pbp: { recent: [] } };
     const promises = [];
 
     if (context?.home_team_id && context?.away_team_id) {
@@ -482,6 +490,48 @@ async function buildEvidencePacket(context) {
                         if (data.odds && data.t60_snapshot) packet.lineMovement = calculateLineMovement(data.odds, data.t60_snapshot);
                     }
                 }).catch(e => console.warn(`[Evidence] Live state fetch failed:`, e?.message || e))
+        );
+
+        promises.push(
+            (async () => {
+                const rawMatchId = String(context.match_id || "");
+                const baseMatchId = rawMatchId.split("_")[0] || rawMatchId;
+                let rows = [];
+
+                const exact = await supabase
+                    .from("game_events")
+                    .select("clock,event_type,play_data,away_score,home_score,sequence")
+                    .eq("match_id", rawMatchId)
+                    .order("sequence", { ascending: false })
+                    .limit(15)
+                    .abortSignal(AbortSignal.timeout(3000));
+
+                if (!exact.error && Array.isArray(exact.data) && exact.data.length > 0) {
+                    rows = exact.data;
+                } else if (baseMatchId && baseMatchId !== rawMatchId) {
+                    const prefixed = await supabase
+                        .from("game_events")
+                        .select("clock,event_type,play_data,away_score,home_score,sequence")
+                        .ilike("match_id", `${baseMatchId}%`)
+                        .order("sequence", { ascending: false })
+                        .limit(15)
+                        .abortSignal(AbortSignal.timeout(3000));
+                    if (!prefixed.error && Array.isArray(prefixed.data)) rows = prefixed.data;
+                }
+
+                packet.pbp.recent = (rows || [])
+                    .reverse()
+                    .slice(-10)
+                    .map((event) => {
+                        const clock = event?.clock || "LIVE";
+                        const eventText = truncateText(String(event?.play_data?.text || event?.event_type || "play"), 160)
+                            .replace(/\s+/g, " ")
+                            .trim();
+                        const hasScore = Number.isFinite(Number(event?.away_score)) && Number.isFinite(Number(event?.home_score));
+                        const score = hasScore ? ` (${event.away_score}-${event.home_score})` : "";
+                        return `[${clock}] ${eventText}${score}`;
+                    });
+            })().catch(e => console.warn(`[Evidence] PBP fetch failed:`, e?.message || e))
         );
     }
 
