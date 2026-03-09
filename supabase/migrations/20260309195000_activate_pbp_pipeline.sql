@@ -67,11 +67,21 @@ BEGIN
 END
 $$;
 
-SELECT cron.schedule(
-  'ingest-game-events-always',
-  '* * * * *',
-  $$SELECT public.invoke_ingest_game_events()$$
-);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM cron.job
+    WHERE jobname = 'ingest-game-events-always'
+  ) THEN
+    PERFORM cron.schedule(
+      'ingest-game-events-always',
+      '* * * * *',
+      $$SELECT public.invoke_ingest_game_events()$$
+    );
+  END IF;
+END
+$$;
 
 -- ----------------------------------------------------------------------------
 -- 3) Historical backfill from soccer_postgame JSONB
