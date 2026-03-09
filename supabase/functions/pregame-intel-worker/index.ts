@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
 import { executeAnalyticalQuery, safeJsonParse } from "../_shared/gemini.ts";
 import { buildMatchDossier, detectSportFromLeague } from "../_shared/match-dossier.ts";
+import { buildDataContextBundle } from "../_shared/data-context.ts";
 import { cleanHeadline, cleanCardThesis } from "../_shared/intel-guards.ts";
 import { PREGAME_INTEL_SCHEMA_BASE, PREGAME_INTEL_SYSTEM_INSTRUCTION } from "../_shared/prompts/pregame-intel-v1.ts";
 import { normalizeTennisOdds } from "../_shared/tennis-odds-normalizer.ts";
@@ -514,6 +515,23 @@ function buildFallbackIntel(dossier: { home_team: string; away_team: string }) {
     };
 }
 
+function defaultDataContextSummary() {
+    return {
+        has_ou_trends: false,
+        has_ats_trends: false,
+        has_ml_streaks: false,
+        has_line_movement: false,
+        has_starting_pitchers: false,
+        has_pitcher_game_logs: false,
+        has_team_pitching_stats: false,
+        has_soccer_depth: false,
+        has_referee_signals: false,
+        has_h2h: false,
+        context_length: 0,
+        sections_count: 0,
+    };
+}
+
 async function processSingleIntel(
     p: any,
     supabase: any,
@@ -542,6 +560,24 @@ async function processSingleIntel(
     );
 
     console.log(`[Context:${requestId}] Dossier assembled: ${dossier.match_id}`);
+
+    let dataContext = "";
+    let dataContextSummary: any = defaultDataContextSummary();
+    try {
+        const contextBundle = await buildDataContextBundle(
+            supabase,
+            dossier.match_id,
+            dossier.home_team,
+            dossier.away_team,
+            dossier.league_id,
+            dossier.sport,
+            dossier.match_id.split("_")[0]
+        );
+        dataContext = contextBundle.context || "";
+        dataContextSummary = contextBundle.summary || defaultDataContextSummary();
+    } catch (contextErr: any) {
+        console.warn(`[Context:${requestId}] Data context unavailable: ${contextErr?.message || "unknown error"}`);
+    }
 
     const dbId = dossier.match_id;
     const gameDate = dossier.game_date;
@@ -582,9 +618,22 @@ async function processSingleIntel(
     const away_ml = safeJuiceFmt(marketInput.away_ml ?? odds.awayWin ?? odds.away_ml ?? odds.best_h2h?.away?.price);
 
     const marketOffers = buildMarketSnapshot(marketInput, odds);
+    const analysisOnlyMode = marketOffers.length === 0 && dataContext.length > 100;
+    const analysisOnlyOffer: MarketOffer = {
+        id: "ANALYSIS_ONLY",
+        type: "MONEYLINE",
+        side: "HOME",
+        selection: "Analysis Only",
+        line: null,
+        price_american: 100,
+        implied_probability: null,
+        price: "N/A",
+        label: "Analysis Only (No market offers available)",
+    };
+    const offerPool = analysisOnlyMode ? [analysisOnlyOffer] : marketOffers;
 
     // LOCK: No market
-    if (!marketOffers.length) {
+    if (!marketOffers.length && !analysisOnlyMode) {
         console.warn(`[${requestId}] ⚠️ No market offers. LOCKING.`);
         const noMarketDossier = {
             match_id: dbId,
@@ -611,6 +660,7 @@ async function processSingleIntel(
             away_ml,
             logic_authority: "NO_MARKET",
             kernel_trace: "ABORT_NO_OFFERS",
+            data_context_summary: dataContextSummary,
         };
         await stripUnknownColumnsAndRetryUpsert(supabase, "pregame_intel", noMarketDossier, {
             onConflict: "match_id,game_date",
@@ -729,7 +779,7 @@ async function processSingleIntel(
     }
     const leaseId = leaseAttempt.leaseId;
 
-    const marketMenu = marketOffers.map((o) => `- ID: "${o.id}" | ${o.label}`).join("\n");
+    const marketMenu = offerPool.map((o) => `- ID: "${o.id}" | ${o.label}`).join("\n");
 
     // Determine the final edge display value based on whether we used Poly EV or the Points Spread Model
     const baseModelEdge = Number.isFinite(dossier.valuation?.delta) ? dossier.valuation.delta.toFixed(1) : "0.0";
@@ -746,6 +796,10 @@ async function processSingleIntel(
         dossier.game_date,
         hasProprietaryModel || validEdgesData.length > 0 || hasPolyProps
     );
+
+    const taskDirective = analysisOnlyMode
+        ? "<task>No market offers are currently posted. Generate analysis-only intelligence from forensic context, deterministic edges, database context, and grounded web signals. Do NOT force a wager. Set selected_offer_id to \"ANALYSIS_ONLY\".</task>"
+        : "<task>Select the best offer. If a Deterministic Edge is present, explain WHY that gap exists using Google Search context. DO NOT invent mathematical edges if deterministic_quantitative_edge states none are available. DO NOT recalculate the math.</task>";
 
     const synthesisPrompt = `<matchup>${dossier.away_team} @ ${dossier.home_team}</matchup>
 <forensic_context>
@@ -769,13 +823,14 @@ Total: ${dossier.market_snapshot.total ?? "N/A"}
 Home ML: ${dossier.market_snapshot.home_ml ?? "N/A"}
 Away ML: ${dossier.market_snapshot.away_ml ?? "N/A"}
 </market_snapshot>
+${dataContext ? `<database_context>\n${dataContext}\n</database_context>\n` : ""}
 <market_offers>
 ${marketMenu}
 </market_offers>
-<task>Select the best offer. If a Deterministic Edge is present, explain WHY that gap exists using Google Search context. DO NOT invent mathematical edges if deterministic_quantitative_edge states none are available. DO NOT recalculate the math.</task>`;
+${taskDirective}`;
 
     const dynamicSchema: any = JSON.parse(JSON.stringify(PREGAME_INTEL_SCHEMA_BASE));
-    dynamicSchema.properties.selected_offer_id.enum = marketOffers.map((o) => o.id);
+    dynamicSchema.properties.selected_offer_id.enum = offerPool.map((o) => o.id);
 
     let intel: any;
     let sources: any[] = [];
@@ -843,22 +898,35 @@ ${marketMenu}
     }
 
     // 4. RESOLUTION (deterministic safety)
-    let selectedOffer = marketOffers.find((o) => o.id === intel.selected_offer_id);
-    let method = "AI_SELECTION";
+    let selectedOffer = offerPool.find((o) => o.id === intel.selected_offer_id);
+    let method = analysisOnlyMode ? "ANALYSIS_ONLY" : "AI_SELECTION";
 
     if (!selectedOffer) {
-        selectedOffer = pickFallbackOffer(marketOffers, dossier.valuation?.fair_line || 0, marketInput.current_spread) || marketOffers[0];
-        method = "DETERMINISTIC_FALLBACK";
+        if (analysisOnlyMode) {
+            selectedOffer = analysisOnlyOffer;
+            method = "ANALYSIS_ONLY";
+        } else {
+            selectedOffer = pickFallbackOffer(marketOffers, dossier.valuation?.fair_line || 0, marketInput.current_spread) || marketOffers[0];
+            method = "DETERMINISTIC_FALLBACK";
+        }
     }
 
-    const pickString = formatPick(selectedOffer);
-    const gradingMeta = {
-        type: selectedOffer.type,
-        side: selectedOffer.side,
-        selection: selectedOffer.selection,
-        line: selectedOffer.line,
-        price: selectedOffer.price,
-    };
+    const pickString = analysisOnlyMode ? "Analysis Only" : formatPick(selectedOffer);
+    const gradingMeta = analysisOnlyMode
+        ? {
+            type: "ANALYSIS_ONLY",
+            side: "NONE",
+            selection: "Analysis Only",
+            line: null,
+            price: null,
+        }
+        : {
+            type: selectedOffer.type,
+            side: selectedOffer.side,
+            selection: selectedOffer.selection,
+            line: selectedOffer.line,
+            price: selectedOffer.price,
+        };
 
     // 5. SANITIZATION (AFTER offer resolution so team fallback is correct)
     const teamForFallback = selectedOffer?.selection || dossier.home_team || "this side";
@@ -876,20 +944,24 @@ ${marketMenu}
     const totalJuiceRaw = parseAmericanOdds(marketInput.total_juice || odds.overOdds || odds.total_best?.over?.price);
 
     const bound_spread_juice =
-        selectedOffer.type === "SPREAD"
+        analysisOnlyMode
+            ? null
+            : selectedOffer.type === "SPREAD"
             ? selectedOffer.price
             : isFiniteNumber(marketInput.current_spread) && spreadJuiceRaw !== null
                 ? fmtAmerican(spreadJuiceRaw)
                 : null;
 
     const bound_total_juice =
-        selectedOffer.type === "TOTAL"
+        analysisOnlyMode
+            ? null
+            : selectedOffer.type === "TOTAL"
             ? selectedOffer.price
             : isFiniteNumber(marketInput.current_total) && totalJuiceRaw !== null
                 ? fmtAmerican(totalJuiceRaw)
                 : null;
 
-    const { selected_offer_id, pick_summary, ...cleanIntel } = intel as any;
+    const { selected_offer_id: aiSelectedOfferId, pick_summary, ...cleanIntel } = intel as any;
 
     const output = {
         match_id: dbId,
@@ -902,7 +974,8 @@ ${marketMenu}
 
         ...cleanIntel,
 
-        recommended_pick: pickString,
+        selected_offer_id: analysisOnlyMode ? "ANALYSIS_ONLY" : (selectedOffer?.id || aiSelectedOfferId || null),
+        recommended_pick: analysisOnlyMode ? "Analysis Only" : pickString,
         grading_metadata: gradingMeta,
         sources: sources || [],
         generated_at: new Date().toISOString(),
@@ -916,10 +989,13 @@ ${marketMenu}
 
         confidence_tier: intel.confidence_tier || null,
         logic_group: intel.logic_group || null,
+        data_context_summary: dataContextSummary,
 
         // Keep this internal; UI should not display it. Tracks true driver of the logic (EV vs Points)
-        logic_authority: `${selectedOffer.label} | ${logicAuthorityMetric} edge`,
-        kernel_trace: `[METHOD:${method}]\n${thoughts || ""}`,
+        logic_authority: analysisOnlyMode
+            ? `Analysis Only | DB context ${dataContextSummary.sections_count} sections`
+            : `${selectedOffer.label} | ${logicAuthorityMetric} edge`,
+        kernel_trace: `[METHOD:${method}][DB_CONTEXT:${dataContextSummary.sections_count} sections/${dataContextSummary.context_length} chars]\n${thoughts || ""}`,
     };
 
     const upsertResult = await stripUnknownColumnsAndRetryUpsert(supabase, "pregame_intel", output, {
