@@ -8,6 +8,7 @@ import { LLMRequest } from "../_shared/llm-adapter.ts";
 import { executeGPT52StreamingQuery } from "../_shared/openai.ts";
 import { americanToImplied, devig2Way } from "../_shared/oddsUtils.ts";
 import { fetchAIPromptContextBundle, renderAIPromptContextBlock } from "../_shared/ai-prompt-context.ts";
+import { buildDataContext } from "../_shared/data-context.ts";
 
 
 const CONFIG = {
@@ -433,7 +434,7 @@ Deno.serve(async (req: Request) => {
     const isGreetingTrigger = lastUserText === "GENERATE_GREETING";
 
     const fetchStart = Date.now();
-    const [identityRes, ragRes, liveStateRes, teamContextRes, scheduleRes, tempoRes] = await Promise.allSettled([
+    const [identityRes, ragRes, liveStateRes, teamContextRes, scheduleRes, tempoRes, pbpRes, dataContextRes] = await Promise.allSettled([
       (async () => {
         let activeId = conversation_id;
         let history = [];
@@ -520,7 +521,43 @@ Deno.serve(async (req: Request) => {
         } catch (e: any) {
           return [];
         }
-      })()
+      })(),
+      (async () => {
+        if (!matchId) return [];
+        try {
+          const { data, error } = await supabase
+            .from('game_events')
+            .select('sequence, clock, event_type, home_score, away_score, play_data')
+            .eq('match_id', matchId)
+            .order('sequence', { ascending: false })
+            .limit(30);
+          if (error) throw error;
+          return data || [];
+        } catch (e: any) {
+          logger.warn("PBP_CONTEXT_FAULT", { requestId, error: e.message });
+          return [];
+        }
+      })(),
+      (async () => {
+        if (!matchId || !current_match?.home_team || !current_match?.away_team) return "";
+        const leagueId = current_match?.league_id || current_match?.league;
+        const sport = current_match?.sport;
+        if (!leagueId || !sport) return "";
+        try {
+          return await buildDataContext(
+            supabase,
+            matchId,
+            current_match.home_team,
+            current_match.away_team,
+            String(leagueId),
+            String(sport),
+            matchId.split('_')[0],
+          );
+        } catch (e: any) {
+          logger.warn("DB_CONTEXT_FAULT", { requestId, error: e.message });
+          return "";
+        }
+      })(),
     ]);
 
     const { activeId, history: storedHistory } = identityRes.status === 'fulfilled' ? identityRes.value : { activeId: null, history: [] };
@@ -529,6 +566,8 @@ Deno.serve(async (req: Request) => {
     const teamContextData = teamContextRes.status === 'fulfilled' ? teamContextRes.value : null;
     const scheduleData = scheduleRes.status === 'fulfilled' ? scheduleRes.value : [];
     const tempoData = tempoRes.status === 'fulfilled' ? tempoRes.value : [];
+    const pbpEvents = pbpRes.status === 'fulfilled' ? pbpRes.value : [];
+    const databaseContext = dataContextRes.status === 'fulfilled' ? dataContextRes.value : "";
     let structuralContextBlock = "STRUCTURAL CONTEXT [DB DERIVED]: unavailable";
     try {
       const structuralContext = await fetchAIPromptContextBundle(supabase, {
@@ -651,11 +690,11 @@ Deno.serve(async (req: Request) => {
 
     // 2. THE TRUTH SERUM LOG
     // Check your Supabase Edge Function logs after you deploy this!
-    console.log("🚨 INCOMING PAYLOAD TRUTH SERUM 🚨", JSON.stringify({
+    logger.info("INCOMING_PAYLOAD_TRUTH_SERUM", {
       hasRecentPlays: !!liveData.recent_plays,
       hasSituation: !!liveData.situation,
       keysReceived: Object.keys(liveData)
-    }));
+    });
 
     const lastPlay = liveData.last_play;
     const situation = liveData.situation;
@@ -673,6 +712,22 @@ Deno.serve(async (req: Request) => {
     const recentPlaysBlock = Array.isArray(recentPlays) && recentPlays.length > 0 ? `
       RECENT GAME FLOW (last ${recentPlays.length} plays):
       ${recentPlays.map((p: any, i: number) => `${i + 1}. [${p.clock || 'N/A'}] ${p.team ? `${p.team}: ` : ''}${p.text}`).join('\n      ')}
+    ` : '';
+
+    const playByPlayContextBlock = Array.isArray(pbpEvents) && pbpEvents.length > 0 ? `
+      PLAY-BY-PLAY CONTEXT [LAST ${Math.min(pbpEvents.length, 30)} EVENTS]:
+      ${[...pbpEvents]
+        .reverse()
+        .map((event: any, idx: number) => {
+          const text = (event?.play_data?.text || event?.event_type || 'Play').toString().replace(/\s+/g, ' ').trim();
+          const clipped = text.length > 180 ? `${text.slice(0, 177)}...` : text;
+          const clock = event?.clock || 'LIVE';
+          const score = (event?.away_score !== null && event?.away_score !== undefined && event?.home_score !== null && event?.home_score !== undefined)
+            ? ` (${event.away_score}-${event.home_score})`
+            : '';
+          return `${idx + 1}. [${clock}] ${clipped}${score}`;
+        })
+        .join('\n      ')}
     ` : '';
 
     const situationBlock = situation ? `
@@ -850,6 +905,11 @@ ${livePlayBlock}
 ${recentPlaysBlock}
 ${situationBlock}
 ${driveBlock}
+${playByPlayContextBlock}
+${databaseContext ? `
+DATABASE CONTEXT [THE DRIP VERIFIED]:
+${databaseContext}
+` : ''}
 ${teamContextBlock}
 ${structuralContextBlock}
 ${sportDifferentiatorDirective}

@@ -1,5 +1,5 @@
 
-import React, { FC, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { FC, useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Search, Grid3X3, List, MessageSquare } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
@@ -10,6 +10,7 @@ import { OddsLensToggle } from '../shared/OddsLens';
 import { Sport } from '@/types';
 import { isGameInProgress } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
+import { supabase } from '@/lib/supabase';
 
 const MotionSpan = motion.span;
 const MotionDiv = motion.div;
@@ -62,6 +63,7 @@ export const UnifiedHeader: FC = () => {
     const weekScrollRef = useRef<HTMLDivElement>(null);
     const weekOptions = useWeekNavigation(selectedDate, selectedSport);
     const { data: liveStatusMatches = [] } = useMatches(selectedDate);
+    const [realtimeConnected, setRealtimeConnected] = useState(false);
     const navStep = (selectedSport === Sport.NFL || selectedSport === Sport.COLLEGE_FOOTBALL) ? 7 : 1;
     const liveGamesCount = useMemo(
         () => liveStatusMatches.filter((m) => isGameInProgress(m.status)).length,
@@ -80,6 +82,25 @@ export const UnifiedHeader: FC = () => {
         const centeredScroll = elementOffset - containerWidth / 2 + elementWidth / 2;
         container.scrollTo({ left: centeredScroll, behavior: 'smooth' });
     }, [weekOptions, activeView]);
+
+    useEffect(() => {
+        const channel = supabase
+            .channel('header-live-realtime-health')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'live_scores',
+            }, () => {
+                // no-op: this channel is for connectivity state only
+            })
+            .subscribe((status) => {
+                setRealtimeConnected(status === 'SUBSCRIBED');
+            });
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
 
     const handleWeekSelect = useCallback((isoValue: string) => {
         const date = parseWeekValue(isoValue);
@@ -208,6 +229,10 @@ export const UnifiedHeader: FC = () => {
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
                             LIVE
+                            <span className={cn(
+                                "inline-flex h-1.5 w-1.5 rounded-full",
+                                realtimeConnected ? "bg-emerald-300" : "bg-amber-400"
+                            )} />
                             {hasActiveLiveGames ? (
                                 <span className="relative inline-flex h-2 w-2 items-center justify-center" aria-label={`${liveGamesCount} live games`}>
                                     <span className="absolute inline-flex h-2 w-2 rounded-full bg-emerald-400/40 animate-ping [animation-duration:2s]" />

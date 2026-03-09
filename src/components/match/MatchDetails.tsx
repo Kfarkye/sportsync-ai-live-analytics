@@ -72,6 +72,8 @@ import {
   useBaseballLive,
 } from '@/components/baseball';
 import { LiveSweatProvider, type AIWatchTrigger } from '@/context/LiveSweatContext';
+import { useRealtimeGameDetail } from '@/hooks/useRealtimeGameDetail';
+import { useRealtimePlayFeed, type RealtimePlayEvent } from '@/hooks/useRealtimePlayFeed';
 
 // ============================================================================
 // SECTION 2: STRICT TYPE DEFINITIONS (AUDIT FIX)
@@ -798,6 +800,36 @@ function parseTsMs(v: string | number | Date | null | undefined, fallbackMs: num
   return fallbackMs;
 }
 
+function toLiveStateFromRealtimeRow(row: Record<string, unknown> | null): LiveState | null {
+  if (!row) return null;
+  const raw = row as Record<string, unknown>;
+  const lastPlayRaw = raw.last_play && typeof raw.last_play === 'object'
+    ? (raw.last_play as Record<string, unknown>)
+    : null;
+
+  const mapped: LiveState = {
+    ...(typeof raw.home_score === 'number' ? { home_score: raw.home_score, homeScore: raw.home_score } : {}),
+    ...(typeof raw.away_score === 'number' ? { away_score: raw.away_score, awayScore: raw.away_score } : {}),
+    ...(typeof raw.clock === 'string' ? { clock: raw.clock } : {}),
+    ...(typeof raw.updated_at === 'string' ? { created_at: raw.updated_at } : {}),
+    ...(raw.ai_analysis && typeof raw.ai_analysis === 'object'
+      ? { ai_analysis: raw.ai_analysis as LiveState['ai_analysis'] }
+      : {}),
+    ...(raw.deterministic_signals && typeof raw.deterministic_signals === 'object'
+      ? { deterministic_signals: raw.deterministic_signals as LiveState['deterministic_signals'] }
+      : {}),
+    ...(lastPlayRaw ? {
+      lastPlay: {
+        ...(typeof lastPlayRaw.id === 'string' ? { id: lastPlayRaw.id } : {}),
+        ...(typeof lastPlayRaw.text === 'string' ? { text: lastPlayRaw.text } : {}),
+        ...(typeof lastPlayRaw.clock === 'string' ? { clock: lastPlayRaw.clock } : {}),
+        ...(typeof lastPlayRaw.type === 'string' ? { type: { text: lastPlayRaw.type } } : {}),
+      },
+    } : {}),
+  };
+  return mapped;
+}
+
 function useMatchPolling(initialMatch: ExtendedMatch) {
   const [match, setMatch] = useState<ExtendedMatch>(initialMatch);
   const [liveState, setLiveState] = useState<LiveState | null>(null);
@@ -1037,6 +1069,14 @@ export interface MatchDetailsProps {
 
 const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matches = [], onSelectMatch }) => {
   const { match, liveState, nhlShots, connectionStatus, error, forecastHistory, edgeState, isInitialLoad } = useMatchPolling(initialMatch as ExtendedMatch);
+  const { gameState: realtimeGameState, connected: realtimeGameConnected } = useRealtimeGameDetail(match?.id || null);
+  const { plays: realtimePlays, connected: realtimePlayConnected } = useRealtimePlayFeed(match?.id || null);
+  const realtimeLiveState = useMemo(() => toLiveStateFromRealtimeRow(realtimeGameState), [realtimeGameState]);
+  const effectiveLiveState = realtimeLiveState || liveState;
+  const effectiveConnectionStatus: 'connected' | 'error' | 'connecting' = (realtimeGameConnected || realtimePlayConnected)
+    ? 'connected'
+    : connectionStatus;
+  const recentRealtimePlays = useMemo(() => realtimePlays.slice(0, 30), [realtimePlays]);
 
   // Baseball-specific live data (pitch tracking, edge convergence, matchup state)
   const isBaseball = match.sport === Sport.BASEBALL;
@@ -1320,7 +1360,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     });
   }, [isEdgeTab, match, pregameIntel]);
 
-  const playByPlayText = liveState?.lastPlay?.text || match.lastPlay?.text || '';
+  const playByPlayText = effectiveLiveState?.lastPlay?.text || match.lastPlay?.text || '';
 
   // Generate dynamic Live Sweat triggers from available props and game context
   const sweatTriggers: AIWatchTrigger[] = useMemo(() => {
@@ -1349,7 +1389,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
               <span className="text-[10px] font-bold text-black/40 tracking-[0.25em] uppercase hidden md:block mt-[1px]">
                 {getLeagueDisplayName(String(match.leagueId || ''))}
               </span>
-              <ConnectionBadge status={connectionStatus} />
+              <ConnectionBadge status={effectiveConnectionStatus} />
             </div>
           </div>
           {error && (
@@ -1407,7 +1447,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       {isBaseball ? (
                         <BaseballGamePanel match={match} baseballData={baseballData} />
                       ) : (
-                        <CinematicGameTracker match={match} liveState={liveState || fallbackLiveState} />
+                        <CinematicGameTracker match={match} liveState={effectiveLiveState || fallbackLiveState} />
                       )}
                     </SpecSheetRow>
                     {isLive && (
@@ -1415,8 +1455,33 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         <LiveIntelligenceCard match={match} />
                       </SpecSheetRow>
                     )}
+                    {(isLive || recentRealtimePlays.length > 0) && (
+                      <SpecSheetRow label="01B // PLAY FEED" defaultOpen={true}>
+                        <div className="space-y-2">
+                          {recentRealtimePlays.length === 0 ? (
+                            <p className="text-[12px] text-zinc-500">Waiting for live events…</p>
+                          ) : (
+                            recentRealtimePlays.map((play: RealtimePlayEvent) => {
+                              const text = play.play_data?.text || play.event_type;
+                              const clock = play.clock || 'LIVE';
+                              return (
+                                <div key={`${play.match_id}-${play.event_type}-${play.sequence}`} className="flex items-start justify-between gap-3 rounded-lg border border-zinc-200/80 bg-white px-3 py-2">
+                                  <div className="min-w-0">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">{clock}</p>
+                                    <p className="mt-0.5 text-[12px] leading-relaxed text-zinc-900">{text}</p>
+                                  </div>
+                                  <div className="shrink-0 font-mono text-[11px] tabular-nums text-zinc-600">
+                                    {play.away_score}-{play.home_score}
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </SpecSheetRow>
+                    )}
                     <SpecSheetRow label="02 // TELEMETRY" defaultOpen={true}><div className="space-y-6"><LineScoreGrid match={match} isLive={!isGameFinal(match.status)} /><div className="h-px w-full bg-zinc-200" />{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</div></SpecSheetRow>
-                    {liveState?.ai_analysis && <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={true}><LiveAIInsight match={match} /></SpecSheetRow>}
+                    {effectiveLiveState?.ai_analysis && <SpecSheetRow label="03 // INTELLIGENCE" defaultOpen={true}><LiveAIInsight match={match} /></SpecSheetRow>}
                     <div className="w-full h-px bg-zinc-200" />
                   </div>
                 )}

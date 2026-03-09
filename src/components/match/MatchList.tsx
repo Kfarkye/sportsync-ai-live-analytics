@@ -30,6 +30,7 @@ import {
 } from '@/hooks/usePolyOdds';
 import { useFeaturedProps, STAT_LABELS, type FeaturedProp } from '@/hooks/useFeaturedProps';
 import type { MatchPickSummary } from '@/types/dailyPicks';
+import { useRealtimeScores, type LiveScore } from '@/hooks/useRealtimeScores';
 
 // ============================================================================
 // TYPES & PIPELINES
@@ -95,6 +96,51 @@ const parseUpdatedAtMs = (match: Match): number => {
     if (!Number.isNaN(fetchedAt) && Number.isFinite(fetchedAt)) return fetchedAt;
 
     return 0;
+};
+
+const enrichMatchWithRealtime = (match: Match, score?: LiveScore): Match => {
+    if (!score) return match;
+
+    const awayScore = typeof score.away_score === 'number' ? score.away_score : match.awayScore;
+    const homeScore = typeof score.home_score === 'number' ? score.home_score : match.homeScore;
+
+    const nextOdds = {
+        ...(match.odds || {}),
+        ...(score.total !== null ? { total: score.total, overUnder: score.total } : {}),
+        ...(score.spread !== null ? { spread: score.spread, homeSpread: score.spread } : {}),
+        ...(score.home_ml !== null ? { homeWin: score.home_ml, moneylineHome: score.home_ml, home_ml: score.home_ml } : {}),
+        ...(score.away_ml !== null ? { awayWin: score.away_ml, moneylineAway: score.away_ml, away_ml: score.away_ml } : {}),
+        ...(score.over_odds !== null ? { overOdds: score.over_odds } : {}),
+        ...(score.under_odds !== null ? { underOdds: score.under_odds } : {}),
+        provider: 'live_scores',
+        isLive: true,
+        ...(score.updated_at ? { lastUpdated: score.updated_at } : {}),
+    };
+
+    const lastPlayText = score.last_play_text || match.lastPlay?.text;
+    const lastPlayType = score.last_play_type || match.lastPlay?.type || 'LIVE';
+    const lastPlayClock = score.clock || match.lastPlay?.clock || '';
+    const matchIdFallback = `${match.id}-${score.updated_at || Date.now()}`;
+
+    return {
+        ...match,
+        status: score.game_status || match.status,
+        period: score.period ?? match.period,
+        displayClock: score.display_clock || score.clock || match.displayClock,
+        awayScore,
+        homeScore,
+        ...(score.updated_at ? { last_updated: score.updated_at } : {}),
+        odds: nextOdds,
+        ...(lastPlayText ? {
+            lastPlay: {
+                id: match.lastPlay?.id || matchIdFallback,
+                text: lastPlayText,
+                type: lastPlayType,
+                clock: lastPlayClock,
+                ...(match.lastPlay?.probability ? { probability: match.lastPlay.probability } : {}),
+            },
+        } : {}),
+    };
 };
 
 const formatAgeLabel = (ageMs: number): string => {
@@ -480,6 +526,7 @@ const MatchList: React.FC<MatchListProps> = ({
     matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal, onOpenPricing, picksByMatch, isPicksMode,
 }) => {
     const oddsLens = useAppStore((state) => state.oddsLens);
+    const { scores: realtimeScores, connected: realtimeConnected } = useRealtimeScores();
 
     // ONLY UI user-interactions use event callbacks. State/Data derivatives MUST stay as standard dependencies.
     const handleSelect = useEventCallback(onSelectMatch);
@@ -490,6 +537,24 @@ const MatchList: React.FC<MatchListProps> = ({
     useEffect(() => setIsMounted(true), []);
     const [nowMs, setNowMs] = useState(() => Date.now());
 
+    const realtimeScoreMap = useMemo(() => {
+        const map = new Map<string, LiveScore>();
+        realtimeScores.forEach((row) => {
+            map.set(row.match_id, row);
+            const baseId = row.match_id.split('_')[0];
+            if (baseId) map.set(baseId, row);
+        });
+        return map;
+    }, [realtimeScores]);
+
+    const liveMatches = useMemo(() => {
+        if (!matches.length) return matches;
+        return matches.map((match) => {
+            const score = realtimeScoreMap.get(match.id) || realtimeScoreMap.get(match.id.split('_')[0] || match.id);
+            return enrichMatchWithRealtime(match, score);
+        });
+    }, [matches, realtimeScoreMap]);
+
     useEffect(() => {
         const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
         return () => window.clearInterval(timer);
@@ -499,11 +564,11 @@ const MatchList: React.FC<MatchListProps> = ({
     const { data: featuredProps = [] } = useFeaturedProps(4);
     const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
     const latestDataUpdatedMs = useMemo(() => {
-        return matches.reduce((latest, match) => {
+        return liveMatches.reduce((latest, match) => {
             const updatedMs = parseUpdatedAtMs(match);
             return updatedMs > latest ? updatedMs : latest;
         }, 0);
-    }, [matches]);
+    }, [liveMatches]);
     const dataAgeMs = latestDataUpdatedMs > 0 ? Math.max(0, nowMs - latestDataUpdatedMs) : null;
     const isDataStale = dataAgeMs !== null && dataAgeMs > STALE_THRESHOLD_MS;
     const freshnessLabel = dataAgeMs === null ? '~ syncing' : formatAgeLabel(dataAgeMs);
@@ -514,14 +579,14 @@ const MatchList: React.FC<MatchListProps> = ({
     const resolveFeaturedPropMatch = useCallback((prop: FeaturedProp): Match | undefined => {
         const propMatchId = prop.match_id?.split('_')[0];
         if (propMatchId) {
-            const direct = matches.find((m) => m.id === prop.match_id || m.id.split('_')[0] === propMatchId);
+            const direct = liveMatches.find((m) => m.id === prop.match_id || m.id.split('_')[0] === propMatchId);
             if (direct) return direct;
         }
 
         const teamNeedle = norm(prop.team || '');
         const oppNeedle = norm(prop.opponent || '');
         const eventDate = prop.event_date;
-        return matches.find((m) => {
+        return liveMatches.find((m) => {
             const matchDate = m.startTime ? new Date(m.startTime).toISOString().split('T')[0] : '';
             if (eventDate && matchDate && eventDate !== matchDate) return false;
             const home = norm(m.homeTeam?.name || '');
@@ -533,7 +598,7 @@ const MatchList: React.FC<MatchListProps> = ({
             }
             return home.includes(teamNeedle) || away.includes(teamNeedle);
         });
-    }, [matches]);
+    }, [liveMatches]);
 
     const openFeaturedProp = useCallback((prop: FeaturedProp, match?: Match) => {
         if (prop.detail_url) {
@@ -555,7 +620,7 @@ const MatchList: React.FC<MatchListProps> = ({
         if (!polyResult || polyResult.rows.length === 0) return [];
 
         const matchMap = new Map<string, Match>();
-        for (const m of matches) {
+        for (const m of liveMatches) {
             matchMap.set(m.id, m);
             const stripped = m.id.split('_')[0];
             if (stripped && !matchMap.has(stripped)) matchMap.set(stripped, m);
@@ -599,12 +664,12 @@ const MatchList: React.FC<MatchListProps> = ({
         });
 
         return sorted.slice(0, 5);
-    }, [polyResult, matches]);
+    }, [polyResult, liveMatches]);
 
     // Steal #7: Removed dead featuredMatches pipeline
     const { groupedMatches } = useMemo(() => {
         // 1. SCHWARTZIAN TRANSFORM: Pre-parse times & booleans in O(N) to prevent O(N log N) bottlenecks
-        const enriched: EnrichedMatch[] = matches.map((m) => {
+        const enriched: EnrichedMatch[] = liveMatches.map((m) => {
             return {
                 match: m,
                 timeMs: parseSafeDateMs(m.startTime),
@@ -643,7 +708,7 @@ const MatchList: React.FC<MatchListProps> = ({
         return { groupedMatches: sortedGroups };
 
         // isMatchLive and isMatchFinal must remain in dependencies to ensure concurrent safety
-    }, [matches, pinnedMatchIds, isMatchLive, isMatchFinal]);
+    }, [liveMatches, pinnedMatchIds, isMatchLive, isMatchFinal]);
 
     // Steal #5: Upgraded loading skeleton
     if (isLoading && matches.length === 0) {
@@ -699,6 +764,17 @@ const MatchList: React.FC<MatchListProps> = ({
                                         <span className="font-mono tabular-nums tracking-[0.01em]">Updated {updatedClockLabel}</span>
                                         <span aria-hidden="true">·</span>
                                         <span className="font-mono tabular-nums">{freshnessLabel}</span>
+                                        <span aria-hidden="true">·</span>
+                                        <span className={cn(
+                                            'inline-flex items-center gap-1.5 font-mono tabular-nums',
+                                            realtimeConnected ? 'text-emerald-700' : 'text-amber-700',
+                                        )}>
+                                            <span className={cn(
+                                                'h-1.5 w-1.5 rounded-full',
+                                                realtimeConnected ? 'bg-emerald-500' : 'bg-amber-500',
+                                            )} />
+                                            {realtimeConnected ? 'Realtime Live' : 'Realtime Reconnecting'}
+                                        </span>
                                         {isLoading ? <span className="text-[#555555]">Refreshing…</span> : null}
                                         {isDataStale ? <span className="text-amber-700 font-medium">Data may be stale</span> : null}
                                     </div>
