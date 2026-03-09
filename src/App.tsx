@@ -30,14 +30,7 @@ const App: FC = () => {
     // 2) Bind iOS Visual Viewport
     const unbindViewport = bindIOSVisualViewport();
 
-    // 3) Craftsmanship mark
-    console.log(
-      "%c███ SPORTSYNC AI ███\n%cCrafted by humans who watch the games.\nEngine: Gemini 3 Flash · Protocol: Obsidian Weissach v29.1\n\nCome build with us → github.com/Kfarkye",
-      'font-weight:900;font-size:16px;color:#0F172A;',
-      'font-size:11px;color:#64748B;line-height:1.6;'
-    );
-
-    // 4) Global grain overlay
+    // 3) Global grain overlay
     document.getElementById('root')?.classList.add('grain-overlay');
 
     return unbindViewport;

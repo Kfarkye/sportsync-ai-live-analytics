@@ -1,7 +1,7 @@
 
 import React, { FC, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Search, Grid3X3, List } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Grid3X3, List, MessageSquare } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeekNavigation } from '../../hooks/useWeekNavigation';
@@ -16,7 +16,7 @@ const MotionDiv = motion.div;
 
 // ─── Header Sport Tabs ───────────────────────────────────────────
 const HEADER_SPORTS: { label: string; sport: Sport | 'all' }[] = [
-    { label: 'All Sports', sport: 'all' as any },
+    { label: 'All Picks', sport: 'all' as any },
     { label: 'NBA', sport: Sport.NBA },
     { label: 'NHL', sport: Sport.HOCKEY },
     { label: 'NFL', sport: Sport.NFL },
@@ -53,6 +53,8 @@ export const UnifiedHeader: FC = () => {
         toggleSportDrawer,
         toggleCmdk,
         toggleAuthModal,
+        toggleGlobalChat,
+        isGlobalChatOpen,
     } = useAppStore();
 
     const { user } = useAuth();
@@ -66,9 +68,7 @@ export const UnifiedHeader: FC = () => {
         [liveStatusMatches]
     );
     const hasActiveLiveGames = liveGamesCount > 0;
-    const isEdgePage = typeof window !== 'undefined' && (
-        window.location.pathname.includes('/edge') || window.location.pathname.includes('/reports')
-    );
+    const isPicksView = activeView === 'FEED' && String(selectedSport).toLowerCase() === 'all';
 
     useEffect(() => {
         const container = weekScrollRef.current;
@@ -94,6 +94,11 @@ export const UnifiedHeader: FC = () => {
     const handleLiveClick = useCallback(() => {
         setActiveView(activeView === 'LIVE' ? 'FEED' : 'LIVE');
     }, [setActiveView, activeView]);
+
+    const handlePicksClick = useCallback(() => {
+        setActiveView('FEED');
+        setSelectedSport('all' as Sport);
+    }, [setActiveView, setSelectedSport]);
 
     // Date display
     const dateDisplay = useMemo(() => {
@@ -178,18 +183,19 @@ export const UnifiedHeader: FC = () => {
 
                     {/* Right: LIVE + Lens + Search + User */}
                     <div className="flex items-center gap-2 max-[390px]:gap-1">
-                        <a
-                            href="/edge"
+                        <button
+                            type="button"
+                            onClick={handlePicksClick}
                             className={cn(
                                 "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border",
-                                isEdgePage
+                                isPicksView
                                     ? "bg-[#0A0A0A] border-[#0A0A0A] text-white"
                                     : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
                             )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
-                            EDGE
-                        </a>
+                            PICKS
+                        </button>
                         <button
                             type="button"
                             onClick={handleLiveClick}
@@ -220,6 +226,20 @@ export const UnifiedHeader: FC = () => {
                             className="w-11 h-11 max-[390px]:w-10 max-[390px]:h-10 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-all active:scale-95"
                         >
                             <Search size={24} strokeWidth={1.8} />
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => toggleGlobalChat()}
+                            className={cn(
+                                "w-11 h-11 max-[390px]:w-10 max-[390px]:h-10 flex items-center justify-center rounded-lg transition-all active:scale-95",
+                                isGlobalChatOpen
+                                    ? "text-[#0B63F6] bg-[#EFF6FF]"
+                                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                            )}
+                            aria-label={isGlobalChatOpen ? 'Close AI analysis' : 'Open AI analysis'}
+                        >
+                            <MessageSquare size={22} strokeWidth={1.9} />
                         </button>
 
                         {user ? (

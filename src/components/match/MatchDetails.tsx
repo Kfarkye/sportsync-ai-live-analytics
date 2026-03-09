@@ -28,6 +28,7 @@ import { motion, AnimatePresence, useMotionValue, LayoutGroup } from 'framer-mot
 import { Sport } from '@/types';
 import type { Match, RecentFormGame, ShotEvent, PlayerPropBet, PropBetType } from '@/types';
 import { cn, ESSENCE } from '@/lib/essence';
+import { getLeagueDisplayName } from '@/constants';
 import { getMatchDisplayStats } from '../../utils/statDisplay';
 
 // Services
@@ -1079,8 +1080,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   if (!match?.homeTeam) return <MatchupLoader className="h-screen" label="Synchronizing Hub" />;
 
   const TABS = useMemo(() => isSched
-    ? [{ id: 'DETAILS', label: 'Matchup' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }]
-    : [{ id: 'OVERVIEW', label: 'Game' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }],
+    ? [{ id: 'DETAILS', label: 'Matchup' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Trends' }, { id: 'CHAT', label: 'AI' }]
+    : [{ id: 'OVERVIEW', label: 'Game' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Trends' }, { id: 'CHAT', label: 'AI' }],
     [isSched]);
 
   const fallbackLiveState: LiveState | undefined = match.lastPlay
@@ -1346,7 +1347,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             </button>
             <div className="flex items-center gap-4">
               <span className="text-[10px] font-bold text-black/40 tracking-[0.25em] uppercase hidden md:block mt-[1px]">
-                {match.leagueId?.toUpperCase()}
+                {getLeagueDisplayName(String(match.leagueId || ''))}
               </span>
               <ConnectionBadge status={connectionStatus} />
             </div>
@@ -1362,12 +1363,12 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
 
           {/* Gradient scroll-mask wrapper */}
-          <div className="relative mt-1.5 w-full shrink-0 overflow-hidden">
+          <div className="relative mt-0.5 w-full shrink-0 overflow-hidden">
             {/* Scroll mask gradients */}
             <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
             <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
 
-            <nav className="relative flex h-[42px] max-w-full items-center gap-6 overflow-x-auto px-6 no-scrollbar">
+            <nav className="relative flex h-[40px] max-w-full items-center gap-6 overflow-x-auto px-6 no-scrollbar">
               {TABS.map((tab, i) => (
                 <button
                   key={tab.id}
@@ -1394,7 +1395,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           </div>
         </header>
 
-        <main className="relative z-10 mx-auto max-w-[860px] px-4 pt-5 md:px-0">
+        <main className="relative z-10 mx-auto max-w-[860px] px-4 pt-3 md:px-0">
           <GameInfoStrip match={match} />
 
           <LayoutGroup>

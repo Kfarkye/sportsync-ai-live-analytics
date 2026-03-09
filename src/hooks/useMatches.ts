@@ -19,9 +19,8 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
   }
 
   const SUPABASE_URL = getSupabaseUrl();
-  // FIX: Provide Vite the exact string to replace at build-time
-  // @ts-ignore - Vite needs this exact string format for replacement, despite TS warnings
-  const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY.trim();
+  const viteEnv = (import.meta as ImportMeta & { env: Record<string, string | undefined> }).env;
+  const SUPABASE_ANON_KEY = String(viteEnv.VITE_SUPABASE_ANON_KEY || '').trim();
 
   const cached = matchCache.get(dateStr);
   const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-matches?date=${dateStr}&limit=140`, {

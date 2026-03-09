@@ -29,6 +29,7 @@ import {
     type PolyOdds
 } from '@/hooks/usePolyOdds';
 import { useFeaturedProps, STAT_LABELS, type FeaturedProp } from '@/hooks/useFeaturedProps';
+import type { MatchPickSummary } from '@/types/dailyPicks';
 
 // ============================================================================
 // TYPES & PIPELINES
@@ -51,6 +52,8 @@ interface MatchListProps {
     isMatchLive: (match: Match) => boolean;
     isMatchFinal: (match: Match) => boolean;
     onOpenPricing: () => void;
+    picksByMatch: ReadonlyMap<string, MatchPickSummary>;
+    isPicksMode: boolean;
 }
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -131,6 +134,8 @@ interface OptimizedMatchRowProps {
     onSelect: (m: Match) => void;
     onToggle: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
     polyResult?: PolyOddsResult;
+    pickSummary?: MatchPickSummary;
+    isPicksMode: boolean;
 }
 
 /**
@@ -139,7 +144,7 @@ interface OptimizedMatchRowProps {
  * when the parent re-renders for a pin toggle elsewhere in the list.
  */
 const OptimizedMatchRow = memo(({
-    match, isPinned, isLive, isFinal, onSelect, onToggle, polyResult
+    match, isPinned, isLive, isFinal, onSelect, onToggle, polyResult, pickSummary, isPicksMode
 }: OptimizedMatchRowProps) => {
 
     const handleSelect = useCallback(() => onSelect(match), [match, onSelect]);
@@ -185,6 +190,8 @@ const OptimizedMatchRow = memo(({
                 isFinal={isFinal}
                 onSelect={handleSelect}
                 onTogglePin={handleToggle}
+                pickSummary={pickSummary}
+                isPicksMode={isPicksMode}
                 {...(polyHomeProb !== undefined ? { polyHomeProb } : {})}
                 {...(polyAwayProb !== undefined ? { polyAwayProb } : {})}
                 {...(homeEdge !== undefined ? { homeEdge } : {})}
@@ -290,81 +297,6 @@ const MarketPulseRow = memo(({ poly, match, onSelect }: {
 MarketPulseRow.displayName = 'MarketPulseRow';
 
 // ============================================================================
-// FEATURED PROP ROW — Player headshot prop widget
-// ============================================================================
-
-const PropRow = memo(({
-    prop,
-    match,
-    oddsMode,
-    onOpenDetail,
-}: {
-    prop: FeaturedProp;
-    match?: Match;
-    oddsMode: ReturnType<typeof useAppStore.getState>['oddsLens'];
-    onOpenDetail: (prop: FeaturedProp, match?: Match) => void;
-}) => {
-    const isPlus = prop.odds_american > 0;
-    const statLabel = STAT_LABELS[prop.bet_type] || prop.bet_type.replace(/_/g, ' ').toUpperCase();
-    const oddsDisplay = formatOddsByMode(prop.odds_american, oddsMode, 'moneyline') ?? String(prop.odds_american);
-    const contextTags = Array.isArray(prop.context_tags) ? prop.context_tags.filter(Boolean).slice(0, 3) : [];
-
-    return (
-        <button
-            type="button"
-            onClick={() => onOpenDetail(prop, match)}
-            className={cn(
-            "group flex items-center gap-3 max-[390px]:gap-2.5 px-3.5 max-[390px]:px-3 py-3 max-[390px]:py-2.5 transition-colors duration-150 hover:bg-zinc-50 cursor-pointer [-webkit-tap-highlight-color:transparent]"
-        )}>
-            {/* Headshot */}
-            <div className="relative w-10 h-10 max-[390px]:w-9 max-[390px]:h-9 shrink-0">
-                <div className="w-full h-full rounded-full overflow-hidden bg-zinc-100 border border-black/5 shadow-sm">
-                    <img src={prop.headshot_url} alt="" className="w-full h-full object-cover object-top" loading="lazy" />
-                </div>
-            </div>
-            {/* Name + Team */}
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <div className="text-[13px] max-[390px]:text-[12px] font-semibold text-zinc-900 truncate tracking-tight leading-tight">{prop.player_name}</div>
-                <div className="font-mono text-[9.5px] max-[390px]:text-[9px] text-zinc-500 tracking-[0.03em] mt-[3px] font-medium flex items-center">
-                    <span className="text-zinc-400 uppercase">{prop.team.split(' ').pop()}</span>
-                    <span className="mx-1.5 opacity-40">·</span>
-                    <span className="text-zinc-700 font-semibold uppercase">{statLabel}</span>
-                </div>
-                {contextTags.length > 0 ? (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                        {contextTags.map((tag) => (
-                            <span
-                                key={`${prop.player_name}-${tag}`}
-                                className="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-[1px] text-[9px] font-medium text-zinc-600"
-                            >
-                                {tag}
-                            </span>
-                        ))}
-                    </div>
-                ) : null}
-            </div>
-            {/* Line + Odds */}
-            <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                <div className="flex items-center gap-1.5">
-                    <span className="text-[9.5px] text-zinc-400 font-semibold uppercase">O</span>
-                    <span className="font-mono text-[12.5px] max-[390px]:text-[12px] font-bold text-zinc-900 tabular-nums tracking-tight">
-                        {Number(prop.line_value)}
-                    </span>
-                </div>
-                <div className={cn(
-                    "font-mono text-[10px] font-semibold tabular-nums tracking-tight px-1.5 py-[2px] rounded min-w-[36px] flex items-center justify-center leading-none",
-                    isPlus ? "text-zinc-700 bg-zinc-100 ring-1 ring-zinc-900/5" : "text-zinc-500 bg-transparent ring-1 ring-zinc-200/80"
-                )}>
-                    {oddsDisplay}
-                </div>
-            </div>
-            <ChevronRight size={12} className="shrink-0 text-zinc-400 group-hover:text-zinc-600 transition-colors" />
-        </button>
-    );
-});
-PropRow.displayName = 'PropRow';
-
-// ============================================================================
 // PREMIUM PRO CTA (Extracted for reuse)
 // ============================================================================
 
@@ -431,11 +363,13 @@ const MatchRowSkeleton = () => (
 // ============================================================================
 
 const LeagueGroup = memo(({
-    leagueId, leagueName, enrichedMatches, onSelectMatch, onTogglePin, groupIndex, polyResult, isMounted,
+    leagueId, leagueName, enrichedMatches, onSelectMatch, onTogglePin, groupIndex, polyResult, isMounted, picksByMatch, isPicksMode,
 }: {
     leagueId: string; leagueName: string; enrichedMatches: EnrichedMatch[];
     onSelectMatch: (match: Match) => void; onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
     groupIndex: number; polyResult?: PolyOddsResult; isMounted?: boolean;
+    picksByMatch: ReadonlyMap<string, MatchPickSummary>;
+    isPicksMode: boolean;
 }) => {
     const [isExpanded, setIsExpanded] = useState(true);
     const [measureRef, bounds] = useMeasure();
@@ -525,6 +459,8 @@ const LeagueGroup = memo(({
                                     onSelect={onSelectMatch}
                                     onToggle={onTogglePin}
                                     polyResult={polyResult}
+                                    pickSummary={picksByMatch.get(match.id) || picksByMatch.get(match.id.split('_')[0] || match.id)}
+                                    isPicksMode={isPicksMode}
                                 />
                             ))}
                         </div>
@@ -541,7 +477,7 @@ LeagueGroup.displayName = 'LeagueGroup';
 // ============================================================================
 
 const MatchList: React.FC<MatchListProps> = ({
-    matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal, onOpenPricing,
+    matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal, onOpenPricing, picksByMatch, isPicksMode,
 }) => {
     const oddsLens = useAppStore((state) => state.oddsLens);
 
@@ -780,9 +716,53 @@ const MatchList: React.FC<MatchListProps> = ({
                                             groupIndex={groupIndex}
                                             polyResult={polyResult}
                                             isMounted={isMounted}
+                                            picksByMatch={picksByMatch}
+                                            isPicksMode={isPicksMode}
                                         />
                                     );
                                 })}
+
+                                {isPicksMode && featuredPropRows.length > 0 && (
+                                    <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Featured Props">
+                                        <div className="mb-3 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex h-[18px] w-[18px] items-center justify-center rounded-full border border-blue-200 bg-blue-100 text-blue-700">
+                                                    <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M1 10L5 6L8 9L13 4" />
+                                                        <path d="M9 4H13V8" />
+                                                    </svg>
+                                                </div>
+                                                <span className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-blue-800">Featured Props</span>
+                                            </div>
+                                            <span className="font-mono text-[8.5px] uppercase tracking-[0.03em] text-blue-300">
+                                                {featuredPropRows[0]?.prop.event_date === todayIso ? 'Today' : 'Tomorrow'}
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                                            {featuredPropRows.map(({ prop, match }) => (
+                                                <button
+                                                    key={`strip-${prop.player_name}-${prop.bet_type}`}
+                                                    type="button"
+                                                    onClick={() => openFeaturedProp(prop, match)}
+                                                    className="min-w-[220px] rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left transition-colors hover:bg-slate-100"
+                                                >
+                                                    <p className="truncate text-[12px] font-semibold text-slate-900">{prop.player_name}</p>
+                                                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.08em] text-slate-500">{STAT_LABELS[prop.bet_type] || prop.bet_type}</p>
+                                                    <div className="mt-2 flex items-center justify-between">
+                                                        <span className="font-mono text-[12px] font-bold tabular-nums text-slate-900">O {Number(prop.line_value)}</span>
+                                                        <span className="rounded bg-white px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-slate-700">
+                                                            {formatOddsByMode(prop.odds_american, oddsLens, 'moneyline') ?? String(prop.odds_american)}
+                                                        </span>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </section>
+                                )}
+
+                                {isPicksMode && (
+                                    <PremiumProCTA onPricing={handlePricing} />
+                                )}
                             </div>
 
                             {/* Mobile widgets parity for sidebar content */}
@@ -811,36 +791,6 @@ const MatchList: React.FC<MatchListProps> = ({
                                     </section>
                                 )}
 
-                                {featuredPropRows.length > 0 && (
-                                    <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Featured Props">
-                                        <div className="px-3.5 max-[390px]:px-3 py-2.5 max-[390px]:py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
-                                                    <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                                        <path d="M1 10L5 6L8 9L13 4" /><path d="M9 4H13V8" />
-                                                    </svg>
-                                                </div>
-                                                <span className="font-mono text-[10px] max-[390px]:text-[9px] font-bold tracking-[0.1em] text-blue-800 uppercase">Featured Props</span>
-                                            </div>
-                                            <span className="font-mono text-[8.5px] max-[390px]:text-[8px] text-blue-300 tracking-[0.03em] uppercase">
-                                                {featuredPropRows[0]?.prop.event_date === todayIso ? 'Today' : 'Tomorrow'}
-                                            </span>
-                                        </div>
-                                        <div className="divide-y divide-slate-100/80">
-                                        {featuredPropRows.slice(0, 3).map(({ prop, match }) => (
-                                            <PropRow
-                                                key={`mobile-${prop.player_name}${prop.bet_type}`}
-                                                prop={prop}
-                                                match={match}
-                                                oddsMode={oddsLens}
-                                                onOpenDetail={openFeaturedProp}
-                                            />
-                                        ))}
-                                        </div>
-                                    </section>
-                                )}
-
-                                <PremiumProCTA onPricing={handlePricing} />
                             </div>
                         </div>
 
@@ -871,38 +821,6 @@ const MatchList: React.FC<MatchListProps> = ({
                                 </section>
                             )}
 
-                            {/* Featured Props */}
-                            {featuredPropRows.length > 0 && (
-                                <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Featured Props">
-                                    <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
-                                                <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M1 10L5 6L8 9L13 4"/><path d="M9 4H13V8"/>
-                                                </svg>
-                                            </div>
-                                            <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-blue-800 uppercase">Featured Props</span>
-                                        </div>
-                                        <span className="font-mono text-[8.5px] text-blue-300 tracking-[0.03em] uppercase">
-                                            {featuredPropRows[0]?.prop.event_date === todayIso ? 'Today' : 'Tomorrow'}
-                                        </span>
-                                    </div>
-                                    <div className="divide-y divide-slate-100/80">
-                                    {featuredPropRows.map(({ prop, match }) => (
-                                        <PropRow
-                                            key={prop.player_name + prop.bet_type}
-                                            prop={prop}
-                                            match={match}
-                                            oddsMode={oddsLens}
-                                            onOpenDetail={openFeaturedProp}
-                                        />
-                                    ))}
-                                    </div>
-                                </section>
-                            )}
-
-                            {/* Pro CTA — Obsidian gradient */}
-                            <PremiumProCTA onPricing={handlePricing} />
                         </aside>
 
                     </div>

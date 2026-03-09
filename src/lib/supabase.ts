@@ -15,6 +15,10 @@ const hasConfig = !!(supabaseUrl && isKeyValid);
 // Initialize Client (fall back to a safe local URL when not configured)
 const clientUrl = hasConfig ? supabaseUrl : 'http://localhost';
 const clientKey = hasConfig ? supabaseAnonKey : 'public-anon-key-not-set';
+type SupabaseClientOptions = Parameters<typeof createClient>[2];
+type SupabaseLock = NonNullable<NonNullable<SupabaseClientOptions>['auth']>['lock'];
+
+const noOpLock: Exclude<SupabaseLock, undefined> = async (_name, _acquireTimeout, fn) => fn();
 
 export const supabase = createClient(
   clientUrl,
@@ -24,9 +28,8 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      // Critical Fix for "Navigator LockManager returned a null lock"
-      // @ts-ignore
-      lock: false,
+      // Safari-safe lock fallback for environments where LockManager is unavailable.
+      lock: noOpLock,
     }
   }
 );

@@ -2,16 +2,17 @@ import React, { FC, lazy, Suspense, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore, usePinStore } from '../../store/appStore';
 import { useMatches } from '../../hooks/useMatches';
+import { useDailyPicks } from '../../hooks/useDailyPicks';
 import { UnifiedHeader } from './UnifiedHeader';
 import MatchList from '../match/MatchList';
 import MatchDetails from '../match/MatchDetails';
 import ChatWidget from '../ChatWidget';
 import LandingPage from './LandingPage';
-import LiveDashboard from '../analysis/LiveDashboard';
 import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
 import { Sport } from '@/types';
+import type { MatchPickSummary } from '@/types/dailyPicks';
 
 const CommandPalette = lazy(() => import('../modals/CommandPalette'));
 const AuthModal = lazy(() => import('../modals/AuthModal'));
@@ -54,17 +55,31 @@ const AppShell: FC = () => {
 
   // 1) Fetch data (date-filtered in hook)
   const { data: matches = [], isLoading } = useMatches(selectedDate);
+  const { picksByMatch } = useDailyPicks(selectedDate);
+
+  const resolvePickForMatch = React.useCallback((match: { id: string }): MatchPickSummary | undefined => {
+    const direct = picksByMatch.get(match.id);
+    if (direct) return direct;
+    return picksByMatch.get(match.id.split('_')[0] || match.id);
+  }, [picksByMatch]);
 
   // 2) Client filter: sport only
   const filteredMatches = useMemo(() => {
     if (!matches.length) return [];
     const targetSport = (selectedSport || '').toLowerCase();
 
-    return matches.filter((m) => {
+    const sportFiltered = matches.filter((m) => {
       const matchSport = (m.sport || '').toLowerCase();
       return targetSport === 'all' || matchSport === targetSport || matchSport.includes(targetSport);
     });
-  }, [matches, selectedSport]);
+
+    // "All Picks" mode: show only matches that have a pick record.
+    if (targetSport === 'all' && activeView === 'FEED') {
+      return sportFiltered.filter((m) => Boolean(resolvePickForMatch(m)));
+    }
+
+    return sportFiltered;
+  }, [matches, selectedSport, activeView, resolvePickForMatch]);
 
   const liveCountsBySport = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -199,6 +214,8 @@ const AppShell: FC = () => {
                     isMatchLive={(m) => isGameInProgress(m.status)}
                     isMatchFinal={(m) => isGameFinished(m.status)}
                     onOpenPricing={() => togglePricingModal(true)}
+                    picksByMatch={picksByMatch}
+                    isPicksMode={String(selectedSport).toLowerCase() === 'all'}
                   />
                 )}
               </MotionDiv>
@@ -212,13 +229,29 @@ const AppShell: FC = () => {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
-                <LiveDashboard
-                  matches={matches}
-                  onSelectMatch={setSelectedMatch}
-                  isMatchLive={(m) => isGameInProgress(m.status)}
-                  pinnedMatchIds={pinnedSet}
-                  onTogglePin={togglePin}
-                />
+                <section className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_18px_36px_-24px_rgba(15,23,42,0.28)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Live AI Analysis</p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Live games + AI chat are part of Pro Access.</h2>
+                  <p className="mt-3 text-[14px] leading-relaxed text-slate-600">
+                    Watch matches update in real time, ask the database questions live, and get in-game analysis in one place.
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => togglePricingModal(true)}
+                      className="inline-flex h-10 items-center rounded-lg bg-[#0B63F6] px-4 text-[12px] font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-[#0954d1]"
+                    >
+                      Get Access
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => useAppStore.getState().setActiveView('FEED')}
+                      className="inline-flex h-10 items-center rounded-lg border border-slate-300 px-4 text-[12px] font-semibold uppercase tracking-[0.05em] text-slate-700 transition-colors hover:bg-slate-50"
+                    >
+                      Back to Picks
+                    </button>
+                  </div>
+                </section>
               </MotionDiv>
             )}
 
