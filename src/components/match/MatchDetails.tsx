@@ -1080,8 +1080,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   if (!match?.homeTeam) return <MatchupLoader className="h-screen" label="Synchronizing Hub" />;
 
   const TABS = useMemo(() => isSched
-    ? [{ id: 'DETAILS', label: 'Matchup' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Trends' }, { id: 'CHAT', label: 'AI' }]
-    : [{ id: 'OVERVIEW', label: 'Game' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Trends' }, { id: 'CHAT', label: 'AI' }],
+    ? [{ id: 'DETAILS', label: 'Matchup' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Stats' }, { id: 'CHAT', label: 'AI' }]
+    : [{ id: 'OVERVIEW', label: 'Game' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Stats' }, { id: 'CHAT', label: 'AI' }],
     [isSched]);
 
   const fallbackLiveState: LiveState | undefined = match.lastPlay
@@ -1340,7 +1340,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   return (
     <div className="min-h-[100dvh] text-black relative overflow-y-auto overflow-x-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white pb-[calc(env(safe-area-inset-bottom)+6rem)]">
       <LiveSweatProvider latestPlayByPlayText={playByPlayText} aiTriggers={sweatTriggers}>
-        <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-[#FBFBFD]/92 pt-safe backdrop-blur-[24px] saturate-[1.2] transition-colors duration-500">
+        <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-[#FBFBFD] pt-safe transition-colors duration-500">
           <div className="flex items-center justify-between px-6 py-4">
             <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-black/5 rounded-full transition-all duration-300">
               <BackArrow />

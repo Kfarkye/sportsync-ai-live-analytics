@@ -256,7 +256,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      whileHover={{ backgroundColor: "#F8FAFC", zIndex: 10 }}
+      whileHover={{ backgroundColor: "#F8FAFC" }}
       whileTap={{ scale: 0.998 }}
       transition={PHYSICS_MOTION}
       onClick={() => onSelect?.(match)}

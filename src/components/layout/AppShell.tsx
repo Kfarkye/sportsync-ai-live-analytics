@@ -302,8 +302,7 @@ const AppShell: FC = () => {
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
             className={cn(
-              'fixed inset-0 z-[60] overflow-hidden flex flex-col',
-              ESSENCE.tw.surface.subtle // bg-slate-50
+              'fixed inset-0 z-[120] isolate overflow-hidden flex flex-col bg-[#F4F6FF]'
             )}
           >
             {/* Sheet Handle for Mobile */}

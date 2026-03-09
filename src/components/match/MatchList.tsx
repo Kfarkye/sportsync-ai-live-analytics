@@ -396,13 +396,13 @@ const LeagueGroup = memo(({
             transition={{ delay: groupIndex * STAGGER_DELAY }}
             className="flex flex-col relative transform-gpu"
         >
-            <button
-                type="button"
-                onClick={toggle}
-                className={cn(
+                <button
+                    type="button"
+                    onClick={toggle}
+                    className={cn(
                     'flex items-center justify-between w-full h-11 px-3 sm:px-4 max-[390px]:px-2.5 [-webkit-tap-highlight-color:transparent]',
                     // Keep group headers static so ordering never shifts behind match rows.
-                    'bg-[#F8FAFC] backdrop-blur-sm border-b border-blue-200/70 z-20',
+                    'bg-[#F8FAFC] border-b border-blue-200/70',
                     'transition-colors hover:bg-blue-50/80',
                     'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300',
                     isExpanded ? 'border border-blue-200 border-b-blue-200/70 rounded-t-xl shadow-[0_12px_24px_-20px_rgba(30,64,175,0.36)]' : 'border border-blue-200 border-b-transparent rounded-xl shadow-[0_12px_24px_-20px_rgba(30,64,175,0.36)]'
@@ -444,7 +444,7 @@ const LeagueGroup = memo(({
                         exit={{ height: 0, opacity: 0 }}
                         transition={ACCORDION_SPRING}
                         className={cn(
-                            'overflow-hidden relative z-0 -mt-[1px]',
+                            'overflow-hidden relative -mt-[1px]',
                             'bg-white ring-1 ring-blue-200/80 rounded-b-xl shadow-[0_14px_28px_-20px_rgba(30,64,175,0.28)]'
                         )}
                     >
