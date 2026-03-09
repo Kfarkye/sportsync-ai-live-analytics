@@ -19,7 +19,7 @@
     "verify:ssot": "node scripts/verify_ssot.js"
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.13",
+    "@ai-sdk/google": "^3.0.43",
     "@google/genai": "^1.30.0",
     "@tanstack/query-sync-storage-persister": "^5.90.24",
     "@supabase/supabase-js": "^2.98.0",
