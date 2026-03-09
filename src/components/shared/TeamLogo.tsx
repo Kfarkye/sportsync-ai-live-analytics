@@ -8,6 +8,7 @@ interface TeamLogoProps {
   abbreviation?: string;
   sport?: string;
   color?: string;
+  teamColor?: string;
   variant?: 'default' | 'card';
   isLive?: boolean;
 }
@@ -101,6 +102,7 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
   abbreviation,
   sport,
   color,
+  teamColor,
   variant = 'default',
   isLive = false,
 }) => {
@@ -121,7 +123,7 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
 
   const currentSource = sources[sourceIndex];
   const fallbackText = (abbreviation || initialsFromName(name)).slice(0, 3).toUpperCase();
-  const fallbackColor = toColor(color);
+  const fallbackColor = toColor(color || teamColor);
 
   useEffect(() => {
     setSourceIndex(0);

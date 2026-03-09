@@ -358,7 +358,7 @@ type EspnExtendedMatch = Partial<ExtendedMatch> & {
   statistics?: Match['stats'];
 };
 
-interface LiveState extends Partial<ExtendedMatch> {
+interface LiveState {
   lastPlay?: {
     text?: string;
     coordinate?: { x: number; y: number } | string;
@@ -676,7 +676,7 @@ type Serializable =
   | Serializable[]
   | { [key: string]: Serializable };
 
-function stableSerialize(value: Serializable | Date | undefined, seen = new WeakSet<object>()): string {
+function stableSerialize(value: unknown, seen = new WeakSet<object>()): string {
   if (value === null) return 'null';
   const t = typeof value;
   if (t === 'string') return JSON.stringify(value);
@@ -689,14 +689,14 @@ function stableSerialize(value: Serializable | Date | undefined, seen = new Weak
   if (t === 'object') {
     if (seen.has(value as object)) return '"__circular__"';
     seen.add(value as object);
-    const record = value as Record<string, Serializable>;
+    const record = value as Record<string, unknown>;
     const keys = Object.keys(record).sort();
     return `{${keys.map(k => `${JSON.stringify(k)}:${stableSerialize(record[k], seen)}`).join(',')}}`;
   }
   return '"__unsupported__"';
 }
 
-function hashStable(value: Serializable | Date | undefined): string {
+function hashStable(value: unknown): string {
   return fnv1a32(stableSerialize(value)).toString(16);
 }
 
@@ -1092,6 +1092,23 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
   const sport = match.sport?.toUpperCase() || 'UNKNOWN';
   const lastPlay = liveState?.lastPlay;
   const prefersReduced = useReducedMotion();
+
+  const trackerLiveState = useMemo<React.ComponentProps<typeof LiveGameTracker>['liveState']>(() => {
+    if (!liveState) return undefined;
+    return {
+      homeScore: liveState.home_score,
+      awayScore: liveState.away_score,
+      displayClock: liveState.clock,
+      lastPlay: liveState.lastPlay
+        ? {
+            id: 'live',
+            text: liveState.lastPlay.text,
+            type: liveState.lastPlay.type?.text,
+            clock: liveState.clock || '',
+          }
+        : undefined,
+    };
+  }, [liveState]);
   const isLiveGame = isGameInProgress(match.status);
 
   const ballPos = useMemo(() =>
@@ -1204,7 +1221,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
         </Gridiron>
       );
     }
-    return <LiveGameTracker match={match} liveState={liveState} showHeader={false} headerVariant="embedded" />;
+    return <LiveGameTracker match={match} liveState={trackerLiveState} showHeader={false} headerVariant="embedded" />;
   };
 
   return (
@@ -1998,6 +2015,9 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
         };
 
         const toPropBet = (p: DbPlayerPropRow): PlayerPropBet => ({
+          // Preserve required timestamps even when source rows are partial snapshots.
+          createdAt: p.analysis_ts || new Date(cur.startTime).toISOString(),
+          updatedAt: p.analysis_ts || new Date(cur.startTime).toISOString(),
           id: `${cur.id}:${p.player_name || 'player'}:${p.bet_type || 'prop'}:${p.line_value ?? ''}`,
           userId: 'system',
           matchId: cur.id,
@@ -2006,8 +2026,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           team: p.team || undefined,
           opponent: p.opponent || undefined,
           playerName: p.player_name || '',
-          playerId: p.player_id || undefined,
-          espnPlayerId: p.espn_player_id || undefined,
+          playerId: p.player_id || p.espn_player_id || undefined,
           headshotUrl: p.headshot_url || undefined,
           betType: normalizePropType(p.bet_type),
           marketLabel: p.market_label || undefined,

@@ -100,6 +100,7 @@ export interface PlayerPropBet {
   opponent?: string;
   playerName: string;
   playerId?: string;
+  espnPlayerId?: string;
   headshotUrl?: string;
 
   betType: PropBetType;
@@ -128,11 +129,15 @@ export interface PlayerPropBet {
   validFrom?: string;
   validTo?: string;
   confidenceScore?: number;
+  fantasyDvpRank?: number;
   sourceAttribution?: string;
   provider?: string;
   l5HitRate?: number;
   l5Values?: number[];
   avgL5?: number;
+  aiRationale?: string;
+  analysisStatus?: string;
+  analysisTs?: string;
   l5Results?: Array<'HIT' | 'MISS' | 'PUSH'>;
   streakLabel?: string;
   streakCount?: number;
