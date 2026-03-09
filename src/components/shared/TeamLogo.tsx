@@ -8,6 +8,8 @@ interface TeamLogoProps {
   name?: string;
   className?: string;
   abbreviation?: string;
+  sport?: string;
+  color?: string;
   variant?: 'default' | 'card';
   isLive?: boolean;
   teamColor?: string;
@@ -67,6 +69,7 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
   name = 'Team',
   className = "w-8 h-8",
   abbreviation,
+  color,
   variant = 'default',
   isLive = false,
   teamColor,
@@ -78,8 +81,8 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
 
   const optimizedSrc = React.useMemo(() => getOptimizedLogoUrl(logo), [logo]);
   const fallbackColor = React.useMemo(
-    () => teamColor || getTeamColor(name) || colorFromName(name),
-    [name, teamColor]
+    () => color || teamColor || getTeamColor(name) || colorFromName(name),
+    [color, name, teamColor]
   );
   const fallbackTextColor = React.useMemo(
     () => textColorForBackground(fallbackColor),
