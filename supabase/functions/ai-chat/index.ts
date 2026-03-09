@@ -545,7 +545,7 @@ Deno.serve(async (req: Request) => {
 
     const sportLeagueKey = `${current_match?.sport || ""} ${current_match?.league || ""} ${current_match?.league_id || ""}`.toLowerCase();
     const sportDifferentiatorDirective = sportLeagueKey.includes("soccer") || sportLeagueKey.includes("epl") || sportLeagueKey.includes("uefa")
-      ? "SOCCER DIRECTIVE: Weight draw-rate, BTTS regime, clean-sheet rate, and tournament pressure (World Cup/UEFA tags) before making any side/total recommendation."
+      ? "SOCCER DIRECTIVE: Anchor recommendations to structural context first: league draw-rate, BTTS baseline, first-goal timing windows, HT/FT pattern stability, two-goal lead conversion risk, and referee tendency profile. If these baselines conflict with narrative, fade the narrative."
       : (sportLeagueKey.includes("ncaab") || sportLeagueKey.includes("college-basketball") || sportLeagueKey.includes("mens-college-basketball"))
         ? "NCAAB DIRECTIVE: Weight March volatility, possession compression, foul-state variance, and rotation tightening before recommending totals/spreads."
         : (sportLeagueKey.includes("mlb") || sportLeagueKey.includes("baseball"))

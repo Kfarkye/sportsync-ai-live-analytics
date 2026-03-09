@@ -82,7 +82,7 @@ import {
   EyeOff,
   ChevronDown,
 } from "lucide-react";
-import type { MatchOdds } from "@/types";
+import type { Match, MatchOdds } from "@/types";
 import { ESSENCE } from "@/lib/essence";
 
 
@@ -345,10 +345,9 @@ interface GameContext {
   current_odds?: MatchOdds;
   opening_odds?: MatchOdds;
   closing_odds?: MatchOdds;
-  [key: string]: unknown;
 }
 
-interface ChatWidgetProps { currentMatch?: GameContext; inline?: boolean }
+interface ChatWidgetProps { currentMatch?: GameContext | Match; matches?: Match[]; inline?: boolean }
 
 interface StreamChunk {
   type: "text" | "thought" | "grounding" | "error";
@@ -1490,7 +1489,6 @@ const INITIAL_MESSAGE_STATE: MessageState = { ordered: [], index: new Map() };
 function useStableCallback<T extends (...args: unknown[]) => unknown>(callback: T): T {
   const ref = useRef(callback);
   useLayoutEffect(() => { ref.current = callback; });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   return useCallback((...args: Parameters<T>) => ref.current(...args), []) as T;
 }
 
@@ -1585,11 +1583,11 @@ const OrbitalRadar = memo(() => (
 ));
 OrbitalRadar.displayName = "OrbitalRadar";
 
-export const NeuralPulse: FC<{ active?: boolean; size?: number }> = memo(({ active = true, size = 10 }) => {
+export const NeuralPulse: FC<{ active?: boolean; size?: number; className?: string }> = memo(({ active = true, size = 10, className }) => {
   const s = Math.max(6, Math.min(16, size));
-  if (!active) return <span className="inline-block rounded-full bg-zinc-700" style={{ width: s, height: s }} />;
+  if (!active) return <span className={cn("inline-block rounded-full bg-zinc-700", className)} style={{ width: s, height: s }} />;
   return (
-    <span className="inline-flex items-center justify-center relative" style={{ width: s, height: s }}>
+    <span className={cn("inline-flex items-center justify-center relative", className)} style={{ width: s, height: s }}>
       <span className="absolute inset-0 rounded-full bg-emerald-500/20" />
       <span className="absolute rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.9)]" style={{ width: s / 2.5, height: s / 2.5 }} />
       <motion.span
@@ -3201,7 +3199,6 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     // If the user sends a message manually within 600ms, this cleanup runs,
     // cancelling the auto-fire so they don't get double requests.
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     inline,
     normalizedContext?.match_id,

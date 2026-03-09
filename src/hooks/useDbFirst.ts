@@ -96,7 +96,6 @@ export const useDbFirst = <T>(
         if (!success) setError("Data unavailable.");
         setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dbFetch, fetchFromApi, ...dependencies]);
 
   useEffect(() => {

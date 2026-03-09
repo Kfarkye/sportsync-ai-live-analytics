@@ -75,7 +75,7 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
       const period = Number(entry?.period);
       if (!Number.isFinite(period) || period <= 2) return;
 
-      const value = entry?.value;
+      const value = entry?.value as unknown;
       const hasValue = typeof value === 'number'
         ? Number.isFinite(value)
         : typeof value === 'string'

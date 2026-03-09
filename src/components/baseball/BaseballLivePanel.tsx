@@ -558,7 +558,7 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
     </div>
   );
 
-  const TeamRow: FC<{ team: Team; scores: Array<{ value?: number }>; isAway: boolean }> = ({
+  const TeamRow: FC<{ team: Team; scores: Array<{ value?: number | string }>; isAway: boolean }> = ({
     team,
     scores,
     isAway,

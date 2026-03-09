@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Match, MatchNews, FatigueMetrics, OfficialStats, PregameContext } from '@/types';
+import { Match, MatchNews, FatigueMetrics, OfficialStats, PregameContext, JsonRecord } from '@/types';
 import { supabase } from '../lib/supabase';
 import {
     RefreshCw,
@@ -251,9 +251,10 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
             // Reload from DB
             await fetchNews(false);
-        } catch (e: Error) {
+        } catch (e: unknown) {
             console.error("Generation failed:", e);
-            alert(`Failed to generate report: ${e.message}`);
+            const message = typeof e === 'string' ? e : (e as { message?: string })?.message;
+            alert(`Failed to generate report: ${message || 'Unknown error'}`);
         } finally {
             setGenerating(false);
         }

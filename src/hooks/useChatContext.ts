@@ -36,6 +36,7 @@ interface MatchContext {
         logic_audit?: string;
         key_factors?: Array<{ thesis: string; impact: string }>;
     };
+    [key: string]: unknown;
 }
 
 interface ChatContextState {
@@ -120,7 +121,8 @@ interface UseChatContextOptions {
     match?: MatchLike;
 }
 
-type MatchLike = Match & {
+type MatchLike = Omit<Partial<Match>, 'sport'> & {
+    sport?: string;
     home_team_name?: string;
     away_team_name?: string;
     home_team?: string;
@@ -146,7 +148,7 @@ export function useChatContext(options: UseChatContextOptions = {}) {
     // EFFECT: Update current match context when viewing a match
     // ─────────────────────────────────────────────────────────────────────
     useEffect(() => {
-        if (match?.id) {
+    if (match?.id) {
             // Map properties correctly from UI Match object to context payload
             // Including fallbacks for DB-format objects
             const matchContext: MatchContext = {
@@ -159,8 +161,8 @@ export function useChatContext(options: UseChatContextOptions = {}) {
                     match.startTime?.toISOString?.() || match.start_time,
                 status: match.status,
                 // Reactive Live Telemetry
-                home_score: match.homeScore || match.home_score || 0,
-                away_score: match.awayScore || match.away_score || 0,
+                home_score: match.homeScore ?? match.home_score ?? 0,
+                away_score: match.awayScore ?? match.away_score ?? 0,
                 clock: match.displayClock || match.display_clock || '',
                 period: match.period
             };

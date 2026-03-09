@@ -7,7 +7,7 @@ import { cn } from '@/lib/essence';
 import { getCanonicalMatchId } from '../utils/matchRegistry';
 
 
-type DebugValue = string | number | boolean | null | DebugValue[] | { [key: string]: DebugValue };
+type DebugValue = any;
 
 interface DebugState {
     matchInDb: DebugValue;

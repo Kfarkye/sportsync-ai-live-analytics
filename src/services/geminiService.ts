@@ -255,3 +255,4 @@ class InstitutionalKernel {
 }
 
 export const geminiService = new InstitutionalKernel();
+export const getMatchAnalysis = (match: Match) => geminiService.getMatchIntelligence(match);

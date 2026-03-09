@@ -637,9 +637,20 @@ export const fetchPreGameData = async (matchId: string, sport: Sport, leagueId: 
         const meetingsMapped = rawMeetings.map((m) => {
             const mHome = m.teams?.find((t) => t.homeAway === 'home') || m.homeTeam;
             const mAway = m.teams?.find((t) => t.homeAway === 'away') || m.awayTeam;
-
-            const homeScore = parseInt(String((mHome as EspnCompetitor | undefined)?.score?.displayValue ?? (mHome as EspnCompetitor | undefined)?.score ?? '0'));
-            const awayScore = parseInt(String((mAway as EspnCompetitor | undefined)?.score?.displayValue ?? (mAway as EspnCompetitor | undefined)?.score ?? '0'));
+            const normalizeScore = (score: unknown): number => {
+                if (typeof score === 'number') return Number.isFinite(score) ? score : 0;
+                if (typeof score === 'string') {
+                    const parsed = parseInt(score, 10);
+                    return Number.isFinite(parsed) ? parsed : 0;
+                }
+                if (score && typeof score === 'object' && 'displayValue' in score) {
+                    const parsed = parseInt(String((score as { displayValue?: unknown }).displayValue ?? '0'), 10);
+                    return Number.isFinite(parsed) ? parsed : 0;
+                }
+                return 0;
+            };
+            const homeScore = normalizeScore((mHome as EspnCompetitor | undefined)?.score);
+            const awayScore = normalizeScore((mAway as EspnCompetitor | undefined)?.score);
 
             let winnerId = '0';
             if (homeScore > awayScore) winnerId = (mHome as EspnCompetitor | undefined)?.team?.id || (mHome as EspnCompetitor | undefined)?.id || '0';
