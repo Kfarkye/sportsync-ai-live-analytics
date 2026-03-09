@@ -24,7 +24,7 @@
     "@tanstack/query-sync-storage-persister": "^5.90.24",
     "@supabase/supabase-js": "^2.98.0",
     "@tanstack/react-query": "^5.28.0",
-    "@tanstack/react-query-persist-client": "^5.90.18",
+    "@tanstack/react-query-persist-client": "^5.90.24",
     "@vercel/functions": "^3.4.3",
     "@vercel/node": "^3.0.21",
     "ai": "^6.0.49",
