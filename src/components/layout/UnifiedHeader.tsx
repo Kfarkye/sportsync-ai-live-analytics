@@ -69,6 +69,13 @@ export const UnifiedHeader: FC = () => {
     const isEdgePage = typeof window !== 'undefined' && (
         window.location.pathname.includes('/edge') || window.location.pathname.includes('/reports')
     );
+    const isSoccerHubPage = typeof window !== 'undefined' && (
+        window.location.pathname === '/soccer' ||
+        window.location.pathname.startsWith('/league/') ||
+        window.location.pathname.startsWith('/team/') ||
+        window.location.pathname.startsWith('/teams/') ||
+        window.location.pathname.startsWith('/match/')
+    );
 
     useEffect(() => {
         const container = weekScrollRef.current;
@@ -189,6 +196,18 @@ export const UnifiedHeader: FC = () => {
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
                             EDGE
+                        </a>
+                        <a
+                            href="/soccer"
+                            className={cn(
+                                "h-[34px] max-[390px]:h-[32px] items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border hidden sm:flex",
+                                isSoccerHubPage
+                                    ? "bg-[#0A0A0A] border-[#0A0A0A] text-white"
+                                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
+                            )}
+                            style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
+                        >
+                            SOCCER HUB
                         </a>
                         <button
                             type="button"
