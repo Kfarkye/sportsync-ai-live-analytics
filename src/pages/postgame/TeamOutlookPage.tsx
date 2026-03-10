@@ -1,38 +1,44 @@
-import React, { useMemo, useState, type CSSProperties, type FC } from 'react';
+import React, { useMemo, useState, type FC } from 'react';
+import { cn } from '@/lib/essence';
 import { leagueLabel } from '@/lib/postgamePages';
 import { useTeamOutlook, type TeamOutlookFixtureRow, type TeamOutlookProfileRow } from '@/hooks/useTeamOutlook';
-import { EmptyBlock, LoadingBlock, PageShell, TopNav } from './PostgamePrimitives';
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyBlock,
+  LoadingBlock,
+  PageShell,
+  SectionLabel,
+  TopNav,
+  ValueText,
+} from './PostgamePrimitives';
 
 interface TeamOutlookPageProps {
   teamSlug: string;
   query: URLSearchParams;
 }
 
-const mono = "'IBM Plex Mono', monospace";
-const sans = "'IBM Plex Sans', -apple-system, system-ui, sans-serif";
-
-const srOnly: CSSProperties = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  padding: 0,
-  margin: -1,
-  overflow: 'hidden',
-  clip: 'rect(0, 0, 0, 0)',
-  whiteSpace: 'nowrap',
-  border: 0,
-};
-
 const LEAGUE_ABBR: Record<string, string> = {
   'eng.1': 'EPL',
+  epl: 'EPL',
   'esp.1': 'LaLiga',
+  laliga: 'LaLiga',
   'ita.1': 'Serie A',
+  seriea: 'Serie A',
   'ger.1': 'Bundesliga',
+  bundesliga: 'Bundesliga',
   'fra.1': 'Ligue 1',
+  ligue1: 'Ligue 1',
   'usa.1': 'MLS',
+  mls: 'MLS',
   'uefa.champions': 'UCL',
+  ucl: 'UCL',
   'uefa.europa': 'UEL',
+  uel: 'UEL',
 };
+
+const CUP_LEAGUES = new Set(['uefa.champions', 'uefa.europa', 'ucl', 'uel']);
 
 const normalizeLeague = (value: string): string => value.trim().toLowerCase();
 
@@ -40,25 +46,45 @@ const competitionAbbr = (leagueId: string): string => LEAGUE_ABBR[normalizeLeagu
 
 const competitionName = (leagueId: string): string => leagueLabel(leagueId);
 
-const formatPct = (value: number | null): string => (value === null || Number.isNaN(value) ? '0.0' : value.toFixed(1));
+const fmtPct = (value: number | null): string => {
+  if (value === null || Number.isNaN(value)) return '0.0';
+  return value.toFixed(1);
+};
 
-const formatDecimal = (value: number | null, digits = 1): string =>
-  value === null || Number.isNaN(value) ? '-' : value.toFixed(digits);
+const fmtNumber = (value: number | null, digits = 1): string => {
+  if (value === null || Number.isNaN(value)) return '-';
+  return value.toFixed(digits);
+};
 
 const titleFromSlug = (slug: string): string =>
   slug
     .split('-')
     .filter(Boolean)
     .map((token) => {
-      const upper = new Set(['fc', 'cf', 'ac', 'afc']);
-      if (upper.has(token)) return token.toUpperCase();
+      const upperTokens = new Set(['fc', 'cf', 'ac', 'afc']);
+      if (upperTokens.has(token)) return token.toUpperCase();
       return token.charAt(0).toUpperCase() + token.slice(1);
     })
     .join(' ');
 
-const getDateParts = (iso: string): { iso: string; dateLabel: string; timeLabel: string } => {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
+const teamLogoUrl = (espnTeamId: string): string =>
+  `https://a.espncdn.com/i/teamlogos/soccer/500/${encodeURIComponent(espnTeamId)}.png`;
+
+const teamInitials = (teamName: string): string => {
+  const tokens = teamName.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return '?';
+  return tokens.slice(0, 2).map((token) => token[0]?.toUpperCase() ?? '').join('');
+};
+
+const fixtureCompetitionLink = (leagueId: string): string | null => {
+  const normalized = normalizeLeague(leagueId);
+  if (normalized === 'uefa.champions' || normalized === 'ucl') return '/research/ucl-r16';
+  return null;
+};
+
+const dateParts = (iso: string): { iso: string; dateLabel: string; timeLabel: string } => {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) {
     return {
       iso: '',
       dateLabel: 'TBD',
@@ -66,103 +92,72 @@ const getDateParts = (iso: string): { iso: string; dateLabel: string; timeLabel:
     };
   }
 
-  const dateLabel = date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'America/New_York',
-  });
-
-  const timeLabel = `${date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: 'America/New_York',
-  })} ET`;
-
   return {
-    iso: date.toISOString(),
-    dateLabel,
-    timeLabel,
+    iso: parsed.toISOString(),
+    dateLabel: parsed.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'America/New_York',
+    }),
+    timeLabel: `${parsed.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'America/New_York',
+    })} ET`,
   };
 };
 
-const teamLogoUrl = (espnTeamId: string): string =>
-  `https://a.espncdn.com/i/teamlogos/soccer/500/${encodeURIComponent(espnTeamId)}.png`;
+const monthLabel = (iso?: string): string => {
+  if (iso) {
+    const parsed = new Date(iso);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'America/New_York' });
+    }
+  }
 
-const teamInitials = (teamName: string): string => {
-  const parts = teamName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2);
-
-  if (parts.length === 0) return '?';
-  return parts.map((token) => token.charAt(0).toUpperCase()).join('');
+  return new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'America/New_York' });
 };
 
-const TeamBadge: FC<{ teamName: string; espnTeamId: string | null; size?: number }> = ({ teamName, espnTeamId, size = 24 }) => {
+const chevronClass = (open: boolean): string =>
+  open ? 'rotate-180 text-slate-700' : 'rotate-0 text-slate-400';
+
+const TeamBadge: FC<{ teamName: string; espnTeamId: string | null; size?: 'sm' | 'lg' }> = ({
+  teamName,
+  espnTeamId,
+  size = 'sm',
+}) => {
   const [failed, setFailed] = useState(false);
+  const dimension = size === 'lg' ? 46 : 26;
+  const textSize = size === 'lg' ? 'text-sm' : 'text-[10px]';
 
   if (espnTeamId && !failed) {
     return (
       <img
         src={teamLogoUrl(espnTeamId)}
         alt={`${teamName} logo`}
-        width={size}
-        height={size}
+        width={dimension}
+        height={dimension}
         loading="lazy"
         onError={() => setFailed(true)}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: '50%',
-          objectFit: 'cover',
-          border: '1px solid #e5e5e5',
-          background: '#fff',
-          flexShrink: 0,
-        }}
+        className="rounded-full border border-slate-200 bg-white object-cover"
       />
     );
   }
 
   return (
-    <div
+    <span
       aria-hidden="true"
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: '#e5e5e5',
-        color: '#525252',
-        fontFamily: mono,
-        fontWeight: 700,
-        fontSize: size < 30 ? 10 : 14,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}
+      className={cn(
+        'inline-flex items-center justify-center rounded-full border border-slate-200 bg-slate-100 font-mono font-semibold text-slate-600',
+        textSize,
+      )}
+      style={{ width: dimension, height: dimension }}
     >
       {teamInitials(teamName)}
-    </div>
+    </span>
   );
 };
-
-const Chevron: FC<{ open: boolean }> = ({ open }) => (
-  <svg
-    aria-hidden="true"
-    width="14"
-    height="14"
-    viewBox="0 0 14 14"
-    style={{
-      transition: 'transform 0.2s',
-      transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-      color: '#a3a3a3',
-      flexShrink: 0,
-    }}
-  >
-    <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
 
 interface FixtureRowProps {
   fixture: TeamOutlookFixtureRow;
@@ -171,178 +166,112 @@ interface FixtureRowProps {
   last: boolean;
 }
 
-const fixtureCompetitionLink = (leagueId: string): string | null => {
-  if (normalizeLeague(leagueId) === 'uefa.champions') return '/research/ucl-r16';
-  return null;
-};
-
 const FixtureRow: FC<FixtureRowProps> = ({ fixture, teamName, teamProfile, last }) => {
   const [open, setOpen] = useState(false);
-  const matchDomId = `fixture-${fixture.id || `${fixture.opponent}-${fixture.startTime}`}`
-    .replace(/[^a-zA-Z0-9_-]/g, '-')
-    .toLowerCase();
-
-  const dateParts = getDateParts(fixture.startTime);
+  const domId = `fixture-${fixture.id || `${fixture.opponent}-${fixture.startTime}`}`.replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase();
+  const date = dateParts(fixture.startTime);
   const compAbbr = competitionAbbr(fixture.leagueId);
   const compName = competitionName(fixture.leagueId);
   const compLink = fixtureCompetitionLink(fixture.leagueId);
 
-  const opponentHeadline = fixture.oppOuSample > 0
-    ? `${fixture.opponent} ${compAbbr}: ${formatPct(fixture.oppUnderRate)}% under and ${formatPct(fixture.oppOverRate)}% over on ${fixture.oppOuSample} lined games. Avg actual total ${formatDecimal(fixture.oppAvgActual)}.`
-    : `${fixture.opponent} ${compAbbr}: no verified closing-line sample yet.`;
+  const opponentHeadline =
+    fixture.oppOuSample > 0
+      ? `${fixture.opponent} ${compAbbr}: ${fmtPct(fixture.oppUnderRate)}% under and ${fmtPct(fixture.oppOverRate)}% over across ${fixture.oppOuSample} lined matches.`
+      : `${fixture.opponent} ${compAbbr}: no verified closing-line sample yet.`;
 
   const teamUnder = teamProfile?.underRate;
   const oppUnder = fixture.oppUnderRate;
-  const read = teamUnder !== null && teamUnder !== undefined && oppUnder !== null
-    ? `${teamName} has finished under the posted total in ${formatPct(teamUnder)}% of recent lined matches. ${fixture.opponent} is at ${formatPct(oppUnder)}% in this competition. Use the posted total as the reference number.`
-    : `${teamName} and ${fixture.opponent} are available on the schedule board. Check closer to kickoff for line-based reads once closing samples are populated.`;
+  const readText =
+    teamUnder !== null && teamUnder !== undefined && oppUnder !== null
+      ? `${teamName} is ${fmtPct(teamUnder)}% under vs posted totals recently. ${fixture.opponent} is ${fmtPct(oppUnder)}% under in this competition.`
+      : `${teamName} and ${fixture.opponent} are on the schedule board. Check again closer to kickoff for stronger line-based reads.`;
 
-  const formNote = fixture.oppWins !== null && fixture.oppDraws !== null && fixture.oppLosses !== null
-    ? `${fixture.opponent} recent form: ${fixture.oppWins}-${fixture.oppDraws}-${fixture.oppLosses}${fixture.oppForm ? ` (${fixture.oppForm})` : ''}.`
-    : fixture.oppForm
-      ? `${fixture.opponent} recent form: ${fixture.oppForm}.`
-      : null;
+  const formNote =
+    fixture.oppWins !== null && fixture.oppDraws !== null && fixture.oppLosses !== null
+      ? `${fixture.opponent} recent form: ${fixture.oppWins}-${fixture.oppDraws}-${fixture.oppLosses}${fixture.oppForm ? ` (${fixture.oppForm})` : ''}.`
+      : fixture.oppForm
+        ? `${fixture.opponent} recent form: ${fixture.oppForm}.`
+        : null;
 
   return (
-    <tbody style={{ borderBottom: last ? 'none' : '1px solid #e5e5e5' }}>
+    <tbody className={cn('border-slate-200', last ? 'border-b-0' : 'border-b')}>
       <tr
+        className={cn(
+          'cursor-pointer transition-colors hover:bg-slate-50',
+          open ? 'bg-slate-50' : 'bg-white',
+        )}
         onClick={() => setOpen((prev) => !prev)}
-        style={{
-          cursor: 'pointer',
-          background: open ? '#f9f9f9' : 'transparent',
-          transition: 'background 0.12s',
-        }}
-        onMouseEnter={(event) => {
-          if (!open) event.currentTarget.style.background = '#fafafa';
-        }}
-        onMouseLeave={(event) => {
-          if (!open) event.currentTarget.style.background = 'transparent';
-        }}
       >
-        <td style={{ padding: '18px 24px', width: 152 }}>
-          <time dateTime={dateParts.iso} style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#171717', fontFamily: mono }}>
-            {dateParts.dateLabel}
+        <td className="w-[148px] px-4 py-4 align-top sm:px-5">
+          <time dateTime={date.iso} className="block font-mono text-xs font-semibold tabular-nums text-slate-900">
+            {date.dateLabel}
           </time>
-          <time dateTime={dateParts.iso} style={{ display: 'block', fontSize: 11, color: '#737373', fontFamily: mono, marginTop: 1 }}>
-            {dateParts.timeLabel}
+          <time dateTime={date.iso} className="mt-0.5 block font-mono text-[11px] tabular-nums text-slate-500">
+            {date.timeLabel}
           </time>
         </td>
-
-        <td
-          style={{
-            padding: '18px 24px',
-            width: 64,
-            fontSize: 11,
-            fontWeight: 600,
-            color: fixture.venue === 'Home' ? '#171717' : '#737373',
-            fontFamily: mono,
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-          }}
-        >
-          {fixture.venue}
+        <td className="w-[68px] px-3 py-4 align-top">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">{fixture.venue}</span>
         </td>
-
-        <th scope="row" style={{ padding: '18px 24px', background: 'transparent', textAlign: 'left', fontWeight: 'normal' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <TeamBadge teamName={fixture.opponent} espnTeamId={fixture.opponentEspnId} size={24} />
-            <div>
-              <span id={`title-${matchDomId}`} style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#171717' }}>
+        <th scope="row" className="bg-transparent px-3 py-4 text-left font-normal align-top">
+          <div className="flex items-start gap-2.5">
+            <TeamBadge teamName={fixture.opponent} espnTeamId={fixture.opponentEspnId} />
+            <div className="min-w-0">
+              <span id={`title-${domId}`} className="block truncate text-sm font-semibold text-slate-900">
                 {fixture.opponent}
               </span>
               {compLink ? (
                 <a
                   href={compLink}
-                  style={{
-                    display: 'block',
-                    fontSize: 11,
-                    color: '#737373',
-                    marginTop: 1,
-                    textDecoration: 'none',
-                    borderBottom: '1px solid #d4d4d4',
-                    width: 'fit-content',
-                  }}
+                  className="mt-0.5 inline-flex border-b border-slate-300 text-[11px] text-slate-600 hover:text-slate-900"
                   onClick={(event) => event.stopPropagation()}
                 >
                   {compName}
                 </a>
               ) : (
-                <span style={{ display: 'block', fontSize: 11, color: '#737373', marginTop: 1 }}>{compName}</span>
+                <span className="mt-0.5 block text-[11px] text-slate-500">{compName}</span>
               )}
             </div>
           </div>
         </th>
-
-        <td style={{ padding: '18px 24px', width: 80, textAlign: 'center' }}>
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: '#525252',
-              background: '#f5f5f5',
-              padding: '3px 8px',
-              borderRadius: 3,
-              fontFamily: mono,
-            }}
-          >
-            <abbr title={compName} style={{ textDecoration: 'none' }}>
+        <td className="w-[88px] px-3 py-4 align-top text-center">
+          <span className="inline-flex rounded-md border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">
+            <abbr title={compName} className="no-underline">
               {compAbbr}
             </abbr>
           </span>
         </td>
-
-        <td style={{ padding: '18px 24px', width: 24, textAlign: 'right' }}>
+        <td className="w-10 px-3 py-4 align-top text-right">
           <button
+            type="button"
             aria-expanded={open}
-            aria-controls={`content-${matchDomId}`}
-            aria-label={`View betting read for ${fixture.opponent}`}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            aria-controls={`content-${domId}`}
+            aria-label={`View breakdown for ${fixture.opponent}`}
+            className="rounded-md border border-transparent p-1.5 transition-colors hover:border-slate-200 hover:bg-white"
           >
-            <Chevron open={open} />
+            <svg className={cn('h-3.5 w-3.5 transition-transform', chevronClass(open))} viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
         </td>
       </tr>
 
-      <tr id={`content-${matchDomId}`} hidden={!open}>
-        <td colSpan={5} style={{ padding: open ? '0 24px 24px' : 0, background: '#f9f9f9', border: 'none' }}>
-          <div style={{ display: open ? 'block' : 'none' }}>
-            <div style={{ padding: '14px 16px', background: '#fff', borderRadius: 6, border: '1px solid #e5e5e5', marginBottom: 12 }}>
-              <h4
-                style={{
-                  margin: 0,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: '#737373',
-                  fontFamily: mono,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  marginBottom: 8,
-                }}
-              >
-                {fixture.opponent}
-              </h4>
-              <p style={{ margin: 0, fontSize: 13, color: '#404040', lineHeight: 1.6 }}>{opponentHeadline}</p>
-              {formNote ? (
-                <p style={{ margin: '10px 0 0', fontSize: 11, color: '#737373', lineHeight: 1.5, fontStyle: 'italic' }}>{formNote}</p>
+      <tr id={`content-${domId}`} hidden={!open} className="bg-slate-50">
+        <td colSpan={5} className="px-4 pb-4 sm:px-5">
+          <div className="grid gap-3">
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+              <h4 className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{fixture.opponent}</h4>
+              <p className="text-sm leading-6 text-slate-700">{opponentHeadline}</p>
+              {fixture.oppAvgActual !== null ? (
+                <p className="mt-1.5 text-xs text-slate-500">
+                  Avg actual total: <ValueText className="text-xs">{fmtNumber(fixture.oppAvgActual)}</ValueText>
+                </p>
               ) : null}
+              {formNote ? <p className="mt-2 text-xs italic text-slate-500">{formNote}</p> : null}
             </div>
-
-            <div style={{ padding: '14px 16px', background: '#fff', borderRadius: 6, border: '1px solid #e5e5e5' }}>
-              <h4
-                style={{
-                  margin: 0,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: '#737373',
-                  fontFamily: mono,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  marginBottom: 8,
-                }}
-              >
-                Read
-              </h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#171717', lineHeight: 1.65 }}>{read}</p>
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+              <h4 className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Read</h4>
+              <p className="text-sm leading-6 text-slate-800">{readText}</p>
             </div>
           </div>
         </td>
@@ -355,467 +284,322 @@ export const TeamOutlookPage: FC<TeamOutlookPageProps> = ({ teamSlug, query }) =
   const leagueId = query.get('league');
   const { data, isLoading, error } = useTeamOutlook(teamSlug, leagueId);
 
-  const profileRows = data?.profile ?? [];
-  const fixtures = data?.fixtures ?? [];
-  const goalDist = data?.goalDist ?? [];
-
   const teamName = data?.team || titleFromSlug(teamSlug);
-  const headerTeamEspnId = data?.teamEspnId ?? fixtures[0]?.teamEspnId ?? null;
+  const profileRows = data?.profile ?? [];
+  const goalDist = data?.goalDist ?? [];
+  const fixtures = data?.fixtures ?? [];
 
   const profileByLeague = useMemo(() => {
-    const lookup = new Map<string, TeamOutlookProfileRow>();
+    const map = new Map<string, TeamOutlookProfileRow>();
     for (const row of profileRows) {
-      lookup.set(normalizeLeague(row.leagueId), row);
+      map.set(normalizeLeague(row.leagueId), row);
     }
-    return lookup;
+    return map;
   }, [profileRows]);
 
-  const totalLinedGames = useMemo(
-    () => profileRows.reduce((sum, row) => sum + row.gamesWithLine, 0),
-    [profileRows],
-  );
-
-  const monthLabel = useMemo(
-    () =>
-      new Date().toLocaleDateString('en-US', {
-        month: 'long',
-        year: 'numeric',
-        timeZone: 'America/New_York',
-      }),
-    [],
-  );
+  const totalLinedGames = useMemo(() => profileRows.reduce((sum, row) => sum + row.gamesWithLine, 0), [profileRows]);
 
   const primaryGoalLeague = data?.goalDistLeagueId || leagueId || profileRows[0]?.leagueId || 'soccer';
-  const goalDistMax = Math.max(...goalDist.map((row) => row.pct), 1);
+  const goalDistMax = useMemo(() => Math.max(...goalDist.map((row) => row.pct), 1), [goalDist]);
+
+  const headerTeamEspnId = data?.teamEspnId ?? fixtures[0]?.teamEspnId ?? null;
+  const snapshotMonth = monthLabel(fixtures[0]?.startTime);
+
+  if (isLoading) {
+    return (
+      <PageShell>
+        <TopNav />
+        <LoadingBlock label="Loading team outlook…" />
+      </PageShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageShell>
+        <TopNav />
+        <EmptyBlock message={`Failed to load team outlook: ${error.message}`} />
+      </PageShell>
+    );
+  }
+
+  if (!data) {
+    return (
+      <PageShell>
+        <TopNav />
+        <EmptyBlock message="No team outlook data available yet." />
+      </PageShell>
+    );
+  }
 
   return (
-    <PageShell className="bg-white">
+    <PageShell>
       <TopNav />
-      <div style={{ maxWidth: 840, margin: '0 auto', padding: '4px 24px 14px' }}>
-        <a
-          href="/soccer"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '8px 12px',
-            borderRadius: 6,
-            border: '1px solid #e5e5e5',
-            background: '#fafafa',
-            color: '#171717',
-            fontSize: 12,
-            fontWeight: 600,
-            fontFamily: mono,
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-            textDecoration: 'none',
-          }}
-        >
-          <span aria-hidden="true">←</span>
-          Soccer Hub
-        </a>
-      </div>
 
-      {isLoading ? <LoadingBlock label="Loading team outlook..." /> : null}
-      {error ? <EmptyBlock message={`Failed to load team outlook: ${error.message}`} /> : null}
-
-      {data ? (
-        <main style={{ minHeight: '100vh', background: '#fff', fontFamily: sans, color: '#171717' }}>
-          <link
-            href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"
-            rel="stylesheet"
-          />
-
-          <header style={{ borderBottom: '1px solid #e5e5e5' }}>
-            <div
-              style={{
-                maxWidth: 840,
-                margin: '0 auto',
-                padding: '28px 24px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 18,
-                flexWrap: 'wrap',
-              }}
-            >
-              <TeamBadge teamName={teamName} espnTeamId={headerTeamEspnId} size={48} />
-              <div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: '#737373',
-                    fontFamily: mono,
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                    marginBottom: 3,
-                  }}
-                >
-                  Team Schedule
-                </div>
-                <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>{teamName}</h1>
+      <div className="mx-auto max-w-5xl space-y-5">
+        <Card>
+          <CardBody className="px-5 py-4 sm:px-6">
+            <div className="flex flex-wrap items-center gap-4">
+              <TeamBadge teamName={teamName} espnTeamId={headerTeamEspnId} size="lg" />
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Team Outlook</div>
+                <h1 className="truncate text-2xl font-semibold tracking-tight text-slate-900">{teamName}</h1>
               </div>
-              <div style={{ marginLeft: 'auto', fontSize: 11, color: '#737373', fontFamily: mono }}>{monthLabel}</div>
+              <div className="ml-auto flex items-center gap-2">
+                <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-[11px] text-slate-600">
+                  {snapshotMonth}
+                </span>
+                <a
+                  href="/soccer"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-700 hover:bg-slate-50"
+                >
+                  <span aria-hidden="true">←</span>
+                  Soccer Hub
+                </a>
+              </div>
             </div>
-          </header>
+          </CardBody>
+        </Card>
 
-          <div style={{ maxWidth: 840, margin: '0 auto', padding: '28px 24px 72px' }}>
-            <section aria-labelledby="ou-profile-heading" style={{ marginBottom: 32 }}>
-              <h2
-                id="ou-profile-heading"
-                style={{
-                  margin: 0,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: '#737373',
-                  fontFamily: mono,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  marginBottom: 12,
-                }}
-              >
-                <abbr title="Over / Under" style={{ textDecoration: 'none' }}>
-                  O/U
-                </abbr>{' '}
-                Profile - 2025-26
-              </h2>
+        <Card>
+          <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+            <SectionLabel>
+              <abbr title="Over / Under" className="no-underline">
+                O/U
+              </abbr>{' '}
+              Profile
+            </SectionLabel>
+            <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-slate-500">
+              {profileRows.length} competitions
+            </span>
+          </CardHeader>
+          <CardBody className="p-0">
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-left text-sm">
+                <caption className="sr-only">{teamName} historical over/under profile by competition.</caption>
+                <thead className="border-b border-slate-200 bg-slate-50">
+                  <tr className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    {[
+                      { id: 'col-comp', vis: 'Comp', full: 'Tournament Competition', align: 'left' as const },
+                      { id: 'col-games', vis: 'Games', full: 'Total Matches Played', align: 'right' as const },
+                      { id: 'col-line', vis: 'w/ Line', full: 'Matches with Closing Line', align: 'right' as const },
+                      { id: 'col-under', vis: 'Under', full: 'Under Record', align: 'right' as const },
+                      { id: 'col-rate', vis: 'Rate', full: 'Under Rate', align: 'right' as const },
+                      { id: 'col-avgline', vis: 'Avg Line', full: 'Average Posted Total', align: 'right' as const },
+                      { id: 'col-avgact', vis: 'Avg Actual', full: 'Average Actual Total', align: 'right' as const },
+                      { id: 'col-band', vis: '2-3 Band', full: 'Matches Landing in 2-3 Total Goals', align: 'right' as const },
+                    ].map((header) => (
+                      <th key={header.id} id={header.id} scope="col" className={cn('px-4 py-3', header.align === 'right' ? 'text-right' : 'text-left')}>
+                        <span aria-hidden="true">{header.vis}</span>
+                        <span className="sr-only">{header.full}</span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {profileRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-4 text-sm text-slate-500">
+                        No line profile available for this team yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    profileRows.map((row, index) => {
+                      const rowId = `profile-row-${index}`;
+                      const bandDenominator = row.games > 0 ? row.games : data.band.totalGames;
+                      const bandPct = row.band23Pct ?? (bandDenominator > 0 ? (row.band23 / bandDenominator) * 100 : null);
+                      const underRecord = row.pushCount > 0 ? `${row.underCount}-${row.overCount}-${row.pushCount}` : `${row.underCount}-${row.overCount}`;
 
-              <div style={{ borderRadius: 8, border: '1px solid #e5e5e5', overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 650 }}>
-                  <caption style={srOnly}>
-                    {teamName} historical Over/Under betting records and 2-3 goal band hit rates.
-                  </caption>
+                      return (
+                        <tr key={`${row.leagueId}-${index}`} className={cn('border-slate-100', index < profileRows.length - 1 ? 'border-b' : '')}>
+                          <th
+                            id={rowId}
+                            headers="col-comp"
+                            scope="row"
+                            className="bg-transparent px-4 py-3.5 text-left text-sm font-semibold text-slate-900"
+                          >
+                            <abbr title={competitionName(row.leagueId)} className="no-underline">
+                              {competitionAbbr(row.leagueId)}
+                            </abbr>
+                          </th>
+                          <td headers={`${rowId} col-games`} className="px-4 py-3.5 text-right font-mono text-xs tabular-nums text-slate-600">
+                            <data value={row.games}>{row.games}</data>
+                          </td>
+                          <td headers={`${rowId} col-line`} className="px-4 py-3.5 text-right font-mono text-xs tabular-nums text-slate-600">
+                            <data value={row.gamesWithLine}>{row.gamesWithLine}</data>
+                          </td>
+                          <td headers={`${rowId} col-under`} className="px-4 py-3.5 text-right font-mono text-xs font-semibold tabular-nums text-slate-800">
+                            {underRecord}
+                          </td>
+                          <td headers={`${rowId} col-rate`} className="px-4 py-3.5 text-right font-mono text-xs font-semibold tabular-nums text-slate-900">
+                            <data value={fmtPct(row.underRate)}>{fmtPct(row.underRate)}%</data>
+                          </td>
+                          <td headers={`${rowId} col-avgline`} className="px-4 py-3.5 text-right font-mono text-xs tabular-nums text-slate-600">
+                            <data value={fmtNumber(row.avgLine)}>{fmtNumber(row.avgLine)}</data>
+                          </td>
+                          <td headers={`${rowId} col-avgact`} className="px-4 py-3.5 text-right font-mono text-xs tabular-nums text-slate-600">
+                            <data value={fmtNumber(row.avgActual)}>{fmtNumber(row.avgActual)}</data>
+                          </td>
+                          <td headers={`${rowId} col-band`} className="whitespace-nowrap px-4 py-3.5 text-right font-mono text-xs tabular-nums text-slate-700">
+                            <data value={row.band23}>{`${row.band23}/${bandDenominator}`}</data>{' '}
+                            <span className="text-slate-500">
+                              (<data value={fmtPct(bandPct)}>{fmtPct(bandPct)}%</data>)
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex items-center justify-between gap-2">
+            <SectionLabel>
+              <abbr title={competitionName(primaryGoalLeague)} className="no-underline">
+                {competitionAbbr(primaryGoalLeague)}
+              </abbr>{' '}
+              Goal Distribution
+            </SectionLabel>
+            <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-slate-500">{data.band.totalGames} games</span>
+          </CardHeader>
+          <CardBody>
+            {goalDist.length === 0 ? (
+              <p className="text-sm text-slate-500">No completed-match goal distribution available.</p>
+            ) : (
+              <>
+                <div aria-hidden="true" className="mb-3 flex h-[130px] items-end gap-1.5">
+                  {goalDist.map((row, index) => {
+                    const barHeight = Math.max((row.pct / goalDistMax) * 100, 6);
+                    const rowLabel = String(row.total);
+                    const hotBand = rowLabel === '2' || rowLabel === '3';
+                    return (
+                      <div key={`${row.total}-${index}`} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+                        <span className={cn('font-mono text-[10px] tabular-nums', hotBand ? 'text-slate-900' : 'text-slate-500')}>
+                          {fmtPct(row.pct)}%
+                        </span>
+                        <div
+                          className={cn(
+                            'w-full rounded-t-sm transition-all duration-200',
+                            hotBand ? 'bg-slate-900' : 'bg-slate-300',
+                          )}
+                          style={{ height: `${barHeight}%` }}
+                        />
+                        <span className={cn('font-mono text-[11px] tabular-nums', hotBand ? 'font-semibold text-slate-900' : 'text-slate-500')}>
+                          {row.total}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <table className="sr-only">
+                  <caption>Exact match goal distribution for {teamName}</caption>
                   <thead>
-                    <tr style={{ background: '#fafafa', borderBottom: '1px solid #e5e5e5' }}>
-                      {[
-                        { id: 'col-comp', vis: 'Competition', full: 'Tournament Competition', align: 'left' as const },
-                        { id: 'col-games', vis: 'Games', full: 'Total Matches Played', align: 'right' as const },
-                        { id: 'col-line', vis: 'w/ Line', full: 'Matches with a Sportsbook Closing Line', align: 'right' as const },
-                        { id: 'col-under', vis: 'Under', full: 'Under Betting Record', align: 'right' as const },
-                        { id: 'col-rate', vis: 'Rate', full: 'Under Betting Win Percentage', align: 'right' as const },
-                        { id: 'col-avgline', vis: 'Avg Line', full: 'Average Over/Under Closing Line', align: 'right' as const },
-                        { id: 'col-avgact', vis: 'Avg Actual', full: 'Average Actual Goals Scored', align: 'right' as const },
-                        { id: 'col-band', vis: '2-3 Band', full: 'Matches Landing in the 2-3 Total Goals Band', align: 'right' as const },
-                      ].map((header) => (
-                        <th
-                          key={header.id}
-                          id={header.id}
-                          scope="col"
-                          style={{
-                            padding: '10px 14px',
-                            textAlign: header.align,
-                            fontSize: 10,
-                            fontWeight: 600,
-                            color: '#737373',
-                            fontFamily: mono,
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          <span aria-hidden="true">{header.vis}</span>
-                          <span style={srOnly}>{header.full}</span>
-                        </th>
-                      ))}
+                    <tr>
+                      <th id="h-exact-goals" scope="col">
+                        Exact Total Goals
+                      </th>
+                      <th id="h-games-played" scope="col">
+                        Number of Games
+                      </th>
+                      <th id="h-frequency" scope="col">
+                        Frequency Percentage
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {profileRows.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} style={{ padding: '14px', fontSize: 13, color: '#737373' }}>
-                          No line profile available for this team yet.
+                    {goalDist.map((row, index) => (
+                      <tr key={`${row.total}-${index}`}>
+                        <th id={`r-goal-${index}`} scope="row" headers="h-exact-goals">
+                          {row.total} Goals
+                        </th>
+                        <td headers={`h-games-played r-goal-${index}`}>
+                          <data value={row.games}>{row.games}</data>
+                        </td>
+                        <td headers={`h-frequency r-goal-${index}`}>
+                          <data value={fmtPct(row.pct)}>{fmtPct(row.pct)}%</data>
                         </td>
                       </tr>
-                    ) : (
-                      profileRows.map((row, index) => {
-                        const rowId = `row-${index}`;
-                        const bandDenominator = row.games > 0 ? row.games : data.band.totalGames;
-                        const bandPct = row.band23Pct ?? (bandDenominator > 0 ? (row.band23 / bandDenominator) * 100 : null);
-                        const underRecord = row.pushCount > 0
-                          ? `${row.underCount}-${row.overCount}-${row.pushCount}`
-                          : `${row.underCount}-${row.overCount}`;
-
-                        return (
-                          <tr key={`${row.leagueId}-${index}`} style={{ borderBottom: index < profileRows.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
-                            <th
-                              id={rowId}
-                              headers="col-comp"
-                              scope="row"
-                              style={{
-                                padding: '13px 14px',
-                                fontSize: 13,
-                                fontWeight: 600,
-                                textAlign: 'left',
-                                background: 'transparent',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              <abbr title={competitionName(row.leagueId)} style={{ textDecoration: 'none' }}>
-                                {competitionAbbr(row.leagueId)}
-                              </abbr>
-                            </th>
-                            <td headers={`${rowId} col-games`} style={{ padding: '13px 14px', fontSize: 13, color: '#737373', textAlign: 'right', fontFamily: mono }}>
-                              <data value={row.games}>{row.games}</data>
-                            </td>
-                            <td headers={`${rowId} col-line`} style={{ padding: '13px 14px', fontSize: 13, color: '#737373', textAlign: 'right', fontFamily: mono }}>
-                              <data value={row.gamesWithLine}>{row.gamesWithLine}</data>
-                            </td>
-                            <td headers={`${rowId} col-under`} style={{ padding: '13px 14px', fontSize: 13, fontWeight: 600, textAlign: 'right', fontFamily: mono }}>
-                              {underRecord}
-                            </td>
-                            <td headers={`${rowId} col-rate`} style={{ padding: '13px 14px', fontSize: 14, fontWeight: 700, textAlign: 'right', fontFamily: mono }}>
-                              <data value={formatPct(row.underRate)}>{formatPct(row.underRate)}%</data>
-                            </td>
-                            <td headers={`${rowId} col-avgline`} style={{ padding: '13px 14px', fontSize: 13, color: '#737373', textAlign: 'right', fontFamily: mono }}>
-                              <data value={formatDecimal(row.avgLine)}>{formatDecimal(row.avgLine)}</data>
-                            </td>
-                            <td headers={`${rowId} col-avgact`} style={{ padding: '13px 14px', fontSize: 13, color: '#737373', textAlign: 'right', fontFamily: mono }}>
-                              <data value={formatDecimal(row.avgActual)}>{formatDecimal(row.avgActual)}</data>
-                            </td>
-                            <td
-                              headers={`${rowId} col-band`}
-                              style={{
-                                padding: '13px 14px',
-                                fontSize: 13,
-                                fontWeight: 600,
-                                textAlign: 'right',
-                                fontFamily: mono,
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              <data value={row.band23}>{`${row.band23}/${bandDenominator}`}</data>{' '}
-                              <span style={{ color: '#737373', fontWeight: 400 }}>
-                                (<data value={formatPct(bandPct)}>{formatPct(bandPct)}%</data>)
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
+                    ))}
                   </tbody>
                 </table>
-              </div>
-            </section>
 
-            <section aria-labelledby="goal-dist-heading" style={{ marginBottom: 32 }}>
-              <h2
-                id="goal-dist-heading"
-                style={{
-                  margin: 0,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: '#737373',
-                  fontFamily: mono,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  marginBottom: 12,
-                }}
-              >
-                <abbr title={competitionName(primaryGoalLeague)} style={{ textDecoration: 'none' }}>
-                  {competitionAbbr(primaryGoalLeague)}
-                </abbr>{' '}
-                Goal Distribution - {data.band.totalGames} games
-              </h2>
+                <p className="text-sm text-slate-600">
+                  <ValueText className="text-sm">{data.band.band23}</ValueText> of{' '}
+                  <ValueText className="text-sm">{data.band.totalGames}</ValueText> games land on 2 or 3 goals.
+                </p>
+              </>
+            )}
+          </CardBody>
+        </Card>
 
-              {goalDist.length > 0 ? (
-                <>
-                  <div aria-hidden="true" style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 120, padding: '0 0 20px' }}>
-                    {goalDist.map((row, index) => {
-                      const height = Math.max((row.pct / goalDistMax) * 100, 4);
-                      const isHot = String(row.total) === '2' || String(row.total) === '3';
-                      return (
-                        <div key={`${row.total}-${index}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                          <div style={{ fontSize: 10, fontWeight: 600, fontFamily: mono, color: isHot ? '#171717' : '#737373' }}>{formatPct(row.pct)}%</div>
-                          <div
-                            style={{
-                              width: '100%',
-                              height: `${height}%`,
-                              minHeight: 4,
-                              background: isHot ? '#171717' : '#e5e5e5',
-                              borderRadius: '3px 3px 0 0',
-                              transition: 'height 0.3s',
-                            }}
-                          />
-                          <div style={{ fontSize: 11, fontWeight: isHot ? 700 : 500, fontFamily: mono, color: isHot ? '#171717' : '#737373' }}>
-                            {row.total}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+        <Card>
+          <CardHeader className="flex items-center justify-between gap-2">
+            <SectionLabel>Upcoming Fixtures</SectionLabel>
+            <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-slate-500">{fixtures.length} matches</span>
+          </CardHeader>
+          <CardBody className="p-0">
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-left text-sm">
+                <caption className="sr-only">{teamName} upcoming fixture list with opponent context.</caption>
+                <thead className="border-b border-slate-200 bg-slate-50">
+                  <tr className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    <th scope="col" className="w-[148px] px-4 py-3 text-left">
+                      Date
+                    </th>
+                    <th scope="col" className="w-[68px] px-3 py-3 text-left">
+                      Venue
+                    </th>
+                    <th scope="col" className="px-3 py-3 text-left">
+                      Opponent
+                    </th>
+                    <th scope="col" className="w-[88px] px-3 py-3 text-center">
+                      Comp
+                    </th>
+                    <th scope="col" className="w-10 px-3 py-3 text-right">
+                      <span className="sr-only">Expand Details</span>
+                    </th>
+                  </tr>
+                </thead>
 
-                  <table style={srOnly}>
-                    <caption>Exact match goal distribution for {teamName}</caption>
-                    <thead>
-                      <tr>
-                        <th id="h-exact-goals" scope="col">
-                          Exact Total Goals
-                        </th>
-                        <th id="h-games-played" scope="col">
-                          Number of Games
-                        </th>
-                        <th id="h-frequency" scope="col">
-                          Frequency Percentage
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {goalDist.map((row, index) => (
-                        <tr key={`${row.total}-${index}`}>
-                          <th id={`r-goal-${index}`} scope="row" headers="h-exact-goals">
-                            {row.total} Goals
-                          </th>
-                          <td headers={`h-games-played r-goal-${index}`}>
-                            <data value={row.games}>{row.games}</data>
-                          </td>
-                          <td headers={`h-frequency r-goal-${index}`}>
-                            <data value={formatPct(row.pct)}>{formatPct(row.pct)}%</data>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-
-                  <p style={{ margin: 0, fontSize: 12, color: '#737373' }}>
-                    {data.band.band23} of {data.band.totalGames} games land on 2 or 3 goals.
-                  </p>
-                </>
-              ) : (
-                <p style={{ margin: 0, fontSize: 12, color: '#737373' }}>No completed-match goal distribution available.</p>
-              )}
-            </section>
-
-            <section aria-labelledby="fixtures-heading">
-              <h2
-                id="fixtures-heading"
-                style={{
-                  margin: 0,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: '#737373',
-                  fontFamily: mono,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  marginBottom: 12,
-                }}
-              >
-                Upcoming - {fixtures.length} matches
-              </h2>
-              <div style={{ borderRadius: 8, border: '1px solid #e5e5e5', overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
-                  <caption style={srOnly}>
-                    {teamName} upcoming fixture list with opponent analysis and betting context.
-                  </caption>
-                  <thead>
-                    <tr style={{ background: '#fafafa', borderBottom: '1px solid #e5e5e5' }}>
-                      <th
-                        scope="col"
-                        style={{
-                          padding: '10px 24px',
-                          textAlign: 'left',
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: '#737373',
-                          fontFamily: mono,
-                          letterSpacing: '0.06em',
-                          textTransform: 'uppercase',
-                          width: 152,
-                        }}
-                      >
-                        Date
-                      </th>
-                      <th
-                        scope="col"
-                        style={{
-                          padding: '10px 24px',
-                          textAlign: 'left',
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: '#737373',
-                          fontFamily: mono,
-                          letterSpacing: '0.06em',
-                          textTransform: 'uppercase',
-                          width: 64,
-                        }}
-                      >
-                        Venue
-                      </th>
-                      <th
-                        scope="col"
-                        style={{
-                          padding: '10px 24px',
-                          textAlign: 'left',
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: '#737373',
-                          fontFamily: mono,
-                          letterSpacing: '0.06em',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        Opponent
-                      </th>
-                      <th
-                        scope="col"
-                        style={{
-                          padding: '10px 24px',
-                          textAlign: 'center',
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: '#737373',
-                          fontFamily: mono,
-                          letterSpacing: '0.06em',
-                          textTransform: 'uppercase',
-                          width: 80,
-                        }}
-                      >
-                        Comp
-                      </th>
-                      <th scope="col" style={{ width: 24 }}>
-                        <span style={srOnly}>Expand Details</span>
-                      </th>
+                {fixtures.length === 0 ? (
+                  <tbody>
+                    <tr>
+                      <td colSpan={5} className="px-4 py-4 text-sm text-slate-500">
+                        No upcoming fixtures found.
+                      </td>
                     </tr>
-                  </thead>
-                  {fixtures.length === 0 ? (
-                    <tbody>
-                      <tr>
-                        <td colSpan={5} style={{ padding: '16px 24px', color: '#737373', fontSize: 13 }}>
-                          No upcoming fixtures found.
-                        </td>
-                      </tr>
-                    </tbody>
-                  ) : (
-                    fixtures.map((fixture, index) => (
-                      <FixtureRow
-                        key={`${fixture.id}-${index}`}
-                        fixture={fixture}
-                        teamName={teamName}
-                        teamProfile={profileByLeague.get(normalizeLeague(fixture.leagueId)) ?? null}
-                        last={index === fixtures.length - 1}
-                      />
-                    ))
-                  )}
-                </table>
-              </div>
-            </section>
+                  </tbody>
+                ) : (
+                  fixtures.map((fixture, index) => (
+                    <FixtureRow
+                      key={`${fixture.id}-${index}`}
+                      fixture={fixture}
+                      teamName={teamName}
+                      teamProfile={profileByLeague.get(normalizeLeague(fixture.leagueId)) ?? null}
+                      last={index === fixtures.length - 1}
+                    />
+                  ))
+                )}
+              </table>
+            </div>
+          </CardBody>
+        </Card>
 
-            <footer
-              style={{
-                marginTop: 36,
-                paddingTop: 20,
-                borderTop: '1px solid #e5e5e5',
-                display: 'flex',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '10px',
-              }}
-            >
-              <span style={{ fontSize: 10, color: '#a3a3a3', fontFamily: mono }}>thedrip.to</span>
-              <span style={{ fontSize: 10, color: '#a3a3a3', fontFamily: mono }}>
-                Closing lines via PickCenter - {totalLinedGames} lined games verified
-              </span>
-            </footer>
-          </div>
-        </main>
-      ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-4">
+          <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-slate-400">thedrip.to</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-slate-400">
+            closing-line sample: {totalLinedGames}
+          </span>
+          {profileRows.some((row) => CUP_LEAGUES.has(normalizeLeague(row.leagueId))) ? (
+            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-slate-400">ucl-aware profile enabled</span>
+          ) : null}
+        </div>
+      </div>
     </PageShell>
   );
 };
