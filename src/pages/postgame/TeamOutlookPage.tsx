@@ -391,6 +391,30 @@ export const TeamOutlookPage: FC<TeamOutlookPageProps> = ({ teamSlug, query }) =
   return (
     <PageShell className="bg-white">
       <TopNav />
+      <div style={{ maxWidth: 840, margin: '0 auto', padding: '4px 24px 14px' }}>
+        <a
+          href="/soccer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '8px 12px',
+            borderRadius: 6,
+            border: '1px solid #e5e5e5',
+            background: '#fafafa',
+            color: '#171717',
+            fontSize: 12,
+            fontWeight: 600,
+            fontFamily: mono,
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            textDecoration: 'none',
+          }}
+        >
+          <span aria-hidden="true">←</span>
+          Soccer Hub
+        </a>
+      </div>
 
       {isLoading ? <LoadingBlock label="Loading team outlook..." /> : null}
       {error ? <EmptyBlock message={`Failed to load team outlook: ${error.message}`} /> : null}

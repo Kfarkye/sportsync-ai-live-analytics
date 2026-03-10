@@ -65,6 +65,41 @@ export interface TeamOutlookData {
   fixtures: TeamOutlookFixtureRow[];
 }
 
+interface MatchRow {
+  id: string | null;
+  home_team: string | null;
+  away_team: string | null;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  league_id: string | null;
+  start_time: string | null;
+  status: string | null;
+  home_score: number | null;
+  away_score: number | null;
+}
+
+interface OuTrendRow {
+  team_name: string | null;
+  league_id: string | null;
+  games_with_line: number | null;
+  over_count: number | null;
+  under_count: number | null;
+  push_count: number | null;
+  over_rate: number | null;
+  under_rate: number | null;
+  avg_posted_total: number | null;
+  avg_actual_total: number | null;
+}
+
+interface RollingFormRow {
+  team_name: string | null;
+  league_id: string | null;
+  form_string: string | null;
+  wins: number | null;
+  draws: number | null;
+  losses: number | null;
+}
+
 const toNumber = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim().length > 0) {
@@ -203,6 +238,226 @@ const normalizePayload = (raw: unknown, teamName: string, teamSlug: string): Tea
   };
 };
 
+const isMissingRpcError = (message: string): boolean => {
+  const normalized = message.toLowerCase();
+  return normalized.includes('get_team_outlook') && normalized.includes('could not find');
+};
+
+const isTeamSide = (name: string | null | undefined, teamName: string, teamSlug: string): boolean => {
+  if (!name) return false;
+  return name === teamName || slugifyTeam(name) === teamSlug;
+};
+
+const formatPct = (value: number): number => Math.round(value * 10) / 10;
+
+const fetchTeamOutlookFallback = async (
+  teamName: string,
+  teamSlug: string,
+  leagueId?: string | null,
+): Promise<TeamOutlookData> => {
+  let completedQuery = supabase
+    .from('matches')
+    .select('id,home_team,away_team,home_team_id,away_team_id,league_id,start_time,status,home_score,away_score')
+    .or(`home_team.eq.${teamName},away_team.eq.${teamName}`)
+    .in('status', ['STATUS_FINAL', 'STATUS_FULL_TIME'])
+    .not('home_score', 'is', null)
+    .not('away_score', 'is', null)
+    .order('start_time', { ascending: false })
+    .limit(500);
+
+  if (leagueId) completedQuery = completedQuery.eq('league_id', leagueId);
+
+  let upcomingQuery = supabase
+    .from('matches')
+    .select('id,home_team,away_team,home_team_id,away_team_id,league_id,start_time,status,home_score,away_score')
+    .or(`home_team.eq.${teamName},away_team.eq.${teamName}`)
+    .gt('start_time', new Date().toISOString())
+    .order('start_time', { ascending: true })
+    .limit(50);
+
+  if (leagueId) upcomingQuery = upcomingQuery.eq('league_id', leagueId);
+
+  let teamOuQuery = supabase
+    .from('mv_team_ou_vs_line')
+    .select('team_name,league_id,games_with_line,over_count,under_count,push_count,over_rate,under_rate,avg_posted_total,avg_actual_total')
+    .eq('team_name', teamName);
+
+  if (leagueId) teamOuQuery = teamOuQuery.eq('league_id', leagueId);
+
+  const [{ data: completedRowsRaw }, { data: upcomingRowsRaw }, { data: teamOuRaw }] = await Promise.all([
+    completedQuery,
+    upcomingQuery,
+    teamOuQuery,
+  ]);
+
+  const completedRows = (completedRowsRaw ?? []) as MatchRow[];
+  const upcomingAllRows = (upcomingRowsRaw ?? []) as MatchRow[];
+  const teamOuRows = (teamOuRaw ?? []) as OuTrendRow[];
+
+  const upcomingRows = upcomingAllRows
+    .filter((row) => !['STATUS_FINAL', 'STATUS_FULL_TIME', 'STATUS_CANCELED', 'STATUS_POSTPONED'].includes(row.status ?? ''))
+    .slice(0, 5);
+
+  const profileLeagueStats = new Map<string, { games: number; band23: number }>();
+  for (const row of completedRows) {
+    const league = row.league_id ?? 'soccer';
+    const total = (row.home_score ?? 0) + (row.away_score ?? 0);
+    const current = profileLeagueStats.get(league) ?? { games: 0, band23: 0 };
+    current.games += 1;
+    if (total >= 2 && total <= 3) current.band23 += 1;
+    profileLeagueStats.set(league, current);
+  }
+
+  const teamOuByLeague = new Map<string, OuTrendRow>();
+  for (const row of teamOuRows) {
+    if (!row.league_id) continue;
+    teamOuByLeague.set(row.league_id, row);
+  }
+
+  const profileLeagues = new Set<string>([
+    ...Array.from(profileLeagueStats.keys()),
+    ...Array.from(teamOuByLeague.keys()),
+  ]);
+
+  const profile: TeamOutlookProfileRow[] = Array.from(profileLeagues)
+    .map((league) => {
+      const gamesStat = profileLeagueStats.get(league) ?? { games: 0, band23: 0 };
+      const ou = teamOuByLeague.get(league);
+      const bandPct = gamesStat.games > 0 ? formatPct((gamesStat.band23 / gamesStat.games) * 100) : null;
+      return {
+        leagueId: league,
+        games: gamesStat.games,
+        gamesWithLine: toInteger(ou?.games_with_line),
+        overCount: toInteger(ou?.over_count),
+        underCount: toInteger(ou?.under_count),
+        pushCount: toInteger(ou?.push_count),
+        overRate: toNumber(ou?.over_rate),
+        underRate: toNumber(ou?.under_rate),
+        avgLine: toNumber(ou?.avg_posted_total),
+        avgActual: toNumber(ou?.avg_actual_total),
+        band23: gamesStat.band23,
+        band23Pct: bandPct,
+      };
+    })
+    .sort((a, b) => b.games - a.games);
+
+  const primaryLeague = (() => {
+    const ranked = Array.from(profileLeagueStats.entries()).sort((a, b) => b[1].games - a[1].games);
+    const nonCup = ranked.find(([league]) => league !== 'uefa.champions' && league !== 'uefa.europa');
+    return nonCup?.[0] ?? ranked[0]?.[0] ?? null;
+  })();
+
+  const primaryLeagueGames = completedRows.filter((row) => (row.league_id ?? 'soccer') === primaryLeague);
+  const goalDistCounts = new Map<number, number>();
+  for (const row of primaryLeagueGames) {
+    const total = (row.home_score ?? 0) + (row.away_score ?? 0);
+    goalDistCounts.set(total, (goalDistCounts.get(total) ?? 0) + 1);
+  }
+
+  const goalDistTotalGames = primaryLeagueGames.length;
+  const goalDist: TeamOutlookGoalDistRow[] = Array.from(goalDistCounts.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([total, games]) => ({
+      total,
+      games,
+      pct: goalDistTotalGames > 0 ? formatPct((games / goalDistTotalGames) * 100) : 0,
+    }));
+
+  const allGamesCount = completedRows.length;
+  const allBand23 = completedRows.reduce((count, row) => {
+    const total = (row.home_score ?? 0) + (row.away_score ?? 0);
+    return total >= 2 && total <= 3 ? count + 1 : count;
+  }, 0);
+
+  const band: TeamOutlookBand = {
+    totalGames: allGamesCount,
+    band23: allBand23,
+    band23Pct: allGamesCount > 0 ? formatPct((allBand23 / allGamesCount) * 100) : null,
+  };
+
+  const opponents = Array.from(new Set(upcomingRows.map((row) => {
+    const isHome = isTeamSide(row.home_team, teamName, teamSlug);
+    return isHome ? row.away_team : row.home_team;
+  }).filter((name): name is string => Boolean(name))));
+
+  const opponentLeagues = Array.from(new Set(upcomingRows.map((row) => row.league_id).filter((name): name is string => Boolean(name))));
+
+  const [oppOuResult, oppFormResult] = await Promise.all([
+    opponents.length > 0 && opponentLeagues.length > 0
+      ? supabase
+          .from('mv_team_ou_vs_line')
+          .select('team_name,league_id,games_with_line,over_count,under_count,push_count,over_rate,under_rate,avg_posted_total,avg_actual_total')
+          .in('team_name', opponents)
+          .in('league_id', opponentLeagues)
+      : Promise.resolve({ data: [] as OuTrendRow[] }),
+    opponents.length > 0 && opponentLeagues.length > 0
+      ? supabase
+          .from('mv_team_rolling_form')
+          .select('team_name,league_id,form_string,wins,draws,losses')
+          .in('team_name', opponents)
+          .in('league_id', opponentLeagues)
+      : Promise.resolve({ data: [] as RollingFormRow[] }),
+  ]);
+
+  const oppOuByKey = new Map<string, OuTrendRow>();
+  for (const row of ((oppOuResult.data ?? []) as OuTrendRow[])) {
+    if (!row.team_name || !row.league_id) continue;
+    oppOuByKey.set(`${row.team_name}::${row.league_id}`, row);
+  }
+
+  const oppFormByKey = new Map<string, RollingFormRow>();
+  for (const row of ((oppFormResult.data ?? []) as RollingFormRow[])) {
+    if (!row.team_name || !row.league_id) continue;
+    oppFormByKey.set(`${row.team_name}::${row.league_id}`, row);
+  }
+
+  const fixtures: TeamOutlookFixtureRow[] = upcomingRows.map((row) => {
+    const isHome = isTeamSide(row.home_team, teamName, teamSlug);
+    const opponent = isHome ? row.away_team : row.home_team;
+    const league = row.league_id ?? 'soccer';
+    const key = `${opponent ?? ''}::${league}`;
+    const oppOu = oppOuByKey.get(key);
+    const oppForm = oppFormByKey.get(key);
+    return {
+      id: row.id ?? '',
+      homeTeam: row.home_team ?? 'Home',
+      awayTeam: row.away_team ?? 'Away',
+      leagueId: league,
+      startTime: row.start_time ?? '',
+      venue: isHome ? 'Home' : 'Away',
+      opponent: opponent ?? 'Opponent',
+      teamEspnId: isHome ? (row.home_team_id ?? null) : (row.away_team_id ?? null),
+      opponentEspnId: isHome ? (row.away_team_id ?? null) : (row.home_team_id ?? null),
+      oppOverRate: toNumber(oppOu?.over_rate),
+      oppUnderRate: toNumber(oppOu?.under_rate),
+      oppOuSample: toInteger(oppOu?.games_with_line),
+      oppAvgActual: toNumber(oppOu?.avg_actual_total),
+      oppForm: toText(oppForm?.form_string),
+      oppWins: toNumber(oppForm?.wins),
+      oppDraws: toNumber(oppForm?.draws),
+      oppLosses: toNumber(oppForm?.losses),
+    };
+  });
+
+  const freshestMatch = completedRows[0] ?? upcomingRows[0] ?? null;
+  const teamEspnId = freshestMatch
+    ? isTeamSide(freshestMatch.home_team, teamName, teamSlug)
+      ? freshestMatch.home_team_id
+      : freshestMatch.away_team_id
+    : null;
+
+  return {
+    team: teamName,
+    teamSlug,
+    teamEspnId: teamEspnId ?? null,
+    goalDistLeagueId: primaryLeague,
+    profile,
+    goalDist,
+    band,
+    fixtures,
+  };
+};
+
 export const useTeamOutlook = (teamSlug: string, leagueId?: string | null) =>
   useQuery<TeamOutlookData | null>({
     queryKey: ['postgame', 'team-outlook', teamSlug, leagueId ?? 'all'],
@@ -215,7 +470,12 @@ export const useTeamOutlook = (teamSlug: string, leagueId?: string | null) =>
         p_league_id: leagueId ?? null,
       });
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingRpcError(error.message)) {
+          return fetchTeamOutlookFallback(teamName, teamSlug, leagueId ?? null);
+        }
+        throw error;
+      }
       return normalizePayload(data, teamName, teamSlug);
     },
     staleTime: FIVE_MIN,
