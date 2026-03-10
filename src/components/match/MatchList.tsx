@@ -31,6 +31,7 @@ import {
 import { useFeaturedProps, STAT_LABELS, type FeaturedProp } from '@/hooks/useFeaturedProps';
 import type { MatchPickSummary } from '@/types/dailyPicks';
 import { useRealtimeScores, type LiveScore } from '@/hooks/useRealtimeScores';
+import { useMatchStreaks, type MatchStreakSummary } from '@/hooks/useMatchStreaks';
 
 // ============================================================================
 // TYPES & PIPELINES
@@ -182,6 +183,7 @@ interface OptimizedMatchRowProps {
     polyResult?: PolyOddsResult;
     pickSummary?: MatchPickSummary;
     isPicksMode: boolean;
+    streakSummary?: MatchStreakSummary;
 }
 
 /**
@@ -190,7 +192,7 @@ interface OptimizedMatchRowProps {
  * when the parent re-renders for a pin toggle elsewhere in the list.
  */
 const OptimizedMatchRow = memo(({
-    match, isPinned, isLive, isFinal, onSelect, onToggle, polyResult, pickSummary, isPicksMode
+    match, isPinned, isLive, isFinal, onSelect, onToggle, polyResult, pickSummary, isPicksMode, streakSummary
 }: OptimizedMatchRowProps) => {
 
     const handleSelect = useCallback(() => onSelect(match), [match, onSelect]);
@@ -238,6 +240,7 @@ const OptimizedMatchRow = memo(({
                 onTogglePin={handleToggle}
                 pickSummary={pickSummary}
                 isPicksMode={isPicksMode}
+                streakSummary={streakSummary}
                 {...(polyHomeProb !== undefined ? { polyHomeProb } : {})}
                 {...(polyAwayProb !== undefined ? { polyAwayProb } : {})}
                 {...(homeEdge !== undefined ? { homeEdge } : {})}
@@ -409,13 +412,14 @@ const MatchRowSkeleton = () => (
 // ============================================================================
 
 const LeagueGroup = memo(({
-    leagueId, leagueName, enrichedMatches, onSelectMatch, onTogglePin, groupIndex, polyResult, isMounted, picksByMatch, isPicksMode,
+    leagueId, leagueName, enrichedMatches, onSelectMatch, onTogglePin, groupIndex, polyResult, isMounted, picksByMatch, isPicksMode, streaksByMatch,
 }: {
     leagueId: string; leagueName: string; enrichedMatches: EnrichedMatch[];
     onSelectMatch: (match: Match) => void; onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
     groupIndex: number; polyResult?: PolyOddsResult; isMounted?: boolean;
     picksByMatch: ReadonlyMap<string, MatchPickSummary>;
     isPicksMode: boolean;
+    streaksByMatch: ReadonlyMap<string, MatchStreakSummary>;
 }) => {
     const [isExpanded, setIsExpanded] = useState(true);
     const [measureRef, bounds] = useMeasure();
@@ -507,6 +511,7 @@ const LeagueGroup = memo(({
                                     polyResult={polyResult}
                                     pickSummary={picksByMatch.get(match.id) || picksByMatch.get(match.id.split('_')[0] || match.id)}
                                     isPicksMode={isPicksMode}
+                                    streakSummary={streaksByMatch.get(match.id) || streaksByMatch.get(match.id.split('_')[0] || match.id)}
                                 />
                             ))}
                         </div>
@@ -554,6 +559,7 @@ const MatchList: React.FC<MatchListProps> = ({
             return enrichMatchWithRealtime(match, score);
         });
     }, [matches, realtimeScoreMap]);
+    const { streaksByMatch } = useMatchStreaks(liveMatches);
 
     useEffect(() => {
         const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
@@ -693,6 +699,12 @@ const MatchList: React.FC<MatchListProps> = ({
                 if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
 
                 // Deterministic string tie-breaker prevents non-deterministic V8 array jumping
+                const aStreak = streaksByMatch.get(a.match.id) || streaksByMatch.get(a.match.id.split('_')[0] || a.match.id);
+                const bStreak = streaksByMatch.get(b.match.id) || streaksByMatch.get(b.match.id.split('_')[0] || b.match.id);
+                const aDensity = aStreak?.densityScore ?? 0;
+                const bDensity = bStreak?.densityScore ?? 0;
+
+                if (isPicksMode && aDensity !== bDensity) return bDensity - aDensity;
                 if (a.timeMs === b.timeMs) return String(a.match.id).localeCompare(String(b.match.id));
                 return a.timeMs - b.timeMs;
             });
@@ -708,7 +720,7 @@ const MatchList: React.FC<MatchListProps> = ({
         return { groupedMatches: sortedGroups };
 
         // isMatchLive and isMatchFinal must remain in dependencies to ensure concurrent safety
-    }, [liveMatches, pinnedMatchIds, isMatchLive, isMatchFinal]);
+    }, [liveMatches, pinnedMatchIds, isMatchLive, isMatchFinal, streaksByMatch, isPicksMode]);
 
     // Steal #5: Upgraded loading skeleton
     if (isLoading && matches.length === 0) {
@@ -794,6 +806,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                             isMounted={isMounted}
                                             picksByMatch={picksByMatch}
                                             isPicksMode={isPicksMode}
+                                            streaksByMatch={streaksByMatch}
                                         />
                                     );
                                 })}

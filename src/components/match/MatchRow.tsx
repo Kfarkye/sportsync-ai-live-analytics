@@ -1,4 +1,4 @@
-import React, { useMemo, memo, forwardRef, useState, useCallback } from 'react';
+import React, { useMemo, memo, forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import { MatchRowProps as BaseMatchRowProps } from '@/types/matchList';
 import TeamLogo from '../shared/TeamLogo';
@@ -9,6 +9,7 @@ import { getPeriodDisplay } from '../../utils/matchUtils';
 import { Sport, Linescore } from '@/types';
 import { formatOddsByMode } from '@/lib/oddsDisplay';
 import type { MatchPickSummary } from '@/types/dailyPicks';
+import type { MatchStreakSummary } from '@/hooks/useMatchStreaks';
 
 // Extend base props with poly data + selection state
 interface MatchRowProps extends BaseMatchRowProps {
@@ -25,6 +26,8 @@ interface MatchRowProps extends BaseMatchRowProps {
   pickSummary?: MatchPickSummary;
   /** Whether feed is currently in "All Picks" mode */
   isPicksMode?: boolean;
+  /** Team form density summary for this match */
+  streakSummary?: MatchStreakSummary;
 }
 
 const PHYSICS_MOTION = { type: "spring" as const, stiffness: 360, damping: 28 };
@@ -130,71 +133,13 @@ const TennisSetScores: React.FC<{ linescores?: Linescore[] | undefined }> = memo
 });
 TennisSetScores.displayName = 'TennisSetScores';
 
-const STREAK_POINTS = 10;
-
 const clampPct = (value: number): number => Math.max(0, Math.min(100, Math.round(value)));
 
-const buildRateDots = (rate: number): boolean[] => {
-  const hits = Math.max(0, Math.min(STREAK_POINTS, Math.round((clampPct(rate) / 100) * STREAK_POINTS)));
-  return Array.from({ length: STREAK_POINTS }, (_, idx) => idx < hits);
+const dotClassByState: Record<string, string> = {
+  'hot-up': 'border-emerald-500 bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]',
+  'hot-down': 'border-rose-500 bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.45)]',
+  neutral: 'border-slate-300 bg-white',
 };
-
-const PickStreakPanel = memo(({
-  pick,
-  onTail,
-  onFade,
-}: {
-  pick: MatchPickSummary;
-  onTail: () => void;
-  onFade: () => void;
-}) => {
-  const dots = buildRateDots(pick.streakRate);
-  const hitCount = dots.filter(Boolean).length;
-
-  return (
-    <div className="mt-2.5 rounded-xl border border-emerald-200/80 bg-emerald-50/55 p-3" onClick={(event) => event.stopPropagation()}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-emerald-800">Streak Profile</p>
-        <p className="font-mono text-[10px] tabular-nums text-emerald-800">{hitCount}/10</p>
-      </div>
-      <div className="mt-2 flex items-center gap-1.5">
-        {dots.map((hit, idx) => (
-          <span
-            key={`${pick.matchId}-dot-${idx}`}
-            className={cn('h-2.5 w-2.5 rounded-full border', hit ? 'border-emerald-600 bg-emerald-500' : 'border-slate-300 bg-white')}
-            aria-hidden="true"
-          />
-        ))}
-      </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-emerald-900/90">
-        {pick.play}: home trend {clampPct(pick.homeRate)}%, away trend {clampPct(pick.awayRate)}%. Combined profile {clampPct(pick.avgRate)}%.
-      </p>
-      <div className="mt-2 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onTail();
-          }}
-          className="inline-flex h-7 items-center rounded-md border border-emerald-700 bg-emerald-700 px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white"
-        >
-          Tail
-        </button>
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onFade();
-          }}
-          className="inline-flex h-7 items-center rounded-md border border-emerald-300 bg-white px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-800"
-        >
-          Fade
-        </button>
-      </div>
-    </div>
-  );
-});
-PickStreakPanel.displayName = 'PickStreakPanel';
 
 const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   match,
@@ -208,10 +153,10 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   awayEdge,
   pickSummary,
   isPicksMode = false,
+  streakSummary,
   onSelect,
   onTogglePin,
 }, ref) => {
-  const [isPickExpanded, setIsPickExpanded] = useState(false);
   const showScores = isLive || isFinal;
   const isTennis = match.sport === Sport.TENNIS;
   const isSoccer = match.sport === Sport.SOCCER;
@@ -242,13 +187,6 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         : null
     };
   }, [match.startTime, match.round]);
-
-  const togglePickPanel = useCallback((event: React.MouseEvent) => {
-    event.stopPropagation();
-    setIsPickExpanded((prev) => !prev);
-  }, []);
-  const handleTail = useCallback(() => onSelect?.(match), [onSelect, match]);
-  const handleFade = useCallback(() => onSelect?.(match), [onSelect, match]);
 
   return (
     <motion.div
@@ -353,21 +291,43 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           );
         })}
 
-        {hasPick && !isFinal && !isLive && (
+        {streakSummary && !isFinal && !isLive && (
+          <div className="mt-1.5 space-y-1.5" style={{ paddingLeft: TEAM_INDENT }}>
+            <div className="flex items-center gap-1.5">
+              {streakSummary.dots.slice(0, 12).map((dot, idx) => (
+                <span
+                  key={`${match.id}-form-dot-${idx}`}
+                  className={cn('h-2 w-2 rounded-full border', dotClassByState[dot.state] || dotClassByState.neutral)}
+                  title={`${dot.label}: ${clampPct(dot.rate)}%`}
+                  aria-label={`${dot.label} ${clampPct(dot.rate)} percent`}
+                />
+              ))}
+              <span className="ml-1 font-mono text-[10px] tabular-nums text-slate-600">{streakSummary.ratioLabel} hot</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex max-w-[280px] items-center rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-slate-700">
+                {streakSummary.topLabel}
+              </span>
+              <span className="font-mono text-[10px] tabular-nums text-slate-600">
+                {Math.round(streakSummary.topRate)}%
+              </span>
+            </div>
+          </div>
+        )}
+
+        {hasPick && !isFinal && !isLive && !streakSummary && (
           <div className="mt-1 flex items-center" style={{ paddingLeft: TEAM_INDENT }}>
             <button
               type="button"
-              onClick={togglePickPanel}
               className={cn(
                 'inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors',
                 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
               )}
-              aria-expanded={isPickExpanded}
               aria-label={`${pickLabel} ${pickRate}%`}
             >
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               {pickLabel}
-              <span className="font-mono tabular-nums">{pickRate}% in last 10</span>
+              <span className="font-mono tabular-nums">{pickRate}% last 10</span>
             </button>
           </div>
         )}
@@ -407,11 +367,6 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           </div>
         )}
 
-        {pickSummary && isPickExpanded && !isFinal && !isLive && (
-          <div style={{ paddingLeft: TEAM_INDENT }}>
-            <PickStreakPanel pick={pickSummary} onTail={handleTail} onFade={handleFade} />
-          </div>
-        )}
       </div>
 
       {/* Status Metadata */}

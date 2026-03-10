@@ -74,6 +74,8 @@ import {
 import { LiveSweatProvider, type AIWatchTrigger } from '@/context/LiveSweatContext';
 import { useRealtimeGameDetail } from '@/hooks/useRealtimeGameDetail';
 import { useRealtimePlayFeed, type RealtimePlayEvent } from '@/hooks/useRealtimePlayFeed';
+import { useMatchStreaks } from '@/hooks/useMatchStreaks';
+import StreakInsightsPanel from './StreakInsightsPanel';
 
 // ============================================================================
 // SECTION 2: STRICT TYPE DEFINITIONS (AUDIT FIX)
@@ -1101,6 +1103,12 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const homeColor = useMemo(() => normalizeColor(match?.homeTeam?.color, '#3B82F6'), [match.homeTeam]);
   const awayColor = useMemo(() => normalizeColor(match?.awayTeam?.color, '#EF4444'), [match.awayTeam]);
   const displayStats = useMemo(() => getMatchDisplayStats(match, 8), [match]);
+  const streakMatches = useMemo(() => (matches.length ? matches : [match]), [matches, match]);
+  const { streaksByMatch } = useMatchStreaks(streakMatches);
+  const streakSummary = useMemo(
+    () => streaksByMatch.get(match.id) || streaksByMatch.get(match.id.split('_')[0] || match.id),
+    [streaksByMatch, match.id],
+  );
 
   const [activeTab, setActiveTab] = useState(isSched ? 'DETAILS' : 'OVERVIEW');
   const [propView, setPropView] = useState<'classic' | 'cinematic'>('classic');
@@ -1514,12 +1522,19 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                 )}
                 {activeTab === 'DATA' && (
                   <div className="space-y-0">
+                    <SpecSheetRow label="00 // FORM SNAPSHOT" defaultOpen={true} collapsible={false}>
+                      <StreakInsightsPanel
+                        summary={streakSummary}
+                        homeLabel={match.homeTeam.shortName || match.homeTeam.name}
+                        awayLabel={match.awayTeam.shortName || match.awayTeam.name}
+                      />
+                    </SpecSheetRow>
                     {/* ── Polymarket Intelligence Section ─────────────── */}
                     {polyData && match.homeTeam && match.awayTeam && (
                       <div className="mb-12 space-y-6">
                         <div className="flex items-center gap-2">
                           <div className="w-1 h-1 rounded-full bg-indigo-400" />
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Market Intelligence</span>
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Market Snapshot</span>
                         </div>
                         <EdgeCard
                           homeTeam={match.homeTeam.shortName || match.homeTeam.name}
@@ -1557,11 +1572,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       <div className="mb-12 space-y-6">
                         <div className="flex items-center gap-2">
                           <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Shareable Insights</span>
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Game Notes</span>
                         </div>
                         {gameEdgeCardData && (
                           <div className="space-y-3">
-                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Game Edge</span>
+                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Game Read</span>
                             <InsightCard data={gameEdgeCardData!} />
                           </div>
                         )}
@@ -1578,7 +1593,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         <div className="flex items-center gap-2 mb-4">
                           <div className="w-1 h-1 rounded-full bg-emerald-400" />
                           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">
-                            Edge Convergence
+                            Live Matchup View
                           </span>
                         </div>
                         <BaseballEdgePanel edge={(baseballData as any).edge} />
