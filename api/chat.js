@@ -64,6 +64,8 @@ const ANALYSIS_TRIGGER_RE = new RegExp(
     "i"
 );
 
+const LIVE_BOARD_RE = /\b(live\s+games?|games?\s+live|what(?:'s| is)\s+live|right\s+now|live\s+board|live\s+slate|scan\s+live)\b/i;
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // Singleton TextEncoder (Memory + GC reduction)
@@ -117,6 +119,12 @@ const detectMode = (query, hasImage) => {
     if (hasImage) return "ANALYSIS";
     if (!query) return "CONVERSATION";
     return ANALYSIS_TRIGGER_RE.test(query) ? "ANALYSIS" : "CONVERSATION";
+};
+
+const isLiveBoardIntent = (query) => {
+    if (!query) return false;
+    const q = String(query);
+    return LIVE_BOARD_RE.test(q) && /\b(live|edge|opportunity|opportunities|best)\b/i.test(q);
 };
 
 const normalizeOddsNumber = (val) => {
@@ -303,6 +311,16 @@ IF [Trigger Condition] → THEN [Action/Adjustment]
 - Verdict must include exact line/price when available.
 - No labeled bullets. Do: "- The team has won 8 of 10 at home." Don't: "- **Home Dominance:** The team has won 8 of 10 at home."
 </mode_analysis>
+` : MODE === "LIVE_BOARD" ? `
+<mode_live_board>
+OUTPUT A LIVE BOARD SUMMARY (NOT SINGLE-GAME VERDICT).
+- Start with: "LIVE GAMES RIGHT NOW"
+- List up to 6 matchups ranked by strongest current opportunity signal.
+- For each game include: matchup, score, clock, and short angle.
+- Use plain language and keep each line concise.
+- If no live games, say that directly and stop.
+- Do NOT output "TBD vs TBD".
+</mode_live_board>
 ` : `
 <mode_conversation>
 Role: Field Reporter. Direct, factual, concise.
@@ -313,9 +331,10 @@ Role: Field Reporter. Direct, factual, concise.
 `}
 `.trim();
 
-const buildDynamicInstruction = ({ marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel, staleWarning }) => {
+const buildDynamicInstruction = ({ marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel, staleWarning, liveBoardSummary }) => {
     const now = new Date();
     const pbpLines = Array.isArray(evidence?.pbp?.recent) ? evidence.pbp.recent : [];
+    const hasMatchContext = Boolean(activeContext?.home_team || activeContext?.away_team);
     return `
 <temporal>
 TODAY: ${now.toLocaleDateString("en-US", { timeZone: "America/New_York" })}
@@ -326,14 +345,15 @@ MODE: ${MODE}
 
 <context>
 ${[
-            `MATCHUP: ${activeContext?.away_team || "TBD"} @ ${activeContext?.home_team || "TBD"}`,
+            hasMatchContext ? `MATCHUP: ${activeContext?.away_team || "TBD"} @ ${activeContext?.home_team || "TBD"}` : "",
             isLive ? `🔴 LIVE: ${activeContext?.away_score || 0}-${activeContext?.home_score || 0} | ${activeContext?.clock || ""}` : "",
             ...(liveDataUrls.length > 0 ? [`LIVE_DATA_URLS: ${liveDataUrls.join(", ")}`, "(Fetch these endpoints via URL Context for authoritative real-time data)"] : []),
-            `ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}`,
+            hasMatchContext ? `ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}` : "",
             lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : "",
             (isLive && pbpLines.length > 0)
                 ? `PBP_RECENT:\n${pbpLines.map((line, idx) => `${idx + 1}. ${line}`).join("\n")}`
                 : "",
+            liveBoardSummary ? `LIVE_BOARD_SCAN:\n${liveBoardSummary}` : "",
             (isLive && pbpLines.length > 0)
                 ? "LIVE_ANALYSIS_GUARD: Use PBP_RECENT as primary source. If no concrete play cites, VERDICT must be PASS."
                 : "",
@@ -428,6 +448,70 @@ async function scanForLiveGame(userQuery) {
     } catch (e) {
         console.error("[Live Sentinel] Scan failed:", e?.message || e);
         return { ok: false };
+    }
+}
+
+async function fetchLiveOpportunityBoard(limit = 8) {
+    const empty = { hasData: false, rows: [], summary: "No live games found right now." };
+    try {
+        const { data, error } = await supabase
+            .from("live_game_state")
+            .select("id,league_id,home_team,away_team,home_score,away_score,display_clock,game_status,current_odds,deterministic_signals,ai_analysis,updated_at")
+            .or("game_status.ilike.%IN_PROGRESS%,game_status.ilike.%LIVE%,game_status.ilike.%HALFTIME%,game_status.ilike.%END_PERIOD%,game_status.ilike.%FIRST_HALF%,game_status.ilike.%SECOND_HALF%")
+            .order("updated_at", { ascending: false })
+            .limit(30)
+            .abortSignal(AbortSignal.timeout(3000));
+
+        if (error) throw new Error(error.message);
+        if (!Array.isArray(data) || data.length === 0) return empty;
+
+        const rows = data.map((row) => {
+            const marketTotal = normalizeOddsNumber(
+                row?.deterministic_signals?.market_total
+                ?? row?.current_odds?.total
+                ?? row?.current_odds?.overUnder
+            );
+            const fairTotal = normalizeOddsNumber(row?.deterministic_signals?.deterministic_fair_total);
+            const totalEdge = (marketTotal !== null && fairTotal !== null) ? (fairTotal - marketTotal) : null;
+            const rec = row?.ai_analysis?.sharp_data?.recommendation?.side || null;
+            const confidence = normalizeOddsNumber(row?.ai_analysis?.sharp_data?.confidence_level);
+            const score = (totalEdge !== null ? Math.abs(totalEdge) * 1.75 : 0)
+                + (confidence !== null ? confidence / 8 : 0)
+                + (rec && !/pass|avoid/i.test(String(rec)) ? 2.5 : 0);
+
+            return {
+                id: String(row.id || ""),
+                league: String(row.league_id || ""),
+                matchup: `${row.away_team || "Away"} @ ${row.home_team || "Home"}`,
+                scoreline: `${row.away_score ?? 0}-${row.home_score ?? 0}`,
+                clock: row.display_clock || row.game_status || "LIVE",
+                totalEdge,
+                marketTotal,
+                fairTotal,
+                recommendation: rec,
+                confidence,
+                priorityScore: score,
+            };
+        }).sort((a, b) => b.priorityScore - a.priorityScore);
+
+        const top = rows.slice(0, Math.max(1, Math.min(limit, 10)));
+        const summary = top.map((row, idx) => {
+            const edgeText = row.totalEdge !== null
+                ? `${row.totalEdge > 0 ? "Over" : "Under"} ${Math.abs(row.totalEdge).toFixed(1)} vs live total`
+                : "No clear total edge yet";
+            const confidenceText = row.confidence !== null ? ` · ${Math.round(row.confidence)}%` : "";
+            const recText = row.recommendation ? ` · ${String(row.recommendation).toUpperCase()}` : "";
+            return `${idx + 1}) ${row.matchup} (${row.scoreline}, ${row.clock}) — ${edgeText}${confidenceText}${recText}`;
+        }).join("\n");
+
+        return {
+            hasData: top.length > 0,
+            rows: top,
+            summary,
+        };
+    } catch (e) {
+        console.error("[Live Board] Scan failed:", e?.message || e);
+        return empty;
     }
 }
 
@@ -690,12 +774,19 @@ export async function POST(req) {
         hasImage = lastMsgContent.some(c => c.type === "image" || c.type === "image_url");
     }
 
-    const MODE = detectMode(userQuery, hasImage);
+    let MODE = detectMode(userQuery, hasImage);
+    const liveBoardIntent = isLiveBoardIntent(userQuery) && !body?.gameContext?.match_id;
+    if (liveBoardIntent) MODE = "LIVE_BOARD";
 
     // --- PARALLEL: LIVE SENTINEL + EVIDENCE PACKET ---
     let liveScan = { ok: false }, evidence = { injuries: { home: [], away: [] }, liveState: null, temporal: { t60: null, t0: null }, lineMovement: null };
+    let liveBoard = { hasData: false, rows: [], summary: "" };
     try {
-        [liveScan, evidence] = await Promise.all([scanForLiveGame(userQuery), buildEvidencePacket(activeContext)]);
+        if (liveBoardIntent) {
+            [liveBoard, evidence] = await Promise.all([fetchLiveOpportunityBoard(8), buildEvidencePacket(activeContext)]);
+        } else {
+            [liveScan, evidence] = await Promise.all([scanForLiveGame(userQuery), buildEvidencePacket(activeContext)]);
+        }
     } catch (e) {
         console.warn("[WARN] Middle logic failed:", e?.message || e);
     }
@@ -761,6 +852,7 @@ export async function POST(req) {
             try {
                 const systemPrompt = `${buildStaticInstruction(MODE)}\n\n${buildDynamicInstruction({
                     marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel,
+                    liveBoardSummary: liveBoard?.summary || "",
                     staleWarning: isContextStale(activeContext) ? "\n⚠️ DATA WARNING: Context may be stale." : ""
                 })}`;
 
@@ -796,7 +888,7 @@ export async function POST(req) {
                 }
 
                 // Live governance: require concrete PBP evidence when available.
-                if (isLive && Array.isArray(evidence?.pbp?.recent) && evidence.pbp.recent.length > 0) {
+                if (MODE === "ANALYSIS" && isLive && Array.isArray(evidence?.pbp?.recent) && evidence.pbp.recent.length > 0) {
                     const hasClockCitation = /\[\d{1,2}:\d{2}\]/.test(fullText);
                     const hasRecentPlaysSection = /\bRECENT PLAYS\b/i.test(fullText);
                     const hasProjectionLanguage = /\b(ppm|pace|projected|full-game pace)\b/i.test(fullText);
