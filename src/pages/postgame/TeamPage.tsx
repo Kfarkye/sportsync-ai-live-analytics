@@ -34,6 +34,9 @@ const resultTone = (value: 'W' | 'D' | 'L' | '—' | 'P' | 'O' | 'U') => {
 
 export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
   const leagueParam = query.get('league');
+  const outlookHref = leagueParam
+    ? `/teams/${teamSlug}/outlook?league=${encodeURIComponent(leagueParam)}`
+    : `/teams/${teamSlug}/outlook`;
   const { data, isLoading, error } = useTeamPage(teamSlug, leagueParam);
   const {
     data: historyRows = [],
@@ -68,6 +71,11 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{data.teamName}</h1>
             <p className="text-sm text-slate-500">
               {data.leagueId ? leagueLabel(data.leagueId) : 'All Leagues'} · <ValueText>{seasonRows.length}</ValueText> matches
+            </p>
+            <p className="pt-1 text-sm">
+              <a href={outlookHref} className="font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">
+                View upcoming schedule -&gt;
+              </a>
             </p>
           </header>
 

@@ -3,6 +3,7 @@ import { SOCCER_LEAGUES } from '@/lib/postgamePages';
 import SoccerHubPage from './SoccerHubPage';
 import LeaguePage from './LeaguePage';
 import TeamPage from './TeamPage';
+import TeamOutlookPage from './TeamOutlookPage';
 import MatchPage from './MatchPage';
 import { EmptyBlock, PageShell, TopNav } from './PostgamePrimitives';
 
@@ -29,6 +30,21 @@ export const PostgameRouter: FC = () => {
       );
     }
     return <LeaguePage leagueId={leagueId} query={query} />;
+  }
+
+  if (pathname.startsWith('/teams/') && pathname.endsWith('/outlook')) {
+    const teamSlug = toSafeSlug(pathname.slice('/teams/'.length, -'/outlook'.length));
+    return <TeamOutlookPage teamSlug={teamSlug} query={query} />;
+  }
+
+  if (pathname.startsWith('/team/') && pathname.endsWith('/outlook')) {
+    const teamSlug = toSafeSlug(pathname.slice('/team/'.length, -'/outlook'.length));
+    return <TeamOutlookPage teamSlug={teamSlug} query={query} />;
+  }
+
+  if (pathname.startsWith('/teams/')) {
+    const teamSlug = toSafeSlug(pathname.slice('/teams/'.length));
+    return <TeamPage teamSlug={teamSlug} query={query} />;
   }
 
   if (pathname.startsWith('/team/')) {
