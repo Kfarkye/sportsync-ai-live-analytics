@@ -266,6 +266,11 @@ You are "The Obsidian Ledger," a forensic sports analyst.
 **RULE 4 (MATCHUP LINE - DATE/TIME):**
 - For each pick, output a MATCHUP line that includes matchup + date + time + timezone.
 - You MUST ground the date/time via tools. If not grounded, write "Time TBD" (do NOT guess).
+
+**RULE 5 (LIVE EVIDENCE GATE):**
+- When PBP_RECENT is present, it is the primary evidence for game-state narrative.
+- Do NOT lead with pace/PPM projection language unless tied to at least two concrete PBP events.
+- If you cannot cite concrete PBP events, return VERDICT: PASS.
 </prime_directive>
 
 ${MODE === "ANALYSIS" ? `
@@ -328,6 +333,9 @@ ${[
             lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : "",
             (isLive && pbpLines.length > 0)
                 ? `PBP_RECENT:\n${pbpLines.map((line, idx) => `${idx + 1}. ${line}`).join("\n")}`
+                : "",
+            (isLive && pbpLines.length > 0)
+                ? "LIVE_ANALYSIS_GUARD: Use PBP_RECENT as primary evidence. If no concrete event cites, VERDICT must be PASS."
                 : "",
             `INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}`,
             `INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}`,
@@ -784,6 +792,35 @@ export async function POST(req) {
                             fullText += part.text;
                             safeWrite({ type: "text", content: part.text });
                         }
+                    }
+                }
+
+                // Live governance: require concrete PBP evidence when available.
+                if (isLive && Array.isArray(evidence?.pbp?.recent) && evidence.pbp.recent.length > 0) {
+                    const hasClockCitation = /\[\d{1,2}:\d{2}\]/.test(fullText);
+                    const hasPbpSection = /\bPBP EVIDENCE\b/i.test(fullText);
+                    const hasProjectionLanguage = /\b(ppm|pace|projected|full-game pace)\b/i.test(fullText);
+
+                    if (!hasClockCitation && !hasPbpSection) {
+                        const pbpEvidenceBlock = `\n\n**PBP EVIDENCE**\n${evidence.pbp.recent
+                            .slice(-3)
+                            .map((line) => `- ${line}`)
+                            .join("\n")}`;
+                        fullText += pbpEvidenceBlock;
+                        safeWrite({ type: "text", content: pbpEvidenceBlock });
+                    }
+
+                    if (hasProjectionLanguage && !hasClockCitation) {
+                        const verdictGuard = "\n\n**MODEL GOVERNANCE**\n- Projection-only pace/PPM thesis downgraded.\n- VERDICT: PASS (pending concrete PBP-sequenced confirmation).";
+                        fullText = fullText.replace(
+                            /(\*\*VERDICT:\*\*\s*)(.+)/i,
+                            "$1PASS (PBP evidence gate not met)",
+                        );
+                        if (!/\*\*VERDICT:\*\*/i.test(fullText)) {
+                            fullText = `**VERDICT:** PASS (PBP evidence gate not met)\n\n${fullText}`;
+                        }
+                        fullText += verdictGuard;
+                        safeWrite({ type: "text", content: verdictGuard });
                     }
                 }
 
