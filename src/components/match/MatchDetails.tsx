@@ -35,7 +35,6 @@ import { getMatchDisplayStats } from '../../utils/statDisplay';
 import { fetchMatchDetailsExtended, fetchTeamLastFive } from '../../services/espnService';
 import { fetchNhlGameDetails } from '../../services/nhlService';
 import { supabase } from '../../lib/supabase';
-import { pregameIntelService, type PregameIntelResponse } from '../../services/pregameIntelService';
 import {
   isGameInProgress,
   isGameFinished as isGameFinal,
@@ -54,21 +53,16 @@ import BoxScore, {
   LineScoreGrid,
 } from '../analysis/BoxScore';
 import { CinematicPlayerProps } from '../analysis/PlayerStatComponents';
-import InsightCard, { toInsightCard } from '../analysis/InsightCard';
 import MatchupHeader from '../pregame/MatchupHeader';
 import RecentForm from '../pregame/RecentForm';
 import SafePregameIntelCards from '../pregame/PregameIntelCards';
 import OddsCard from '../betting/OddsCard';
 import { GoalieMatchup } from '../GoalieMatchup';
-import EdgeCard from './EdgeCard';
-import MarketEdgeCard from './MarketEdgeCard';
-import { usePolyOdds, findPolyForMatch, type PolyMatchOriented } from '@/hooks/usePolyOdds';
 import { MatchupLoader, MatchupContextPills } from '../ui';
 import ChatWidget from '../ChatWidget';
 import { TechnicalDebugView } from '../TechnicalDebugView';
 import {
   BaseballGamePanel,
-  BaseballEdgePanel,
   useBaseballLive,
 } from '@/components/baseball';
 import { LiveSweatProvider, type AIWatchTrigger } from '@/context/LiveSweatContext';
@@ -1088,15 +1082,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     isBaseball,  // only fetches when sport is BASEBALL
   );
 
-  const [pregameIntel, setPregameIntel] = useState<PregameIntelResponse | null>(null);
   useKeyboardNavigation(matches, match.id, onSelectMatch);
-
-  // ── Polymarket probability data ────────────────────────────────────
-  const { data: polyResult } = usePolyOdds();
-  const polyData: PolyMatchOriented | null = useMemo(
-    () => findPolyForMatch(polyResult, match.id, match.homeTeam?.name, match.awayTeam?.name),
-    [polyResult, match.id, match.homeTeam?.name, match.awayTeam?.name]
-  );
 
   const isSched = useMemo(() => isGameScheduled(match?.status), [match?.status]);
   const isLive = isGameInProgress(match.status);
@@ -1135,238 +1121,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const fallbackLiveState: LiveState | undefined = match.lastPlay
     ? { lastPlay: { text: match.lastPlay.text, type: { text: match.lastPlay.type } } }
     : undefined;
-
-  const startTimeISO = useMemo(() => {
-    if (!match.startTime) return undefined;
-    const date = new Date(match.startTime);
-    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
-  }, [match.startTime]);
-
-  const isEdgeTab = activeTab === 'DATA';
-
-  useEffect(() => {
-    if (!isSched || !isEdgeTab) return;
-    const controller = new AbortController();
-    let active = true;
-
-    const fetchIntel = async () => {
-      try {
-        const intel = await pregameIntelService.fetchIntel(
-          match.id,
-          match.homeTeam?.name || '',
-          match.awayTeam?.name || '',
-          match.sport || '',
-          match.leagueId || '',
-          startTimeISO,
-          match.current_odds?.homeSpread ? Number(match.current_odds.homeSpread) : undefined,
-          match.current_odds?.total ? Number(match.current_odds.total) : undefined,
-          controller.signal
-        );
-        if (intel) {
-          if (active) setPregameIntel(intel);
-          return;
-        }
-
-        const leagueKey = match.leagueId?.toLowerCase() || '';
-        const canonicalId = getDbMatchId(match.id, leagueKey);
-        const orFilter = canonicalId && canonicalId !== match.id
-          ? `match_id.ilike.%${match.id}%,match_id.ilike.%${canonicalId}%`
-          : `match_id.ilike.%${match.id}%`;
-
-        const { data: fallback } = await supabase
-          .from('pregame_intel')
-          .select('*')
-          .or(orFilter)
-          .order('generated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (active) {
-          setPregameIntel(fallback ? { ...(fallback as PregameIntelResponse), match_id: (fallback as any).match_id || match.id, freshness: (fallback as any).freshness || 'RECENT' } : null);
-        }
-      } catch {
-        if (active) setPregameIntel(null);
-      }
-    };
-
-    fetchIntel();
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [isSched, isEdgeTab, match.id, match.homeTeam?.name, match.awayTeam?.name, match.sport, match.leagueId, startTimeISO, match.current_odds?.homeSpread, match.current_odds?.total]);
-
-  const insightCardData = useMemo(() => {
-    if (!isEdgeTab) return null;
-    const prop = match.dbProps?.[0];
-    if (!prop || typeof prop !== 'object') return null;
-    const propRow = prop as Partial<PlayerPropBet> & Record<string, unknown>;
-
-    const norm = (s?: string) => (s || '').toLowerCase();
-    const homeKeys = [match.homeTeam.abbreviation, match.homeTeam.shortName, match.homeTeam.name].map(norm);
-    const awayKeys = [match.awayTeam.abbreviation, match.awayTeam.shortName, match.awayTeam.name].map(norm);
-    const propTeam = norm(propRow.team as string | undefined);
-
-    const isHome = propTeam && homeKeys.some((k) => k && propTeam.includes(k));
-    const isAway = propTeam && awayKeys.some((k) => k && propTeam.includes(k));
-
-    const teamLabel = (propRow.team as string | undefined) || match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name;
-    const opponentLabel = isHome
-      ? (match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name)
-      : isAway
-        ? (match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name)
-        : (match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name);
-
-    const statType = ((propRow.marketLabel as string | undefined) || (propRow.betType as string | undefined) || 'Stat')
-      .toString()
-      .replace(/_/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    const lineValue = Number(propRow.lineValue ?? 0);
-    const side = ((propRow.side as string) || 'OVER').toString().toLowerCase();
-    const l5Values = Array.isArray(propRow.l5Values) ? propRow.l5Values.map(v => Number(v)) : [];
-    const l5Results = l5Values
-      .map((value) => {
-        if (!Number.isFinite(value)) return 'MISS';
-        if (side === 'under') return value < lineValue ? 'HIT' : value > lineValue ? 'MISS' : 'PUSH';
-        if (side === 'over') return value > lineValue ? 'HIT' : value < lineValue ? 'MISS' : 'PUSH';
-        return 'MISS';
-      })
-      .slice(0, 5);
-
-    const impliedProb = typeof propRow.impliedProbPct === 'number'
-      ? propRow.impliedProbPct
-      : (typeof propRow.confidenceScore === 'number' ? propRow.confidenceScore * 100 : 50);
-
-    const hitRate = typeof propRow.l5HitRate === 'number'
-      ? propRow.l5HitRate
-      : (l5Results.length ? Math.round((l5Results.filter(r => r === 'HIT').length / l5Results.length) * 100) : 0);
-
-    return toInsightCard({
-      id: (propRow.id as string) || match.id,
-      playerName: propRow.playerName as string,
-      team: teamLabel,
-      opponent: opponentLabel,
-      matchup: `${match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name} @ ${match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name}`,
-      headshotUrl: propRow.headshotUrl as string,
-      side: side.toUpperCase(),
-      line: lineValue,
-      statType,
-      bestOdds: propRow.oddsAmerican as number,
-      bestBook: (propRow.sportsbook as string) || (propRow.provider as string) || 'market',
-      affiliateLink: undefined,
-      dvpRank: typeof propRow.fantasyDvpRank === 'number' ? propRow.fantasyDvpRank : 0,
-      edge: 0,
-      probability: impliedProb,
-      aiAnalysis: (propRow.aiRationale as string) || 'Intelligence pending.',
-      l5Results,
-      l5HitRate: hitRate
-    });
-  }, [isEdgeTab, match]);
-
-  const gameEdgeCardData = useMemo(() => {
-    if (!isEdgeTab || !pregameIntel || !match.homeTeam || !match.awayTeam) return null;
-
-    const pick = pregameIntel.recommended_pick || pregameIntel.grading_metadata?.selection || '';
-    const pickText = (pick || '').trim();
-
-    const norm = (s?: string) => (s || '').toLowerCase();
-    const homeLabel = match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name;
-    const awayLabel = match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name;
-    const matchup = `${awayLabel} @ ${homeLabel}`;
-
-    const homeKeys = [match.homeTeam.abbreviation, match.homeTeam.shortName, match.homeTeam.name].map(norm);
-    const awayKeys = [match.awayTeam.abbreviation, match.awayTeam.shortName, match.awayTeam.name].map(norm);
-
-    const extractTeamFromPick = (value?: string | null) => {
-      if (!value) return '';
-      const s = value.trim();
-      if (!s) return '';
-      if (/^(over|under)\b/i.test(s)) return s.split(/\s+/).slice(0, 1).join(' ').toUpperCase();
-      const mlIdx = s.toLowerCase().lastIndexOf(' ml');
-      const core = mlIdx > 0 ? s.slice(0, mlIdx).trim() : s;
-      const tokens = core.split(/\s+/);
-      const out: string[] = [];
-      for (const t of tokens) {
-        if (/^[+\-]?\d+(\.\d+)?$/.test(t)) break;
-        if (/^\(?[+\-]?\d{3,5}\)?$/.test(t)) break;
-        out.push(t);
-      }
-      return out.length ? out.join(' ') : tokens[0];
-    };
-
-    const pickTeam = extractTeamFromPick(pickText);
-    const pickNorm = norm(pickTeam);
-
-    let teamName = match.homeTeam.name || homeLabel;
-    let opponentName = match.awayTeam.name || awayLabel;
-    let teamAbbr = match.homeTeam.abbreviation || homeLabel;
-    let teamLogoUrl = match.homeTeam.logo;
-
-    if (pickNorm && homeKeys.some((k) => k && pickNorm.includes(k))) {
-      teamName = match.homeTeam.name || homeLabel;
-      opponentName = match.awayTeam.name || awayLabel;
-      teamAbbr = match.homeTeam.abbreviation || homeLabel;
-      teamLogoUrl = match.homeTeam.logo;
-    } else if (pickNorm && awayKeys.some((k) => k && pickNorm.includes(k))) {
-      teamName = match.awayTeam.name || awayLabel;
-      opponentName = match.homeTeam.name || homeLabel;
-      teamAbbr = match.awayTeam.abbreviation || awayLabel;
-      teamLogoUrl = match.awayTeam.logo;
-    } else if (/^(over|under)\b/i.test(pickText)) {
-      teamName = `${homeLabel} vs ${awayLabel}`;
-      opponentName = '';
-      teamAbbr = 'TOTAL';
-      teamLogoUrl = undefined;
-    }
-
-    const meta = pregameIntel.grading_metadata;
-    const oddsMarket = match.current_odds;
-    let bestOdds: string | number | undefined;
-
-    if (meta?.type === 'TOTAL') {
-      bestOdds = meta.side === 'OVER'
-        ? (oddsMarket?.overOdds ?? oddsMarket?.over ?? oddsMarket?.totalOver) as any
-        : (oddsMarket?.underOdds ?? oddsMarket?.under) as any;
-    } else if (meta?.type === 'SPREAD') {
-      bestOdds = meta.side === 'HOME'
-        ? (oddsMarket?.homeSpreadOdds ?? oddsMarket?.homeSpread) as any
-        : (oddsMarket?.awaySpreadOdds ?? oddsMarket?.awaySpread) as any;
-    } else if (meta?.type === 'MONEYLINE') {
-      bestOdds = meta.side === 'HOME'
-        ? (oddsMarket?.moneylineHome ?? oddsMarket?.home_ml) as any
-        : (oddsMarket?.moneylineAway ?? oddsMarket?.away_ml) as any;
-    }
-
-    const confidence = pregameIntel.confidence_score;
-    const probability = typeof confidence === 'number'
-      ? (confidence <= 1 ? confidence * 100 : confidence)
-      : 50;
-
-    return toInsightCard({
-      id: `${match.id}-game-edge`,
-      headerMode: 'team',
-      teamName,
-      teamAbbr,
-      opponentName,
-      teamLogoUrl,
-      matchup,
-      customSegment: pickText || 'Game Edge',
-      side: pickText.toUpperCase().startsWith('UNDER') ? 'UNDER' : 'OVER',
-      line: 0,
-      statType: 'Edge',
-      bestOdds: bestOdds ? String(bestOdds) : 'N/A',
-      bestBook: oddsMarket?.provider || 'Market',
-      affiliateLink: undefined,
-      dvpRank: 0,
-      edge: 0,
-      probability,
-      aiAnalysis: pregameIntel.briefing || pregameIntel.headline || 'Intelligence pending.',
-      l5Results: [],
-      l5HitRate: 0
-    });
-  }, [isEdgeTab, match, pregameIntel]);
 
   const playByPlayText = effectiveLiveState?.lastPlay?.text || match.lastPlay?.text || '';
 
@@ -1527,81 +1281,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         summary={streakSummary}
                         homeLabel={match.homeTeam.shortName || match.homeTeam.name}
                         awayLabel={match.awayTeam.shortName || match.awayTeam.name}
+                        sport={String(match.sport || '')}
                       />
                     </SpecSheetRow>
-                    {/* ── Polymarket Intelligence Section ─────────────── */}
-                    {polyData && match.homeTeam && match.awayTeam && (
-                      <div className="mb-12 space-y-6">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1 h-1 rounded-full bg-indigo-400" />
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Market Snapshot</span>
-                        </div>
-                        <EdgeCard
-                          homeTeam={match.homeTeam.shortName || match.homeTeam.name}
-                          awayTeam={match.awayTeam.shortName || match.awayTeam.name}
-                          homePolyProb={polyData.homeProb}
-                          awayPolyProb={polyData.awayProb}
-                          volume={polyData.volume}
-                          {...(() => {
-                            const o = match.current_odds || match.odds;
-                            const home = Number(o?.moneylineHome || o?.homeWin || o?.home_ml || 0);
-                            const away = Number(o?.moneylineAway || o?.awayWin || o?.away_ml || 0);
-                            return {
-                              ...(home !== 0 ? { homeMoneyline: home } : {}),
-                              ...(away !== 0 ? { awayMoneyline: away } : {})
-                            };
-                          })()}
-                        />
-                        <MarketEdgeCard
-                          homeTeam={match.homeTeam.shortName || match.homeTeam.name}
-                          awayTeam={match.awayTeam.shortName || match.awayTeam.name}
-                          homePolyProb={polyData.homeProb}
-                          awayPolyProb={polyData.awayProb}
-                          volume={polyData.volume}
-                          gameStartTime={polyData.gameStartTime}
-                          {...(Number(match.current_odds?.moneylineHome || match.current_odds?.home_ml || 0) !== 0
-                            ? { homeMoneyline: Number(match.current_odds?.moneylineHome || match.current_odds?.home_ml) }
-                            : {})}
-                          {...(Number(match.current_odds?.moneylineAway || match.current_odds?.away_ml || 0) !== 0
-                            ? { awayMoneyline: Number(match.current_odds?.moneylineAway || match.current_odds?.away_ml) }
-                            : {})}
-                        />
-                      </div>
-                    )}
-                    {(gameEdgeCardData || insightCardData) && (
-                      <div className="mb-12 space-y-6">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Game Notes</span>
-                        </div>
-                        {gameEdgeCardData && (
-                          <div className="space-y-3">
-                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Game Read</span>
-                            <InsightCard data={gameEdgeCardData!} />
-                          </div>
-                        )}
-                        {insightCardData && (
-                          <div className="space-y-3">
-                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Player Prop</span>
-                            <InsightCard data={insightCardData!} />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {isBaseball && (baseballData as any)?.edge && (
-                      <div className="mb-12">
-                        <div className="flex items-center gap-2 mb-4">
-                          <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">
-                            Live Matchup View
-                          </span>
-                        </div>
-                        <BaseballEdgePanel edge={(baseballData as any).edge} />
-                      </div>
-                    )}
                     <div className="mb-12"><ForecastHistoryTable matchId={match.id} /></div>
                     <SpecSheetRow label="01 // BOX SCORE" defaultOpen={true}><BoxScore match={match} /></SpecSheetRow>
-                    <SpecSheetRow label="02 // ANALYSIS" defaultOpen={false}><SafePregameIntelCards match={match} /></SpecSheetRow>
                     <div className="w-full h-px bg-zinc-200" />
                   </div>
                 )}

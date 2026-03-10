@@ -53,6 +53,7 @@ export interface LeagueBaselineSummary {
 
 export interface MatchStreakSummary {
   matchId: string;
+  sport: string;
   hotCount: number;
   totalCount: number;
   ratioLabel: string;
@@ -139,8 +140,8 @@ const toMetricLabel = (trendText: string): string => {
   const compact = trendText.replace(/\s+/g, ' ').trim();
   const key = compact.toUpperCase();
 
-  if (key.includes('OVER VS LINE')) return 'Over vs posted total';
-  if (key.includes('UNDER VS LINE')) return 'Under vs posted total';
+  if (key.includes('OVER VS LINE')) return 'Games over total line';
+  if (key.includes('UNDER VS LINE')) return 'Games under total line';
   if (key.includes('DOG COVER')) return 'Underdog covers';
   if (key.includes('FAV COVER')) return 'Favorite covers';
   if (key.includes('ML FORM') || key.includes('ML STREAK')) return 'Win form';
@@ -334,17 +335,18 @@ export function useMatchStreaks(matches: Match[]) {
     matches.forEach((match) => {
       const leagueId = normalizeLeagueId(match.leagueId || '');
       const baseline = baselinesByLeague.get(leagueId);
-      const homeNames = [match.homeTeam?.name, match.homeTeam?.shortName, match.homeTeam?.abbreviation]
+      const homeNames = [match.homeTeam?.name, match.homeTeam?.shortName]
         .map((s) => String(s || ''))
-        .filter(Boolean);
-      const awayNames = [match.awayTeam?.name, match.awayTeam?.shortName, match.awayTeam?.abbreviation]
+        .filter((value) => value.length >= 4);
+      const awayNames = [match.awayTeam?.name, match.awayTeam?.shortName]
         .map((s) => String(s || ''))
-        .filter(Boolean);
+        .filter((value) => value.length >= 4);
+      const isSoccer = String(match.sport || '').toLowerCase().includes('soccer');
 
       const homeRows = buildTeamRows(trends, homeNames, leagueId, baseline);
       const awayRows = buildTeamRows(trends, awayNames, leagueId, baseline);
-      const crossLeagueHome = buildCrossLeagueRows(trends, homeNames, leagueId);
-      const crossLeagueAway = buildCrossLeagueRows(trends, awayNames, leagueId);
+      const crossLeagueHome = isSoccer ? buildCrossLeagueRows(trends, homeNames, leagueId) : [];
+      const crossLeagueAway = isSoccer ? buildCrossLeagueRows(trends, awayNames, leagueId) : [];
       const combined = [...homeRows, ...awayRows];
       const hotCount = combined.filter((row) => row.hot).length;
       const totalCount = combined.length;
@@ -361,6 +363,7 @@ export function useMatchStreaks(matches: Match[]) {
 
       const summary: MatchStreakSummary = {
         matchId: match.id,
+        sport: String(match.sport || ''),
         hotCount,
         totalCount,
         ratioLabel: `${hotCount}/${totalCount || 0}`,

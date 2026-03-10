@@ -302,7 +302,9 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                   aria-label={`${dot.label} ${clampPct(dot.rate)} percent`}
                 />
               ))}
-              <span className="ml-1 font-mono text-[10px] tabular-nums text-slate-600">{streakSummary.ratioLabel} hot</span>
+              <span className="ml-1 font-mono text-[10px] tabular-nums text-slate-600">
+                {streakSummary.hotCount}/{streakSummary.totalCount || 0} hot
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-flex max-w-[280px] items-center rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-slate-700">

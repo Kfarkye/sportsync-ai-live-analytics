@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
-import { cn } from '@/lib/essence';
-import { TrendingUp, TrendingDown, Minus, BarChart3 } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 interface ForecastSnapshot {
@@ -96,9 +95,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                         <tr className="border-b border-slate-200">
                             <th className="py-3 px-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Time</th>
                             <th className="py-3 px-2 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Score</th>
-                            <th className="py-3 px-2 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Fair</th>
-                            <th className="py-3 px-2 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Market</th>
-                            <th className="py-3 px-2 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Edge</th>
+                            <th className="py-3 px-2 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Total Line</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.02]">
@@ -123,41 +120,9 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                                         </span>
                                     </td>
                                     <td className="py-3 px-2 text-center">
-                                        <span className="text-[11px] font-mono font-bold text-slate-900 drop-shadow-sm">
-                                            {s.fair_total.toFixed(1)}
-                                        </span>
-                                    </td>
-                                    <td className="py-3 px-2 text-center">
                                         <span className="text-[11px] font-mono font-bold text-slate-500">
                                             {s.market_total.toFixed(1)}
                                         </span>
-                                    </td>
-                                    <td className="py-3 px-2">
-                                        <div className="flex items-center justify-center gap-1.5">
-                                            <div className={cn(
-                                                "px-2 py-0.5 rounded flex items-center gap-1",
-                                                s.edge_state === 'PLAY' ? "bg-emerald-500/10" :
-                                                    s.edge_state === 'LEAN' ? "bg-amber-500/10" : "bg-zinc-800/40"
-                                            )}>
-                                                {s.edge_points > 0 ? (
-                                                    <TrendingUp size={10} className={cn(
-                                                        s.edge_state === 'PLAY' ? "text-emerald-400" :
-                                                            s.edge_state === 'LEAN' ? "text-amber-400" : "text-slate-500"
-                                                    )} />
-                                                ) : s.edge_points < 0 ? (
-                                                    <TrendingDown size={10} className="text-rose-400" />
-                                                ) : (
-                                                    <Minus size={10} className="text-slate-500" />
-                                                )}
-                                                <span className={cn(
-                                                    "text-[10px] font-mono font-bold",
-                                                    s.edge_state === 'PLAY' ? "text-emerald-400" :
-                                                        s.edge_state === 'LEAN' ? "text-amber-400" : "text-slate-500"
-                                                )}>
-                                                    {s.edge_points.toFixed(1)}
-                                                </span>
-                                            </div>
-                                        </div>
                                     </td>
                                 </motion.tr>
                             ))}

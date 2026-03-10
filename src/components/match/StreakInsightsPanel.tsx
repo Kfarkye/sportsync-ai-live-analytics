@@ -6,6 +6,7 @@ interface StreakInsightsPanelProps {
   summary?: MatchStreakSummary;
   homeLabel: string;
   awayLabel: string;
+  sport?: string;
 }
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -63,16 +64,18 @@ const TeamColumn = ({
   title,
   rows,
   crossLeagueRows,
+  showCrossLeague,
 }: {
   title: string;
   rows: TeamStreakRow[];
   crossLeagueRows: TeamStreakRow[];
+  showCrossLeague: boolean;
 }) => (
   <div className="space-y-3">
     <div className="flex items-center justify-between gap-2">
       <h4 className="truncate text-[12px] font-semibold tracking-tight text-slate-900">{title}</h4>
       <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-slate-600">
-        {rows.length} lines
+        {rows.length} signals
       </span>
     </div>
 
@@ -88,7 +91,7 @@ const TeamColumn = ({
       </div>
     )}
 
-    {crossLeagueRows.length > 0 && (
+    {showCrossLeague && crossLeagueRows.length > 0 && (
       <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 px-3 py-2.5">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
           Other competitions
@@ -115,7 +118,7 @@ const BaselineRow = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-const StreakInsightsPanel = ({ summary, homeLabel, awayLabel }: StreakInsightsPanelProps) => {
+const StreakInsightsPanel = ({ summary, homeLabel, awayLabel, sport }: StreakInsightsPanelProps) => {
   if (!summary) {
     return (
       <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-[12px] text-slate-500">
@@ -125,6 +128,10 @@ const StreakInsightsPanel = ({ summary, homeLabel, awayLabel }: StreakInsightsPa
   }
 
   const baseline = summary.baseline;
+  const sportKey = String(sport || summary.sport || '').toLowerCase();
+  const isSoccer = sportKey.includes('soccer');
+  const isBaseball = sportKey.includes('baseball');
+  const avgTotalLabel = isSoccer ? 'Avg goals' : isBaseball ? 'Avg runs' : 'Avg points';
 
   return (
     <section className="space-y-4">
@@ -136,19 +143,38 @@ const StreakInsightsPanel = ({ summary, homeLabel, awayLabel }: StreakInsightsPa
               {baseline.leagueLabel} · {baseline.matches} matches
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-            <BaselineRow label="Over 2.5" value={formatRate(baseline.over25)} />
-            <BaselineRow label="Both score" value={formatRate(baseline.btts)} />
-            <BaselineRow label="Clean sheet" value={formatRate(baseline.cleanSheet)} />
-            <BaselineRow label="Avg goals" value={baseline.avgTotal.toFixed(2)} />
-            <BaselineRow label="Hot lines" value={summary.ratioLabel} />
-          </div>
+          {isSoccer ? (
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+              <BaselineRow label="Over 2.5" value={formatRate(baseline.over25)} />
+              <BaselineRow label="Both score" value={formatRate(baseline.btts)} />
+              <BaselineRow label="Clean sheet" value={formatRate(baseline.cleanSheet)} />
+              <BaselineRow label={avgTotalLabel} value={baseline.avgTotal.toFixed(2)} />
+              <BaselineRow label="Hot signals" value={`${summary.hotCount}/${summary.totalCount || 0}`} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <BaselineRow label={avgTotalLabel} value={baseline.avgTotal.toFixed(1)} />
+              <BaselineRow label="League games" value={String(baseline.matches)} />
+              <BaselineRow label="Hot signals" value={`${summary.hotCount}/${summary.totalCount || 0}`} />
+              <BaselineRow label="Tracked signals" value={String(summary.totalCount)} />
+            </div>
+          )}
         </div>
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <TeamColumn title={homeLabel} rows={summary.home} crossLeagueRows={summary.crossLeagueHome} />
-        <TeamColumn title={awayLabel} rows={summary.away} crossLeagueRows={summary.crossLeagueAway} />
+        <TeamColumn
+          title={homeLabel}
+          rows={summary.home}
+          crossLeagueRows={summary.crossLeagueHome}
+          showCrossLeague={isSoccer}
+        />
+        <TeamColumn
+          title={awayLabel}
+          rows={summary.away}
+          crossLeagueRows={summary.crossLeagueAway}
+          showCrossLeague={isSoccer}
+        />
       </div>
     </section>
   );
