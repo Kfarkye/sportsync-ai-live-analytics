@@ -53,6 +53,9 @@ const App: FC = () => {
                 <Route path="/soccer" element={<PostgameRouter />} />
                 <Route path="/league/:slug" element={<PostgameRouter />} />
                 <Route path="/team/:slug" element={<PostgameRouter />} />
+                <Route path="/team/:slug/outlook" element={<PostgameRouter />} />
+                <Route path="/teams/:slug" element={<PostgameRouter />} />
+                <Route path="/teams/:slug/outlook" element={<PostgameRouter />} />
                 <Route path="/match/:slug" element={<PostgameRouter />} />
                 <Route path="/edge" element={<ReportsPage />} />
                 <Route path="/reports" element={<Navigate to="/edge" replace />} />
