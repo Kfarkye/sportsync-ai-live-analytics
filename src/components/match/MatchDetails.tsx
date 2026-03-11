@@ -724,11 +724,16 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
 
     if (live.home_score !== undefined || live.away_score !== undefined || live.clock || live.lastPlay || live.possession) {
       setMatch(prev => {
-        const h = Math.max(live.home_score ?? prev.homeScore ?? 0, prev.homeScore ?? 0);
-        const a = Math.max(live.away_score ?? prev.awayScore ?? 0, prev.awayScore ?? 0);
+        // Trust live scores directly — allows downward corrections (review reversals, stat corrections)
+        const h = live.home_score ?? prev.homeScore ?? 0;
+        const a = live.away_score ?? prev.awayScore ?? 0;
         const c = live.clock || prev.displayClock;
         const p = live.period || prev.period;
-        const lp = live.lastPlay ? { ...prev.lastPlay, ...live.lastPlay } : prev.lastPlay;
+        const lp = live.lastPlay
+          ? (live.lastPlay.id && live.lastPlay.id === prev.lastPlay?.id)
+            ? prev.lastPlay
+            : { ...prev.lastPlay, ...live.lastPlay }
+          : prev.lastPlay;
         const poss = live.possession || prev.possession;
 
         if (h === prev.homeScore && a === prev.awayScore && c === prev.displayClock && p === prev.period && lp?.text === prev.lastPlay?.text && poss === prev.possession) return prev;
@@ -746,8 +751,9 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
     if (!isGameInProgress(initialMatch.status)) return;
 
     const dbId = getDbMatchId(initialMatch.id, initialMatch.leagueId?.toLowerCase() || '');
-    const channel = supabase.channel(`live_state:${dbId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_match_states', filter: `match_id=eq.${dbId}` }, (payload) => {
+    const sanitizedDbId = dbId.replace(/[^a-zA-Z0-9_:-]/g, '');
+    const channel = supabase.channel(`live_state:${sanitizedDbId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_match_states', filter: `match_id=eq.${sanitizedDbId}` }, (payload) => {
         if (payload.new) {
           isSocketActiveRef.current = true;
           lastLiveReceivedAtRef.current = Date.now();
@@ -816,57 +822,60 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
       setIsInitialLoad(false);
     }).catch(() => null);
 
-    const propsPromise = supabase.from('player_prop_bets').select('*').ilike('match_id', `%${cur.id}%`).order('player_name').then(({ data: props }) => {
-      if (!props || seq !== fetchSeqRef.current) return;
+    const propDbId = getDbMatchId(cur.id, cur.leagueId?.toLowerCase() || '');
+    const propsPromise = supabase.from('player_prop_bets').select('*')
+      .or(`match_id.eq.${propDbId},match_id.eq.${cur.id}`)
+      .order('player_name').then(({ data: props }) => {
+        if (!props || seq !== fetchSeqRef.current) return;
 
-      const propsHash = hashPayload(props);
-      if (propsHash === lastPropsHashRef.current) return;
-      lastPropsHashRef.current = propsHash;
+        const propsHash = hashPayload(props);
+        if (propsHash === lastPropsHashRef.current) return;
+        lastPropsHashRef.current = propsHash;
 
-      const allowedTypes = ['points', 'rebounds', 'assists', 'threes_made', 'blocks', 'steals', 'pra', 'pr', 'pa', 'ra', 'passing_yards', 'rushing_yards', 'receiving_yards', 'touchdowns', 'shots_on_goal', 'goals', 'saves', 'hits', 'points_rebounds', 'points_assists', 'rebounds_assists'];
+        const allowedTypes = ['points', 'rebounds', 'assists', 'threes_made', 'blocks', 'steals', 'pra', 'pr', 'pa', 'ra', 'passing_yards', 'rushing_yards', 'receiving_yards', 'touchdowns', 'shots_on_goal', 'goals', 'saves', 'hits', 'points_rebounds', 'points_assists', 'rebounds_assists'];
 
-      setMatch(prev => {
-        const parsed: ExtendedPropBet[] = props.map(p => {
-          const normType = (p.bet_type || '').toLowerCase().replace(/\s+/g, '_').replace(/3pt|3p|3pm|threes/g, 'threes_made');
-          const finalType = allowedTypes.includes(normType) ? normType : 'custom';
-          const sideNorm = `${p.market_label || ''} ${p.bet_type || ''}`.toLowerCase();
-          const side = p.side || (/\bover\b/.test(sideNorm) ? 'over' : /\bunder\b/.test(sideNorm) ? 'under' : 'line');
+        setMatch(prev => {
+          const parsed: ExtendedPropBet[] = props.map(p => {
+            const normType = (p.bet_type || '').toLowerCase().replace(/\s+/g, '_').replace(/3pt|3p|3pm|threes/g, 'threes_made');
+            const finalType = allowedTypes.includes(normType) ? normType : 'custom';
+            const sideNorm = `${p.market_label || ''} ${p.bet_type || ''}`.toLowerCase();
+            const side = p.side || (/\bover\b/.test(sideNorm) ? 'over' : /\bunder\b/.test(sideNorm) ? 'under' : 'line');
 
-          return {
-            id: `${prev.id}:${p.player_name}:${p.bet_type}:${p.line_value}`,
-            userId: 'system',
-            matchId: prev.id,
-            playerName: p.player_name || '',
-            headshotUrl: p.headshot_url || undefined,
-            betType: finalType as PropBetType,
-            marketLabel: p.market_label || undefined,
-            side: side as PlayerPropBet['side'],
-            lineValue: Number(p.line_value ?? 0),
-            sportsbook: p.sportsbook || p.provider || 'market',
-            oddsAmerican: Number(p.odds_american ?? 0),
-            impliedProbPct: p.implied_prob_pct ? Number(p.implied_prob_pct) : undefined,
-            confidenceScore: p.confidence_score ? Number(p.confidence_score) : undefined,
-            l5HitRate: p.l5_hit_rate ? Number(p.l5_hit_rate) : undefined,
-            l5Values: Array.isArray(p.l5_values) ? p.l5_values.map(v => Number(v)) : undefined,
-            aiRationale: p.ai_rationale || undefined,
-            team: p.team || undefined,
-            opponent: p.opponent || undefined,
-            fantasyDvpRank: p.fantasy_dvp_rank ? Number(p.fantasy_dvp_rank) : undefined,
-            avgL5: p.avg_l5 ? Number(p.avg_l5) : undefined,
-            eventDate: new Date().toISOString(),
-            league: prev.leagueId || '',
-            stakeAmount: 0,
-            result: 'pending',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
+            return {
+              id: `${prev.id}:${p.player_name}:${p.bet_type}:${p.line_value}`,
+              userId: 'system',
+              matchId: prev.id,
+              playerName: p.player_name || '',
+              headshotUrl: p.headshot_url || undefined,
+              betType: finalType as PropBetType,
+              marketLabel: p.market_label || undefined,
+              side: side as PlayerPropBet['side'],
+              lineValue: Number(p.line_value ?? 0),
+              sportsbook: p.sportsbook || p.provider || 'market',
+              oddsAmerican: Number(p.odds_american ?? 0),
+              impliedProbPct: p.implied_prob_pct ? Number(p.implied_prob_pct) : undefined,
+              confidenceScore: p.confidence_score ? Number(p.confidence_score) : undefined,
+              l5HitRate: p.l5_hit_rate ? Number(p.l5_hit_rate) : undefined,
+              l5Values: Array.isArray(p.l5_values) ? p.l5_values.map(v => Number(v)) : undefined,
+              aiRationale: p.ai_rationale || undefined,
+              team: p.team || undefined,
+              opponent: p.opponent || undefined,
+              fantasyDvpRank: p.fantasy_dvp_rank ? Number(p.fantasy_dvp_rank) : undefined,
+              avgL5: p.avg_l5 ? Number(p.avg_l5) : undefined,
+              eventDate: new Date().toISOString(),
+              league: prev.leagueId || '',
+              stakeAmount: 0,
+              result: 'pending',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+          });
+
+          const next = { ...prev, dbProps: parsed };
+          matchRef.current = next;
+          return next;
         });
-
-        const next = { ...prev, dbProps: parsed };
-        matchRef.current = next;
-        return next;
-      });
-    }).catch(() => null);
+      }).catch(() => null);
 
     Promise.allSettled([espnPromise, dbPromise, propsPromise]).finally(() => {
       isFetchingRef.current = false;
@@ -876,11 +885,12 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
 
   useEffect(() => {
     fetchData();
-    const isLive = isGameInProgress(match.status);
-    const ms = isLive ? CONFIG.polling.LIVE_MS : CONFIG.polling.PREGAME_MS;
-    const interval = window.setInterval(() => { if (document.visibilityState === 'visible') fetchData(); }, ms);
+    const ms = isGameInProgress(matchRef.current.status) ? CONFIG.polling.LIVE_MS : CONFIG.polling.PREGAME_MS;
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') fetchData();
+    }, ms);
     return () => window.clearInterval(interval);
-  }, [fetchData, match.status]);
+  }, [fetchData]);
 
   return { match, liveState, connectionStatus, error, forecastHistory, isInitialLoad };
 }
@@ -984,7 +994,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         if (intel && active) { setPregameIntel(intel); return; }
 
         const canonicalId = getDbMatchId(match.id, match.leagueId?.toLowerCase() || '');
-        const { data: fallback } = await supabase.from('pregame_intel').select('*').or(`match_id.ilike.%${match.id}%,match_id.ilike.%${canonicalId}%`).order('generated_at', { ascending: false }).limit(1).maybeSingle();
+        const { data: fallback } = await supabase.from('pregame_intel').select('*')
+          .or(`match_id.eq.${match.id},match_id.eq.${canonicalId}`)
+          .order('generated_at', { ascending: false }).limit(1).maybeSingle();
         if (active && fallback) setPregameIntel({ ...(fallback as PregameIntelResponse), match_id: match.id, freshness: 'RECENT' });
       } catch { }
     };
