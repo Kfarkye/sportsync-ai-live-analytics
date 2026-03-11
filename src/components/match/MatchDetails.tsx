@@ -28,13 +28,12 @@ import { motion, AnimatePresence, useMotionValue, LayoutGroup } from 'framer-mot
 // ============================================================================
 
 import { Sport } from '@/types';
-import type { Match, RecentFormGame, ShotEvent, PlayerPropBet, PropBetType } from '@/types';
+import type { Match, RecentFormGame, PlayerPropBet, PropBetType } from '@/types';
 import { cn, ESSENCE } from '@/lib/essence';
 import { getMatchDisplayStats } from '../../utils/statDisplay';
 
 // Services
 import { fetchMatchDetailsExtended, fetchTeamLastFive } from '../../services/espnService';
-import { fetchNhlGameDetails } from '../../services/nhlService';
 import { supabase } from '../../lib/supabase';
 import { dbService } from '../../services/dbService';
 import { pregameIntelService, type PregameIntelResponse } from '../../services/pregameIntelService';
@@ -78,42 +77,6 @@ import { LiveSweatProvider, type AIWatchTrigger } from '@/context/LiveSweatConte
 // SECTION 2: STRICT TYPE DEFINITIONS
 // ============================================================================
 
-interface DbPlayerPropRow {
-  player_name?: string | null;
-  bet_type?: string | null;
-  line_value?: number | string | null;
-  odds_american?: number | string | null;
-  market_label?: string | null;
-  headshot_url?: string | null;
-  team?: string | null;
-  opponent?: string | null;
-  sportsbook?: string | null;
-  provider?: string | null;
-  side?: string | null;
-  player_id?: string | null;
-  espn_player_id?: string | null;
-  fantasy_dvp_rank?: number | null;
-  l5_hit_rate?: number | null;
-  l5_values?: number[] | null;
-  avg_l5?: number | null;
-  ai_rationale?: string | null;
-  analysis_status?: string | null;
-  analysis_ts?: string | null;
-  implied_prob_pct?: number | null;
-  confidence_score?: number | null;
-}
-
-interface DbMatchRow {
-  current_odds?: Match['current_odds'];
-  closing_odds?: Match['closing_odds'];
-  opening_odds?: Match['opening_odds'];
-  odds?: Match['odds'];
-  home_score?: number;
-  away_score?: number;
-}
-
-type EspnExtendedMatch = Partial<ExtendedMatch> & { statistics?: Match['stats'] };
-
 interface LiveState extends Partial<Omit<ExtendedMatch, 'lastPlay' | 'period'>> {
   lastPlay?: { id?: string; clock?: string; text?: string; coordinate?: { x: number; y: number } | string; type?: { text: string } | string; };
   ai_analysis?: { sharp_data?: { recommendation?: { side: string }; confidence_level?: number; }; };
@@ -145,7 +108,6 @@ interface ExtendedMatch extends Match {
 }
 
 interface ForecastPoint { clock: string; fairTotal: number; marketTotal: number; edgeState: 'PLAY' | 'LEAN' | 'NEUTRAL'; timestamp: number; }
-interface EdgeState { side: 'OVER' | 'UNDER' | null; state: 'PLAY' | 'LEAN' | 'NEUTRAL'; edgePoints: number; confidence?: number; }
 type CoordinateInput = { x?: number | string; y?: number | string } | string | null | undefined;
 
 // ============================================================================
@@ -165,7 +127,6 @@ const PHYSICS = {
 
 const CONFIG = {
   polling: { LIVE_MS: 2500, PREGAME_MS: 45000, SOCKET_FRESH_MS: 8000 },
-  nhlShots: { MIN_MS: 15000 },
   coordinates: { BASKETBALL: { x: 50, y: 28.125 }, FOOTBALL: { x: 60, y: 26.65 }, SOCCER: { x: 50, y: 50 } },
   forecast: { SPARKLINE_POINTS: 12, MAX_HISTORY: 20 },
 };
@@ -199,21 +160,14 @@ function stableSerialize(value: unknown, seen = new WeakSet<object>()): string {
   return '"__unsupported__"';
 }
 
+const IS_DEV =
+  typeof import.meta !== 'undefined' &&
+  typeof import.meta.env !== 'undefined' &&
+  Boolean(import.meta.env.DEV);
+
 function hashPayload(obj: unknown): string {
   if (!obj) return '';
   try { return fnv1a32(stableSerialize(obj)).toString(16); } catch { return ''; }
-}
-
-async function failSafe<T>(p: PromiseLike<{ data: T; error: Error | null }>): Promise<T | null> {
-  try { const { data, error } = await p; return error ? null : data; } catch { return null; }
-}
-
-function parseTsMs(v: string | number | Date | null | undefined, fallbackMs: number): number {
-  if (!v) return fallbackMs;
-  if (typeof v === 'number') return v;
-  if (typeof v === 'string') { const t = new Date(v).getTime(); return Number.isFinite(t) ? t : fallbackMs; }
-  if (v instanceof Date) { const t = v.getTime(); return Number.isFinite(t) ? t : fallbackMs; }
-  return fallbackMs;
 }
 
 // ============================================================================
@@ -772,155 +726,292 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
   }, [initialMatch.id, initialMatch.leagueId, initialMatch.status, processLiveState]);
 
   // SOTA FIX: Bound dependency array to initialMatch.id to dynamically re-bind the fetcher scope when navigating
-  const fetchData = useCallback(() => {
+  const fetchData = useCallback(async () => {
     if (isFetchingRef.current) return;
+
     isFetchingRef.current = true;
     const seq = ++fetchSeqRef.current;
 
-    const cur = matchRef.current;
-    const dbId = getDbMatchId(cur.id, cur.leagueId?.toLowerCase() || '');
-    const isLive = isGameInProgress(cur.status);
-    const socketFresh = isSocketActiveRef.current && isLive && (Date.now() - lastLiveReceivedAtRef.current) < CONFIG.polling.SOCKET_FRESH_MS;
+    setError(null);
+    setConnectionStatus((prev) => (prev === 'connected' ? 'connected' : 'connecting'));
 
-    const espnPromise = fetchMatchDetailsExtended(cur.id, cur.sport, cur.leagueId).then(espn => {
-      if (!espn || seq !== fetchSeqRef.current) return;
-      setMatch(prev => {
-        const newHome = socketFresh ? prev.homeScore : Math.max(espn.homeScore ?? prev.homeScore ?? 0, prev.homeScore ?? 0);
-        const newAway = socketFresh ? prev.awayScore : Math.max(espn.awayScore ?? prev.awayScore ?? 0, prev.awayScore ?? 0);
+    try {
+      const cur = matchRef.current;
+      const dbId = getDbMatchId(cur.id, cur.leagueId?.toLowerCase() || '');
+      const isLive = isGameInProgress(cur.status);
+      const socketFresh =
+        isSocketActiveRef.current &&
+        isLive &&
+        Date.now() - lastLiveReceivedAtRef.current < CONFIG.polling.SOCKET_FRESH_MS;
 
-        if (hashPayload(prev.stats) === hashPayload(espn.stats || espn.statistics) && prev.homeScore === newHome && prev.awayScore === newAway && prev.status === espn.status) {
-          return prev;
-        }
+      const espnTask = fetchMatchDetailsExtended(cur.id, cur.sport, cur.leagueId).then((espn) => {
+        if (!espn || seq !== fetchSeqRef.current) return false;
 
-        const next = { ...prev, ...espn, stats: espn.stats || espn.statistics || prev.stats, homeScore: newHome, awayScore: newAway };
-        matchRef.current = next;
-        return next;
-      });
-      setConnectionStatus('connected');
-      setIsInitialLoad(false);
-    }).catch(() => null);
+        setMatch((prev) => {
+          const newHome = socketFresh
+            ? prev.homeScore
+            : Math.max(espn.homeScore ?? prev.homeScore ?? 0, prev.homeScore ?? 0);
+          const newAway = socketFresh
+            ? prev.awayScore
+            : Math.max(espn.awayScore ?? prev.awayScore ?? 0, prev.awayScore ?? 0);
+          const nextStats = espn.stats || espn.statistics || prev.stats;
 
-    const dbPromise = isGameFinal(cur.status) ? Promise.resolve(null) : supabase.from('matches').select('current_odds,closing_odds,opening_odds,home_score,away_score').eq('id', dbId).maybeSingle().then(({ data: db }) => {
-      if (!db || seq !== fetchSeqRef.current) return;
-      setMatch(prev => {
-        const dbOdds = db.current_odds;
-        const isDbExternal = dbOdds?.provider && String(dbOdds.provider).toLowerCase() !== 'espn';
-        const newOdds = isDbExternal ? dbOdds : (prev.odds?.hasOdds ? prev.odds : (dbOdds || prev.odds));
-
-        let changed = false;
-        const next = { ...prev };
-
-        if (hashPayload(prev.current_odds) !== hashPayload(newOdds)) { next.current_odds = newOdds; changed = true; }
-        if (db.closing_odds && hashPayload(prev.closing_odds) !== hashPayload(db.closing_odds)) { next.closing_odds = db.closing_odds; changed = true; }
-
-        if (!socketFresh) {
-          if ((db.home_score || 0) > (prev.homeScore || 0)) { next.homeScore = db.home_score; changed = true; }
-          if ((db.away_score || 0) > (prev.awayScore || 0)) { next.awayScore = db.away_score; changed = true; }
-        }
-
-        if (!changed) return prev;
-        matchRef.current = next;
-        return next;
-      });
-      setConnectionStatus('connected');
-      setIsInitialLoad(false);
-    }).catch(() => null);
-
-    // FIX: Replaced dangerous substring .ilike with exact-match .in array targeting
-    const matchIds = Array.from(new Set([cur.id, getDbMatchId(cur.id, cur.leagueId?.toLowerCase() || '')]));
-    const propsPromise = supabase.from('player_prop_bets').select('*')
-      .in('match_id', matchIds)
-      .order('player_name').then(({ data: props }) => {
-        if (!props || seq !== fetchSeqRef.current) return;
-
-        const propsHash = hashPayload(props);
-        if (propsHash === lastPropsHashRef.current) return;
-        lastPropsHashRef.current = propsHash;
-
-        const allowedTypes = ['points', 'rebounds', 'assists', 'threes_made', 'blocks', 'steals', 'pra', 'pr', 'pa', 'ra', 'passing_yards', 'rushing_yards', 'receiving_yards', 'touchdowns', 'shots_on_goal', 'goals', 'saves', 'hits', 'points_rebounds', 'points_assists', 'rebounds_assists'];
-
-        setMatch(prev => {
-          const parsed: ExtendedPropBet[] = props.map(p => {
-            const normType = (p.bet_type || '').toLowerCase().replace(/\s+/g, '_').replace(/3pt|3p|3pm|threes/g, 'threes_made');
-            const finalType = allowedTypes.includes(normType) ? normType : 'custom';
-            const sideNorm = `${p.market_label || ''} ${p.bet_type || ''}`.toLowerCase();
-            const side = p.side || (/\bover\b/.test(sideNorm) ? 'over' : /\bunder\b/.test(sideNorm) ? 'under' : 'line');
-
-            return {
-              id: `${prev.id}:${p.player_name}:${p.bet_type}:${p.line_value}`,
-              userId: 'system',
-              matchId: prev.id,
-              playerName: p.player_name || '',
-              headshotUrl: p.headshot_url || undefined,
-              betType: finalType as PropBetType,
-              marketLabel: p.market_label || undefined,
-              side: side as PlayerPropBet['side'],
-              lineValue: Number(p.line_value ?? 0),
-              sportsbook: p.sportsbook || p.provider || 'market',
-              oddsAmerican: Number(p.odds_american ?? 0),
-              impliedProbPct: p.implied_prob_pct ? Number(p.implied_prob_pct) : undefined,
-              confidenceScore: p.confidence_score ? Number(p.confidence_score) : undefined,
-              l5HitRate: p.l5_hit_rate ? Number(p.l5_hit_rate) : undefined,
-              l5Values: Array.isArray(p.l5_values) ? p.l5_values.map(v => Number(v)) : undefined,
-              aiRationale: p.ai_rationale || undefined,
-              team: p.team || undefined,
-              opponent: p.opponent || undefined,
-              fantasyDvpRank: p.fantasy_dvp_rank ? Number(p.fantasy_dvp_rank) : undefined,
-              avgL5: p.avg_l5 ? Number(p.avg_l5) : undefined,
-              eventDate: new Date().toISOString(),
-              league: prev.leagueId || '',
-              stakeAmount: 0,
-              result: 'pending',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            };
-          });
-
-          const next = { ...prev, dbProps: parsed };
-          matchRef.current = next;
-          return next;
-        });
-      }).catch(() => null);
-
-    const formPromise = isGameScheduled(cur.status)
-      ? Promise.all([
-        dbService.getTeamLastFive(cur.homeTeam?.id, cur.leagueId, cur.homeTeam?.name),
-        dbService.getTeamLastFive(cur.awayTeam?.id, cur.leagueId, cur.awayTeam?.name)
-      ]).then(async ([homeFromDb, awayFromDb]) => {
-        const [homeLast5, awayLast5] = await Promise.all([
-          homeFromDb.length > 0
-            ? Promise.resolve(homeFromDb)
-            : (cur.homeTeam?.id ? fetchTeamLastFive(cur.homeTeam.id, cur.sport, cur.leagueId) : Promise.resolve([] as RecentFormGame[])),
-          awayFromDb.length > 0
-            ? Promise.resolve(awayFromDb)
-            : (cur.awayTeam?.id ? fetchTeamLastFive(cur.awayTeam.id, cur.sport, cur.leagueId) : Promise.resolve([] as RecentFormGame[]))
-        ]);
-
-        if (seq !== fetchSeqRef.current) return;
-
-        setMatch(prev => {
-          const sameHome = hashPayload(prev.homeTeam?.last5) === hashPayload(homeLast5);
-          const sameAway = hashPayload(prev.awayTeam?.last5) === hashPayload(awayLast5);
-          if (sameHome && sameAway) return prev;
+          if (
+            hashPayload(prev.stats) === hashPayload(nextStats) &&
+            prev.homeScore === newHome &&
+            prev.awayScore === newAway &&
+            prev.status === espn.status
+          ) {
+            return prev;
+          }
 
           const next = {
             ...prev,
-            homeTeam: { ...prev.homeTeam, last5: homeLast5 },
-            awayTeam: { ...prev.awayTeam, last5: awayLast5 }
+            ...espn,
+            stats: nextStats,
+            homeScore: newHome,
+            awayScore: newAway,
           };
           matchRef.current = next;
           return next;
         });
 
-        setConnectionStatus('connected');
         setIsInitialLoad(false);
-      }).catch(() => null)
-      : Promise.resolve(null);
+        return true;
+      });
 
-    Promise.allSettled([espnPromise, dbPromise, propsPromise, formPromise]).finally(() => {
+      const dbTask = isGameFinal(cur.status)
+        ? Promise.resolve(true)
+        : supabase
+            .from('matches')
+            .select('current_odds,closing_odds,opening_odds,home_score,away_score')
+            .eq('id', dbId)
+            .maybeSingle()
+            .then(({ data: db, error: dbError }) => {
+              if (dbError) throw dbError;
+              if (!db || seq !== fetchSeqRef.current) return false;
+
+              setMatch((prev) => {
+                const dbOdds = db.current_odds;
+                const isDbExternal =
+                  dbOdds?.provider && String(dbOdds.provider).toLowerCase() !== 'espn';
+                const newOdds = isDbExternal
+                  ? dbOdds
+                  : prev.odds?.hasOdds
+                    ? prev.odds
+                    : dbOdds || prev.odds;
+
+                let changed = false;
+                const next = { ...prev };
+
+                if (hashPayload(prev.current_odds) !== hashPayload(newOdds)) {
+                  next.current_odds = newOdds;
+                  changed = true;
+                }
+
+                if (
+                  db.closing_odds &&
+                  hashPayload(prev.closing_odds) !== hashPayload(db.closing_odds)
+                ) {
+                  next.closing_odds = db.closing_odds;
+                  changed = true;
+                }
+
+                if (!socketFresh) {
+                  if ((db.home_score ?? 0) > (prev.homeScore ?? 0)) {
+                    next.homeScore = db.home_score;
+                    changed = true;
+                  }
+                  if ((db.away_score ?? 0) > (prev.awayScore ?? 0)) {
+                    next.awayScore = db.away_score;
+                    changed = true;
+                  }
+                }
+
+                if (!changed) return prev;
+                matchRef.current = next;
+                return next;
+              });
+
+              setIsInitialLoad(false);
+              return true;
+            });
+
+      const matchIds = Array.from(
+        new Set([cur.id, getDbMatchId(cur.id, cur.leagueId?.toLowerCase() || '')]),
+      );
+
+      const propsTask = supabase
+        .from('player_prop_bets')
+        .select('*')
+        .in('match_id', matchIds)
+        .order('player_name')
+        .then(({ data: props, error: propsError }) => {
+          if (propsError) throw propsError;
+          if (!props || seq !== fetchSeqRef.current) return false;
+
+          const propsHash = hashPayload(props);
+          if (propsHash === lastPropsHashRef.current) return true;
+          lastPropsHashRef.current = propsHash;
+
+          const allowedTypes = [
+            'points',
+            'rebounds',
+            'assists',
+            'threes_made',
+            'blocks',
+            'steals',
+            'pra',
+            'pr',
+            'pa',
+            'ra',
+            'passing_yards',
+            'rushing_yards',
+            'receiving_yards',
+            'touchdowns',
+            'shots_on_goal',
+            'goals',
+            'saves',
+            'hits',
+            'points_rebounds',
+            'points_assists',
+            'rebounds_assists',
+          ];
+
+          setMatch((prev) => {
+            const deduped = new Map<string, ExtendedPropBet>();
+
+            for (const p of props) {
+              const normType = (p.bet_type || '')
+                .toLowerCase()
+                .replace(/\s+/g, '_')
+                .replace(/3pt|3p|3pm|threes/g, 'threes_made');
+              const finalType = allowedTypes.includes(normType) ? normType : 'custom';
+              const sideNorm = `${p.market_label || ''} ${p.bet_type || ''}`.toLowerCase();
+              const side = p.side || (/\bover\b/.test(sideNorm) ? 'over' : /\bunder\b/.test(sideNorm) ? 'under' : 'line');
+              const lineValue = Number(p.line_value ?? 0);
+              const sportsbook = p.sportsbook || p.provider || 'market';
+
+              const dedupeKey = [
+                p.player_name || '',
+                finalType,
+                side,
+                lineValue,
+                sportsbook,
+              ]
+                .join('|')
+                .toLowerCase();
+
+              if (deduped.has(dedupeKey)) continue;
+
+              deduped.set(dedupeKey, {
+                id: `${prev.id}:${dedupeKey}`,
+                userId: 'system',
+                matchId: prev.id,
+                playerName: p.player_name || '',
+                headshotUrl: p.headshot_url || undefined,
+                betType: finalType as PropBetType,
+                marketLabel: p.market_label || undefined,
+                side: side as PlayerPropBet['side'],
+                lineValue,
+                sportsbook,
+                oddsAmerican: Number(p.odds_american ?? 0),
+                impliedProbPct: p.implied_prob_pct ? Number(p.implied_prob_pct) : undefined,
+                confidenceScore: p.confidence_score ? Number(p.confidence_score) : undefined,
+                l5HitRate: p.l5_hit_rate ? Number(p.l5_hit_rate) : undefined,
+                l5Values: Array.isArray(p.l5_values) ? p.l5_values.map((v) => Number(v)) : undefined,
+                aiRationale: p.ai_rationale || undefined,
+                team: p.team || undefined,
+                opponent: p.opponent || undefined,
+                fantasyDvpRank: p.fantasy_dvp_rank ? Number(p.fantasy_dvp_rank) : undefined,
+                avgL5: p.avg_l5 ? Number(p.avg_l5) : undefined,
+                eventDate: new Date().toISOString(),
+                league: prev.leagueId || '',
+                stakeAmount: 0,
+                result: 'pending',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+            }
+
+            const parsed = Array.from(deduped.values());
+            const next = { ...prev, dbProps: parsed };
+            matchRef.current = next;
+            return next;
+          });
+
+          return true;
+        });
+
+      const formTask = isGameScheduled(cur.status)
+        ? Promise.all([
+            dbService.getTeamLastFive(cur.homeTeam?.id, cur.leagueId, cur.homeTeam?.name),
+            dbService.getTeamLastFive(cur.awayTeam?.id, cur.leagueId, cur.awayTeam?.name),
+          ]).then(async ([homeFromDb, awayFromDb]) => {
+            const [homeLast5, awayLast5] = await Promise.all([
+              homeFromDb.length > 0
+                ? Promise.resolve(homeFromDb)
+                : cur.homeTeam?.id
+                  ? fetchTeamLastFive(cur.homeTeam.id, cur.sport, cur.leagueId)
+                  : Promise.resolve([] as RecentFormGame[]),
+              awayFromDb.length > 0
+                ? Promise.resolve(awayFromDb)
+                : cur.awayTeam?.id
+                  ? fetchTeamLastFive(cur.awayTeam.id, cur.sport, cur.leagueId)
+                  : Promise.resolve([] as RecentFormGame[]),
+            ]);
+
+            if (seq !== fetchSeqRef.current) return false;
+
+            setMatch((prev) => {
+              const sameHome = hashPayload(prev.homeTeam?.last5) === hashPayload(homeLast5);
+              const sameAway = hashPayload(prev.awayTeam?.last5) === hashPayload(awayLast5);
+              if (sameHome && sameAway) return prev;
+
+              const next = {
+                ...prev,
+                homeTeam: { ...prev.homeTeam, last5: homeLast5 },
+                awayTeam: { ...prev.awayTeam, last5: awayLast5 },
+              };
+              matchRef.current = next;
+              return next;
+            });
+
+            setIsInitialLoad(false);
+            return true;
+          })
+        : Promise.resolve(true);
+
+      const results = await Promise.allSettled([espnTask, dbTask, propsTask, formTask]);
+      if (seq !== fetchSeqRef.current) return;
+
+      const hadSuccess = results.some((r) => r.status === 'fulfilled' && r.value === true);
+      const firstRejected = results.find(
+        (r): r is PromiseRejectedResult => r.status === 'rejected',
+      );
+
+      if (hadSuccess) {
+        setConnectionStatus('connected');
+        setError(null);
+      } else if (firstRejected) {
+        setConnectionStatus('error');
+        setError(
+          firstRejected.reason instanceof Error
+            ? firstRejected.reason
+            : new Error('Failed to refresh match telemetry.'),
+        );
+      } else {
+        setConnectionStatus('error');
+        setError(new Error('No telemetry sources returned usable data.'));
+      }
+    } catch (err) {
+      if (seq === fetchSeqRef.current) {
+        setConnectionStatus('error');
+        setError(err instanceof Error ? err : new Error('Failed to refresh match telemetry.'));
+      }
+    } finally {
       isFetchingRef.current = false;
-    });
-
+    }
   }, [initialMatch.id]);
 
   // FIX 4: Visibility-aware polling completely halts the event loop when the tab is hidden to save client CPU
@@ -930,33 +1021,37 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
 
     const scheduleNext = () => {
       if (!isActive || document.visibilityState !== 'visible') return;
-      const isLive = isGameInProgress(matchRef.current.status);
-      const ms = isLive ? CONFIG.polling.LIVE_MS : CONFIG.polling.PREGAME_MS;
+
+      const status = matchRef.current.status;
+      if (isGameFinal(status)) return;
+
+      const ms = isGameInProgress(status)
+        ? CONFIG.polling.LIVE_MS
+        : CONFIG.polling.PREGAME_MS;
 
       timeoutId = window.setTimeout(() => {
-        if (isActive && document.visibilityState === 'visible') {
-          fetchData();
-          scheduleNext();
-        }
+        if (!isActive || document.visibilityState !== 'visible') return;
+        void fetchData();
+        scheduleNext();
       }, ms);
     };
 
     const handleVisibilityChange = () => {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
+
       if (document.visibilityState === 'visible') {
-        fetchData();
+        void fetchData();
         scheduleNext();
-      } else {
-        if (timeoutId !== undefined) {
-          window.clearTimeout(timeoutId);
-          timeoutId = undefined;
-        }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     if (document.visibilityState === 'visible') {
-      fetchData();
+      void fetchData();
       scheduleNext();
     }
 
@@ -970,11 +1065,27 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
   return { match, liveState, connectionStatus, error, forecastHistory, isInitialLoad };
 }
 
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+
+  const tag = target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return true;
+
+  return Boolean(
+    target.closest(
+      'input, textarea, select, button, [contenteditable="true"], [role="textbox"], [data-no-arrow-nav="true"]',
+    ),
+  );
+}
+
 function useKeyboardNavigation(matches: Match[], currentMatchId: string, onSelectMatch?: (match: Match) => void) {
   useEffect(() => {
     if (!onSelectMatch || matches.length <= 1) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (isInteractiveTarget(e.target)) return;
+
       const idx = matches.findIndex((m) => m.id === currentMatchId);
       if (idx === -1) return;
 
@@ -982,13 +1093,13 @@ function useKeyboardNavigation(matches: Match[], currentMatchId: string, onSelec
         e.preventDefault();
         const prev = matches[(idx - 1 + matches.length) % matches.length];
         if (prev) onSelectMatch(prev);
-      }
-      else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault();
         const next = matches[(idx + 1) % matches.length];
         if (next) onSelectMatch(next);
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [matches, currentMatchId, onSelectMatch]);
@@ -1022,8 +1133,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const isSched = useMemo(() => isGameScheduled(match?.status), [match?.status]);
   const isLive = isGameInProgress(match.status);
 
-  const homeColor = useMemo(() => normalizeColor(match?.homeTeam?.color, '#3B82F6'), [match.homeTeam]);
-  const awayColor = useMemo(() => normalizeColor(match?.awayTeam?.color, '#EF4444'), [match.awayTeam]);
+  const homeColor = useMemo(() => normalizeColor(match?.homeTeam?.color, '#3B82F6'), [match.homeTeam?.color]);
+  const awayColor = useMemo(() => normalizeColor(match?.awayTeam?.color, '#EF4444'), [match.awayTeam?.color]);
   const displayStats = useMemo(() => getMatchDisplayStats(match, 8), [match]);
 
   const [activeTab, setActiveTab] = useState(isSched ? 'DETAILS' : 'OVERVIEW');
@@ -1049,27 +1160,13 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     if (nextMatch) onSelectMatch?.(nextMatch);
   }, [matches, match.id, onSelectMatch]);
 
-  if (!match?.homeTeam) return <MatchupLoader className="h-screen bg-[#FBFBFD]" label="Synchronizing Hub" />;
-
   const TABS = useMemo(() => isSched
     ? [{ id: 'DETAILS', label: 'Matchup' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }]
     : [{ id: 'OVERVIEW', label: 'Game' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }],
     [isSched]);
 
-  const fallbackLiveState: LiveState | undefined = match.lastPlay
-    ? {
-      lastPlay: {
-        id: match.lastPlay.id,
-        text: match.lastPlay.text,
-        type: typeof match.lastPlay.type === 'object' && match.lastPlay.type !== null
-          ? match.lastPlay.type as { text: string }
-          : { text: String(match.lastPlay.type || '') }
-      }
-    }
-    : undefined;
-
   useEffect(() => {
-    if (!isSched) return;
+    if (!isSched || !match?.homeTeam || !match?.awayTeam) return;
     let active = true;
     const controller = new AbortController();
 
@@ -1089,13 +1186,13 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         if (active && fallback) setPregameIntel({ ...(fallback as PregameIntelResponse), match_id: match.id, freshness: 'RECENT' });
       } catch { }
     };
-    fetchIntel();
+    void fetchIntel();
     return () => { active = false; controller.abort(); };
   }, [isSched, match.id, match.homeTeam?.name, match.awayTeam?.name, match.sport, match.leagueId]);
 
   // SOTA FIX: Dynamic Insight Team Resolution explicitly checks prop team vs game teams
   const insightCardData = useMemo(() => {
-    if (deferredTab !== 'DATA' || !match.dbProps?.length) return null;
+    if (deferredTab !== 'DATA' || !match.dbProps?.length || !match.homeTeam || !match.awayTeam) return null;
     const propRow = match.dbProps[0];
 
     const propTeamNorm = (propRow.team || '').toLowerCase();
@@ -1208,7 +1305,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       teamLogoUrl,
       matchup,
       customSegment: pickText || 'Game Edge',
-      side: pickText.toUpperCase().startsWith('UNDER') ? 'UNDER' : 'OVER',
+      side: meta?.type === 'TOTAL' && (meta.side === 'UNDER' || pickText.toUpperCase().startsWith('UNDER'))
+        ? 'UNDER'
+        : 'OVER',
       line: 0,
       statType: 'Edge',
       bestOdds: bestOdds ? String(bestOdds) : 'N/A',
@@ -1221,6 +1320,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       l5HitRate: 0
     });
   }, [deferredTab, match, pregameIntel]);
+
+  if (!match?.homeTeam || !match?.awayTeam) {
+    return <MatchupLoader className="h-screen bg-[#FBFBFD]" label="Synchronizing Hub" />;
+  }
 
   const playByPlayText = liveState?.lastPlay?.text || match.lastPlay?.text || '';
   const sweatTriggers: AIWatchTrigger[] = useMemo(() => {
@@ -1405,7 +1508,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       </LiveSweatProvider>
 
       {/* SOTA SEC: Safe compile-time conditional */}
-      {process.env.NODE_ENV === 'development' && <TechnicalDebugView match={match} />}
+      {IS_DEV && <TechnicalDebugView match={match} />}
     </div>
   );
 };
