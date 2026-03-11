@@ -70,7 +70,7 @@ const StreakTimeline = ({ games, teamColor }: { games: RecentGame[]; teamColor?:
               className={cn(
                 "rounded-[1px] transition-all duration-300",
                 isWin ? "w-1.5 h-3" : "w-1 h-2",
-                isWin ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)]" : isLoss ? "bg-zinc-700" : "bg-zinc-600"
+                isWin ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)]" : isLoss ? "bg-zinc-500" : "bg-zinc-300"
               )}
               style={isWin && color ? { backgroundColor: color, boxShadow: `0 0 8px ${color}66` } : undefined}
             />
@@ -80,6 +80,17 @@ const StreakTimeline = ({ games, teamColor }: { games: RecentGame[]; teamColor?:
     </div>
   );
 };
+
+const EmptyFormState = ({ align = 'left' }: { align?: 'left' | 'right' }) => (
+  <div
+    className={cn(
+      "rounded-2xl border border-black/[0.06] bg-black/[0.02] px-4 py-4 text-[12px] font-medium text-zinc-500",
+      align === 'right' ? "text-right" : "text-left"
+    )}
+  >
+    Last 5 unavailable.
+  </div>
+);
 
 // "Data Row" with Active Laser Interaction
 const GameRow = ({
@@ -109,19 +120,19 @@ const GameRow = ({
       variants={{ hidden: { opacity: 0, x: align === 'left' ? -10 : 10 }, visible: { opacity: 1, x: 0 } }}
       transition={PHYSICS_SWITCH}
       className={cn(
-        "group relative flex items-center py-2.5 transition-colors duration-300 hover:bg-white/2 cursor-default",
+        "group relative flex items-center py-2.5 transition-colors duration-300 hover:bg-black/[0.02] cursor-default",
         align === 'right' ? "flex-row-reverse text-right" : "text-left"
       )}
     >
       {/* Active Laser Line (Symmetrical Interaction) */}
       <div className={cn(
-        "absolute top-0 bottom-0 w-[2px] bg-white scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-center opacity-0 group-hover:opacity-100 shadow-[0_0_10px_rgba(255,255,255,0.4)]",
+        "absolute top-0 bottom-0 w-[2px] bg-black/10 scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-center opacity-0 group-hover:opacity-100 shadow-[0_0_10px_rgba(0,0,0,0.08)]",
         align === 'right' ? "right-0" : "left-0"
       )} style={{ backgroundColor: isWin ? activeColor : undefined }} />
 
       {/* 1. Date (Technical Mono) */}
       <div className={cn(
-        "w-12 shrink-0 font-mono text-[9px] text-zinc-600 tracking-wider group-hover:text-zinc-400 transition-colors select-none",
+        "w-12 shrink-0 font-mono text-[9px] text-zinc-400 tracking-wider group-hover:text-zinc-600 transition-colors select-none",
         align === 'right' ? "pr-0 pl-2" : "pl-3 pr-2"
       )}>
         {dateStr}
@@ -132,10 +143,10 @@ const GameRow = ({
         "flex-1 flex items-center gap-3 min-w-0 px-2",
         align === 'right' ? "flex-row-reverse justify-end" : ""
       )}>
-        <div className="relative w-5 h-5 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity grayscale group-hover:grayscale-0">
+        <div className="relative w-5 h-5 shrink-0 opacity-90 group-hover:opacity-100 transition-opacity">
           <TeamLogo logo={game.opponent?.logo} className="w-full h-full object-contain" />
         </div>
-        <span className="text-[12px] font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors tracking-tight truncate uppercase">
+        <span className="text-[12px] font-medium text-zinc-700 group-hover:text-zinc-900 transition-colors tracking-tight truncate uppercase">
           {game.opponent?.shortName || game.opponent?.name?.split(' ').pop() || 'OPP'}
         </span>
       </div>
@@ -149,14 +160,14 @@ const GameRow = ({
           className={cn(
             "flex items-center justify-center w-5 h-5 rounded-[2px] text-[10px] font-bold border transition-colors duration-300",
             isWin
-              ? "bg-white/5 border-white/10 text-white shadow-[0_0_8px_rgba(255,255,255,0.05)]"
-              : "bg-transparent border-zinc-800 text-zinc-600"
+              ? "bg-white border-black/5 text-white shadow-[0_0_8px_rgba(0,0,0,0.05)]"
+              : "bg-transparent border-zinc-300 text-zinc-500"
           )}
           style={isWin ? { borderColor: activeColor, color: activeColor } : undefined}
         >
           {result}
         </div>
-        <span className="text-[10px] text-zinc-500 group-hover:text-zinc-300 transition-colors tabular-nums tracking-wide">
+        <span className="text-[10px] text-zinc-500 group-hover:text-zinc-700 transition-colors tabular-nums tracking-wide">
           {teamScore}-{oppScore}
         </span>
       </div>
@@ -178,19 +189,19 @@ const RecentForm: React.FC<RecentFormProps> = ({
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
 
         {/* AWAY TEAM COLUMN */}
         <section>
           {/* Header (Spec Sheet Label) */}
-          <div className="flex items-end justify-between mb-6 pb-2 border-b border-white/6">
+          <div className="flex items-end justify-between mb-4 pb-2 border-b border-black/[0.06]">
             <div className="flex flex-col gap-1">
-              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.25em] font-mono select-none">
+              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.25em] font-mono select-none">
                 01 // AWAY FORM
               </span>
               <div className="flex items-center gap-2">
                 <div className="w-1 h-1 rounded-full" style={{ backgroundColor: awayColor || '#fff' }} />
-                <span className="text-[13px] font-semibold text-zinc-200 tracking-wide uppercase">
+                <span className="text-[13px] font-semibold text-zinc-900 tracking-wide uppercase">
                   {awayName}
                 </span>
               </div>
@@ -206,23 +217,23 @@ const RecentForm: React.FC<RecentFormProps> = ({
             variants={{ visible: { transition: { staggerChildren: STAGGER_DELAY } } }}
             className="space-y-px"
           >
-            {awayGames.map((g, i) => (
+            {awayGames.length > 0 ? awayGames.map((g, i) => (
               <GameRow key={i} game={g} align="left" teamColor={awayColor} />
-            ))}
+            )) : <EmptyFormState align="left" />}
           </motion.div>
         </section>
 
         {/* HOME TEAM COLUMN (Mirrored) */}
         <section>
           {/* Header (Mirrored) */}
-          <div className="flex items-end justify-between flex-row-reverse mb-6 pb-2 border-b border-white/6">
+          <div className="flex items-end justify-between flex-row-reverse mb-4 pb-2 border-b border-black/[0.06]">
             <div className="flex flex-col gap-1 items-end text-right">
-              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.25em] font-mono select-none">
+              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.25em] font-mono select-none">
                 02 // HOME FORM
               </span>
               <div className="flex items-center gap-2 flex-row-reverse">
                 <div className="w-1 h-1 rounded-full" style={{ backgroundColor: homeColor || '#fff' }} />
-                <span className="text-[13px] font-semibold text-zinc-200 tracking-wide uppercase">
+                <span className="text-[13px] font-semibold text-zinc-900 tracking-wide uppercase">
                   {homeName}
                 </span>
               </div>
@@ -238,9 +249,9 @@ const RecentForm: React.FC<RecentFormProps> = ({
             variants={{ visible: { transition: { staggerChildren: STAGGER_DELAY } } }}
             className="space-y-px"
           >
-            {homeGames.map((g, i) => (
+            {homeGames.length > 0 ? homeGames.map((g, i) => (
               <GameRow key={i} game={g} align="right" teamColor={homeColor} />
-            ))}
+            )) : <EmptyFormState align="right" />}
           </motion.div>
         </section>
 

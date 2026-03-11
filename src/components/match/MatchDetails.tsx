@@ -881,7 +881,33 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
         });
       }).catch(() => null);
 
-    Promise.allSettled([espnPromise, dbPromise, propsPromise]).finally(() => {
+    const formPromise = isGameScheduled(cur.status) && cur.homeTeam?.id && cur.awayTeam?.id
+      ? Promise.all([
+        fetchTeamLastFive(cur.homeTeam.id, cur.sport, cur.leagueId),
+        fetchTeamLastFive(cur.awayTeam.id, cur.sport, cur.leagueId)
+      ]).then(([homeLast5, awayLast5]) => {
+        if (seq !== fetchSeqRef.current) return;
+
+        setMatch(prev => {
+          const sameHome = hashPayload(prev.homeTeam?.last5) === hashPayload(homeLast5);
+          const sameAway = hashPayload(prev.awayTeam?.last5) === hashPayload(awayLast5);
+          if (sameHome && sameAway) return prev;
+
+          const next = {
+            ...prev,
+            homeTeam: { ...prev.homeTeam, last5: homeLast5 },
+            awayTeam: { ...prev.awayTeam, last5: awayLast5 }
+          };
+          matchRef.current = next;
+          return next;
+        });
+
+        setConnectionStatus('connected');
+        setIsInitialLoad(false);
+      }).catch(() => null)
+      : Promise.resolve(null);
+
+    Promise.allSettled([espnPromise, dbPromise, propsPromise, formPromise]).finally(() => {
       isFetchingRef.current = false;
     });
 
