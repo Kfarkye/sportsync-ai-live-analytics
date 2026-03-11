@@ -188,6 +188,82 @@ function normalizeEspnCoreProviderState(
   };
 }
 
+function buildEspnCoreProviderView(provider: any, phase?: 'open' | 'close' | 'current') {
+  if (!provider) return null;
+
+  const phaseRoot = phase ? (provider?.[phase] || {}) : {};
+  const homeRoot = phase ? (provider?.homeTeamOdds?.[phase] || {}) : (provider?.homeTeamOdds || {});
+  const awayRoot = phase ? (provider?.awayTeamOdds?.[phase] || {}) : (provider?.awayTeamOdds || {});
+  const drawRoot = phase ? (provider?.drawTeamOdds?.[phase] || provider?.drawOdds?.[phase] || {}) : (provider?.drawTeamOdds || provider?.drawOdds || {});
+
+  return {
+    ...(provider || {}),
+    ...(phaseRoot || {}),
+    spread: phaseRoot?.spread ?? provider?.spread ?? null,
+    details: phaseRoot?.details ?? provider?.details ?? null,
+    spreadDetails: phaseRoot?.spreadDetails ?? provider?.spreadDetails ?? null,
+    overUnder: phaseRoot?.overUnder
+      ?? parseLine(phaseRoot?.total?.american ?? phaseRoot?.total)
+      ?? provider?.overUnder
+      ?? null,
+    overOdds: phaseRoot?.overOdds
+      ?? parseAmerican(phaseRoot?.over?.american ?? phaseRoot?.over?.price ?? phaseRoot?.over)
+      ?? provider?.overOdds
+      ?? null,
+    underOdds: phaseRoot?.underOdds
+      ?? parseAmerican(phaseRoot?.under?.american ?? phaseRoot?.under?.price ?? phaseRoot?.under)
+      ?? provider?.underOdds
+      ?? null,
+    moneyLine: phaseRoot?.moneyLine
+      ?? parseAmerican(phaseRoot?.moneyLine?.american ?? phaseRoot?.moneyLine)
+      ?? provider?.moneyLine
+      ?? null,
+    homeTeamOdds: {
+      ...(provider?.homeTeamOdds || {}),
+      ...(homeRoot || {}),
+      moneyLine: homeRoot?.moneyLine
+        ?? parseAmerican(homeRoot?.moneyLine?.american ?? homeRoot?.moneyLine)
+        ?? provider?.homeTeamOdds?.moneyLine
+        ?? null,
+      spread: homeRoot?.spread
+        ?? parseLine(homeRoot?.spread?.american ?? homeRoot?.spread)
+        ?? provider?.homeTeamOdds?.spread
+        ?? null,
+      spreadOdds: homeRoot?.spreadOdds
+        ?? parseAmerican(homeRoot?.spread?.american ?? homeRoot?.price ?? homeRoot?.american)
+        ?? provider?.homeTeamOdds?.spreadOdds
+        ?? provider?.homeTeamOdds?.price
+        ?? null,
+    },
+    awayTeamOdds: {
+      ...(provider?.awayTeamOdds || {}),
+      ...(awayRoot || {}),
+      moneyLine: awayRoot?.moneyLine
+        ?? parseAmerican(awayRoot?.moneyLine?.american ?? awayRoot?.moneyLine)
+        ?? provider?.awayTeamOdds?.moneyLine
+        ?? null,
+      spread: awayRoot?.spread
+        ?? parseLine(awayRoot?.spread?.american ?? awayRoot?.spread)
+        ?? provider?.awayTeamOdds?.spread
+        ?? null,
+      spreadOdds: awayRoot?.spreadOdds
+        ?? parseAmerican(awayRoot?.spread?.american ?? awayRoot?.price ?? awayRoot?.american)
+        ?? provider?.awayTeamOdds?.spreadOdds
+        ?? provider?.awayTeamOdds?.price
+        ?? null,
+    },
+    drawTeamOdds: Object.keys(drawRoot || {}).length > 0 ? {
+      ...(provider?.drawTeamOdds || provider?.drawOdds || {}),
+      ...(drawRoot || {}),
+      moneyLine: drawRoot?.moneyLine
+        ?? parseAmerican(drawRoot?.moneyLine?.american ?? drawRoot?.moneyLine)
+        ?? provider?.drawTeamOdds?.moneyLine
+        ?? provider?.drawOdds?.moneyLine
+        ?? null,
+    } : (provider?.drawTeamOdds || provider?.drawOdds || null),
+  };
+}
+
 function mergeEspnOdds(primary: any, fallback: any) {
   if (!primary && !fallback) return {};
   if (!primary) return { ...(fallback || {}) };
@@ -538,7 +614,11 @@ function buildLiveOddsSnapshotRows(args: {
       over_price: parseAmerican(providerPayload?.over_price ?? providerPayload?.overOdds),
       under_price: parseAmerican(providerPayload?.under_price ?? providerPayload?.underOdds),
       source,
-      raw_payload: providerPayload
+      raw_payload: {
+        ...(providerPayload || {}),
+        snapshot_stage: marketType,
+        snapshot_source: source
+      }
     };
 
     if (!hasSnapshotPriceFields(row)) return;
@@ -983,20 +1063,35 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
               if (!pName.includes('draftkings') && !pName.includes('draft kings')) continue;
 
               espnCoreOdds = normalizeEspnCoreProviderState(
-              provider?.current || provider?.close || provider?.open,
-              provider?.provider,
-              'core_api',
-              teamContext
-            );
+                buildEspnCoreProviderView(provider),
+                provider?.provider,
+                'core_api',
+                teamContext
+              );
 
-            parsedOdds.odds_live = normalizeEspnCoreProviderState(provider?.current, provider?.provider, 'core_api', teamContext) || parsedOdds.odds_live;
-            parsedOdds.odds_open = normalizeEspnCoreProviderState(provider?.open, provider?.provider, 'core_api', teamContext) || parsedOdds.odds_open;
-            parsedOdds.odds_close = normalizeEspnCoreProviderState(provider?.close, provider?.provider, 'core_api', teamContext) || parsedOdds.odds_close;
-            break;
+              parsedOdds.odds_live = normalizeEspnCoreProviderState(
+                buildEspnCoreProviderView(provider, 'current'),
+                provider?.provider,
+                'core_api',
+                teamContext
+              ) || parsedOdds.odds_live;
+              parsedOdds.odds_open = normalizeEspnCoreProviderState(
+                buildEspnCoreProviderView(provider, 'open'),
+                provider?.provider,
+                'core_api',
+                teamContext
+              ) || parsedOdds.odds_open;
+              parsedOdds.odds_close = normalizeEspnCoreProviderState(
+                buildEspnCoreProviderView(provider, 'close'),
+                provider?.provider,
+                'core_api',
+                teamContext
+              ) || parsedOdds.odds_close;
+              break;
+            }
           }
         }
-      }
-    } catch {
+      } catch {
       // Non-fatal enhancement: next poll cycle will retry.
     }
 
