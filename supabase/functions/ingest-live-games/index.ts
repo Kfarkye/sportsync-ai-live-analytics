@@ -31,27 +31,54 @@ const SUMMARY_BASES = [
   'https://site.web.api.espn.com/apis/site/v2/sports'
 ];
 
-// 🚨 FINAL FIX: Insulates DB canonical sports from ESPN URL/Engine sports.
-const MONITOR_LEAGUES = [
-  { id: 'nfl', db_sport: 'americanfootball', espn_sport: 'football', endpoint: 'football/nfl' },
-  { id: 'nba', db_sport: 'basketball', espn_sport: 'basketball', endpoint: 'basketball/nba' },
-  { id: 'wnba', db_sport: 'basketball', espn_sport: 'basketball', endpoint: 'basketball/wnba' },
-  { id: 'mlb', db_sport: 'baseball', espn_sport: 'baseball', endpoint: 'baseball/mlb' },
-  { id: 'nhl', db_sport: 'icehockey', espn_sport: 'hockey', endpoint: 'hockey/nhl' },
-  { id: 'mens-college-basketball', db_sport: 'basketball', espn_sport: 'basketball', endpoint: 'basketball/mens-college-basketball', groups: '50' },
-  { id: 'college-football', db_sport: 'americanfootball', espn_sport: 'football', endpoint: 'football/college-football', groups: '80' },
-  { id: 'epl', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/eng.1' },
-  { id: 'seriea', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/ita.1' },
-  { id: 'bundesliga', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/ger.1' },
-  { id: 'laliga', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/esp.1' },
-  { id: 'ligue1', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/fra.1' },
-  { id: 'mls', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/usa.1' },
-  { id: 'mex.1', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/mex.1' },
-  { id: 'ucl', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/uefa.champions' },
-  { id: 'uel', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/uefa.europa' },
-  { id: 'atp', db_sport: 'tennis', espn_sport: 'tennis', endpoint: 'tennis/atp' },
-  { id: 'wta', db_sport: 'tennis', espn_sport: 'tennis', endpoint: 'tennis/wta' }
-];
+// 🚨 SSOT: Derive MONITOR_LEAGUES from shared LEAGUES constant.
+// Never hardcode league IDs here — edit packages/shared/src/constants.ts instead.
+import { LEAGUES } from '../_shared/constants.ts'
+
+const SPORT_TO_DB_SPORT: Record<string, string> = {
+  nfl: 'americanfootball',
+  college_football: 'americanfootball',
+  nba: 'basketball',
+  wnba: 'basketball',
+  college_basketball: 'basketball',
+  basketball: 'basketball',
+  baseball: 'baseball',
+  hockey: 'icehockey',
+  soccer: 'soccer',
+  tennis: 'tennis',
+};
+
+const SPORT_TO_ESPN_SPORT: Record<string, string> = {
+  nfl: 'football',
+  college_football: 'football',
+  nba: 'basketball',
+  wnba: 'basketball',
+  college_basketball: 'basketball',
+  basketball: 'basketball',
+  baseball: 'baseball',
+  hockey: 'hockey',
+  soccer: 'soccer',
+  tennis: 'tennis',
+};
+
+// League-specific overrides (only where needed)
+const LEAGUE_OVERRIDES: Record<string, { groups?: string }> = {
+  'mens-college-basketball': { groups: '50' },
+  'college-football': { groups: '80' },
+};
+
+// Exclude sports that don't use ESPN scoreboard polling
+const EXCLUDED_SPORTS = new Set(['mma', 'golf']);
+
+const MONITOR_LEAGUES = LEAGUES
+  .filter(l => !EXCLUDED_SPORTS.has(l.sport))
+  .map(l => ({
+    id: l.id,
+    db_sport: SPORT_TO_DB_SPORT[l.sport] || l.sport,
+    espn_sport: SPORT_TO_ESPN_SPORT[l.sport] || l.sport,
+    endpoint: l.apiEndpoint,
+    ...LEAGUE_OVERRIDES[l.id],
+  }));
 
 const Logger = {
   info: (msg: string, data: any) => console.log(JSON.stringify({ level: 'INFO', msg, ...data })),
@@ -98,129 +125,6 @@ function parseLine(val: any): number | null {
   if (strVal === 'pk' || strVal === 'even' || strVal === 'pick') return 0;
   const num = parseFloat(strVal);
   return isNaN(num) ? null : num;
-}
-
-interface ParsedProviderOdds {
-  odds_open: any;
-  odds_close: any;
-  odds_live: any;
-  bet365_live: any | null;
-  dk_live_200: any | null;
-  player_props: any | null;
-}
-
-function fractionalToAmerican(fractional: string): number | null {
-  const parts = String(fractional || '').split('/');
-  if (parts.length !== 2) return null;
-  const num = parseFloat(parts[0]);
-  const den = parseFloat(parts[1]);
-  if (!Number.isFinite(num) || !Number.isFinite(den) || num <= 0 || den <= 0) return null;
-  const decimal = num / den;
-  if (decimal >= 1) return Math.round(decimal * 100);
-  return Math.round(-100 / decimal);
-}
-
-function parseMultiProviderOdds(summaryData: any, comp: any, isSoccer: boolean): ParsedProviderOdds {
-  const result: ParsedProviderOdds = {
-    odds_open: null,
-    odds_close: null,
-    odds_live: null,
-    bet365_live: null,
-    dk_live_200: null,
-    player_props: null
-  };
-
-  const oddsArray = Array.isArray(summaryData?.odds) ? summaryData.odds : [];
-  const compOdds = Array.isArray(comp?.odds) ? comp.odds : [];
-  const allProviders = [...oddsArray, ...compOdds];
-
-  for (const provider of allProviders) {
-    const name = String(provider?.provider?.name || '').toLowerCase();
-    const id = provider?.provider?.id;
-
-    if (name.includes('draftkings') || name.includes('draft kings') || id === 100) {
-      if (!result.odds_open && provider?.open) {
-        result.odds_open = {
-          home_ml: provider.open?.moneyLine ?? provider.open?.homeTeamOdds?.moneyLine ?? null,
-          away_ml: provider.open?.awayTeamOdds?.moneyLine ?? null,
-          spread: provider.open?.spread ?? null,
-          total: provider.open?.overUnder ?? null,
-          provider: 'DraftKings',
-          provider_id: id ?? 100
-        };
-      }
-      if (!result.odds_close && provider?.close) {
-        result.odds_close = {
-          home_ml: provider.close?.moneyLine ?? provider.close?.homeTeamOdds?.moneyLine ?? null,
-          away_ml: provider.close?.awayTeamOdds?.moneyLine ?? null,
-          spread: provider.close?.spread ?? null,
-          total: provider.close?.overUnder ?? null,
-          provider: 'DraftKings',
-          provider_id: id ?? 100
-        };
-      }
-      if (!result.odds_live && provider?.current) {
-        result.odds_live = {
-          home_ml: provider.current?.moneyLine ?? provider.current?.homeTeamOdds?.moneyLine ?? null,
-          away_ml: provider.current?.awayTeamOdds?.moneyLine ?? null,
-          spread: provider.current?.spread ?? null,
-          total: provider.current?.overUnder ?? null,
-          provider: 'DraftKings',
-          provider_id: id ?? 100,
-          captured_at: new Date().toISOString()
-        };
-      }
-    }
-
-    if (isSoccer && (name.includes('bet365') || id === 2000)) {
-      const teamOdds = provider?.teamOdds || provider?.bettingOdds || {};
-      const homeOdds = teamOdds?.home || {};
-      const awayOdds = teamOdds?.away || {};
-      const drawOdds = teamOdds?.draw || {};
-
-      result.bet365_live = {
-        home_1x2: homeOdds?.moneyLine ?? null,
-        draw_1x2: drawOdds?.moneyLine ?? null,
-        away_1x2: awayOdds?.moneyLine ?? null,
-        total: provider?.overUnder ?? null,
-        over_under: provider?.overUnder ?? null,
-        double_chance: provider?.doubleChance ?? null,
-        is_live: !!provider?.current,
-        provider: 'Bet365',
-        provider_id: id ?? 2000,
-        captured_at: new Date().toISOString()
-      };
-
-      const playerOdds = provider?.playerOdds || provider?.bettingOdds?.players || [];
-      if (Array.isArray(playerOdds) && playerOdds.length > 0) {
-        result.player_props = {
-          market: 'ATGS',
-          players: playerOdds.map((p: any) => ({
-            name: p?.athlete?.displayName || p?.name || 'Unknown',
-            team: p?.team?.displayName || null,
-            odds_fractional: p?.odds || null,
-            odds_american: p?.odds ? fractionalToAmerican(String(p.odds)) : null
-          })).filter((p: any) => p.odds_fractional),
-          count: playerOdds.length,
-          captured_at: new Date().toISOString()
-        };
-      }
-    }
-
-    if (isSoccer && id === 200) {
-      result.dk_live_200 = {
-        home_ml: provider?.homeTeamOdds?.moneyLine ?? null,
-        away_ml: provider?.awayTeamOdds?.moneyLine ?? null,
-        spread: provider?.spread ?? null,
-        total: provider?.overUnder ?? null,
-        provider: 'DraftKings Live',
-        provider_id: 200,
-        captured_at: new Date().toISOString()
-      };
-    }
-  }
-
-  return result;
 }
 
 function parseBool(val: any): boolean {
@@ -340,7 +244,6 @@ Deno.serve(async (req: Request) => {
     failed: 0,
     errors: [] as string[],
     snapshots: 0,
-    odds_snapshots_written: 0,
     context_snapshots: 0,
     dry_run: dryRun,
     max_games_requested: maxGamesCap,
@@ -421,24 +324,6 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
     const comp = data.header?.competitions?.[0];
     if (!comp) return;
     const adapterSport = toAdapterSport(league.espn_sport);
-    const isSoccer = league.db_sport === 'soccer';
-    let parsedOdds: ParsedProviderOdds = {
-      odds_open: null,
-      odds_close: null,
-      odds_live: null,
-      bet365_live: null,
-      dk_live_200: null,
-      player_props: null
-    };
-    try {
-      parsedOdds = parseMultiProviderOdds(data, comp, isSoccer);
-    } catch (e: any) {
-      Logger.warn('PARSE_MULTI_PROVIDER_ODDS_FAILED', {
-        match_id: matchId,
-        league_id: league.id,
-        error: e?.message || String(e)
-      });
-    }
 
     Logger.info('SUMMARY_SHAPE', {
       match_id: matchId,
@@ -615,63 +500,6 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
             }
           }
         }
-      }
-    }
-
-    if (!parsedOdds.odds_live && !isSoccer) {
-      try {
-        const endpointParts = String(league.endpoint || '').split('/');
-        const espnLeagueId = endpointParts.length > 1 ? endpointParts[1] : null;
-        if (espnLeagueId) {
-          const coreOddsUrl = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}/odds`;
-          const coreRes = await fetch(coreOddsUrl, { signal: AbortSignal.timeout(5000) });
-          if (coreRes.ok) {
-            const coreData = await coreRes.json();
-            const items = Array.isArray(coreData?.items) ? coreData.items : (Array.isArray(coreData) ? coreData : []);
-            for (const provider of items) {
-              const pName = String(provider?.provider?.name || '').toLowerCase();
-              if (!pName.includes('draftkings')) continue;
-
-              if (!parsedOdds.odds_live && provider?.current) {
-                parsedOdds.odds_live = {
-                  home_ml: provider.current?.moneyLine ?? provider.current?.homeTeamOdds?.moneyLine ?? null,
-                  away_ml: provider.current?.awayTeamOdds?.moneyLine ?? null,
-                  spread: {
-                    home: provider.current?.spread ?? null,
-                    away: provider.current?.awayTeamOdds?.spread ?? null
-                  },
-                  total: provider.current?.overUnder ?? null,
-                  provider: 'DraftKings',
-                  provider_id: provider?.provider?.id ?? 100,
-                  source: 'core_api',
-                  captured_at: new Date().toISOString()
-                };
-              }
-              if (!parsedOdds.odds_open && provider?.open) {
-                parsedOdds.odds_open = {
-                  home_ml: provider.open?.moneyLine ?? provider.open?.homeTeamOdds?.moneyLine ?? null,
-                  away_ml: provider.open?.awayTeamOdds?.moneyLine ?? null,
-                  spread: provider.open?.spread ?? null,
-                  total: provider.open?.overUnder ?? null,
-                  provider: 'DraftKings',
-                  provider_id: provider?.provider?.id ?? 100
-                };
-              }
-              if (!parsedOdds.odds_close && provider?.close) {
-                parsedOdds.odds_close = {
-                  home_ml: provider.close?.moneyLine ?? provider.close?.homeTeamOdds?.moneyLine ?? null,
-                  away_ml: provider.close?.awayTeamOdds?.moneyLine ?? null,
-                  spread: provider.close?.spread ?? null,
-                  total: provider.close?.overUnder ?? null,
-                  provider: 'DraftKings',
-                  provider_id: provider?.provider?.id ?? 100
-                };
-              }
-            }
-          }
-        }
-      } catch {
-        // Non-fatal enhancement: next poll cycle will retry.
       }
     }
 
@@ -882,58 +710,6 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
     };
 
     await upsertWithRetry('live_game_state', statePayload);
-
-    const hasAnyOdds = !!(parsedOdds.odds_live || parsedOdds.odds_open || parsedOdds.odds_close || parsedOdds.bet365_live || parsedOdds.dk_live_200);
-    if (hasAnyOdds) {
-      const epochSeconds = Math.floor(Date.now() / 1000);
-      const oddsSnapshotPayload: any = {
-        match_id: dbMatchId,
-        league_id: league.id,
-        sport: league.db_sport,
-        event_type: 'odds_snapshot',
-        sequence: epochSeconds,
-        period: comp.status?.period ?? null,
-        clock: comp.status?.displayClock ?? null,
-        home_score: homeScore,
-        away_score: awayScore,
-        odds_open: parsedOdds.odds_open,
-        odds_close: parsedOdds.odds_close,
-        odds_live: parsedOdds.odds_live,
-        bet365_live: parsedOdds.bet365_live,
-        dk_live_200: parsedOdds.dk_live_200,
-        player_props: parsedOdds.player_props,
-        match_state: {
-          status: comp.status?.type?.name ?? null,
-          home_team: getCompetitorName(home),
-          away_team: getCompetitorName(away),
-          score: `${homeScore}-${awayScore}`,
-          period: comp.status?.period ?? null,
-          clock: comp.status?.displayClock ?? null
-        },
-        source: 'espn_live_odds'
-      };
-
-      try {
-        const { error: geError } = await supabase
-          .from('game_events')
-          .upsert(oddsSnapshotPayload, { onConflict: 'match_id,event_type,sequence' });
-
-        if (!geError) {
-          stats.odds_snapshots_written++;
-        } else {
-          Logger.warn('ODDS_SNAPSHOT_WRITE_FAILED', {
-            match_id: dbMatchId,
-            error: geError.message
-          });
-        }
-      } catch (e: any) {
-        Logger.warn('ODDS_SNAPSHOT_ERROR', {
-          match_id: dbMatchId,
-          error: e?.message || String(e)
-        });
-      }
-    }
-
     if (_contextSnapshotAvailable) {
       const supabase = getSupabaseClient();
       const { error: contextSnapshotError } = await supabase
