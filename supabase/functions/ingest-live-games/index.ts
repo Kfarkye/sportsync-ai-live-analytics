@@ -97,7 +97,8 @@ function parseLine(val: any): number | null {
   if (val == null) return null;
   const strVal = String(val).toLowerCase().trim();
   if (strVal === 'pk' || strVal === 'even' || strVal === 'pick') return 0;
-  const num = parseFloat(strVal);
+  const numericCandidate = strVal.match(/[+-]?\d+(\.\d+)?/)?.[0] ?? strVal;
+  const num = parseFloat(numericCandidate);
   return isNaN(num) ? null : num;
 }
 
