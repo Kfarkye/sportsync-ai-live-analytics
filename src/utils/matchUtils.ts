@@ -8,6 +8,10 @@ import { getCanonicalMatchId } from './matchRegistry';
  */
 export const isGameInProgress = (status: MatchStatus | string): boolean => {
   const normalized = String(status || '').toUpperCase();
+
+  // Guard: check finished first — once finished, never "in progress"
+  if (isGameFinished(normalized)) return false;
+
   const inProgressStatuses = [
     MatchStatus.LIVE,
     'STATUS_IN_PROGRESS',
@@ -48,6 +52,31 @@ export const isGameInProgress = (status: MatchStatus | string): boolean => {
 };
 
 /**
+ * Match-level "actually live" check that augments status-only detection
+ * with a staleness heuristic. If a game's start time is 5+ hours ago
+ * and the status is a break state (halftime, end-of-period), it is
+ * almost certainly over — the ingestion just hasn't caught up.
+ */
+const STALE_GAME_MS = 5 * 60 * 60 * 1000; // 5 hours
+const BREAK_STATUSES = ['STATUS_HALFTIME', 'STATUS_END_PERIOD', 'HALFTIME', 'END_PERIOD'];
+
+export const isMatchActuallyLive = (match: Match): boolean => {
+  if (isGameFinished(match.status)) return false;
+  if (!isGameInProgress(match.status)) return false;
+
+  // Staleness guard: break states that persist long past game start are stale data
+  const normalized = String(match.status || '').toUpperCase();
+  if (BREAK_STATUSES.includes(normalized) && match.startTime) {
+    const startMs = new Date(match.startTime).getTime();
+    if (!isNaN(startMs) && Date.now() - startMs > STALE_GAME_MS) {
+      return false; // Game started 5+ hours ago, break status is stale
+    }
+  }
+
+  return true;
+};
+
+/**
  * Checks if a game is scheduled (not yet started).
  */
 export const isGameScheduled = (status: MatchStatus | string): boolean => {
@@ -66,19 +95,28 @@ export const isGameInBreak = (status: MatchStatus | string): boolean => {
  * Checks if a game is finished.
  */
 export const isGameFinished = (status: MatchStatus | string): boolean => {
+  const normalized = String(status || '').toUpperCase();
   const finishedStatuses = [
     MatchStatus.FINISHED,
     'STATUS_FINAL',
     'STATUS_FINAL_OT',
     'STATUS_FINAL_SO',
+    'STATUS_FINAL_PEN',
+    'STATUS_FINAL_ET',
     'STATUS_FULL_TIME',
+    'STATUS_COMPLETE',
     'FINAL',
     'FINISHED',
     'FT',
     'AET',
-    'PK'
+    'PK',
+    'FULL_TIME',
+    'COMPLETE',
   ];
-  return finishedStatuses.includes(String(status));
+  if (finishedStatuses.includes(normalized)) return true;
+  // Catch any ESPN variant: STATUS_FINAL_*, FINAL_*
+  if (normalized.startsWith('STATUS_FINAL') || normalized.startsWith('FINAL_')) return true;
+  return false;
 };
 
 /**

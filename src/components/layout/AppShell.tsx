@@ -8,7 +8,7 @@ import MatchDetails from '../match/MatchDetails';
 import ChatWidget from '../ChatWidget';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
-import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
+import { hasPersistedSportContext, isGameInProgress, isGameFinished, isMatchActuallyLive } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
 import { Sport } from '@/types';
@@ -196,7 +196,7 @@ const AppShell: FC = () => {
                     isLoading={isLoading}
                     pinnedMatchIds={pinnedSet}
                     onTogglePin={(id) => togglePin(id)}
-                    isMatchLive={(m) => isGameInProgress(m.status)}
+                    isMatchLive={(m) => isMatchActuallyLive(m)}
                     isMatchFinal={(m) => isGameFinished(m.status)}
                     onOpenPricing={() => togglePricingModal(true)}
                   />
@@ -215,7 +215,7 @@ const AppShell: FC = () => {
                 <LiveDashboard
                   matches={matches}
                   onSelectMatch={setSelectedMatch}
-                  isMatchLive={(m) => isGameInProgress(m.status)}
+                  isMatchLive={(m) => isMatchActuallyLive(m)}
                   pinnedMatchIds={pinnedSet}
                   onTogglePin={togglePin}
                 />
