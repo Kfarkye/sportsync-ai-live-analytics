@@ -47,7 +47,7 @@ type LedgerRow = {
 };
 
 // ============================================================================
-// SSOT: Modernized Theme & Styling
+// Theme
 // ============================================================================
 
 const THEME = {
@@ -69,20 +69,22 @@ const THEME = {
     off: 'text-slate-400 font-medium',
   },
   layout: {
-    page: 'h-(--vvh,100vh) overflow-y-auto overscroll-y-contain bg-slate-50/50 text-slate-900 font-sans pb-12 sm:pb-20 selection:bg-blue-100',
-    header: 'sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur-md shadow-sm',
-    section: 'rounded-2xl border border-slate-200/75 bg-white shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all',
+    page:
+      'min-h-[100svh] overflow-y-auto overscroll-y-contain bg-slate-50/50 pb-12 font-sans text-slate-900 selection:bg-blue-100 sm:pb-20',
+    header:
+      'sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 shadow-sm backdrop-blur-md',
+    section:
+      'overflow-hidden rounded-2xl border border-slate-200/75 bg-white shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] transition-all',
   },
   components: {
-    navLink: 'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 transition-all active:scale-95',
-    chipActive: 'bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-900/10 ring-1 ring-slate-900',
-    chipInactive: 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900 hover:bg-slate-50 shadow-sm',
+    navLink:
+      'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-95',
+    chipActive:
+      'border-slate-900 bg-slate-900 text-white shadow-md shadow-slate-900/10 ring-1 ring-slate-900',
+    chipInactive:
+      'border-slate-200 bg-white text-slate-600 shadow-sm hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900',
   },
 } as const;
-
-// ============================================================================
-// Clean Info: Filter Configurations
-// ============================================================================
 
 const FILTER_OPTIONS = {
   venue: [
@@ -112,15 +114,31 @@ const FILTER_OPTIONS = {
 };
 
 // ============================================================================
-// Pure Helpers
+// Helpers
 // ============================================================================
 
+function normalizeTeamName(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' and ')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 function matchesTeamName(candidate: string, teamNames: string[]): boolean {
-  const clean = candidate.trim().toLowerCase();
+  const cleanCandidate = normalizeTeamName(candidate);
+
   return teamNames.some((name) => {
-    const target = name.trim().toLowerCase();
-    if (!target) return false;
-    return clean === target || clean.includes(target) || target.includes(clean);
+    const cleanTarget = normalizeTeamName(name);
+    if (!cleanTarget) return false;
+    return (
+      cleanCandidate === cleanTarget ||
+      cleanCandidate.includes(cleanTarget) ||
+      cleanTarget.includes(cleanCandidate)
+    );
   });
 }
 
@@ -130,10 +148,28 @@ function monthLabelFromDate(startTime: string): string {
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
-function buildLedgerRow(match: SoccerPostgame, keyNames: string[]): LedgerRow {
-  const isHome = matchesTeamName(match.home_team, keyNames);
-  const isAway = matchesTeamName(match.away_team, keyNames);
-  const venue: 'home' | 'away' = isHome || !isAway ? 'home' : 'away';
+function resolveVenue(match: SoccerPostgame, aliases: string[]): 'home' | 'away' {
+  const homeMatch = matchesTeamName(match.home_team, aliases);
+  const awayMatch = matchesTeamName(match.away_team, aliases);
+
+  if (homeMatch && !awayMatch) return 'home';
+  if (awayMatch && !homeMatch) return 'away';
+
+  const primary = aliases.find(Boolean);
+  if (primary) {
+    const cleanPrimary = normalizeTeamName(primary);
+    const cleanHome = normalizeTeamName(match.home_team);
+    const cleanAway = normalizeTeamName(match.away_team);
+
+    if (cleanHome === cleanPrimary) return 'home';
+    if (cleanAway === cleanPrimary) return 'away';
+  }
+
+  return 'home';
+}
+
+function buildLedgerRow(match: SoccerPostgame, aliases: string[]): LedgerRow {
+  const venue = resolveVenue(match, aliases);
 
   const opponent = venue === 'home' ? match.away_team : match.home_team;
   const teamScore = venue === 'home' ? match.home_score : match.away_score;
@@ -150,22 +186,37 @@ function buildLedgerRow(match: SoccerPostgame, keyNames: string[]): LedgerRow {
       spreadOutcome = spreadResult.result;
     } else {
       spreadOutcome =
-        spreadResult.result === 'covered' ? 'failed'
-          : spreadResult.result === 'failed' ? 'covered'
+        spreadResult.result === 'covered'
+          ? 'failed'
+          : spreadResult.result === 'failed'
+            ? 'covered'
             : 'push';
     }
   }
 
-  const teamSpread = match.dk_spread != null ? (venue === 'home' ? match.dk_spread : -match.dk_spread) : null;
+  const teamSpread =
+    match.dk_spread != null
+      ? venue === 'home'
+        ? match.dk_spread
+        : -match.dk_spread
+      : null;
+
   const spreadPrefix = teamSpread != null ? `${fmt.spread(teamSpread)} · ` : '';
+
   const spreadLabel =
-    spreadOutcome === 'covered' ? `${spreadPrefix}Covered`
-      : spreadOutcome === 'failed' ? `${spreadPrefix}Failed`
-        : spreadOutcome === 'push' ? `${spreadPrefix}Push`
+    spreadOutcome === 'covered'
+      ? `${spreadPrefix}Covered`
+      : spreadOutcome === 'failed'
+        ? `${spreadPrefix}Failed`
+        : spreadOutcome === 'push'
+          ? `${spreadPrefix}Push`
           : 'Off board';
 
   const totalResult = getTotalResult(match);
-  const totalOutcome: 'over' | 'under' | 'push' | 'off' = totalResult ? totalResult.result : 'off';
+  const totalOutcome: 'over' | 'under' | 'push' | 'off' = totalResult
+    ? totalResult.result
+    : 'off';
+
   const totalLabel = totalResult
     ? `${match.dk_total != null ? `O/U ${match.dk_total} · ` : ''}${String(totalResult.result).toUpperCase()}`
     : 'Off board';
@@ -187,16 +238,49 @@ function buildLedgerRow(match: SoccerPostgame, keyNames: string[]): LedgerRow {
   };
 }
 
+function upsertMetaTag(selector: string, attribute: 'content', value: string): void {
+  const existing = document.querySelector(selector) as HTMLMetaElement | null;
+  if (existing) {
+    existing.setAttribute(attribute, value);
+    return;
+  }
+
+  if (!selector.startsWith('meta[')) return;
+
+  const propertyMatch = selector.match(/property="([^"]+)"/);
+  const nameMatch = selector.match(/name="([^"]+)"/);
+
+  const meta = document.createElement('meta');
+  if (propertyMatch?.[1]) meta.setAttribute('property', propertyMatch[1]);
+  if (nameMatch?.[1]) meta.setAttribute('name', nameMatch[1]);
+  meta.setAttribute(attribute, value);
+  document.head.appendChild(meta);
+}
+
 // ============================================================================
-// UI Sub-Components
+// UI
 // ============================================================================
 
-function StatCard({ label, value, subtext }: { label: string; value: React.ReactNode; subtext: React.ReactNode }) {
+function StatCard({
+  label,
+  value,
+  subtext,
+}: {
+  label: string;
+  value: React.ReactNode;
+  subtext: React.ReactNode;
+}) {
   return (
-    <article className="relative flex flex-col justify-center overflow-hidden rounded-2xl border border-slate-200/75 bg-white p-4 sm:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-      <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500 opacity-80">{label}</div>
-      <div className="mt-1.5 text-2xl sm:text-[1.7rem] font-bold tracking-tight tabular-nums leading-none text-slate-900">{value}</div>
-      <div className="mt-2 text-[10px] sm:text-[11px] font-medium text-slate-500 opacity-90">{subtext}</div>
+    <article className="relative flex flex-col justify-center overflow-hidden rounded-2xl border border-slate-200/75 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-md sm:p-5">
+      <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 opacity-80 sm:text-[11px]">
+        {label}
+      </div>
+      <div className="mt-1.5 text-2xl font-bold leading-none tracking-tight tabular-nums text-slate-900 sm:text-[1.7rem]">
+        {value}
+      </div>
+      <div className="mt-2 text-[10px] font-medium text-slate-500 opacity-90 sm:text-[11px]">
+        {subtext}
+      </div>
     </article>
   );
 }
@@ -213,19 +297,23 @@ function FilterGroup<T extends string>({
   onChange: (val: T) => void;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-      <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 min-w-[50px] ml-1 sm:ml-0">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+      <span className="ml-1 min-w-[50px] text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 sm:ml-0">
         {label}
       </span>
+
       <div className="flex flex-wrap gap-2">
         {options.map((option) => {
           const isActive = currentValue === option.value;
-          const stateClass = isActive ? THEME.components.chipActive : THEME.components.chipInactive;
+          const stateClass = isActive
+            ? THEME.components.chipActive
+            : THEME.components.chipInactive;
 
           return (
             <button
               key={option.value}
               type="button"
+              aria-pressed={isActive}
               onClick={() => onChange(option.value)}
               className={`rounded-full px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-widest transition-all active:scale-95 ${stateClass}`}
             >
@@ -244,59 +332,81 @@ function MatchRow({ row }: { row: LedgerRow }) {
   const totalTone = THEME.total[row.totalOutcome];
 
   return (
-    <Link to={row.href} className="block group border-b border-slate-100/80 last:border-0 hover:bg-blue-50/40 transition-colors">
-
-      {/* Desktop Layout */}
-      <div className="hidden md:grid md:grid-cols-[130px_1fr_100px_180px_140px] gap-4 items-center px-5 py-3.5">
-        <div className="text-[13px] text-slate-500 tabular-nums leading-tight">
+    <Link
+      to={row.href}
+      className="group block border-b border-slate-100/80 transition-colors hover:bg-blue-50/40 last:border-0"
+    >
+      <div className="md:grid hidden md:grid-cols-[130px_1fr_100px_180px_140px] items-center gap-4 px-5 py-3.5">
+        <div className="text-[13px] leading-tight tabular-nums text-slate-500">
           <div className="font-medium">{row.dateLabel}</div>
-          <div className="mt-0.5 uppercase tracking-widest text-[9px] font-bold text-slate-400">{row.venue === 'home' ? 'Home' : 'Away'}</div>
+          <div className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+            {row.venue === 'home' ? 'Home' : 'Away'}
+          </div>
         </div>
 
         <div className="min-w-0 pr-4">
-          <div className="text-[15px] font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
-            <span className="text-slate-400 font-medium mr-1.5">{row.venue === 'home' ? 'vs' : '@'}</span>
+          <div className="truncate text-[15px] font-bold text-slate-900 transition-colors group-hover:text-blue-700">
+            <span className="mr-1.5 font-medium text-slate-400">
+              {row.venue === 'home' ? 'vs' : '@'}
+            </span>
             {row.opponent}
           </div>
         </div>
 
         <div className="flex items-center gap-2.5">
-          <span className={`rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${resultTone}`}>
+          <span
+            className={`rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${resultTone}`}
+          >
             {row.result}
           </span>
-          <span className="text-lg font-extrabold tabular-nums text-slate-900">{row.score}</span>
+          <span className="text-lg font-extrabold tabular-nums text-slate-900">
+            {row.score}
+          </span>
         </div>
 
         <div className={`text-[14px] tabular-nums ${spreadTone}`}>{row.spreadLabel}</div>
         <div className={`text-[14px] tabular-nums ${totalTone}`}>{row.totalLabel}</div>
       </div>
 
-      {/* Mobile Layout */}
-      <div className="md:hidden p-4 flex flex-col gap-3">
+      <div className="flex flex-col gap-3 p-4 md:hidden">
         <div className="flex items-center justify-between">
           <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
             {row.dateLabel} <span className="mx-1.5 text-slate-300">•</span> {row.venue}
           </div>
-          <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] ${resultTone}`}>
+
+          <span
+            className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] ${resultTone}`}
+          >
             {row.result}
           </span>
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <div className="text-[15px] font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
-            <span className="text-slate-400 font-medium mr-1.5">{row.venue === 'home' ? 'vs' : '@'}</span>
+          <div className="truncate text-[15px] font-bold text-slate-900 transition-colors group-hover:text-blue-600">
+            <span className="mr-1.5 font-medium text-slate-400">
+              {row.venue === 'home' ? 'vs' : '@'}
+            </span>
             {row.opponent}
           </div>
           <div className="text-lg font-extrabold tabular-nums text-slate-900">{row.score}</div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mt-1">
-          <div className={`rounded-lg border border-slate-200/60 bg-slate-50/50 px-2.5 py-1.5 flex flex-col items-center justify-center text-center ${spreadTone}`}>
-            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">ATS</span>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <div
+            className={`flex flex-col items-center justify-center rounded-lg border border-slate-200/60 bg-slate-50/50 px-2.5 py-1.5 text-center ${spreadTone}`}
+          >
+            <span className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              ATS
+            </span>
             <span className="text-xs">{row.spreadLabel}</span>
           </div>
-          <div className={`rounded-lg border border-slate-200/60 bg-slate-50/50 px-2.5 py-1.5 flex flex-col items-center justify-center text-center ${totalTone}`}>
-            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Total</span>
+
+          <div
+            className={`flex flex-col items-center justify-center rounded-lg border border-slate-200/60 bg-slate-50/50 px-2.5 py-1.5 text-center ${totalTone}`}
+          >
+            <span className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              Total
+            </span>
             <span className="text-xs">{row.totalLabel}</span>
           </div>
         </div>
@@ -306,108 +416,139 @@ function MatchRow({ row }: { row: LedgerRow }) {
 }
 
 // ============================================================================
-// Main Page Component
+// Main
 // ============================================================================
 
 export default function TeamPage() {
   const { slug } = useParams<{ slug: string }>();
 
-  // Global State
   const [matches, setMatches] = useState<SoccerPostgame[]>([]);
   const [meta, setMeta] = useState<TeamMeta | null>(null);
-  const [loading, setLoading] = useState(true);
   const [record, setRecord] = useState<TeamRecord | null>(null);
-  const [ready, setReady] = useState(false);
 
-  // Filter State
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [venueFilter, setVenueFilter] = useState<VenueFilter>('all');
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all');
   const [spreadFilter, setSpreadFilter] = useState<SpreadFilter>('all');
   const [windowFilter, setWindowFilter] = useState<WindowFilter>('all');
 
   useEffect(() => {
-    const timer = setTimeout(() => setReady(true), 50);
-    return () => clearTimeout(timer);
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    let alive = true;
+    async function init(): Promise<void> {
+      setLoading(true);
+      setError(null);
+      setMatches([]);
+      setMeta(null);
+      setRecord(null);
 
-    async function init() {
-      if (!slug) return;
-      const teamNameFromSlug = slug.replace(/-/g, ' ');
-
-      const [teamMeta, teamMatches] = await Promise.all([
-        fetchTeamMeta(teamNameFromSlug),
-        fetchTeamMatches(slug),
-      ]);
-
-      if (!alive) return;
-
-      setMeta((teamMeta as TeamMeta | null) ?? null);
-      setMatches(teamMatches);
-
-      if (teamMatches.length > 0) {
-        const canonicalTeamName =
-          (teamMeta as TeamMeta | null)?.name ||
-          (teamMeta as TeamMeta | null)?.short_name ||
-          teamNameFromSlug;
-
-        const nextRecord = computeTeamRecord(teamMatches, canonicalTeamName);
-        setRecord(nextRecord);
-
-        // Document Meta Tags
-        const pageTitle = `${canonicalTeamName} ATS Record & Results | The Drip`;
-        document.title = pageTitle;
-
-        const atsDen = nextRecord.ats.covered + nextRecord.ats.failed;
-        const coverPct = atsDen > 0 ? ((nextRecord.ats.covered / atsDen) * 100).toFixed(1) : '0.0';
-        const desc = `${canonicalTeamName} ATS record: ${nextRecord.ats.covered}-${nextRecord.ats.failed}. Cover rate: ${coverPct}%. Full season results with closing lines.`;
-
-        document.querySelector('meta[property="og:title"]')?.setAttribute('content', pageTitle);
-        document.querySelector('meta[property="og:description"]')?.setAttribute('content', desc);
+      if (!slug) {
+        setError('Missing team slug.');
+        setLoading(false);
+        return;
       }
 
-      setLoading(false);
+      try {
+        const teamNameFromSlug = slug.replace(/-/g, ' ');
+
+        const [teamMeta, teamMatches] = await Promise.all([
+          fetchTeamMeta(teamNameFromSlug),
+          fetchTeamMatches(slug),
+        ]);
+
+        if (cancelled) return;
+
+        const safeMeta = (teamMeta as TeamMeta | null) ?? null;
+        const safeMatches = Array.isArray(teamMatches) ? teamMatches : [];
+
+        setMeta(safeMeta);
+        setMatches(safeMatches);
+
+        if (safeMatches.length > 0) {
+          const canonicalTeamName =
+            safeMeta?.name || safeMeta?.short_name || safeMeta?.abbreviation || teamNameFromSlug;
+
+          const nextRecord = computeTeamRecord(safeMatches, canonicalTeamName);
+          setRecord(nextRecord);
+
+          const pageTitle = `${canonicalTeamName} ATS Record & Results | The Drip`;
+          document.title = pageTitle;
+
+          const atsDen = nextRecord.ats.covered + nextRecord.ats.failed;
+          const coverPct =
+            atsDen > 0 ? ((nextRecord.ats.covered / atsDen) * 100).toFixed(1) : '0.0';
+          const desc = `${canonicalTeamName} ATS record: ${nextRecord.ats.covered}-${nextRecord.ats.failed}. Cover rate: ${coverPct}%. Full season results with closing lines.`;
+
+          upsertMetaTag('meta[property="og:title"]', 'content', pageTitle);
+          upsertMetaTag('meta[property="og:description"]', 'content', desc);
+          upsertMetaTag('meta[name="description"]', 'content', desc);
+        } else {
+          setError('No team matches found.');
+        }
+      } catch (err) {
+        if (cancelled) return;
+        const message =
+          err instanceof Error ? err.message : 'Failed to load team ledger.';
+        setError(message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
     void init();
-    return () => { alive = false; };
+
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
-  const teamName = meta?.name || meta?.short_name || (slug || '').replace(/-/g, ' ');
+  const fallbackSlugName = (slug || '').replace(/-/g, ' ');
+  const teamName = meta?.name || meta?.short_name || meta?.abbreviation || fallbackSlugName;
   const teamColor = meta?.color || C.accent;
 
-  // 1. Process all matches into strictly typed rows
-  const ledgerRows = useMemo<LedgerRow[]>(() => {
-    const keyNames = [teamName, (slug || '').replace(/-/g, ' ')].filter(Boolean);
-    return matches
-      .map((match) => buildLedgerRow(match, keyNames))
-      // FIX: NaN-safe date sort — prevents non-deterministic ordering on malformed start_time
-      .sort((a, b) => (Date.parse(b.startTime) || 0) - (Date.parse(a.startTime) || 0));
-  }, [matches, slug, teamName]);
+  const teamAliases = useMemo<string[]>(() => {
+    return [
+      meta?.name,
+      meta?.short_name,
+      meta?.abbreviation,
+      fallbackSlugName,
+      teamName,
+    ].filter((value): value is string => Boolean(value && value.trim()));
+  }, [meta?.abbreviation, meta?.name, meta?.short_name, fallbackSlugName, teamName]);
 
-  // 2. Filter the rows based on current state
-  const filteredRows = useMemo(() => {
+  const ledgerRows = useMemo<LedgerRow[]>(() => {
+    return matches
+      .map((match) => buildLedgerRow(match, teamAliases))
+      .sort((a, b) => Date.parse(b.startTime) - Date.parse(a.startTime));
+  }, [matches, teamAliases]);
+
+  const filteredRows = useMemo<LedgerRow[]>(() => {
     let rows = ledgerRows;
+
     if (venueFilter !== 'all') rows = rows.filter((r) => r.venue === venueFilter);
     if (resultFilter !== 'all') rows = rows.filter((r) => r.result === resultFilter);
     if (spreadFilter !== 'all') rows = rows.filter((r) => r.spreadOutcome === spreadFilter);
     if (windowFilter !== 'all') rows = rows.slice(0, Number(windowFilter));
+
     return rows;
   }, [ledgerRows, venueFilter, resultFilter, spreadFilter, windowFilter]);
 
-  // 3. Group rows by month
   const groupedRows = useMemo(() => {
     const groups = new Map<string, LedgerRow[]>();
+
     for (const row of filteredRows) {
       if (!groups.has(row.monthLabel)) groups.set(row.monthLabel, []);
       groups.get(row.monthLabel)?.push(row);
     }
-    return Array.from(groups.entries()).map(([month, items]) => ({ month, items }));
+
+    return Array.from(groups.entries()).map(([month, items]) => ({
+      month,
+      items,
+    }));
   }, [filteredRows]);
 
-  // 4. Summarize recent form based strictly on raw items
   const recentForm = useMemo(() => {
     const recent = ledgerRows.slice(0, Math.min(5, ledgerRows.length));
     const wins = recent.filter((r) => r.result === 'win').length;
@@ -416,24 +557,26 @@ export default function TeamPage() {
     return { sample: recent.length, wins, draws, losses };
   }, [ledgerRows]);
 
-  // --- Views ---
-
   if (loading) {
     return (
-      <div className={`${THEME.layout.page} flex items-center justify-center min-h-screen`}>
+      <div className={`${THEME.layout.page} flex min-h-[100svh] items-center justify-center`}>
         <div className="flex flex-col items-center gap-3">
           <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Loading Team Ledger...</div>
+          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+            Loading Team Ledger...
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!record || matches.length === 0) {
+  if (error || !record || matches.length === 0) {
     return (
-      <div className={`${THEME.layout.page} flex flex-col items-center justify-center min-h-screen gap-5`}>
-        <div className="h-16 w-16 rounded-full bg-slate-100 border border-slate-200/60 flex items-center justify-center text-2xl">🔍</div>
-        <p className="text-base font-bold text-slate-700">Team record not found.</p>
+      <div className={`${THEME.layout.page} flex min-h-[100svh] flex-col items-center justify-center gap-5`}>
+        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200/60 bg-slate-100 text-2xl">
+          🔍
+        </div>
+        <p className="text-base font-bold text-slate-700">{error || 'Team record not found.'}</p>
         <Link to="/edge" className={THEME.components.navLink}>
           Back to Edge
         </Link>
@@ -447,44 +590,59 @@ export default function TeamPage() {
   const cleanSheetPct = ((record.cleanSheets / totalGames) * 100).toFixed(1);
 
   return (
-    <div className={THEME.layout.page} style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.4s ease-out' }}>
-
-      {/* Top Header Navigation */}
+    <div className={THEME.layout.page}>
       <header className={THEME.layout.header}>
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 py-3">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">
-            <Link to="/edge" className={THEME.components.navLink}>Edge</Link>
-            <Link to="/trends" className={THEME.components.navLink}>Trends</Link>
+            <Link to="/edge" className={THEME.components.navLink}>
+              Edge
+            </Link>
+            <Link to="/trends" className={THEME.components.navLink}>
+              Trends
+            </Link>
           </div>
-          <span className="text-[10px] sm:text-xs font-bold text-slate-500 tracking-wider bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200/60">
+
+          <span className="rounded-full border border-slate-200/60 bg-slate-100 px-2.5 py-1 text-[10px] font-bold tracking-wider text-slate-500 sm:text-xs">
             {filteredRows.length} MATCHES
           </span>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl px-4 sm:px-6 py-8 md:py-10 space-y-6 md:space-y-8">
-
-        {/* Profile Header & Stats */}
-        <section className={`${THEME.layout.section} p-5 md:p-6 bg-white/50 backdrop-blur-sm`}>
-          <div className="flex flex-col xl:flex-row gap-6 xl:items-center xl:justify-between">
-            <div className="flex items-center gap-4 sm:gap-6 min-w-0">
-              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex items-center justify-center p-3 shrink-0">
+      <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 sm:px-6 md:space-y-8 md:py-10">
+        <section className={`${THEME.layout.section} bg-white/50 p-5 backdrop-blur-sm md:p-6`}>
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex min-w-0 items-center gap-4 sm:gap-6">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:h-24 sm:w-24">
                 {meta?.logo_url ? (
-                  <img src={meta.logo_url} alt={teamName} className="h-full w-full object-contain drop-shadow-sm" />
+                  <img
+                    src={meta.logo_url}
+                    alt={teamName}
+                    className="h-full w-full object-contain drop-shadow-sm"
+                  />
                 ) : (
-                  <span className="text-3xl sm:text-4xl font-extrabold" style={{ color: teamColor }}>{teamName[0]}</span>
+                  <span
+                    className="text-3xl font-extrabold sm:text-4xl"
+                    style={{ color: teamColor }}
+                  >
+                    {teamName?.[0] || '?'}
+                  </span>
                 )}
               </div>
+
               <div className="min-w-0">
-                <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.14em] text-blue-600 mb-1">Team Ledger</p>
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight truncate text-slate-900 pr-4">{teamName}</h1>
-                <p className="mt-1.5 sm:mt-2 text-sm text-slate-500 font-medium">
-                  {meta?.league_id || 'League'} season matchbook with ATS & Totals closing line context.
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-600 sm:text-[11px]">
+                  Team Ledger
+                </p>
+                <h1 className="truncate pr-4 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
+                  {teamName}
+                </h1>
+                <p className="mt-1.5 text-sm font-medium text-slate-500 sm:mt-2">
+                  {meta?.league_id || 'League'} season matchbook with ATS and totals closing-line context.
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 xl:shrink-0 xl:w-[650px]">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:w-[650px] xl:shrink-0">
               <StatCard
                 label="ATS Form"
                 value={`${record.ats.covered}-${record.ats.failed}-${record.ats.push}`}
@@ -509,34 +667,58 @@ export default function TeamPage() {
           </div>
         </section>
 
-        {/* Filters Panel */}
-        <section className={`${THEME.layout.section} p-5 sm:p-6 bg-white/50 backdrop-blur-sm space-y-5`}>
-          <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500 ml-1">Match Filters</div>
+        <section className={`${THEME.layout.section} space-y-5 bg-white/50 p-5 backdrop-blur-sm sm:p-6`}>
+          <div className="ml-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+            Match Filters
+          </div>
+
           <div className="flex flex-col gap-4">
-            <FilterGroup label="Venue" options={FILTER_OPTIONS.venue} currentValue={venueFilter} onChange={setVenueFilter} />
-            <FilterGroup label="Result" options={FILTER_OPTIONS.result} currentValue={resultFilter} onChange={setResultFilter} />
-            <FilterGroup label="Spread" options={FILTER_OPTIONS.spread} currentValue={spreadFilter} onChange={setSpreadFilter} />
-            <FilterGroup label="Window" options={FILTER_OPTIONS.window} currentValue={windowFilter} onChange={setWindowFilter} />
+            <FilterGroup
+              label="Venue"
+              options={FILTER_OPTIONS.venue}
+              currentValue={venueFilter}
+              onChange={setVenueFilter}
+            />
+            <FilterGroup
+              label="Result"
+              options={FILTER_OPTIONS.result}
+              currentValue={resultFilter}
+              onChange={setResultFilter}
+            />
+            <FilterGroup
+              label="Spread"
+              options={FILTER_OPTIONS.spread}
+              currentValue={spreadFilter}
+              onChange={setSpreadFilter}
+            />
+            <FilterGroup
+              label="Window"
+              options={FILTER_OPTIONS.window}
+              currentValue={windowFilter}
+              onChange={setWindowFilter}
+            />
           </div>
         </section>
 
-        {/* Match Ledger Table */}
         <section className={`${THEME.layout.section} overflow-visible`}>
-          <div className="px-5 py-4 border-b border-slate-200/80 bg-white flex items-center justify-between rounded-t-2xl">
+          <div className="flex items-center justify-between rounded-t-2xl border-b border-slate-200/80 bg-white px-5 py-4">
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Match Ledger</h2>
-              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 font-medium">Chronological record with verdicts.</p>
+              <h2 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">
+                Match Ledger
+              </h2>
+              <p className="mt-0.5 text-[11px] font-medium text-slate-500 sm:text-xs">
+                Chronological record with verdicts.
+              </p>
             </div>
           </div>
 
           {filteredRows.length === 0 ? (
-            <div className="px-4 py-16 text-center text-sm font-medium text-slate-500 bg-white rounded-b-2xl">
+            <div className="rounded-b-2xl bg-white px-4 py-16 text-center text-sm font-medium text-slate-500">
               No matches match the current filters.
             </div>
           ) : (
-            <div className="bg-white rounded-b-2xl">
-              {/* Desktop Sticky Column Headers */}
-              <div className="hidden md:grid md:grid-cols-[130px_1fr_100px_180px_140px] gap-4 px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 bg-slate-50/95 border-b border-slate-200/80 sticky top-[57px] md:top-[65px] z-30 backdrop-blur-md shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            <div className="rounded-b-2xl bg-white">
+              <div className="sticky top-[61px] z-20 hidden gap-4 border-b border-slate-200/80 bg-slate-50/95 px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)] backdrop-blur-md md:grid md:grid-cols-[130px_1fr_100px_180px_140px]">
                 <span>Date</span>
                 <span>Opponent</span>
                 <span>Result</span>
@@ -546,11 +728,13 @@ export default function TeamPage() {
 
               {groupedRows.map((group) => (
                 <div key={group.month}>
-                  {/* Month Divider Header */}
-                  <div className="px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 bg-slate-100/90 border-y border-slate-200/60 flex justify-between items-center sticky top-[95px] md:top-[109px] z-20 backdrop-blur-md shadow-[0_1px_0_rgba(255,255,255,0.5)]">
+                  <div className="flex items-center justify-between border-y border-slate-200/60 bg-slate-100/90 px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
                     <span className="text-slate-700">{group.month}</span>
-                    <span className="text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-200">{group.items.length} Matches</span>
+                    <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-slate-400">
+                      {group.items.length} Matches
+                    </span>
                   </div>
+
                   <div className="divide-y divide-slate-100/80">
                     {group.items.map((row) => (
                       <MatchRow key={row.id} row={row} />
@@ -561,7 +745,6 @@ export default function TeamPage() {
             </div>
           )}
         </section>
-
       </main>
     </div>
   );
