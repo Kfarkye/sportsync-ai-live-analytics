@@ -65,7 +65,7 @@ interface OddsAPIScore {
 async function fetchOddsAPIScores(sport: string): Promise<Map<string, OddsAPIScore>> {
     const scoreMap = new Map<string, OddsAPIScore>();
     try {
-        const url = `https://api.the-odds-api.com/v4/sports/${sport}/scores/?apiKey=${ODDS_API_KEY}&daysFrom=3`;
+        const url = `https://api.the-odds-api.com/v4/sports/${sport}/scores/?apiKey=${ODDS_API_KEY}&daysFrom=7`;
         const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
         if (!res.ok) return scoreMap;
         const data = await res.json();
@@ -110,6 +110,50 @@ function alignScoreToPick(pick: PendingPick, score: ScoreBundle): ScoreBundle {
         };
     }
     return score;
+}
+
+function inferGradingMetadata(pick: PendingPick): GradingMetadata | null {
+    const text = pick.recommended_pick?.trim();
+    if (!text) return null;
+
+    const normalizedPick = normalizeName(text);
+    const normalizedHome = normalizeName(pick.home_team);
+    const normalizedAway = normalizeName(pick.away_team);
+    const homeTokens = normalizedHome.split(' ').filter(Boolean);
+    const awayTokens = normalizedAway.split(' ').filter(Boolean);
+    const homeLast = homeTokens[homeTokens.length - 1];
+    const awayLast = awayTokens[awayTokens.length - 1];
+
+    if (/\bover\b/.test(normalizedPick)) {
+        return { side: 'OVER', type: 'TOTAL', selection: text };
+    }
+
+    if (/\bunder\b/.test(normalizedPick)) {
+        return { side: 'UNDER', type: 'TOTAL', selection: text };
+    }
+
+    let side: GradingMetadata['side'] | null = null;
+    if (normalizedPick.includes(normalizedHome) || (homeLast && normalizedPick.includes(homeLast))) side = 'HOME';
+    else if (normalizedPick.includes(normalizedAway) || (awayLast && normalizedPick.includes(awayLast))) side = 'AWAY';
+    else if (/\bhome\b/.test(normalizedPick)) side = 'HOME';
+    else if (/\baway\b/.test(normalizedPick)) side = 'AWAY';
+
+    if (!side) return null;
+
+    if (normalizedPick.includes('moneyline') || /\bml\b/.test(normalizedPick)) {
+        return { side, type: 'MONEYLINE', selection: text };
+    }
+
+    if (/\bpk\b/.test(normalizedPick) || normalizedPick.includes("pick em") || normalizedPick.includes("pick'em") || /\bdnb\b/.test(normalizedPick)) {
+        return { side, type: 'SPREAD', selection: text };
+    }
+
+    const spreadLike = (text.match(/([+-]?\d+\.?\d*)/g) || [])
+        .map((value) => parseFloat(value))
+        .filter((value) => !isNaN(value))
+        .some((value) => Math.abs(value) <= 50);
+
+    return { side, type: spreadLike ? 'SPREAD' : 'MONEYLINE', selection: text };
 }
 
 function gradePick(pick: PendingPick, score: ScoreBundle): { outcome: 'WIN' | 'LOSS' | 'PUSH' | 'NO_PICK', reason: string } {
@@ -268,8 +312,20 @@ Deno.serve(async (req: Request) => {
         for (const pick of pendingPicks as PendingPick[]) {
             const isTennis = pick.match_id.includes('tennis') || pick.match_id.includes('atp') || pick.match_id.includes('wta');
 
-            if (!pick.grading_metadata?.side) {
-                skipped++; continue;
+            const resolvedMetadata = pick.grading_metadata ?? inferGradingMetadata(pick);
+            if (!resolvedMetadata?.side) {
+                await supabase.from("pregame_intel").update({
+                    pick_result: 'MANUAL_REVIEW',
+                    graded_at: new Date().toISOString()
+                }).eq("intel_id", pick.intel_id);
+                trace.push(`[manual] ${pick.intel_id}: unable to infer grading metadata`);
+                manualReview++;
+                continue;
+            }
+
+            const resolvedPick: PendingPick = pick.grading_metadata ? pick : { ...pick, grading_metadata: resolvedMetadata };
+            if (!pick.grading_metadata) {
+                await supabase.from("pregame_intel").update({ grading_metadata: resolvedMetadata }).eq("intel_id", pick.intel_id);
             }
 
             let scoreBundle: ScoreBundle | null = null;
@@ -288,6 +344,28 @@ Deno.serve(async (req: Request) => {
                 }
             }
 
+            if (!scoreBundle && !isTennis) {
+                const { data: matchRow } = await supabase
+                    .from('matches')
+                    .select('home_score, away_score, status, home_team, away_team')
+                    .eq('id', pick.match_id)
+                    .single();
+
+                if (matchRow &&
+                    ['STATUS_FINAL', 'STATUS_FULL_TIME', 'FINAL', 'post'].includes(matchRow.status) &&
+                    matchRow.home_score !== null && matchRow.away_score !== null) {
+                    scoreBundle = {
+                        home_team: matchRow.home_team || pick.home_team,
+                        away_team: matchRow.away_team || pick.away_team,
+                        homeScore: matchRow.home_score,
+                        awayScore: matchRow.away_score,
+                        isTennis: false,
+                        completed: true
+                    };
+                    source = 'matches_table';
+                }
+            }
+
             if (!scoreBundle && pick.odds_event_id && allScores.has(pick.odds_event_id)) {
                 const os = allScores.get(pick.odds_event_id)!;
                 scoreBundle = {
@@ -298,7 +376,21 @@ Deno.serve(async (req: Request) => {
             }
 
             if (!scoreBundle && !isTennis) {
-                const leagueId = pick.match_id.includes('nba') ? 'basketball_nba' : (pick.match_id.includes('ncaab') ? 'basketball_ncaab' : null);
+                let leagueId: string | null = null;
+                const mid = pick.match_id.toLowerCase();
+
+                if (mid.includes('nba')) leagueId = 'basketball_nba';
+                else if (mid.includes('ncaab') || mid.includes('mens-college')) leagueId = 'basketball_ncaab';
+                else if (mid.includes('nhl')) leagueId = 'icehockey_nhl';
+                else if (mid.includes('epl') || mid.includes('eng.1')) leagueId = 'soccer_epl';
+                else if (mid.includes('esp.1') || mid.includes('laliga')) leagueId = 'soccer_spain_la_liga';
+                else if (mid.includes('ita.1') || mid.includes('seriea')) leagueId = 'soccer_italy_serie_a';
+                else if (mid.includes('ger.1') || mid.includes('bundesliga')) leagueId = 'soccer_germany_bundesliga';
+                else if (mid.includes('fra.1') || mid.includes('ligue1')) leagueId = 'soccer_france_ligue_one';
+                else if (mid.includes('ucl') || mid.includes('uefa.champions')) leagueId = 'soccer_uefa_champs_league';
+                else if (mid.includes('uel') || mid.includes('uefa.europa')) leagueId = 'soccer_uefa_europa_league';
+                else if (mid.includes('usa.1') || mid.includes('mls')) leagueId = 'soccer_usa_mls';
+                else if (mid.includes('mex.1') || mid.includes('ligamx')) leagueId = 'soccer_mexico_ligamx';
 
                 if (leagueId) {
                     const pickHome = resolveTeam(pick.home_team, leagueId);
@@ -317,7 +409,7 @@ Deno.serve(async (req: Request) => {
                 }
             }
 
-            if (!scoreBundle || (isTennis && scoreBundle.homeGames === undefined && pick.grading_metadata.type !== 'MONEYLINE')) {
+            if (!scoreBundle || (isTennis && scoreBundle.homeGames === undefined && resolvedMetadata.type !== 'MONEYLINE')) {
                 try {
                     const espnId = pick.match_id.split('_')[0];
                     let endpoint = '';
@@ -325,7 +417,15 @@ Deno.serve(async (req: Request) => {
                     else if (pick.match_id.includes('ncaab')) endpoint = 'basketball/mens-college-basketball';
                     else if (pick.match_id.includes('nba')) endpoint = 'basketball/nba';
                     else if (pick.match_id.includes('nhl')) endpoint = 'hockey/nhl';
-                    else if (pick.match_id.includes('epl')) endpoint = 'soccer/eng.1';
+                    else if (pick.match_id.includes('epl') || pick.match_id.includes('eng.1')) endpoint = 'soccer/eng.1';
+                    else if (pick.match_id.includes('laliga') || pick.match_id.includes('esp.1')) endpoint = 'soccer/esp.1';
+                    else if (pick.match_id.includes('seriea') || pick.match_id.includes('ita.1')) endpoint = 'soccer/ita.1';
+                    else if (pick.match_id.includes('bundesliga') || pick.match_id.includes('ger.1')) endpoint = 'soccer/ger.1';
+                    else if (pick.match_id.includes('ligue1') || pick.match_id.includes('fra.1')) endpoint = 'soccer/fra.1';
+                    else if (pick.match_id.includes('mls') || pick.match_id.includes('usa.1')) endpoint = 'soccer/usa.1';
+                    else if (pick.match_id.includes('ucl') || pick.match_id.includes('uefa.champions')) endpoint = 'soccer/uefa.champions';
+                    else if (pick.match_id.includes('uel') || pick.match_id.includes('uefa.europa')) endpoint = 'soccer/uefa.europa';
+                    else if (pick.match_id.includes('ligamx') || pick.match_id.includes('mex.1')) endpoint = 'soccer/mex.1';
 
                     if (endpoint) {
                         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${endpoint}/summary?event=${espnId}`, { signal: AbortSignal.timeout(5000) });
@@ -369,8 +469,8 @@ Deno.serve(async (req: Request) => {
                 skipped++; continue;
             }
 
-            scoreBundle = alignScoreToPick(pick, scoreBundle);
-            const result = gradePick(pick, scoreBundle);
+            scoreBundle = alignScoreToPick(resolvedPick, scoreBundle);
+            const result = gradePick(resolvedPick, scoreBundle);
 
             if (result.outcome !== 'NO_PICK') {
                 await supabase.from("pregame_intel").update({
