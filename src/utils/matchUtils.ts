@@ -76,6 +76,21 @@ export const isMatchActuallyLive = (match: Match): boolean => {
   return true;
 };
 
+export const isMatchActuallyFinal = (match: Match): boolean => {
+  if (isGameFinished(match.status)) return true;
+
+  // Staleness fallback: if it's trapped in a break state but >5 hours old, consider it final
+  const normalized = String(match.status || '').toUpperCase();
+  if (BREAK_STATUSES.includes(normalized) && match.startTime) {
+    const startMs = new Date(match.startTime).getTime();
+    if (!isNaN(startMs) && Date.now() - startMs > STALE_GAME_MS) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 /**
  * Checks if a game is scheduled (not yet started).
  */
