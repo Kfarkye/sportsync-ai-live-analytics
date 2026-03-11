@@ -233,8 +233,8 @@ function buildInstitutionalSnapshotRow(args: {
                 ? odds.spread_home_value * -1
                 : odds.spread_away
         ),
-        spread_home_price: null,
-        spread_away_price: null,
+        spread_home_price: parseAmericanOdds(odds.spread_best?.home?.price),
+        spread_away_price: parseAmericanOdds(odds.spread_best?.away?.price),
         total: parseLineValue(odds.total_value ?? odds.total),
         over_price: parseAmericanOdds(odds.total_best?.over?.price),
         under_price: parseAmericanOdds(odds.total_best?.under?.price),
