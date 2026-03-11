@@ -19,6 +19,19 @@ const asId = (value: any): string => {
     return String(value);
 };
 
+const normalizeProviderName = (value: any): string | undefined => {
+    const raw = Safe.string(value)?.trim();
+    if (!raw) return undefined;
+
+    const key = raw.toLowerCase().replace(/\s+/g, '');
+    if (key === 'draftkings') return 'DraftKings';
+    if (key === 'fanduel') return 'FanDuel';
+    if (key === 'betmgm') return 'BetMGM';
+    if (key === 'williamhill') return 'WilliamHill';
+
+    return raw;
+};
+
 export const EspnAdapters = {
     Team: (competitor: any, sport: Sport): Team => {
         if (!competitor) return { id: '0', name: 'Unknown', shortName: 'UNK', logo: '', score: 0 } as Team;
@@ -75,9 +88,13 @@ export const EspnAdapters = {
 
             if (primary) {
                 result.hasOdds = true;
-                result.provider = primary.provider?.name || 'Consensus';
+                result.provider = normalizeProviderName(primary.provider?.name) || 'Consensus';
                 result.spread = primary.details; // e.g. "BUF -3.0"
                 result.overUnder = primary.overUnder; // e.g. 48.5
+                result.homeSpreadOdds = primary.homeTeamOdds?.spreadOdds;
+                result.awaySpreadOdds = primary.awayTeamOdds?.spreadOdds;
+                result.overOdds = primary.overOdds;
+                result.underOdds = primary.underOdds;
 
                 // Extract ML from PickCenter
                 if (primary.homeTeamOdds?.moneyLine) result.homeWin = primary.homeTeamOdds.moneyLine;
@@ -99,7 +116,7 @@ export const EspnAdapters = {
 
             if (!result.hasOdds) {
                 result.hasOdds = true;
-                result.provider = oddsData.provider?.name || 'Consensus';
+                result.provider = normalizeProviderName(oddsData.provider?.name) || 'Consensus';
                 if (oddsData.details) result.spread = oddsData.details;
                 if (oddsData.overUnder) result.overUnder = oddsData.overUnder;
             }
@@ -114,6 +131,19 @@ export const EspnAdapters = {
                     if (oddsData.awayTeamOdds?.moneyLine) result.awayWin = oddsData.awayTeamOdds.moneyLine;
                     if (oddsData.drawOdds?.moneyLine) result.draw = oddsData.drawOdds.moneyLine;
                 }
+            }
+
+            if (result.homeSpreadOdds === undefined) {
+                result.homeSpreadOdds = oddsData.homeTeamOdds?.spreadOdds;
+            }
+            if (result.awaySpreadOdds === undefined) {
+                result.awaySpreadOdds = oddsData.awayTeamOdds?.spreadOdds;
+            }
+            if (result.overOdds === undefined) {
+                result.overOdds = oddsData.overOdds;
+            }
+            if (result.underOdds === undefined) {
+                result.underOdds = oddsData.underOdds;
             }
         }
 

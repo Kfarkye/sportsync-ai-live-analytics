@@ -102,6 +102,19 @@ function parseLine(val: any): number | null {
   return isNaN(num) ? null : num;
 }
 
+function normalizeProviderName(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return 'Unknown';
+
+  const key = raw.toLowerCase().replace(/\s+/g, '');
+  if (key === 'draftkings') return 'DraftKings';
+  if (key === 'fanduel') return 'FanDuel';
+  if (key === 'betmgm') return 'BetMGM';
+  if (key === 'williamhill') return 'WilliamHill';
+
+  return raw;
+}
+
 interface ParsedProviderOdds {
   odds_open: any;
   odds_close: any;
@@ -181,7 +194,7 @@ function normalizeEspnCoreProviderState(
     total: providerState?.overUnder ?? null,
     overOdds: providerState?.overOdds ?? providerState?.over?.price ?? null,
     underOdds: providerState?.underOdds ?? providerState?.under?.price ?? null,
-    provider: providerMeta?.name || providerMeta?.displayName || 'DraftKings',
+    provider: normalizeProviderName(providerMeta?.name || providerMeta?.displayName || 'DraftKings'),
     provider_id: providerMeta?.id ?? 100,
     source,
     captured_at: new Date().toISOString()
@@ -282,7 +295,7 @@ function mergeEspnOdds(primary: any, fallback: any) {
     homeWin: primary?.homeWin ?? primary?.home_ml ?? fallback?.homeWin ?? fallback?.home_ml ?? null,
     awayWin: primary?.awayWin ?? primary?.away_ml ?? fallback?.awayWin ?? fallback?.away_ml ?? null,
     draw: primary?.draw ?? primary?.draw_ml ?? fallback?.draw ?? fallback?.draw_ml ?? null,
-    provider: primary?.provider || fallback?.provider || 'ESPN',
+    provider: normalizeProviderName(primary?.provider || fallback?.provider || 'ESPN'),
     provider_id: primary?.provider_id ?? fallback?.provider_id ?? null,
     source: primary?.source || fallback?.source || null
   };
@@ -591,12 +604,12 @@ function buildLiveOddsSnapshotRows(args: {
   const pushRow = (marketType: string, providerPayload: any, source: string) => {
     if (!providerPayload) return;
 
-    const providerName = String(
+    const providerName = normalizeProviderName(
       providerPayload?.provider ||
       providerPayload?.provider_name ||
       providerPayload?.book ||
       'Unknown'
-    ).trim() || 'Unknown';
+    );
 
     const row = {
       ...baseRow,
