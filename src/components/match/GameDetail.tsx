@@ -4,6 +4,7 @@ import { getMatchAnalysis } from '../../services/geminiService';
 import { ResponsiveContainer, XAxis, YAxis, Tooltip, AreaChart, Area, CartesianGrid } from 'recharts';
 import { Sparkles, Activity, Shield, DollarSign, RefreshCw, TrendingUp } from 'lucide-react';
 import TeamLogo from '../shared/TeamLogo';
+import { getTeamLogo } from '@/lib/teamColors';
 
 interface GameDetailProps {
     game: Game;
@@ -44,7 +45,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game }) => {
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
 
                 <div className="z-10 flex flex-col items-center w-1/3">
-                    <TeamLogo logo={game.awayTeam.logo} name={game.awayTeam.name} teamColor={game.awayTeam.color} className="w-20 h-20 object-contain drop-shadow-2xl" />
+                    <TeamLogo logo={game.awayTeam.logo || getTeamLogo(game.awayTeam.name)} name={game.awayTeam.name} teamColor={game.awayTeam.color} className="w-20 h-20 object-contain drop-shadow-2xl" />
                     <h2 className="mt-2 text-lg font-bold text-white text-center">{game.awayTeam.name}</h2>
                     <p className="text-slate-400 text-sm">{game.awayTeam.record}</p>
                 </div>
@@ -62,7 +63,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game }) => {
                 </div>
 
                 <div className="z-10 flex flex-col items-center w-1/3">
-                    <TeamLogo logo={game.homeTeam.logo} name={game.homeTeam.name} teamColor={game.homeTeam.color} className="w-20 h-20 object-contain drop-shadow-2xl" />
+                    <TeamLogo logo={game.homeTeam.logo || getTeamLogo(game.homeTeam.name)} name={game.homeTeam.name} teamColor={game.homeTeam.color} className="w-20 h-20 object-contain drop-shadow-2xl" />
                     <h2 className="mt-2 text-lg font-bold text-white text-center">{game.homeTeam.name}</h2>
                     <p className="text-slate-400 text-sm">{game.homeTeam.record}</p>
                 </div>

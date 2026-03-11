@@ -3,6 +3,7 @@ import { Match, Sport } from '@/types';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
 import { cn, ESSENCE } from '@/lib/essence';
+import { getTeamLogo } from '@/lib/teamColors';
 import { motion } from 'framer-motion';
 import { getLeagueDisplayName } from '@/constants';
 import { analyzeSpread, analyzeMoneyline } from '../../utils/oddsUtils';
@@ -163,7 +164,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                     {/* Away Team */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} className="w-7 h-7 flex-shrink-0" />
+                            <TeamLogo logo={match.awayTeam.logo || getTeamLogo(match.awayTeam.name)} name={match.awayTeam.name} className="w-7 h-7 flex-shrink-0" />
                             <div className="min-w-0">
                                 <span
                                     className={cn("block text-[15px] truncate", awayWinner ? "font-bold" : awayLost ? "font-normal" : "font-semibold")}
@@ -190,7 +191,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                     {/* Home Team */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} className="w-7 h-7 flex-shrink-0" />
+                            <TeamLogo logo={match.homeTeam.logo || getTeamLogo(match.homeTeam.name)} name={match.homeTeam.name} className="w-7 h-7 flex-shrink-0" />
                             <div className="min-w-0">
                                 <span
                                     className={cn("block text-[15px] truncate", homeWinner ? "font-bold" : homeLost ? "font-normal" : "font-semibold")}

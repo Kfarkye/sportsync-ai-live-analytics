@@ -6,6 +6,7 @@ import { analyzeSpread, analyzeTotal, analyzeMoneyline } from '../../utils/oddsU
 import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import TeamLogo from '../shared/TeamLogo';
+import { getTeamLogo } from '@/lib/teamColors';
 import { motion } from 'framer-motion';
 import { useValueFlash, institutionalFlashVariants } from '../../hooks/useValueFlash';
 
@@ -159,7 +160,7 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
             {/* Away Team Row */}
             <div className="flex items-center gap-4 py-4 border-b border-slate-200 hover:bg-slate-50 focus-within:bg-slate-50 transition-colors duration-150 -mx-2 px-2 rounded-lg">
                 <div className="w-28 flex items-center gap-2.5 shrink-0">
-                    <TeamLogo logo={match.awayTeam.logo} className="w-7 h-7 drop-shadow-md" />
+                    <TeamLogo logo={match.awayTeam.logo || getTeamLogo(match.awayTeam.name)} className="w-7 h-7 drop-shadow-md" />
                     <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.1em]">
                         {match.awayTeam.abbreviation || match.awayTeam.shortName}
                     </span>
@@ -174,7 +175,7 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
             {/* Home Team Row */}
             <div className="flex items-center gap-4 py-4 border-b border-slate-200 hover:bg-slate-50 focus-within:bg-slate-50 transition-colors duration-150 -mx-2 px-2 rounded-lg">
                 <div className="w-28 flex items-center gap-2.5 shrink-0">
-                    <TeamLogo logo={match.homeTeam.logo} className="w-7 h-7 drop-shadow-md" />
+                    <TeamLogo logo={match.homeTeam.logo || getTeamLogo(match.homeTeam.name)} className="w-7 h-7 drop-shadow-md" />
                     <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.1em]">
                         {match.homeTeam.abbreviation || match.homeTeam.shortName}
                     </span>
