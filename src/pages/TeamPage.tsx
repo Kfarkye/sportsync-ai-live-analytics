@@ -47,26 +47,36 @@ type LedgerRow = {
 };
 
 // ============================================================================
-// SSOT: Colors & Theme
+// SSOT: Modernized Theme & Styling
 // ============================================================================
 
 const THEME = {
   result: {
-    win: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    loss: 'bg-rose-50 text-rose-700 border-rose-200',
-    draw: 'bg-slate-100 text-slate-700 border-slate-200',
+    win: 'bg-emerald-50/80 text-emerald-700 border-emerald-200/80',
+    loss: 'bg-rose-50/80 text-rose-700 border-rose-200/80',
+    draw: 'bg-slate-100/80 text-slate-700 border-slate-200/80',
   },
   spread: {
-    covered: 'text-emerald-700',
-    failed: 'text-rose-700',
-    push: 'text-slate-600',
-    off: 'text-slate-500',
+    covered: 'text-emerald-600 font-bold',
+    failed: 'text-rose-600 font-bold',
+    push: 'text-slate-500 font-bold',
+    off: 'text-slate-400 font-medium',
   },
   total: {
-    over: 'text-slate-900',
-    under: 'text-slate-700',
-    push: 'text-slate-500',
-    off: 'text-slate-500',
+    over: 'text-slate-800 font-bold',
+    under: 'text-slate-600 font-bold',
+    push: 'text-slate-500 font-bold',
+    off: 'text-slate-400 font-medium',
+  },
+  layout: {
+    page: 'h-(--vvh,100vh) overflow-y-auto overscroll-y-contain bg-slate-50/50 text-slate-900 font-sans pb-12 sm:pb-20 selection:bg-blue-100',
+    header: 'sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur-md shadow-sm',
+    section: 'rounded-2xl border border-slate-200/75 bg-white shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all',
+  },
+  components: {
+    navLink: 'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 transition-all active:scale-95',
+    chipActive: 'bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-900/10 ring-1 ring-slate-900',
+    chipInactive: 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900 hover:bg-slate-50 shadow-sm',
   },
 } as const;
 
@@ -94,7 +104,7 @@ const FILTER_OPTIONS = {
     { value: 'off', label: 'Off Board' },
   ] as { value: SpreadFilter; label: string }[],
   window: [
-    { value: 'all', label: 'All' },
+    { value: 'all', label: 'All Time' },
     { value: '10', label: 'Last 10' },
     { value: '20', label: 'Last 20' },
     { value: '40', label: 'Last 40' },
@@ -109,11 +119,8 @@ function matchesTeamName(candidate: string, teamNames: string[]): boolean {
   const clean = candidate.trim().toLowerCase();
   return teamNames.some((name) => {
     const target = name.trim().toLowerCase();
-    if (!target || target.length < 2) return false;
-    if (clean === target) return true;
-    // Word-boundary match to prevent "LA" matching "Atlanta"
-    const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(`\\b${escaped}\\b`, 'i').test(clean);
+    if (!target) return false;
+    return clean === target || clean.includes(target) || target.includes(clean);
   });
 }
 
@@ -145,8 +152,7 @@ function buildLedgerRow(match: SoccerPostgame, keyNames: string[]): LedgerRow {
       spreadOutcome =
         spreadResult.result === 'covered' ? 'failed'
           : spreadResult.result === 'failed' ? 'covered'
-            : spreadResult.result === 'push' ? 'push'
-              : 'off';
+            : 'push';
     }
   }
 
@@ -182,15 +188,15 @@ function buildLedgerRow(match: SoccerPostgame, keyNames: string[]): LedgerRow {
 }
 
 // ============================================================================
-// Sub-Components
+// UI Sub-Components
 // ============================================================================
 
 function StatCard({ label, value, subtext }: { label: string; value: React.ReactNode; subtext: React.ReactNode }) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</div>
-      <div className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{value}</div>
-      <div className="mt-1 text-[11px] text-slate-500">{subtext}</div>
+    <article className="relative flex flex-col justify-center overflow-hidden rounded-2xl border border-slate-200/75 bg-white p-4 sm:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+      <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500 opacity-80">{label}</div>
+      <div className="mt-1.5 text-2xl sm:text-[1.7rem] font-bold tracking-tight tabular-nums leading-none text-slate-900">{value}</div>
+      <div className="mt-2 text-[10px] sm:text-[11px] font-medium text-slate-500 opacity-90">{subtext}</div>
     </article>
   );
 }
@@ -207,27 +213,27 @@ function FilterGroup<T extends string>({
   onChange: (val: T) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 self-center min-w-[50px] mr-1">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+      <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 min-w-[50px] ml-1 sm:ml-0">
         {label}
       </span>
-      {options.map((option) => {
-        const isActive = currentValue === option.value;
-        const stateClass = isActive
-          ? 'bg-slate-900 text-white border-slate-900'
-          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900 hover:bg-slate-50';
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => {
+          const isActive = currentValue === option.value;
+          const stateClass = isActive ? THEME.components.chipActive : THEME.components.chipInactive;
 
-        return (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onChange(option.value)}
-            className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest transition ${stateClass}`}
-          >
-            {option.label}
-          </button>
-        );
-      })}
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onChange(option.value)}
+              className={`rounded-full px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-widest transition-all active:scale-95 ${stateClass}`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -238,50 +244,61 @@ function MatchRow({ row }: { row: LedgerRow }) {
   const totalTone = THEME.total[row.totalOutcome];
 
   return (
-    <Link to={row.href} className="block px-4 py-3 hover:bg-slate-50 transition group">
+    <Link to={row.href} className="block group border-b border-slate-100/80 last:border-0 hover:bg-blue-50/40 transition-colors">
+
       {/* Desktop Layout */}
-      <div className="hidden md:grid md:grid-cols-[130px_1fr_130px_220px_180px] gap-3 items-center">
-        <div className="text-xs text-slate-500 tabular-nums">
-          <div>{row.dateLabel}</div>
-          <div className="mt-1 uppercase tracking-widest text-[10px]">{row.venue === 'home' ? 'Home' : 'Away'}</div>
+      <div className="hidden md:grid md:grid-cols-[130px_1fr_100px_180px_140px] gap-4 items-center px-5 py-3.5">
+        <div className="text-[13px] text-slate-500 tabular-nums leading-tight">
+          <div className="font-medium">{row.dateLabel}</div>
+          <div className="mt-0.5 uppercase tracking-widest text-[9px] font-bold text-slate-400">{row.venue === 'home' ? 'Home' : 'Away'}</div>
         </div>
 
-        <div className="min-w-0">
-          <div className="font-semibold text-slate-900 truncate group-hover:text-slate-600 transition-colors">
-            <span className="text-slate-400 mr-1.5">{row.venue === 'home' ? 'vs' : '@'}</span>
+        <div className="min-w-0 pr-4">
+          <div className="text-[15px] font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
+            <span className="text-slate-400 font-medium mr-1.5">{row.venue === 'home' ? 'vs' : '@'}</span>
             {row.opponent}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${resultTone}`}>
+        <div className="flex items-center gap-2.5">
+          <span className={`rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${resultTone}`}>
             {row.result}
           </span>
-          <span className="text-lg font-semibold tabular-nums text-slate-900">{row.score}</span>
+          <span className="text-lg font-extrabold tabular-nums text-slate-900">{row.score}</span>
         </div>
 
-        <div className={`text-sm font-semibold tabular-nums ${spreadTone}`}>{row.spreadLabel}</div>
-        <div className={`text-sm font-semibold tabular-nums ${totalTone}`}>{row.totalLabel}</div>
+        <div className={`text-[14px] tabular-nums ${spreadTone}`}>{row.spreadLabel}</div>
+        <div className={`text-[14px] tabular-nums ${totalTone}`}>{row.totalLabel}</div>
       </div>
 
       {/* Mobile Layout */}
-      <div className="md:hidden">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-xs text-slate-500 tabular-nums">{row.dateLabel}</div>
-          <span className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${resultTone}`}>
+      <div className="md:hidden p-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+            {row.dateLabel} <span className="mx-1.5 text-slate-300">•</span> {row.venue}
+          </div>
+          <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] ${resultTone}`}>
             {row.result}
           </span>
         </div>
-        <div className="mt-2 flex items-center justify-between gap-3">
-          <div className="font-semibold text-slate-900 truncate">
-            <span className="text-slate-400 mr-1.5">{row.venue === 'home' ? 'vs' : '@'}</span>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[15px] font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+            <span className="text-slate-400 font-medium mr-1.5">{row.venue === 'home' ? 'vs' : '@'}</span>
             {row.opponent}
           </div>
-          <div className="text-lg font-semibold tabular-nums text-slate-900">{row.score}</div>
+          <div className="text-lg font-extrabold tabular-nums text-slate-900">{row.score}</div>
         </div>
-        <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-          <div className={`rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-semibold ${spreadTone}`}>{row.spreadLabel}</div>
-          <div className={`rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-semibold ${totalTone}`}>{row.totalLabel}</div>
+
+        <div className="grid grid-cols-2 gap-2 mt-1">
+          <div className={`rounded-lg border border-slate-200/60 bg-slate-50/50 px-2.5 py-1.5 flex flex-col items-center justify-center text-center ${spreadTone}`}>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">ATS</span>
+            <span className="text-xs">{row.spreadLabel}</span>
+          </div>
+          <div className={`rounded-lg border border-slate-200/60 bg-slate-50/50 px-2.5 py-1.5 flex flex-col items-center justify-center text-center ${totalTone}`}>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Total</span>
+            <span className="text-xs">{row.totalLabel}</span>
+          </div>
         </div>
       </div>
     </Link>
@@ -327,12 +344,14 @@ export default function TeamPage() {
 
       if (!alive) return;
 
-      const typedMeta: TeamMeta | null = (teamMeta as TeamMeta | null) ?? null;
-      setMeta(typedMeta);
+      setMeta((teamMeta as TeamMeta | null) ?? null);
       setMatches(teamMatches);
 
       if (teamMatches.length > 0) {
-        const canonicalTeamName = typedMeta?.name || typedMeta?.short_name || teamNameFromSlug;
+        const canonicalTeamName =
+          (teamMeta as TeamMeta | null)?.name ||
+          (teamMeta as TeamMeta | null)?.short_name ||
+          teamNameFromSlug;
 
         const nextRecord = computeTeamRecord(teamMatches, canonicalTeamName);
         setRecord(nextRecord);
@@ -364,6 +383,7 @@ export default function TeamPage() {
     const keyNames = [teamName, (slug || '').replace(/-/g, ' ')].filter(Boolean);
     return matches
       .map((match) => buildLedgerRow(match, keyNames))
+      // FIX: NaN-safe date sort — prevents non-deterministic ordering on malformed start_time
       .sort((a, b) => (Date.parse(b.startTime) || 0) - (Date.parse(a.startTime) || 0));
   }, [matches, slug, teamName]);
 
@@ -400,17 +420,21 @@ export default function TeamPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-500 flex items-center justify-center text-xs font-semibold uppercase tracking-[0.16em]">
-        Loading Team Ledger
+      <div className={`${THEME.layout.page} flex items-center justify-center min-h-screen`}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Loading Team Ledger...</div>
+        </div>
       </div>
     );
   }
 
   if (!record || matches.length === 0) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-center gap-4">
-        <p className="text-base font-semibold">Record not found.</p>
-        <Link to="/edge" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50">
+      <div className={`${THEME.layout.page} flex flex-col items-center justify-center min-h-screen gap-5`}>
+        <div className="h-16 w-16 rounded-full bg-slate-100 border border-slate-200/60 flex items-center justify-center text-2xl">🔍</div>
+        <p className="text-base font-bold text-slate-700">Team record not found.</p>
+        <Link to="/edge" className={THEME.components.navLink}>
           Back to Edge
         </Link>
       </div>
@@ -423,55 +447,53 @@ export default function TeamPage() {
   const cleanSheetPct = ((record.cleanSheets / totalGames) * 100).toFixed(1);
 
   return (
-    <div className="h-(--vvh,100vh) overflow-y-auto bg-slate-50 text-slate-900" style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.5s ease-out' }}>
+    <div className={THEME.layout.page} style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.4s ease-out' }}>
 
       {/* Top Header Navigation */}
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
+      <header className={THEME.layout.header}>
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 py-3">
           <div className="flex items-center gap-2">
-            <Link to="/edge" className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-colors">
-              Edge
-            </Link>
-            <Link to="/trends" className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-colors">
-              Trends
-            </Link>
+            <Link to="/edge" className={THEME.components.navLink}>Edge</Link>
+            <Link to="/trends" className={THEME.components.navLink}>Trends</Link>
           </div>
-          <span className="text-[11px] font-medium text-slate-500">{filteredRows.length} matches in view</span>
+          <span className="text-[10px] sm:text-xs font-bold text-slate-500 tracking-wider bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200/60">
+            {filteredRows.length} MATCHES
+          </span>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl px-4 md:px-6 py-8 space-y-6">
+      <main className="mx-auto w-full max-w-7xl px-4 sm:px-6 py-8 md:py-10 space-y-6 md:space-y-8">
 
         {/* Profile Header & Stats */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-4 md:gap-5 min-w-0">
-              <div className="h-20 w-20 md:h-24 md:w-24 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+        <section className={`${THEME.layout.section} p-5 md:p-6 bg-white/50 backdrop-blur-sm`}>
+          <div className="flex flex-col xl:flex-row gap-6 xl:items-center xl:justify-between">
+            <div className="flex items-center gap-4 sm:gap-6 min-w-0">
+              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex items-center justify-center p-3 shrink-0">
                 {meta?.logo_url ? (
-                  <img src={meta.logo_url} alt={teamName} className="h-14 w-14 md:h-16 md:w-16 object-contain" />
+                  <img src={meta.logo_url} alt={teamName} className="h-full w-full object-contain drop-shadow-sm" />
                 ) : (
-                  <span className="text-3xl font-semibold" style={{ color: teamColor }}>{teamName[0]}</span>
+                  <span className="text-3xl sm:text-4xl font-extrabold" style={{ color: teamColor }}>{teamName[0]}</span>
                 )}
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Editorial Team Ledger</p>
-                <h1 className="mt-1 text-3xl md:text-4xl font-semibold tracking-tight truncate">{teamName}</h1>
-                <p className="mt-2 text-sm text-slate-600">
-                  {meta?.league_id || 'League'} season matchbook with ATS and totals context on every result.
+                <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.14em] text-blue-600 mb-1">Team Ledger</p>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight truncate text-slate-900 pr-4">{teamName}</h1>
+                <p className="mt-1.5 sm:mt-2 text-sm text-slate-500 font-medium">
+                  {meta?.league_id || 'League'} season matchbook with ATS & Totals closing line context.
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 shrink-0">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 xl:shrink-0 xl:w-[650px]">
               <StatCard
-                label="ATS"
+                label="ATS Form"
                 value={`${record.ats.covered}-${record.ats.failed}-${record.ats.push}`}
                 subtext={`${coverPct.toFixed(1)}% cover (n=${atsTotal})`}
               />
               <StatCard
-                label="W-D-L"
+                label="Match W-D-L"
                 value={`${record.wins}-${record.draws}-${record.losses}`}
-                subtext={`Recent ${recentForm.wins}-${recentForm.draws}-${recentForm.losses} (last ${recentForm.sample})`}
+                subtext={`Recent ${recentForm.wins}-${recentForm.draws}-${recentForm.losses}`}
               />
               <StatCard
                 label="Over / Under"
@@ -488,40 +510,48 @@ export default function TeamPage() {
         </section>
 
         {/* Filters Panel */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5 space-y-4 shadow-sm">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Match Filters</div>
-          <FilterGroup label="Venue" options={FILTER_OPTIONS.venue} currentValue={venueFilter} onChange={setVenueFilter} />
-          <FilterGroup label="Result" options={FILTER_OPTIONS.result} currentValue={resultFilter} onChange={setResultFilter} />
-          <FilterGroup label="ATS" options={FILTER_OPTIONS.spread} currentValue={spreadFilter} onChange={setSpreadFilter} />
-          <FilterGroup label="Window" options={FILTER_OPTIONS.window} currentValue={windowFilter} onChange={setWindowFilter} />
+        <section className={`${THEME.layout.section} p-5 sm:p-6 bg-white/50 backdrop-blur-sm space-y-5`}>
+          <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500 ml-1">Match Filters</div>
+          <div className="flex flex-col gap-4">
+            <FilterGroup label="Venue" options={FILTER_OPTIONS.venue} currentValue={venueFilter} onChange={setVenueFilter} />
+            <FilterGroup label="Result" options={FILTER_OPTIONS.result} currentValue={resultFilter} onChange={setResultFilter} />
+            <FilterGroup label="Spread" options={FILTER_OPTIONS.spread} currentValue={spreadFilter} onChange={setSpreadFilter} />
+            <FilterGroup label="Window" options={FILTER_OPTIONS.window} currentValue={windowFilter} onChange={setWindowFilter} />
+          </div>
         </section>
 
         {/* Match Ledger Table */}
-        <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-          <div className="px-4 py-3 border-b border-slate-100">
-            <h2 className="text-xl font-semibold tracking-tight text-slate-900">Match Ledger</h2>
-            <p className="mt-1 text-xs text-slate-500">Structured by month with score, ATS verdict, and totals result for fast scan.</p>
+        <section className={`${THEME.layout.section} overflow-visible`}>
+          <div className="px-5 py-4 border-b border-slate-200/80 bg-white flex items-center justify-between rounded-t-2xl">
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Match Ledger</h2>
+              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 font-medium">Chronological record with verdicts.</p>
+            </div>
           </div>
 
           {filteredRows.length === 0 ? (
-            <div className="px-4 py-12 text-center text-sm text-slate-500">No matches match the current filters.</div>
+            <div className="px-4 py-16 text-center text-sm font-medium text-slate-500 bg-white rounded-b-2xl">
+              No matches match the current filters.
+            </div>
           ) : (
-            <div>
-              <div className="hidden md:grid md:grid-cols-[130px_1fr_130px_220px_180px] gap-3 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 bg-slate-50/95 border-b border-slate-200 sticky top-[53px] z-30 backdrop-blur">
+            <div className="bg-white rounded-b-2xl">
+              {/* Desktop Sticky Column Headers */}
+              <div className="hidden md:grid md:grid-cols-[130px_1fr_100px_180px_140px] gap-4 px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 bg-slate-50/95 border-b border-slate-200/80 sticky top-[57px] md:top-[65px] z-30 backdrop-blur-md shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                 <span>Date</span>
                 <span>Opponent</span>
                 <span>Result</span>
                 <span>Closing Spread</span>
-                <span>Total</span>
+                <span>O/U Total</span>
               </div>
 
               {groupedRows.map((group) => (
                 <div key={group.month}>
-                  <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 bg-slate-50 border-y border-slate-100 flex justify-between items-center">
-                    <span>{group.month}</span>
-                    <span className="text-slate-400">{group.items.length} matches</span>
+                  {/* Month Divider Header */}
+                  <div className="px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 bg-slate-100/90 border-y border-slate-200/60 flex justify-between items-center sticky top-[95px] md:top-[109px] z-20 backdrop-blur-md shadow-[0_1px_0_rgba(255,255,255,0.5)]">
+                    <span className="text-slate-700">{group.month}</span>
+                    <span className="text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-200">{group.items.length} Matches</span>
                   </div>
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-slate-100/80">
                     {group.items.map((row) => (
                       <MatchRow key={row.id} row={row} />
                     ))}
