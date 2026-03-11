@@ -112,6 +112,7 @@ SELECT
   r.spread_home_shift
 FROM resolved r
 WHERE COALESCE(r.event_text, '') NOT ILIKE 'Official TV Timeout%'
+  AND COALESCE(r.event_text, '') NOT ILIKE '%challenge%'
   AND r.resolved_timeout_team IS NOT NULL
   AND r.pre_snapshot_origin IS NOT NULL
   AND r.post_snapshot_origin IS NOT NULL
