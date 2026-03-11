@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { MatchNews, PlayerPropBet, RefIntelContent } from '@/types';
+import { MatchNews, PlayerPropBet, RecentFormGame, RefIntelContent } from '@/types';
 import { MatchInsight, TeamTrend } from '@/types/historicalIntel';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -60,6 +60,30 @@ export interface PlayerPropStreak {
   threshold: number;
   avg_value: number;
   last_game_date: string;
+}
+
+interface DbTeamIdentity {
+  id?: string;
+  name?: string;
+  shortName?: string;
+  abbreviation?: string;
+  logo?: string;
+  logos?: Array<{ href?: string }>;
+}
+
+interface DbRecentMatchRow {
+  id: string;
+  league_id?: string | null;
+  start_time?: string | null;
+  status?: string | null;
+  home_team_id?: string | null;
+  away_team_id?: string | null;
+  home_team?: string | null;
+  away_team?: string | null;
+  home_score?: number | null;
+  away_score?: number | null;
+  homeTeam?: DbTeamIdentity | null;
+  awayTeam?: DbTeamIdentity | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -360,6 +384,92 @@ export const dbService = {
 
     if (error || !data) return null;
     return data as TeamTrend;
+  },
+
+  getTeamLastFive: async (
+    teamId: string | undefined,
+    leagueId: string,
+    teamName?: string
+  ): Promise<RecentFormGame[]> => {
+    const FINAL_STATUSES = ['STATUS_FINAL', 'STATUS_FULL_TIME', 'STATUS_FINAL_AET', 'FINAL', 'post'];
+    const createBaseQuery = () => supabase
+      .from('matches')
+      .select('id, league_id, start_time, status, home_team_id, away_team_id, home_team, away_team, home_score, away_score, homeTeam, awayTeam')
+      .eq('league_id', leagueId)
+      .in('status', FINAL_STATUSES)
+      .not('home_score', 'is', null)
+      .not('away_score', 'is', null)
+      .order('start_time', { ascending: false });
+
+    const mapRows = (rows: DbRecentMatchRow[], targetId?: string, targetName?: string): RecentFormGame[] => {
+      const normalizedTargetName = (targetName || '').trim().toLowerCase();
+
+      return rows
+        .filter((row) => {
+          const homeMatchesId = targetId && row.home_team_id === targetId;
+          const awayMatchesId = targetId && row.away_team_id === targetId;
+          if (homeMatchesId || awayMatchesId) return true;
+
+          if (!normalizedTargetName) return false;
+          const homeName = (row.home_team || row.homeTeam?.name || '').trim().toLowerCase();
+          const awayName = (row.away_team || row.awayTeam?.name || '').trim().toLowerCase();
+          return homeName === normalizedTargetName || awayName === normalizedTargetName;
+        })
+        .sort((a, b) => {
+          const aMs = a.start_time ? new Date(a.start_time).getTime() : 0;
+          const bMs = b.start_time ? new Date(b.start_time).getTime() : 0;
+          return bMs - aMs;
+        })
+        .slice(0, 5)
+        .map((row) => {
+          const isHome = targetId
+            ? row.home_team_id === targetId
+            : (row.home_team || row.homeTeam?.name || '').trim().toLowerCase() === normalizedTargetName;
+
+          const teamScore = isHome ? row.home_score : row.away_score;
+          const oppScore = isHome ? row.away_score : row.home_score;
+          const opponentIdentity = isHome ? row.awayTeam : row.homeTeam;
+          const opponentName = isHome ? row.away_team : row.home_team;
+
+          let result: RecentFormGame['result'] = 'D';
+          if (typeof teamScore === 'number' && typeof oppScore === 'number') {
+            if (teamScore > oppScore) result = 'W';
+            else if (teamScore < oppScore) result = 'L';
+          }
+
+          return {
+            id: row.id,
+            date: row.start_time || undefined,
+            teamScore: typeof teamScore === 'number' ? teamScore : undefined,
+            result,
+            isHome,
+            opponent: {
+              id: isHome ? (row.away_team_id || undefined) : (row.home_team_id || undefined),
+              name: opponentName || opponentIdentity?.name || undefined,
+              shortName: opponentIdentity?.shortName || opponentIdentity?.abbreviation || undefined,
+              logo: opponentIdentity?.logo || opponentIdentity?.logos?.[0]?.href || undefined,
+              score: typeof oppScore === 'number' ? oppScore : undefined,
+            }
+          };
+        });
+    };
+
+    if (teamId) {
+      const { data, error } = await createBaseQuery()
+        .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+        .limit(5);
+
+      if (!error && data && data.length > 0) {
+        return mapRows(data as DbRecentMatchRow[], teamId, teamName);
+      }
+    }
+
+    if (!teamName) return [];
+
+    const { data, error } = await createBaseQuery().limit(40);
+    if (error || !data) return [];
+
+    return mapRows(data as DbRecentMatchRow[], teamId, teamName);
   },
 
   // Team Metrics (Pace, ORtg, DRtg)

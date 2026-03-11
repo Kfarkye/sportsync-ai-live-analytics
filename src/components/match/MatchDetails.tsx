@@ -36,6 +36,7 @@ import { getMatchDisplayStats } from '../../utils/statDisplay';
 import { fetchMatchDetailsExtended, fetchTeamLastFive } from '../../services/espnService';
 import { fetchNhlGameDetails } from '../../services/nhlService';
 import { supabase } from '../../lib/supabase';
+import { dbService } from '../../services/dbService';
 import { pregameIntelService, type PregameIntelResponse } from '../../services/pregameIntelService';
 import {
   isGameInProgress,
@@ -881,11 +882,20 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
         });
       }).catch(() => null);
 
-    const formPromise = isGameScheduled(cur.status) && cur.homeTeam?.id && cur.awayTeam?.id
+    const formPromise = isGameScheduled(cur.status)
       ? Promise.all([
-        fetchTeamLastFive(cur.homeTeam.id, cur.sport, cur.leagueId),
-        fetchTeamLastFive(cur.awayTeam.id, cur.sport, cur.leagueId)
-      ]).then(([homeLast5, awayLast5]) => {
+        dbService.getTeamLastFive(cur.homeTeam?.id, cur.leagueId, cur.homeTeam?.name),
+        dbService.getTeamLastFive(cur.awayTeam?.id, cur.leagueId, cur.awayTeam?.name)
+      ]).then(async ([homeFromDb, awayFromDb]) => {
+        const [homeLast5, awayLast5] = await Promise.all([
+          homeFromDb.length > 0
+            ? Promise.resolve(homeFromDb)
+            : (cur.homeTeam?.id ? fetchTeamLastFive(cur.homeTeam.id, cur.sport, cur.leagueId) : Promise.resolve([] as RecentFormGame[])),
+          awayFromDb.length > 0
+            ? Promise.resolve(awayFromDb)
+            : (cur.awayTeam?.id ? fetchTeamLastFive(cur.awayTeam.id, cur.sport, cur.leagueId) : Promise.resolve([] as RecentFormGame[]))
+        ]);
+
         if (seq !== fetchSeqRef.current) return;
 
         setMatch(prev => {
