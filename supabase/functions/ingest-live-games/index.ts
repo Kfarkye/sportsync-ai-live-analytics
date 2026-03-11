@@ -15,6 +15,7 @@ const corsHeaders = {
 
 let _supabase: ReturnType<typeof createClient> | null = null;
 let _contextSnapshotAvailable = true;
+let _liveOddsSnapshotsAvailable = true;
 function getSupabaseClient() {
   if (_supabase) return _supabase;
   const url = Deno.env.get('SUPABASE_URL');
@@ -249,6 +250,129 @@ function countItems(val: any): number | null {
   return null;
 }
 
+function normalizeSnapshotState(comp: any): string {
+  const state = String(comp?.status?.type?.state || '').trim().toLowerCase();
+  if (state === 'in') return 'in';
+  if (state === 'post') return 'post';
+
+  const name = String(comp?.status?.type?.name || '').trim().toLowerCase();
+  if (name.includes('half')) return 'halftime';
+  if (name.includes('progress') || name.includes('live')) return 'in-progress';
+  if (name.includes('final') || name.includes('full_time') || name.includes('complete')) return 'post';
+
+  return state || name;
+}
+
+function negateLine(val: any): number | null {
+  const parsed = parseLine(val);
+  return parsed === null ? null : -parsed;
+}
+
+function hasSnapshotPriceFields(row: any): boolean {
+  return [
+    row.home_ml,
+    row.away_ml,
+    row.draw_ml,
+    row.spread_home,
+    row.spread_away,
+    row.spread_home_price,
+    row.spread_away_price,
+    row.total,
+    row.over_price,
+    row.under_price
+  ].some((value) => value !== null && value !== undefined);
+}
+
+function buildLiveOddsSnapshotRows(args: {
+  capturedAt: string;
+  comp: any;
+  league: any;
+  matchId: string;
+  homeScore: number;
+  awayScore: number;
+  homeTeam: string;
+  awayTeam: string;
+  effectiveOdds: any;
+  finalMarketOdds: any;
+  parsedOdds: ParsedProviderOdds;
+}) {
+  const {
+    capturedAt,
+    comp,
+    league,
+    matchId,
+    homeScore,
+    awayScore,
+    homeTeam,
+    awayTeam,
+    effectiveOdds,
+    finalMarketOdds,
+    parsedOdds
+  } = args;
+
+  const normalizedState = normalizeSnapshotState(comp);
+  if (!['in', 'post', 'in-progress', 'halftime'].includes(normalizedState)) {
+    return [];
+  }
+
+  const baseRow = {
+    match_id: matchId,
+    sport: league.db_sport,
+    league_id: league.id,
+    captured_at: capturedAt,
+    status: comp?.status?.type?.name || null,
+    period: comp?.status?.period ?? null,
+    clock: comp?.status?.displayClock ?? null,
+    home_score: homeScore ?? 0,
+    away_score: awayScore ?? 0,
+    home_team: homeTeam || null,
+    away_team: awayTeam || null,
+    is_live: normalizedState !== 'post'
+  };
+
+  const rows: any[] = [];
+
+  const pushRow = (marketType: string, providerPayload: any, source: string) => {
+    if (!providerPayload) return;
+
+    const row = {
+      ...baseRow,
+      provider: String(providerPayload?.provider || 'Unknown'),
+      provider_id: providerPayload?.provider_id != null ? String(providerPayload.provider_id) : null,
+      market_type: marketType,
+      home_ml: parseAmerican(providerPayload?.home_ml ?? providerPayload?.homeWin ?? providerPayload?.moneylineHome ?? providerPayload?.home_1x2),
+      away_ml: parseAmerican(providerPayload?.away_ml ?? providerPayload?.awayWin ?? providerPayload?.moneylineAway ?? providerPayload?.away_1x2),
+      draw_ml: parseAmerican(providerPayload?.draw_ml ?? providerPayload?.drawWin ?? providerPayload?.drawML ?? providerPayload?.draw_1x2),
+      spread_home: parseLine(providerPayload?.spread_home ?? providerPayload?.homeSpread ?? providerPayload?.spread?.home ?? providerPayload?.spread),
+      spread_away: parseLine(providerPayload?.spread_away ?? providerPayload?.awaySpread ?? providerPayload?.spread?.away ?? negateLine(providerPayload?.spread)),
+      spread_home_price: parseAmerican(providerPayload?.spread_home_price ?? providerPayload?.homeSpreadOdds),
+      spread_away_price: parseAmerican(providerPayload?.spread_away_price ?? providerPayload?.awaySpreadOdds),
+      total: parseLine(providerPayload?.total ?? providerPayload?.over_under ?? providerPayload?.overUnder),
+      over_price: parseAmerican(providerPayload?.over_price ?? providerPayload?.overOdds),
+      under_price: parseAmerican(providerPayload?.under_price ?? providerPayload?.underOdds),
+      source,
+      raw_payload: providerPayload
+    };
+
+    if (!hasSnapshotPriceFields(row)) return;
+    rows.push(row);
+  };
+
+  pushRow('main', {
+    ...(finalMarketOdds || {}),
+    ...(effectiveOdds || {}),
+    provider: effectiveOdds?.provider || finalMarketOdds?.provider || 'ESPN',
+    provider_id: effectiveOdds?.provider_id ?? finalMarketOdds?.provider_id ?? null
+  }, 'match_current_odds');
+  pushRow('open', parsedOdds.odds_open, 'espn_summary');
+  pushRow('close', parsedOdds.odds_close, 'espn_summary');
+  pushRow('live', parsedOdds.odds_live, parsedOdds.odds_live?.source === 'core_api' ? 'espn_core' : 'espn_summary');
+  pushRow('live', parsedOdds.bet365_live, 'espn_summary');
+  pushRow('live', parsedOdds.dk_live_200, 'espn_summary');
+
+  return rows;
+}
+
 function computeAISignalsSafely(matchPayload: any, context: { matchId: string; leagueId: string; mode: 'dry' | 'persist' }) {
   try {
     return { value: computeAISignals(matchPayload), error: null as string | null };
@@ -342,6 +466,7 @@ Deno.serve(async (req: Request) => {
     snapshots: 0,
     odds_snapshots_written: 0,
     context_snapshots: 0,
+    live_odds_snapshots_written: 0,
     dry_run: dryRun,
     max_games_requested: maxGamesCap,
     max_games_effective: maxGamesCap,
@@ -855,6 +980,7 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       updated_at: new Date().toISOString()
     };
 
+    const capturedAt = new Date().toISOString();
     const contextSnapshotPayload = {
       match_id: dbMatchId,
       league_id: league.id,
@@ -878,8 +1004,22 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       match_context: extractedContext,
       predictor: extractedPredictor,
       deterministic_signals: aiSignals,
-      captured_at: new Date().toISOString()
+      captured_at: capturedAt
     };
+
+    const liveOddsSnapshotRows = buildLiveOddsSnapshotRows({
+      capturedAt,
+      comp,
+      league,
+      matchId: dbMatchId,
+      homeScore,
+      awayScore,
+      homeTeam: homeNameStr,
+      awayTeam: awayNameStr,
+      effectiveOdds,
+      finalMarketOdds,
+      parsedOdds
+    });
 
     await upsertWithRetry('live_game_state', statePayload);
 
@@ -931,6 +1071,32 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
           match_id: dbMatchId,
           error: e?.message || String(e)
         });
+      }
+    }
+
+    if (_liveOddsSnapshotsAvailable && liveOddsSnapshotRows.length > 0) {
+      const { error: liveOddsSnapshotError } = await supabase
+        .from('live_odds_snapshots')
+        .insert(liveOddsSnapshotRows);
+
+      if (!liveOddsSnapshotError) {
+        stats.live_odds_snapshots_written += liveOddsSnapshotRows.length;
+      } else {
+        const errMsg = liveOddsSnapshotError.message || String(liveOddsSnapshotError);
+        if (errMsg.toLowerCase().includes('live_odds_snapshots') && errMsg.toLowerCase().includes('does not exist')) {
+          _liveOddsSnapshotsAvailable = false;
+          Logger.warn('LIVE_ODDS_SNAPSHOT_DISABLED', {
+            reason: 'table_missing',
+            error: errMsg
+          });
+        } else {
+          Logger.warn('LIVE_ODDS_SNAPSHOT_INSERT_FAILED', {
+            match_id: dbMatchId,
+            league_id: league.id,
+            rows: liveOddsSnapshotRows.length,
+            error: errMsg
+          });
+        }
       }
     }
 
