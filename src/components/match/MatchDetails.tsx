@@ -358,7 +358,7 @@ type EspnExtendedMatch = Partial<ExtendedMatch> & {
   statistics?: Match['stats'];
 };
 
-interface LiveState {
+interface LiveState extends Partial<ExtendedMatch> {
   lastPlay?: {
     text?: string;
     coordinate?: { x: number; y: number } | string;
@@ -676,7 +676,7 @@ type Serializable =
   | Serializable[]
   | { [key: string]: Serializable };
 
-function stableSerialize(value: unknown, seen = new WeakSet<object>()): string {
+function stableSerialize(value: Serializable | Date | undefined, seen = new WeakSet<object>()): string {
   if (value === null) return 'null';
   const t = typeof value;
   if (t === 'string') return JSON.stringify(value);
@@ -689,14 +689,14 @@ function stableSerialize(value: unknown, seen = new WeakSet<object>()): string {
   if (t === 'object') {
     if (seen.has(value as object)) return '"__circular__"';
     seen.add(value as object);
-    const record = value as Record<string, unknown>;
+    const record = value as Record<string, Serializable>;
     const keys = Object.keys(record).sort();
     return `{${keys.map(k => `${JSON.stringify(k)}:${stableSerialize(record[k], seen)}`).join(',')}}`;
   }
   return '"__unsupported__"';
 }
 
-function hashStable(value: unknown): string {
+function hashStable(value: Serializable | Date | undefined): string {
   return fnv1a32(stableSerialize(value)).toString(16);
 }
 
@@ -885,6 +885,47 @@ const BackArrow = () => (
     <span className="absolute w-3 h-[1.5px] bg-current translate-x-1" />
   </div>
 );
+
+const SwipeableHeader = memo(({
+  children,
+  enabled,
+  onSwipe,
+  matchId,
+}: {
+  children: ReactNode;
+  enabled: boolean;
+  onSwipe: (dir: number) => void;
+  matchId: string;
+}) => (
+  <motion.div
+    drag={enabled ? 'x' : false}
+    dragDirectionLock
+    dragMomentum={false}
+    dragElastic={0.08}
+    dragConstraints={{ left: 0, right: 0 }}
+    onDragEnd={(_, info) => {
+      if (info.offset.x > 110) onSwipe(-1);
+      if (info.offset.x < -110) onSwipe(1);
+    }}
+    className={cn(
+      'mx-auto w-full max-w-[960px] px-4 pb-3 pt-1 touch-pan-y',
+      enabled && 'cursor-grab active:cursor-grabbing',
+    )}
+  >
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={matchId}
+        initial={{ opacity: 0, scale: 0.99, filter: 'blur(2px)' }}
+        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+        exit={{ opacity: 0, scale: 1.01, filter: 'blur(2px)' }}
+        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  </motion.div>
+));
+SwipeableHeader.displayName = 'SwipeableHeader';
 
 /**
  * Edge state signal badge with optional pulse animation.
@@ -1092,23 +1133,6 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
   const sport = match.sport?.toUpperCase() || 'UNKNOWN';
   const lastPlay = liveState?.lastPlay;
   const prefersReduced = useReducedMotion();
-
-  const trackerLiveState = useMemo<React.ComponentProps<typeof LiveGameTracker>['liveState']>(() => {
-    if (!liveState) return undefined;
-    return {
-      homeScore: liveState.home_score,
-      awayScore: liveState.away_score,
-      displayClock: liveState.clock,
-      lastPlay: liveState.lastPlay
-        ? {
-            id: 'live',
-            text: liveState.lastPlay.text,
-            type: liveState.lastPlay.type?.text,
-            clock: liveState.clock || '',
-          }
-        : undefined,
-    };
-  }, [liveState]);
   const isLiveGame = isGameInProgress(match.status);
 
   const ballPos = useMemo(() =>
@@ -1221,7 +1245,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
         </Gridiron>
       );
     }
-    return <LiveGameTracker match={match} liveState={trackerLiveState} showHeader={false} headerVariant="embedded" />;
+    return <LiveGameTracker match={match} liveState={liveState} showHeader={false} headerVariant="embedded" />;
   };
 
   return (
@@ -2015,9 +2039,6 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
         };
 
         const toPropBet = (p: DbPlayerPropRow): PlayerPropBet => ({
-          // Preserve required timestamps even when source rows are partial snapshots.
-          createdAt: p.analysis_ts || new Date(cur.startTime).toISOString(),
-          updatedAt: p.analysis_ts || new Date(cur.startTime).toISOString(),
           id: `${cur.id}:${p.player_name || 'player'}:${p.bet_type || 'prop'}:${p.line_value ?? ''}`,
           userId: 'system',
           matchId: cur.id,
@@ -2026,7 +2047,8 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           team: p.team || undefined,
           opponent: p.opponent || undefined,
           playerName: p.player_name || '',
-          playerId: p.player_id || p.espn_player_id || undefined,
+          playerId: p.player_id || undefined,
+          espnPlayerId: p.espn_player_id || undefined,
           headshotUrl: p.headshot_url || undefined,
           betType: normalizePropType(p.bet_type),
           marketLabel: p.market_label || undefined,
@@ -2212,8 +2234,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({
   const nextPropView = propView === 'classic' ? 'cinematic' : 'classic';
   const nextPropLabel = nextPropView === 'classic' ? 'Classic View' : 'Cinematic View';
   const swipeEnabled = matches.length > 1 && Boolean(onSelectMatch);
-  const scoreShellHeight = DIMENSION.scoreExpanded;
-
   // ─── Odds Resolution ───────────────────────────────────────────────────
   const currentOddsSource = match.current_odds || match.closing_odds || match.odds || match.opening_odds;
   const closingOddsSource = match.closing_odds || match.current_odds || match.odds || match.opening_odds;
@@ -2388,11 +2408,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
 
   const handleTabSelect = useCallback((tabId: MatchTabId) => {
     setActiveTab(tabId);
-    const stickyTop = DIMENSION.navHeight + scoreShellHeight + 8;
-    if (window.scrollY > stickyTop + 48) {
-      window.scrollTo({ top: stickyTop, behavior: prefersReduced ? 'auto' : 'smooth' });
-    }
-  }, [prefersReduced, scoreShellHeight]);
+  }, []);
 
   // ─── Stats Computation ────────────────────────────────────────────────
   const comparisonStats = useMemo<ComparisonStat[]>(() => {
@@ -2799,204 +2815,141 @@ const MatchDetails: FC<MatchDetailsProps> = ({
     <div className="min-h-screen font-sans bg-[#F7F8FA] text-[#0A0A0A]">
       <div className="relative isolate">
 
-        {/* ── Navigation Bar ─────────────────────────────────────────── */}
-        <header
-          className={cn(
-            'sticky top-0 z-50 backdrop-blur-md',
-            `border-b border-[#E5E5E5]`,
-            ELEVATION[2],
-          )}
-          style={{ backgroundColor: '#FFFFFF', height: DIMENSION.navHeight }}
-        >
-          <div className="mx-auto flex h-full max-w-[960px] items-center justify-between px-4">
+        <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-[#F7F8FA] pt-safe transition-colors duration-500">
+          <div className="mx-auto flex max-w-[960px] items-center justify-between px-4 py-4">
             <button
               type="button"
               onClick={onBack}
               aria-label="Back to matches"
-              className={cn(
-                'group flex h-10 w-10 items-center justify-center rounded-full transition-colors',
-                `hover:bg-[#F5F5F5]`,
-                `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4D4D4]`,
-              )}
+              className="group flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 hover:bg-black/5"
             >
               <BackArrow />
             </button>
-            <div className="flex items-center gap-3">
-              <span className={cn(TYPE.meta, `hidden text-[#737373] md:inline-block`)}>
-                {String(match.leagueId || '').toUpperCase()}
+            <div className="flex items-center gap-4">
+              <span className="mt-[1px] hidden text-[10px] font-bold uppercase tracking-[0.25em] text-black/40 md:block">
+                {String(match.leagueId || '').replaceAll('.', ' ').toUpperCase()}
               </span>
               <ConnectionBadge status={connectionStatus} />
-              <button
-                type="button"
-                className={cn(
-                  'h-8 rounded-full border px-3',
-                  TYPE.meta,
-                  `border-[#E5E5E5] text-[#737373]`,
-                  `hover:bg-[#F5F5F5] font-semibold`,
-                )}
-              >
-                SHARE
-              </button>
             </div>
           </div>
-        </header>
 
-        {/* ── Score Header (Expanded / Compact) ──────────────────────── */}
-        <section
-          className={cn(
-            'sticky z-40 overflow-hidden transition-[height] duration-300 ease-out',
-            `border-b border-[#E5E5E5] bg-white`,
-            ELEVATION[3],
+          {error && (
+            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="overflow-hidden px-4 pb-2">
+              <div className="rounded-[6px] border border-red-200 bg-red-50 px-3 py-1.5 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-red-600 shadow-[0_0_10px_rgba(239,68,68,0.1)]">
+                Telemetry Link Offline
+              </div>
+            </motion.div>
           )}
-          style={{ top: DIMENSION.navHeight, height: scoreShellHeight }}
-          aria-label="Score header"
-        >
-          <motion.div
-            drag={swipeEnabled ? 'x' : false}
-            dragDirectionLock
-            dragMomentum={false}
-            dragElastic={0.08}
-            dragConstraints={{ left: 0, right: 0 }}
-            onDragEnd={(_, info) => {
-              if (info.offset.x > 110) handleSwipe(-1);
-              if (info.offset.x < -110) handleSwipe(1);
-            }}
-            className={cn('relative h-full touch-pan-y', swipeEnabled && 'cursor-grab active:cursor-grabbing')}
-          >
-            <div className="absolute inset-0">
-              <div className="mx-auto h-full max-w-[960px] px-4 py-3">
-                <div className="relative flex h-full flex-col justify-between">
-                  {isLive && (
-                    <span className={cn(
-                      'absolute right-0 top-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5',
-                      TYPE.label,
-                      `border border-[#00C896]/30 bg-[#00C896]/10 text-[#00C896]`,
-                    )}>
-                      <span className={`h-1.5 w-1.5 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]`} />
-                      LIVE
-                    </span>
-                  )}
 
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                    {/* Away team */}
-                    <div className="flex items-center gap-3">
-                      <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} abbreviation={awayAbbr} sport={String(match.sport)} color={awayColor} className="h-12 w-12" />
-                      <div className="min-w-0">
-                        <p className={cn('truncate text-[14px] font-medium', `text-[#0A0A0A]`)}>{match.awayTeam.shortName || match.awayTeam.name}</p>
-                        <p className={cn(TYPE.numericSm, `text-[#A3A3A3]`)}>{awayRecord}</p>
-                      </div>
-                    </div>
+          <SwipeableHeader enabled={swipeEnabled} onSwipe={handleSwipe} matchId={match.id}>
+            <div className="relative">
+              {isLive && (
+                <span className={cn(
+                  'absolute right-0 top-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5',
+                  TYPE.label,
+                  `border border-[#00C896]/30 bg-[#00C896]/10 text-[#00C896]`,
+                )}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]" />
+                  LIVE
+                </span>
+              )}
 
-                    {/* Scoreboard center */}
-                    <div className="flex flex-col items-center justify-center">
-                      {!isGameScheduled(match.status) && (
-                        <div className="flex items-end gap-3">
-                          <span className={cn(TYPE.score, awayWinner || !scoreClock.isFinal ? `font-bold text-[#0A0A0A]` : `font-semibold text-[#A3A3A3]`)}>{match.awayScore}</span>
-                          <span className={cn(NUMERIC, `pb-1 text-[26px] text-[#A3A3A3]`)}>—</span>
-                          <span className={cn(TYPE.score, homeWinner || !scoreClock.isFinal ? `font-bold text-[#0A0A0A]` : `font-semibold text-[#A3A3A3]`)}>{match.homeScore}</span>
-                        </div>
-                      )}
-                      <div className={cn(
-                        'mt-1 rounded-full border px-3 py-0.5',
-                        `border-[#D4D4D4] bg-white`,
-                      )}>
-                        <span className={cn(TYPE.numericSm, `inline-flex items-center gap-1 text-[#737373]`)}>
-                          {scoreClock.isLive && <span className={`h-1.5 w-1.5 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]`} />}
-                          {scoreClock.isFinal ? scoreClock.finalLabel : scoreClock.primary}
-                        </span>
-                      </div>
-                      {scoreClock.secondary && <p className={cn(TYPE.numericXs, `mt-1 text-[#A3A3A3]`)}>{scoreClock.secondary}</p>}
-                      {spreadTotalLine && <p className={cn(TYPE.numericXs, `mt-1 text-[#737373]`)}>{spreadTotalLine}</p>}
-                    </div>
-
-                    {/* Home team */}
-                    <div className="flex items-center justify-end gap-3">
-                      <div className="min-w-0 text-right">
-                        <p className={cn('truncate text-[14px] font-medium', `text-[#0A0A0A]`)}>{match.homeTeam.shortName || match.homeTeam.name}</p>
-                        <p className={cn(TYPE.numericSm, `text-[#A3A3A3]`)}>{homeRecord}</p>
-                      </div>
-                      <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} abbreviation={homeAbbr} sport={String(match.sport)} color={homeColor} className="h-12 w-12" />
-                    </div>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                <div className="flex items-center gap-3">
+                  <TeamLogo logo={match.awayTeam.logo} name={match.awayTeam.name} abbreviation={awayAbbr} sport={String(match.sport)} color={awayColor} className="h-12 w-12" />
+                  <div className="min-w-0">
+                    <p className={cn('truncate text-[14px] font-medium', `text-[#0A0A0A]`)}>{match.awayTeam.shortName || match.awayTeam.name}</p>
+                    <p className={cn(TYPE.numericSm, `text-[#A3A3A3]`)}>{awayRecord}</p>
                   </div>
+                </div>
 
-                  {/* Win probability bar */}
-                  <div className="pt-2">
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className={cn(TYPE.numericXs, `font-medium text-[#737373]`)}>{awayAbbr} {winProbability.away}%</span>
-                      <span className={cn(TYPE.numericXs, `font-medium text-[#737373]`)}>{winProbability.home}% {homeAbbr}</span>
+                <div className="flex flex-col items-center justify-center">
+                  {!isGameScheduled(match.status) && (
+                    <div className="flex items-end gap-3">
+                      <span className={cn(TYPE.score, awayWinner || !scoreClock.isFinal ? `font-bold text-[#0A0A0A]` : `font-semibold text-[#A3A3A3]`)}>{match.awayScore}</span>
+                      <span className={cn(NUMERIC, `pb-1 text-[26px] text-[#A3A3A3]`)}>—</span>
+                      <span className={cn(TYPE.score, homeWinner || !scoreClock.isFinal ? `font-bold text-[#0A0A0A]` : `font-semibold text-[#A3A3A3]`)}>{match.homeScore}</span>
                     </div>
-                    <div className={cn(
-                      'h-2 w-full overflow-hidden rounded-full',
-                      `border border-[#D4D4D4] bg-[#F5F5F5]`,
-                    )}>
-                      <div className="flex h-full w-full">
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${winProbability.away}%` }} transition={SPRING.bar} style={{ background: `linear-gradient(90deg, ${awayColor}, ${awayColor}CC)` }} />
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${winProbability.home}%` }} transition={SPRING.bar} style={{ background: `linear-gradient(90deg, ${homeColor}CC, ${homeColor})` }} />
-                      </div>
-                    </div>
+                  )}
+                  <div className={cn(
+                    'mt-1 rounded-full border px-3 py-0.5',
+                    `border-[#D4D4D4] bg-white`,
+                  )}>
+                    <span className={cn(TYPE.numericSm, `inline-flex items-center gap-1 text-[#737373]`)}>
+                      {scoreClock.isLive && <span className="h-1.5 w-1.5 rounded-full bg-[#00C896] animate-[pulse_2s_infinite]" />}
+                      {scoreClock.isFinal ? scoreClock.finalLabel : scoreClock.primary}
+                    </span>
+                  </div>
+                  {scoreClock.secondary && <p className={cn(TYPE.numericXs, `mt-1 text-[#A3A3A3]`)}>{scoreClock.secondary}</p>}
+                  {spreadTotalLine && <p className={cn(TYPE.numericXs, `mt-1 text-[#737373]`)}>{spreadTotalLine}</p>}
+                </div>
+
+                <div className="flex items-center justify-end gap-3">
+                  <div className="min-w-0 text-right">
+                    <p className={cn('truncate text-[14px] font-medium', `text-[#0A0A0A]`)}>{match.homeTeam.shortName || match.homeTeam.name}</p>
+                    <p className={cn(TYPE.numericSm, `text-[#A3A3A3]`)}>{homeRecord}</p>
+                  </div>
+                  <TeamLogo logo={match.homeTeam.logo} name={match.homeTeam.name} abbreviation={homeAbbr} sport={String(match.sport)} color={homeColor} className="h-12 w-12" />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className={cn(TYPE.numericXs, `font-medium text-[#737373]`)}>{awayAbbr} {winProbability.away}%</span>
+                  <span className={cn(TYPE.numericXs, `font-medium text-[#737373]`)}>{winProbability.home}% {homeAbbr}</span>
+                </div>
+                <div className={cn(
+                  'h-2 w-full overflow-hidden rounded-full',
+                  `border border-[#D4D4D4] bg-[#F5F5F5]`,
+                )}>
+                  <div className="flex h-full w-full">
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${winProbability.away}%` }} transition={SPRING.bar} style={{ background: `linear-gradient(90deg, ${awayColor}, ${awayColor}CC)` }} />
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${winProbability.home}%` }} transition={SPRING.bar} style={{ background: `linear-gradient(90deg, ${homeColor}CC, ${homeColor})` }} />
                   </div>
                 </div>
               </div>
             </div>
-          </motion.div>
-        </section>
+          </SwipeableHeader>
 
-        {/* ── Tab Navigation ─────────────────────────────────────────── */}
-        <nav
-          className={cn(
-            'sticky z-30 backdrop-blur-sm transition-[top] duration-300 ease-out',
-            `border-b border-[#E5E5E5] bg-white/95`,
-            ELEVATION[1],
-          )}
-          style={{ top: DIMENSION.navHeight + scoreShellHeight }}
-          role="tablist"
-          aria-label="Match detail tabs"
-        >
-          <LayoutGroup>
-            <div className="mx-auto flex max-w-[960px] items-center gap-2 overflow-x-auto px-2 no-scrollbar">
-              {TABS.map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  id={tabButtonId(tab.id)}
-                  role="tab"
-                  aria-selected={activeTab === tab.id}
-                  aria-controls={tabPanelId(tab.id)}
-                  onClick={() => handleTabSelect(tab.id)}
-                  className={cn(
-                    'relative shrink-0 px-3 py-3',
-                    TYPE.meta, 'font-semibold uppercase',
-                    'transition-opacity duration-150',
-                    `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4D4D4]`,
-                    activeTab === tab.id ? 'opacity-100' : 'opacity-40 hover:opacity-60',
-                  )}
-                >
-                  {tab.label}
-                  {activeTab === tab.id && (
-                    <motion.span
-                      layoutId="activeTabIndicator"
-                      transition={prefersReduced ? SPRING.reduced : SPRING.tab}
-                      className={`absolute bottom-0 left-1 right-1 h-[2px] rounded-full bg-[#0A0A0A]`}
-                    />
-                  )}
-                </button>
-              ))}
-            </div>
-          </LayoutGroup>
-        </nav>
+          <div className="relative mt-0.5 w-full shrink-0 overflow-hidden" role="tablist" aria-label="Match detail tabs">
+            <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-6 bg-gradient-to-r from-[#F7F8FA] to-transparent" />
+            <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-6 bg-gradient-to-l from-[#F7F8FA] to-transparent" />
+            <LayoutGroup>
+              <nav className="relative flex h-[40px] max-w-full items-center gap-6 overflow-x-auto px-6 no-scrollbar">
+                {TABS.map((tab, i) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    id={tabButtonId(tab.id)}
+                    role="tab"
+                    aria-selected={activeTab === tab.id}
+                    aria-controls={tabPanelId(tab.id)}
+                    onClick={() => handleTabSelect(tab.id)}
+                    className={cn(
+                      'relative flex h-full shrink-0 items-center whitespace-nowrap text-[11.5px] font-semibold uppercase tracking-[0.2em] transition-all duration-300 outline-none',
+                      `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4D4D4]`,
+                      activeTab === tab.id ? 'text-black' : 'text-black/40 hover:text-black/60',
+                      i === TABS.length - 1 && 'pr-6',
+                    )}
+                  >
+                    {tab.label}
+                    {activeTab === tab.id && (
+                      <motion.div
+                        layoutId="activeTab"
+                        className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-[2px] bg-black"
+                        transition={prefersReduced ? SPRING.reduced : SPRING.tab}
+                      />
+                    )}
+                  </button>
+                ))}
+              </nav>
+            </LayoutGroup>
+            <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-black/[0.04]" />
+          </div>
+        </header>
 
         {/* ── Main Content ───────────────────────────────────────────── */}
-        <main className="relative z-[1] mx-auto min-h-screen max-w-[960px] px-4 pb-safe-offset-24 pt-6">
-          {error && (
-            <div className={cn(
-              'mb-4 rounded-xl border px-3 py-2',
-              TYPE.meta,
-              `border-[#E54D4D]/35 bg-[#E54D4D]/8 text-[#E54D4D]`,
-            )}>
-              Live feed interrupted. Showing the latest synchronized snapshot.
-            </div>
-          )}
-
+        <main className="relative z-[1] mx-auto min-h-screen max-w-[960px] px-4 pb-safe-offset-24 pt-3">
           {/* ────────────────── SUMMARY TAB ────────────────── */}
           <section id={tabPanelId('SUMMARY')} role="tabpanel" aria-labelledby={tabButtonId('SUMMARY')} hidden={activeTab !== 'SUMMARY'} className="space-y-5">
             <SpecSheetRow label="01 // SUMMARY" defaultOpen collapsible={false}>
