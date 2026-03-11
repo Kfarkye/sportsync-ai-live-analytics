@@ -165,8 +165,16 @@ function computeStandings(matches: SoccerPostgame[], teamNames: string[]): TeamS
       if (homeOutcome !== 'push') home.atsBets += 1;
       if (awayOutcome !== 'push') away.atsBets += 1;
 
-      home.atsUnits += settleUnits(match.dk_home_spread_price, homeOutcome);
-      away.atsUnits += settleUnits(match.dk_away_spread_price, awayOutcome);
+      if (Number.isFinite(match.dk_home_spread_price as number)) {
+        home.atsUnits += settleUnits(match.dk_home_spread_price, homeOutcome);
+      } else if (homeOutcome !== 'push') {
+        home.atsBets -= 1; // Don't count bet without price in ROI denominator
+      }
+      if (Number.isFinite(match.dk_away_spread_price as number)) {
+        away.atsUnits += settleUnits(match.dk_away_spread_price, awayOutcome);
+      } else if (awayOutcome !== 'push') {
+        away.atsBets -= 1;
+      }
     }
 
     const total = getTotalResult(match);
@@ -305,7 +313,7 @@ export default function ReportsPage() {
       return base.slice().sort((a, b) => upsetLine(b) - upsetLine(a));
     }
 
-    return base.slice().sort((a, b) => Date.parse(b.start_time) - Date.parse(a.start_time));
+    return base.slice().sort((a, b) => (Date.parse(b.start_time) || 0) - (Date.parse(a.start_time) || 0));
   }, [matches, search, dateWindow, onlyWithLines, resultFilter, resultsSort]);
 
   const summary = useMemo(() => {
@@ -318,6 +326,7 @@ export default function ReportsPage() {
 
     let homeCovered = 0;
     let atsBets = 0;
+    let homeAtsBets = 0;
     let homeSpreadUnits = 0;
 
     let overs = 0;
@@ -352,7 +361,10 @@ export default function ReportsPage() {
       const spread = getSpreadResult(match);
       if (spread) {
         if (spread.result === 'covered') homeCovered += 1;
-        if (spread.result !== 'push') atsBets += 1;
+        if (spread.result !== 'push') {
+          atsBets += 1;
+          homeAtsBets += 1;
+        }
 
         const homeOutcome: 'win' | 'loss' | 'push' =
           spread.result === 'covered' ? 'win' : spread.result === 'failed' ? 'loss' : 'push';
@@ -385,6 +397,7 @@ export default function ReportsPage() {
         safeN(match.away_yellow_cards) +
         safeN(match.home_red_cards) +
         safeN(match.away_red_cards);
+      // ⚠️ DATA TEAM: Verify pass_pct/shot_accuracy scale — if already 0-100, remove * 100
       const passPct = avg(safeN(match.home_pass_pct) + safeN(match.away_pass_pct), 2) * 100;
       const shotAcc = avg(safeN(match.home_shot_accuracy) + safeN(match.away_shot_accuracy), 2) * 100;
 
@@ -398,19 +411,20 @@ export default function ReportsPage() {
     return {
       sample: filteredMatches.length,
       atsBets,
+      homeAtsBets,
       totalBets,
       moneylineDecisions,
       avgGoals: avg(totalGoals, filteredMatches.length),
       homeWinPct: pct(homeWins, filteredMatches.length),
       drawPct: pct(draws, filteredMatches.length),
       awayWinPct: pct(awayWins, filteredMatches.length),
-      homeCoverPct: pct(homeCovered, atsBets),
+      homeCoverPct: pct(homeCovered, homeAtsBets),
       overPct: pct(overs, totalBets),
       favoriteWinPct: pct(favoriteWins, moneylineDecisions),
       dogWinPct: pct(dogWins, moneylineDecisions),
       bttsPct: pct(bttsHits, filteredMatches.length),
       closeGamePct: pct(closeGames, filteredMatches.length),
-      homeSpreadRoiPct: pct(homeSpreadUnits, atsBets),
+      homeSpreadRoiPct: pct(homeSpreadUnits, homeAtsBets),
       overRoiPct: pct(overUnits, totalBets),
       avgCorners: avg(cornersTotal, qualityRows),
       avgCards: avg(cardsTotal, qualityRows),
@@ -443,7 +457,7 @@ export default function ReportsPage() {
   const primaryMetrics = summary
     ? [
       { label: 'Sample Size', value: `n = ${summary.sample}`, context: 'Matches analyzed' },
-      { label: 'Home Cover %', value: `${summary.homeCoverPct.toFixed(1)}%`, context: `ATS n = ${summary.atsBets}` },
+      { label: 'Home Cover %', value: `${summary.homeCoverPct.toFixed(1)}%`, context: `ATS home n = ${summary.homeAtsBets}` },
       { label: 'Over %', value: `${summary.overPct.toFixed(1)}%`, context: `Totals n = ${summary.totalBets}` },
       { label: 'Favorites Win %', value: `${summary.favoriteWinPct.toFixed(1)}%`, context: `ML n = ${summary.moneylineDecisions}` },
     ]
@@ -499,11 +513,10 @@ export default function ReportsPage() {
                     key={league.id}
                     type="button"
                     onClick={() => setLeagueId(league.id)}
-                    className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                      leagueId === league.id
-                        ? 'bg-[#0B63F6] text-white shadow-[0_10px_20px_-14px_rgba(11,99,246,0.5)]'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                    }`}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${leagueId === league.id
+                      ? 'bg-[#0B63F6] text-white shadow-[0_10px_20px_-14px_rgba(11,99,246,0.5)]'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                      }`}
                   >
                     {league.label}
                   </button>
