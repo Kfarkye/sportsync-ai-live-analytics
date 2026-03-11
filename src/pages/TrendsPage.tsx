@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom';
 import { fetchRecentMatches, getSpreadResult, getTotalResult, type SoccerPostgame } from '../lib/postgame';
 import { formatMatchDate, LEAGUE_LABELS, LEAGUE_SHORT, matchUrl } from '../lib/slugs';
 
+// ============================================================================
+// Types
+// ============================================================================
+
 type DateWindow = 'all' | '30d' | '14d' | '7d';
 
 type LeagueTrend = {
@@ -16,6 +20,43 @@ type LeagueTrend = {
   avgCorners: number;
   avgCards: number;
 };
+
+// ============================================================================
+// SSOT: Colors & Theme
+// ============================================================================
+
+const THEME = {
+  profit: (val: number) => (val >= 0 ? 'text-emerald-600' : 'text-rose-600'),
+  layout: {
+    page: 'h-(--vvh,100vh) overflow-y-auto overscroll-y-contain bg-[#F4F6FF] text-slate-900',
+    header: 'sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur shadow-[0_1px_0_rgba(17,24,39,0.06)]',
+    section: 'rounded-2xl border border-slate-200 bg-white shadow-[0_18px_36px_-28px_rgba(30,64,175,0.24)]',
+  },
+  components: {
+    navLink: 'rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors',
+    statCard: 'rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(30,64,175,0.22)]',
+    input: 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-400 transition-colors',
+    tableHeaderRow: 'border-b border-slate-200 bg-[#F8FAFC]',
+    tableHeaderCell: 'sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-[11px] uppercase tracking-[0.12em] text-slate-500',
+  },
+} as const;
+
+// ============================================================================
+// Clean Info: Filter Configurations
+// ============================================================================
+
+const FILTER_OPTIONS = {
+  dateWindow: [
+    { value: 'all', label: 'All' },
+    { value: '30d', label: 'Last 30 days' },
+    { value: '14d', label: 'Last 14 days' },
+    { value: '7d', label: 'Last 7 days' },
+  ] as { value: DateWindow; label: string }[],
+};
+
+// ============================================================================
+// Pure Helpers
+// ============================================================================
 
 const safeN = (n: number | null | undefined): number => (Number.isFinite(n as number) ? Number(n) : 0);
 const pct = (num: number, den: number): number => (den > 0 ? (num / den) * 100 : 0);
@@ -33,7 +74,6 @@ function dateInWindow(value: string, window: DateWindow): boolean {
 function isUpset(match: SoccerPostgame): boolean {
   if (match.dk_home_ml == null || match.dk_away_ml == null) return false;
   if (match.home_score === match.away_score) return false;
-
   const homeFav = match.dk_home_ml < match.dk_away_ml;
   const awayWon = match.away_score > match.home_score;
   const homeWon = match.home_score > match.away_score;
@@ -59,9 +99,169 @@ function settleUnits(odds: number | null | undefined, outcome: 'win' | 'loss' | 
   return outcome === 'win' ? americanProfit(odds) : -1;
 }
 
+// ============================================================================
+// UI Sub-Components
+// ============================================================================
+
+function StatCard({ label, value, valueClass = 'text-slate-900' }: { label: string; value: string | React.ReactNode; valueClass?: string }) {
+  return (
+    <article className={THEME.components.statCard}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</div>
+      <div className={`mt-1 text-[1.55rem] leading-none font-semibold tabular-nums ${valueClass}`}>{value}</div>
+    </article>
+  );
+}
+
+function FilterSelect<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: T;
+  onChange: (val: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</label>
+      <select value={value} onChange={(e) => onChange(e.target.value as T)} className={THEME.components.input}>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function FilterInput({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  placeholder,
+  min,
+  max,
+}: {
+  label: string;
+  value: string | number;
+  onChange: (val: string) => void;
+  type?: string;
+  placeholder?: string;
+  min?: number;
+  max?: number;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</label>
+      <input
+        type={type}
+        value={value}
+        min={min}
+        max={max}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className={THEME.components.input}
+      />
+    </div>
+  );
+}
+
+function LeagueTable({ data }: { data: LeagueTrend[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-[900px] w-full text-[13px]">
+        <thead>
+          <tr className={THEME.components.tableHeaderRow}>
+            <th className={`${THEME.components.tableHeaderCell} px-4 text-left`}>League</th>
+            <th className={`${THEME.components.tableHeaderCell} text-right`}>Games</th>
+            <th className={`${THEME.components.tableHeaderCell} text-right`}>Home ATS</th>
+            <th className={`${THEME.components.tableHeaderCell} text-right`}>Over %</th>
+            <th className={`${THEME.components.tableHeaderCell} text-right`}>BTTS %</th>
+            <th className={`${THEME.components.tableHeaderCell} text-right`}>Avg Goals</th>
+            <th className={`${THEME.components.tableHeaderCell} text-right`}>Avg Corners</th>
+            <th className={`${THEME.components.tableHeaderCell} text-right`}>Avg Cards</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row) => (
+            <tr key={row.leagueId} className="border-t border-slate-100 hover:bg-blue-50/45 transition-colors">
+              <td className="px-4 py-2.5 font-semibold text-slate-900">{row.label}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{row.games}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.homeCoverPct.toFixed(1)}%</td>
+              <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.overPct.toFixed(1)}%</td>
+              <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.bttsPct.toFixed(1)}%</td>
+              <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgGoals.toFixed(2)}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgCorners.toFixed(1)}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgCards.toFixed(1)}</td>
+            </tr>
+          ))}
+          {data.length === 0 && (
+            <tr>
+              <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">No data available for current filters.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MatchList({
+  title,
+  matches,
+  getValueLabel,
+  getValueColor
+}: {
+  title: string;
+  matches: SoccerPostgame[];
+  getValueLabel: (m: SoccerPostgame) => string;
+  getValueColor: (m: SoccerPostgame) => string;
+}) {
+  return (
+    <article className={`${THEME.layout.section} overflow-hidden`}>
+      <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800 bg-[#F8FAFC]">
+        {title}
+      </div>
+      <div className="p-4 space-y-2">
+        {matches.map((match) => (
+          <Link
+            key={match.id}
+            to={matchUrl(match.home_team, match.away_team, match.start_time)}
+            className="grid grid-cols-[1fr_auto_auto] gap-3 items-center rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50 hover:border-blue-200 transition-colors"
+          >
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-slate-900 truncate">
+                {match.home_team} vs {match.away_team}
+              </div>
+              <div className="text-[11px] text-slate-500">
+                {LEAGUE_SHORT[match.league_id] || match.league_id.toUpperCase()} · {formatMatchDate(match.start_time)}
+              </div>
+            </div>
+            <div className="text-sm tabular-nums text-slate-600">
+              {match.home_score}-{match.away_score}
+            </div>
+            <div className={`text-sm font-semibold tabular-nums ${getValueColor(match)}`}>
+              {getValueLabel(match)}
+            </div>
+          </Link>
+        ))}
+        {matches.length === 0 && <div className="text-sm text-slate-500 py-4 text-center">No matches met criteria.</div>}
+      </div>
+    </article>
+  );
+}
+
+// ============================================================================
+// Main Page Component
+// ============================================================================
+
 export default function TrendsPage() {
   const [matches, setMatches] = useState<SoccerPostgame[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filters
   const [leagueFilter, setLeagueFilter] = useState<string>('all');
   const [dateWindow, setDateWindow] = useState<DateWindow>('all');
   const [search, setSearch] = useState<string>('');
@@ -69,14 +269,11 @@ export default function TrendsPage() {
 
   useEffect(() => {
     let active = true;
-
     const load = async () => {
       setLoading(true);
       try {
         const data = await fetchRecentMatches(600);
-        if (!active) return;
-
-        setMatches(data);
+        if (active) setMatches(data);
       } finally {
         if (active) setLoading(false);
       }
@@ -84,16 +281,17 @@ export default function TrendsPage() {
 
     void load();
     document.title = 'Betting Trends | The Drip';
-
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
-  const leagueOptions = useMemo(() => {
+  const dynamicLeagueOptions = useMemo(() => {
     const ids = new Set<string>();
     for (const match of matches) ids.add(match.league_id);
-    return ['all', ...[...ids].sort()];
+    const sorted = [...ids].sort();
+    return [
+      { value: 'all', label: 'All leagues' },
+      ...sorted.map(id => ({ value: id, label: LEAGUE_LABELS[id] || id.toUpperCase() }))
+    ];
   }, [matches]);
 
   const filteredMatches = useMemo(() => {
@@ -101,12 +299,10 @@ export default function TrendsPage() {
     return matches.filter((match) => {
       if (leagueFilter !== 'all' && match.league_id !== leagueFilter) return false;
       if (!dateInWindow(match.start_time, dateWindow)) return false;
-
       if (needle) {
         const combined = `${match.home_team} ${match.away_team}`.toLowerCase();
         if (!combined.includes(needle)) return false;
       }
-
       return true;
     });
   }, [matches, leagueFilter, dateWindow, search]);
@@ -114,24 +310,10 @@ export default function TrendsPage() {
   const summary = useMemo(() => {
     if (filteredMatches.length === 0) return null;
 
-    let goals = 0;
-    let homeCovered = 0;
-    let atsBets = 0;
-    let homeSpreadUnits = 0;
-
-    let overs = 0;
-    let totalBets = 0;
-    let overUnits = 0;
-
-    let favoriteWins = 0;
-    let dogWins = 0;
-    let moneylineDecisions = 0;
-
-    let btts = 0;
-    let corners = 0;
-    let cards = 0;
-    let passPct = 0;
-    let shotAcc = 0;
+    let goals = 0, homeCovered = 0, atsBets = 0, homeSpreadUnits = 0;
+    let overs = 0, totalBets = 0, overUnits = 0;
+    let favoriteWins = 0, dogWins = 0, moneylineDecisions = 0;
+    let btts = 0, corners = 0, cards = 0, passPct = 0, shotAcc = 0;
 
     for (const match of filteredMatches) {
       goals += match.home_score + match.away_score;
@@ -140,27 +322,32 @@ export default function TrendsPage() {
       if (spread) {
         if (spread.result === 'covered') homeCovered += 1;
         if (spread.result !== 'push') atsBets += 1;
-
-        const outcome: 'win' | 'loss' | 'push' =
-          spread.result === 'covered' ? 'win' : spread.result === 'failed' ? 'loss' : 'push';
-        homeSpreadUnits += settleUnits(match.dk_home_spread_price, outcome);
+        const outcome: 'win' | 'loss' | 'push' = spread.result === 'covered' ? 'win' : spread.result === 'failed' ? 'loss' : 'push';
+        // FIX: Guard spread price null — exclude from ROI denominator if missing
+        if (Number.isFinite(match.dk_home_spread_price as number)) {
+          homeSpreadUnits += settleUnits(match.dk_home_spread_price, outcome);
+        } else if (outcome !== 'push') {
+          atsBets -= 1; // No price → exclude from ROI denominator
+        }
       }
 
       const total = getTotalResult(match);
       if (total) {
         if (total.result === 'over') overs += 1;
         if (total.result !== 'push') totalBets += 1;
-
-        const overOutcome: 'win' | 'loss' | 'push' =
-          total.result === 'over' ? 'win' : total.result === 'under' ? 'loss' : 'push';
-        overUnits += settleUnits(match.dk_over_price, overOutcome);
+        const overOutcome: 'win' | 'loss' | 'push' = total.result === 'over' ? 'win' : total.result === 'under' ? 'loss' : 'push';
+        // FIX: Guard over price null — exclude from ROI denominator if missing
+        if (Number.isFinite(match.dk_over_price as number)) {
+          overUnits += settleUnits(match.dk_over_price, overOutcome);
+        } else if (overOutcome !== 'push') {
+          totalBets -= 1;
+        }
       }
 
       if (match.dk_home_ml != null && match.dk_away_ml != null && match.home_score !== match.away_score) {
         moneylineDecisions += 1;
         const homeFav = match.dk_home_ml < match.dk_away_ml;
         const homeWon = match.home_score > match.away_score;
-
         if ((homeFav && homeWon) || (!homeFav && !homeWon)) favoriteWins += 1;
         else dogWins += 1;
       }
@@ -168,11 +355,8 @@ export default function TrendsPage() {
       if (match.home_score > 0 && match.away_score > 0) btts += 1;
 
       corners += safeN(match.home_corners) + safeN(match.away_corners);
-      cards +=
-        safeN(match.home_yellow_cards) +
-        safeN(match.away_yellow_cards) +
-        safeN(match.home_red_cards) +
-        safeN(match.away_red_cards);
+      cards += safeN(match.home_yellow_cards) + safeN(match.away_yellow_cards) + safeN(match.home_red_cards) + safeN(match.away_red_cards);
+      // ⚠️ DATA TEAM: Verify pass_pct/shot_accuracy scale — if already 0-100, remove * 100
       passPct += avg(safeN(match.home_pass_pct) + safeN(match.away_pass_pct), 2) * 100;
       shotAcc += avg(safeN(match.home_shot_accuracy) + safeN(match.away_shot_accuracy), 2) * 100;
     }
@@ -196,41 +380,20 @@ export default function TrendsPage() {
 
   const byLeague = useMemo<LeagueTrend[]>(() => {
     const bucket = new Map<string, {
-      games: number;
-      homeCovered: number;
-      atsBets: number;
-      overs: number;
-      totalBets: number;
-      btts: number;
-      goals: number;
-      corners: number;
-      cards: number;
+      games: number; homeCovered: number; atsBets: number; overs: number;
+      totalBets: number; btts: number; goals: number; corners: number; cards: number;
     }>();
 
     for (const match of filteredMatches) {
       if (!bucket.has(match.league_id)) {
-        bucket.set(match.league_id, {
-          games: 0,
-          homeCovered: 0,
-          atsBets: 0,
-          overs: 0,
-          totalBets: 0,
-          btts: 0,
-          goals: 0,
-          corners: 0,
-          cards: 0,
-        });
+        bucket.set(match.league_id, { games: 0, homeCovered: 0, atsBets: 0, overs: 0, totalBets: 0, btts: 0, goals: 0, corners: 0, cards: 0 });
       }
 
       const agg = bucket.get(match.league_id)!;
       agg.games += 1;
       agg.goals += match.home_score + match.away_score;
       agg.corners += safeN(match.home_corners) + safeN(match.away_corners);
-      agg.cards +=
-        safeN(match.home_yellow_cards) +
-        safeN(match.away_yellow_cards) +
-        safeN(match.home_red_cards) +
-        safeN(match.away_red_cards);
+      agg.cards += safeN(match.home_yellow_cards) + safeN(match.away_yellow_cards) + safeN(match.home_red_cards) + safeN(match.away_red_cards);
       if (match.home_score > 0 && match.away_score > 0) agg.btts += 1;
 
       const spread = getSpreadResult(match);
@@ -275,205 +438,104 @@ export default function TrendsPage() {
       .slice(0, 8);
   }, [filteredMatches]);
 
+  // Derived display config for summary cards
+  const summaryMetrics = summary ? [
+    { label: 'Sample Size', value: `n = ${summary.sample}` },
+    { label: 'Home Cover %', value: `${summary.homeCoverPct.toFixed(1)}%` },
+    { label: 'Over %', value: `${summary.overPct.toFixed(1)}%` },
+    { label: 'Favorite Win %', value: `${summary.favoriteWinPct.toFixed(1)}%` },
+    { label: 'Underdog Win %', value: `${summary.dogWinPct.toFixed(1)}%` },
+    { label: 'BTTS %', value: `${summary.bttsPct.toFixed(1)}%` },
+    { label: 'Avg Goals', value: summary.avgGoals.toFixed(2) },
+    { label: 'Avg Corners', value: summary.avgCorners.toFixed(1) },
+    { label: 'Avg Cards', value: summary.avgCards.toFixed(1) },
+    { label: 'Avg Pass %', value: `${summary.avgPassPct.toFixed(1)}%` },
+    { label: 'Avg Shot Accuracy', value: `${summary.avgShotAcc.toFixed(1)}%` },
+    { label: 'Home ATS ROI', value: `${summary.homeSpreadRoiPct.toFixed(1)}%`, valueClass: THEME.profit(summary.homeSpreadRoiPct) },
+    { label: 'Over ROI', value: `${summary.overRoiPct.toFixed(1)}%`, valueClass: THEME.profit(summary.overRoiPct) },
+  ] : [];
+
   return (
-    <div className="h-(--vvh,100vh) overflow-y-auto overscroll-y-contain bg-slate-50 text-slate-900">
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+    <div className={THEME.layout.page}>
+
+      {/* Navigation Header */}
+      <header className={THEME.layout.header}>
         <div className="mx-auto w-full max-w-7xl px-4 md:px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Link to="/" className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50">
-              Home
-            </Link>
-            <Link to="/edge" className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50">
-              Edge
-            </Link>
+            <Link to="/" className={THEME.components.navLink}>Home</Link>
+            <Link to="/edge" className={THEME.components.navLink}>Edge</Link>
           </div>
-          <span className="text-xs text-slate-500">{filteredMatches.length} matches in view</span>
+          <span className="text-[11px] font-medium text-slate-500">{filteredMatches.length} matches in view</span>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-7xl px-4 md:px-6 py-8 space-y-6">
+
+        {/* Title */}
         <section className="space-y-2">
-          <h1 className="text-4xl font-semibold tracking-tight">Betting Trends</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-slate-900">Betting Trends</h1>
           <p className="text-sm text-slate-600">Advanced market outcomes from DB-backed closing lines and in-match stat profiles.</p>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+        {/* Filters Panel */}
+        <section className={`${THEME.layout.section} p-4 md:p-5`}>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">League</label>
-              <select
-                value={leagueFilter}
-                onChange={(event) => setLeagueFilter(event.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
-              >
-                {leagueOptions.map((id) => (
-                  <option key={id} value={id}>
-                    {id === 'all' ? 'All leagues' : LEAGUE_LABELS[id] || id.toUpperCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <FilterSelect label="League" value={leagueFilter} options={dynamicLeagueOptions} onChange={setLeagueFilter} />
+            <FilterSelect label="Date Window" value={dateWindow} options={FILTER_OPTIONS.dateWindow} onChange={setDateWindow} />
 
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Date Window</label>
-              <select
-                value={dateWindow}
-                onChange={(event) => setDateWindow(event.target.value as DateWindow)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
-              >
-                <option value="all">All</option>
-                <option value="30d">Last 30 days</option>
-                <option value="14d">Last 14 days</option>
-                <option value="7d">Last 7 days</option>
-              </select>
-            </div>
+            <FilterInput label="Team Filter" value={search} onChange={setSearch} placeholder="Search team" />
+            <FilterInput
+              label="Upset Threshold"
+              type="number"
+              min={100}
+              max={600}
+              value={upsetThreshold}
+              onChange={(val) => setUpsetThreshold(Math.max(100, Math.min(600, Number(val) || 100)))}
+            />
 
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Team Filter</label>
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search team"
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
-              />
+            <div className="self-end text-[11px] font-semibold tracking-[0.12em] uppercase text-slate-400 pb-2">
+              Data source: soccer_postgame
             </div>
-
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Upset Threshold</label>
-              <input
-                type="number"
-                min={100}
-                max={600}
-                value={upsetThreshold}
-                onChange={(event) => setUpsetThreshold(Math.max(100, Math.min(600, Number(event.target.value) || 100)))}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
-              />
-            </div>
-
-            <div className="self-end text-xs text-slate-500">Data source: `soccer_postgame`</div>
           </div>
         </section>
 
         {loading ? (
-          <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading trends...</section>
+          <section className={`${THEME.layout.section} p-8 text-center text-sm font-semibold tracking-wide text-slate-500`}>
+            Loading trends...
+          </section>
         ) : (
           <>
+            {/* Top Level Metric KPIs */}
             {summary && (
-              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-                {[
-                  { label: 'Sample Size', value: `n = ${summary.sample}` },
-                  { label: 'Home Cover %', value: `${summary.homeCoverPct.toFixed(1)}%` },
-                  { label: 'Over %', value: `${summary.overPct.toFixed(1)}%` },
-                  { label: 'Favorite Win %', value: `${summary.favoriteWinPct.toFixed(1)}%` },
-                  { label: 'Underdog Win %', value: `${summary.dogWinPct.toFixed(1)}%` },
-                  { label: 'BTTS %', value: `${summary.bttsPct.toFixed(1)}%` },
-                  { label: 'Avg Goals', value: summary.avgGoals.toFixed(2) },
-                  { label: 'Avg Corners', value: summary.avgCorners.toFixed(1) },
-                  { label: 'Avg Cards', value: summary.avgCards.toFixed(1) },
-                  { label: 'Avg Pass %', value: `${summary.avgPassPct.toFixed(1)}%` },
-                  { label: 'Avg Shot Accuracy', value: `${summary.avgShotAcc.toFixed(1)}%` },
-                  { label: 'Home ATS ROI', value: `${summary.homeSpreadRoiPct.toFixed(1)}%` },
-                  { label: 'Over ROI', value: `${summary.overRoiPct.toFixed(1)}%` },
-                ].map((item) => (
-                  <article key={item.label} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{item.label}</div>
-                    <div className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{item.value}</div>
-                  </article>
+              <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+                {summaryMetrics.map((metric) => (
+                  <StatCard key={metric.label} label={metric.label} value={metric.value} valueClass={metric.valueClass} />
                 ))}
               </section>
             )}
 
-            <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800">League Breakdown</div>
-              <div className="overflow-x-auto">
-                <table className="min-w-[900px] w-full text-[13px]">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
-                      <th className="px-4 py-2.5 text-left">League</th>
-                      <th className="px-3 py-2.5 text-right">Games</th>
-                      <th className="px-3 py-2.5 text-right">Home ATS</th>
-                      <th className="px-3 py-2.5 text-right">Over %</th>
-                      <th className="px-3 py-2.5 text-right">BTTS %</th>
-                      <th className="px-3 py-2.5 text-right">Avg Goals</th>
-                      <th className="px-3 py-2.5 text-right">Avg Corners</th>
-                      <th className="px-3 py-2.5 text-right">Avg Cards</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {byLeague.map((row) => (
-                      <tr key={row.leagueId} className="border-t border-slate-100 hover:bg-blue-50/45">
-                        <td className="px-4 py-2.5 font-semibold text-slate-900">{row.label}</td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{row.games}</td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.homeCoverPct.toFixed(1)}%</td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.overPct.toFixed(1)}%</td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.bttsPct.toFixed(1)}%</td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgGoals.toFixed(2)}</td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgCorners.toFixed(1)}</td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgCards.toFixed(1)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* League Breakdown */}
+            <section className={`${THEME.layout.section} overflow-hidden`}>
+              <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800 bg-[#F8FAFC]">
+                League Breakdown
               </div>
+              <LeagueTable data={byLeague} />
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-2">
-              <article className="rounded-2xl border border-slate-200 bg-white">
-                <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800">Biggest Upsets</div>
-                <div className="p-4 space-y-2">
-                  {upsets.map((match) => (
-                    <Link
-                      key={match.id}
-                      to={matchUrl(match.home_team, match.away_team, match.start_time)}
-                      className="grid grid-cols-[1fr_auto_auto] gap-3 items-center rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-900 truncate">
-                          {match.home_team} vs {match.away_team}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          {LEAGUE_SHORT[match.league_id]} · {formatMatchDate(match.start_time)}
-                        </div>
-                      </div>
-                      <div className="text-sm tabular-nums text-slate-600">
-                        {match.home_score}-{match.away_score}
-                      </div>
-                      <div className="text-sm font-semibold tabular-nums text-rose-600">
-                        +{upsetLine(match)}
-                      </div>
-                    </Link>
-                  ))}
-                  {upsets.length === 0 && <div className="text-sm text-slate-500">No upsets at current threshold.</div>}
-                </div>
-              </article>
-
-              <article className="rounded-2xl border border-slate-200 bg-white">
-                <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800">Highest Scoring</div>
-                <div className="p-4 space-y-2">
-                  {highScoring.map((match) => (
-                    <Link
-                      key={match.id}
-                      to={matchUrl(match.home_team, match.away_team, match.start_time)}
-                      className="grid grid-cols-[1fr_auto_auto] gap-3 items-center rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-900 truncate">
-                          {match.home_team} vs {match.away_team}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          {LEAGUE_SHORT[match.league_id]} · {formatMatchDate(match.start_time)}
-                        </div>
-                      </div>
-                      <div className="text-sm tabular-nums text-slate-600">
-                        {match.home_score}-{match.away_score}
-                      </div>
-                      <div className="text-sm font-semibold tabular-nums text-slate-700">
-                        {match.home_score + match.away_score} goals
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </article>
+            {/* Highlights Sections (Side-by-side on large screens) */}
+            <section className="grid gap-5 xl:grid-cols-2">
+              <MatchList
+                title="Biggest Upsets"
+                matches={upsets}
+                getValueLabel={(m) => `+${upsetLine(m)}`}
+                getValueColor={() => 'text-rose-600'}
+              />
+              <MatchList
+                title="Highest Scoring"
+                matches={highScoring}
+                getValueLabel={(m) => `${m.home_score + m.away_score} goals`}
+                getValueColor={() => 'text-slate-700'}
+              />
             </section>
           </>
         )}
