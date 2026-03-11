@@ -175,6 +175,22 @@ Deno.serve(async (req: Request) => {
                 const gradeData = await gradeRes.json();
                 graded = gradeData.graded || 0;
                 trace.push(`[grading] Graded ${graded} picks.`);
+
+                // 4b. Update the Edge trend ledger now that we have fresh settled grades
+                trace.push(`[ledger] Triggering update-trend-ledger...`);
+                const ledgerRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/update-trend-ledger`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (ledgerRes.ok) {
+                    trace.push(`[ledger] Edge trend ledger updated successfully.`);
+                } else {
+                    trace.push(`[ledger] Error updating edge trend ledger: ${ledgerRes.status}`);
+                }
             }
         }
 

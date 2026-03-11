@@ -28,7 +28,7 @@ import { motion, AnimatePresence, useMotionValue, LayoutGroup } from 'framer-mot
 // ============================================================================
 
 import { Sport } from '@/types';
-import type { Match, RecentFormGame, ShotEvent, PlayerPropBet, PropBetType } from '@/types';
+import type { Match, RecentFormGame, ShotEvent, PlayerPropBet, PropBetType, MatchEdgeTag } from '@/types';
 import { cn, ESSENCE } from '@/lib/essence';
 import { getMatchDisplayStats } from '../../utils/statDisplay';
 
@@ -62,6 +62,7 @@ import SafePregameIntelCards from '../pregame/PregameIntelCards';
 import OddsCard from '../betting/OddsCard';
 import EdgeCard from './EdgeCard';
 import MarketEdgeCard from './MarketEdgeCard';
+import { MatchEdgeTags } from './MatchEdgeTags';
 import { usePolyOdds, findPolyForMatch, type PolyMatchOriented } from '@/hooks/usePolyOdds';
 import { MatchupLoader, MatchupContextPills } from '../ui';
 import ChatWidget from '../ChatWidget';
@@ -123,27 +124,28 @@ interface LiveState extends Partial<Omit<ExtendedMatch, 'lastPlay' | 'period'>> 
 
 type ContextValue = string | number | boolean | null | ContextValue[] | { [key: string]: ContextValue };
 
-interface ExtendedPropBet extends PlayerPropBet {
+interface ExtendedPropBet extends Omit<PlayerPropBet, 'betType' | 'lineValue'> {
   team?: string;
   headshotUrl?: string;
-  lineValue?: number;
-  betType?: string;
-  oddsAmerican?: number;
-  sportsbook?: string;
+  lineValue: number; // Make lineValue explicitly required to match PlayerPropBet
+  betType: PropBetType; // Make betType explicitly required to match PlayerPropBet
+  oddsAmerican: number; // Make oddsAmerican explicitly required to match PlayerPropBet
+  sportsbook: string; // Make sportsbook explicitly required to match PlayerPropBet
   impliedProbPct?: number;
   aiRationale?: string;
   fantasyDvpRank?: number;
   avgL5?: number;
 }
 
-interface ExtendedMatch extends Match {
+interface ExtendedMatch extends Omit<Match, 'context'> {
   possession?: string; displayClock?: string; context?: Record<string, ContextValue>;
   homeTeam: Match['homeTeam'] & { last5?: RecentFormGame[] };
   awayTeam: Match['awayTeam'] & { last5?: RecentFormGame[] };
   dbProps?: ExtendedPropBet[];
+  edge_tags?: MatchEdgeTag[];
 }
 
-interface ForecastPoint { clock: string; fairTotal: number; marketTotal: number; edgeState: 'PLAY' | 'LEAN' | 'NEUTRAL'; timestamp: number; }
+interface ForecastPoint { clock: string; fairTotal: number; marketTotal: number; edgeState: 'PLAY' | 'LEAN' | 'NEUTRAL' | string; timestamp: number; }
 interface EdgeState { side: 'OVER' | 'UNDER' | null; state: 'PLAY' | 'LEAN' | 'NEUTRAL'; edgePoints: number; confidence?: number; }
 type CoordinateInput = { x?: number | string; y?: number | string } | string | null | undefined;
 
@@ -337,6 +339,9 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
             <div className="w-1.5 h-1.5 rounded-full bg-black/20" />
             <span className="text-[11px] font-bold text-black/40 uppercase tracking-widest">{linesLabel}</span>
           </div>
+          {match.edge_tags && match.edge_tags.length > 0 && (
+            <MatchEdgeTags tags={match.edge_tags} size="sm" />
+          )}
         </div>
 
         <div className="space-y-5">
@@ -578,7 +583,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
       );
     }
 
-    return <LiveGameTracker match={match} liveState={liveState || undefined} showHeader={false} headerVariant="embedded" />;
+    return <LiveGameTracker match={match as unknown as Match} liveState={liveState as any} showHeader={false} headerVariant="embedded" />;
   };
 
   const periodLabel = match.period ? `P${match.period}` : '';
@@ -781,55 +786,80 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
     const isLive = isGameInProgress(cur.status);
     const socketFresh = isSocketActiveRef.current && isLive && (Date.now() - lastLiveReceivedAtRef.current) < CONFIG.polling.SOCKET_FRESH_MS;
 
-    const espnPromise = fetchMatchDetailsExtended(cur.id, cur.sport, cur.leagueId).then(espn => {
-      if (!espn || seq !== fetchSeqRef.current) return;
-      setMatch(prev => {
-        const newHome = socketFresh ? prev.homeScore : Math.max(espn.homeScore ?? prev.homeScore ?? 0, prev.homeScore ?? 0);
-        const newAway = socketFresh ? prev.awayScore : Math.max(espn.awayScore ?? prev.awayScore ?? 0, prev.awayScore ?? 0);
+    const espnPromise = fetchMatchDetailsExtended(cur.id, cur.sport, cur.leagueId)
+      .then(espn => {
+        if (!espn || seq !== fetchSeqRef.current) return;
+        setMatch(prev => {
+          const newHome = socketFresh ? prev.homeScore : Math.max(espn.homeScore ?? prev.homeScore ?? 0, prev.homeScore ?? 0);
+          const newAway = socketFresh ? prev.awayScore : Math.max(espn.awayScore ?? prev.awayScore ?? 0, prev.awayScore ?? 0);
 
-        if (hashPayload(prev.stats) === hashPayload(espn.stats || espn.statistics) && prev.homeScore === newHome && prev.awayScore === newAway && prev.status === espn.status) {
-          return prev;
-        }
+          const newStats = espn.stats || (espn as any).statistics;
+          if (hashPayload(prev.stats) === hashPayload(newStats) && prev.homeScore === newHome && prev.awayScore === newAway && prev.status === espn.status) {
+            return prev;
+          }
 
-        const next = { ...prev, ...espn, stats: espn.stats || espn.statistics || prev.stats, homeScore: newHome, awayScore: newAway };
-        matchRef.current = next;
-        return next;
+          const stats = newStats || prev.stats;
+          // Construct the new state explicitly to satisfy ExtendedMatch typing
+          const next: ExtendedMatch = {
+            ...prev,
+            ...(espn as Partial<ExtendedMatch>),
+            stats,
+            homeScore: newHome,
+            awayScore: newAway,
+            edge_tags: (espn as Partial<ExtendedMatch>).edge_tags || prev.edge_tags
+          };
+
+          matchRef.current = next;
+          return next;
+        });
+        setConnectionStatus('connected');
+        setIsInitialLoad(false);
+      })
+      .catch((e) => {
+        console.warn('Silent fail fetching extended match:', e);
       });
-      setConnectionStatus('connected');
-      setIsInitialLoad(false);
-    }).catch(() => null);
 
-    const dbPromise = isGameFinal(cur.status) ? Promise.resolve(null) : supabase.from('matches').select('current_odds,closing_odds,opening_odds,home_score,away_score').eq('id', dbId).maybeSingle().then(({ data: db }) => {
-      if (!db || seq !== fetchSeqRef.current) return;
-      setMatch(prev => {
-        const dbOdds = db.current_odds;
-        const isDbExternal = dbOdds?.provider && String(dbOdds.provider).toLowerCase() !== 'espn';
-        const newOdds = isDbExternal ? dbOdds : (prev.odds?.hasOdds ? prev.odds : (dbOdds || prev.odds));
+    const dbPromise = (async () => {
+      if (isGameFinal(cur.status)) return;
+      try {
+        const { data: db } = await supabase.from('matches').select('current_odds,closing_odds,opening_odds,home_score,away_score').eq('id', dbId).maybeSingle();
+        if (!db || seq !== fetchSeqRef.current) return;
+        setMatch(prev => {
+          const dbOdds = db.current_odds;
+          const isDbExternal = dbOdds?.provider && String(dbOdds.provider).toLowerCase() !== 'espn';
+          const newOdds = isDbExternal ? dbOdds : (prev.odds?.hasOdds ? prev.odds : (dbOdds || prev.odds));
 
-        let changed = false;
-        const next = { ...prev };
+          let changed = false;
+          const next = { ...prev };
 
-        if (hashPayload(prev.current_odds) !== hashPayload(newOdds)) { next.current_odds = newOdds; changed = true; }
-        if (db.closing_odds && hashPayload(prev.closing_odds) !== hashPayload(db.closing_odds)) { next.closing_odds = db.closing_odds; changed = true; }
+          if (hashPayload(prev.current_odds) !== hashPayload(newOdds)) { next.current_odds = newOdds; changed = true; }
+          if (db.closing_odds && hashPayload(prev.closing_odds) !== hashPayload(db.closing_odds)) { next.closing_odds = db.closing_odds; changed = true; }
 
-        if (!socketFresh) {
-          if ((db.home_score || 0) > (prev.homeScore || 0)) { next.homeScore = db.home_score; changed = true; }
-          if ((db.away_score || 0) > (prev.awayScore || 0)) { next.awayScore = db.away_score; changed = true; }
-        }
+          if (!socketFresh) {
+            if ((db.home_score || 0) > (prev.homeScore || 0)) { next.homeScore = db.home_score; changed = true; }
+            if ((db.away_score || 0) > (prev.awayScore || 0)) { next.awayScore = db.away_score; changed = true; }
+          }
 
-        if (!changed) return prev;
-        matchRef.current = next;
-        return next;
-      });
-      setConnectionStatus('connected');
-      setIsInitialLoad(false);
-    }).catch(() => null);
+          if (!changed) return prev;
+          matchRef.current = next;
+          return next;
+        });
+        setConnectionStatus('connected');
+        setIsInitialLoad(false);
+      } catch (e) {
+        console.warn('Silent fail fetching db match:', e);
+      }
+    })();
 
     // FIX: Replaced dangerous substring .ilike with exact-match .in array targeting
     const matchIds = Array.from(new Set([cur.id, getDbMatchId(cur.id, cur.leagueId?.toLowerCase() || '')]));
-    const propsPromise = supabase.from('player_prop_bets').select('*')
-      .in('match_id', matchIds)
-      .order('player_name').then(({ data: props }) => {
+
+    const propsPromise = (async () => {
+      try {
+        const { data: props } = await supabase.from('player_prop_bets').select('*')
+          .in('match_id', matchIds)
+          .order('player_name');
+
         if (!props || seq !== fetchSeqRef.current) return;
 
         const propsHash = hashPayload(props);
@@ -879,7 +909,10 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           matchRef.current = next;
           return next;
         });
-      }).catch(() => null);
+      } catch (e) {
+        // silent fail
+      }
+    })();
 
     Promise.allSettled([espnPromise, dbPromise, propsPromise]).finally(() => {
       isFetchingRef.current = false;
@@ -1325,10 +1358,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     )}
 
                     {/* FIX 2: Strict structural mapping for baseballData child interface */}
-                    {isBaseball && (baseballData as { edge?: Record<string, number> })?.edge && (
+                    {isBaseball && (baseballData as any)?.edge && (
                       <div className="mb-14">
                         <div className="flex items-center gap-3 mb-6"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" /><span className="text-[11px] font-bold text-black/50 uppercase tracking-[0.2em]">Edge Convergence</span></div>
-                        <BaseballEdgePanel edge={(baseballData as { edge: Record<string, number> }).edge} />
+                        <BaseballEdgePanel edge={(baseballData as any).edge} />
                       </div>
                     )}
 

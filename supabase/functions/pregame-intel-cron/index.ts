@@ -525,6 +525,76 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
             console.error(`[EdgeOfDay] Error:`, e?.message || String(e));
         }
 
+        // === STRUCTURAL EDGE TAGGING ===
+        try {
+            if (slate && slate.length > 0) {
+                trace.push(`[tags] Evaluating ${slate.length} matches for structural edges...`);
+                let tagsWritten = 0;
+
+                for (const game of slate) {
+                    const matchId = getCanonicalMatchId(game.id, game.league_id);
+                    const oddsObj = (game as any).current_odds || {};
+                    const currentSpread = safeParseFloat((game as any).odds_home_spread_safe ?? oddsObj?.homeSpread ?? oddsObj?.spread);
+                    const currentTotal = safeParseFloat((game as any).odds_total_safe ?? oddsObj?.total ?? oddsObj?.overUnder);
+
+                    const tags: Array<{ trendKey: string; payload: Record<string, unknown> }> = [];
+
+                    // 1. Serie A Away Fav ATS
+                    if (game.league_id === 'serie_a' || game.league_id === 'seriea' || game.league_id === 'ita.1') {
+                        // Spread < 0 means home is favored. Spread > 0 means away is favored.
+                        if (currentSpread !== null && currentSpread > 0) {
+                            tags.push({
+                                trendKey: 'serie_a_away_fav_ats',
+                                payload: {
+                                    trigger: 'away_favorite',
+                                    away_team: game.away_team,
+                                    home_team: game.home_team,
+                                    spread: currentSpread,
+                                    source: 'pregame_intel'
+                                }
+                            });
+                        }
+                    }
+
+                    // 2. EPL High Total Under
+                    if (game.league_id === 'epl' || game.league_id === 'eng.1') {
+                        if (currentTotal !== null && currentTotal > 2.5) {
+                            tags.push({
+                                trendKey: 'epl_high_total_under',
+                                payload: {
+                                    trigger: 'total_gt_2_5',
+                                    market_total: currentTotal,
+                                    recommended_side: 'under',
+                                    source: 'pregame_intel'
+                                }
+                            });
+                        }
+                    }
+
+                    for (const tag of tags) {
+                        try {
+                            const { error: tagErr } = await supabase.from('match_edge_tags').upsert({
+                                match_id: matchId,
+                                trend_key: tag.trendKey,
+                                tag_type: 'structural_edge',
+                                status: 'active',
+                                edge_payload: tag.payload,
+                                updated_at: new Date().toISOString()
+                            }, { onConflict: 'match_id,trend_key,tag_type' });
+
+                            if (!tagErr) tagsWritten++;
+                        } catch (e) {
+                            console.error(`[tags] Error writing tag ${tag.trendKey} for ${matchId}:`, e);
+                        }
+                    }
+                }
+
+                trace.push(`[tags] Wrote ${tagsWritten} structural edge tags.`);
+            }
+        } catch (e: any) {
+            console.error(`[tags] Error evaluating structural edges:`, e?.message || String(e));
+        }
+
         await supabase.from("pregame_intel_log").insert({
             batch_id: batchId,
             matches_processed: queueLength,

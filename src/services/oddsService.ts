@@ -155,10 +155,16 @@ export const mergePremiumOdds = async (matches: Match[]): Promise<Match[]> => {
       supabase.from('closing_lines').select('*').in('match_id', chunk.map(m => m.id))
     ));
 
-    const [dbMatchesResults, openingResults, closingResults] = await Promise.all([
+    // Fetch active edge tags for these matches
+    const edgeTagsPromise = Promise.all(matchesChunks.map(chunk =>
+      supabase.from('match_edge_tags').select('*').in('match_id', chunk.map(m => getCanonicalMatchId(m.id, m.leagueId))).eq('status', 'active')
+    ));
+
+    const [dbMatchesResults, openingResults, closingResults, edgeTagsResults] = await Promise.all([
       dbMatchesPromise,
       openingPromise,
-      closingPromise
+      closingPromise,
+      edgeTagsPromise
     ]);
 
     // Flatten results
@@ -166,6 +172,14 @@ export const mergePremiumOdds = async (matches: Match[]): Promise<Match[]> => {
     const dbMatches = dbMatchesResults.flatMap(r => r.data || []);
     const openingData = openingResults.flatMap(r => r.data || []);
     const closingData = closingResults.flatMap(r => r.data || []);
+    const edgeTagsData = edgeTagsResults.flatMap(r => r.data || []);
+
+    // Group edge tags by match_id
+    const edgeTagsMap = new Map<string, any[]>();
+    edgeTagsData.forEach(tag => {
+      if (!edgeTagsMap.has(tag.match_id)) edgeTagsMap.set(tag.match_id, []);
+      edgeTagsMap.get(tag.match_id)!.push(tag);
+    });
 
     const openingMap = new Map(openingData.map(r => [r.match_id, normalizeOpeningLines(r)]));
     const closingMap = new Map(closingData.map(r => [r.match_id, normalizeClosingLines(r)]));
@@ -246,6 +260,11 @@ export const mergePremiumOdds = async (matches: Match[]): Promise<Match[]> => {
           });
           match.odds = odds;
           if (feed._isLive) match.current_odds = { ...match.current_odds, ...odds, isLive: true };
+        }
+
+        const tags = edgeTagsMap.get(getCanonicalMatchId(match.id, match.leagueId));
+        if (tags && tags.length > 0) {
+          match.edge_tags = tags;
         }
 
         return match;

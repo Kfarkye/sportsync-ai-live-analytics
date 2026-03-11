@@ -438,6 +438,54 @@ async function syncToMatches(supabase: any, oddsData: any[], sportKey: string, r
             last_odds_update: new Date().toISOString(),
             odds_api_event_id: event.id
         });
+
+        // === DYNAMIC PRICE EDGE TAGGING ===
+        try {
+            if (rawKey === 'soccer_epl' || rawKey === 'eng.1') {
+                const drawPrice = newOdds.drawWin;
+
+                if (drawPrice !== null) {
+                    const priceThreshold = 280;
+
+                    if (drawPrice >= priceThreshold) {
+                        oddsWritePromises.push(
+                            supabase.from('match_edge_tags').upsert({
+                                match_id: matchId,
+                                trend_key: 'epl_draw_value',
+                                tag_type: 'price_edge',
+                                status: 'active',
+                                edge_payload: {
+                                    trigger: 'draw_price_threshold',
+                                    draw_price: drawPrice,
+                                    threshold: priceThreshold,
+                                    source: 'ingest_odds'
+                                },
+                                updated_at: new Date().toISOString()
+                            }, { onConflict: 'match_id,trend_key,tag_type' }).then(() => { })
+                        );
+                    } else {
+                        oddsWritePromises.push(
+                            supabase.from('match_edge_tags').upsert({
+                                match_id: matchId,
+                                trend_key: 'epl_draw_value',
+                                tag_type: 'price_edge',
+                                status: 'inactive',
+                                edge_payload: {
+                                    trigger: 'draw_price_threshold',
+                                    draw_price: drawPrice,
+                                    threshold: priceThreshold,
+                                    source: 'ingest_odds',
+                                    note: 'Price dropped below threshold'
+                                },
+                                updated_at: new Date().toISOString()
+                            }, { onConflict: 'match_id,trend_key,tag_type' }).then(() => { })
+                        );
+                    }
+                }
+            }
+        } catch (e: any) {
+            Logger.warn('EDGE_TAG_WRITE_FAILED', { matchId, error: e.message });
+        }
     }
 
     if (bulkUpdates.length) {

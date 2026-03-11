@@ -382,7 +382,7 @@ export interface MomentumPoint {
 }
 
 export interface MatchContext {
-  [key: string]: unknown;
+  [key: string]: any; // Broad index signature to satisfy Record<string, ContextValue> in MatchDetails
   weather?: {
     temp: string;
     condition: string;
@@ -523,6 +523,7 @@ export interface Match {
     awayTeamLine?: string;
   };
   ai_signals?: AISignals;
+  edge_tags?: MatchEdgeTag[];
   fetched_at?: number; // timestamp in ms
   canonical_id?: string;
   last_updated?: string;
@@ -534,6 +535,23 @@ export interface Match {
   // Tennis-specific fields
   round?: string;       // e.g., "Quarterfinal", "Round of 128"
   court?: string;       // e.g., "Rod Laver Arena", "Court 5"
+}
+
+export interface MatchEdgeTag {
+  trend_key: string;
+  tag_type: 'structural_edge' | 'price_edge';
+  status: 'active' | 'inactive' | 'expired';
+  edge_payload: {
+    trigger?: string;
+    recommended_side?: string;
+    market_total?: number;
+    draw_price?: number;
+    threshold?: number;
+    home_team?: string;
+    away_team?: string;
+    spread?: number;
+    source?: string;
+  };
 }
 
 export interface GoalieProfile {
