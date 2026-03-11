@@ -113,7 +113,7 @@ interface DbMatchRow {
 
 type EspnExtendedMatch = Partial<ExtendedMatch> & { statistics?: Match['stats'] };
 
-interface LiveState extends Partial<Omit<ExtendedMatch, 'lastPlay'>> {
+interface LiveState extends Partial<Omit<ExtendedMatch, 'lastPlay' | 'period'>> {
   lastPlay?: { id?: string; clock?: string; text?: string; coordinate?: { x: number; y: number } | string; type?: { text: string }; };
   ai_analysis?: { sharp_data?: { recommendation?: { side: string }; confidence_level?: number; }; };
   deterministic_signals?: { deterministic_fair_total?: number; market_total?: number; };
@@ -730,7 +730,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
         const h = live.home_score ?? prev.homeScore ?? 0;
         const a = live.away_score ?? prev.awayScore ?? 0;
         const c = live.clock || prev.displayClock;
-        const p = live.period || prev.period;
+        const p = typeof live.period === 'string' ? parseInt(live.period, 10) || prev.period : (live.period ?? prev.period);
         // FIX: Identity guard — only merge when IDs are defined AND match; otherwise replace wholesale
         const lp = live.lastPlay
           ? (live.lastPlay.id && prev.lastPlay?.id === live.lastPlay.id
@@ -741,7 +741,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
 
         if (h === prev.homeScore && a === prev.awayScore && c === prev.displayClock && p === prev.period && lp?.text === prev.lastPlay?.text && poss === prev.possession) return prev;
 
-        const next = { ...prev, homeScore: h, awayScore: a, displayClock: c, period: p, lastPlay: lp, possession: poss };
+        const next = { ...prev, homeScore: h, awayScore: a, displayClock: c, period: p, lastPlay: lp as ExtendedMatch['lastPlay'], possession: poss };
         matchRef.current = next;
         return next;
       });
