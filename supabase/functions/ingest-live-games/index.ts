@@ -110,16 +110,71 @@ interface ParsedProviderOdds {
   player_props: any | null;
 }
 
-function normalizeEspnCoreProviderState(providerState: any, providerMeta?: any, source = 'core_api') {
+function parseEspnSpreadString(spreadValue: any, teams?: {
+  homeAbbr?: string | null;
+  awayAbbr?: string | null;
+  homeName?: string | null;
+  awayName?: string | null;
+}) {
+  if (spreadValue == null) return { homeSpread: null, awaySpread: null };
+
+  if (typeof spreadValue === 'number') {
+    return { homeSpread: spreadValue, awaySpread: spreadValue * -1 };
+  }
+
+  const raw = String(spreadValue).trim();
+  const numMatch = raw.match(/([+-]?\d+(\.\d+)?)/);
+  if (!numMatch) return { homeSpread: null, awaySpread: null };
+  const value = parseFloat(numMatch[1]);
+  if (!Number.isFinite(value)) return { homeSpread: null, awaySpread: null };
+
+  const label = raw
+    .replace(numMatch[0], '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+  const homeTokens = [
+    teams?.homeAbbr,
+    teams?.homeName
+  ].filter(Boolean).map((s) => String(s).toLowerCase());
+  const awayTokens = [
+    teams?.awayAbbr,
+    teams?.awayName
+  ].filter(Boolean).map((s) => String(s).toLowerCase());
+
+  if (label && homeTokens.some((token) => token && label.includes(token))) {
+    return { homeSpread: value, awaySpread: value * -1 };
+  }
+  if (label && awayTokens.some((token) => token && label.includes(token))) {
+    return { homeSpread: value * -1, awaySpread: value };
+  }
+
+  return { homeSpread: value, awaySpread: value * -1 };
+}
+
+function normalizeEspnCoreProviderState(
+  providerState: any,
+  providerMeta?: any,
+  source = 'core_api',
+  teams?: {
+    homeAbbr?: string | null;
+    awayAbbr?: string | null;
+    homeName?: string | null;
+    awayName?: string | null;
+  }
+) {
   if (!providerState) return null;
+  const parsedSpread = parseEspnSpreadString(
+    providerState?.spread ?? providerState?.details ?? providerState?.spreadDetails,
+    teams
+  );
   return {
     home_ml: providerState?.moneyLine ?? providerState?.homeTeamOdds?.moneyLine ?? null,
     away_ml: providerState?.awayTeamOdds?.moneyLine ?? null,
     draw_ml: providerState?.drawTeamOdds?.moneyLine ?? providerState?.drawOdds?.moneyLine ?? null,
-    homeSpread: providerState?.homeTeamOdds?.spread ?? providerState?.spread ?? null,
-    awaySpread: providerState?.awayTeamOdds?.spread ?? (
-      providerState?.spread != null ? providerState.spread * -1 : null
-    ),
+    homeSpread: providerState?.homeTeamOdds?.spread ?? parsedSpread.homeSpread,
+    awaySpread: providerState?.awayTeamOdds?.spread ?? parsedSpread.awaySpread,
     homeSpreadOdds: providerState?.homeTeamOdds?.spreadOdds ?? providerState?.homeTeamOdds?.price ?? null,
     awaySpreadOdds: providerState?.awayTeamOdds?.spreadOdds ?? providerState?.awayTeamOdds?.price ?? null,
     total: providerState?.overUnder ?? null,
@@ -911,24 +966,31 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       const endpointParts = String(league.endpoint || '').split('/');
       const espnLeagueId = endpointParts.length > 1 ? endpointParts[1] : null;
       if (espnLeagueId) {
-        const coreOddsUrl = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}/odds`;
-        const coreRes = await fetch(coreOddsUrl, { signal: AbortSignal.timeout(5000) });
-        if (coreRes.ok) {
-          const coreData = await coreRes.json();
-          const items = Array.isArray(coreData?.items) ? coreData.items : (Array.isArray(coreData) ? coreData : []);
-          for (const provider of items) {
-            const pName = String(provider?.provider?.name || '').toLowerCase();
-            if (!pName.includes('draftkings') && !pName.includes('draft kings')) continue;
+          const coreOddsUrl = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}/odds`;
+          const coreRes = await fetch(coreOddsUrl, { signal: AbortSignal.timeout(5000) });
+          if (coreRes.ok) {
+            const coreData = await coreRes.json();
+            const items = Array.isArray(coreData?.items) ? coreData.items : (Array.isArray(coreData) ? coreData : []);
+            const teamContext = {
+              homeAbbr: home?.team?.abbreviation || home?.athlete?.abbreviation || null,
+              awayAbbr: away?.team?.abbreviation || away?.athlete?.abbreviation || null,
+              homeName: getCompetitorName(home),
+              awayName: getCompetitorName(away)
+            };
+            for (const provider of items) {
+              const pName = String(provider?.provider?.name || '').toLowerCase();
+              if (!pName.includes('draftkings') && !pName.includes('draft kings')) continue;
 
-            espnCoreOdds = normalizeEspnCoreProviderState(
+              espnCoreOdds = normalizeEspnCoreProviderState(
               provider?.current || provider?.close || provider?.open,
               provider?.provider,
-              'core_api'
+              'core_api',
+              teamContext
             );
 
-            parsedOdds.odds_live = normalizeEspnCoreProviderState(provider?.current, provider?.provider, 'core_api') || parsedOdds.odds_live;
-            parsedOdds.odds_open = normalizeEspnCoreProviderState(provider?.open, provider?.provider, 'core_api') || parsedOdds.odds_open;
-            parsedOdds.odds_close = normalizeEspnCoreProviderState(provider?.close, provider?.provider, 'core_api') || parsedOdds.odds_close;
+            parsedOdds.odds_live = normalizeEspnCoreProviderState(provider?.current, provider?.provider, 'core_api', teamContext) || parsedOdds.odds_live;
+            parsedOdds.odds_open = normalizeEspnCoreProviderState(provider?.open, provider?.provider, 'core_api', teamContext) || parsedOdds.odds_open;
+            parsedOdds.odds_close = normalizeEspnCoreProviderState(provider?.close, provider?.provider, 'core_api', teamContext) || parsedOdds.odds_close;
             break;
           }
         }
