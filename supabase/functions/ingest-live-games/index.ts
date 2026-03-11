@@ -110,6 +110,52 @@ interface ParsedProviderOdds {
   player_props: any | null;
 }
 
+function normalizeEspnCoreProviderState(providerState: any, providerMeta?: any, source = 'core_api') {
+  if (!providerState) return null;
+  return {
+    home_ml: providerState?.moneyLine ?? providerState?.homeTeamOdds?.moneyLine ?? null,
+    away_ml: providerState?.awayTeamOdds?.moneyLine ?? null,
+    draw_ml: providerState?.drawTeamOdds?.moneyLine ?? providerState?.drawOdds?.moneyLine ?? null,
+    homeSpread: providerState?.homeTeamOdds?.spread ?? providerState?.spread ?? null,
+    awaySpread: providerState?.awayTeamOdds?.spread ?? (
+      providerState?.spread != null ? providerState.spread * -1 : null
+    ),
+    homeSpreadOdds: providerState?.homeTeamOdds?.spreadOdds ?? providerState?.homeTeamOdds?.price ?? null,
+    awaySpreadOdds: providerState?.awayTeamOdds?.spreadOdds ?? providerState?.awayTeamOdds?.price ?? null,
+    total: providerState?.overUnder ?? null,
+    overOdds: providerState?.overOdds ?? providerState?.over?.price ?? null,
+    underOdds: providerState?.underOdds ?? providerState?.under?.price ?? null,
+    provider: providerMeta?.name || providerMeta?.displayName || 'DraftKings',
+    provider_id: providerMeta?.id ?? 100,
+    source,
+    captured_at: new Date().toISOString()
+  };
+}
+
+function mergeEspnOdds(primary: any, fallback: any) {
+  if (!primary && !fallback) return {};
+  if (!primary) return { ...(fallback || {}) };
+  if (!fallback) return { ...(primary || {}) };
+
+  return {
+    ...(fallback || {}),
+    ...(primary || {}),
+    homeSpread: primary?.homeSpread ?? fallback?.homeSpread ?? null,
+    awaySpread: primary?.awaySpread ?? fallback?.awaySpread ?? null,
+    homeSpreadOdds: primary?.homeSpreadOdds ?? fallback?.homeSpreadOdds ?? null,
+    awaySpreadOdds: primary?.awaySpreadOdds ?? fallback?.awaySpreadOdds ?? null,
+    total: primary?.total ?? fallback?.total ?? null,
+    overOdds: primary?.overOdds ?? fallback?.overOdds ?? null,
+    underOdds: primary?.underOdds ?? fallback?.underOdds ?? null,
+    homeWin: primary?.homeWin ?? primary?.home_ml ?? fallback?.homeWin ?? fallback?.home_ml ?? null,
+    awayWin: primary?.awayWin ?? primary?.away_ml ?? fallback?.awayWin ?? fallback?.away_ml ?? null,
+    draw: primary?.draw ?? primary?.draw_ml ?? fallback?.draw ?? fallback?.draw_ml ?? null,
+    provider: primary?.provider || fallback?.provider || 'ESPN',
+    provider_id: primary?.provider_id ?? fallback?.provider_id ?? null,
+    source: primary?.source || fallback?.source || null
+  };
+}
+
 function fractionalToAmerican(fractional: string): number | null {
   const parts = String(fractional || '').split('/');
   if (parts.length !== 2) return null;
@@ -312,6 +358,7 @@ function resolveCurrentOddsLineage(args: {
     espnOdds?.total != null ||
     espnOdds?.provider
   );
+  const isEspnCore = espnOdds?.source === 'core_api';
 
   const isInstitutional =
     finalMarketOdds?.isInstitutional === true ||
@@ -337,8 +384,10 @@ function resolveCurrentOddsLineage(args: {
     ? 'premium_feed'
     : isExternalBook && !isEspnAdapter
       ? 'external_current_odds'
-      : hasEspnSignal || isEspnAdapter
-        ? 'espn_adapter'
+      : isEspnCore
+        ? 'espn_core'
+        : hasEspnSignal || isEspnAdapter
+          ? 'espn_adapter'
         : 'unknown';
 
   const originChain = [
@@ -445,7 +494,7 @@ function buildLiveOddsSnapshotRows(args: {
     ...(espnOdds || {}),
     provider: espnOdds?.provider || 'ESPN',
     provider_id: espnOdds?.provider_id ?? 'espn'
-  }, 'espn_summary');
+  }, espnOdds?.source === 'core_api' ? 'espn_core' : 'espn_summary');
 
   // Persist the currently selected market object separately so external/current state is still archived.
   pushRow('main', {
@@ -456,8 +505,8 @@ function buildLiveOddsSnapshotRows(args: {
     provider: effectiveOdds?.provider || finalMarketOdds?.provider || 'CurrentOdds',
     provider_id: effectiveOdds?.provider_id ?? finalMarketOdds?.provider_id ?? null
   }, 'match_current_odds');
-  pushRow('open', parsedOdds.odds_open, 'espn_summary');
-  pushRow('close', parsedOdds.odds_close, 'espn_summary');
+  pushRow('open', parsedOdds.odds_open, parsedOdds.odds_open?.source === 'core_api' ? 'espn_core' : 'espn_summary');
+  pushRow('close', parsedOdds.odds_close, parsedOdds.odds_close?.source === 'core_api' ? 'espn_core' : 'espn_summary');
   pushRow('live', parsedOdds.odds_live, parsedOdds.odds_live?.source === 'core_api' ? 'espn_core' : 'espn_summary');
   pushRow('live', parsedOdds.bet365_live, 'espn_summary');
   pushRow('live', parsedOdds.dk_live_200, 'espn_summary');
@@ -815,6 +864,7 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
     // --- 🚨 FIXED ODDS RESOLUTION & CLOBBER PROTECTION ---
     let finalMarketOdds = existingMatch?.current_odds || {};
     let espnOdds = EspnAdapters.Odds(comp, data.pickcenter) || {};
+    let espnCoreOdds = null;
 
     // Fallback to basic /scoreboard details if deep /summary Pickcenter returns empty (Fixes NBA missing odds)
     if (espnOdds.homeSpread == null && espnOdds.homeWin == null && espnOdds.total == null) {
@@ -855,6 +905,36 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
           }
         }
       }
+    }
+
+    try {
+      const endpointParts = String(league.endpoint || '').split('/');
+      const espnLeagueId = endpointParts.length > 1 ? endpointParts[1] : null;
+      if (espnLeagueId) {
+        const coreOddsUrl = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}/odds`;
+        const coreRes = await fetch(coreOddsUrl, { signal: AbortSignal.timeout(5000) });
+        if (coreRes.ok) {
+          const coreData = await coreRes.json();
+          const items = Array.isArray(coreData?.items) ? coreData.items : (Array.isArray(coreData) ? coreData : []);
+          for (const provider of items) {
+            const pName = String(provider?.provider?.name || '').toLowerCase();
+            if (!pName.includes('draftkings') && !pName.includes('draft kings')) continue;
+
+            espnCoreOdds = normalizeEspnCoreProviderState(
+              provider?.current || provider?.close || provider?.open,
+              provider?.provider,
+              'core_api'
+            );
+
+            parsedOdds.odds_live = normalizeEspnCoreProviderState(provider?.current, provider?.provider, 'core_api') || parsedOdds.odds_live;
+            parsedOdds.odds_open = normalizeEspnCoreProviderState(provider?.open, provider?.provider, 'core_api') || parsedOdds.odds_open;
+            parsedOdds.odds_close = normalizeEspnCoreProviderState(provider?.close, provider?.provider, 'core_api') || parsedOdds.odds_close;
+            break;
+          }
+        }
+      }
+    } catch {
+      // Non-fatal enhancement: next poll cycle will retry.
     }
 
     if (!parsedOdds.odds_live && !isSoccer) {
@@ -913,6 +993,8 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
         // Non-fatal enhancement: next poll cycle will retry.
       }
     }
+
+    espnOdds = mergeEspnOdds(espnCoreOdds, espnOdds);
 
     // Determine Final Odds Injection
     if (premiumFeed && !premiumFeed.is_stale) {
