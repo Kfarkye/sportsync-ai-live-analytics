@@ -838,7 +838,7 @@ const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedd
                 <div className={cn('absolute top-[10%] -right-[10%] h-[80%] w-[50%] translate-z-0 rounded-full blur-[120px]', isLiveShell ? 'opacity-[0.18]' : 'opacity-[0.10]')} style={{ background: teams.home.color }} />
             </div>
 
-            <div className={cn('relative z-10 grid w-full max-w-3xl grid-cols-[1fr_auto_1fr] items-center', isEmbedded ? 'mb-4 mt-8 gap-3 px-3 sm:gap-5 sm:px-6' : 'mb-8 mt-16 gap-4 px-4 sm:gap-12 sm:px-8')}>
+            <div className={cn('relative z-10 grid w-full max-w-xl grid-cols-[1fr_auto_1fr] items-center', isEmbedded ? 'mb-4 mt-8 gap-3 px-3 sm:gap-5 sm:px-6' : 'mb-8 mt-16 gap-4 px-4 sm:gap-8 sm:px-8')}>
                 <TeamDisplay team={teams.away} compact={isEmbedded} />
                 <div className={cn('flex flex-col items-center justify-center', isEmbedded ? 'min-w-[108px] pt-1.5' : 'min-w-[140px] pt-4')} aria-live="polite" aria-label={`Score: ${teams.away.name} ${teams.away.score}, ${teams.home.name} ${teams.home.score}`}>
                     {meta.isPregame ? (

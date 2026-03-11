@@ -1394,7 +1394,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           </div>
         </header>
 
-        <main className="relative z-10 mx-auto max-w-[860px] px-4 pt-5 md:px-0">
+        <main className="relative z-10 mx-auto max-w-[1200px] px-4 pt-8 md:px-0">
           <GameInfoStrip match={match} />
 
           <LayoutGroup>
@@ -1422,13 +1422,17 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                 {activeTab === 'DETAILS' && (
                   <div className="space-y-0">
                     <SafePregameIntelCards match={match} />
-                    <div className="mt-8">
-                      <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>{isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}</SpecSheetRow>
-                      <SpecSheetRow label="05 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
-                      <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
-                      <SpecSheetRow label="07 // CONTEXT" defaultOpen={true}>{match.context ? <MatchupContextPills {...match.context} sport={match.sport} /> : <div className="text-zinc-500 italic text-xs">No context available.</div>}</SpecSheetRow>
-                      <div className="w-full h-px bg-zinc-200" />
+                    <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className="space-y-0">
+                        <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>{isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}</SpecSheetRow>
+                        <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
+                      </div>
+                      <div className="space-y-0">
+                        <SpecSheetRow label="07 // CONTEXT" defaultOpen={true}>{match.context ? <MatchupContextPills {...match.context} sport={match.sport} /> : <div className="text-zinc-500 italic text-xs">No context available.</div>}</SpecSheetRow>
+                        <SpecSheetRow label="05 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
+                      </div>
                     </div>
+                    <div className="w-full h-px bg-zinc-200 mt-8" />
                   </div>
                 )}
                 {activeTab === 'PROPS' && (
@@ -1525,8 +1529,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   </div>
                 )}
                 {activeTab === 'CHAT' && (
-                  <div className="mx-auto w-full max-w-[1120px] pb-8">
-                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+                  <div className="mx-auto w-full pb-8">
+                    <div className="grid gap-6 lg:grid-cols-[3fr_1fr] lg:items-start">
                       <aside className="order-1 space-y-4 lg:order-2 lg:sticky lg:top-24">
                         <div className="rounded-2xl border border-black/6 bg-white p-4 shadow-[0_10px_36px_-28px_rgba(0,0,0,0.45)]">
                           <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/45">
