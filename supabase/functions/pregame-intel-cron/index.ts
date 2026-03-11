@@ -42,6 +42,24 @@ const VOLATILITY_THRESHOLDS: Record<string, { spread: number, total: number }> =
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+function buildInternalEdgeHeaders(serviceRoleKey: string) {
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+    };
+
+    if (serviceRoleKey) {
+        headers["Authorization"] = `Bearer ${serviceRoleKey}`;
+        headers["apikey"] = serviceRoleKey;
+    }
+
+    const pipelineSecret = Deno.env.get("PIPELINE_SECRET") ?? "";
+    const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+    if (pipelineSecret) headers["x-pipeline-secret"] = pipelineSecret;
+    if (cronSecret) headers["x-cron-secret"] = cronSecret;
+
+    return headers;
+}
+
 async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
     let timer: number | undefined;
     const timeout = new Promise<T>((_, reject) => {
@@ -166,11 +184,7 @@ Deno.serve(async (req: Request) => {
         try {
             const fetchPromise = fetch(`${supabaseUrl}/functions/v1/pregame-intel-worker`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${serviceRoleKey}`,
-                    "apikey": serviceRoleKey
-                },
+                headers: buildInternalEdgeHeaders(serviceRoleKey),
                 body: JSON.stringify({ ...body, force_refresh: true })
             });
 
@@ -369,11 +383,7 @@ async function runBatchProcessing(supabase: any, batchId: string, isForce: boole
                 if (uniqueQueue.length > 0) {
                     console.log(`[discovery] 🛠️ Rectifying ${uniqueQueue.length} Intelligence Gaps`);
 
-                    const headers = {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${serviceRoleKey}`,
-                        "apikey": serviceRoleKey
-                    };
+                    const headers = buildInternalEdgeHeaders(serviceRoleKey);
 
                     const results = await processInBatches(uniqueQueue, CONFIG.CONCURRENCY, async ({ game }) => {
                         const odds = (game as any).current_odds || {};

@@ -6,6 +6,25 @@ const supabase = createClient(
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
+function buildInternalEdgeHeaders() {
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const headers: Record<string, string> = {
+        "content-type": "application/json",
+    };
+
+    if (serviceRoleKey) {
+        headers["authorization"] = `Bearer ${serviceRoleKey}`;
+        headers["apikey"] = serviceRoleKey;
+    }
+
+    const pipelineSecret = Deno.env.get("PIPELINE_SECRET") ?? "";
+    const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+    if (pipelineSecret) headers["x-pipeline-secret"] = pipelineSecret;
+    if (cronSecret) headers["x-cron-secret"] = cronSecret;
+
+    return headers;
+}
+
 function json(body: unknown, status = 200) {
     return new Response(JSON.stringify(body), {
         status,
@@ -47,10 +66,7 @@ Deno.serve(async () => {
 
         const resp = await fetch(workerUrl, {
             method: "POST",
-            headers: {
-                "content-type": "application/json",
-                "authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-            },
+            headers: buildInternalEdgeHeaders(),
             body: JSON.stringify({ job_id: jobId }),
         });
 

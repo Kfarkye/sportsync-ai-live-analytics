@@ -11,6 +11,23 @@ const CORS_HEADERS = {
     "Content-Type": "application/json",
 };
 
+function buildInternalEdgeHeaders() {
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const headers: Record<string, string> = {};
+
+    if (serviceRoleKey) {
+        headers["Authorization"] = `Bearer ${serviceRoleKey}`;
+        headers["apikey"] = serviceRoleKey;
+    }
+
+    const pipelineSecret = Deno.env.get("PIPELINE_SECRET") ?? "";
+    const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+    if (pipelineSecret) headers["x-pipeline-secret"] = pipelineSecret;
+    if (cronSecret) headers["x-cron-secret"] = cronSecret;
+
+    return headers;
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
@@ -29,9 +46,7 @@ Deno.serve(async (req: Request) => {
         const workerUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/pregame-intel-worker`;
         const resp = await supabase.functions.invoke("pregame-intel-worker", {
             body,
-            headers: {
-                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-            }
+            headers: buildInternalEdgeHeaders()
         });
 
         if (resp.error) throw resp.error;
