@@ -130,6 +130,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   isPinned = false,
   isLive = false,
   isFinal = false,
+  isStale = false,
   isSelected = false,
   polyHomeProb,
   polyAwayProb,
@@ -138,7 +139,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   onSelect,
   onTogglePin,
 }, ref) => {
-  const showScores = isLive || isFinal;
+  const showScores = isLive || isFinal || isStale;
   const isTennis = match.sport === Sport.TENNIS;
   const oddsLens = useAppStore((state) => state.oddsLens);
 
@@ -299,6 +300,11 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           <div className="flex items-center gap-1.5">
             <PinButton isPinned={isPinned} onToggle={onTogglePin} />
             <span className="text-[9px] font-semibold text-[#555555] bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md uppercase tracking-[0.12em] font-mono">FINAL</span>
+          </div>
+        ) : isStale ? (
+          <div className="flex items-center gap-1.5">
+            <PinButton isPinned={isPinned} onToggle={onTogglePin} />
+            <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md uppercase tracking-[0.12em] font-mono">SUSPENDED</span>
           </div>
         ) : (
           <>

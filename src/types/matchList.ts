@@ -10,6 +10,7 @@ export interface MatchRowProps {
     isPinned?: boolean;
     isLive?: boolean;
     isFinal?: boolean;
+    isStale?: boolean;
     onTogglePin?: (e: any) => void;
 }
 

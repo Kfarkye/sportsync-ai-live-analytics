@@ -39,6 +39,7 @@ export interface EnrichedMatch {
     timeMs: number;
     isLive: boolean;
     isFinal: boolean;
+    isStale: boolean;
     isPinned: boolean;
 }
 
@@ -50,6 +51,7 @@ interface MatchListProps {
     onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
     isMatchLive: (match: Match) => boolean;
     isMatchFinal: (match: Match) => boolean;
+    isMatchStale?: (match: Match) => boolean;
     onOpenPricing: () => void;
 }
 
@@ -128,6 +130,7 @@ interface OptimizedMatchRowProps {
     isPinned: boolean;
     isLive: boolean;
     isFinal: boolean;
+    isStale: boolean;
     onSelect: (m: Match) => void;
     onToggle: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
     polyResult?: PolyOddsResult;
@@ -139,7 +142,7 @@ interface OptimizedMatchRowProps {
  * when the parent re-renders for a pin toggle elsewhere in the list.
  */
 const OptimizedMatchRow = memo(({
-    match, isPinned, isLive, isFinal, onSelect, onToggle, polyResult
+    match, isPinned, isLive, isFinal, isStale, onSelect, onToggle, polyResult
 }: OptimizedMatchRowProps) => {
 
     const handleSelect = useCallback(() => onSelect(match), [match, onSelect]);
@@ -183,6 +186,7 @@ const OptimizedMatchRow = memo(({
                 isPinned={isPinned}
                 isLive={isLive}
                 isFinal={isFinal}
+                isStale={isStale}
                 onSelect={handleSelect}
                 onTogglePin={handleToggle}
                 {...(polyHomeProb !== undefined ? { polyHomeProb } : {})}
@@ -314,8 +318,8 @@ const PropRow = memo(({
             type="button"
             onClick={() => onOpenDetail(prop, match)}
             className={cn(
-            "group flex items-center gap-3 max-[390px]:gap-2.5 px-3.5 max-[390px]:px-3 py-3 max-[390px]:py-2.5 transition-colors duration-150 hover:bg-zinc-50 cursor-pointer [-webkit-tap-highlight-color:transparent]"
-        )}>
+                "group flex items-center gap-3 max-[390px]:gap-2.5 px-3.5 max-[390px]:px-3 py-3 max-[390px]:py-2.5 transition-colors duration-150 hover:bg-zinc-50 cursor-pointer [-webkit-tap-highlight-color:transparent]"
+            )}>
             {/* Headshot */}
             <div className="relative w-10 h-10 max-[390px]:w-9 max-[390px]:h-9 shrink-0">
                 <div className="w-full h-full rounded-full overflow-hidden bg-zinc-100 border border-black/5 shadow-sm">
@@ -491,11 +495,11 @@ const LeagueGroup = memo(({
                         </>
                     )}
                 </div>
-                    <motion.svg
+                <motion.svg
                     xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                     fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                        className="text-blue-400" animate={{ rotate: isExpanded ? 0 : -90 }} transition={{ duration: 0.2 }}
-                    >
+                    className="text-blue-400" animate={{ rotate: isExpanded ? 0 : -90 }} transition={{ duration: 0.2 }}
+                >
                     <path d="m6 9 6 6 6-6" />
                 </motion.svg>
             </button>
@@ -515,13 +519,14 @@ const LeagueGroup = memo(({
                         )}
                     >
                         <div ref={measureRef} className="flex flex-col divide-y divide-zinc-100/80">
-                            {enrichedMatches.map(({ match, isPinned, isLive, isFinal }) => (
+                            {enrichedMatches.map(({ match, isPinned, isLive, isFinal, isStale }) => (
                                 <OptimizedMatchRow
                                     key={match.id}
                                     match={match}
                                     isPinned={isPinned}
                                     isLive={isLive}
                                     isFinal={isFinal}
+                                    isStale={isStale}
                                     onSelect={onSelectMatch}
                                     onToggle={onTogglePin}
                                     polyResult={polyResult}
@@ -541,7 +546,7 @@ LeagueGroup.displayName = 'LeagueGroup';
 // ============================================================================
 
 const MatchList: React.FC<MatchListProps> = ({
-    matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal, onOpenPricing,
+    matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal, isMatchStale, onOpenPricing,
 }) => {
     const oddsLens = useAppStore((state) => state.oddsLens);
 
@@ -674,6 +679,7 @@ const MatchList: React.FC<MatchListProps> = ({
                 timeMs: parseSafeDateMs(m.startTime),
                 isLive: isMatchLive(m),
                 isFinal: isMatchFinal(m),
+                isStale: isMatchStale ? isMatchStale(m) : false,
                 isPinned: pinnedMatchIds.has(m.id),
             };
         });
@@ -707,7 +713,7 @@ const MatchList: React.FC<MatchListProps> = ({
         return { groupedMatches: sortedGroups };
 
         // isMatchLive and isMatchFinal must remain in dependencies to ensure concurrent safety
-    }, [matches, pinnedMatchIds, isMatchLive, isMatchFinal]);
+    }, [matches, pinnedMatchIds, isMatchLive, isMatchFinal, isMatchStale]);
 
     // Steal #5: Upgraded loading skeleton
     if (isLoading && matches.length === 0) {
@@ -799,14 +805,14 @@ const MatchList: React.FC<MatchListProps> = ({
                                             <span className="font-mono text-[8.5px] max-[390px]:text-[8px] text-blue-300 tracking-[0.03em] uppercase">Via Polymarket</span>
                                         </div>
                                         <div className="divide-y divide-slate-100/80">
-                                        {pulseMarkets.slice(0, 3).map(({ poly, match }, i) => (
-                                            <MarketPulseRow
-                                                key={`mobile-${poly.poly_event_slug || i}`}
-                                                poly={poly}
-                                                match={match}
-                                                onSelect={handleSelect}
-                                            />
-                                        ))}
+                                            {pulseMarkets.slice(0, 3).map(({ poly, match }, i) => (
+                                                <MarketPulseRow
+                                                    key={`mobile-${poly.poly_event_slug || i}`}
+                                                    poly={poly}
+                                                    match={match}
+                                                    onSelect={handleSelect}
+                                                />
+                                            ))}
                                         </div>
                                     </section>
                                 )}
@@ -827,15 +833,15 @@ const MatchList: React.FC<MatchListProps> = ({
                                             </span>
                                         </div>
                                         <div className="divide-y divide-slate-100/80">
-                                        {featuredPropRows.slice(0, 3).map(({ prop, match }) => (
-                                            <PropRow
-                                                key={`mobile-${prop.player_name}${prop.bet_type}`}
-                                                prop={prop}
-                                                match={match}
-                                                oddsMode={oddsLens}
-                                                onOpenDetail={openFeaturedProp}
-                                            />
-                                        ))}
+                                            {featuredPropRows.slice(0, 3).map(({ prop, match }) => (
+                                                <PropRow
+                                                    key={`mobile-${prop.player_name}${prop.bet_type}`}
+                                                    prop={prop}
+                                                    match={match}
+                                                    oddsMode={oddsLens}
+                                                    onOpenDetail={openFeaturedProp}
+                                                />
+                                            ))}
                                         </div>
                                     </section>
                                 )}
@@ -852,21 +858,21 @@ const MatchList: React.FC<MatchListProps> = ({
                                     <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
                                         <div className="flex items-center gap-2">
                                             <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
-                                                <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+                                                <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
                                             </div>
                                             <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-blue-800 uppercase">Market Pulse</span>
                                         </div>
                                         <span className="font-mono text-[8.5px] text-blue-300 tracking-[0.03em] uppercase">Via Polymarket</span>
                                     </div>
                                     <div className="divide-y divide-slate-100/80">
-                                    {pulseMarkets.map(({ poly, match }, i) => (
-                                        <MarketPulseRow
-                                            key={poly.poly_event_slug || i}
-                                            poly={poly}
-                                            match={match}
-                                            onSelect={handleSelect}
-                                        />
-                                    ))}
+                                        {pulseMarkets.map(({ poly, match }, i) => (
+                                            <MarketPulseRow
+                                                key={poly.poly_event_slug || i}
+                                                poly={poly}
+                                                match={match}
+                                                onSelect={handleSelect}
+                                            />
+                                        ))}
                                     </div>
                                 </section>
                             )}
@@ -878,7 +884,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                         <div className="flex items-center gap-2">
                                             <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                 <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M1 10L5 6L8 9L13 4"/><path d="M9 4H13V8"/>
+                                                    <path d="M1 10L5 6L8 9L13 4" /><path d="M9 4H13V8" />
                                                 </svg>
                                             </div>
                                             <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-blue-800 uppercase">Featured Props</span>
@@ -888,15 +894,15 @@ const MatchList: React.FC<MatchListProps> = ({
                                         </span>
                                     </div>
                                     <div className="divide-y divide-slate-100/80">
-                                    {featuredPropRows.map(({ prop, match }) => (
-                                        <PropRow
-                                            key={prop.player_name + prop.bet_type}
-                                            prop={prop}
-                                            match={match}
-                                            oddsMode={oddsLens}
-                                            onOpenDetail={openFeaturedProp}
-                                        />
-                                    ))}
+                                        {featuredPropRows.map(({ prop, match }) => (
+                                            <PropRow
+                                                key={prop.player_name + prop.bet_type}
+                                                prop={prop}
+                                                match={match}
+                                                oddsMode={oddsLens}
+                                                onOpenDetail={openFeaturedProp}
+                                            />
+                                        ))}
                                     </div>
                                 </section>
                             )}

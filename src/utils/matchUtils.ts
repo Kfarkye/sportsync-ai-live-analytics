@@ -77,9 +77,20 @@ export const isMatchActuallyLive = (match: Match): boolean => {
 };
 
 export const isMatchActuallyFinal = (match: Match): boolean => {
-  if (isGameFinished(match.status)) return true;
+  return isGameFinished(match.status);
+};
 
-  // Staleness fallback: if it's trapped in a break state but >5 hours old, consider it final
+/**
+ * Detects abandoned/orphaned data feeds.
+ * A game is "stale" when it's been in a break state (halftime, end-of-period)
+ * for 5+ hours past its start time — meaning the ingestion stopped updating
+ * but the game almost certainly finished. These should NOT be shown as LIVE
+ * or FINAL, but as SUSPENDED with the last known score.
+ */
+export const isMatchStale = (match: Match): boolean => {
+  if (isGameFinished(match.status)) return false; // genuinely final, not stale
+  if (!isGameInProgress(match.status)) return false; // not even live, can't be stale
+
   const normalized = String(match.status || '').toUpperCase();
   if (BREAK_STATUSES.includes(normalized) && match.startTime) {
     const startMs = new Date(match.startTime).getTime();

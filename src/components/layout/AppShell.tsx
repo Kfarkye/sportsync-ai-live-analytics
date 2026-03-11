@@ -8,7 +8,7 @@ import MatchDetails from '../match/MatchDetails';
 import ChatWidget from '../ChatWidget';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
-import { hasPersistedSportContext, isGameInProgress, isGameFinished, isMatchActuallyLive, isMatchActuallyFinal } from '../../utils/matchUtils';
+import { hasPersistedSportContext, isGameInProgress, isGameFinished, isMatchActuallyLive, isMatchActuallyFinal, isMatchStale } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
 import { Sport } from '@/types';
@@ -198,6 +198,7 @@ const AppShell: FC = () => {
                     onTogglePin={(id) => togglePin(id)}
                     isMatchLive={(m) => isMatchActuallyLive(m)}
                     isMatchFinal={(m) => isMatchActuallyFinal(m)}
+                    isMatchStale={(m) => isMatchStale(m)}
                     onOpenPricing={() => togglePricingModal(true)}
                   />
                 )}
