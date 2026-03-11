@@ -481,7 +481,7 @@ export default function TrendsPage() {
         <section className={`${THEME.layout.section} p-4 md:p-5`}>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <FilterSelect label="League" value={leagueFilter} options={dynamicLeagueOptions} onChange={setLeagueFilter} />
-            <FilterSelect label="Date Window" value={dateWindow} options={FILTER_OPTIONS.dateWindow} onChange={setDateWindow} />
+            <FilterSelect label="Date Window" value={dateWindow} options={FILTER_OPTIONS.dateWindow} onChange={(val) => setDateWindow(val as DateWindow)} />
 
             <FilterInput label="Team Filter" value={search} onChange={setSearch} placeholder="Search team" />
             <FilterInput
