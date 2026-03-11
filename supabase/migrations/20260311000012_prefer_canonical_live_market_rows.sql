@@ -1,3 +1,11 @@
+DROP VIEW IF EXISTS v_timeout_response_basketball_clean;
+DROP VIEW IF EXISTS v_red_card_market_shift_clean;
+DROP VIEW IF EXISTS v_first_goal_repricing_clean;
+DROP VIEW IF EXISTS v_timeout_response_basketball;
+DROP VIEW IF EXISTS v_red_card_market_shift;
+DROP VIEW IF EXISTS v_first_goal_repricing;
+DROP VIEW IF EXISTS v_live_market_snapshots_unified;
+
 CREATE OR REPLACE VIEW v_live_market_snapshots_unified AS
 SELECT
   CONCAT('live_odds_snapshots:', los.id::text) AS snapshot_key,
