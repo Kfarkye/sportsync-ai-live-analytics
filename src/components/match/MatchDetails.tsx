@@ -612,7 +612,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
       );
     }
 
-    return <LiveGameTracker match={match} liveState={liveState as any} showHeader={false} headerVariant="embedded" />;
+    return <LiveGameTracker match={match} liveState={liveState || undefined} showHeader={false} headerVariant="embedded" />;
   };
 
   const periodLabel = match.period ? `P${match.period}` : '';
@@ -713,7 +713,7 @@ const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: { match: Extended
     <motion.div style={{ x }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={(_e, i) => { if (i.offset.x > 100) onSwipe(-1); else if (i.offset.x < -100) onSwipe(1); }} className="mx-auto w-full max-w-[1280px] cursor-grab px-4 pb-3 pt-1 sm:px-6 md:px-8 active:cursor-grabbing">
       <AnimatePresence mode="wait">
         <motion.div key={match.id} initial={{ opacity: 0, scale: 0.99, filter: 'blur(2px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 1.01, filter: 'blur(2px)' }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
-          {isScheduled ? <MatchupHeader matchId={match.id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} startTime={match.startTime} sport={match.sport} currentOdds={match.current_odds as any} /> : <ScoreHeader match={match} variant="embedded" />}
+          {isScheduled ? <MatchupHeader matchId={match.id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} startTime={match.startTime} sport={match.sport} currentOdds={match.current_odds || undefined} /> : <ScoreHeader match={match} variant="embedded" />}
         </motion.div>
       </AnimatePresence>
     </motion.div>
@@ -764,9 +764,9 @@ function computeMatchSignature(m: ExtendedMatch): string {
     String(m.homeScore ?? ''),
     String(m.awayScore ?? ''),
     m.lastPlay?.text || '',
-    hashStable(m.current_odds as any ?? null),
-    hashStable(m.stats as any ?? null),
-    hashStable(m.playerStats as any ?? null)
+    hashStable((m.current_odds as Serializable) ?? null),
+    hashStable((m.stats as Serializable) ?? null),
+    hashStable((m.playerStats as Serializable) ?? null)
   ].join('|');
 }
 
@@ -865,7 +865,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           const createdAt = parseTsMs(newLive.created_at, receivedAt);
           if (createdAt <= lastLiveCreatedAtRef.current) return;
           lastLiveCreatedAtRef.current = createdAt; lastLiveReceivedAtRef.current = receivedAt;
-          const nextLiveSig = hashStable(newLive as any);
+          const nextLiveSig = hashStable(newLive as Serializable);
           if (nextLiveSig !== liveSigRef.current) { liveSigRef.current = nextLiveSig; processLiveState(newLive); }
         }
       })
@@ -991,7 +991,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
       } else if (props !== null) nextMatch.dbProps = [];
       const nextSig = computeMatchSignature(nextMatch);
       if (nextSig !== matchSigRef.current) { matchRef.current = nextMatch; matchSigRef.current = nextSig; setMatch(nextMatch); }
-      if (live) { const receivedAt = Date.now(); const createdAt = parseTsMs(live.created_at, receivedAt); if (createdAt > lastLiveCreatedAtRef.current) { lastLiveCreatedAtRef.current = createdAt; lastLiveReceivedAtRef.current = receivedAt; const nextLiveSig = hashStable(live as any); if (nextLiveSig !== liveSigRef.current) { liveSigRef.current = nextLiveSig; processLiveState(live); } } }
+      if (live) { const receivedAt = Date.now(); const createdAt = parseTsMs(live.created_at, receivedAt); if (createdAt > lastLiveCreatedAtRef.current) { lastLiveCreatedAtRef.current = createdAt; lastLiveReceivedAtRef.current = receivedAt; const nextLiveSig = hashStable(live as Serializable); if (nextLiveSig !== liveSigRef.current) { liveSigRef.current = nextLiveSig; processLiveState(live); } } }
       if (isGameScheduled(cur.status) && !nextMatch.homeTeam.last5) { try { const [hForm, aForm] = await Promise.all([fetchTeamLastFive(cur.homeTeam.id, cur.sport, cur.leagueId), fetchTeamLastFive(cur.awayTeam.id, cur.sport, cur.leagueId)]); nextMatch.homeTeam.last5 = hForm; nextMatch.awayTeam.last5 = aForm; setMatch({ ...nextMatch }); matchRef.current = nextMatch; } catch (e) { console.warn('Form Fetch Error', e); } }
       void maybeFetchNhlShots(nextMatch);
       setConnectionStatus('connected'); setError(null); setIsInitialLoad(false);
@@ -1073,7 +1073,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     if (!matches.length) return;
     const idx = matches.findIndex(m => m.id === match.id);
     if (idx === -1) return;
-    onSelectMatch?.(matches[(idx + dir + matches.length) % matches.length] as any);
+    const nextMatch = matches[(idx + dir + matches.length) % matches.length];
+    if (nextMatch) onSelectMatch?.(nextMatch);
   }, [matches, match.id, onSelectMatch]);
 
   if (!match?.homeTeam) return <MatchupLoader className="h-screen" label="Synchronizing Hub" />;
@@ -1133,7 +1134,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           .maybeSingle();
 
         if (active) {
-          setPregameIntel(fallback ? { ...(fallback as PregameIntelResponse), match_id: (fallback as any).match_id || match.id, freshness: (fallback as any).freshness || 'RECENT' } : null);
+          setPregameIntel(fallback ? { ...(fallback as PregameIntelResponse), match_id: (fallback as PregameIntelResponse).match_id || match.id, freshness: (fallback as PregameIntelResponse).freshness || 'RECENT' } : null);
         }
       } catch {
         if (active) setPregameIntel(null);
@@ -1279,15 +1280,15 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     if (meta?.type === 'TOTAL') {
       bestOdds = meta.side === 'OVER'
         ? (oddsMarket?.overOdds ?? oddsMarket?.over ?? oddsMarket?.totalOver) as any
-        : (oddsMarket?.underOdds ?? oddsMarket?.under) as any;
+        : (oddsMarket?.underOdds ?? oddsMarket?.under);
     } else if (meta?.type === 'SPREAD') {
       bestOdds = meta.side === 'HOME'
         ? (oddsMarket?.homeSpreadOdds ?? oddsMarket?.homeSpread) as any
-        : (oddsMarket?.awaySpreadOdds ?? oddsMarket?.awaySpread) as any;
+        : (oddsMarket?.awaySpreadOdds ?? oddsMarket?.awaySpread);
     } else if (meta?.type === 'MONEYLINE') {
       bestOdds = meta.side === 'HOME'
         ? (oddsMarket?.moneylineHome ?? oddsMarket?.home_ml) as any
-        : (oddsMarket?.moneylineAway ?? oddsMarket?.away_ml) as any;
+        : (oddsMarket?.moneylineAway ?? oddsMarket?.away_ml);
     }
 
     const confidence = pregameIntel.confidence_score;
@@ -1511,7 +1512,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         )}
                       </div>
                     )}
-                    {isBaseball && (baseballData as any)?.edge && (
+                    {isBaseball && (baseballData as { edge?: number[] })?.edge && (
                       <div className="mb-12">
                         <div className="flex items-center gap-2 mb-4">
                           <div className="w-1 h-1 rounded-full bg-emerald-400" />
@@ -1519,7 +1520,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                             Edge Convergence
                           </span>
                         </div>
-                        <BaseballEdgePanel edge={(baseballData as any).edge} />
+                        <BaseballEdgePanel edge={(baseballData as { edge: number[] }).edge} />
                       </div>
                     )}
                     <div className="mb-12"><ForecastHistoryTable matchId={match.id} /></div>
@@ -1564,7 +1565,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       </aside>
 
                       <div className="order-2 lg:order-1 h-[calc(100dvh-190px)] min-h-[520px] overflow-hidden rounded-[22px] border border-black/6 bg-white shadow-[0_14px_42px_-28px_rgba(0,0,0,0.36)]">
-                        <ChatWidget currentMatch={match as any} inline />
+                        <ChatWidget currentMatch={match} inline />
                       </div>
                     </div>
                   </div>
@@ -1574,7 +1575,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           </LayoutGroup>
         </main>
       </LiveSweatProvider>
-      {process.env['NODE_ENV'] === 'development' && <TechnicalDebugView match={match as any} />}
+      {process.env['NODE_ENV'] === 'development' && <TechnicalDebugView match={match} />}
     </div>
   );
 };
