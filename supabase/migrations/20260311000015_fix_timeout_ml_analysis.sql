@@ -1,3 +1,6 @@
+DROP VIEW IF EXISTS v_basketball_timeout_response_summary;
+DROP VIEW IF EXISTS v_basketball_timeout_response_research_grade;
+
 CREATE OR REPLACE VIEW v_basketball_timeout_response_research_grade AS
 WITH base AS (
   SELECT
