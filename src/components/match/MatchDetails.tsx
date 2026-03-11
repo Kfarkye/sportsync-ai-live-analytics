@@ -2812,7 +2812,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({
   // ════════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="min-h-screen font-sans bg-[#F7F8FA] text-[#0A0A0A]">
+    <div className="relative min-h-[100dvh] overflow-y-auto overflow-x-hidden bg-[#F7F8FA] pb-[calc(env(safe-area-inset-bottom)+6rem)] font-sans text-[#0A0A0A] selection:bg-black selection:text-white">
       <div className="relative isolate">
 
         <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-[#F7F8FA] pt-safe transition-colors duration-500">
