@@ -292,6 +292,65 @@ function resolvePrimaryLiveOdds(args: {
   return parsedOdds.odds_live || espnOdds || effectiveOdds || null;
 }
 
+function resolveCurrentOddsLineage(args: {
+  existingCurrentOdds: any;
+  effectiveOdds: any;
+  finalMarketOdds: any;
+  espnOdds: any;
+}) {
+  const { existingCurrentOdds, effectiveOdds, finalMarketOdds, espnOdds } = args;
+  const provider = String(
+    effectiveOdds?.provider ||
+    finalMarketOdds?.provider ||
+    existingCurrentOdds?.provider ||
+    ''
+  ).toLowerCase();
+
+  const hasEspnSignal = Boolean(
+    espnOdds?.homeSpread != null ||
+    espnOdds?.homeWin != null ||
+    espnOdds?.total != null ||
+    espnOdds?.provider
+  );
+
+  const isInstitutional =
+    finalMarketOdds?.isInstitutional === true ||
+    effectiveOdds?.isInstitutional === true ||
+    provider.includes('institutional');
+
+  const isExternalBook =
+    provider.includes('pinnacle') ||
+    provider.includes('circa') ||
+    provider.includes('bet365') ||
+    provider.includes('draftkings') ||
+    provider.includes('draft kings') ||
+    provider.includes('fanduel') ||
+    provider.includes('betmgm') ||
+    provider.includes('bookmaker');
+
+  const isEspnAdapter =
+    provider.includes('espn') ||
+    provider.includes('consensus') ||
+    provider.includes('pickcenter');
+
+  const sourceDetail = isInstitutional
+    ? 'premium_feed'
+    : isExternalBook && !isEspnAdapter
+      ? 'external_current_odds'
+      : hasEspnSignal || isEspnAdapter
+        ? 'espn_adapter'
+        : 'unknown';
+
+  const originChain = [
+    existingCurrentOdds?.provider ? `existing:${existingCurrentOdds.provider}` : null,
+    finalMarketOdds?.provider ? `final:${finalMarketOdds.provider}` : null,
+    espnOdds?.provider ? `espn:${espnOdds.provider}` : null,
+    sourceDetail
+  ].filter(Boolean);
+
+  return { sourceDetail, originChain };
+}
+
 function buildLiveOddsSnapshotRows(args: {
   capturedAt: string;
   comp: any;
@@ -305,6 +364,10 @@ function buildLiveOddsSnapshotRows(args: {
   effectiveOdds: any;
   finalMarketOdds: any;
   parsedOdds: ParsedProviderOdds;
+  currentOddsLineage?: {
+    sourceDetail?: string;
+    originChain?: string[];
+  };
 }) {
   const {
     capturedAt,
@@ -318,7 +381,8 @@ function buildLiveOddsSnapshotRows(args: {
     espnOdds,
     effectiveOdds,
     finalMarketOdds,
-    parsedOdds
+    parsedOdds,
+    currentOddsLineage
   } = args;
 
   const normalizedState = normalizeSnapshotState(comp);
@@ -387,6 +451,8 @@ function buildLiveOddsSnapshotRows(args: {
   pushRow('main', {
     ...(finalMarketOdds || {}),
     ...(effectiveOdds || {}),
+    source_detail: currentOddsLineage?.sourceDetail || null,
+    origin_chain: currentOddsLineage?.originChain || [],
     provider: effectiveOdds?.provider || finalMarketOdds?.provider || 'CurrentOdds',
     provider_id: effectiveOdds?.provider_id ?? finalMarketOdds?.provider_id ?? null
   }, 'match_current_odds');
@@ -984,6 +1050,12 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
     }
 
     const effectiveOdds = (isExistingExternal && existingMatch?.current_odds) ? existingMatch.current_odds : canonicalOddsPayload;
+    const currentOddsLineage = resolveCurrentOddsLineage({
+      existingCurrentOdds: existingMatch?.current_odds,
+      effectiveOdds,
+      finalMarketOdds,
+      espnOdds
+    });
     matchPayload.current_odds = effectiveOdds;
     const aiSignalResult = computeAISignalsSafely(matchPayload, {
       matchId: dbMatchId,
@@ -1073,7 +1145,8 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       espnOdds,
       effectiveOdds,
       finalMarketOdds,
-      parsedOdds
+      parsedOdds,
+      currentOddsLineage
     });
 
     await upsertWithRetry('live_game_state', statePayload);
