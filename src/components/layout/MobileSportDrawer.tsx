@@ -41,7 +41,7 @@ const CHECK_SPRING = { type: 'spring' as const, stiffness: 500, damping: 32, mas
 const LivePulse: React.FC<{ count: number; isSelected: boolean }> = ({ count, isSelected }) => (
   <span className="inline-flex items-center gap-2" aria-label={`${count} active events`}>
     <span
-      className="rounded-full flex-shrink-0"
+      className="rounded-full shrink-0"
       style={{
         width: 6,
         height: 6,
@@ -102,7 +102,7 @@ const SportRow: React.FC<{
         {label}
       </span>
 
-      <span className="flex items-center gap-4 flex-shrink-0">
+      <span className="flex items-center gap-4 shrink-0">
         {liveCount > 0 && <LivePulse count={liveCount} isSelected={isSelected} />}
 
         {/* Brutalist 2.5px checkmark stroke. Geometric and confident. */}
@@ -208,7 +208,7 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
             onClick={onClose}
-            className="fixed inset-0 z-[100]"
+            className="fixed inset-0 z-100"
             style={{
               backgroundColor: 'rgba(0,0,0,0.3)',
               backdropFilter: 'blur(16px)',       // Deep cinematic glass blur
@@ -227,7 +227,7 @@ const MobileSportDrawer: React.FC<MobileSportDrawerProps> = ({
             dragConstraints={{ top: 0 }}
             dragElastic={0.04}
             onDragEnd={onDragEnd}
-            className="fixed bottom-0 inset-x-0 z-[101] flex flex-col max-h-[92vh] overflow-hidden"
+            className="fixed bottom-0 inset-x-0 z-101 flex flex-col max-h-[92vh] overflow-hidden"
             style={{
               backgroundColor: '#F2F2F7', // Exact iOS Grouped Background color
               borderRadius: '32px 32px 0 0', // Massive, hardware-like corner radii

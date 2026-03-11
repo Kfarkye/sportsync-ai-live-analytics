@@ -36,7 +36,7 @@ const WinProbability: React.FC<WinProbabilityProps> = ({
     return (
         <div className="relative group">
             {/* Subtle Ambient Glow */}
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-transparent via-white/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition duration-700 blur-sm" />
+            <div className="absolute -inset-0.5 bg-linear-to-r from-transparent via-white/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition duration-700 blur-sm" />
 
             <div className={cn(ESSENCE.card.base, "relative overflow-hidden shadow-sm")}>
                 {/* Background Tint based on winner */}
@@ -78,8 +78,8 @@ const WinProbability: React.FC<WinProbabilityProps> = ({
                         className="relative h-full flex flex-col justify-center pl-5"
                         style={{ backgroundColor: awayColor }}
                     >
-                        <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
-                        <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-black/30 to-transparent" />
+                        <div className="absolute inset-0 bg-linear-to-b from-white/10 to-transparent" />
+                        <div className="absolute right-0 top-0 bottom-0 w-12 bg-linear-to-l from-black/30 to-transparent" />
 
                         <div className="relative z-10 flex flex-col items-start">
                             <span className={ESSENCE.tier.t2Header + " text-white/70 mb-0.5 mix-blend-overlay"}>Away</span>
@@ -97,15 +97,15 @@ const WinProbability: React.FC<WinProbabilityProps> = ({
                             transition: 'left 1.4s cubic-bezier(0.22, 1, 0.36, 1)'
                         }}
                     >
-                        <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-white/10" />
+                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/10" />
                     </div>
 
                     {/* Home Segment */}
                     <div className="flex-1 relative h-full flex flex-col justify-center items-end pr-5"
                         style={{ backgroundColor: homeColor }}
                     >
-                        <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
-                        <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-black/30 to-transparent" />
+                        <div className="absolute inset-0 bg-linear-to-b from-white/10 to-transparent" />
+                        <div className="absolute left-0 top-0 bottom-0 w-12 bg-linear-to-r from-black/30 to-transparent" />
 
                         <div className="relative z-10 flex flex-col items-end">
                             <span className={ESSENCE.tier.t2Header + " text-white/70 mb-0.5 mix-blend-overlay"}>Home</span>

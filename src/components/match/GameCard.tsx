@@ -194,7 +194,7 @@ const GameCard: React.FC<MatchCardProps> = memo(({
                             </div>
                         </div>
                     ) : isFinal ? (
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] opacity-50 bg-black/5 px-2 py-0.5 rounded-[5px]">
+                        <span className="text-[10px] font-semibold uppercase tracking-widest opacity-50 bg-black/5 px-2 py-0.5 rounded-[5px]">
                             Final
                         </span>
                     ) : (
@@ -237,7 +237,7 @@ const GameCard: React.FC<MatchCardProps> = memo(({
                     <div key={team?.id || idx} className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3.5 min-w-0 flex-1">
                             {/* App-icon style bezel around team logos */}
-                            <div className="relative shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04),_inset_0_0_0_1px_rgba(0,0,0,0.03)]">
+                            <div className="relative shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04),inset_0_0_0_1px_rgba(0,0,0,0.03)]">
                                 <TeamLogo
                                     logo={team?.logo}
                                     name={team?.name || 'TBA'}
@@ -257,7 +257,7 @@ const GameCard: React.FC<MatchCardProps> = memo(({
                                     {team?.name || 'TBA'}
                                 </span>
                                 {team?.record && (
-                                    <span className="text-[11px] font-mono font-medium opacity-40 mt-[1px]">
+                                    <span className="text-[11px] font-mono font-medium opacity-40 mt-px">
                                         {team.record}
                                     </span>
                                 )}

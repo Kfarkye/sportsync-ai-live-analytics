@@ -13,10 +13,10 @@ const Navbar: React.FC = () => {
           <Menu size={24} />
         </button>
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-emerald-500 to-blue-600">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-tr from-emerald-500 to-blue-600">
             <Zap size={20} className="fill-current text-zinc-900" />
           </div>
-          <span className="bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-xl font-bold tracking-tight text-transparent">
+          <span className="bg-linear-to-r from-white to-zinc-400 bg-clip-text text-xl font-bold tracking-tight text-transparent">
             SportSync<span className="text-emerald-500">.AI</span>
           </span>
         </div>

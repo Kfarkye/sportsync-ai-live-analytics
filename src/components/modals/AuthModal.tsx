@@ -42,7 +42,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     // If backend is missing, show a helpful error but allow closing
     if (!isSupabaseConfigured()) {
         return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-zinc-950/55 backdrop-blur-[2px]" onClick={onClose}></div>
                 <div className="relative w-full max-w-md rounded-[28px] border border-red-200 bg-white p-8 shadow-[0_24px_60px_rgba(15,23,42,0.22)] animate-in fade-in zoom-in-95 duration-200">
                     <button onClick={onClose} className="absolute right-4 top-4 rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700">
@@ -71,7 +71,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     }
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-zinc-950/55 backdrop-blur-[2px]" onClick={onClose}></div>
 
             <div className="relative w-full max-w-md rounded-[28px] border border-zinc-200 bg-white p-7 shadow-[0_24px_60px_rgba(15,23,42,0.22)] animate-in fade-in zoom-in-95 duration-200 sm:p-8">

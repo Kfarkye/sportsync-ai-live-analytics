@@ -50,7 +50,7 @@ export const PropStreaksTable = ({ teamName }: { teamName?: string }) => {
             <div className="flex items-center justify-between py-3 border-b border-slate-200">
                 <div className="flex items-center gap-2">
                     <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.1em]">Hot Streaks</span>
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Hot Streaks</span>
                 </div>
                 <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">
                     Last 10 Games
@@ -66,11 +66,11 @@ export const PropStreaksTable = ({ teamName }: { teamName?: string }) => {
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.03 }}
-                            className="flex items-center justify-between py-3 border-b border-slate-200 hover:bg-white/[0.01] transition-colors duration-150"
+                            className="flex items-center justify-between py-3 border-b border-slate-200 hover:bg-white/1 transition-colors duration-150"
                         >
                             {/* Left: Player Info */}
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-white/[0.025] flex items-center justify-center">
+                                <div className="w-8 h-8 rounded-lg bg-white/2.5 flex items-center justify-center">
                                     <TrendingUp className="w-3.5 h-3.5 text-orange-500/70" />
                                 </div>
                                 <div>

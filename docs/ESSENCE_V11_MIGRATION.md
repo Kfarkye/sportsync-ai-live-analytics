@@ -64,23 +64,23 @@ These properties were accessed in components but never existed in the original E
 
 ### Borders
 ```diff
-- border-white/[0.03]   →  ESSENCE.tw.border.ghost
-- border-white/[0.04]   →  ESSENCE.tw.border.subtle
-- border-white/[0.05]   →  ESSENCE.tw.border.subtle   (collapsed)
-- border-white/[0.06]   →  ESSENCE.tw.border.default
-- border-white/[0.08]   →  ESSENCE.tw.border.default   (collapsed)
-- border-white/[0.10]   →  ESSENCE.tw.border.strong
-- border-white/[0.12]   →  ESSENCE.tw.border.strong
+- border-white/3   →  ESSENCE.tw.border.ghost
+- border-white/4   →  ESSENCE.tw.border.subtle
+- border-white/5   →  ESSENCE.tw.border.subtle   (collapsed)
+- border-white/6   →  ESSENCE.tw.border.default
+- border-white/8   →  ESSENCE.tw.border.default   (collapsed)
+- border-white/10   →  ESSENCE.tw.border.strong
+- border-white/12   →  ESSENCE.tw.border.strong
 ```
 
 ### Background Overlays
 ```diff
-- bg-white/[0.01]       →  ESSENCE.tw.surface.ghost
-- bg-white/[0.02]       →  ESSENCE.tw.surface.subtle
-- bg-white/[0.03]       →  ESSENCE.tw.surface.subtle   (collapsed)
-- bg-white/[0.04]       →  ESSENCE.tw.surface.muted
-- bg-white/[0.06]       →  ESSENCE.tw.surface.emphasis
-- bg-white/[0.08]       →  ESSENCE.tw.surface.emphasis  (collapsed)
+- bg-white/1       →  ESSENCE.tw.surface.ghost
+- bg-white/2       →  ESSENCE.tw.surface.subtle
+- bg-white/3       →  ESSENCE.tw.surface.subtle   (collapsed)
+- bg-white/4       →  ESSENCE.tw.surface.muted
+- bg-white/6       →  ESSENCE.tw.surface.emphasis
+- bg-white/8       →  ESSENCE.tw.surface.emphasis  (collapsed)
 ```
 
 ### Section Headers

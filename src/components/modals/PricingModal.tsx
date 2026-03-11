@@ -68,7 +68,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
   return (
     <AnimatePresence>
         {isOpen && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
                 <MotionDiv 
                     initial={{ opacity: 0 }} 
                     animate={{ opacity: 1 }} 
@@ -85,7 +85,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                     className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[32px] border border-zinc-200 bg-white shadow-[0_26px_70px_rgba(15,23,42,0.2)]"
                 >
                     {/* Header */}
-                    <div className="relative flex flex-col items-center justify-center border-b border-zinc-200 bg-gradient-to-b from-zinc-50 to-white px-6 pb-6 pt-10">
+                    <div className="relative flex flex-col items-center justify-center border-b border-zinc-200 bg-linear-to-b from-zinc-50 to-white px-6 pb-6 pt-10">
                         <button 
                             onClick={onClose} 
                             className="absolute right-5 top-5 rounded-full border border-zinc-200 bg-white p-2 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800"
@@ -94,7 +94,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                         </button>
 
                         <div className="flex items-center gap-2 mb-4">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-zinc-900 to-zinc-700 shadow-sm shadow-zinc-900/25">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-tr from-zinc-900 to-zinc-700 shadow-sm shadow-zinc-900/25">
                                 <Zap size={16} className="text-white" />
                             </div>
                             <span className="text-sm font-bold tracking-widest uppercase text-zinc-900">The Drip Pro</span>
@@ -138,7 +138,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                                 
                                 // Dynamic Styles based on tier
                                 const borderClass = isPopular ? 'border-emerald-300' : 'border-zinc-200';
-                                const bgClass = isPopular ? 'bg-gradient-to-b from-emerald-50 to-white' : 'bg-white';
+                                const bgClass = isPopular ? 'bg-linear-to-b from-emerald-50 to-white' : 'bg-white';
                                 const btnClass = isPopular 
                                     ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20' 
                                     : 'bg-zinc-900 hover:bg-zinc-800 text-white';
@@ -153,7 +153,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
                                         `}
                                     >
                                         {isPopular && (
-                                            <div className="absolute -top-px left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-60" />
+                                            <div className="absolute -top-px left-0 right-0 h-px bg-linear-to-r from-transparent via-emerald-500 to-transparent opacity-60" />
                                         )}
 
                                         <div className="mb-6">

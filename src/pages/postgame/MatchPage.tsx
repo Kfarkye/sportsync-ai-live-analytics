@@ -1082,7 +1082,7 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                     <div className="flex items-center justify-end gap-2.5">
                       <div className="min-w-0 text-right">
                         <div className="truncate text-lg font-semibold tracking-tight text-slate-900">{data.homeTeam}</div>
-                        <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                        <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-slate-400">
                           <House size={11} aria-hidden="true" />
                           Home
                         </div>
@@ -1100,7 +1100,7 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                       <TeamIdentityBadge teamName={data.awayTeam} side="away" logoUrl={awayTeamLogo} />
                       <div className="min-w-0 text-left">
                         <div className="truncate text-lg font-semibold tracking-tight text-slate-900">{data.awayTeam}</div>
-                        <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                        <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-slate-400">
                           <Flag size={11} aria-hidden="true" />
                           Away
                         </div>

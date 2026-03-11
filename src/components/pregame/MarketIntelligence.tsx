@@ -61,8 +61,8 @@ const MarketIntelligence: React.FC<MarketIntelligenceProps> = ({ marketIntel, co
     return (
         <div className="relative overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm group flex flex-col transition-all duration-500 hover:border-slate-300">
             {/* Ambient Background Glow */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.04] via-transparent to-transparent pointer-events-none" />
-            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+            <div className="absolute inset-0 bg-linear-to-br from-blue-500/4 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-white/8 to-transparent" />
 
             <div className="p-7">
                 <div className={`grid grid-cols-1 ${gridCols} gap-10`}>
@@ -96,7 +96,7 @@ const MarketIntelligence: React.FC<MarketIntelligenceProps> = ({ marketIntel, co
                             </div>
 
                             {marketIntel?.openingLine && (
-                                <div className="px-4 py-2 rounded-xl bg-white/[0.01] border border-white/[0.03] flex justify-between items-center group/opening">
+                                <div className="px-4 py-2 rounded-xl bg-white/1 border border-white/3 flex justify-between items-center group/opening">
                                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{isLive ? 'Full Game Line' : 'Opening Line'}</span>
                                     <span className="text-[10px] font-mono font-bold text-slate-500 tracking-tighter italic group-hover:text-slate-600 transition-colors">
                                         {marketIntel.openingLine}

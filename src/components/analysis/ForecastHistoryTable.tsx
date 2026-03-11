@@ -101,7 +101,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                             <th className="py-3 px-2 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Edge</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/[0.02]">
+                    <tbody className="divide-y divide-white/2">
                         <AnimatePresence mode="popLayout">
                             {snapshots.map((s) => (
                                 <motion.tr
@@ -109,7 +109,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                                     initial={{ opacity: 0, x: -4 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
-                                    className="group hover:bg-white/[0.015] transition-colors"
+                                    className="group hover:bg-white/1.5 transition-colors"
                                 >
                                     <td className="py-3 px-2">
                                         <div className="flex flex-col">

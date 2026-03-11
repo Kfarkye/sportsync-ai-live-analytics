@@ -19,7 +19,7 @@ export const MatchupLoader: React.FC<MatchupLoaderProps> = ({
         )}>
             <div className="relative mb-6">
                 <div className="absolute -inset-4 border border-white/5 rounded-full motion-safe:animate-[spin_8s_linear_infinite]" />
-                <div className="w-12 h-12 rounded-full bg-zinc-950 border border-white/[0.04] flex items-center justify-center backdrop-blur-xl">
+                <div className="w-12 h-12 rounded-full bg-zinc-950 border border-white/4 flex items-center justify-center backdrop-blur-xl">
                     <Loader2 className="w-5 h-5 text-zinc-600 motion-safe:animate-spin" />
                 </div>
             </div>

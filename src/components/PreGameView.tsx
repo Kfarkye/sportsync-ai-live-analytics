@@ -310,7 +310,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
                 return (
                     <div className="group relative overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
                         {/* Header: Zero UI Style */}
-                        <div className="flex items-end justify-between border-b border-zinc-200 bg-gradient-to-r from-zinc-50 via-white to-zinc-50 p-6">
+                        <div className="flex items-end justify-between border-b border-zinc-200 bg-linear-to-r from-zinc-50 via-white to-zinc-50 p-6">
                             <div>
                                 <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-600">Internal Briefing</div>
                                 <h2 className="text-2xl font-bold leading-none tracking-tight text-zinc-900">{match.awayTeam.name} <span className="text-zinc-500">@</span> {match.homeTeam.name}</h2>
@@ -417,7 +417,7 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
 
                 <div className="space-y-4">
                     {news.weather && (
-                        <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-4 shadow-sm">
+                        <div className="rounded-xl border border-indigo-200 bg-linear-to-br from-indigo-50 to-white p-4 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2 text-indigo-600">
                                     <Thermometer size={14} />

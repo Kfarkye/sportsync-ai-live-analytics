@@ -256,7 +256,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
         return (
             <div className="my-8" aria-busy="true" aria-label="Computing live advantages" aria-live="polite">
                 <div className={cn("backdrop-blur-2xl p-8 space-y-8 overflow-hidden relative group", ESSENCE.card.base)}>
-                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent opacity-50 pointer-events-none" />
+                    <div className="absolute inset-0 bg-linear-to-br from-emerald-500/5 via-transparent to-transparent opacity-50 pointer-events-none" />
 
                     <div className="flex items-center justify-between relative z-10" aria-hidden="true">
                         <div className="flex items-center gap-3">
@@ -277,7 +277,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                         <div className="w-4/5 h-4 bg-zinc-800/20 rounded-lg animate-pulse" />
                     </div>
 
-                    <div className="pt-8 border-t border-white/[0.03] flex items-center justify-between relative z-10">
+                    <div className="pt-8 border-t border-white/3 flex items-center justify-between relative z-10">
                         <div className="flex items-center gap-2">
                             <div className="flex gap-0.5" aria-hidden="true">
                                 {LOADER_BARS.map(i => (
@@ -435,7 +435,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                             </span>
                             {ui.isEdge && (
                                 <>
-                                    <div className="w-[1px] h-4 bg-white/10" aria-hidden="true" />
+                                    <div className="w-px h-4 bg-white/10" aria-hidden="true" />
                                     <span className="text-[11px] font-mono font-bold text-slate-300 tabular-nums">
                                         {ui.formattedUnitSize}
                                     </span>
@@ -518,7 +518,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                 transition={{ duration: 0.3, ease: 'easeInOut' }}
                                 className="overflow-hidden"
                             >
-                                <p className="text-[13.5px] text-slate-400 leading-[1.6] tracking-tight pb-5 border-l border-white/[0.05] pl-4 italic bg-white/[0.01] pt-3 pr-3 rounded-r-lg shadow-inner">
+                                <p className="text-[13.5px] text-slate-400 leading-[1.6] tracking-tight pb-5 border-l border-white/5 pl-4 italic bg-white/1 pt-3 pr-3 rounded-r-lg shadow-inner">
                                     {safeString(sharp_data.the_read)}
                                 </p>
                             </motion.div>

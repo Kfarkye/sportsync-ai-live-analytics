@@ -200,8 +200,8 @@ export const ApplePlayerCard: React.FC<{
             transition={{ delay: index * 0.05, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
                 "group relative rounded-[32px] overflow-hidden transition-all duration-500 transform-gpu",
-                "bg-white/95 backdrop-blur-[24px] border border-slate-200/80",
-                "shadow-[0_0_0_1px_rgba(15,23,42,0.03),_0_20px_50px_-12px_rgba(15,23,42,0.14)]",
+                "bg-white/95 backdrop-blur-xl border border-slate-200/80",
+                "shadow-[0_0_0_1px_rgba(15,23,42,0.03),0_20px_50px_-12px_rgba(15,23,42,0.14)]",
                 "after:content-[''] after:absolute after:inset-0 after:opacity-[0.03] after:pointer-events-none",
                 "after:bg-[url('data:image/svg+xml,%3Csvg viewBox=%270 0 256 256%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.8%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27 opacity=%270.05%27/%3E%3C/svg%3E')]"
             )}
@@ -601,7 +601,7 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
             {(awayPlayers.length > 0 && homePlayers.length > 0) && (
                 <div className="relative py-4">
                     <div className="absolute inset-0 flex items-center">
-                        <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+                        <div className="w-full h-px bg-linear-to-r from-transparent via-slate-200 to-transparent" />
                     </div>
                     <div className="relative flex justify-center">
                         <span className="px-6 bg-surface-elevated text-caption font-black text-slate-500 uppercase tracking-ultra">vs</span>

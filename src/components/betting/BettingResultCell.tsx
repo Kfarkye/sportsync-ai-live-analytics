@@ -30,8 +30,8 @@ const BettingResultCell = memo(({ value, label, status, highlight, className }: 
       className={cn(
         "flex flex-col items-center justify-center p-4 rounded-[20px] transition-all duration-500",
         "glass-material", // Base material
-        status === 'winning' ? "border-emerald-500/40 bg-emerald-500/[0.08] shadow-[0_0_20px_rgba(16,185,129,0.1)]" :
-          status === 'losing' ? "opacity-30 grayscale border-white/[0.02]" :
+        status === 'winning' ? "border-emerald-500/40 bg-emerald-500/8 shadow-[0_0_20px_rgba(16,185,129,0.1)]" :
+          status === 'losing' ? "opacity-30 grayscale border-white/2" :
             highlight ? "bg-slate-100 border-white/20" : "bg-white/40 border-slate-200",
         flashClass,
         className

@@ -121,7 +121,7 @@ export const ESSENCE = {
     tight:   'tracking-[-0.03em]',
     snug:    'tracking-[-0.01em]',
     normal:  'tracking-normal',
-    wide:    'tracking-[0.1em]',
+    wide:    'tracking-widest',
     wider:   'tracking-[0.15em]',
     widest:  'tracking-[0.2em]',     // 72 usages — primary section labels
     ultra:   'tracking-[0.3em]',
@@ -177,11 +177,11 @@ export const ESSENCE = {
     padding:      'p-5',
     radius:       'rounded-3xl',
     gap:          'gap-4',
-    border:       'border border-white/[0.06]',
+    border:       'border border-white/6',
     bg:           'bg-[#0A0A0B]',
     headerHeight: 'h-[44px]',
     innerGlow:    'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]',
-    base: 'bg-[#0A0A0B] border border-white/[0.06] rounded-3xl p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]',
+    base: 'bg-[#0A0A0B] border border-white/6 rounded-3xl p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]',
   },
 
   // ==========================================================================
@@ -210,7 +210,7 @@ export const ESSENCE = {
     title:   'font-sans text-[20px] font-semibold tracking-[-0.01em] text-white',
     body:    'font-sans text-[15px] font-normal text-zinc-300',
     caption: 'font-sans text-[13px] font-medium text-zinc-500',
-    label:   'text-[9px] font-bold text-zinc-600 uppercase tracking-[0.1em]',
+    label:   'text-[9px] font-bold text-zinc-600 uppercase tracking-widest',
     data:    'font-mono text-[16px] font-bold tabular-nums text-white',
     dataSm:  'font-mono text-[13px] font-semibold tabular-nums text-zinc-200',
     dataLg:  'font-mono text-[24px] font-black tabular-nums text-white',
@@ -237,9 +237,9 @@ export const ESSENCE = {
   // §10  MATERIALS — Glass & Vibrancy
   // ==========================================================================
   glass: {
-    panel:  'bg-[#0A0A0B] border border-white/[0.06] backdrop-blur-xl',
-    header: 'bg-black/95 backdrop-blur-2xl border-b border-white/[0.04]',
-    card:   'bg-[#0A0A0B] border border-white/[0.06] rounded-2xl',
+    panel:  'bg-[#0A0A0B] border border-white/6 backdrop-blur-xl',
+    header: 'bg-black/95 backdrop-blur-2xl border-b border-white/4',
+    card:   'bg-[#0A0A0B] border border-white/6 rounded-2xl',
   },
 
   // ==========================================================================
@@ -277,10 +277,10 @@ export const ESSENCE = {
   nav: {
     h1:          'h-14',
     h2:          'h-10',
-    pill:        'rounded-full bg-white/[0.04] border border-white/[0.04] shadow-sm transition-all duration-200',
-    chip:        'w-11 h-11 flex items-center justify-center rounded-full bg-white/[0.02] border border-white/[0.04] text-zinc-500 hover:text-white hover:bg-white/[0.06] transition-all duration-200',
-    initialPill: 'w-7 h-7 rounded-full bg-zinc-900 border border-white/[0.1] shadow-inner flex items-center justify-center text-[10px] font-bold text-zinc-100 tracking-tighter',
-    divider:     'border-white/[0.08]',
+    pill:        'rounded-full bg-white/4 border border-white/4 shadow-sm transition-all duration-200',
+    chip:        'w-11 h-11 flex items-center justify-center rounded-full bg-white/2 border border-white/4 text-zinc-500 hover:text-white hover:bg-white/6 transition-all duration-200',
+    initialPill: 'w-7 h-7 rounded-full bg-zinc-900 border border-white/10 shadow-inner flex items-center justify-center text-[10px] font-bold text-zinc-100 tracking-tighter',
+    divider:     'border-white/8',
   },
 
   // ==========================================================================
@@ -289,7 +289,7 @@ export const ESSENCE = {
   floatingIcon: {
     position:  'absolute bottom-4 right-4',
     size:      'w-8 h-8',
-    style:     'rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center',
+    style:     'rounded-full bg-white/3 border border-white/6 flex items-center justify-center',
     iconSize:  14,
     iconColor: 'text-zinc-600',
   },
@@ -313,44 +313,44 @@ export const ESSENCE = {
 
     // --- Border shorthands ---
     border: {
-      ghost:   'border border-white/[0.03]',
-      subtle:  'border border-white/[0.04]',
-      default: 'border border-white/[0.06]',
-      strong:  'border border-white/[0.12]',
+      ghost:   'border border-white/3',
+      subtle:  'border border-white/4',
+      default: 'border border-white/6',
+      strong:  'border border-white/12',
     },
 
     // --- Surface shorthands ---
     surface: {
-      ghost:    'bg-white/[0.01]',
-      subtle:   'bg-white/[0.02]',
-      muted:    'bg-white/[0.04]',
-      emphasis: 'bg-white/[0.06]',
+      ghost:    'bg-white/1',
+      subtle:   'bg-white/2',
+      muted:    'bg-white/4',
+      emphasis: 'bg-white/6',
     },
 
     // --- Row Patterns ---
-    rowDivider:      'border-b border-white/[0.04]',
-    rowDividerGhost: 'border-b border-white/[0.03]',
-    interactiveRow:  'py-4 hover:bg-white/[0.02] transition-colors duration-200',
+    rowDivider:      'border-b border-white/4',
+    rowDividerGhost: 'border-b border-white/3',
+    interactiveRow:  'py-4 hover:bg-white/2 transition-colors duration-200',
 
     // --- Icon Containers ---
-    iconSm: 'w-8 h-8 rounded-lg bg-white/[0.03] flex items-center justify-center',
-    iconMd: 'w-10 h-10 rounded-lg bg-white/[0.03] flex items-center justify-center',
+    iconSm: 'w-8 h-8 rounded-lg bg-white/3 flex items-center justify-center',
+    iconMd: 'w-10 h-10 rounded-lg bg-white/3 flex items-center justify-center',
 
     // --- Cards (density-aware) ---
-    card:         'rounded-xl border border-white/[0.06] bg-[#0A0A0B] p-3',
-    cardFeatured: 'rounded-2xl border border-white/[0.06] bg-[#0A0A0B] p-4',
-    cardCompact:  'rounded-lg border border-white/[0.06] bg-[#0A0A0B] p-2',
+    card:         'rounded-xl border border-white/6 bg-[#0A0A0B] p-3',
+    cardFeatured: 'rounded-2xl border border-white/6 bg-[#0A0A0B] p-4',
+    cardCompact:  'rounded-lg border border-white/6 bg-[#0A0A0B] p-2',
 
     // --- Tabs ---
-    tabsWrap:    'h-10 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1',
+    tabsWrap:    'h-10 rounded-xl border border-white/6 bg-white/2 p-1',
     tab:         'h-8 rounded-lg px-3 text-sm font-medium',
-    tabActive:   'bg-white/[0.06] text-white',
+    tabActive:   'bg-white/6 text-white',
     tabInactive: 'text-white/70 hover:text-white/90',
 
     // --- Badges ---
     badge:        'rounded-md px-2 py-1 text-[10px] font-semibold uppercase',
     badgeLive:    'bg-emerald-500/20 text-emerald-400',
-    badgeNeutral: 'bg-white/[0.04] text-zinc-400',
+    badgeNeutral: 'bg-white/4 text-zinc-400',
 
     // --- Buttons ---
     buttonSm: 'h-8 rounded-lg px-3 text-sm font-medium',
@@ -362,9 +362,9 @@ export const ESSENCE = {
     sectionGap: 'space-y-3',
 
     // --- Dividers ---
-    divider:       'border-t border-white/[0.04]',
-    dividerStrong: 'border-t border-white/[0.06]',
-    hairline:      'h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent',
+    divider:       'border-t border-white/4',
+    dividerStrong: 'border-t border-white/6',
+    hairline:      'h-px bg-linear-to-r from-transparent via-white/6 to-transparent',
 
     // --- Hero / Header ---
     heroHeader: 'space-y-2 py-3',

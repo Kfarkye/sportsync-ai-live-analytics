@@ -316,7 +316,7 @@ const SpecLabel = ({ label }: { label: string }) => (
 
 const SmartChip = ({ label, value, colorClass }: { label: string; value: string; colorClass: string }) => (
   <div className="flex flex-col justify-center px-4 py-3 rounded-lg border shadow-[0_2px_10px_rgba(0,0,0,0.3)] relative overflow-hidden group/chip" style={{ backgroundColor: ESSENCE.colors.surface.elevated, borderColor: ESSENCE.colors.border.default }}>
-    <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent opacity-50 pointer-events-none" />
+    <div className="absolute inset-0 bg-linear-to-b from-white/3 to-transparent opacity-50 pointer-events-none" />
     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1 opacity-80">{label}</span>
     <span className={cn("text-[16px] font-mono font-medium tabular-nums tracking-tight leading-none", colorClass)}>{value}</span>
     <div className={cn("absolute bottom-0 left-0 right-0 h-[2px] opacity-20 bg-current", colorClass)} />
@@ -539,7 +539,7 @@ export const InsightCard = memo(({ data }: { data: InsightCardData }) => {
         {/* Active Edge Accent */}
         <div
           className={cn(
-            "absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-60",
+            "absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-current to-transparent opacity-60",
             isOver ? "text-emerald-500" : "text-rose-500"
           )}
         />
@@ -591,7 +591,7 @@ export const InsightCard = memo(({ data }: { data: InsightCardData }) => {
         {/* 2) ANALYSIS BLOCK */}
         <div className="relative mb-8 pl-1 z-10">
           <SpecLabel label="01 // INTELLIGENCE" />
-          <div className="relative pl-4 border-l-[2px] border-white/10">
+          <div className="relative pl-4 border-l-2 border-white/10">
             <p className="text-[14px] leading-[1.6] text-slate-600 font-light text-pretty tracking-wide">
               {analysis.rationale}
             </p>

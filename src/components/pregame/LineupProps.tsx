@@ -169,7 +169,7 @@ const LineupProps: React.FC<LineupPropsProps> = ({ homeRoster, awayRoster, homeT
                         />
                     )}
                 </button>
-                <div className="w-[1px] bg-slate-100" />
+                <div className="w-px bg-slate-100" />
                 <button
                     onClick={() => setActiveTab('away')}
                     className={cn(

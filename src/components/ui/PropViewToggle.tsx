@@ -14,7 +14,7 @@ const MotionDiv = motion.div;
 export const PropViewToggle: React.FC<PropViewToggleProps> = ({ view, onChange, className }) => {
     return (
         <div className={cn(
-            "inline-flex p-1 bg-slate-50 backdrop-blur-xl rounded-2xl border border-slate-200 relative overflow-hidden ring-1 ring-white/[0.05]",
+            "inline-flex p-1 bg-slate-50 backdrop-blur-xl rounded-2xl border border-slate-200 relative overflow-hidden ring-1 ring-white/5",
             className
         )}>
             {/* Sliding Background */}

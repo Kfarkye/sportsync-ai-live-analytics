@@ -84,7 +84,7 @@ const PinButton = memo(({ isPinned, onToggle }: { isPinned: boolean; onToggle?: 
       "shrink-0 p-2 -m-1.5 rounded transition-all duration-200",
       isPinned
         ? "opacity-100"
-        : "opacity-0 group-hover:opacity-60 hover:!opacity-100 max-[390px]:opacity-40"
+        : "opacity-0 group-hover:opacity-60 hover:opacity-100! max-[390px]:opacity-40"
     )}
     aria-label={isPinned ? 'Unpin game' : 'Pin game'}
     title={isPinned ? 'Unpin game' : 'Pin game'}

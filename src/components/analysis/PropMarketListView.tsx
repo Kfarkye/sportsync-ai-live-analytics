@@ -44,11 +44,11 @@ const TOKENS = {
 const ToggleSwitch = ({ expanded }: { expanded: boolean }) => (
     <div className="relative w-2.5 h-2.5 flex items-center justify-center opacity-40 group-hover:opacity-100 transition-opacity duration-300">
         <span className={cn(
-            "absolute w-full h-[1px] bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+            "absolute w-full h-px bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
             expanded ? "rotate-180" : "rotate-0"
         )} />
         <span className={cn(
-            "absolute w-full h-[1px] bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+            "absolute w-full h-px bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
             expanded ? "rotate-180 opacity-0" : "rotate-90 opacity-100"
         )} />
     </div>
@@ -67,7 +67,7 @@ const PrecisionProgress = memo(({ progress, isHitting, color }: { progress: numb
             )}
         />
         {/* Target Marker */}
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-2 bg-white/20" />
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-px h-2 bg-white/20" />
     </div>
 ));
 PrecisionProgress.displayName = 'PrecisionProgress';
@@ -225,7 +225,7 @@ const PlayerCard: FC<PlayerCardProps> = memo(({ player, match, category, teamCol
             className={cn(
                 "group relative py-4 px-3 transition-all duration-300 border-t border-edge-subtle first:border-t-0",
                 ESSENCE.card.base,
-                "backdrop-blur-[24px] transform-gpu",
+                "backdrop-blur-xl transform-gpu",
                 "after:content-[''] after:absolute after:inset-0 after:opacity-[0.035] after:pointer-events-none",
                 "after:bg-[url('data:image/svg+xml,%3Csvg viewBox=%270 0 256 256%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.8%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27 opacity=%270.06%27/%3E%3C/svg%3E')]"
             )}
@@ -381,7 +381,7 @@ const CategoryCard: FC<CategoryCardProps> = memo(({ category, index, match, acti
                 transition={SPRING_IN}
                 className={cn(
                     'w-full flex items-center justify-between py-6 group transition-all duration-300 px-4 md:px-0',
-                    isOpen && `sticky ${TOKENS.sticky.categoryOpen} z-${TOKENS.z.categoryHeader} bg-surface-elevated/60 backdrop-blur-[40px] saturate-[180%] border-b border-edge-subtle`
+                    isOpen && `sticky ${TOKENS.sticky.categoryOpen} z-${TOKENS.z.categoryHeader} bg-surface-elevated/60 backdrop-blur-2xl saturate-180 border-b border-edge-subtle`
                 )}
             >
                 <div className="flex items-center gap-4 pl-4">
@@ -510,7 +510,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
             {/* Sticky Filter Deck (Desktop) */}
             <nav className={cn(
                 `hidden md:flex sticky ${TOKENS.sticky.nav} z-${TOKENS.z.sticky}`,
-                "bg-surface-elevated/60 backdrop-blur-[40px] saturate-[180%] border-b border-edge-subtle py-3"
+                "bg-surface-elevated/60 backdrop-blur-2xl saturate-180 border-b border-edge-subtle py-3"
             )}>
                 <div className="flex items-center justify-center gap-6 md:gap-12 px-4 w-full">
                     {/* Away */}
@@ -578,7 +578,7 @@ export const PropMarketListView: FC<PropMarketListViewProps> = ({ match: rawMatc
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={SPRING_IN}
-                className="md:hidden fixed left-3 right-3 z-[60] bottom-[calc(env(safe-area-inset-bottom)+12px)] px-3 py-2 rounded-full bg-surface-elevated/60 backdrop-blur-[40px] saturate-[180%] border-[0.5px] border-edge-subtle shadow-[0_16px_60px_rgba(0,0,0,0.45)]"
+                className="md:hidden fixed left-3 right-3 z-60 bottom-[calc(env(safe-area-inset-bottom)+12px)] px-3 py-2 rounded-full bg-surface-elevated/60 backdrop-blur-2xl saturate-180 border-[0.5px] border-edge-subtle shadow-[0_16px_60px_rgba(0,0,0,0.45)]"
             >
                 <div className="flex items-center justify-between gap-2">
                     {teams.filter(t => t.side === 'AWAY').map(t => (

@@ -57,7 +57,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
             animate={{ opacity: 1, y: 0 }}
             className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm relative group"
         >
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
+            <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-emerald-500 to-teal-400" />
 
             <div className="p-6 md:p-8 border-b border-slate-100 bg-white">
                 <div className="flex items-center justify-between mb-4">
@@ -118,7 +118,7 @@ export const AngleCard = ({ match }: { match: Match }) => {
                             const isElite = conf.tier === 'ELITE' || conf.tier === 'STRONG';
                             return (
                                 <div key={i} className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between group hover:bg-slate-100 hover:border-emerald-300 transition-all duration-300 relative overflow-hidden">
-                                    {isElite && <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/0 to-emerald-50 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                                    {isElite && <div className="absolute inset-0 bg-linear-to-r from-emerald-500/0 via-emerald-500/0 to-emerald-50 opacity-0 group-hover:opacity-100 transition-opacity" />}
 
                                     <div className="relative z-10">
                                         <div className="text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">{play.label}</div>

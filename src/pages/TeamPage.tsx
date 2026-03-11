@@ -42,7 +42,7 @@ type LedgerRow = {
   href: string;
 };
 
-const filterChipBase = 'rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] transition';
+const filterChipBase = 'rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest transition';
 
 function matchesTeamName(candidate: string, teamNames: string[]): boolean {
   const clean = candidate.trim().toLowerCase();
@@ -265,7 +265,7 @@ export default function TeamPage() {
   const totalGames = Math.max(1, record.wins + record.draws + record.losses);
 
   return (
-    <div className="h-[var(--vvh,100vh)] overflow-y-auto bg-slate-50 text-slate-900" style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.5s ease-out' }}>
+    <div className="h-(--vvh,100vh) overflow-y-auto bg-slate-50 text-slate-900" style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.5s ease-out' }}>
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div className="mx-auto w-full max-w-7xl px-4 md:px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -463,7 +463,7 @@ export default function TeamPage() {
                           <div className="hidden md:grid md:grid-cols-[130px_1fr_130px_220px_180px] gap-3 items-center">
                             <div className="text-xs text-slate-500 tabular-nums">
                               <div>{row.dateLabel}</div>
-                              <div className="mt-1 uppercase tracking-[0.1em] text-[10px]">{row.venue === 'home' ? 'Home' : 'Away'}</div>
+                              <div className="mt-1 uppercase tracking-widest text-[10px]">{row.venue === 'home' ? 'Home' : 'Away'}</div>
                             </div>
 
                             <div className="min-w-0">

@@ -53,7 +53,7 @@ export const SectionHeader = memo(({
     >
       <div className="flex items-center gap-2.5">
         <div
-          className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-300"
+          className="w-1.5 h-1.5 rounded-full shrink-0 transition-all duration-300"
           style={{ background: accentStyle[accent].dot }}
         />
         {Icon && <Icon size={11} strokeWidth={2.5} style={{ color: accentStyle[accent].text }} />}
@@ -65,7 +65,7 @@ export const SectionHeader = memo(({
         </span>
       </div>
 
-      {rightAccessory && <div className="flex-shrink-0">{rightAccessory}</div>}
+      {rightAccessory && <div className="shrink-0">{rightAccessory}</div>}
     </div>
   );
 });
@@ -86,7 +86,7 @@ export const CardHeader = memo(({ title, rightAccessory, showDivider = false, cl
         <h4 className={ESSENCE.tw.cardHeaderLabel} style={{ color: ESSENCE.colors.text.secondary }}>
           {title}
         </h4>
-        {rightAccessory && <div className="flex-shrink-0">{rightAccessory}</div>}
+        {rightAccessory && <div className="shrink-0">{rightAccessory}</div>}
       </div>
       {showDivider && <div className={cn('mt-3', ESSENCE.tw.divider)} />}
     </div>

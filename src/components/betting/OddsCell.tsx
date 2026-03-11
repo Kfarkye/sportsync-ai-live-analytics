@@ -29,7 +29,7 @@ const OddsCell = ({ label, value, subValue, isLive, active, result }: OddsCellPr
 
   if (result === 'covered' || result === 'winning') {
     valueColor = "text-[#4ADE80] font-bold";
-    bgColor = "bg-emerald-500/[0.08]";
+    bgColor = "bg-emerald-500/8";
     borderColor = "border-emerald-500/20";
   } else if (result === 'lost' || result === 'losing') {
     valueColor = "text-slate-500 line-through decoration-zinc-600/50";
@@ -37,7 +37,7 @@ const OddsCell = ({ label, value, subValue, isLive, active, result }: OddsCellPr
     borderColor = "border-slate-200";
   } else if (result === 'push') {
     valueColor = "text-amber-400";
-    bgColor = "bg-amber-500/[0.08]";
+    bgColor = "bg-amber-500/8";
     borderColor = "border-amber-500/20";
   } else if (active) {
     bgColor = "bg-slate-100";

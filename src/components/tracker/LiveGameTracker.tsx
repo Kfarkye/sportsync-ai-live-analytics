@@ -462,7 +462,7 @@ const PlayByPlayList = memo(({ gameplay, teams }: { gameplay: GameplaySlice; tea
                     // Stable layout hash prevents React from brutally unmounting the entire tree when new plays shift index values
                     const stableKey = p.id || `play-${p.clock}-${p.text.substring(0, 20).replace(/[^a-zA-Z0-9]/g, '')}`;
                     return (
-                        <article key={stableKey} className="p-4 px-6 flex gap-4 hover:bg-white/[0.02] transition-colors group">
+                        <article key={stableKey} className="p-4 px-6 flex gap-4 hover:bg-white/2 transition-colors group">
                             <div className="flex flex-col items-center gap-2 shrink-0 mt-1" aria-hidden="true">
                                 <div className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]" style={{ color, backgroundColor: color }} />
                                 {i !== plays.length - 1 && <div className="w-px h-full bg-white/10 group-hover:bg-white/20 transition-colors" />}
@@ -669,7 +669,7 @@ const EdgeTab = memo(({ betting, teams, compact = false }: { betting: BettingSli
 
             {betting.signals && (
                 <div className={cn(compact ? "pt-0" : "grid grid-cols-1 gap-4 p-6 md:grid-cols-2")}>
-                    <DarkPanel tone={compact ? "light" : "dark"} hover className={cn("flex flex-col justify-between", compact ? "p-4 min-h-[0] rounded-[18px]" : "p-5 min-h-[130px]")}>
+                    <DarkPanel tone={compact ? "light" : "dark"} hover className={cn("flex flex-col justify-between", compact ? "p-4 min-h-0 rounded-[18px]" : "p-5 min-h-[130px]")}>
                         <header className="flex justify-between items-start">
                             <div className="flex items-center gap-2">
                                 <Target size={14} className="text-blue-400" aria-hidden="true" />
@@ -772,10 +772,10 @@ const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedd
     const statusLabel = meta.isFinished ? 'FINAL' : meta.isPregame ? 'UPCOMING' : 'LIVE';
     const shellClass = isEmbedded
         ? isLiveShell
-            ? 'rounded-[20px] border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 shadow-[0_16px_36px_rgba(15,23,42,0.20)]'
+            ? 'rounded-[20px] border-slate-800 bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 shadow-[0_16px_36px_rgba(15,23,42,0.20)]'
             : 'rounded-[20px] border-slate-200 bg-white shadow-sm'
         : isLiveShell
-            ? 'rounded-2xl border-slate-800 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950'
+            ? 'rounded-2xl border-slate-800 bg-linear-to-b from-slate-950 via-slate-900 to-slate-950'
             : 'rounded-2xl border-slate-200 bg-white';
 
     const primaryText = isLiveShell ? 'text-white' : 'text-slate-900';
@@ -788,7 +788,7 @@ const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedd
     return (
         <header className={cn('relative w-full flex flex-col items-center overflow-hidden select-none border', shellClass, !isEmbedded && 'pt-6')}>
             {isEmbedded && isLiveShell && (
-                <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" aria-hidden="true" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-linear-to-r from-transparent via-white/35 to-transparent" aria-hidden="true" />
             )}
             {!isEmbedded && (
                 <div className="absolute top-4 z-20 flex w-full items-center justify-between px-6">
@@ -1074,19 +1074,19 @@ export const LiveTotalCard: FC<{ match: Match }> = memo(({ match }) => {
 
             <div className="mt-3 space-y-2">
                 <div className="grid grid-cols-[1fr_auto] items-center">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">Spread</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Spread</span>
                     <span className="font-mono text-[13px] font-semibold text-slate-900">{spreadText}</span>
                 </div>
                 <div className="grid grid-cols-[1fr_auto] items-center">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">Total</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Total</span>
                     <span className="font-mono text-[13px] font-semibold text-slate-900">{totalText}</span>
                 </div>
                 <div className="grid grid-cols-[1fr_auto] items-center">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">ML</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">ML</span>
                     <span className="font-mono text-[13px] font-semibold text-slate-900">{awayMl} / {homeMl}</span>
                 </div>
                 <div className="grid grid-cols-[1fr_auto] items-center border-t border-slate-100 pt-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">AI Edge</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">AI Edge</span>
                     <span className={cn(
                         "font-mono text-[13px] font-semibold",
                         edgePts > 0.25 ? "text-blue-700" : edgePts < -0.25 ? "text-blue-700" : "text-slate-600"

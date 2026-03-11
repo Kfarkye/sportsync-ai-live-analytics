@@ -325,7 +325,7 @@ const StrikeZone: FC<StrikeZoneProps> = memo(({ pitches, className }) => {
                   y={py - 12}
                   textAnchor="middle"
                   fill={col}
-                  className="font-mono text-[6px] font-bold tracking-[0.1em]"
+                  className="font-mono text-[6px] font-bold tracking-widest"
                 >
                   LAST
                 </text>
@@ -425,7 +425,7 @@ const Matchup: FC<MatchupProps> = memo(({ pitcher, batter, awayColor, homeColor,
   const pcHot = pitcher.pitchCount > PITCH_COUNT_THRESHOLD;
 
   return (
-    <Card className="flex items-center justify-between !p-3">
+    <Card className="flex items-center justify-between p-3!">
       {/* Pitcher */}
       <div className="flex items-center gap-2.5">
         <PlayerAvatar initials={pitcher.initials} color={awayColor} />
@@ -490,7 +490,7 @@ const DueUp: FC<DueUpProps> = memo(({ teamName, teamColor, players }) => {
   if (!players.length) return null;
 
   return (
-    <Card className="!p-3">
+    <Card className="p-3!">
       <div className="flex items-center gap-1.5 mb-2.5">
         <div className="w-[3px] h-2.5 rounded-sm" style={{ background: teamColor }} />
         <span className="text-xs font-semibold text-slate-400">{teamName} Due Up</span>
@@ -586,7 +586,7 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
   );
 
   return (
-    <Card className="!p-2 overflow-x-auto">
+    <Card className="p-2! overflow-x-auto">
       {/* Header row */}
       <div style={{ display: 'grid', gridTemplateColumns: cols }}>
         <HeaderCell label="" />
@@ -630,7 +630,7 @@ export const BaseballScoringSummary: FC<BaseballScoringSummaryProps> = memo(({
   }
 
   return (
-    <Card className="!p-3.5">
+    <Card className="p-3.5!">
       <span className={cn(ESSENCE.tier.t2Header, 'block mb-3')}>SCORING SUMMARY</span>
       {plays.map((play, i) => {
         const isAway = play.teamAbbr === awayAbbr;
@@ -651,7 +651,7 @@ export const BaseballScoringSummary: FC<BaseballScoringSummaryProps> = memo(({
             )}
             <div className="flex items-start gap-2.5 py-1.5">
               <div
-                className="w-5 h-5 rounded-[5px] flex-shrink-0 mt-0.5 flex items-center justify-center font-mono text-[7px] font-extrabold"
+                className="w-5 h-5 rounded-[5px] shrink-0 mt-0.5 flex items-center justify-center font-mono text-[7px] font-extrabold"
                 style={{
                   background: `${teamColor}18`,
                   border: `1px solid ${teamColor}22`,
@@ -663,7 +663,7 @@ export const BaseballScoringSummary: FC<BaseballScoringSummaryProps> = memo(({
               <span className="flex-1 text-xs text-slate-900 leading-relaxed">
                 {play.description}
               </span>
-              <div className="flex gap-2.5 flex-shrink-0">
+              <div className="flex gap-2.5 shrink-0">
                 <span className="font-mono text-[11px] font-bold text-slate-900">{play.awayScore}</span>
                 <span className="font-mono text-[11px] font-bold text-slate-900">{play.homeScore}</span>
               </div>
@@ -690,7 +690,7 @@ const EdgeSignalCard: FC<EdgeSignalCardProps> = memo(({ label, icon, data }) => 
   const colors = EDGE_COLORS[data.signal];
 
   return (
-    <Card className="!p-3.5">
+    <Card className="p-3.5!">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
@@ -935,7 +935,7 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
             )}
 
             {/* Strike Zone + BSO + Pitch Log */}
-            <Card className="!p-3.5">
+            <Card className="p-3.5!">
               {hasPitchData ? (
                 <>
                   <StrikeZone pitches={baseballData!.pitches} />
@@ -969,7 +969,7 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
       {isLive && view === 'runners' && (
         <AnimatePresence mode="wait">
           <motion.div key="runners" {...FADE_IN}>
-            <Card className="!p-5 flex flex-col items-center gap-4">
+            <Card className="p-5! flex flex-col items-center gap-4">
               <Diamond
                 onFirst={runners.first}
                 onSecond={runners.second}

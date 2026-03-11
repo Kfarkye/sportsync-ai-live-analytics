@@ -123,10 +123,10 @@ const EdgeCard: React.FC<EdgeCardProps> = memo(({
 
       {/* Column headers */}
       <div className="grid grid-cols-[1fr_60px_60px_60px] items-center px-4 py-1.5 border-b" style={{ borderColor: '#f8fafc' }}>
-        <span className="text-[8px] font-bold uppercase tracking-[0.1em]" style={{ color: '#cbd5e1' }}>Team</span>
-        <span className="text-[8px] font-bold uppercase tracking-[0.1em] text-center" style={{ color: '#cbd5e1' }}>Market</span>
-        <span className="text-[8px] font-bold uppercase tracking-[0.1em] text-center" style={{ color: '#cbd5e1' }}>Books</span>
-        <span className="text-[8px] font-bold uppercase tracking-[0.1em] text-center" style={{ color: '#cbd5e1' }}>Edge</span>
+        <span className="text-[8px] font-bold uppercase tracking-widest" style={{ color: '#cbd5e1' }}>Team</span>
+        <span className="text-[8px] font-bold uppercase tracking-widest text-center" style={{ color: '#cbd5e1' }}>Market</span>
+        <span className="text-[8px] font-bold uppercase tracking-widest text-center" style={{ color: '#cbd5e1' }}>Books</span>
+        <span className="text-[8px] font-bold uppercase tracking-widest text-center" style={{ color: '#cbd5e1' }}>Edge</span>
       </div>
 
       {/* Rows */}

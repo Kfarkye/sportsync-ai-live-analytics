@@ -105,7 +105,7 @@ const RankingsDrawer: React.FC<RankingsDrawerProps> = ({ isOpen, onClose, sport,
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100]"
+                        className="fixed inset-0 bg-black/60 backdrop-blur-md z-100"
                     />
 
                     {/* Drawer */}
@@ -123,7 +123,7 @@ const RankingsDrawer: React.FC<RankingsDrawerProps> = ({ isOpen, onClose, sport,
                         dragConstraints={{ top: 0 }}
                         dragElastic={0.05}
                         onDragEnd={onDragEnd}
-                        className="fixed bottom-0 left-0 right-0 z-[101] flex flex-col max-h-[85vh] rounded-t-[32px] overflow-hidden shadow-[0_-20px_60px_rgba(0,0,0,0.9)]"
+                        className="fixed bottom-0 left-0 right-0 z-101 flex flex-col max-h-[85vh] rounded-t-[32px] overflow-hidden shadow-[0_-20px_60px_rgba(0,0,0,0.9)]"
                         style={{ 
                             background: 'rgba(28, 28, 30, 0.85)', // System Gray 6 equivalent
                             backdropFilter: 'blur(24px) saturate(180%)',

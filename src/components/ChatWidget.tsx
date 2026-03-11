@@ -230,13 +230,13 @@ const SYSTEM = {
     void: "bg-white",
     panel: "bg-white border border-slate-200",
     /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
-    glass: "bg-slate-50 backdrop-blur-[24px] backdrop-saturate-[180%] border border-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+    glass: "bg-slate-50 backdrop-blur-xl backdrop-saturate-180 border border-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
     hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20 shadow-[inset_0_1px_0_rgba(245,158,11,0.1)]",
     milled: "border-t border-slate-200 border-b border-black/50 border-x border-slate-200",
     alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20 shadow-[inset_0_1px_0_rgba(225,29,72,0.1)]",
   },
   type: {
-    mono: "font-mono text-[10px] tracking-[0.1em] uppercase text-slate-500 tabular-nums",
+    mono: "font-mono text-[10px] tracking-widest uppercase text-slate-500 tabular-nums",
     body: "text-[15px] leading-[1.72] tracking-[-0.005em] text-slate-600",
     h1: "text-[13px] font-medium tracking-[-0.02em] text-slate-900",
     label: "text-[9px] font-bold tracking-[0.05em] uppercase text-slate-500",
@@ -1656,7 +1656,7 @@ const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={SYSTEM.anim.fluid}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
+            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-70 flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
           >
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]" />
             <span className="text-[12px] font-medium text-slate-900 tracking-tight">{toast.message}</span>
@@ -2298,7 +2298,7 @@ const AnalysisDisclosure: FC<{
       {/* M-25: Dynamic bottom fade — hides when scrolled to bottom */}
       <div
         className={cn(
-          "sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#08080A] to-transparent pointer-events-none transition-opacity duration-300",
+          "sticky bottom-0 left-0 right-0 h-12 bg-linear-to-t from-[#08080A] to-transparent pointer-events-none transition-opacity duration-300",
           showFade ? "opacity-100" : "opacity-0",
         )}
       />
@@ -2332,7 +2332,7 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
         transition={SYSTEM.anim.fluid}
         role="status"
         aria-live="polite"
-        className="absolute bottom-[100%] left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-sm z-30 will-change-transform"
+        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-sm z-30 will-change-transform"
       >
         <OrbitalRadar />
         <AnimatePresence mode="wait">
@@ -2387,7 +2387,7 @@ const SmartChips: FC<{
       <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide px-6" role="group" aria-label="Quick actions">
         {/* Matchup context chip — emerald accent, shows attached game */}
         {matchupLabel && (
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/[0.06] border border-emerald-500/[0.12] shrink-0 rounded-full">
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/6 border border-emerald-500/12 shrink-0 rounded-full">
             <div className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_4px_#10b981]" />
             <span className="text-[10px] font-mono font-medium text-emerald-400/90 tracking-wide uppercase whitespace-nowrap">{matchupLabel}</span>
           </div>
@@ -3515,7 +3515,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
             inline
               ? "w-full h-full bg-transparent"
               : cn(
-                "w-full md:w-[460px] h-[100dvh] md:h-[min(840px,90dvh)]",
+                "w-full md:w-[460px] h-dvh md:h-[min(840px,90dvh)]",
                 "rounded-[28px] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]",
                 "border border-slate-200",
                 SYSTEM.surface.void,
@@ -3711,7 +3711,7 @@ const ChatWidget: FC<ChatWidgetProps> = (props) => {
               animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
               exit={{ opacity: 0, y: 80, scale: 0.95, filter: "blur(10px)" }}
               transition={SYSTEM.anim.fluid}
-              className={cn("fixed z-[9999]", isMinimized ? "bottom-8 right-8" : "inset-0 md:inset-auto md:bottom-8 md:right-8")}
+              className={cn("fixed z-9999", isMinimized ? "bottom-8 right-8" : "inset-0 md:inset-auto md:bottom-8 md:right-8")}
             >
               <InnerChatWidget {...props} inline={false} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             </motion.div>

@@ -39,8 +39,8 @@ const SpecRow = ({
     isLast?: boolean;
 }) => (
     <div className={cn(
-        "group relative flex flex-col md:flex-row md:items-baseline gap-2 md:gap-0 py-5 transition-colors duration-500 hover:bg-white/[0.02]",
-        !isLast && "border-b border-white/[0.08]"
+        "group relative flex flex-col md:flex-row md:items-baseline gap-2 md:gap-0 py-5 transition-colors duration-500 hover:bg-white/2",
+        !isLast && "border-b border-white/8"
     )}>
         {/* Active Laser Line (Left Edge - Hover State) */}
         <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-white scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-center opacity-0 group-hover:opacity-100 shadow-[0_0_10px_rgba(255,255,255,0.5)]" />

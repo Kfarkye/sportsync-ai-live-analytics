@@ -8,7 +8,7 @@ const LandingPage: FC<LandingPageProps> = ({ onEnter }) => {
   return (
     <div className="relative min-h-screen w-full bg-surface-base text-ink-primary flex items-center justify-center px-6 py-12 overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[38rem] h-[38rem] rounded-full bg-brand-primary/[0.10] blur-3xl" />
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-152 h-152 rounded-full bg-brand-primary/[0.10] blur-3xl" />
         <div className="absolute inset-0 opacity-40" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 35%), radial-gradient(circle at 80% 75%, rgba(255,255,255,0.06), transparent 30%)' }} />
       </div>
 

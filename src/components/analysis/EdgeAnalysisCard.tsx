@@ -75,7 +75,7 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
                     <span className="text-[11px] font-black uppercase tracking-[0.5em] text-slate-500 ml-[0.5em]">
                         Analysis
                     </span>
-                    <div className="h-[1px] w-12 bg-slate-100" />
+                    <div className="h-px w-12 bg-slate-100" />
                 </div>
             </div>
         );
@@ -112,8 +112,8 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
                 <div className={cn(
                     "absolute inset-0 opacity-30",
                     isPositive
-                        ? "bg-[radial-gradient(ellipse_at_top_right,_rgba(16,185,129,0.15)_0%,_transparent_50%)]"
-                        : "bg-[radial-gradient(ellipse_at_top_right,_rgba(244,63,94,0.15)_0%,_transparent_50%)]"
+                        ? "bg-[radial-gradient(ellipse_at_top_right,rgba(16,185,129,0.15)_0%,transparent_50%)]"
+                        : "bg-[radial-gradient(ellipse_at_top_right,rgba(244,63,94,0.15)_0%,transparent_50%)]"
                 )} />
 
                 <div className="relative z-10 flex flex-col items-center text-center space-y-4">
@@ -146,7 +146,7 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
                                     isPositive ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]" : "bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.8)]"
                                 )} />
                             </div>
-                            <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] mt-1">
+                            <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">
                                 {getUnitLabel()} vs Market
                             </div>
                             {/* Market vs Model Row - Enhanced */}
@@ -172,7 +172,7 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
 
                     {/* The Probability */}
                     {!isEfficient && (
-                        <div className="flex items-center gap-2.5 px-4 py-2 rounded-full border border-slate-200 bg-gradient-to-r from-white/[0.03] to-transparent">
+                        <div className="flex items-center gap-2.5 px-4 py-2 rounded-full border border-slate-200 bg-linear-to-r from-white/3 to-transparent">
                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
                             <span className="text-sm font-bold text-slate-600 tracking-wide">
                                 {Math.round(data.confidence * 100)}% Relative Confidence
@@ -182,11 +182,11 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
                 </div>
             </div>
 
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <div className="h-px w-full bg-linear-to-r from-transparent via-white/10 to-transparent" />
 
             {/* SECTION 3.5: GROUNDING SOURCES */}
             {data.sources && data.sources.length > 0 && (
-                <div className="px-6 py-4 bg-white/[0.01] border-t border-slate-200">
+                <div className="px-6 py-4 bg-white/1 border-t border-slate-200">
                     <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">
                         Grounded Sources
                     </div>
@@ -251,15 +251,15 @@ export const EdgeAnalysisCard: React.FC<EdgeAnalysisCardProps> = ({ data, isLoad
                 {traceExpanded && (
                     <div className="px-6 pb-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
                         <div className="grid grid-cols-3 gap-3">
-                            <div className="bg-slate-50 border border-white/[0.05] rounded-lg p-3 text-center">
+                            <div className="bg-slate-50 border border-white/5 rounded-lg p-3 text-center">
                                 <div className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1">Pace</div>
                                 <div className="text-sm font-mono font-bold text-slate-600">{data.trace.pace.toFixed(1)}</div>
                             </div>
-                            <div className="bg-slate-50 border border-white/[0.05] rounded-lg p-3 text-center">
+                            <div className="bg-slate-50 border border-white/5 rounded-lg p-3 text-center">
                                 <div className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1">Efficiency</div>
                                 <div className="text-sm font-mono font-bold text-slate-600">{data.trace.efficiency.toFixed(3)}</div>
                             </div>
-                            <div className="bg-slate-50 border border-white/[0.05] rounded-lg p-3 text-center">
+                            <div className="bg-slate-50 border border-white/5 rounded-lg p-3 text-center">
                                 <div className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1">{traceVolumeLabel}</div>
                                 <div className="text-sm font-mono font-bold text-slate-600">{Math.round(data.trace.possessions)}</div>
                             </div>

@@ -154,7 +154,7 @@ const BettingSnapshot: React.FC<BettingSnapshotProps> = ({ odds, homeTeam, awayT
 
                 {/* Home Row */}
                 <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] items-stretch hover:bg-slate-50/50">
-                    <div className="flex flex-col justify-center px-4 py-2 border-r border-white/[0.06]">
+                    <div className="flex flex-col justify-center px-4 py-2 border-r border-white/6">
                         <span className="font-bold text-slate-900 text-[13px] tracking-tight truncate">{homeName}</span>
                         <span className="text-[9px] text-slate-400 font-mono mt-0.5">HOME</span>
                     </div>

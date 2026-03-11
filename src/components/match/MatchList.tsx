@@ -270,7 +270,7 @@ const MarketPulseRow = memo(({ poly, match, onSelect }: {
                 )}>{homeProb}%</span>
             </div>
             {/* Dual prob bar — team brand colors with inset ring */}
-            <div className="flex h-[4px] rounded-full overflow-hidden gap-[1.5px] bg-zinc-100 ring-1 ring-inset ring-black/[0.04] p-[0.5px]">
+            <div className="flex h-[4px] rounded-full overflow-hidden gap-[1.5px] bg-zinc-100 ring-1 ring-inset ring-black/4 p-[0.5px]">
                 <div className="h-full rounded-l-full transition-all duration-700 ease-out" style={{ width: `${awayProb}%`, backgroundColor: awayColor, opacity: favIsAway ? 1 : 0.25 }} />
                 <div className="h-full rounded-r-full transition-all duration-700 ease-out" style={{ width: `${homeProb}%`, backgroundColor: homeColor, opacity: !favIsAway ? 1 : 0.25 }} />
             </div>
@@ -335,7 +335,7 @@ const PropRow = memo(({
                         {contextTags.map((tag) => (
                             <span
                                 key={`${prop.player_name}-${tag}`}
-                                className="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-[1px] text-[9px] font-medium text-zinc-600"
+                                className="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-px text-[9px] font-medium text-zinc-600"
                             >
                                 {tag}
                             </span>
@@ -373,7 +373,7 @@ const PremiumProCTA = memo(({ onPricing, className }: { onPricing: () => void; c
         "relative rounded-2xl bg-[linear-gradient(145deg,#ffffff,#f4f8ff)] p-4 max-[390px]:p-3.5 overflow-hidden shadow-[0_10px_24px_-12px_rgba(30,64,175,0.22)] ring-1 ring-blue-200/80",
         className
     )}>
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#0B63F6] to-transparent opacity-70" />
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[#0B63F6] to-transparent opacity-70" />
         <div className="relative z-10">
             <div className="flex items-center gap-2 mb-2.5">
                 <div className="flex items-center justify-center w-[20px] h-[20px] rounded bg-[#0B63F6] text-white shadow-[0_8px_14px_-8px_rgba(11,99,246,0.45)]">
@@ -510,7 +510,7 @@ const LeagueGroup = memo(({
                         exit={{ height: 0, opacity: 0 }}
                         transition={ACCORDION_SPRING}
                         className={cn(
-                            'overflow-hidden relative z-0 -mt-[1px]',
+                            'overflow-hidden relative z-0 -mt-px',
                             'bg-white ring-1 ring-blue-200/80 rounded-b-xl shadow-[0_14px_28px_-20px_rgba(30,64,175,0.28)]'
                         )}
                     >
@@ -794,7 +794,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                                 <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                     <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
                                                 </div>
-                                                <span className="font-mono text-[10px] max-[390px]:text-[9px] font-bold tracking-[0.1em] text-blue-800 uppercase">Market Pulse</span>
+                                                <span className="font-mono text-[10px] max-[390px]:text-[9px] font-bold tracking-widest text-blue-800 uppercase">Market Pulse</span>
                                             </div>
                                             <span className="font-mono text-[8.5px] max-[390px]:text-[8px] text-blue-300 tracking-[0.03em] uppercase">Via Polymarket</span>
                                         </div>
@@ -820,7 +820,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                                         <path d="M1 10L5 6L8 9L13 4" /><path d="M9 4H13V8" />
                                                     </svg>
                                                 </div>
-                                                <span className="font-mono text-[10px] max-[390px]:text-[9px] font-bold tracking-[0.1em] text-blue-800 uppercase">Featured Props</span>
+                                                <span className="font-mono text-[10px] max-[390px]:text-[9px] font-bold tracking-widest text-blue-800 uppercase">Featured Props</span>
                                             </div>
                                             <span className="font-mono text-[8.5px] max-[390px]:text-[8px] text-blue-300 tracking-[0.03em] uppercase">
                                                 {featuredPropRows[0]?.prop.event_date === todayIso ? 'Today' : 'Tomorrow'}
@@ -854,7 +854,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                             <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
                                                 <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
                                             </div>
-                                            <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-blue-800 uppercase">Market Pulse</span>
+                                            <span className="font-mono text-[10px] font-bold tracking-widest text-blue-800 uppercase">Market Pulse</span>
                                         </div>
                                         <span className="font-mono text-[8.5px] text-blue-300 tracking-[0.03em] uppercase">Via Polymarket</span>
                                     </div>
@@ -881,7 +881,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                                     <path d="M1 10L5 6L8 9L13 4"/><path d="M9 4H13V8"/>
                                                 </svg>
                                             </div>
-                                            <span className="font-mono text-[10px] font-bold tracking-[0.1em] text-blue-800 uppercase">Featured Props</span>
+                                            <span className="font-mono text-[10px] font-bold tracking-widest text-blue-800 uppercase">Featured Props</span>
                                         </div>
                                         <span className="font-mono text-[8.5px] text-blue-300 tracking-[0.03em] uppercase">
                                             {featuredPropRows[0]?.prop.event_date === todayIso ? 'Today' : 'Tomorrow'}

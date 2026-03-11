@@ -6,7 +6,7 @@ export function AppLoadingScreen() {
         <div
             className={cn(
                 'min-h-screen flex items-center justify-center',
-                'bg-[var(--bg)] text-[var(--text)]'
+                'bg-(--bg) text-(--text)'
             )}
         >
             <div className={cn(ESSENCE.card.base, 'flex items-center gap-3')}>

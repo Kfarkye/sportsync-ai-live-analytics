@@ -56,7 +56,7 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                         Contextual Translation
                     </span>
                     {/* Expanding line - indicates interactivity */}
-                    <div className="h-[1px] w-6 bg-zinc-800 group-hover:w-10 transition-all duration-500" />
+                    <div className="h-px w-6 bg-zinc-800 group-hover:w-10 transition-all duration-500" />
                 </div>
                 <div className="flex items-center gap-4">
                     <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400 transition-colors">
@@ -83,7 +83,7 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                         <div className="pt-6 space-y-6">
                             {/* === ANCHOR DATA GRID === */}
                             {/* Financial-style: Each cell is atomic, scannable */}
-                            <div className="grid grid-cols-4 gap-[1px] bg-zinc-900/50 rounded-md overflow-hidden border border-slate-200">
+                            <div className="grid grid-cols-4 gap-px bg-zinc-900/50 rounded-md overflow-hidden border border-slate-200">
                                 {[
                                     { label: 'Signal', value: explanation.signal, isHighlight: true },
                                     { label: 'Market Total', value: explanation.market_total },
@@ -120,7 +120,7 @@ export const TranslatedExplanationBlock: React.FC<TranslatedExplanationBlockProp
                                 <span className="text-[9px] text-slate-500 uppercase font-semibold tracking-[0.15em]">
                                     Derivative Logic Block // Locked Signal
                                 </span>
-                                <div className="flex-grow h-[1px] bg-zinc-900" />
+                                <div className="grow h-px bg-zinc-900" />
                             </div>
                         </div>
                     </motion.div>

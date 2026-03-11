@@ -466,7 +466,7 @@ export default function ReportsPage() {
     : [];
 
   return (
-    <div className="h-[var(--vvh,100vh)] overflow-y-auto overscroll-y-contain bg-[#F4F6FF] text-slate-900">
+    <div className="h-(--vvh,100vh) overflow-y-auto overscroll-y-contain bg-[#F4F6FF] text-slate-900">
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur shadow-[0_1px_0_rgba(17,24,39,0.06)]">
         <div className="mx-auto w-full max-w-7xl px-4 md:px-6 py-3">
           <div className="flex items-center justify-between gap-4">

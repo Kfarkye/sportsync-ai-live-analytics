@@ -125,7 +125,7 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-4 right-4 z-[9999] p-3 bg-zinc-900/90 border border-white/10 rounded-full shadow-2xl backdrop-blur-md hover:bg-zinc-800 transition-all group"
+                className="fixed bottom-4 right-4 z-9999 p-3 bg-zinc-900/90 border border-white/10 rounded-full shadow-2xl backdrop-blur-md hover:bg-zinc-800 transition-all group"
             >
                 <Activity size={18} className="text-zinc-500 group-hover:text-cyan-400" />
             </button>
@@ -140,7 +140,7 @@ export const TechnicalDebugView = ({ match }: { match: Match }) => {
     };
 
     return (
-        <div className="fixed inset-y-0 right-0 w-96 z-[9999] bg-zinc-950 border-l border-white/10 shadow-2xl flex flex-col font-mono text-caption animate-in slide-in-from-right duration-300">
+        <div className="fixed inset-y-0 right-0 w-96 z-9999 bg-zinc-950 border-l border-white/10 shadow-2xl flex flex-col font-mono text-caption animate-in slide-in-from-right duration-300">
             <div className="flex items-center justify-between p-4 border-b border-white/10 bg-zinc-900/50">
                 <div className="flex items-center gap-2">
                     <Database size={14} className="text-cyan-400" />

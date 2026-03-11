@@ -206,7 +206,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                     {/* Pro Terminal */}
                     <div className="relative overflow-hidden rounded-[20px] border border-slate-200 bg-white p-6 shadow-[0_20px_38px_-28px_rgba(30,64,175,0.24)]">
                         {/* Subtle gradient accent */}
-                        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-blue-500/70 to-transparent" />
+                        <div className="absolute top-0 left-0 right-0 h-[2px] bg-linear-to-r from-transparent via-blue-500/70 to-transparent" />
 
                         <h3 className="text-caption font-black text-blue-700 uppercase tracking-widest mb-3">
                             Pro Terminal

@@ -109,7 +109,7 @@ const GameRow = ({
       variants={{ hidden: { opacity: 0, x: align === 'left' ? -10 : 10 }, visible: { opacity: 1, x: 0 } }}
       transition={PHYSICS_SWITCH}
       className={cn(
-        "group relative flex items-center py-2.5 transition-colors duration-300 hover:bg-white/[0.02] cursor-default",
+        "group relative flex items-center py-2.5 transition-colors duration-300 hover:bg-white/2 cursor-default",
         align === 'right' ? "flex-row-reverse text-right" : "text-left"
       )}
     >
@@ -149,7 +149,7 @@ const GameRow = ({
           className={cn(
             "flex items-center justify-center w-5 h-5 rounded-[2px] text-[10px] font-bold border transition-colors duration-300",
             isWin
-              ? "bg-white/[0.05] border-white/10 text-white shadow-[0_0_8px_rgba(255,255,255,0.05)]"
+              ? "bg-white/5 border-white/10 text-white shadow-[0_0_8px_rgba(255,255,255,0.05)]"
               : "bg-transparent border-zinc-800 text-zinc-600"
           )}
           style={isWin ? { borderColor: activeColor, color: activeColor } : undefined}
@@ -183,7 +183,7 @@ const RecentForm: React.FC<RecentFormProps> = ({
         {/* AWAY TEAM COLUMN */}
         <section>
           {/* Header (Spec Sheet Label) */}
-          <div className="flex items-end justify-between mb-6 pb-2 border-b border-white/[0.06]">
+          <div className="flex items-end justify-between mb-6 pb-2 border-b border-white/6">
             <div className="flex flex-col gap-1">
               <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.25em] font-mono select-none">
                 01 // AWAY FORM
@@ -215,7 +215,7 @@ const RecentForm: React.FC<RecentFormProps> = ({
         {/* HOME TEAM COLUMN (Mirrored) */}
         <section>
           {/* Header (Mirrored) */}
-          <div className="flex items-end justify-between flex-row-reverse mb-6 pb-2 border-b border-white/[0.06]">
+          <div className="flex items-end justify-between flex-row-reverse mb-6 pb-2 border-b border-white/6">
             <div className="flex flex-col gap-1 items-end text-right">
               <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.25em] font-mono select-none">
                 02 // HOME FORM

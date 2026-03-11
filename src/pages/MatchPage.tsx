@@ -265,7 +265,7 @@ function StatComparisonRow({
       <div className="sm:hidden">
         <div className="flex items-center justify-between gap-2 text-xs font-semibold tabular-nums">
           <span className="text-slate-700">{row.homeDisplay}</span>
-          <span className="uppercase tracking-[0.1em] text-[10px] text-slate-500">{row.label}</span>
+          <span className="uppercase tracking-widest text-[10px] text-slate-500">{row.label}</span>
           <span className="text-slate-700">{row.awayDisplay}</span>
         </div>
         <div className="mt-1.5 grid grid-cols-2 gap-2">
@@ -283,7 +283,7 @@ function StatComparisonRow({
         <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
           <div className="h-full rounded-full" style={{ width: `${homePct}%`, backgroundColor: homeColor }} />
         </div>
-        <div className="text-center text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">{row.label}</div>
+        <div className="text-center text-[11px] font-semibold uppercase tracking-widest text-slate-500">{row.label}</div>
         <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
           <div className="h-full rounded-full ml-auto" style={{ width: `${awayPct}%`, backgroundColor: awayColor }} />
         </div>
@@ -534,7 +534,7 @@ export default function MatchPage() {
 
   if (loading) {
     return (
-      <div className="h-[var(--vvh,100vh)] bg-slate-50 text-slate-500 flex items-center justify-center">
+      <div className="h-(--vvh,100vh) bg-slate-50 text-slate-500 flex items-center justify-center">
         <div className="text-xs font-semibold uppercase tracking-[0.16em]">Loading Match Report</div>
       </div>
     );
@@ -542,7 +542,7 @@ export default function MatchPage() {
 
   if (!match) {
     return (
-      <div className="h-[var(--vvh,100vh)] bg-slate-50 text-slate-900 flex flex-col items-center justify-center gap-4 px-4 text-center">
+      <div className="h-(--vvh,100vh) bg-slate-50 text-slate-900 flex flex-col items-center justify-center gap-4 px-4 text-center">
         <div className="text-2xl font-semibold tracking-tight">Match not found</div>
         <Link
           to="/edge"
@@ -588,7 +588,7 @@ export default function MatchPage() {
   const summaryText = `${match.home_team} ${match.home_score > match.away_score ? 'beat' : match.home_score < match.away_score ? 'lost to' : 'drew with'} ${match.away_team} ${match.home_score}-${match.away_score}. ${match.home_possession != null && match.away_possession != null ? `${match.home_possession > match.away_possession ? match.home_team : match.away_team} led possession at ${Math.max(match.home_possession, match.away_possession).toFixed(1)}%. ` : ''}${totalShots > 0 ? `The match produced ${totalShots} shots (${totalOnTarget} on target). ` : ''}${match.dk_home_ml != null ? `${match.home_team} closed ${fmtOdds(match.dk_home_ml)} on DraftKings.` : ''}`;
 
   return (
-    <div className="h-[var(--vvh,100vh)] overflow-y-auto bg-slate-50 text-slate-900" style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.45s ease-out' }}>
+    <div className="h-(--vvh,100vh) overflow-y-auto bg-slate-50 text-slate-900" style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.45s ease-out' }}>
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div className="mx-auto w-full max-w-6xl px-4 md:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">

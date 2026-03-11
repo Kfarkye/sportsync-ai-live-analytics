@@ -32,7 +32,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
                     {icon}
                 </div>
             )}
-            <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-zinc-700">
+            <p className="text-[13px] font-semibold uppercase tracking-widest text-zinc-700">
                 {message}
             </p>
             {description && (

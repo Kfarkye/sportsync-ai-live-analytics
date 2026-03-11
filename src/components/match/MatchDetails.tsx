@@ -229,7 +229,7 @@ const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'con
 
   return (
     <div className="flex items-center gap-2.5">
-      <span className="text-[9px] font-mono text-black/40 tracking-[0.25em] uppercase hidden sm:block font-medium mt-[1px]">
+      <span className="text-[9px] font-mono text-black/40 tracking-[0.25em] uppercase hidden sm:block font-medium mt-px">
         {isConnected ? 'SYNCED' : isConnecting ? 'SYNCING...' : 'OFFLINE'}
       </span>
       <div className="flex items-center justify-center w-[20px] h-[20px] bg-[#FAFAFA] border border-black/5 rounded-full shadow-[inset_0_1px_2px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.02)]">
@@ -243,13 +243,13 @@ const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'con
 
 // Apple-style bone screen shimmer
 const SkeletonShimmer = ({ className }: { className?: string }) => (
-  <div className={cn("relative overflow-hidden bg-black/[0.02] ring-1 ring-black/[0.03]", className)}>
-    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-black/[0.03] to-transparent" />
+  <div className={cn("relative overflow-hidden bg-black/2 ring-1 ring-black/3", className)}>
+    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-linear-to-r from-transparent via-black/3 to-transparent" />
   </div>
 );
 
 const OddsCardSkeleton = memo(() => (
-  <div className="space-y-5 p-6 rounded-[16px] bg-white ring-1 ring-black/[0.04] shadow-[0_4px_30px_rgba(0,0,0,0.02)]">
+  <div className="space-y-5 p-6 rounded-[16px] bg-white ring-1 ring-black/4 shadow-[0_4px_30px_rgba(0,0,0,0.02)]">
     <div className="flex justify-between items-center">
       <SkeletonShimmer className="h-2 w-24 rounded-full" />
       <SkeletonShimmer className="h-2 w-10 rounded-full" />
@@ -312,17 +312,17 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
   const hasAnyLine = spreadVal !== undefined || totalVal !== undefined || homeML !== undefined || awayML !== undefined;
 
   return (
-    <div className="bg-white rounded-[20px] overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.03)] ring-1 ring-black/[0.03] mb-12 relative z-10 transition-all duration-500">
+    <div className="bg-white rounded-[20px] overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.03)] ring-1 ring-black/3 mb-12 relative z-10 transition-all duration-500">
       {/* Upper Context Header */}
       {isValidDate && (
-        <div className="px-6 py-6 border-b border-black/[0.03]">
+        <div className="px-6 py-6 border-b border-black/3">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[14px] font-semibold text-black tracking-tight">{fullDateStr}</div>
               <div className="text-[12px] text-black/40 font-medium font-mono tabular-nums tracking-wide mt-1">{timeStr}</div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="px-3 py-1.5 bg-[#F8F8F9] rounded-[6px] ring-1 ring-black/[0.03] text-[9.5px] font-bold text-black/50 uppercase tracking-[0.25em]">
+              <span className="px-3 py-1.5 bg-[#F8F8F9] rounded-[6px] ring-1 ring-black/3 text-[9.5px] font-bold text-black/50 uppercase tracking-[0.25em]">
                 {match.leagueId?.toUpperCase()}
               </span>
             </div>
@@ -338,7 +338,7 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
       )}
 
       {/* Grid Specs */}
-      <div className={cn("grid divide-y sm:divide-y-0 sm:divide-x divide-black/[0.03]", (homeRecord || awayRecord) ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
+      <div className={cn("grid divide-y sm:divide-y-0 sm:divide-x divide-black/3", (homeRecord || awayRecord) ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
         {(homeRecord || awayRecord) && (
           <div className="px-6 py-6 bg-[#FCFCFC]/80">
             <div className="flex items-center gap-3 mb-5">
@@ -507,7 +507,7 @@ function normalizeColor(color: string | undefined, fallback: string): string {
 // ============================================================================
 
 const BroadcastOverlay = memo(() => (
-  <div className="absolute inset-0 z-[5] pointer-events-none select-none mix-blend-overlay opacity-[0.08]">
+  <div className="absolute inset-0 z-5 pointer-events-none select-none mix-blend-overlay opacity-[0.08]">
     <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0)_50%,rgba(0,0,0,0.8)_50%),linear-gradient(90deg,rgba(255,255,255,0.02),rgba(0,0,0,0.01),rgba(255,255,255,0.02))]" style={{ backgroundSize: "100% 2px, 3px 100%" }} />
   </div>
 ));
@@ -619,7 +619,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="relative w-full aspect-video overflow-hidden rounded-[16px] bg-white ring-1 ring-black/[0.04] shadow-[0_2px_12px_rgba(0,0,0,0.02)] z-0">
+      <div className="relative w-full aspect-video overflow-hidden rounded-[16px] bg-white ring-1 ring-black/4 shadow-[0_2px_12px_rgba(0,0,0,0.02)] z-0">
         <div className="absolute inset-0 z-0">{renderCourt()}</div>
         <BroadcastOverlay />
         <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
@@ -632,7 +632,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
       </div>
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start gap-4 px-2">
-        <div className="w-[1.5px] h-10 bg-black/[0.08] shrink-0 mt-1 rounded-full" />
+        <div className="w-[1.5px] h-10 bg-black/8 shrink-0 mt-1 rounded-full" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
             <span className="text-[9px] font-bold text-black/40 uppercase tracking-[0.25em] font-mono">
@@ -677,7 +677,7 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className={cn("group relative border-t border-black/[0.03] transition-all duration-500", collapsible ? "cursor-pointer" : "cursor-default")}
+      className={cn("group relative border-t border-black/3 transition-all duration-500", collapsible ? "cursor-pointer" : "cursor-default")}
       onClick={() => collapsible && setIsOpen(!isOpen)}
     >
       <div className="py-8 flex flex-col md:flex-row md:items-start gap-5 md:gap-10 px-2 md:px-0">
@@ -1337,15 +1337,15 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   }, [match.dbProps]);
 
   return (
-    <div className="min-h-[100dvh] text-black relative overflow-y-auto overflow-x-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white pb-[calc(env(safe-area-inset-bottom)+6rem)]">
+    <div className="min-h-dvh text-black relative overflow-y-auto overflow-x-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white pb-[calc(env(safe-area-inset-bottom)+6rem)]">
       <LiveSweatProvider latestPlayByPlayText={playByPlayText} aiTriggers={sweatTriggers}>
-        <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-[#FBFBFD]/92 pt-safe backdrop-blur-[24px] saturate-[1.2] transition-colors duration-500">
+        <header className="sticky top-0 z-50 border-b border-black/5 bg-[#FBFBFD]/92 pt-safe backdrop-blur-xl saturate-[1.2] transition-colors duration-500">
           <div className="flex items-center justify-between px-6 py-4">
             <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-black/5 rounded-full transition-all duration-300">
               <BackArrow />
             </button>
             <div className="flex items-center gap-4">
-              <span className="text-[10px] font-bold text-black/40 tracking-[0.25em] uppercase hidden md:block mt-[1px]">
+              <span className="text-[10px] font-bold text-black/40 tracking-[0.25em] uppercase hidden md:block mt-px">
                 {match.leagueId?.toUpperCase()}
               </span>
               <ConnectionBadge status={connectionStatus} />
@@ -1364,8 +1364,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           {/* Gradient scroll-mask wrapper */}
           <div className="relative mt-1.5 w-full shrink-0 overflow-hidden">
             {/* Scroll mask gradients */}
-            <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
-            <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
+            <div className="absolute left-0 top-0 bottom-0 w-6 bg-linear-to-r from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-6 bg-linear-to-l from-[#FBFBFD] to-transparent z-10 pointer-events-none" />
 
             <nav className="relative flex h-[42px] max-w-full items-center gap-6 overflow-x-auto px-6 no-scrollbar">
               {TABS.map((tab, i) => (
@@ -1390,7 +1390,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
               ))}
             </nav>
             {/* Subtle separator line extending full width */}
-            <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-black/[0.04]" />
+            <div className="absolute bottom-0 left-0 right-0 h-px bg-black/4" />
           </div>
         </header>
 
@@ -1528,7 +1528,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   <div className="mx-auto w-full max-w-[1120px] pb-8">
                     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
                       <aside className="order-1 space-y-4 lg:order-2 lg:sticky lg:top-24">
-                        <div className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[0_10px_36px_-28px_rgba(0,0,0,0.45)]">
+                        <div className="rounded-2xl border border-black/6 bg-white p-4 shadow-[0_10px_36px_-28px_rgba(0,0,0,0.45)]">
                           <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/45">
                             AI Context
                           </div>
@@ -1540,17 +1540,17 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                                 : "Postgame workflow is active. Use chat for line review and trend carry-forward."}
                           </div>
                           <div className="mt-3 flex flex-wrap gap-1.5">
-                            <span className="rounded-md border border-black/[0.08] bg-black/[0.02] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-black/60">
+                            <span className="rounded-md border border-black/8 bg-black/2 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-black/60">
                               {match.status || "STATUS"}
                             </span>
-                            <span className="rounded-md border border-black/[0.08] bg-black/[0.02] px-2 py-1 text-[10px] font-semibold tabular-nums text-black/70">
+                            <span className="rounded-md border border-black/8 bg-black/2 px-2 py-1 text-[10px] font-semibold tabular-nums text-black/70">
                               {match.awayScore ?? 0}-{match.homeScore ?? 0}
                             </span>
-                            <span className="rounded-md border border-black/[0.08] bg-black/[0.02] px-2 py-1 text-[10px] font-semibold tabular-nums text-black/70">
+                            <span className="rounded-md border border-black/8 bg-black/2 px-2 py-1 text-[10px] font-semibold tabular-nums text-black/70">
                               {match.displayClock || (match.minute ? `${match.minute}'` : (isSched ? "PRE" : "FINAL"))}
                             </span>
                             {(match.current_odds?.total ?? match.odds?.overUnder ?? null) !== null && (
-                              <span className="rounded-md border border-black/[0.08] bg-black/[0.02] px-2 py-1 text-[10px] font-semibold tabular-nums text-black/70">
+                              <span className="rounded-md border border-black/8 bg-black/2 px-2 py-1 text-[10px] font-semibold tabular-nums text-black/70">
                                 Total {match.current_odds?.total ?? match.odds?.overUnder}
                               </span>
                             )}
@@ -1559,7 +1559,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         {isLive ? <LiveIntelligenceCard match={match} /> : null}
                       </aside>
 
-                      <div className="order-2 lg:order-1 h-[calc(100dvh-190px)] min-h-[520px] overflow-hidden rounded-[22px] border border-black/[0.06] bg-white shadow-[0_14px_42px_-28px_rgba(0,0,0,0.36)]">
+                      <div className="order-2 lg:order-1 h-[calc(100dvh-190px)] min-h-[520px] overflow-hidden rounded-[22px] border border-black/6 bg-white shadow-[0_14px_42px_-28px_rgba(0,0,0,0.36)]">
                         <ChatWidget currentMatch={match as any} inline />
                       </div>
                     </div>

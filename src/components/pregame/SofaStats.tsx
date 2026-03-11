@@ -142,7 +142,7 @@ const SofaStats: React.FC<SofaStatsProps> = ({ homeTeam, awayTeam }) => {
 
                                 {/* Label */}
                                 <div className="flex-1 flex justify-center px-4">
-                                    <span className="truncate text-center text-[9px] font-bold uppercase tracking-[0.1em] text-zinc-500 transition-colors group-hover:text-zinc-700 sm:text-[10px]">
+                                    <span className="truncate text-center text-[9px] font-bold uppercase tracking-widest text-zinc-500 transition-colors group-hover:text-zinc-700 sm:text-[10px]">
                                         {stat.label}
                                     </span>
                                 </div>

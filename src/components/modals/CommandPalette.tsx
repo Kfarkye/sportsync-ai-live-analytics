@@ -108,7 +108,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ matches, onSelect, isOp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh] px-4">
+    <div className="fixed inset-0 z-200 flex items-start justify-center pt-[15vh] px-4">
       <div
         className="absolute inset-0 bg-zinc-950/35 backdrop-blur-[2px] transition-opacity"
         onClick={onClose}

@@ -51,7 +51,7 @@ const MetricRow = ({
           style={{ backgroundColor: barColor, boxShadow: `0 0 12px ${barColor}40` }}
         />
         {/* Subtle shine effect on bar */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none z-20" />
+        <div className="absolute inset-0 bg-linear-to-b from-white/10 to-transparent pointer-events-none z-20" />
       </div>
     </div>
   );

@@ -28,7 +28,7 @@ const SectionLabel = ({ children, color = 'zinc' }: { children: React.ReactNode;
               'text-slate-500'
   )}>
     {children}
-    <div className="flex-grow h-[0.5px] bg-slate-100" />
+    <div className="grow h-[0.5px] bg-slate-100" />
   </div>
 );
 
@@ -80,7 +80,7 @@ const SportAwareTensionWidget = ({
   const style = stateStyles[edgeState];
 
   return (
-    <div className={cn("relative overflow-hidden p-6 mb-8 bg-white/[0.01] border rounded-xl group", style.borderColor)}>
+    <div className={cn("relative overflow-hidden p-6 mb-8 bg-white/1 border rounded-xl group", style.borderColor)}>
       <div className="flex justify-between items-center mb-6 relative z-10">
         <div className="flex items-center gap-3">
           {/* v5.0: Only show directional badge when NOT neutral */}
@@ -158,9 +158,9 @@ const PPMTracker = ({ ppm, edgeState, edgePoints, context, sport }: {
 
   // Color coding based on edge state (not just delta)
   const stateConfig = {
-    'PLAY': { bg: 'bg-emerald-500/[0.04]', border: 'border-emerald-500/20', badge: 'bg-emerald-500/20 text-emerald-400', label: 'LIVE EDGE' },
-    'LEAN': { bg: 'bg-amber-500/[0.04]', border: 'border-amber-500/20', badge: 'bg-amber-500/20 text-amber-400', label: 'LEAN' },
-    'NEUTRAL': { bg: 'bg-zinc-500/[0.02]', border: 'border-slate-200', badge: 'bg-zinc-800 text-slate-500', label: 'NO EDGE' }
+    'PLAY': { bg: 'bg-emerald-500/4', border: 'border-emerald-500/20', badge: 'bg-emerald-500/20 text-emerald-400', label: 'LIVE EDGE' },
+    'LEAN': { bg: 'bg-amber-500/4', border: 'border-amber-500/20', badge: 'bg-amber-500/20 text-amber-400', label: 'LEAN' },
+    'NEUTRAL': { bg: 'bg-zinc-500/2', border: 'border-slate-200', badge: 'bg-zinc-800 text-slate-500', label: 'NO EDGE' }
   };
   const config = stateConfig[edgeState || 'NEUTRAL'];
 
@@ -298,9 +298,9 @@ const OddsAnchorGrid: React.FC<{ match: Match, signals: AISignals }> = ({ match,
     <div className="mb-24 rounded-sm overflow-hidden border border-slate-200 bg-white/20 shadow-[0_24px_48px_rgba(0,0,0,0.5)]">
       <div className="grid grid-cols-4 gap-px bg-slate-100">
         <div className="bg-zinc-950 p-6"><span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.5em] leading-none">Reference</span></div>
-        <div className="bg-zinc-950 p-6 border-l border-white/[0.02]"><span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.5em] leading-none">Opening</span></div>
-        <div className="bg-zinc-950 p-6 border-l border-white/[0.02]"><span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.5em] leading-none">Closing</span></div>
-        <div className="bg-zinc-950 p-6 border-l border-white/[0.02] flex items-center justify-between col-span-1">
+        <div className="bg-zinc-950 p-6 border-l border-white/2"><span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.5em] leading-none">Opening</span></div>
+        <div className="bg-zinc-950 p-6 border-l border-white/2"><span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.5em] leading-none">Closing</span></div>
+        <div className="bg-zinc-950 p-6 border-l border-white/2 flex items-center justify-between col-span-1">
           <div className="flex flex-col gap-1">
             <span className="text-[7px] font-black text-emerald-500/60 uppercase tracking-[0.5em] leading-none">Live Slot</span>
             <span className="text-[8px] font-mono text-slate-500 uppercase tracking-widest">{targetAbbr} Primary</span>
@@ -491,7 +491,7 @@ export const LiveAnalysisCard: React.FC<{ match: Match }> = ({ match }) => {
         <span className="text-[9px] font-black uppercase tracking-[0.5em] text-slate-900/30 select-none">
           {systemState}
         </span>
-        <div className="flex-grow h-[0.5px] bg-slate-100" />
+        <div className="grow h-[0.5px] bg-slate-100" />
         <span className="text-[9px] font-mono text-slate-400 tracking-wider font-bold">
           {new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' })}
         </span>
@@ -575,7 +575,7 @@ export const LiveAnalysisCard: React.FC<{ match: Match }> = ({ match }) => {
 
       {/* Empty State Fallback */}
       {!ai_signals.ppm && !isFootball && (
-        <div className="p-8 text-center border border-slate-200 rounded-xl bg-white/[0.01]">
+        <div className="p-8 text-center border border-slate-200 rounded-xl bg-white/1">
           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500">
             Awaiting live data feed...
           </span>

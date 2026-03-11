@@ -41,13 +41,13 @@ const InlineNewsBadge: React.FC<InlineNewsBadgeProps> = ({ type, text, onClick }
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
       className={`
         mt-3 px-3 py-2 
-        bg-gradient-to-br from-white/[0.04] to-white/[0.01]
+        bg-linear-to-br from-white/4 to-white/1
         backdrop-blur-md
         border border-slate-200
         rounded-xl
         flex items-center justify-between gap-3
         group cursor-pointer
-        hover:from-white/[0.06]
+        hover:from-white/6
         hover:border-slate-200
         transition-all duration-150
       `}

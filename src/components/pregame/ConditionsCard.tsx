@@ -58,7 +58,7 @@ const HUDMetric = ({
     icon: ComponentType<{ size?: number; className?: string }>;
     color?: string;
 }) => (
-    <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-colors group/metric">
+    <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-white/2 border border-white/4 hover:bg-white/4 transition-colors group/metric">
         <div className="flex items-center gap-2">
             <Icon size={12} className={color} />
             <span className="text-[11px] font-medium text-zinc-500">{label}</span>
@@ -88,8 +88,8 @@ const ConditionsCard: React.FC<ConditionsCardProps> = ({ venue, stadium, weather
     return (
         <div className="relative">
             {/* Venue Row */}
-            <div className="flex items-center gap-3 py-3 border-b border-white/[0.04]">
-                <div className="w-9 h-9 rounded-lg bg-white/[0.025] flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-3 py-3 border-b border-white/4">
+                <div className="w-9 h-9 rounded-lg bg-white/2.5 flex items-center justify-center shrink-0">
                     <span className="text-base">🏟️</span>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -112,8 +112,8 @@ const ConditionsCard: React.FC<ConditionsCardProps> = ({ venue, stadium, weather
 
             {/* Weather Row - Only for outdoor sports */}
             {(!isArenaSport && (hasWeather || isIndoorVenue)) && (
-                <div className="flex items-center gap-3 py-3 border-b border-white/[0.04]">
-                    <div className="w-9 h-9 rounded-lg bg-white/[0.025] flex items-center justify-center shrink-0">
+                <div className="flex items-center gap-3 py-3 border-b border-white/4">
+                    <div className="w-9 h-9 rounded-lg bg-white/2.5 flex items-center justify-center shrink-0">
                         {isIndoorVenue ? <Thermometer size={16} strokeWidth={2} className="text-emerald-500/70" /> : <WeatherIcon condition={weather?.condition || ''} />}
                     </div>
                     <div className="flex-1">
@@ -154,8 +154,8 @@ const ConditionsCard: React.FC<ConditionsCardProps> = ({ venue, stadium, weather
 
             {/* Broadcast Row */}
             {broadcast && (
-                <div className="flex items-center gap-3 py-3 border-b border-white/[0.04]">
-                    <div className="w-9 h-9 rounded-lg bg-white/[0.025] flex items-center justify-center shrink-0">
+                <div className="flex items-center gap-3 py-3 border-b border-white/4">
+                    <div className="w-9 h-9 rounded-lg bg-white/2.5 flex items-center justify-center shrink-0">
                         <Tv size={14} strokeWidth={2} className="text-emerald-500" />
                     </div>
                     <div className="flex-1">

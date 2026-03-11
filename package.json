@@ -21,8 +21,8 @@
   "dependencies": {
     "@ai-sdk/google": "^3.0.13",
     "@google/genai": "^1.30.0",
-    "@tanstack/query-sync-storage-persister": "^5.90.24",
     "@supabase/supabase-js": "^2.98.0",
+    "@tanstack/query-sync-storage-persister": "^5.90.24",
     "@tanstack/react-query": "^5.28.0",
     "@tanstack/react-query-persist-client": "^5.90.18",
     "@vercel/functions": "^3.4.3",
@@ -45,13 +45,13 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.0.3",
     "@typescript-eslint/eslint-plugin": "^8.41.0",
     "@typescript-eslint/parser": "^8.56.1",
     "@vitejs/plugin-react": "^5.1.4",
-    "@tailwindcss/postcss": "^4.2.1",
     "autoprefixer": "^10.4.23",
     "eslint": "^9.36.0",
     "postcss": "^8.5.6",

@@ -164,7 +164,7 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
               const isWinning = idx === 0 ? isAwayWinning : isHomeWinning;
               const totalScore = idx === 0 ? awayTotal : homeTotal;
               return (
-                <tr key={team.id} className="group transition-colors hover:bg-white/[0.015]">
+                <tr key={team.id} className="group transition-colors hover:bg-white/1.5">
                   <td className="py-4 px-1">
                     <div className="flex items-center gap-2.5">
                       <TeamLogo logo={team.logo} className="w-6 h-6 opacity-80 group-hover:opacity-100 transition-opacity" />
@@ -245,7 +245,7 @@ export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive
             return (
               <motion.tr
                 key={team.id}
-                className="group transition-colors hover:bg-white/[0.015]"
+                className="group transition-colors hover:bg-white/1.5"
                 variants={rowVariants}
               >
                 <td className="py-4 px-1">
@@ -448,7 +448,7 @@ export const ClassicPlayerProps: React.FC<{ match: Match }> = memo(({ match }) =
         <div className="w-12 h-12 rounded-2xl bg-zinc-900/50 flex items-center justify-center mb-4">
           <Target size={20} className="text-slate-400" />
         </div>
-        <span className="text-[11px] font-medium text-slate-500 uppercase tracking-[0.1em]">No Active Props</span>
+        <span className="text-[11px] font-medium text-slate-500 uppercase tracking-widest">No Active Props</span>
       </div>
     );
   }
@@ -509,7 +509,7 @@ const ClassicPlayerGroup = memo(({ group }: { group: PlayerPropGroup }) => {
           return (
             <div
               key={j}
-              className={cn("flex items-center justify-between py-3 px-3 rounded-xl transition-all duration-300 active:bg-slate-100", isPulsing ? "bg-emerald-50/50 border border-emerald-500/10" : "bg-slate-50 border border-white/[0.02]")}
+              className={cn("flex items-center justify-between py-3 px-3 rounded-xl transition-all duration-300 active:bg-slate-100", isPulsing ? "bg-emerald-50/50 border border-emerald-500/10" : "bg-slate-50 border border-white/2")}
             >
               <div className="flex items-center gap-2">
                 <div className={cn(
@@ -527,7 +527,7 @@ const ClassicPlayerGroup = memo(({ group }: { group: PlayerPropGroup }) => {
                       {streak ? (
                         <span
                           className={cn(
-                            "rounded px-1 py-[1px] font-bold",
+                            "rounded px-1 py-px font-bold",
                             streak.label === 'HIT' ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700",
                           )}
                         >

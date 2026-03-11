@@ -61,7 +61,7 @@ export const NarrativeCard = ({ match }: { match: Match }) => {
             animate={{ opacity: 1, y: 0 }}
             className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm relative group"
         >
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-rose-500" />
+            <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-amber-500 to-rose-500" />
 
             <div className="p-6 md:p-8 pb-6 border-b border-slate-100 relative">
                 <div className="flex items-center justify-between mb-4">

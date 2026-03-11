@@ -122,7 +122,7 @@ const AppShell: FC = () => {
     <div
       className={cn(
         // Layout
-        'min-h-screen h-[var(--vvh,100vh)] relative flex flex-col antialiased',
+        'min-h-screen h-(--vvh,100vh) relative flex flex-col antialiased',
         // Yahoo-inspired shell surface
         'bg-[#F4F6FF] text-slate-900 font-sans',
         // selection rule
@@ -245,7 +245,7 @@ const AppShell: FC = () => {
         </div>
 
         {/* Global Legal & Responsibility Footer (inside scroll context) */}
-        <footer className={cn('w-full border-t border-slate-200/80 bg-gradient-to-b from-transparent to-[#EFF6FF]/80')}>
+        <footer className={cn('w-full border-t border-slate-200/80 bg-linear-to-b from-transparent to-[#EFF6FF]/80')}>
           <div className="max-w-7xl mx-auto px-7 py-9 md:py-10">
             <div className="flex flex-col items-center text-center gap-3 opacity-80">
               <span className="text-[11px] text-slate-600 max-w-2xl">
@@ -269,12 +269,12 @@ const AppShell: FC = () => {
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
             className={cn(
-              'fixed inset-0 z-[60] overflow-hidden flex flex-col',
+              'fixed inset-0 z-60 overflow-hidden flex flex-col',
               ESSENCE.tw.surface.subtle // bg-slate-50
             )}
           >
             {/* Sheet Handle for Mobile */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-[70] md:hidden" />
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-70 md:hidden" />
             <MatchDetails match={selectedMatch} matches={filteredMatches} onSelectMatch={setSelectedMatch} onBack={() => setSelectedMatch(null)} />
           </MotionDiv>
         )}

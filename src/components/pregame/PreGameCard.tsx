@@ -98,11 +98,11 @@ const formatGap = (value: number | null): string => {
 const ToggleSwitch = ({ expanded }: { expanded: boolean }) => (
     <div className="relative w-2.5 h-2.5 flex items-center justify-center opacity-40 group-hover:opacity-100 transition-opacity duration-300">
         <span className={cn(
-            "absolute w-full h-[1px] bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+            "absolute w-full h-px bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
             expanded ? "rotate-180" : "rotate-0"
         )} />
         <span className={cn(
-            "absolute w-full h-[1px] bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+            "absolute w-full h-px bg-white transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
             expanded ? "rotate-180 opacity-0" : "rotate-90 opacity-100"
         )} />
     </div>
@@ -137,14 +137,14 @@ const SpecSheetRow = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className={cn(
-                "group relative border-t border-white/[0.08] transition-all duration-500",
+                "group relative border-t border-white/8 transition-all duration-500",
                 collapsible ? "cursor-pointer" : "cursor-default"
             )}
             onClick={() => collapsible && setIsOpen(!isOpen)}
         >
             {/* Active Laser Line (Left Edge) */}
             <div className={cn(
-                "absolute -top-[1px] left-0 h-[1px] bg-white transition-all duration-500 ease-out z-10 shadow-[0_0_10px_rgba(255,255,255,0.4)]",
+                "absolute -top-px left-0 h-px bg-white transition-all duration-500 ease-out z-10 shadow-[0_0_10px_rgba(255,255,255,0.4)]",
                 effectiveOpen ? "w-full opacity-100" : "w-0 opacity-0"
             )} />
 
@@ -284,7 +284,7 @@ const PolyGapSection = ({
     ];
 
     return (
-        <div className="rounded-xl border border-white/[0.10] bg-white/[0.02] px-4 py-3">
+        <div className="rounded-xl border border-white/10 bg-white/2 px-4 py-3">
             <div className="mb-3 flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">
                     Prediction Market vs Sportsbook
@@ -296,14 +296,14 @@ const PolyGapSection = ({
                 ) : null}
             </div>
 
-            <div className="grid grid-cols-[minmax(0,1fr)_70px_70px_76px] border-b border-white/[0.08] pb-2 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-600">
+            <div className="grid grid-cols-[minmax(0,1fr)_70px_70px_76px] border-b border-white/8 pb-2 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-600">
                 <span>Team</span>
                 <span className="text-center">Poly</span>
                 <span className="text-center">Book</span>
                 <span className="text-right">Gap</span>
             </div>
 
-            <div className="divide-y divide-white/[0.06]">
+            <div className="divide-y divide-white/6">
                 {rows.map((row) => (
                     <div key={row.team} className="grid grid-cols-[minmax(0,1fr)_70px_70px_76px] items-center py-2.5">
                         <span className="truncate text-[12px] font-semibold text-zinc-100">
@@ -332,7 +332,7 @@ const PolyGapSection = ({
             </div>
 
             {strongestGap ? (
-                <div className="mt-3 rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2 text-[11px] text-zinc-300">
+                <div className="mt-3 rounded-lg border border-white/8 bg-black/20 px-3 py-2 text-[11px] text-zinc-300">
                     Strongest divergence: <span className="font-semibold text-zinc-100">{strongestGap.team}</span>{' '}
                     <span className={cn(
                         "font-mono tabular-nums font-semibold",
@@ -408,7 +408,7 @@ const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, o
     if (isLoading && !data) {
         return (
             <div className="w-full h-[600px] flex flex-col items-center justify-center space-y-6 opacity-40">
-                <div className="h-px w-32 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 animate-pulse" />
+                <div className="h-px w-32 bg-linear-to-r from-transparent via-white to-transparent opacity-20 animate-pulse" />
                 <div className="text-[9px] tracking-[0.4em] uppercase text-zinc-500 font-mono">Loading Schematics</div>
             </div>
         );
@@ -554,7 +554,7 @@ const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, o
                         )}
 
                         {/* Closing Hairline */}
-                        <div className="w-full h-px bg-white/[0.08]" />
+                        <div className="w-full h-px bg-white/8" />
                     </motion.div>
                 )}
 
@@ -570,7 +570,7 @@ const PreGameCard: React.FC<PreGameCardProps> = ({ match, activeTab, propView, o
                                 <PropMarketListView match={match} />
                             </DebugBoundary>
                         </SpecSheetRow>
-                        <div className="w-full h-px bg-white/[0.08]" />
+                        <div className="w-full h-px bg-white/8" />
                     </motion.div>
                 )}
 

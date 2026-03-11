@@ -39,7 +39,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game }) => {
     return (
         <div className="h-full flex flex-col bg-slate-900 overflow-y-auto custom-scrollbar">
             {/* Hero Header */}
-            <div className="relative h-48 w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-b border-slate-800 p-6 flex items-center justify-between overflow-hidden">
+            <div className="relative h-48 w-full bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 border-b border-slate-800 p-6 flex items-center justify-between overflow-hidden">
                 {/* Abstract Background Elements */}
                 <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
@@ -115,7 +115,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game }) => {
                         ) : analysis ? (
                             <>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 p-5 rounded-2xl relative overflow-hidden group">
+                                    <div className="bg-linear-to-br from-slate-800 to-slate-900 border border-slate-700 p-5 rounded-2xl relative overflow-hidden group">
                                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                             <Sparkles size={100} />
                                         </div>
@@ -123,7 +123,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game }) => {
                                         <p className="text-slate-200 leading-relaxed font-medium">{analysis.summary}</p>
                                     </div>
 
-                                    <div className="bg-gradient-to-br from-emerald-900/20 to-slate-900 border border-emerald-500/30 p-5 rounded-2xl relative overflow-hidden">
+                                    <div className="bg-linear-to-br from-emerald-900/20 to-slate-900 border border-emerald-500/30 p-5 rounded-2xl relative overflow-hidden">
                                         <h4 className="text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">Smart Bet Insight</h4>
                                         <p className="text-white leading-relaxed font-medium">{analysis.bettingInsight}</p>
                                         <div className="mt-4 flex items-center gap-2">
@@ -223,7 +223,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game }) => {
 
                 {activeTab === 'ODDS' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="bg-gradient-to-br from-emerald-900/10 to-slate-900 border border-emerald-500/20 rounded-2xl p-6">
+                        <div className="bg-linear-to-br from-emerald-900/10 to-slate-900 border border-emerald-500/20 rounded-2xl p-6">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
                                     <DollarSign size={20} />

@@ -276,7 +276,7 @@ const ConfidenceBar = ({ tier }: { tier: string }) => {
         <div className="flex items-center gap-2 h-4 w-full max-w-[120px]" title={`Confidence: ${tier}`}>
             <div className="flex-1 h-[5px] rounded-full bg-slate-200 overflow-hidden">
                 <motion.div
-                    className={cn("h-full rounded-full bg-gradient-to-r", gradient)}
+                    className={cn("h-full rounded-full bg-linear-to-r", gradient)}
                     initial={{ width: 0 }}
                     animate={{ width: `${percent}%` }}
                     transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
@@ -340,7 +340,7 @@ const InsightRow = ({ card, confidenceTier, isLast, sources }: { card: ExtendedI
     return (
         <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn("group relative w-full transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]", hasDetails ? "cursor-pointer" : "cursor-default")} onClick={() => hasDetails && setExpanded(v => !v)}>
             {/* Hairline Separator */}
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+            <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-slate-200 to-transparent" />
 
             <div className="relative max-w-[1200px] mx-auto">
                 {/* Active Indicator Rail */}
@@ -404,7 +404,7 @@ const InsightRow = ({ card, confidenceTier, isLast, sources }: { card: ExtendedI
             </div>
 
             {/* Bottom Hairline for Last Item */}
-            {isLast && <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />}
+            {isLast && <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-slate-200 to-transparent" />}
         </motion.div>
     );
 };
@@ -459,7 +459,7 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
     if (status === 'LOADING') {
         return (
             <div className="w-full min-h-[500px] flex flex-col items-center justify-center space-y-8 opacity-60">
-                <div className="relative w-24 h-[1px] bg-slate-200 overflow-hidden"><div className="absolute inset-0 bg-slate-400/50 w-1/2 animate-[shimmer_2s_infinite]" /></div>
+                <div className="relative w-24 h-px bg-slate-200 overflow-hidden"><div className="absolute inset-0 bg-slate-400/50 w-1/2 animate-[shimmer_2s_infinite]" /></div>
                 <div className={SYSTEM.type.mono}>Initializing Analysis</div>
             </div>
         );
@@ -522,11 +522,11 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
                             </motion.div>
                             <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
                                 <div className="flex flex-col md:flex-row md:items-baseline md:gap-8 mb-8">
-                                    <h1 className="text-[56px] md:text-[100px] font-semibold text-slate-900 tracking-tighter leading-[0.85] break-words max-w-5xl">{recommendedPick}</h1>
+                                    <h1 className="text-[56px] md:text-[100px] font-semibold text-slate-900 tracking-tighter leading-[0.85] wrap-break-word max-w-5xl">{recommendedPick}</h1>
                                     {displayJuice && <span className="text-[16px] md:text-[20px] font-mono text-slate-500 font-medium tracking-[0.15em] mt-4 md:mt-0">{displayJuice}</span>}
                                 </div>
                                 <div className="max-w-3xl border-l-2 border-slate-200 pl-8 py-2 mx-auto md:mx-0">
-                                    <p className="text-[20px] md:text-[24px] text-slate-600 font-light leading-[1.5] tracking-tight text-pretty"><RenderRichText text={String(processedData.headline || "")} sources={processedData.sources} /></p>
+                                    <p className="text-[20px] md:text-[24px] text-slate-600 font-light leading-normal tracking-tight text-pretty"><RenderRichText text={String(processedData.headline || "")} sources={processedData.sources} /></p>
                                 </div>
                             </motion.div>
                         </div>
@@ -545,7 +545,7 @@ export const PregameIntelCards = ({ match, hideFooter = false, intel: externalIn
                         ))}
 
                         {/* Closing Fade */}
-                        <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+                        <div className="w-full h-px bg-linear-to-r from-transparent via-slate-200 to-transparent" />
                     </div>
 
                 </motion.div>
