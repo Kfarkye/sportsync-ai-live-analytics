@@ -619,7 +619,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="relative w-full aspect-video overflow-hidden rounded-[16px] bg-white ring-1 ring-black/4 shadow-[0_2px_12px_rgba(0,0,0,0.02)] z-0">
+      <div className="relative w-full aspect-[21/9] max-h-[280px] overflow-hidden rounded-[16px] bg-white ring-1 ring-black/4 shadow-[0_2px_12px_rgba(0,0,0,0.02)] z-0">
         <div className="absolute inset-0 z-0">{renderCourt()}</div>
         <BroadcastOverlay />
         <div className="absolute top-4 left-4 z-10 flex items-center gap-2">

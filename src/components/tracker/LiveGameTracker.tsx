@@ -347,24 +347,24 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
 
 const DarkPanel = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'> & { hover?: boolean; tone?: 'dark' | 'light' }>(
     ({ children, className, hover = false, tone = 'dark', ...props }, ref) => (
-    <div
-        ref={ref}
-        className={cn(
-            'relative overflow-hidden rounded-xl border',
-            tone === 'dark'
-                ? 'bg-[#111113] border-white/5 shadow-lg'
-                : 'bg-white border-slate-200 shadow-[0_14px_28px_-24px_rgba(30,64,175,0.22)]',
-            hover && (tone === 'dark' ? 'transition-colors duration-200 hover:bg-[#16161a]' : 'transition-colors duration-200 hover:bg-slate-50'),
-            className,
-        )}
-        {...props}
-    >
-        {tone === 'dark' ? (
-            <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: TOKENS.assets.noise }} aria-hidden="true" />
-        ) : null}
-        <div className="relative z-10 h-full">{children}</div>
-    </div>
-));
+        <div
+            ref={ref}
+            className={cn(
+                'relative overflow-hidden rounded-xl border',
+                tone === 'dark'
+                    ? 'bg-[#111113] border-white/5 shadow-lg'
+                    : 'bg-white border-slate-200 shadow-[0_14px_28px_-24px_rgba(30,64,175,0.22)]',
+                hover && (tone === 'dark' ? 'transition-colors duration-200 hover:bg-[#16161a]' : 'transition-colors duration-200 hover:bg-slate-50'),
+                className,
+            )}
+            {...props}
+        >
+            {tone === 'dark' ? (
+                <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: TOKENS.assets.noise }} aria-hidden="true" />
+            ) : null}
+            <div className="relative z-10 h-full">{children}</div>
+        </div>
+    ));
 DarkPanel.displayName = 'DarkPanel';
 
 const Label = ({ children, className }: { children: ReactNode; className?: string }) => <h3 className={cn("text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] leading-none m-0", className)}>{children}</h3>;
@@ -838,7 +838,7 @@ const ScoreHeaderHero = memo(({ meta, teams, gameplay, betting, onBack, isEmbedd
                 <div className={cn('absolute top-[10%] -right-[10%] h-[80%] w-[50%] translate-z-0 rounded-full blur-[120px]', isLiveShell ? 'opacity-[0.18]' : 'opacity-[0.10]')} style={{ background: teams.home.color }} />
             </div>
 
-            <div className={cn('relative z-10 grid w-full max-w-5xl grid-cols-[1fr_auto_1fr] items-center', isEmbedded ? 'mb-4 mt-8 gap-3 px-3 sm:gap-5 sm:px-6' : 'mb-8 mt-16 gap-4 px-4 sm:gap-12 sm:px-8')}>
+            <div className={cn('relative z-10 grid w-full max-w-3xl grid-cols-[1fr_auto_1fr] items-center', isEmbedded ? 'mb-4 mt-8 gap-3 px-3 sm:gap-5 sm:px-6' : 'mb-8 mt-16 gap-4 px-4 sm:gap-12 sm:px-8')}>
                 <TeamDisplay team={teams.away} compact={isEmbedded} />
                 <div className={cn('flex flex-col items-center justify-center', isEmbedded ? 'min-w-[108px] pt-1.5' : 'min-w-[140px] pt-4')} aria-live="polite" aria-label={`Score: ${teams.away.name} ${teams.away.score}, ${teams.home.name} ${teams.home.score}`}>
                     {meta.isPregame ? (
