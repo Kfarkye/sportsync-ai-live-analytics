@@ -308,18 +308,24 @@ Deno.serve(async (req: Request) => {
             if (!name) return null;
             return teamMap.get(`${leagueId}:${name.toLowerCase().trim()}`) || name.trim();
         };
+        const todayStr = new Date().toISOString().split('T')[0];
 
         for (const pick of pendingPicks as PendingPick[]) {
             const isTennis = pick.match_id.includes('tennis') || pick.match_id.includes('atp') || pick.match_id.includes('wta');
 
             const resolvedMetadata = pick.grading_metadata ?? inferGradingMetadata(pick);
             if (!resolvedMetadata?.side) {
-                await supabase.from("pregame_intel").update({
-                    pick_result: 'MANUAL_REVIEW',
-                    graded_at: new Date().toISOString()
-                }).eq("intel_id", pick.intel_id);
-                trace.push(`[manual] ${pick.intel_id}: unable to infer grading metadata`);
-                manualReview++;
+                if (pick.game_date < todayStr) {
+                    await supabase.from("pregame_intel").update({
+                        pick_result: 'MANUAL_REVIEW',
+                        graded_at: new Date().toISOString()
+                    }).eq("intel_id", pick.intel_id);
+                    trace.push(`[manual] ${pick.intel_id}: unable to infer grading metadata`);
+                    manualReview++;
+                } else {
+                    trace.push(`[skip] ${pick.intel_id}: metadata unresolved for future game`);
+                    skipped++;
+                }
                 continue;
             }
 
