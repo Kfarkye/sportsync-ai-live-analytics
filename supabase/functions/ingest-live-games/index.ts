@@ -283,6 +283,15 @@ function hasSnapshotPriceFields(row: any): boolean {
   ].some((value) => value !== null && value !== undefined);
 }
 
+function resolvePrimaryLiveOdds(args: {
+  espnOdds: any;
+  parsedOdds: ParsedProviderOdds;
+  effectiveOdds: any;
+}) {
+  const { espnOdds, parsedOdds, effectiveOdds } = args;
+  return parsedOdds.odds_live || espnOdds || effectiveOdds || null;
+}
+
 function buildLiveOddsSnapshotRows(args: {
   capturedAt: string;
   comp: any;
@@ -292,6 +301,7 @@ function buildLiveOddsSnapshotRows(args: {
   awayScore: number;
   homeTeam: string;
   awayTeam: string;
+  espnOdds: any;
   effectiveOdds: any;
   finalMarketOdds: any;
   parsedOdds: ParsedProviderOdds;
@@ -305,6 +315,7 @@ function buildLiveOddsSnapshotRows(args: {
     awayScore,
     homeTeam,
     awayTeam,
+    espnOdds,
     effectiveOdds,
     finalMarketOdds,
     parsedOdds
@@ -335,9 +346,16 @@ function buildLiveOddsSnapshotRows(args: {
   const pushRow = (marketType: string, providerPayload: any, source: string) => {
     if (!providerPayload) return;
 
+    const providerName = String(
+      providerPayload?.provider ||
+      providerPayload?.provider_name ||
+      providerPayload?.book ||
+      'Unknown'
+    ).trim() || 'Unknown';
+
     const row = {
       ...baseRow,
-      provider: String(providerPayload?.provider || 'Unknown'),
+      provider: providerName,
       provider_id: providerPayload?.provider_id != null ? String(providerPayload.provider_id) : null,
       market_type: marketType,
       home_ml: parseAmerican(providerPayload?.home_ml ?? providerPayload?.homeWin ?? providerPayload?.moneylineHome ?? providerPayload?.home_1x2),
@@ -358,10 +376,18 @@ function buildLiveOddsSnapshotRows(args: {
     rows.push(row);
   };
 
+  // ESPN summary/core is the primary live sportsbook calibration source.
+  pushRow('main', {
+    ...(espnOdds || {}),
+    provider: espnOdds?.provider || 'ESPN',
+    provider_id: espnOdds?.provider_id ?? 'espn'
+  }, 'espn_summary');
+
+  // Persist the currently selected market object separately so external/current state is still archived.
   pushRow('main', {
     ...(finalMarketOdds || {}),
     ...(effectiveOdds || {}),
-    provider: effectiveOdds?.provider || finalMarketOdds?.provider || 'ESPN',
+    provider: effectiveOdds?.provider || finalMarketOdds?.provider || 'CurrentOdds',
     provider_id: effectiveOdds?.provider_id ?? finalMarketOdds?.provider_id ?? null
   }, 'match_current_odds');
   pushRow('open', parsedOdds.odds_open, 'espn_summary');
@@ -370,7 +396,29 @@ function buildLiveOddsSnapshotRows(args: {
   pushRow('live', parsedOdds.bet365_live, 'espn_summary');
   pushRow('live', parsedOdds.dk_live_200, 'espn_summary');
 
-  return rows;
+  const deduped = new Map<string, any>();
+  for (const row of rows) {
+    const key = [
+      row.match_id,
+      row.provider,
+      row.provider_id ?? '',
+      row.market_type,
+      row.source,
+      row.home_ml ?? '',
+      row.away_ml ?? '',
+      row.draw_ml ?? '',
+      row.spread_home ?? '',
+      row.spread_away ?? '',
+      row.spread_home_price ?? '',
+      row.spread_away_price ?? '',
+      row.total ?? '',
+      row.over_price ?? '',
+      row.under_price ?? ''
+    ].join('|');
+    if (!deduped.has(key)) deduped.set(key, row);
+  }
+
+  return Array.from(deduped.values());
 }
 
 function computeAISignalsSafely(matchPayload: any, context: { matchId: string; leagueId: string; mode: 'dry' | 'persist' }) {
@@ -980,6 +1028,12 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       updated_at: new Date().toISOString()
     };
 
+    const primaryLiveOdds = resolvePrimaryLiveOdds({
+      espnOdds,
+      parsedOdds,
+      effectiveOdds
+    });
+
     const capturedAt = new Date().toISOString();
     const contextSnapshotPayload = {
       match_id: dbMatchId,
@@ -990,10 +1044,10 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       clock: comp.status?.displayClock ?? null,
       home_score: homeScore,
       away_score: awayScore,
-      odds_current: effectiveOdds || null,
-      odds_total: parseLine((effectiveOdds as any)?.total),
-      odds_home_ml: parseAmerican((effectiveOdds as any)?.homeWin),
-      odds_away_ml: parseAmerican((effectiveOdds as any)?.awayWin),
+      odds_current: primaryLiveOdds || null,
+      odds_total: parseLine((primaryLiveOdds as any)?.total ?? (primaryLiveOdds as any)?.overUnder ?? (primaryLiveOdds as any)?.over_under),
+      odds_home_ml: parseAmerican((primaryLiveOdds as any)?.homeWin ?? (primaryLiveOdds as any)?.home_ml),
+      odds_away_ml: parseAmerican((primaryLiveOdds as any)?.awayWin ?? (primaryLiveOdds as any)?.away_ml),
       situation: Object.keys(mergedSituation).length > 0 ? mergedSituation : null,
       last_play: extractedLastPlay,
       recent_plays: extractedRecentPlays,
@@ -1016,6 +1070,7 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       awayScore,
       homeTeam: homeNameStr,
       awayTeam: awayNameStr,
+      espnOdds,
       effectiveOdds,
       finalMarketOdds,
       parsedOdds
@@ -1074,6 +1129,18 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       }
     }
 
+    if (liveOddsSnapshotRows.length === 0) {
+      Logger.info('LIVE_ODDS_SNAPSHOT_SKIPPED', {
+        match_id: dbMatchId,
+        league_id: league.id,
+        normalized_state: normalizeSnapshotState(comp),
+        has_espn_odds: !!espnOdds,
+        has_parsed_live: !!parsedOdds.odds_live,
+        has_effective_odds: !!effectiveOdds,
+        has_final_market_odds: !!finalMarketOdds
+      });
+    }
+
     if (_liveOddsSnapshotsAvailable && liveOddsSnapshotRows.length > 0) {
       const { error: liveOddsSnapshotError } = await supabase
         .from('live_odds_snapshots')
@@ -1081,6 +1148,12 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
 
       if (!liveOddsSnapshotError) {
         stats.live_odds_snapshots_written += liveOddsSnapshotRows.length;
+        Logger.info('LIVE_ODDS_SNAPSHOT_WRITTEN', {
+          match_id: dbMatchId,
+          league_id: league.id,
+          rows: liveOddsSnapshotRows.length,
+          providers: Array.from(new Set(liveOddsSnapshotRows.map((row: any) => row.provider)))
+        });
       } else {
         const errMsg = liveOddsSnapshotError.message || String(liveOddsSnapshotError);
         if (errMsg.toLowerCase().includes('live_odds_snapshots') && errMsg.toLowerCase().includes('does not exist')) {
