@@ -95,7 +95,8 @@ export const useMatches = (selectedDate: Date | string) => {
     // unless refetchIntervalInBackground is strictly set to true.
     refetchIntervalInBackground: true,
     refetchOnMount: false,
-    retry: 1,
+    retry: true,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     placeholderData: keepPreviousData,
   });
 

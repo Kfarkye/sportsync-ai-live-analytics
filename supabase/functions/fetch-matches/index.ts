@@ -769,9 +769,14 @@ Deno.serve(async (req: Request) => {
         }
 
         if (sportsToRefresh.size > 0) {
+            const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
             supabase.functions.invoke('ingest-odds-v3', {
                 body: { sport_keys: Array.from(sportsToRefresh) },
-                headers: { 'x-trace-id': requestId, 'x-request-id': requestId }
+                headers: {
+                    'x-trace-id': requestId,
+                    'x-request-id': requestId,
+                    'Authorization': `Bearer ${serviceKey}`
+                }
             }).catch((e: any) => console.error(JSON.stringify({ level: 'warn', requestId, message: 'odds_refresh_trigger_failed', error: String(e) })));
         }
 
