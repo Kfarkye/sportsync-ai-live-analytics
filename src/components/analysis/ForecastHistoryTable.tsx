@@ -6,10 +6,7 @@ import {
   DataTable,
   type DataTableColumn,
   EmptyState,
-  FilterBar,
   PageHeader,
-  SummaryStrip,
-  type SummaryStripItem,
 } from '@/components/ui';
 
 interface PulseRow {
@@ -117,7 +114,7 @@ const eventTag = (row: PulseRow) => {
 };
 
 const eventDetail = (row: PulseRow) => {
-  if (row.rowType === 'odds') return '10-minute checkpoint';
+  if (row.rowType === 'odds') return 'Odds checkpoint';
   if (row.rowType === 'period_end') return 'Period end';
   if (row.rowType === 'timeout') return 'Timeout';
   return row.eventLabel || 'Play';
@@ -184,44 +181,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
   const rows = pulse?.rows ?? [];
 
   const oddsRows = useMemo(() => rows.filter((row) => row.rowType === 'odds'), [rows]);
-  const eventRows = useMemo(() => rows.filter((row) => row.rowType !== 'odds'), [rows]);
-
-  const summaryItems = useMemo<SummaryStripItem[]>(() => {
-    const latestOddsRow = oddsRows[0] ?? null;
-    const latestMoveLabel =
-      latestOddsRow?.badge === 'Sharp Move'
-        ? 'Sharp move'
-        : latestOddsRow?.badge === 'Normal'
-          ? 'Normal move'
-          : 'Stable';
-
-    return [
-      {
-        id: 'checkpoints',
-        label: 'Checkpoints',
-        value: `${oddsRows.length}`,
-        hint: '10-minute odds snapshots on the tape',
-      },
-      {
-        id: 'plays',
-        label: 'Play Events',
-        value: `${eventRows.length}`,
-        hint: 'Independent play-by-play rows between checkpoints',
-      },
-      {
-        id: 'latest-move',
-        label: 'Latest Move',
-        value: latestMoveLabel,
-        hint: latestOddsRow?.note ?? 'No priced checkpoint yet',
-      },
-      {
-        id: 'window',
-        label: 'Window',
-        value: `${pulse?.windowMinutes ?? 10} min`,
-        hint: 'Rolling live impulse tape',
-      },
-    ];
-  }, [eventRows.length, oddsRows, pulse?.windowMinutes]);
+  const latestTapeRow = rows[0] ?? null;
 
   const columns = useMemo<DataTableColumn<PulseRow>[]>(
     () => [
@@ -246,10 +206,10 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
         width: '132px',
         cell: (row) => (
           <div className="space-y-1">
-            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-900">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-900">
               {eventTag(row)}
             </div>
-            <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500">
               {eventDetail(row)}
             </div>
           </div>
@@ -262,7 +222,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
         cell: (row) => (
           <div className="space-y-1">
             <div className="font-mono text-[13px] font-semibold text-slate-800">{row.score}</div>
-            <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500">
               {scoreStateLabel(row.scoreStateTag)}
             </div>
           </div>
@@ -356,34 +316,29 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
       <PageHeader
         compact
         eyebrow={showSectionEyebrow ? 'Live Impulse' : undefined}
-        title="10-Minute Tape"
-        description={pulse?.summary ?? 'A live tape of independent play-by-play events and fixed 10-minute odds checkpoints.'}
-        actions={
-          <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-            Live Sync
-          </div>
-        }
+        title="Live Tape"
+        description={pulse?.summary ?? 'Plays and fixed 10-minute odds checkpoints in one ordered timeline.'}
       />
 
-      <FilterBar
-        rightAccessory={
-          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-            {pulse?.sport ?? 'Live'}
-          </div>
-        }
-      >
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-          {formatGeneratedAt(pulse?.generatedAt)}
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-          {pulse?.windowMinutes ?? 10} minute cadence
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-          {rows.length} total rows
-        </span>
-      </FilterBar>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200 pb-3 text-[12px] text-slate-500">
+        <span className="font-medium text-slate-700">{formatGeneratedAt(pulse?.generatedAt)}</span>
+        <span>{oddsRows.length} checkpoints</span>
+        <span>{rows.length} total rows</span>
+        <span>{pulse?.windowMinutes ?? 10}-minute cadence</span>
+        <span className="uppercase tracking-[0.14em]">{pulse?.sport ?? 'Live'}</span>
+      </div>
 
-      <SummaryStrip items={summaryItems} />
+      {latestTapeRow ? (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Latest</div>
+          <div className="mt-1 text-[14px] font-medium text-slate-900">{playDescription(latestTapeRow)}</div>
+          <div className="mt-1 text-[12px] text-slate-500">
+            {latestTapeRow.period || 'Live'} {latestTapeRow.clock || formatTimestamp(latestTapeRow.ts)}
+            {' '}•{' '}
+            {latestTapeRow.score}
+          </div>
+        </div>
+      ) : null}
 
       <DataTable
         columns={columns}
@@ -393,7 +348,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
         loading={loading && !pulse}
         emptyState={emptyState}
         rowTone={(row) => {
-          if (row.rowType === 'odds') return 'strong';
+          if (row.rowType === 'odds') return 'muted';
           if (row.rowType === 'timeout' || row.rowType === 'period_end') return 'muted';
           return 'default';
         }}

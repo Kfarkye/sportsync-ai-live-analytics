@@ -55,7 +55,6 @@ import BoxScore, {
   LineScoreGrid,
 } from '../analysis/BoxScore';
 import { CinematicPlayerProps } from '../analysis/PlayerStatComponents';
-import InsightCard, { toInsightCard } from '../analysis/InsightCard';
 import MatchupHeader from '../pregame/MatchupHeader';
 import RecentForm from '../pregame/RecentForm';
 import SafePregameIntelCards from '../pregame/PregameIntelCards';
@@ -1091,135 +1090,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     return () => { active = false; controller.abort(); };
   }, [isSched, match.id, match.homeTeam?.name, match.awayTeam?.name, match.sport, match.leagueId]);
 
-  // SOTA FIX: Dynamic Insight Team Resolution explicitly checks prop team vs game teams
-  const insightCardData = useMemo(() => {
-    if (deferredTab !== 'DATA' || !match.dbProps?.length) return null;
-    const propRow = match.dbProps[0];
-
-    const propTeamNorm = (propRow.team || '').toLowerCase();
-    const homeKeys = [match.homeTeam.abbreviation, match.homeTeam.shortName, match.homeTeam.name]
-      .filter(Boolean)
-      .map(k => k!.toLowerCase());
-
-    const isHome = homeKeys.some(k => propTeamNorm.includes(k));
-
-    const teamLabel = isHome ? (match.homeTeam.abbreviation || match.homeTeam.name) : (match.awayTeam.abbreviation || match.awayTeam.name);
-    const opponentLabel = isHome ? (match.awayTeam.abbreviation || match.awayTeam.name) : (match.homeTeam.abbreviation || match.homeTeam.name);
-
-    return toInsightCard({
-      id: propRow.id || match.id,
-      playerName: propRow.playerName || '',
-      team: teamLabel || 'TBD',
-      opponent: opponentLabel || 'TBD',
-      matchup: `${match.awayTeam.abbreviation || match.awayTeam.name} @ ${match.homeTeam.abbreviation || match.homeTeam.name}`,
-      headshotUrl: propRow.headshotUrl || '',
-      side: (propRow.side || 'OVER').toUpperCase(),
-      line: Number(propRow.lineValue ?? 0),
-      statType: String(propRow.betType || 'Stat').replace(/_/g, ' '),
-      bestOdds: propRow.oddsAmerican || 0,
-      bestBook: propRow.sportsbook || 'Market',
-      probability: typeof propRow.impliedProbPct === 'number' ? propRow.impliedProbPct : 50,
-      aiAnalysis: propRow.aiRationale || 'Intelligence pending.',
-      dvpRank: propRow.fantasyDvpRank || 0,
-      edge: 0,
-      l5Results: [],
-      l5HitRate: 0
-    });
-  }, [deferredTab, match]);
-
-  const gameEdgeCardData = useMemo(() => {
-    if (deferredTab !== 'DATA' || !pregameIntel || !match.homeTeam || !match.awayTeam) return null;
-
-    const pickText = (pregameIntel.recommended_pick || pregameIntel.grading_metadata?.selection || '').trim();
-    const norm = (s?: string) => (s || '').toLowerCase();
-
-    const homeLabel = match.homeTeam.abbreviation || match.homeTeam.shortName || match.homeTeam.name;
-    const awayLabel = match.awayTeam.abbreviation || match.awayTeam.shortName || match.awayTeam.name;
-    const matchup = `${awayLabel} @ ${homeLabel}`;
-
-    const homeKeys = [match.homeTeam.abbreviation, match.homeTeam.shortName, match.homeTeam.name].map(norm);
-    const awayKeys = [match.awayTeam.abbreviation, match.awayTeam.shortName, match.awayTeam.name].map(norm);
-
-    const extractTeamFromPick = (value?: string | null) => {
-      if (!value) return '';
-      const s = value.trim();
-      if (!s) return '';
-      if (/^(over|under)\b/i.test(s)) return s.split(/\s+/).slice(0, 1).join(' ').toUpperCase();
-      const mlIdx = s.toLowerCase().lastIndexOf(' ml');
-      const core = mlIdx > 0 ? s.slice(0, mlIdx).trim() : s;
-      const tokens = core.split(/\s+/);
-      const out: string[] = [];
-      for (const t of tokens) {
-        if (/^[+\-]?\d+(\.\d+)?$/.test(t)) break;
-        if (/^\(?[+\-]?\d{3,5}\)?$/.test(t)) break;
-        out.push(t);
-      }
-      return out.length ? out.join(' ') : tokens[0];
-    };
-
-    const pickTeam = extractTeamFromPick(pickText);
-    const pickNorm = norm(pickTeam);
-
-    let teamName = match.homeTeam.name || homeLabel;
-    let opponentName = match.awayTeam.name || awayLabel;
-    let teamAbbr = match.homeTeam.abbreviation || homeLabel;
-    let teamLogoUrl = match.homeTeam.logo;
-
-    if (pickNorm && homeKeys.some((k) => k && pickNorm.includes(k))) {
-      teamName = match.homeTeam.name || homeLabel;
-      opponentName = match.awayTeam.name || awayLabel;
-      teamAbbr = match.homeTeam.abbreviation || homeLabel;
-      teamLogoUrl = match.homeTeam.logo;
-    } else if (pickNorm && awayKeys.some((k) => k && pickNorm.includes(k))) {
-      teamName = match.awayTeam.name || awayLabel;
-      opponentName = match.homeTeam.name || homeLabel;
-      teamAbbr = match.awayTeam.abbreviation || awayLabel;
-      teamLogoUrl = match.awayTeam.logo;
-    } else if (/^(over|under)\b/i.test(pickText)) {
-      teamName = `${homeLabel} vs ${awayLabel}`;
-      opponentName = '';
-      teamAbbr = 'TOTAL';
-      teamLogoUrl = undefined;
-    }
-
-    const meta = pregameIntel.grading_metadata;
-    const oddsMarket = match.current_odds;
-    let bestOdds: string | number | undefined;
-
-    if (meta?.type === 'TOTAL') {
-      bestOdds = (meta.side === 'OVER' ? (oddsMarket?.overOdds ?? oddsMarket?.over ?? oddsMarket?.totalOver) : (oddsMarket?.underOdds ?? oddsMarket?.under)) as string | number | undefined;
-    } else if (meta?.type === 'SPREAD') {
-      bestOdds = (meta.side === 'HOME' ? (oddsMarket?.homeSpreadOdds ?? oddsMarket?.homeSpread) : (oddsMarket?.awaySpreadOdds ?? oddsMarket?.awaySpread)) as string | number | undefined;
-    } else if (meta?.type === 'MONEYLINE') {
-      bestOdds = (meta.side === 'HOME' ? (oddsMarket?.moneylineHome ?? oddsMarket?.home_ml) : (oddsMarket?.moneylineAway ?? oddsMarket?.away_ml)) as string | number | undefined;
-    }
-
-    const confidence = pregameIntel.confidence_score;
-    const probability = typeof confidence === 'number' ? (confidence <= 1 ? confidence * 100 : confidence) : 50;
-
-    return toInsightCard({
-      id: `${match.id}-game-edge`,
-      headerMode: 'team',
-      teamName,
-      teamAbbr,
-      opponentName,
-      teamLogoUrl,
-      matchup,
-      customSegment: pickText || 'Game Edge',
-      side: pickText.toUpperCase().startsWith('UNDER') ? 'UNDER' : 'OVER',
-      line: 0,
-      statType: 'Edge',
-      bestOdds: bestOdds ? String(bestOdds) : 'N/A',
-      bestBook: match.current_odds?.provider || 'Market',
-      dvpRank: 0,
-      edge: 0,
-      probability,
-      aiAnalysis: pregameIntel.briefing || pregameIntel.headline || 'Intelligence pending.',
-      l5Results: [],
-      l5HitRate: 0
-    });
-  }, [deferredTab, match, pregameIntel]);
-
   const playByPlayText = liveState?.lastPlay?.text || match.lastPlay?.text || '';
   const sweatTriggers: AIWatchTrigger[] = useMemo(() => {
     const base: AIWatchTrigger[] = [{ entityId: 'global_score', keywords: ['touchdown', 'goal', 'home run', 'three pointer', 'dunk'] }];
@@ -1344,17 +1214,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         </div>
                         <EdgeCard homeTeam={match.homeTeam.shortName || match.homeTeam.name} awayTeam={match.awayTeam.shortName || match.awayTeam.name} homePolyProb={polyData.homeProb} awayPolyProb={polyData.awayProb} volume={polyData.volume} {...(match.current_odds ? { homeMoneyline: Number(match.current_odds.moneylineHome || match.current_odds.home_ml || 0), awayMoneyline: Number(match.current_odds.moneylineAway || match.current_odds.away_ml || 0) } : {})} />
                         <MarketEdgeCard homeTeam={match.homeTeam.shortName || match.homeTeam.name} awayTeam={match.awayTeam.shortName || match.awayTeam.name} homePolyProb={polyData.homeProb} awayPolyProb={polyData.awayProb} volume={polyData.volume} gameStartTime={polyData.gameStartTime} {...(match.current_odds ? { homeMoneyline: Number(match.current_odds.moneylineHome || match.current_odds.home_ml || 0), awayMoneyline: Number(match.current_odds.moneylineAway || match.current_odds.away_ml || 0) } : {})} />
-                      </div>
-                    )}
-
-                    {(gameEdgeCardData || insightCardData) && (
-                      <div className="mb-14 space-y-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
-                          <span className="text-[11px] font-bold text-black/50 uppercase tracking-[0.2em]">Shareable Insights</span>
-                        </div>
-                        {gameEdgeCardData && <div className="space-y-3"><span className="text-[10px] font-bold text-black/40 uppercase tracking-[0.2em] ml-2">Game Edge</span><InsightCard data={gameEdgeCardData!} /></div>}
-                        {insightCardData && <div className="space-y-3"><span className="text-[10px] font-bold text-black/40 uppercase tracking-[0.2em] ml-2">Player Prop</span><InsightCard data={insightCardData!} /></div>}
                       </div>
                     )}
 
