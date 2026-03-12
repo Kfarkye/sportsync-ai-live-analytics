@@ -3162,26 +3162,9 @@ const InnerChatWidget: FC<ChatWidgetProps & {
 
     const phase = deriveGamePhase(normalizedContext);
     const matchup = getMatchupLabel(normalizedContext) || "this game";
-    const liveSpread =
-      normalizedContext?.current_odds?.homeSpread ??
-      normalizedContext?.current_odds?.spread ??
-      "N/A";
-    const liveTotal =
-      normalizedContext?.current_odds?.total ??
-      normalizedContext?.current_odds?.overUnder ??
-      "N/A";
-    const pregameSpread =
-      normalizedContext?.opening_odds?.homeSpread ??
-      normalizedContext?.opening_odds?.spread ??
-      "N/A";
-    const pregameTotal =
-      normalizedContext?.opening_odds?.total ??
-      normalizedContext?.opening_odds?.overUnder ??
-      "N/A";
-
     const autoQuery =
       phase === "live"
-        ? `This game is LIVE. Score: ${normalizedContext?.home_team || "Home"} ${normalizedContext?.home_score ?? 0} - ${normalizedContext?.away_team || "Away"} ${normalizedContext?.away_score ?? 0}, ${normalizedContext?.clock || "N/A"} remaining. Live spread: ${liveSpread}, Live total: ${liveTotal}. Pregame spread was ${pregameSpread}, pregame total was ${pregameTotal}. Give me a sharp live read on ${matchup}. Analyze the current game state, not pregame factors.`
+        ? `Score: ${normalizedContext?.home_team || "Home"} ${normalizedContext?.home_score ?? 0} - ${normalizedContext?.away_team || "Away"} ${normalizedContext?.away_score ?? 0}. Clock: ${normalizedContext?.clock || "N/A"}. Give me a sharp read on ${matchup} based on the current game state and market. Stay focused on what is happening now.`
         : phase === "postgame"
           ? `${matchup} just finished. How did the line perform? Any takeaways for future spots?`
           : `Give me the full sharp report on ${matchup}. What's the best bet and why?`;

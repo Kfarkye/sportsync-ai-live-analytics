@@ -48,24 +48,12 @@ export const LiveIntelligenceCard: React.FC<Props> = ({ match }) => {
     ? card.watchouts.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     : [];
   const clampedConfidence = Math.max(0, Math.min(100, Math.round(card.confidence)));
-  const stateHash =
-    typeof data.state_hash === "string" && data.state_hash.trim().length > 0
-      ? data.state_hash
-      : "liv-ai-unknown";
-  const shortState =
-    stateHash.length > 14 ? stateHash.slice(0, 12) : stateHash;
-  const provenance = stateHash.endsWith("-legacy")
-    ? "Legacy model"
-    : stateHash.endsWith("-fallback")
-      ? "Local model"
-      : "Edge model";
-
   return (
     <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-[0_10px_32px_-24px_rgba(15,23,42,0.35)]">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
-            Live Intelligence
+            Intelligence
           </div>
           <h3 className="mt-1 text-[17px] font-semibold tracking-tight text-slate-900">
             {card.headline}
@@ -124,30 +112,6 @@ export const LiveIntelligenceCard: React.FC<Props> = ({ match }) => {
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
-        <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
-          {provenance}
-        </span>
-        <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 tabular-nums">
-          State {shortState}
-        </span>
-        {data.odds_context?.latest_total !== null &&
-        data.odds_context?.latest_total !== undefined ? (
-          <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 tabular-nums">
-            Total {data.odds_context.latest_total}
-          </span>
-        ) : null}
-        {data.odds_context?.move_5m !== null &&
-        data.odds_context?.move_5m !== undefined ? (
-          <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 tabular-nums">
-            5m {data.odds_context.move_5m > 0 ? "+" : ""}
-            {data.odds_context.move_5m.toFixed(1)}
-          </span>
-        ) : null}
-        <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
-          {data.cached ? "Cache hit" : "Live"}
-        </span>
-      </div>
     </div>
   );
 };

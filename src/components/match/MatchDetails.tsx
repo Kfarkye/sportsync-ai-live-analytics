@@ -305,7 +305,7 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
   const isLive = isGameInProgress(match.status);
   const oddsAge = odds?.lastUpdated ? new Date(odds.lastUpdated).getTime() : 0;
   const oddsAreFresh = oddsAge > (new Date(match.startTime).getTime());
-  const linesLabel = isFinal ? 'Closing Lines' : (isLive && oddsAreFresh) ? 'Live Lines' : isLive ? 'Opening' : 'Game Lines';
+  const linesLabel = isFinal ? 'Closing' : (isLive && oddsAreFresh) ? 'Current' : isLive ? 'Opening' : 'Lines';
   const hasAnyLine = spreadVal !== undefined || totalVal !== undefined || homeML !== undefined || awayML !== undefined;
 
   return (
@@ -315,7 +315,6 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <span className="px-2.5 py-1 bg-black/[0.04] rounded-lg text-[10px] font-bold text-black/60 uppercase tracking-widest">{match.leagueId?.toUpperCase()}</span>
-            {isLive && <span className="px-2.5 py-1 bg-red-500/10 text-red-600 rounded-lg text-[10px] font-bold uppercase tracking-widest animate-pulse transform-gpu">Live</span>}
           </div>
           {isValidDate && (
             <div className="space-y-1">
@@ -1237,13 +1236,12 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         <div className="rounded-[24px] border border-black/[0.04] bg-white/80 backdrop-blur-xl p-6 shadow-[0_12px_40px_rgba(0,0,0,0.04)] transform-gpu">
                           <div className="flex items-center gap-2 mb-3">
                             <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
-                            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/50">AI Context</div>
+                            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/50">Context</div>
                           </div>
                           <div className="text-[13px] leading-relaxed text-black/70 font-medium">
-                            {isLive ? "Live workflow active. Anchor your read here before drilling into chat." : isSched ? "Pregame workflow active. Ask for market context, lineups, and pre-open risk." : "Postgame workflow active. Use chat for line review and trend analysis."}
+                            {isLive ? "Use score, clock, and current market state before drilling into chat." : isSched ? "Use matchup, line, and lineup context before drilling into chat." : "Use closing line and game flow before drilling into chat."}
                           </div>
                           <div className="mt-5 flex flex-wrap gap-2">
-                            <span className="rounded-lg border border-black/[0.05] bg-black/[0.02] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-black/60 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)]">{match.status || "STATUS"}</span>
                             <span className="rounded-lg border border-black/[0.05] bg-black/[0.02] px-2.5 py-1.5 text-[11px] font-bold tabular-nums text-black/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)]">{match.awayScore ?? 0}-{match.homeScore ?? 0}</span>
                           </div>
                         </div>
