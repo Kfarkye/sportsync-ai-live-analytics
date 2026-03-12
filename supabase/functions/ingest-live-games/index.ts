@@ -1134,6 +1134,211 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
     }
 
     // ═══════════════════════════════════════════════════════════
+    // CORE API: Ingest team statistics, leaders, roster
+    // Statistics → game_events (timeline for trend detection)
+    // Leaders + Roster → live_game_state (current snapshot)
+    // ═══════════════════════════════════════════════════════════
+    if (!isSoccer) {
+      try {
+        const endpointParts = String(league.endpoint || '').split('/');
+        const espnLeagueId = endpointParts.length > 1 ? endpointParts[1] : null;
+        const homeId = home?.id;
+        const awayId = away?.id;
+
+        if (espnLeagueId && homeId && awayId) {
+          const coreBase = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}`;
+
+          // Fetch all competitor endpoints in parallel
+          const [homeStatsRes, awayStatsRes, homeLeadersRes, awayLeadersRes, homeRosterRes, awayRosterRes] = await Promise.all([
+            fetch(`${coreBase}/competitors/${homeId}/statistics`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
+            fetch(`${coreBase}/competitors/${awayId}/statistics`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
+            fetch(`${coreBase}/competitors/${homeId}/leaders`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
+            fetch(`${coreBase}/competitors/${awayId}/leaders`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
+            fetch(`${coreBase}/competitors/${homeId}/roster`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
+            fetch(`${coreBase}/competitors/${awayId}/roster`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
+          ]);
+
+          // ── Parse Statistics (efficiency metrics) ──────────────
+          const parseTeamStats = async (res: Response | null) => {
+            if (!res || !res.ok) return null;
+            try {
+              const json = await res.json();
+              const cats = json?.splits?.categories ?? [];
+              const allStats: Record<string, number | null> = {};
+              for (const cat of cats) {
+                for (const stat of (cat?.stats ?? [])) {
+                  if (stat?.name && stat?.value != null) {
+                    allStats[stat.name] = stat.value;
+                  }
+                }
+              }
+              return Object.keys(allStats).length > 0 ? allStats : null;
+            } catch { return null; }
+          };
+
+          const homeStats = await parseTeamStats(homeStatsRes);
+          const awayStats = await parseTeamStats(awayStatsRes);
+
+          // Write efficiency snapshot to game_events (timeline)
+          if (homeStats || awayStats) {
+            const epochSeconds = Math.floor(Date.now() / 1000);
+            const boxPayload: any = {
+              match_id: dbMatchId,
+              league_id: league.id,
+              sport: league.db_sport,
+              event_type: 'box_snapshot',
+              sequence: epochSeconds,
+              period: comp.status?.period ?? null,
+              clock: comp.status?.displayClock ?? null,
+              home_score: homeScore,
+              away_score: awayScore,
+              box_snapshot: {
+                home: homeStats ? {
+                  ppep: homeStats.pointsPerEstimatedPossessions ?? null,
+                  estimatedPossessions: homeStats.estimatedPossessions ?? null,
+                  shootingEfficiency: homeStats.shootingEfficiency ?? null,
+                  scoringEfficiency: homeStats.scoringEfficiency ?? null,
+                  fgPct: homeStats.fieldGoalPct ?? null,
+                  threePtPct: homeStats.threePointFieldGoalPct ?? null,
+                  ftPct: homeStats.freeThrowPct ?? null,
+                  offRebPct: homeStats.offensiveReboundPct ?? null,
+                  pointsInPaint: homeStats.pointsInPaint ?? null,
+                  fastBreakPoints: homeStats.fastBreakPoints ?? null,
+                  secondChancePoints: homeStats.secondChancePoints ?? null,
+                  turnovers: homeStats.turnovers ?? null,
+                  assists: homeStats.assists ?? null,
+                  astToRatio: homeStats.assistTurnoverRatio ?? null,
+                  steals: homeStats.steals ?? null,
+                  blocks: homeStats.blocks ?? null,
+                  largestLead: homeStats.largestLead ?? null,
+                  leadChanges: homeStats.leadChanges ?? null,
+                  turnoverPoints: homeStats.turnoverPoints ?? null
+                } : null,
+                away: awayStats ? {
+                  ppep: awayStats.pointsPerEstimatedPossessions ?? null,
+                  estimatedPossessions: awayStats.estimatedPossessions ?? null,
+                  shootingEfficiency: awayStats.shootingEfficiency ?? null,
+                  scoringEfficiency: awayStats.scoringEfficiency ?? null,
+                  fgPct: awayStats.fieldGoalPct ?? null,
+                  threePtPct: awayStats.threePointFieldGoalPct ?? null,
+                  ftPct: awayStats.freeThrowPct ?? null,
+                  offRebPct: awayStats.offensiveReboundPct ?? null,
+                  pointsInPaint: awayStats.pointsInPaint ?? null,
+                  fastBreakPoints: awayStats.fastBreakPoints ?? null,
+                  secondChancePoints: awayStats.secondChancePoints ?? null,
+                  turnovers: awayStats.turnovers ?? null,
+                  assists: awayStats.assists ?? null,
+                  astToRatio: awayStats.assistTurnoverRatio ?? null,
+                  steals: awayStats.steals ?? null,
+                  blocks: awayStats.blocks ?? null,
+                  largestLead: awayStats.largestLead ?? null,
+                  leadChanges: awayStats.leadChanges ?? null,
+                  turnoverPoints: awayStats.turnoverPoints ?? null
+                } : null
+              },
+              odds_live: parsedOdds.dk_live_200 || (parsedOdds.odds_live ?? null),
+              source: 'core_api_stats'
+            };
+
+            await supabase
+              .from('game_events')
+              .upsert(boxPayload, { onConflict: 'match_id,event_type,sequence' });
+          }
+
+          // ── Parse Leaders (player ratings) ──────────────────
+          const parseLeaders = async (res: Response | null) => {
+            if (!res || !res.ok) return null;
+            try {
+              const json = await res.json();
+              const cats = json?.leaders ?? [];
+              const result: Record<string, any> = {};
+              for (const cat of cats) {
+                const catName = cat?.name ?? cat?.displayName ?? 'unknown';
+                const topPlayer = cat?.leaders?.[0];
+                if (topPlayer) {
+                  result[catName] = {
+                    displayValue: topPlayer.displayValue,
+                    value: topPlayer.value,
+                    athleteRef: topPlayer.athlete?.$ref ?? null
+                  };
+                }
+              }
+              return Object.keys(result).length > 0 ? result : null;
+            } catch { return null; }
+          };
+
+          const homeLeaders = await parseLeaders(homeLeadersRes);
+          const awayLeaders = await parseLeaders(awayLeadersRes);
+
+          // ── Parse Roster (active players) ───────────────────
+          const parseRoster = async (res: Response | null) => {
+            if (!res || !res.ok) return null;
+            try {
+              const json = await res.json();
+              const entries = json?.entries ?? json?.items ?? [];
+              return entries
+                .filter((e: any) => e?.playerId || e?.athlete)
+                .map((e: any) => ({
+                  id: e.playerId ?? null,
+                  athleteRef: e.athlete?.$ref ?? null,
+                  statsRef: e.statistics?.$ref ?? null
+                }))
+                .slice(0, 20); // cap at 20 to keep payload reasonable
+            } catch { return null; }
+          };
+
+          const homeRoster = await parseRoster(homeRosterRes);
+          const awayRoster = await parseRoster(awayRosterRes);
+
+          // ── Enrich live_game_state with leaders + roster ────
+          const enrichment: Record<string, any> = {};
+          if (homeLeaders || awayLeaders) {
+            enrichment.leaders = {
+              ...(typeof extractedLeaders === 'object' && extractedLeaders ? extractedLeaders : {}),
+              core_api: { home: homeLeaders, away: awayLeaders }
+            };
+          }
+          if (homeRoster || awayRoster) {
+            enrichment.extra_data = {
+              roster: { home: homeRoster, away: awayRoster },
+              captured_at: new Date().toISOString()
+            };
+          }
+          if (homeStats || awayStats) {
+            enrichment.advanced_metrics = {
+              ...(typeof extractedAdvancedMetrics === 'object' && extractedAdvancedMetrics ? extractedAdvancedMetrics : {}),
+              core_api_efficiency: {
+                home: homeStats ? {
+                  ppep: homeStats.pointsPerEstimatedPossessions,
+                  pace: homeStats.estimatedPossessions,
+                  shootingEff: homeStats.shootingEfficiency,
+                  offRebPct: homeStats.offensiveReboundPct,
+                  astToRatio: homeStats.assistTurnoverRatio
+                } : null,
+                away: awayStats ? {
+                  ppep: awayStats.pointsPerEstimatedPossessions,
+                  pace: awayStats.estimatedPossessions,
+                  shootingEff: awayStats.shootingEfficiency,
+                  offRebPct: awayStats.offensiveReboundPct,
+                  astToRatio: awayStats.assistTurnoverRatio
+                } : null
+              }
+            };
+          }
+
+          if (Object.keys(enrichment).length > 0) {
+            await supabase
+              .from('live_game_state')
+              .update(enrichment)
+              .eq('id', dbMatchId);
+          }
+        }
+      } catch {
+        // Non-fatal: Core API enrichment is supplementary
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // PBP: Write individual plays to game_events
     // ═══════════════════════════════════════════════════════════
     if (Array.isArray(data?.plays) && data.plays.length > 0) {
