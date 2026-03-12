@@ -1043,22 +1043,16 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
                 clock: comp.status?.displayClock ?? null,
                 home_score: homeScore,
                 away_score: awayScore,
-                event_data: {
+                play_data: {
                   homeWinPct: latest.homeWinPercentage,
                   awayWinPct: latest.awayWinPercentage,
                   tieWinPct: latest.tiePercentage ?? 0,
                   sequenceNumber: latest.sequenceNumber,
                   lastModified: latest.lastModified,
-                  totalProbabilityEntries: probData?.count ?? null,
-                  // Cross-reference: capture current live odds at same moment
-                  liveOdds: parsedOdds.odds_live ? {
-                    total: parsedOdds.odds_live.total,
-                    homeSpread: parsedOdds.odds_live.homeSpread,
-                    homeMl: parsedOdds.odds_live.home_ml,
-                    awayMl: parsedOdds.odds_live.away_ml,
-                    provider: parsedOdds.odds_live.provider
-                  } : null
+                  totalProbabilityEntries: probData?.count ?? null
                 },
+                // Cross-reference: snapshot live odds at same capture moment
+                odds_live: parsedOdds.odds_live ?? null,
                 source: 'espn_bpi'
               };
 
