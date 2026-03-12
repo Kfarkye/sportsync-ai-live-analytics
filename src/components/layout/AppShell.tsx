@@ -214,7 +214,7 @@ const AppShell: FC = () => {
         </footer>
       </MotionMain>
 
-      <MobileNavBar scrollTargetId="main-content" />
+      {!selectedMatch && <MobileNavBar scrollTargetId="main-content" />}
 
       <AnimatePresence>
         {selectedMatch && (
