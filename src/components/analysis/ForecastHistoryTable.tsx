@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { cn } from '@/lib/essence';
-import { Activity, BarChart3, Clock3, Radar, Waves } from 'lucide-react';
+import { BarChart3, Radar } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 interface PulseRow {
@@ -51,15 +51,24 @@ interface ForecastHistoryTableProps {
   showSectionEyebrow?: boolean;
 }
 
-const badgeClass = (badge: PulseRow['badge']) => {
-  switch (badge) {
-    case 'Sharp Move':
-      return 'bg-[#DFF7E8] text-[#0A7A3E] border border-[#B5E7C8]';
-    case 'No Reaction':
-      return 'bg-[#F5F5F5] text-[#737373] border border-[#E5E5E5]';
-    default:
-      return 'bg-[#EEF3FF] text-[#335CFF] border border-[#D7E1FF]';
+const eventChipClass = (row: PulseRow) => {
+  if (row.rowType === 'odds') {
+    return 'border-zinc-900/10 bg-zinc-900 text-white';
   }
+  if (row.rowType === 'timeout') {
+    return 'border-zinc-200 bg-zinc-100 text-zinc-700';
+  }
+  if (row.rowType === 'period_end') {
+    return 'border-zinc-200 bg-white text-zinc-700';
+  }
+  return 'border-[#D7E1FF] bg-[#EEF3FF] text-[#335CFF]';
+};
+
+const noteClass = (row: PulseRow) => {
+  if (row.rowType !== 'odds') return 'text-zinc-400';
+  if (row.badge === 'Sharp Move') return 'text-[#0A7A3E]';
+  if (row.badge === 'No Reaction') return 'text-zinc-400';
+  return 'text-zinc-500';
 };
 
 const formatTimestamp = (ts: string) => {
@@ -196,17 +205,13 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
         </div>
       )}
 
-      <div className="rounded-2xl border border-edge-subtle bg-[#FAFAFA] p-4 sm:p-5">
+      <div className="rounded-[22px] border border-edge-subtle bg-[#FAFAFA] p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-zinc-500">
-              <Clock3 size={12} className="text-zinc-400" />
-              10-Minute Tape
-            </div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-zinc-500">10-Minute Tape</div>
             <p className="text-sm font-semibold leading-6 text-[#111111] sm:text-[15px]">{summary}</p>
           </div>
-          <div className="hidden rounded-full border border-edge-subtle bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500 sm:flex sm:items-center sm:gap-2">
-            <Waves size={12} />
+          <div className="hidden rounded-full border border-edge-subtle bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500 sm:flex sm:items-center">
             Live Sync
           </div>
         </div>
@@ -221,97 +226,89 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
         />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1080px] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-edge-subtle">
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">Time</th>
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">Event</th>
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest text-center">Score</th>
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">O/U</th>
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">O/U Price</th>
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">Spread</th>
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">ML</th>
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">Play</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[0.02]">
-              <AnimatePresence mode="popLayout">
-                {rows.map((row) => (
-                  <motion.tr
-                    key={row.id}
-                    initial={{ opacity: 0, x: -4 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, scale: 0.98 }}
-                    className="group hover:bg-white/[0.015] transition-colors"
-                  >
-                    <td className="py-3 px-2 align-top">
-                      <div className="flex flex-col">
-                        <span className="text-footnote font-mono font-bold text-zinc-300">{row.clock || formatTimestamp(row.ts)}</span>
-                        <span className="text-label font-bold text-zinc-600 uppercase">{row.period || formatTimestamp(row.ts)}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-2 align-top">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]', badgeClass(row.badge))}>
-                            {eventChip(row)}
-                          </span>
-                        </div>
-                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">{row.eventLabel}</p>
-                      </div>
-                    </td>
-                    <td className="py-3 px-2 text-center align-top">
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-footnote font-mono font-bold text-zinc-500">{row.score}</span>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">{row.scoreStateTag}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-2 align-top">
-                      <p className="text-[13px] leading-5 text-[#111111]">
-                        {row.rowType === 'odds' ? (
-                          <>
-                            {formatTotal(row.post?.totalLine ?? null)}
-                            {changeArrow(row.pre?.totalLine, row.post?.totalLine)}
-                          </>
-                        ) : '—'}
-                      </p>
-                    </td>
-                    <td className="py-3 px-2 align-top">
-                      <p className="text-[13px] leading-5 text-[#111111]">
-                        {row.rowType === 'odds'
-                          ? formatPricePair(row.post?.overPrice ?? null, row.post?.underPrice ?? null)
-                          : '—'}
-                      </p>
-                    </td>
-                    <td className="py-3 px-2 align-top">
-                      <p className="text-[13px] leading-5 text-[#111111]">
-                        {row.rowType === 'odds' ? (
-                          <>
-                            {formatLine(row.post?.spreadLine ?? null)}
-                            {changeArrow(row.pre?.spreadLine, row.post?.spreadLine)}
-                          </>
-                        ) : '—'}
-                      </p>
-                    </td>
-                    <td className="py-3 px-2 align-top">
-                      <p className="text-[13px] leading-5 text-[#111111]">{row.rowType === 'odds' ? formatMoneyline(row) : '—'}</p>
-                    </td>
-                    <td className="py-3 px-2 align-top">
-                      <div className="max-w-[360px] space-y-2">
-                        <p className="text-sm font-semibold text-[#111111] leading-5">{playLabel(row)}</p>
-                        {row.note ? (
-                          <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-                            <Activity size={12} className="text-zinc-400" />
-                            <span>{row.note}</span>
-                          </div>
-                        ) : null}
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </AnimatePresence>
-            </tbody>
-          </table>
+          <div className="min-w-[1080px] space-y-3">
+            <div className="grid grid-cols-[88px_132px_110px_84px_120px_110px_128px_minmax(280px,1fr)] gap-4 border-b border-edge-subtle px-2 pb-3">
+              <div className="text-label font-black uppercase tracking-widest text-zinc-500">Time</div>
+              <div className="text-label font-black uppercase tracking-widest text-zinc-500">Event</div>
+              <div className="text-label font-black uppercase tracking-widest text-zinc-500">Score</div>
+              <div className="text-label font-black uppercase tracking-widest text-zinc-500">O/U</div>
+              <div className="text-label font-black uppercase tracking-widest text-zinc-500">O/U Price</div>
+              <div className="text-label font-black uppercase tracking-widest text-zinc-500">Spread</div>
+              <div className="text-label font-black uppercase tracking-widest text-zinc-500">ML</div>
+              <div className="text-label font-black uppercase tracking-widest text-zinc-500">Play</div>
+            </div>
+
+            <AnimatePresence mode="popLayout">
+              {rows.map((row) => (
+                <motion.div
+                  key={row.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  className={cn(
+                    'grid grid-cols-[88px_132px_110px_84px_120px_110px_128px_minmax(280px,1fr)] gap-4 rounded-[20px] border px-4 py-4 transition-colors',
+                    row.rowType === 'odds'
+                      ? 'border-zinc-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.06)]'
+                      : 'border-zinc-100 bg-[#FCFCFC]'
+                  )}
+                >
+                  <div className="space-y-1">
+                    <div className="text-footnote font-mono font-bold text-zinc-600">{row.clock || formatTimestamp(row.ts)}</div>
+                    <div className="text-label font-bold uppercase text-zinc-500">{row.period || formatTimestamp(row.ts)}</div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className={cn('inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em]', eventChipClass(row))}>
+                      {eventChip(row)}
+                    </span>
+                    <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
+                      {row.rowType === 'odds' ? '10-minute checkpoint' : row.eventLabel}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-footnote font-mono font-bold text-zinc-700">{row.score}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">{row.scoreStateTag}</div>
+                  </div>
+
+                  <div className="text-[13px] leading-6 text-zinc-800">
+                    {row.rowType === 'odds' ? (
+                      <>
+                        {formatTotal(row.post?.totalLine ?? null)}
+                        {changeArrow(row.pre?.totalLine, row.post?.totalLine)}
+                      </>
+                    ) : '—'}
+                  </div>
+
+                  <div className="text-[13px] leading-6 text-zinc-800">
+                    {row.rowType === 'odds'
+                      ? formatPricePair(row.post?.overPrice ?? null, row.post?.underPrice ?? null)
+                      : '—'}
+                  </div>
+
+                  <div className="text-[13px] leading-6 text-zinc-800">
+                    {row.rowType === 'odds' ? (
+                      <>
+                        {formatLine(row.post?.spreadLine ?? null)}
+                        {changeArrow(row.pre?.spreadLine, row.post?.spreadLine)}
+                      </>
+                    ) : '—'}
+                  </div>
+
+                  <div className="text-[13px] leading-6 text-zinc-800">
+                    {row.rowType === 'odds' ? formatMoneyline(row) : '—'}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold leading-5 text-zinc-900">{playLabel(row)}</div>
+                    {row.note ? (
+                      <div className={cn('text-[12px] leading-5', noteClass(row))}>{row.note}</div>
+                    ) : null}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
         </div>
       )}
     </div>
