@@ -660,70 +660,80 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
             const coreData = await coreRes.json();
             const items = Array.isArray(coreData?.items) ? coreData.items : (Array.isArray(coreData) ? coreData : []);
 
-            // Sort: DraftKings first, then any provider
-            const sortedItems = [...items].sort((a: any, b: any) => {
-              const aName = String(a?.provider?.name || '').toLowerCase();
-              const bName = String(b?.provider?.name || '').toLowerCase();
-              const aIsDK = aName.includes('draftkings') || a?.provider?.id === 100;
-              const bIsDK = bName.includes('draftkings') || b?.provider?.id === 100;
-              if (aIsDK && !bIsDK) return -1;
-              if (!aIsDK && bIsDK) return 1;
-              return 0;
-            });
+            // ─── Provider Strategy ───────────────────────────────
+            // Core API returns two DraftKings feeds:
+            //   Provider 100 = "Draft Kings" (pregame) — has open/close/current but
+            //                   current FREEZES at close once the game starts.
+            //   Provider 200 = "Draft Kings - Live Odds" — has open/current with
+            //                   actively moving in-game lines (spread, total, ML).
+            //
+            // Strategy:
+            //   odds_live  → prefer provider 200 (live), fallback to 100
+            //   odds_open  → prefer provider 100 (has full open lifecycle)
+            //   odds_close → prefer provider 100 (has close snapshot)
+            // ─────────────────────────────────────────────────────
 
-            for (const provider of sortedItems) {
-              const providerLabel = provider?.provider?.name || 'ESPN';
-              const providerId = provider?.provider?.id ?? null;
+            // Find specific providers
+            const liveProvider = items.find((p: any) => String(p?.provider?.id) === '200');
+            const pregameProvider = items.find((p: any) => String(p?.provider?.id) === '100');
+            const fallbackProvider = items[0]; // any provider as last resort
 
-              if (!parsedOdds.odds_live && provider?.current) {
-                parsedOdds.odds_live = {
-                  home_ml: provider.current?.homeTeamOdds?.moneyLine ?? provider.current?.moneyLine ?? null,
-                  away_ml: provider.current?.awayTeamOdds?.moneyLine ?? null,
-                  homeSpread: provider.current?.spread ?? null,
-                  awaySpread: provider.current?.awayTeamOdds?.spread ?? null,
-                  homeSpreadOdds: provider.current?.homeTeamOdds?.spreadOdds ?? null,
-                  awaySpreadOdds: provider.current?.awayTeamOdds?.spreadOdds ?? null,
-                  total: provider.current?.overUnder ?? null,
-                  overOdds: provider.current?.overOdds ?? null,
-                  underOdds: provider.current?.underOdds ?? null,
-                  provider: providerLabel,
-                  provider_id: providerId,
-                  source: 'core_api',
-                  captured_at: new Date().toISOString()
-                };
-              }
-              if (!parsedOdds.odds_open && provider?.open) {
-                parsedOdds.odds_open = {
-                  home_ml: provider.open?.homeTeamOdds?.moneyLine ?? provider.open?.moneyLine ?? null,
-                  away_ml: provider.open?.awayTeamOdds?.moneyLine ?? null,
-                  homeSpread: provider.open?.spread ?? null,
-                  awaySpread: provider.open?.awayTeamOdds?.spread ?? null,
-                  homeSpreadOdds: provider.open?.homeTeamOdds?.spreadOdds ?? null,
-                  awaySpreadOdds: provider.open?.awayTeamOdds?.spreadOdds ?? null,
-                  total: provider.open?.overUnder ?? null,
-                  overOdds: provider.open?.overOdds ?? null,
-                  underOdds: provider.open?.underOdds ?? null,
-                  provider: providerLabel,
-                  provider_id: providerId,
-                  source: 'core_api'
-                };
-              }
-              if (!parsedOdds.odds_close && provider?.close) {
-                parsedOdds.odds_close = {
-                  home_ml: provider.close?.homeTeamOdds?.moneyLine ?? provider.close?.moneyLine ?? null,
-                  away_ml: provider.close?.awayTeamOdds?.moneyLine ?? null,
-                  homeSpread: provider.close?.spread ?? null,
-                  awaySpread: provider.close?.awayTeamOdds?.spread ?? null,
-                  homeSpreadOdds: provider.close?.homeTeamOdds?.spreadOdds ?? null,
-                  awaySpreadOdds: provider.close?.awayTeamOdds?.spreadOdds ?? null,
-                  total: provider.close?.overUnder ?? null,
-                  overOdds: provider.close?.overOdds ?? null,
-                  underOdds: provider.close?.underOdds ?? null,
-                  provider: providerLabel,
-                  provider_id: providerId,
-                  source: 'core_api'
-                };
-              }
+            // odds_live: Provider 200 (Live Odds) is PRIMARY — it's the only one that moves
+            const liveSource = liveProvider || pregameProvider || fallbackProvider;
+            if (!parsedOdds.odds_live && liveSource?.current) {
+              const providerLabel = liveSource?.provider?.name || 'ESPN';
+              const providerId = liveSource?.provider?.id ?? null;
+              parsedOdds.odds_live = {
+                home_ml: liveSource.homeTeamOdds?.moneyLine ?? null,
+                away_ml: liveSource.awayTeamOdds?.moneyLine ?? null,
+                homeSpread: liveSource.spread ?? null,
+                awaySpread: liveSource.awayTeamOdds?.current?.pointSpread?.american ?? null,
+                homeSpreadOdds: liveSource.homeTeamOdds?.spreadOdds ?? null,
+                awaySpreadOdds: liveSource.awayTeamOdds?.spreadOdds ?? null,
+                total: liveSource.overUnder ?? null,
+                overOdds: liveSource.overOdds ?? null,
+                underOdds: liveSource.underOdds ?? null,
+                provider: providerLabel,
+                provider_id: providerId,
+                source: 'core_api',
+                captured_at: new Date().toISOString()
+              };
+            }
+
+            // odds_open: Provider 100 (Pregame DK) has the full open snapshot
+            const openSource = pregameProvider || liveProvider || fallbackProvider;
+            if (!parsedOdds.odds_open && openSource?.open) {
+              const providerLabel = openSource?.provider?.name || 'ESPN';
+              const providerId = openSource?.provider?.id ?? null;
+              parsedOdds.odds_open = {
+                home_ml: openSource.open?.homeTeamOdds?.moneyLine ?? openSource.homeTeamOdds?.open?.moneyLine?.value ?? null,
+                away_ml: openSource.open?.awayTeamOdds?.moneyLine ?? openSource.awayTeamOdds?.open?.moneyLine?.value ?? null,
+                homeSpread: openSource.open?.total?.american ? parseFloat(openSource.homeTeamOdds?.open?.pointSpread?.american ?? '0') : (openSource.open?.spread ?? null),
+                total: openSource.open?.total?.american ? parseFloat(openSource.open.total.american) : (openSource.open?.overUnder ?? null),
+                overOdds: openSource.open?.over?.american ? parseFloat(openSource.open.over.american) : null,
+                underOdds: openSource.open?.under?.american ? parseFloat(openSource.open.under.american) : null,
+                provider: providerLabel,
+                provider_id: providerId,
+                source: 'core_api'
+              };
+            }
+
+            // odds_close: Provider 100 (Pregame DK) has the close snapshot
+            const closeSource = pregameProvider || fallbackProvider;
+            if (!parsedOdds.odds_close && closeSource?.close) {
+              const providerLabel = closeSource?.provider?.name || 'ESPN';
+              const providerId = closeSource?.provider?.id ?? null;
+              parsedOdds.odds_close = {
+                home_ml: closeSource.close?.homeTeamOdds?.moneyLine ?? closeSource.homeTeamOdds?.close?.moneyLine?.value ?? null,
+                away_ml: closeSource.close?.awayTeamOdds?.moneyLine ?? closeSource.awayTeamOdds?.close?.moneyLine?.value ?? null,
+                homeSpread: closeSource.close?.total?.american ? parseFloat(closeSource.homeTeamOdds?.close?.pointSpread?.american ?? '0') : (closeSource.close?.spread ?? null),
+                total: closeSource.close?.total?.american ? parseFloat(closeSource.close.total.american) : (closeSource.close?.overUnder ?? null),
+                overOdds: closeSource.close?.over?.american ? parseFloat(closeSource.close.over.american) : null,
+                underOdds: closeSource.close?.under?.american ? parseFloat(closeSource.close.under.american) : null,
+                provider: providerLabel,
+                provider_id: providerId,
+                source: 'core_api'
+              };
             }
           }
         }
