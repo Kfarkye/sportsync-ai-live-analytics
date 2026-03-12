@@ -1035,9 +1035,39 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
         const endpointParts = String(league.endpoint || '').split('/');
         const espnLeagueId = endpointParts.length > 1 ? endpointParts[1] : null;
         if (espnLeagueId) {
-          // Fetch latest probabilities (last page = most recent plays)
+          // Fetch probabilities AND predictor in parallel
           const probUrl = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}/probabilities?limit=5`;
-          const probRes = await fetch(probUrl, { signal: AbortSignal.timeout(5000) });
+          const predUrl = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}/predictor`;
+          
+          const [probRes, predRes] = await Promise.all([
+            fetch(probUrl, { signal: AbortSignal.timeout(5000) }),
+            fetch(predUrl, { signal: AbortSignal.timeout(5000) }).catch(() => null)
+          ]);
+
+          // Parse predictor data (BPI pregame model)
+          let predictorData: any = null;
+          if (predRes && predRes.ok) {
+            try {
+              const predJson = await predRes.json();
+              // predictor has homeTeam and awayTeam with stats arrays
+              const homeTeamPred = predJson?.homeTeam;
+              const awayTeamPred = predJson?.awayTeam;
+              const getStatValue = (team: any, name: string) => {
+                const stat = team?.statistics?.find?.((s: any) => s.name === name);
+                return stat?.value ?? null;
+              };
+              predictorData = {
+                homePredMov: getStatValue(homeTeamPred, 'teampredmov'),
+                homePredWinPct: getStatValue(homeTeamPred, 'teampredwinpct'),
+                awayPredWinPct: getStatValue(awayTeamPred, 'teampredwinpct'),
+                matchupQuality: getStatValue(homeTeamPred, 'matchupquality'),
+                lastUpdated: predJson?.lastModified ?? null
+              };
+            } catch {
+              // predictor parse failed — non-fatal
+            }
+          }
+
           if (probRes.ok) {
             const probData = await probRes.json();
             const totalPages = probData?.pageCount ?? 0;
@@ -1073,7 +1103,15 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
                   tieWinPct: latest.tiePercentage ?? 0,
                   sequenceNumber: latest.sequenceNumber,
                   lastModified: latest.lastModified,
-                  totalProbabilityEntries: probData?.count ?? null
+                  totalProbabilityEntries: probData?.count ?? null,
+                  // BPI predictor: predicted MOV + matchup quality for spread comparison
+                  ...(predictorData ? {
+                    bpiPredictedMov: predictorData.homePredMov,
+                    bpiPregameWinPct: predictorData.homePredWinPct,
+                    bpiAwayPregameWinPct: predictorData.awayPredWinPct,
+                    matchupQuality: predictorData.matchupQuality,
+                    predictorLastUpdated: predictorData.lastUpdated
+                  } : {})
                 },
                 // Cross-reference: prefer provider 200 (live) over stale provider 100
                 odds_live: parsedOdds.dk_live_200 || (parsedOdds.odds_live ?? null),
