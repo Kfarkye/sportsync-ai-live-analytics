@@ -123,8 +123,8 @@ const AppShell: FC = () => {
       className={cn(
         // Layout
         'min-h-screen h-(--vvh,100vh) relative flex flex-col antialiased',
-        // Yahoo-inspired shell surface
-        'bg-[#F4F6FF] text-slate-900 font-sans',
+        // Canonical shell surface
+        'bg-slate-50 text-slate-950 font-sans',
         // selection rule
         'selection:bg-blue-300/30'
       )}
@@ -132,7 +132,7 @@ const AppShell: FC = () => {
       <UnifiedHeader />
 
       <MotionMain id="main-content" className="flex-1 w-full overflow-y-auto overscroll-contain">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-3">
+        <div className="mx-auto max-w-[1280px] px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-4 md:px-6 md:pt-5">
           <AnimatePresence mode="wait">
             {activeView === 'FEED' && (
               <MotionDiv
@@ -245,8 +245,8 @@ const AppShell: FC = () => {
         </div>
 
         {/* Global Legal & Responsibility Footer (inside scroll context) */}
-        <footer className={cn('w-full border-t border-slate-200/80 bg-linear-to-b from-transparent to-[#EFF6FF]/80')}>
-          <div className="max-w-7xl mx-auto px-7 py-9 md:py-10">
+        <footer className="w-full border-t border-slate-200 bg-white">
+          <div className="mx-auto max-w-[1280px] px-4 py-8 md:px-6 md:py-9">
             <div className="flex flex-col items-center text-center gap-3 opacity-80">
               <span className="text-[11px] text-slate-600 max-w-2xl">
                 Quantitative decision-support for entertainment only. Not financial advice.

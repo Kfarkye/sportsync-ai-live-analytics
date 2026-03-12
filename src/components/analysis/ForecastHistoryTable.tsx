@@ -1,9 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { BarChart3, Radar } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { cn } from '@/lib/essence';
-import { BarChart3, Radar } from 'lucide-react';
-import { EmptyState } from '@/components/ui/EmptyState';
+import {
+  DataTable,
+  type DataTableColumn,
+  EmptyState,
+  FilterBar,
+  PageHeader,
+  SummaryStrip,
+  type SummaryStripItem,
+} from '@/components/ui';
 
 interface PulseRow {
   id: string;
@@ -51,35 +58,20 @@ interface ForecastHistoryTableProps {
   showSectionEyebrow?: boolean;
 }
 
-const eventChipClass = (row: PulseRow) => {
-  if (row.rowType === 'odds') {
-    return 'border-zinc-900/10 bg-zinc-900 text-white';
-  }
-  if (row.rowType === 'timeout') {
-    return 'border-zinc-200 bg-zinc-100 text-zinc-700';
-  }
-  if (row.rowType === 'period_end') {
-    return 'border-zinc-200 bg-white text-zinc-700';
-  }
-  return 'border-[#D7E1FF] bg-[#EEF3FF] text-[#335CFF]';
-};
-
-const noteClass = (row: PulseRow) => {
-  if (row.rowType !== 'odds') return 'text-zinc-400';
-  if (row.badge === 'Sharp Move') return 'text-[#0A7A3E]';
-  if (row.badge === 'No Reaction') return 'text-zinc-400';
-  return 'text-zinc-500';
-};
-
 const formatTimestamp = (ts: string) => {
   const date = new Date(ts);
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 };
 
+const formatGeneratedAt = (ts: string | undefined) => {
+  if (!ts) return 'Waiting for sync';
+  const date = new Date(ts);
+  return `Updated ${date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+};
+
 const formatLine = (value: number | null) => {
   if (value === null || Number.isNaN(value)) return '—';
-  if (value > 0) return `+${value}`;
-  return `${value}`;
+  return value > 0 ? `+${value}` : `${value}`;
 };
 
 const formatTotal = (value: number | null) => {
@@ -88,26 +80,27 @@ const formatTotal = (value: number | null) => {
 };
 
 const formatPricePair = (left: number | null, right: number | null) => {
-  const fmt = (value: number | null) => {
+  const formatPrice = (value: number | null) => {
     if (value === null || Number.isNaN(value)) return '—';
-    if (value > 0) return `+${value}`;
-    return `${value}`;
+    return value > 0 ? `+${value}` : `${value}`;
   };
-  return `${fmt(left)}/${fmt(right)}`;
+
+  return `${formatPrice(left)}/${formatPrice(right)}`;
 };
 
 const formatMoneyline = (row: PulseRow) => {
   if (!row.post) return '—';
-  const home = row.post.homeMl;
-  const away = row.post.awayMl;
-  const draw = row.post.drawMl;
-  const fmt = (value: number | null) => {
+
+  const formatPrice = (value: number | null) => {
     if (value === null || Number.isNaN(value)) return '—';
-    if (value > 0) return `+${value}`;
-    return `${value}`;
+    return value > 0 ? `+${value}` : `${value}`;
   };
-  if (draw !== null) return `${fmt(home)}/${fmt(draw)}/${fmt(away)}`;
-  return `${fmt(home)}/${fmt(away)}`;
+
+  if (row.post.drawMl !== null) {
+    return `${formatPrice(row.post.homeMl)}/${formatPrice(row.post.drawMl)}/${formatPrice(row.post.awayMl)}`;
+  }
+
+  return `${formatPrice(row.post.homeMl)}/${formatPrice(row.post.awayMl)}`;
 };
 
 const changeArrow = (before: number | null | undefined, after: number | null | undefined) => {
@@ -115,17 +108,32 @@ const changeArrow = (before: number | null | undefined, after: number | null | u
   return after > before ? ' ↑' : ' ↓';
 };
 
-const eventChip = (row: PulseRow) => {
+const eventTag = (row: PulseRow) => {
   if (row.rowType === 'odds') return 'ODDS';
+  if (row.rowType === 'timeout') return 'TIMEOUT';
   if (row.rowType === 'period_end') return 'END';
-  if (row.rowType === 'timeout') return 'TIME';
   if (row.eventType === 'goal' || row.eventType === 'score') return 'SCORE';
   return 'PLAY';
 };
 
-const playLabel = (row: PulseRow) => {
-  if (row.rowType === 'odds') return '—';
-  return row.playText || row.eventLabel;
+const eventDetail = (row: PulseRow) => {
+  if (row.rowType === 'odds') return '10-minute checkpoint';
+  if (row.rowType === 'period_end') return 'Period end';
+  if (row.rowType === 'timeout') return 'Timeout';
+  return row.eventLabel || 'Play';
+};
+
+const scoreStateLabel = (tag: string) =>
+  tag
+    .split('_')
+    .join(' ')
+    .toLowerCase();
+
+const playDescription = (row: PulseRow) => row.playText || row.eventLabel || '—';
+
+const noteForRow = (row: PulseRow) => {
+  if (row.rowType !== 'odds') return null;
+  return row.note;
 };
 
 export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
@@ -145,17 +153,19 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
         if (!mounted) return;
         const initial = pulse === null;
         if (initial) setLoading(true);
+
         const { data, error: invokeError } = await supabase.functions.invoke('live-market-pulse', {
           body: { matchId, windowMinutes: 10 },
         });
 
         if (invokeError) throw invokeError;
         if (!mounted) return;
+
         setPulse((data ?? null) as LiveMarketPulseResponse | null);
         setError(null);
       } catch (err) {
         if (!mounted) return;
-        const message = err instanceof Error ? err.message : 'Pulse unavailable';
+        const message = err instanceof Error ? err.message : 'Live impulse unavailable';
         setError(message);
       } finally {
         if (mounted) setLoading(false);
@@ -172,145 +182,224 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
   }, [matchId]);
 
   const rows = pulse?.rows ?? [];
-  const summary = pulse?.summary ?? 'Reading the last 10 minutes of play and market movement.';
-  const seoCopy = useMemo(() => {
-    if (!rows.length) return 'A 10-minute live tape of play-by-play and odds checkpoints will appear here once enough priced snapshots exist.';
-    return `Ten-minute live tape: ${summary}`;
-  }, [rows.length, summary]);
 
-  if (loading && !pulse) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="w-6 h-6 border-2 border-zinc-800 border-t-zinc-500 rounded-full motion-safe:animate-spin" />
-      </div>
-    );
-  }
+  const oddsRows = useMemo(() => rows.filter((row) => row.rowType === 'odds'), [rows]);
+  const eventRows = useMemo(() => rows.filter((row) => row.rowType !== 'odds'), [rows]);
 
-  if (error && !pulse) {
-    return (
-      <EmptyState
-        icon={<Radar size={24} />}
-        message="LIVE MARKET PULSE OFFLINE"
-        description={error}
-      />
-    );
-  }
+  const summaryItems = useMemo<SummaryStripItem[]>(() => {
+    const latestOddsRow = oddsRows[0] ?? null;
+    const latestMoveLabel =
+      latestOddsRow?.badge === 'Sharp Move'
+        ? 'Sharp move'
+        : latestOddsRow?.badge === 'Normal'
+          ? 'Normal move'
+          : 'Stable';
+
+    return [
+      {
+        id: 'checkpoints',
+        label: 'Checkpoints',
+        value: `${oddsRows.length}`,
+        hint: '10-minute odds snapshots on the tape',
+      },
+      {
+        id: 'plays',
+        label: 'Play Events',
+        value: `${eventRows.length}`,
+        hint: 'Independent play-by-play rows between checkpoints',
+      },
+      {
+        id: 'latest-move',
+        label: 'Latest Move',
+        value: latestMoveLabel,
+        hint: latestOddsRow?.note ?? 'No priced checkpoint yet',
+      },
+      {
+        id: 'window',
+        label: 'Window',
+        value: `${pulse?.windowMinutes ?? 10} min`,
+        hint: 'Rolling live impulse tape',
+      },
+    ];
+  }, [eventRows.length, oddsRows, pulse?.windowMinutes]);
+
+  const columns = useMemo<DataTableColumn<PulseRow>[]>(
+    () => [
+      {
+        id: 'time',
+        header: 'Time',
+        width: '88px',
+        cell: (row) => (
+          <div className="space-y-1">
+            <div className="font-mono text-[13px] font-semibold text-slate-700">
+              {row.clock || formatTimestamp(row.ts)}
+            </div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              {row.period || formatTimestamp(row.ts)}
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: 'event',
+        header: 'Event',
+        width: '132px',
+        cell: (row) => (
+          <div className="space-y-1">
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-900">
+              {eventTag(row)}
+            </div>
+            <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+              {eventDetail(row)}
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: 'score',
+        header: 'Score',
+        width: '126px',
+        cell: (row) => (
+          <div className="space-y-1">
+            <div className="font-mono text-[13px] font-semibold text-slate-800">{row.score}</div>
+            <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+              {scoreStateLabel(row.scoreStateTag)}
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: 'total',
+        header: 'O/U',
+        width: '72px',
+        cell: (row) => (
+          <div className="text-[13px] font-medium text-slate-800">
+            {row.rowType === 'odds' ? (
+              <>
+                {formatTotal(row.post?.totalLine ?? null)}
+                {changeArrow(row.pre?.totalLine, row.post?.totalLine)}
+              </>
+            ) : '—'}
+          </div>
+        ),
+      },
+      {
+        id: 'price',
+        header: 'O/U Price',
+        width: '128px',
+        cell: (row) => (
+          <div className="text-[13px] font-medium text-slate-800">
+            {row.rowType === 'odds'
+              ? formatPricePair(row.post?.overPrice ?? null, row.post?.underPrice ?? null)
+              : '—'}
+          </div>
+        ),
+      },
+      {
+        id: 'spread',
+        header: 'Spread',
+        width: '96px',
+        cell: (row) => (
+          <div className="text-[13px] font-medium text-slate-800">
+            {row.rowType === 'odds' ? (
+              <>
+                {formatLine(row.post?.spreadLine ?? null)}
+                {changeArrow(row.pre?.spreadLine, row.post?.spreadLine)}
+              </>
+            ) : '—'}
+          </div>
+        ),
+      },
+      {
+        id: 'ml',
+        header: 'ML',
+        width: '120px',
+        cell: (row) => (
+          <div className="text-[13px] font-medium text-slate-800">
+            {row.rowType === 'odds' ? formatMoneyline(row) : '—'}
+          </div>
+        ),
+      },
+      {
+        id: 'play',
+        header: 'Play',
+        width: 'minmax(320px,1fr)',
+        cell: (row) => (
+          <div className="space-y-1">
+            <div className="text-[14px] font-medium leading-6 text-slate-950">{playDescription(row)}</div>
+            {noteForRow(row) ? (
+              <div className="text-[12px] leading-5 text-slate-500">{noteForRow(row)}</div>
+            ) : null}
+          </div>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const emptyState = error ? (
+    <EmptyState
+      icon={<Radar size={24} />}
+      message="LIVE IMPULSE OFFLINE"
+      description={error}
+    />
+  ) : (
+    <EmptyState
+      icon={<BarChart3 size={24} />}
+      message="WAITING FOR CHECKPOINTS"
+      description="This tape fills with fixed 10-minute odds rows and separate play-by-play rows as the game progresses."
+    />
+  );
 
   return (
-    <div className="w-full space-y-4">
-      {showSectionEyebrow && (
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-          <span className="text-caption font-bold text-zinc-500 uppercase tracking-widest">Live Impulse</span>
-        </div>
-      )}
-
-      <div className="rounded-[22px] border border-edge-subtle bg-[#FAFAFA] p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-2">
-            <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-zinc-500">10-Minute Tape</div>
-            <p className="text-sm font-semibold leading-6 text-[#111111] sm:text-[15px]">{summary}</p>
-          </div>
-          <div className="hidden rounded-full border border-edge-subtle bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500 sm:flex sm:items-center">
+    <div className="w-full space-y-5">
+      <PageHeader
+        compact
+        eyebrow={showSectionEyebrow ? 'Live Impulse' : undefined}
+        title="10-Minute Tape"
+        description={pulse?.summary ?? 'A live tape of independent play-by-play events and fixed 10-minute odds checkpoints.'}
+        actions={
+          <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
             Live Sync
           </div>
-        </div>
-        <p className="mt-3 text-xs leading-5 text-zinc-500">{seoCopy}</p>
-      </div>
+        }
+      />
 
-      {rows.length === 0 ? (
-        <EmptyState
-          icon={<BarChart3 size={24} />}
-          message="WAITING FOR CHECKPOINTS"
-          description="This rail fills with fixed 10-minute odds rows and separate play rows as the game progresses."
-        />
-      ) : (
-        <div className="overflow-x-auto">
-          <div className="min-w-[1080px] space-y-3">
-            <div className="grid grid-cols-[88px_132px_110px_84px_120px_110px_128px_minmax(280px,1fr)] gap-4 border-b border-edge-subtle px-2 pb-3">
-              <div className="text-label font-black uppercase tracking-widest text-zinc-500">Time</div>
-              <div className="text-label font-black uppercase tracking-widest text-zinc-500">Event</div>
-              <div className="text-label font-black uppercase tracking-widest text-zinc-500">Score</div>
-              <div className="text-label font-black uppercase tracking-widest text-zinc-500">O/U</div>
-              <div className="text-label font-black uppercase tracking-widest text-zinc-500">O/U Price</div>
-              <div className="text-label font-black uppercase tracking-widest text-zinc-500">Spread</div>
-              <div className="text-label font-black uppercase tracking-widest text-zinc-500">ML</div>
-              <div className="text-label font-black uppercase tracking-widest text-zinc-500">Play</div>
-            </div>
-
-            <AnimatePresence mode="popLayout">
-              {rows.map((row) => (
-                <motion.div
-                  key={row.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  className={cn(
-                    'grid grid-cols-[88px_132px_110px_84px_120px_110px_128px_minmax(280px,1fr)] gap-4 rounded-[20px] border px-4 py-4 transition-colors',
-                    row.rowType === 'odds'
-                      ? 'border-zinc-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.06)]'
-                      : 'border-zinc-100 bg-[#FCFCFC]'
-                  )}
-                >
-                  <div className="space-y-1">
-                    <div className="text-footnote font-mono font-bold text-zinc-600">{row.clock || formatTimestamp(row.ts)}</div>
-                    <div className="text-label font-bold uppercase text-zinc-500">{row.period || formatTimestamp(row.ts)}</div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <span className={cn('inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em]', eventChipClass(row))}>
-                      {eventChip(row)}
-                    </span>
-                    <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
-                      {row.rowType === 'odds' ? '10-minute checkpoint' : row.eventLabel}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="text-footnote font-mono font-bold text-zinc-700">{row.score}</div>
-                    <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">{row.scoreStateTag}</div>
-                  </div>
-
-                  <div className="text-[13px] leading-6 text-zinc-800">
-                    {row.rowType === 'odds' ? (
-                      <>
-                        {formatTotal(row.post?.totalLine ?? null)}
-                        {changeArrow(row.pre?.totalLine, row.post?.totalLine)}
-                      </>
-                    ) : '—'}
-                  </div>
-
-                  <div className="text-[13px] leading-6 text-zinc-800">
-                    {row.rowType === 'odds'
-                      ? formatPricePair(row.post?.overPrice ?? null, row.post?.underPrice ?? null)
-                      : '—'}
-                  </div>
-
-                  <div className="text-[13px] leading-6 text-zinc-800">
-                    {row.rowType === 'odds' ? (
-                      <>
-                        {formatLine(row.post?.spreadLine ?? null)}
-                        {changeArrow(row.pre?.spreadLine, row.post?.spreadLine)}
-                      </>
-                    ) : '—'}
-                  </div>
-
-                  <div className="text-[13px] leading-6 text-zinc-800">
-                    {row.rowType === 'odds' ? formatMoneyline(row) : '—'}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="text-sm font-semibold leading-5 text-zinc-900">{playLabel(row)}</div>
-                    {row.note ? (
-                      <div className={cn('text-[12px] leading-5', noteClass(row))}>{row.note}</div>
-                    ) : null}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+      <FilterBar
+        rightAccessory={
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            {pulse?.sport ?? 'Live'}
           </div>
-        </div>
-      )}
+        }
+      >
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+          {formatGeneratedAt(pulse?.generatedAt)}
+        </span>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+          {pulse?.windowMinutes ?? 10} minute cadence
+        </span>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+          {rows.length} total rows
+        </span>
+      </FilterBar>
+
+      <SummaryStrip items={summaryItems} />
+
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey="id"
+        density="compact"
+        loading={loading && !pulse}
+        emptyState={emptyState}
+        rowTone={(row) => {
+          if (row.rowType === 'odds') return 'strong';
+          if (row.rowType === 'timeout' || row.rowType === 'period_end') return 'muted';
+          return 'default';
+        }}
+      />
     </div>
   );
 };
+
+export default ForecastHistoryTable;

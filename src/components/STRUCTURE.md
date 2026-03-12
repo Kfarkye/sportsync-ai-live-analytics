@@ -8,7 +8,7 @@ This directory is organized by functional domain to ensure scalability and maint
 Core application shell and navigation components.
 - `AppShell`: Main layout wrapper
 - `UnifiedHeader`: Top navigation
-- `Sidebar`, `MobileNavBar`: Navigation menus
+- `MobileSportDrawer`: Sole mobile global navigation surface
 
 ### `match/`
 Components related to match display and lists.
@@ -47,3 +47,4 @@ Pre-match specific analysis and widgets.
 - **Typography First**: Avoid decorative icons; use weight/color for hierarchy.
 - **Strict Typing**: All components must be typed with strict TS interfaces.
 - **Composition**: Prefer small, focused components over monolithic files.
+- **One Shell**: Do not add parallel nav systems or page-level shell variants.

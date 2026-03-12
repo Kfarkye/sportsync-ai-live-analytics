@@ -12,11 +12,17 @@ export { Page } from './Page';
 export { default as PageDefault } from './Page';
 
 // Headers & Titles
+export { PageHeader } from './PageHeader';
 export { SectionHeader, CardHeader } from './SectionHeader';
 export { Pill } from './Pill';
 export { default as PillDefault } from './Pill';
 export { TableRail } from './TableRail';
 export { default as TableRailDefault } from './TableRail';
+export { FilterBar } from './FilterBar';
+export { DataTable } from './DataTable';
+export { SummaryStrip } from './SummaryStrip';
+export type { DataTableColumn, DataTableDensity, DataTableRowTone } from './DataTable';
+export type { SummaryStripItem } from './SummaryStrip';
 
 // Status Indicators
 export { StatusChip } from './StatusChip';
