@@ -1148,8 +1148,12 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
         if (espnLeagueId && homeId && awayId) {
           const coreBase = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}`;
 
-          // Fetch all competitor endpoints + situation in parallel
-          const [homeStatsRes, awayStatsRes, homeLeadersRes, awayLeadersRes, homeRosterRes, awayRosterRes, situationRes] = await Promise.all([
+          // Fetch all Core API endpoints in parallel (all 12)
+          const [
+            homeStatsRes, awayStatsRes, homeLeadersRes, awayLeadersRes,
+            homeRosterRes, awayRosterRes, situationRes,
+            officialsRes, broadcastsRes, homeLinescoresRes, awayLinescoresRes, predictorRes
+          ] = await Promise.all([
             fetch(`${coreBase}/competitors/${homeId}/statistics`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
             fetch(`${coreBase}/competitors/${awayId}/statistics`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
             fetch(`${coreBase}/competitors/${homeId}/leaders`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
@@ -1157,6 +1161,11 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
             fetch(`${coreBase}/competitors/${homeId}/roster`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
             fetch(`${coreBase}/competitors/${awayId}/roster`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
             fetch(`${coreBase}/situation`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
+            fetch(`${coreBase}/officials`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
+            fetch(`${coreBase}/broadcasts`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
+            fetch(`${coreBase}/competitors/${homeId}/linescores`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
+            fetch(`${coreBase}/competitors/${awayId}/linescores`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
+            fetch(`${coreBase}/predictor`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
           ]);
 
           // ── Parse Statistics (efficiency metrics) ──────────────
@@ -1305,6 +1314,93 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
                 } : null
               }
             };
+          }
+
+          // ── Parse Officials (referees) ──────────────────────
+          if (officialsRes && officialsRes.ok) {
+            try {
+              const offJson = await officialsRes.json();
+              const items = offJson?.items ?? [];
+              const officials = items.map((o: any) => ({
+                id: o.id ?? null,
+                name: o.fullName ?? o.displayName ?? null,
+                position: o.position?.name ?? null,
+                order: o.order ?? null
+              }));
+              if (officials.length > 0) {
+                enrichment.extra_data = {
+                  ...(enrichment.extra_data || {}),
+                  officials,
+                };
+              }
+            } catch { /* non-fatal */ }
+          }
+
+          // ── Parse Broadcasts (TV/streaming) ─────────────────
+          if (broadcastsRes && broadcastsRes.ok) {
+            try {
+              const bcJson = await broadcastsRes.json();
+              const items = bcJson?.items ?? [];
+              const broadcasts = items.map((b: any) => ({
+                station: b.station ?? null,
+                type: b.type?.shortName ?? null,
+                market: b.market?.type ?? null
+              }));
+              if (broadcasts.length > 0) {
+                enrichment.extra_data = {
+                  ...(enrichment.extra_data || {}),
+                  broadcasts,
+                };
+              }
+            } catch { /* non-fatal */ }
+          }
+
+          // ── Parse Linescores (period-by-period) ─────────────
+          const parseLinescores = async (res: Response | null) => {
+            if (!res || !res.ok) return null;
+            try {
+              const json = await res.json();
+              const items = json?.items ?? [];
+              return items.map((item: any) => item?.value ?? item?.displayValue ?? null);
+            } catch { return null; }
+          };
+          const homeLinescores = await parseLinescores(homeLinescoresRes);
+          const awayLinescores = await parseLinescores(awayLinescoresRes);
+          if (homeLinescores || awayLinescores) {
+            enrichment.extra_data = {
+              ...(enrichment.extra_data || {}),
+              linescores: { home: homeLinescores, away: awayLinescores },
+            };
+          }
+
+          // ── Parse Predictor / PowerIndex ─────────────────────
+          if (predictorRes && predictorRes.ok) {
+            try {
+              const predJson = await predictorRes.json();
+              const homeTeamStats = predJson?.homeTeam?.statistics ?? predJson?.homeTeam?.team?.statistics ?? [];
+              const awayTeamStats = predJson?.awayTeam?.statistics ?? predJson?.awayTeam?.team?.statistics ?? [];
+              const extractPredStats = (stats: any[]) => {
+                const result: Record<string, any> = {};
+                for (const s of (stats || [])) {
+                  if (s?.name && s?.displayValue != null) {
+                    result[s.name] = s.displayValue;
+                  }
+                }
+                return Object.keys(result).length > 0 ? result : null;
+              };
+              const predData = {
+                home: extractPredStats(homeTeamStats),
+                away: extractPredStats(awayTeamStats),
+                name: predJson?.name ?? null,
+                lastModified: predJson?.lastModified ?? null
+              };
+              if (predData.home || predData.away) {
+                enrichment.extra_data = {
+                  ...(enrichment.extra_data || {}),
+                  powerindex: predData,
+                };
+              }
+            } catch { /* non-fatal */ }
           }
 
           if (Object.keys(enrichment).length > 0) {
