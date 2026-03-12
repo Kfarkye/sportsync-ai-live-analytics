@@ -759,7 +759,8 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
     if (!isGameInProgress(initialMatch.status)) return;
 
     const dbId = getDbMatchId(initialMatch.id, initialMatch.leagueId?.toLowerCase() || '');
-    const sanitizedDbId = dbId.replace(/[^a-zA-Z0-9_:-]/g, '');
+    const sanitizedDbId = String(dbId || initialMatch.id || '').replace(/[^a-zA-Z0-9_:-]/g, '');
+    if (!sanitizedDbId) return;
     const channel = supabase.channel(`live_state:${sanitizedDbId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'live_match_states', filter: `match_id=eq.${sanitizedDbId}` }, (payload) => {
         if (payload.new) {
@@ -782,7 +783,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
     const seq = ++fetchSeqRef.current;
 
     const cur = matchRef.current;
-    const dbId = getDbMatchId(cur.id, cur.leagueId?.toLowerCase() || '');
+    const dbId = String(getDbMatchId(cur.id, cur.leagueId?.toLowerCase() || '') || cur.id || '');
     const isLive = isGameInProgress(cur.status);
     const socketFresh = isSocketActiveRef.current && isLive && (Date.now() - lastLiveReceivedAtRef.current) < CONFIG.polling.SOCKET_FRESH_MS;
 
