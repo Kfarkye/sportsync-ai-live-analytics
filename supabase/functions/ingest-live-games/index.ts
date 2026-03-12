@@ -368,6 +368,7 @@ Deno.serve(async (req: Request) => {
     errors: [] as string[],
     snapshots: 0,
     odds_snapshots_written: 0,
+    bpi_snapshots: 0,
     context_snapshots: 0,
     dry_run: dryRun,
     max_games_requested: maxGamesCap,
@@ -998,6 +999,81 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
           match_id: dbMatchId,
           error: e?.message || String(e)
         });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // BPI: Ingest ESPN win probability (per-play) from Core API
+    // This is the foundation for AI edge detection vs market odds
+    // ═══════════════════════════════════════════════════════════
+    if (!isSoccer) {
+      try {
+        const endpointParts = String(league.endpoint || '').split('/');
+        const espnLeagueId = endpointParts.length > 1 ? endpointParts[1] : null;
+        if (espnLeagueId) {
+          // Fetch latest probabilities (last page = most recent plays)
+          const probUrl = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}/probabilities?limit=5`;
+          const probRes = await fetch(probUrl, { signal: AbortSignal.timeout(5000) });
+          if (probRes.ok) {
+            const probData = await probRes.json();
+            const totalPages = probData?.pageCount ?? 0;
+
+            // Get the last page for most recent probability
+            let latestItems = probData?.items ?? [];
+            if (totalPages > 1) {
+              const lastPageUrl = `${probUrl}&page=${totalPages}`;
+              const lastPageRes = await fetch(lastPageUrl, { signal: AbortSignal.timeout(5000) });
+              if (lastPageRes.ok) {
+                const lastPageData = await lastPageRes.json();
+                latestItems = lastPageData?.items ?? latestItems;
+              }
+            }
+
+            // Take the last item (most recent play)
+            const latest = latestItems.length > 0 ? latestItems[latestItems.length - 1] : null;
+            if (latest && latest.homeWinPercentage != null) {
+              const bpiSequence = parseInt(latest.sequenceNumber || '0', 10) || Math.floor(Date.now() / 1000);
+              const bpiPayload: any = {
+                match_id: dbMatchId,
+                league_id: league.id,
+                sport: league.db_sport,
+                event_type: 'bpi_probability',
+                sequence: bpiSequence,
+                period: comp.status?.period ?? null,
+                clock: comp.status?.displayClock ?? null,
+                home_score: homeScore,
+                away_score: awayScore,
+                event_data: {
+                  homeWinPct: latest.homeWinPercentage,
+                  awayWinPct: latest.awayWinPercentage,
+                  tieWinPct: latest.tiePercentage ?? 0,
+                  sequenceNumber: latest.sequenceNumber,
+                  lastModified: latest.lastModified,
+                  totalProbabilityEntries: probData?.count ?? null,
+                  // Cross-reference: capture current live odds at same moment
+                  liveOdds: parsedOdds.odds_live ? {
+                    total: parsedOdds.odds_live.total,
+                    homeSpread: parsedOdds.odds_live.homeSpread,
+                    homeMl: parsedOdds.odds_live.home_ml,
+                    awayMl: parsedOdds.odds_live.away_ml,
+                    provider: parsedOdds.odds_live.provider
+                  } : null
+                },
+                source: 'espn_bpi'
+              };
+
+              const { error: bpiError } = await supabase
+                .from('game_events')
+                .upsert(bpiPayload, { onConflict: 'match_id,event_type,sequence' });
+
+              if (!bpiError) {
+                stats.bpi_snapshots++;
+              }
+            }
+          }
+        }
+      } catch {
+        // Non-fatal: BPI data is supplementary
       }
     }
 
