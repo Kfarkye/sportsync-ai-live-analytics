@@ -112,8 +112,8 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
   const rows = pulse?.rows ?? [];
   const summary = pulse?.summary ?? 'Reading the last 10 minutes of play and market movement.';
   const seoCopy = useMemo(() => {
-    if (!rows.length) return 'Live odds movement and key plays will appear here once the game produces a meaningful event or market shift.';
-    return `Live odds movement over the last 10 minutes: ${summary}`;
+    if (!rows.length) return 'A 10-minute game tape of play-by-play and odds snapshots will appear here once the live market has enough priced checkpoints.';
+    return `Ten-minute live game snapshots: ${summary}`;
   }, [rows.length, summary]);
 
   if (loading && !pulse) {
@@ -148,7 +148,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-zinc-500">
               <Clock3 size={12} className="text-zinc-400" />
-              Last 10 Minutes
+              10-Minute Snapshots
             </div>
             <p className="text-sm font-semibold leading-6 text-[#111111] sm:text-[15px]">{summary}</p>
           </div>
@@ -163,8 +163,8 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
       {rows.length === 0 ? (
         <EmptyState
           icon={<BarChart3 size={24} />}
-          message="NO MAJOR SHIFTS YET"
-          description="The tape fills when a key play or live odds move clears the threshold."
+          message="WAITING FOR CHECKPOINTS"
+          description="This rail fills with fixed 10-minute market snapshots as the game progresses."
         />
       ) : (
         <div className="overflow-x-auto">
