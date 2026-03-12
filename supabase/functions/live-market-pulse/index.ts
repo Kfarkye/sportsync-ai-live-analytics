@@ -38,8 +38,8 @@ type PulseRow = {
   moveMagnitude: 'small' | 'medium' | 'large';
   badge: 'Normal' | 'Sharp Move' | 'Lagging' | 'No Reaction';
   explanation: string;
-  pre: ParsedOdds;
-  post: ParsedOdds;
+  pre?: ParsedOdds;
+  post?: ParsedOdds;
 };
 
 type SnapshotEvent = {
@@ -237,11 +237,29 @@ const latestContextEventInWindow = (events: SnapshotEvent[], startTs: number, en
   return null;
 };
 
-const pulseSignature = (
-  currentSnapshot: SnapshotEvent,
-  previousSnapshot: SnapshotEvent,
-  contextEvent: SnapshotEvent | null,
-) => `${currentSnapshot.id}|${previousSnapshot.id}|${contextEvent?.id ?? 'none'}`;
+const eventTextFromSnapshot = (event: SnapshotEvent): string => String(
+  event.play_data?.text
+  || event.play_data?.description
+  || event.play_data?.type
+  || event.event_type
+);
+
+const isMeaningfulPlay = (event: SnapshotEvent): boolean => {
+  if (event.event_type === 'odds_snapshot') return false;
+  if (event.play_data?.scoring_play) return true;
+
+  return [
+    'score',
+    'goal',
+    'timeout',
+    'period_end',
+    'red_card',
+    'card',
+    'penalty',
+    'injury',
+    'challenge',
+  ].includes(event.event_type);
+};
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -284,7 +302,8 @@ Deno.serve(async (req: Request) => {
     const allEvents = (eventsRes.data ?? []) as SnapshotEvent[];
     const sport = (matchRes.data?.sport || allEvents[0]?.sport || '').toLowerCase();
     const oddsEvents = allEvents.filter((event) => event.odds_snapshot);
-    const rows: PulseRow[] = [];
+    const checkpointRows: PulseRow[] = [];
+    const playRows: PulseRow[] = [];
 
     if (!oddsEvents.length) {
       return new Response(JSON.stringify({
@@ -307,7 +326,6 @@ Deno.serve(async (req: Request) => {
     const gameStart = startAnchor.getTime() > firstOddsAt.getTime() ? firstOddsAt : startAnchor;
     const latestSnapshotAt = new Date(oddsEvents[oddsEvents.length - 1].created_at);
     const endAnchor = latestSnapshotAt;
-    let lastSignature: string | null = null;
 
     let bucketEnd = plusMinutes(gameStart, windowMinutes);
     while (bucketEnd.getTime() <= endAnchor.getTime()) {
@@ -318,48 +336,25 @@ Deno.serve(async (req: Request) => {
         const currentParsed = parseOddsSnapshot(currentSnapshot.odds_snapshot);
         const previousParsed = parseOddsSnapshot(previousSnapshot.odds_snapshot);
         const move = chooseMove(previousParsed, currentParsed, sport);
-        const contextEvent = latestContextEventInWindow(
-          allEvents,
-          plusMinutes(bucketEnd, -windowMinutes).getTime(),
-          bucketEnd.getTime(),
-        );
-        const signature = pulseSignature(currentSnapshot, previousSnapshot, contextEvent);
-        if (signature === lastSignature) {
-          bucketEnd = plusMinutes(bucketEnd, windowMinutes);
-          continue;
-        }
-        lastSignature = signature;
+        const scoreHome = currentSnapshot.home_score ?? 0;
+        const scoreAway = currentSnapshot.away_score ?? 0;
 
-        const displayEvent = contextEvent ?? currentSnapshot;
-        const eventText = String(
-          displayEvent.play_data?.text
-          || displayEvent.play_data?.description
-          || displayEvent.play_data?.type
-          || (contextEvent ? contextEvent.event_type : `Periodic ${windowMinutes}-minute market snapshot`)
-        );
-        const normalizedEventType = contextEvent
-          ? contextEvent.event_type
-          : 'odds';
-        const side = detectTeamSide(displayEvent, eventText);
-        const scoreHome = displayEvent.home_score ?? currentSnapshot.home_score ?? 0;
-        const scoreAway = displayEvent.away_score ?? currentSnapshot.away_score ?? 0;
-
-        rows.push({
+        checkpointRows.push({
           id: `${currentSnapshot.id}-${bucketEnd.toISOString()}`,
           ts: bucketEnd.toISOString(),
-          period: displayEvent.period ? `P${displayEvent.period}` : null,
-          clock: displayEvent.clock || currentSnapshot.clock || null,
+          period: currentSnapshot.period ? `P${currentSnapshot.period}` : null,
+          clock: currentSnapshot.clock || null,
           score: `${scoreAway}-${scoreHome}`,
           scoreStateTag: scoreStateTag(scoreHome, scoreAway),
-          eventType: normalizedEventType,
-          eventLabel: eventText,
-          teamSide: side,
+          eventType: 'odds',
+          eventLabel: `Periodic ${windowMinutes}-minute market snapshot`,
+          teamSide: null,
           marketBefore: formatMarket(previousParsed, sport),
           marketAfter: formatMarket(currentParsed, sport),
           moveLabel: move.moveLabel,
           moveMagnitude: move.moveMagnitude,
           badge: move.badge,
-          explanation: snapshotExplanation(eventText, move.moveLabel, Boolean(contextEvent)),
+          explanation: `Periodic ${windowMinutes}-minute market check. ${move.moveLabel}.`,
           pre: previousParsed,
           post: currentParsed,
         });
@@ -368,10 +363,37 @@ Deno.serve(async (req: Request) => {
       bucketEnd = plusMinutes(bucketEnd, windowMinutes);
     }
 
-    const limitedRows = rows.slice(-12).reverse();
+    for (const event of allEvents) {
+      if (!isMeaningfulPlay(event)) continue;
+      playRows.push({
+        id: `play-${event.id}`,
+        ts: event.created_at,
+        period: event.period ? `P${event.period}` : null,
+        clock: event.clock || null,
+        score: `${event.away_score ?? 0}-${event.home_score ?? 0}`,
+        scoreStateTag: scoreStateTag(event.home_score ?? 0, event.away_score ?? 0),
+        eventType: event.event_type,
+        eventLabel: eventTextFromSnapshot(event),
+        teamSide: detectTeamSide(event, eventTextFromSnapshot(event)),
+        marketBefore: '—',
+        marketAfter: '—',
+        moveLabel: '—',
+        moveMagnitude: 'small',
+        badge: 'Normal',
+        explanation: `Play-by-play event between market checkpoints.`,
+      });
+    }
+
+    const rows = [...checkpointRows, ...playRows].sort((a, b) => {
+      const tsDelta = Date.parse(b.ts) - Date.parse(a.ts);
+      if (tsDelta !== 0) return tsDelta;
+      return String(b.id).localeCompare(String(a.id));
+    });
+
+    const limitedRows = rows.slice(0, 30);
     const leadRow = limitedRows[0] ?? null;
     const summary = leadRow
-      ? `${limitedRows.length} ${windowMinutes}-minute checkpoints tracked so far. Latest move: ${leadRow.moveLabel.toLowerCase()} around ${leadRow.eventLabel.toLowerCase()}.`
+      ? `${checkpointRows.length} ${windowMinutes}-minute checkpoints tracked so far, with ${playRows.length} live play markers layered in.`
       : `Waiting for enough priced data to build ${windowMinutes}-minute game checkpoints.`;
 
     return new Response(JSON.stringify({
