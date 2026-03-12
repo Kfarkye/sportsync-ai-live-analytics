@@ -3160,10 +3160,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({
                   </Surface>
                 )}
 
-                {/* Forecast */}
+                {/* Live Market Pulse */}
                 <Surface className="p-4">
-                  <SectionLabel>Forecast</SectionLabel>
-                  <ForecastHistoryTable matchId={match.id} />
+                  <SectionLabel>Live Market Pulse</SectionLabel>
+                  <ForecastHistoryTable matchId={match.id} showSectionEyebrow={false} />
                 </Surface>
 
                 {/* Market Watch */}
