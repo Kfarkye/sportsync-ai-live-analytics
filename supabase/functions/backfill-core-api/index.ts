@@ -73,11 +73,43 @@ async function backfillGame(eventId: string, config: BackfillConfig, log: string
 
   const homeId = home.id;
   const awayId = away.id;
-  const homeTeam = home.team?.displayName || home.team?.name || `Team ${homeId}`;
-  const awayTeam = away.team?.displayName || away.team?.name || `Team ${awayId}`;
-  const homeScore = parseInt(home.score || '0');
-  const awayScore = parseInt(away.score || '0');
-  const status = compData.status?.type?.name || 'UNKNOWN';
+
+  // Resolve team names (Core API returns $ref links)
+  let homeTeam = home.team?.displayName || home.team?.name || null;
+  let awayTeam = away.team?.displayName || away.team?.name || null;
+  if (!homeTeam && home.team?.$ref) {
+    const teamData = await fetchJson(home.team.$ref);
+    homeTeam = teamData?.displayName || teamData?.name || `Team ${homeId}`;
+  }
+  if (!awayTeam && away.team?.$ref) {
+    const teamData = await fetchJson(away.team.$ref);
+    awayTeam = teamData?.displayName || teamData?.name || `Team ${awayId}`;
+  }
+  homeTeam = homeTeam || `Team ${homeId}`;
+  awayTeam = awayTeam || `Team ${awayId}`;
+
+  // Resolve scores
+  let homeScore = typeof home.score === 'number' ? home.score : parseInt(home.score || '0');
+  let awayScore = typeof away.score === 'number' ? away.score : parseInt(away.score || '0');
+  if (isNaN(homeScore) && home.score?.$ref) {
+    const scoreData = await fetchJson(home.score.$ref);
+    homeScore = scoreData?.value ?? 0;
+  }
+  if (isNaN(awayScore) && away.score?.$ref) {
+    const scoreData = await fetchJson(away.score.$ref);
+    awayScore = scoreData?.value ?? 0;
+  }
+  homeScore = isNaN(homeScore) ? 0 : homeScore;
+  awayScore = isNaN(awayScore) ? 0 : awayScore;
+
+  // Resolve status
+  let status = compData.status?.type?.name || null;
+  if (!status && compData.status?.$ref) {
+    const statusData = await fetchJson(compData.status.$ref);
+    status = statusData?.type?.name || 'UNKNOWN';
+  }
+  status = status || 'UNKNOWN';
+
   const startDate = compData.date || compData.startDate;
 
   const dbMatchId = `${eventId}_${config.league_id}`;
