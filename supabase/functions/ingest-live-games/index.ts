@@ -134,44 +134,70 @@ function parseMultiProviderOdds(summaryData: any, comp: any, isSoccer: boolean):
   const compOdds = Array.isArray(comp?.odds) ? comp.odds : [];
   const allProviders = [...oddsArray, ...compOdds];
 
-  for (const provider of allProviders) {
+  // Priority order: DraftKings first, then any available provider
+  const sorted = [...allProviders].sort((a, b) => {
+    const aName = String(a?.provider?.name || '').toLowerCase();
+    const bName = String(b?.provider?.name || '').toLowerCase();
+    const aIsDK = aName.includes('draftkings') || a?.provider?.id === 100;
+    const bIsDK = bName.includes('draftkings') || b?.provider?.id === 100;
+    if (aIsDK && !bIsDK) return -1;
+    if (!aIsDK && bIsDK) return 1;
+    return 0;
+  });
+
+  for (const provider of sorted) {
     const name = String(provider?.provider?.name || '').toLowerCase();
     const id = provider?.provider?.id;
+    const providerLabel = provider?.provider?.name || 'ESPN';
 
-    if (name.includes('draftkings') || name.includes('draft kings') || id === 100) {
-      if (!result.odds_open && provider?.open) {
-        result.odds_open = {
-          home_ml: provider.open?.moneyLine ?? provider.open?.homeTeamOdds?.moneyLine ?? null,
-          away_ml: provider.open?.awayTeamOdds?.moneyLine ?? null,
-          spread: provider.open?.spread ?? null,
-          total: provider.open?.overUnder ?? null,
-          provider: 'DraftKings',
-          provider_id: id ?? 100
-        };
-      }
-      if (!result.odds_close && provider?.close) {
-        result.odds_close = {
-          home_ml: provider.close?.moneyLine ?? provider.close?.homeTeamOdds?.moneyLine ?? null,
-          away_ml: provider.close?.awayTeamOdds?.moneyLine ?? null,
-          spread: provider.close?.spread ?? null,
-          total: provider.close?.overUnder ?? null,
-          provider: 'DraftKings',
-          provider_id: id ?? 100
-        };
-      }
-      if (!result.odds_live && provider?.current) {
-        result.odds_live = {
-          home_ml: provider.current?.moneyLine ?? provider.current?.homeTeamOdds?.moneyLine ?? null,
-          away_ml: provider.current?.awayTeamOdds?.moneyLine ?? null,
-          spread: provider.current?.spread ?? null,
-          total: provider.current?.overUnder ?? null,
-          provider: 'DraftKings',
-          provider_id: id ?? 100,
-          captured_at: new Date().toISOString()
-        };
-      }
+    // Skip soccer-specific providers handled separately below
+    if (isSoccer && (name.includes('bet365') || id === 2000 || id === 200)) continue;
+
+    if (!result.odds_open && provider?.open) {
+      result.odds_open = {
+        home_ml: provider.open?.moneyLine ?? provider.open?.homeTeamOdds?.moneyLine ?? null,
+        away_ml: provider.open?.awayTeamOdds?.moneyLine ?? null,
+        spread: provider.open?.spread ?? null,
+        total: provider.open?.overUnder ?? null,
+        overOdds: provider.open?.overOdds ?? null,
+        underOdds: provider.open?.underOdds ?? null,
+        homeSpreadOdds: provider.open?.homeTeamOdds?.spreadOdds ?? null,
+        awaySpreadOdds: provider.open?.awayTeamOdds?.spreadOdds ?? null,
+        provider: providerLabel,
+        provider_id: id ?? null
+      };
+    }
+    if (!result.odds_close && provider?.close) {
+      result.odds_close = {
+        home_ml: provider.close?.moneyLine ?? provider.close?.homeTeamOdds?.moneyLine ?? null,
+        away_ml: provider.close?.awayTeamOdds?.moneyLine ?? null,
+        spread: provider.close?.spread ?? null,
+        total: provider.close?.overUnder ?? null,
+        overOdds: provider.close?.overOdds ?? null,
+        underOdds: provider.close?.underOdds ?? null,
+        homeSpreadOdds: provider.close?.homeTeamOdds?.spreadOdds ?? null,
+        awaySpreadOdds: provider.close?.awayTeamOdds?.spreadOdds ?? null,
+        provider: providerLabel,
+        provider_id: id ?? null
+      };
+    }
+    if (!result.odds_live && provider?.current) {
+      result.odds_live = {
+        home_ml: provider.current?.moneyLine ?? provider.current?.homeTeamOdds?.moneyLine ?? null,
+        away_ml: provider.current?.awayTeamOdds?.moneyLine ?? null,
+        spread: provider.current?.spread ?? null,
+        total: provider.current?.overUnder ?? null,
+        overOdds: provider.current?.overOdds ?? null,
+        underOdds: provider.current?.underOdds ?? null,
+        homeSpreadOdds: provider.current?.homeTeamOdds?.spreadOdds ?? null,
+        awaySpreadOdds: provider.current?.awayTeamOdds?.spreadOdds ?? null,
+        provider: providerLabel,
+        provider_id: id ?? null,
+        captured_at: new Date().toISOString()
+      };
     }
 
+    // Soccer-specific: Bet365 (id 2000)
     if (isSoccer && (name.includes('bet365') || id === 2000)) {
       const teamOdds = provider?.teamOdds || provider?.bettingOdds || {};
       const homeOdds = teamOdds?.home || {};
@@ -207,6 +233,7 @@ function parseMultiProviderOdds(summaryData: any, comp: any, isSoccer: boolean):
       }
     }
 
+    // Soccer-specific: DraftKings Live (id 200)
     if (isSoccer && id === 200) {
       result.dk_live_200 = {
         home_ml: provider?.homeTeamOdds?.moneyLine ?? null,
@@ -618,7 +645,11 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       }
     }
 
-    if (!parsedOdds.odds_live && !isSoccer) {
+    // ═══════════════════════════════════════════════════════════
+    // CORE API: Primary odds source (ESPN aggregate of all books)
+    // Always fires to enrich/override summary-level odds
+    // ═══════════════════════════════════════════════════════════
+    if (!isSoccer) {
       try {
         const endpointParts = String(league.endpoint || '').split('/');
         const espnLeagueId = endpointParts.length > 1 ? endpointParts[1] : null;
@@ -628,50 +659,76 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
           if (coreRes.ok) {
             const coreData = await coreRes.json();
             const items = Array.isArray(coreData?.items) ? coreData.items : (Array.isArray(coreData) ? coreData : []);
-            for (const provider of items) {
-              const pName = String(provider?.provider?.name || '').toLowerCase();
-              if (!pName.includes('draftkings')) continue;
+
+            // Sort: DraftKings first, then any provider
+            const sortedItems = [...items].sort((a: any, b: any) => {
+              const aName = String(a?.provider?.name || '').toLowerCase();
+              const bName = String(b?.provider?.name || '').toLowerCase();
+              const aIsDK = aName.includes('draftkings') || a?.provider?.id === 100;
+              const bIsDK = bName.includes('draftkings') || b?.provider?.id === 100;
+              if (aIsDK && !bIsDK) return -1;
+              if (!aIsDK && bIsDK) return 1;
+              return 0;
+            });
+
+            for (const provider of sortedItems) {
+              const providerLabel = provider?.provider?.name || 'ESPN';
+              const providerId = provider?.provider?.id ?? null;
 
               if (!parsedOdds.odds_live && provider?.current) {
                 parsedOdds.odds_live = {
-                  home_ml: provider.current?.moneyLine ?? provider.current?.homeTeamOdds?.moneyLine ?? null,
+                  home_ml: provider.current?.homeTeamOdds?.moneyLine ?? provider.current?.moneyLine ?? null,
                   away_ml: provider.current?.awayTeamOdds?.moneyLine ?? null,
-                  spread: {
-                    home: provider.current?.spread ?? null,
-                    away: provider.current?.awayTeamOdds?.spread ?? null
-                  },
+                  homeSpread: provider.current?.spread ?? null,
+                  awaySpread: provider.current?.awayTeamOdds?.spread ?? null,
+                  homeSpreadOdds: provider.current?.homeTeamOdds?.spreadOdds ?? null,
+                  awaySpreadOdds: provider.current?.awayTeamOdds?.spreadOdds ?? null,
                   total: provider.current?.overUnder ?? null,
-                  provider: 'DraftKings',
-                  provider_id: provider?.provider?.id ?? 100,
+                  overOdds: provider.current?.overOdds ?? null,
+                  underOdds: provider.current?.underOdds ?? null,
+                  provider: providerLabel,
+                  provider_id: providerId,
                   source: 'core_api',
                   captured_at: new Date().toISOString()
                 };
               }
               if (!parsedOdds.odds_open && provider?.open) {
                 parsedOdds.odds_open = {
-                  home_ml: provider.open?.moneyLine ?? provider.open?.homeTeamOdds?.moneyLine ?? null,
+                  home_ml: provider.open?.homeTeamOdds?.moneyLine ?? provider.open?.moneyLine ?? null,
                   away_ml: provider.open?.awayTeamOdds?.moneyLine ?? null,
-                  spread: provider.open?.spread ?? null,
+                  homeSpread: provider.open?.spread ?? null,
+                  awaySpread: provider.open?.awayTeamOdds?.spread ?? null,
+                  homeSpreadOdds: provider.open?.homeTeamOdds?.spreadOdds ?? null,
+                  awaySpreadOdds: provider.open?.awayTeamOdds?.spreadOdds ?? null,
                   total: provider.open?.overUnder ?? null,
-                  provider: 'DraftKings',
-                  provider_id: provider?.provider?.id ?? 100
+                  overOdds: provider.open?.overOdds ?? null,
+                  underOdds: provider.open?.underOdds ?? null,
+                  provider: providerLabel,
+                  provider_id: providerId,
+                  source: 'core_api'
                 };
               }
               if (!parsedOdds.odds_close && provider?.close) {
                 parsedOdds.odds_close = {
-                  home_ml: provider.close?.moneyLine ?? provider.close?.homeTeamOdds?.moneyLine ?? null,
+                  home_ml: provider.close?.homeTeamOdds?.moneyLine ?? provider.close?.moneyLine ?? null,
                   away_ml: provider.close?.awayTeamOdds?.moneyLine ?? null,
-                  spread: provider.close?.spread ?? null,
+                  homeSpread: provider.close?.spread ?? null,
+                  awaySpread: provider.close?.awayTeamOdds?.spread ?? null,
+                  homeSpreadOdds: provider.close?.homeTeamOdds?.spreadOdds ?? null,
+                  awaySpreadOdds: provider.close?.awayTeamOdds?.spreadOdds ?? null,
                   total: provider.close?.overUnder ?? null,
-                  provider: 'DraftKings',
-                  provider_id: provider?.provider?.id ?? 100
+                  overOdds: provider.close?.overOdds ?? null,
+                  underOdds: provider.close?.underOdds ?? null,
+                  provider: providerLabel,
+                  provider_id: providerId,
+                  source: 'core_api'
                 };
               }
             }
           }
         }
       } catch {
-        // Non-fatal enhancement: next poll cycle will retry.
+        // Non-fatal: next poll cycle will retry.
       }
     }
 

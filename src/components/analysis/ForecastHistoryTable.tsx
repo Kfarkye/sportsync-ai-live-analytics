@@ -22,10 +22,14 @@ interface PlayEvent {
 }
 
 interface OddsSnapshot {
-    total: string | null;
+    total: number | null;
+    overOdds: number | null;
+    underOdds: number | null;
     home_ml: number | null;
     away_ml: number | null;
-    spread_home: string | null;
+    spread_home: number | null;
+    spreadOdds: number | null;
+    provider: string | null;
     captured_at: string;
 }
 
@@ -39,8 +43,12 @@ interface TimelineRow {
     play_text: string;
     scoringPlay: boolean;
     mkt_total: number | null;
+    overOdds: number | null;
+    underOdds: number | null;
     home_ml: number | null;
     spread: number | null;
+    spreadOdds: number | null;
+    provider: string | null;
     isScoreChange: boolean;
 }
 
@@ -61,14 +69,39 @@ function findNearestOdds(playTime: string, odds: OddsSnapshot[]): OddsSnapshot |
     return best;
 }
 
-function formatML(val: number | null): string {
+function formatAmerican(val: number | null): string {
     if (val === null) return '—';
     return val > 0 ? `+${val}` : `${val}`;
 }
 
-function formatSpread(val: number | null): string {
+function formatJuice(val: number | null): string {
     if (val === null) return '—';
     return val > 0 ? `+${val}` : `${val}`;
+}
+
+/** Safely extract a number from Core API's polymorphic odds values */
+function parseSafeNum(val: any): number | null {
+    if (val === null || val === undefined) return null;
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') {
+        const n = parseInt(val.replace('+', ''), 10);
+        return isNaN(n) ? null : n;
+    }
+    if (val && val.american) {
+        const n = parseInt(String(val.american).replace('+', ''), 10);
+        return isNaN(n) ? null : n;
+    }
+    if (val && typeof val.value === 'number') return val.value;
+    return null;
+}
+
+/** Parse spread — may be a number, string, or nested object */
+function parseSafeSpread(val: any): number | null {
+    if (val === null || val === undefined) return null;
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') { const n = parseFloat(val); return isNaN(n) ? null : n; }
+    if (val && typeof val.value === 'number') return val.value;
+    return null;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -90,7 +123,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                 .eq('event_type', 'play')
                 .order('sequence', { ascending: true });
 
-            // Fetch live odds from live_odds_snapshots (Primary)
+            // Fetch live odds from live_odds_snapshots (Secondary — DraftKings-only games)
             const { data: primaryOddsDB } = await supabase
                 .from('live_odds_snapshots')
                 .select('total, home_ml, away_ml, spread_home, captured_at')
@@ -100,51 +133,54 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                 .not('total', 'is', null)
                 .order('captured_at', { ascending: true });
 
-            // Fetch live odds from game_events (Fallback for premium/institutional games)
-            const { data: fallbackOddsDB } = await supabase
+            // Fetch odds from game_events (PRIMARY — Core API / ESPN aggregate)
+            const { data: coreOddsDB } = await supabase
                 .from('game_events')
-                .select('odds_live, created_at')
+                .select('odds_live, odds_open, odds_close, created_at')
                 .eq('match_id', matchId)
                 .eq('event_type', 'odds_snapshot')
                 .not('odds_live', 'is', null)
                 .order('sequence', { ascending: true });
 
-            const mergedOdds: OddsSnapshot[] = (primaryOddsDB || []).map((o: any) => ({
-                total: o.total ? String(o.total) : null,
-                home_ml: o.home_ml,
-                away_ml: o.away_ml,
-                spread_home: o.spread_home,
-                captured_at: o.captured_at
-            }));
+            const mergedOdds: OddsSnapshot[] = [];
 
-            if (fallbackOddsDB) {
-                const parseSafeNum = (val: any) => {
-                    if (typeof val === 'number') return val;
-                    if (typeof val === 'string') return parseInt(val.replace('+', ''), 10);
-                    if (val && val.american) return parseInt(val.american.replace('+', ''), 10);
-                    return null;
-                };
-                
-                const parseSafeSpread = (val: any) => {
-                    if (typeof val === 'number' || typeof val === 'string') return String(val);
-                    if (val && val.value !== undefined) return String(val.value);
-                    return null;
-                };
-
-                for (const row of fallbackOddsDB) {
+            // Core API odds (PRIMARY — full depth)
+            if (coreOddsDB) {
+                for (const row of coreOddsDB) {
                     if (row.odds_live?.total) {
                         mergedOdds.push({
-                            total: String(row.odds_live.total),
+                            total: typeof row.odds_live.total === 'number' ? row.odds_live.total : parseFloat(row.odds_live.total),
+                            overOdds: parseSafeNum(row.odds_live.overOdds),
+                            underOdds: parseSafeNum(row.odds_live.underOdds),
                             home_ml: parseSafeNum(row.odds_live.home_ml),
                             away_ml: parseSafeNum(row.odds_live.away_ml),
                             spread_home: parseSafeSpread(row.odds_live.homeSpread),
+                            spreadOdds: parseSafeNum(row.odds_live.homeSpreadOdds),
+                            provider: row.odds_live.provider || null,
                             captured_at: row.created_at
                         });
                     }
                 }
             }
 
-            mergedOdds.sort((a,b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime());
+            // live_odds_snapshots (Secondary — fill gaps only)
+            if (primaryOddsDB && mergedOdds.length === 0) {
+                for (const o of primaryOddsDB) {
+                    mergedOdds.push({
+                        total: o.total ? parseFloat(String(o.total)) : null,
+                        overOdds: null,
+                        underOdds: null,
+                        home_ml: o.home_ml,
+                        away_ml: o.away_ml,
+                        spread_home: o.spread_home ? parseFloat(String(o.spread_home)) : null,
+                        spreadOdds: null,
+                        provider: null,
+                        captured_at: o.captured_at
+                    });
+                }
+            }
+
+            mergedOdds.sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime());
 
             if (playData) setPlays(playData);
             setOdds(mergedOdds);
@@ -153,7 +189,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
 
         fetchData();
 
-        // Real-time: new plays
+        // Real-time: new plays + core API odds
         const playChannel = supabase
             .channel(`pbp_plays:${matchId}`)
             .on(
@@ -173,24 +209,15 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                             return [...prev, row].sort((a, b) => a.sequence - b.sequence);
                         });
                     } else if (row.event_type === 'odds_snapshot' && row.odds_live?.total) {
-                        // Fallback odds stream integration via game_events
-                        const parseSafeNum = (val: any) => {
-                            if (typeof val === 'number') return val;
-                            if (typeof val === 'string') return parseInt(val.replace('+', ''), 10);
-                            if (val && val.american) return parseInt(val.american.replace('+', ''), 10);
-                            return null;
-                        };
-                        const parseSafeSpread = (val: any) => {
-                            if (typeof val === 'number' || typeof val === 'string') return String(val);
-                            if (val && val.value !== undefined) return String(val.value);
-                            return null;
-                        };
-
                         setOdds(prev => [...prev, {
-                            total: String(row.odds_live.total),
+                            total: typeof row.odds_live.total === 'number' ? row.odds_live.total : parseFloat(row.odds_live.total),
+                            overOdds: parseSafeNum(row.odds_live.overOdds),
+                            underOdds: parseSafeNum(row.odds_live.underOdds),
                             home_ml: parseSafeNum(row.odds_live.home_ml),
                             away_ml: parseSafeNum(row.odds_live.away_ml),
                             spread_home: parseSafeSpread(row.odds_live.homeSpread),
+                            spreadOdds: parseSafeNum(row.odds_live.homeSpreadOdds),
+                            provider: row.odds_live.provider || null,
                             captured_at: row.created_at
                         }].sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime()));
                     }
@@ -198,7 +225,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
             )
             .subscribe();
 
-        // Real-time: new odds
+        // Real-time: live_odds_snapshots (secondary)
         const oddsChannel = supabase
             .channel(`pbp_odds:${matchId}`)
             .on(
@@ -213,8 +240,15 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                     const row = payload.new as any;
                     if (row.market_type === 'main' && row.is_live && row.total) {
                         setOdds(prev => [...prev, {
-                            ...row,
-                            total: String(row.total)
+                            total: parseFloat(String(row.total)),
+                            overOdds: null,
+                            underOdds: null,
+                            home_ml: row.home_ml,
+                            away_ml: row.away_ml,
+                            spread_home: row.spread_home ? parseFloat(String(row.spread_home)) : null,
+                            spreadOdds: null,
+                            provider: null,
+                            captured_at: row.captured_at
                         }].sort((a, b) =>
                             new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime()
                         ));
@@ -251,9 +285,13 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                 away_score: p.away_score,
                 play_text: p.play_data?.text || '',
                 scoringPlay: !!p.play_data?.scoringPlay,
-                mkt_total: nearest?.total ? parseFloat(nearest.total) : null,
+                mkt_total: nearest?.total ?? null,
+                overOdds: nearest?.overOdds ?? null,
+                underOdds: nearest?.underOdds ?? null,
                 home_ml: nearest?.home_ml ?? null,
-                spread: nearest?.spread_home ? parseFloat(nearest.spread_home) : null,
+                spread: nearest?.spread_home ?? null,
+                spreadOdds: nearest?.spreadOdds ?? null,
+                provider: nearest?.provider ?? null,
                 isScoreChange,
             };
         });
@@ -262,7 +300,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
     // Filter: show only scoring plays or all
     const displayRows = useMemo(() => {
         const rows = showAll ? timeline : timeline.filter(r => r.isScoreChange);
-        return rows.slice(-30).reverse(); // Most recent first, cap at 30
+        return rows.slice(-30).reverse();
     }, [timeline, showAll]);
 
     // Track market movement
@@ -270,6 +308,12 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
         const withTotal = displayRows.filter(r => r.mkt_total !== null);
         if (withTotal.length < 2) return null;
         return (withTotal[0].mkt_total ?? 0) - (withTotal[withTotal.length - 1].mkt_total ?? 0);
+    }, [displayRows]);
+
+    // Detect odds provider for attribution
+    const oddsProvider = useMemo(() => {
+        const row = displayRows.find(r => r.provider);
+        return row?.provider ?? null;
     }, [displayRows]);
 
     if (loading && plays.length === 0) {
@@ -296,6 +340,9 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                     <h3 className="text-sm font-semibold text-zinc-900 leading-none">Play-by-Play</h3>
                     <span className="text-xs text-zinc-500 mt-1">
                         {plays.length} plays recorded
+                        {oddsProvider && (
+                            <span className="ml-1.5 text-zinc-400">· {oddsProvider}</span>
+                        )}
                     </span>
                 </div>
                 
@@ -350,10 +397,20 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                         <tr className="bg-zinc-50/50 border-b border-zinc-200">
                             <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 w-[100px]">Time</th>
                             <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-center w-[80px]">Score</th>
-                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 w-full min-w-[280px]">Play</th>
-                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-right w-[80px]">Total</th>
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 w-full min-w-[240px]">Play</th>
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-right w-[110px]">
+                                <div className="flex flex-col items-end">
+                                    <span>Total</span>
+                                    <span className="text-[10px] text-zinc-400 font-normal">O/U</span>
+                                </div>
+                            </th>
                             <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-right w-[80px]">ML</th>
-                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-right w-[80px]">Spread</th>
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-right w-[110px]">
+                                <div className="flex flex-col items-end">
+                                    <span>Spread</span>
+                                    <span className="text-[10px] text-zinc-400 font-normal">Juice</span>
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100">
@@ -402,11 +459,18 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                                         </span>
                                     </td>
 
-                                    {/* Market Total */}
+                                    {/* Total + O/U Juice */}
                                     <td className="py-3 px-4 text-right">
-                                        <span className="text-xs font-mono tabular-nums text-zinc-600">
-                                            {r.mkt_total?.toFixed(1) ?? '—'}
-                                        </span>
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-xs font-mono tabular-nums text-zinc-600">
+                                                {r.mkt_total?.toFixed(1) ?? '—'}
+                                            </span>
+                                            {(r.overOdds !== null || r.underOdds !== null) && (
+                                                <span className="text-[10px] font-mono tabular-nums text-zinc-400 mt-0.5">
+                                                    o{formatJuice(r.overOdds)} u{formatJuice(r.underOdds)}
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
 
                                     {/* ML */}
@@ -417,15 +481,22 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                                             r.home_ml !== null && r.home_ml > 0 ? "font-medium text-rose-600" : 
                                             "text-zinc-600"
                                         )}>
-                                            {formatML(r.home_ml)}
+                                            {formatAmerican(r.home_ml)}
                                         </span>
                                     </td>
 
-                                    {/* Spread */}
+                                    {/* Spread + Juice */}
                                     <td className="py-3 px-4 text-right">
-                                        <span className="text-xs font-mono tabular-nums text-zinc-600">
-                                            {formatSpread(r.spread)}
-                                        </span>
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-xs font-mono tabular-nums text-zinc-600">
+                                                {formatAmerican(r.spread)}
+                                            </span>
+                                            {r.spreadOdds !== null && (
+                                                <span className="text-[10px] font-mono tabular-nums text-zinc-400 mt-0.5">
+                                                    {formatJuice(r.spreadOdds)}
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                 </motion.tr>
                             ))}
