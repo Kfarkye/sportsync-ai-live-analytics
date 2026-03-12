@@ -12,14 +12,13 @@ interface PulseRow {
   clock: string | null;
   score: string;
   scoreStateTag: string;
+  rowType: 'odds' | 'play' | 'timeout' | 'period_end';
   eventType: string;
   eventLabel: string;
-  marketBefore: string;
-  marketAfter: string;
-  moveLabel: string;
   moveMagnitude: 'small' | 'medium' | 'large';
-  badge: 'Normal' | 'Sharp Move' | 'Lagging' | 'No Reaction';
-  explanation: string;
+  badge: 'Normal' | 'Sharp Move' | 'No Reaction';
+  playText: string | null;
+  note: string | null;
   pre?: ParsedOdds;
   post?: ParsedOdds;
 }
@@ -56,8 +55,6 @@ const badgeClass = (badge: PulseRow['badge']) => {
   switch (badge) {
     case 'Sharp Move':
       return 'bg-[#DFF7E8] text-[#0A7A3E] border border-[#B5E7C8]';
-    case 'Lagging':
-      return 'bg-[#FFF3D9] text-[#A35A00] border border-[#F1D199]';
     case 'No Reaction':
       return 'bg-[#F5F5F5] text-[#737373] border border-[#E5E5E5]';
     default:
@@ -110,16 +107,16 @@ const changeArrow = (before: number | null | undefined, after: number | null | u
 };
 
 const eventChip = (row: PulseRow) => {
-  if (row.eventType === 'odds') return 'ODDS';
-  if (row.eventType === 'period_end') return 'END';
-  if (row.eventType === 'timeout') return 'TIME';
+  if (row.rowType === 'odds') return 'ODDS';
+  if (row.rowType === 'period_end') return 'END';
+  if (row.rowType === 'timeout') return 'TIME';
   if (row.eventType === 'goal' || row.eventType === 'score') return 'SCORE';
   return 'PLAY';
 };
 
 const playLabel = (row: PulseRow) => {
-  if (row.eventType === 'odds' && /^Periodic \d+-minute market snapshot/i.test(row.eventLabel)) return '—';
-  return row.eventLabel;
+  if (row.rowType === 'odds') return '—';
+  return row.playText || row.eventLabel;
 };
 
 export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
@@ -220,7 +217,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
         <EmptyState
           icon={<BarChart3 size={24} />}
           message="WAITING FOR CHECKPOINTS"
-          description="This rail fills with fixed 10-minute play-and-market checkpoints as the game progresses."
+          description="This rail fills with fixed 10-minute odds rows and separate play rows as the game progresses."
         />
       ) : (
         <div className="overflow-x-auto">
@@ -260,7 +257,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
                             {eventChip(row)}
                           </span>
                         </div>
-                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">{row.eventType.replace('_', ' ')}</p>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">{row.eventLabel}</p>
                       </div>
                     </td>
                     <td className="py-3 px-2 text-center align-top">
@@ -271,31 +268,43 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
                     </td>
                     <td className="py-3 px-2 align-top">
                       <p className="text-[13px] leading-5 text-[#111111]">
-                        {formatTotal(row.post?.totalLine ?? null)}
-                        {changeArrow(row.pre?.totalLine, row.post?.totalLine)}
+                        {row.rowType === 'odds' ? (
+                          <>
+                            {formatTotal(row.post?.totalLine ?? null)}
+                            {changeArrow(row.pre?.totalLine, row.post?.totalLine)}
+                          </>
+                        ) : '—'}
                       </p>
                     </td>
                     <td className="py-3 px-2 align-top">
                       <p className="text-[13px] leading-5 text-[#111111]">
-                        {formatPricePair(row.post?.overPrice ?? null, row.post?.underPrice ?? null)}
+                        {row.rowType === 'odds'
+                          ? formatPricePair(row.post?.overPrice ?? null, row.post?.underPrice ?? null)
+                          : '—'}
                       </p>
                     </td>
                     <td className="py-3 px-2 align-top">
                       <p className="text-[13px] leading-5 text-[#111111]">
-                        {formatLine(row.post?.spreadLine ?? null)}
-                        {changeArrow(row.pre?.spreadLine, row.post?.spreadLine)}
+                        {row.rowType === 'odds' ? (
+                          <>
+                            {formatLine(row.post?.spreadLine ?? null)}
+                            {changeArrow(row.pre?.spreadLine, row.post?.spreadLine)}
+                          </>
+                        ) : '—'}
                       </p>
                     </td>
                     <td className="py-3 px-2 align-top">
-                      <p className="text-[13px] leading-5 text-[#111111]">{formatMoneyline(row)}</p>
+                      <p className="text-[13px] leading-5 text-[#111111]">{row.rowType === 'odds' ? formatMoneyline(row) : '—'}</p>
                     </td>
                     <td className="py-3 px-2 align-top">
                       <div className="max-w-[360px] space-y-2">
                         <p className="text-sm font-semibold text-[#111111] leading-5">{playLabel(row)}</p>
-                        <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-                          <Activity size={12} className="text-zinc-400" />
-                          <span>{row.explanation}</span>
-                        </div>
+                        {row.note ? (
+                          <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+                            <Activity size={12} className="text-zinc-400" />
+                            <span>{row.note}</span>
+                          </div>
+                        ) : null}
                       </div>
                     </td>
                   </motion.tr>

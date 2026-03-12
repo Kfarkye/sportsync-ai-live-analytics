@@ -29,15 +29,13 @@ type PulseRow = {
   clock: string | null;
   score: string;
   scoreStateTag: string;
+  rowType: 'odds' | 'play' | 'timeout' | 'period_end';
   eventType: string;
   eventLabel: string;
-  teamSide: 'home' | 'away' | null;
-  marketBefore: string;
-  marketAfter: string;
-  moveLabel: string;
   moveMagnitude: 'small' | 'medium' | 'large';
-  badge: 'Normal' | 'Sharp Move' | 'Lagging' | 'No Reaction';
-  explanation: string;
+  badge: 'Normal' | 'Sharp Move' | 'No Reaction';
+  playText: string | null;
+  note: string | null;
   pre?: ParsedOdds;
   post?: ParsedOdds;
 };
@@ -123,17 +121,6 @@ const scoreStateTag = (homeScore: number, awayScore: number): string => {
   return 'blowout';
 };
 
-const detectTeamSide = (event: any, text: string): 'home' | 'away' | null => {
-  const side = event?.play_data?.team_side || event?.play_data?.homeAway;
-  if (side === 'home' || side === 'away') return side;
-  const teamId = event?.play_data?.team_id;
-  if (teamId && event?.home_team_id && String(teamId) === String(event.home_team_id)) return 'home';
-  if (teamId && event?.away_team_id && String(teamId) === String(event.away_team_id)) return 'away';
-  if (/\bhome\b/i.test(text)) return 'home';
-  if (/\baway\b/i.test(text)) return 'away';
-  return null;
-};
-
 const chooseMove = (pre: ParsedOdds, post: ParsedOdds, sport: string) => {
   const totalDelta = pre.totalLine !== null && post.totalLine !== null ? post.totalLine - pre.totalLine : 0;
   const spreadDelta = pre.spreadLine !== null && post.spreadLine !== null ? post.spreadLine - pre.spreadLine : 0;
@@ -202,37 +189,11 @@ const chooseMove = (pre: ParsedOdds, post: ParsedOdds, sport: string) => {
   };
 };
 
-const formatMarket = (odds: ParsedOdds, sport: string): string => {
-  const spread = odds.spreadLine !== null ? `Spr ${toSigned(odds.spreadLine)}` : null;
-  const total = odds.totalLine !== null ? `O/U ${odds.totalLine.toFixed(odds.totalLine % 1 === 0 ? 0 : 1)}` : null;
-  const ml = odds.homeMl !== null && odds.awayMl !== null
-    ? sport === 'soccer' && odds.drawMl !== null
-      ? `ML ${toAmerican(odds.homeMl)} / ${toAmerican(odds.drawMl)} / ${toAmerican(odds.awayMl)}`
-      : `ML ${toAmerican(odds.homeMl)} / ${toAmerican(odds.awayMl)}`
-    : null;
-  return [spread, total, ml].filter(Boolean).join(' | ') || 'Market waiting';
-};
-
-const snapshotExplanation = (eventLabel: string, moveLabel: string, hasEvent: boolean): string => {
-  if (hasEvent) return `${eventLabel} framed this 10-minute checkpoint. ${moveLabel}.`;
-  return `Periodic 10-minute market check. ${moveLabel}.`;
-};
-
 const plusMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60_000);
 
 const latestOddsEventAtOrBefore = (events: SnapshotEvent[], ts: number): SnapshotEvent | null => {
   for (let i = events.length - 1; i >= 0; i -= 1) {
     if (Date.parse(events[i].created_at) <= ts) return events[i];
-  }
-  return null;
-};
-
-const latestContextEventInWindow = (events: SnapshotEvent[], startTs: number, endTs: number): SnapshotEvent | null => {
-  for (let i = events.length - 1; i >= 0; i -= 1) {
-    const created = Date.parse(events[i].created_at);
-    if (created > endTs) continue;
-    if (created < startTs) break;
-    if (events[i].event_type !== 'odds_snapshot') return events[i];
   }
   return null;
 };
@@ -244,21 +205,27 @@ const eventTextFromSnapshot = (event: SnapshotEvent): string => String(
   || event.event_type
 );
 
-const isMeaningfulPlay = (event: SnapshotEvent): boolean => {
-  if (event.event_type === 'odds_snapshot') return false;
-  if (event.play_data?.scoring_play) return true;
+const toRowType = (event: SnapshotEvent): PulseRow['rowType'] | null => {
+  if (event.event_type === 'odds_snapshot') return null;
+  if (event.event_type === 'timeout') return 'timeout';
+  if (event.event_type === 'period_end') return 'period_end';
+  if (event.play_data?.scoring_play || ['score', 'goal'].includes(event.event_type)) return 'play';
+  if (['red_card', 'card', 'penalty', 'injury', 'challenge'].includes(event.event_type)) return 'play';
+  return null;
+};
 
-  return [
-    'score',
-    'goal',
-    'timeout',
-    'period_end',
-    'red_card',
-    'card',
-    'penalty',
-    'injury',
-    'challenge',
-  ].includes(event.event_type);
+const sortPriority = (row: PulseRow): number => {
+  switch (row.rowType) {
+    case 'odds':
+      return 0;
+    case 'period_end':
+      return 1;
+    case 'timeout':
+      return 2;
+    case 'play':
+    default:
+      return 3;
+  }
 };
 
 Deno.serve(async (req: Request) => {
@@ -346,15 +313,13 @@ Deno.serve(async (req: Request) => {
           clock: currentSnapshot.clock || null,
           score: `${scoreAway}-${scoreHome}`,
           scoreStateTag: scoreStateTag(scoreHome, scoreAway),
+          rowType: 'odds',
           eventType: 'odds',
           eventLabel: `Periodic ${windowMinutes}-minute market snapshot`,
-          teamSide: null,
-          marketBefore: formatMarket(previousParsed, sport),
-          marketAfter: formatMarket(currentParsed, sport),
-          moveLabel: move.moveLabel,
           moveMagnitude: move.moveMagnitude,
           badge: move.badge,
-          explanation: `Periodic ${windowMinutes}-minute market check. ${move.moveLabel}.`,
+          playText: null,
+          note: move.moveLabel === 'No meaningful move' ? null : move.moveLabel,
           pre: previousParsed,
           post: currentParsed,
         });
@@ -364,7 +329,10 @@ Deno.serve(async (req: Request) => {
     }
 
     for (const event of allEvents) {
-      if (!isMeaningfulPlay(event)) continue;
+      const rowType = toRowType(event);
+      if (!rowType) continue;
+
+      const playText = eventTextFromSnapshot(event);
       playRows.push({
         id: `play-${event.id}`,
         ts: event.created_at,
@@ -372,28 +340,28 @@ Deno.serve(async (req: Request) => {
         clock: event.clock || null,
         score: `${event.away_score ?? 0}-${event.home_score ?? 0}`,
         scoreStateTag: scoreStateTag(event.home_score ?? 0, event.away_score ?? 0),
+        rowType,
         eventType: event.event_type,
-        eventLabel: eventTextFromSnapshot(event),
-        teamSide: detectTeamSide(event, eventTextFromSnapshot(event)),
-        marketBefore: '—',
-        marketAfter: '—',
-        moveLabel: '—',
+        eventLabel: rowType === 'period_end' ? 'Period End' : rowType === 'timeout' ? 'Timeout' : 'Play',
         moveMagnitude: 'small',
         badge: 'Normal',
-        explanation: `Play-by-play event between market checkpoints.`,
+        playText,
+        note: null,
       });
     }
 
     const rows = [...checkpointRows, ...playRows].sort((a, b) => {
       const tsDelta = Date.parse(b.ts) - Date.parse(a.ts);
       if (tsDelta !== 0) return tsDelta;
+      const priorityDelta = sortPriority(b) - sortPriority(a);
+      if (priorityDelta !== 0) return priorityDelta;
       return String(b.id).localeCompare(String(a.id));
     });
 
     const limitedRows = rows.slice(0, 30);
     const leadRow = limitedRows[0] ?? null;
     const summary = leadRow
-      ? `${checkpointRows.length} ${windowMinutes}-minute checkpoints tracked so far, with ${playRows.length} live play markers layered in.`
+      ? `${checkpointRows.length} 10-minute checkpoints tracked so far. Latest tape row: ${leadRow.rowType === 'odds' ? 'market checkpoint' : (leadRow.playText || leadRow.eventLabel).toLowerCase()}.`
       : `Waiting for enough priced data to build ${windowMinutes}-minute game checkpoints.`;
 
     return new Response(JSON.stringify({
