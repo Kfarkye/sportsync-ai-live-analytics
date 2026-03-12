@@ -1148,14 +1148,15 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
         if (espnLeagueId && homeId && awayId) {
           const coreBase = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}`;
 
-          // Fetch all competitor endpoints in parallel
-          const [homeStatsRes, awayStatsRes, homeLeadersRes, awayLeadersRes, homeRosterRes, awayRosterRes] = await Promise.all([
+          // Fetch all competitor endpoints + situation in parallel
+          const [homeStatsRes, awayStatsRes, homeLeadersRes, awayLeadersRes, homeRosterRes, awayRosterRes, situationRes] = await Promise.all([
             fetch(`${coreBase}/competitors/${homeId}/statistics`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
             fetch(`${coreBase}/competitors/${awayId}/statistics`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
             fetch(`${coreBase}/competitors/${homeId}/leaders`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
             fetch(`${coreBase}/competitors/${awayId}/leaders`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
             fetch(`${coreBase}/competitors/${homeId}/roster`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
             fetch(`${coreBase}/competitors/${awayId}/roster`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
+            fetch(`${coreBase}/situation`, { signal: AbortSignal.timeout(5000) }).catch(() => null),
           ]);
 
           // ── Parse Statistics (efficiency metrics) ──────────────
@@ -1291,17 +1292,36 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
           const awayRoster = await parseRoster(awayRosterRes);
 
           // ── Enrich live_game_state with leaders + roster ────
+          // ── Parse Situation (fouls, timeouts, bonus) ─────────
+          let coreSituation: any = null;
+          if (situationRes && situationRes.ok) {
+            try {
+              const sitJson = await situationRes.json();
+              coreSituation = {
+                homeTimeouts: sitJson?.homeTimeouts?.timeoutsRemainingCurrent ?? null,
+                awayTimeouts: sitJson?.awayTimeouts?.timeoutsRemainingCurrent ?? null,
+                homeFouls: sitJson?.homeFouls?.teamFoulsCurrent ?? null,
+                awayFouls: sitJson?.awayFouls?.teamFoulsCurrent ?? null,
+                homeFoulsToGive: sitJson?.homeFouls?.foulsToGive ?? null,
+                awayFoulsToGive: sitJson?.awayFouls?.foulsToGive ?? null,
+                homeBonusState: sitJson?.homeFouls?.bonusState ?? null,
+                awayBonusState: sitJson?.awayFouls?.bonusState ?? null
+              };
+            } catch { /* non-fatal */ }
+          }
+
           const enrichment: Record<string, any> = {};
-          if (homeLeaders || awayLeaders) {
-            enrichment.leaders = {
-              ...(typeof extractedLeaders === 'object' && extractedLeaders ? extractedLeaders : {}),
-              core_api: { home: homeLeaders, away: awayLeaders }
+          if (homeRoster || awayRoster || homeLeaders || awayLeaders) {
+            enrichment.extra_data = {
+              roster: (homeRoster || awayRoster) ? { home: homeRoster, away: awayRoster } : null,
+              core_api_leaders: (homeLeaders || awayLeaders) ? { home: homeLeaders, away: awayLeaders } : null,
+              captured_at: new Date().toISOString()
             };
           }
-          if (homeRoster || awayRoster) {
-            enrichment.extra_data = {
-              roster: { home: homeRoster, away: awayRoster },
-              captured_at: new Date().toISOString()
+          if (coreSituation) {
+            enrichment.situation = {
+              ...(typeof mergedSituation === 'object' && mergedSituation ? mergedSituation : {}),
+              ...coreSituation
             };
           }
           if (homeStats || awayStats) {
