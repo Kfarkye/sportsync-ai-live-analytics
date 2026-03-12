@@ -1138,7 +1138,7 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
     // Statistics → game_events (timeline for trend detection)
     // Leaders + Roster → live_game_state (current snapshot)
     // ═══════════════════════════════════════════════════════════
-    if (!isSoccer) {
+    {
       try {
         const endpointParts = String(league.endpoint || '').split('/');
         const espnLeagueId = endpointParts.length > 1 ? endpointParts[1] : null;
@@ -1317,7 +1317,7 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       } catch {
         // Non-fatal: Core API enrichment is supplementary
       }
-    }
+    }  
 
     // ═══════════════════════════════════════════════════════════
     // PBP: Write individual plays to game_events
