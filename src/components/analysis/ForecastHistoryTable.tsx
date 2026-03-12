@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { cn } from '@/lib/essence';
-import { Activity, TrendingUp, TrendingDown, Minus, Timer } from 'lucide-react';
+import { Activity, TrendingUp, TrendingDown } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -61,12 +61,7 @@ function findNearestOdds(playTime: string, odds: OddsSnapshot[]): OddsSnapshot |
     return best;
 }
 
-function formatML(val: number | null): string {
-    if (val === null) return '—';
-    return val > 0 ? `+${val}` : `${val}`;
-}
-
-function formatSpread(val: number | null): string {
+function formatOdds(val: number | null): string {
     if (val === null) return '—';
     return val > 0 ? `+${val}` : `${val}`;
 }
@@ -205,16 +200,16 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
     if (loading && plays.length === 0) {
         return (
             <div className="flex items-center justify-center p-8">
-                <div className="w-6 h-6 border-2 border-zinc-800 border-t-zinc-500 rounded-full motion-safe:animate-spin" />
+                <div className="w-5 h-5 border-2 border-zinc-200 border-t-zinc-800 rounded-full animate-spin" />
             </div>
         );
     }
 
     if (plays.length === 0) return (
         <EmptyState
-            icon={<Activity size={24} />}
-            message="No play-by-play data yet"
-            description="PBP timeline appears once the game goes live"
+            icon={<Activity size={20} className="text-zinc-400" />}
+            message="No play-by-play data"
+            description="The market timeline will appear once the game begins."
         />
     );
 
@@ -222,60 +217,67 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
         <div className="w-full">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                        Live Timeline
-                    </span>
-                    <span className="text-[9px] font-mono text-slate-400 ml-1">
-                        {plays.length} plays
+                <div className="flex flex-col">
+                    <h3 className="text-sm font-semibold text-zinc-900 leading-none">Play-by-Play</h3>
+                    <span className="text-xs text-zinc-500 mt-1">
+                        {plays.length} plays recorded
                     </span>
                 </div>
-                <div className="flex items-center gap-3">
-                    {mktDelta !== null && (
-                        <div className={cn(
-                            "flex items-center gap-1 px-2 py-0.5 rounded-full",
-                            mktDelta > 0 ? "bg-emerald-500/10" : mktDelta < 0 ? "bg-rose-500/10" : "bg-zinc-100"
-                        )}>
-                            {mktDelta > 0 ? <TrendingUp size={9} className="text-emerald-500" /> :
-                             mktDelta < 0 ? <TrendingDown size={9} className="text-rose-500" /> :
-                             <Minus size={9} className="text-zinc-400" />}
-                            <span className={cn(
-                                "text-[9px] font-mono font-bold",
-                                mktDelta > 0 ? "text-emerald-600" : mktDelta < 0 ? "text-rose-600" : "text-zinc-500"
-                            )}>
-                                {mktDelta > 0 ? '+' : ''}{mktDelta.toFixed(1)} total
+                
+                <div className="flex items-center gap-4">
+                    {/* Market Delta */}
+                    {mktDelta !== null && mktDelta !== 0 && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded border border-zinc-200 bg-zinc-50 shadow-sm">
+                            {mktDelta > 0 ? <TrendingUp size={14} className="text-zinc-500" /> :
+                             <TrendingDown size={14} className="text-zinc-500" />}
+                            <span className="text-xs font-medium text-zinc-700">
+                                {mktDelta > 0 ? '+' : ''}{mktDelta.toFixed(1)} Total
                             </span>
                         </div>
                     )}
-                    <button
-                        onClick={() => setShowAll(!showAll)}
-                        className={cn(
-                            "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full transition-all",
-                            showAll
-                                ? "bg-zinc-900 text-white"
-                                : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
-                        )}
-                    >
-                        {showAll ? 'All Plays' : 'Scoring'}
-                    </button>
+
+                    {/* Segmented Control */}
+                    <div className="flex p-0.5 bg-zinc-100/80 rounded-lg border border-zinc-200/50">
+                        <button
+                            onClick={() => setShowAll(false)}
+                            className={cn(
+                                "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                                !showAll 
+                                    ? "bg-white text-zinc-900 shadow-sm border border-zinc-200/50" 
+                                    : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50"
+                            )}
+                        >
+                            Scoring
+                        </button>
+                        <button
+                            onClick={() => setShowAll(true)}
+                            className={cn(
+                                "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                                showAll 
+                                    ? "bg-white text-zinc-900 shadow-sm border border-zinc-200/50" 
+                                    : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50"
+                            )}
+                        >
+                            All Plays
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto rounded-lg border border-zinc-100">
-                <table className="w-full text-left border-collapse">
+            <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
+                <table className="w-full text-left border-collapse whitespace-nowrap">
                     <thead>
-                        <tr className="bg-zinc-50/80 border-b border-zinc-100">
-                            <th className="py-2.5 px-2.5 text-[8px] font-black text-zinc-400 uppercase tracking-[0.15em]">Time</th>
-                            <th className="py-2.5 px-2.5 text-[8px] font-black text-zinc-400 uppercase tracking-[0.15em] text-center">Score</th>
-                            <th className="py-2.5 px-2.5 text-[8px] font-black text-zinc-400 uppercase tracking-[0.15em]">Play</th>
-                            <th className="py-2.5 px-2.5 text-[8px] font-black text-zinc-400 uppercase tracking-[0.15em] text-center">Total</th>
-                            <th className="py-2.5 px-2.5 text-[8px] font-black text-zinc-400 uppercase tracking-[0.15em] text-center">ML</th>
-                            <th className="py-2.5 px-2.5 text-[8px] font-black text-zinc-400 uppercase tracking-[0.15em] text-center">Spread</th>
+                        <tr className="bg-zinc-50/50 border-b border-zinc-200">
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 w-[100px]">Time</th>
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-center w-[80px]">Score</th>
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 w-full min-w-[280px]">Play</th>
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-right w-[80px]">Total</th>
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-right w-[80px]">ML</th>
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-right w-[80px]">Spread</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-50">
+                    <tbody className="divide-y divide-zinc-100">
                         <AnimatePresence mode="popLayout">
                             {displayRows.map((r) => (
                                 <motion.tr
@@ -286,67 +288,62 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                                     transition={{ duration: 0.15 }}
                                     className={cn(
                                         "group transition-colors",
-                                        r.scoringPlay
-                                            ? "bg-emerald-500/[0.03] hover:bg-emerald-500/[0.06]"
-                                            : "hover:bg-zinc-50/60"
+                                        r.scoringPlay ? "bg-zinc-50/80 hover:bg-zinc-100/60" : "hover:bg-zinc-50/50"
                                     )}
                                 >
-                                    {/* Clock + Period */}
-                                    <td className="py-2 px-2.5 w-[60px]">
-                                        <div className="flex flex-col">
-                                            <span className="text-[11px] font-mono font-bold text-zinc-700">{r.clock}</span>
-                                            <span className="text-[8px] font-bold text-zinc-400 uppercase">
+                                    {/* Time */}
+                                    <td className="py-3 px-4">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[11px] font-medium text-zinc-400 w-5">
                                                 {r.period <= 2 ? `H${r.period}` : r.period <= 4 ? `Q${r.period}` : `P${r.period}`}
+                                            </span>
+                                            <span className="text-xs font-mono tabular-nums text-zinc-600">
+                                                {r.clock}
                                             </span>
                                         </div>
                                     </td>
 
                                     {/* Score */}
-                                    <td className="py-2 px-2.5 text-center w-[50px]">
+                                    <td className="py-3 px-4 text-center">
                                         <span className={cn(
-                                            "text-[11px] font-mono font-bold",
-                                            r.isScoreChange ? "text-zinc-900" : "text-zinc-400"
+                                            "text-xs font-mono tabular-nums",
+                                            r.isScoreChange ? "font-semibold text-zinc-900" : "font-medium text-zinc-400"
                                         )}>
-                                            {r.home_score}-{r.away_score}
+                                            {r.home_score} - {r.away_score}
                                         </span>
                                     </td>
 
                                     {/* Play Text */}
-                                    <td className="py-2 px-2.5 max-w-[220px]">
-                                        <div className="flex items-center gap-1.5">
-                                            {r.scoringPlay && (
-                                                <div className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
-                                            )}
-                                            <span className={cn(
-                                                "text-[10px] leading-tight truncate",
-                                                r.scoringPlay ? "font-bold text-zinc-800" : "text-zinc-500"
-                                            )}>
-                                                {r.play_text}
-                                            </span>
-                                        </div>
+                                    <td className="py-3 px-4 whitespace-normal">
+                                        <span className={cn(
+                                            "text-xs leading-relaxed line-clamp-2",
+                                            r.scoringPlay ? "font-medium text-zinc-900" : "text-zinc-600"
+                                        )}>
+                                            {r.play_text}
+                                        </span>
                                     </td>
 
                                     {/* Market Total */}
-                                    <td className="py-2 px-2.5 text-center w-[52px]">
-                                        <span className="text-[10px] font-mono font-bold text-zinc-600">
+                                    <td className="py-3 px-4 text-right">
+                                        <span className="text-xs font-mono tabular-nums text-zinc-600">
                                             {r.mkt_total?.toFixed(1) ?? '—'}
                                         </span>
                                     </td>
 
                                     {/* ML */}
-                                    <td className="py-2 px-2.5 text-center w-[52px]">
+                                    <td className="py-3 px-4 text-right">
                                         <span className={cn(
-                                            "text-[10px] font-mono font-bold",
-                                            r.home_ml !== null && r.home_ml < 0 ? "text-emerald-600" : "text-rose-600"
+                                            "text-xs font-mono tabular-nums",
+                                            r.home_ml === null ? "text-zinc-600" : r.home_ml < 0 ? "font-medium text-emerald-600" : "text-zinc-600"
                                         )}>
-                                            {formatML(r.home_ml)}
+                                            {formatOdds(r.home_ml)}
                                         </span>
                                     </td>
 
                                     {/* Spread */}
-                                    <td className="py-2 px-2.5 text-center w-[52px]">
-                                        <span className="text-[10px] font-mono font-bold text-zinc-500">
-                                            {formatSpread(r.spread)}
+                                    <td className="py-3 px-4 text-right">
+                                        <span className="text-xs font-mono tabular-nums text-zinc-600">
+                                            {formatOdds(r.spread)}
                                         </span>
                                     </td>
                                 </motion.tr>
@@ -358,9 +355,9 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
 
             {/* Footer */}
             {timeline.length > 30 && (
-                <div className="flex justify-center mt-3">
-                    <span className="text-[9px] font-mono text-zinc-400">
-                        Showing {displayRows.length} of {showAll ? timeline.length : timeline.filter(r => r.isScoreChange).length} plays
+                <div className="flex justify-center mt-4">
+                    <span className="text-xs text-zinc-400">
+                        Showing last {displayRows.length} plays
                     </span>
                 </div>
             )}
