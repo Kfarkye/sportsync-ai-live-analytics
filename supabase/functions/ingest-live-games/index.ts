@@ -680,25 +680,49 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
             const fallbackProvider = items[0]; // any provider as last resort
 
             // odds_live: Provider 200 (Live Odds) is PRIMARY — it's the only one that moves
-            const liveSource = liveProvider || pregameProvider || fallbackProvider;
-            if (!parsedOdds.odds_live && liveSource?.current) {
-              const providerLabel = liveSource?.provider?.name || 'ESPN';
-              const providerId = liveSource?.provider?.id ?? null;
+            // ALWAYS overwrite odds_live when provider 200 exists — it has the
+            // actively moving in-game lines. Provider 100 from the summary API
+            // freezes at close and must never be used for live comparison.
+            if (liveProvider?.current) {
+              const providerLabel = liveProvider.provider?.name || 'Draft Kings - Live Odds';
+              const providerId = liveProvider.provider?.id ?? '200';
               parsedOdds.odds_live = {
-                home_ml: liveSource.homeTeamOdds?.moneyLine ?? null,
-                away_ml: liveSource.awayTeamOdds?.moneyLine ?? null,
-                homeSpread: liveSource.spread ?? null,
-                awaySpread: liveSource.awayTeamOdds?.current?.pointSpread?.american ?? null,
-                homeSpreadOdds: liveSource.homeTeamOdds?.spreadOdds ?? null,
-                awaySpreadOdds: liveSource.awayTeamOdds?.spreadOdds ?? null,
-                total: liveSource.overUnder ?? null,
-                overOdds: liveSource.overOdds ?? null,
-                underOdds: liveSource.underOdds ?? null,
+                home_ml: liveProvider.homeTeamOdds?.moneyLine ?? null,
+                away_ml: liveProvider.awayTeamOdds?.moneyLine ?? null,
+                homeSpread: liveProvider.spread ?? null,
+                awaySpread: liveProvider.awayTeamOdds?.current?.pointSpread?.american ?? null,
+                homeSpreadOdds: liveProvider.homeTeamOdds?.spreadOdds ?? null,
+                awaySpreadOdds: liveProvider.awayTeamOdds?.spreadOdds ?? null,
+                total: liveProvider.overUnder ?? null,
+                overOdds: liveProvider.overOdds ?? null,
+                underOdds: liveProvider.underOdds ?? null,
                 provider: providerLabel,
                 provider_id: providerId,
-                source: 'core_api',
+                source: 'core_api_live_200',
                 captured_at: new Date().toISOString()
               };
+            } else if (!parsedOdds.odds_live) {
+              // Fallback: use pregame provider 100 only if nothing else set odds_live
+              const fallbackSource = pregameProvider || fallbackProvider;
+              if (fallbackSource?.current) {
+                const providerLabel = fallbackSource.provider?.name || 'ESPN';
+                const providerId = fallbackSource.provider?.id ?? null;
+                parsedOdds.odds_live = {
+                  home_ml: fallbackSource.homeTeamOdds?.moneyLine ?? null,
+                  away_ml: fallbackSource.awayTeamOdds?.moneyLine ?? null,
+                  homeSpread: fallbackSource.spread ?? null,
+                  awaySpread: fallbackSource.awayTeamOdds?.current?.pointSpread?.american ?? null,
+                  homeSpreadOdds: fallbackSource.homeTeamOdds?.spreadOdds ?? null,
+                  awaySpreadOdds: fallbackSource.awayTeamOdds?.spreadOdds ?? null,
+                  total: fallbackSource.overUnder ?? null,
+                  overOdds: fallbackSource.overOdds ?? null,
+                  underOdds: fallbackSource.underOdds ?? null,
+                  provider: providerLabel,
+                  provider_id: providerId,
+                  source: 'core_api',
+                  captured_at: new Date().toISOString()
+                };
+              }
             }
 
             // odds_open: Provider 100 (Pregame DK) has the full open snapshot
@@ -1051,8 +1075,8 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
                   lastModified: latest.lastModified,
                   totalProbabilityEntries: probData?.count ?? null
                 },
-                // Cross-reference: snapshot live odds at same capture moment
-                odds_live: parsedOdds.odds_live ?? null,
+                // Cross-reference: prefer provider 200 (live) over stale provider 100
+                odds_live: parsedOdds.dk_live_200 || (parsedOdds.odds_live ?? null),
                 source: 'espn_bpi'
               };
 
