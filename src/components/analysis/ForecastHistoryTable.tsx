@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { cn } from '@/lib/essence';
-import { Activity, TrendingUp, TrendingDown } from 'lucide-react';
+import { Activity, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -61,7 +61,12 @@ function findNearestOdds(playTime: string, odds: OddsSnapshot[]): OddsSnapshot |
     return best;
 }
 
-function formatOdds(val: number | null): string {
+function formatML(val: number | null): string {
+    if (val === null) return '—';
+    return val > 0 ? `+${val}` : `${val}`;
+}
+
+function formatSpread(val: number | null): string {
     if (val === null) return '—';
     return val > 0 ? `+${val}` : `${val}`;
 }
@@ -208,7 +213,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
     if (plays.length === 0) return (
         <EmptyState
             icon={<Activity size={20} className="text-zinc-400" />}
-            message="No play-by-play data"
+            message="No play-by-play data yet"
             description="The market timeline will appear once the game begins."
         />
     );
@@ -226,11 +231,15 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                 
                 <div className="flex items-center gap-4">
                     {/* Market Delta */}
-                    {mktDelta !== null && mktDelta !== 0 && (
+                    {mktDelta !== null && (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded border border-zinc-200 bg-zinc-50 shadow-sm">
-                            {mktDelta > 0 ? <TrendingUp size={14} className="text-zinc-500" /> :
-                             <TrendingDown size={14} className="text-zinc-500" />}
-                            <span className="text-xs font-medium text-zinc-700">
+                            {mktDelta > 0 ? <TrendingUp size={14} className="text-emerald-600" /> :
+                             mktDelta < 0 ? <TrendingDown size={14} className="text-rose-600" /> :
+                             <Minus size={14} className="text-zinc-400" />}
+                            <span className={cn(
+                                "text-xs font-medium tabular-nums",
+                                mktDelta > 0 ? "text-emerald-700" : mktDelta < 0 ? "text-rose-700" : "text-zinc-600"
+                            )}>
                                 {mktDelta > 0 ? '+' : ''}{mktDelta.toFixed(1)} Total
                             </span>
                         </div>
@@ -334,16 +343,18 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                                     <td className="py-3 px-4 text-right">
                                         <span className={cn(
                                             "text-xs font-mono tabular-nums",
-                                            r.home_ml === null ? "text-zinc-600" : r.home_ml < 0 ? "font-medium text-emerald-600" : "text-zinc-600"
+                                            r.home_ml !== null && r.home_ml < 0 ? "font-medium text-emerald-600" : 
+                                            r.home_ml !== null && r.home_ml > 0 ? "font-medium text-rose-600" : 
+                                            "text-zinc-600"
                                         )}>
-                                            {formatOdds(r.home_ml)}
+                                            {formatML(r.home_ml)}
                                         </span>
                                     </td>
 
                                     {/* Spread */}
                                     <td className="py-3 px-4 text-right">
                                         <span className="text-xs font-mono tabular-nums text-zinc-600">
-                                            {formatOdds(r.spread)}
+                                            {formatSpread(r.spread)}
                                         </span>
                                     </td>
                                 </motion.tr>
@@ -357,7 +368,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
             {timeline.length > 30 && (
                 <div className="flex justify-center mt-4">
                     <span className="text-xs text-zinc-400">
-                        Showing last {displayRows.length} plays
+                        Showing {displayRows.length} of {showAll ? timeline.length : timeline.filter(r => r.isScoreChange).length} plays
                     </span>
                 </div>
             )}
