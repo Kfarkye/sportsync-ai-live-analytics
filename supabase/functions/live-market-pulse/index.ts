@@ -237,6 +237,12 @@ const latestContextEventInWindow = (events: SnapshotEvent[], startTs: number, en
   return null;
 };
 
+const pulseSignature = (
+  currentSnapshot: SnapshotEvent,
+  previousSnapshot: SnapshotEvent,
+  contextEvent: SnapshotEvent | null,
+) => `${currentSnapshot.id}|${previousSnapshot.id}|${contextEvent?.id ?? 'none'}`;
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -299,10 +305,12 @@ Deno.serve(async (req: Request) => {
       : new Date(oddsEvents[0].created_at);
     const firstOddsAt = new Date(oddsEvents[0].created_at);
     const gameStart = startAnchor.getTime() > firstOddsAt.getTime() ? firstOddsAt : startAnchor;
-    const now = new Date();
+    const latestSnapshotAt = new Date(oddsEvents[oddsEvents.length - 1].created_at);
+    const endAnchor = latestSnapshotAt;
+    let lastSignature: string | null = null;
 
     let bucketEnd = plusMinutes(gameStart, windowMinutes);
-    while (bucketEnd.getTime() <= now.getTime()) {
+    while (bucketEnd.getTime() <= endAnchor.getTime()) {
       const currentSnapshot = latestOddsEventAtOrBefore(oddsEvents, bucketEnd.getTime());
       const previousSnapshot = latestOddsEventAtOrBefore(oddsEvents, plusMinutes(bucketEnd, -windowMinutes).getTime());
 
@@ -315,25 +323,32 @@ Deno.serve(async (req: Request) => {
           plusMinutes(bucketEnd, -windowMinutes).getTime(),
           bucketEnd.getTime(),
         );
+        const signature = pulseSignature(currentSnapshot, previousSnapshot, contextEvent);
+        if (signature === lastSignature) {
+          bucketEnd = plusMinutes(bucketEnd, windowMinutes);
+          continue;
+        }
+        lastSignature = signature;
+
         const displayEvent = contextEvent ?? currentSnapshot;
         const eventText = String(
           displayEvent.play_data?.text
           || displayEvent.play_data?.description
           || displayEvent.play_data?.type
-          || (contextEvent ? contextEvent.event_type : `Snapshot ${windowMinutes}m`)
+          || (contextEvent ? contextEvent.event_type : `Periodic ${windowMinutes}-minute market snapshot`)
         );
         const normalizedEventType = contextEvent
           ? contextEvent.event_type
-          : 'market_snapshot';
+          : 'odds';
         const side = detectTeamSide(displayEvent, eventText);
         const scoreHome = displayEvent.home_score ?? currentSnapshot.home_score ?? 0;
         const scoreAway = displayEvent.away_score ?? currentSnapshot.away_score ?? 0;
 
         rows.push({
           id: `${currentSnapshot.id}-${bucketEnd.toISOString()}`,
-          ts: currentSnapshot.created_at,
-          period: currentSnapshot.period ? `P${currentSnapshot.period}` : null,
-          clock: currentSnapshot.clock || null,
+          ts: bucketEnd.toISOString(),
+          period: displayEvent.period ? `P${displayEvent.period}` : null,
+          clock: displayEvent.clock || currentSnapshot.clock || null,
           score: `${scoreAway}-${scoreHome}`,
           scoreStateTag: scoreStateTag(scoreHome, scoreAway),
           eventType: normalizedEventType,

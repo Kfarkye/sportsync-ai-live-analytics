@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { cn } from '@/lib/essence';
-import { Activity, ArrowRight, BarChart3, Clock3, Radar, Waves } from 'lucide-react';
+import { Activity, BarChart3, Clock3, Radar, Waves } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 interface PulseRow {
@@ -20,6 +20,21 @@ interface PulseRow {
   moveMagnitude: 'small' | 'medium' | 'large';
   badge: 'Normal' | 'Sharp Move' | 'Lagging' | 'No Reaction';
   explanation: string;
+  pre?: ParsedOdds;
+  post?: ParsedOdds;
+}
+
+interface ParsedOdds {
+  spreadLine: number | null;
+  spreadHomePrice: number | null;
+  spreadAwayPrice: number | null;
+  totalLine: number | null;
+  overPrice: number | null;
+  underPrice: number | null;
+  homeMl: number | null;
+  awayMl: number | null;
+  drawMl: number | null;
+  provider: string | null;
 }
 
 interface LiveMarketPulseResponse {
@@ -50,20 +65,61 @@ const badgeClass = (badge: PulseRow['badge']) => {
   }
 };
 
-const moveClass = (magnitude: PulseRow['moveMagnitude']) => {
-  switch (magnitude) {
-    case 'large':
-      return 'text-[#0A7A3E]';
-    case 'medium':
-      return 'text-[#335CFF]';
-    default:
-      return 'text-[#737373]';
-  }
-};
-
 const formatTimestamp = (ts: string) => {
   const date = new Date(ts);
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+};
+
+const formatLine = (value: number | null) => {
+  if (value === null || Number.isNaN(value)) return '—';
+  if (value > 0) return `+${value}`;
+  return `${value}`;
+};
+
+const formatTotal = (value: number | null) => {
+  if (value === null || Number.isNaN(value)) return '—';
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+};
+
+const formatPricePair = (left: number | null, right: number | null) => {
+  const fmt = (value: number | null) => {
+    if (value === null || Number.isNaN(value)) return '—';
+    if (value > 0) return `+${value}`;
+    return `${value}`;
+  };
+  return `${fmt(left)}/${fmt(right)}`;
+};
+
+const formatMoneyline = (row: PulseRow) => {
+  if (!row.post) return '—';
+  const home = row.post.homeMl;
+  const away = row.post.awayMl;
+  const draw = row.post.drawMl;
+  const fmt = (value: number | null) => {
+    if (value === null || Number.isNaN(value)) return '—';
+    if (value > 0) return `+${value}`;
+    return `${value}`;
+  };
+  if (draw !== null) return `${fmt(home)}/${fmt(draw)}/${fmt(away)}`;
+  return `${fmt(home)}/${fmt(away)}`;
+};
+
+const changeArrow = (before: number | null | undefined, after: number | null | undefined) => {
+  if (before === null || before === undefined || after === null || after === undefined || before === after) return '';
+  return after > before ? ' ↑' : ' ↓';
+};
+
+const eventChip = (row: PulseRow) => {
+  if (row.eventType === 'odds') return 'ODDS';
+  if (row.eventType === 'period_end') return 'END';
+  if (row.eventType === 'timeout') return 'TIME';
+  if (row.eventType === 'goal' || row.eventType === 'score') return 'SCORE';
+  return 'PLAY';
+};
+
+const playLabel = (row: PulseRow) => {
+  if (row.eventType === 'odds' && /^Periodic \d+-minute market snapshot/i.test(row.eventLabel)) return '—';
+  return row.eventLabel;
 };
 
 export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
@@ -112,8 +168,8 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
   const rows = pulse?.rows ?? [];
   const summary = pulse?.summary ?? 'Reading the last 10 minutes of play and market movement.';
   const seoCopy = useMemo(() => {
-    if (!rows.length) return 'A 10-minute game tape of play-by-play and odds snapshots will appear here once the live market has enough priced checkpoints.';
-    return `Ten-minute live game snapshots: ${summary}`;
+    if (!rows.length) return 'A 10-minute live tape of play-by-play and odds checkpoints will appear here once enough priced snapshots exist.';
+    return `Ten-minute live tape: ${summary}`;
   }, [rows.length, summary]);
 
   if (loading && !pulse) {
@@ -139,7 +195,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
       {showSectionEyebrow && (
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-          <span className="text-caption font-bold text-zinc-500 uppercase tracking-widest">Live Market Pulse</span>
+          <span className="text-caption font-bold text-zinc-500 uppercase tracking-widest">Live Impulse</span>
         </div>
       )}
 
@@ -148,7 +204,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-zinc-500">
               <Clock3 size={12} className="text-zinc-400" />
-              10-Minute Snapshots
+              10-Minute Tape
             </div>
             <p className="text-sm font-semibold leading-6 text-[#111111] sm:text-[15px]">{summary}</p>
           </div>
@@ -164,20 +220,21 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
         <EmptyState
           icon={<BarChart3 size={24} />}
           message="WAITING FOR CHECKPOINTS"
-          description="This rail fills with fixed 10-minute market snapshots as the game progresses."
+          description="This rail fills with fixed 10-minute play-and-market checkpoints as the game progresses."
         />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] border-collapse text-left">
+          <table className="w-full min-w-[1080px] border-collapse text-left">
             <thead>
               <tr className="border-b border-edge-subtle">
                 <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">Time</th>
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest text-center">Score</th>
                 <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">Event</th>
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">Before</th>
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">After</th>
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest text-center">Move</th>
-                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">Why</th>
+                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest text-center">Score</th>
+                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">O/U</th>
+                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">O/U Price</th>
+                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">Spread</th>
+                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">ML</th>
+                <th className="py-3 px-2 text-label font-black text-zinc-500 uppercase tracking-widest">Play</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.02]">
@@ -196,6 +253,16 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
                         <span className="text-label font-bold text-zinc-600 uppercase">{row.period || formatTimestamp(row.ts)}</span>
                       </div>
                     </td>
+                    <td className="py-3 px-2 align-top">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]', badgeClass(row.badge))}>
+                            {eventChip(row)}
+                          </span>
+                        </div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">{row.eventType.replace('_', ' ')}</p>
+                      </div>
+                    </td>
                     <td className="py-3 px-2 text-center align-top">
                       <div className="flex flex-col items-center gap-1">
                         <span className="text-footnote font-mono font-bold text-zinc-500">{row.score}</span>
@@ -203,35 +270,32 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({
                       </div>
                     </td>
                     <td className="py-3 px-2 align-top">
-                      <div className="space-y-2 max-w-[220px]">
-                        <div className="flex items-center gap-2">
-                          <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]', badgeClass(row.badge))}>
-                            {row.badge}
-                          </span>
+                      <p className="text-[13px] leading-5 text-[#111111]">
+                        {formatTotal(row.post?.totalLine ?? null)}
+                        {changeArrow(row.pre?.totalLine, row.post?.totalLine)}
+                      </p>
+                    </td>
+                    <td className="py-3 px-2 align-top">
+                      <p className="text-[13px] leading-5 text-[#111111]">
+                        {formatPricePair(row.post?.overPrice ?? null, row.post?.underPrice ?? null)}
+                      </p>
+                    </td>
+                    <td className="py-3 px-2 align-top">
+                      <p className="text-[13px] leading-5 text-[#111111]">
+                        {formatLine(row.post?.spreadLine ?? null)}
+                        {changeArrow(row.pre?.spreadLine, row.post?.spreadLine)}
+                      </p>
+                    </td>
+                    <td className="py-3 px-2 align-top">
+                      <p className="text-[13px] leading-5 text-[#111111]">{formatMoneyline(row)}</p>
+                    </td>
+                    <td className="py-3 px-2 align-top">
+                      <div className="max-w-[360px] space-y-2">
+                        <p className="text-sm font-semibold text-[#111111] leading-5">{playLabel(row)}</p>
+                        <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+                          <Activity size={12} className="text-zinc-400" />
+                          <span>{row.explanation}</span>
                         </div>
-                        <p className="text-sm font-semibold text-[#111111] leading-5">{row.eventLabel}</p>
-                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">{row.eventType.replace('_', ' ')}</p>
-                      </div>
-                    </td>
-                    <td className="py-3 px-2 align-top">
-                      <p className="max-w-[200px] text-[13px] leading-5 text-zinc-500">{row.marketBefore}</p>
-                    </td>
-                    <td className="py-3 px-2 align-top">
-                      <div className="flex items-start gap-2 max-w-[220px]">
-                        <ArrowRight size={14} className="mt-0.5 text-zinc-300" />
-                        <p className="text-[13px] leading-5 text-[#111111]">{row.marketAfter}</p>
-                      </div>
-                    </td>
-                    <td className="py-3 px-2 text-center align-top">
-                      <div className="flex flex-col items-center gap-2">
-                        <span className={cn('text-sm font-mono font-bold', moveClass(row.moveMagnitude))}>{row.moveLabel}</span>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">{row.moveMagnitude}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-2 align-top">
-                      <div className="flex items-start gap-2 max-w-[260px]">
-                        <Activity size={13} className="mt-1 text-zinc-400" />
-                        <p className="text-[13px] leading-5 text-zinc-500">{row.explanation}</p>
                       </div>
                     </td>
                   </motion.tr>
