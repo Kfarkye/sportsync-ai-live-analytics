@@ -934,6 +934,90 @@ async function processGame(event: any, league: any, stats: any, options: { dryRu
       }
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // PBP: Write individual plays to game_events
+    // ═══════════════════════════════════════════════════════════
+    if (Array.isArray(data?.plays) && data.plays.length > 0) {
+      try {
+        const playRows = data.plays
+          .filter((p: any) => p?.id && p?.text)
+          .map((p: any, index: number) => {
+            // ENHANCEMENT 1: Stable sequence & Postgres INT4 overflow prevention
+            let seq = parseInt(p.sequenceNumber, 10);
+            if (isNaN(seq)) {
+              // ESPN IDs often exceed the Postgres 32-bit INT limit (2,147,483,647).
+              // Slicing the last 8 digits prevents 'out of range' database crashes while
+              // remaining stable across polls for deterministic upsert deduplication.
+              const idStr = String(p.id).replace(/\D/g, '');
+              seq = idStr.length > 0 ? parseInt(idStr.slice(-8), 10) : index + 1;
+            }
+
+            // ENHANCEMENT 2: Strict NaN prevention for Postgres numerics
+            const homeScore = parseInt(p.homeScore?.toString() || '0', 10);
+            const awayScore = parseInt(p.awayScore?.toString() || '0', 10);
+
+            return {
+              match_id: dbMatchId,
+              league_id: league.id,
+              sport: league.db_sport,
+              event_type: 'play',
+              sequence: seq,
+              period: p.period?.number ?? comp.status?.period ?? null,
+              clock: p.clock?.displayValue ?? null,
+              home_score: isNaN(homeScore) ? 0 : homeScore,
+              away_score: isNaN(awayScore) ? 0 : awayScore,
+              play_data: {
+                id: p.id,
+                text: p.text,
+                type: p.type?.text ?? null,
+                type_id: p.type?.id ?? null,
+                clock: p.clock?.displayValue ?? null,
+                scoringPlay: !!p.scoringPlay,
+                statYardage: p.statYardage ?? 0,
+
+                // ENHANCEMENT 3: Deep situational context for Charlotte AI / Forecast Models
+                down: p.start?.down ?? p.down ?? null,
+                distance: p.start?.distance ?? p.distance ?? null,
+                yardLine: p.start?.yardLine ?? p.yardLine ?? null,
+                yardsToEndzone: p.start?.yardsToEndzone ?? p.yardsToEndzone ?? null,
+                team_id: p.start?.team?.id ?? p.team?.id ?? null,
+                participants: Array.isArray(p.participants)
+                  ? p.participants.map((pt: any) => pt?.athlete?.id).filter(Boolean)
+                  : []
+              },
+              source: 'espn'
+            };
+          });
+
+        if (playRows.length > 0) {
+          // ENHANCEMENT 4: Chunking to protect against PostgREST payload limits
+          // ESPN PBP arrays can easily exceed 400+ plays for late-stage games.
+          const BATCH_SIZE = 200;
+          for (let i = 0; i < playRows.length; i += BATCH_SIZE) {
+            const batch = playRows.slice(i, i + BATCH_SIZE);
+
+            const { error: playError } = await supabase
+              .from('game_events')
+              .upsert(batch, { onConflict: 'match_id,event_type,sequence' });
+
+            if (playError) {
+              Logger.warn('PBP_WRITE_FAILED', {
+                match_id: dbMatchId,
+                batch_start: i,
+                count: batch.length,
+                error: playError.message
+              });
+            }
+          }
+        }
+      } catch (e: any) {
+        Logger.warn('PBP_WRITE_ERROR', {
+          match_id: dbMatchId,
+          error: e?.message || String(e)
+        });
+      }
+    }
+
     if (_contextSnapshotAvailable) {
       const supabase = getSupabaseClient();
       const { error: contextSnapshotError } = await supabase
