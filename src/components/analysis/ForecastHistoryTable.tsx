@@ -90,8 +90,8 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                 .eq('event_type', 'play')
                 .order('sequence', { ascending: true });
 
-            // Fetch live odds from live_odds_snapshots
-            const { data: oddsData } = await supabase
+            // Fetch live odds from live_odds_snapshots (Primary)
+            const { data: primaryOddsDB } = await supabase
                 .from('live_odds_snapshots')
                 .select('total, home_ml, away_ml, spread_home, captured_at')
                 .eq('match_id', matchId)
@@ -100,8 +100,54 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                 .not('total', 'is', null)
                 .order('captured_at', { ascending: true });
 
+            // Fetch live odds from game_events (Fallback for premium/institutional games)
+            const { data: fallbackOddsDB } = await supabase
+                .from('game_events')
+                .select('odds_live, created_at')
+                .eq('match_id', matchId)
+                .eq('event_type', 'odds_snapshot')
+                .not('odds_live', 'is', null)
+                .order('sequence', { ascending: true });
+
+            const mergedOdds: OddsSnapshot[] = (primaryOddsDB || []).map((o: any) => ({
+                total: o.total ? String(o.total) : null,
+                home_ml: o.home_ml,
+                away_ml: o.away_ml,
+                spread_home: o.spread_home,
+                captured_at: o.captured_at
+            }));
+
+            if (fallbackOddsDB) {
+                const parseSafeNum = (val: any) => {
+                    if (typeof val === 'number') return val;
+                    if (typeof val === 'string') return parseInt(val.replace('+', ''), 10);
+                    if (val && val.american) return parseInt(val.american.replace('+', ''), 10);
+                    return null;
+                };
+                
+                const parseSafeSpread = (val: any) => {
+                    if (typeof val === 'number' || typeof val === 'string') return String(val);
+                    if (val && val.value !== undefined) return String(val.value);
+                    return null;
+                };
+
+                for (const row of fallbackOddsDB) {
+                    if (row.odds_live?.total) {
+                        mergedOdds.push({
+                            total: String(row.odds_live.total),
+                            home_ml: parseSafeNum(row.odds_live.home_ml),
+                            away_ml: parseSafeNum(row.odds_live.away_ml),
+                            spread_home: parseSafeSpread(row.odds_live.homeSpread),
+                            captured_at: row.created_at
+                        });
+                    }
+                }
+            }
+
+            mergedOdds.sort((a,b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime());
+
             if (playData) setPlays(playData);
-            if (oddsData) setOdds(oddsData);
+            setOdds(mergedOdds);
             setLoading(false);
         };
 
@@ -126,6 +172,27 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                             if (exists) return prev;
                             return [...prev, row].sort((a, b) => a.sequence - b.sequence);
                         });
+                    } else if (row.event_type === 'odds_snapshot' && row.odds_live?.total) {
+                        // Fallback odds stream integration via game_events
+                        const parseSafeNum = (val: any) => {
+                            if (typeof val === 'number') return val;
+                            if (typeof val === 'string') return parseInt(val.replace('+', ''), 10);
+                            if (val && val.american) return parseInt(val.american.replace('+', ''), 10);
+                            return null;
+                        };
+                        const parseSafeSpread = (val: any) => {
+                            if (typeof val === 'number' || typeof val === 'string') return String(val);
+                            if (val && val.value !== undefined) return String(val.value);
+                            return null;
+                        };
+
+                        setOdds(prev => [...prev, {
+                            total: String(row.odds_live.total),
+                            home_ml: parseSafeNum(row.odds_live.home_ml),
+                            away_ml: parseSafeNum(row.odds_live.away_ml),
+                            spread_home: parseSafeSpread(row.odds_live.homeSpread),
+                            captured_at: row.created_at
+                        }].sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime()));
                     }
                 }
             )
@@ -145,7 +212,10 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                 (payload) => {
                     const row = payload.new as any;
                     if (row.market_type === 'main' && row.is_live && row.total) {
-                        setOdds(prev => [...prev, row].sort((a, b) =>
+                        setOdds(prev => [...prev, {
+                            ...row,
+                            total: String(row.total)
+                        }].sort((a, b) =>
                             new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime()
                         ));
                     }
