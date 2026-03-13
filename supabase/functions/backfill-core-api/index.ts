@@ -155,30 +155,42 @@ async function backfillGame(eventId: string, config: BackfillConfig, log: string
 
   // 4. Parse leaders
   const parseLeaders = (data: any) => {
-    if (!data?.leaders) return null;
-    return data.leaders.map((l: any) => ({
-      name: l.name ?? null,
-      displayName: l.displayName ?? null,
-      leaders: (l.leaders || []).map((a: any) => ({
-        displayValue: a.displayValue ?? null,
-        athlete: a.athlete?.displayName ?? null,
-        position: a.athlete?.position?.abbreviation ?? null
-      }))
-    }));
+    const result: Record<string, any> = {};
+    const categories = Array.isArray(data?.leaders)
+      ? data.leaders
+      : (Array.isArray(data?.categories) ? data.categories : []);
+
+    for (const cat of categories) {
+      const top = cat?.leaders?.[0];
+      if (!top) continue;
+      const key = cat?.name ?? cat?.displayName ?? cat?.shortDisplayName ?? 'unknown';
+      result[key] = {
+        displayValue: top?.displayValue ?? null,
+        value: top?.value ?? null,
+        athleteRef: top?.athlete?.$ref ?? null,
+        teamRef: top?.team?.$ref ?? null
+      };
+    }
+    return Object.keys(result).length > 0 ? result : null;
   };
   const homeLeaders = parseLeaders(homeLeadersRes);
   const awayLeaders = parseLeaders(awayLeadersRes);
 
   // 5. Parse roster
   const parseRoster = (data: any) => {
-    if (!data?.items) return null;
-    return data.items.map((p: any) => ({
-      id: p.id ?? null,
-      name: p.fullName ?? p.displayName ?? null,
-      jersey: p.jersey ?? null,
-      position: p.position?.abbreviation ?? null,
-      starter: p.starter ?? false
-    }));
+    const items = data?.entries ?? data?.items ?? [];
+    if (!Array.isArray(items) || items.length === 0) return null;
+    return items
+      .filter((p: any) => p?.playerId || p?.athlete || p?.id)
+      .map((p: any) => ({
+        id: p.playerId ?? p.id ?? null,
+        athleteRef: p.athlete?.$ref ?? null,
+        statsRef: p.statistics?.$ref ?? null,
+        name: p.fullName ?? p.displayName ?? null,
+        jersey: p.jersey ?? null,
+        position: p.position?.abbreviation ?? null,
+        starter: p.starter ?? false
+      }));
   };
   const homeRoster = parseRoster(homeRosterRes);
   const awayRoster = parseRoster(awayRosterRes);
@@ -265,8 +277,7 @@ async function backfillGame(eventId: string, config: BackfillConfig, log: string
     home_score: homeScore,
     away_score: awayScore,
     status,
-    start_time: startDate,
-    espn_id: eventId
+    start_time: startDate
   }, { onConflict: 'id' });
 
   if (matchError) {
@@ -277,14 +288,13 @@ async function backfillGame(eventId: string, config: BackfillConfig, log: string
   // ═══ UPSERT live_game_state ═══
   const { error: lgsError } = await supabase.from('live_game_state').upsert({
     id: dbMatchId,
+    league_id: config.league_id,
+    sport: config.db_sport,
     game_status: status,
     home_score: homeScore,
     away_score: awayScore,
     stats: { home: homeStats, away: awayStats },
-    leaders: homeLeaders || awayLeaders ? [
-      { leaders: homeLeaders || [] },
-      { leaders: awayLeaders || [] }
-    ] : null,
+    leaders: null,
     advanced_metrics: (homeStats || awayStats) ? {
       core_api_efficiency: {
         home: homeStats ? {
@@ -323,39 +333,39 @@ async function backfillGame(eventId: string, config: BackfillConfig, log: string
     return;
   }
 
-  // ═══ INSERT box_snapshot (final stats) ═══
-  if (homeStats || awayStats) {
-    const epochSeconds = Math.floor(new Date(startDate).getTime() / 1000);
-    const { error: boxError } = await supabase.from('game_events').upsert({
-      match_id: dbMatchId,
-      league_id: config.league_id,
+  // ═══ INSERT box_snapshot marker (always) ═══
+  // We intentionally write a marker row even when provider stats are missing so
+  // idempotency tracking can mark this game as backfilled.
+  const epochSeconds = Math.floor(new Date(startDate).getTime() / 1000);
+  const { error: boxError } = await supabase.from('game_events').upsert({
+    match_id: dbMatchId,
+    league_id: config.league_id,
+    sport: config.db_sport,
+    event_type: 'box_snapshot',
+    sequence: epochSeconds,
+    home_score: homeScore,
+    away_score: awayScore,
+    box_snapshot: {
       sport: config.db_sport,
-      event_type: 'box_snapshot',
-      sequence: epochSeconds,
-      home_score: homeScore,
-      away_score: awayScore,
-      box_snapshot: {
-        sport: config.db_sport,
-        home: homeStats,
-        away: awayStats
-      },
-      odds_live: oddsData ? {
-        homeSpread: oddsData.spread,
-        total: oddsData.overUnder,
-        home_ml: oddsData.homeML,
-        away_ml: oddsData.awayML,
-        provider: oddsData.provider,
-        provider_id: String(oddsData.provider_id)
-      } : null,
-      source: 'backfill'
-    }, {
-      onConflict: 'match_id,event_type,sequence',
-      ignoreDuplicates: true
-    });
-    
-    if (boxError) {
-      log.push(`  ERROR game_events (box_snapshot) upsert ${dbMatchId}: ${boxError.message}`);
-    }
+      home: homeStats,
+      away: awayStats
+    },
+    odds_live: oddsData ? {
+      homeSpread: oddsData.spread,
+      total: oddsData.overUnder,
+      home_ml: oddsData.homeML,
+      away_ml: oddsData.awayML,
+      provider: oddsData.provider,
+      provider_id: String(oddsData.provider_id)
+    } : null,
+    source: 'backfill'
+  }, {
+    onConflict: 'match_id,event_type,sequence',
+    ignoreDuplicates: true
+  });
+
+  if (boxError) {
+    log.push(`  ERROR game_events (box_snapshot) upsert ${dbMatchId}: ${boxError.message}`);
   }
 
   // ═══ INSERT odds_snapshot (open + close) ═══
@@ -388,17 +398,27 @@ async function backfillGame(eventId: string, config: BackfillConfig, log: string
 
   // ═══ INSERT bpi_probability (timeline) ═══
   if (probabilities.length > 0) {
+    const epochSeconds = Math.floor(new Date(startDate).getTime() / 1000);
     const bpiPayloads = probabilities.map((p: any, index: number) => ({
+      // Keep sequence int32-safe for game_events unique index
+      sequence: (() => {
+        const parsed = parseInt(String(p.sequenceNumber ?? ''), 10);
+        if (Number.isFinite(parsed) && parsed > 0 && parsed <= 2147483647) return parsed;
+        return epochSeconds + index;
+      })(),
       match_id: dbMatchId,
       league_id: config.league_id,
       sport: config.db_sport,
       event_type: 'bpi_probability',
-      sequence: p.sequenceNumber || index,
-      bpi_probability: {
+      home_score: homeScore,
+      away_score: awayScore,
+      play_data: {
         homeWinPct: p.homeWinPct,
         awayWinPct: p.awayWinPct,
         tieWinPct: p.tieWinPct,
-        secondsLeft: p.secondsLeft
+        secondsLeft: p.secondsLeft,
+        sequenceNumber: p.sequenceNumber,
+        playId: p.playId
       },
       source: 'backfill'
     }));
@@ -438,23 +458,45 @@ Deno.serve(async (req: Request) => {
     const gameIds = await getGameIds(config);
     log.push(`Found ${gameIds.length} games`);
 
+    const allMatchIds = gameIds.map(id => `${id}_${league_id}`);
+    const CHUNK_SIZE = 200;
+
     // Check which ones we already have in game_events (ground truth for episodic data)
-    const { data: existingEvents } = await supabase
-      .from('game_events')
-      .select('match_id')
-      .eq('event_type', 'box_snapshot')
-      .eq('source', 'backfill')
-      .in('match_id', gameIds.map(id => `${id}_${league_id}`));
+    const existingEventsIds = new Set<string>();
+    for (let i = 0; i < allMatchIds.length; i += CHUNK_SIZE) {
+      const chunkIds = allMatchIds.slice(i, i + CHUNK_SIZE);
+      const { data: existingEventsChunk, error: existingEventsErr } = await supabase
+        .from('game_events')
+        .select('match_id')
+        .eq('event_type', 'box_snapshot')
+        .eq('source', 'backfill')
+        .in('match_id', chunkIds);
+      if (existingEventsErr) {
+        log.push(`WARN existing game_events chunk query failed: ${existingEventsErr.message}`);
+        continue;
+      }
+      for (const row of (existingEventsChunk || [])) {
+        if (row?.match_id) existingEventsIds.add(row.match_id);
+      }
+    }
 
     // Enforce dual-idempotency: MUST exist in live_game_state to prevent partial backfills where
     // triggers roll back live_game_state but game_events succeed.
-    const { data: existingLgs } = await supabase
-      .from('live_game_state')
-      .select('id')
-      .in('id', gameIds.map(id => `${id}_${league_id}`));
-
-    const existingEventsIds = new Set((existingEvents || []).map((e: any) => e.match_id));
-    const existingLgsIds = new Set((existingLgs || []).map((e: any) => e.id));
+    const existingLgsIds = new Set<string>();
+    for (let i = 0; i < allMatchIds.length; i += CHUNK_SIZE) {
+      const chunkIds = allMatchIds.slice(i, i + CHUNK_SIZE);
+      const { data: existingLgsChunk, error: existingLgsErr } = await supabase
+        .from('live_game_state')
+        .select('id')
+        .in('id', chunkIds);
+      if (existingLgsErr) {
+        log.push(`WARN existing live_game_state chunk query failed: ${existingLgsErr.message}`);
+        continue;
+      }
+      for (const row of (existingLgsChunk || [])) {
+        if (row?.id) existingLgsIds.add(row.id);
+      }
+    }
     
     // Strict union needed. If either is missing, we re-run the backfill.
     const toBackfill = gameIds.filter(id => {
