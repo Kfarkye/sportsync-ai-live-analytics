@@ -320,7 +320,7 @@ Deno.serve(async (req: Request) => {
 
   const leagueParamRaw = body?.league ?? reqUrl.searchParams.get('league') ?? '';
   const leagueFilter = new Set(String(leagueParamRaw).split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
-  
+
   const startedAt = Date.now();
   const stats = {
     attempted: 0, processed: 0, live: 0, failed: 0, errors: [] as string[],
@@ -389,7 +389,7 @@ Deno.serve(async (req: Request) => {
           stats.attempted++;
           await processGame(supabase, event, dbMatchId, league, stats, { dryRun, debug }).finally(async () => {
             _localLocks.delete(dbMatchId);
-            if (hasDbLock) { try { await supabase.rpc('release_ingest_lock', { p_match_id: dbMatchId }); } catch {} }
+            if (hasDbLock) { try { await supabase.rpc('release_ingest_lock', { p_match_id: dbMatchId }); } catch { } }
           });
         });
         await Promise.all(executing);
@@ -455,11 +455,11 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
     }
 
     const canonicalId = (await resolveCanonicalMatch(supabase, homeNameStr, awayNameStr, event.date, league.id)) ?? generateDeterministicId(homeNameStr, awayNameStr, event.date, league.id);
-    try { await upsertWithRetry('canonical_games', { id: canonicalId, league_id: league.id, sport: league.db_sport, home_team_name: homeNameStr, away_team_name: awayNameStr, commence_time: event.date, status: comp.status?.type?.name }); } catch {}
+    try { await upsertWithRetry('canonical_games', { id: canonicalId, league_id: league.id, sport: league.db_sport, home_team_name: homeNameStr, away_team_name: awayNameStr, commence_time: event.date, status: comp.status?.type?.name }); } catch { }
 
     const { data: existingMatch } = await supabase.from('matches').select('status, home_score, away_score, period, current_odds, opening_odds, closing_odds, is_closing_locked').eq('id', dbMatchId).maybeSingle();
     let premiumFeed = null;
-    try { const { data: rpcData, error: rpcError } = await supabase.rpc('resolve_market_feed', { p_match_id: matchId, p_canonical_id: canonicalId }); if (!rpcError && rpcData) premiumFeed = Array.isArray(rpcData) ? rpcData[0] : rpcData; } catch {}
+    try { const { data: rpcData, error: rpcError } = await supabase.rpc('resolve_market_feed', { p_match_id: matchId, p_canonical_id: canonicalId }); if (!rpcError && rpcData) premiumFeed = Array.isArray(rpcData) ? rpcData[0] : rpcData; } catch { }
 
     let finalMarketOdds: any = { provider: 'ESPN' };
     let espnOdds = EspnAdapters.Odds(comp, data.pickcenter) || {};
@@ -632,17 +632,35 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
     }
 
     // ═══ EVENT HISTORY ═══
-    if (homeStatsRaw || awayStatsRaw) { try { await supabase.from('game_events').upsert({ match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'box_snapshot', sequence: generateSequence(), period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, box_snapshot: { sport: league.db_sport, home: homeStatsRaw, away: awayStatsRaw }, source: 'core_api_stats' }, { onConflict: 'match_id,event_type,sequence' }); } catch {} }
+    if (homeStatsRaw || awayStatsRaw) { try { await supabase.from('game_events').upsert({ match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'box_snapshot', sequence: generateSequence(), period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, box_snapshot: { sport: league.db_sport, home: homeStatsRaw, away: awayStatsRaw }, source: 'core_api_stats' }, { onConflict: 'match_id,event_type,sequence' }); } catch { } }
+
+    // Bridge: If summary API returned no live odds but Core API or premium feed has them, use those
+    if (!parsedOdds.odds_live && isLiveGame && effectiveOdds && (effectiveOdds.total != null || effectiveOdds.homeSpread != null || effectiveOdds.homeWin != null)) {
+      parsedOdds.odds_live = {
+        total: effectiveOdds.total ?? null,
+        homeSpread: effectiveOdds.homeSpread ?? effectiveOdds.spread ?? null,
+        awaySpread: effectiveOdds.awaySpread ?? null,
+        home_ml: effectiveOdds.homeWin ?? effectiveOdds.homeML ?? effectiveOdds.home_ml ?? null,
+        away_ml: effectiveOdds.awayWin ?? effectiveOdds.awayML ?? effectiveOdds.away_ml ?? null,
+        overOdds: effectiveOdds.overOdds ?? null,
+        underOdds: effectiveOdds.underOdds ?? null,
+        homeSpreadOdds: effectiveOdds.homeSpreadOdds ?? null,
+        awaySpreadOdds: effectiveOdds.awaySpreadOdds ?? null,
+        provider: effectiveOdds.provider ?? 'Core API',
+        provider_id: null,
+        captured_at: new Date().toISOString(),
+      };
+    }
 
     const hasAnyOdds = !!(parsedOdds.odds_live || parsedOdds.odds_open || parsedOdds.odds_close || parsedOdds.bet365_live || parsedOdds.dk_live_200);
     if (hasAnyOdds) {
       const oddsSnapshotPayload: any = { match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'odds_snapshot', sequence: generateSequence(), period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, odds_open: parsedOdds.odds_open, odds_close: parsedOdds.odds_close, odds_live: parsedOdds.odds_live, bet365_live: parsedOdds.bet365_live, dk_live_200: parsedOdds.dk_live_200, player_props: parsedOdds.player_props, match_state: { status: comp.status?.type?.name ?? null, home_team: homeNameStr, away_team: awayNameStr, score: `${homeScore}-${awayScore}`, period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null }, source: 'espn_live_odds' };
-      try { const { error: geError } = await supabase.from('game_events').upsert(oddsSnapshotPayload, { onConflict: 'match_id,event_type,sequence' }); if (!geError) stats.odds_snapshots_written++; } catch {}
+      try { const { error: geError } = await supabase.from('game_events').upsert(oddsSnapshotPayload, { onConflict: 'match_id,event_type,sequence' }); if (!geError) stats.odds_snapshots_written++; } catch { }
     }
 
     if (bpiLatestItem && bpiLatestItem.homeWinPercentage != null) {
       let bpiSeq = parseInt(bpiLatestItem.sequenceNumber, 10); if (isNaN(bpiSeq) || bpiSeq > 2147483647) bpiSeq = generateSequence();
-      try { await supabase.from('game_events').upsert({ match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'bpi_probability', sequence: bpiSeq, period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, play_data: { homeWinPct: bpiLatestItem.homeWinPercentage, awayWinPct: bpiLatestItem.awayWinPercentage, tieWinPct: bpiLatestItem.tiePercentage ?? 0, sequenceNumber: bpiLatestItem.sequenceNumber, lastModified: bpiLatestItem.lastModified, ...(bpiPayloadData ? { bpiPredictedMov: bpiPayloadData.homePredMov, bpiPregameWinPct: bpiPayloadData.homePredWinPct, bpiAwayPregameWinPct: bpiPayloadData.awayPredWinPct, matchupQuality: bpiPayloadData.matchupQuality, predictorLastUpdated: bpiPayloadData.lastUpdated } : {}) }, odds_live: cleanFinalOdds, source: 'espn_bpi' }, { onConflict: 'match_id,event_type,sequence' }); stats.bpi_snapshots++; } catch {}
+      try { await supabase.from('game_events').upsert({ match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'bpi_probability', sequence: bpiSeq, period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, play_data: { homeWinPct: bpiLatestItem.homeWinPercentage, awayWinPct: bpiLatestItem.awayWinPercentage, tieWinPct: bpiLatestItem.tiePercentage ?? 0, sequenceNumber: bpiLatestItem.sequenceNumber, lastModified: bpiLatestItem.lastModified, ...(bpiPayloadData ? { bpiPredictedMov: bpiPayloadData.homePredMov, bpiPregameWinPct: bpiPayloadData.homePredWinPct, bpiAwayPregameWinPct: bpiPayloadData.awayPredWinPct, matchupQuality: bpiPayloadData.matchupQuality, predictorLastUpdated: bpiPayloadData.lastUpdated } : {}) }, odds_live: cleanFinalOdds, source: 'espn_bpi' }, { onConflict: 'match_id,event_type,sequence' }); stats.bpi_snapshots++; } catch { }
     }
 
     if (Array.isArray(data?.plays) && data.plays.length > 0) {
@@ -652,7 +670,7 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
           return { match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'play', sequence: seq, period: p.period?.number ?? finalPeriod ?? null, clock: p.clock?.displayValue ?? null, home_score: parseInt(p.homeScore?.toString() || '0', 10) || 0, away_score: parseInt(p.awayScore?.toString() || '0', 10) || 0, play_data: { id: p.id, text: p.text, type: p.type?.text ?? null, scoringPlay: !!p.scoringPlay, statYardage: p.statYardage ?? 0, down: p.start?.down ?? null, distance: p.start?.distance ?? null, yardLine: p.start?.yardLine ?? null }, source: 'espn' };
         });
         if (playRows.length > 0) { for (let i = 0; i < playRows.length; i += 200) await supabase.from('game_events').upsert(playRows.slice(i, i + 200), { onConflict: 'match_id,event_type,sequence' }); }
-      } catch {}
+      } catch { }
     }
 
     if (_contextSnapshotAvailable) {
