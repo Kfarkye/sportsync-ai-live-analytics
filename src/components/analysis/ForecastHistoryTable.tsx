@@ -49,6 +49,7 @@ interface TimelineRow {
     overOdds: number | null;
     underOdds: number | null;
     home_ml: number | null;
+    away_ml: number | null;
     spread: number | null;
     spreadOdds: number | null;
     provider: string | null;
@@ -73,6 +74,22 @@ function findNearestOdds(playTime: string, odds: OddsSnapshot[]): OddsSnapshot |
     return best;
 }
 
+function findOddsBySequence(playSequence: number, minSequence: number, maxSequence: number, odds: OddsSnapshot[]): OddsSnapshot | null {
+    if (!odds.length) return null;
+    if (maxSequence <= minSequence) return odds[odds.length - 1] ?? null;
+    const progress = (playSequence - minSequence) / (maxSequence - minSequence);
+    const clamped = Math.max(0, Math.min(1, progress));
+    const idx = Math.round(clamped * (odds.length - 1));
+    return odds[Math.max(0, Math.min(odds.length - 1, idx))] ?? null;
+}
+
+function hasReliablePlayTimestamps(rows: PlayEvent[]): boolean {
+    if (rows.length < 6) return true;
+    const uniqueTimestamps = new Set(rows.map((row) => row.created_at)).size;
+    const uniqueRatio = uniqueTimestamps / rows.length;
+    return uniqueTimestamps >= 8 && uniqueRatio >= 0.25;
+}
+
 function formatAmerican(val: number | null): string {
     if (val === null) return '—';
     return val > 0 ? `+${val}` : `${val}`;
@@ -91,11 +108,18 @@ function parseSafeNum(val: any): number | null {
         const n = parseInt(val.replace('+', ''), 10);
         return isNaN(n) ? null : n;
     }
-    if (val && val.american) {
-        const n = parseInt(String(val.american).replace('+', ''), 10);
-        return isNaN(n) ? null : n;
+    if (val && typeof val === 'object') {
+        if (typeof val.american === 'string' || typeof val.american === 'number') {
+            const n = parseInt(String(val.american).replace('+', ''), 10);
+            return isNaN(n) ? null : n;
+        }
+        if (typeof val.value === 'number') return val.value;
+        if (typeof val.value === 'string') return parseSafeNum(val.value);
+        if (typeof val.price === 'number' || typeof val.price === 'string') return parseSafeNum(val.price);
+        if (typeof val.odds === 'number' || typeof val.odds === 'string') return parseSafeNum(val.odds);
+        if (typeof val.ml === 'number' || typeof val.ml === 'string') return parseSafeNum(val.ml);
+        if (typeof val.moneyline === 'number' || typeof val.moneyline === 'string') return parseSafeNum(val.moneyline);
     }
-    if (val && typeof val.value === 'number') return val.value;
     return null;
 }
 
@@ -160,14 +184,14 @@ function normalizeCoreOddsRow(row: any): OddsSnapshot | null {
     if (total === null) return null;
     return {
         total,
-        overOdds: parseSafeNum(live?.overOdds),
-        underOdds: parseSafeNum(live?.underOdds),
-        home_ml: parseSafeNum(live?.home_ml),
-        away_ml: parseSafeNum(live?.away_ml),
-        spread_home: parseSafeSpread(live?.homeSpread),
-        spreadOdds: parseSafeNum(live?.homeSpreadOdds),
+        overOdds: parseSafeNum(live?.overOdds ?? live?.over_odds),
+        underOdds: parseSafeNum(live?.underOdds ?? live?.under_odds),
+        home_ml: parseSafeNum(live?.home_ml ?? live?.moneylineHome ?? live?.homeWin ?? live?.homeML),
+        away_ml: parseSafeNum(live?.away_ml ?? live?.moneylineAway ?? live?.awayWin ?? live?.awayML),
+        spread_home: parseSafeSpread(live?.homeSpread ?? live?.home_spread ?? live?.spread_home ?? live?.spread),
+        spreadOdds: parseSafeNum(live?.homeSpreadOdds ?? live?.home_spread_odds ?? live?.spread_home_odds),
         provider: live?.provider || null,
-        captured_at: row?.created_at || new Date().toISOString(),
+        captured_at: live?.captured_at || row?.created_at || new Date().toISOString(),
     };
 }
 
@@ -179,9 +203,9 @@ function normalizeLiveOddsRow(row: any): OddsSnapshot | null {
         total,
         overOdds: null,
         underOdds: null,
-        home_ml: parseSafeNum(row.home_ml),
-        away_ml: parseSafeNum(row.away_ml),
-        spread_home: parseSafeSpread(row.spread_home),
+        home_ml: parseSafeNum(row.home_ml ?? row.moneyline_home ?? row.moneylineHome),
+        away_ml: parseSafeNum(row.away_ml ?? row.moneyline_away ?? row.moneylineAway),
+        spread_home: parseSafeSpread(row.spread_home ?? row.home_spread),
         spreadOdds: null,
         provider: null,
         captured_at: row.captured_at || row.created_at || new Date().toISOString(),
@@ -292,13 +316,13 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                     .map(normalizeCoreOddsRow)
                     .filter((row): row is OddsSnapshot => row !== null);
 
-                const fallbackLiveOdds = coreOdds.length === 0
-                    ? (primaryOddsRes?.data ?? [])
-                        .map(normalizeLiveOddsRow)
-                        .filter((row): row is OddsSnapshot => row !== null)
-                    : [];
+                const primaryOdds = (primaryOddsRes?.data ?? [])
+                    .map(normalizeLiveOddsRow)
+                    .filter((row): row is OddsSnapshot => row !== null);
 
-                setOdds(mergeOddsSnapshots([...coreOdds, ...fallbackLiveOdds]));
+                // Always merge both feeds: core snapshots can be sparse/partial while
+                // live_odds_snapshots carries richer line movement for timeline display.
+                setOdds(mergeOddsSnapshots([...primaryOdds, ...coreOdds]));
             } finally {
                 fetchInFlight = false;
                 if (isActive) setLoading(false);
@@ -371,11 +395,16 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
     const timeline: TimelineRow[] = useMemo(() => {
         if (!plays.length) return [];
 
+        const useSequenceMapping = !hasReliablePlayTimestamps(plays);
+        const minSequence = plays[0]?.sequence ?? 0;
+        const maxSequence = plays[plays.length - 1]?.sequence ?? minSequence;
         let prevHome = -1;
         let prevAway = -1;
 
         return plays.map(p => {
-            const nearest = findNearestOdds(p.created_at, odds);
+            const nearest = useSequenceMapping
+                ? findOddsBySequence(p.sequence, minSequence, maxSequence, odds)
+                : findNearestOdds(p.created_at, odds);
             const isScoreChange = p.home_score !== prevHome || p.away_score !== prevAway;
             prevHome = p.home_score;
             prevAway = p.away_score;
@@ -393,6 +422,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                 overOdds: nearest?.overOdds ?? null,
                 underOdds: nearest?.underOdds ?? null,
                 home_ml: nearest?.home_ml ?? null,
+                away_ml: nearest?.away_ml ?? null,
                 spread: nearest?.spread_home ?? null,
                 spreadOdds: nearest?.spreadOdds ?? null,
                 provider: nearest?.provider ?? null,
@@ -565,14 +595,19 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
 
                                     {/* ML */}
                                     <td className="py-3 px-4 text-right">
-                                        <span className={cn(
+                                        {(() => {
+                                            const mlValue = r.home_ml ?? r.away_ml;
+                                            return (
+                                                <span className={cn(
                                             "text-xs font-mono tabular-nums",
-                                            r.home_ml !== null && r.home_ml < 0 ? "font-medium text-emerald-600" : 
-                                            r.home_ml !== null && r.home_ml > 0 ? "font-medium text-rose-600" : 
+                                            mlValue !== null && mlValue < 0 ? "font-medium text-emerald-600" :
+                                            mlValue !== null && mlValue > 0 ? "font-medium text-rose-600" :
                                             "text-zinc-600"
                                         )}>
-                                            {formatAmerican(r.home_ml)}
+                                            {formatAmerican(mlValue)}
                                         </span>
+                                            );
+                                        })()}
                                     </td>
 
                                     {/* Spread + Juice */}
