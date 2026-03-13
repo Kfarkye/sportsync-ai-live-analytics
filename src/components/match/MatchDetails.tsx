@@ -1094,42 +1094,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     return () => { active = false; controller.abort(); };
   }, [isSched, match.id, match.homeTeam?.name, match.awayTeam?.name, match.sport, match.leagueId]);
 
-  // SOTA FIX: Dynamic Insight Team Resolution explicitly checks prop team vs game teams
-  const insightCardData = useMemo(() => {
-    if (deferredTab !== 'DATA' || !match.dbProps?.length) return null;
-    const propRow = match.dbProps[0];
-
-    const propTeamNorm = (propRow.team || '').toLowerCase();
-    const homeKeys = [match.homeTeam.abbreviation, match.homeTeam.shortName, match.homeTeam.name]
-      .filter(Boolean)
-      .map(k => k!.toLowerCase());
-
-    const isHome = homeKeys.some(k => propTeamNorm.includes(k));
-
-    const teamLabel = isHome ? (match.homeTeam.abbreviation || match.homeTeam.name) : (match.awayTeam.abbreviation || match.awayTeam.name);
-    const opponentLabel = isHome ? (match.awayTeam.abbreviation || match.awayTeam.name) : (match.homeTeam.abbreviation || match.homeTeam.name);
-
-    return toInsightCard({
-      id: propRow.id || match.id,
-      playerName: propRow.playerName || '',
-      team: teamLabel || 'TBD',
-      opponent: opponentLabel || 'TBD',
-      matchup: `${match.awayTeam.abbreviation || match.awayTeam.name} @ ${match.homeTeam.abbreviation || match.homeTeam.name}`,
-      headshotUrl: propRow.headshotUrl || '',
-      side: (propRow.side || 'OVER').toUpperCase(),
-      line: Number(propRow.lineValue ?? 0),
-      statType: String(propRow.betType || 'Stat').replace(/_/g, ' '),
-      bestOdds: propRow.oddsAmerican || 0,
-      bestBook: propRow.sportsbook || 'Market',
-      probability: typeof propRow.impliedProbPct === 'number' ? propRow.impliedProbPct : 50,
-      aiAnalysis: propRow.aiRationale || 'Intelligence pending.',
-      dvpRank: propRow.fantasyDvpRank || 0,
-      edge: 0,
-      l5Results: [],
-      l5HitRate: 0
-    });
-  }, [deferredTab, match]);
-
   const gameEdgeCardData = useMemo(() => {
     if (deferredTab !== 'DATA' || !pregameIntel || !match.homeTeam || !match.awayTeam) return null;
 
@@ -1350,14 +1314,13 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       </div>
                     )}
 
-                    {(gameEdgeCardData || insightCardData) && (
+                    {gameEdgeCardData && (
                       <div className="mb-14 space-y-6">
                         <div className="flex items-center gap-3">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
                           <span className="text-[11px] font-bold text-black/50 uppercase tracking-[0.2em]">Shareable Insights</span>
                         </div>
                         {gameEdgeCardData && <div className="space-y-3"><span className="text-[10px] font-bold text-black/40 uppercase tracking-[0.2em] ml-2">Game Edge</span><InsightCard data={gameEdgeCardData!} /></div>}
-                        {insightCardData && <div className="space-y-3"><span className="text-[10px] font-bold text-black/40 uppercase tracking-[0.2em] ml-2">Player Prop</span><InsightCard data={insightCardData!} /></div>}
                       </div>
                     )}
 
