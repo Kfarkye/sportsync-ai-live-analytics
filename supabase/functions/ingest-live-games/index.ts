@@ -1,41 +1,3 @@
-/**
- * LIVE GAME STATE INGESTION ENGINE
- * Version: 9.0.0 - Golden Master Release
- * 
- * REQUIRED DATABASE INFRASTRUCTURE:
- * 
- * 1. INGESTION LOCKS TABLE (For cross-container concurrency safety)
- *    CREATE TABLE ingestion_locks (id TEXT PRIMARY KEY, expires_at TIMESTAMPTZ NOT NULL);
- * 
- * 2. ATOMIC UPSERT RPC (For transactional core writes)
- *    CREATE OR REPLACE FUNCTION upsert_game_state_atomic(
- *      p_match_payload jsonb, p_state_payload jsonb, p_closing_payload jsonb
- *    ) RETURNS void LANGUAGE plpgsql AS $$
- *    BEGIN
- *      INSERT INTO matches (id, league_id, sport, status, period, display_clock, home_score, away_score, current_odds, closing_odds, is_closing_locked, last_updated, home_team, away_team, opening_odds)
- *      SELECT * FROM jsonb_populate_record(null::matches, p_match_payload)
- *      ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, period = EXCLUDED.period, display_clock = EXCLUDED.display_clock, home_score = EXCLUDED.home_score, away_score = EXCLUDED.away_score, current_odds = EXCLUDED.current_odds, closing_odds = EXCLUDED.closing_odds, is_closing_locked = EXCLUDED.is_closing_locked, last_updated = EXCLUDED.last_updated, opening_odds = EXCLUDED.opening_odds;
- *      
- *      INSERT INTO live_game_state (id, league_id, sport, game_status, period, clock, home_score, away_score, odds, deterministic_signals, situation, last_play, current_drive, recent_plays, stats, player_stats, leaders, momentum, advanced_metrics, match_context, predictor, updated_at, canonical_id)
- *      SELECT * FROM jsonb_populate_record(null::live_game_state, p_state_payload)
- *      ON CONFLICT (id) DO UPDATE SET game_status = EXCLUDED.game_status, period = EXCLUDED.period, clock = EXCLUDED.clock, home_score = EXCLUDED.home_score, away_score = EXCLUDED.away_score, odds = EXCLUDED.odds, deterministic_signals = EXCLUDED.deterministic_signals, situation = EXCLUDED.situation, last_play = EXCLUDED.last_play, current_drive = EXCLUDED.current_drive, recent_plays = EXCLUDED.recent_plays, stats = EXCLUDED.stats, player_stats = EXCLUDED.player_stats, leaders = EXCLUDED.leaders, momentum = EXCLUDED.momentum, advanced_metrics = EXCLUDED.advanced_metrics, match_context = EXCLUDED.match_context, predictor = EXCLUDED.predictor, updated_at = EXCLUDED.updated_at;
- *      
- *      IF p_closing_payload IS NOT NULL THEN
- *        INSERT INTO closing_lines (match_id, league_id, home_spread, away_spread, total, home_ml, away_ml)
- *        SELECT * FROM jsonb_populate_record(null::closing_lines, p_closing_payload)
- *        ON CONFLICT (match_id) DO UPDATE SET home_spread = EXCLUDED.home_spread, away_spread = EXCLUDED.away_spread, total = EXCLUDED.total, home_ml = EXCLUDED.home_ml, away_ml = EXCLUDED.away_ml;
- *      END IF;
- *    END;
- *    $$;
- * 
- * ARCHITECTURE NOTE: ASYMMETRIC INTEGRITY POLICY
- * - Concurrency Locks: STRICT FAIL-CLOSED. If `ingestion_locks` is missing, ingestion halts. 
- *   Un-locked concurrent workers guarantee data corruption.
- * - Atomic Persistence: OPPORTUNISTIC FAIL-OPEN. If `upsert_game_state_atomic` is missing, 
- *   it degrades to sequential writes. This risks split-brain state upon partial network 
- *   failure, but is an acceptable operational fallback compared to total outage. Tracked 
- *   accurately via `atomic_core_persisted` vs `degraded_fallback_writes`.
- */
 declare const Deno: any;
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -43,9 +5,8 @@ import { computeAISignals } from '../_shared/gameStateEngine.ts'
 import { EspnAdapters, Safe } from '../_shared/espnAdapters.ts'
 import { getCanonicalMatchId, generateDeterministicId, resolveCanonicalMatch } from '../_shared/match-registry.ts'
 import { writeCurrentOdds } from '../_shared/current-odds-writer.ts'
+import { toCanonicalOdds } from '../_shared/odds-contract.ts'
 import { Sport } from '../_shared/types.ts'
-
-const VERSION = '9.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -55,6 +16,8 @@ const corsHeaders = {
 
 let _supabase: ReturnType<typeof createClient> | null = null;
 let _contextSnapshotAvailable = true;
+
+const _localLocks = new Set<string>();
 
 function getSupabaseClient() {
   if (_supabase) return _supabase;
@@ -67,44 +30,13 @@ function getSupabaseClient() {
   return _supabase;
 }
 
-// ==========================================
-// 1. STRICT INTERNAL CONTRACTS
-// ==========================================
-
-export interface LeagueConfig {
-  id: string;
-  db_sport: string;
-  espn_sport: string;
-  endpoint: string;
-  groups?: string;
-}
-
-export interface NormalizedOdds {
-  provider: string;
-  provider_id: number | null;
-  is_live: boolean;
-  captured_at: string;
-  source: string;
-  moneyline: { home: number | null; away: number | null; draw: number | null };
-  spread: { home: number | null; away: number | null; home_price: number | null; away_price: number | null };
-  total: { points: number | null; over_price: number | null; under_price: number | null };
-}
-
-export interface TelemetryState {
-  summary: { req: number; ok: number; fail: number; rate_limit: number };
-  core_odds: { req: number; ok: number; fail: number; rate_limit: number };
-  bpi: { req: number; ok: number; fail: number; rate_limit: number };
-  pbp: { req: number; ok: number; fail: number; rate_limit: number };
-  enrichment: { req: number; ok: number; fail: number; rate_limit: number };
-}
-
 const SCOREBOARD_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
 const SUMMARY_BASES = [
   'https://site.api.espn.com/apis/site/v2/sports',
   'https://site.web.api.espn.com/apis/site/v2/sports'
 ];
 
-const MONITOR_LEAGUES: LeagueConfig[] = [
+const MONITOR_LEAGUES = [
   { id: 'nfl', db_sport: 'americanfootball', espn_sport: 'football', endpoint: 'football/nfl' },
   { id: 'nba', db_sport: 'basketball', espn_sport: 'basketball', endpoint: 'basketball/nba' },
   { id: 'wnba', db_sport: 'basketball', espn_sport: 'basketball', endpoint: 'basketball/wnba' },
@@ -126,71 +58,10 @@ const MONITOR_LEAGUES: LeagueConfig[] = [
 ];
 
 const Logger = {
-  info: (msg: string, data?: any) => console.log(JSON.stringify({ level: 'INFO', v: VERSION, msg, ...data })),
-  warn: (msg: string, data?: any) => console.warn(JSON.stringify({ level: 'WARN', v: VERSION, msg, ...data })),
-  error: (msg: string, data?: any) => console.error(JSON.stringify({ level: 'ERROR', v: VERSION, msg, error: data?.error?.message || data?.error || data }))
-};
-
-// ==========================================
-// 2. PARSERS & STRICT SCHEMA GUARDS
-// ==========================================
-
-function isNormalizedOdds(odds: any): odds is NormalizedOdds {
-  if (!odds || typeof odds !== 'object' || Array.isArray(odds)) return false;
-  
-  const hasBaseKeys = 'provider' in odds && 'moneyline' in odds && 'spread' in odds && 'total' in odds;
-  if (!hasBaseKeys) return false;
-  
-  if (typeof odds.provider !== 'string') return false;
-  
-  const isObj = (val: any) => val && typeof val === 'object' && !Array.isArray(val);
-  if (!isObj(odds.moneyline) || !isObj(odds.spread) || !isObj(odds.total)) return false;
-  
-  const isNumOrNull = (val: any) => val === null || typeof val === 'number';
-  
-  const ml = odds.moneyline;
-  if (!('home' in ml) || !isNumOrNull(ml.home) || !('away' in ml) || !isNumOrNull(ml.away)) return false;
-  
-  const sp = odds.spread;
-  if (!('home' in sp) || !isNumOrNull(sp.home) || 
-      !('away' in sp) || !isNumOrNull(sp.away) ||
-      !('home_price' in sp) || !isNumOrNull(sp.home_price) ||
-      !('away_price' in sp) || !isNumOrNull(sp.away_price)) return false;
-      
-  const tot = odds.total;
-  if (!('points' in tot) || !isNumOrNull(tot.points) ||
-      !('over_price' in tot) || !isNumOrNull(tot.over_price) ||
-      !('under_price' in tot) || !isNumOrNull(tot.under_price)) return false;
-
-  return true;
-}
-
-const parseAmerican = (val: any): number | null => {
-  if (val == null) return null;
-  if (typeof val === 'object') {
-    val = val?.value ?? val?.american ?? val?.displayValue ?? null;
-    if (typeof val === 'object') return null; // Reject unresolved structures
-  }
-  const str = String(val).trim().toLowerCase();
-  if (str === 'ev' || str === 'even' || str === 'pk' || str === 'pick') return 100;
-  const n = parseInt(str.replace('+', ''), 10);
-  return isNaN(n) ? null : n;
-};
-
-const parseLine = (val: any): number | null => {
-  if (val == null) return null;
-  if (typeof val === 'object') {
-    val = val?.value ?? val?.displayValue ?? null;
-    if (typeof val === 'object') return null; 
-  }
-  const str = String(val).trim().toLowerCase();
-  if (str === 'pk' || str === 'even' || str === 'pick') return 0;
-  
-  // STRICT GUARD: Reject American odds (e.g. -110, +150) masquerading as line points
-  if (/^[+-]\d{3,}$/.test(str)) return null; 
-  
-  const n = parseFloat(str);
-  return isNaN(n) ? null : n;
+  info: (msg: string, data?: any) => console.log(JSON.stringify({ level: 'INFO', msg, ...(data || {}) })),
+  warn: (msg: string, data?: any) => console.warn(JSON.stringify({ level: 'WARN', msg, ...(data || {}) })),
+  debug: (msg: string, data?: any) => console.log(JSON.stringify({ level: 'DEBUG', msg, ...(data || {}) })),
+  error: (msg: string, error?: any) => console.error(JSON.stringify({ level: 'ERROR', msg, error: error?.message || error }))
 };
 
 const toAdapterSport = (espnSport: string): Sport => {
@@ -205,342 +76,366 @@ const toAdapterSport = (espnSport: string): Sport => {
   }
 };
 
-let _seqCounter = 0;
-function getSafeSequenceId(): number {
-  // Expanded collision bounds: 1000/sec per container. Max value safely fits in Postgres INT4 (2B limit).
-  const base = Math.floor(Date.now() / 1000) % 2000000;
-  return (base * 1000) + (_seqCounter++ % 1000);
-}
-
-function normalizeOdds(sourceObj: any, providerName: string, providerId: number | null, isLive: boolean, sourceTag: string): NormalizedOdds | null {
-  if (!sourceObj) return null;
-
-  const homeLine = parseLine(sourceObj.homeTeamOdds?.spread ?? sourceObj.spread?.home ?? sourceObj.homeTeamOdds?.pointSpread?.value ?? sourceObj.spread);
-  const awayLine = parseLine(sourceObj.awayTeamOdds?.spread ?? sourceObj.spread?.away ?? sourceObj.awayTeamOdds?.pointSpread?.value) ?? (homeLine !== null ? -homeLine : null);
-
-  return {
-    provider: providerName,
-    provider_id: providerId,
-    is_live: isLive,
-    captured_at: new Date().toISOString(),
-    source: sourceTag,
-    moneyline: {
-      home: parseAmerican(sourceObj.homeTeamOdds?.moneyLine ?? sourceObj.moneyline?.home ?? sourceObj.homeTeamOdds?.moneyLine?.value),
-      away: parseAmerican(sourceObj.awayTeamOdds?.moneyLine ?? sourceObj.moneyline?.away ?? sourceObj.awayTeamOdds?.moneyLine?.value),
-      draw: parseAmerican(sourceObj.drawOdds?.moneyLine ?? sourceObj.moneyline?.draw)
-    },
-    spread: {
-      home: homeLine,
-      away: awayLine,
-      home_price: parseAmerican(sourceObj.homeTeamOdds?.spreadOdds ?? sourceObj.homeTeamOdds?.pointSpread?.american),
-      away_price: parseAmerican(sourceObj.awayTeamOdds?.spreadOdds ?? sourceObj.awayTeamOdds?.pointSpread?.american)
-    },
-    total: {
-      points: parseLine(sourceObj.overUnder ?? sourceObj.total?.points ?? sourceObj.total?.value),
-      over_price: parseAmerican(sourceObj.overOdds ?? sourceObj.over?.american ?? sourceObj.total?.over?.american),
-      under_price: parseAmerican(sourceObj.underOdds ?? sourceObj.under?.american ?? sourceObj.total?.under?.american)
-    }
-  };
-}
-
 const safeExtract = (name: string, fn: () => any) => {
-  try { return fn() ?? null; } catch (e: any) { 
-    Logger.warn(`Extraction Failed: ${name}`, { error: e.message || String(e) });
-    return null; 
-  }
+  try { const value = fn(); return value === undefined ? null : value; }
+  catch (e: any) { Logger.warn(`EXTRACTION_FAILED`, { field: name, error: e.message || String(e) }); return null; }
 };
 
 const getCompetitorName = (c: any) => c?.team?.displayName || c?.athlete?.displayName || 'Unknown';
 
-// ==========================================
-// 3. TELEMETRY & NETWORK (REQUEST SCOPED)
-// ==========================================
+let _seqCounter = 0;
+function generateSequence(): number {
+  const base = Math.floor(Date.now() / 1000) % 2000000;
+  return (base * 1000) + (_seqCounter++ % 1000);
+}
 
-async function fetchWithTelemetry(url: string, telemetryState: TelemetryState, endpointKey: keyof TelemetryState, retries = 2) {
-  telemetryState[endpointKey].req++;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-      if (res.ok) { telemetryState[endpointKey].ok++; return res; }
-      
-      // Fast fail on missing resources to prevent wasteful backoff
-      if (res.status === 404) break; 
-      
-      if (res.status === 429) {
-        telemetryState[endpointKey].rate_limit++;
-        await new Promise(r => setTimeout(r, parseInt(res.headers.get('retry-after') || '2') * 1000));
-        continue;
-      }
-      if (res.status >= 400 && res.status < 500 && res.status !== 429) break; 
-    } catch (e: any) {
-      if (e.name === 'AbortError' || e.name === 'TimeoutError') continue;
-    }
-    await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+function parsePrice(val: any): number | null {
+  if (val == null) return null;
+  if (typeof val === 'number') return Number.isFinite(val) ? Math.trunc(val) : null;
+  if (typeof val === 'string') {
+    const s = val.trim().toUpperCase();
+    if (s === 'EV' || s === 'EVEN') return 100;
+    const n = parseInt(s.replace(/[+,]/g, ''), 10);
+    return Number.isNaN(n) ? null : n;
   }
-  telemetryState[endpointKey].fail++;
+  if (typeof val === 'object') {
+    if (val.american != null) return parsePrice(val.american);
+    if (val.value != null) return parsePrice(val.value);
+  }
   return null;
 }
 
-// Optimistic Concurrency Control (OCC) ensures exclusive lock acquisition across containers
-async function acquireLock(supabase: any, matchId: string): Promise<boolean> {
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + 60000).toISOString(); 
-  
-  try {
-    const { error } = await supabase.from('ingestion_locks').insert({ id: matchId, expires_at: expiresAt });
-    if (!error) return true;
-    
-    // STRICT FAIL-CLOSED: Missing lock table breaks global integrity. Refuse to proceed.
-    if (error.code === '42P01') {
-      Logger.error('FATAL: ingestion_locks table is missing. Failing closed to guarantee cross-instance integrity.', { match_id: matchId });
-      return false; 
+function parsePoints(val: any): number | null {
+  if (val == null) return null;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  if (typeof val === 'string') {
+    const s = val.trim().toUpperCase();
+    if (s === 'PK' || s === 'PICK' || s === 'EVEN') return 0;
+    if (/^[+-]\d{3,}$/.test(s)) return null;
+    const n = parseFloat(s.replace(/[+,]/g, ''));
+    return Number.isNaN(n) ? null : n;
+  }
+  if (typeof val === 'object') {
+    if (val.value != null) return parsePoints(val.value);
+    if (val.points != null) return parsePoints(val.points);
+    if (val.line != null) return parsePoints(val.line);
+  }
+  return null;
+}
+
+function isExternalProvider(provider: unknown): boolean {
+  const s = String(provider || '').toLowerCase().trim();
+  if (!s) return false;
+  return !['espn', 'espnbet', 'espn bet', 'pickcenter', 'consensus'].includes(s);
+}
+
+const getLiveProviderScore = (provider: any) => {
+  const id = String(provider?.provider?.id || '');
+  const name = String(provider?.provider?.name || '').toLowerCase();
+  if (id === '200' || name.includes('live')) return 1;
+  if (id === '100' || name.includes('draftkings')) return 2;
+  if (id === '115' || name.includes('espn')) return 3;
+  if (name.includes('fanduel')) return 4;
+  if (name.includes('betmgm') || name.includes('mgm')) return 5;
+  if (name.includes('caesars')) return 6;
+  if (name.includes('consensus')) return 99;
+  return 10;
+};
+
+const getPregameProviderScore = (provider: any) => {
+  const id = String(provider?.provider?.id || '');
+  const name = String(provider?.provider?.name || '').toLowerCase();
+  if (id === '100' || (name.includes('draftkings') && !name.includes('live'))) return 1;
+  if (id === '200' || name.includes('live')) return 2;
+  if (id === '115' || name.includes('espn')) return 3;
+  if (name.includes('fanduel')) return 4;
+  if (name.includes('betmgm') || name.includes('mgm')) return 5;
+  if (name.includes('caesars')) return 6;
+  if (name.includes('consensus')) return 99;
+  return 10;
+};
+
+function fractionalToAmerican(fractional: string): number | null {
+  const parts = String(fractional || '').split('/');
+  if (parts.length !== 2) return null;
+  const num = parseFloat(parts[0]);
+  const den = parseFloat(parts[1]);
+  if (!Number.isFinite(num) || !Number.isFinite(den) || num <= 0 || den <= 0) return null;
+  const decimal = num / den;
+  if (decimal >= 1) return Math.round(decimal * 100);
+  return Math.round(-100 / decimal);
+}
+
+interface ParsedProviderOdds {
+  odds_open: any; odds_close: any; odds_live: any; bet365_live: any | null; dk_live_200: any | null; player_props: any | null;
+}
+
+function parseMultiProviderOdds(summaryData: any, comp: any, isSoccer: boolean): ParsedProviderOdds {
+  const result: ParsedProviderOdds = { odds_open: null, odds_close: null, odds_live: null, bet365_live: null, dk_live_200: null, player_props: null };
+  const oddsArray = Array.isArray(summaryData?.odds) ? summaryData.odds : [];
+  const compOdds = Array.isArray(comp?.odds) ? comp.odds : [];
+  const allProviders = [...oddsArray, ...compOdds];
+  const pregameSorted = [...allProviders].sort((a, b) => getPregameProviderScore(a) - getPregameProviderScore(b));
+  const liveSorted = [...allProviders].sort((a, b) => getLiveProviderScore(a) - getLiveProviderScore(b));
+
+  for (const provider of pregameSorted) {
+    const name = String(provider?.provider?.name || '').toLowerCase();
+    const id = String(provider?.provider?.id || '');
+    const providerLabel = provider?.provider?.name || 'ESPN';
+    if (isSoccer && (name.includes('bet365') || id === '2000' || id === '200')) continue;
+    if (!result.odds_open && provider?.open) {
+      result.odds_open = { home_ml: parsePrice(provider.open?.homeTeamOdds?.moneyLine ?? provider.open?.moneyLine), away_ml: parsePrice(provider.open?.awayTeamOdds?.moneyLine), homeSpread: parsePoints(provider.open?.homeTeamOdds?.spread ?? provider.open?.spread), awaySpread: parsePoints(provider.open?.awayTeamOdds?.spread), total: parsePoints(provider.open?.overUnder), overOdds: parsePrice(provider.open?.overOdds ?? provider.open?.overUnderOdds), underOdds: parsePrice(provider.open?.underOdds), homeSpreadOdds: parsePrice(provider.open?.homeTeamOdds?.spreadOdds ?? provider.open?.spreadOdds), awaySpreadOdds: parsePrice(provider.open?.awayTeamOdds?.spreadOdds), provider: providerLabel, provider_id: id || null };
     }
-    
-    if (error.code === '23505') { 
-      // Compare-and-Swap: Reclaim only if lock actively expired
-      const { data } = await supabase.from('ingestion_locks')
-        .update({ expires_at: expiresAt })
-        .eq('id', matchId)
-        .lt('expires_at', now.toISOString())
-        .select('id');
-      return !!(data && data.length > 0); 
+    if (!result.odds_close && provider?.close) {
+      result.odds_close = { home_ml: parsePrice(provider.close?.homeTeamOdds?.moneyLine ?? provider.close?.moneyLine), away_ml: parsePrice(provider.close?.awayTeamOdds?.moneyLine), homeSpread: parsePoints(provider.close?.homeTeamOdds?.spread ?? provider.close?.spread), awaySpread: parsePoints(provider.close?.awayTeamOdds?.spread), total: parsePoints(provider.close?.overUnder), overOdds: parsePrice(provider.close?.overOdds ?? provider.close?.overUnderOdds), underOdds: parsePrice(provider.close?.underOdds), homeSpreadOdds: parsePrice(provider.close?.homeTeamOdds?.spreadOdds ?? provider.close?.spreadOdds), awaySpreadOdds: parsePrice(provider.close?.awayTeamOdds?.spreadOdds), provider: providerLabel, provider_id: id || null };
     }
-    return false;
-  } catch (e: any) { 
-    Logger.error('Lock Acquisition Network Failure, failing closed', { match_id: matchId, error: e.message });
-    return false; // Fail CLOSED on network errors to preserve data integrity
+  }
+
+  for (const provider of liveSorted) {
+    const name = String(provider?.provider?.name || '').toLowerCase();
+    const id = String(provider?.provider?.id || '');
+    const providerLabel = provider?.provider?.name || 'ESPN';
+    if (isSoccer && (name.includes('bet365') || id === '2000')) {
+      if (!result.bet365_live) {
+        const teamOdds = provider?.teamOdds || provider?.bettingOdds || {};
+        result.bet365_live = { home_1x2: parsePrice(teamOdds?.home?.moneyLine), draw_1x2: parsePrice(teamOdds?.draw?.moneyLine), away_1x2: parsePrice(teamOdds?.away?.moneyLine), total: parsePoints(provider?.overUnder), over_under: parsePoints(provider?.overUnder), double_chance: provider?.doubleChance ?? null, is_live: !!provider?.current, provider: 'Bet365', provider_id: id || '2000', captured_at: new Date().toISOString() };
+        const playerOdds = provider?.playerOdds || provider?.bettingOdds?.players || [];
+        if (Array.isArray(playerOdds) && playerOdds.length > 0) {
+          result.player_props = { market: 'ATGS', players: playerOdds.map((p: any) => ({ name: p?.athlete?.displayName || p?.name || 'Unknown', team: p?.team?.displayName || null, odds_fractional: p?.odds || null, odds_american: p?.odds ? fractionalToAmerican(String(p.odds)) : null })).filter((p: any) => p.odds_fractional), count: playerOdds.length, captured_at: new Date().toISOString() };
+        }
+      }
+    } else if (isSoccer && id === '200') {
+      if (!result.dk_live_200) { result.dk_live_200 = { home_ml: parsePrice(provider?.homeTeamOdds?.moneyLine), away_ml: parsePrice(provider?.awayTeamOdds?.moneyLine), spread: parsePoints(provider?.spread), total: parsePoints(provider?.overUnder), provider: 'DraftKings Live', provider_id: '200', captured_at: new Date().toISOString() }; }
+    } else if (!isSoccer) {
+      if (!result.odds_live && provider?.current) {
+        result.odds_live = { home_ml: parsePrice(provider.current?.homeTeamOdds?.moneyLine ?? provider.current?.moneyLine), away_ml: parsePrice(provider.current?.awayTeamOdds?.moneyLine), homeSpread: parsePoints(provider.current?.homeTeamOdds?.spread ?? provider.current?.spread), awaySpread: parsePoints(provider.current?.awayTeamOdds?.spread), total: parsePoints(provider.current?.overUnder), overOdds: parsePrice(provider.current?.overOdds ?? provider.current?.overUnderOdds), underOdds: parsePrice(provider.current?.underOdds), homeSpreadOdds: parsePrice(provider.current?.homeTeamOdds?.spreadOdds ?? provider.current?.spreadOdds), awaySpreadOdds: parsePrice(provider.current?.awayTeamOdds?.spreadOdds), provider: providerLabel, provider_id: id || null, captured_at: new Date().toISOString() };
+      }
+    }
+  }
+  return result;
+}
+
+function parseBool(val: any): boolean {
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'number') return val === 1;
+  if (typeof val !== 'string') return false;
+  return ['1', 'true', 'yes', 'y', 'on'].includes(val.trim().toLowerCase());
+}
+
+function parsePositiveInt(val: any): number | null {
+  if (val === null || val === undefined || val === '') return null;
+  const n = Number(val);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.floor(n);
+}
+
+function computeAISignalsSafely(matchPayload: any, context: { matchId: string; leagueId: string; mode: 'dry' | 'persist' }) {
+  try { return { value: computeAISignals(matchPayload), error: null as string | null }; }
+  catch (e: any) { Logger.error('AI_SIGNAL_COMPUTE_FAILED', { matchId: context.matchId, league_id: context.leagueId, error: e.message || String(e) }); return { value: null, error: String(e) }; }
+}
+
+// ─── RESILIENT NETWORK FETCHERS ──────────────────────────────
+async function fetchWithRetry(url: string, retries = 3) {
+  let lastErr: any;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const c = new AbortController();
+      const id = setTimeout(() => c.abort(), 8000);
+      const res = await fetch(url, { signal: c.signal });
+      clearTimeout(id);
+      if (res.ok) return res;
+      if (res.status === 429) {
+        const retryAfterStr = res.headers.get('retry-after');
+        const wait = retryAfterStr ? parseInt(retryAfterStr, 10) * 1000 : 2000 * Math.pow(2, i);
+        Logger.warn('RATE_LIMIT_429', { url: url.split('?')[0], attempt: i + 1, waitMs: wait });
+        await new Promise(r => setTimeout(r, wait));
+        continue;
+      }
+      if (res.status >= 500) {
+        Logger.warn(`HTTP_5XX`, { url: url.split('?')[0], status: res.status });
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
+        continue;
+      }
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    } catch (e: any) {
+      lastErr = e;
+      if (i === retries - 1) throw e;
+    }
+    await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
+  }
+  throw new Error(`Failed after ${retries} retries: ${url} - ${lastErr?.message || 'Timeout'}`);
+}
+
+async function fetchCoreJson(url: string, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      if (res.ok) return await res.json();
+      if (res.status === 429) { const retryAfter = res.headers.get('retry-after'); const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : 2000 * Math.pow(2, attempt); await new Promise(r => setTimeout(r, delay)); continue; }
+      if (res.status >= 500) { await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt))); continue; }
+      break;
+    } catch (e: any) { await new Promise(r => setTimeout(r, 500 * (attempt + 1))); }
+  }
+  return null;
+}
+
+async function fetchSummaryWithFallback(endpoint: string, matchId: string) {
+  let lastError: any = null;
+  for (const base of SUMMARY_BASES) {
+    const urls = [`${base}/${endpoint}/summary?event=${matchId}`, `${base}/${endpoint}/summary?event=${matchId}&region=us&lang=en&contentorigin=espn`];
+    for (const url of urls) {
+      try { const res = await fetchWithRetry(url, 2); if (res.ok) return { res, url }; } catch (e: any) { lastError = e; }
+    }
+  }
+  throw new Error(`Summary fetch failed for ${endpoint}/${matchId}: ${lastError?.message || 'unknown error'}`);
+}
+
+async function upsertWithRetry(table: string, payload: any, retries = 3) {
+  const supabase = getSupabaseClient();
+  const onConflict = table === 'closing_lines' ? 'match_id' : 'id';
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const { error } = await supabase.from(table).upsert(payload, { onConflict });
+    if (!error) return;
+    Logger.error(`DB_UPSERT_RETRY`, { table, attempt, maxRetries: retries, error: error.message });
+    if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+    else throw new Error(`${table} upsert failed after ${retries} attempts: ${error.message}`);
   }
 }
 
-// ==========================================
-// 4. ORCHESTRATOR
-// ==========================================
-
+// ─── MAIN EXECUTION ───────────────────────────────────────────
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const reqUrl = new URL(req.url);
   const body = await req.json().catch(() => ({}));
-  
-  // Strict Comma-Separated Target Parsing
-  const targetIdsRaw = body?.target_match_id ?? reqUrl.searchParams.get('target_match_id');
-  const targetIds = targetIdsRaw
-    ? (Array.isArray(targetIdsRaw)
-        ? targetIdsRaw.flatMap((v: any) => String(v).split(','))
-        : String(targetIdsRaw).split(','))
-        .map(s => s.trim())
-        .filter(Boolean)
-    : [];
-  
-  const maxTotal = parseInt(body?.max_games_total ?? reqUrl.searchParams.get('max_games_total'), 10) || null;
-  const maxPerLeague = parseInt(body?.max_games_per_league ?? reqUrl.searchParams.get('max_games_per_league'), 10) || null;
-  
-  const Telemetry: TelemetryState = {
-    summary: { req: 0, ok: 0, fail: 0, rate_limit: 0 },
-    core_odds: { req: 0, ok: 0, fail: 0, rate_limit: 0 },
-    bpi: { req: 0, ok: 0, fail: 0, rate_limit: 0 },
-    pbp: { req: 0, ok: 0, fail: 0, rate_limit: 0 },
-    enrichment: { req: 0, ok: 0, fail: 0, rate_limit: 0 }
-  };
+  const rawTarget = body?.target_match_id ?? reqUrl.searchParams.get('target_match_id');
+  const targetArray = Array.isArray(rawTarget) ? rawTarget : (rawTarget ? String(rawTarget).split(',') : []);
+  const targetSet = new Set(targetArray.map(s => String(s).trim()).filter(Boolean));
 
-  const stats = { 
-    version: VERSION, 
-    attempted: 0, 
-    core_persisted: 0, 
-    atomic_core_persisted: 0,
-    degraded_fallback_writes: 0, 
-    processed: 0, 
-    locks_prevented: 0, 
-    errors: [] as string[], 
-    telemetry: Telemetry 
-  };
+  const dates = body?.dates ?? reqUrl.searchParams.get('dates');
+  const dryRun = parseBool(body?.dry ?? reqUrl.searchParams.get('dry'));
+  const debug = parseBool(body?.debug ?? reqUrl.searchParams.get('debug'));
+  const maxGamesGlobalParam = parsePositiveInt(body?.max_games ?? body?.max_games_total ?? reqUrl.searchParams.get('max_games') ?? reqUrl.searchParams.get('max_games_total'));
+  const maxGamesGlobal = maxGamesGlobalParam ? Math.min(maxGamesGlobalParam, 50) : null;
+
+  const leagueParamRaw = body?.league ?? reqUrl.searchParams.get('league') ?? '';
+  const leagueFilter = new Set(String(leagueParamRaw).split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
   
   const startedAt = Date.now();
-  let globalEnqueued = 0;
+  const stats = {
+    attempted: 0, processed: 0, live: 0, failed: 0, errors: [] as string[],
+    snapshots: 0, odds_snapshots_written: 0, bpi_snapshots: 0, context_snapshots: 0,
+    degraded_transactions: 0, dry_run: dryRun, max_games_requested: maxGamesGlobal,
+    league_filter: [...leagueFilter], dry_samples: [] as any[],
+  };
 
-  try { getSupabaseClient(); } catch (e: any) { return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders }); }
+  try { getSupabaseClient(); } catch (e: any) {
+    Logger.error('BOOT_INIT_FAILED', { error: e.message || e });
+    return new Response(JSON.stringify({ ok: false, error: e.message || String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
 
+  const supabase = getSupabaseClient();
+  let globalAttempted = 0;
+
+  leagueLoop:
   for (const league of MONITOR_LEAGUES) {
-    if (maxTotal && globalEnqueued >= maxTotal) break;
-    
+    if (maxGamesGlobal && globalAttempted >= maxGamesGlobal) break;
+    if (leagueFilter.size > 0 && !leagueFilter.has(league.id)) continue;
+
     try {
-      const dateParam = body?.dates ?? reqUrl.searchParams.get('dates') ?? new Date().toISOString().split('T')[0].replace(/-/g, '');
+      const dateParam = dates || new Date().toISOString().split('T')[0].replace(/-/g, '');
       const groupsParam = league.groups ? `&groups=${league.groups}` : '';
-      const res = await fetchWithTelemetry(`${SCOREBOARD_BASE}/${league.endpoint}/scoreboard?dates=${dateParam}${groupsParam}`, Telemetry, 'summary');
-      if (!res) continue;
-      
-      let events = (await res.json())?.events || [];
+      const res = await fetchWithRetry(`${SCOREBOARD_BASE}/${league.endpoint}/scoreboard?dates=${dateParam}${groupsParam}`);
+      const data = await res.json();
+      let events = data.events || [];
+
       if (league.db_sport === 'tennis') {
         events = events.flatMap((t: any) => (t.groupings || []).flatMap((g: any) => (g.competitions || []).map((c: any) => ({ ...t, id: c.id, date: c.date, status: c.status, competitions: [c] }))));
       }
 
-      // Restored Dual-Target Filtering (ESPN Event ID + Canonical DB ID)
-      let validEvents = events.filter((e: any) => {
-        if (targetIds.length > 0) {
-          const derivedId = getCanonicalMatchId(String(e.id), league.id);
-          if (!targetIds.includes(String(e.id)) && !targetIds.includes(derivedId)) return false;
+      let processableEvents = [];
+      for (const event of events) {
+        const state = event.status?.type?.state;
+        if (!['in', 'post'].includes(state)) {
+          const mins = (new Date(event.date).getTime() - Date.now()) / 60000;
+          if (state !== 'pre' || mins > 75 || mins < -20) continue;
         }
-        const state = e.status?.type?.state;
-        return ['pre', 'in', 'post'].includes(state);
-      });
-
-      let remainingAllowed = validEvents.length;
-      if (maxPerLeague !== null) remainingAllowed = Math.min(remainingAllowed, maxPerLeague);
-      if (maxTotal !== null) remainingAllowed = Math.min(remainingAllowed, maxTotal - globalEnqueued);
-      
-      if (remainingAllowed <= 0) continue;
-      validEvents = validEvents.slice(0, remainingAllowed);
-
-      const batchPromises = [];
-      for (const event of validEvents) {
-        globalEnqueued++;
-        stats.attempted++;
-        batchPromises.push(processGame(event, league, stats, Telemetry));
-        
-        if (batchPromises.length >= 5) {
-          await Promise.allSettled(batchPromises);
-          batchPromises.length = 0;
-        }
+        const dbMatchId = getCanonicalMatchId(event.id, league.id);
+        if (targetSet.size > 0 && !targetSet.has(String(event.id)) && !targetSet.has(dbMatchId)) continue;
+        processableEvents.push(event);
       }
-      if (batchPromises.length > 0) await Promise.allSettled(batchPromises);
 
-    } catch (e: any) { stats.errors.push(`League ${league.id}: ${e.message}`); }
+      const CONCURRENCY = 5;
+      for (let i = 0; i < processableEvents.length; i += CONCURRENCY) {
+        if (maxGamesGlobal && globalAttempted >= maxGamesGlobal) break leagueLoop;
+        const chunk = processableEvents.slice(i, i + CONCURRENCY);
+        const executing = chunk.map(async (event) => {
+          if (maxGamesGlobal && globalAttempted >= maxGamesGlobal) return;
+          const dbMatchId = getCanonicalMatchId(event.id, league.id);
+          if (_localLocks.has(dbMatchId)) return;
+          _localLocks.add(dbMatchId);
+
+          let hasDbLock = false;
+          let dbLockUnavailable = false;
+          try {
+            const { data, error } = await supabase.rpc('acquire_ingest_lock', { p_match_id: dbMatchId, p_ttl_seconds: 45 });
+            if (!error && data === true) { hasDbLock = true; }
+            else if (error) { const errStr = JSON.stringify(error).toLowerCase(); if (errStr.includes('42883') || errStr.includes('42p01') || errStr.includes('could not find function')) { dbLockUnavailable = true; } }
+          } catch { dbLockUnavailable = true; }
+
+          if (!hasDbLock && !dbLockUnavailable && !dryRun) { _localLocks.delete(dbMatchId); return; }
+
+          globalAttempted++;
+          stats.attempted++;
+          await processGame(supabase, event, dbMatchId, league, stats, { dryRun, debug }).finally(async () => {
+            _localLocks.delete(dbMatchId);
+            if (hasDbLock) await supabase.rpc('release_ingest_lock', { p_match_id: dbMatchId }).catch(() => {});
+          });
+        });
+        await Promise.all(executing);
+      }
+    } catch (e: any) { stats.errors.push(`${league.id}: ${e.message}`); Logger.warn('LEAGUE_LOOP_FAILED', { league: league.id, error: e.message }); }
   }
 
-  return new Response(JSON.stringify({ 
-    ...stats, 
-    degraded_fallback_used: stats.degraded_fallback_writes > 0,
-    elapsed_ms: Date.now() - startedAt 
-  }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  (stats as any).elapsed_ms = Date.now() - startedAt;
+  if (!debug && stats.dry_samples.length > 5) stats.dry_samples = stats.dry_samples.slice(0, 5);
+  return new Response(JSON.stringify(stats), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 });
 
-// ==========================================
-// 5. CORE GAME PROCESSING (ATOMIC PIPELINE)
-// ==========================================
-
-async function processGame(event: any, league: LeagueConfig, stats: any, telemetry: TelemetryState) {
-  const matchId = String(event.id);
-  const supabase = getSupabaseClient();
-  
-  // 1. DUAL IDENTITY: DB Event ID vs Canonical Target ID
-  const dbMatchId = getCanonicalMatchId(matchId, league.id);
-  const compHeader = event.competitions?.[0];
-  const homeName = getCompetitorName(compHeader?.competitors?.find((c: any) => c.homeAway === 'home'));
-  const awayName = getCompetitorName(compHeader?.competitors?.find((c: any) => c.homeAway === 'away'));
-
-  let canonicalId = await resolveCanonicalMatch(supabase, homeName, awayName, event.date, league.id).catch(() => null);
-  if (!canonicalId) canonicalId = generateDeterministicId(homeName, awayName, event.date, league.id);
-
-  // 2. Lock Acquisition
-  const hasLock = await acquireLock(supabase, dbMatchId);
-  if (!hasLock) { stats.locks_prevented++; return; }
+async function processGame(supabase: any, event: any, dbMatchId: string, league: any, stats: any, options: { dryRun?: boolean; debug?: boolean } = {}) {
+  const isDryRun = options.dryRun === true;
+  const matchId = event.id;
 
   try {
-    // 3. Summary Fetch with Extended Depth Fallback Loops
-    let summaryRes = null;
-    let data = null;
-    for (const base of SUMMARY_BASES) {
-      const urls = [
-        `${base}/${league.endpoint}/summary?event=${matchId}`,
-        `${base}/${league.endpoint}/summary?event=${matchId}&region=us&lang=en&contentorigin=espn`
-      ];
-      for (const url of urls) {
-        summaryRes = await fetchWithTelemetry(url, telemetry, 'summary');
-        if (summaryRes) {
-          data = await summaryRes.json();
-          break;
-        }
-      }
-      if (data) break;
-    }
-    
-    if (!data) throw new Error("Summary API failed on all fallbacks");
+    const { res } = await fetchSummaryWithFallback(league.endpoint, matchId);
+    const data = await res.json();
     const comp = data.header?.competitions?.[0];
     if (!comp) return;
 
     const home = comp.competitors?.find((c: any) => c.homeAway === 'home');
     const away = comp.competitors?.find((c: any) => c.homeAway === 'away');
-    let homeScore = parseInt(home?.score, 10) || 0;
-    let awayScore = parseInt(away?.score, 10) || 0;
-    const currentStatus = comp.status?.type?.name || 'SCHEDULED';
-    const currentPeriod = comp.status?.period || 0;
-    const isNowLive = ['IN_PROGRESS', 'HALFTIME', 'LIVE', 'STATUS_IN_PROGRESS'].some(s => currentStatus.toUpperCase().includes(s));
-
-    const { error: canonicalErr } = await supabase.from('canonical_games').upsert({
-      id: canonicalId, league_id: league.id, sport: league.db_sport,
-      home_team_name: homeName, away_team_name: awayName,
-      commence_time: event.date, status: currentStatus
-    });
-    if (canonicalErr) Logger.warn("Canonical game upsert failed", { matchId: dbMatchId, error: canonicalErr.message });
-
-    const { data: existingMatch } = await supabase.from('matches').select('home_score, away_score, period, status, opening_odds, closing_odds, is_closing_locked, current_odds').eq('id', dbMatchId).maybeSingle();
-    
-    if (existingMatch) {
-      if (homeScore < existingMatch.home_score) homeScore = existingMatch.home_score;
-      if (awayScore < existingMatch.away_score) awayScore = existingMatch.away_score;
-      
-      if (currentPeriod < (existingMatch.period || 0)) throw new Error(`Period regression blocked (${existingMatch.period} -> ${currentPeriod})`);
-      const wasFinal = ['FINAL', 'STATUS_FINAL', 'POST'].includes((existingMatch.status || '').toUpperCase());
-      const isNowScheduledOrLive = ['SCHEDULED', 'PRE_GAME', 'IN_PROGRESS', 'HALFTIME'].includes(currentStatus.toUpperCase());
-      if (wasFinal && isNowScheduledOrLive) throw new Error("Status regression blocked (FINAL -> LIVE/PRE)");
-    }
-
-    let liveOdds: NormalizedOdds | null = null;
-    let pregameOdds: NormalizedOdds | null = null;
-    let rawLiveSource: any = null;
-
-    if (league.db_sport !== 'soccer') {
-      const espnLeagueId = String(league.endpoint || '').split('/')[1];
-      if (espnLeagueId) {
-        const coreRes = await fetchWithTelemetry(`https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}/odds`, telemetry, 'core_odds');
-        if (coreRes) {
-          const coreItems = (await coreRes.json())?.items || [];
-          const liveProv = coreItems.find((p: any) => String(p?.provider?.id) === '200') || coreItems.find((p: any) => String(p?.provider?.id) === '100');
-          const preProv = coreItems.find((p: any) => String(p?.provider?.id) === '100');
-          if (liveProv?.current) { liveOdds = normalizeOdds(liveProv.current, liveProv.provider?.name || 'DK Live', liveProv.provider?.id, true, 'core_live'); rawLiveSource = liveProv.current; }
-          if (preProv?.open) pregameOdds = normalizeOdds(preProv.open, preProv.provider?.name || 'DK Pregame', preProv.provider?.id, false, 'core_pregame');
-        }
-      }
-    }
-
-    if (!liveOdds) {
-      const summaryOdds = comp.odds?.find((o: any) => o.current) || data.pickcenter?.find((o: any) => o.current);
-      if (summaryOdds) { liveOdds = normalizeOdds(summaryOdds, summaryOdds.provider?.name || 'ESPN', summaryOdds.provider?.id, isNowLive, 'summary_live'); rawLiveSource = summaryOdds; }
-    }
-
-    const dbCurrentOdds = isNormalizedOdds(existingMatch?.current_odds) ? existingMatch.current_odds : null;
-    const dbOpeningOdds = isNormalizedOdds(existingMatch?.opening_odds) ? existingMatch.opening_odds : null;
-
-    const effectiveOdds = liveOdds || pregameOdds || dbCurrentOdds;
-
-    let closingLinesPayload = null;
-    let isClosingLocked = existingMatch?.is_closing_locked || !!existingMatch?.closing_odds;
-    const wasPregame = !existingMatch || ['SCHEDULED', 'PRE_GAME', 'STATUS_SCHEDULED'].some(s => (existingMatch.status || 'SCHEDULED').toUpperCase().includes(s));
-    let finalStoredClosingOdds = isNormalizedOdds(existingMatch?.closing_odds) ? existingMatch.closing_odds : null;
-
-    if (!isClosingLocked && isNowLive && wasPregame) {
-      const lockTarget = pregameOdds || dbCurrentOdds || dbOpeningOdds;
-      if (lockTarget && (lockTarget.spread?.home != null || lockTarget.moneyline?.home != null)) {
-        isClosingLocked = true;
-        finalStoredClosingOdds = lockTarget;
-        closingLinesPayload = {
-          match_id: dbMatchId, league_id: league.id,
-          home_spread: lockTarget.spread.home, away_spread: lockTarget.spread.away, total: lockTarget.total?.points,
-          home_ml: lockTarget.moneyline.home, away_ml: lockTarget.moneyline.away
-        };
-      }
-    }
-
+    const homeNameStr = getCompetitorName(home);
+    const awayNameStr = getCompetitorName(away);
+    const statusState = String(comp.status?.type?.state || '').toLowerCase();
+    const statusName = String(comp.status?.type?.name || '').toLowerCase();
+    const isLiveGame = ['in', 'in progress', 'halftime', 'status_in_progress'].some(k => statusState.includes(k) || statusName.includes(k));
     const adapterSport = toAdapterSport(league.espn_sport);
+    const isSoccer = league.db_sport === 'soccer';
+
+    let parsedOdds: ParsedProviderOdds = { odds_open: null, odds_close: null, odds_live: null, bet365_live: null, dk_live_200: null, player_props: null };
+    try { parsedOdds = parseMultiProviderOdds(data, comp, isSoccer); } catch (e: any) { Logger.warn('PARSE_MULTI_PROVIDER_ODDS_FAILED', { match_id: matchId, league_id: league.id, error: e?.message || String(e) }); }
+
+    let homeScore = Safe.score(home?.score) ?? 0;
+    let awayScore = Safe.score(away?.score) ?? 0;
     let manualSituationData: any = {};
     if (league.db_sport === 'tennis') {
       const hGames = (home?.linescores || []).reduce((a: number, b: any) => a + (parseInt(b.value) || 0), 0);
       const aGames = (away?.linescores || []).reduce((a: number, b: any) => a + (parseInt(b.value) || 0), 0);
       manualSituationData = { home_games_won: hGames, away_games_won: aGames };
     }
+
     const espnSituation = safeExtract('Situation', () => EspnAdapters.Situation(data)) || {};
     const mergedSituation = { ...espnSituation, ...manualSituationData };
-
     const extractedLastPlay = safeExtract('LastPlay', () => EspnAdapters.LastPlay(data));
     const extractedDrive = safeExtract('Drive', () => EspnAdapters.Drive(data));
     const extractedRecentPlays = safeExtract('RecentPlays', () => EspnAdapters.RecentPlays(data, adapterSport));
@@ -552,330 +447,208 @@ async function processGame(event: any, league: LeagueConfig, stats: any, telemet
     const extractedContext = safeExtract('Context', () => EspnAdapters.Context(data));
     const extractedPredictor = safeExtract('Predictor', () => EspnAdapters.Predictor(data));
 
-    const matchPayload: any = {
-      id: dbMatchId, league_id: league.id, sport: league.db_sport,
-      status: currentStatus, period: currentPeriod, display_clock: comp.status?.displayClock,
-      home_score: homeScore, away_score: awayScore, last_updated: new Date().toISOString(),
-      current_odds: effectiveOdds,
-      is_closing_locked: isClosingLocked,
-      closing_odds: finalStoredClosingOdds,
-      opening_odds: dbOpeningOdds || effectiveOdds
+    if (isDryRun) {
+      const drySignalsProbe = computeAISignalsSafely({ id: dbMatchId, league_id: league.id, sport: league.db_sport, status: comp.status?.type?.name, period: comp.status?.period, display_clock: comp.status?.displayClock, home_score: homeScore, away_score: awayScore, current_odds: null }, { matchId: dbMatchId, leagueId: league.id, mode: 'dry' });
+      stats.processed++; if (isLiveGame) stats.live++;
+      if (stats.dry_samples.length < 10) stats.dry_samples.push({ match_id: dbMatchId, status: comp.status?.type?.name, signal_guard: { ok: drySignalsProbe.error === null, error: drySignalsProbe.error } });
+      return;
+    }
+
+    const canonicalId = (await resolveCanonicalMatch(supabase, homeNameStr, awayNameStr, event.date, league.id)) ?? generateDeterministicId(homeNameStr, awayNameStr, event.date, league.id);
+    try { await upsertWithRetry('canonical_games', { id: canonicalId, league_id: league.id, sport: league.db_sport, home_team_name: homeNameStr, away_team_name: awayNameStr, commence_time: event.date, status: comp.status?.type?.name }); } catch {}
+
+    const { data: existingMatch } = await supabase.from('matches').select('status, home_score, away_score, period, current_odds, opening_odds, closing_odds, is_closing_locked').eq('id', dbMatchId).maybeSingle();
+    let premiumFeed = null;
+    try { const { data: rpcData, error: rpcError } = await supabase.rpc('resolve_market_feed', { p_match_id: matchId, p_canonical_id: canonicalId }); if (!rpcError && rpcData) premiumFeed = Array.isArray(rpcData) ? rpcData[0] : rpcData; } catch {}
+
+    let finalMarketOdds: any = { provider: 'ESPN' };
+    let espnOdds = EspnAdapters.Odds(comp, data.pickcenter) || {};
+    if (espnOdds.homeSpread == null && espnOdds.homeWin == null && espnOdds.total == null) {
+      const sbOdds = event.competitions?.[0]?.odds?.[0] || comp.odds?.[0];
+      if (sbOdds) {
+        espnOdds = { total: parsePoints(sbOdds.overUnder), homeWin: parsePrice(sbOdds.homeTeamOdds?.moneyLine ?? sbOdds.moneyline?.home), awayWin: parsePrice(sbOdds.awayTeamOdds?.moneyLine ?? sbOdds.moneyline?.away), homeSpread: parsePoints(sbOdds.homeTeamOdds?.spread ?? sbOdds.spread?.home), awaySpread: parsePoints(sbOdds.awayTeamOdds?.spread ?? sbOdds.spread?.away), provider: sbOdds.provider?.name || 'ESPN' };
+        if (typeof sbOdds.details === 'string' && espnOdds.homeSpread == null) {
+          const detailStr = sbOdds.details.toUpperCase();
+          if (detailStr === 'EVEN' || detailStr === 'PK' || detailStr.includes('PICK')) { espnOdds.homeSpread = 0; espnOdds.awaySpread = 0; }
+          else { const match = sbOdds.details.match(/([A-Z0-9]+)\s+([+-]?\d+\.?\d*)/i); if (match) { const val = parseFloat(match[2]); const teamAbbr = match[1].toUpperCase(); const homeAbbr = (home?.team?.abbreviation || '').toUpperCase(); const awayAbbr = (away?.team?.abbreviation || '').toUpperCase(); if (homeAbbr === teamAbbr && homeAbbr !== '') { espnOdds.homeSpread = val; espnOdds.awaySpread = -val; } else if (awayAbbr === teamAbbr && awayAbbr !== '') { espnOdds.awaySpread = val; espnOdds.homeSpread = -val; } } }
+        }
+      }
+    }
+
+    // ═══ CORE API PARALLEL ENRICHMENT ═══
+    let coreEnrichment: Record<string, any> = {};
+    let bpiPayloadData: any = null; let bpiLatestItem: any = null; let bpiProbData: any = null;
+    let homeStatsRaw: any = null; let awayStatsRaw: any = null; let parsedCoreOdds: any = null;
+
+    if (!isSoccer) {
+      const endpointParts = String(league.endpoint || '').split('/');
+      const espnLeagueId = endpointParts.length > 1 ? endpointParts[1] : null;
+      if (espnLeagueId && home?.id && away?.id) {
+        const coreBase = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}`;
+        const [coreOddsData, probData, predictorData, homeStatsData, awayStatsData, homeLeadersData, awayLeadersData, homeRosterData, awayRosterData, situationData] = await Promise.all([
+          fetchCoreJson(`${coreBase}/odds`), fetchCoreJson(`${coreBase}/probabilities?limit=5`), fetchCoreJson(`${coreBase}/predictor`),
+          fetchCoreJson(`${coreBase}/competitors/${home.id}/statistics`), fetchCoreJson(`${coreBase}/competitors/${away.id}/statistics`),
+          fetchCoreJson(`${coreBase}/competitors/${home.id}/leaders`), fetchCoreJson(`${coreBase}/competitors/${away.id}/leaders`),
+          fetchCoreJson(`${coreBase}/competitors/${home.id}/roster`), fetchCoreJson(`${coreBase}/competitors/${away.id}/roster`),
+          fetchCoreJson(`${coreBase}/situation`)
+        ]);
+
+        if (coreOddsData && Array.isArray(coreOddsData.items)) {
+          const items = coreOddsData.items;
+          const extractCoreOdds = (source: any, type: 'current' | 'open' | 'close') => {
+            if (!source || !source[type]) return null;
+            const d = source[type];
+            return { homeWin: parsePrice(d.homeTeamOdds?.moneyLine ?? d.moneyLine), awayWin: parsePrice(d.awayTeamOdds?.moneyLine), homeSpread: parsePoints(d.homeTeamOdds?.spread ?? d.spread), awaySpread: parsePoints(d.awayTeamOdds?.spread), total: parsePoints(d.overUnder ?? d.total?.value ?? d.total), overOdds: parsePrice(d.overOdds ?? d.overUnderOdds), underOdds: parsePrice(d.underOdds), homeSpreadOdds: parsePrice(d.homeTeamOdds?.spreadOdds ?? d.spreadOdds), awaySpreadOdds: parsePrice(d.awayTeamOdds?.spreadOdds), provider: source.provider?.name || 'ESPN' };
+          };
+          const liveItem = [...items].filter(p => p?.current).sort((a, b) => getLiveProviderScore(a) - getLiveProviderScore(b))[0];
+          parsedCoreOdds = liveItem ? extractCoreOdds(liveItem, 'current') : null;
+        }
+
+        if (predictorData) {
+          const getStatValue = (team: any, name: string) => { const statsArray = Array.isArray(team?.statistics) ? team.statistics : (Array.isArray(team?.team?.statistics) ? team.team.statistics : []); return statsArray.find((s: any) => s.name === name)?.value ?? null; };
+          bpiPayloadData = { homePredMov: getStatValue(predictorData.homeTeam, 'teampredmov'), homePredWinPct: getStatValue(predictorData.homeTeam, 'teampredwinpct'), awayPredWinPct: getStatValue(predictorData.awayTeam, 'teampredwinpct'), matchupQuality: getStatValue(predictorData.homeTeam, 'matchupquality'), lastUpdated: predictorData.lastModified ?? null };
+        }
+
+        if (probData) {
+          bpiProbData = probData; let latestItems = bpiProbData.items ?? [];
+          if ((bpiProbData.pageCount ?? 0) > 1) { const lastPage = await fetchCoreJson(`${coreBase}/probabilities?limit=5&page=${bpiProbData.pageCount}`); if (lastPage) { latestItems = lastPage.items ?? latestItems; bpiProbData = lastPage; } }
+          bpiLatestItem = latestItems.length > 0 ? latestItems[latestItems.length - 1] : null;
+        }
+
+        const extractStats = (json: any) => { const r: any = {}; (json?.splits?.categories ?? []).forEach((c: any) => (c?.stats ?? []).forEach((s: any) => { if (s?.name && s?.value != null) r[s.name] = s.value; })); return Object.keys(r).length > 0 ? r : null; };
+        homeStatsRaw = extractStats(homeStatsData); awayStatsRaw = extractStats(awayStatsData);
+        if (homeStatsRaw || awayStatsRaw) { coreEnrichment.advanced_metrics = { core_api_efficiency: { home: homeStatsRaw ? { ppep: homeStatsRaw.pointsPerEstimatedPossessions, pace: homeStatsRaw.estimatedPossessions, shootingEff: homeStatsRaw.shootingEfficiency, offRebPct: homeStatsRaw.offensiveReboundPct, astToRatio: homeStatsRaw.assistTurnoverRatio } : null, away: awayStatsRaw ? { ppep: awayStatsRaw.pointsPerEstimatedPossessions, pace: awayStatsRaw.estimatedPossessions, shootingEff: awayStatsRaw.shootingEfficiency, offRebPct: awayStatsRaw.offensiveReboundPct, astToRatio: awayStatsRaw.assistTurnoverRatio } : null } }; }
+
+        const extractLeaders = (json: any) => { const result: Record<string, any> = {}; for (const cat of (json?.leaders ?? [])) { const topPlayer = cat?.leaders?.[0]; if (topPlayer) result[cat?.name ?? cat?.displayName ?? 'unknown'] = { displayValue: topPlayer.displayValue, value: topPlayer.value, athleteRef: topPlayer.athlete?.$ref ?? null }; } return Object.keys(result).length > 0 ? result : null; };
+        const homeLeadersRaw = homeLeadersData ? extractLeaders(homeLeadersData) : null;
+        const awayLeadersRaw = awayLeadersData ? extractLeaders(awayLeadersData) : null;
+        const extractRoster = (json: any) => (json?.entries ?? json?.items ?? []).filter((e: any) => e?.playerId || e?.athlete).map((e: any) => ({ id: e.playerId ?? null, athleteRef: e.athlete?.$ref ?? null, statsRef: e.statistics?.$ref ?? null })).slice(0, 20);
+        const homeRosterRaw = homeRosterData ? extractRoster(homeRosterData) : null;
+        const awayRosterRaw = awayRosterData ? extractRoster(awayRosterData) : null;
+        if (homeRosterRaw || awayRosterRaw || homeLeadersRaw || awayLeadersRaw) { coreEnrichment.extra_data = { ...(coreEnrichment.extra_data || {}), ...(homeRosterRaw || awayRosterRaw ? { roster: { home: homeRosterRaw, away: awayRosterRaw } } : {}), ...(homeLeadersRaw || awayLeadersRaw ? { core_api_leaders: { home: homeLeadersRaw, away: awayLeadersRaw } } : {}) }; }
+        if (situationData) { coreEnrichment.situation = { homeTimeouts: situationData.homeTimeouts?.timeoutsRemainingCurrent ?? null, awayTimeouts: situationData.awayTimeouts?.timeoutsRemainingCurrent ?? null, homeFouls: situationData.homeFouls?.teamFoulsCurrent ?? null, awayFouls: situationData.awayFouls?.teamFoulsCurrent ?? null, homeFoulsToGive: situationData.homeFouls?.foulsToGive ?? null, awayFoulsToGive: situationData.awayFouls?.foulsToGive ?? null, homeBonusState: situationData.homeFouls?.bonusState ?? null, awayBonusState: situationData.awayFouls?.bonusState ?? null }; }
+      }
+    }
+
+    if (parsedCoreOdds) finalMarketOdds = { ...finalMarketOdds, ...parsedCoreOdds };
+    if (premiumFeed && !premiumFeed.is_stale) { finalMarketOdds = { homeSpread: parsePoints(premiumFeed.spread?.home?.point), awaySpread: parsePoints(premiumFeed.spread?.away?.point), total: parsePoints(premiumFeed.total?.over?.point), homeWin: parsePrice(premiumFeed.h2h?.home?.price), awayWin: parsePrice(premiumFeed.h2h?.away?.price), isInstitutional: true, provider: "Institutional" }; }
+    else { const hasEspnOdds = espnOdds.homeSpread != null || espnOdds.homeWin != null || espnOdds.total != null; const isExistingExternalDb = isExternalProvider(existingMatch?.current_odds?.provider); if (hasEspnOdds && (!isExistingExternalDb || isExternalProvider(espnOdds.provider))) { finalMarketOdds = { ...espnOdds, provider: espnOdds.provider || 'ESPN' }; } }
+
+    const isExistingExternalDb = isExternalProvider(existingMatch?.current_odds?.provider);
+    let canonicalOddsPayload = null;
+    const finalOddsHasKeys = Object.keys(finalMarketOdds).length > 0 && (finalMarketOdds.homeWin != null || finalMarketOdds.homeSpread != null || finalMarketOdds.total != null);
+    if (finalOddsHasKeys && (!isExistingExternalDb || isExternalProvider(finalMarketOdds.provider))) {
+      canonicalOddsPayload = toCanonicalOdds(finalMarketOdds, { provider: finalMarketOdds.provider || 'ESPN', isLive: isLiveGame, updatedAt: new Date().toISOString() });
+    }
+    const effectiveOdds = (isExistingExternalDb && !isExternalProvider(finalMarketOdds.provider) && existingMatch?.current_odds) ? existingMatch.current_odds : (canonicalOddsPayload ?? existingMatch?.current_odds ?? null);
+
+    let finalPeriod = parseInt(comp.status?.period, 10) || 0;
+    if (existingMatch) {
+      if ((existingMatch.home_score || 0) > homeScore) homeScore = existingMatch.home_score;
+      if ((existingMatch.away_score || 0) > awayScore) awayScore = existingMatch.away_score;
+      const dbPeriod = parseInt(existingMatch.period, 10) || 0;
+      if (dbPeriod > finalPeriod && finalPeriod !== 0) finalPeriod = dbPeriod;
+      const existingIsPost = String(existingMatch.status).toLowerCase().includes('final') || String(existingMatch.status).toLowerCase().includes('post');
+      const incomingIsPreOrIn = ['pre', 'in'].some(s => String(comp.status?.type?.state).toLowerCase().includes(s));
+      if (existingIsPost && incomingIsPreOrIn) { if (comp.status && comp.status.type) { comp.status.type.name = existingMatch.status; comp.status.type.state = 'post'; } }
+    }
+
+    const hasOpeningOdds = existingMatch?.opening_odds && Object.keys(existingMatch.opening_odds).length > 0;
+    const cleanFinalOdds = effectiveOdds;
+    const matchPayload: any = { id: dbMatchId, league_id: league.id, sport: league.db_sport, status: comp.status?.type?.name, period: finalPeriod, display_clock: comp.status?.displayClock, home_score: homeScore, away_score: awayScore, last_updated: new Date().toISOString(), opening_odds: hasOpeningOdds ? existingMatch.opening_odds : cleanFinalOdds, current_odds: effectiveOdds };
+    if (homeNameStr !== 'Unknown') matchPayload.home_team = homeNameStr;
+    if (awayNameStr !== 'Unknown') matchPayload.away_team = awayNameStr;
+
+    let isClosingLocked = existingMatch?.is_closing_locked || !!existingMatch?.closing_odds;
+    const hasMarketOdds = cleanFinalOdds && (cleanFinalOdds?.main?.total?.line != null || cleanFinalOdds?.total != null || cleanFinalOdds?.homeWin != null);
+    let closingPayload: any = null;
+    const safeExtractFlatOdds = (oddsObj: any, field: 'total' | 'homeSpread' | 'awaySpread' | 'homeMl' | 'awayMl') => {
+      if (!oddsObj) return null;
+      if (oddsObj.main) { if (field === 'total') return parsePoints(oddsObj.main.total?.line); if (field === 'homeSpread') return parsePoints(oddsObj.main.spread?.home?.point); if (field === 'awaySpread') return parsePoints(oddsObj.main.spread?.away?.point); if (field === 'homeMl') return parsePrice(oddsObj.main.h2h?.home?.price); if (field === 'awayMl') return parsePrice(oddsObj.main.h2h?.away?.price); }
+      if (field === 'total') return parsePoints(oddsObj.total); if (field === 'homeSpread') return parsePoints(oddsObj.homeSpread); if (field === 'awaySpread') return parsePoints(oddsObj.awaySpread); if (field === 'homeMl') return parsePrice(oddsObj.homeWin ?? oddsObj.home_ml); if (field === 'awayMl') return parsePrice(oddsObj.awayWin ?? oddsObj.away_ml); return null;
     };
-    if (homeName !== 'Unknown') matchPayload.home_team = homeName;
-    if (awayName !== 'Unknown') matchPayload.away_team = awayName;
 
-    const aiSignals = computeAISignalsSafely(matchPayload, { matchId: dbMatchId, leagueId: league.id, mode: 'persist' }).value;
+    if (!isClosingLocked && isLiveGame && hasMarketOdds) {
+      matchPayload.closing_odds = cleanFinalOdds; matchPayload.is_closing_locked = true;
+      closingPayload = { match_id: dbMatchId, league_id: league.id, home_spread: safeExtractFlatOdds(cleanFinalOdds, 'homeSpread'), away_spread: safeExtractFlatOdds(cleanFinalOdds, 'awaySpread'), total: safeExtractFlatOdds(cleanFinalOdds, 'total'), home_ml: safeExtractFlatOdds(cleanFinalOdds, 'homeMl'), away_ml: safeExtractFlatOdds(cleanFinalOdds, 'awayMl') };
+    } else if (isClosingLocked && existingMatch?.closing_odds) { matchPayload.closing_odds = existingMatch.closing_odds; }
 
-    const statePayload = {
-      id: dbMatchId, league_id: league.id, sport: league.db_sport, game_status: currentStatus, canonical_id: canonicalId,
-      period: currentPeriod, clock: comp.status?.displayClock, home_score: homeScore, away_score: awayScore,
-      odds: { current: effectiveOdds }, deterministic_signals: aiSignals,
-      situation: Object.keys(mergedSituation).length > 0 ? mergedSituation : null,
-      last_play: extractedLastPlay, current_drive: extractedDrive, recent_plays: extractedRecentPlays,
-      stats: extractedStats, player_stats: extractedPlayerStats, leaders: extractedLeaders,
-      momentum: extractedMomentum, advanced_metrics: extractedAdvancedMetrics, match_context: extractedContext, predictor: extractedPredictor,
-      updated_at: new Date().toISOString()
+    const minsToStart = (new Date(event.date).getTime() - Date.now()) / 60000;
+    const { data: s } = await supabase.from('live_game_state').select('odds').eq('id', dbMatchId).maybeSingle();
+    const currentOddsState = s?.odds || {};
+    let t60_snapshot = currentOddsState.t60_snapshot; let t0_snapshot = currentOddsState.t0_snapshot;
+    if (cleanFinalOdds) {
+      if (minsToStart > 50 && minsToStart < 75 && !t60_snapshot) t60_snapshot = { odds: cleanFinalOdds, timestamp: new Date().toISOString() };
+      if (minsToStart > -10 && minsToStart < 15 && !t0_snapshot) t0_snapshot = { odds: cleanFinalOdds, timestamp: new Date().toISOString() };
+    }
+
+    const aiSignalResult = computeAISignalsSafely(matchPayload, { matchId: dbMatchId, leagueId: league.id, mode: 'persist' });
+    const aiSignals = aiSignalResult.value;
+    delete matchPayload.current_odds;
+
+    const finalSituation = { ...(typeof mergedSituation === 'object' && mergedSituation ? mergedSituation : {}), ...(coreEnrichment.situation || {}) };
+    const finalAdvancedMetrics = { ...(typeof extractedAdvancedMetrics === 'object' && extractedAdvancedMetrics ? extractedAdvancedMetrics : {}), ...(coreEnrichment.advanced_metrics || {}) };
+    const finalExtraData = { ...(typeof manualSituationData === 'object' && manualSituationData ? manualSituationData : {}), ...(coreEnrichment.extra_data || {}) };
+
+    const statePayload: any = {
+      id: dbMatchId, league_id: league.id, sport: league.db_sport, game_status: matchPayload.status || 'SCHEDULED',
+      canonical_id: canonicalId, period: finalPeriod, clock: comp.status?.displayClock, home_score: homeScore, away_score: awayScore,
+      situation: Object.keys(finalSituation).length > 0 ? finalSituation : null,
+      last_play: extractedLastPlay, current_drive: extractedDrive, recent_plays: extractedRecentPlays, stats: extractedStats,
+      player_stats: extractedPlayerStats, leaders: extractedLeaders, momentum: extractedMomentum,
+      advanced_metrics: Object.keys(finalAdvancedMetrics).length > 0 ? finalAdvancedMetrics : null,
+      match_context: extractedContext, predictor: extractedPredictor,
+      extra_data: Object.keys(finalExtraData).length > 0 ? finalExtraData : null,
+      deterministic_signals: aiSignals, odds: { current: effectiveOdds, t60_snapshot: t60_snapshot || null, t0_snapshot: t0_snapshot || null }, updated_at: new Date().toISOString()
     };
 
-    const atomicPayload = { p_match_payload: matchPayload, p_state_payload: statePayload, p_closing_payload: closingLinesPayload };
-
-    // --- 7. DEGRADED FALLBACK BOUNDARY ---
-    let transactionSuccess = false;
-    let usedDegradedFallback = false;
-
-    const { error: rpcErr } = await supabase.rpc('upsert_game_state_atomic', atomicPayload);
-    
-    if (rpcErr) {
-      usedDegradedFallback = true;
-      stats.degraded_fallback_writes++;
-      
-      if (rpcErr.code !== '42883' && rpcErr.code !== '42P01') {
-        Logger.warn("[SUPPORTED DEGRADED MODE] RPC atomic write failed. Falling back to non-atomic sequential writes. Risk of split-brain state.", { error: rpcErr.message });
-      } else {
-        Logger.warn("[SUPPORTED DEGRADED MODE] RPC missing. Falling back to non-atomic sequential writes. Please deploy upsert_game_state_atomic.");
-      }
-      
-      const { error: matchErr } = await supabase.from('matches').upsert(matchPayload);
-      if (matchErr) throw new Error(`Primary match write failed: ${matchErr.message}`);
-      
-      const { error: stateErr } = await supabase.from('live_game_state').upsert(statePayload);
-      if (stateErr) throw new Error(`Live state write failed: ${stateErr.message}`);
-
-      if (closingLinesPayload) {
-        await supabase.from('closing_lines').upsert(closingLinesPayload, { onConflict: 'match_id' }).catch(()=>{});
-      }
-      transactionSuccess = true;
-    } else {
-      stats.atomic_core_persisted++;
-      transactionSuccess = true;
+    try {
+      const { error: txError } = await supabase.rpc('upsert_game_state_atomic', { p_match_payload: matchPayload, p_state_payload: statePayload, p_closing_payload: closingPayload });
+      if (txError) throw txError;
+    } catch (rpcErr: any) {
+      stats.degraded_transactions++;
+      Logger.warn('NON_ATOMIC_FALLBACK', { match_id: dbMatchId, error: rpcErr.message });
+      await upsertWithRetry('matches', matchPayload);
+      if (closingPayload) await upsertWithRetry('closing_lines', closingPayload);
+      await upsertWithRetry('live_game_state', statePayload);
     }
 
-    if (transactionSuccess) {
-      stats.core_persisted++;
-
-      if (effectiveOdds) {
-        try {
-          await writeCurrentOdds({ 
-            supabase, 
-            matchId: dbMatchId, 
-            rawOdds: rawLiveSource || effectiveOdds,
-            provider: effectiveOdds.provider || 'ESPN', 
-            isLive: isNowLive, 
-            updatedAt: new Date().toISOString() 
-          });
-        } catch (e: any) { Logger.warn("writeCurrentOdds failed", { error: e.message }); }
-      }
-
-      // 8. EVENTUAL CONSISTENCY BACKGROUND DELEGATIONS
-      const promises = [];
-      
-      if (effectiveOdds) {
-        promises.push(supabase.from('game_events').upsert({
-          match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'odds_snapshot', sequence: getSafeSequenceId(),
-          period: currentPeriod, clock: comp.status?.displayClock, home_score: homeScore, away_score: awayScore,
-          odds_live: effectiveOdds, source: 'strict_normalization'
-        }, { onConflict: 'match_id,event_type,sequence' }));
-      }
-
-      if (_contextSnapshotAvailable) {
-        const csPayload = {
-          ...statePayload, match_id: dbMatchId, captured_at: new Date().toISOString(), odds_current: effectiveOdds || null,
-          odds_total: effectiveOdds?.total?.points ?? null, odds_home_ml: effectiveOdds?.moneyline?.home ?? null, odds_away_ml: effectiveOdds?.moneyline?.away ?? null
-        };
-        delete (csPayload as any).id;
-        promises.push((async () => {
-          const { error: csErr } = await supabase.from('live_context_snapshots').insert(csPayload);
-          if (csErr?.message?.includes('does not exist')) _contextSnapshotAvailable = false;
-        })());
-      }
-
-      if (data.plays && data.plays.length > 0) {
-        promises.push(ingestPlayByPlay(supabase, league, dbMatchId, data.plays, currentPeriod, homeScore, awayScore, telemetry));
-      }
-      
-      if (league.db_sport !== 'soccer') {
-        promises.push(ingestBPI(supabase, league, matchId, dbMatchId, currentPeriod, comp.status?.displayClock, homeScore, awayScore, effectiveOdds, telemetry));
-        promises.push(ingestCoreAPIEnrichment(supabase, league, matchId, dbMatchId, canonicalId, home?.id, away?.id, currentPeriod, comp.status?.displayClock, homeScore, awayScore, mergedSituation, extractedAdvancedMetrics, effectiveOdds, telemetry));
-      }
-
-      await Promise.allSettled(promises);
-      
-      stats.processed++;
+    if (canonicalOddsPayload && finalOddsHasKeys) {
+      await writeCurrentOdds({ supabase, matchId: dbMatchId, normalizedOdds: canonicalOddsPayload, rawOdds: finalMarketOdds, provider: finalMarketOdds.provider || 'ESPN', isLive: isLiveGame, updatedAt: new Date().toISOString() } as any).catch((e: any) => Logger.warn('WRITE_CURRENT_ODDS_ERROR', { match_id: dbMatchId, error: e.message }));
     }
 
-  } catch (e: any) {
-    stats.errors.push(`${dbMatchId}: ${e.message}`);
-  } finally {
-    await supabase.from('ingestion_locks').delete().eq('id', dbMatchId).catch(() => {});
-  }
-}
+    // ═══ EVENT HISTORY ═══
+    if (homeStatsRaw || awayStatsRaw) { try { await supabase.from('game_events').upsert({ match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'box_snapshot', sequence: generateSequence(), period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, box_snapshot: { sport: league.db_sport, home: homeStatsRaw, away: awayStatsRaw }, source: 'core_api_stats' }, { onConflict: 'match_id,event_type,sequence' }); } catch {} }
 
-// ==========================================
-// 8. SUBROUTINES
-// ==========================================
-
-async function ingestPlayByPlay(supabase: any, league: LeagueConfig, dbMatchId: string, plays: any[], currentPeriod: number, homeScore: number, awayScore: number, telemetry: TelemetryState) {
-  if (!Array.isArray(plays) || plays.length === 0) return;
-  telemetry.pbp.req++;
-  try {
-    const playRows = plays.filter((p: any) => p?.text).map((p: any, index: number) => {
-      let seq = parseInt(p.sequenceNumber, 10);
-      if (isNaN(seq) || seq > 2147483647 || seq < -2147483648) {
-        seq = parseInt(String(p.id).replace(/\D/g, '').slice(-8), 10);
-        if (isNaN(seq)) seq = getSafeSequenceId() + index;
-      }
-
-      return {
-        match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'play', sequence: seq,
-        period: p.period?.number ?? currentPeriod, clock: p.clock?.displayValue,
-        home_score: parseInt(p.homeScore, 10) || homeScore, away_score: parseInt(p.awayScore, 10) || awayScore,
-        play_data: { id: p.id, text: p.text, type: p.type?.text, scoringPlay: !!p.scoringPlay, down: p.start?.down ?? p.down, distance: p.start?.distance ?? p.distance },
-        source: 'espn'
-      };
-    });
-
-    for (let i = 0; i < playRows.length; i += 200) {
-      await supabase.from('game_events').upsert(playRows.slice(i, i + 200), { onConflict: 'match_id,event_type,sequence' });
+    const hasAnyOdds = !!(parsedOdds.odds_live || parsedOdds.odds_open || parsedOdds.odds_close || parsedOdds.bet365_live || parsedOdds.dk_live_200);
+    if (hasAnyOdds) {
+      const oddsSnapshotPayload: any = { match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'odds_snapshot', sequence: generateSequence(), period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, odds_open: parsedOdds.odds_open, odds_close: parsedOdds.odds_close, odds_live: parsedOdds.odds_live, bet365_live: parsedOdds.bet365_live, dk_live_200: parsedOdds.dk_live_200, player_props: parsedOdds.player_props, match_state: { status: comp.status?.type?.name ?? null, home_team: homeNameStr, away_team: awayNameStr, score: `${homeScore}-${awayScore}`, period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null }, source: 'espn_live_odds' };
+      try { const { error: geError } = await supabase.from('game_events').upsert(oddsSnapshotPayload, { onConflict: 'match_id,event_type,sequence' }); if (!geError) stats.odds_snapshots_written++; } catch {}
     }
-    telemetry.pbp.ok++;
-  } catch (e: any) {
-    telemetry.pbp.fail++;
-    Logger.warn('PBP_WRITE_ERROR', { match_id: dbMatchId, error: e.message });
-  }
-}
 
-async function ingestBPI(supabase: any, league: LeagueConfig, matchId: string, dbMatchId: string, period: number, clock: string, homeScore: number, awayScore: number, effectiveOdds: any, telemetry: TelemetryState) {
-  const espnLeagueId = String(league.endpoint || '').split('/')[1];
-  if (!espnLeagueId) return;
+    if (bpiLatestItem && bpiLatestItem.homeWinPercentage != null) {
+      let bpiSeq = parseInt(bpiLatestItem.sequenceNumber, 10); if (isNaN(bpiSeq) || bpiSeq > 2147483647) bpiSeq = generateSequence();
+      try { await supabase.from('game_events').upsert({ match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'bpi_probability', sequence: bpiSeq, period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, play_data: { homeWinPct: bpiLatestItem.homeWinPercentage, awayWinPct: bpiLatestItem.awayWinPercentage, tieWinPct: bpiLatestItem.tiePercentage ?? 0, sequenceNumber: bpiLatestItem.sequenceNumber, lastModified: bpiLatestItem.lastModified, ...(bpiPayloadData ? { bpiPredictedMov: bpiPayloadData.homePredMov, bpiPregameWinPct: bpiPayloadData.homePredWinPct, bpiAwayPregameWinPct: bpiPayloadData.awayPredWinPct, matchupQuality: bpiPayloadData.matchupQuality, predictorLastUpdated: bpiPayloadData.lastUpdated } : {}) }, odds_live: cleanFinalOdds, source: 'espn_bpi' }, { onConflict: 'match_id,event_type,sequence' }); stats.bpi_snapshots++; } catch {}
+    }
 
-  try {
-    const probUrl = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}/probabilities?limit=5`;
-    const predUrl = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}/predictor`;
-    
-    const [probRes, predRes] = await Promise.all([
-      fetchWithTelemetry(probUrl, telemetry, 'bpi'),
-      fetchWithTelemetry(predUrl, telemetry, 'bpi')
-    ]);
-
-    let predictorData: any = null;
-    if (predRes) {
+    if (Array.isArray(data?.plays) && data.plays.length > 0) {
       try {
-        const predJson = await predRes.json();
-        const getStatValue = (team: any, name: string) => team?.statistics?.find?.((s: any) => s.name === name)?.value ?? null;
-        predictorData = {
-          homePredMov: getStatValue(predJson?.homeTeam, 'teampredmov'), homePredWinPct: getStatValue(predJson?.homeTeam, 'teampredwinpct'),
-          awayPredWinPct: getStatValue(predJson?.awayTeam, 'teampredwinpct'), matchupQuality: getStatValue(predJson?.homeTeam, 'matchupquality'),
-          lastUpdated: predJson?.lastModified ?? null
-        };
+        const playRows = data.plays.filter((p: any) => p?.id && p?.text).map((p: any, index: number) => {
+          let seq = parseInt(p.sequenceNumber, 10); if (isNaN(seq) || seq > 2147483647) { const fallbackFromId = parseInt(String(p.id || '').replace(/\D/g, '').slice(-8), 10); seq = (Number.isFinite(fallbackFromId) && fallbackFromId > 0) ? fallbackFromId : (generateSequence() + index); }
+          return { match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'play', sequence: seq, period: p.period?.number ?? finalPeriod ?? null, clock: p.clock?.displayValue ?? null, home_score: parseInt(p.homeScore?.toString() || '0', 10) || 0, away_score: parseInt(p.awayScore?.toString() || '0', 10) || 0, play_data: { id: p.id, text: p.text, type: p.type?.text ?? null, scoringPlay: !!p.scoringPlay, statYardage: p.statYardage ?? 0, down: p.start?.down ?? null, distance: p.start?.distance ?? null, yardLine: p.start?.yardLine ?? null }, source: 'espn' };
+        });
+        if (playRows.length > 0) { for (let i = 0; i < playRows.length; i += 200) await supabase.from('game_events').upsert(playRows.slice(i, i + 200), { onConflict: 'match_id,event_type,sequence' }); }
       } catch {}
     }
 
-    if (probRes) {
-      const probData = await probRes.json();
-      const totalPages = probData?.pageCount ?? 0;
-      let latestItems = probData?.items ?? [];
-      
-      if (totalPages > 1) {
-        const lastPageRes = await fetchWithTelemetry(`${probUrl}&page=${totalPages}`, telemetry, 'bpi');
-        if (lastPageRes) latestItems = (await lastPageRes.json())?.items || latestItems;
-      }
-
-      const latest = latestItems.length > 0 ? latestItems[latestItems.length - 1] : null;
-      if (latest && latest.homeWinPercentage != null) {
-        
-        let safeSeq = parseInt(latest.sequenceNumber, 10);
-        if (isNaN(safeSeq) || safeSeq > 2147483647 || safeSeq < -2147483648) safeSeq = getSafeSequenceId();
-
-        const bpiPayload: any = {
-          match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'bpi_probability', sequence: safeSeq,
-          period, clock, home_score: homeScore, away_score: awayScore,
-          play_data: {
-            homeWinPct: latest.homeWinPercentage, awayWinPct: latest.awayWinPercentage, tieWinPct: latest.tiePercentage ?? 0,
-            sequenceNumber: latest.sequenceNumber, lastModified: latest.lastModified, totalProbabilityEntries: probData?.count ?? null,
-            ...(predictorData ? { bpiPredictedMov: predictorData.homePredMov, bpiPregameWinPct: predictorData.homePredWinPct, bpiAwayPregameWinPct: predictorData.awayPredWinPct, matchupQuality: predictorData.matchupQuality, predictorLastUpdated: predictorData.lastUpdated } : {})
-          },
-          odds_live: effectiveOdds,
-          source: 'espn_bpi'
-        };
-
-        await supabase.from('game_events').upsert(bpiPayload, { onConflict: 'match_id,event_type,sequence' });
-      }
-    }
-  } catch { } 
-}
-
-async function ingestCoreAPIEnrichment(supabase: any, league: LeagueConfig, matchId: string, dbMatchId: string, canonicalId: string, homeId: string, awayId: string, period: number, clock: string, homeScore: number, awayScore: number, mergedSituation: any, extractedAdvancedMetrics: any, effectiveOdds: any, telemetry: TelemetryState) {
-  const espnLeagueId = String(league.endpoint || '').split('/')[1];
-  if (!espnLeagueId || !homeId || !awayId) return;
-
-  try {
-    const coreBase = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}`;
-
-    const [homeStats, awayStats, homeLeaders, awayLeaders, homeRoster, awayRoster, situationJson, officialsJson, broadcastsJson, predictorJson] = await Promise.all([
-      fetchWithTelemetry(`${coreBase}/competitors/${homeId}/statistics`, telemetry, 'enrichment').then(r => r?.json().catch(()=>null)),
-      fetchWithTelemetry(`${coreBase}/competitors/${awayId}/statistics`, telemetry, 'enrichment').then(r => r?.json().catch(()=>null)),
-      fetchWithTelemetry(`${coreBase}/competitors/${homeId}/leaders`, telemetry, 'enrichment').then(r => r?.json().catch(()=>null)),
-      fetchWithTelemetry(`${coreBase}/competitors/${awayId}/leaders`, telemetry, 'enrichment').then(r => r?.json().catch(()=>null)),
-      fetchWithTelemetry(`${coreBase}/competitors/${homeId}/roster`, telemetry, 'enrichment').then(r => r?.json().catch(()=>null)),
-      fetchWithTelemetry(`${coreBase}/competitors/${awayId}/roster`, telemetry, 'enrichment').then(r => r?.json().catch(()=>null)),
-      fetchWithTelemetry(`${coreBase}/situation`, telemetry, 'enrichment').then(r => r?.json().catch(()=>null)),
-      fetchWithTelemetry(`${coreBase}/officials`, telemetry, 'enrichment').then(r => r?.json().catch(()=>null)),
-      fetchWithTelemetry(`${coreBase}/broadcasts`, telemetry, 'enrichment').then(r => r?.json().catch(()=>null)),
-      fetchWithTelemetry(`${coreBase}/predictor`, telemetry, 'enrichment').then(r => r?.json().catch(()=>null))
-    ]);
-
-    const extractStats = (json: any) => {
-      if (!json) return null;
-      const allStats: Record<string, number | null> = {};
-      for (const cat of (json?.splits?.categories ?? [])) {
-        for (const stat of (cat?.stats ?? [])) {
-          if (stat?.name && stat?.value != null) allStats[stat.name] = stat.value;
-        }
-      }
-      return Object.keys(allStats).length > 0 ? allStats : null;
-    };
-
-    const hs = extractStats(homeStats);
-    const as = extractStats(awayStats);
-
-    if (hs || as) {
-      const boxPayload = {
-        match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'box_snapshot', sequence: getSafeSequenceId(),
-        period, clock, home_score: homeScore, away_score: awayScore,
-        box_snapshot: { sport: league.db_sport, home: hs, away: as }, odds_live: effectiveOdds,
-        source: 'core_api_stats'
-      };
-      await supabase.from('game_events').upsert(boxPayload, { onConflict: 'match_id,event_type,sequence' });
+    if (_contextSnapshotAvailable) {
+      try {
+        const contextSnapshotPayload = { match_id: dbMatchId, league_id: league.id, sport: league.db_sport, game_status: matchPayload.status || 'SCHEDULED', period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, odds_current: effectiveOdds || null, odds_total: safeExtractFlatOdds(effectiveOdds, 'total'), odds_home_ml: safeExtractFlatOdds(effectiveOdds, 'homeMl'), odds_away_ml: safeExtractFlatOdds(effectiveOdds, 'awayMl'), situation: statePayload.situation, last_play: extractedLastPlay, recent_plays: extractedRecentPlays, stats: extractedStats, leaders: extractedLeaders, momentum: extractedMomentum, advanced_metrics: statePayload.advanced_metrics, match_context: extractedContext, predictor: extractedPredictor, deterministic_signals: aiSignals, captured_at: new Date().toISOString() };
+        const { error: contextSnapshotError } = await supabase.from('live_context_snapshots').insert(contextSnapshotPayload);
+        if (!contextSnapshotError) { stats.context_snapshots++; } else { const errMsg = contextSnapshotError.message || String(contextSnapshotError); Logger.warn('CONTEXT_SNAPSHOT_INSERT_FAILED', { match_id: dbMatchId, error: errMsg }); if (errMsg.toLowerCase().includes('does not exist')) _contextSnapshotAvailable = false; }
+      } catch (e: any) { Logger.warn('CONTEXT_SNAPSHOT_INSERT_EXCEPTION', { match_id: dbMatchId, error: e.message }); }
     }
 
-    const enrichment: any = {};
-    
-    const parseLeaders = (json: any) => {
-      if (!json) return null;
-      const res: Record<string, any> = {};
-      (json.leaders || []).forEach((cat: any) => {
-        const p = cat?.leaders?.[0];
-        if (p) res[cat.name || cat.displayName || 'unknown'] = { displayValue: p.displayValue, value: p.value, athleteRef: p.athlete?.$ref ?? null };
-      });
-      return Object.keys(res).length > 0 ? res : null;
-    };
-    
-    const hl = parseLeaders(homeLeaders); const al = parseLeaders(awayLeaders);
-    const parseRoster = (json: any) => json ? (json.entries || json.items || []).filter((e: any) => e?.playerId || e?.athlete).map((e: any) => ({ id: e.playerId ?? null, athleteRef: e.athlete?.$ref ?? null, statsRef: e.statistics?.$ref ?? null })).slice(0, 20) : null;
-    const hr = parseRoster(homeRoster); const ar = parseRoster(awayRoster);
-
-    const extra_data: any = {};
-    if (hr || ar) extra_data.roster = { home: hr, away: ar };
-    if (hl || al) extra_data.core_api_leaders = { home: hl, away: al };
-    if (officialsJson?.items) extra_data.officials = officialsJson.items.map((o: any) => ({ id: o.id ?? null, name: o.fullName ?? o.displayName ?? null, position: o.position?.name ?? null, order: o.order ?? null }));
-    if (broadcastsJson?.items) extra_data.broadcasts = broadcastsJson.items.map((b: any) => ({ station: b.station ?? null, type: b.type?.shortName ?? null, market: b.market?.type ?? null }));
-
-    if (predictorJson) {
-      const extractPredStats = (stats: any[]) => {
-        const res: Record<string, any> = {};
-        for (const s of (stats || [])) { if (s?.name && s?.displayValue != null) res[s.name] = s.displayValue; }
-        return Object.keys(res).length > 0 ? res : null;
-      };
-      const pd = {
-        home: extractPredStats(predictorJson?.homeTeam?.statistics ?? predictorJson?.homeTeam?.team?.statistics),
-        away: extractPredStats(predictorJson?.awayTeam?.statistics ?? predictorJson?.awayTeam?.team?.statistics),
-        name: predictorJson?.name ?? null, lastModified: predictorJson?.lastModified ?? null
-      };
-      if (pd.home || pd.away) extra_data.powerindex = pd;
-    }
-
-    if (Object.keys(extra_data).length > 0) {
-      extra_data.captured_at = new Date().toISOString();
-      enrichment.extra_data = extra_data;
-    }
-
-    if (situationJson) {
-      enrichment.situation = {
-        ...(typeof mergedSituation === 'object' && mergedSituation ? mergedSituation : {}),
-        homeTimeouts: situationJson?.homeTimeouts?.timeoutsRemainingCurrent ?? null, awayTimeouts: situationJson?.awayTimeouts?.timeoutsRemainingCurrent ?? null,
-        homeFouls: situationJson?.homeFouls?.teamFoulsCurrent ?? null, awayFouls: situationJson?.awayFouls?.teamFoulsCurrent ?? null,
-        homeFoulsToGive: situationJson?.homeFouls?.foulsToGive ?? null, awayFoulsToGive: situationJson?.awayFouls?.foulsToGive ?? null,
-        homeBonusState: situationJson?.homeFouls?.bonusState ?? null, awayBonusState: situationJson?.awayFouls?.bonusState ?? null
-      };
-    }
-
-    if (hs || as) {
-      enrichment.advanced_metrics = {
-        ...(typeof extractedAdvancedMetrics === 'object' && extractedAdvancedMetrics ? extractedAdvancedMetrics : {}),
-        core_api_efficiency: {
-          home: hs ? { ppep: hs.pointsPerEstimatedPossessions, pace: hs.estimatedPossessions, shootingEff: hs.shootingEfficiency, offRebPct: hs.offensiveReboundPct, astToRatio: hs.assistTurnoverRatio } : null,
-          away: as ? { ppep: as.pointsPerEstimatedPossessions, pace: as.estimatedPossessions, shootingEff: as.shootingEfficiency, offRebPct: as.offensiveReboundPct, astToRatio: as.assistTurnoverRatio } : null
-        }
-      };
-    }
-
-    if (Object.keys(enrichment).length > 0) {
-      await supabase.from('live_game_state').update(enrichment).eq('id', dbMatchId);
-    }
-  } catch { } // Non-fatal background enrichment
-}
-
-function computeAISignalsSafely(matchPayload: any, context: { matchId: string; leagueId: string; mode: 'dry' | 'persist' }) {
-  try { return { value: computeAISignals(matchPayload), error: null }; }
-  catch (e: any) { return { value: null, error: e.message || String(e) }; }
+    stats.processed++; if (isLiveGame) stats.live++;
+  } catch (e: any) { stats.failed++; stats.errors.push(`${league.id}/${dbMatchId}: ${e.message || String(e)}`); }
 }
