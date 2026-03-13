@@ -335,10 +335,10 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                 <div className="flex items-center gap-4">
                     {/* Market Delta */}
                     {mktDelta !== null && (
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded border border-zinc-200 bg-zinc-50 shadow-sm">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded border border-zinc-300 bg-zinc-100/80 shadow-sm">
                             {mktDelta > 0 ? <TrendingUp size={14} className="text-emerald-600" /> :
                              mktDelta < 0 ? <TrendingDown size={14} className="text-rose-600" /> :
-                             <Minus size={14} className="text-zinc-400" />}
+                             <Minus size={14} className="text-zinc-500" />}
                             <span className={cn(
                                 "text-xs font-medium tabular-nums",
                                 mktDelta > 0 ? "text-emerald-700" : mktDelta < 0 ? "text-rose-700" : "text-zinc-600"
@@ -349,14 +349,14 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                     )}
 
                     {/* Segmented Control */}
-                    <div className="flex p-0.5 bg-zinc-100/80 rounded-lg border border-zinc-200/50">
+                    <div className="flex p-0.5 bg-zinc-200/70 rounded-lg border border-zinc-300/70">
                         <button
                             onClick={() => setShowAll(false)}
                             className={cn(
                                 "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
                                 !showAll 
-                                    ? "bg-white text-zinc-900 shadow-sm border border-zinc-200/50" 
-                                    : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50"
+                                    ? "bg-white text-zinc-900 shadow-sm border border-zinc-300/70" 
+                                    : "text-zinc-700 hover:text-zinc-900 hover:bg-zinc-300/60"
                             )}
                         >
                             Scoring
@@ -366,8 +366,8 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                             className={cn(
                                 "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
                                 showAll 
-                                    ? "bg-white text-zinc-900 shadow-sm border border-zinc-200/50" 
-                                    : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50"
+                                    ? "bg-white text-zinc-900 shadow-sm border border-zinc-300/70" 
+                                    : "text-zinc-700 hover:text-zinc-900 hover:bg-zinc-300/60"
                             )}
                         >
                             All Plays
@@ -381,20 +381,20 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                 <table className="w-full text-left border-collapse whitespace-nowrap">
                     <thead>
                         <tr className="bg-zinc-50/50 border-b border-zinc-200">
-                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 w-[100px]">Time</th>
-                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-center w-[80px]">Score</th>
-                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 w-full min-w-[240px]">Play</th>
-                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-right w-[110px]">
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-700 w-[100px]">Time</th>
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-700 text-center w-[80px]">Score</th>
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-700 w-full min-w-[240px]">Play</th>
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-700 text-right w-[110px]">
                                 <div className="flex flex-col items-end">
                                     <span>Total</span>
-                                    <span className="text-[10px] text-zinc-400 font-normal">O/U</span>
+                                    <span className="text-[10px] text-zinc-600 font-normal">O/U</span>
                                 </div>
                             </th>
-                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-right w-[80px]">ML</th>
-                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 text-right w-[110px]">
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-700 text-right w-[80px]">ML</th>
+                            <th className="py-2.5 px-4 text-xs font-medium text-zinc-700 text-right w-[110px]">
                                 <div className="flex flex-col items-end">
                                     <span>Spread</span>
-                                    <span className="text-[10px] text-zinc-400 font-normal">Juice</span>
+                                    <span className="text-[10px] text-zinc-600 font-normal">Juice</span>
                                 </div>
                             </th>
                         </tr>
@@ -416,7 +416,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                                     {/* Time */}
                                     <td className="py-3 px-4">
                                         <div className="flex items-center gap-1.5">
-                                            <span className="text-[11px] font-medium text-zinc-400 w-5">
+                                            <span className="text-[11px] font-medium text-zinc-600 w-5">
                                                 {r.period <= 2 ? `H${r.period}` : r.period <= 4 ? `Q${r.period}` : `P${r.period}`}
                                             </span>
                                             <span className="text-xs font-mono tabular-nums text-zinc-600">
@@ -429,7 +429,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                                     <td className="py-3 px-4 text-center">
                                         <span className={cn(
                                             "text-xs font-mono tabular-nums",
-                                            r.isScoreChange ? "font-semibold text-zinc-900" : "font-medium text-zinc-400"
+                                            r.isScoreChange ? "font-semibold text-zinc-900" : "font-medium text-zinc-600"
                                         )}>
                                             {r.home_score} - {r.away_score}
                                         </span>
@@ -452,7 +452,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                                                 {r.mkt_total?.toFixed(1) ?? '—'}
                                             </span>
                                             {(r.overOdds !== null || r.underOdds !== null) && (
-                                                <span className="text-[10px] font-mono tabular-nums text-zinc-400 mt-0.5">
+                                                <span className="text-[10px] font-mono tabular-nums text-zinc-500 mt-0.5">
                                                     o{formatJuice(r.overOdds)} u{formatJuice(r.underOdds)}
                                                 </span>
                                             )}
@@ -478,7 +478,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                                                 {formatAmerican(r.spread)}
                                             </span>
                                             {r.spreadOdds !== null && (
-                                                <span className="text-[10px] font-mono tabular-nums text-zinc-400 mt-0.5">
+                                                <span className="text-[10px] font-mono tabular-nums text-zinc-500 mt-0.5">
                                                     {formatJuice(r.spreadOdds)}
                                                 </span>
                                             )}
@@ -494,7 +494,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
             {/* Footer */}
             {timeline.length > 30 && (
                 <div className="flex justify-center mt-4">
-                    <span className="text-xs text-zinc-400">
+                    <span className="text-xs text-zinc-600">
                         Showing {displayRows.length} of {showAll ? timeline.length : timeline.filter(r => r.isScoreChange).length} plays
                     </span>
                 </div>

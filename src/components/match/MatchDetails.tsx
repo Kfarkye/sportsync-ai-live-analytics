@@ -244,7 +244,7 @@ const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'con
   const isConnected = status === 'connected';
   const isConnecting = status === 'connecting';
   return (
-    <div className="flex items-center gap-2.5 bg-black/[0.03] px-3 py-1.5 rounded-full border border-black/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7)] backdrop-blur-md">
+    <div className="flex items-center gap-2.5 bg-black/[0.05] px-3 py-1.5 rounded-full border border-black/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7)] backdrop-blur-md">
       <div className="relative flex items-center justify-center w-[12px] h-[12px]">
         {isConnected && (
           <><span className="absolute w-full h-full rounded-full bg-emerald-500/30 animate-ping" /><span className="relative w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" /></>
@@ -252,7 +252,7 @@ const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'con
         {isConnecting && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.6)]" />}
         {!isConnected && !isConnecting && <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.6)]" />}
       </div>
-      <span className="text-[10px] font-sans font-bold text-zinc-500 tracking-wider uppercase mt-px hidden sm:block">
+      <span className="text-[10px] font-sans font-bold text-zinc-700 tracking-wider uppercase mt-px hidden sm:block">
         {isConnected ? 'Live Sync' : isConnecting ? 'Syncing' : 'Offline'}
       </span>
     </div>
@@ -348,17 +348,17 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
         <div className="absolute -right-16 -top-16 w-40 h-40 bg-black/[0.02] rounded-full blur-3xl group-hover:bg-black/[0.04] transition-colors duration-700 pointer-events-none" />
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <span className="px-2.5 py-1 bg-black/[0.04] rounded-lg text-[10px] font-bold text-black/60 uppercase tracking-widest">{leagueLabel}</span>
+            <span className="px-2.5 py-1 bg-black/[0.06] rounded-lg text-[10px] font-bold text-black/75 uppercase tracking-widest">{leagueLabel}</span>
           </div>
           {isValidDate && (
             <div className="space-y-1">
               <div className="text-[22px] font-semibold text-black tracking-tight leading-none">{fullDateStr}</div>
-              <div className="text-[14px] text-black/50 font-medium tabular-nums">{timeStr}</div>
+              <div className="text-[14px] text-black/70 font-medium tabular-nums">{timeStr}</div>
             </div>
           )}
         </div>
         {venueName && (
-          <div className="mt-5 flex items-center gap-2 text-[12px] text-black/50 font-medium">
+          <div className="mt-5 flex items-center gap-2 text-[12px] text-black/70 font-medium">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-60"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
             <span className="truncate">{venueName}{venue?.city ? `, ${venue.city}` : ''}</span>
           </div>
@@ -369,7 +369,7 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-black/20" />
-            <span className="text-[11px] font-bold text-black/40 uppercase tracking-widest">{linesLabel}</span>
+            <span className="text-[11px] font-bold text-black/60 uppercase tracking-widest">{linesLabel}</span>
           </div>
           {match.edge_tags && match.edge_tags.length > 0 && (
             <MatchEdgeTags tags={match.edge_tags} size="sm" />
@@ -377,11 +377,11 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
         </div>
 
         {!hasAnyLine ? (
-          <div className="text-[12px] text-black/40 italic">Off Board</div>
+          <div className="text-[12px] text-black/60 italic">Off Board</div>
         ) : (
           <div className="space-y-3">
             <div className={cn(
-              "grid items-center gap-x-4 px-1 text-[10px] text-black/40 uppercase font-bold tracking-wider",
+              "grid items-center gap-x-4 px-1 text-[10px] text-black/60 uppercase font-bold tracking-wider",
               hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
             )}>
               <span>Team</span>
@@ -397,14 +397,14 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
                 {match.awayTeam?.logo && <img src={match.awayTeam.logo} alt="" className="w-6 h-6 object-contain shrink-0" loading="lazy" decoding="async" />}
                 <div className="min-w-0 flex items-baseline gap-2">
                   <span className="text-[15px] font-semibold text-black truncate">{match.awayTeam?.name || match.awayTeam?.shortName}</span>
-                  <span className="text-[12px] text-black/40 font-medium tabular-nums hidden sm:inline">{awayRecord}</span>
+                  <span className="text-[12px] text-black/60 font-medium tabular-nums hidden sm:inline">{awayRecord}</span>
                 </div>
               </div>
-              <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-3 py-1.5 rounded-xl text-right">
+              <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.06] px-3 py-1.5 rounded-xl text-right">
                 {fmtSpread(resolvedAwaySpread)}
               </span>
               {hasMlColumn && (
-                <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-3 py-1.5 rounded-xl text-right">
+                <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.06] px-3 py-1.5 rounded-xl text-right">
                   {fmtOdds(awayML)}
                 </span>
               )}
@@ -420,14 +420,14 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
                 {match.homeTeam?.logo && <img src={match.homeTeam.logo} alt="" className="w-6 h-6 object-contain shrink-0" loading="lazy" decoding="async" />}
                 <div className="min-w-0 flex items-baseline gap-2">
                   <span className="text-[15px] font-semibold text-black truncate">{match.homeTeam?.name || match.homeTeam?.shortName}</span>
-                  <span className="text-[12px] text-black/40 font-medium tabular-nums hidden sm:inline">{homeRecord}</span>
+                  <span className="text-[12px] text-black/60 font-medium tabular-nums hidden sm:inline">{homeRecord}</span>
                 </div>
               </div>
-              <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-3 py-1.5 rounded-xl text-right">
+              <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.06] px-3 py-1.5 rounded-xl text-right">
                 {fmtSpread(resolvedHomeSpread)}
               </span>
               {hasMlColumn && (
-                <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-3 py-1.5 rounded-xl text-right">
+                <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.06] px-3 py-1.5 rounded-xl text-right">
                   {fmtOdds(homeML)}
                 </span>
               )}
@@ -435,8 +435,8 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
 
             {hasTotal && (
               <div className="pt-3 mt-1 border-t border-black/[0.05] flex items-center justify-end gap-2">
-                <span className="text-[10px] text-black/40 uppercase font-bold tracking-wider">Total</span>
-                <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-3 py-1.5 rounded-xl text-right">
+                <span className="text-[10px] text-black/60 uppercase font-bold tracking-wider">Total</span>
+                <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.06] px-3 py-1.5 rounded-xl text-right">
                   O/U {fmtTotal(totalVal)}
                 </span>
               </div>
@@ -1254,7 +1254,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           {/* SOTA Concurrent Nav Segment */}
           <div className="relative mt-2 w-full pb-3 px-4 sm:px-6">
             <nav className={cn(
-              "relative flex p-1 bg-black/[0.03] rounded-[14px] max-w-full overflow-x-auto no-scrollbar mx-auto border border-black/[0.02] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] w-fit transform-gpu transition-opacity duration-200",
+              "relative flex p-1 bg-black/[0.05] rounded-[14px] max-w-full overflow-x-auto no-scrollbar mx-auto border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] w-fit transform-gpu transition-opacity duration-200",
               isPendingTab && "opacity-80 pointer-events-none"
             )}>
               {TABS.map((tab) => {
@@ -1265,7 +1265,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     onClick={() => handleTabChange(tab.id)}
                     className={cn(
                       "relative h-8 px-5 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors duration-200 whitespace-nowrap outline-none flex items-center justify-center flex-1 min-w-[100px]",
-                      isActive ? "text-black" : "text-black/50 hover:text-black/80"
+                      isActive ? "text-black" : "text-black/70 hover:text-black/90"
                     )}
                   >
                     {isActive && (
@@ -1325,7 +1325,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                 {deferredTab === 'PROPS' && (
                   <div className="space-y-0">
                     <div className="flex justify-end mb-4 pr-4">
-                      <button type="button" onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')} className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/50 transition-colors hover:text-black bg-black/[0.03] px-4 py-2 rounded-full border border-black/[0.02] transform-gpu">
+                      <button type="button" onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')} className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/70 transition-colors hover:text-black bg-black/[0.06] px-4 py-2 rounded-full border border-black/[0.05] transform-gpu">
                         {propView === 'classic' ? 'VIEW: CLASSIC' : 'VIEW: CINEMATIC'}
                       </button>
                     </div>
