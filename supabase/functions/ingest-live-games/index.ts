@@ -496,9 +496,22 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
         if (coreOddsData && Array.isArray(coreOddsData.items)) {
           const items = coreOddsData.items;
           const extractCoreOdds = (source: any, type: 'current' | 'open' | 'close') => {
-            if (!source || !source[type]) return null;
-            const d = source[type];
-            return { homeWin: parsePrice(d.homeTeamOdds?.moneyLine ?? d.moneyLine), awayWin: parsePrice(d.awayTeamOdds?.moneyLine), homeSpread: parsePoints(d.homeTeamOdds?.spread ?? d.spread), awaySpread: parsePoints(d.awayTeamOdds?.spread), total: parsePoints(d.overUnder ?? d.total?.alternateDisplayValue ?? d.total?.american ?? d.total?.value ?? (typeof d.total === 'number' ? d.total : null)), overOdds: parsePrice(d.overOdds ?? d.overUnderOdds ?? d.over?.american ?? d.over?.alternateDisplayValue), underOdds: parsePrice(d.underOdds ?? d.under?.american ?? d.under?.alternateDisplayValue), homeSpreadOdds: parsePrice(d.homeTeamOdds?.spreadOdds ?? d.spreadOdds), awaySpreadOdds: parsePrice(d.awayTeamOdds?.spreadOdds), provider: source.provider?.name || 'ESPN' };
+            if (!source) return null;
+            const d = source[type] || {};
+            const hto = source.homeTeamOdds?.[type] || source.homeTeamOdds || {};
+            const ato = source.awayTeamOdds?.[type] || source.awayTeamOdds || {};
+            return {
+              homeWin: parsePrice(hto.moneyLine?.american ?? hto.moneyLine?.value ?? hto.moneyLine ?? source.homeTeamOdds?.moneyLine ?? d.homeTeamOdds?.moneyLine ?? d.moneyLine),
+              awayWin: parsePrice(ato.moneyLine?.american ?? ato.moneyLine?.value ?? ato.moneyLine ?? source.awayTeamOdds?.moneyLine ?? d.awayTeamOdds?.moneyLine),
+              homeSpread: parsePoints(hto.pointSpread?.american ?? hto.pointSpread?.alternateDisplayValue ?? hto.spread?.value ?? source.spread ?? d.homeTeamOdds?.spread ?? d.spread),
+              awaySpread: parsePoints(ato.pointSpread?.american ?? ato.pointSpread?.alternateDisplayValue ?? ato.spread?.value ?? d.awayTeamOdds?.spread),
+              total: parsePoints(source.overUnder ?? d.overUnder ?? d.total?.alternateDisplayValue ?? d.total?.american ?? d.total?.value ?? (typeof d.total === 'number' ? d.total : null)),
+              overOdds: parsePrice(source.overOdds ?? d.overOdds ?? d.overUnderOdds ?? d.over?.american ?? d.over?.alternateDisplayValue),
+              underOdds: parsePrice(source.underOdds ?? d.underOdds ?? d.under?.american ?? d.under?.alternateDisplayValue),
+              homeSpreadOdds: parsePrice(hto.spread?.american ?? hto.spread?.alternateDisplayValue ?? hto.spreadOdds ?? source.homeTeamOdds?.spreadOdds ?? d.homeTeamOdds?.spreadOdds ?? d.spreadOdds),
+              awaySpreadOdds: parsePrice(ato.spread?.american ?? ato.spread?.alternateDisplayValue ?? ato.spreadOdds ?? source.awayTeamOdds?.spreadOdds ?? d.awayTeamOdds?.spreadOdds),
+              provider: source.provider?.name || 'ESPN'
+            };
           };
           const liveItem = [...items].filter(p => p?.current).sort((a, b) => getLiveProviderScore(a) - getLiveProviderScore(b))[0];
           parsedCoreOdds = liveItem ? extractCoreOdds(liveItem, 'current') : null;
@@ -635,21 +648,27 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
     if (homeStatsRaw || awayStatsRaw) { try { await supabase.from('game_events').upsert({ match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'box_snapshot', sequence: generateSequence(), period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, box_snapshot: { sport: league.db_sport, home: homeStatsRaw, away: awayStatsRaw }, source: 'core_api_stats' }, { onConflict: 'match_id,event_type,sequence' }); } catch { } }
 
     // Bridge: If summary API returned no live odds but Core API or premium feed has them, use those
-    if (!parsedOdds.odds_live && isLiveGame && effectiveOdds && (effectiveOdds.total != null || effectiveOdds.homeSpread != null || effectiveOdds.homeWin != null)) {
-      parsedOdds.odds_live = {
-        total: effectiveOdds.total ?? null,
-        homeSpread: effectiveOdds.homeSpread ?? effectiveOdds.spread ?? null,
-        awaySpread: effectiveOdds.awaySpread ?? null,
-        home_ml: effectiveOdds.homeWin ?? effectiveOdds.homeML ?? effectiveOdds.home_ml ?? null,
-        away_ml: effectiveOdds.awayWin ?? effectiveOdds.awayML ?? effectiveOdds.away_ml ?? null,
-        overOdds: effectiveOdds.overOdds ?? null,
-        underOdds: effectiveOdds.underOdds ?? null,
-        homeSpreadOdds: effectiveOdds.homeSpreadOdds ?? null,
-        awaySpreadOdds: effectiveOdds.awaySpreadOdds ?? null,
-        provider: effectiveOdds.provider ?? 'Core API',
-        provider_id: null,
-        captured_at: new Date().toISOString(),
-      };
+    // Merge all sources: effectiveOdds (Institutional/canonical) + parsedCoreOdds (ESPN Core API with ML/juice)
+    if (!parsedOdds.odds_live && isLiveGame) {
+      const eo = effectiveOdds || {};
+      const co = parsedCoreOdds || {};
+      const hasData = eo.total != null || eo.homeSpread != null || eo.homeML != null || eo.homeWin != null || co.total != null || co.homeWin != null;
+      if (hasData) {
+        parsedOdds.odds_live = {
+          total: eo.total ?? co.total ?? null,
+          homeSpread: eo.homeSpread ?? eo.spread ?? co.homeSpread ?? null,
+          awaySpread: eo.awaySpread ?? co.awaySpread ?? null,
+          home_ml: eo.homeML ?? eo.homeWin ?? eo.home_ml ?? co.homeWin ?? null,
+          away_ml: eo.awayML ?? eo.awayWin ?? eo.away_ml ?? co.awayWin ?? null,
+          overOdds: eo.overOdds ?? co.overOdds ?? null,
+          underOdds: eo.underOdds ?? co.underOdds ?? null,
+          homeSpreadOdds: eo.homeSpreadOdds ?? co.homeSpreadOdds ?? null,
+          awaySpreadOdds: eo.awaySpreadOdds ?? co.awaySpreadOdds ?? null,
+          provider: eo.provider ?? co.provider ?? 'Core API',
+          provider_id: null,
+          captured_at: new Date().toISOString(),
+        };
+      }
     }
 
     const hasAnyOdds = !!(parsedOdds.odds_live || parsedOdds.odds_open || parsedOdds.odds_close || parsedOdds.bet365_live || parsedOdds.dk_live_200);
