@@ -256,7 +256,7 @@ async function backfillGame(eventId: string, config: BackfillConfig, log: string
   }
 
   // ═══ UPSERT match ═══
-  await supabase.from('matches').upsert({
+  const { error: matchError } = await supabase.from('matches').upsert({
     id: dbMatchId,
     league_id: config.league_id,
     sport: config.db_sport,
@@ -269,8 +269,13 @@ async function backfillGame(eventId: string, config: BackfillConfig, log: string
     espn_id: eventId
   }, { onConflict: 'id' });
 
+  if (matchError) {
+    log.push(`  ERROR matches upsert ${dbMatchId}: ${matchError.message}`);
+    return; // Fast fail if matches table refuses it
+  }
+
   // ═══ UPSERT live_game_state ═══
-  await supabase.from('live_game_state').upsert({
+  const { error: lgsError } = await supabase.from('live_game_state').upsert({
     id: dbMatchId,
     game_status: status,
     home_score: homeScore,
@@ -311,10 +316,17 @@ async function backfillGame(eventId: string, config: BackfillConfig, log: string
     updated_at: new Date().toISOString()
   }, { onConflict: 'id' });
 
+  if (lgsError) {
+    log.push(`  ERROR live_game_state upsert ${dbMatchId}: ${lgsError.message}`);
+    // If live_game_state fails (e.g. trigger error), we MUST skip game_events to prevent orphan records 
+    // and allow future backfill retries to pick it up.
+    return;
+  }
+
   // ═══ INSERT box_snapshot (final stats) ═══
   if (homeStats || awayStats) {
     const epochSeconds = Math.floor(new Date(startDate).getTime() / 1000);
-    await supabase.from('game_events').upsert({
+    const { error: boxError } = await supabase.from('game_events').upsert({
       match_id: dbMatchId,
       league_id: config.league_id,
       sport: config.db_sport,
@@ -340,70 +352,68 @@ async function backfillGame(eventId: string, config: BackfillConfig, log: string
       onConflict: 'match_id,event_type,sequence',
       ignoreDuplicates: true
     });
+    
+    if (boxError) {
+      log.push(`  ERROR game_events (box_snapshot) upsert ${dbMatchId}: ${boxError.message}`);
+    }
   }
 
   // ═══ INSERT odds_snapshot (open + close) ═══
   if (oddsData) {
     const epochSeconds = Math.floor(new Date(startDate).getTime() / 1000);
-    await supabase.from('game_events').upsert({
+    const { error: oddsError } = await supabase.from('game_events').upsert({
       match_id: dbMatchId,
       league_id: config.league_id,
       sport: config.db_sport,
       event_type: 'odds_snapshot',
       sequence: epochSeconds,
-      home_score: homeScore,
-      away_score: awayScore,
       odds_live: {
         homeSpread: oddsData.spread,
         total: oddsData.overUnder,
-        home_ml: { american: String(oddsData.homeML) },
-        away_ml: { american: String(oddsData.awayML) },
+        home_ml: oddsData.homeML,
+        away_ml: oddsData.awayML,
         provider: oddsData.provider,
         provider_id: String(oddsData.provider_id)
       },
-      odds_open: oddsData.open,
-      odds_close: oddsData.close,
       source: 'backfill'
     }, {
       onConflict: 'match_id,event_type,sequence',
       ignoreDuplicates: true
     });
-  }
-
-  // ═══ INSERT BPI probability snapshots ═══
-  if (probabilities.length > 0) {
-    // Store first, last, and sampled probabilities
-    const sample = [
-      probabilities[0],
-      ...probabilities.filter((_, i) => i % 10 === 0),
-      probabilities[probabilities.length - 1]
-    ];
-    const unique = [...new Map(sample.map(p => [p.sequenceNumber, p])).values()];
-
-    for (const prob of unique) {
-      await supabase.from('game_events').upsert({
-        match_id: dbMatchId,
-        league_id: config.league_id,
-        sport: config.db_sport,
-        event_type: 'bpi_probability',
-        sequence: prob.sequenceNumber || 0,
-        home_score: homeScore,
-        away_score: awayScore,
-        play_data: {
-          homeWinPct: prob.homeWinPct,
-          awayWinPct: prob.awayWinPct,
-          secondsLeft: prob.secondsLeft,
-          source: 'backfill'
-        },
-        source: 'backfill'
-      }, {
-        onConflict: 'match_id,event_type,sequence',
-        ignoreDuplicates: true
-      });
+    
+    if (oddsError) {
+      log.push(`  ERROR game_events (odds_snapshot) upsert ${dbMatchId}: ${oddsError.message}`);
     }
   }
 
-  log.push(`  ✅ ${homeTeam} vs ${awayTeam} (${homeScore}-${awayScore}) — stats:${!!homeStats} refs:${officials.length} probs:${probabilities.length}`);
+  // ═══ INSERT bpi_probability (timeline) ═══
+  if (probabilities.length > 0) {
+    const bpiPayloads = probabilities.map((p: any, index: number) => ({
+      match_id: dbMatchId,
+      league_id: config.league_id,
+      sport: config.db_sport,
+      event_type: 'bpi_probability',
+      sequence: p.sequenceNumber || index,
+      bpi_probability: {
+        homeWinPct: p.homeWinPct,
+        awayWinPct: p.awayWinPct,
+        tieWinPct: p.tieWinPct,
+        secondsLeft: p.secondsLeft
+      },
+      source: 'backfill'
+    }));
+
+    const { error: bpiError } = await supabase.from('game_events').upsert(bpiPayloads, {
+      onConflict: 'match_id,event_type,sequence',
+      ignoreDuplicates: true
+    });
+    
+    if (bpiError) {
+      log.push(`  ERROR game_events (bpi_probability) upsert ${dbMatchId}: ${bpiError.message}`);
+    }
+  }
+
+  log.push(`  ✓ ${dbMatchId} mapped cleanly`);
 }
 
 Deno.serve(async (req: Request) => {
@@ -428,16 +438,30 @@ Deno.serve(async (req: Request) => {
     const gameIds = await getGameIds(config);
     log.push(`Found ${gameIds.length} games`);
 
-    // Check which ones we already have
-    const { data: existing } = await supabase
+    // Check which ones we already have in game_events (ground truth for episodic data)
+    const { data: existingEvents } = await supabase
+      .from('game_events')
+      .select('match_id')
+      .eq('event_type', 'box_snapshot')
+      .eq('source', 'backfill')
+      .in('match_id', gameIds.map(id => `${id}_${league_id}`));
+
+    // Enforce dual-idempotency: MUST exist in live_game_state to prevent partial backfills where
+    // triggers roll back live_game_state but game_events succeed.
+    const { data: existingLgs } = await supabase
       .from('live_game_state')
       .select('id')
-      .in('id', gameIds.map(id => `${id}_${league_id}`))
-      .not('extra_data->backfilled', 'is', null);
+      .in('id', gameIds.map(id => `${id}_${league_id}`));
 
-    const existingIds = new Set((existing || []).map((e: any) => e.id.replace(`_${league_id}`, '')));
-    const toBackfill = gameIds.filter(id => !existingIds.has(id));
-    log.push(`Already backfilled: ${existingIds.size}, remaining: ${toBackfill.length}`);
+    const existingEventsIds = new Set((existingEvents || []).map((e: any) => e.match_id));
+    const existingLgsIds = new Set((existingLgs || []).map((e: any) => e.id));
+    
+    // Strict union needed. If either is missing, we re-run the backfill.
+    const toBackfill = gameIds.filter(id => {
+      const fullId = `${id}_${league_id}`;
+      return !(existingEventsIds.has(fullId) && existingLgsIds.has(fullId));
+    });
+    log.push(`Already backfilled (in game_events): ${existingEventsIds.size}, remaining: ${toBackfill.length}`);
 
     // Process in batches
     const batch = toBackfill.slice(0, batchSize);
@@ -457,7 +481,7 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({
       status: 'ok',
       total: gameIds.length,
-      backfilled: existingIds.size,
+      backfilled: existingEventsIds.size,
       processed: batch.length,
       remaining,
       log
