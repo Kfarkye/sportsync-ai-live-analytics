@@ -50,11 +50,7 @@ import { ScoreHeader, LiveGameTracker } from '../analysis/Gamecast';
 import { LiveAIInsight } from '../analysis/LiveAIInsight';
 import { LiveIntelligenceCard } from '../analysis/LiveIntelligenceCard';
 import { ForecastHistoryTable } from '../analysis/ForecastHistoryTable';
-import BoxScore, {
-  ClassicPlayerProps,
-  TeamStatsGrid,
-  LineScoreGrid,
-} from '../analysis/BoxScore';
+import { ClassicPlayerProps, TeamStatsGrid, LineScoreGrid } from '../analysis/BoxScore';
 import { CinematicPlayerProps } from '../analysis/PlayerStatComponents';
 import InsightCard, { toInsightCard } from '../analysis/InsightCard';
 import MatchupHeader from '../pregame/MatchupHeader';
@@ -1365,7 +1361,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     )}
 
                     <div className="mb-12"><ForecastHistoryTable matchId={match.id} /></div>
-                    <SpecSheetRow label="01 // BOX SCORE" defaultOpen={true}><BoxScore match={match} /></SpecSheetRow>
                   </div>
                 )}
 
