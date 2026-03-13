@@ -206,6 +206,21 @@ function mergeOddsSnapshots(rows: OddsSnapshot[]): OddsSnapshot[] {
     );
 }
 
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number): Promise<T | null> {
+    return new Promise<T | null>((resolve) => {
+        const timer = window.setTimeout(() => resolve(null), timeoutMs);
+        Promise.resolve(promise)
+            .then((value) => {
+                window.clearTimeout(timer);
+                resolve(value);
+            })
+            .catch(() => {
+                window.clearTimeout(timer);
+                resolve(null);
+            });
+    });
+}
+
 // ─── Component ───────────────────────────────────────────────
 export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matchId, leagueId }) => {
     const [plays, setPlays] = useState<PlayEvent[]>([]);
@@ -230,49 +245,59 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
             if (fetchInFlight) return;
             fetchInFlight = true;
             try {
-                const [playRes, primaryOddsRes, coreOddsRes] = await Promise.all([
-                    supabase
-                        .from('game_events')
-                        .select('id, match_id, sequence, period, clock, home_score, away_score, play_data, created_at')
-                        .in('match_id', resolvedMatchIds)
-                        .eq('event_type', 'play')
-                        .order('sequence', { ascending: true }),
-                    supabase
-                        .from('live_odds_snapshots')
-                        .select('total, home_ml, away_ml, spread_home, market_type, is_live, captured_at')
-                        .in('match_id', resolvedMatchIds)
-                        .eq('market_type', 'main')
-                        .eq('is_live', true)
-                        .not('total', 'is', null)
-                        .order('captured_at', { ascending: true }),
-                    supabase
-                        .from('game_events')
-                        .select('odds_live, created_at')
-                        .in('match_id', resolvedMatchIds)
-                        .eq('event_type', 'odds_snapshot')
-                        .not('odds_live', 'is', null)
-                        .order('sequence', { ascending: true }),
-                ]);
+                const playPromise = supabase
+                    .from('game_events')
+                    .select('id, match_id, sequence, period, clock, home_score, away_score, play_data, created_at')
+                    .in('match_id', resolvedMatchIds)
+                    .eq('event_type', 'play')
+                    .order('sequence', { ascending: true });
+
+                const primaryOddsPromise = supabase
+                    .from('live_odds_snapshots')
+                    .select('total, home_ml, away_ml, spread_home, market_type, is_live, captured_at')
+                    .in('match_id', resolvedMatchIds)
+                    .eq('market_type', 'main')
+                    .eq('is_live', true)
+                    .not('total', 'is', null)
+                    .order('captured_at', { ascending: true });
+
+                const coreOddsPromise = supabase
+                    .from('game_events')
+                    .select('odds_live, created_at')
+                    .in('match_id', resolvedMatchIds)
+                    .eq('event_type', 'odds_snapshot')
+                    .not('odds_live', 'is', null)
+                    .order('sequence', { ascending: true });
+
+                const playRes = await withTimeout(playPromise, 8000);
 
                 if (!isActive) return;
 
                 const normalizedPlays = mergePlayRows(
-                    (playRes.data ?? [])
+                    (playRes?.data ?? [])
                         .map(normalizePlayRow)
                         .filter((row): row is PlayEvent => row !== null)
                 );
+                setPlays(normalizedPlays);
+                setLoading(false);
 
-                const coreOdds = (coreOddsRes.data ?? [])
+                const [primaryOddsRes, coreOddsRes] = await Promise.all([
+                    withTimeout(primaryOddsPromise, 8000),
+                    withTimeout(coreOddsPromise, 8000),
+                ]);
+
+                if (!isActive) return;
+
+                const coreOdds = (coreOddsRes?.data ?? [])
                     .map(normalizeCoreOddsRow)
                     .filter((row): row is OddsSnapshot => row !== null);
 
                 const fallbackLiveOdds = coreOdds.length === 0
-                    ? (primaryOddsRes.data ?? [])
+                    ? (primaryOddsRes?.data ?? [])
                         .map(normalizeLiveOddsRow)
                         .filter((row): row is OddsSnapshot => row !== null)
                     : [];
 
-                setPlays(normalizedPlays);
                 setOdds(mergeOddsSnapshots([...coreOdds, ...fallbackLiveOdds]));
             } finally {
                 fetchInFlight = false;
