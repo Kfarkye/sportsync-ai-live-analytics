@@ -310,12 +310,6 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
         return (withTotal[0].mkt_total ?? 0) - (withTotal[withTotal.length - 1].mkt_total ?? 0);
     }, [displayRows]);
 
-    // Detect odds provider for attribution
-    const oddsProvider = useMemo(() => {
-        const row = displayRows.find(r => r.provider);
-        return row?.provider ?? null;
-    }, [displayRows]);
-
     if (loading && plays.length === 0) {
         return (
             <div className="flex items-center justify-center p-8">
@@ -336,15 +330,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
         <div className="w-full">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-                <div className="flex flex-col">
-                    <h3 className="text-sm font-semibold text-zinc-900 leading-none">Play-by-Play</h3>
-                    <span className="text-xs text-zinc-500 mt-1">
-                        {plays.length} plays recorded
-                        {oddsProvider && (
-                            <span className="ml-1.5 text-zinc-400">· {oddsProvider}</span>
-                        )}
-                    </span>
-                </div>
+                <h3 className="text-sm font-semibold text-zinc-900 leading-none">Timeline</h3>
                 
                 <div className="flex items-center gap-4">
                     {/* Market Delta */}
