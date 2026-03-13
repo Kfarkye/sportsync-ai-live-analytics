@@ -500,16 +500,19 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
             const d = source[type] || {};
             const hto = source.homeTeamOdds?.[type] || source.homeTeamOdds || {};
             const ato = source.awayTeamOdds?.[type] || source.awayTeamOdds || {};
+            const homeSpread = parsePoints(hto.pointSpread?.american ?? hto.pointSpread?.alternateDisplayValue ?? hto.pointSpread?.value ?? source.spread ?? d.homeTeamOdds?.spread ?? d.spread);
+            const awaySpreadDirect = parsePoints(ato.pointSpread?.american ?? ato.pointSpread?.alternateDisplayValue ?? ato.pointSpread?.value ?? d.awayTeamOdds?.spread ?? d.spread);
+            const awaySpread = awaySpreadDirect ?? (typeof homeSpread === 'number' ? -homeSpread : null);
             return {
               homeWin: parsePrice(hto.moneyLine?.american ?? hto.moneyLine?.value ?? hto.moneyLine ?? source.homeTeamOdds?.moneyLine ?? d.homeTeamOdds?.moneyLine ?? d.moneyLine),
               awayWin: parsePrice(ato.moneyLine?.american ?? ato.moneyLine?.value ?? ato.moneyLine ?? source.awayTeamOdds?.moneyLine ?? d.awayTeamOdds?.moneyLine),
-              homeSpread: parsePoints(hto.pointSpread?.american ?? hto.pointSpread?.alternateDisplayValue ?? hto.spread?.value ?? source.spread ?? d.homeTeamOdds?.spread ?? d.spread),
-              awaySpread: parsePoints(ato.pointSpread?.american ?? ato.pointSpread?.alternateDisplayValue ?? ato.spread?.value ?? d.awayTeamOdds?.spread),
-              total: parsePoints(source.overUnder ?? d.overUnder ?? d.total?.alternateDisplayValue ?? d.total?.american ?? d.total?.value ?? (typeof d.total === 'number' ? d.total : null)),
-              overOdds: parsePrice(source.overOdds ?? d.overOdds ?? d.overUnderOdds ?? d.over?.american ?? d.over?.alternateDisplayValue),
-              underOdds: parsePrice(source.underOdds ?? d.underOdds ?? d.under?.american ?? d.under?.alternateDisplayValue),
+              homeSpread,
+              awaySpread,
+              total: parsePoints(source.overUnder ?? d.overUnder ?? source.total?.alternateDisplayValue ?? source.total?.american ?? source.total?.value ?? d.total?.alternateDisplayValue ?? d.total?.american ?? d.total?.value ?? (typeof d.total === 'number' ? d.total : null)),
+              overOdds: parsePrice(source.overOdds ?? d.overOdds ?? source.over?.american ?? d.overUnderOdds ?? d.over?.american ?? d.over?.alternateDisplayValue),
+              underOdds: parsePrice(source.underOdds ?? d.underOdds ?? source.under?.american ?? d.under?.american ?? d.under?.alternateDisplayValue),
               homeSpreadOdds: parsePrice(hto.spread?.american ?? hto.spread?.alternateDisplayValue ?? hto.spreadOdds ?? source.homeTeamOdds?.spreadOdds ?? d.homeTeamOdds?.spreadOdds ?? d.spreadOdds),
-              awaySpreadOdds: parsePrice(ato.spread?.american ?? ato.spread?.alternateDisplayValue ?? ato.spreadOdds ?? source.awayTeamOdds?.spreadOdds ?? d.awayTeamOdds?.spreadOdds),
+              awaySpreadOdds: parsePrice(ato.spread?.american ?? ato.spread?.alternateDisplayValue ?? ato.spreadOdds ?? source.awayTeamOdds?.spreadOdds ?? d.awayTeamOdds?.spreadOdds ?? d.spreadOdds),
               provider: source.provider?.name || 'ESPN'
             };
           };
@@ -652,16 +655,25 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
     if (!parsedOdds.odds_live && isLiveGame) {
       const eo = effectiveOdds || {};
       const co = parsedCoreOdds || {};
-      const hasData = eo.total != null || eo.homeSpread != null || eo.homeML != null || eo.homeWin != null || co.total != null || co.homeWin != null;
+      const eoTotal = eo.total ?? eo.main?.total?.line ?? null;
+      const eoHomeSpread = eo.homeSpread ?? eo.main?.spread?.home?.point ?? eo.spread ?? null;
+      const eoAwaySpread = eo.awaySpread ?? eo.main?.spread?.away?.point ?? null;
+      const bridgedHomeSpread = eoHomeSpread ?? co.homeSpread ?? null;
+      const bridgedAwaySpread = eoAwaySpread ?? co.awaySpread ?? (typeof bridgedHomeSpread === 'number' ? -bridgedHomeSpread : null);
+      const eoHomeMl = eo.homeML ?? eo.main?.h2h?.home?.price ?? eo.homeWin ?? eo.home_ml ?? null;
+      const eoAwayMl = eo.awayML ?? eo.main?.h2h?.away?.price ?? eo.awayWin ?? eo.away_ml ?? null;
+      const eoOverOdds = eo.overOdds ?? eo.main?.total?.over?.price ?? null;
+      const eoUnderOdds = eo.underOdds ?? eo.main?.total?.under?.price ?? null;
+      const hasData = bridgedHomeSpread != null || bridgedAwaySpread != null || eoTotal != null || eoHomeMl != null || eoAwayMl != null || co.total != null || co.homeWin != null || co.awayWin != null;
       if (hasData) {
         parsedOdds.odds_live = {
-          total: eo.total ?? co.total ?? null,
-          homeSpread: eo.homeSpread ?? eo.spread ?? co.homeSpread ?? null,
-          awaySpread: eo.awaySpread ?? co.awaySpread ?? null,
-          home_ml: eo.homeML ?? eo.homeWin ?? eo.home_ml ?? co.homeWin ?? null,
-          away_ml: eo.awayML ?? eo.awayWin ?? eo.away_ml ?? co.awayWin ?? null,
-          overOdds: eo.overOdds ?? co.overOdds ?? null,
-          underOdds: eo.underOdds ?? co.underOdds ?? null,
+          total: eoTotal ?? co.total ?? null,
+          homeSpread: bridgedHomeSpread,
+          awaySpread: bridgedAwaySpread,
+          home_ml: eoHomeMl ?? co.homeWin ?? null,
+          away_ml: eoAwayMl ?? co.awayWin ?? null,
+          overOdds: eoOverOdds ?? co.overOdds ?? null,
+          underOdds: eoUnderOdds ?? co.underOdds ?? null,
           homeSpreadOdds: eo.homeSpreadOdds ?? co.homeSpreadOdds ?? null,
           awaySpreadOdds: eo.awaySpreadOdds ?? co.awaySpreadOdds ?? null,
           provider: eo.provider ?? co.provider ?? 'Core API',
