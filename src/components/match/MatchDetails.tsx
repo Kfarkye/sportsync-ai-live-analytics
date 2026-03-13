@@ -680,29 +680,31 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className={cn("group relative transition-colors duration-500", collapsible ? "cursor-pointer" : "cursor-default")}
-      onClick={() => collapsible && setIsOpen(!isOpen)}
+      className="group relative rounded-[24px] bg-white/90 backdrop-blur-2xl ring-1 ring-black/[0.04] shadow-[0_8px_30px_rgba(0,0,0,0.03)] transition-shadow duration-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.05)] overflow-hidden"
     >
-      <div className="w-full h-px bg-gradient-to-r from-transparent via-black/[0.06] to-transparent my-2" />
-
-      <div className="py-6 flex flex-col md:flex-row md:items-start gap-4 md:gap-8 px-2 md:px-0">
-        <div className="w-full md:w-[160px] shrink-0 flex items-center justify-between md:block select-none mt-[2px] overflow-hidden">
-          <span className="text-[11px] uppercase transition-transform duration-300 font-bold tracking-[0.2em] md:group-hover:translate-x-1 flex items-center">
-            {numberPart && <span className="text-black/30 font-mono mr-2.5">{numberPart}</span>}
-            <span className={cn("transition-colors", effectiveOpen ? "text-black/90" : "text-black/40 group-hover:text-black/70")}>{titlePart}</span>
-          </span>
-          {collapsible && <div className="md:hidden block"><ToggleSwitch expanded={effectiveOpen} /></div>}
-        </div>
-        <div className="flex-1 min-w-0 relative">
-          {collapsible && <div className="hidden md:block absolute right-0 top-0.5 z-10"><ToggleSwitch expanded={effectiveOpen} /></div>}
-          <AnimatePresence initial={false}>
-            {effectiveOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={PHYSICS.SPRING} className="overflow-hidden">
-                <div className="animate-in fade-in duration-700 fill-mode-forwards pt-4 md:pt-0 md:pr-12">{children}</div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+      <button
+        type="button"
+        className={cn(
+          "w-full flex items-center justify-between gap-4 px-5 sm:px-6 py-4 border-b border-black/[0.05] text-left",
+          collapsible ? "cursor-pointer" : "cursor-default"
+        )}
+        onClick={() => collapsible && setIsOpen(!isOpen)}
+      >
+        <span className="text-[11px] uppercase transition-transform duration-300 font-bold tracking-[0.2em] md:group-hover:translate-x-0.5 flex items-center min-w-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-black/25 mr-2.5 shrink-0" />
+          {numberPart && <span className="text-black/35 font-mono mr-2.5 shrink-0">{numberPart}</span>}
+          <span className={cn("truncate transition-colors", effectiveOpen ? "text-black/80" : "text-black/60 group-hover:text-black/80")}>{titlePart}</span>
+        </span>
+        {collapsible && <div className="shrink-0"><ToggleSwitch expanded={effectiveOpen} /></div>}
+      </button>
+      <div className="flex-1 min-w-0 relative">
+        <AnimatePresence initial={false}>
+          {effectiveOpen && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={PHYSICS.SPRING} className="overflow-hidden">
+              <div className="animate-in fade-in duration-700 fill-mode-forwards px-5 sm:px-6 pb-5 sm:pb-6 pt-4">{children}</div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
@@ -1287,7 +1289,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
               {/* Uses deferredTab to keep the Segment Control click animation instant while DOM renders in background */}
               <motion.div key={deferredTab} {...PHYSICS.SLIDE_UP} className="transform-gpu will-change-transform">
                 {deferredTab === 'OVERVIEW' && (
-                  <div className="space-y-0">
+                  <div className="space-y-4">
                     <SpecSheetRow label="01 // BROADCAST" defaultOpen={true} collapsible={false}>
                       {isBaseball ? <BaseballGamePanel match={match} baseballData={baseballData} /> : <CinematicGameTracker match={match} liveState={liveState || undefined} />}
                     </SpecSheetRow>
@@ -1306,11 +1308,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   <div className="space-y-4">
                     <SafePregameIntelCards match={match} />
                     <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-                      <div className="space-y-0">
+                      <div className="space-y-4">
                         <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>{isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}</SpecSheetRow>
                         <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
                       </div>
-                      <div className="space-y-0">
+                      <div className="space-y-4">
                         <SpecSheetRow label="07 // CONTEXT" defaultOpen={true}>{match.context ? <MatchupContextPills {...match.context} sport={match.sport} /> : <div className="text-black/40 italic text-xs font-medium">No context available.</div>}</SpecSheetRow>
                         <SpecSheetRow label="05 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
                       </div>
@@ -1319,7 +1321,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                 )}
 
                 {deferredTab === 'PROPS' && (
-                  <div className="space-y-0">
+                  <div className="space-y-4">
                     <div className="flex justify-end mb-4 pr-4">
                       <button type="button" onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')} className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/70 transition-colors hover:text-black bg-black/[0.06] px-4 py-2 rounded-full border border-black/[0.05] transform-gpu">
                         {propView === 'classic' ? 'VIEW: CLASSIC' : 'VIEW: CINEMATIC'}
