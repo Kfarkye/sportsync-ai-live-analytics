@@ -19,6 +19,23 @@ root.render(
 // PWA: Register service worker for installability + offline shell
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+      .then((registration) => {
+        // Check for fresh SW immediately and on an interval to avoid stale app shells.
+        registration.update().catch(() => {});
+        window.setInterval(() => registration.update().catch(() => {}), 60_000);
+
+        registration.addEventListener('updatefound', () => {
+          const installing = registration.installing;
+          if (!installing) return;
+          installing.addEventListener('statechange', () => {
+            // Force refresh when a new worker is installed and an old one controls this page.
+            if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+              window.location.reload();
+            }
+          });
+        });
+      })
+      .catch(() => {});
   });
 }
