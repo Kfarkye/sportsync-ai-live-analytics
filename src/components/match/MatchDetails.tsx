@@ -343,11 +343,11 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
   const hasAnyLine = resolvedHomeSpread !== null || resolvedAwaySpread !== null || hasTotal || homeML !== undefined && homeML !== null || awayML !== undefined && awayML !== null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-10 relative z-10 min-h-[160px]">
-      <div className="lg:col-span-5 bg-white/90 backdrop-blur-2xl rounded-[24px] p-6 ring-1 ring-black/[0.04] shadow-[0_8px_30px_rgba(0,0,0,0.03)] flex flex-col justify-between overflow-hidden relative group transition-shadow hover:shadow-[0_12px_40px_rgba(0,0,0,0.05)] transform-gpu">
+    <div className="grid grid-cols-1 lg:grid-cols-12 items-start gap-3 lg:gap-4 mb-7 lg:mb-8 relative z-10">
+      <div className="lg:col-span-4 xl:col-span-5 bg-white/90 backdrop-blur-2xl rounded-[24px] p-5 sm:p-6 ring-1 ring-black/[0.04] shadow-[0_8px_30px_rgba(0,0,0,0.03)] flex flex-col overflow-hidden relative group transition-shadow hover:shadow-[0_12px_40px_rgba(0,0,0,0.05)] transform-gpu">
         <div className="absolute -right-16 -top-16 w-40 h-40 bg-black/[0.02] rounded-full blur-3xl group-hover:bg-black/[0.04] transition-colors duration-700 pointer-events-none" />
         <div>
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-3">
             <span className="px-2.5 py-1 bg-black/[0.04] rounded-lg text-[10px] font-bold text-black/60 uppercase tracking-widest">{leagueLabel}</span>
           </div>
           {isValidDate && (
@@ -358,15 +358,15 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
           )}
         </div>
         {venueName && (
-          <div className="mt-8 flex items-center gap-2 text-[12px] text-black/50 font-medium">
+          <div className="mt-5 flex items-center gap-2 text-[12px] text-black/50 font-medium">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-60"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
             <span className="truncate">{venueName}{venue?.city ? `, ${venue.city}` : ''}</span>
           </div>
         )}
       </div>
 
-      <div className="lg:col-span-7 bg-white/90 backdrop-blur-2xl rounded-[24px] p-6 ring-1 ring-black/[0.04] shadow-[0_8px_30px_rgba(0,0,0,0.03)] flex flex-col justify-center transform-gpu">
-        <div className="flex items-center justify-between mb-6">
+      <div className="lg:col-span-8 xl:col-span-7 bg-white/90 backdrop-blur-2xl rounded-[24px] p-5 sm:p-6 ring-1 ring-black/[0.04] shadow-[0_8px_30px_rgba(0,0,0,0.03)] flex flex-col transform-gpu">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-black/20" />
             <span className="text-[11px] font-bold text-black/40 uppercase tracking-widest">{linesLabel}</span>
