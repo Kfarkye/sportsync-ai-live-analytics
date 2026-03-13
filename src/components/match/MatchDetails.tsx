@@ -43,6 +43,7 @@ import {
   isGameScheduled,
   getDbMatchId,
 } from '../../utils/matchUtils';
+import { getLeagueDisplayName } from '../../utils/leagueDisplay';
 
 // Components
 import { ScoreHeader, LiveGameTracker } from '../analysis/Gamecast';
@@ -289,6 +290,7 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
   const awayRecord = match.awayTeam?.record;
   const venue = (match as Match & { venue?: { name?: string; city?: string; state?: string } }).venue;
   const venueName = venue?.name || match.homeTeam?.stadium || match.court;
+  const leagueLabel = getLeagueDisplayName(match.leagueId, String(match.sport || ''));
 
   const homeSpreadRaw = odds?.homeSpread ?? odds?.spread ?? odds?.spread_home ?? odds?.spread_home_value;
   const awaySpreadRaw = odds?.awaySpread ?? odds?.away_spread ?? odds?.spread_away ?? odds?.spread_away_value;
@@ -346,8 +348,7 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
         <div className="absolute -right-16 -top-16 w-40 h-40 bg-black/[0.02] rounded-full blur-3xl group-hover:bg-black/[0.04] transition-colors duration-700 pointer-events-none" />
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <span className="px-2.5 py-1 bg-black/[0.04] rounded-lg text-[10px] font-bold text-black/60 uppercase tracking-widest">{match.leagueId?.toUpperCase()}</span>
-            {isLive && <span className="px-2.5 py-1 bg-red-500/10 text-red-600 rounded-lg text-[10px] font-bold uppercase tracking-widest animate-pulse transform-gpu">Live</span>}
+            <span className="px-2.5 py-1 bg-black/[0.04] rounded-lg text-[10px] font-bold text-black/60 uppercase tracking-widest">{leagueLabel}</span>
           </div>
           {isValidDate && (
             <div className="space-y-1">

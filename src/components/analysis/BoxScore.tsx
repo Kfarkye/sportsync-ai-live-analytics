@@ -6,6 +6,7 @@ import TeamLogo from '../shared/TeamLogo';
 import { cn, ESSENCE } from '@/lib/essence';
 import { getMatchDisplayStats, hasLineScoreData } from '../../utils/statDisplay';
 import { useIsEntityPulsing } from '@/context/LiveSweatContext';
+import { getLeagueDisplayName } from '@/utils/leagueDisplay';
 
 // ============================================================================
 // 1. LINE SCORE GRID - ELITE EDITION
@@ -581,6 +582,7 @@ const BoxScore: React.FC<{ match: Match }> = memo(({ match }) => {
   const stats = useMemo(() => getMatchDisplayStats(match, 8), [match]);
   const homeColor = normalizeColor(match.homeTeam?.color, '#3B82F6');
   const awayColor = normalizeColor(match.awayTeam?.color, '#EF4444');
+  const leagueLabel = getLeagueDisplayName(match.leagueId, String(match.sport || ''));
 
   if (!stats.length && !hasLineScoreData(match)) return null;
 
@@ -593,7 +595,7 @@ const BoxScore: React.FC<{ match: Match }> = memo(({ match }) => {
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Line Score</span>
           </div>
           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
-            {(match.leagueId || match.sport || '').toString().toUpperCase()}
+            {leagueLabel}
           </span>
         </div>
         <LineScoreGrid match={match} />

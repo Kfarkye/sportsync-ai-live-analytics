@@ -3,6 +3,7 @@ import { Match } from '@/types';
 import TeamLogo from '../shared/TeamLogo';
 import { analyzeSpread, analyzeTotal } from '../../utils/oddsUtils';
 import { Check, X } from 'lucide-react';
+import { getLeagueDisplayName } from '../../utils/leagueDisplay';
 
 interface ExpandedMatchCardProps {
   match: Match;
@@ -90,6 +91,7 @@ const ExpandedMatchCard: React.FC<ExpandedMatchCardProps> = ({ match, onClick })
   const totalDisplay = totalData.line !== null
     ? `${totalData.result === 'OVER' ? 'O' : totalData.result === 'UNDER' ? 'U' : ''} ${totalData.displayLine}`
     : null;
+  const leagueLabel = getLeagueDisplayName(match.leagueId, String(match.sport || ''));
 
   return (
     <div
@@ -103,7 +105,7 @@ const ExpandedMatchCard: React.FC<ExpandedMatchCardProps> = ({ match, onClick })
           <span className="text-caption font-semibold text-zinc-500 uppercase tracking-widest">Final</span>
         </div>
         <span className="text-caption font-medium text-zinc-600 uppercase tracking-wide">
-          {match.leagueId?.toUpperCase() || match.sport}
+          {leagueLabel}
         </span>
       </div>
 
