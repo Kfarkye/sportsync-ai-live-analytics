@@ -21,6 +21,15 @@ const FALLBACK_LEAGUE_IDS = new Set([
 ]);
 const FALLBACK_LEAGUES = LEAGUES.filter((league) => FALLBACK_LEAGUE_IDS.has(league.id));
 
+const fetchFallbackMatches = async (date: Date, fetchedAt: number = Date.now()): Promise<Match[]> => {
+  const fallback = await fetchAllMatches(FALLBACK_LEAGUES, date);
+  return (fallback || []).map((item: Match) => (
+    typeof item?.fetched_at === 'number'
+      ? item
+      : { ...item, fetched_at: fetchedAt }
+  ));
+};
+
 const fetchMatches = async (date: Date): Promise<Match[]> => {
   if (!date || isNaN(date.getTime())) {
     console.error("useMatches: Invalid date provided to fetchMatches");
@@ -40,35 +49,33 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
   const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY.trim();
 
   const cached = matchCache.get(dateStr);
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-matches?date=${dateStr}&limit=140`, {
-    method: 'POST',
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      'Content-Type': 'application/json',
-      ...(cached?.etag ? { 'If-None-Match': cached.etag } : {}),
-    },
-    // Safe fallback: send date in body too, just in case the Edge Function expects it there
-    body: JSON.stringify({ date: dateStr, limit: 140 }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-matches?date=${dateStr}&limit=140`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        ...(cached?.etag ? { 'If-None-Match': cached.etag } : {}),
+      },
+      // Safe fallback: send date in body too, just in case the Edge Function expects it there
+      body: JSON.stringify({ date: dateStr, limit: 140 }),
+    });
+  } catch (err) {
+    console.warn('fetch-matches network error, using ESPN fallback:', err);
+    return fetchFallbackMatches(date);
+  }
 
   if (res.status === 304 && cached) {
     if (cached.data.length > 0) return cached.data;
-    const fallback304 = await fetchAllMatches(FALLBACK_LEAGUES, date);
-    const fetchedAt304 = Date.now();
-    const fallbackMatches304: Match[] = (fallback304 || []).map((item: Match) => (
-      typeof item?.fetched_at === 'number'
-        ? item
-        : { ...item, fetched_at: fetchedAt304 }
-    ));
-    return fallbackMatches304;
+    return fetchFallbackMatches(date);
   }
 
   if (!res.ok) {
     const errText = await res.text();
     console.error("fetch-matches failed:", res.status, errText);
-    // FIX: MUST throw the error so React Query catches it, retries, and shows error states
-    throw new Error(`fetch-matches failed: ${res.status} ${errText}`);
+    return fetchFallbackMatches(date);
   }
 
   const data = await res.json();
@@ -89,12 +96,7 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
 
   // Fail-open fallback: if Edge returns an empty slate, hydrate directly from ESPN.
   // This protects feed availability when DB ingest/joins are delayed.
-  const fallback = await fetchAllMatches(FALLBACK_LEAGUES, date);
-  const fallbackMatches: Match[] = (fallback || []).map((item: Match) => (
-    typeof item?.fetched_at === 'number'
-      ? item
-      : { ...item, fetched_at: fetchedAt }
-  ));
+  const fallbackMatches = await fetchFallbackMatches(date, fetchedAt);
   if (etag && fallbackMatches.length > 0) {
     matchCache.set(dateStr, { etag, data: fallbackMatches });
   } else if (fallbackMatches.length === 0) {
