@@ -343,9 +343,9 @@ Deno.serve(async (req: Request) => {
     if (leagueFilter.size > 0 && !leagueFilter.has(league.id)) continue;
 
     try {
-      const dateParam = dates || new Date().toISOString().split('T')[0].replace(/-/g, '');
-      const groupsParam = league.groups ? `&groups=${league.groups}` : '';
-      const res = await fetchWithRetry(`${SCOREBOARD_BASE}/${league.endpoint}/scoreboard?dates=${dateParam}${groupsParam}`);
+      const dateQuery = dates ? `?dates=${dates}` : '';
+      const groupsParam = league.groups ? `${dateQuery ? '&' : '?'}groups=${league.groups}` : '';
+      const res = await fetchWithRetry(`${SCOREBOARD_BASE}/${league.endpoint}/scoreboard${dateQuery}${groupsParam}`);
       const data = await res.json();
       let events = data.events || [];
 
@@ -389,7 +389,7 @@ Deno.serve(async (req: Request) => {
           stats.attempted++;
           await processGame(supabase, event, dbMatchId, league, stats, { dryRun, debug }).finally(async () => {
             _localLocks.delete(dbMatchId);
-            if (hasDbLock) await supabase.rpc('release_ingest_lock', { p_match_id: dbMatchId }).catch(() => {});
+            if (hasDbLock) { try { await supabase.rpc('release_ingest_lock', { p_match_id: dbMatchId }); } catch {} }
           });
         });
         await Promise.all(executing);
