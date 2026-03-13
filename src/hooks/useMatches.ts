@@ -2,8 +2,24 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { isSupabaseConfigured, getSupabaseUrl } from '../lib/supabase';
 import { formatLocalDate, safeParseDate } from '../utils/dateUtils';
 import { Match } from '@/types';
+import { fetchAllMatches } from '@/services/espnService';
+import { LEAGUES } from '@/constants';
 
 const matchCache = new Map<string, { etag: string; data: Match[] }>();
+const FALLBACK_LEAGUE_IDS = new Set([
+  'nba',
+  'nhl',
+  'nfl',
+  'college-football',
+  'mens-college-basketball',
+  'mlb',
+  'eng.1',
+  'ita.1',
+  'esp.1',
+  'ger.1',
+  'uefa.champions',
+]);
+const FALLBACK_LEAGUES = LEAGUES.filter((league) => FALLBACK_LEAGUE_IDS.has(league.id));
 
 const fetchMatches = async (date: Date): Promise<Match[]> => {
   if (!date || isNaN(date.getTime())) {
@@ -27,6 +43,7 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
   const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-matches?date=${dateStr}&limit=140`, {
     method: 'POST',
     headers: {
+      apikey: SUPABASE_ANON_KEY,
       'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type': 'application/json',
       ...(cached?.etag ? { 'If-None-Match': cached.etag } : {}),
@@ -56,7 +73,17 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
   ));
   const etag = res.headers.get('etag');
   if (etag) matchCache.set(dateStr, { etag, data: matches });
-  return matches;
+  if (matches.length > 0) return matches;
+
+  // Fail-open fallback: if Edge returns an empty slate, hydrate directly from ESPN.
+  // This protects feed availability when DB ingest/joins are delayed.
+  const fallback = await fetchAllMatches(FALLBACK_LEAGUES, date);
+  const fallbackMatches: Match[] = (fallback || []).map((item: Match) => (
+    typeof item?.fetched_at === 'number'
+      ? item
+      : { ...item, fetched_at: fetchedAt }
+  ));
+  return fallbackMatches;
 };
 
 export const useMatches = (selectedDate: Date | string) => {
