@@ -290,16 +290,42 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
   const venue = (match as Match & { venue?: { name?: string; city?: string; state?: string } }).venue;
   const venueName = venue?.name || match.homeTeam?.stadium || match.court;
 
-  const spreadVal = odds?.homeSpread ?? odds?.spread ?? odds?.spread_home ?? odds?.spread_home_value;
+  const homeSpreadRaw = odds?.homeSpread ?? odds?.spread ?? odds?.spread_home ?? odds?.spread_home_value;
+  const awaySpreadRaw = odds?.awaySpread ?? odds?.away_spread ?? odds?.spread_away ?? odds?.spread_away_value;
   const totalVal = odds?.total ?? odds?.overUnder ?? odds?.total_value;
   const homeML = odds?.moneylineHome ?? odds?.homeWin ?? odds?.home_ml ?? odds?.homeML;
   const awayML = odds?.moneylineAway ?? odds?.awayWin ?? odds?.away_ml ?? odds?.awayML;
 
-  const fmtOdds = (v?: string | number) => {
+  const toNumber = (v: unknown) => {
+    if (v === undefined || v === null) return null;
+    const num = typeof v === 'string' ? parseFloat(v) : Number(v);
+    return Number.isFinite(num) ? num : null;
+  };
+
+  const homeSpread = toNumber(homeSpreadRaw);
+  const awaySpread = toNumber(awaySpreadRaw);
+  const resolvedHomeSpread = homeSpread ?? (awaySpread !== null ? awaySpread * -1 : null);
+  const resolvedAwaySpread = awaySpread ?? (homeSpread !== null ? homeSpread * -1 : null);
+
+  const fmtOdds = (v?: string | number | null) => {
     if (v === undefined || v === null) return '—';
-    const num = typeof v === 'string' ? parseFloat(v) : v;
-    if (isNaN(num)) return String(v);
+    const num = toNumber(v);
+    if (num === null) return String(v);
     return num > 0 ? `+${num}` : `${num}`;
+  };
+
+  const fmtSpread = (v?: string | number | null) => {
+    if (v === undefined || v === null) return '—';
+    const num = toNumber(v);
+    if (num === null) return String(v);
+    if (num === 0) return 'PK';
+    return num > 0 ? `+${num}` : `${num}`;
+  };
+
+  const fmtTotal = (v?: string | number | null) => {
+    if (v === undefined || v === null) return '—';
+    const num = toNumber(v);
+    return num === null ? String(v) : `${num}`;
   };
 
   const isFinal = isGameFinal(match.status);
@@ -310,8 +336,9 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
   const oddsAreFresh = oddsAge > gameStart;
   const linesLabel = isFinal ? 'Closing' : (isLive && oddsAreFresh) ? 'Current' : isLive ? 'Opening' : 'Lines';
 
-  const isSoccer = match.sport === Sport.SOCCER || match.sport === ('SOCCER' as any);
-  const hasAnyLine = spreadVal !== undefined || totalVal !== undefined || homeML !== undefined || awayML !== undefined;
+  const hasTotal = totalVal !== undefined && totalVal !== null;
+  const hasMlColumn = homeML !== undefined && homeML !== null || awayML !== undefined && awayML !== null;
+  const hasAnyLine = resolvedHomeSpread !== null || resolvedAwaySpread !== null || hasTotal || homeML !== undefined && homeML !== null || awayML !== undefined && awayML !== null;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-10 relative z-10 min-h-[160px]">
@@ -348,69 +375,73 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
           )}
         </div>
 
-        <div className="space-y-5">
-          {/* Away Team Row */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 w-1/3 min-w-0">
-              {match.awayTeam?.logo && <img src={match.awayTeam.logo} alt="" className="w-6 h-6 object-contain shrink-0" loading="lazy" decoding="async" />}
-              <span className="text-[15px] font-semibold text-black truncate">{match.awayTeam?.name || match.awayTeam?.shortName}</span>
-              <span className="text-[12px] text-black/40 font-medium tabular-nums hidden sm:block">{awayRecord}</span>
+        {!hasAnyLine ? (
+          <div className="text-[12px] text-black/40 italic">Off Board</div>
+        ) : (
+          <div className="space-y-3">
+            <div className={cn(
+              "grid items-center gap-x-4 px-1 text-[10px] text-black/40 uppercase font-bold tracking-wider",
+              hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
+            )}>
+              <span>Team</span>
+              <span className="text-right">Spread</span>
+              {hasMlColumn && <span className="text-right">ML</span>}
             </div>
-            {hasAnyLine ? (
-              <div className="flex items-center justify-end gap-4 w-2/3">
-                <div className="flex flex-col items-end min-w-[60px]">
-                  <span className="text-[10px] text-black/40 uppercase font-bold tracking-wider mb-1.5">Spread</span>
-                  <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-2.5 py-1 rounded-lg w-full text-right">
-                    {fmtOdds(spreadVal !== undefined && spreadVal !== null ? (Number(spreadVal) * -1) : undefined)}
-                  </span>
+
+            <div className={cn(
+              "grid items-center gap-x-4 px-1 py-1.5",
+              hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
+            )}>
+              <div className="flex items-center gap-3 min-w-0">
+                {match.awayTeam?.logo && <img src={match.awayTeam.logo} alt="" className="w-6 h-6 object-contain shrink-0" loading="lazy" decoding="async" />}
+                <div className="min-w-0 flex items-baseline gap-2">
+                  <span className="text-[15px] font-semibold text-black truncate">{match.awayTeam?.name || match.awayTeam?.shortName}</span>
+                  <span className="text-[12px] text-black/40 font-medium tabular-nums hidden sm:inline">{awayRecord}</span>
                 </div>
-                {(awayML !== undefined) && (
-                  <div className="flex flex-col items-end min-w-[60px]">
-                    <span className="text-[10px] text-black/40 uppercase font-bold tracking-wider mb-1.5">ML</span>
-                    <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-2.5 py-1 rounded-lg w-full text-right">
-                      {fmtOdds(awayML)}
-                    </span>
-                  </div>
-                )}
               </div>
-            ) : <div className="text-[12px] text-black/40 italic">Off Board</div>}
-          </div>
-
-          <div className="w-full h-px bg-black/[0.04]" />
-
-          {/* Home Team Row */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 w-1/3 min-w-0">
-              {match.homeTeam?.logo && <img src={match.homeTeam.logo} alt="" className="w-6 h-6 object-contain shrink-0" loading="lazy" decoding="async" />}
-              <span className="text-[15px] font-semibold text-black truncate">{match.homeTeam?.name || match.homeTeam?.shortName}</span>
-              <span className="text-[12px] text-black/40 font-medium tabular-nums hidden sm:block">{homeRecord}</span>
+              <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-3 py-1.5 rounded-xl text-right">
+                {fmtSpread(resolvedAwaySpread)}
+              </span>
+              {hasMlColumn && (
+                <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-3 py-1.5 rounded-xl text-right">
+                  {fmtOdds(awayML)}
+                </span>
+              )}
             </div>
-            {hasAnyLine ? (
-              <div className="flex items-center justify-end gap-4 w-2/3">
-                <div className="flex flex-col items-end min-w-[60px]">
-                  <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-2.5 py-1 rounded-lg w-full text-right">
-                    {fmtOdds(spreadVal)}
-                  </span>
+
+            <div className="w-full h-px bg-black/[0.05]" />
+
+            <div className={cn(
+              "grid items-center gap-x-4 px-1 py-1.5",
+              hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
+            )}>
+              <div className="flex items-center gap-3 min-w-0">
+                {match.homeTeam?.logo && <img src={match.homeTeam.logo} alt="" className="w-6 h-6 object-contain shrink-0" loading="lazy" decoding="async" />}
+                <div className="min-w-0 flex items-baseline gap-2">
+                  <span className="text-[15px] font-semibold text-black truncate">{match.homeTeam?.name || match.homeTeam?.shortName}</span>
+                  <span className="text-[12px] text-black/40 font-medium tabular-nums hidden sm:inline">{homeRecord}</span>
                 </div>
-                {(homeML !== undefined) && (
-                  <div className="flex flex-col items-end min-w-[60px]">
-                    <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-2.5 py-1 rounded-lg w-full text-right">
-                      {fmtOdds(homeML)}
-                    </span>
-                  </div>
-                )}
-                {totalVal !== undefined && (
-                  <div className="flex flex-col items-end min-w-[60px] ml-2">
-                    <span className="text-[10px] text-black/40 uppercase font-bold tracking-wider mb-1.5">Total</span>
-                    <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-2.5 py-1 rounded-lg w-full text-right">
-                      O/U {totalVal}
-                    </span>
-                  </div>
-                )}
               </div>
-            ) : null}
+              <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-3 py-1.5 rounded-xl text-right">
+                {fmtSpread(resolvedHomeSpread)}
+              </span>
+              {hasMlColumn && (
+                <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-3 py-1.5 rounded-xl text-right">
+                  {fmtOdds(homeML)}
+                </span>
+              )}
+            </div>
+
+            {hasTotal && (
+              <div className="pt-3 mt-1 border-t border-black/[0.05] flex items-center justify-end gap-2">
+                <span className="text-[10px] text-black/40 uppercase font-bold tracking-wider">Total</span>
+                <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.03] px-3 py-1.5 rounded-xl text-right">
+                  O/U {fmtTotal(totalVal)}
+                </span>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
