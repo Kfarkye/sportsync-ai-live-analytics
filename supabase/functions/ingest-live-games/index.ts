@@ -485,12 +485,14 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
       const espnLeagueId = endpointParts.length > 1 ? endpointParts[1] : null;
       if (espnLeagueId && home?.id && away?.id) {
         const coreBase = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}`;
-        const [coreOddsData, probData, predictorData, homeStatsData, awayStatsData, homeLeadersData, awayLeadersData, homeRosterData, awayRosterData, situationData] = await Promise.all([
+        const [coreOddsData, probData, predictorData, homeStatsData, awayStatsData, homeLeadersData, awayLeadersData, homeRosterData, awayRosterData, situationData, officialsData, broadcastsData, homeLinescoresData, awayLinescoresData] = await Promise.all([
           fetchCoreJson(`${coreBase}/odds`), fetchCoreJson(`${coreBase}/probabilities?limit=5`), fetchCoreJson(`${coreBase}/predictor`),
           fetchCoreJson(`${coreBase}/competitors/${home.id}/statistics`), fetchCoreJson(`${coreBase}/competitors/${away.id}/statistics`),
           fetchCoreJson(`${coreBase}/competitors/${home.id}/leaders`), fetchCoreJson(`${coreBase}/competitors/${away.id}/leaders`),
           fetchCoreJson(`${coreBase}/competitors/${home.id}/roster`), fetchCoreJson(`${coreBase}/competitors/${away.id}/roster`),
-          fetchCoreJson(`${coreBase}/situation`)
+          fetchCoreJson(`${coreBase}/situation`),
+          fetchCoreJson(`${coreBase}/officials`), fetchCoreJson(`${coreBase}/broadcasts`),
+          fetchCoreJson(`${coreBase}/competitors/${home.id}/linescores`), fetchCoreJson(`${coreBase}/competitors/${away.id}/linescores`)
         ]);
 
         if (coreOddsData && Array.isArray(coreOddsData.items)) {
@@ -521,8 +523,48 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
         }
 
         if (predictorData) {
-          const getStatValue = (team: any, name: string) => { const statsArray = Array.isArray(team?.statistics) ? team.statistics : (Array.isArray(team?.team?.statistics) ? team.team.statistics : []); return statsArray.find((s: any) => s.name === name)?.value ?? null; };
-          bpiPayloadData = { homePredMov: getStatValue(predictorData.homeTeam, 'teampredmov'), homePredWinPct: getStatValue(predictorData.homeTeam, 'teampredwinpct'), awayPredWinPct: getStatValue(predictorData.awayTeam, 'teampredwinpct'), matchupQuality: getStatValue(predictorData.homeTeam, 'matchupquality'), lastUpdated: predictorData.lastModified ?? null };
+          const toNum = (v: any): number | null => {
+            if (v === null || v === undefined) return null;
+            if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+            if (typeof v === 'string') {
+              const n = parseFloat(v.replace('%', '').trim());
+              return Number.isFinite(n) ? n : null;
+            }
+            return null;
+          };
+          const normalizeStatName = (v: any) => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const getStatValue = (team: any, aliases: string[]) => {
+            const statsArray = Array.isArray(team?.statistics) ? team.statistics : (Array.isArray(team?.team?.statistics) ? team.team.statistics : []);
+            const wanted = aliases.map(normalizeStatName);
+            for (const stat of statsArray) {
+              const key = normalizeStatName(stat?.name ?? stat?.displayName ?? stat?.shortDisplayName);
+              if (!key) continue;
+              if (wanted.includes(key)) {
+                const parsed = toNum(stat?.value ?? stat?.displayValue);
+                if (parsed !== null) return parsed;
+              }
+            }
+            return null;
+          };
+          const homePredMovRaw = getStatValue(predictorData.homeTeam, ['teampredmov', 'teamPredPtDiff', 'predPtDiff']);
+          const awayPredMovRaw = getStatValue(predictorData.awayTeam, ['teampredmov', 'teamPredPtDiff', 'predPtDiff']);
+          const homeWinPctRaw = getStatValue(predictorData.homeTeam, ['teampredwinpct', 'gameProjection']);
+          const awayWinPctRaw = getStatValue(predictorData.awayTeam, ['teampredwinpct', 'gameProjection']);
+          const homeChanceLoss = getStatValue(predictorData.homeTeam, ['teamChanceLoss']);
+          const awayChanceLoss = getStatValue(predictorData.awayTeam, ['teamChanceLoss']);
+          const matchupQuality = getStatValue(predictorData.homeTeam, ['matchupquality']) ?? getStatValue(predictorData.awayTeam, ['matchupquality']);
+
+          const resolvedHomeWinPct = homeWinPctRaw ?? awayChanceLoss ?? (awayWinPctRaw !== null ? (100 - awayWinPctRaw) : null);
+          const resolvedAwayWinPct = awayWinPctRaw ?? homeChanceLoss ?? (resolvedHomeWinPct !== null ? (100 - resolvedHomeWinPct) : null);
+          const resolvedHomePredMov = homePredMovRaw ?? (awayPredMovRaw !== null ? -awayPredMovRaw : null);
+
+          bpiPayloadData = {
+            homePredMov: resolvedHomePredMov,
+            homePredWinPct: resolvedHomeWinPct,
+            awayPredWinPct: resolvedAwayWinPct,
+            matchupQuality,
+            lastUpdated: predictorData.lastModified ?? null
+          };
         }
 
         if (probData) {
@@ -535,13 +577,89 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
         homeStatsRaw = extractStats(homeStatsData); awayStatsRaw = extractStats(awayStatsData);
         if (homeStatsRaw || awayStatsRaw) { coreEnrichment.advanced_metrics = { core_api_efficiency: { home: homeStatsRaw ? { ppep: homeStatsRaw.pointsPerEstimatedPossessions, pace: homeStatsRaw.estimatedPossessions, shootingEff: homeStatsRaw.shootingEfficiency, offRebPct: homeStatsRaw.offensiveReboundPct, astToRatio: homeStatsRaw.assistTurnoverRatio } : null, away: awayStatsRaw ? { ppep: awayStatsRaw.pointsPerEstimatedPossessions, pace: awayStatsRaw.estimatedPossessions, shootingEff: awayStatsRaw.shootingEfficiency, offRebPct: awayStatsRaw.offensiveReboundPct, astToRatio: awayStatsRaw.assistTurnoverRatio } : null } }; }
 
-        const extractLeaders = (json: any) => { const result: Record<string, any> = {}; for (const cat of (json?.leaders ?? [])) { const topPlayer = cat?.leaders?.[0]; if (topPlayer) result[cat?.name ?? cat?.displayName ?? 'unknown'] = { displayValue: topPlayer.displayValue, value: topPlayer.value, athleteRef: topPlayer.athlete?.$ref ?? null }; } return Object.keys(result).length > 0 ? result : null; };
+        const extractLeaders = (json: any) => {
+          const result: Record<string, any> = {};
+          const categories = Array.isArray(json?.leaders) ? json.leaders : (Array.isArray(json?.categories) ? json.categories : []);
+          for (const cat of categories) {
+            const topPlayer = cat?.leaders?.[0];
+            if (!topPlayer) continue;
+            result[cat?.name ?? cat?.displayName ?? cat?.shortDisplayName ?? 'unknown'] = {
+              displayValue: topPlayer.displayValue ?? null,
+              value: topPlayer.value ?? null,
+              athleteRef: topPlayer.athlete?.$ref ?? null,
+              teamRef: topPlayer.team?.$ref ?? null,
+            };
+          }
+          return Object.keys(result).length > 0 ? result : null;
+        };
         const homeLeadersRaw = homeLeadersData ? extractLeaders(homeLeadersData) : null;
         const awayLeadersRaw = awayLeadersData ? extractLeaders(awayLeadersData) : null;
         const extractRoster = (json: any) => (json?.entries ?? json?.items ?? []).filter((e: any) => e?.playerId || e?.athlete).map((e: any) => ({ id: e.playerId ?? null, athleteRef: e.athlete?.$ref ?? null, statsRef: e.statistics?.$ref ?? null })).slice(0, 20);
         const homeRosterRaw = homeRosterData ? extractRoster(homeRosterData) : null;
         const awayRosterRaw = awayRosterData ? extractRoster(awayRosterData) : null;
-        if (homeRosterRaw || awayRosterRaw || homeLeadersRaw || awayLeadersRaw) { coreEnrichment.extra_data = { ...(coreEnrichment.extra_data || {}), ...(homeRosterRaw || awayRosterRaw ? { roster: { home: homeRosterRaw, away: awayRosterRaw } } : {}), ...(homeLeadersRaw || awayLeadersRaw ? { core_api_leaders: { home: homeLeadersRaw, away: awayLeadersRaw } } : {}) }; }
+        const officialsRaw = Array.isArray(officialsData?.items)
+          ? officialsData.items
+            .map((o: any) => ({
+              id: o?.id ?? null,
+              name: o?.fullName ?? o?.displayName ?? null,
+              position: o?.position?.name ?? o?.position?.displayName ?? null,
+              order: o?.order ?? null,
+            }))
+            .filter((o: any) => o.id || o.name)
+          : null;
+        const broadcastsRaw = Array.isArray(broadcastsData?.items)
+          ? broadcastsData.items
+            .map((b: any) => ({
+              station: b?.station ?? b?.media?.shortName ?? b?.media?.name ?? null,
+              type: b?.type?.shortName ?? b?.type?.longName ?? null,
+              market: b?.market?.type ?? b?.market?.displayName ?? null,
+              channel: b?.channel ?? null,
+              lang: b?.lang ?? null,
+              region: b?.region ?? null,
+            }))
+            .filter((b: any) => b.station || b.type || b.market)
+          : null;
+        const parseLinescores = (json: any) => Array.isArray(json?.items)
+          ? json.items
+            .map((item: any) => ({
+              period: item?.period ?? null,
+              value: item?.value ?? null,
+              displayValue: item?.displayValue ?? null,
+              source: item?.source?.description ?? null
+            }))
+            .filter((ls: any) => ls.value !== null || ls.displayValue !== null)
+          : null;
+        const homeLinescoresRaw = parseLinescores(homeLinescoresData);
+        const awayLinescoresRaw = parseLinescores(awayLinescoresData);
+        const extractPredictorStats = (team: any) => {
+          const statsArray = Array.isArray(team?.statistics) ? team.statistics : (Array.isArray(team?.team?.statistics) ? team.team.statistics : []);
+          const result: Record<string, any> = {};
+          for (const stat of statsArray) {
+            const key = stat?.name ?? stat?.displayName ?? stat?.shortDisplayName;
+            if (!key) continue;
+            result[String(key)] = (stat?.value ?? stat?.displayValue ?? null);
+          }
+          return Object.keys(result).length > 0 ? result : null;
+        };
+        const powerindexRaw = predictorData
+          ? {
+            home: extractPredictorStats(predictorData.homeTeam),
+            away: extractPredictorStats(predictorData.awayTeam),
+            name: predictorData?.name ?? null,
+            lastModified: predictorData?.lastModified ?? null
+          }
+          : null;
+        if (homeRosterRaw || awayRosterRaw || homeLeadersRaw || awayLeadersRaw || officialsRaw || broadcastsRaw || homeLinescoresRaw || awayLinescoresRaw || powerindexRaw) {
+          coreEnrichment.extra_data = {
+            ...(coreEnrichment.extra_data || {}),
+            ...(homeRosterRaw || awayRosterRaw ? { roster: { home: homeRosterRaw, away: awayRosterRaw } } : {}),
+            ...(homeLeadersRaw || awayLeadersRaw ? { core_api_leaders: { home: homeLeadersRaw, away: awayLeadersRaw } } : {}),
+            ...(officialsRaw && officialsRaw.length > 0 ? { officials: officialsRaw } : {}),
+            ...(broadcastsRaw && broadcastsRaw.length > 0 ? { broadcasts: broadcastsRaw } : {}),
+            ...((homeLinescoresRaw && homeLinescoresRaw.length > 0) || (awayLinescoresRaw && awayLinescoresRaw.length > 0) ? { linescores: { home: homeLinescoresRaw || [], away: awayLinescoresRaw || [] } } : {}),
+            ...((powerindexRaw?.home || powerindexRaw?.away) ? { powerindex: powerindexRaw } : {}),
+          };
+        }
         if (situationData) { coreEnrichment.situation = { homeTimeouts: situationData.homeTimeouts?.timeoutsRemainingCurrent ?? null, awayTimeouts: situationData.awayTimeouts?.timeoutsRemainingCurrent ?? null, homeFouls: situationData.homeFouls?.teamFoulsCurrent ?? null, awayFouls: situationData.awayFouls?.teamFoulsCurrent ?? null, homeFoulsToGive: situationData.homeFouls?.foulsToGive ?? null, awayFoulsToGive: situationData.awayFouls?.foulsToGive ?? null, homeBonusState: situationData.homeFouls?.bonusState ?? null, awayBonusState: situationData.awayFouls?.bonusState ?? null }; }
       }
     }
@@ -619,6 +737,15 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
     const finalSituation = { ...(typeof mergedSituation === 'object' && mergedSituation ? mergedSituation : {}), ...(coreEnrichment.situation || {}) };
     const finalAdvancedMetrics = { ...(typeof extractedAdvancedMetrics === 'object' && extractedAdvancedMetrics ? extractedAdvancedMetrics : {}), ...(coreEnrichment.advanced_metrics || {}) };
     const finalExtraData = { ...(typeof manualSituationData === 'object' && manualSituationData ? manualSituationData : {}), ...(coreEnrichment.extra_data || {}) };
+    const finalPredictor = (typeof extractedPredictor === 'object' && extractedPredictor)
+      ? extractedPredictor
+      : (bpiPayloadData ? {
+        homeTeamChance: bpiPayloadData.homePredWinPct,
+        awayTeamChance: bpiPayloadData.awayPredWinPct,
+        homeTeamLine: bpiPayloadData.homePredMov,
+        matchupQuality: bpiPayloadData.matchupQuality,
+        lastUpdated: bpiPayloadData.lastUpdated
+      } : null);
 
     const statePayload: any = {
       id: dbMatchId, league_id: league.id, sport: league.db_sport, game_status: matchPayload.status || 'SCHEDULED',
@@ -627,7 +754,7 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
       last_play: extractedLastPlay, current_drive: extractedDrive, recent_plays: extractedRecentPlays, stats: extractedStats,
       player_stats: extractedPlayerStats, leaders: extractedLeaders, momentum: extractedMomentum,
       advanced_metrics: Object.keys(finalAdvancedMetrics).length > 0 ? finalAdvancedMetrics : null,
-      match_context: extractedContext, predictor: extractedPredictor,
+      match_context: extractedContext, predictor: finalPredictor,
       extra_data: Object.keys(finalExtraData).length > 0 ? finalExtraData : null,
       deterministic_signals: aiSignals, odds: { current: effectiveOdds, t60_snapshot: t60_snapshot || null, t0_snapshot: t0_snapshot || null }, updated_at: new Date().toISOString()
     };
@@ -706,7 +833,7 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
 
     if (_contextSnapshotAvailable) {
       try {
-        const contextSnapshotPayload = { match_id: dbMatchId, league_id: league.id, sport: league.db_sport, game_status: matchPayload.status || 'SCHEDULED', period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, odds_current: effectiveOdds || null, odds_total: safeExtractFlatOdds(effectiveOdds, 'total'), odds_home_ml: safeExtractFlatOdds(effectiveOdds, 'homeMl'), odds_away_ml: safeExtractFlatOdds(effectiveOdds, 'awayMl'), situation: statePayload.situation, last_play: extractedLastPlay, recent_plays: extractedRecentPlays, stats: extractedStats, leaders: extractedLeaders, momentum: extractedMomentum, advanced_metrics: statePayload.advanced_metrics, match_context: extractedContext, predictor: extractedPredictor, deterministic_signals: aiSignals, captured_at: new Date().toISOString() };
+        const contextSnapshotPayload = { match_id: dbMatchId, league_id: league.id, sport: league.db_sport, game_status: matchPayload.status || 'SCHEDULED', period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, odds_current: effectiveOdds || null, odds_total: safeExtractFlatOdds(effectiveOdds, 'total'), odds_home_ml: safeExtractFlatOdds(effectiveOdds, 'homeMl'), odds_away_ml: safeExtractFlatOdds(effectiveOdds, 'awayMl'), situation: statePayload.situation, last_play: extractedLastPlay, recent_plays: extractedRecentPlays, stats: extractedStats, leaders: extractedLeaders, momentum: extractedMomentum, advanced_metrics: statePayload.advanced_metrics, match_context: extractedContext, predictor: finalPredictor, deterministic_signals: aiSignals, captured_at: new Date().toISOString() };
         const { error: contextSnapshotError } = await supabase.from('live_context_snapshots').insert(contextSnapshotPayload);
         if (!contextSnapshotError) { stats.context_snapshots++; } else { const errMsg = contextSnapshotError.message || String(contextSnapshotError); Logger.warn('CONTEXT_SNAPSHOT_INSERT_FAILED', { match_id: dbMatchId, error: errMsg }); if (errMsg.toLowerCase().includes('does not exist')) _contextSnapshotAvailable = false; }
       } catch (e: any) { Logger.warn('CONTEXT_SNAPSHOT_INSERT_EXCEPTION', { match_id: dbMatchId, error: e.message }); }
