@@ -582,9 +582,23 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
       if (minsToStart > -10 && minsToStart < 15 && !t0_snapshot) t0_snapshot = { odds: cleanFinalOdds, timestamp: new Date().toISOString() };
     }
 
+    // Engine-compatible aliases: computeAISignals expects Match interface with camelCase fields
+    matchPayload.homeScore = homeScore;
+    matchPayload.awayScore = awayScore;
+    matchPayload.displayClock = comp.status?.displayClock;
+    matchPayload.leagueId = league.id;
+    matchPayload.homeTeam = { id: home?.id, name: homeNameStr, shortName: homeNameStr, logo: '', score: homeScore };
+    matchPayload.awayTeam = { id: away?.id, name: awayNameStr, shortName: awayNameStr, logo: '', score: awayScore };
+    matchPayload.startTime = event.date;
+
     const aiSignalResult = computeAISignalsSafely(matchPayload, { matchId: dbMatchId, leagueId: league.id, mode: 'persist' });
     const aiSignals = aiSignalResult.value;
+    if (aiSignalResult.error) { stats.errors.push(`SIGNAL_ERR/${dbMatchId}: ${aiSignalResult.error}`); }
+    if (!aiSignals) { stats.errors.push(`SIGNAL_NULL/${dbMatchId}: sport=${matchPayload.sport} homeScore=${matchPayload.homeScore} awayScore=${matchPayload.awayScore} clock=${matchPayload.displayClock} odds_total=${matchPayload.current_odds?.total}`); }
     delete matchPayload.current_odds;
+    // Clean engine-only aliases before DB write
+    delete matchPayload.homeScore; delete matchPayload.awayScore; delete matchPayload.displayClock;
+    delete matchPayload.leagueId; delete matchPayload.homeTeam; delete matchPayload.awayTeam; delete matchPayload.startTime;
 
     const finalSituation = { ...(typeof mergedSituation === 'object' && mergedSituation ? mergedSituation : {}), ...(coreEnrichment.situation || {}) };
     const finalAdvancedMetrics = { ...(typeof extractedAdvancedMetrics === 'object' && extractedAdvancedMetrics ? extractedAdvancedMetrics : {}), ...(coreEnrichment.advanced_metrics || {}) };
