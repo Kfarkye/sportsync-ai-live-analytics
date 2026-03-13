@@ -479,21 +479,25 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
     let coreEnrichment: Record<string, any> = {};
     let bpiPayloadData: any = null; let bpiLatestItem: any = null; let bpiProbData: any = null;
     let homeStatsRaw: any = null; let awayStatsRaw: any = null; let parsedCoreOdds: any = null;
+    let corePlaysData: any = null;
+    let coreBase: string | null = null;
 
     if (!isSoccer) {
       const endpointParts = String(league.endpoint || '').split('/');
       const espnLeagueId = endpointParts.length > 1 ? endpointParts[1] : null;
       if (espnLeagueId && home?.id && away?.id) {
-        const coreBase = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}`;
-        const [coreOddsData, probData, predictorData, homeStatsData, awayStatsData, homeLeadersData, awayLeadersData, homeRosterData, awayRosterData, situationData, officialsData, broadcastsData, homeLinescoresData, awayLinescoresData] = await Promise.all([
+        coreBase = `https://sports.core.api.espn.com/v2/sports/${league.espn_sport}/leagues/${espnLeagueId}/events/${matchId}/competitions/${matchId}`;
+        const [coreOddsData, probData, predictorData, homeStatsData, awayStatsData, homeLeadersData, awayLeadersData, homeRosterData, awayRosterData, situationData, officialsData, broadcastsData, homeLinescoresData, awayLinescoresData, playsData] = await Promise.all([
           fetchCoreJson(`${coreBase}/odds`), fetchCoreJson(`${coreBase}/probabilities?limit=5`), fetchCoreJson(`${coreBase}/predictor`),
           fetchCoreJson(`${coreBase}/competitors/${home.id}/statistics`), fetchCoreJson(`${coreBase}/competitors/${away.id}/statistics`),
           fetchCoreJson(`${coreBase}/competitors/${home.id}/leaders`), fetchCoreJson(`${coreBase}/competitors/${away.id}/leaders`),
           fetchCoreJson(`${coreBase}/competitors/${home.id}/roster`), fetchCoreJson(`${coreBase}/competitors/${away.id}/roster`),
           fetchCoreJson(`${coreBase}/situation`),
           fetchCoreJson(`${coreBase}/officials`), fetchCoreJson(`${coreBase}/broadcasts`),
-          fetchCoreJson(`${coreBase}/competitors/${home.id}/linescores`), fetchCoreJson(`${coreBase}/competitors/${away.id}/linescores`)
+          fetchCoreJson(`${coreBase}/competitors/${home.id}/linescores`), fetchCoreJson(`${coreBase}/competitors/${away.id}/linescores`),
+          fetchCoreJson(`${coreBase}/plays?limit=200`)
         ]);
+        corePlaysData = playsData;
 
         if (coreOddsData && Array.isArray(coreOddsData.items)) {
           const items = coreOddsData.items;
@@ -660,7 +664,21 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
             ...((powerindexRaw?.home || powerindexRaw?.away) ? { powerindex: powerindexRaw } : {}),
           };
         }
-        if (situationData) { coreEnrichment.situation = { homeTimeouts: situationData.homeTimeouts?.timeoutsRemainingCurrent ?? null, awayTimeouts: situationData.awayTimeouts?.timeoutsRemainingCurrent ?? null, homeFouls: situationData.homeFouls?.teamFoulsCurrent ?? null, awayFouls: situationData.awayFouls?.teamFoulsCurrent ?? null, homeFoulsToGive: situationData.homeFouls?.foulsToGive ?? null, awayFoulsToGive: situationData.awayFouls?.foulsToGive ?? null, homeBonusState: situationData.homeFouls?.bonusState ?? null, awayBonusState: situationData.awayFouls?.bonusState ?? null }; }
+        if (situationData) {
+          coreEnrichment.situation = {
+            homeTimeouts: situationData.homeTimeouts?.timeoutsRemainingCurrent ?? null,
+            awayTimeouts: situationData.awayTimeouts?.timeoutsRemainingCurrent ?? null,
+            homeFouls: situationData.homeFouls?.teamFoulsCurrent ?? null,
+            awayFouls: situationData.awayFouls?.teamFoulsCurrent ?? null,
+            homeFoulsToGive: situationData.homeFouls?.foulsToGive ?? null,
+            awayFoulsToGive: situationData.awayFouls?.foulsToGive ?? null,
+            homeBonusState: situationData.homeFouls?.bonusState ?? null,
+            awayBonusState: situationData.awayFouls?.bonusState ?? null,
+            isPowerPlay: typeof situationData.powerPlay === 'boolean' ? situationData.powerPlay : null,
+            emptyNet: typeof situationData.emptyNet === 'boolean' ? situationData.emptyNet : null,
+            situationLastPlayRef: situationData.lastPlay?.$ref ?? null
+          };
+        }
       }
     }
 
@@ -821,11 +839,30 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
       try { await supabase.from('game_events').upsert({ match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'bpi_probability', sequence: bpiSeq, period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, play_data: { homeWinPct: bpiLatestItem.homeWinPercentage, awayWinPct: bpiLatestItem.awayWinPercentage, tieWinPct: bpiLatestItem.tiePercentage ?? 0, sequenceNumber: bpiLatestItem.sequenceNumber, lastModified: bpiLatestItem.lastModified, ...(bpiPayloadData ? { bpiPredictedMov: bpiPayloadData.homePredMov, bpiPregameWinPct: bpiPayloadData.homePredWinPct, bpiAwayPregameWinPct: bpiPayloadData.awayPredWinPct, matchupQuality: bpiPayloadData.matchupQuality, predictorLastUpdated: bpiPayloadData.lastUpdated } : {}) }, odds_live: cleanFinalOdds, source: 'espn_bpi' }, { onConflict: 'match_id,event_type,sequence' }); stats.bpi_snapshots++; } catch { }
     }
 
-    if (Array.isArray(data?.plays) && data.plays.length > 0) {
+    let selectedPlays = Array.isArray(data?.plays) ? data.plays : [];
+    let playSource = 'espn';
+    if (coreBase && Array.isArray(corePlaysData?.items) && corePlaysData.items.length > 0) {
+      const summaryMaxHome = selectedPlays.reduce((m: number, p: any) => Math.max(m, parseInt(String(p?.homeScore ?? 0), 10) || 0), 0);
+      const summaryMaxAway = selectedPlays.reduce((m: number, p: any) => Math.max(m, parseInt(String(p?.awayScore ?? 0), 10) || 0), 0);
+      const summaryStale = selectedPlays.length === 0 || summaryMaxHome < homeScore || summaryMaxAway < awayScore;
+      if (summaryStale) {
+        let coreItems = corePlaysData.items;
+        if ((corePlaysData.pageCount ?? 0) > 1) {
+          const lastPage = await fetchCoreJson(`${coreBase}/plays?limit=200&page=${corePlaysData.pageCount}`);
+          if (Array.isArray(lastPage?.items) && lastPage.items.length > 0) {
+            coreItems = lastPage.items;
+          }
+        }
+        selectedPlays = Array.isArray(coreItems) ? coreItems : selectedPlays;
+        playSource = 'espn_core';
+      }
+    }
+
+    if (Array.isArray(selectedPlays) && selectedPlays.length > 0) {
       try {
-        const playRows = data.plays.filter((p: any) => p?.id && p?.text).map((p: any, index: number) => {
+        const playRows = selectedPlays.filter((p: any) => p?.id && p?.text).map((p: any, index: number) => {
           let seq = parseInt(p.sequenceNumber, 10); if (isNaN(seq) || seq > 2147483647) { const fallbackFromId = parseInt(String(p.id || '').replace(/\D/g, '').slice(-8), 10); seq = (Number.isFinite(fallbackFromId) && fallbackFromId > 0) ? fallbackFromId : (generateSequence() + index); }
-          return { match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'play', sequence: seq, period: p.period?.number ?? finalPeriod ?? null, clock: p.clock?.displayValue ?? null, home_score: parseInt(p.homeScore?.toString() || '0', 10) || 0, away_score: parseInt(p.awayScore?.toString() || '0', 10) || 0, play_data: { id: p.id, text: p.text, type: p.type?.text ?? null, scoringPlay: !!p.scoringPlay, statYardage: p.statYardage ?? 0, down: p.start?.down ?? null, distance: p.start?.distance ?? null, yardLine: p.start?.yardLine ?? null }, source: 'espn' };
+          return { match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'play', sequence: seq, period: p.period?.number ?? finalPeriod ?? null, clock: p.clock?.displayValue ?? null, home_score: parseInt(p.homeScore?.toString() || '0', 10) || 0, away_score: parseInt(p.awayScore?.toString() || '0', 10) || 0, play_data: { id: p.id, text: p.text, type: p.type?.text ?? p.type ?? null, scoringPlay: !!p.scoringPlay, statYardage: p.statYardage ?? p.scoreValue ?? 0, down: p.start?.down ?? null, distance: p.start?.distance ?? null, yardLine: p.start?.yardLine ?? null }, source: playSource };
         });
         if (playRows.length > 0) { for (let i = 0; i < playRows.length; i += 200) await supabase.from('game_events').upsert(playRows.slice(i, i + 200), { onConflict: 'match_id,event_type,sequence' }); }
       } catch { }
