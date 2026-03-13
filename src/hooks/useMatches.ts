@@ -52,7 +52,17 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
     body: JSON.stringify({ date: dateStr, limit: 140 }),
   });
 
-  if (res.status === 304 && cached) return cached.data;
+  if (res.status === 304 && cached) {
+    if (cached.data.length > 0) return cached.data;
+    const fallback304 = await fetchAllMatches(FALLBACK_LEAGUES, date);
+    const fetchedAt304 = Date.now();
+    const fallbackMatches304: Match[] = (fallback304 || []).map((item: Match) => (
+      typeof item?.fetched_at === 'number'
+        ? item
+        : { ...item, fetched_at: fetchedAt304 }
+    ));
+    return fallbackMatches304;
+  }
 
   if (!res.ok) {
     const errText = await res.text();
@@ -72,8 +82,10 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
       : { ...item, fetched_at: fetchedAt }
   ));
   const etag = res.headers.get('etag');
-  if (etag) matchCache.set(dateStr, { etag, data: matches });
-  if (matches.length > 0) return matches;
+  if (matches.length > 0) {
+    if (etag) matchCache.set(dateStr, { etag, data: matches });
+    return matches;
+  }
 
   // Fail-open fallback: if Edge returns an empty slate, hydrate directly from ESPN.
   // This protects feed availability when DB ingest/joins are delayed.
@@ -83,6 +95,11 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
       ? item
       : { ...item, fetched_at: fetchedAt }
   ));
+  if (etag && fallbackMatches.length > 0) {
+    matchCache.set(dateStr, { etag, data: fallbackMatches });
+  } else if (fallbackMatches.length === 0) {
+    matchCache.delete(dateStr);
+  }
   return fallbackMatches;
 };
 
