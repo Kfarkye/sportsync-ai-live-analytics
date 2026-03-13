@@ -4,16 +4,19 @@ import { supabase } from '../../lib/supabase';
 import { cn } from '@/lib/essence';
 import { Activity, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { getDbMatchId } from '../../utils/matchUtils';
 
 // ─── Types ───────────────────────────────────────────────────
 interface PlayEvent {
     id: string;
+    match_id?: string;
     sequence: number;
     period: number;
     clock: string;
     home_score: number;
     away_score: number;
     play_data: {
+        id?: string | number;
         text: string;
         type?: string;
         scoringPlay?: boolean;
@@ -54,6 +57,7 @@ interface TimelineRow {
 
 interface ForecastHistoryTableProps {
     matchId: string;
+    leagueId?: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -104,164 +108,239 @@ function parseSafeSpread(val: any): number | null {
     return null;
 }
 
+function parseSafeTotal(val: any): number | null {
+    if (val === null || val === undefined) return null;
+    if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+    if (typeof val === 'string') {
+        const n = parseFloat(val);
+        return Number.isFinite(n) ? n : null;
+    }
+    if (val && typeof val.line === 'number') return Number.isFinite(val.line) ? val.line : null;
+    if (val && typeof val.value === 'number') return Number.isFinite(val.value) ? val.value : null;
+    return null;
+}
+
+function playKey(play: PlayEvent): string {
+    const extId = play.play_data?.id ? String(play.play_data.id) : '';
+    return extId ? `play:${extId}` : `seq:${play.sequence}`;
+}
+
+function normalizePlayRow(row: any): PlayEvent | null {
+    if (!row) return null;
+    const sequence = Number(row.sequence);
+    if (!Number.isFinite(sequence)) return null;
+    const createdAt = row.created_at ? String(row.created_at) : new Date().toISOString();
+    return {
+        id: row.id ? String(row.id) : `${sequence}:${createdAt}`,
+        match_id: row.match_id ? String(row.match_id) : undefined,
+        sequence,
+        period: Number.isFinite(Number(row.period)) ? Number(row.period) : 0,
+        clock: row.clock ? String(row.clock) : '—',
+        home_score: Number.isFinite(Number(row.home_score)) ? Number(row.home_score) : 0,
+        away_score: Number.isFinite(Number(row.away_score)) ? Number(row.away_score) : 0,
+        play_data: (row.play_data && typeof row.play_data === 'object') ? row.play_data : { text: '' },
+        created_at: createdAt,
+    };
+}
+
+function mergePlayRows(rows: PlayEvent[]): PlayEvent[] {
+    const map = new Map<string, PlayEvent>();
+    for (const play of rows) {
+        map.set(playKey(play), play);
+    }
+    return Array.from(map.values()).sort((a, b) => {
+        if (a.sequence !== b.sequence) return a.sequence - b.sequence;
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+}
+
+function normalizeCoreOddsRow(row: any): OddsSnapshot | null {
+    const live = row?.odds_live;
+    const total = parseSafeTotal(live?.total);
+    if (total === null) return null;
+    return {
+        total,
+        overOdds: parseSafeNum(live?.overOdds),
+        underOdds: parseSafeNum(live?.underOdds),
+        home_ml: parseSafeNum(live?.home_ml),
+        away_ml: parseSafeNum(live?.away_ml),
+        spread_home: parseSafeSpread(live?.homeSpread),
+        spreadOdds: parseSafeNum(live?.homeSpreadOdds),
+        provider: live?.provider || null,
+        captured_at: row?.created_at || new Date().toISOString(),
+    };
+}
+
+function normalizeLiveOddsRow(row: any): OddsSnapshot | null {
+    if (!row || row.market_type !== 'main' || !row.is_live) return null;
+    const total = parseSafeTotal(row.total);
+    if (total === null) return null;
+    return {
+        total,
+        overOdds: null,
+        underOdds: null,
+        home_ml: parseSafeNum(row.home_ml),
+        away_ml: parseSafeNum(row.away_ml),
+        spread_home: parseSafeSpread(row.spread_home),
+        spreadOdds: null,
+        provider: null,
+        captured_at: row.captured_at || row.created_at || new Date().toISOString(),
+    };
+}
+
+function mergeOddsSnapshots(rows: OddsSnapshot[]): OddsSnapshot[] {
+    const map = new Map<string, OddsSnapshot>();
+    for (const odds of rows) {
+        const key = [
+            odds.captured_at,
+            odds.provider ?? '',
+            odds.total ?? '',
+            odds.home_ml ?? '',
+            odds.away_ml ?? '',
+            odds.spread_home ?? '',
+        ].join('|');
+        map.set(key, odds);
+    }
+    return Array.from(map.values()).sort(
+        (a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime()
+    );
+}
+
 // ─── Component ───────────────────────────────────────────────
-export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matchId }) => {
+export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matchId, leagueId }) => {
     const [plays, setPlays] = useState<PlayEvent[]>([]);
     const [odds, setOdds] = useState<OddsSnapshot[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAll, setShowAll] = useState(false);
+    const canonicalMatchId = useMemo(
+        () => getDbMatchId(matchId, leagueId?.toLowerCase() || ''),
+        [matchId, leagueId]
+    );
+    const resolvedMatchIds = useMemo(
+        () => Array.from(new Set([matchId, canonicalMatchId].filter(Boolean))),
+        [matchId, canonicalMatchId]
+    );
+    const resolvedMatchKey = useMemo(() => resolvedMatchIds.join('|'), [resolvedMatchIds]);
 
     useEffect(() => {
+        let isActive = true;
+        let fetchInFlight = false;
+
         const fetchData = async () => {
-            setLoading(true);
+            if (fetchInFlight) return;
+            fetchInFlight = true;
+            try {
+                const [playRes, primaryOddsRes, coreOddsRes] = await Promise.all([
+                    supabase
+                        .from('game_events')
+                        .select('id, match_id, sequence, period, clock, home_score, away_score, play_data, created_at')
+                        .in('match_id', resolvedMatchIds)
+                        .eq('event_type', 'play')
+                        .order('sequence', { ascending: true }),
+                    supabase
+                        .from('live_odds_snapshots')
+                        .select('total, home_ml, away_ml, spread_home, market_type, is_live, captured_at')
+                        .in('match_id', resolvedMatchIds)
+                        .eq('market_type', 'main')
+                        .eq('is_live', true)
+                        .not('total', 'is', null)
+                        .order('captured_at', { ascending: true }),
+                    supabase
+                        .from('game_events')
+                        .select('odds_live, created_at')
+                        .in('match_id', resolvedMatchIds)
+                        .eq('event_type', 'odds_snapshot')
+                        .not('odds_live', 'is', null)
+                        .order('sequence', { ascending: true }),
+                ]);
 
-            // Fetch PBP plays from game_events
-            const { data: playData } = await supabase
-                .from('game_events')
-                .select('id, sequence, period, clock, home_score, away_score, play_data, created_at')
-                .eq('match_id', matchId)
-                .eq('event_type', 'play')
-                .order('sequence', { ascending: true });
+                if (!isActive) return;
 
-            // Fetch live odds from live_odds_snapshots (Secondary — DraftKings-only games)
-            const { data: primaryOddsDB } = await supabase
-                .from('live_odds_snapshots')
-                .select('total, home_ml, away_ml, spread_home, captured_at')
-                .eq('match_id', matchId)
-                .eq('market_type', 'main')
-                .eq('is_live', true)
-                .not('total', 'is', null)
-                .order('captured_at', { ascending: true });
+                const normalizedPlays = mergePlayRows(
+                    (playRes.data ?? [])
+                        .map(normalizePlayRow)
+                        .filter((row): row is PlayEvent => row !== null)
+                );
 
-            // Fetch odds from game_events (PRIMARY — Core API / ESPN aggregate)
-            const { data: coreOddsDB } = await supabase
-                .from('game_events')
-                .select('odds_live, odds_open, odds_close, created_at')
-                .eq('match_id', matchId)
-                .eq('event_type', 'odds_snapshot')
-                .not('odds_live', 'is', null)
-                .order('sequence', { ascending: true });
+                const coreOdds = (coreOddsRes.data ?? [])
+                    .map(normalizeCoreOddsRow)
+                    .filter((row): row is OddsSnapshot => row !== null);
 
-            const mergedOdds: OddsSnapshot[] = [];
+                const fallbackLiveOdds = coreOdds.length === 0
+                    ? (primaryOddsRes.data ?? [])
+                        .map(normalizeLiveOddsRow)
+                        .filter((row): row is OddsSnapshot => row !== null)
+                    : [];
 
-            // Core API odds (PRIMARY — full depth)
-            if (coreOddsDB) {
-                for (const row of coreOddsDB) {
-                    if (row.odds_live?.total) {
-                        mergedOdds.push({
-                            total: typeof row.odds_live.total === 'number' ? row.odds_live.total : parseFloat(row.odds_live.total),
-                            overOdds: parseSafeNum(row.odds_live.overOdds),
-                            underOdds: parseSafeNum(row.odds_live.underOdds),
-                            home_ml: parseSafeNum(row.odds_live.home_ml),
-                            away_ml: parseSafeNum(row.odds_live.away_ml),
-                            spread_home: parseSafeSpread(row.odds_live.homeSpread),
-                            spreadOdds: parseSafeNum(row.odds_live.homeSpreadOdds),
-                            provider: row.odds_live.provider || null,
-                            captured_at: row.created_at
-                        });
-                    }
-                }
+                setPlays(normalizedPlays);
+                setOdds(mergeOddsSnapshots([...coreOdds, ...fallbackLiveOdds]));
+            } finally {
+                fetchInFlight = false;
+                if (isActive) setLoading(false);
             }
-
-            // live_odds_snapshots (Secondary — fill gaps only)
-            if (primaryOddsDB && mergedOdds.length === 0) {
-                for (const o of primaryOddsDB) {
-                    mergedOdds.push({
-                        total: o.total ? parseFloat(String(o.total)) : null,
-                        overOdds: null,
-                        underOdds: null,
-                        home_ml: o.home_ml,
-                        away_ml: o.away_ml,
-                        spread_home: o.spread_home ? parseFloat(String(o.spread_home)) : null,
-                        spreadOdds: null,
-                        provider: null,
-                        captured_at: o.captured_at
-                    });
-                }
-            }
-
-            mergedOdds.sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime());
-
-            if (playData) setPlays(playData);
-            setOdds(mergedOdds);
-            setLoading(false);
         };
 
-        fetchData();
+        setLoading(true);
+        void fetchData();
+        const pollTimer = window.setInterval(() => { void fetchData(); }, 15000);
 
-        // Real-time: new plays + core API odds
-        const playChannel = supabase
-            .channel(`pbp_plays:${matchId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'game_events',
-                    filter: `match_id=eq.${matchId}`
-                },
-                (payload) => {
-                    const row = payload.new as any;
-                    if (row.event_type === 'play') {
-                        setPlays(prev => {
-                            const exists = prev.some(p => p.sequence === row.sequence);
-                            if (exists) return prev;
-                            return [...prev, row].sort((a, b) => a.sequence - b.sequence);
-                        });
-                    } else if (row.event_type === 'odds_snapshot' && row.odds_live?.total) {
-                        setOdds(prev => [...prev, {
-                            total: typeof row.odds_live.total === 'number' ? row.odds_live.total : parseFloat(row.odds_live.total),
-                            overOdds: parseSafeNum(row.odds_live.overOdds),
-                            underOdds: parseSafeNum(row.odds_live.underOdds),
-                            home_ml: parseSafeNum(row.odds_live.home_ml),
-                            away_ml: parseSafeNum(row.odds_live.away_ml),
-                            spread_home: parseSafeSpread(row.odds_live.homeSpread),
-                            spreadOdds: parseSafeNum(row.odds_live.homeSpreadOdds),
-                            provider: row.odds_live.provider || null,
-                            captured_at: row.created_at
-                        }].sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime()));
+        const gameEventChannels = resolvedMatchIds.map((id) => (
+            supabase
+                .channel(`pbp_game_events:${id}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'game_events',
+                        filter: `match_id=eq.${id}`
+                    },
+                    (payload) => {
+                        const row = (payload.new ?? payload.old) as any;
+                        if (!row) return;
+                        if (row.event_type === 'play') {
+                            const normalized = normalizePlayRow(row);
+                            if (!normalized) return;
+                            setPlays(prev => mergePlayRows([...prev, normalized]));
+                        } else if (row.event_type === 'odds_snapshot') {
+                            const normalized = normalizeCoreOddsRow(row);
+                            if (!normalized) return;
+                            setOdds(prev => mergeOddsSnapshots([...prev, normalized]));
+                        }
                     }
-                }
-            )
-            .subscribe();
+                )
+                .subscribe()
+        ));
 
-        // Real-time: live_odds_snapshots (secondary)
-        const oddsChannel = supabase
-            .channel(`pbp_odds:${matchId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'live_odds_snapshots',
-                    filter: `match_id=eq.${matchId}`
-                },
-                (payload) => {
-                    const row = payload.new as any;
-                    if (row.market_type === 'main' && row.is_live && row.total) {
-                        setOdds(prev => [...prev, {
-                            total: parseFloat(String(row.total)),
-                            overOdds: null,
-                            underOdds: null,
-                            home_ml: row.home_ml,
-                            away_ml: row.away_ml,
-                            spread_home: row.spread_home ? parseFloat(String(row.spread_home)) : null,
-                            spreadOdds: null,
-                            provider: null,
-                            captured_at: row.captured_at
-                        }].sort((a, b) =>
-                            new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime()
-                        ));
+        const liveOddsChannels = resolvedMatchIds.map((id) => (
+            supabase
+                .channel(`pbp_live_odds:${id}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'live_odds_snapshots',
+                        filter: `match_id=eq.${id}`
+                    },
+                    (payload) => {
+                        const row = (payload.new ?? payload.old) as any;
+                        const normalized = normalizeLiveOddsRow(row);
+                        if (!normalized) return;
+                        setOdds(prev => mergeOddsSnapshots([...prev, normalized]));
                     }
-                }
-            )
-            .subscribe();
+                )
+                .subscribe()
+        ));
 
         return () => {
-            supabase.removeChannel(playChannel);
-            supabase.removeChannel(oddsChannel);
+            isActive = false;
+            window.clearInterval(pollTimer);
+            [...gameEventChannels, ...liveOddsChannels].forEach((channel) => {
+                supabase.removeChannel(channel);
+            });
         };
-    }, [matchId]);
+    }, [resolvedMatchKey]);
 
     // Build merged timeline
     const timeline: TimelineRow[] = useMemo(() => {

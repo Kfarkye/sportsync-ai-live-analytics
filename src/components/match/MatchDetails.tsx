@@ -1362,7 +1362,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       </div>
                     )}
 
-                    <div className="mb-12"><ForecastHistoryTable matchId={match.id} /></div>
+                    <div className="mb-12"><ForecastHistoryTable matchId={match.id} leagueId={match.leagueId} /></div>
                   </div>
                 )}
 
