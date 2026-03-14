@@ -33,3 +33,9 @@ entrypoint = "./functions/history-janitor/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/history-janitor/*.html" ]
+
+[functions.backfill-endpoint-worker]
+verify_jwt = false
+
+[functions.season-backfill-worker]
+verify_jwt = false
