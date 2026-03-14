@@ -111,6 +111,55 @@ export const LEAGUES: League[] = [
     oddsKey: 'soccer_france_ligue_one'
   },
   {
+    id: 'ned.1',
+    name: 'Eredivisie',
+    sport: Sport.SOCCER,
+    apiEndpoint: 'soccer/ned.1',
+    oddsKey: 'soccer_netherlands_eredivisie'
+  },
+  {
+    id: 'por.1',
+    name: 'Primeira Liga',
+    sport: Sport.SOCCER,
+    apiEndpoint: 'soccer/por.1',
+    oddsKey: 'soccer_portugal_primeira_liga'
+  },
+  {
+    id: 'bel.1',
+    name: 'Belgian Pro League',
+    sport: Sport.SOCCER,
+    apiEndpoint: 'soccer/bel.1',
+    oddsKey: 'soccer_belgium_first_div'
+  },
+  {
+    id: 'tur.1',
+    name: 'Super Lig',
+    sport: Sport.SOCCER,
+    apiEndpoint: 'soccer/tur.1',
+    oddsKey: 'soccer_turkey_super_league'
+  },
+  {
+    id: 'bra.1',
+    name: 'Brasileirao',
+    sport: Sport.SOCCER,
+    apiEndpoint: 'soccer/bra.1',
+    oddsKey: 'soccer_brazil_campeonato'
+  },
+  {
+    id: 'arg.1',
+    name: 'Argentina Primera',
+    sport: Sport.SOCCER,
+    apiEndpoint: 'soccer/arg.1',
+    oddsKey: 'soccer_argentina_primera_division'
+  },
+  {
+    id: 'sco.1',
+    name: 'Scottish Premiership',
+    sport: Sport.SOCCER,
+    apiEndpoint: 'soccer/sco.1',
+    oddsKey: 'soccer_spl'
+  },
+  {
     id: 'uefa.champions',
     name: 'Champions League',
     sport: Sport.SOCCER,

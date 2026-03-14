@@ -14,10 +14,21 @@ const FALLBACK_LEAGUE_IDS = new Set([
   'mens-college-basketball',
   'mlb',
   'eng.1',
+  'usa.1',
   'ita.1',
   'esp.1',
   'ger.1',
+  'fra.1',
+  'ned.1',
+  'por.1',
+  'bel.1',
+  'tur.1',
+  'bra.1',
+  'arg.1',
+  'sco.1',
   'uefa.champions',
+  'uefa.europa',
+  'mex.1',
 ]);
 const FALLBACK_LEAGUES = LEAGUES.filter((league) => FALLBACK_LEAGUE_IDS.has(league.id));
 

@@ -47,21 +47,44 @@ const LEAGUE_ODDS_MAP: Record<string, string> = {
     'college-football': 'americanfootball_ncaaf',
     'mens-college-basketball': 'basketball_ncaab',
     'eng.1': 'soccer_epl',
+    'epl': 'soccer_epl',
+    'usa.1': 'soccer_usa_mls',
+    'mls': 'soccer_usa_mls',
     'ita.1': 'soccer_italy_serie_a',
+    'seriea': 'soccer_italy_serie_a',
     'esp.1': 'soccer_spain_la_liga',
+    'laliga': 'soccer_spain_la_liga',
     'ger.1': 'soccer_germany_bundesliga',
+    'bundesliga': 'soccer_germany_bundesliga',
+    'fra.1': 'soccer_france_ligue_one',
+    'ligue1': 'soccer_france_ligue_one',
+    'ned.1': 'soccer_netherlands_eredivisie',
+    'por.1': 'soccer_portugal_primeira_liga',
+    'bel.1': 'soccer_belgium_first_div',
+    'tur.1': 'soccer_turkey_super_league',
+    'bra.1': 'soccer_brazil_campeonato',
+    'arg.1': 'soccer_argentina_primera_division',
+    'sco.1': 'soccer_spl',
     'uefa.champions': 'soccer_uefa_champs_league',
+    'ucl': 'soccer_uefa_champs_league',
+    'uefa.europa': 'soccer_uefa_europa_league',
+    'uel': 'soccer_uefa_europa_league',
+    'mex.1': 'soccer_mexico_ligamx',
 };
 
 const LEAGUE_SPORT_MAP: Record<string, string> = {
     'nfl': 'NFL', 'nba': 'NBA', 'mlb': 'BASEBALL', 'nhl': 'HOCKEY',
     'college-football': 'COLLEGE_FOOTBALL', 'mens-college-basketball': 'COLLEGE_BASKETBALL',
-    'eng.1': 'SOCCER', 'ita.1': 'SOCCER', 'esp.1': 'SOCCER', 'ger.1': 'SOCCER',
-    'usa.1': 'SOCCER', 'fra.1': 'SOCCER', 'mex.1': 'SOCCER', 'uefa.champions': 'SOCCER',
+    'eng.1': 'SOCCER', 'epl': 'SOCCER', 'ita.1': 'SOCCER', 'seriea': 'SOCCER', 'esp.1': 'SOCCER', 'laliga': 'SOCCER', 'ger.1': 'SOCCER', 'bundesliga': 'SOCCER',
+    'usa.1': 'SOCCER', 'mls': 'SOCCER', 'fra.1': 'SOCCER', 'ligue1': 'SOCCER', 'mex.1': 'SOCCER', 'uefa.champions': 'SOCCER', 'ucl': 'SOCCER', 'uefa.europa': 'SOCCER', 'uel': 'SOCCER',
+    'ned.1': 'SOCCER', 'por.1': 'SOCCER', 'bel.1': 'SOCCER', 'tur.1': 'SOCCER',
+    'bra.1': 'SOCCER', 'arg.1': 'SOCCER', 'sco.1': 'SOCCER',
     'wnba': 'WNBA', 'ufc': 'MMA', 'pga': 'GOLF', 'atp': 'TENNIS', 'wta': 'TENNIS'
 };
 
-const ALL_LEAGUE_IDS = Object.keys(LEAGUE_ODDS_MAP);
+const ALL_LEAGUE_IDS = Array.from(
+    new Set([...Object.keys(LEAGUE_SPORT_MAP), ...Object.keys(LEAGUE_ODDS_MAP)])
+);
 const MAX_PAGE_SIZE = 300;
 const DEFAULT_PAGE_SIZE = 140;
 const MATCH_SELECT_COLUMNS = [

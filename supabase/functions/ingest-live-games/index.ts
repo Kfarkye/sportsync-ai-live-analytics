@@ -3,7 +3,7 @@ declare const Deno: any;
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { computeAISignals } from '../_shared/gameStateEngine.ts'
 import { EspnAdapters, Safe } from '../_shared/espnAdapters.ts'
-import { getCanonicalMatchId, generateDeterministicId, resolveCanonicalMatch } from '../_shared/match-registry.ts'
+import { getCanonicalLeagueId, getCanonicalMatchId, generateDeterministicId, resolveCanonicalMatch } from '../_shared/match-registry.ts'
 import { writeCurrentOdds } from '../_shared/current-odds-writer.ts'
 import { toCanonicalOdds } from '../_shared/odds-contract.ts'
 import { Sport } from '../_shared/types.ts'
@@ -521,12 +521,31 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
       return;
     }
 
-    const canonicalId = (await resolveCanonicalMatch(supabase, homeNameStr, awayNameStr, event.date, league.id)) ?? generateDeterministicId(homeNameStr, awayNameStr, event.date, league.id);
-    try { await upsertWithRetry('canonical_games', { id: canonicalId, league_id: league.id, sport: league.db_sport, home_team_name: homeNameStr, away_team_name: awayNameStr, commence_time: event.date, status: comp.status?.type?.name }); } catch { }
+    const canonicalLeagueId = getCanonicalLeagueId(league.id);
+    const canonicalId = (await resolveCanonicalMatch(supabase, homeNameStr, awayNameStr, event.date, league.id))
+      ?? generateDeterministicId(homeNameStr, awayNameStr, event.date, league.id);
+    let canonicalIdForState: string | null = canonicalId;
+    try {
+      await upsertWithRetry('canonical_games', {
+        id: canonicalId,
+        league_id: canonicalLeagueId,
+        sport: league.db_sport,
+        home_team_name: homeNameStr,
+        away_team_name: awayNameStr,
+        commence_time: event.date,
+        status: comp.status?.type?.name
+      });
+    } catch (e: any) {
+      canonicalIdForState = null;
+      Logger.warn('CANONICAL_GAME_UPSERT_FAILED', { match_id: dbMatchId, league_id: league.id, canonical_league_id: canonicalLeagueId, canonical_id: canonicalId, error: e?.message || String(e) });
+    }
 
     const { data: existingMatch } = await supabase.from('matches').select('status, home_score, away_score, period, current_odds, opening_odds, closing_odds, is_closing_locked').eq('id', dbMatchId).maybeSingle();
     let premiumFeed = null;
-    try { const { data: rpcData, error: rpcError } = await supabase.rpc('resolve_market_feed', { p_match_id: matchId, p_canonical_id: canonicalId }); if (!rpcError && rpcData) premiumFeed = Array.isArray(rpcData) ? rpcData[0] : rpcData; } catch { }
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('resolve_market_feed', { p_match_id: matchId, p_canonical_id: canonicalIdForState ?? canonicalId });
+      if (!rpcError && rpcData) premiumFeed = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+    } catch { }
 
     let finalMarketOdds: any = { provider: 'ESPN' };
     let espnOdds = EspnAdapters.Odds(comp, data.pickcenter) || {};
@@ -834,7 +853,7 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
 
     const statePayload: any = {
       id: dbMatchId, league_id: league.id, sport: league.db_sport, game_status: matchPayload.status || 'SCHEDULED',
-      canonical_id: canonicalId, period: finalPeriod, clock: comp.status?.displayClock, home_score: homeScore, away_score: awayScore,
+      canonical_id: canonicalIdForState, period: finalPeriod, clock: comp.status?.displayClock, home_score: homeScore, away_score: awayScore,
       situation: Object.keys(finalSituation).length > 0 ? finalSituation : null,
       last_play: extractedLastPlay, current_drive: extractedDrive, recent_plays: extractedRecentPlays, stats: extractedStats,
       player_stats: extractedPlayerStats, leaders: extractedLeaders, momentum: extractedMomentum,
@@ -925,15 +944,95 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
       }
     }
 
-    if (Array.isArray(selectedPlays) && selectedPlays.length > 0) {
-      try {
-        const playRows = selectedPlays.filter((p: any) => p?.id && p?.text).map((p: any, index: number) => {
-          let seq = parseInt(p.sequenceNumber, 10); if (isNaN(seq) || seq > 2147483647) { const fallbackFromId = parseInt(String(p.id || '').replace(/\D/g, '').slice(-8), 10); seq = (Number.isFinite(fallbackFromId) && fallbackFromId > 0) ? fallbackFromId : (generateSequence() + index); }
-          return { match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'play', sequence: seq, period: p.period?.number ?? finalPeriod ?? null, clock: p.clock?.displayValue ?? null, home_score: parseInt(p.homeScore?.toString() || '0', 10) || 0, away_score: parseInt(p.awayScore?.toString() || '0', 10) || 0, play_data: { id: p.id, text: p.text, type: p.type?.text ?? p.type ?? null, scoringPlay: !!p.scoringPlay, statYardage: p.statYardage ?? p.scoreValue ?? 0, down: p.start?.down ?? null, distance: p.start?.distance ?? null, yardLine: p.start?.yardLine ?? null }, source: playSource };
-        });
-        if (playRows.length > 0) { for (let i = 0; i < playRows.length; i += 200) await supabase.from('game_events').upsert(playRows.slice(i, i + 200), { onConflict: 'match_id,event_type,sequence' }); }
-      } catch { }
-    }
+    try {
+      const derivePlaySequence = (play: any, index: number): number => {
+        let seq = parseInt(play?.sequenceNumber, 10);
+        if (Number.isFinite(seq) && seq > 0 && seq <= 2147483647) return seq;
+
+        const fallbackFromId = parseInt(String(play?.id || '').replace(/\D/g, '').slice(-9), 10);
+        if (Number.isFinite(fallbackFromId) && fallbackFromId > 0 && fallbackFromId <= 2147483647) {
+          return fallbackFromId;
+        }
+
+        const seed = `${play?.id ?? ''}|${play?.clock?.displayValue ?? play?.clock ?? ''}|${play?.text ?? ''}|${play?.period?.number ?? play?.period ?? ''}|${index}`;
+        let hash = 0;
+        for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) % 2147483000;
+        return hash > 0 ? hash : (generateSequence() + index);
+      };
+
+      const primaryPlayRows = Array.isArray(selectedPlays)
+        ? selectedPlays
+          .filter((p: any) => p?.id && p?.text)
+          .map((p: any, index: number) => {
+            const seq = derivePlaySequence(p, index);
+            return {
+              match_id: dbMatchId,
+              league_id: league.id,
+              sport: league.db_sport,
+              event_type: 'play',
+              sequence: seq,
+              period: p.period?.number ?? finalPeriod ?? null,
+              clock: p.clock?.displayValue ?? null,
+              home_score: parseInt(p.homeScore?.toString() || '0', 10) || 0,
+              away_score: parseInt(p.awayScore?.toString() || '0', 10) || 0,
+              play_data: {
+                id: p.id,
+                text: p.text,
+                type: p.type?.text ?? p.type ?? null,
+                scoringPlay: !!p.scoringPlay,
+                statYardage: p.statYardage ?? p.scoreValue ?? 0,
+                down: p.start?.down ?? null,
+                distance: p.start?.distance ?? null,
+                yardLine: p.start?.yardLine ?? null
+              },
+              source: playSource
+            };
+          })
+        : [];
+
+      const recentFallbackRows = Array.isArray(extractedRecentPlays)
+        ? extractedRecentPlays
+          .filter((p: any) => p?.text)
+          .map((p: any, index: number) => {
+            const text = String(p.text || '').trim();
+            if (!text) return null;
+            const seq = derivePlaySequence(p, index + 5000);
+            const inferredScoring = !!p.scoringPlay || /(goal|scores|makes|touchdown|penalty kick goal|own goal|free throw)/i.test(text);
+            return {
+              match_id: dbMatchId,
+              league_id: league.id,
+              sport: league.db_sport,
+              event_type: 'play',
+              sequence: seq,
+              period: p.period ?? finalPeriod ?? null,
+              clock: p.clock ?? comp.status?.displayClock ?? null,
+              home_score: parseInt((p.home_score ?? p.homeScore ?? homeScore)?.toString() || '0', 10) || 0,
+              away_score: parseInt((p.away_score ?? p.awayScore ?? awayScore)?.toString() || '0', 10) || 0,
+              play_data: {
+                id: p.id ?? `recent:${seq}`,
+                text,
+                type: p.type ?? null,
+                scoringPlay: inferredScoring
+              },
+              source: 'espn_recent_fallback'
+            };
+          })
+          .filter((row: any) => row !== null)
+        : [];
+
+      const bySequence = new Map<number, any>();
+      for (const row of primaryPlayRows) bySequence.set(row.sequence, row);
+      for (const row of recentFallbackRows) {
+        if (!bySequence.has(row.sequence)) bySequence.set(row.sequence, row);
+      }
+
+      const playRows = Array.from(bySequence.values());
+      if (playRows.length > 0) {
+        for (let i = 0; i < playRows.length; i += 200) {
+          await supabase.from('game_events').upsert(playRows.slice(i, i + 200), { onConflict: 'match_id,event_type,sequence' });
+        }
+      }
+    } catch { }
 
     if (_contextSnapshotAvailable) {
       try {

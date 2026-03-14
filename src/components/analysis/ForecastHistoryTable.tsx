@@ -36,6 +36,17 @@ interface OddsSnapshot {
     captured_at: string;
 }
 
+interface LiveGameStateRow {
+    id?: string;
+    period?: number | null;
+    clock?: string | null;
+    home_score?: number | null;
+    away_score?: number | null;
+    recent_plays?: any[] | null;
+    odds?: any;
+    updated_at?: string | null;
+}
+
 interface TimelineRow {
     id: string;
     sequence: number;
@@ -140,7 +151,9 @@ function parseSafeTotal(val: any): number | null {
         return Number.isFinite(n) ? n : null;
     }
     if (val && typeof val.line === 'number') return Number.isFinite(val.line) ? val.line : null;
+    if (val && typeof val.line === 'string') return parseSafeTotal(val.line);
     if (val && typeof val.value === 'number') return Number.isFinite(val.value) ? val.value : null;
+    if (val && typeof val.value === 'string') return parseSafeTotal(val.value);
     return null;
 }
 
@@ -178,12 +191,20 @@ function mergePlayRows(rows: PlayEvent[]): PlayEvent[] {
     });
 }
 
+function hasAnyOddsValue(row: OddsSnapshot): boolean {
+    return row.total !== null
+        || row.overOdds !== null
+        || row.underOdds !== null
+        || row.home_ml !== null
+        || row.away_ml !== null
+        || row.spread_home !== null
+        || row.spreadOdds !== null;
+}
+
 function normalizeCoreOddsRow(row: any): OddsSnapshot | null {
     const live = row?.odds_live;
-    const total = parseSafeTotal(live?.total);
-    if (total === null) return null;
-    return {
-        total,
+    const normalized: OddsSnapshot = {
+        total: parseSafeTotal(live?.total),
         overOdds: parseSafeNum(live?.overOdds ?? live?.over_odds),
         underOdds: parseSafeNum(live?.underOdds ?? live?.under_odds),
         home_ml: parseSafeNum(live?.home_ml ?? live?.moneylineHome ?? live?.homeWin ?? live?.homeML),
@@ -193,14 +214,13 @@ function normalizeCoreOddsRow(row: any): OddsSnapshot | null {
         provider: live?.provider || null,
         captured_at: live?.captured_at || row?.created_at || new Date().toISOString(),
     };
+    return hasAnyOddsValue(normalized) ? normalized : null;
 }
 
 function normalizeLiveOddsRow(row: any): OddsSnapshot | null {
     if (!row || row.market_type !== 'main' || !row.is_live) return null;
-    const total = parseSafeTotal(row.total);
-    if (total === null) return null;
-    return {
-        total,
+    const normalized: OddsSnapshot = {
+        total: parseSafeTotal(row.total),
         overOdds: null,
         underOdds: null,
         home_ml: parseSafeNum(row.home_ml ?? row.moneyline_home ?? row.moneylineHome),
@@ -210,6 +230,125 @@ function normalizeLiveOddsRow(row: any): OddsSnapshot | null {
         provider: null,
         captured_at: row.captured_at || row.created_at || new Date().toISOString(),
     };
+    return hasAnyOddsValue(normalized) ? normalized : null;
+}
+
+function normalizeLiveStateOddsRow(row: LiveGameStateRow | null | undefined): OddsSnapshot | null {
+    if (!row || typeof row !== 'object') return null;
+    const current = (row.odds && typeof row.odds === 'object')
+        ? (row.odds.current ?? row.odds)
+        : null;
+    if (!current || typeof current !== 'object') return null;
+
+    const nestedMain = current.main && typeof current.main === 'object' ? current.main : null;
+    const normalized: OddsSnapshot = {
+        total: parseSafeTotal(
+            nestedMain?.total?.line
+            ?? current.total
+            ?? current.overUnder
+            ?? current.total_value
+        ),
+        overOdds: parseSafeNum(
+            nestedMain?.total?.over?.price
+            ?? current.overOdds
+            ?? current.over_odds
+        ),
+        underOdds: parseSafeNum(
+            nestedMain?.total?.under?.price
+            ?? current.underOdds
+            ?? current.under_odds
+        ),
+        home_ml: parseSafeNum(
+            nestedMain?.h2h?.home?.price
+            ?? current.home_ml
+            ?? current.moneylineHome
+            ?? current.homeWin
+            ?? current.homeML
+        ),
+        away_ml: parseSafeNum(
+            nestedMain?.h2h?.away?.price
+            ?? current.away_ml
+            ?? current.moneylineAway
+            ?? current.awayWin
+            ?? current.awayML
+        ),
+        spread_home: parseSafeSpread(
+            nestedMain?.spread?.home?.point
+            ?? current.homeSpread
+            ?? current.home_spread
+            ?? current.spread_home
+            ?? current.spread
+        ),
+        spreadOdds: parseSafeNum(
+            nestedMain?.spread?.home?.price
+            ?? current.homeSpreadOdds
+            ?? current.home_spread_odds
+            ?? current.spread_home_odds
+        ),
+        provider: current.provider || nestedMain?.provider || null,
+        captured_at: row.updated_at || new Date().toISOString(),
+    };
+
+    return hasAnyOddsValue(normalized) ? normalized : null;
+}
+
+function isLikelyScoringPlay(play: any, text: string): boolean {
+    if (play?.scoringPlay === true) return true;
+    return /(goal|scores|makes|touchdown|penalty kick goal|own goal|free throw)/i.test(text);
+}
+
+function normalizeLiveStatePlayRows(row: LiveGameStateRow | null | undefined): PlayEvent[] {
+    if (!row || !Array.isArray(row.recent_plays) || row.recent_plays.length === 0) return [];
+
+    const baseCreatedAt = row.updated_at || new Date().toISOString();
+    const fallbackPeriod = Number.isFinite(Number(row.period)) ? Number(row.period) : 0;
+    const fallbackClock = row.clock ? String(row.clock) : '—';
+    const fallbackHomeScore = Number.isFinite(Number(row.home_score)) ? Number(row.home_score) : 0;
+    const fallbackAwayScore = Number.isFinite(Number(row.away_score)) ? Number(row.away_score) : 0;
+
+    return row.recent_plays
+        .map((play: any, idx: number): PlayEvent | null => {
+            if (!play || typeof play !== 'object') return null;
+
+            const text = String(play.text || play.shortText || play.description || '').trim();
+            if (!text) return null;
+
+            const fromSeq = Number(play.sequence ?? play.sequenceNumber);
+            const fromId = Number.parseInt(String(play.id ?? '').replace(/\D/g, '').slice(-9), 10);
+            const fallbackSeq = Number.parseInt(String(Date.parse(baseCreatedAt)).slice(-9), 10) + idx;
+            let sequence = Number.isFinite(fromSeq)
+                ? Math.trunc(fromSeq)
+                : Number.isFinite(fromId)
+                    ? fromId
+                    : fallbackSeq;
+            if (!Number.isFinite(sequence) || sequence <= 0) sequence = idx + 1;
+
+            const playId = play.id != null
+                ? String(play.id)
+                : `live:${row.id || 'match'}:${sequence}:${idx}`;
+
+            return {
+                id: `${playId}:${baseCreatedAt}`,
+                match_id: row.id ? String(row.id) : undefined,
+                sequence,
+                period: Number.isFinite(Number(play.period)) ? Number(play.period) : fallbackPeriod,
+                clock: play.clock ? String(play.clock) : fallbackClock,
+                home_score: Number.isFinite(Number(play.home_score ?? play.homeScore))
+                    ? Number(play.home_score ?? play.homeScore)
+                    : fallbackHomeScore,
+                away_score: Number.isFinite(Number(play.away_score ?? play.awayScore))
+                    ? Number(play.away_score ?? play.awayScore)
+                    : fallbackAwayScore,
+                play_data: {
+                    id: playId,
+                    text,
+                    type: typeof play.type === 'string' ? play.type : play.type?.text,
+                    scoringPlay: isLikelyScoringPlay(play, text),
+                },
+                created_at: baseCreatedAt,
+            };
+        })
+        .filter((play): play is PlayEvent => play !== null);
 }
 
 function mergeOddsSnapshots(rows: OddsSnapshot[]): OddsSnapshot[] {
@@ -276,6 +415,11 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                     .eq('event_type', 'play')
                     .order('sequence', { ascending: true });
 
+                const liveStatePromise = supabase
+                    .from('live_game_state')
+                    .select('id, period, clock, home_score, away_score, recent_plays, odds, updated_at')
+                    .in('id', resolvedMatchIds);
+
                 const primaryOddsPromise = supabase
                     .from('live_odds_snapshots')
                     .select('total, home_ml, away_ml, spread_home, market_type, is_live, captured_at')
@@ -293,12 +437,20 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                     .not('odds_live', 'is', null)
                     .order('sequence', { ascending: true });
 
-                const playRes = await withTimeout(playPromise, 8000);
+                const [playRes, liveStateRes] = await Promise.all([
+                    withTimeout(playPromise, 8000),
+                    withTimeout(liveStatePromise, 8000),
+                ]);
 
                 if (!isActive) return;
 
+                const liveStateRows = (liveStateRes?.data ?? []) as LiveGameStateRow[];
+                const liveStatePlays = liveStateRows.flatMap((row) => normalizeLiveStatePlayRows(row));
                 const normalizedPlays = mergePlayRows(
-                    (playRes?.data ?? [])
+                    [
+                        ...(playRes?.data ?? []),
+                        ...liveStatePlays,
+                    ]
                         .map(normalizePlayRow)
                         .filter((row): row is PlayEvent => row !== null)
                 );
@@ -320,9 +472,13 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                     .map(normalizeLiveOddsRow)
                     .filter((row): row is OddsSnapshot => row !== null);
 
+                const liveStateOdds = liveStateRows
+                    .map((row) => normalizeLiveStateOddsRow(row))
+                    .filter((row): row is OddsSnapshot => row !== null);
+
                 // Always merge both feeds: core snapshots can be sparse/partial while
                 // live_odds_snapshots carries richer line movement for timeline display.
-                setOdds(mergeOddsSnapshots([...primaryOdds, ...coreOdds]));
+                setOdds(mergeOddsSnapshots([...primaryOdds, ...coreOdds, ...liveStateOdds]));
             } finally {
                 fetchInFlight = false;
                 if (isActive) setLoading(false);
@@ -382,10 +538,39 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                 .subscribe()
         ));
 
+        const liveStateChannels = resolvedMatchIds.map((id) => (
+            supabase
+                .channel(`pbp_live_state:${id}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'live_game_state',
+                        filter: `id=eq.${id}`
+                    },
+                    (payload) => {
+                        const row = (payload.new ?? payload.old) as LiveGameStateRow | undefined;
+                        if (!row) return;
+
+                        const recentRows = normalizeLiveStatePlayRows(row);
+                        if (recentRows.length > 0) {
+                            setPlays((prev) => mergePlayRows([...prev, ...recentRows]));
+                        }
+
+                        const oddsRow = normalizeLiveStateOddsRow(row);
+                        if (oddsRow) {
+                            setOdds((prev) => mergeOddsSnapshots([...prev, oddsRow]));
+                        }
+                    }
+                )
+                .subscribe()
+        ));
+
         return () => {
             isActive = false;
             window.clearInterval(pollTimer);
-            [...gameEventChannels, ...liveOddsChannels].forEach((channel) => {
+            [...gameEventChannels, ...liveOddsChannels, ...liveStateChannels].forEach((channel) => {
                 supabase.removeChannel(channel);
             });
         };
