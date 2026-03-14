@@ -13,6 +13,7 @@ interface ClaimedBackfillItem {
 }
 
 interface LeagueContext {
+  espnSport: string;
   espnLeague: string;
   dbLeagueId: string;
   enrichmentLeagueId: string;
@@ -23,8 +24,8 @@ interface LeagueContext {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-const ESPN_SITE_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball";
-const ESPN_CORE_BASE = "https://sports.core.api.espn.com/v2/sports/basketball";
+const ESPN_SITE_BASE = "https://site.api.espn.com/apis/site/v2/sports";
+const ESPN_CORE_BASE = "https://sports.core.api.espn.com/v2/sports";
 const REQUEST_TIMEOUT_MS = 12000;
 const ITEM_DELAY_MS = 500;
 
@@ -171,12 +172,40 @@ function resolveLeagueContext(item: ClaimedBackfillItem): LeagueContext {
   const eventId = parts[0];
   const suffix = (parts[1] ?? "").toLowerCase();
   const baseLeague = (item.league_id || "").toLowerCase();
+  const baseSport = (item.sport || "").toLowerCase();
 
   const normalized = baseLeague || suffix;
+  const knownSoccerLeagues = new Set([
+    "epl",
+    "laliga",
+    "seriea",
+    "bundesliga",
+    "ligue1",
+    "mls",
+    "ucl",
+    "uel",
+    "fifawc",
+  ]);
+  const isSoccer =
+    baseSport === "soccer" ||
+    knownSoccerLeagues.has(normalized) ||
+    normalized.includes(".");
+
+  if (isSoccer) {
+    const soccerLeague = baseLeague || suffix || "epl";
+    return {
+      espnSport: "soccer",
+      espnLeague: soccerLeague,
+      dbLeagueId: item.league_id || soccerLeague,
+      enrichmentLeagueId: item.league_id || soccerLeague,
+      sport: "soccer",
+      eventId,
+    };
+  }
+
   let espnLeague = "nba";
   let dbLeagueId = item.league_id || "nba";
   let enrichmentLeagueId = suffix || "nba";
-
   if (normalized === "mens-college-basketball" || normalized === "ncaab" || suffix === "ncaab") {
     espnLeague = "mens-college-basketball";
     dbLeagueId = "mens-college-basketball";
@@ -192,6 +221,7 @@ function resolveLeagueContext(item: ClaimedBackfillItem): LeagueContext {
   }
 
   return {
+    espnSport: "basketball",
     espnLeague,
     dbLeagueId,
     enrichmentLeagueId,
@@ -200,16 +230,16 @@ function resolveLeagueContext(item: ClaimedBackfillItem): LeagueContext {
   };
 }
 
-function summaryUrl(league: string, eventId: string): string {
-  return `${ESPN_SITE_BASE}/${league}/summary?event=${eventId}`;
+function summaryUrl(league: LeagueContext): string {
+  return `${ESPN_SITE_BASE}/${league.espnSport}/${league.espnLeague}/summary?event=${league.eventId}`;
 }
 
-function coreOddsUrl(league: string, eventId: string): string {
-  return `${ESPN_CORE_BASE}/${league}/events/${eventId}/competitions/${eventId}/odds`;
+function coreOddsUrl(league: LeagueContext): string {
+  return `${ESPN_CORE_BASE}/${league.espnSport}/${league.espnLeague}/events/${league.eventId}/competitions/${league.eventId}/odds`;
 }
 
-function buildCoreCompetitionBase(league: string, eventId: string): string {
-  return `${ESPN_CORE_BASE}/${league}/events/${eventId}/competitions/${eventId}`;
+function buildCoreCompetitionBase(league: LeagueContext): string {
+  return `${ESPN_CORE_BASE}/${league.espnSport}/${league.espnLeague}/events/${league.eventId}/competitions/${league.eventId}`;
 }
 
 function findCompetitors(summary: any): { home: any; away: any; competition: any } {
@@ -430,7 +460,7 @@ async function processOfficials(
   item: ClaimedBackfillItem,
   league: LeagueContext,
 ) {
-  const summaryRes = await fetchJson(summaryUrl(league.espnLeague, league.eventId));
+  const summaryRes = await fetchJson(summaryUrl(league));
   if (!summaryRes.ok) {
     throw new Error(`officials summary fetch failed: ${summaryRes.error ?? summaryRes.status}`);
   }
@@ -501,7 +531,7 @@ async function processPlays(
     return;
   }
 
-  const summaryRes = await fetchJson(summaryUrl(league.espnLeague, league.eventId));
+  const summaryRes = await fetchJson(summaryUrl(league));
   if (!summaryRes.ok) {
     throw new Error(`plays summary fetch failed: ${summaryRes.error ?? summaryRes.status}`);
   }
@@ -557,10 +587,10 @@ async function processOdds(
 ) {
   const startedAt = Date.now();
 
-  const summaryPromise = fetchJson(summaryUrl(league.espnLeague, league.eventId));
-  const oddsPromise = fetchJson(coreOddsUrl(league.espnLeague, league.eventId));
-  const probabilitiesPromise = fetchJson(`${buildCoreCompetitionBase(league.espnLeague, league.eventId)}/probabilities?limit=500`);
-  const predictorPromise = fetchJson(`${buildCoreCompetitionBase(league.espnLeague, league.eventId)}/predictor`);
+  const summaryPromise = fetchJson(summaryUrl(league));
+  const oddsPromise = fetchJson(coreOddsUrl(league));
+  const probabilitiesPromise = fetchJson(`${buildCoreCompetitionBase(league)}/probabilities?limit=500`);
+  const predictorPromise = fetchJson(`${buildCoreCompetitionBase(league)}/predictor`);
 
   const [summaryRes, oddsRes, probabilitiesRes, predictorRes] = await Promise.all([
     summaryPromise,
@@ -743,7 +773,7 @@ async function processStatistics(
   item: ClaimedBackfillItem,
   league: LeagueContext,
 ) {
-  const summaryRes = await fetchJson(summaryUrl(league.espnLeague, league.eventId));
+  const summaryRes = await fetchJson(summaryUrl(league));
   if (!summaryRes.ok) {
     throw new Error(`statistics summary fetch failed: ${summaryRes.error ?? summaryRes.status}`);
   }
@@ -752,6 +782,35 @@ async function processStatistics(
   const { home, away, competition } = findCompetitors(summary);
   if (!home || !away) {
     throw new Error("statistics parse failed: missing competitors");
+  }
+
+  if (league.sport.toLowerCase() !== "basketball") {
+    const row = {
+      match_id: item.match_id,
+      league_id: league.dbLeagueId,
+      sport: league.sport,
+      event_type: "statistics_snapshot",
+      sequence: 1,
+      period: null,
+      clock: null,
+      home_score: toInt(home?.score) ?? 0,
+      away_score: toInt(away?.score) ?? 0,
+      play_data: {
+        boxscore: summary?.boxscore ?? null,
+        leaders: summary?.leaders ?? null,
+        statistics: summary?.statistics ?? null,
+      },
+      source: "backfill-endpoint-worker",
+    };
+
+    const { error: statsSnapshotError } = await supabase.from("game_events").upsert(row, {
+      onConflict: "match_id,event_type,sequence",
+      ignoreDuplicates: false,
+    });
+    if (statsSnapshotError) {
+      throw new Error(`statistics snapshot upsert failed: ${statsSnapshotError.message}`);
+    }
+    return;
   }
 
   const teams = Array.isArray(summary?.boxscore?.teams) ? summary.boxscore.teams : [];
@@ -967,11 +1026,21 @@ function classifyErrorDisposition(
   message: string,
 ): { terminal: boolean; bucket: string | null } {
   const normalized = message.toLowerCase();
+  if (normalized.includes("http 404")) {
+    return { terminal: true, bucket: "terminal_http_404" };
+  }
   if (endpoint === "officials" && normalized.includes("returned no crew")) {
     return { terminal: true, bucket: "terminal_officials_no_crew" };
   }
   if (endpoint === "plays" && normalized.includes("returned no events")) {
     return { terminal: true, bucket: "terminal_plays_no_events" };
+  }
+  if (
+    endpoint === "odds" &&
+    (normalized.includes("odds endpoint unavailable") ||
+      normalized.includes("odds endpoints unavailable"))
+  ) {
+    return { terminal: true, bucket: "terminal_odds_unavailable" };
   }
   return { terminal: false, bucket: null };
 }
