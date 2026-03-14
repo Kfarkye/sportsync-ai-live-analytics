@@ -53,6 +53,13 @@ const MONITOR_LEAGUES = [
   { id: 'mex.1', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/mex.1' },
   { id: 'ucl', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/uefa.champions' },
   { id: 'uel', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/uefa.europa' },
+  { id: 'ned.1', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/ned.1' },
+  { id: 'por.1', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/por.1' },
+  { id: 'bel.1', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/bel.1' },
+  { id: 'tur.1', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/tur.1' },
+  { id: 'bra.1', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/bra.1' },
+  { id: 'arg.1', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/arg.1' },
+  { id: 'sco.1', db_sport: 'soccer', espn_sport: 'soccer', endpoint: 'soccer/sco.1' },
   { id: 'atp', db_sport: 'tennis', espn_sport: 'tennis', endpoint: 'tennis/atp' },
   { id: 'wta', db_sport: 'tennis', espn_sport: 'tennis', endpoint: 'tennis/wta' }
 ];
@@ -229,6 +236,41 @@ function parsePositiveInt(val: any): number | null {
   return Math.floor(n);
 }
 
+function formatYmdInTz(date: Date, timeZone = 'America/New_York'): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const y = parts.find((p) => p.type === 'year')?.value ?? '';
+  const m = parts.find((p) => p.type === 'month')?.value ?? '';
+  const d = parts.find((p) => p.type === 'day')?.value ?? '';
+  return `${y}${m}${d}`;
+}
+
+function resolveScoreboardDates(rawDates: any): string[] {
+  if (rawDates !== null && rawDates !== undefined && String(rawDates).trim() !== '') {
+    return [...new Set(String(rawDates).split(',').map((d) => d.trim()).filter(Boolean))];
+  }
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  return [...new Set([
+    formatYmdInTz(yesterday),
+    formatYmdInTz(now),
+    formatYmdInTz(tomorrow),
+  ])];
+}
+
+function eventStateRank(event: any): number {
+  const state = String(event?.status?.type?.state || '').toLowerCase();
+  if (state === 'in') return 0;
+  if (state === 'pre') return 1;
+  if (state === 'post') return 2;
+  return 3;
+}
+
 function computeAISignalsSafely(matchPayload: any, context: { matchId: string; leagueId: string; mode: 'dry' | 'persist' }) {
   try { return { value: computeAISignals(matchPayload), error: null as string | null }; }
   catch (e: any) { Logger.error('AI_SIGNAL_COMPUTE_FAILED', { matchId: context.matchId, league_id: context.leagueId, error: e.message || String(e) }); return { value: null, error: String(e) }; }
@@ -313,6 +355,7 @@ Deno.serve(async (req: Request) => {
   const targetSet = new Set(targetArray.map(s => String(s).trim()).filter(Boolean));
 
   const dates = body?.dates ?? reqUrl.searchParams.get('dates');
+  const scoreboardDates = resolveScoreboardDates(dates);
   const dryRun = parseBool(body?.dry ?? reqUrl.searchParams.get('dry'));
   const debug = parseBool(body?.debug ?? reqUrl.searchParams.get('debug'));
   const maxGamesGlobalParam = parsePositiveInt(body?.max_games ?? body?.max_games_total ?? reqUrl.searchParams.get('max_games') ?? reqUrl.searchParams.get('max_games_total'));
@@ -343,15 +386,32 @@ Deno.serve(async (req: Request) => {
     if (leagueFilter.size > 0 && !leagueFilter.has(league.id)) continue;
 
     try {
-      const dateQuery = dates ? `?dates=${dates}` : '';
-      const groupsParam = league.groups ? `${dateQuery ? '&' : '?'}groups=${league.groups}` : '';
-      const res = await fetchWithRetry(`${SCOREBOARD_BASE}/${league.endpoint}/scoreboard${dateQuery}${groupsParam}`);
-      const data = await res.json();
-      let events = data.events || [];
+      const mergedEvents = new Map<string, any>();
+      for (const scoreboardDate of scoreboardDates) {
+        const dateQuery = `?dates=${scoreboardDate}`;
+        const groupsParam = league.groups ? `&groups=${league.groups}` : '';
+        const res = await fetchWithRetry(`${SCOREBOARD_BASE}/${league.endpoint}/scoreboard${dateQuery}${groupsParam}`);
+        const data = await res.json();
+        let events = data.events || [];
 
-      if (league.db_sport === 'tennis') {
-        events = events.flatMap((t: any) => (t.groupings || []).flatMap((g: any) => (g.competitions || []).map((c: any) => ({ ...t, id: c.id, date: c.date, status: c.status, competitions: [c] }))));
+        if (league.db_sport === 'tennis') {
+          events = events.flatMap((t: any) => (t.groupings || []).flatMap((g: any) => (g.competitions || []).map((c: any) => ({ ...t, id: c.id, date: c.date, status: c.status, competitions: [c] }))));
+        }
+
+        for (const event of events) {
+          const eventId = String(event?.id || '').trim();
+          if (!eventId) continue;
+          const existing = mergedEvents.get(eventId);
+          if (!existing) {
+            mergedEvents.set(eventId, event);
+            continue;
+          }
+          if (eventStateRank(event) < eventStateRank(existing)) {
+            mergedEvents.set(eventId, event);
+          }
+        }
       }
+      let events = Array.from(mergedEvents.values());
 
       let processableEvents = [];
       for (const event of events) {
@@ -364,6 +424,13 @@ Deno.serve(async (req: Request) => {
         if (targetSet.size > 0 && !targetSet.has(String(event.id)) && !targetSet.has(dbMatchId)) continue;
         processableEvents.push(event);
       }
+      processableEvents.sort((a: any, b: any) => {
+        const rankDelta = eventStateRank(a) - eventStateRank(b);
+        if (rankDelta !== 0) return rankDelta;
+        const ta = new Date(a?.date || 0).getTime();
+        const tb = new Date(b?.date || 0).getTime();
+        return ta - tb;
+      });
 
       const CONCURRENCY = 5;
       for (let i = 0; i < processableEvents.length; i += CONCURRENCY) {
