@@ -583,16 +583,14 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
         const useSequenceMapping = !hasReliablePlayTimestamps(plays);
         const minSequence = plays[0]?.sequence ?? 0;
         const maxSequence = plays[plays.length - 1]?.sequence ?? minSequence;
-        let prevHome = -1;
-        let prevAway = -1;
-
-        return plays.map(p => {
+        return plays.map((p, index) => {
+            const prev = index > 0 ? plays[index - 1] : null;
             const nearest = useSequenceMapping
                 ? findOddsBySequence(p.sequence, minSequence, maxSequence, odds)
                 : findNearestOdds(p.created_at, odds);
-            const isScoreChange = p.home_score !== prevHome || p.away_score !== prevAway;
-            prevHome = p.home_score;
-            prevAway = p.away_score;
+            const isScoreChange = !!prev && (
+                p.home_score !== prev.home_score || p.away_score !== prev.away_score
+            );
 
             return {
                 id: p.id,
@@ -616,11 +614,18 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
         });
     }, [plays, odds]);
 
+    const scoringRows = useMemo(
+        () => timeline.filter((r) => r.isScoreChange || r.scoringPlay),
+        [timeline]
+    );
+    const hasScoringRows = scoringRows.length > 0;
+    const usingFallbackAllPlays = !showAll && !hasScoringRows && timeline.length > 0;
+
     // Filter: show only scoring plays or all
     const displayRows = useMemo(() => {
-        const rows = showAll ? timeline : timeline.filter(r => r.isScoreChange);
+        const rows = showAll || !hasScoringRows ? timeline : scoringRows;
         return rows.slice(-30).reverse();
-    }, [timeline, showAll]);
+    }, [timeline, showAll, hasScoringRows, scoringRows]);
 
     // Track market movement
     const mktDelta = useMemo(() => {
@@ -694,6 +699,11 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                     </div>
                 </div>
             </div>
+            {usingFallbackAllPlays && (
+                <p className="mb-3 text-[11px] text-zinc-500">
+                    No scoring plays yet. Showing all plays.
+                </p>
+            )}
 
             {/* Table */}
             <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
@@ -819,7 +829,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
             {timeline.length > 30 && (
                 <div className="flex justify-center mt-4">
                     <span className="text-xs text-zinc-600">
-                        Showing {displayRows.length} of {showAll ? timeline.length : timeline.filter(r => r.isScoreChange).length} plays
+                        Showing {displayRows.length} of {showAll || !hasScoringRows ? timeline.length : scoringRows.length} plays
                     </span>
                 </div>
             )}
