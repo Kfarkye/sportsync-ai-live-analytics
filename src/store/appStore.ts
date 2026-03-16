@@ -124,11 +124,14 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sharpedge_app_state_v1',
-      version: 2,
+      version: 3,
       migrate: (persistedState) => {
         if (!persistedState || typeof persistedState !== 'object') return persistedState;
         const nextState = { ...(persistedState as Record<string, unknown>) };
         delete nextState['showLanding'];
+        if (nextState['selectedSport'] === Sport.SOCCER) {
+          nextState['selectedSport'] = Sport.BASEBALL;
+        }
         return nextState;
       },
       partialize: (state) => ({
