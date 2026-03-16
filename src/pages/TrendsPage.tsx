@@ -213,7 +213,6 @@ function layerLabel(layer: string): string {
     SOCCER_CARDS: 'Cards',
     SOCCER_LATE_GOALS: 'Late Goals',
     SOCCER_HT_FT: 'HT/FT',
-    SOCCER_1H_BTTS: '1H BTTS',
   };
   return map[layer] ?? layer.replace(/_/g, ' ');
 }
@@ -718,37 +717,6 @@ export default function TrendsPage() {
     });
   }, [boardMinHit, boardSample, boardSignalMode]);
 
-  const boardMeta = useMemo(() => {
-    const directionCounts = DRIP_TRENDS.reduce(
-      (acc, row) => {
-        const direction = inferDirectionFromSignal(row.signal_type, row.trend);
-        if (direction === 'TREND') acc.trend += 1;
-        if (direction === 'FADE') acc.fade += 1;
-        if (direction === 'NEUTRAL') acc.neutral += 1;
-        return acc;
-      },
-      { trend: 0, fade: 0, neutral: 0 }
-    );
-    const activeRows = DRIP_TRENDS.filter((row) => row.sample >= boardSample && row.hit_rate >= boardMinHit);
-    const meanHitRate = DRIP_TRENDS.length
-      ? Math.round(DRIP_TRENDS.reduce((sum, row) => sum + normalizePct(row.hit_rate), 0) / DRIP_TRENDS.length)
-      : 0;
-    return {
-      total: DRIP_TRENDS.length,
-      visible: filteredBoardRows.length,
-      active: activeRows.length,
-      trendCount: directionCounts.trend,
-      fadeCount: directionCounts.fade,
-      neutralCount: directionCounts.neutral,
-      meanHitRate,
-      source: 'Internal trend snapshot',
-      updatedAt: new Date().toLocaleString('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }),
-    };
-  }, [boardSample, boardMinHit, filteredBoardRows.length]);
-
   const filteredBoardRows = useMemo(() => {
     const needle = boardSearch.trim().toLowerCase();
     const next = DRIP_TRENDS.filter((row) => {
@@ -782,6 +750,37 @@ export default function TrendsPage() {
     boardSortBy,
     boardSample,
   ]);
+
+  const boardMeta = useMemo(() => {
+    const directionCounts = DRIP_TRENDS.reduce(
+      (acc, row) => {
+        const direction = inferDirectionFromSignal(row.signal_type, row.trend);
+        if (direction === 'TREND') acc.trend += 1;
+        if (direction === 'FADE') acc.fade += 1;
+        if (direction === 'NEUTRAL') acc.neutral += 1;
+        return acc;
+      },
+      { trend: 0, fade: 0, neutral: 0 }
+    );
+    const activeRows = DRIP_TRENDS.filter((row) => row.sample >= boardSample && row.hit_rate >= boardMinHit);
+    const meanHitRate = DRIP_TRENDS.length
+      ? Math.round(DRIP_TRENDS.reduce((sum, row) => sum + normalizePct(row.hit_rate), 0) / DRIP_TRENDS.length)
+      : 0;
+    return {
+      total: DRIP_TRENDS.length,
+      visible: filteredBoardRows.length,
+      active: activeRows.length,
+      trendCount: directionCounts.trend,
+      fadeCount: directionCounts.fade,
+      neutralCount: directionCounts.neutral,
+      meanHitRate,
+      source: 'Internal trend snapshot',
+      updatedAt: new Date().toLocaleString('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }),
+    };
+  }, [boardSample, boardMinHit, filteredBoardRows.length]);
 
   const summaryMetrics = summary ? [
     { label: 'Sample Size', value: `n = ${summary.sample}` },
