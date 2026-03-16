@@ -7,7 +7,7 @@ import { useAppStore } from '@/store/appStore';
 import { cn } from '@/lib/essence';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { Sport, Linescore } from '@/types';
-import { formatOddsByMode } from '@/lib/oddsDisplay';
+import { buildMatchRowOdds, type MatchRowOddPayload } from '@/lib/matchOdds';
 
 // Extend base props with poly data + selection state
 interface MatchRowProps extends BaseMatchRowProps {
@@ -27,8 +27,6 @@ const PHYSICS_MOTION = { type: "spring" as const, stiffness: 360, damping: 28 };
 const LOGO_W = 28;
 const TEAM_INDENT = LOGO_W + 16;
 
-const isValidOdd = (val: string | number | null | undefined): boolean => val !== null && val !== undefined && val !== '-' && val !== '';
-
 const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number | null | undefined; isWinner: boolean; isLoser: boolean }) => (
   <span
     className={cn(
@@ -42,78 +40,7 @@ const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number |
 ));
 ScoreCell.displayName = 'ScoreCell';
 
-type OddsDisplay = {
-  label: string;
-  display: string;
-  mobileHidden?: boolean;
-};
-
-const resolveOddsDisplay = (
-  value: string | number | null | undefined,
-  label: 'SPR' | 'O/U' | 'ML',
-  mode: ReturnType<typeof useAppStore.getState>['oddsLens'],
-): string | null => {
-  if (!isValidOdd(value)) return null;
-
-  if (label === 'SPR') {
-    const num = Number(value);
-    if (isNaN(num)) return String(value);
-    if (num === 0) return 'PK';
-    return num > 0 && !String(value).startsWith('+') ? `+${num}` : String(value);
-  }
-
-  if (label === 'ML') {
-    return formatOddsByMode(value, mode, 'moneyline');
-  }
-
-  return String(value);
-};
-
-const buildOdds = (
-  spread: string | number | null | undefined,
-  total: string | number | null | undefined,
-  homeML: string | number | null | undefined,
-  mode: ReturnType<typeof useAppStore.getState>['oddsLens'],
-): OddsDisplay[] => {
-  const rawItems = [
-    { label: 'SPR', value: spread },
-    { label: 'O/U', value: total },
-    { label: 'ML', value: homeML },
-  ] as const;
-
-  const resolved = rawItems
-    .map((item) => {
-      const display = resolveOddsDisplay(item.value, item.label, mode);
-      if (!display) return null;
-      return { label: item.label as string, display };
-    })
-    .filter((item): item is OddsDisplay => item !== null);
-
-  // Prevent duplicates caused by provider fan-out (e.g., same value on ML + spread).
-  const deduped: OddsDisplay[] = [];
-  const seen = new Set<string>();
-  for (const item of resolved) {
-    const key = `${item.label}:${item.display}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(item);
-  }
-
-  if (deduped.length > 2) {
-    return deduped.map((item, index) => ({
-      ...item,
-      mobileHidden: index === 2,
-    }));
-  }
-
-  return deduped;
-};
-
-const OddsChip = memo(({ label, display, mobileHidden }: {
-  label: string;
-  display: string;
-  mobileHidden?: boolean;
-}) => {
+const OddsChip = memo(({ label, display, mobileHidden }: MatchRowOddPayload) => {
   return (
     <span
       className={cn(
@@ -209,8 +136,11 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const spread = match.odds?.homeSpread ?? match.odds?.spread ?? match.odds?.spread_home;
   const total = match.odds?.overUnder ?? match.odds?.total;
   const homeML = match.odds?.moneylineHome ?? match.odds?.homeML ?? match.odds?.homeWin ?? match.odds?.home_ml;
-  const hasOdds = isValidOdd(spread) || isValidOdd(total) || isValidOdd(homeML);
-  const oddsPayload = useMemo(() => buildOdds(spread, total, homeML, oddsLens), [spread, total, homeML, oddsLens]);
+  const oddsPayload = useMemo(
+    () => buildMatchRowOdds(spread, total, homeML, oddsLens, { maxMobileChips: 2, dedupeByValue: true }),
+    [spread, total, homeML, oddsLens]
+  );
+  const hasOdds = oddsPayload.length > 0;
 
   const { startTimeStr, dateStr, roundStr } = useMemo(() => {
     const d = new Date(match.startTime);
