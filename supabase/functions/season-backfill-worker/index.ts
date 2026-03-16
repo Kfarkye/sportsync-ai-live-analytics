@@ -56,12 +56,37 @@ function inferSportFromLeague(leagueId: string): string {
     return "basketball";
   }
   if (
+    normalized === "nhl"
+  ) {
+    return "hockey";
+  }
+  if (
     normalized === "nfl" ||
     normalized === "college-football"
   ) {
     return "americanfootball";
   }
   return "soccer";
+}
+
+function deriveStatusState(status: string): "pre" | "live" | "post" {
+  const normalized = String(status ?? "").toUpperCase();
+  if (
+    normalized.includes("FINAL") ||
+    normalized.includes("CANCELED") ||
+    normalized.includes("CANCELLED") ||
+    normalized.includes("POSTPONED")
+  ) {
+    return "post";
+  }
+  if (
+    normalized.includes("IN_PROGRESS") ||
+    normalized.includes("END_PERIOD") ||
+    normalized.includes("HALFTIME")
+  ) {
+    return "live";
+  }
+  return "pre";
 }
 
 function ensureEnv() {
@@ -290,6 +315,7 @@ function buildMatchPayload(event: any, runtime: LeagueRuntime) {
   const homeScore = toInt(home?.score);
   const awayScore = toInt(away?.score);
   const currentOdds = parseScoreboardOdds(event);
+  const status = competition?.status?.type?.name ?? event?.status?.type?.name ?? "STATUS_SCHEDULED";
 
   const payload: Record<string, unknown> = {
     id: matchId,
@@ -297,7 +323,8 @@ function buildMatchPayload(event: any, runtime: LeagueRuntime) {
     away_team: away?.team?.displayName ?? null,
     league_id: runtime.leagueId,
     sport: runtime.dbSport,
-    status: competition?.status?.type?.name ?? event?.status?.type?.name ?? "STATUS_SCHEDULED",
+    status,
+    status_state: deriveStatusState(status),
     start_time: event?.date ?? competition?.date ?? null,
     home_team_id: home?.team?.id ? String(home.team.id) : null,
     away_team_id: away?.team?.id ? String(away.team.id) : null,

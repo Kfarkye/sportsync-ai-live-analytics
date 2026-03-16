@@ -39,3 +39,9 @@ verify_jwt = false
 
 [functions.season-backfill-worker]
 verify_jwt = false
+
+[functions.backfill-nhl-matches]
+verify_jwt = false
+
+[functions.nhl-postgame-backfill-worker]
+verify_jwt = false
