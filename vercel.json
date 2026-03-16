@@ -9,7 +9,7 @@
     },
     "headers": [
         {
-            "source": "/assets/(.*)",
+            "source": "/assets/:path*",
             "headers": [
                 {
                     "key": "Cache-Control",
@@ -27,7 +27,7 @@
             ]
         },
         {
-            "source": "/*",
+            "source": "/:path*",
             "headers": [
                 {
                     "key": "Cache-Control",
@@ -36,7 +36,7 @@
             ]
         },
         {
-            "source": "/icons/(.*)",
+            "source": "/icons/:path*",
             "headers": [
                 {
                     "key": "Cache-Control",
@@ -54,7 +54,7 @@
             ]
         },
         {
-            "source": "/screenshots/(.*)",
+            "source": "/screenshots/:path*",
             "headers": [
                 {
                     "key": "Cache-Control",
