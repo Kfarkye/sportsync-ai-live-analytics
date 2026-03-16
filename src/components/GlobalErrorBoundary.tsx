@@ -23,6 +23,36 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
+
+    const message = String(error?.message || '').toLowerCase();
+    const isChunkLoadError =
+      message.includes('failed to fetch dynamically imported module') ||
+      message.includes('loading chunk') ||
+      message.includes('chunkloaderror');
+
+    if (!isChunkLoadError) return;
+
+    window.setTimeout(() => {
+      if (typeof window === 'undefined') return;
+
+      const clearCachedShell = async () => {
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations().catch(() => []);
+          await Promise.all(registrations.map((registration) => registration.unregister()));
+        }
+
+        if ('caches' in window) {
+          const names = await caches.keys().catch(() => []);
+          await Promise.all(names.map((name) => caches.delete(name)));
+        }
+
+        window.location.reload();
+      };
+
+      clearCachedShell().catch(() => {
+        window.location.reload();
+      });
+    }, 350);
   }
 
   private handleReset = () => {
