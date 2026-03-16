@@ -65,11 +65,11 @@
     ],
     "rewrites": [
         {
-            "source": "/api/(.*)",
-            "destination": "/api/$1"
+            "source": "/api/:path*",
+            "destination": "/api/:path*"
         },
         {
-            "source": "/((?!api/|assets/).*)",
+            "source": "/:path*",
             "destination": "/index.html"
         }
     ],
