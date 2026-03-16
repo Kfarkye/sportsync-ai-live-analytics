@@ -6,8 +6,9 @@ import { UnifiedHeader } from './UnifiedHeader';
 import MatchList from '../match/MatchList';
 import MatchDetails from '../match/MatchDetails';
 import ChatWidget from '../ChatWidget';
+import EditorialFeedHero from '../match/EditorialFeedHero';
 import LiveDashboard from '../analysis/LiveDashboard';
-import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
+import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
 import { Sport } from '@/types';
@@ -47,8 +48,6 @@ const AppShell: FC = () => {
   } = useAppStore();
 
   const { pinnedMatchIds, togglePin } = usePinStore();
-  const [defaultSportResolved, setDefaultSportResolved] = React.useState(false);
-  const persistedSportExists = React.useMemo(() => hasPersistedSportContext(), []);
 
   // 1) Fetch data (date-filtered in hook)
   const { data: matches = [], isLoading } = useMatches(selectedDate);
@@ -78,6 +77,14 @@ const AppShell: FC = () => {
     () => (selectedMatch ? (selectedMatch as unknown as ChatWidgetMatchContext) : undefined),
     [selectedMatch]
   );
+  const emptyFeedUpdatedLabel = useMemo(
+    () => new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    []
+  );
+  const emptyFeedDateLabel = useMemo(
+    () => new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+    [selectedDate]
+  );
 
   // Unique key to force animation when Date/Sport changes
   const viewKey = `feed-${new Date(selectedDate).toISOString().split('T')[0]}-${selectedSport}`;
@@ -96,27 +103,6 @@ const AppShell: FC = () => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [toggleCmdk, selectedMatch, setSelectedMatch, closeAllOverlays]);
-
-  useEffect(() => {
-    if (defaultSportResolved || persistedSportExists || isLoading) return;
-    if (!matches.length) {
-      setDefaultSportResolved(true);
-      return;
-    }
-
-    const hasSoccerGames = matches.some((m) => String(m.sport).toUpperCase() === Sport.SOCCER);
-    if (!hasSoccerGames && selectedSport === Sport.SOCCER) {
-      setSelectedSport(Sport.NBA);
-    }
-    setDefaultSportResolved(true);
-  }, [
-    defaultSportResolved,
-    persistedSportExists,
-    isLoading,
-    matches,
-    selectedSport,
-    setSelectedSport,
-  ]);
 
   return (
     <div
@@ -159,6 +145,18 @@ const AppShell: FC = () => {
                 {/* EMPTY STATE */}
                 {!isLoading && filteredMatches.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
+                    {selectedSport === Sport.BASEBALL && (
+                      <div className="mb-8 w-full max-w-5xl">
+                        <EditorialFeedHero
+                          baseballGamesCount={0}
+                          liveGamesCount={0}
+                          updatedClockLabel={emptyFeedUpdatedLabel}
+                          firstPitchLabel="Awaiting slate"
+                          dateLabel={emptyFeedDateLabel}
+                          emptyState
+                        />
+                      </div>
+                    )}
                     <div className={cn('w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5', ESSENCE.tw.surface.subtle, ESSENCE.tw.border.default, 'shadow-sm')}>
                       <span className="text-2xl text-slate-400">📅</span>
                     </div>
