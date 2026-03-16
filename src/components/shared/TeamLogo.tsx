@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { cn } from '@/lib/essence';
 import { getTeamColor } from '@/lib/teamColors';
 
@@ -14,7 +13,7 @@ interface TeamLogoProps {
 }
 
 // ---------------------------------------------------------------------------
-// Optimization Utility — CDN proxy for caching, WebP, and resizing
+// Optimization Utility — keep team logos on primary CDN path for stable fetches.
 // ---------------------------------------------------------------------------
 const getOptimizedLogoUrl = (url: string | undefined): string | null => {
   if (!url || url === '-' || url === 'undefined' || url.includes('placeholder')) {
@@ -26,16 +25,8 @@ const getOptimizedLogoUrl = (url: string | undefined): string | null => {
     return `${url}?w=128&h=128&scale=crop`;
   }
 
-  try {
-    const encoded = encodeURIComponent(url);
-    return `https://wsrv.nl/?url=${encoded}&w=128&h=128&fit=contain&output=webp&q=80`;
-  } catch (e) {
-    return url;
-  }
+  return url;
 };
-
-const MAX_RETRIES = 2;
-const RETRY_DELAYS = [1500, 4000]; // ms — backoff schedule
 
 const colorFromName = (name: string): string => {
   let hash = 0;
@@ -73,8 +64,6 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
 }) => {
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const optimizedSrc = React.useMemo(() => getOptimizedLogoUrl(logo), [logo]);
   const fallbackColor = React.useMemo(
@@ -86,46 +75,22 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
     [fallbackColor]
   );
 
-  // Reset state only when the actual URL changes
+  // Reset state only when the actual URL changes.
   useEffect(() => {
     setError(false);
     setLoaded(false);
-    setRetryCount(0);
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
   }, [optimizedSrc]);
 
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-    };
-  }, []);
-
   const handleError = () => {
-    if (retryCount < MAX_RETRIES) {
-      // Schedule a retry with backoff
-      const delay = RETRY_DELAYS[retryCount] || 4000;
-      retryTimerRef.current = setTimeout(() => {
-        setRetryCount(prev => prev + 1);
-        setError(false); // Reset error to trigger re-render → img re-mount
-      }, delay);
-    }
     setError(true);
+    setLoaded(false);
   };
 
   const fallback = abbreviation
     ? (abbreviation || '').slice(0, 3).toUpperCase()
     : (name || '').slice(0, 2).toUpperCase();
 
-  // Append retry count as cache-buster so the browser doesn't serve a cached error
-  const srcWithRetry = optimizedSrc && retryCount > 0
-    ? `${optimizedSrc}${optimizedSrc.includes('?') ? '&' : '?'}_r=${retryCount}`
-    : optimizedSrc;
-
-  const hasValidSource = !!srcWithRetry && !error;
+  const hasValidSource = !!optimizedSrc && !error;
 
   // --- Variant: Card (Match Header Style) — Clean on white, NO GLOWS ---
   if (variant === 'card') {
@@ -149,7 +114,7 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
               />
             ) : null}
             <img
-              src={srcWithRetry || undefined}
+              src={optimizedSrc || undefined}
               alt={name}
               className={cn(
                 "w-[70%] h-[70%] object-contain transition-all duration-300 will-change-transform",
@@ -157,8 +122,8 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
               )}
               onError={handleError}
               onLoad={() => setLoaded(true)}
-              loading="lazy"
-              decoding="async"
+              loading="eager"
+              decoding="sync"
             />
           </>
         ) : (
@@ -196,7 +161,7 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
         <div className="absolute inset-0 animate-pulse rounded-full" style={{ backgroundColor: fallbackColor, opacity: 0.22 }} />
       )}
       <img
-        src={srcWithRetry || undefined}
+        src={optimizedSrc || undefined}
         alt={name}
         className={cn(
           "w-full h-full object-contain transition-all duration-300",
@@ -204,8 +169,8 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
         )}
         onError={handleError}
         onLoad={() => setLoaded(true)}
-        loading="lazy"
-        decoding="async"
+        loading="eager"
+        decoding="sync"
       />
     </div>
   );
