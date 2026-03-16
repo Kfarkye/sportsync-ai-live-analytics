@@ -1,7 +1,7 @@
 
 import React, { FC, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Search, Grid3X3, List } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Grid3X3, List } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeekNavigation } from '../../hooks/useWeekNavigation';
@@ -17,6 +17,7 @@ const MotionDiv = motion.div;
 // ─── Header Sport Tabs ───────────────────────────────────────────
 const HEADER_SPORTS: { label: string; sport: Sport | 'all' }[] = [
     { label: 'All Sports', sport: 'all' as any },
+    { label: 'MLB', sport: Sport.BASEBALL },
     { label: 'NBA', sport: Sport.NBA },
     { label: 'NHL', sport: Sport.HOCKEY },
     { label: 'NFL', sport: Sport.NFL },
@@ -24,9 +25,14 @@ const HEADER_SPORTS: { label: string; sport: Sport | 'all' }[] = [
     { label: 'Soccer', sport: Sport.SOCCER },
 ];
 
+const toIsoDate = (date: Date): string => date.toISOString().slice(0, 10);
+
 const parseWeekValue = (value: string): Date => {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        const [y, m, d] = value.split('-').map(Number);
+        const parts = value.split('-');
+        const y = Number(parts[0]);
+        const m = Number(parts[1]);
+        const d = Number(parts[2]);
         return new Date(y, m - 1, d, 12, 0, 0, 0);
     }
     const numeric = Number(value);
@@ -42,16 +48,13 @@ export const UnifiedHeader: FC = () => {
         selectedDate,
         activeView,
         liveTab,
-        liveFilter,
         liveLayout,
         setSelectedDate,
         setSelectedSport,
         setActiveView,
         setLiveTab,
-        setLiveFilter,
         setLiveLayout,
         toggleSportDrawer,
-        toggleCmdk,
         toggleAuthModal,
     } = useAppStore();
 
@@ -66,8 +69,10 @@ export const UnifiedHeader: FC = () => {
         [liveStatusMatches]
     );
     const hasActiveLiveGames = liveGamesCount > 0;
-    const isEdgePage = typeof window !== 'undefined' && (
-        window.location.pathname.includes('/edge') || window.location.pathname.includes('/reports')
+    const isTrendsPage = typeof window !== 'undefined' && (
+        window.location.pathname.includes('/trends') ||
+        window.location.pathname.includes('/edge') ||
+        window.location.pathname.includes('/reports')
     );
 
     useEffect(() => {
@@ -110,14 +115,14 @@ export const UnifiedHeader: FC = () => {
         const d = new Date(selectedDate);
         const results: { label: string; value: string }[] = [];
         const yest = new Date(d); yest.setDate(yest.getDate() - 1);
-        results.push({ label: 'Yesterday', value: yest.toISOString().split('T')[0] });
+        results.push({ label: 'Yesterday', value: toIsoDate(yest) });
         const tom = new Date(d); tom.setDate(tom.getDate() + 1);
-        results.push({ label: 'Tomorrow', value: tom.toISOString().split('T')[0] });
+        results.push({ label: 'Tomorrow', value: toIsoDate(tom) });
         for (let i = 2; i <= 3; i++) {
             const nd = new Date(d); nd.setDate(nd.getDate() + i);
             results.push({
                 label: nd.toLocaleDateString('en-US', { weekday: 'short' }) + ' ' + (nd.getMonth() + 1) + '/' + nd.getDate(),
-                value: nd.toISOString().split('T')[0],
+                value: toIsoDate(nd),
             });
         }
         return results;
@@ -132,10 +137,14 @@ export const UnifiedHeader: FC = () => {
                         {/* Wordmark */}
                         <button
                             onClick={() => toggleSportDrawer(true)}
-                            className="flex items-center select-none active:scale-[0.97] transition-transform md:cursor-default"
+                            className="flex items-center gap-3 select-none active:scale-[0.97] transition-transform md:cursor-default"
                         >
+                            <span className="inline-flex items-center rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-600">
+                                MLB
+                            </span>
                             <span
-                                className="text-[21px] max-[390px]:text-[19px] tracking-[-0.03em] text-[#0B63F6] leading-none font-extrabold"
+                                className="text-[24px] max-[390px]:text-[21px] tracking-[-0.04em] text-slate-900 leading-none font-semibold"
+                                style={{ fontFamily: 'Iowan Old Style, Georgia, Times New Roman, serif' }}
                             >
                                 The Drip
                             </span>
@@ -179,16 +188,16 @@ export const UnifiedHeader: FC = () => {
                     {/* Right: LIVE + Lens + Search + User */}
                     <div className="flex items-center gap-2 max-[390px]:gap-1">
                         <a
-                            href="/edge"
+                            href="/trends"
                             className={cn(
                                 "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border",
-                                isEdgePage
+                                isTrendsPage
                                     ? "bg-[#0A0A0A] border-[#0A0A0A] text-white"
                                     : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
                             )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
-                            EDGE
+                            TRENDS
                         </a>
                         <button
                             type="button"
@@ -214,33 +223,23 @@ export const UnifiedHeader: FC = () => {
 
                         <div className="hidden md:flex"><OddsLensToggle /></div>
 
-                        <button
-                            type="button"
-                            onClick={() => toggleCmdk()}
-                            className="w-11 h-11 max-[390px]:w-10 max-[390px]:h-10 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-all active:scale-95"
-                        >
-                            <Search size={24} strokeWidth={1.8} />
-                        </button>
-
                         {user ? (
                             <button
                                 type="button"
                                 onClick={() => toggleAuthModal(true)}
-                                className="relative w-11 h-11 max-[390px]:w-10 max-[390px]:h-10 rounded-full bg-slate-100 border border-slate-300 p-0.5 active:scale-95 transition-transform"
+                                className="h-[34px] max-[390px]:h-[32px] flex items-center rounded-lg border border-slate-300 bg-white px-3 max-[390px]:px-2.5 text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.08em] text-slate-700 transition-all hover:bg-slate-50 hover:border-slate-400 active:scale-95"
+                                style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                             >
-                                <div className="w-full h-full rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-700 uppercase tracking-tighter">
-                                    {user.email?.[0]}
-                                </div>
+                                ACCOUNT
                             </button>
                         ) : (
                             <button
                                 type="button"
                                 onClick={() => toggleAuthModal(true)}
-                                className="w-11 h-11 max-[390px]:w-10 max-[390px]:h-10 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-50 active:scale-95 transition-all"
+                                className="h-[34px] max-[390px]:h-[32px] flex items-center rounded-lg border border-slate-300 bg-white px-3 max-[390px]:px-2.5 text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.08em] text-slate-700 transition-all hover:bg-slate-50 hover:border-slate-400 active:scale-95"
+                                style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                                    <circle cx="8" cy="5.5" r="3" /><path d="M2 14.5c0-3 2.7-5 6-5s6 2 6 5" />
-                                </svg>
+                                LOG IN
                             </button>
                         )}
                     </div>
@@ -333,16 +332,6 @@ export const UnifiedHeader: FC = () => {
                                     })}
                                 </div>
                                 <div className="flex items-center gap-2 max-[390px]:gap-1.5">
-                                    <div className="relative">
-                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={12} />
-                                        <input
-                                            type="text"
-                                            placeholder="Search..."
-                                            value={liveFilter}
-                                            onChange={(e) => setLiveFilter(e.target.value)}
-                                            className="w-32 max-[390px]:w-28 bg-white border border-slate-300 rounded-lg py-1.5 max-[390px]:py-1 pl-7 max-[390px]:pl-6 pr-2 text-[11px] max-[390px]:text-[10px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#93C5FD] transition-all"
-                                        />
-                                    </div>
                                     <div className="flex bg-slate-50 rounded-lg p-0.5 border border-slate-300">
                                         <button
                                             onClick={() => setLiveLayout('LIST')}
