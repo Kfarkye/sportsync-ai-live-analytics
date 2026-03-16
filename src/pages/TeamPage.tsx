@@ -11,6 +11,7 @@ import {
 } from '../lib/postgame';
 import { formatMatchDate, matchUrl } from '../lib/slugs';
 import { color as C, fmt } from '../lib/tokens';
+import TeamLogo from '../components/shared/TeamLogo';
 
 // ============================================================================
 // Types
@@ -491,7 +492,12 @@ export default function TeamPage() {
             <div className="flex items-center gap-4 sm:gap-6 min-w-0">
               <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex items-center justify-center p-3 shrink-0">
                 {meta?.logo_url ? (
-                  <img src={meta.logo_url} alt={teamName} className="h-full w-full object-contain drop-shadow-sm" />
+                  <TeamLogo
+                    logo={meta.logo_url}
+                    name={teamName}
+                    className="h-full w-full"
+                    teamColor={teamColor}
+                  />
                 ) : (
                   <span className="text-3xl sm:text-4xl font-extrabold" style={{ color: teamColor }}>{teamName[0]}</span>
                 )}

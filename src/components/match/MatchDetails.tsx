@@ -64,6 +64,7 @@ import { usePolyOdds, findPolyForMatch, type PolyMatchOriented } from '@/hooks/u
 import { MatchupLoader, MatchupContextPills } from '../ui';
 import ChatWidget from '../ChatWidget';
 import { TechnicalDebugView } from '../TechnicalDebugView';
+import TeamLogo from '../shared/TeamLogo';
 import {
   BaseballGamePanel,
   BaseballEdgePanel,
@@ -385,12 +386,19 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
               {hasMlColumn && <span className="text-right">ML</span>}
             </div>
 
-            <div className={cn(
-              "grid items-center gap-x-4 px-1 py-1.5",
-              hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
-            )}>
+                <div className={cn(
+                  "grid items-center gap-x-4 px-1 py-1.5",
+                  hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
+                )}>
               <div className="flex items-center gap-3 min-w-0">
-                {match.awayTeam?.logo && <img src={match.awayTeam.logo} alt="" className="w-6 h-6 object-contain shrink-0" loading="lazy" decoding="async" />}
+                {match.awayTeam?.logo && (
+                  <TeamLogo
+                    logo={match.awayTeam.logo}
+                    name={match.awayTeam.name || 'Away'}
+                    teamColor={match.awayTeam.color}
+                    className="w-6 h-6 object-contain shrink-0"
+                  />
+                )}
                 <div className="min-w-0 flex items-baseline gap-2">
                   <span className="text-[15px] font-semibold text-black truncate">{match.awayTeam?.name || match.awayTeam?.shortName}</span>
                   <span className="text-[12px] text-black/60 font-medium tabular-nums hidden sm:inline">{awayRecord}</span>
@@ -413,7 +421,14 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
               hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
             )}>
               <div className="flex items-center gap-3 min-w-0">
-                {match.homeTeam?.logo && <img src={match.homeTeam.logo} alt="" className="w-6 h-6 object-contain shrink-0" loading="lazy" decoding="async" />}
+                {match.homeTeam?.logo && (
+                  <TeamLogo
+                    logo={match.homeTeam.logo}
+                    name={match.homeTeam.name || 'Home'}
+                    teamColor={match.homeTeam.color}
+                    className="w-6 h-6 object-contain shrink-0"
+                  />
+                )}
                 <div className="min-w-0 flex items-baseline gap-2">
                   <span className="text-[15px] font-semibold text-black truncate">{match.homeTeam?.name || match.homeTeam?.shortName}</span>
                   <span className="text-[12px] text-black/60 font-medium tabular-nums hidden sm:inline">{homeRecord}</span>

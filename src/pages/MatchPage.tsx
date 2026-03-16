@@ -12,6 +12,7 @@ import {
 } from '../lib/postgame';
 import { LEAGUE_LABELS, LEAGUE_SHORT, parseMatchSlug, teamUrl } from '../lib/slugs';
 import { color as C } from '../lib/tokens';
+import TeamLogo from '../components/shared/TeamLogo';
 
 type TabId = 'overview' | 'stats' | 'odds' | 'lineups';
 type Side = 'home' | 'away';
@@ -628,7 +629,12 @@ export default function MatchPage() {
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-5">
             <Link to={teamUrl(match.home_team)} className="flex flex-col items-center gap-1.5 sm:gap-2 text-center rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 sm:py-4 hover:bg-slate-100 transition">
               {homeMeta?.logo_url ? (
-                <img src={homeMeta.logo_url} alt={match.home_team} className="h-10 w-10 sm:h-14 sm:w-14 object-contain" />
+                <TeamLogo
+                  logo={homeMeta.logo_url}
+                  name={match.home_team}
+                  className="h-10 w-10 sm:h-14 sm:w-14"
+                  teamColor={homeColor}
+                />
               ) : (
                 <div className="h-10 w-10 sm:h-14 sm:w-14 rounded-full flex items-center justify-center text-base sm:text-xl font-bold" style={{ backgroundColor: homeColor, color: C.surface }}>
                   {match.home_team.slice(0, 1)}
@@ -651,7 +657,12 @@ export default function MatchPage() {
 
             <Link to={teamUrl(match.away_team)} className="flex flex-col items-center gap-1.5 sm:gap-2 text-center rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 sm:py-4 hover:bg-slate-100 transition">
               {awayMeta?.logo_url ? (
-                <img src={awayMeta.logo_url} alt={match.away_team} className="h-10 w-10 sm:h-14 sm:w-14 object-contain" />
+                <TeamLogo
+                  logo={awayMeta.logo_url}
+                  name={match.away_team}
+                  className="h-10 w-10 sm:h-14 sm:w-14"
+                  teamColor={awayColor}
+                />
               ) : (
                 <div className="h-10 w-10 sm:h-14 sm:w-14 rounded-full flex items-center justify-center text-base sm:text-xl font-bold" style={{ backgroundColor: awayColor, color: C.surface }}>
                   {match.away_team.slice(0, 1)}
@@ -859,7 +870,14 @@ export default function MatchPage() {
               return (
                 <article key={sidePanel.label} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
                   <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100 flex items-center gap-2">
-                    {sidePanel.logo && <img src={sidePanel.logo} alt={sidePanel.label} className="h-5 w-5 object-contain" />}
+                    {sidePanel.logo && (
+                      <TeamLogo
+                        logo={sidePanel.logo}
+                        name={sidePanel.label}
+                        className="h-5 w-5"
+                        teamColor={sidePanel.accent}
+                      />
+                    )}
                     <div className="text-sm font-semibold text-slate-800">{sidePanel.label}</div>
                     <div className="ml-auto text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{starters.length} starters</div>
                   </div>
