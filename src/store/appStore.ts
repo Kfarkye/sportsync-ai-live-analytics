@@ -36,7 +36,6 @@ interface AppState {
   isPricingModalOpen: boolean;
   isRankingsDrawerOpen: boolean;
   isGlobalChatOpen: boolean;
-  showLanding: boolean;
 
   // --- Actions ---
   setSelectedSport: (sport: Sport) => void;
@@ -55,7 +54,6 @@ interface AppState {
   togglePricingModal: (open?: boolean) => void;
   toggleRankingsDrawer: (open?: boolean) => void;
   toggleGlobalChat: (open?: boolean) => void;
-  setShowLanding: (show: boolean) => void;
   closeAllOverlays: () => void;
 }
 
@@ -83,7 +81,6 @@ export const useAppStore = create<AppState>()(
       isPricingModalOpen: false,
       isRankingsDrawerOpen: false,
       isGlobalChatOpen: false,
-      showLanding: true,
 
       setSelectedSport: (sport) => set({ selectedSport: sport }),
 
@@ -105,7 +102,8 @@ export const useAppStore = create<AppState>()(
       toggleOddsLens: () => set((s) => {
         const cycle: OddsLensMode[] = ['IMPLIED', 'AMERICAN', 'DECIMAL'];
         const idx = cycle.indexOf(s.oddsLens);
-        return { oddsLens: cycle[(idx + 1) % cycle.length] };
+        const nextMode: OddsLensMode = cycle.at((idx + 1) % cycle.length) ?? 'IMPLIED';
+        return { oddsLens: nextMode };
       }),
 
       toggleCmdk: (open) => set((s) => ({ isCmdkOpen: open ?? !s.isCmdkOpen })),
@@ -114,7 +112,6 @@ export const useAppStore = create<AppState>()(
       togglePricingModal: (open) => set((s) => ({ isPricingModalOpen: open ?? !s.isPricingModalOpen })),
       toggleRankingsDrawer: (open) => set((s) => ({ isRankingsDrawerOpen: open ?? !s.isRankingsDrawerOpen })),
       toggleGlobalChat: (open) => set((s) => ({ isGlobalChatOpen: open ?? !s.isGlobalChatOpen })),
-      setShowLanding: (show) => set({ showLanding: show }),
 
       closeAllOverlays: () => set({
         isCmdkOpen: false,
@@ -127,11 +124,17 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sharpedge_app_state_v1',
+      version: 2,
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== 'object') return persistedState;
+        const nextState = { ...(persistedState as Record<string, unknown>) };
+        delete nextState['showLanding'];
+        return nextState;
+      },
       partialize: (state) => ({
         selectedSport: state.selectedSport,
         // We don't persist selectedDate if it's "Today" by default, or maybe we do
         activeView: state.activeView,
-        showLanding: state.showLanding,
         oddsLens: state.oddsLens,
       })
     }
