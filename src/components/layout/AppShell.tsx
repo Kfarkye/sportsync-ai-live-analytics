@@ -6,6 +6,7 @@ import { UnifiedHeader } from './UnifiedHeader';
 import MatchList from '../match/MatchList';
 import MatchDetails from '../match/MatchDetails';
 import ChatWidget from '../ChatWidget';
+import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
 import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
@@ -21,7 +22,6 @@ const TitanAnalytics = lazy(() => import('../../pages/TitanAnalytics'));
 
 const MotionMain = motion.main;
 const MotionDiv = motion.div;
-type ChatWidgetMatchContext = React.ComponentProps<typeof ChatWidget>['currentMatch'];
 
 const AppShell: FC = () => {
   const {
@@ -31,6 +31,7 @@ const AppShell: FC = () => {
     selectedMatch,
     setSelectedMatch,
     setSelectedSport,
+    showLanding,
     isCmdkOpen,
     isAuthModalOpen,
     isSportDrawerOpen,
@@ -42,6 +43,7 @@ const AppShell: FC = () => {
     togglePricingModal,
     toggleSportDrawer,
     toggleRankingsDrawer,
+    setShowLanding,
     setSelectedDate,
     closeAllOverlays,
   } = useAppStore();
@@ -74,10 +76,6 @@ const AppShell: FC = () => {
 
   const pinnedSet = useMemo(() => new Set<string>(pinnedMatchIds), [pinnedMatchIds]);
   const currentLeagueId = useMemo(() => LEAGUES.find((l) => l.sport === selectedSport)?.id || 'unknown', [selectedSport]);
-  const chatMatchContext = useMemo<ChatWidgetMatchContext>(
-    () => (selectedMatch ? (selectedMatch as unknown as ChatWidgetMatchContext) : undefined),
-    [selectedMatch]
-  );
 
   // Unique key to force animation when Date/Sport changes
   const viewKey = `feed-${new Date(selectedDate).toISOString().split('T')[0]}-${selectedSport}`;
@@ -117,6 +115,8 @@ const AppShell: FC = () => {
     selectedSport,
     setSelectedSport,
   ]);
+
+  if (showLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
 
   return (
     <div
@@ -305,11 +305,7 @@ const AppShell: FC = () => {
         </button>
       )}
 
-      {chatMatchContext ? (
-        <ChatWidget currentMatch={chatMatchContext} />
-      ) : (
-        <ChatWidget />
-      )}
+      <ChatWidget currentMatch={selectedMatch} matches={matches} />
 
       <Suspense fallback={null}>
         <CommandPalette isOpen={isCmdkOpen} onClose={() => toggleCmdk(false)} matches={matches} onSelect={setSelectedMatch} />
