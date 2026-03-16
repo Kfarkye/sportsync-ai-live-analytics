@@ -1,544 +1,1083 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchRecentMatches, getSpreadResult, getTotalResult, type SoccerPostgame } from '../lib/postgame';
-import { formatMatchDate, LEAGUE_LABELS, LEAGUE_SHORT, matchUrl } from '../lib/slugs';
+import { supabase } from '../lib/supabase';
 
-// ============================================================================
-// Types
-// ============================================================================
+type Direction = 'TREND' | 'FADE' | 'NEUTRAL';
+type DirectionFilter = 'ALL' | Direction;
+type SortMode = 'strength' | 'hit' | 'sample' | 'alpha';
+type SportFilter = 'All' | 'Soccer' | 'NBA' | 'NHL' | 'MLB' | 'NCAAB' | 'MLS';
 
-type DateWindow = 'all' | '30d' | '14d' | '7d';
-
-type LeagueTrend = {
-  leagueId: string;
-  label: string;
-  games: number;
-  homeCoverPct: number;
-  overPct: number;
-  bttsPct: number;
-  avgGoals: number;
-  avgCorners: number;
-  avgCards: number;
+type RawTrendRow = {
+  section?: unknown;
+  layer?: unknown;
+  team?: unknown;
+  league?: unknown;
+  trend?: unknown;
+  record?: unknown;
+  hit_rate?: unknown;
+  sample?: unknown;
+  last_held?: unknown;
+  signal_type?: unknown;
 };
 
-// ============================================================================
-// SSOT: Colors & Theme
-// ============================================================================
-
-const THEME = {
-  profit: (val: number) => (val >= 0 ? 'text-emerald-600' : 'text-rose-600'),
-  layout: {
-    page: 'h-(--vvh,100vh) overflow-y-auto overscroll-y-contain bg-[#F4F6FF] text-slate-900',
-    header: 'sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur shadow-[0_1px_0_rgba(17,24,39,0.06)]',
-    section: 'rounded-2xl border border-slate-200 bg-white shadow-[0_18px_36px_-28px_rgba(30,64,175,0.24)]',
-  },
-  components: {
-    navLink: 'rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors',
-    statCard: 'rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(30,64,175,0.22)]',
-    input: 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-400 transition-colors',
-    tableHeaderRow: 'border-b border-slate-200 bg-[#F8FAFC]',
-    tableHeaderCell: 'sticky top-[53px] z-20 bg-[#F8FAFC]/95 backdrop-blur px-3 py-2.5 text-[11px] uppercase tracking-[0.12em] text-slate-500',
-  },
-} as const;
-
-// ============================================================================
-// Clean Info: Filter Configurations
-// ============================================================================
-
-const FILTER_OPTIONS = {
-  dateWindow: [
-    { value: 'all', label: 'All' },
-    { value: '30d', label: 'Last 30 days' },
-    { value: '14d', label: 'Last 14 days' },
-    { value: '7d', label: 'Last 7 days' },
-  ] as { value: DateWindow; label: string }[],
+type TrendRow = {
+  layer: string;
+  team: string;
+  league: string;
+  trend: string;
+  record: string;
+  hit_rate: number;
+  sample: number;
+  last_held: boolean | null;
+  signal_type: Direction;
 };
 
-// ============================================================================
-// Pure Helpers
-// ============================================================================
+type LogoLookup = Record<string, string>;
+type TeamRow = {
+  team_name?: unknown;
+  league_id?: unknown;
+  logo_url?: unknown;
+};
 
-const safeN = (n: number | null | undefined): number => (Number.isFinite(n as number) ? Number(n) : 0);
-const pct = (num: number, den: number): number => (den > 0 ? (num / den) * 100 : 0);
-const avg = (num: number, den: number): number => (den > 0 ? num / den : 0);
+type TeamFallbackRow = {
+  name?: unknown;
+  short_name?: unknown;
+  abbreviation?: unknown;
+  league_id?: unknown;
+  logo_url?: unknown;
+};
 
-function dateInWindow(value: string, window: DateWindow): boolean {
-  if (window === 'all') return true;
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return false;
-  const now = Date.now();
-  const days = window === '30d' ? 30 : window === '14d' ? 14 : 7;
-  return parsed >= now - days * 24 * 60 * 60 * 1000;
+type LayerSummary = {
+  layer: string;
+  avgHitRate: number;
+  count: number;
+  above80: number;
+  sampleAtLeast10: number;
+  perfect: number;
+};
+
+type MatchFeedMetric = {
+  avgGoals: number | null;
+  avgCorners: number | null;
+  avgCards: number | null;
+  avgPassPct: number | null;
+  avgShotAccuracy: number | null;
+  overRoi: number | null;
+  homeAtsRoi: number | null;
+};
+
+const SPORT_FILTERS: SportFilter[] = ['All', 'Soccer', 'NBA', 'NHL', 'MLB', 'NCAAB', 'MLS'];
+
+const SOCCER_LEAGUES = [
+  '.1',
+  'uefa.',
+  'fifa.',
+  'eng.1',
+  'esp.1',
+  'ger.1',
+  'fra.1',
+  'ita.1',
+  'ligue1',
+  'laliga',
+  'seriea',
+  'bundesliga',
+  'mex.1',
+];
+
+const LEAGUE_BADGES: Record<string, string> = {
+  epl: 'Premier League',
+  'eng.1': 'Premier League',
+  esp: 'La Liga',
+  'esp.1': 'La Liga',
+  ger: 'Bundesliga',
+  'ger.1': 'Bundesliga',
+  fra: 'Ligue 1',
+  'fra.1': 'Ligue 1',
+  ita: 'Serie A',
+  'ita.1': 'Serie A',
+  l1: 'Ligue 1',
+  mls: 'MLS',
+  nba: 'NBA',
+  nhl: 'NHL',
+  mlb: 'MLB',
+  ncaab: 'NCAAB',
+  'mens-college-basketball': 'NCAAB',
+  'usa.1': 'MLS',
+  'fifa.worldq.afc': 'WCQ AFC',
+  'fifa.worldq.conmebol': 'WCQ CONMEBOL',
+  'fifa.worldq.caf': 'WCQ CAF',
+  'fifa.worldq.uefa': 'WCQ UEFA',
+  'fifa.worldq.concacaf': 'WCQ CONCACAF',
+};
+
+const LAYER_LABELS: Record<string, string> = {
+  TEAM_ATS_LINE: 'ATS Line',
+  TEAM_OU_LINE: 'O/U Line',
+  SOCCER_1H_BTTS: '1H BTTS',
+  SOCCER_HALF_GOALS: 'Half Goals',
+  SOCCER_LATE_GOALS: 'Late Goals',
+  SOCCER_CORNERS: 'Corners',
+  SOCCER_CARDS: 'Cards',
+  SOCCER_1H_TOTAL: '1H Total',
+  SOCCER_CORNERS: 'Corners',
+  SOCCER_TEAM_TOTAL: 'Team Total',
+};
+
+function normalizeText(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value.trim() : fallback;
 }
 
-function isUpset(match: SoccerPostgame): boolean {
-  if (match.dk_home_ml == null || match.dk_away_ml == null) return false;
-  if (match.home_score === match.away_score) return false;
-  const homeFav = match.dk_home_ml < match.dk_away_ml;
-  const awayWon = match.away_score > match.home_score;
-  const homeWon = match.home_score > match.away_score;
-  return (homeFav && awayWon) || (!homeFav && homeWon);
+function normalizeNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
-function upsetLine(match: SoccerPostgame): number {
-  if (match.dk_home_ml == null || match.dk_away_ml == null) return 0;
-  const homeFav = match.dk_home_ml < match.dk_away_ml;
-  return homeFav ? safeN(match.dk_away_ml) : safeN(match.dk_home_ml);
+function normalizeInteger(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isInteger(n) ? n : fallback;
 }
 
-function americanProfit(odds: number | null | undefined): number {
-  if (odds == null || !Number.isFinite(odds)) return 0;
-  if (odds > 0) return odds / 100;
-  if (odds < 0) return 100 / Math.abs(odds);
-  return 0;
+function normalizeBoolean(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1') return true;
+    if (normalized === 'false' || normalized === '0') return false;
+  }
+  return null;
 }
 
-function settleUnits(odds: number | null | undefined, outcome: 'win' | 'loss' | 'push'): number {
-  if (outcome === 'push') return 0;
-  if (!Number.isFinite(odds as number)) return 0;
-  return outcome === 'win' ? americanProfit(odds) : -1;
+function normalizeDirection(value: unknown): Direction {
+  const v = normalizeText(value).toUpperCase();
+  if (v === 'FADE') return 'FADE';
+  if (v === 'NEUTRAL' || v === 'N/A' || v === 'NONE' || v === 'NAN') return 'NEUTRAL';
+  if (v === 'TREND') return 'TREND';
+  return 'TREND';
 }
 
-// ============================================================================
-// UI Sub-Components
-// ============================================================================
-
-function StatCard({ label, value, valueClass = 'text-slate-900' }: { label: string; value: string | React.ReactNode; valueClass?: string }) {
-  return (
-    <article className={THEME.components.statCard}>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</div>
-      <div className={`mt-1 text-[1.55rem] leading-none font-semibold tabular-nums ${valueClass}`}>{value}</div>
-    </article>
-  );
+function sanitizeLayer(value: string): string {
+  return value.trim();
 }
 
-function FilterSelect<T extends string>({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: T;
-  onChange: (val: T) => void;
-  options: { value: T; label: string }[];
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</label>
-      <select value={value} onChange={(e) => onChange(e.target.value as T)} className={THEME.components.input}>
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-    </div>
-  );
+function sectionToLayer(section: string): string {
+  const key = section.trim().toLowerCase();
+  if (key === 'team') return 'TEAM';
+  if (key === 'team ml') return 'TEAM_ML';
+  if (key === 'against the spread') return 'TEAM_ATS_LINE';
+  if (key === 'over/under the line') return 'TEAM_OU_LINE';
+  if (key === 'first half both teams to score') return 'SOCCER_1H_BTTS';
+  if (key === 'second half goals') return 'SOCCER_HALF_GOALS';
+  if (key === 'late goals (after 75\')' || key === 'late goals') return 'SOCCER_LATE_GOALS';
+  if (key === 'corners') return 'SOCCER_CORNERS';
+  if (key === 'cards') return 'SOCCER_CARDS';
+  if (key === 'league-wide trends') return 'LEAGUE';
+  return section.trim();
 }
 
-function FilterInput({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  placeholder,
-  min,
-  max,
-}: {
-  label: string;
-  value: string | number;
-  onChange: (val: string) => void;
-  type?: string;
-  placeholder?: string;
-  min?: number;
-  max?: number;
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</label>
-      <input
-        type={type}
-        value={value}
-        min={min}
-        max={max}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className={THEME.components.input}
-      />
-    </div>
-  );
+function toSlug(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
-function LeagueTable({ data }: { data: LeagueTrend[] }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="min-w-[900px] w-full text-[13px]">
-        <thead>
-          <tr className={THEME.components.tableHeaderRow}>
-            <th className={`${THEME.components.tableHeaderCell} px-4 text-left`}>League</th>
-            <th className={`${THEME.components.tableHeaderCell} text-right`}>Games</th>
-            <th className={`${THEME.components.tableHeaderCell} text-right`}>Home ATS</th>
-            <th className={`${THEME.components.tableHeaderCell} text-right`}>Over %</th>
-            <th className={`${THEME.components.tableHeaderCell} text-right`}>BTTS %</th>
-            <th className={`${THEME.components.tableHeaderCell} text-right`}>Avg Goals</th>
-            <th className={`${THEME.components.tableHeaderCell} text-right`}>Avg Corners</th>
-            <th className={`${THEME.components.tableHeaderCell} text-right`}>Avg Cards</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row) => (
-            <tr key={row.leagueId} className="border-t border-slate-100 hover:bg-blue-50/45 transition-colors">
-              <td className="px-4 py-2.5 font-semibold text-slate-900">{row.label}</td>
-              <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{row.games}</td>
-              <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.homeCoverPct.toFixed(1)}%</td>
-              <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.overPct.toFixed(1)}%</td>
-              <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.bttsPct.toFixed(1)}%</td>
-              <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgGoals.toFixed(2)}</td>
-              <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgCorners.toFixed(1)}</td>
-              <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{row.avgCards.toFixed(1)}</td>
-            </tr>
-          ))}
-          {data.length === 0 && (
-            <tr>
-              <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">No data available for current filters.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
+function teamLeagueKey(team: string, league: string): string {
+  return `${toSlug(team)}|${toSlug(league)}`;
 }
 
-function MatchList({
+function teamAnyKey(team: string): string {
+  return `${toSlug(team)}|`;
+}
+
+function dedupe(rows: TrendRow[]): TrendRow[] {
+  const map = new Map<string, TrendRow>();
+
+  for (const row of rows) {
+    const key = `${toSlug(row.team)}|${toSlug(row.league)}|${toSlug(row.trend)}|${row.layer}`;
+    const current = map.get(key);
+
+    if (!current) {
+      map.set(key, row);
+      continue;
+    }
+
+    if (
+      row.sample > current.sample ||
+      (row.sample === current.sample && row.hit_rate > current.hit_rate) ||
+      (row.sample === current.sample &&
+        row.hit_rate === current.hit_rate &&
+        row.signal_type === 'TREND' &&
+        current.signal_type !== 'TREND')
+    ) {
+      map.set(key, row);
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+function sportFromLeague(leagueId: string): SportFilter | null {
+  const normalized = toSlug(leagueId);
+  if (normalized === 'nba' || normalized === 'nba.') return 'NBA';
+  if (normalized === 'nhl') return 'NHL';
+  if (normalized === 'mlb') return 'MLB';
+  if (normalized === 'ncaab' || normalized === 'mens-college-basketball') return 'NCAAB';
+  if (normalized === 'mls') return 'MLS';
+  if (SOCCER_LEAGUES.some((needle) => normalized === needle || normalized.includes(needle))) return 'Soccer';
+  return null;
+}
+
+function colorForScore(score: number): string {
+  if (score >= 80) return 'text-emerald-600';
+  if (score >= 65) return 'text-amber-500';
+  return 'text-rose-500';
+}
+
+function strengthScore(row: TrendRow): number {
+  return row.hit_rate * Math.sqrt(row.sample);
+}
+
+function signalClass(signal: Direction): { label: string; color: string; bg: string; icon: string } {
+  if (signal === 'TREND') {
+    return {
+      label: 'TREND',
+      color: 'text-emerald-700',
+      bg: 'bg-emerald-50 border-emerald-200',
+      icon: '↑',
+    };
+  }
+  if (signal === 'FADE') {
+    return {
+      label: 'FADE',
+      color: 'text-rose-700',
+      bg: 'bg-rose-50 border-rose-200',
+      icon: '↓',
+    };
+  }
+  return {
+    label: 'NEUTRAL',
+    color: 'text-slate-500',
+    bg: 'bg-slate-50 border-slate-200',
+    icon: '•',
+  };
+};
+
+function layerLabel(layer: string): string {
+  return LAYER_LABELS[layer] ?? layer.replace('_', ' ');
+}
+
+async function fetchTrends(minHit: number, minGames: number, layerFilter: string): Promise<TrendRow[]> {
+  const params: Record<string, unknown> = {
+    p_min_rate: minHit,
+    p_limit: 5000,
+  };
+  if (layerFilter !== 'All') params.p_layer = layerFilter;
+
+  const rpc = await supabase.rpc('get_trends', params);
+  if (rpc.error) throw new Error(rpc.error.message);
+
+  const rows = Array.isArray(rpc.data) ? (rpc.data as RawTrendRow[]) : [];
+  const parsed: TrendRow[] = [];
+
+  for (const row of rows) {
+    const layer = sanitizeLayer(
+      normalizeText(row.layer, normalizeText(row.section ? sectionToLayer(row.section as string) : undefined)),
+    );
+    const team = normalizeText(row.team);
+    const league = normalizeText(row.league);
+    const trend = normalizeText(row.trend);
+    const sample = normalizeInteger(row.sample, 0);
+    const hitRate = normalizeNumber(row.hit_rate, 0);
+
+    if (!team || !trend || sample < minGames) continue;
+    parsed.push({
+      layer,
+      team,
+      league,
+      trend,
+      record: normalizeText(row.record),
+      hit_rate: hitRate,
+      sample,
+      last_held: normalizeBoolean(row.last_held),
+      signal_type: normalizeDirection(row.signal_type),
+    });
+  }
+
+  return dedupe(parsed);
+}
+
+function extractNumeric(row: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = normalizeNumber((row as Record<string, unknown>)[key], Number.NaN);
+    if (Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+async function fetchMatchFeedSummary(): Promise<MatchFeedMetric | null> {
+  const result = await supabase
+    .from('match_feed')
+    .select('*')
+    .eq('status', 'finished')
+    .limit(5000);
+
+  if (result.error || !Array.isArray(result.data) || result.data.length === 0) {
+    return null;
+  }
+
+  let goalsTotal = 0;
+  let cornersTotal = 0;
+  let cardsTotal = 0;
+  let passTotal = 0;
+  let shotTotal = 0;
+  let overRoiTotal = 0;
+  let atsRoiTotal = 0;
+
+  let goalCount = 0;
+  let cornerCount = 0;
+  let cardCount = 0;
+  let passCount = 0;
+  let shotCount = 0;
+  let overRoiCount = 0;
+  let atsRoiCount = 0;
+
+  for (const rawRow of result.data as unknown[]) {
+    const row = rawRow as Record<string, unknown>;
+
+    const homeGoals = extractNumeric(row, ['home_goals', 'goals_for_home', 'home_score']);
+    const awayGoals = extractNumeric(row, ['away_goals', 'goals_for_away', 'away_score']);
+    const goals = extractNumeric(row, ['goals', 'total_goals', 'goal_total']);
+    const resolvedGoals = Number.isFinite(goals ?? Number.NaN)
+      ? goals!
+      : (Number.isFinite(homeGoals ?? Number.NaN) && Number.isFinite(awayGoals ?? Number.NaN)
+        ? (homeGoals ?? 0) + (awayGoals ?? 0)
+        : null);
+
+    const corners = extractNumeric(row, ['corners', 'total_corners', 'corner_count', 'home_corners', 'away_corners']);
+    const cornerHome = extractNumeric(row, ['home_corners', 'corners_for_home']);
+    const cornerAway = extractNumeric(row, ['away_corners', 'corners_for_away']);
+    const resolvedCorners = Number.isFinite(corners ?? Number.NaN) ? corners! : ((cornerHome ?? 0) + (cornerAway ?? 0));
+
+    const cards = extractNumeric(row, ['cards', 'total_cards', 'card_count', 'home_cards', 'away_cards']);
+    const cardHome = extractNumeric(row, ['home_cards', 'cards_for_home', 'home_team_cards']);
+    const cardAway = extractNumeric(row, ['away_cards', 'cards_for_away', 'away_team_cards']);
+    const resolvedCards = Number.isFinite(cards ?? Number.NaN) ? cards! : ((cardHome ?? 0) + (cardAway ?? 0));
+
+    const pass = extractNumeric(row, ['pass_pct', 'passes_pct', 'pass_percent', 'team_pass_pct', 'passing_pct']);
+    const shot = extractNumeric(row, ['shot_accuracy', 'shot_pct', 'shooting_accuracy', 'shots_accuracy']);
+    const overRoi = extractNumeric(row, ['over_roi', 'roi_over', 'odds_over_roi']);
+    const homeAtsRoi = extractNumeric(row, ['home_ats_roi', 'ats_home_roi', 'ats_roi_home']);
+
+    if (resolvedGoals !== null) {
+      goalsTotal += resolvedGoals;
+      goalCount += 1;
+    }
+    if (resolvedCorners !== null) {
+      cornersTotal += resolvedCorners;
+      cornerCount += 1;
+    }
+    if (resolvedCards !== null) {
+      cardsTotal += resolvedCards;
+      cardCount += 1;
+    }
+    if (pass !== null) {
+      passTotal += pass;
+      passCount += 1;
+    }
+    if (shot !== null) {
+      shotTotal += shot;
+      shotCount += 1;
+    }
+    if (overRoi !== null) {
+      overRoiTotal += overRoi;
+      overRoiCount += 1;
+    }
+    if (homeAtsRoi !== null) {
+      atsRoiTotal += homeAtsRoi;
+      atsRoiCount += 1;
+    }
+  }
+
+  return {
+    avgGoals: goalCount > 0 ? goalsTotal / goalCount : null,
+    avgCorners: cornerCount > 0 ? cornersTotal / cornerCount : null,
+    avgCards: cardCount > 0 ? cardsTotal / cardCount : null,
+    avgPassPct: passCount > 0 ? passTotal / passCount : null,
+    avgShotAccuracy: shotCount > 0 ? shotTotal / shotCount : null,
+    overRoi: overRoiCount > 0 ? overRoiTotal / overRoiCount : null,
+    homeAtsRoi: atsRoiCount > 0 ? atsRoiTotal / atsRoiCount : null,
+  };
+}
+
+async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
+  if (rows.length === 0) return {};
+
+  const teamSet = Array.from(new Set(rows.map((row) => row.team)));
+  const leagueSet = Array.from(new Set(rows.map((row) => row.league).filter(Boolean)));
+  const lookup = new Map<string, string>();
+  const cache: LogoLookup = {};
+
+  try {
+    const exact = await supabase
+      .from('team_logos')
+      .select('team_name,league_id,logo_url')
+      .in('team_name', teamSet);
+
+    if (!exact.error && Array.isArray(exact.data)) {
+      for (const row of exact.data as TeamRow[]) {
+        const key = teamLeagueKey(normalizeText(row.team_name), normalizeText(row.league_id));
+        const logo = normalizeText(row.logo_url);
+        if (!logo) continue;
+        lookup.set(key, logo);
+        if (normalizeText(row.team_name)) cache[normalizeText(row.team_name)] = logo;
+      }
+    }
+  } catch (_err) {
+    // Fallback only if team logo table is not matching
+  }
+
+  if (lookup.size === 0 && teamSet.length > 0) {
+    try {
+      const fallback = await supabase
+        .from('teams')
+        .select('name,short_name,abbreviation,logo_url,league_id')
+        .in('name', teamSet)
+        .limit(5000);
+      if (!fallback.error && Array.isArray(fallback.data)) {
+        for (const row of fallback.data as TeamFallbackRow[]) {
+          const logo = normalizeText(row.logo_url);
+          if (!logo) continue;
+          const league = normalizeText(row.league_id, 'unknown');
+          const name = normalizeText(row.name);
+          const shortName = normalizeText(row.short_name);
+          const abbr = normalizeText(row.abbreviation);
+          if (name) {
+            lookup.set(teamLeagueKey(name, league), logo);
+            cache[name] = logo;
+          }
+          if (shortName) {
+            lookup.set(teamLeagueKey(shortName, league), logo);
+            cache[shortName] = logo;
+          }
+          if (abbr) {
+            lookup.set(teamLeagueKey(abbr, league), logo);
+            cache[abbr] = logo;
+          }
+        }
+      }
+    } catch (_err) {
+      // fallback intentionally permissive
+    }
+  }
+
+  if (lookup.size === 0 && leagueSet.length > 0) {
+    try {
+      const fallbackByLeague = await supabase
+        .from('teams')
+        .select('name,short_name,abbreviation,logo_url,league_id')
+        .in('league_id', leagueSet)
+        .limit(5000);
+      if (!fallbackByLeague.error && Array.isArray(fallbackByLeague.data)) {
+        for (const row of fallbackByLeague.data as TeamFallbackRow[]) {
+          const logo = normalizeText(row.logo_url);
+          if (!logo) continue;
+          const league = normalizeText(row.league_id, 'unknown');
+          const name = normalizeText(row.name);
+          const shortName = normalizeText(row.short_name);
+          const abbr = normalizeText(row.abbreviation);
+          if (name) lookup.set(teamLeagueKey(name, league), logo);
+          if (shortName) lookup.set(teamLeagueKey(shortName, league), logo);
+          if (abbr) lookup.set(teamLeagueKey(abbr, league), logo);
+        }
+      }
+    } catch (_err) {
+      // keep partial cache
+    }
+  }
+
+  const logos: LogoLookup = {};
+  for (const row of rows) {
+    const exact = lookup.get(teamLeagueKey(row.team, row.league));
+    if (exact) {
+      logos[teamLeagueKey(row.team, row.league)] = exact;
+      continue;
+    }
+    const byTeam = lookup.get(teamAnyKey(row.team)) ?? cache[row.team];
+    if (byTeam) {
+      logos[teamLeagueKey(row.team, row.league)] = byTeam;
+    }
+  }
+  return logos;
+}
+
+function SummaryCard({
   title,
-  matches,
-  getValueLabel,
-  getValueColor
+  value,
+  subtitle,
 }: {
   title: string;
-  matches: SoccerPostgame[];
-  getValueLabel: (m: SoccerPostgame) => string;
-  getValueColor: (m: SoccerPostgame) => string;
+  value: string;
+  subtitle?: string;
 }) {
   return (
-    <article className={`${THEME.layout.section} overflow-hidden`}>
-      <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800 bg-[#F8FAFC]">
-        {title}
-      </div>
-      <div className="p-4 space-y-2">
-        {matches.map((match) => (
-          <Link
-            key={match.id}
-            to={matchUrl(match.home_team, match.away_team, match.start_time)}
-            className="grid grid-cols-[1fr_auto_auto] gap-3 items-center rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50 hover:border-blue-200 transition-colors"
-          >
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-slate-900 truncate">
-                {match.home_team} vs {match.away_team}
-              </div>
-              <div className="text-[11px] text-slate-500">
-                {LEAGUE_SHORT[match.league_id] || match.league_id.toUpperCase()} · {formatMatchDate(match.start_time)}
-              </div>
-            </div>
-            <div className="text-sm tabular-nums text-slate-600">
-              {match.home_score}-{match.away_score}
-            </div>
-            <div className={`text-sm font-semibold tabular-nums ${getValueColor(match)}`}>
-              {getValueLabel(match)}
-            </div>
-          </Link>
-        ))}
-        {matches.length === 0 && <div className="text-sm text-slate-500 py-4 text-center">No matches met criteria.</div>}
-      </div>
+    <article className="rounded-lg border border-slate-200 bg-white p-3 min-w-[180px]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{title}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{value}</p>
+      {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
     </article>
   );
 }
 
-// ============================================================================
-// Main Page Component
-// ============================================================================
+function SignalQualityBar({ hitRate, sample }: { hitRate: number; sample: number }) {
+  const color =
+    hitRate >= 80
+      ? 'bg-emerald-500'
+      : hitRate >= 65
+        ? 'bg-amber-500'
+        : 'bg-rose-500';
+  const dots =
+    sample >= 30 ? '●●●' : sample >= 15 ? '●●○' : sample >= 10 ? '●○○' : '○○○';
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-8 text-[9px] text-slate-400">{dots}</span>
+      <span className="h-2 w-20 overflow-hidden rounded-full bg-slate-100">
+        <span className={`block h-full rounded-full ${color}`} style={{ width: `${Math.min(100, hitRate)}%` }} />
+      </span>
+      <span className={`w-11 text-xs font-mono font-semibold ${color === 'bg-emerald-500' ? 'text-emerald-600' : color === 'bg-amber-500' ? 'text-amber-500' : 'text-rose-500'}`}>{hitRate.toFixed(1)}%</span>
+    </div>
+  );
+}
+
+function LastHeld({ value }: { value: boolean | null }) {
+  if (value === true) return <span className="text-emerald-600 font-bold" aria-label="Held">✓</span>;
+  if (value === false) return <span className="text-rose-600 font-bold" aria-label="Missed">×</span>;
+  return <span className="text-slate-400">—</span>;
+}
 
 export default function TrendsPage() {
-  const [matches, setMatches] = useState<SoccerPostgame[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<TrendRow[]>([]);
+  const [logos, setLogos] = useState<LogoLookup>({});
+  const [loadingRows, setLoadingRows] = useState(true);
+  const [loadingMeta, setLoadingMeta] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Filters
-  const [leagueFilter, setLeagueFilter] = useState<string>('all');
-  const [dateWindow, setDateWindow] = useState<DateWindow>('all');
-  const [search, setSearch] = useState<string>('');
-  const [upsetThreshold, setUpsetThreshold] = useState<number>(150);
+  const [layerFilter, setLayerFilter] = useState<string>('All');
+  const [sportFilter, setSportFilter] = useState<SportFilter>('All');
+  const [signalFilter, setSignalFilter] = useState<'ALL' | Direction>('ALL');
+  const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('ALL');
+  const [sortBy, setSortBy] = useState<SortMode>('strength');
+  const [search, setSearch] = useState('');
+  const [minHit, setMinHit] = useState(80);
+  const [minGames, setMinGames] = useState(10);
+
+  const [matchFeedMetrics, setMatchFeedMetrics] = useState<MatchFeedMetric | null>(null);
+  const [matchFeedError, setMatchFeedError] = useState(false);
+
+  const requestSeq = useRef(0);
+  const logoCacheRef = useRef<LogoLookup>({});
+
+  const layerOptions = useMemo(() => {
+    const uniq = new Set<string>();
+    for (const row of rows) uniq.add(row.layer);
+    return ['All', ...Array.from(uniq).sort((a, b) => a.localeCompare(b))];
+  }, [rows]);
+
+  useEffect(() => {
+    let isActive = true;
+    const seq = ++requestSeq.current;
+    const loadRows = async () => {
+      setLoadingRows(true);
+      setError(null);
+      try {
+        const loadedRows = await fetchTrends(minHit, minGames, layerFilter);
+        if (!isActive || requestSeq.current !== seq) return;
+        const stableRows = dedupe(loadedRows).sort((a, b) => b.hit_rate - a.hit_rate || b.sample - a.sample);
+        setRows(stableRows);
+      } catch (err) {
+        if (!isActive || requestSeq.current !== seq) return;
+        const message = err instanceof Error ? err.message : 'Unable to load trend data.';
+        setError(message);
+        setRows([]);
+      } finally {
+        if (isActive && requestSeq.current === seq) setLoadingRows(false);
+      }
+    };
+    void loadRows();
+    return () => {
+      isActive = false;
+    };
+  }, [minHit, minGames, layerFilter]);
 
   useEffect(() => {
     let active = true;
-    const load = async () => {
-      setLoading(true);
+    const seq = ++requestSeq.current;
+    const loadLogos = async () => {
+      const logoRows = rows;
+      const cache = logoCacheRef.current;
+      const needed = logoRows.filter((row) => !cache[teamLeagueKey(row.team, row.league)]);
+      if (needed.length === 0) {
+        const stable: LogoLookup = {};
+        for (const row of logoRows) {
+          const key = teamLeagueKey(row.team, row.league);
+          stable[key] = cache[key];
+        }
+        setLogos(stable);
+        return;
+      }
+
+      const fetched = await fetchTeamLogos(needed);
+      if (!active || requestSeq.current !== seq) return;
+      logoCacheRef.current = { ...cache, ...fetched };
+      setLogos((prev) => {
+        const next = { ...prev, ...fetched };
+        for (const row of logoRows) {
+          const exact = logoCacheRef.current[teamLeagueKey(row.team, row.league)] ?? next[teamLeagueKey(row.team, row.league)];
+          if (exact) next[teamLeagueKey(row.team, row.league)] = exact;
+        }
+        return next;
+      });
+    };
+    void loadLogos();
+    return () => {
+      active = false;
+    };
+  }, [rows]);
+
+  useEffect(() => {
+    let active = true;
+    const loadSummary = async () => {
+      setLoadingMeta(true);
       try {
-        const data = await fetchRecentMatches(600);
-        if (active) setMatches(data);
+        const summary = await fetchMatchFeedSummary();
+        if (!active) return;
+        if (summary) {
+          setMatchFeedMetrics(summary);
+          setMatchFeedError(false);
+        } else {
+          setMatchFeedMetrics(null);
+          setMatchFeedError(true);
+        }
+      } catch (_err) {
+        if (!active) return;
+        setMatchFeedMetrics(null);
+        setMatchFeedError(true);
       } finally {
-        if (active) setLoading(false);
+        if (active) setLoadingMeta(false);
       }
     };
-
-    void load();
-    document.title = 'Betting Trends | The Drip';
-    return () => { active = false; };
+    void loadSummary();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const dynamicLeagueOptions = useMemo(() => {
-    const ids = new Set<string>();
-    for (const match of matches) ids.add(match.league_id);
-    const sorted = [...ids].sort();
-    return [
-      { value: 'all', label: 'All leagues' },
-      ...sorted.map(id => ({ value: id, label: LEAGUE_LABELS[id] || id.toUpperCase() }))
-    ];
-  }, [matches]);
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const direction = directionFilter !== 'ALL' ? directionFilter : signalFilter;
 
-  const filteredMatches = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    return matches.filter((match) => {
-      if (leagueFilter !== 'all' && match.league_id !== leagueFilter) return false;
-      if (!dateInWindow(match.start_time, dateWindow)) return false;
-      if (needle) {
-        const combined = `${match.home_team} ${match.away_team}`.toLowerCase();
-        if (!combined.includes(needle)) return false;
+    const base = rows.filter((row) => {
+      if (direction !== 'ALL' && row.signal_type !== direction) return false;
+      if (signalFilter !== 'ALL' && directionFilter === 'ALL' && row.signal_type !== signalFilter) return false;
+      if (sportFilter !== 'All') {
+        const mapped = sportFromLeague(row.league);
+        if (!mapped || mapped !== sportFilter) return false;
       }
+      if (row.sample < minGames) return false;
+      if (row.hit_rate < minHit) return false;
+      if (query && `${row.team} ${row.trend}`.toLowerCase().indexOf(query) === -1) return false;
+      if (layerFilter !== 'All' && row.layer !== layerFilter) return false;
       return true;
     });
-  }, [matches, leagueFilter, dateWindow, search]);
 
-  const summary = useMemo(() => {
-    if (filteredMatches.length === 0) return null;
+    const sorted = [...base];
+    if (sortBy === 'hit') {
+      sorted.sort((a, b) => b.hit_rate - a.hit_rate || b.sample - a.sample);
+    } else if (sortBy === 'sample') {
+      sorted.sort((a, b) => b.sample - a.sample || b.hit_rate - a.hit_rate);
+    } else if (sortBy === 'alpha') {
+      sorted.sort((a, b) => a.team.localeCompare(b.team) || a.trend.localeCompare(b.trend));
+    } else {
+      sorted.sort((a, b) => strengthScore(b) - strengthScore(a) || b.hit_rate - a.hit_rate);
+    }
+    return sorted;
+  }, [rows, directionFilter, signalFilter, sportFilter, search, minGames, minHit, layerFilter, sortBy]);
 
-    let goals = 0, homeCovered = 0, atsBets = 0, homeSpreadUnits = 0;
-    let overs = 0, totalBets = 0, overUnits = 0;
-    let favoriteWins = 0, dogWins = 0, moneylineDecisions = 0;
-    let btts = 0, corners = 0, cards = 0, passPct = 0, shotAcc = 0;
+  const layerSummary = useMemo(() => {
+    const map = new Map<string, { totalHit: number; count: number; above80: number; sample10: number; perfect: number }>();
 
-    for (const match of filteredMatches) {
-      goals += match.home_score + match.away_score;
-
-      const spread = getSpreadResult(match);
-      if (spread) {
-        if (spread.result === 'covered') homeCovered += 1;
-        if (spread.result !== 'push') atsBets += 1;
-        const outcome: 'win' | 'loss' | 'push' = spread.result === 'covered' ? 'win' : spread.result === 'failed' ? 'loss' : 'push';
-        // FIX: Guard spread price null — exclude from ROI denominator if missing
-        if (Number.isFinite(match.dk_home_spread_price as number)) {
-          homeSpreadUnits += settleUnits(match.dk_home_spread_price, outcome);
-        } else if (outcome !== 'push') {
-          atsBets -= 1; // No price → exclude from ROI denominator
-        }
-      }
-
-      const total = getTotalResult(match);
-      if (total) {
-        if (total.result === 'over') overs += 1;
-        if (total.result !== 'push') totalBets += 1;
-        const overOutcome: 'win' | 'loss' | 'push' = total.result === 'over' ? 'win' : total.result === 'under' ? 'loss' : 'push';
-        // FIX: Guard over price null — exclude from ROI denominator if missing
-        if (Number.isFinite(match.dk_over_price as number)) {
-          overUnits += settleUnits(match.dk_over_price, overOutcome);
-        } else if (overOutcome !== 'push') {
-          totalBets -= 1;
-        }
-      }
-
-      if (match.dk_home_ml != null && match.dk_away_ml != null && match.home_score !== match.away_score) {
-        moneylineDecisions += 1;
-        const homeFav = match.dk_home_ml < match.dk_away_ml;
-        const homeWon = match.home_score > match.away_score;
-        if ((homeFav && homeWon) || (!homeFav && !homeWon)) favoriteWins += 1;
-        else dogWins += 1;
-      }
-
-      if (match.home_score > 0 && match.away_score > 0) btts += 1;
-
-      corners += safeN(match.home_corners) + safeN(match.away_corners);
-      cards += safeN(match.home_yellow_cards) + safeN(match.away_yellow_cards) + safeN(match.home_red_cards) + safeN(match.away_red_cards);
-      // ⚠️ DATA TEAM: Verify pass_pct/shot_accuracy scale — if already 0-100, remove * 100
-      passPct += avg(safeN(match.home_pass_pct) + safeN(match.away_pass_pct), 2) * 100;
-      shotAcc += avg(safeN(match.home_shot_accuracy) + safeN(match.away_shot_accuracy), 2) * 100;
+    for (const row of filtered) {
+      const bucket = map.get(row.layer) ?? { totalHit: 0, count: 0, above80: 0, sample10: 0, perfect: 0 };
+      bucket.count += 1;
+      bucket.totalHit += row.hit_rate;
+      if (row.hit_rate >= 80) bucket.above80 += 1;
+      if (row.sample >= 10) bucket.sample10 += 1;
+      if (row.hit_rate >= 99.999) bucket.perfect += 1;
+      map.set(row.layer, bucket);
     }
 
-    return {
-      sample: filteredMatches.length,
-      homeCoverPct: pct(homeCovered, atsBets),
-      overPct: pct(overs, totalBets),
-      favoriteWinPct: pct(favoriteWins, moneylineDecisions),
-      dogWinPct: pct(dogWins, moneylineDecisions),
-      bttsPct: pct(btts, filteredMatches.length),
-      avgGoals: avg(goals, filteredMatches.length),
-      avgCorners: avg(corners, filteredMatches.length),
-      avgCards: avg(cards, filteredMatches.length),
-      avgPassPct: avg(passPct, filteredMatches.length),
-      avgShotAcc: avg(shotAcc, filteredMatches.length),
-      homeSpreadRoiPct: pct(homeSpreadUnits, atsBets),
-      overRoiPct: pct(overUnits, totalBets),
-    };
-  }, [filteredMatches]);
-
-  const byLeague = useMemo<LeagueTrend[]>(() => {
-    const bucket = new Map<string, {
-      games: number; homeCovered: number; atsBets: number; overs: number;
-      totalBets: number; btts: number; goals: number; corners: number; cards: number;
-    }>();
-
-    for (const match of filteredMatches) {
-      if (!bucket.has(match.league_id)) {
-        bucket.set(match.league_id, { games: 0, homeCovered: 0, atsBets: 0, overs: 0, totalBets: 0, btts: 0, goals: 0, corners: 0, cards: 0 });
-      }
-
-      const agg = bucket.get(match.league_id)!;
-      agg.games += 1;
-      agg.goals += match.home_score + match.away_score;
-      agg.corners += safeN(match.home_corners) + safeN(match.away_corners);
-      agg.cards += safeN(match.home_yellow_cards) + safeN(match.away_yellow_cards) + safeN(match.home_red_cards) + safeN(match.away_red_cards);
-      if (match.home_score > 0 && match.away_score > 0) agg.btts += 1;
-
-      const spread = getSpreadResult(match);
-      if (spread) {
-        if (spread.result === 'covered') agg.homeCovered += 1;
-        if (spread.result !== 'push') agg.atsBets += 1;
-      }
-
-      const total = getTotalResult(match);
-      if (total) {
-        if (total.result === 'over') agg.overs += 1;
-        if (total.result !== 'push') agg.totalBets += 1;
-      }
-    }
-
-    return [...bucket.entries()]
-      .map(([leagueId, agg]) => ({
-        leagueId,
-        label: LEAGUE_LABELS[leagueId] || leagueId.toUpperCase(),
-        games: agg.games,
-        homeCoverPct: pct(agg.homeCovered, agg.atsBets),
-        overPct: pct(agg.overs, agg.totalBets),
-        bttsPct: pct(agg.btts, agg.games),
-        avgGoals: avg(agg.goals, agg.games),
-        avgCorners: avg(agg.corners, agg.games),
-        avgCards: avg(agg.cards, agg.games),
+    return Array.from(map.entries())
+      .map(([layer, m]) => ({
+        layer,
+        count: m.count,
+        avgHitRate: m.count > 0 ? m.totalHit / m.count : 0,
+        above80: m.above80,
+        sampleAtLeast10: m.sample10,
+        perfect: m.perfect,
       }))
-      .sort((a, b) => b.games - a.games);
-  }, [filteredMatches]);
+      .sort((a, b) => b.avgHitRate - a.avgHitRate);
+  }, [filtered]);
 
-  const upsets = useMemo(() => {
-    return filteredMatches
-      .filter((match) => isUpset(match) && upsetLine(match) >= upsetThreshold)
-      .sort((a, b) => upsetLine(b) - upsetLine(a))
-      .slice(0, 8);
-  }, [filteredMatches, upsetThreshold]);
-
-  const highScoring = useMemo(() => {
-    return filteredMatches
-      .slice()
-      .sort((a, b) => (b.home_score + b.away_score) - (a.home_score + a.away_score))
-      .slice(0, 8);
-  }, [filteredMatches]);
-
-  // Derived display config for summary cards
-  const summaryMetrics = summary ? [
-    { label: 'Sample Size', value: `n = ${summary.sample}` },
-    { label: 'Home Cover %', value: `${summary.homeCoverPct.toFixed(1)}%` },
-    { label: 'Over %', value: `${summary.overPct.toFixed(1)}%` },
-    { label: 'Favorite Win %', value: `${summary.favoriteWinPct.toFixed(1)}%` },
-    { label: 'Underdog Win %', value: `${summary.dogWinPct.toFixed(1)}%` },
-    { label: 'BTTS %', value: `${summary.bttsPct.toFixed(1)}%` },
-    { label: 'Avg Goals', value: summary.avgGoals.toFixed(2) },
-    { label: 'Avg Corners', value: summary.avgCorners.toFixed(1) },
-    { label: 'Avg Cards', value: summary.avgCards.toFixed(1) },
-    { label: 'Avg Pass %', value: `${summary.avgPassPct.toFixed(1)}%` },
-    { label: 'Avg Shot Accuracy', value: `${summary.avgShotAcc.toFixed(1)}%` },
-    { label: 'Home ATS ROI', value: `${summary.homeSpreadRoiPct.toFixed(1)}%`, valueClass: THEME.profit(summary.homeSpreadRoiPct) },
-    { label: 'Over ROI', value: `${summary.overRoiPct.toFixed(1)}%`, valueClass: THEME.profit(summary.overRoiPct) },
-  ] : [];
+  const kpiRows = useMemo(
+    () => [
+      {
+        title: 'AVG GOALS',
+        value: matchFeedMetrics?.avgGoals == null ? 'N/A' : `${matchFeedMetrics.avgGoals.toFixed(1)}`,
+      },
+      {
+        title: 'AVG CORNERS',
+        value: matchFeedMetrics?.avgCorners == null ? 'N/A' : `${matchFeedMetrics.avgCorners.toFixed(1)}`,
+      },
+      {
+        title: 'AVG CARDS',
+        value: matchFeedMetrics?.avgCards == null ? 'N/A' : `${matchFeedMetrics.avgCards.toFixed(1)}`,
+      },
+      {
+        title: 'AVG PASS %',
+        value: matchFeedMetrics?.avgPassPct == null ? 'N/A' : `${matchFeedMetrics.avgPassPct.toFixed(1)}%`,
+      },
+      {
+        title: 'AVG SHOT ACCURACY',
+        value: matchFeedMetrics?.avgShotAccuracy == null ? 'N/A' : `${matchFeedMetrics.avgShotAccuracy.toFixed(1)}%`,
+      },
+      {
+        title: 'OVER ROI',
+        value: matchFeedMetrics?.overRoi == null ? 'N/A' : `${matchFeedMetrics.overRoi.toFixed(1)}%`,
+      },
+      {
+        title: 'HOME ATS ROI',
+        value: matchFeedMetrics?.homeAtsRoi == null ? 'N/A' : `${matchFeedMetrics.homeAtsRoi.toFixed(1)}%`,
+      },
+    ],
+    [matchFeedMetrics],
+  );
 
   return (
-    <div className={THEME.layout.page}>
-
-      {/* Navigation Header */}
-      <header className={THEME.layout.header}>
-        <div className="mx-auto w-full max-w-7xl px-4 md:px-6 py-3 flex items-center justify-between gap-4">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">
-            <Link to="/" className={THEME.components.navLink}>Home</Link>
-            <Link to="/edge" className={THEME.components.navLink}>Edge</Link>
+            <Link
+              to="/"
+              className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
+            >
+              Home
+            </Link>
+            <Link
+              to="/trends"
+              className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
+            >
+              Trends
+            </Link>
           </div>
-          <span className="text-[11px] font-medium text-slate-500">{filteredMatches.length} matches in view</span>
+          <span className="text-xs text-slate-500">Trend Intelligence Board</span>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl px-4 md:px-6 py-8 space-y-6">
-
-        {/* Title */}
-        <section className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900">Betting Trends</h1>
-          <p className="text-sm text-slate-600">Advanced market outcomes from DB-backed closing lines and in-match stat profiles.</p>
+      <main className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 pb-10 pt-5 sm:px-6">
+        <section>
+          <h1 className="text-3xl font-semibold tracking-tight">Trends</h1>
+          <p className="text-sm text-slate-600">Live trend intelligence for all tracked leagues and layers.</p>
         </section>
 
-        {/* Filters Panel */}
-        <section className={`${THEME.layout.section} p-4 md:p-5`}>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <FilterSelect label="League" value={leagueFilter} options={dynamicLeagueOptions} onChange={setLeagueFilter} />
-            <FilterSelect label="Date Window" value={dateWindow} options={FILTER_OPTIONS.dateWindow} onChange={(val) => setDateWindow(val as DateWindow)} />
-
-            <FilterInput label="Team Filter" value={search} onChange={setSearch} placeholder="Search team" />
-            <FilterInput
-              label="Upset Threshold"
-              type="number"
-              min={100}
-              max={600}
-              value={upsetThreshold}
-              onChange={(val) => setUpsetThreshold(Math.max(100, Math.min(600, Number(val) || 100)))}
-            />
-
-            <div className="self-end text-[11px] font-semibold tracking-[0.12em] uppercase text-slate-400 pb-2">
-              Data source: soccer_postgame
+        <section className="rounded-xl border border-slate-200 bg-white p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-700">Board statistics</h2>
+            {loadingMeta ? (
+              <span className="text-xs text-slate-500">loading match stats…</span>
+            ) : matchFeedError ? (
+              <span className="text-xs text-amber-600">match_feed unavailable</span>
+            ) : (
+              <span className="text-xs text-slate-500">from finished match_feed</span>
+            )}
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 min-w-full">
+              {kpiRows.map((card) => (
+                <SummaryCard key={card.title} title={card.title} value={card.value} />
+              ))}
             </div>
           </div>
         </section>
 
-        {loading ? (
-          <section className={`${THEME.layout.section} p-8 text-center text-sm font-semibold tracking-wide text-slate-500`}>
-            Loading trends...
+        {error && (
+          <section className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {error}
           </section>
-        ) : (
-          <>
-            {/* Top Level Metric KPIs */}
-            {summary && (
-              <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-                {summaryMetrics.map((metric) => (
-                  <StatCard key={metric.label} label={metric.label} value={metric.value} valueClass={metric.valueClass} />
-                ))}
-              </section>
-            )}
-
-            {/* League Breakdown */}
-            <section className={`${THEME.layout.section} overflow-hidden`}>
-              <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800 bg-[#F8FAFC]">
-                League Breakdown
-              </div>
-              <LeagueTable data={byLeague} />
-            </section>
-
-            {/* Highlights Sections (Side-by-side on large screens) */}
-            <section className="grid gap-5 xl:grid-cols-2">
-              <MatchList
-                title="Biggest Upsets"
-                matches={upsets}
-                getValueLabel={(m) => `+${upsetLine(m)}`}
-                getValueColor={() => 'text-rose-600'}
-              />
-              <MatchList
-                title="Highest Scoring"
-                matches={highScoring}
-                getValueLabel={(m) => `${m.home_score + m.away_score} goals`}
-                getValueColor={() => 'text-slate-700'}
-              />
-            </section>
-          </>
         )}
+
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Layer</span>
+              <select
+                value={layerFilter}
+                onChange={(event) => setLayerFilter(event.target.value)}
+                className="h-9 w-[240px] rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700"
+              >
+                {layerOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Sport</span>
+              <select
+                value={sportFilter}
+                onChange={(event) => setSportFilter(event.target.value as SportFilter)}
+                className="h-9 w-40 rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700"
+              >
+                {SPORT_FILTERS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Signal</span>
+              <select
+                value={signalFilter}
+                onChange={(event) => setSignalFilter(event.target.value as 'ALL' | Direction)}
+                className="h-9 w-40 rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700"
+              >
+                <option value="ALL">All</option>
+                <option value="TREND">Trend</option>
+                <option value="FADE">Fade</option>
+                <option value="NEUTRAL">Neutral</option>
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Sort</span>
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value as SortMode)}
+                className="h-9 w-36 rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700"
+              >
+                <option value="strength">Strength</option>
+                <option value="hit">Hit %</option>
+                <option value="sample">Sample</option>
+                <option value="alpha">Alphabetical</option>
+              </select>
+            </label>
+
+            <label className="flex flex-1 min-w-[220px] flex-col gap-1 text-xs">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Signal search</span>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Team or trend"
+                className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none"
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <label className="flex flex-col gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Min hit %: <span className="tabular-nums text-slate-900">{minHit}%</span>
+              </span>
+              <input
+                type="range"
+                min={50}
+                max={100}
+                step={1}
+                value={minHit}
+                onChange={(event) => setMinHit(Number(event.target.value))}
+                className="h-7 w-full"
+              />
+            </label>
+
+            <label className="flex flex-col gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Min games: <span className="tabular-nums text-slate-900">{minGames}</span>
+              </span>
+              <input
+                type="range"
+                min={1}
+                max={20}
+                step={1}
+                value={minGames}
+                onChange={(event) => setMinGames(Number(event.target.value))}
+                className="h-7 w-full"
+              />
+            </label>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {(['ALL', 'TREND', 'FADE', 'NEUTRAL'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setDirectionFilter(tab)}
+                className={`rounded-md border px-3 py-2 text-xs font-semibold ${
+                  directionFilter === tab
+                    ? tab === 'FADE'
+                      ? 'border-rose-300 bg-rose-50 text-rose-600'
+                      : tab === 'NEUTRAL'
+                        ? 'border-slate-300 bg-slate-100 text-slate-600'
+                        : 'border-emerald-300 bg-emerald-50 text-emerald-600'
+                    : 'border-slate-300 text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-700">Layer quality</h2>
+            <span className="text-xs text-slate-500">{filtered.length} rows</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {layerSummary.map((summary) => {
+              const selected = layerFilter === summary.layer;
+              return (
+                <button
+                  key={summary.layer}
+                  onClick={() => setLayerFilter(selected ? 'All' : summary.layer)}
+                  className={`rounded-lg border px-3 py-2 text-left ${
+                    selected ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50'
+                  }`}
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    {layerLabel(summary.layer)}
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
+                    {summary.avgHitRate.toFixed(1)}%
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    n={summary.count} · ≥80%: {summary.above80} · n≥10: {summary.sampleAtLeast10} · perfect: {summary.perfect}
+                  </p>
+                </button>
+              );
+            })}
+            {layerSummary.length === 0 && !loadingRows && (
+              <div className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-500">
+                No layer stats available for current filters.
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <h2 className="text-sm font-semibold text-slate-700">Trend board</h2>
+            <span className="text-xs text-slate-500">
+              Showing {filtered.length}
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-[1200px] w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
+                <tr>
+                  <th className="w-12 px-4 py-2.5 text-right">#</th>
+                  <th className="px-4 py-2.5">Team / Entity</th>
+                  <th className="px-4 py-2.5">League</th>
+                  <th className="px-4 py-2.5">Signal</th>
+                  <th className="px-4 py-2.5">Layer</th>
+                  <th className="px-4 py-2.5">Signal Quality</th>
+                  <th className="px-4 py-2.5 text-right">Hit %</th>
+                  <th className="px-4 py-2.5 text-right">Sample</th>
+                  <th className="px-4 py-2.5">Direction</th>
+                  <th className="px-4 py-2.5 text-center">Last held</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingRows ? (
+                  <tr>
+                    <td colSpan={10}>
+                      <div className="px-4 py-8 space-y-2">
+                        <div className="h-6 w-1/3 rounded bg-slate-200 animate-pulse" />
+                        <div className="h-4 w-full rounded bg-slate-100 animate-pulse" />
+                      </div>
+                    </td>
+                  </tr>
+                ) : filtered.length > 0 ? (
+                  filtered.map((row, idx) => {
+                    const quality = signalClass(row.signal_type);
+                    const key = teamLeagueKey(row.team, row.league);
+                    const logo = logos[key];
+                    const leagueLabel = LEAGUE_BADGES[row.league] ?? row.league;
+                    const strength = strengthScore(row);
+                    return (
+                      <tr key={`${row.team}-${row.league}-${row.trend}-${idx}`} className="border-t border-slate-200 hover:bg-slate-50">
+                        <td className="px-4 py-3 text-right text-xs font-mono text-slate-500">{idx + 1}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {logo ? (
+                              <img
+                                src={logo}
+                                alt={row.team}
+                                width={18}
+                                height={18}
+                                loading="eager"
+                                decoding="async"
+                                className="h-5 w-5 rounded-full border border-slate-200 object-contain bg-white"
+                              />
+                            ) : (
+                              <span className="inline-grid h-5 w-5 place-items-center rounded-full bg-slate-200 text-[10px] text-slate-500">
+                                {row.team.slice(0, 2).toUpperCase()}
+                              </span>
+                            )}
+                            <span className="font-medium text-slate-800">
+                              {row.team}
+                              {row.record ? <span className="ml-1.5 text-xs text-slate-400">({row.record})</span> : null}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-500 font-mono">{leagueLabel}</td>
+                        <td className="px-4 py-3 text-slate-700">{row.trend}</td>
+                        <td className="px-4 py-3">
+                          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
+                            {layerLabel(row.layer)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <SignalQualityBar hitRate={row.hit_rate} sample={row.sample} />
+                        </td>
+                        <td className={`px-4 py-3 text-right font-mono font-semibold ${colorForScore(row.hit_rate)}`}>
+                          {row.hit_rate.toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono text-slate-700">{row.sample}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${quality.color} ${quality.bg}`}>
+                            <span>{quality.icon}</span>
+                            <span>{quality.label}</span>
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <LastHeld value={row.last_held} />
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-8 text-center text-sm text-slate-500">
+                      No trends for current filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="flex items-center justify-between text-xs text-slate-400">
+          <p>Board strength metric: hit rate × √sample</p>
+          <p>{loadingRows ? 'Updating…' : `${filtered.length} total`}</p>
+        </section>
       </main>
     </div>
   );
