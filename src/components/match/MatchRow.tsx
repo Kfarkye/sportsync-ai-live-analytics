@@ -42,26 +42,86 @@ const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number |
 ));
 ScoreCell.displayName = 'ScoreCell';
 
-const OddsChip = memo(({ label, value, mode }: {
+type OddsDisplay = {
   label: string;
-  value: string | number | null | undefined;
-  mode: ReturnType<typeof useAppStore.getState>['oddsLens'];
-}) => {
+  display: string;
+  mobileHidden?: boolean;
+};
+
+const resolveOddsDisplay = (
+  value: string | number | null | undefined,
+  label: 'SPR' | 'O/U' | 'ML',
+  mode: ReturnType<typeof useAppStore.getState>['oddsLens'],
+): string | null => {
   if (!isValidOdd(value)) return null;
-  let display = String(value);
+
   if (label === 'SPR') {
     const num = Number(value);
-    if (!isNaN(num)) {
-      if (num === 0) display = 'PK';
-      else if (num > 0 && !display.startsWith('+')) display = `+${display}`;
-    }
-  } else if (label === 'ML') {
-    const converted = formatOddsByMode(value, mode, 'moneyline');
-    if (!converted) return null;
-    display = converted;
+    if (isNaN(num)) return String(value);
+    if (num === 0) return 'PK';
+    return num > 0 && !String(value).startsWith('+') ? `+${num}` : String(value);
   }
+
+  if (label === 'ML') {
+    return formatOddsByMode(value, mode, 'moneyline');
+  }
+
+  return String(value);
+};
+
+const buildOdds = (
+  spread: string | number | null | undefined,
+  total: string | number | null | undefined,
+  homeML: string | number | null | undefined,
+  mode: ReturnType<typeof useAppStore.getState>['oddsLens'],
+): OddsDisplay[] => {
+  const rawItems = [
+    { label: 'SPR', value: spread },
+    { label: 'O/U', value: total },
+    { label: 'ML', value: homeML },
+  ] as const;
+
+  const resolved = rawItems
+    .map((item) => {
+      const display = resolveOddsDisplay(item.value, item.label, mode);
+      if (!display) return null;
+      return { label: item.label as string, display };
+    })
+    .filter((item): item is OddsDisplay => item !== null);
+
+  // Prevent duplicates caused by provider fan-out (e.g., same value on ML + spread).
+  const deduped: OddsDisplay[] = [];
+  const seen = new Set<string>();
+  for (const item of resolved) {
+    const key = `${item.label}:${item.display}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(item);
+  }
+
+  if (deduped.length > 2) {
+    return deduped.map((item, index) => ({
+      ...item,
+      mobileHidden: index === 2,
+    }));
+  }
+
+  return deduped;
+};
+
+const OddsChip = memo(({ label, display, mobileHidden }: {
+  label: string;
+  display: string;
+  mobileHidden?: boolean;
+}) => {
   return (
-    <span className="inline-flex items-center gap-1.5 select-none" aria-label={`${label} ${display}`}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 select-none",
+        mobileHidden ? "max-[390px]:hidden" : undefined
+      )}
+      aria-label={`${label} ${display}`}
+    >
       <span className="font-semibold uppercase text-[8.5px] tracking-widest text-slate-400" aria-hidden="true">
         {label}
       </span>
@@ -150,6 +210,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const total = match.odds?.overUnder ?? match.odds?.total;
   const homeML = match.odds?.moneylineHome ?? match.odds?.homeML ?? match.odds?.homeWin ?? match.odds?.home_ml;
   const hasOdds = isValidOdd(spread) || isValidOdd(total) || isValidOdd(homeML);
+  const oddsPayload = useMemo(() => buildOdds(spread, total, homeML, oddsLens), [spread, total, homeML, oddsLens]);
 
   const { startTimeStr, dateStr, roundStr } = useMemo(() => {
     const d = new Date(match.startTime);
@@ -268,9 +329,14 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
         {hasOdds && !isFinal && !isLive && (
           <div className="flex items-center flex-wrap gap-x-4 gap-y-1 max-[390px]:gap-x-3 mt-1 max-[390px]:mt-0.5" style={{ paddingLeft: TEAM_INDENT }}>
-            <OddsChip label="SPR" value={spread} mode={oddsLens} />
-            <OddsChip label="O/U" value={total} mode={oddsLens} />
-            <OddsChip label="ML" value={homeML} mode={oddsLens} />
+            {oddsPayload.map((item) => (
+              <OddsChip
+                key={`${item.label}-${item.display}`}
+                label={item.label}
+                display={item.display}
+                mobileHidden={item.mobileHidden}
+              />
+            ))}
           </div>
         )}
       </div>
