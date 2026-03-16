@@ -151,9 +151,11 @@ const readPersistedSport = (): Sport | 'all' | null => {
   try {
     const raw = window.localStorage.getItem(APP_STATE_STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { state?: { selectedSport?: Sport | 'all' } };
+    const parsed = JSON.parse(raw) as { state?: { selectedSport?: Sport | 'all' }; version?: number };
     const candidate = parsed?.state?.selectedSport;
+    const version = typeof parsed?.version === 'number' ? parsed.version : 0;
     if (candidate === 'all') return 'all';
+    if (candidate === Sport.SOCCER && version < 3) return Sport.BASEBALL;
     return candidate && Object.values(Sport).includes(candidate as Sport) ? (candidate as Sport) : null;
   } catch {
     return null;
@@ -165,7 +167,7 @@ export const hasPersistedSportContext = (): boolean => readPersistedSport() !== 
 export const getInitialSportContext = (): Sport => {
   const persisted = readPersistedSport();
   if (persisted) return persisted as Sport;
-  return Sport.SOCCER;
+  return Sport.BASEBALL;
 };
 
 export const getDbMatchId = (id: string, leagueId?: string): string => {

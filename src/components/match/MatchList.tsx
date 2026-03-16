@@ -9,9 +9,10 @@
 
 import React, { useMemo, useState, useCallback, memo, useRef, useLayoutEffect, useEffect } from 'react';
 import useMeasure from 'react-use-measure';
-import { Match } from '@/types';
+import { Match, Sport } from '@/types';
 import { LEAGUES } from '@/constants';
 import MatchRow from './MatchRow';
+import EditorialFeedHero from './EditorialFeedHero';
 import TeamLogo from '../shared/TeamLogo';
 import { LayoutGroup, motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
@@ -544,6 +545,8 @@ const MatchList: React.FC<MatchListProps> = ({
     matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal, onOpenPricing,
 }) => {
     const oddsLens = useAppStore((state) => state.oddsLens);
+    const selectedSport = useAppStore((state) => state.selectedSport);
+    const selectedDate = useAppStore((state) => state.selectedDate);
 
     // ONLY UI user-interactions use event callbacks. State/Data derivatives MUST stay as standard dependencies.
     const handleSelect = useEventCallback(onSelectMatch);
@@ -574,6 +577,23 @@ const MatchList: React.FC<MatchListProps> = ({
     const updatedClockLabel = latestDataUpdatedMs > 0
         ? new Date(latestDataUpdatedMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
         : '~ syncing';
+    const isBaseballFeed = selectedSport === Sport.BASEBALL;
+    const liveGamesCount = useMemo(() => matches.filter((match) => isMatchLive(match)).length, [matches, isMatchLive]);
+    const firstPitchLabel = useMemo(() => {
+        if (matches.length === 0) return 'Awaiting slate';
+        const earliestMs = matches.reduce((min, match) => {
+            const nextTime = parseSafeDateMs(match.startTime);
+            return nextTime < min ? nextTime : min;
+        }, Number.MAX_SAFE_INTEGER);
+
+        if (!Number.isFinite(earliestMs) || earliestMs === Number.MAX_SAFE_INTEGER) return 'Awaiting slate';
+
+        return new Date(earliestMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }, [matches]);
+    const feedDateLabel = useMemo(
+        () => new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+        [selectedDate]
+    );
 
     const resolveFeaturedPropMatch = useCallback((prop: FeaturedProp): Match | undefined => {
         const propMatchId = prop.match_id?.split('_')[0];
@@ -758,6 +778,15 @@ const MatchList: React.FC<MatchListProps> = ({
                         {/* MAIN COLUMN */}
                         <div className="min-w-0 flex flex-col">
                             <div className="space-y-3.5 sm:space-y-6 pt-0 sm:pt-4">
+                                {isBaseballFeed && (
+                                    <EditorialFeedHero
+                                        baseballGamesCount={matches.length}
+                                        liveGamesCount={liveGamesCount}
+                                        updatedClockLabel={updatedClockLabel}
+                                        firstPitchLabel={firstPitchLabel}
+                                        dateLabel={feedDateLabel}
+                                    />
+                                )}
                                 <div className="px-2.5 sm:px-0">
                                     <div className="inline-flex items-center gap-2.5 text-[11px] text-[#888888] font-normal">
                                         <span className="font-mono tabular-nums tracking-[0.01em]">Updated {updatedClockLabel}</span>
