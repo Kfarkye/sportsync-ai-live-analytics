@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Bell, User, Menu, Zap, Bot } from 'lucide-react';
+import { Bell, User, Menu, Zap, Bot } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { NeuralPulse } from '../ChatWidget';
 
@@ -22,14 +22,7 @@ const Navbar: React.FC = () => {
         </div>
       </div>
 
-      <div className="relative mx-8 hidden max-w-md flex-1 md:flex">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
-        <input
-          type="text"
-          placeholder="Search teams, players, or matches..."
-          className="w-full rounded-full border border-zinc-700 bg-zinc-950 py-2 pl-10 pr-4 text-sm text-zinc-300 transition-colors focus:border-emerald-500/50 focus:outline-none"
-        />
-      </div>
+      <div className="relative mx-8 hidden flex-1 md:block" />
 
       <div className="flex items-center gap-4">
         {/* Analyst / System Oracle Trigger */}

@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef, useMemo, useCallback, KeyboardEvent } from 'react';
-import { Search, Bot, CornerDownLeft } from 'lucide-react';
+import { Bot, CornerDownLeft } from 'lucide-react';
 import { Match, MatchStatus, Team } from '@/types';
 import TeamLogo from '../shared/TeamLogo';
 import { cn } from '@/lib/essence';
@@ -118,7 +118,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ matches, onSelect, isOp
 
         {/* Search Header */}
         <div className="flex items-center border-b border-zinc-200 bg-white px-4 py-4">
-          <Search className="mr-3 h-5 w-5 text-zinc-500" strokeWidth={2} />
+          <Bot className="mr-3 h-5 w-5 text-zinc-500" />
           <input
             ref={inputRef}
             type="text"
@@ -138,7 +138,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ matches, onSelect, isOp
         <div className="custom-scrollbar max-h-[400px] overflow-y-auto bg-white py-2">
           {filteredMatches.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-12 text-center text-zinc-500">
-              <Search size={24} className="opacity-20" />
+              <Bot size={24} className="opacity-20" />
               <p className="text-sm text-zinc-500">No commands match this query. Try a shorter keyword.</p>
             </div>
           ) : (

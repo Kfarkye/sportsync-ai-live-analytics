@@ -1,7 +1,7 @@
 
 import React, { FC, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Grid3X3, List, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Grid3X3, List } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeekNavigation } from '../../hooks/useWeekNavigation';
@@ -39,6 +39,7 @@ const parseWeekValue = (value: string): Date => {
 
 const formatDateValue = (date: Date): string =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-white';
 
 export const UnifiedHeader: FC = () => {
     const {
@@ -69,7 +70,7 @@ export const UnifiedHeader: FC = () => {
         [liveStatusMatches]
     );
     const hasActiveLiveGames = liveGamesCount > 0;
-    const isEdgePage = typeof window !== 'undefined' && (
+    const isTrendsPage = typeof window !== 'undefined' && (
         window.location.pathname.includes('/edge') || window.location.pathname.includes('/reports') || window.location.pathname.includes('/trends')
     );
 
@@ -138,7 +139,7 @@ export const UnifiedHeader: FC = () => {
                         <button
                             aria-label="Open sport menu"
                             onClick={() => toggleSportDrawer(true)}
-                            className="flex items-center select-none active:scale-[0.97] transition-transform md:cursor-default"
+                            className={`flex items-center select-none active:scale-[0.97] transition-transform md:cursor-default ${focusRing}`}
                         >
                             <span
                                 className="text-[21px] max-[390px]:text-[19px] tracking-[-0.03em] text-[#0B63F6] leading-none font-extrabold"
@@ -158,17 +159,18 @@ export const UnifiedHeader: FC = () => {
                                         (sport === 'all' && (selectedSport as string) === 'all') ||
                                         selectedSport === sport
                                     );
-                                    return (
-                                        <button
-                                            type="button"
-                                            aria-label={`Select ${label} matches`}
-                                            key={label}
-                                            onClick={() => handleSportTab(sport)}
-                                        className={cn(
-                                            "relative px-2.5 py-[6px] rounded-md text-[12.5px] tracking-tight transition-colors select-none",
-                                            isActive ? "font-semibold text-[#312E81]" : "font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                                        )}
-                                        >
+                                        return (
+                                            <button
+                                                type="button"
+                                                aria-label={`Select ${label} matches`}
+                                                key={label}
+                                                onClick={() => handleSportTab(sport)}
+                                                className={cn(
+                                                    "relative px-2.5 py-[6px] rounded-md text-[12.5px] tracking-tight transition-colors select-none",
+                                                    isActive ? "font-semibold text-[#312E81]" : "font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50",
+                                                    focusRing
+                                                )}
+                                            >
                                             {isActive && (
                                                 <MotionSpan
                                                     layoutId="sport-active-pill"
@@ -185,14 +187,15 @@ export const UnifiedHeader: FC = () => {
                     </div>
 
                         {/* Right: Trends + LIVE + Lens + Account */}
-                    <div className="flex items-center gap-2 max-[390px]:gap-1">
+                    <div className="flex items-center gap-2 max-[390px]:gap-1 shrink-0">
                         <a
                             href="/trends"
                             className={cn(
                                 "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border",
-                                isEdgePage
+                                isTrendsPage
                                     ? "bg-[#0A0A0A] border-[#0A0A0A] text-white"
-                                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
+                                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400",
+                                focusRing
                             )}
                             aria-label="Open trends"
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
@@ -207,7 +210,8 @@ export const UnifiedHeader: FC = () => {
                                 "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border",
                                 activeView === 'LIVE'
                                     ? "bg-[#0B63F6] border-[#0B63F6] text-white shadow-[0_8px_20px_-10px_rgba(11,99,246,0.5)]"
-                                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
+                                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400",
+                                focusRing
                             )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
@@ -222,13 +226,15 @@ export const UnifiedHeader: FC = () => {
 
                         <div className="hidden md:block w-px h-[18px] bg-slate-200 mx-0.5" />
 
-                        <div className="hidden md:flex"><OddsLensToggle /></div>
+                        <div className="hidden md:flex">
+                            <div className={focusRing}><OddsLensToggle /></div>
+                        </div>
 
                         <button
                             type="button"
                             onClick={() => toggleAuthModal(true)}
                             aria-label={user ? 'Open account menu' : 'Open login modal'}
-                            className="h-[34px] max-[390px]:h-[32px] px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                            className={`h-[34px] max-[390px]:h-[32px] px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border bg-white border-slate-300 text-slate-700 hover:bg-slate-50 ${focusRing}`}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
                             Log in
@@ -253,13 +259,18 @@ export const UnifiedHeader: FC = () => {
                                 <div className="flex items-center gap-1 max-[390px]:gap-0.5">
                                     <button
                                         type="button"
+                                        aria-label={dateDisplay.isToday ? 'Previous day' : 'Go to previous date step'}
                                         onClick={() => setSelectedDate(-navStep)}
-                                        className="w-[34px] h-[34px] max-[390px]:w-[30px] max-[390px]:h-[30px] flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-300 rounded-lg bg-white transition-all active:scale-90"
+                                        className={`w-[34px] h-[34px] max-[390px]:w-[30px] max-[390px]:h-[30px] flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-300 rounded-lg bg-white transition-all active:scale-90 ${focusRing}`}
                                     >
                                         <ChevronLeft size={16} />
                                     </button>
 
-                                    <button type="button" className="h-[34px] max-[390px]:h-[30px] flex items-center gap-2 max-[390px]:gap-1.5 px-3.5 max-[390px]:px-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors select-none">
+                                    <button
+                                        type="button"
+                                        aria-label={`Current date: ${dateDisplay.label}`}
+                                        className={`h-[34px] max-[390px]:h-[30px] flex items-center gap-2 max-[390px]:gap-1.5 px-3.5 max-[390px]:px-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors select-none ${focusRing}`}
+                                    >
                                         <span className="text-[13px] max-[390px]:text-[12px] font-semibold text-slate-900">{dateDisplay.label}</span>
                                         {dateDisplay.isToday && (
                                             <span
@@ -276,8 +287,9 @@ export const UnifiedHeader: FC = () => {
 
                                     <button
                                         type="button"
+                                        aria-label="Next day"
                                         onClick={() => setSelectedDate(navStep)}
-                                        className="w-[34px] h-[34px] max-[390px]:w-[30px] max-[390px]:h-[30px] flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-300 rounded-lg bg-white transition-all active:scale-90"
+                                        className={`w-[34px] h-[34px] max-[390px]:w-[30px] max-[390px]:h-[30px] flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-300 rounded-lg bg-white transition-all active:scale-90 ${focusRing}`}
                                     >
                                         <ChevronRight size={16} />
                                     </button>
@@ -296,8 +308,10 @@ export const UnifiedHeader: FC = () => {
                                                     "px-2.5 py-1 rounded-[5px] text-[11px] transition-all select-none",
                                                     isSelected
                                                         ? "text-[#1D4ED8] bg-[#EFF6FF] ring-1 ring-[#BFDBFE]"
-                                                        : "text-slate-500 hover:text-[#1D4ED8] hover:bg-[#EFF6FF]"
+                                                        : "text-slate-500 hover:text-[#1D4ED8] hover:bg-[#EFF6FF]",
+                                                    focusRing
                                                 )}
+                                                aria-current={isSelected ? 'date' : undefined}
                                             >
                                                 {qd.label}
                                             </button>
@@ -320,11 +334,15 @@ export const UnifiedHeader: FC = () => {
                                         return (
                                             <button
                                                 key={tab}
+                                                type="button"
                                                 onClick={() => setLiveTab(tab)}
+                                                aria-label={`${labels[tab]} games`}
                                                 className={cn(
                                                     "relative px-3 max-[390px]:px-2.5 py-1.5 max-[390px]:py-1 rounded-md text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.02em] transition-colors",
-                                                    isActive ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                                                    isActive ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
+                                                    focusRing
                                                 )}
+                                                style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                                             >
                                                 {labels[tab]}
                                             </button>
@@ -333,25 +351,37 @@ export const UnifiedHeader: FC = () => {
                                 </div>
                                 <div className="flex items-center gap-2 max-[390px]:gap-1.5">
                                     <div className="relative">
-                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={12} />
                                         <input
                                             type="text"
-                                            placeholder="Search..."
+                                            aria-label="Filter live matches"
+                                            placeholder="Filter..."
                                             value={liveFilter}
                                             onChange={(e) => setLiveFilter(e.target.value)}
-                                            className="w-32 max-[390px]:w-28 bg-white border border-slate-300 rounded-lg py-1.5 max-[390px]:py-1 pl-7 max-[390px]:pl-6 pr-2 text-[11px] max-[390px]:text-[10px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#93C5FD] transition-all"
+                                            className="w-32 max-[390px]:w-28 bg-white border border-slate-300 rounded-lg py-1.5 max-[390px]:py-1 pl-2 pr-2 text-[11px] max-[390px]:text-[10px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#93C5FD] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                                         />
                                     </div>
                                     <div className="flex bg-slate-50 rounded-lg p-0.5 border border-slate-300">
                                         <button
+                                            type="button"
+                                            aria-label="List view"
                                             onClick={() => setLiveLayout('LIST')}
-                                            className={cn("p-1.5 rounded-md transition-colors", liveLayout === 'LIST' ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700")}
+                                            className={cn(
+                                                "p-1.5 rounded-md transition-colors",
+                                                liveLayout === 'LIST' ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
+                                                focusRing
+                                            )}
                                         >
                                             <List size={14} />
                                         </button>
                                         <button
+                                            type="button"
+                                            aria-label="Grid view"
                                             onClick={() => setLiveLayout('GRID')}
-                                            className={cn("p-1.5 rounded-md transition-colors", liveLayout === 'GRID' ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700")}
+                                            className={cn(
+                                                "p-1.5 rounded-md transition-colors",
+                                                liveLayout === 'GRID' ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
+                                                focusRing
+                                            )}
                                         >
                                             <Grid3X3 size={14} />
                                         </button>
