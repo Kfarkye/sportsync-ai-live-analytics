@@ -1,7 +1,7 @@
 
 import React, { FC, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Grid3X3, List } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Grid3X3, List, Search } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeekNavigation } from '../../hooks/useWeekNavigation';
@@ -37,6 +37,9 @@ const parseWeekValue = (value: string): Date => {
     return new Date(value);
 };
 
+const formatDateValue = (date: Date): string =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
 export const UnifiedHeader: FC = () => {
     const {
         selectedSport,
@@ -52,7 +55,6 @@ export const UnifiedHeader: FC = () => {
         setLiveFilter,
         setLiveLayout,
         toggleSportDrawer,
-        toggleCmdk,
         toggleAuthModal,
     } = useAppStore();
 
@@ -124,6 +126,8 @@ export const UnifiedHeader: FC = () => {
         return results;
     }, [selectedDate]);
 
+    const selectedDateValue = useMemo(() => formatDateValue(new Date(selectedDate)), [selectedDate]);
+
     return (
         <header className="sticky top-0 z-40 w-full bg-white/95 supports-backdrop-filter:bg-white/88 backdrop-blur-md print:hidden pt-safe shadow-[0_1px_0_rgba(17,24,39,0.07)]">
             {/* ─── PRIMARY ROW: Brand + Sport Tabs + Actions ──── */}
@@ -132,6 +136,7 @@ export const UnifiedHeader: FC = () => {
                     <div className="flex items-center gap-5 max-[390px]:gap-3">
                         {/* Wordmark */}
                         <button
+                            aria-label="Open sport menu"
                             onClick={() => toggleSportDrawer(true)}
                             className="flex items-center select-none active:scale-[0.97] transition-transform md:cursor-default"
                         >
@@ -155,6 +160,8 @@ export const UnifiedHeader: FC = () => {
                                     );
                                     return (
                                         <button
+                                            type="button"
+                                            aria-label={`Select ${label} matches`}
                                             key={label}
                                             onClick={() => handleSportTab(sport)}
                                         className={cn(
@@ -177,7 +184,7 @@ export const UnifiedHeader: FC = () => {
                         </nav>
                     </div>
 
-                    {/* Right: LIVE + Lens + Search + User */}
+                        {/* Right: Trends + LIVE + Lens + Account */}
                     <div className="flex items-center gap-2 max-[390px]:gap-1">
                         <a
                             href="/trends"
@@ -187,12 +194,14 @@ export const UnifiedHeader: FC = () => {
                                     ? "bg-[#0A0A0A] border-[#0A0A0A] text-white"
                                     : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
                             )}
+                            aria-label="Open trends"
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
                             TRENDS
                         </a>
                         <button
                             type="button"
+                            aria-label={activeView === 'LIVE' ? 'Switch to feed view' : 'Switch to live view'}
                             onClick={handleLiveClick}
                             className={cn(
                                 "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border",
@@ -215,25 +224,15 @@ export const UnifiedHeader: FC = () => {
 
                         <div className="hidden md:flex"><OddsLensToggle /></div>
 
-                        {user ? (
-                            <button
-                                type="button"
-                                onClick={() => toggleAuthModal(true)}
-                                className="h-[34px] max-[390px]:h-[32px] px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
-                                style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
-                            >
-                                Log in
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={() => toggleAuthModal(true)}
-                                className="h-[34px] max-[390px]:h-[32px] px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 border bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
-                                style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
-                            >
-                                Log in
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            onClick={() => toggleAuthModal(true)}
+                            aria-label={user ? 'Open account menu' : 'Open login modal'}
+                            className="h-[34px] max-[390px]:h-[32px] px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                            style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
+                        >
+                            Log in
+                        </button>
                     </div>
                 </div>
             </div>
@@ -286,15 +285,24 @@ export const UnifiedHeader: FC = () => {
 
                                 {/* Right: Quick date links */}
                                 <div className="hidden md:flex items-center gap-0.5">
-                                    {quickDates.map((qd) => (
-                                        <button
-                                            key={qd.value}
-                                            onClick={() => handleWeekSelect(qd.value)}
-                                            className="px-2.5 py-1 rounded-[5px] text-[11px] text-slate-500 hover:text-[#1D4ED8] hover:bg-[#EFF6FF] transition-all select-none"
-                                        >
-                                            {qd.label}
-                                        </button>
-                                    ))}
+                                    {quickDates.map((qd) => {
+                                        const isSelected = qd.value === selectedDateValue;
+                                        return (
+                                            <button
+                                                key={qd.value}
+                                                onClick={() => handleWeekSelect(qd.value)}
+                                                aria-label={`Jump to ${qd.label}`}
+                                                className={cn(
+                                                    "px-2.5 py-1 rounded-[5px] text-[11px] transition-all select-none",
+                                                    isSelected
+                                                        ? "text-[#1D4ED8] bg-[#EFF6FF] ring-1 ring-[#BFDBFE]"
+                                                        : "text-slate-500 hover:text-[#1D4ED8] hover:bg-[#EFF6FF]"
+                                                )}
+                                            >
+                                                {qd.label}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </MotionDiv>
                         ) : activeView === 'LIVE' ? (
