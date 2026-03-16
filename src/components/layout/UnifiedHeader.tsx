@@ -1,7 +1,7 @@
 
 import React, { FC, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Search, Grid3X3, List } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Grid3X3, List } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeekNavigation } from '../../hooks/useWeekNavigation';
@@ -215,33 +215,23 @@ export const UnifiedHeader: FC = () => {
 
                         <div className="hidden md:flex"><OddsLensToggle /></div>
 
-                        <button
-                            type="button"
-                            onClick={() => toggleCmdk()}
-                            className="w-11 h-11 max-[390px]:w-10 max-[390px]:h-10 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-all active:scale-95"
-                        >
-                            <Search size={24} strokeWidth={1.8} />
-                        </button>
-
                         {user ? (
                             <button
                                 type="button"
                                 onClick={() => toggleAuthModal(true)}
-                                className="relative w-11 h-11 max-[390px]:w-10 max-[390px]:h-10 rounded-full bg-slate-100 border border-slate-300 p-0.5 active:scale-95 transition-transform"
+                                className="h-[34px] max-[390px]:h-[32px] px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                                style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                             >
-                                <div className="w-full h-full rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-700 uppercase tracking-tighter">
-                                    {user.email?.[0]}
-                                </div>
+                                Log in
                             </button>
                         ) : (
                             <button
                                 type="button"
                                 onClick={() => toggleAuthModal(true)}
-                                className="w-11 h-11 max-[390px]:w-10 max-[390px]:h-10 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-50 active:scale-95 transition-all"
+                                className="h-[34px] max-[390px]:h-[32px] px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 border bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                                style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                                    <circle cx="8" cy="5.5" r="3" /><path d="M2 14.5c0-3 2.7-5 6-5s6 2 6 5" />
-                                </svg>
+                                Log in
                             </button>
                         )}
                     </div>
