@@ -213,6 +213,20 @@ const isTableUnavailableError = (error: unknown): boolean => {
   );
 };
 
+const isRpcUnavailableError = (error: unknown, functionName: string): boolean => {
+  if (!error) return false;
+  const candidate = error as { code?: string; message?: string; details?: string; hint?: string };
+  const text = `${candidate.code || ''} ${candidate.message || ''} ${candidate.details || ''} ${candidate.hint || ''}`.toLowerCase();
+  const fn = functionName.toLowerCase();
+  return (
+    text.includes('pgrst202') ||
+    text.includes('42883') ||
+    (text.includes(fn) && text.includes('does not exist')) ||
+    (text.includes(fn) && text.includes('not found')) ||
+    text.includes('could not find the function')
+  );
+};
+
 const isTableAvailable = async (table: TrendLookupTable): Promise<boolean> => {
   const status = LOOKUP_TABLE_AVAILABILITY[table];
   if (status === 'available') return true;
@@ -662,12 +676,51 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
   if (rows.length === 0) return {};
 
   const leagueSet = Array.from(new Set(rows.map((row) => normalizeLeagueKey(row.league)).filter(Boolean)));
+  const teamNameSet = Array.from(new Set(rows.map((row) => normalizeText(row.team)).filter(Boolean)));
   const lookup = new Map<string, string>();
   const cache: LogoLookup = {};
   const teamLogosAvailable = await isTableAvailable('team_logos');
   if (!teamLogosAvailable) return {};
 
-  if (teamLogosAvailable && leagueSet.length > 0) {
+  let rpcAvailable = true;
+  if (teamNameSet.length > 0) {
+    const teamChunks = chunkValues(teamNameSet, TEAM_LOOKUP_BATCH_SIZE);
+    for (const chunk of teamChunks) {
+      if (!rpcAvailable) break;
+      try {
+        const rpc = await supabase.rpc('get_team_logos_by_names', {
+          p_names: chunk,
+          p_league_ids: leagueSet.length > 0 ? leagueSet : null,
+        });
+        if (rpc.error) {
+          if (isRpcUnavailableError(rpc.error, 'get_team_logos_by_names')) {
+            rpcAvailable = false;
+          }
+          continue;
+        }
+        if (Array.isArray(rpc.data)) {
+          for (const row of rpc.data as TeamRow[]) {
+            const key = teamLeagueKey(normalizeText(row.team_name), normalizeText(row.league_id));
+            const logo = normalizeText(row.logo_url);
+            if (!logo) continue;
+            lookup.set(key, logo);
+            const cachedTeamName = normalizeText(row.team_name);
+            if (cachedTeamName) cache[teamAnyKey(cachedTeamName)] = logo;
+          }
+        }
+      } catch (_err) {
+        // fallback path below
+      }
+    }
+  }
+
+  const hasMissingLogos = rows.some((row) => {
+    const exact = lookup.get(teamLeagueKey(row.team, row.league));
+    if (exact) return false;
+    return !lookup.has(teamAnyKey(row.team)) && !cache[teamAnyKey(row.team)];
+  });
+
+  if (hasMissingLogos && leagueSet.length > 0) {
     const leagueChunks = chunkValues(leagueSet, TEAM_LOOKUP_BATCH_SIZE);
     for (const chunk of leagueChunks) {
       if (LOOKUP_TABLE_AVAILABILITY.team_logos === 'unavailable') break;
