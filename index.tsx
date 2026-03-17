@@ -217,6 +217,17 @@ if ('serviceWorker' in navigator) {
     if (isStorageAccessError(event.reason)) {
       event.preventDefault();
       console.info('[ServiceWorker] Ignoring storage-related service worker rejection in this environment.');
+      void disableServiceWorker();
+    }
+  });
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('error', (event) => {
+    if (isStorageAccessError(event.error)) {
+      event.preventDefault();
+      console.info('[ServiceWorker] Ignoring storage-related service worker error in this environment.');
+      void disableServiceWorker();
     }
   });
 }

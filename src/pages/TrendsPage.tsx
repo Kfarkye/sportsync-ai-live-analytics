@@ -192,6 +192,56 @@ const LAYER_LABELS: Record<string, string> = {
   SOCCER_TEAM_TOTAL: 'Team Total',
 };
 
+const TEAM_LOOKUP_BATCH_SIZE = 60;
+const LEAGUE_LOOKUP_BATCH_SIZE = 80;
+type TrendLookupTable = 'team_logos' | 'teams' | 'matches';
+type TableAvailability = 'unknown' | 'available' | 'unavailable';
+
+const LOOKUP_TABLE_AVAILABILITY: Record<TrendLookupTable, TableAvailability> = {
+  team_logos: 'unknown',
+  teams: 'unknown',
+  matches: 'unknown',
+};
+
+const LOOKUP_TABLE_PROBES: Partial<Record<TrendLookupTable, Promise<boolean>>> = {};
+
+const isTableUnavailableError = (error: unknown): boolean => {
+  if (!error) return false;
+  const candidate = error as { code?: string; message?: string; details?: string; hint?: string };
+  const text = `${candidate.code || ''} ${candidate.message || ''} ${candidate.details || ''} ${candidate.hint || ''}`.toLowerCase();
+  return (
+    text.includes('does not exist') ||
+    text.includes('relation') ||
+    text.includes('42p01') ||
+    text.includes('404')
+  );
+};
+
+const isTableAvailable = async (table: TrendLookupTable): Promise<boolean> => {
+  const status = LOOKUP_TABLE_AVAILABILITY[table];
+  if (status === 'available') return true;
+  if (status === 'unavailable') return false;
+
+  if (LOOKUP_TABLE_PROBES[table]) return LOOKUP_TABLE_PROBES[table]!;
+
+  LOOKUP_TABLE_PROBES[table] = (async () => {
+    try {
+      const { error } = await supabase.from(table).select('*').limit(1);
+      if (isTableUnavailableError(error)) {
+        LOOKUP_TABLE_AVAILABILITY[table] = 'unavailable';
+        return false;
+      }
+      LOOKUP_TABLE_AVAILABILITY[table] = 'available';
+      return true;
+    } catch {
+      LOOKUP_TABLE_AVAILABILITY[table] = 'available';
+      return true;
+    }
+  })();
+
+  return LOOKUP_TABLE_PROBES[table]!;
+};
+
 function normalizeText(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value.trim() : fallback;
 }
@@ -312,6 +362,17 @@ function teamAnyKey(team: string): string {
 function normalizeMatchTeam(value: string): string {
   return value.trim().toLowerCase().normalize('NFKD').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
+
+const chunkValues = <T,>(items: T[], size: number): T[][] => {
+  if (size <= 0) return [items];
+  if (items.length === 0) return [];
+
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+};
 
 function teamsMatch(rawTeamA: unknown, rawTeamB: unknown): boolean {
   const a = normalizeMatchTeam(normalizeText(rawTeamA));
@@ -608,52 +669,63 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
   const leagueSet = Array.from(new Set(rows.map((row) => normalizeLeagueKey(row.league)).filter(Boolean)));
   const lookup = new Map<string, string>();
   const cache: LogoLookup = {};
+  const [teamLogosAvailable, teamsAvailable] = await Promise.all([isTableAvailable('team_logos'), isTableAvailable('teams')]);
 
-  try {
-    const exact = await supabase
-      .from('team_logos')
-      .select('team_name,league_id,logo_url')
-      .in('team_name', teamSet);
+  if (!teamLogosAvailable && !teamsAvailable) return {};
 
-    if (!exact.error && Array.isArray(exact.data)) {
-      for (const row of exact.data as TeamRow[]) {
-        const key = teamLeagueKey(normalizeText(row.team_name), normalizeText(row.league_id));
-        const logo = normalizeText(row.logo_url);
-        if (!logo) continue;
-        lookup.set(key, logo);
-        if (normalizeText(row.team_name)) cache[normalizeText(row.team_name)] = logo;
+  if (teamLogosAvailable) {
+    try {
+      const exactPromises = chunkValues(teamSet, TEAM_LOOKUP_BATCH_SIZE).map((chunk) => supabase
+        .from('team_logos')
+        .select('team_name,league_id,logo_url')
+        .in('team_name', chunk));
+      const exactResponses = await Promise.all(exactPromises);
+      for (const exact of exactResponses) {
+        if (!exact.error && Array.isArray(exact.data)) {
+          for (const row of exact.data as TeamRow[]) {
+            const key = teamLeagueKey(normalizeText(row.team_name), normalizeText(row.league_id));
+            const logo = normalizeText(row.logo_url);
+            if (!logo) continue;
+            lookup.set(key, logo);
+            if (normalizeText(row.team_name)) cache[normalizeText(row.team_name)] = logo;
+          }
+        }
       }
+    } catch (_err) {
+      // Fallback only if team logo table is not matching
     }
-  } catch (_err) {
-    // Fallback only if team logo table is not matching
   }
 
-  if (lookup.size === 0 && teamSet.length > 0) {
+  if (lookup.size === 0 && teamsAvailable && teamSet.length > 0) {
     try {
-      const fallback = await supabase
+      const fallbackPromises = chunkValues(teamSet, TEAM_LOOKUP_BATCH_SIZE).map((chunk) => supabase
         .from('teams')
         .select('name,short_name,abbreviation,logo_url,league_id')
-        .in('name', teamSet)
-        .limit(5000);
-      if (!fallback.error && Array.isArray(fallback.data)) {
-        for (const row of fallback.data as TeamFallbackRow[]) {
-          const logo = normalizeText(row.logo_url);
-          if (!logo) continue;
-          const league = normalizeText(row.league_id, 'unknown');
-          const name = normalizeText(row.name);
-          const shortName = normalizeText(row.short_name);
-          const abbr = normalizeText(row.abbreviation);
-          if (name) {
-            lookup.set(teamLeagueKey(name, league), logo);
-            cache[name] = logo;
-          }
-          if (shortName) {
-            lookup.set(teamLeagueKey(shortName, league), logo);
-            cache[shortName] = logo;
-          }
-          if (abbr) {
-            lookup.set(teamLeagueKey(abbr, league), logo);
-            cache[abbr] = logo;
+        .in('name', chunk)
+        .limit(2000));
+      const fallbackResponses = await Promise.all(fallbackPromises);
+
+      for (const fallback of fallbackResponses) {
+        if (!fallback.error && Array.isArray(fallback.data)) {
+          for (const row of fallback.data as TeamFallbackRow[]) {
+            const logo = normalizeText(row.logo_url);
+            if (!logo) continue;
+            const league = normalizeText(row.league_id, 'unknown');
+            const name = normalizeText(row.name);
+            const shortName = normalizeText(row.short_name);
+            const abbr = normalizeText(row.abbreviation);
+            if (name) {
+              lookup.set(teamLeagueKey(name, league), logo);
+              cache[name] = logo;
+            }
+            if (shortName) {
+              lookup.set(teamLeagueKey(shortName, league), logo);
+              cache[shortName] = logo;
+            }
+            if (abbr) {
+              lookup.set(teamLeagueKey(abbr, league), logo);
+              cache[abbr] = logo;
+            }
           }
         }
       }
@@ -662,24 +734,28 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
     }
   }
 
-  if (lookup.size === 0 && leagueSet.length > 0) {
+  if (lookup.size === 0 && teamsAvailable && leagueSet.length > 0) {
     try {
-      const fallbackByLeague = await supabase
+      const leagueFallbackPromises = chunkValues(leagueSet, TEAM_LOOKUP_BATCH_SIZE).map((chunk) => supabase
         .from('teams')
         .select('name,short_name,abbreviation,logo_url,league_id')
-        .in('league_id', leagueSet)
-        .limit(5000);
-      if (!fallbackByLeague.error && Array.isArray(fallbackByLeague.data)) {
-        for (const row of fallbackByLeague.data as TeamFallbackRow[]) {
-          const logo = normalizeText(row.logo_url);
-          if (!logo) continue;
-          const league = normalizeText(row.league_id, 'unknown');
-          const name = normalizeText(row.name);
-          const shortName = normalizeText(row.short_name);
-          const abbr = normalizeText(row.abbreviation);
-          if (name) lookup.set(teamLeagueKey(name, league), logo);
-          if (shortName) lookup.set(teamLeagueKey(shortName, league), logo);
-          if (abbr) lookup.set(teamLeagueKey(abbr, league), logo);
+        .in('league_id', chunk)
+        .limit(2000));
+      const leagueFallbackResponses = await Promise.all(leagueFallbackPromises);
+
+      for (const fallbackByLeague of leagueFallbackResponses) {
+        if (!fallbackByLeague.error && Array.isArray(fallbackByLeague.data)) {
+          for (const row of fallbackByLeague.data as TeamFallbackRow[]) {
+            const logo = normalizeText(row.logo_url);
+            if (!logo) continue;
+            const league = normalizeText(row.league_id, 'unknown');
+            const name = normalizeText(row.name);
+            const shortName = normalizeText(row.short_name);
+            const abbr = normalizeText(row.abbreviation);
+            if (name) lookup.set(teamLeagueKey(name, league), logo);
+            if (shortName) lookup.set(teamLeagueKey(shortName, league), logo);
+            if (abbr) lookup.set(teamLeagueKey(abbr, league), logo);
+          }
         }
       }
     } catch (_err) {
@@ -708,17 +784,33 @@ async function fetchNextGames(rows: TrendRow[]): Promise<NextMatchLookup> {
 
   const leagueSet = Array.from(new Set(rows.map((row) => normalizeLeagueKey(row.league)).filter(Boolean)));
   if (leagueSet.length === 0) return next;
+  if (!(await isTableAvailable('matches'))) {
+    for (const row of rows) {
+      next[teamLeagueKey(row.team, row.league)] = null;
+    }
+    return next;
+  }
 
-  const upcoming = await supabase
-    .from('matches')
-    .select('id,league_id,home_team,away_team,start_time,status')
-    .in('league_id', leagueSet)
-    .gte('start_time', new Date().toISOString())
-    .in('status', ['scheduled', 'live', 'halftime'])
-    .order('start_time', { ascending: true })
-    .limit(5000);
+  const upcomingQueries = chunkValues(leagueSet, LEAGUE_LOOKUP_BATCH_SIZE).map((chunk) =>
+    supabase
+      .from('matches')
+      .select('id,league_id,home_team,away_team,start_time,status')
+      .in('league_id', chunk)
+      .gte('start_time', new Date().toISOString())
+      .in('status', ['scheduled', 'live', 'halftime'])
+      .order('start_time', { ascending: true })
+      .limit(5000)
+  );
 
-  if (upcoming.error || !Array.isArray(upcoming.data) || upcoming.data.length === 0) {
+  const upcomingResponses = await Promise.all(upcomingQueries);
+
+  const upcomingRows: MatchRow[] = [];
+  for (const upcoming of upcomingResponses) {
+    if (upcoming.error || !Array.isArray(upcoming.data) || upcoming.data.length === 0) continue;
+    upcomingRows.push(...(upcoming.data as MatchRow[]));
+  }
+
+  if (upcomingRows.length === 0) {
     for (const row of rows) {
       next[teamLeagueKey(row.team, row.league)] = null;
     }
@@ -726,7 +818,7 @@ async function fetchNextGames(rows: TrendRow[]): Promise<NextMatchLookup> {
   }
 
   const byLeague = new Map<string, MatchRow[]>();
-  for (const match of upcoming.data as MatchRow[]) {
+  for (const match of upcomingRows) {
     const league = normalizeLeagueKey(match.league_id);
     const existing = byLeague.get(league) ?? [];
     existing.push(match);

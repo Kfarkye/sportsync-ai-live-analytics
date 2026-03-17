@@ -14,6 +14,7 @@ type GateOverrides = Partial<Record<'NHL' | 'NBA' | 'NFL', GateValue>>;
 type AppConfigRow = { key: string; value: GateValue };
 
 const APP_CONFIG_TABLE = 'app_config';
+let appConfigTableAvailable: boolean | null = null;
 
 function isConfigTableUnavailableError(error: { code?: string; message?: string; details?: string } | null | undefined) {
   if (!error) return false;
@@ -29,6 +30,8 @@ export const configService = {
      */
     async init() {
         try {
+            if (appConfigTableAvailable === false) return;
+
             console.log('[Remote Config] Fetching latest gates...');
             const { data, error } = await supabase
                 .from<AppConfigRow>(APP_CONFIG_TABLE)
@@ -37,11 +40,14 @@ export const configService = {
             if (error) {
                 if (isConfigTableUnavailableError(error)) {
                     console.info('[Remote Config] Remote config table unavailable. Running with default gates.');
+                    appConfigTableAvailable = false;
                     return;
                 }
+                appConfigTableAvailable = true;
                 throw error;
             }
 
+            appConfigTableAvailable = true;
             if (data) {
                 const overrides: GateOverrides = {};
 
@@ -70,6 +76,8 @@ export const configService = {
      */
     subscribe() {
         try {
+            if (appConfigTableAvailable === false) return;
+
             const channel = supabase
             .channel('app_config_changes')
             .on(
@@ -95,9 +103,18 @@ export const configService = {
             });
 
             if (channel === null) {
-                console.info('[Remote Config] Live config subscription not created. Continuing with static defaults.');
+                appConfigTableAvailable = false;
+                return;
             }
+
+            appConfigTableAvailable = true;
         } catch (err) {
+            if (isConfigTableUnavailableError(err as { code?: string; message?: string; details?: string } | null | undefined)) {
+                appConfigTableAvailable = false;
+                console.info('[Remote Config] Remote config table unavailable. Live updates disabled.');
+                return;
+            }
+
             console.warn('[Remote Config] Failed to subscribe to live config updates.', err);
         }
     }
