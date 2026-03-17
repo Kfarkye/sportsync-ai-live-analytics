@@ -23,10 +23,19 @@ const clearServiceWorkerDisabled = () => {
 
 const isStorageAccessError = (error: unknown): boolean => {
   if (!error) return false;
+  const normalized = [((error as { name?: unknown }).name as string | undefined), (error as Error)?.message].filter(Boolean).join(' ').toLowerCase();
   const message = String((error as Error)?.message ?? error).toLowerCase();
   return (
+    normalized.includes('invalidstateerror') ||
+    normalized.includes('databaseclosederror') ||
+    message.includes('backing store') ||
+    message.includes('opening backing store') ||
     message.includes('storage') ||
+    message.includes('database connection') ||
+    message.includes('database is closing') ||
+    message.includes('connection is closing') ||
     message.includes('indexeddb') ||
+    message.includes('idb') ||
     message.includes('request storage') ||
     message.includes('failed to access storage') ||
     message.includes('quota')

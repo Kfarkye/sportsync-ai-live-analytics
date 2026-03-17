@@ -254,6 +254,10 @@ function normalizeLeagueLookupKey(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9.]/g, '');
 }
 
+function normalizeLeagueKey(value: unknown): string {
+  return normalizeText(value).toLowerCase();
+}
+
 function leagueDisplayLabel(value: string): string {
   const key = value.trim().toLowerCase();
   return LEAGUE_BADGES[key] ?? LEAGUE_BADGES[normalizeLeagueLookupKey(value)] ?? getLeagueDisplayName(value);
@@ -441,15 +445,15 @@ function layerLabel(layer: string): string {
 }
 
 function buildNextGames(rows: MatchRow[]): MatchRow[] {
-  const leagueSet = Array.from(new Set(rows.map((row) => normalizeText(row.league_id)).filter(Boolean))).sort();
+  const leagueSet = Array.from(new Set(rows.map((row) => normalizeLeagueKey(row.league_id)).filter(Boolean))).sort();
   const now = new Date().toISOString();
   return rows.filter((match) => {
     if (!match.start_time || !match.league_id) return false;
     const start = normalizeText(match.start_time);
-    const league = normalizeText(match.league_id);
+    const league = normalizeLeagueKey(match.league_id);
     if (!start || !league) return false;
     if (start < now) return false;
-    if (!leagueSet.includes(league.toLowerCase())) return false;
+    if (!leagueSet.includes(league)) return false;
     return true;
   });
 }
@@ -601,7 +605,7 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
   if (rows.length === 0) return {};
 
   const teamSet = Array.from(new Set(rows.map((row) => row.team)));
-  const leagueSet = Array.from(new Set(rows.map((row) => row.league).filter(Boolean)));
+  const leagueSet = Array.from(new Set(rows.map((row) => normalizeLeagueKey(row.league)).filter(Boolean)));
   const lookup = new Map<string, string>();
   const cache: LogoLookup = {};
 
@@ -702,7 +706,7 @@ async function fetchNextGames(rows: TrendRow[]): Promise<NextMatchLookup> {
   const next: NextMatchLookup = {};
   if (rows.length === 0) return next;
 
-  const leagueSet = Array.from(new Set(rows.map((row) => row.league).filter(Boolean)));
+  const leagueSet = Array.from(new Set(rows.map((row) => normalizeLeagueKey(row.league)).filter(Boolean)));
   if (leagueSet.length === 0) return next;
 
   const upcoming = await supabase
@@ -723,7 +727,7 @@ async function fetchNextGames(rows: TrendRow[]): Promise<NextMatchLookup> {
 
   const byLeague = new Map<string, MatchRow[]>();
   for (const match of upcoming.data as MatchRow[]) {
-    const league = normalizeText(match.league_id).toLowerCase();
+    const league = normalizeLeagueKey(match.league_id);
     const existing = byLeague.get(league) ?? [];
     existing.push(match);
     byLeague.set(league, existing);
@@ -731,7 +735,7 @@ async function fetchNextGames(rows: TrendRow[]): Promise<NextMatchLookup> {
 
   for (const row of rows) {
     const key = teamLeagueKey(row.team, row.league);
-    const leagueMatches = byLeague.get(row.league.toLowerCase());
+    const leagueMatches = byLeague.get(normalizeLeagueKey(row.league));
     const match = leagueMatches ? pickNextMatch(leagueMatches, row.team) : null;
     if (!match || !normalizeText(match.start_time) || !normalizeText(match.home_team) || !normalizeText(match.away_team)) {
       next[key] = null;
@@ -858,7 +862,6 @@ export default function TrendsPage() {
       } catch (err) {
         if (!isActive || requestSeq.current !== seq) return;
         setError(toTrendFetchError(err));
-        setRows([]);
         setApiRowCount(0);
       } finally {
         if (isActive && requestSeq.current === seq) setLoadingRows(false);
@@ -909,9 +912,14 @@ export default function TrendsPage() {
     let active = true;
     const seq = ++nextGamesRequestSeq.current;
     const loadNextGames = async () => {
-      const next = await fetchNextGames(rows);
-      if (!active || seq !== nextGamesRequestSeq.current) return;
-      setNextGames(next);
+      try {
+        const next = await fetchNextGames(rows);
+        if (!active || seq !== nextGamesRequestSeq.current) return;
+        setNextGames(next);
+      } catch (_error) {
+        if (!active || seq !== nextGamesRequestSeq.current) return;
+        // Keep previously resolved next-game lookups on transient failures.
+      }
     };
     void loadNextGames();
     return () => {

@@ -16,14 +16,26 @@ root.render(
 );
 
 const SW_DISABLE_STORAGE_KEY = 'sportsync-sw-disabled';
+const SW_STORAGE_RELOAD_KEY = 'sportsync-sw-reloaded-for-storage';
+const SW_DEBUG_DISABLE_PARAM = 'disable-sw';
+type ServiceWorkerQuerySetting = 'enabled' | 'disabled';
 
-const disableServiceWorker = (reason: string = '1') => {
+const disableServiceWorker = async (reason: string = '1') => {
   try {
     sessionStorage.setItem(SW_DISABLE_STORAGE_KEY, reason);
   } catch {
     // Storage is optional in constrained environments.
   }
-  void clearServiceWorkerArtifacts();
+  await clearServiceWorkerArtifacts();
+  try {
+    const didReloadForStorage = sessionStorage.getItem(SW_STORAGE_RELOAD_KEY) === '1';
+    if (!didReloadForStorage && navigator.serviceWorker.controller) {
+      sessionStorage.setItem(SW_STORAGE_RELOAD_KEY, '1');
+      window.location.replace(window.location.href);
+    }
+  } catch {
+    // Storage is optional in constrained environments.
+  }
 };
 
 const clearServiceWorkerDisabled = () => {
@@ -39,6 +51,18 @@ const isServiceWorkerDisabled = (): boolean => {
     return sessionStorage.getItem(SW_DISABLE_STORAGE_KEY) === '1';
   } catch {
     return false;
+  }
+};
+
+const getServiceWorkerQuerySetting = (): ServiceWorkerQuerySetting | null => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const flag = params.get(SW_DEBUG_DISABLE_PARAM);
+    if (flag === '0' || flag?.toLowerCase() === 'false') return 'enabled';
+    if (flag === '1' || flag?.toLowerCase() === 'true') return 'disabled';
+    return null;
+  } catch {
+    return null;
   }
 };
 
@@ -63,10 +87,18 @@ const clearServiceWorkerArtifacts = async () => {
 
 const isStorageAccessError = (error: unknown): boolean => {
   if (!error) return false;
+  const normalized = [((error as { name?: unknown }).name as string | undefined), (error as Error)?.message].filter(Boolean).join(' ').toLowerCase();
   const message = String((error as Error)?.message ?? error).toLowerCase();
   return (
+    normalized.includes('invalidstateerror') ||
+    normalized.includes('databaseclosederror') ||
+    message.includes('backing store') ||
     message.includes('storage') ||
+    message.includes('database connection') ||
+    message.includes('database is closing') ||
+    message.includes('connection is closing') ||
     message.includes('indexeddb') ||
+    message.includes('idb') ||
     message.includes('request storage') ||
     message.includes('failed to access storage') ||
     message.includes('quota')
@@ -111,7 +143,7 @@ const scheduleWorkerRefresh = (registration: ServiceWorkerRegistration) => {
   window.setInterval(() => {
     void registration.update().catch((error) => {
       if (isStorageAccessError(error)) {
-        disableServiceWorker();
+        void disableServiceWorker();
       }
     });
   }, 60_000);
@@ -119,23 +151,25 @@ const scheduleWorkerRefresh = (registration: ServiceWorkerRegistration) => {
 
 const registerServiceWorker = async (storageCapable?: boolean) => {
   if (!('serviceWorker' in navigator)) return;
+  if (isServiceWorkerDisabled()) {
+    return;
+  }
+
   if (storageCapable === undefined) {
     storageCapable = await canUseServiceWorkerStorage();
   }
 
-    if (!storageCapable) {
-      disableServiceWorker();
-      clearServiceWorkerArtifacts();
-      return;
-    }
+  if (!storageCapable) {
+    void disableServiceWorker();
+    return;
+  }
 
   try {
     const existing = await navigator.serviceWorker.getRegistration('/');
     if (existing) {
       await existing.update().catch((error) => {
         if (isStorageAccessError(error)) {
-          disableServiceWorker();
-          clearServiceWorkerArtifacts();
+          void disableServiceWorker();
           return;
         }
         throw error;
@@ -152,8 +186,7 @@ const registerServiceWorker = async (storageCapable?: boolean) => {
 
     registration.update().catch((error) => {
       if (isStorageAccessError(error)) {
-        disableServiceWorker();
-        clearServiceWorkerArtifacts();
+        void disableServiceWorker();
         return;
       }
     });
@@ -173,8 +206,7 @@ const registerServiceWorker = async (storageCapable?: boolean) => {
     clearServiceWorkerDisabled();
   } catch (error) {
     if (isStorageAccessError(error)) {
-      disableServiceWorker();
-      clearServiceWorkerArtifacts();
+      void disableServiceWorker();
       return;
     }
   }
@@ -192,20 +224,39 @@ if ('serviceWorker' in navigator) {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const initializeServiceWorker = async () => {
+      const swQuerySetting = getServiceWorkerQuerySetting();
+
+      if (swQuerySetting === 'disabled') {
+        (window as typeof window & { __sportsyncSwDebugDisabled?: boolean }).__sportsyncSwDebugDisabled = true;
+        console.info('[ServiceWorker] Disabled via query param.');
+        await clearServiceWorkerArtifacts();
+        return;
+      }
+
+      if (swQuerySetting === 'enabled') {
+        clearServiceWorkerDisabled();
+        try {
+          sessionStorage.removeItem(SW_STORAGE_RELOAD_KEY);
+        } catch {
+          // Storage is optional in constrained environments.
+        }
+      }
+
+      (window as typeof window & { __sportsyncSwDebugDisabled?: boolean }).__sportsyncSwDebugDisabled = false;
+
       const storageCapable = await canUseServiceWorkerStorage();
 
       if (!storageCapable) {
-        disableServiceWorker();
-        clearServiceWorkerArtifacts();
+        void disableServiceWorker();
         return;
       }
 
       if (isServiceWorkerDisabled()) {
-        clearServiceWorkerDisabled();
+        return;
       }
 
       registerServiceWorker(storageCapable).catch(() => {
-        disableServiceWorker();
+        void disableServiceWorker();
       });
     };
 
