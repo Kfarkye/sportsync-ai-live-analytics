@@ -676,40 +676,74 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
   if (rows.length === 0) return {};
 
   const leagueSet = Array.from(new Set(rows.map((row) => normalizeLeagueKey(row.league)).filter(Boolean)));
-  const teamNameSet = Array.from(new Set(rows.map((row) => normalizeText(row.team)).filter(Boolean)));
   const lookup = new Map<string, string>();
   const cache: LogoLookup = {};
   const teamLogosAvailable = await isTableAvailable('team_logos');
   if (!teamLogosAvailable) return {};
 
-  let rpcAvailable = true;
-  if (teamNameSet.length > 0) {
-    const teamChunks = chunkValues(teamNameSet, TEAM_LOOKUP_BATCH_SIZE);
-    for (const chunk of teamChunks) {
-      if (!rpcAvailable) break;
-      try {
-        const rpc = await supabase.rpc('get_team_logos_by_names', {
-          p_names: chunk,
-          p_league_ids: leagueSet.length > 0 ? leagueSet : null,
-        });
-        if (rpc.error) {
-          if (isRpcUnavailableError(rpc.error, 'get_team_logos_by_names')) {
-            rpcAvailable = false;
+  const ambiguousKeys = new Set<string>();
+  let nonExactMatches = 0;
+  let resolverLookups = 0;
+  let resolverAvailable = true;
+
+  if (leagueSet.length > 0) {
+    for (const league of leagueSet) {
+      if (!resolverAvailable) break;
+      const leagueNames = Array.from(
+        new Set(
+          rows
+            .filter((row) => normalizeLeagueKey(row.league) === league)
+            .map((row) => normalizeText(row.team))
+            .filter(Boolean),
+        ),
+      );
+
+      const nameChunks = chunkValues(leagueNames, TEAM_LOOKUP_BATCH_SIZE);
+      for (const chunk of nameChunks) {
+        if (!resolverAvailable) break;
+        if (chunk.length === 0) continue;
+
+        resolverLookups += chunk.length;
+        try {
+          const resolved = await supabase.rpc('resolve_team_logos', {
+            p_names: chunk,
+            p_league_ids: [league],
+          });
+
+          if (resolved.error) {
+            if (isRpcUnavailableError(resolved.error, 'resolve_team_logos')) {
+              resolverAvailable = false;
+            }
+            continue;
           }
-          continue;
-        }
-        if (Array.isArray(rpc.data)) {
-          for (const row of rpc.data as TeamRow[]) {
-            const key = teamLeagueKey(normalizeText(row.team_name), normalizeText(row.league_id));
-            const logo = normalizeText(row.logo_url);
-            if (!logo) continue;
-            lookup.set(key, logo);
-            const cachedTeamName = normalizeText(row.team_name);
-            if (cachedTeamName) cache[teamAnyKey(cachedTeamName)] = logo;
+
+          if (Array.isArray(resolved.data)) {
+            for (const result of resolved.data as Array<{
+              input_name?: unknown;
+              logo_url?: unknown;
+              match_type?: unknown;
+              is_ambiguous?: unknown;
+            }>) {
+              const inputName = normalizeText(result.input_name);
+              if (!inputName) continue;
+
+              const key = teamLeagueKey(inputName, league);
+              const logo = normalizeText(result.logo_url);
+              const matchType = normalizeText(result.match_type, 'unresolved').toLowerCase();
+              const isAmbiguous = result.is_ambiguous === true;
+
+              if (logo) {
+                lookup.set(key, logo);
+                cache[teamAnyKey(inputName)] = logo;
+              }
+
+              if (matchType !== 'exact') nonExactMatches += 1;
+              if (isAmbiguous) ambiguousKeys.add(`${league}::${inputName}`);
+            }
           }
+        } catch (_err) {
+          // Keep fallback path available.
         }
-      } catch (_err) {
-        // fallback path below
       }
     }
   }
@@ -765,6 +799,25 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
       logos[teamLeagueKey(row.team, row.league)] = byTeam;
     }
   }
+
+  const unresolvedFinal = rows
+    .map((row) => `${normalizeLeagueKey(row.league)}::${normalizeText(row.team)}`)
+    .filter((key) => {
+      const [league, team] = key.split('::');
+      return !logos[teamLeagueKey(team, league)];
+    });
+
+  if (unresolvedFinal.length > 0 || ambiguousKeys.size > 0 || (resolverLookups > 0 && nonExactMatches / resolverLookups >= 0.25)) {
+    console.warn('[Trends][resolve_team_logos]', {
+      unresolved_count: unresolvedFinal.length,
+      ambiguous_count: ambiguousKeys.size,
+      non_exact_count: nonExactMatches,
+      lookup_count: resolverLookups,
+      unresolved_samples: unresolvedFinal.slice(0, 12),
+      ambiguous_samples: Array.from(ambiguousKeys).slice(0, 12),
+    });
+  }
+
   return logos;
 }
 

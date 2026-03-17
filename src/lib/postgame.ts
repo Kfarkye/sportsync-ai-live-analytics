@@ -262,10 +262,62 @@ export async function fetchTeamsInLeague(leagueId: string): Promise<string[]> {
   return Array.from(teams).sort();
 }
 
-/** Fetch team metadata (logo, colors) from teams table */
+/** Fetch team metadata (logo, league) via canonical resolver with team_logos exact fallback */
 export async function fetchTeamMeta(teamName: string) {
   const search = teamName.replace(/-/g, ' ').trim();
   if (!search) return null;
+
+  const isResolverUnavailable = (error: unknown): boolean => {
+    const candidate = error as { code?: string; message?: string; details?: string; hint?: string } | null;
+    if (!candidate) return false;
+    const text = `${candidate.code || ''} ${candidate.message || ''} ${candidate.details || ''} ${candidate.hint || ''}`.toLowerCase();
+    return (
+      text.includes('pgrst202') ||
+      text.includes('42883') ||
+      text.includes('resolve_team_logos') ||
+      text.includes('could not find the function')
+    );
+  };
+
+  const resolved = await supabase.rpc('resolve_team_logos', {
+    p_names: [search],
+    p_league_ids: null,
+  });
+
+  if (!resolved.error && Array.isArray(resolved.data) && resolved.data.length > 0) {
+    const first = resolved.data[0] as {
+      input_name?: unknown;
+      canonical_name?: unknown;
+      league_id?: unknown;
+      logo_url?: unknown;
+      match_type?: unknown;
+      is_ambiguous?: unknown;
+    };
+
+    const logoUrl = typeof first.logo_url === 'string' ? first.logo_url.trim() : '';
+    const matchType = typeof first.match_type === 'string' ? first.match_type.toLowerCase() : 'unresolved';
+    const ambiguous = first.is_ambiguous === true;
+
+    if (matchType === 'unresolved' || ambiguous) {
+      console.warn('[Postgame][resolve_team_logos]', {
+        input: search,
+        match_type: matchType,
+        is_ambiguous: ambiguous,
+      });
+    }
+
+    if (logoUrl) {
+      return {
+        name: (typeof first.canonical_name === 'string' && first.canonical_name.trim()) || search,
+        logo_url: logoUrl,
+        league_id: (typeof first.league_id === 'string' && first.league_id.trim()) || null,
+      };
+    }
+  }
+
+  if (resolved.error && !isResolverUnavailable(resolved.error)) {
+    console.warn('[Postgame][resolve_team_logos] RPC error', resolved.error);
+  }
 
   const exact = await supabase
     .from('team_logos')
@@ -282,20 +334,13 @@ export async function fetchTeamMeta(teamName: string) {
     };
   }
 
-  const fuzzy = await supabase
-    .from('team_logos')
-    .select('team_name, logo_url, league_id')
-    .ilike('team_name', `%${search}%`)
-    .limit(1)
-    .maybeSingle();
-
-  if (fuzzy.error || !fuzzy.data) return null;
-
-  return {
-    name: fuzzy.data.team_name,
-    logo_url: fuzzy.data.logo_url,
-    league_id: fuzzy.data.league_id,
-  };
+  console.warn('[Postgame][resolve_team_logos]', {
+    input: search,
+    match_type: 'unresolved',
+    is_ambiguous: false,
+    fallback: 'team_logos_exact_miss',
+  });
+  return null;
 }
 
 // ─── Team ATS/OU Aggregations ──────────────────────────────────
