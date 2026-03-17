@@ -911,7 +911,7 @@ function SummaryCard({
   subtitle?: string;
 }) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-3 min-w-[180px]">
+    <article className="rounded-lg border border-white/40 bg-white/45 p-3 backdrop-blur-sm min-w-[180px] shadow-[0_16px_35px_-25px_rgba(15,23,42,0.35)]">
       <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{title}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{value}</p>
       {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
@@ -1177,8 +1177,8 @@ export default function TrendsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-[radial-gradient(100%_70%_at_0%_0%,rgba(14,116,144,0.16),transparent_45%),radial-gradient(130%_85%_at_100%_0%,rgba(30,41,59,0.12),transparent_45%),#f8fafc] text-slate-900">
+      <header className="border-b border-white/20 bg-white/60 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">
             <Link
@@ -1204,7 +1204,7 @@ export default function TrendsPage() {
           <p className="text-sm text-slate-600">Live trend intelligence for all tracked leagues and layers.</p>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-3">
+        <section className="rounded-xl border border-white/30 bg-white/55 p-3 backdrop-blur-md shadow-[0_14px_40px_-26px_rgba(15,23,42,0.4)]">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-700">Board statistics</h2>
             {loadingMeta ? (
@@ -1225,7 +1225,7 @@ export default function TrendsPage() {
         </section>
 
         {error && (
-          <section className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <section className="rounded-lg border border-rose-200/70 bg-rose-50/75 backdrop-blur-sm px-4 py-3 text-sm text-rose-700">
             <p className="font-semibold">Unable to load trend data.</p>
             <p>{error.message}</p>
             {error.status ? <p className="mt-1 text-xs text-rose-600">Status: {error.status}{error.code ? ` • Code: ${error.code}` : ''}</p> : null}
@@ -1239,7 +1239,7 @@ export default function TrendsPage() {
           </section>
         )}
 
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-xl border border-white/35 bg-white/55 p-4 backdrop-blur-md shadow-[0_12px_35px_-28px_rgba(15,23,42,0.5)]">
           <div className="mb-3 flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 text-xs">
               <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Layer</span>
@@ -1371,7 +1371,7 @@ export default function TrendsPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-3">
+        <section className="rounded-xl border border-white/30 bg-white/55 p-3 backdrop-blur-md shadow-[0_12px_32px_-30px_rgba(15,23,42,0.45)]">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-700">Layer quality</h2>
             <span className="text-xs text-slate-500">{filtered.length} rows</span>
@@ -1383,8 +1383,10 @@ export default function TrendsPage() {
                 <button
                   key={summary.layer}
                   onClick={() => setLayerFilter(selected ? 'All' : summary.layer)}
-                  className={`rounded-lg border px-3 py-2 text-left ${
-                    selected ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50'
+                  className={`rounded-lg border px-3 py-2 text-left backdrop-blur-sm ${
+                    selected
+                      ? 'border-emerald-300/80 bg-emerald-200/25'
+                      : 'border-white/40 bg-white/35'
                   }`}
                 >
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
@@ -1407,8 +1409,8 @@ export default function TrendsPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+        <section className="overflow-hidden rounded-xl border border-white/35 bg-white/55 backdrop-blur-md shadow-[0_18px_48px_-30px_rgba(15,23,42,0.55)]">
+          <div className="flex items-center justify-between border-b border-white/20 px-4 py-3">
             <h2 className="text-sm font-semibold text-slate-700">Trend board</h2>
             <span className="text-xs text-slate-500">
               Showing {filtered.length}
@@ -1416,7 +1418,7 @@ export default function TrendsPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-[1200px] w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
+              <thead className="bg-white/45 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
                 <tr>
                   <th className="w-12 px-4 py-2.5 text-right">#</th>
                   <th className="px-4 py-2.5">Team</th>
@@ -1453,7 +1455,12 @@ export default function TrendsPage() {
                           ? resolveTeamLogo(logos, nextGame.opponent, row.league) || resolveEspnTeamLogo(nextGame.opponent)
                           : undefined;
                         return (
-                      <tr key={`${row.team}-${row.league}-${row.trend}-${idx}`} className="border-t border-slate-200 hover:bg-slate-50">
+                    <tr
+                      key={`${row.team}-${row.league}-${row.trend}-${idx}`}
+                      className={`border-t border-white/25 ${
+                        idx % 2 === 0 ? 'bg-white/25' : 'bg-white/15'
+                      } hover:bg-white/45 transition-colors duration-150`}
+                    >
                         <td className="px-4 py-3 text-right text-xs font-mono text-slate-500">{idx + 1}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
