@@ -23,6 +23,7 @@ const disableServiceWorker = (reason: string = '1') => {
   } catch {
     // Storage is optional in constrained environments.
   }
+  void clearServiceWorkerArtifacts();
 };
 
 const clearServiceWorkerDisabled = () => {
@@ -38,6 +39,25 @@ const isServiceWorkerDisabled = (): boolean => {
     return sessionStorage.getItem(SW_DISABLE_STORAGE_KEY) === '1';
   } catch {
     return false;
+  }
+};
+
+const clearServiceWorkerArtifacts = async () => {
+  if (!('serviceWorker' in navigator)) return;
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+  } catch {
+    // Ignore cleanup failures.
+  }
+
+  if (!('caches' in window)) return;
+  try {
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames.map((name) => caches.delete(name)));
+  } catch {
+    // Ignore cleanup failures.
   }
 };
 
@@ -103,10 +123,11 @@ const registerServiceWorker = async (storageCapable?: boolean) => {
     storageCapable = await canUseServiceWorkerStorage();
   }
 
-  if (!storageCapable) {
-    disableServiceWorker();
-    return;
-  }
+    if (!storageCapable) {
+      disableServiceWorker();
+      clearServiceWorkerArtifacts();
+      return;
+    }
 
   try {
     const existing = await navigator.serviceWorker.getRegistration('/');
@@ -114,6 +135,7 @@ const registerServiceWorker = async (storageCapable?: boolean) => {
       await existing.update().catch((error) => {
         if (isStorageAccessError(error)) {
           disableServiceWorker();
+          clearServiceWorkerArtifacts();
           return;
         }
         throw error;
@@ -131,6 +153,7 @@ const registerServiceWorker = async (storageCapable?: boolean) => {
     registration.update().catch((error) => {
       if (isStorageAccessError(error)) {
         disableServiceWorker();
+        clearServiceWorkerArtifacts();
         return;
       }
     });
@@ -151,6 +174,7 @@ const registerServiceWorker = async (storageCapable?: boolean) => {
   } catch (error) {
     if (isStorageAccessError(error)) {
       disableServiceWorker();
+      clearServiceWorkerArtifacts();
       return;
     }
   }
@@ -172,6 +196,7 @@ if ('serviceWorker' in navigator) {
 
       if (!storageCapable) {
         disableServiceWorker();
+        clearServiceWorkerArtifacts();
         return;
       }
 
