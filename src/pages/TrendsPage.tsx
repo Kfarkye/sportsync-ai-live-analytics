@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getLeagueDisplayName } from '../utils/leagueDisplay';
 
 type Direction = 'TREND' | 'FADE' | 'NEUTRAL';
 type DirectionFilter = 'ALL' | Direction;
@@ -111,12 +112,76 @@ const LEAGUE_BADGES: Record<string, string> = {
   ncaab: 'NCAAB',
   'mens-college-basketball': 'NCAAB',
   'usa.1': 'MLS',
-  'fifa.worldq.afc': 'WCQ AFC',
-  'fifa.worldq.conmebol': 'WCQ CONMEBOL',
-  'fifa.worldq.caf': 'WCQ CAF',
-  'fifa.worldq.uefa': 'WCQ UEFA',
-  'fifa.worldq.concacaf': 'WCQ CONCACAF',
+  'fifa.worldq.afc': 'FIFA World Cup Qualifiers — AFC',
+  'fifa.worldq.conmebol': 'FIFA World Cup Qualifiers — CONMEBOL',
+  'fifa.worldq.caf': 'FIFA World Cup Qualifiers — CAF',
+  'fifa.worldq.uefa': 'FIFA World Cup Qualifiers — UEFA',
+  'fifa.worldq.concacaf': 'FIFA World Cup Qualifiers — CONCACAF',
+  'uefa.champions': 'UEFA Champions League',
+  'uefa.europa': 'UEFA Europa League',
 };
+
+const LEAGUE_BADGE_ICONS: Record<string, string> = {
+  nba: '🏀',
+  nhl: '🏒',
+  mlb: '⚾',
+  mls: '⚽',
+  'usa.1': '⚽',
+  eng: '⚽',
+  'eng.1': '⚽',
+  epl: '⚽',
+  esp: '⚽',
+  'esp.1': '⚽',
+  ita: '⚽',
+  'ita.1': '⚽',
+  ger: '⚽',
+  'ger.1': '⚽',
+  fra: '⚽',
+  'fra.1': '⚽',
+  l1: '⚽',
+  liga: '⚽',
+  laliga: '⚽',
+  seriea: '⚽',
+  ligue1: '⚽',
+  mls: '⚽',
+  uefa: '🏆',
+  'uefa.champions': '🏆',
+  'uefa.europa': '🏆',
+  ncaab: '🏀',
+  'mens-college-basketball': '🏀',
+  'fifa.worldq.afc': '🌍',
+  'fifa.worldq.conmebol': '🌎',
+  'fifa.worldq.caf': '🌍',
+  'fifa.worldq.uefa': '🇪🇺',
+  'fifa.worldq.concacaf': '🌎',
+};
+
+function normalizeLeagueLookupKey(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9.]/g, '');
+}
+
+function leagueDisplayLabel(value: string): string {
+  return LEAGUE_BADGES[value] || LEAGUE_BADGES[normalizeLeagueLookupKey(value)] || getLeagueDisplayName(value);
+}
+
+function leagueDisplayIcon(value: string): string | null {
+  const key = value.trim().toLowerCase();
+  const compactKey = normalizeLeagueLookupKey(value);
+  const normalizedWithDots = key.replace(/[^a-z0-9.]/g, '');
+  const compactParts = compactKey.split('.');
+
+  if (LEAGUE_BADGE_ICONS[key]) return LEAGUE_BADGE_ICONS[key];
+  if (LEAGUE_BADGE_ICONS[compactKey]) return LEAGUE_BADGE_ICONS[compactKey];
+  if (compactParts[0] && LEAGUE_BADGE_ICONS[compactParts[0]]) return LEAGUE_BADGE_ICONS[compactParts[0]];
+  if (compactKey.startsWith('fifa.worldq')) return LEAGUE_BADGE_ICONS['fifa.worldq.afc'];
+  if (normalizedWithDots.includes('uefa.')) return LEAGUE_BADGE_ICONS['uefa.champions'];
+
+  if (key.includes('basketball') || key.includes('nba') || key.includes('ncaab')) return '🏀';
+  if (key.includes('hockey') || key.includes('nhl')) return '🏒';
+  if (key.includes('baseball') || key.includes('mlb')) return '⚾';
+
+  return '🏆';
+}
 
 const LAYER_LABELS: Record<string, string> = {
   TEAM_ATS_LINE: 'ATS Line',
@@ -1141,7 +1206,8 @@ export default function TrendsPage() {
                     const quality = signalClass(row.signal_type);
                     const key = teamLeagueKey(row.team, row.league);
                     const logo = logos[key];
-                    const leagueLabel = LEAGUE_BADGES[row.league] ?? row.league;
+                    const leagueLabel = leagueDisplayLabel(row.league);
+                    const leagueIcon = leagueDisplayIcon(row.league);
                     const strength = strengthScore(row);
                     return (
                       <tr key={`${row.team}-${row.league}-${row.trend}-${idx}`} className="border-t border-slate-200 hover:bg-slate-50">
@@ -1169,7 +1235,12 @@ export default function TrendsPage() {
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-xs text-slate-500 font-mono">{leagueLabel}</td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-2 text-xs text-slate-500">
+                            {leagueIcon ? <span aria-hidden="true">{leagueIcon}</span> : null}
+                            <span className="font-normal">{leagueLabel}</span>
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-slate-700">{row.trend}</td>
                         <td className="px-4 py-3">
                           <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
