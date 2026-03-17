@@ -66,6 +66,13 @@ type MatchFeedMetric = {
   homeAtsRoi: number | null;
 };
 
+type TrendFetchError = {
+  status?: number;
+  code?: string;
+  details?: string;
+  message: string;
+};
+
 const SPORT_FILTERS: SportFilter[] = ['All', 'Soccer', 'NBA', 'NHL', 'MLB', 'NCAAB', 'MLS'];
 
 const SOCCER_LEAGUES = [
@@ -83,6 +90,7 @@ const SOCCER_LEAGUES = [
   'bundesliga',
   'mex.1',
 ];
+const SOCCER_MARKERS = ['eng1', 'esp1', 'ger1', 'fra1', 'ita1', 'ligue1', 'laliga', 'seriea', 'bundesliga', 'uefa', 'fifa', 'soccer', 'premierleague', 'premier'];
 
 const LEAGUE_BADGES: Record<string, string> = {
   epl: 'Premier League',
@@ -156,6 +164,27 @@ function normalizeDirection(value: unknown): Direction {
   return 'TREND';
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toTrendFetchError(error: unknown): TrendFetchError {
+  if (!isObject(error)) {
+    return { message: 'Unable to load trend data.' };
+  }
+
+  const status = typeof error.status === 'number' ? error.status : undefined;
+  const code = typeof error.code === 'string' ? error.code : undefined;
+  const details = typeof error.details === 'string' ? error.details : undefined;
+  const message = typeof error.message === 'string' ? error.message : 'Unable to load trend data.';
+  return {
+    message,
+    status,
+    code,
+    details,
+  };
+}
+
 function sanitizeLayer(value: string): string {
   return value.trim();
 }
@@ -215,13 +244,34 @@ function dedupe(rows: TrendRow[]): TrendRow[] {
 }
 
 function sportFromLeague(leagueId: string): SportFilter | null {
-  const normalized = toSlug(leagueId);
-  if (normalized === 'nba' || normalized === 'nba.') return 'NBA';
-  if (normalized === 'nhl') return 'NHL';
-  if (normalized === 'mlb') return 'MLB';
-  if (normalized === 'ncaab' || normalized === 'mens-college-basketball') return 'NCAAB';
-  if (normalized === 'mls') return 'MLS';
-  if (SOCCER_LEAGUES.some((needle) => normalized === needle || normalized.includes(needle))) return 'Soccer';
+  const normalized = leagueId.trim().toLowerCase();
+  const normalizedAlnum = normalized.replace(/[^a-z0-9]/g, '');
+  const normalizedWithDots = normalized.replace(/[^a-z0-9.]/g, '');
+
+  if (normalized === 'nba' || normalized.startsWith('nba.')) return 'NBA';
+  if (normalized === 'nhl' || normalized.startsWith('nhl.')) return 'NHL';
+  if (normalized === 'mlb' || normalized.startsWith('mlb.')) return 'MLB';
+  if (
+    normalized === 'ncaab' ||
+    normalized.startsWith('ncaab.') ||
+    normalized === 'ncaa' ||
+    normalized === 'mens-college-basketball' ||
+    normalized === 'college-basketball' ||
+    normalized.includes('ncaa') ||
+    normalizedAlnum === 'ncaab' ||
+    normalizedAlnum.startsWith('ncaa')
+  ) {
+    return 'NCAAB';
+  }
+  if (normalized === 'mls' || normalized.startsWith('mls.') || normalized.startsWith('usa.') || normalizedAlnum === 'usa1') return 'MLS';
+  if (
+    SOCCER_LEAGUES.some((needle) =>
+      normalizedWithDots === needle || normalizedWithDots.startsWith(`${needle}.`) || normalizedWithDots.includes(needle),
+    ) ||
+    SOCCER_MARKERS.some((marker) => normalizedAlnum === marker || normalizedAlnum.includes(marker))
+  ) {
+    return 'Soccer';
+  }
   return null;
 }
 
@@ -272,7 +322,7 @@ async function fetchTrends(minHit: number, minGames: number, layerFilter: string
   if (layerFilter !== 'All') params.p_layer = layerFilter;
 
   const rpc = await supabase.rpc('get_trends', params);
-  if (rpc.error) throw new Error(rpc.error.message);
+  if (rpc.error) throw toTrendFetchError(rpc.error);
 
   const rows = Array.isArray(rpc.data) ? (rpc.data as RawTrendRow[]) : [];
   const parsed: TrendRow[] = [];
@@ -558,7 +608,8 @@ export default function TrendsPage() {
   const [logos, setLogos] = useState<LogoLookup>({});
   const [loadingRows, setLoadingRows] = useState(true);
   const [loadingMeta, setLoadingMeta] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<TrendFetchError | null>(null);
+  const [apiRowCount, setApiRowCount] = useState<number | null>(null);
 
   const [layerFilter, setLayerFilter] = useState<string>('All');
   const [sportFilter, setSportFilter] = useState<SportFilter>('All');
@@ -592,11 +643,13 @@ export default function TrendsPage() {
         if (!isActive || requestSeq.current !== seq) return;
         const stableRows = dedupe(loadedRows).sort((a, b) => b.hit_rate - a.hit_rate || b.sample - a.sample);
         setRows(stableRows);
+        setApiRowCount(loadedRows.length);
+        setError(null);
       } catch (err) {
         if (!isActive || requestSeq.current !== seq) return;
-        const message = err instanceof Error ? err.message : 'Unable to load trend data.';
-        setError(message);
+        setError(toTrendFetchError(err));
         setRows([]);
+        setApiRowCount(0);
       } finally {
         if (isActive && requestSeq.current === seq) setLoadingRows(false);
       }
@@ -810,7 +863,16 @@ export default function TrendsPage() {
 
         {error && (
           <section className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {error}
+            <p className="font-semibold">Unable to load trend data.</p>
+            <p>{error.message}</p>
+            {error.status ? <p className="mt-1 text-xs text-rose-600">Status: {error.status}{error.code ? ` • Code: ${error.code}` : ''}</p> : null}
+            {error.details ? <p className="mt-1 text-xs text-rose-600">{error.details}</p> : null}
+            {(error.status === 401 || error.status === 403) ? (
+              <p className="mt-1 text-xs">
+                Verify production and local env vars: <strong>VITE_SUPABASE_URL</strong> and <strong>VITE_SUPABASE_ANON_KEY</strong> point at
+                the same project.
+              </p>
+            ) : null}
           </section>
         )}
 
@@ -1065,7 +1127,9 @@ export default function TrendsPage() {
                 ) : (
                   <tr>
                     <td colSpan={10} className="px-4 py-8 text-center text-sm text-slate-500">
-                      No trends for current filters.
+                      {apiRowCount === 0
+                        ? 'No trend rows returned from get_trends. Check API key/project configuration for this deployment.'
+                        : 'No trends for current filters. Try lowering min hit %, lowering min games, or clearing search/signal filters.'}
                     </td>
                   </tr>
                 )}
