@@ -539,12 +539,6 @@ function sportFromLeague(leagueId: string): SportFilter | null {
   return null;
 }
 
-function colorForScore(score: number): string {
-  if (score >= 80) return 'text-emerald-600';
-  if (score >= 65) return 'text-amber-500';
-  return 'text-rose-500';
-}
-
 function strengthScore(row: TrendRow): number {
   return row.hit_rate * Math.sqrt(row.sample);
 }
@@ -1237,17 +1231,19 @@ export default function TrendsPage() {
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     const direction = directionFilter !== 'ALL' ? directionFilter : signalFilter;
+    const searchableText = `${query}`.toLowerCase();
 
     const base = rows.filter((row) => {
       if (direction !== 'ALL' && row.signal_type !== direction) return false;
-      if (signalFilter !== 'ALL' && directionFilter === 'ALL' && row.signal_type !== signalFilter) return false;
+      if (signalFilter !== 'ALL' && directionFilter === 'ALL') return row.signal_type === signalFilter;
       if (sportFilter !== 'All') {
         const mapped = sportFromLeague(row.league);
         if (!mapped || mapped !== sportFilter) return false;
       }
       if (row.sample < minGames) return false;
       if (row.hit_rate < minHit) return false;
-      if (query && `${row.team} ${row.trend}`.toLowerCase().indexOf(query) === -1) return false;
+      if (searchableText && `${row.team} ${row.trend} ${row.league} ${row.layer}`.toLowerCase().includes(searchableText) === false)
+        return false;
       if (layerFilter !== 'All' && row.layer !== layerFilter) return false;
       return true;
     });
