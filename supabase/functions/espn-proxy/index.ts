@@ -5,14 +5,21 @@ declare const Deno: any;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, x-client-version, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 }
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, {
+      status: 204,
+      headers: {
+        ...corsHeaders,
+        'Cache-Control': 'public, max-age=86400',
+      },
+    })
   }
 
   try {
@@ -59,6 +66,7 @@ Deno.serve(async (req: Request) => {
     })
 
   } catch (error: any) {
+    console.error('[ESPN Proxy] Function failed:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200, // Return 200 to prevent CORS errors on the client side
