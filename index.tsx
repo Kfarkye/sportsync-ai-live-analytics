@@ -31,6 +31,28 @@ const unregisterServiceWorkers = async () => {
   }
 };
 
+const unregisterLegacyServiceWorkers = async () => {
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    const legacyRegistrations = registrations.filter((registration) => {
+      const scriptUrls = [
+        registration.active?.scriptURL,
+        registration.waiting?.scriptURL,
+        registration.installing?.scriptURL,
+      ].filter(Boolean);
+
+      return scriptUrls.some((url) => url?.includes('/2sw.js'));
+    });
+
+    if (!legacyRegistrations.length) return false;
+
+    await Promise.all(legacyRegistrations.map((registration) => registration.unregister()));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");
@@ -79,6 +101,13 @@ if ('serviceWorker' in navigator) {
 
   window.addEventListener('load', () => {
     const run = async () => {
+      const hadLegacyWorker = await unregisterLegacyServiceWorkers();
+      if (hadLegacyWorker && navigator.serviceWorker.controller && !sessionStorage.getItem('drip-sw-legacy-cleanup')) {
+        sessionStorage.setItem('drip-sw-legacy-cleanup', '1');
+        window.location.reload();
+        return;
+      }
+
       if (localStorage.getItem('drip-sw-disabled') === '1') return;
 
       try {
