@@ -141,6 +141,11 @@ const LEAGUE_BADGES: Record<string, string> = {
   'fifa.worldq.caf': 'FIFA World Cup Qualifiers — CAF',
   'fifa.worldq.uefa': 'FIFA World Cup Qualifiers — UEFA',
   'fifa.worldq.concacaf': 'FIFA World Cup Qualifiers — CONCACAF',
+  'fifa.wcq.afc': 'FIFA World Cup Qualifiers — AFC',
+  'fifa.wcq.conmebol': 'FIFA World Cup Qualifiers — CONMEBOL',
+  'fifa.wcq.caf': 'FIFA World Cup Qualifiers — CAF',
+  'fifa.wcq.uefa': 'FIFA World Cup Qualifiers — UEFA',
+  'fifa.wcq.concacaf': 'FIFA World Cup Qualifiers — CONCACAF',
   'uefa.champions': 'UEFA Champions League',
   'uefa.europa': 'UEFA Europa League',
 };
@@ -170,6 +175,11 @@ const LEAGUE_BADGE_ICON_URLS: Record<string, string> = {
   'fifa.worldq.caf': 'https://a.espncdn.com/i/leaguelogos/soccer/500/63.png',
   'fifa.worldq.concacaf': 'https://a.espncdn.com/i/leaguelogos/soccer/500/64.png',
   'fifa.worldq.uefa': 'https://a.espncdn.com/i/leaguelogos/soccer/500/67.png',
+  'fifa.wcq.afc': 'https://a.espncdn.com/i/leaguelogos/soccer/500/62.png',
+  'fifa.wcq.conmebol': 'https://a.espncdn.com/i/leaguelogos/soccer/500/65.png',
+  'fifa.wcq.caf': 'https://a.espncdn.com/i/leaguelogos/soccer/500/63.png',
+  'fifa.wcq.concacaf': 'https://a.espncdn.com/i/leaguelogos/soccer/500/64.png',
+  'fifa.wcq.uefa': 'https://a.espncdn.com/i/leaguelogos/soccer/500/67.png',
   'mens-college-basketball': 'https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png',
   'ncaab': 'https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png',
 };
@@ -1100,7 +1110,6 @@ export default function TrendsPage() {
 
   const [layerFilter, setLayerFilter] = useState<string>('All');
   const [sportFilter, setSportFilter] = useState<SportFilter>('All');
-  const [signalFilter, setSignalFilter] = useState<'ALL' | Direction>('ALL');
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('ALL');
   const [sortBy, setSortBy] = useState<SortMode>('strength');
   const [search, setSearch] = useState('');
@@ -1230,12 +1239,10 @@ export default function TrendsPage() {
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    const direction = directionFilter !== 'ALL' ? directionFilter : signalFilter;
     const searchableText = `${query}`.toLowerCase();
 
     const base = rows.filter((row) => {
-      if (direction !== 'ALL' && row.signal_type !== direction) return false;
-      if (signalFilter !== 'ALL' && directionFilter === 'ALL') return row.signal_type === signalFilter;
+      if (directionFilter !== 'ALL' && row.signal_type !== directionFilter) return false;
       if (sportFilter !== 'All') {
         const mapped = sportFromLeague(row.league);
         if (!mapped || mapped !== sportFilter) return false;
@@ -1259,7 +1266,7 @@ export default function TrendsPage() {
       sorted.sort((a, b) => strengthScore(b) - strengthScore(a) || b.hit_rate - a.hit_rate);
     }
     return sorted;
-  }, [rows, directionFilter, signalFilter, sportFilter, search, minGames, minHit, layerFilter, sortBy]);
+  }, [rows, directionFilter, sportFilter, search, minGames, minHit, layerFilter, sortBy]);
 
   const layerSummary = useMemo(() => {
     const map = new Map<string, { totalHit: number; count: number; above80: number; sample10: number; perfect: number }>();
@@ -1412,20 +1419,6 @@ export default function TrendsPage() {
             </label>
 
             <label className="flex flex-col gap-1 text-xs">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Signal</span>
-              <select
-                value={signalFilter}
-                onChange={(event) => setSignalFilter(event.target.value as 'ALL' | Direction)}
-                className="h-9 w-40 rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700"
-              >
-                <option value="ALL">All</option>
-                <option value="TREND">Trend</option>
-                <option value="FADE">Fade</option>
-                <option value="NEUTRAL">Neutral</option>
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs">
               <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Sort</span>
               <select
                 value={sortBy}
@@ -1433,8 +1426,8 @@ export default function TrendsPage() {
                 className="h-9 w-36 rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700"
               >
                 <option value="strength">Strength</option>
-                <option value="hit">Hit %</option>
-                <option value="sample">Game</option>
+                <option value="hit">Signal Quality</option>
+                <option value="sample">Games</option>
                 <option value="alpha">Alphabetical</option>
               </select>
             </label>
@@ -1475,7 +1468,7 @@ export default function TrendsPage() {
 
             <label className="flex flex-col gap-2">
               <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-                Min games: <span className="tabular-nums text-slate-900">{minGames}</span>
+                Min Game: <span className="tabular-nums text-slate-900">{minGames}</span>
               </span>
               <input
                 type="range"
@@ -1564,8 +1557,8 @@ export default function TrendsPage() {
                   <th className="px-4 py-2.5">League</th>
                   <th className="px-4 py-2.5">Signal</th>
                   <th className="px-4 py-2.5">Layer</th>
-                  <th className="px-4 py-2.5">Hit %</th>
-                  <th className="px-4 py-2.5">Next Game</th>
+                  <th className="px-4 py-2.5">Signal Quality</th>
+                  <th className="px-4 py-2.5">Upcoming Match</th>
                   <th className="px-4 py-2.5 text-right">Game</th>
                   <th className="px-4 py-2.5">Direction</th>
                   <th className="px-4 py-2.5 text-center">Last held</th>
