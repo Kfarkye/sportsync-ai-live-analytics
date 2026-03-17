@@ -93,6 +93,10 @@ type NextMatchInfo = {
 };
 
 type NextMatchLookup = Record<string, NextMatchInfo | null>;
+type TrendTeamInfo = {
+  team: string;
+  record: string;
+};
 
 const SPORT_FILTERS: SportFilter[] = ['All', 'Soccer', 'NBA', 'NHL', 'MLB', 'NCAAB', 'MLS'];
 
@@ -210,7 +214,63 @@ function normalizeLeagueLookupKey(value: string): string {
 }
 
 function leagueDisplayLabel(value: string): string {
-  return LEAGUE_BADGES[value] || LEAGUE_BADGES[normalizeLeagueLookupKey(value)] || getLeagueDisplayName(value);
+  const key = normalizeLeagueLookupKey(value);
+  const normalized = value.trim().toLowerCase();
+  const normalizedWithSpaces = normalized.replace(/[^a-z0-9\s]/g, ' ').trim();
+
+  if (/\bwcq\b/i.test(normalized)) {
+    const wcqMatch = normalized.match(/\bwcq\s*([a-z]+(?:\.[a-z]+)?)?/i);
+    const regionMap: Record<string, string> = {
+      afc: 'AFC',
+      caf: 'CAF',
+      concacaf: 'CONCACAF',
+      uefa: 'UEFA',
+      conmebol: 'CONMEBOL',
+    };
+    const captured = wcqMatch?.[1];
+    if (captured) {
+      const region = normalizeLeagueLookupKey(captured).replace(/^worldq\.?/, '');
+      if (regionMap[region]) return `FIFA World Cup Qualifiers — ${regionMap[region]}`;
+      return `FIFA World Cup Qualifiers — ${normalizeLeagueDisplayRegion(region)}`;
+    }
+  }
+
+  return (
+    LEAGUE_BADGES[value] ||
+    LEAGUE_BADGES[key] ||
+    LEAGUE_BADGES[key.split('.')[0]] ||
+    LEAGUE_BADGES[normalizedWithSpaces] ||
+    LEAGUE_BADGES[normalizedWithSpaces.replace(/\s+/g, '')] ||
+    getLeagueDisplayName(value)
+  );
+}
+
+function normalizeLeagueDisplayRegion(raw: string): string {
+  if (!raw) return '';
+  return raw.toUpperCase().replace(/\./g, ' ').trim();
+}
+
+function normalizeTrendTeamName(rawTeam: string, rawRecord: string): TrendTeamInfo {
+  let team = normalizeText(rawTeam);
+  let normalizedRecord = normalizeText(rawRecord);
+
+  const suffixMatch = team.match(/(?:\s*\(([^)]*)\)\s*)$/);
+  if (suffixMatch?.[1]) {
+    const candidate = normalizeText(suffixMatch[1]);
+    if (candidate && /\d/.test(candidate)) {
+      if (!normalizedRecord) normalizedRecord = candidate;
+      team = team.slice(0, -suffixMatch[0].length).trim();
+    }
+  }
+
+  if (normalizedRecord) {
+    const prefixMatch = team.match(/^\s*([A-Za-z0-9]{1,5})\s+(.+)\s*$/);
+    if (prefixMatch && prefixMatch[2].trim().length > 2) {
+      team = prefixMatch[2].trim();
+    }
+  }
+
+  return { team, record: normalizedRecord };
 }
 
 function leagueDisplayIconUrl(value: string): string | null {
@@ -535,7 +595,7 @@ async function fetchTrends(minHit: number, minGames: number, layerFilter: string
     const layer = sanitizeLayer(
       normalizeText(row.layer, normalizeText(row.section ? sectionToLayer(row.section as string) : undefined)),
     );
-    const team = normalizeText(row.team);
+    const { team, record: parsedRecord } = normalizeTrendTeamName(normalizeText(row.team), normalizeText(row.record));
     const league = normalizeText(row.league);
     const trend = normalizeText(row.trend);
     const sample = normalizeInteger(row.sample, 0);
@@ -551,7 +611,7 @@ async function fetchTrends(minHit: number, minGames: number, layerFilter: string
       team,
       league,
       trend,
-      record: normalizeText(row.record),
+      record: parsedRecord,
       hit_rate: hitRate,
       sample,
       last_held: normalizeBoolean(row.last_held),
@@ -727,6 +787,8 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
   const leagueSet = Array.from(new Set(rows.map((row) => row.league).filter(Boolean)));
   const lookup = new Map<string, string>();
   const cache: LogoLookup = {};
+  const tokenLookup: LogoLookup = {};
+  const normalizeToken = (value: string) => toSlug(value).replace(/\s+/g, '');
 
   try {
     const exact = await supabase
@@ -736,18 +798,51 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
 
     if (!exact.error && Array.isArray(exact.data)) {
       for (const row of exact.data as TeamRow[]) {
-        const key = teamLeagueKey(normalizeText(row.team_name), normalizeText(row.league_id));
         const logo = normalizeText(row.logo_url);
+        const teamName = normalizeText(row.team_name);
+        const league = normalizeText(row.league_id);
         if (!logo) continue;
-        lookup.set(key, logo);
-        if (normalizeText(row.team_name)) cache[normalizeText(row.team_name)] = logo;
+        if (!teamName || !league) continue;
+
+        lookup.set(teamLeagueKey(teamName, league), logo);
+        lookup.set(teamAnyKey(teamName), logo);
+        cache[teamName] = logo;
+        cache[teamAnyKey(teamName)] = logo;
+        tokenLookup[normalizeToken(teamName)] = logo;
       }
     }
   } catch (_err) {
     // Fallback only if team logo table is not matching
   }
 
-  if (lookup.size === 0 && teamSet.length > 0) {
+  if (leagueSet.length > 0) {
+    try {
+      const leagueWide = await supabase
+        .from('team_logos')
+        .select('team_name,league_id,logo_url')
+        .in('league_id', leagueSet)
+        .limit(5000);
+
+      if (!leagueWide.error && Array.isArray(leagueWide.data)) {
+        for (const row of leagueWide.data as TeamRow[]) {
+          const logo = normalizeText(row.logo_url);
+          const teamName = normalizeText(row.team_name);
+          const league = normalizeText(row.league_id);
+          if (!logo || !teamName || !league) continue;
+
+          lookup.set(teamLeagueKey(teamName, league), logo);
+          lookup.set(teamAnyKey(teamName), logo);
+          cache[teamName] = logo;
+          cache[teamAnyKey(teamName)] = logo;
+          tokenLookup[normalizeToken(teamName)] = logo;
+        }
+      }
+    } catch (_err) {
+      // keep partial cache
+    }
+  }
+
+  if (teamSet.length > 0) {
     try {
       const fallback = await supabase
         .from('teams')
@@ -764,15 +859,24 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
           const abbr = normalizeText(row.abbreviation);
           if (name) {
             lookup.set(teamLeagueKey(name, league), logo);
+            lookup.set(teamAnyKey(name), logo);
             cache[name] = logo;
+            cache[teamAnyKey(name)] = logo;
+            tokenLookup[normalizeToken(name)] = logo;
           }
           if (shortName) {
             lookup.set(teamLeagueKey(shortName, league), logo);
+            lookup.set(teamAnyKey(shortName), logo);
             cache[shortName] = logo;
+            cache[teamAnyKey(shortName)] = logo;
+            tokenLookup[normalizeToken(shortName)] = logo;
           }
           if (abbr) {
             lookup.set(teamLeagueKey(abbr, league), logo);
+            lookup.set(teamAnyKey(abbr), logo);
             cache[abbr] = logo;
+            cache[teamAnyKey(abbr)] = logo;
+            tokenLookup[normalizeToken(abbr)] = logo;
           }
         }
       }
@@ -796,9 +900,27 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
           const name = normalizeText(row.name);
           const shortName = normalizeText(row.short_name);
           const abbr = normalizeText(row.abbreviation);
-          if (name) lookup.set(teamLeagueKey(name, league), logo);
-          if (shortName) lookup.set(teamLeagueKey(shortName, league), logo);
-          if (abbr) lookup.set(teamLeagueKey(abbr, league), logo);
+          if (name) {
+            lookup.set(teamLeagueKey(name, league), logo);
+            lookup.set(teamAnyKey(name), logo);
+            cache[name] = logo;
+            cache[teamAnyKey(name)] = logo;
+            tokenLookup[normalizeToken(name)] = logo;
+          }
+          if (shortName) {
+            lookup.set(teamLeagueKey(shortName, league), logo);
+            lookup.set(teamAnyKey(shortName), logo);
+            cache[shortName] = logo;
+            cache[teamAnyKey(shortName)] = logo;
+            tokenLookup[normalizeToken(shortName)] = logo;
+          }
+          if (abbr) {
+            lookup.set(teamLeagueKey(abbr, league), logo);
+            lookup.set(teamAnyKey(abbr), logo);
+            cache[abbr] = logo;
+            cache[teamAnyKey(abbr)] = logo;
+            tokenLookup[normalizeToken(abbr)] = logo;
+          }
         }
       }
     } catch (_err) {
@@ -816,6 +938,23 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
     const byTeam = lookup.get(teamAnyKey(row.team)) ?? cache[row.team];
     if (byTeam) {
       logos[teamLeagueKey(row.team, row.league)] = byTeam;
+      continue;
+    }
+
+    const token = normalizeToken(row.team);
+    const byToken = tokenLookup[token];
+    if (byToken) {
+      logos[teamLeagueKey(row.team, row.league)] = byToken;
+      continue;
+    }
+
+    const fallback = Object.entries(tokenLookup).find(([cachedToken]) => {
+      if (!cachedToken) return false;
+      return cachedToken === token || cachedToken.includes(token) || token.includes(cachedToken);
+    });
+
+    if (fallback) {
+      logos[teamLeagueKey(row.team, row.league)] = fallback[1];
     }
   }
   return logos;
@@ -927,7 +1066,7 @@ function SignalQualityBar({ hitRate, sample }: { hitRate: number; sample: number
         ? 'bg-amber-500'
         : 'bg-rose-500';
   const dots =
-    sample >= 30 ? '●●●' : sample >= 15 ? '●●○' : sample >= 10 ? '●○○' : '○○○';
+    sample >= 30 ? '●●●' : sample >= 20 ? '●●○' : sample >= 10 ? '●○○' : '○○○';
 
   return (
     <div className="flex items-center gap-2">
@@ -935,7 +1074,17 @@ function SignalQualityBar({ hitRate, sample }: { hitRate: number; sample: number
       <span className="h-2 w-20 overflow-hidden rounded-full bg-slate-100">
         <span className={`block h-full rounded-full ${color}`} style={{ width: `${Math.min(100, hitRate)}%` }} />
       </span>
-      <span className={`w-11 text-xs font-mono font-semibold ${color === 'bg-emerald-500' ? 'text-emerald-600' : color === 'bg-amber-500' ? 'text-amber-500' : 'text-rose-500'}`}>{hitRate.toFixed(1)}%</span>
+      <span
+        className={`w-14 text-xs font-mono font-semibold tracking-wide ${
+          color === 'bg-emerald-500'
+            ? 'text-emerald-600'
+            : color === 'bg-amber-500'
+              ? 'text-amber-500'
+              : 'text-rose-500'
+        }`}
+      >
+        {hitRate.toFixed(1)}%
+      </span>
     </div>
   );
 }
@@ -963,7 +1112,6 @@ export default function TrendsPage() {
   const [search, setSearch] = useState('');
   const [minHit, setMinHit] = useState(80);
   const [minGames, setMinGames] = useState(10);
-  const [showTeamNames, setShowTeamNames] = useState(true);
 
   const [matchFeedMetrics, setMatchFeedMetrics] = useState<MatchFeedMetric | null>(null);
   const [matchFeedError, setMatchFeedError] = useState(false);
@@ -1307,13 +1455,8 @@ export default function TrendsPage() {
 
             <label className="flex flex-col gap-1 text-xs">
               <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Display</span>
-              <div className="flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={showTeamNames}
-                  onChange={(event) => setShowTeamNames(event.target.checked)}
-                />
-                <span>Show names</span>
+              <div className="h-9 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-500">
+                Team icons + names
               </div>
             </label>
           </div>
@@ -1425,7 +1568,7 @@ export default function TrendsPage() {
                   <th className="px-4 py-2.5">League</th>
                   <th className="px-4 py-2.5">Signal</th>
                   <th className="px-4 py-2.5">Layer</th>
-                  <th className="px-4 py-2.5">Signal Quality</th>
+                  <th className="px-4 py-2.5">Hit %</th>
                   <th className="px-4 py-2.5">Next Game</th>
                   <th className="px-4 py-2.5 text-right">Game</th>
                   <th className="px-4 py-2.5">Direction</th>
@@ -1465,17 +1608,10 @@ export default function TrendsPage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <TeamLogo logo={logo} name={row.team} className="h-5 w-5" />
-                            {showTeamNames ? (
-                              <span className="font-medium text-slate-800">
-                                {row.team}
-                                {row.record ? <span className="ml-1.5 text-xs text-slate-400">({row.record})</span> : null}
-                              </span>
-                            ) : (
-                              <span className="sr-only">
-                                {row.team}
-                                {row.record ? ` (${row.record})` : ''}
-                              </span>
-                            )}
+                            <span className="font-medium text-slate-800">
+                              {row.team}
+                              {row.record ? <span className="ml-1.5 text-xs text-slate-400">({row.record})</span> : null}
+                            </span>
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -1509,15 +1645,9 @@ export default function TrendsPage() {
                               <p className="font-medium text-slate-700">
                                 <span className="mr-1 inline-flex items-center gap-1">
                                   <TeamLogo logo={nextGameLogo} name={nextGame.opponent} className="h-4 w-4" />
-                                  {showTeamNames ? (
-                                    <span>
-                                      {nextGame.isHome ? 'vs' : '@'} {nextGame.opponent}
-                                    </span>
-                                  ) : (
-                                    <span className="sr-only">
-                                      {nextGame.isHome ? 'vs' : '@'} {nextGame.opponent}
-                                    </span>
-                                  )}
+                                  <span>
+                                    {nextGame.isHome ? 'vs' : '@'} {nextGame.opponent}
+                                  </span>
                                 </span>
                               </p>
                               <p className="font-mono text-slate-500" title={nextGame.startsAt}>
