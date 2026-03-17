@@ -5,7 +5,7 @@
 // This gives the app installability + instant shell on repeat visits.
 // ============================================================================
 
-const CACHE_NAME = 'sportsync-v3';
+const CACHE_NAME = 'sportsync-v4';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
@@ -15,6 +15,22 @@ const SHELL_ASSETS = [
   '/icons/icon-512.png',
   '/icons/icon-maskable-512.png',
 ];
+
+const safeCachePut = async (cache, request, response) => {
+  try {
+    await cache.put(request, response);
+  } catch {
+    // Ignore cache write failures in low-storage/degraded environments.
+  }
+};
+
+const safeCacheMatch = async (request) => {
+  try {
+    return await caches.match(request) || undefined;
+  } catch {
+    return undefined;
+  }
+};
 
 // Install — cache shell assets
 self.addEventListener('install', (event) => {
@@ -54,11 +70,16 @@ self.addEventListener('fetch', (event) => {
       fetch(request)
         .then((response) => {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          caches.open(CACHE_NAME).then((cache) => safeCachePut(cache, request, clone)).catch(() => {
+            // Ignore cache write failures for degraded storage.
+          });
           return response;
         })
         .catch(() =>
-          caches.match(request).then((cached) => cached || caches.match('/index.html'))
+          Promise.all([
+            safeCacheMatch(request),
+            safeCacheMatch(new Request('/index.html'))
+          ]).then(([cached, fallback]) => cached || fallback)
         )
     );
     return;
@@ -67,20 +88,22 @@ self.addEventListener('fetch', (event) => {
   // API calls: network-first
   if (url.pathname.startsWith('/api') || url.hostname !== location.hostname) {
     event.respondWith(
-      fetch(request).catch(() => caches.match(request))
+      fetch(request).catch(() => safeCacheMatch(request))
     );
     return;
   }
 
   // Static assets: cache-first
   event.respondWith(
-    caches.match(request).then((cached) => {
+    safeCacheMatch(request).then((cached) => {
       if (cached) return cached;
       return fetch(request).then((response) => {
         // Cache successful responses
         if (response.ok) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          caches.open(CACHE_NAME).then((cache) => safeCachePut(cache, request, clone)).catch(() => {
+            // Ignore cache write failures for degraded storage.
+          });
         }
         return response;
       });

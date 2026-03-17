@@ -44,8 +44,6 @@ type TeamRow = {
 
 type TeamFallbackRow = {
   name?: unknown;
-  short_name?: unknown;
-  abbreviation?: unknown;
   league_id?: unknown;
   logo_url?: unknown;
 };
@@ -188,18 +186,16 @@ const LAYER_LABELS: Record<string, string> = {
   SOCCER_CORNERS: 'Corners',
   SOCCER_CARDS: 'Cards',
   SOCCER_1H_TOTAL: '1H Total',
-  SOCCER_CORNERS: 'Corners',
   SOCCER_TEAM_TOTAL: 'Team Total',
 };
 
-const TEAM_LOOKUP_BATCH_SIZE = 60;
+const TEAM_LOOKUP_BATCH_SIZE = 20;
 const LEAGUE_LOOKUP_BATCH_SIZE = 80;
-type TrendLookupTable = 'team_logos' | 'teams' | 'matches';
+type TrendLookupTable = 'team_logos' | 'matches';
 type TableAvailability = 'unknown' | 'available' | 'unavailable';
 
 const LOOKUP_TABLE_AVAILABILITY: Record<TrendLookupTable, TableAvailability> = {
   team_logos: 'unknown',
-  teams: 'unknown',
   matches: 'unknown',
 };
 
@@ -665,101 +661,42 @@ async function fetchMatchFeedSummary(): Promise<MatchFeedMetric | null> {
 async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
   if (rows.length === 0) return {};
 
-  const teamSet = Array.from(new Set(rows.map((row) => row.team)));
   const leagueSet = Array.from(new Set(rows.map((row) => normalizeLeagueKey(row.league)).filter(Boolean)));
   const lookup = new Map<string, string>();
   const cache: LogoLookup = {};
-  const [teamLogosAvailable, teamsAvailable] = await Promise.all([isTableAvailable('team_logos'), isTableAvailable('teams')]);
+  const teamLogosAvailable = await isTableAvailable('team_logos');
+  if (!teamLogosAvailable) return {};
 
-  if (!teamLogosAvailable && !teamsAvailable) return {};
-
-  if (teamLogosAvailable) {
-    try {
-      const exactPromises = chunkValues(teamSet, TEAM_LOOKUP_BATCH_SIZE).map((chunk) => supabase
-        .from('team_logos')
-        .select('team_name,league_id,logo_url')
-        .in('team_name', chunk));
-      const exactResponses = await Promise.all(exactPromises);
-      for (const exact of exactResponses) {
-        if (!exact.error && Array.isArray(exact.data)) {
+  if (teamLogosAvailable && leagueSet.length > 0) {
+    const leagueChunks = chunkValues(leagueSet, TEAM_LOOKUP_BATCH_SIZE);
+    for (const chunk of leagueChunks) {
+      if (LOOKUP_TABLE_AVAILABILITY.team_logos === 'unavailable') break;
+      try {
+        const exact = await supabase
+          .from('team_logos')
+          .select('team_name,league_id,logo_url')
+          .in('league_id', chunk);
+        if (exact.error) {
+          if (isTableUnavailableError(exact.error)) {
+            LOOKUP_TABLE_AVAILABILITY.team_logos = 'unavailable';
+          }
+          continue;
+        }
+        if (Array.isArray(exact.data)) {
           for (const row of exact.data as TeamRow[]) {
             const key = teamLeagueKey(normalizeText(row.team_name), normalizeText(row.league_id));
             const logo = normalizeText(row.logo_url);
             if (!logo) continue;
             lookup.set(key, logo);
-            if (normalizeText(row.team_name)) cache[normalizeText(row.team_name)] = logo;
-          }
-        }
-      }
-    } catch (_err) {
-      // Fallback only if team logo table is not matching
-    }
-  }
-
-  if (lookup.size === 0 && teamsAvailable && teamSet.length > 0) {
-    try {
-      const fallbackPromises = chunkValues(teamSet, TEAM_LOOKUP_BATCH_SIZE).map((chunk) => supabase
-        .from('teams')
-        .select('name,short_name,abbreviation,logo_url,league_id')
-        .in('name', chunk)
-        .limit(2000));
-      const fallbackResponses = await Promise.all(fallbackPromises);
-
-      for (const fallback of fallbackResponses) {
-        if (!fallback.error && Array.isArray(fallback.data)) {
-          for (const row of fallback.data as TeamFallbackRow[]) {
-            const logo = normalizeText(row.logo_url);
-            if (!logo) continue;
-            const league = normalizeText(row.league_id, 'unknown');
-            const name = normalizeText(row.name);
-            const shortName = normalizeText(row.short_name);
-            const abbr = normalizeText(row.abbreviation);
-            if (name) {
-              lookup.set(teamLeagueKey(name, league), logo);
-              cache[name] = logo;
-            }
-            if (shortName) {
-              lookup.set(teamLeagueKey(shortName, league), logo);
-              cache[shortName] = logo;
-            }
-            if (abbr) {
-              lookup.set(teamLeagueKey(abbr, league), logo);
-              cache[abbr] = logo;
+            const cachedTeamName = normalizeText(row.team_name);
+            if (cachedTeamName) {
+              cache[teamAnyKey(cachedTeamName)] = logo;
             }
           }
         }
+      } catch (_err) {
+        // Keep going with remaining queries if one request fails transiently.
       }
-    } catch (_err) {
-      // fallback intentionally permissive
-    }
-  }
-
-  if (lookup.size === 0 && teamsAvailable && leagueSet.length > 0) {
-    try {
-      const leagueFallbackPromises = chunkValues(leagueSet, TEAM_LOOKUP_BATCH_SIZE).map((chunk) => supabase
-        .from('teams')
-        .select('name,short_name,abbreviation,logo_url,league_id')
-        .in('league_id', chunk)
-        .limit(2000));
-      const leagueFallbackResponses = await Promise.all(leagueFallbackPromises);
-
-      for (const fallbackByLeague of leagueFallbackResponses) {
-        if (!fallbackByLeague.error && Array.isArray(fallbackByLeague.data)) {
-          for (const row of fallbackByLeague.data as TeamFallbackRow[]) {
-            const logo = normalizeText(row.logo_url);
-            if (!logo) continue;
-            const league = normalizeText(row.league_id, 'unknown');
-            const name = normalizeText(row.name);
-            const shortName = normalizeText(row.short_name);
-            const abbr = normalizeText(row.abbreviation);
-            if (name) lookup.set(teamLeagueKey(name, league), logo);
-            if (shortName) lookup.set(teamLeagueKey(shortName, league), logo);
-            if (abbr) lookup.set(teamLeagueKey(abbr, league), logo);
-          }
-        }
-      }
-    } catch (_err) {
-      // keep partial cache
     }
   }
 
@@ -770,7 +707,7 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
       logos[teamLeagueKey(row.team, row.league)] = exact;
       continue;
     }
-    const byTeam = lookup.get(teamAnyKey(row.team)) ?? cache[row.team];
+    const byTeam = lookup.get(teamAnyKey(row.team)) ?? cache[teamAnyKey(row.team)];
     if (byTeam) {
       logos[teamLeagueKey(row.team, row.league)] = byTeam;
     }

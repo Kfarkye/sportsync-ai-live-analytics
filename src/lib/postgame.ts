@@ -264,15 +264,38 @@ export async function fetchTeamsInLeague(leagueId: string): Promise<string[]> {
 
 /** Fetch team metadata (logo, colors) from teams table */
 export async function fetchTeamMeta(teamName: string) {
-  const search = teamName.replace(/-/g, ' ');
-  const { data } = await supabase
-    .from('teams')
-    .select('name, short_name, abbreviation, logo_url, color, alternate_color, league_id')
-    .ilike('name', `%${search}%`)
-    .limit(1)
-    .single();
+  const search = teamName.replace(/-/g, ' ').trim();
+  if (!search) return null;
 
-  return data;
+  const exact = await supabase
+    .from('team_logos')
+    .select('team_name, logo_url, league_id')
+    .eq('team_name', search)
+    .limit(1)
+    .maybeSingle();
+
+  if (!exact.error && exact.data) {
+    return {
+      name: exact.data.team_name,
+      logo_url: exact.data.logo_url,
+      league_id: exact.data.league_id,
+    };
+  }
+
+  const fuzzy = await supabase
+    .from('team_logos')
+    .select('team_name, logo_url, league_id')
+    .ilike('team_name', `%${search}%`)
+    .limit(1)
+    .maybeSingle();
+
+  if (fuzzy.error || !fuzzy.data) return null;
+
+  return {
+    name: fuzzy.data.team_name,
+    logo_url: fuzzy.data.logo_url,
+    league_id: fuzzy.data.league_id,
+  };
 }
 
 // ─── Team ATS/OU Aggregations ──────────────────────────────────
