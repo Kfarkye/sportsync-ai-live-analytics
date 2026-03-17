@@ -62,12 +62,20 @@ if ('serviceWorker' in navigator) {
   };
 
   const handleSwError = (event: ErrorEvent) => {
-    if (isIndexedDbError(event.error || event.message)) {
+    const value = event.error;
+    if (isIndexedDbError(value)) {
+      void handleIndexedDbWorkerFailure();
+    }
+  };
+
+  const handleUnhandledSwError = (event: PromiseRejectionEvent) => {
+    if (isIndexedDbError(event.reason)) {
       void handleIndexedDbWorkerFailure();
     }
   };
 
   window.addEventListener('error', handleSwError);
+  window.addEventListener('unhandledrejection', handleUnhandledSwError);
 
   window.addEventListener('load', () => {
     const run = async () => {

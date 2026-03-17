@@ -43,23 +43,43 @@ const sanitizeEndpoint = (endpoint) => {
 };
 
 export default async function handler(req, res) {
-  if (req.method === 'OPTIONS') {
+  const respondJson = (status, body) => {
     setCorsHeaders(res);
     res.setHeader('Cache-Control', 'public, max-age=10');
-    return res.status(200).end();
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(status).json(body);
+  };
+
+  if (req.method === 'OPTIONS') {
+    return respondJson(200, {});
   }
 
   if (req.method !== 'GET' && req.method !== 'POST') {
-    setCorsHeaders(res);
-    res.setHeader('Cache-Control', 'public, max-age=10');
-    return res.status(405).json({ error: 'Method not allowed' });
+    return respondJson(405, { error: 'Method not allowed' });
   }
 
   let endpoint = req.query?.endpoint;
+  if (typeof endpoint === 'undefined' && req.url) {
+    const parsed = new URL(req.url, 'https://sportsync-ai-live-analytics.vercel.app');
+    endpoint = parsed.searchParams.get('endpoint');
+  }
 
   if (req.method === 'POST' && !endpoint) {
+    const getBodyText = async () => {
+      if (typeof req.text === 'function') {
+        return await req.text();
+      }
+      if (typeof req.body === 'string') {
+        return req.body;
+      }
+      if (req.body && typeof req.body === 'object') {
+        return JSON.stringify(req.body);
+      }
+      return '';
+    };
+
     try {
-      const bodyText = await req.text();
+      const bodyText = await getBodyText();
       const body = bodyText ? JSON.parse(bodyText) : {};
       endpoint = body?.endpoint;
     } catch {
@@ -69,9 +89,7 @@ export default async function handler(req, res) {
 
   const cleanedEndpoint = sanitizeEndpoint(endpoint);
   if (!cleanedEndpoint) {
-    setCorsHeaders(res);
-    res.setHeader('Cache-Control', 'public, max-age=10');
-    return res.status(400).json({ error: 'Missing or invalid endpoint parameter' });
+    return respondJson(400, { error: 'Missing or invalid endpoint parameter' });
   }
 
   const targetUrl = `${ESPN_BASE}/${cleanedEndpoint}`;
@@ -90,22 +108,16 @@ export default async function handler(req, res) {
     clearTimeout(timeout);
 
     if (!upstream.ok) {
-      setCorsHeaders(res);
-      res.setHeader('Cache-Control', 'public, max-age=10');
-      return res.status(upstream.status).json({
+      return respondJson(upstream.status, {
         error: `ESPN API error ${upstream.status}: ${upstream.statusText}`
       });
     }
 
     const payload = await upstream.json();
-    setCorsHeaders(res);
-    res.setHeader('Cache-Control', 'public, max-age=10');
-    return res.status(200).json(payload);
+    return respondJson(200, payload);
   } catch (error) {
     clearTimeout(timeout);
     console.error('[ESPN Proxy] Upstream fetch failed:', error);
-    setCorsHeaders(res);
-    res.setHeader('Cache-Control', 'public, max-age=10');
-    return res.status(502).json({ error: 'Upstream fetch failed' });
+    return respondJson(502, { error: 'Upstream fetch failed' });
   }
 }
