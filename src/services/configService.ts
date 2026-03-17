@@ -11,6 +11,15 @@ import { updateSystemGates } from '../config/gates';
 type GatePrimitive = number | string | boolean | null;
 type GateValue = GatePrimitive | GateValue[] | { [key: string]: GateValue };
 type GateOverrides = Partial<Record<'NHL' | 'NBA' | 'NFL', GateValue>>;
+type AppConfigRow = { key: string; value: GateValue };
+
+const APP_CONFIG_TABLE = 'app_config';
+
+function isConfigTableUnavailableError(error: { code?: string; message?: string; details?: string } | null | undefined) {
+  if (!error) return false;
+  const text = `${error.code || ''} ${error.message || ''} ${error.details || ''}`.toLowerCase();
+  return text.includes('does not exist') || text.includes('404') || text.includes('relation') || text.includes('42p01');
+}
 
 export const configService = {
 
@@ -22,10 +31,16 @@ export const configService = {
         try {
             console.log('[Remote Config] Fetching latest gates...');
             const { data, error } = await supabase
-                .from('app_config')
+                .from<AppConfigRow>(APP_CONFIG_TABLE)
                 .select('key, value');
 
-            if (error) throw error;
+            if (error) {
+                if (isConfigTableUnavailableError(error)) {
+                    console.info('[Remote Config] Remote config table unavailable. Running with default gates.');
+                    return;
+                }
+                throw error;
+            }
 
             if (data) {
                 const overrides: GateOverrides = {};
@@ -54,11 +69,12 @@ export const configService = {
      * Enables "Hot-Swapping" while the user is using the app.
      */
     subscribe() {
-        supabase
+        try {
+            const channel = supabase
             .channel('app_config_changes')
             .on(
                 'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'app_config' },
+                { event: 'UPDATE', schema: 'public', table: APP_CONFIG_TABLE },
                 (payload) => {
                     console.log('[Remote Config] Hot-swap update received!', payload);
                     const row = payload.new;
@@ -72,6 +88,17 @@ export const configService = {
                     }
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                if (status === 'CHANNEL_ERROR') {
+                    console.info('[Remote Config] Live config channel unavailable. Continuing with static defaults.');
+                }
+            });
+
+            if (channel === null) {
+                console.info('[Remote Config] Live config subscription not created. Continuing with static defaults.');
+            }
+        } catch (err) {
+            console.warn('[Remote Config] Failed to subscribe to live config updates.', err);
+        }
     }
 };

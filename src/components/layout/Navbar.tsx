@@ -1,11 +1,7 @@
 import React from 'react';
-import { Bell, User, Menu, Zap, Bot } from 'lucide-react';
-import { useAppStore } from '../../store/appStore';
-import { NeuralPulse } from '../ChatWidget';
+import { Bell, User, Menu, Zap } from 'lucide-react';
 
 const Navbar: React.FC = () => {
-  const { isGlobalChatOpen, toggleGlobalChat } = useAppStore();
-
   return (
     <nav className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-zinc-800 bg-zinc-900/90 px-4 backdrop-blur-md lg:px-8">
       <div className="flex items-center gap-4">
@@ -25,21 +21,6 @@ const Navbar: React.FC = () => {
       <div className="relative mx-8 hidden flex-1 md:block" />
 
       <div className="flex items-center gap-4">
-        {/* Analyst / System Oracle Trigger */}
-        <button
-          onClick={() => toggleGlobalChat()}
-          className="group relative p-2 text-zinc-400 transition-all duration-300 hover:text-zinc-100"
-        >
-          {isGlobalChatOpen ? (
-            <NeuralPulse size={20} active className="relative z-10" />
-          ) : (
-            <Bot size={22} className="relative z-10" />
-          )}
-          {isGlobalChatOpen && (
-            <span className="absolute inset-0 bg-brand-cyan/10 rounded-lg border border-brand-cyan/20 animate-pulse" />
-          )}
-        </button>
-
         <button className="relative p-2 text-zinc-400 transition-colors hover:text-zinc-100">
           <Bell size={20} />
           <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full"></span>
