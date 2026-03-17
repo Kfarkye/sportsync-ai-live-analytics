@@ -192,26 +192,26 @@ const FINAL_STATUS_TOKENS = ["FINAL", "FINISHED", "COMPLETE"];
 const SMART_CHIP_QUERIES: Record<string, string> = {
   "Sharp Report": "Give me the full sharp report on this game.",
   "Best Bet": "What is the best bet for this game?",
-  "Public Fade": "Where is the public heavy? Should I fade?",
-  "Player Props": "Analyze the top player props.",
-  "Edge Today": "What games have edge today?",
-  "Line Moves": "Show me significant line moves.",
-  "Public Splits": "What are the public betting splits?",
-  "Injury News": "What's the latest injury news?",
+  "Public Fade": "Where is the public most concentrated, and is that a good fade candidate?",
+  "Player Props": "Analyze the highest-value player props for this matchup.",
+  "Edge Today": "Which games have the strongest edge right now?",
+  "Line Moves": "Show me the most meaningful line moves and why they matter.",
+  "Public Splits": "Break down the latest public betting splits by market.",
+  "Injury News": "What are the latest confirmed injury updates?",
   "Live Edge": "What live edges are available right now?",
-  Momentum: "How has momentum shifted? Any live play?",
-  "Live Games": "Which games are live right now with edge?",
-  "In-Play Edge": "What are the best in-play opportunities?",
-  Recap: "Recap tonight's results.",
-  "What Tailed / Faded": "Which positions should I tail or fade based on tonight's outcomes?",
-  "Tomorrow Slate": "Preview tomorrow's slate.",
-  Bankroll: "How's my bankroll looking?",
-  "New Slate": "What's on the slate today?",
-  "My Record": "Show my recent record and ROI.",
-  "Best Edge": "What's the highest confidence edge right now?",
-  Promos: "Any sportsbook promos worth grabbing?",
-  Futures: "Any futures with value right now?",
-  "Sharp Money": "Where is the sharp money flowing?",
+  Momentum: "How has momentum shifted? Any actionable live read?",
+  "Live Games": "Which games are live right now with clear edge?",
+  "In-Play Edge": "What are the best in-play opportunities now?",
+  Recap: "Summarize tonight's key results.",
+  "Tail / Fade": "Which sides were actually tailed or faded, and what was the outcome?",
+  "Tomorrow Slate": "Preview what matters on tomorrow's slate.",
+  Bankroll: "How should I allocate bankroll across opportunities?",
+  "New Slate": "What are the strongest edges on today's slate?",
+  "My Record": "Show my recent record and return on investment.",
+  "Best Edge": "What's the highest-confidence edge right now?",
+  Promos: "Any worthwhile sportsbook promos right now?",
+  Futures: "Any futures with value and clear context?",
+  "Sharp Money": "Where is sharp money influencing pricing this week?",
 };
 
 /**
@@ -2310,11 +2310,11 @@ AnalysisDisclosure.displayName = "AnalysisDisclosure";
 const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: number }> = memo(
   ({ onStop, status = "thinking", retryCount = 0 }) => {
     const [idx, setIdx] = useState(0);
-    const phrases = useMemo(() => ["CHECKING LINES", "SCANNING", "GRADING EDGE", "VERIFYING"], []);
+    const phrases = useMemo(() => ["Checking lines", "Scanning matchup", "Grading edge", "Verifying data"], []);
     const displayText = useMemo(() => {
-      if (retryCount > 0) return `RETRY ${retryCount}/${RETRY_CONFIG.maxAttempts}`;
-      if (status === "streaming") return "LIVE FEED";
-      if (status === "grounding") return "VERIFYING SOURCES";
+      if (retryCount > 0) return `Retry ${retryCount}/${RETRY_CONFIG.maxAttempts}`;
+      if (status === "streaming") return "Live feed";
+      if (status === "grounding") return "Verifying sources";
       return phrases[idx];
     }, [status, idx, phrases, retryCount]);
 
@@ -2341,7 +2341,7 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
             initial={{ opacity: 0, filter: "blur(4px)" }}
             animate={{ opacity: 1, filter: "blur(0px)" }}
             exit={{ opacity: 0, filter: "blur(4px)" }}
-            className={cn(SYSTEM.type.mono, "text-slate-600 min-w-[100px] text-center")}
+            className={cn(SYSTEM.type.mono, "text-slate-600 min-w-[100px] text-center normal-case")}
           >
             {displayText}
           </motion.span>
@@ -2371,7 +2371,7 @@ const SmartChips: FC<{
       if (hasMatch) {
         switch (phase) {
           case "live": return ["Live Edge", "Sharp Report", "Momentum", "Live Games"];
-          case "postgame": return ["Recap", "What Tailed / Faded", "Tomorrow Slate", "Bankroll"];
+          case "postgame": return ["Recap", "Tail / Fade", "Tomorrow Slate", "Bankroll"];
           default: return ["Sharp Report", "Best Bet", "Public Fade", "Player Props"];
         }
       }
@@ -2387,9 +2387,9 @@ const SmartChips: FC<{
       <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide px-6" role="group" aria-label="Quick actions">
         {/* Matchup context chip — emerald accent, shows attached game */}
         {matchupLabel && (
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/6 border border-emerald-500/12 shrink-0 rounded-full">
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/10 border border-emerald-500/14 shrink-0 rounded-full">
             <div className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_4px_#10b981]" />
-            <span className="text-[10px] font-mono font-medium text-emerald-400/90 tracking-wide uppercase whitespace-nowrap">{matchupLabel}</span>
+            <span className="text-[10px] font-mono font-medium text-emerald-500 tracking-wide uppercase whitespace-nowrap">{matchupLabel}</span>
           </div>
         )}
         {chips.map((chip, i) => (
@@ -2857,7 +2857,7 @@ const InputDeck: FC<{
 
     // File size validation
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      showToast(`File too large (${formatFileSize(file.size)}). Max 10 MB.`);
+      showToast(`File too large (${formatFileSize(file.size)}). Max is 10 MB.`);
       e.target.value = "";
       return;
     }
@@ -2871,14 +2871,14 @@ const InputDeck: FC<{
         { file, base64: r.split(",")[1] || "", mimeType: file.type || "application/octet-stream" },
       ]);
     };
-    reader.onerror = () => { showToast("Failed to read file"); };
+    reader.onerror = () => { showToast("Couldn’t read that file. Please try again."); };
     reader.readAsDataURL(file);
     e.target.value = "";
   };
 
   const toggleVoice = () => {
     const API = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!API) { showToast("Voice input not supported"); return; }
+    if (!API) { showToast("Voice input is not supported in this browser"); return; }
 
     if (isVoiceMode) {
       try { recognitionRef.current?.abort(); } catch { /* */ }
@@ -2902,8 +2902,8 @@ const InputDeck: FC<{
         recognitionRef.current = null;
         onVoiceModeChange(false);
         const msg = err instanceof DOMException && err.name === "NotAllowedError"
-          ? "Microphone access denied"
-          : "Voice input failed";
+          ? "Microphone access is blocked"
+          : "Voice input failed to start";
         showToast(msg);
       }
     }
@@ -2964,7 +2964,7 @@ const InputDeck: FC<{
         {isVoiceMode ? (
           <div className="flex-1 flex items-center justify-center h-[52px] gap-3">
             <OrbitalRadar />
-            <span className={cn(SYSTEM.type.mono, "text-emerald-500 tracking-widest")}>LISTENING</span>
+            <span className={cn(SYSTEM.type.mono, "text-emerald-500 tracking-wide normal-case")}>Listening</span>
           </div>
         ) : (
           <textarea
@@ -2972,14 +2972,14 @@ const InputDeck: FC<{
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isOffline ? "Offline -- waiting for connection..." : isProcessing ? "Waiting for response..." : "Ask for edge, splits, or props..."}
+            placeholder={isOffline ? "Offline — waiting for connection" : isProcessing ? "Thinking... please wait" : "Ask for edges, splits, lines, props, or injuries"}
             rows={1}
             disabled={isOffline || isProcessing}
             aria-label="Message input"
             className={cn(
               "flex-1 bg-transparent border-none outline-none resize-none py-4 min-h-[52px] max-h-[120px]",
               SYSTEM.type.body, "text-slate-900 placeholder:text-slate-500 disabled:opacity-40",
-              "caret-amber-500/80 selection:bg-emerald-500/20",
+              "caret-emerald-500/90 selection:bg-emerald-500/20 selection:text-slate-900",
             )}
           />
         )}
@@ -3047,7 +3047,7 @@ class ChatErrorBoundary extends Component<
     if (this.state.hasError)
       return (
         <div className="p-6 flex flex-col items-center justify-center gap-4" role="alert">
-          <div className="text-rose-400 font-mono text-xs text-center">System Error. {this.state.error?.message}</div>
+          <div className="text-rose-400 font-mono text-xs text-center">Chat renderer error. {this.state.error?.message}</div>
           <button
             onClick={() => { this.setState({ hasError: false, error: undefined }); this.props.onReset?.(); }}
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-50 border border-slate-200 text-slate-900 text-xs hover:bg-slate-50 transition-colors"
@@ -3509,7 +3509,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
         <motion.div
           layoutId={inline ? undefined : "chat"}
           role="dialog"
-          aria-label="Obsidian Weissach -- Betting Intelligence"
+          aria-label="AI Edge Assistant"
           className={cn(
             "flex flex-col overflow-hidden transition-all duration-500 isolate relative z-50 will-change-transform",
             inline
@@ -3532,7 +3532,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
                 <span className={SYSTEM.type.h1}>
-                  Obsidian<span className="text-slate-900/30 font-normal ml-1">Weissach</span>
+                  AI<span className="text-slate-900/30 font-normal ml-1">Edge</span>
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -3569,17 +3569,17 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="h-full flex flex-col items-center justify-center text-center opacity-40"
+                  className="h-full flex flex-col items-center justify-center text-center opacity-70"
                 >
                   <div className="w-16 h-16 rounded-[20px] border border-slate-200 bg-slate-50 flex items-center justify-center mb-5">
                     <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
                   </div>
-                  <p className="text-[11px] text-slate-400 tracking-wide max-w-[240px] leading-relaxed">
+                  <p className="text-[11px] text-slate-600 tracking-wide max-w-[280px] leading-relaxed">
                     {deriveGamePhase(normalizedContext) === "live"
-                      ? "Games are live. Ask for splits, momentum, or live props."
+                      ? "Game is live. Ask for momentum, live lines, or in-play opportunities."
                       : deriveGamePhase(normalizedContext) === "postgame"
-                        ? "Markets closed. Review your record or scout tomorrow."
-                        : "Pre-game window. Ask for injuries, line moves, or sharp action."}
+                        ? "Markets are closed. Review your recent record or scout tomorrow's slate."
+                        : "No active game selected. Ask for market context, player form, or edge setup."}
                   </p>
                 </motion.div>
               ) : (
@@ -3595,7 +3595,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-[12px] font-semibold text-amber-400 tracking-wide">Scanning slip via Gemini Vision...</span>
+                    <span className="text-[12px] font-semibold text-amber-400 tracking-wide">Scanning slip with vision extractor...</span>
                   </div>
                 </motion.div>
               )}
