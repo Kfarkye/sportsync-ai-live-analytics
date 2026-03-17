@@ -1063,7 +1063,7 @@ export default function TrendsPage() {
               >
                 <option value="strength">Strength</option>
                 <option value="hit">Hit %</option>
-                <option value="sample">Sample</option>
+                <option value="sample">Game</option>
                 <option value="alpha">Alphabetical</option>
               </select>
             </label>
@@ -1185,7 +1185,7 @@ export default function TrendsPage() {
                   <th className="px-4 py-2.5">Signal</th>
                   <th className="px-4 py-2.5">Layer</th>
                   <th className="px-4 py-2.5">Signal Quality</th>
-                  <th className="px-4 py-2.5 text-right">Sample</th>
+                  <th className="px-4 py-2.5 text-right">Game</th>
                   <th className="px-4 py-2.5">Direction</th>
                   <th className="px-4 py-2.5 text-center">Last held</th>
                 </tr>
@@ -1277,7 +1277,7 @@ export default function TrendsPage() {
         </section>
 
         <section className="flex items-center justify-between text-xs text-slate-400">
-          <p>Board strength metric: hit rate × √sample</p>
+          <p>Board strength metric: hit rate × √game</p>
           <p>{loadingRows ? 'Updating…' : `${filtered.length} total`}</p>
         </section>
       </main>
