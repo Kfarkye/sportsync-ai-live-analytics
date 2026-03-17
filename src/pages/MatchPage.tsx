@@ -55,6 +55,12 @@ type LineupPlayer = {
   redCards: number;
 };
 
+const MATCH_SURFACES = {
+  shell: 'border border-white/55 bg-white/82 backdrop-blur-sm shadow-[0_12px_30px_-24px_rgba(15,23,42,0.28)]',
+  softShell: 'border border-slate-200/65 bg-white/75 backdrop-blur-sm',
+  page: 'bg-slate-100',
+};
+
 function asString(value: unknown, fallback = ''): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
@@ -304,7 +310,7 @@ function OddsQuoteCell({
   isWinner: boolean;
 }) {
   return (
-    <div className={`rounded-lg border px-2.5 sm:px-3 py-2.5 sm:py-3 text-center ${isWinner ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+    <div className={`rounded-lg px-2.5 sm:px-3 py-2.5 sm:py-3 text-center ${isWinner ? 'border-emerald-200 bg-emerald-50/80' : MATCH_SURFACES.softShell}`}> 
       <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</div>
       <div className={`mt-1 text-lg sm:text-xl font-semibold tabular-nums ${isWinner ? 'text-emerald-700' : 'text-slate-900'}`}>{fmtOdds(odds)}</div>
       <div className="mt-1 text-[10px] sm:text-[11px] text-slate-500">{odds != null ? `${(impliedProb(odds) * 100).toFixed(1)}% implied` : 'No line'}</div>
@@ -315,7 +321,7 @@ function OddsQuoteCell({
 
 function LineupPlayerRow({ player, accentColor }: { player: LineupPlayer; accentColor: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 sm:px-2.5 py-1.5 sm:py-2">
+    <div className={`flex items-center gap-2 rounded-md ${MATCH_SURFACES.softShell} px-2 sm:px-2.5 py-1.5 sm:py-2`}>
       <div className="w-5 sm:w-6 text-right text-[10px] sm:text-[11px] font-semibold tabular-nums" style={{ color: accentColor }}>
         {player.jersey || '—'}
       </div>
@@ -535,7 +541,7 @@ export default function MatchPage() {
 
   if (loading) {
     return (
-      <div className="h-(--vvh,100vh) bg-slate-50 text-slate-500 flex items-center justify-center">
+      <div className={`h-(--vvh,100vh) ${MATCH_SURFACES.page} text-slate-500 flex items-center justify-center`}>
         <div className="text-xs font-semibold uppercase tracking-[0.16em]">Loading Match Report</div>
       </div>
     );
@@ -543,11 +549,11 @@ export default function MatchPage() {
 
   if (!match) {
     return (
-      <div className="h-(--vvh,100vh) bg-slate-50 text-slate-900 flex flex-col items-center justify-center gap-4 px-4 text-center">
+      <div className={`h-(--vvh,100vh) ${MATCH_SURFACES.page} text-slate-900 flex flex-col items-center justify-center gap-4 px-4 text-center`}>
         <div className="text-2xl font-semibold tracking-tight">Match not found</div>
         <Link
           to="/edge"
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
+          className="rounded-lg border border-slate-200/65 bg-white/75 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-white/90"
         >
           Back to Edge
         </Link>
@@ -589,25 +595,25 @@ export default function MatchPage() {
   const summaryText = `${match.home_team} ${match.home_score > match.away_score ? 'beat' : match.home_score < match.away_score ? 'lost to' : 'drew with'} ${match.away_team} ${match.home_score}-${match.away_score}. ${match.home_possession != null && match.away_possession != null ? `${match.home_possession > match.away_possession ? match.home_team : match.away_team} led possession at ${Math.max(match.home_possession, match.away_possession).toFixed(1)}%. ` : ''}${totalShots > 0 ? `The match produced ${totalShots} shots (${totalOnTarget} on target). ` : ''}${match.dk_home_ml != null ? `${match.home_team} closed ${fmtOdds(match.dk_home_ml)} on DraftKings.` : ''}`;
 
   return (
-    <div className="h-(--vvh,100vh) overflow-y-auto bg-slate-50 text-slate-900" style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.45s ease-out' }}>
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+    <div className={`h-(--vvh,100vh) overflow-y-auto ${MATCH_SURFACES.page} text-slate-900`} style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.45s ease-out' }}>
+      <header className="sticky top-0 z-40 border-b border-slate-200/55 bg-white/75 backdrop-blur">
         <div className="mx-auto w-full max-w-6xl px-4 md:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             <Link
               to="/edge"
-              className="rounded-md border border-slate-200 px-2 sm:px-2.5 py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50 whitespace-nowrap"
+              className="rounded-md border border-slate-200/65 px-2 sm:px-2.5 py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 bg-white/60 hover:bg-white/85 whitespace-nowrap"
             >
               Edge
             </Link>
             <Link
               to={teamUrl(match.home_team)}
-              className="rounded-md border border-slate-200 px-2 sm:px-2.5 py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50 whitespace-nowrap"
+              className="rounded-md border border-slate-200/65 px-2 sm:px-2.5 py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 bg-white/60 hover:bg-white/85 whitespace-nowrap"
             >
               {homeAbbr}
             </Link>
             <Link
               to={teamUrl(match.away_team)}
-              className="rounded-md border border-slate-200 px-2 sm:px-2.5 py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 hover:bg-slate-50 whitespace-nowrap"
+              className="rounded-md border border-slate-200/65 px-2 sm:px-2.5 py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 bg-white/60 hover:bg-white/85 whitespace-nowrap"
             >
               {awayAbbr}
             </Link>
@@ -617,7 +623,7 @@ export default function MatchPage() {
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-4 md:px-6 py-5 md:py-8 space-y-4 md:space-y-6">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 space-y-4 md:space-y-5">
+        <section className={`rounded-2xl ${MATCH_SURFACES.shell} p-4 md:p-6 space-y-4 md:space-y-5`}>
           <div className="flex items-center justify-between gap-3">
             <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: homeColor }} />
@@ -627,7 +633,7 @@ export default function MatchPage() {
           </div>
 
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-5">
-            <Link to={teamUrl(match.home_team)} className="flex flex-col items-center gap-1.5 sm:gap-2 text-center rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 sm:py-4 hover:bg-slate-100 transition">
+            <Link to={teamUrl(match.home_team)} className={`flex flex-col items-center gap-1.5 sm:gap-2 text-center rounded-xl ${MATCH_SURFACES.softShell} px-2 py-3 sm:py-4 hover:bg-white/85 transition`}>
               {homeMeta?.logo_url ? (
                 <TeamLogo
                   logo={homeMeta.logo_url}
@@ -650,12 +656,12 @@ export default function MatchPage() {
                 <span className="text-2xl sm:text-3xl text-slate-300 leading-none">-</span>
                 <span className="text-4xl sm:text-5xl md:text-6xl font-semibold leading-none tabular-nums tracking-tight">{match.away_score}</span>
               </div>
-              <div className="mt-1.5 sm:mt-2 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+              <div className="mt-1.5 sm:mt-2 inline-flex items-center rounded-full border border-slate-200/65 bg-white/65 px-2.5 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600">
                 {statusLabel || 'Final'}
               </div>
             </div>
 
-            <Link to={teamUrl(match.away_team)} className="flex flex-col items-center gap-1.5 sm:gap-2 text-center rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 sm:py-4 hover:bg-slate-100 transition">
+            <Link to={teamUrl(match.away_team)} className={`flex flex-col items-center gap-1.5 sm:gap-2 text-center rounded-xl ${MATCH_SURFACES.softShell} px-2 py-3 sm:py-4 hover:bg-white/85 transition`}>
               {awayMeta?.logo_url ? (
                 <TeamLogo
                   logo={awayMeta.logo_url}
@@ -678,22 +684,22 @@ export default function MatchPage() {
           )}
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-            <article className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+            <article className={`rounded-lg ${MATCH_SURFACES.softShell} px-2.5 sm:px-3 py-2 sm:py-2.5`}>
               <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Total Shots</div>
               <div className="mt-0.5 sm:mt-1 text-lg sm:text-xl font-semibold tabular-nums text-slate-900">{totalShots}</div>
               <div className="mt-0.5 sm:mt-1 text-[10px] sm:text-[11px] text-slate-500">{totalOnTarget} on target</div>
             </article>
-            <article className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+            <article className={`rounded-lg ${MATCH_SURFACES.softShell} px-2.5 sm:px-3 py-2 sm:py-2.5`}>
               <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Possession</div>
               <div className="mt-0.5 sm:mt-1 text-lg sm:text-xl font-semibold tabular-nums text-slate-900">{match.home_possession ?? '—'}% / {match.away_possession ?? '—'}%</div>
               <div className="mt-0.5 sm:mt-1 text-[10px] sm:text-[11px] text-slate-500">Home vs Away</div>
             </article>
-            <article className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+            <article className={`rounded-lg ${MATCH_SURFACES.softShell} px-2.5 sm:px-3 py-2 sm:py-2.5`}>
               <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Total Goals</div>
               <div className="mt-0.5 sm:mt-1 text-lg sm:text-xl font-semibold tabular-nums text-slate-900">{totalGoals}</div>
               <div className="mt-0.5 sm:mt-1 text-[10px] sm:text-[11px] text-slate-500">Full-time output</div>
             </article>
-            <article className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+            <article className={`rounded-lg ${MATCH_SURFACES.softShell} px-2.5 sm:px-3 py-2 sm:py-2.5`}>
               <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Corners</div>
               <div className="mt-0.5 sm:mt-1 text-lg sm:text-xl font-semibold tabular-nums text-slate-900">{totalCorners}</div>
               <div className="mt-0.5 sm:mt-1 text-[10px] sm:text-[11px] text-slate-500">Set-piece volume</div>
@@ -702,22 +708,22 @@ export default function MatchPage() {
         </section>
 
         {matchEvents.length > 0 && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 md:p-5">
+          <section className={`rounded-2xl ${MATCH_SURFACES.shell} p-3 sm:p-4 md:p-5`}>
             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Match Momentum</div>
-            <div className="mt-2 sm:mt-3 rounded-lg border border-slate-200 bg-slate-50 p-1.5 sm:p-2">
+            <div className={`mt-2 sm:mt-3 rounded-lg ${MATCH_SURFACES.softShell} p-1.5 sm:p-2`}>
               <MomentumArc events={matchEvents} homeColor={homeColor} awayColor={awayColor} homeAbbr={homeAbbr} awayAbbr={awayAbbr} />
             </div>
           </section>
         )}
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-1.5 sm:p-2">
+        <section className={`rounded-2xl ${MATCH_SURFACES.shell} p-1.5 sm:p-2`}>
           <div className="flex gap-1 overflow-x-auto no-scrollbar">
             {tabs.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                className={`rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.12em] whitespace-nowrap transition ${tab === item.id ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
+                className={`rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.12em] whitespace-nowrap transition ${tab === item.id ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-white/85 hover:text-slate-900'}`}
               >
                 {item.label}
               </button>
@@ -727,8 +733,8 @@ export default function MatchPage() {
 
         {tab === 'overview' && (
           <section className="grid gap-3 sm:gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <article className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-              <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100 text-sm font-semibold text-slate-800">Key Moments</div>
+            <article className={`rounded-2xl ${MATCH_SURFACES.shell} overflow-hidden`}>
+                <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100/70 text-sm font-semibold text-slate-800">Key Moments</div>
               <div className="p-2.5 sm:p-3 md:p-4 space-y-1">
                 {timelineEvents.length === 0 ? (
                   <div className="text-sm text-slate-500">No timeline events available.</div>
@@ -743,7 +749,7 @@ export default function MatchPage() {
                           : 'text-amber-700';
 
                     return (
-                      <div key={`${event.raw}-${event.type}-${index}`} className="grid grid-cols-[36px_1fr] sm:grid-cols-[44px_1fr_auto] gap-2 sm:gap-3 rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+                      <div key={`${event.raw}-${event.type}-${index}`} className={`grid grid-cols-[36px_1fr] sm:grid-cols-[44px_1fr_auto] gap-2 sm:gap-3 rounded-lg ${MATCH_SURFACES.softShell} px-2.5 sm:px-3 py-2 sm:py-2.5`}>
                         <div className="text-[10px] sm:text-[11px] font-semibold tabular-nums text-slate-500 text-right">{event.raw}</div>
                         <div className="min-w-0">
                           <div className={`text-[13px] sm:text-sm font-semibold ${markerTone}`}>{event.player}</div>
@@ -763,12 +769,12 @@ export default function MatchPage() {
             </article>
 
             <div className="space-y-4">
-              <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
+              <article className={`rounded-2xl ${MATCH_SURFACES.shell} p-3 sm:p-4`}>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Match Summary</div>
                 <p className="mt-2.5 sm:mt-3 text-[13px] sm:text-sm leading-6 sm:leading-7 text-slate-700">{summaryText}</p>
               </article>
 
-              <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
+              <article className={`rounded-2xl ${MATCH_SURFACES.shell} p-3 sm:p-4`}>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Market Close</div>
                 <div className="mt-2.5 sm:mt-3 space-y-2 text-xs sm:text-sm">
                   <div className="flex items-start sm:items-center justify-between gap-3">
@@ -796,7 +802,7 @@ export default function MatchPage() {
         )}
 
         {tab === 'stats' && (
-          <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+          <section className={`rounded-2xl ${MATCH_SURFACES.shell} overflow-hidden`}>
             <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100 flex items-center justify-between gap-3">
               <div className="text-sm font-semibold text-slate-800">Stat Comparison</div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{homeAbbr} vs {awayAbbr}</div>
@@ -812,7 +818,7 @@ export default function MatchPage() {
 
         {tab === 'odds' && hasOdds && (
           <section className="grid gap-3 sm:gap-4 lg:grid-cols-2">
-            <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 space-y-2.5 sm:space-y-3">
+            <article className={`rounded-2xl ${MATCH_SURFACES.shell} p-3 sm:p-4 space-y-2.5 sm:space-y-3`}>
               <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Closing Moneyline</div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <OddsQuoteCell label={match.home_team} odds={match.dk_home_ml} isWinner={mlResult === 'home'} />
@@ -821,9 +827,9 @@ export default function MatchPage() {
               </div>
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 space-y-2.5 sm:space-y-3">
+            <article className={`rounded-2xl ${MATCH_SURFACES.shell} p-3 sm:p-4 space-y-2.5 sm:space-y-3`}>
               <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Spread + Total</div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2.5 sm:py-3">
+              <div className={`rounded-lg ${MATCH_SURFACES.softShell} px-2.5 sm:px-3 py-2.5 sm:py-3`}>
                 <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-slate-500">{match.home_team}</span>
                   <span className="font-semibold tabular-nums text-slate-900">{homeSpreadText} ({fmtOdds(match.dk_home_spread_price)})</span>
@@ -840,7 +846,7 @@ export default function MatchPage() {
                 </div>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2.5 sm:py-3">
+              <div className={`rounded-lg ${MATCH_SURFACES.softShell} px-2.5 sm:px-3 py-2.5 sm:py-3`}>
                 <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-slate-500">Over {match.dk_total ?? '—'}</span>
                   <span className="font-semibold tabular-nums text-slate-900">{fmtOdds(match.dk_over_price)}</span>
@@ -868,7 +874,7 @@ export default function MatchPage() {
               const bench = sidePanel.players.filter((player) => !player.starter && player.subbedIn);
 
               return (
-                <article key={sidePanel.label} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                <article key={sidePanel.label} className={`rounded-2xl ${MATCH_SURFACES.shell} overflow-hidden`}>
                   <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100 flex items-center gap-2">
                     {sidePanel.logo && (
                       <TeamLogo

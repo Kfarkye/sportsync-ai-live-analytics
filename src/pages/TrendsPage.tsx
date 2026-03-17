@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import TeamLogo from '../components/shared/TeamLogo';
+import { getLeagueDisplayName } from '../utils/leagueDisplay';
+import { getTeamLogo as resolveEspnTeamLogo } from '../lib/teamColors';
 
 type Direction = 'TREND' | 'FADE' | 'NEUTRAL';
 type DirectionFilter = 'ALL' | Direction;
@@ -46,6 +49,25 @@ type TeamFallbackRow = {
   league_id?: unknown;
   logo_url?: unknown;
 };
+
+type MatchRow = {
+  id?: unknown;
+  league_id?: unknown;
+  home_team?: unknown;
+  away_team?: unknown;
+  start_time?: unknown;
+  status?: unknown;
+};
+
+type NextMatchInfo = {
+  opponent: string;
+  isHome: boolean;
+  startsAt: string;
+  startsLabel: string;
+  isToday: boolean;
+};
+
+type NextMatchLookup = Record<string, NextMatchInfo | null>;
 
 type LayerSummary = {
   layer: string;
@@ -116,6 +138,45 @@ const LEAGUE_BADGES: Record<string, string> = {
   'fifa.worldq.caf': 'WCQ CAF',
   'fifa.worldq.uefa': 'WCQ UEFA',
   'fifa.worldq.concacaf': 'WCQ CONCACAF',
+};
+
+const LEAGUE_BADGE_ICON_URLS: Record<string, string> = {
+  nba: 'https://a.espncdn.com/i/teamlogos/leagues/500/nba.png',
+  nhl: 'https://a.espncdn.com/i/teamlogos/leagues/500/nhl.png',
+  mlb: 'https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png',
+  mls: 'https://a.espncdn.com/i/teamlogos/leagues/500/19.png',
+  ncaab: 'https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png',
+  'mens-college-basketball': 'https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png',
+  'eng.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png',
+  'esp.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/15.png',
+  'ger.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/10.png',
+  'fra.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/9.png',
+  'ita.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/12.png',
+  ligue1: 'https://a.espncdn.com/i/leaguelogos/soccer/500/8.png',
+  laliga: 'https://a.espncdn.com/i/leaguelogos/soccer/500/5.png',
+  seriea: 'https://a.espncdn.com/i/leaguelogos/soccer/500/16.png',
+  bundesliga: 'https://a.espncdn.com/i/leaguelogos/soccer/500/11.png',
+  epl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png',
+  'usa.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/19.png',
+  'uefa.champions': 'https://a.espncdn.com/i/leaguelogos/soccer/500/2.png',
+  'uefa.europa': 'https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png',
+  'fifa.worldq.afc': 'https://a.espncdn.com/i/leaguelogos/soccer/500/62.png',
+  'fifa.worldq.caf': 'https://a.espncdn.com/i/leaguelogos/soccer/500/63.png',
+  'fifa.worldq.uefa': 'https://a.espncdn.com/i/leaguelogos/soccer/500/67.png',
+  'fifa.worldq.concacaf': 'https://a.espncdn.com/i/leaguelogos/soccer/500/64.png',
+  'fifa.worldq.conmebol': 'https://a.espncdn.com/i/leaguelogos/soccer/500/65.png',
+};
+
+const LEAGUE_BADGE_ICON_EMOJIS: Record<string, string> = {
+  nba: '🏀',
+  nhl: '🏒',
+  mlb: '⚾',
+  mls: '⚽',
+  ncaab: '🏀',
+  'mens-college-basketball': '🏀',
+  soccer: '⚽',
+  'uefa.champions': '🏆',
+  'uefa.europa': '🏆',
 };
 
 const LAYER_LABELS: Record<string, string> = {
@@ -189,6 +250,34 @@ function sanitizeLayer(value: string): string {
   return value.trim();
 }
 
+function normalizeLeagueLookupKey(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9.]/g, '');
+}
+
+function leagueDisplayLabel(value: string): string {
+  const key = value.trim().toLowerCase();
+  return LEAGUE_BADGES[key] ?? LEAGUE_BADGES[normalizeLeagueLookupKey(value)] ?? getLeagueDisplayName(value);
+}
+
+function leagueDisplayIconUrl(value: string): string | null {
+  const key = value.trim().toLowerCase();
+  const compactKey = normalizeLeagueLookupKey(value);
+  const compactParts = compactKey.split('.');
+  if (LEAGUE_BADGE_ICON_URLS[key]) return LEAGUE_BADGE_ICON_URLS[key];
+  if (LEAGUE_BADGE_ICON_URLS[compactKey]) return LEAGUE_BADGE_ICON_URLS[compactKey];
+  if (compactParts[0] && LEAGUE_BADGE_ICON_URLS[compactParts[0]]) return LEAGUE_BADGE_ICON_URLS[compactParts[0]];
+  if (compactKey.includes('nba') || compactKey.includes('ncaab')) return LEAGUE_BADGE_ICON_URLS.nba;
+  if (compactKey.includes('nhl')) return LEAGUE_BADGE_ICON_URLS.nhl;
+  if (compactKey.includes('mlb')) return LEAGUE_BADGE_ICON_URLS.mlb;
+  return null;
+}
+
+function leagueDisplayIconFallback(value: string): string {
+  const key = value.trim().toLowerCase();
+  const compactKey = normalizeLeagueLookupKey(value);
+  return LEAGUE_BADGE_ICON_EMOJIS[key] ?? LEAGUE_BADGE_ICON_EMOJIS[compactKey] ?? '🏆';
+}
+
 function sectionToLayer(section: string): string {
   const key = section.trim().toLowerCase();
   if (key === 'team') return 'TEAM';
@@ -214,6 +303,35 @@ function teamLeagueKey(team: string, league: string): string {
 
 function teamAnyKey(team: string): string {
   return `${toSlug(team)}|`;
+}
+
+function normalizeMatchTeam(value: string): string {
+  return value.trim().toLowerCase().normalize('NFKD').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function teamsMatch(rawTeamA: unknown, rawTeamB: unknown): boolean {
+  const a = normalizeMatchTeam(normalizeText(rawTeamA));
+  const b = normalizeMatchTeam(normalizeText(rawTeamB));
+  if (!a || !b) return false;
+  if (a === b || a.includes(b) || b.includes(a)) return true;
+  if (a.length >= 3 && b.length >= 3 && (a.startsWith(b) || b.startsWith(a))) return true;
+  return false;
+}
+
+function formatNextGameTime(startTime: string): { label: string; isToday: boolean } {
+  const date = new Date(startTime);
+  if (Number.isNaN(date.getTime())) return { label: 'TBD', isToday: false };
+
+  const today = new Date();
+  const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const gameDayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayDiff = Math.round((gameDayStart.getTime() - dayStart.getTime()) / 86_400_000);
+
+  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  if (dayDiff === 0) return { label: `Today ${time}`, isToday: true };
+  if (dayDiff === 1) return { label: `Tomorrow ${time}`, isToday: false };
+  if (dayDiff === -1) return { label: `Yesterday ${time}`, isToday: false };
+  return { label: `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${time}`, isToday: false };
 }
 
 function dedupe(rows: TrendRow[]): TrendRow[] {
@@ -283,6 +401,16 @@ function strengthScore(row: TrendRow): number {
   return row.hit_rate * Math.sqrt(row.sample);
 }
 
+function pickNextMatch(matches: MatchRow[], teamName: string): MatchRow | null {
+  const target = normalizeMatchTeam(teamName);
+  for (const match of matches) {
+    if (teamsMatch(target, match.home_team) || teamsMatch(target, match.away_team)) {
+      return match;
+    }
+  }
+  return null;
+}
+
 function signalClass(signal: Direction): { label: string; color: string; bg: string; icon: string } {
   if (signal === 'TREND') {
     return {
@@ -310,6 +438,20 @@ function signalClass(signal: Direction): { label: string; color: string; bg: str
 
 function layerLabel(layer: string): string {
   return LAYER_LABELS[layer] ?? layer.replace('_', ' ');
+}
+
+function buildNextGames(rows: MatchRow[]): MatchRow[] {
+  const leagueSet = Array.from(new Set(rows.map((row) => normalizeText(row.league_id)).filter(Boolean))).sort();
+  const now = new Date().toISOString();
+  return rows.filter((match) => {
+    if (!match.start_time || !match.league_id) return false;
+    const start = normalizeText(match.start_time);
+    const league = normalizeText(match.league_id);
+    if (!start || !league) return false;
+    if (start < now) return false;
+    if (!leagueSet.includes(league.toLowerCase())) return false;
+    return true;
+  });
 }
 
 async function fetchTrends(minHit: number, minGames: number, layerFilter: string): Promise<TrendRow[]> {
@@ -556,6 +698,62 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
   return logos;
 }
 
+async function fetchNextGames(rows: TrendRow[]): Promise<NextMatchLookup> {
+  const next: NextMatchLookup = {};
+  if (rows.length === 0) return next;
+
+  const leagueSet = Array.from(new Set(rows.map((row) => row.league).filter(Boolean)));
+  if (leagueSet.length === 0) return next;
+
+  const upcoming = await supabase
+    .from('matches')
+    .select('id,league_id,home_team,away_team,start_time,status')
+    .in('league_id', leagueSet)
+    .gte('start_time', new Date().toISOString())
+    .in('status', ['scheduled', 'live', 'halftime'])
+    .order('start_time', { ascending: true })
+    .limit(5000);
+
+  if (upcoming.error || !Array.isArray(upcoming.data) || upcoming.data.length === 0) {
+    for (const row of rows) {
+      next[teamLeagueKey(row.team, row.league)] = null;
+    }
+    return next;
+  }
+
+  const byLeague = new Map<string, MatchRow[]>();
+  for (const match of upcoming.data as MatchRow[]) {
+    const league = normalizeText(match.league_id).toLowerCase();
+    const existing = byLeague.get(league) ?? [];
+    existing.push(match);
+    byLeague.set(league, existing);
+  }
+
+  for (const row of rows) {
+    const key = teamLeagueKey(row.team, row.league);
+    const leagueMatches = byLeague.get(row.league.toLowerCase());
+    const match = leagueMatches ? pickNextMatch(leagueMatches, row.team) : null;
+    if (!match || !normalizeText(match.start_time) || !normalizeText(match.home_team) || !normalizeText(match.away_team)) {
+      next[key] = null;
+      continue;
+    }
+
+    const isHome = teamsMatch(row.team, match.home_team);
+    const opponent = isHome ? normalizeText(match.away_team) : normalizeText(match.home_team);
+    const startsAt = normalizeText(match.start_time);
+    const timeInfo = formatNextGameTime(startsAt);
+    next[key] = {
+      opponent,
+      isHome,
+      startsAt,
+      startsLabel: timeInfo.label,
+      isToday: timeInfo.isToday,
+    };
+  }
+
+  return next;
+}
+
 function SummaryCard({
   title,
   value,
@@ -566,7 +764,7 @@ function SummaryCard({
   subtitle?: string;
 }) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-3 min-w-[180px]">
+    <article className="rounded-lg border border-slate-200 glass-material p-3 min-w-[180px]">
       <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{title}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{value}</p>
       {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
@@ -590,7 +788,19 @@ function SignalQualityBar({ hitRate, sample }: { hitRate: number; sample: number
       <span className="h-2 w-20 overflow-hidden rounded-full bg-slate-100">
         <span className={`block h-full rounded-full ${color}`} style={{ width: `${Math.min(100, hitRate)}%` }} />
       </span>
-      <span className={`w-11 text-xs font-mono font-semibold ${color === 'bg-emerald-500' ? 'text-emerald-600' : color === 'bg-amber-500' ? 'text-amber-500' : 'text-rose-500'}`}>{hitRate.toFixed(1)}%</span>
+      <div className="flex min-w-[56px] items-center justify-end">
+        <span
+          className={`text-xs font-mono font-semibold ${
+            color === 'bg-emerald-500'
+              ? 'text-emerald-600'
+              : color === 'bg-amber-500'
+                ? 'text-amber-500'
+                : 'text-rose-500'
+          }`}
+        >
+          {hitRate.toFixed(1)}%
+        </span>
+      </div>
     </div>
   );
 }
@@ -617,12 +827,14 @@ export default function TrendsPage() {
   const [search, setSearch] = useState('');
   const [minHit, setMinHit] = useState(80);
   const [minGames, setMinGames] = useState(10);
+  const [nextGames, setNextGames] = useState<NextMatchLookup>({});
 
   const [matchFeedMetrics, setMatchFeedMetrics] = useState<MatchFeedMetric | null>(null);
   const [matchFeedError, setMatchFeedError] = useState(false);
 
   const requestSeq = useRef(0);
   const logoCacheRef = useRef<LogoLookup>({});
+  const nextGamesRequestSeq = useRef(0);
 
   const layerOptions = useMemo(() => {
     const uniq = new Set<string>();
@@ -695,6 +907,20 @@ export default function TrendsPage() {
 
   useEffect(() => {
     let active = true;
+    const seq = ++nextGamesRequestSeq.current;
+    const loadNextGames = async () => {
+      const next = await fetchNextGames(rows);
+      if (!active || seq !== nextGamesRequestSeq.current) return;
+      setNextGames(next);
+    };
+    void loadNextGames();
+    return () => {
+      active = false;
+    };
+  }, [rows]);
+
+  useEffect(() => {
+    let active = true;
     const loadSummary = async () => {
       setLoadingMeta(true);
       try {
@@ -724,17 +950,23 @@ export default function TrendsPage() {
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     const direction = directionFilter !== 'ALL' ? directionFilter : signalFilter;
+    const hasDirectionFilter = directionFilter !== 'ALL' || signalFilter !== 'ALL';
 
     const base = rows.filter((row) => {
-      if (direction !== 'ALL' && row.signal_type !== direction) return false;
-      if (signalFilter !== 'ALL' && directionFilter === 'ALL' && row.signal_type !== signalFilter) return false;
+      if (hasDirectionFilter && row.signal_type !== direction) return false;
       if (sportFilter !== 'All') {
         const mapped = sportFromLeague(row.league);
         if (!mapped || mapped !== sportFilter) return false;
       }
       if (row.sample < minGames) return false;
       if (row.hit_rate < minHit) return false;
-      if (query && `${row.team} ${row.trend}`.toLowerCase().indexOf(query) === -1) return false;
+      if (
+        query &&
+        `${row.team} ${row.trend} ${leagueDisplayLabel(row.league)} ${layerLabel(row.layer)}`
+          .toLowerCase()
+          .indexOf(query) === -1
+      )
+        return false;
       if (layerFilter !== 'All' && row.layer !== layerFilter) return false;
       return true;
     });
@@ -813,18 +1045,18 @@ export default function TrendsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">
             <Link
               to="/"
-              className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
+              className="inline-flex items-center rounded-md border border-slate-300/80 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
             >
               Home
             </Link>
             <Link
               to="/trends"
-              className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
+              className="inline-flex items-center rounded-md border border-slate-300/80 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
             >
               Trends
             </Link>
@@ -839,7 +1071,7 @@ export default function TrendsPage() {
           <p className="text-sm text-slate-600">Live trend intelligence for all tracked leagues and layers.</p>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-3">
+        <section className="rounded-xl border border-slate-200 glass-material p-3">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-700">Board statistics</h2>
             {loadingMeta ? (
@@ -874,7 +1106,7 @@ export default function TrendsPage() {
           </section>
         )}
 
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-xl border border-slate-200 glass-material p-4 shadow-sm">
           <div className="mb-3 flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 text-xs">
               <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Layer</span>
@@ -925,7 +1157,7 @@ export default function TrendsPage() {
               >
                 <option value="strength">Strength</option>
                 <option value="hit">Hit %</option>
-                <option value="sample">Sample</option>
+                <option value="sample">Game</option>
                 <option value="alpha">Alphabetical</option>
               </select>
             </label>
@@ -958,8 +1190,8 @@ export default function TrendsPage() {
             </label>
 
             <label className="flex flex-col gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-                Min games: <span className="tabular-nums text-slate-900">{minGames}</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Min Game: <span className="tabular-nums text-slate-900">{minGames}</span>
               </span>
               <input
                 type="range"
@@ -994,7 +1226,7 @@ export default function TrendsPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-3">
+        <section className="rounded-xl border border-slate-200 glass-material p-3">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-700">Layer quality</h2>
             <span className="text-xs text-slate-500">{filtered.length} rows</span>
@@ -1006,8 +1238,8 @@ export default function TrendsPage() {
                 <button
                   key={summary.layer}
                   onClick={() => setLayerFilter(selected ? 'All' : summary.layer)}
-                  className={`rounded-lg border px-3 py-2 text-left ${
-                    selected ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50'
+                className={`rounded-lg border px-3 py-2 text-left ${
+                    selected ? 'border-emerald-300 bg-emerald-50/75 glass-material' : 'border-slate-200/60 bg-white/60'
                   }`}
                 >
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
@@ -1017,7 +1249,7 @@ export default function TrendsPage() {
                     {summary.avgHitRate.toFixed(1)}%
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
-                    n={summary.count} · ≥80%: {summary.above80} · n≥10: {summary.sampleAtLeast10} · perfect: {summary.perfect}
+                    Rows: {summary.count} · 80%+: {summary.above80} · 10+ Games: {summary.sampleAtLeast10} · Perfect: {summary.perfect}
                   </p>
                 </button>
               );
@@ -1030,7 +1262,7 @@ export default function TrendsPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white">
+        <section className="rounded-xl border border-slate-200 glass-material">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <h2 className="text-sm font-semibold text-slate-700">Trend board</h2>
             <span className="text-xs text-slate-500">
@@ -1040,15 +1272,15 @@ export default function TrendsPage() {
           <div className="overflow-x-auto">
             <table className="min-w-[1200px] w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
-                <tr>
-                  <th className="w-12 px-4 py-2.5 text-right">#</th>
-                  <th className="px-4 py-2.5">Team / Entity</th>
+              <tr>
+                <th className="w-12 px-4 py-2.5 text-right">#</th>
+                  <th className="px-4 py-2.5">Team</th>
                   <th className="px-4 py-2.5">League</th>
                   <th className="px-4 py-2.5">Signal</th>
                   <th className="px-4 py-2.5">Layer</th>
                   <th className="px-4 py-2.5">Signal Quality</th>
-                  <th className="px-4 py-2.5 text-right">Hit %</th>
-                  <th className="px-4 py-2.5 text-right">Sample</th>
+                  <th className="px-4 py-2.5 text-right">Game</th>
+                  <th className="px-4 py-2.5">Next Game</th>
                   <th className="px-4 py-2.5">Direction</th>
                   <th className="px-4 py-2.5 text-center">Last held</th>
                 </tr>
@@ -1071,32 +1303,41 @@ export default function TrendsPage() {
                     const leagueLabel = LEAGUE_BADGES[row.league] ?? row.league;
                     const strength = strengthScore(row);
                     return (
-                      <tr key={`${row.team}-${row.league}-${row.trend}-${idx}`} className="border-t border-slate-200 hover:bg-slate-50">
+                      <tr
+                        key={`${row.team}-${row.league}-${row.trend}-${idx}`}
+                        className="border-t border-slate-200/80 hover:bg-white/80"
+                      >
                         <td className="px-4 py-3 text-right text-xs font-mono text-slate-500">{idx + 1}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            {logo ? (
-                              <img
-                                src={logo}
-                                alt={row.team}
-                                width={18}
-                                height={18}
-                                loading="eager"
-                                decoding="async"
-                                className="h-5 w-5 rounded-full border border-slate-200 object-contain bg-white"
-                              />
-                            ) : (
-                              <span className="inline-grid h-5 w-5 place-items-center rounded-full bg-slate-200 text-[10px] text-slate-500">
-                                {row.team.slice(0, 2).toUpperCase()}
-                              </span>
-                            )}
+                            <TeamLogo
+                              logo={logo ?? resolveEspnTeamLogo(row.team)}
+                              name={row.team}
+                              className="h-5 w-5"
+                            />
                             <span className="font-medium text-slate-800">
                               {row.team}
                               {row.record ? <span className="ml-1.5 text-xs text-slate-400">({row.record})</span> : null}
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-xs text-slate-500 font-mono">{leagueLabel}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500 font-mono">
+                          <div className="flex items-center gap-2">
+                            {leagueDisplayIconUrl(row.league) ? (
+                              <img
+                                src={leagueDisplayIconUrl(row.league) as string}
+                                alt=""
+                                className="h-4 w-4 rounded-full object-contain opacity-90"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <span aria-hidden="true" className="text-[12px]">
+                                {leagueDisplayIconFallback(row.league)}
+                              </span>
+                            )}
+                            {leagueDisplayLabel(row.league)}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-slate-700">{row.trend}</td>
                         <td className="px-4 py-3">
                           <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
@@ -1106,10 +1347,28 @@ export default function TrendsPage() {
                         <td className="px-4 py-3">
                           <SignalQualityBar hitRate={row.hit_rate} sample={row.sample} />
                         </td>
-                        <td className={`px-4 py-3 text-right font-mono font-semibold ${colorForScore(row.hit_rate)}`}>
-                          {row.hit_rate.toFixed(1)}%
-                        </td>
                         <td className="px-4 py-3 text-right font-mono text-slate-700">{row.sample}</td>
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const next = nextGames[key];
+                            if (!next) return <span className="text-slate-400 text-xs">No upcoming game</span>;
+                            return (
+                              <div className="flex items-center gap-2">
+                                <TeamLogo
+                                  logo={next.isHome ? resolveEspnTeamLogo(next.opponent) : resolveEspnTeamLogo(next.opponent)}
+                                  name={next.opponent}
+                                  className="h-4 w-4"
+                                />
+                                <div className="text-xs">
+                                  <div className="font-medium text-slate-700">
+                                    {next.isHome ? 'vs' : '@'} {next.opponent}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500">{next.startsLabel}</div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${quality.color} ${quality.bg}`}>
                             <span>{quality.icon}</span>
