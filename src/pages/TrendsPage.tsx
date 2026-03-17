@@ -1185,7 +1185,6 @@ export default function TrendsPage() {
                   <th className="px-4 py-2.5">Signal</th>
                   <th className="px-4 py-2.5">Layer</th>
                   <th className="px-4 py-2.5">Signal Quality</th>
-                  <th className="px-4 py-2.5 text-right">Hit %</th>
                   <th className="px-4 py-2.5 text-right">Sample</th>
                   <th className="px-4 py-2.5">Direction</th>
                   <th className="px-4 py-2.5 text-center">Last held</th>
@@ -1193,8 +1192,8 @@ export default function TrendsPage() {
               </thead>
               <tbody>
                 {loadingRows ? (
-                  <tr>
-                    <td colSpan={10}>
+                    <tr>
+                    <td colSpan={9}>
                       <div className="px-4 py-8 space-y-2">
                         <div className="h-6 w-1/3 rounded bg-slate-200 animate-pulse" />
                         <div className="h-4 w-full rounded bg-slate-100 animate-pulse" />
@@ -1250,9 +1249,6 @@ export default function TrendsPage() {
                         <td className="px-4 py-3">
                           <SignalQualityBar hitRate={row.hit_rate} sample={row.sample} />
                         </td>
-                        <td className={`px-4 py-3 text-right font-mono font-semibold ${colorForScore(row.hit_rate)}`}>
-                          {row.hit_rate.toFixed(1)}%
-                        </td>
                         <td className="px-4 py-3 text-right font-mono text-slate-700">{row.sample}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${quality.color} ${quality.bg}`}>
@@ -1268,7 +1264,7 @@ export default function TrendsPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={10} className="px-4 py-8 text-center text-sm text-slate-500">
+                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-slate-500">
                       {apiRowCount === 0
                         ? 'No trend rows returned from get_trends. Check API key/project configuration for this deployment.'
                         : 'No trends for current filters. Try lowering min hit %, lowering min games, or clearing search/signal filters.'}
