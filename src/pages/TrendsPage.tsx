@@ -161,7 +161,19 @@ function normalizeDirection(value: unknown): Direction {
   if (v === 'FADE') return 'FADE';
   if (v === 'NEUTRAL' || v === 'N/A' || v === 'NONE' || v === 'NAN') return 'NEUTRAL';
   if (v === 'TREND') return 'TREND';
-  return 'TREND';
+  if (v === 'UP' || v === 'POSITIVE') return 'TREND';
+  if (v === 'DOWN' || v === 'NEGATIVE') return 'FADE';
+  return 'NEUTRAL';
+}
+
+function inferDirectionFromTrend(trend: string): Direction {
+  const lowered = trend.toLowerCase();
+
+  if (/\bfade\b/.test(lowered)) return 'FADE';
+  if (/\b(win|covered)\b/.test(lowered)) return 'TREND';
+  if (/\b(ou|over|under|points)\b/.test(lowered)) return 'TREND';
+
+  return 'NEUTRAL';
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -311,7 +323,7 @@ function signalClass(signal: Direction): { label: string; color: string; bg: str
 };
 
 function layerLabel(layer: string): string {
-  return LAYER_LABELS[layer] ?? layer.replace('_', ' ');
+  return LAYER_LABELS[layer] ?? layer.replace(/_/g, ' ');
 }
 
 async function fetchTrends(minHit: number, minGames: number, layerFilter: string): Promise<TrendRow[]> {
@@ -338,6 +350,10 @@ async function fetchTrends(minHit: number, minGames: number, layerFilter: string
     const hitRate = normalizeNumber(row.hit_rate, 0);
 
     if (!team || !trend || sample < minGames) continue;
+    const explicitSignal = normalizeDirection(row.signal_type);
+    const inferredSignal = inferDirectionFromTrend(trend);
+    const resolvedSignal = inferredSignal === 'NEUTRAL' ? explicitSignal : inferredSignal;
+
     parsed.push({
       layer,
       team,
@@ -347,7 +363,7 @@ async function fetchTrends(minHit: number, minGames: number, layerFilter: string
       hit_rate: hitRate,
       sample,
       last_held: normalizeBoolean(row.last_held),
-      signal_type: normalizeDirection(row.signal_type),
+      signal_type: resolvedSignal,
     });
   }
 
@@ -360,6 +376,21 @@ function extractNumeric(row: Record<string, unknown>, keys: string[]): number | 
     if (Number.isFinite(value)) return value;
   }
   return null;
+}
+
+function normalizePercent(value: number | null): number | null {
+  if (!Number.isFinite(value ?? Number.NaN) || value == null) return null;
+  if (value < 0) return null;
+  if (value > 100) return null;
+  return value <= 1 ? value * 100 : value;
+}
+
+function normalizeIntegerMetric(value: number | null, max: number): number | null {
+  if (!Number.isFinite(value ?? Number.NaN) || value == null) return null;
+  if (value < 0 || value > max) return null;
+  const rounded = Math.round(value);
+  if (Math.abs(value - rounded) > 0.0001) return null;
+  return rounded;
 }
 
 async function fetchMatchFeedSummary(): Promise<MatchFeedMetric | null> {
@@ -391,49 +422,89 @@ async function fetchMatchFeedSummary(): Promise<MatchFeedMetric | null> {
 
   for (const rawRow of result.data as unknown[]) {
     const row = rawRow as Record<string, unknown>;
+    const leagueValue = normalizeText((row as Record<string, unknown>).league_id || (row as Record<string, unknown>).league || (row as Record<string, unknown>).sport);
+    const isSoccer = sportFromLeague(leagueValue) === 'Soccer';
 
+    const goalsAggregate = extractNumeric(row, ['goals', 'total_goals', 'goal_total']);
     const homeGoals = extractNumeric(row, ['home_goals', 'goals_for_home', 'home_score']);
     const awayGoals = extractNumeric(row, ['away_goals', 'goals_for_away', 'away_score']);
-    const goals = extractNumeric(row, ['goals', 'total_goals', 'goal_total']);
-    const resolvedGoals = Number.isFinite(goals ?? Number.NaN)
-      ? goals!
-      : (Number.isFinite(homeGoals ?? Number.NaN) && Number.isFinite(awayGoals ?? Number.NaN)
-        ? (homeGoals ?? 0) + (awayGoals ?? 0)
-        : null);
+    const resolvedGoals =
+      isSoccer && Number.isFinite(goalsAggregate ?? Number.NaN)
+        ? goalsAggregate
+        : isSoccer && Number.isFinite(homeGoals ?? Number.NaN) && Number.isFinite(awayGoals ?? Number.NaN)
+          ? (homeGoals ?? 0) + (awayGoals ?? 0)
+          : null;
 
-    const corners = extractNumeric(row, ['corners', 'total_corners', 'corner_count', 'home_corners', 'away_corners']);
+    const cornersAggregate = extractNumeric(row, ['corners', 'total_corners', 'corner_count']);
     const cornerHome = extractNumeric(row, ['home_corners', 'corners_for_home']);
     const cornerAway = extractNumeric(row, ['away_corners', 'corners_for_away']);
-    const resolvedCorners = Number.isFinite(corners ?? Number.NaN) ? corners! : ((cornerHome ?? 0) + (cornerAway ?? 0));
+    const resolvedCorners = isSoccer
+      ? Number.isFinite(cornersAggregate ?? Number.NaN)
+        ? cornersAggregate
+        : Number.isFinite(cornerHome ?? Number.NaN) && Number.isFinite(cornerAway ?? Number.NaN)
+          ? (cornerHome ?? 0) + (cornerAway ?? 0)
+          : null
+      : null;
 
-    const cards = extractNumeric(row, ['cards', 'total_cards', 'card_count', 'home_cards', 'away_cards']);
-    const cardHome = extractNumeric(row, ['home_cards', 'cards_for_home', 'home_team_cards']);
-    const cardAway = extractNumeric(row, ['away_cards', 'cards_for_away', 'away_team_cards']);
-    const resolvedCards = Number.isFinite(cards ?? Number.NaN) ? cards! : ((cardHome ?? 0) + (cardAway ?? 0));
+    const cardsAggregate = extractNumeric(row, ['cards', 'total_cards', 'card_count']);
+    const cardHome = extractNumeric(row, ['home_cards', 'cards_for_home', 'home_team_cards', 'home_yellow_cards', 'home_red_cards', 'home_card_total']);
+    const cardAway = extractNumeric(row, ['away_cards', 'cards_for_away', 'away_team_cards', 'away_yellow_cards', 'away_red_cards', 'away_card_total']);
+    const resolvedCards = isSoccer
+      ? Number.isFinite(cardsAggregate ?? Number.NaN)
+        ? cardsAggregate
+        : Number.isFinite(cardHome ?? Number.NaN) && Number.isFinite(cardAway ?? Number.NaN)
+          ? (cardHome ?? 0) + (cardAway ?? 0)
+          : null
+      : null;
 
-    const pass = extractNumeric(row, ['pass_pct', 'passes_pct', 'pass_percent', 'team_pass_pct', 'passing_pct']);
-    const shot = extractNumeric(row, ['shot_accuracy', 'shot_pct', 'shooting_accuracy', 'shots_accuracy']);
+    const passAggregate = extractNumeric(row, ['pass_pct', 'passes_pct', 'pass_percent', 'team_pass_pct', 'passing_pct']);
+    const homePass = extractNumeric(row, ['home_pass_pct', 'team_home_pass_pct', 'home_pass_percentage', 'home_pass_accuracy']);
+    const awayPass = extractNumeric(row, ['away_pass_pct', 'team_away_pass_pct', 'away_pass_percentage', 'away_pass_accuracy']);
+    const pass = isSoccer
+      ? Number.isFinite(passAggregate ?? Number.NaN)
+        ? passAggregate
+        : Number.isFinite(homePass ?? Number.NaN) && Number.isFinite(awayPass ?? Number.NaN)
+          ? (homePass! + awayPass!) / 2
+          : null
+      : null;
+
+    const shotAggregate = extractNumeric(row, ['shot_accuracy', 'shot_pct', 'shooting_accuracy', 'shots_accuracy']);
+    const homeShot = extractNumeric(row, ['home_shot_accuracy', 'team_home_shot_accuracy', 'home_shooting_accuracy', 'home_shot_accuracy']);
+    const awayShot = extractNumeric(row, ['away_shot_accuracy', 'team_away_shot_accuracy', 'away_shooting_accuracy', 'away_shot_accuracy']);
+    const shot = isSoccer
+      ? Number.isFinite(shotAggregate ?? Number.NaN)
+        ? shotAggregate
+        : Number.isFinite(homeShot ?? Number.NaN) && Number.isFinite(awayShot ?? Number.NaN)
+          ? (homeShot! + awayShot!) / 2
+          : null
+      : null;
     const overRoi = extractNumeric(row, ['over_roi', 'roi_over', 'odds_over_roi']);
     const homeAtsRoi = extractNumeric(row, ['home_ats_roi', 'ats_home_roi', 'ats_roi_home']);
 
-    if (resolvedGoals !== null) {
-      goalsTotal += resolvedGoals;
+    const cleanGoals = normalizeIntegerMetric(resolvedGoals, 50);
+    const cleanCorners = normalizeIntegerMetric(resolvedCorners, 40);
+    const cleanCards = normalizeIntegerMetric(resolvedCards, 20);
+    const cleanPass = pass !== null ? normalizePercent(pass) : null;
+    const cleanShot = shot !== null ? normalizePercent(shot) : null;
+
+    if (cleanGoals !== null) {
+      goalsTotal += cleanGoals;
       goalCount += 1;
     }
-    if (resolvedCorners !== null) {
-      cornersTotal += resolvedCorners;
+    if (cleanCorners !== null) {
+      cornersTotal += cleanCorners;
       cornerCount += 1;
     }
-    if (resolvedCards !== null) {
-      cardsTotal += resolvedCards;
+    if (cleanCards !== null) {
+      cardsTotal += cleanCards;
       cardCount += 1;
     }
-    if (pass !== null) {
-      passTotal += pass;
+    if (cleanPass !== null) {
+      passTotal += cleanPass;
       passCount += 1;
     }
-    if (shot !== null) {
-      shotTotal += shot;
+    if (cleanShot !== null) {
+      shotTotal += cleanShot;
       shotCount += 1;
     }
     if (overRoi !== null) {
