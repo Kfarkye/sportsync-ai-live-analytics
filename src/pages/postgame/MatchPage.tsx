@@ -11,11 +11,9 @@ import {
   CardHeader,
   DataPill,
   EmptyBlock,
-  LoadingBlock,
   PageShell,
   SectionLabel,
   TopNav,
-  ValueText,
 } from './PostgamePrimitives';
 
 interface MatchPageProps {
@@ -29,6 +27,385 @@ type TimelineEvent = {
   teamSide: 'home' | 'away' | 'neutral';
   playerName: string | null;
   detail: string | null;
+};
+
+type InjuryItem = {
+  player: string;
+  status: string;
+  impact: string;
+  detail: string | null;
+};
+
+type WeatherContext = {
+  temp: string | null;
+  wind: string | null;
+  humidity: string | null;
+  condition: string | null;
+  impact: string | null;
+};
+
+type H2HSummary = {
+  lastFive: string;
+  lastThree: string;
+  venueHome: string | null;
+  venueAway: string | null;
+  notes: string | null;
+};
+
+type TeamTrendSnapshot = {
+  ats: number | null;
+  ou: number | null;
+  run: number | null;
+  form: string | null;
+};
+
+type MatchStatus = {
+  label: string;
+  tone: 'neutral' | 'success' | 'danger' | 'warning' | 'info';
+};
+
+const LEAGUE_BADGE_LOGOS: Record<string, string> = {
+  epl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png',
+  eng1: 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png',
+  eng: 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png',
+  'eng.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png',
+  la1: 'https://a.espncdn.com/i/leaguelogos/soccer/500/15.png',
+  laliga: 'https://a.espncdn.com/i/leaguelogos/soccer/500/15.png',
+  'esp.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/15.png',
+  seriea: 'https://a.espncdn.com/i/leaguelogos/soccer/500/12.png',
+  'ita.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/12.png',
+  bundesliga: 'https://a.espncdn.com/i/leaguelogos/soccer/500/10.png',
+  'ger.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/10.png',
+  ligue1: 'https://a.espncdn.com/i/leaguelogos/soccer/500/9.png',
+  'fra.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/9.png',
+  'uefa.champions': 'https://a.espncdn.com/i/leaguelogos/soccer/500/2.png',
+  'uefa.europa': 'https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png',
+  nba: 'https://a.espncdn.com/i/teamlogos/leagues/500/nba.png',
+  ncaab: 'https://a.espncdn.com/i/teamlogos/leagues/500/nba.png',
+  nhl: 'https://a.espncdn.com/i/teamlogos/leagues/500/nhl.png',
+  mlb: 'https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png',
+  mls: 'https://a.espncdn.com/i/teamlogos/leagues/500/mls.png',
+  'usa.1': 'https://a.espncdn.com/i/teamlogos/leagues/500/mls.png',
+};
+
+const normalizeSlug = (value: string): string =>
+  value.trim().toLowerCase().replace(/[^a-z0-9.]/g, '');
+
+const normalizeString = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return null;
+};
+
+const readRawValue = (raw: Record<string, unknown> | undefined, keys: string[]): unknown | null => {
+  if (!raw) return null;
+  for (const key of keys) {
+    const value = raw[key];
+    if (value !== undefined && value !== null) return value;
+  }
+  return null;
+};
+
+const readRawNumber = (raw: Record<string, unknown> | undefined, keys: string[]): number | null => {
+  const value = readRawValue(raw, keys);
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const cleaned = value.trim().replace(/,/g, '').replace('%', '');
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const readRawString = (raw: Record<string, unknown> | undefined, keys: string[]): string | null =>
+  normalizeString(readRawValue(raw, keys));
+
+const readRawJson = (raw: Record<string, unknown> | undefined, keys: string[]): unknown | null => {
+  const candidate = readRawValue(raw, keys);
+  if (candidate === null || candidate === undefined) return null;
+  if (typeof candidate === 'object') return candidate;
+  if (typeof candidate === 'string') {
+    const trimmed = candidate.trim();
+    if (!trimmed) return null;
+    try {
+      return JSON.parse(trimmed) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
+const pickLeagueBadge = (leagueId: string): string | null => {
+  const normalized = normalizeSlug(leagueId);
+  return LEAGUE_BADGE_LOGOS[normalized] ?? null;
+};
+
+const parseRecordFromString = (value: string | null): string[] => {
+  if (!value) return [];
+  return value
+    .replace(/[,\|]/g, ' ')
+    .split(/\s+/)
+    .map((token) => token.trim().toUpperCase())
+    .filter(Boolean)
+    .map((token) => {
+      if (token.startsWith('W')) return 'W';
+      if (token.startsWith('L') || token.startsWith('F')) return 'L';
+      if (token.startsWith('D') || token.startsWith('T')) return 'D';
+      return token.charAt(0);
+    })
+    .filter((token) => token === 'W' || token === 'L' || token === 'D');
+};
+
+const matchStatusFromRaw = (raw: Record<string, unknown> | undefined): MatchStatus => {
+  const value = normalizeString(readRawValue(raw, ['status', 'match_status', 'state', 'event_status', 'status_code', 'game_state'])) ?? '';
+  const normalized = value.toLowerCase().trim();
+  if (!normalized || normalized === 'ns' || normalized === 'scheduled' || normalized === 'upcoming') {
+    return { label: 'Scheduled', tone: 'warning' };
+  }
+  if (normalized.includes('live') || normalized === 'inprogress' || normalized === 'in_play' || normalized === 'halftime') {
+    return { label: 'Live', tone: 'success' };
+  }
+  if (normalized.includes('final') || normalized.includes('ft') || normalized === 'finished' || normalized === 'full_time') {
+    return { label: 'Final', tone: 'info' };
+  }
+  if (normalized.includes('postponed') || normalized.includes('cancel')) {
+    return { label: 'Canceled', tone: 'danger' };
+  }
+  return { label: value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Scheduled', tone: 'neutral' };
+};
+
+const parseWeatherFromRaw = (raw: Record<string, unknown> | undefined): WeatherContext => {
+  const payload = readRawJson(raw, ['weather', 'weather_snapshot', 'weather_report', 'match_weather']) ?? readRawString(raw, ['weather_text']);
+  if (typeof payload === 'string') {
+    const text = payload.trim();
+    const tempMatch = text.match(/\b\d{2,3}°?/);
+    return {
+      temp: tempMatch ? `${tempMatch[0].replace('°', '')}°` : null,
+      wind: null,
+      humidity: null,
+      condition: text,
+      impact: null,
+    };
+  }
+  const data = (payload as Record<string, unknown> | null) ?? null;
+  if (!data || typeof data !== 'object') {
+    return { temp: null, wind: null, humidity: null, condition: null, impact: null };
+  }
+  const temp = normalizeString(data.temp ?? data.temperature);
+  const wind = normalizeString(data.wind ?? data.wind_speed);
+  const humidity = normalizeString(data.humidity ?? data.humidity_pct);
+  const condition = normalizeString(data.condition ?? data.summary ?? data.forecast);
+  const impact = normalizeString(data.impact ?? data.note);
+  return {
+    temp: temp ? `${temp.replace('°', '')}°` : null,
+    wind: wind,
+    humidity: humidity,
+    condition: condition,
+    impact: impact,
+  };
+};
+
+const parseInjuryImpactScore = (items: InjuryItem[]): number => {
+  let score = 0;
+  for (const item of items) {
+    const impact = item.impact.toLowerCase();
+    if (impact.includes('high')) score += 3;
+    else if (impact.includes('medium')) score += 2;
+    else if (impact.includes('low')) score += 1;
+    else score += 2;
+  }
+  return score;
+};
+
+const formatInjuryImpactLabel = (score: number): string => {
+  if (score >= 10) return 'High Impact';
+  if (score >= 5) return 'Moderate Impact';
+  if (score > 0) return 'Low Impact';
+  return 'No Reported Impact';
+};
+
+const impactTone = (score: number): 'danger' | 'warning' | 'neutral' => {
+  if (score >= 10) return 'danger';
+  if (score >= 5) return 'warning';
+  return 'neutral';
+};
+
+const parseInjuriesFromRaw = (raw: Record<string, unknown> | undefined, side: 'home' | 'away'): InjuryItem[] => {
+  const source = readRawJson(raw, side === 'home'
+    ? ['home_injuries', 'homeInjuries', 'home_injury_report', 'injuries_home', 'home_injury_list']
+    : ['away_injuries', 'awayInjuries', 'away_injury_report', 'injuries_away', 'away_injury_list']);
+  if (!source) return [];
+
+  if (Array.isArray(source)) {
+    const rows: InjuryItem[] = [];
+    for (const item of source) {
+      if (!item || typeof item !== 'object') continue;
+      const entry = item as Record<string, unknown>;
+      const player = normalizeString(entry.player_name ?? entry.player ?? entry.name ?? entry.playerName);
+      if (!player) continue;
+      rows.push({
+        player,
+        status: normalizeString(entry.status) ?? 'Out',
+        impact: normalizeString(entry.impact) ?? normalizeString(entry.severity) ?? 'medium',
+        detail: normalizeString(entry.detail ?? entry.description ?? entry.note),
+      });
+    }
+    return rows.slice(0, 6);
+  }
+
+  if (typeof source === 'string') {
+    return source
+      .split(/;|\n/)
+      .map((row) => row.trim())
+      .filter(Boolean)
+      .map((row) => {
+        const [player, status, impact, ...rest] = row.split(/[-–—|]/).map((item) => item.trim());
+        return {
+          player: player || row,
+          status: status || 'Out',
+          impact: impact || 'medium',
+          detail: rest.length > 0 ? rest.join(' - ') : null,
+        };
+      })
+      .slice(0, 6);
+  }
+
+  if (typeof source === 'object') {
+    const obj = source as Record<string, unknown>;
+    const players = readRawJson(obj, ['players', 'list']) as unknown;
+    if (Array.isArray(players)) {
+      const rows: InjuryItem[] = [];
+      for (const item of players) {
+        if (!item || typeof item !== 'object') continue;
+        const entry = item as Record<string, unknown>;
+        const player = normalizeString(entry.player_name ?? entry.player ?? entry.name ?? entry.playerName);
+        if (!player) continue;
+        rows.push({
+          player,
+          status: normalizeString(entry.status) ?? 'Out',
+          impact: normalizeString(entry.impact) ?? normalizeString(entry.severity) ?? 'medium',
+          detail: normalizeString(entry.detail ?? entry.description ?? entry.note),
+        });
+      }
+      return rows.slice(0, 6);
+    }
+  }
+
+  return [];
+};
+
+const parseMissingStartersFromRaw = (raw: Record<string, unknown> | undefined, side: 'home' | 'away'): string[] => {
+  const source = readRawJson(raw, side === 'home'
+    ? ['home_missing_starters', 'home_missing', 'missing_starters_home', 'missing_starters']
+    : ['away_missing_starters', 'away_missing', 'missing_starters_away', 'missing_starters']);
+  if (!source) return [];
+  if (Array.isArray(source)) {
+    return source
+      .filter((item): item is string => typeof item === 'string')
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+  }
+  const text = normalizeString(source);
+  if (!text) return [];
+  return text
+    .split(/;|\n|,/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+};
+
+const parseH2HFromRaw = (
+  raw: Record<string, unknown> | undefined,
+  homeTeam: string,
+  awayTeam: string,
+): H2HSummary => {
+  const source = readRawJson(raw, ['head_to_head', 'h2h', 'h2h_summary', 'h2h_summary_json']);
+  const fallback: H2HSummary = { lastFive: '—', lastThree: '—', venueHome: null, venueAway: null, notes: null };
+  if (!source) return fallback;
+
+  if (typeof source === 'string') {
+    return {
+      lastFive: parseRecordFromString(source).slice(0, 5).join(' ') || '—',
+      lastThree: parseRecordFromString(source).slice(0, 3).join(' ') || '—',
+      venueHome: null,
+      venueAway: null,
+      notes: source,
+    };
+  }
+
+  if (Array.isArray(source)) {
+    const homeName = homeTeam.toLowerCase();
+    const awayName = awayTeam.toLowerCase();
+    const rows = source
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const row = item as Record<string, unknown>;
+        const winner = normalizeString(row.winner ?? row.result ?? row.outcome);
+        const winnerTeam = normalizeString(row.winner_team ?? row.winnerTeam ?? row.home_team ?? row.away_team);
+        if (winner) {
+          if (winner.toLowerCase() === homeName) return 'W';
+          if (winner.toLowerCase() === awayName) return 'L';
+          if (winner.toLowerCase() === 'home' && normalizeString(row.home_team)?.toLowerCase() === homeName) return 'W';
+          if (winner.toLowerCase() === 'away' && normalizeString(row.away_team)?.toLowerCase() === awayName) return 'L';
+        }
+        if (winnerTeam) {
+          if (winnerTeam.toLowerCase() === homeName) return 'W';
+          if (winnerTeam.toLowerCase() === awayName) return 'L';
+        }
+        return 'D';
+      })
+      .filter((item): item is string => item !== null);
+
+    return {
+      lastFive: rows.slice(0, 5).join(' ') || '—',
+      lastThree: rows.slice(0, 3).join(' ') || '—',
+      venueHome: normalizeString((source as unknown as Record<string, unknown>).homeVenue ?? null),
+      venueAway: normalizeString((source as unknown as Record<string, unknown>).awayVenue ?? null),
+      notes: source.length ? `${source.length} meetings` : null,
+    };
+  }
+
+  if (typeof source === 'object') {
+    const parsed = source as Record<string, unknown>;
+    return {
+      lastFive: parseRecordFromString(readRawString(parsed, ['last5', 'last_5', 'recent5', 'recent_5']) as string | null).slice(0, 5).join(' ') || '—',
+      lastThree: parseRecordFromString(readRawString(parsed, ['last3', 'last_3', 'recent3']) as string | null).slice(0, 3).join(' ') || '—',
+      venueHome: readRawString(parsed, ['homeVenue', 'home_split', 'venueHome']),
+      venueAway: readRawString(parsed, ['awayVenue', 'away_split', 'venueAway']),
+      notes: readRawString(parsed, ['notes', 'note', 'summary']),
+    };
+  }
+
+  return fallback;
+};
+
+const buildTeamTrendSnapshot = (raw: Record<string, unknown> | undefined, side: 'home' | 'away'): TeamTrendSnapshot => {
+  const map = side === 'home'
+    ? {
+        ats: ['home_ats', 'home_ats_rate', 'ats_home', 'home_ats_rate', 'home_ats_win_rate', 'home_ats_pct'],
+        ou: ['home_ou', 'home_ou_rate', 'ou_home', 'home_ou_rate', 'home_ou_hit_rate', 'home_ou_pct'],
+        run: ['home_run_rating', 'home_run_history', 'home_form_run', 'home_run'],
+        form: ['home_form', 'home_form_string', 'home_form_recent', 'home_last_form', 'home_recent_form'],
+      }
+    : {
+        ats: ['away_ats', 'away_ats_rate', 'ats_away', 'away_ats_rate', 'away_ats_win_rate', 'away_ats_pct'],
+        ou: ['away_ou', 'away_ou_rate', 'ou_away', 'away_ou_rate', 'away_ou_hit_rate', 'away_ou_pct'],
+        run: ['away_run_rating', 'away_run_history', 'away_form_run', 'away_run'],
+        form: ['away_form', 'away_form_string', 'away_form_recent', 'away_last_form', 'away_recent_form'],
+      };
+  const form = readRawString(raw, map.form);
+  const formSequence = parseRecordFromString(form);
+  return {
+    ats: readRawNumber(raw, map.ats),
+    ou: readRawNumber(raw, map.ou),
+    run: readRawNumber(raw, map.run),
+    form: formSequence.length ? formSequence.slice(0, 6).join('') : null,
+  };
 };
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -273,6 +650,125 @@ const MatchTagLegend: FC = () => (
       <span className="block"><strong className="font-semibold text-slate-700">Penalty</strong>: Penalty awarded in match.</span>
     </span>
   </span>
+);
+
+const GlassCard: FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
+  <div className={cn('rounded-xl border border-white/35 bg-white/65 shadow-sm shadow-slate-300/25 backdrop-blur-md', className)}>
+    {children}
+  </div>
+);
+
+const Shimmer: FC<{ className?: string }> = ({ className }) => (
+  <div className={cn('animate-pulse bg-slate-200/70', className)} />
+);
+
+const LeagueBadge: FC<{ leagueId: string; leagueName: string }> = ({ leagueId, leagueName }) => {
+  const badge = pickLeagueBadge(leagueId);
+  return (
+    <div className="flex items-center gap-2">
+      {badge ? (
+        <img src={badge} alt="" className="h-5 w-5 rounded object-cover ring-1 ring-slate-200/80" loading="lazy" />
+      ) : (
+        <span className="grid h-5 w-5 place-items-center rounded bg-slate-100 text-[10px] font-bold uppercase text-slate-500">
+          {leagueName?.[0] ?? 'L'}
+        </span>
+      )}
+      <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-600">{leagueName}</span>
+    </div>
+  );
+};
+
+const FormStrip: FC<{ form: string | null; label: string }> = ({ form, label }) => {
+  const rows = parseRecordFromString(form).slice(0, 5);
+  if (rows.length === 0) {
+    return (
+      <div>
+        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</div>
+        <div className="mt-1 text-xs text-slate-400">—</div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</div>
+      <div className="mt-1 flex items-center gap-1">
+        {rows.map((token, index) => (
+          <span
+            key={`${label}-${index}-${token}`}
+            className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 text-[11px] font-bold ${
+              token === 'W'
+                ? 'bg-emerald-100 text-emerald-700'
+                : token === 'L'
+                  ? 'bg-rose-100 text-rose-700'
+                  : 'bg-amber-100 text-amber-700'
+            }`}
+            title={token}
+          >
+            {token}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const TeamTrendStrip: FC<{ label: string; trend: TeamTrendSnapshot; logo?: string }> = ({ label, trend, logo }) => {
+  return (
+    <div className="space-y-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</div>
+      <div className="flex items-center gap-2 text-xs">
+        <div className="text-slate-500">ATS</div>
+        <span className="font-mono tabular-nums text-slate-800">{trend.ats !== null ? `${trend.ats.toFixed(1)}%` : '—'}</span>
+      </div>
+      <div className="flex items-center gap-2 text-xs">
+        <div className="text-slate-500">O/U</div>
+        <span className="font-mono tabular-nums text-slate-800">{trend.ou !== null ? `${trend.ou.toFixed(1)}%` : '—'}</span>
+      </div>
+      <div className="flex items-center gap-2 text-xs">
+        <div className="text-slate-500">Run</div>
+        <span className="font-mono tabular-nums text-slate-800">{trend.run !== null ? `${trend.run.toFixed(1)}%` : '—'}</span>
+      </div>
+      <div className="pt-0.5">
+        <FormStrip form={trend.form} label="Recent Form" />
+      </div>
+      <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] text-slate-500">
+        <TeamLogo logo={logo} name={label} className="h-4 w-4" />
+        <span>Trend Pack</span>
+      </div>
+    </div>
+  );
+};
+
+const MatchLoadingState: FC = () => (
+  <div className="space-y-4">
+    <Card>
+      <CardBody className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <Shimmer className="h-4 w-24 rounded" />
+          <Shimmer className="h-6 w-20 rounded-md" />
+        </div>
+        <Shimmer className="h-7 w-full max-w-md rounded" />
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Shimmer className="h-14 rounded-xl" />
+          <Shimmer className="h-14 rounded-xl" />
+          <Shimmer className="h-14 rounded-xl" />
+        </div>
+      </CardBody>
+    </Card>
+    <Card>
+      <CardBody className="space-y-2">
+        <Shimmer className="h-4 w-28 rounded" />
+        <Shimmer className="h-24 rounded-xl" />
+      </CardBody>
+    </Card>
+    <Card>
+      <CardBody className="space-y-2">
+        <Shimmer className="h-4 w-28 rounded" />
+        <Shimmer className="h-40 rounded-xl" />
+      </CardBody>
+    </Card>
+  </div>
 );
 
 const SplitBar: FC<{ home: number; away: number }> = ({ home, away }) => {
@@ -1048,11 +1544,61 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
     [data?.raw, data?.awayTeam],
   );
 
+  const rawMatch = useMemo(() => data?.raw ?? {}, [data?.raw]);
+  const matchStatus = useMemo(() => matchStatusFromRaw(rawMatch), [rawMatch]);
+  const weatherContext = useMemo(() => parseWeatherFromRaw(rawMatch), [rawMatch]);
+  const h2hSummary = useMemo(() => parseH2HFromRaw(rawMatch, data?.homeTeam ?? 'Home', data?.awayTeam ?? 'Away'), [rawMatch, data?.homeTeam, data?.awayTeam]);
+  const homeInjuries = useMemo(() => parseInjuriesFromRaw(rawMatch, 'home'), [rawMatch]);
+  const awayInjuries = useMemo(() => parseInjuriesFromRaw(rawMatch, 'away'), [rawMatch]);
+  const homeMissingStarters = useMemo(() => parseMissingStartersFromRaw(rawMatch, 'home'), [rawMatch]);
+  const awayMissingStarters = useMemo(() => parseMissingStartersFromRaw(rawMatch, 'away'), [rawMatch]);
+  const homeTrend = useMemo(() => buildTeamTrendSnapshot(rawMatch, 'home'), [rawMatch]);
+  const awayTrend = useMemo(() => buildTeamTrendSnapshot(rawMatch, 'away'), [rawMatch]);
+  const homeInjuryScore = parseInjuryImpactScore(homeInjuries);
+  const awayInjuryScore = parseInjuryImpactScore(awayInjuries);
+  const topPerformers = useMemo(() => {
+    return playerScorerOddsRows
+      .slice()
+      .sort((a, b) => (b.goalsScored ?? -1) - (a.goalsScored ?? -1) || (a.oddsDecimal ?? Number.MAX_SAFE_INTEGER) - (b.oddsDecimal ?? Number.MAX_SAFE_INTEGER))
+      .slice(0, 4);
+  }, [playerScorerOddsRows]);
+
+  const propContext = useMemo(() => {
+    const parsed = readRawJson(rawMatch, ['prop_context', 'propContext', 'props_context']);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed as Record<string, unknown>;
+  }, [rawMatch]);
+
+  const mobileRail = (
+    <div className="sticky top-16 z-20 mb-4 border-y border-slate-200 bg-white/85 px-1 py-2 backdrop-blur md:hidden">
+      <div className="mx-auto grid w-max grid-cols-3 gap-2">
+        <a
+          href="#key-stats"
+          className="rounded-full border border-slate-200 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600"
+        >
+          Key Stats
+        </a>
+        <a
+          href="#bet-signals"
+          className="rounded-full border border-slate-200 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600"
+        >
+          Bet Signals
+        </a>
+        <a
+          href="#risk-radar"
+          className="rounded-full border border-slate-200 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600"
+        >
+          Risks
+        </a>
+      </div>
+    </div>
+  );
+
   return (
     <PageShell>
       <TopNav />
 
-      {isLoading ? <LoadingBlock label="Loading match page…" /> : null}
+      {isLoading ? <MatchLoadingState /> : null}
       {error ? <EmptyBlock message={`Failed to load match: ${error.message}`} /> : null}
       {!isLoading && !error && !data ? (
         <EmptyBlock message={`Match not found: ${slug}. Try /match/{league}-{home}-vs-{away}-{date} or /match/{home}-vs-{away}-{date}.`} />
@@ -1060,21 +1606,55 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
 
       {data ? (
         <div className="space-y-6 sm:space-y-7">
-          <Card>
+          {mobileRail}
+
+          <Card id="key-stats">
             <CardBody>
               <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{data.leagueName}</span>
-                  {data.matchday ? <DataPill className="text-[10px]">MD {data.matchday}</DataPill> : null}
-                  {data.homeScore !== null && data.awayScore !== null ? (
-                    data.homeScore > data.awayScore ? (
-                      <Badge tone="success">{data.homeTeam} Win</Badge>
-                    ) : data.homeScore < data.awayScore ? (
-                      <Badge tone="danger">{data.awayTeam} Win</Badge>
-                    ) : (
-                      <Badge tone="warning">Draw</Badge>
-                    )
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                  <LeagueBadge leagueId={data.leagueId} leagueName={data.leagueName} />
+                  <div className="flex items-center gap-2">
+                    <Badge tone={matchStatus.tone}>{matchStatus.label}</Badge>
+                    {data.matchday ? <DataPill className="text-[10px]">MD {data.matchday}</DataPill> : null}
+                  </div>
+                </div>
+                <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarClock size={12} aria-hidden="true" />
+                    {formatMatchDateLabel(data.startTime)}
+                  </span>
+                  {data.venue ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPin size={12} aria-hidden="true" />
+                      {data.venue}
+                    </span>
                   ) : null}
+                  {data.referee ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <UserRound size={12} aria-hidden="true" />
+                      {data.referee}
+                    </span>
+                  ) : null}
+                  {(weatherContext.temp || weatherContext.wind || weatherContext.humidity || weatherContext.condition) ? (
+                    <span className="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-0.5 text-[10px]">
+                      {weatherContext.temp && <span>🌡 {weatherContext.temp}</span>}
+                      {weatherContext.wind && <span>💨 {weatherContext.wind}</span>}
+                      {weatherContext.humidity && <span>💧 {weatherContext.humidity}</span>}
+                      {weatherContext.condition && <span>· {weatherContext.condition}</span>}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="mb-4 flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-slate-500">
+                  {data.homeScore !== null && data.awayScore !== null ? (
+                    <>
+                      {data.homeScore > data.awayScore ? <span className="text-emerald-700 font-semibold">{data.homeTeam} Win</span> : null}
+                      {data.homeScore < data.awayScore ? <span className="text-rose-700 font-semibold">{data.awayTeam} Win</span> : null}
+                      {data.homeScore === data.awayScore ? <span className="text-amber-700 font-semibold">Draw</span> : null}
+                    </>
+                  ) : null}
+                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-500">{data.matchday ? `MD ${data.matchday}` : 'Match in session'}</span>
                 </div>
 
                 <div className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr] sm:gap-6">
@@ -1109,58 +1689,174 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                   </div>
                 </div>
 
-                {data.gameFlow.homeGoals1H !== null || data.gameFlow.awayGoals1H !== null ? (
-                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">1st Half</div>
-                      <div className="mt-0.5 text-sm font-semibold tabular-nums text-slate-700">
-                        {data.gameFlow.homeGoals1H ?? 0}-{data.gameFlow.awayGoals1H ?? 0}
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <TeamTrendStrip label={data.homeTeam} trend={homeTrend} logo={homeTeamLogo} />
+                  <TeamTrendStrip label={data.awayTeam} trend={awayTrend} logo={awayTeamLogo} />
+
+                  <GlassCard className="p-3">
+                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Head-to-Head</div>
+                    <div className="space-y-1.5 text-xs text-slate-700">
+                      <div>Last 5: <span className="font-mono">{h2hSummary.lastFive}</span></div>
+                      <div>Last 3: <span className="font-mono">{h2hSummary.lastThree}</span></div>
+                      <div>Venue: <span className="font-mono">{h2hSummary.venueHome ?? 'n/a'} / {h2hSummary.venueAway ?? 'n/a'}</span></div>
+                      {h2hSummary.notes ? <div className="text-[11px] text-slate-500">{h2hSummary.notes}</div> : null}
+                    </div>
+                  </GlassCard>
+
+                  <GlassCard className="p-3">
+                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Risk & Lineup</div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Home missing starters</span>
+                        <span className="font-semibold tabular-nums text-slate-700">{homeMissingStarters.length}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Away missing starters</span>
+                        <span className="font-semibold tabular-nums text-slate-700">{awayMissingStarters.length}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Home injuries</span>
+                        <Badge tone={impactTone(homeInjuryScore)}>{formatInjuryImpactLabel(homeInjuryScore)}</Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Away injuries</span>
+                        <Badge tone={impactTone(awayInjuryScore)}>{formatInjuryImpactLabel(awayInjuryScore)}</Badge>
                       </div>
                     </div>
-                    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">2nd Half</div>
-                      <div className="mt-0.5 text-sm font-semibold tabular-nums text-slate-700">
-                        {data.gameFlow.homeGoals2H ?? 0}-{data.gameFlow.awayGoals2H ?? 0}
+                  </GlassCard>
+                </div>
+
+                {(homeInjuries.length > 0 || awayInjuries.length > 0) ? (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Notable injuries</div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <div>
+                        <div className="mb-1 text-[10px] font-semibold text-slate-500">Home</div>
+                        <div className="space-y-1">
+                          {homeInjuries.length > 0 ? (
+                            homeInjuries.slice(0, 3).map((injury) => (
+                              <div key={`home-injury-${injury.player}`} className="flex items-center justify-between text-xs">
+                                <span className="text-slate-700">{injury.player}</span>
+                                <span className="text-slate-500">({injury.status})</span>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-400">No notable injuries</span>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-1 text-[10px] font-semibold text-slate-500">Away</div>
+                        <div className="space-y-1">
+                          {awayInjuries.length > 0 ? (
+                            awayInjuries.slice(0, 3).map((injury) => (
+                              <div key={`away-injury-${injury.player}`} className="flex items-center justify-between text-xs">
+                                <span className="text-slate-700">{injury.player}</span>
+                                <span className="text-slate-500">({injury.status})</span>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-400">No notable injuries</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 ) : null}
 
-                <div className="mt-4 grid gap-2">
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                    <span className="inline-flex items-center gap-1.5">
-                      <CalendarClock size={12} aria-hidden="true" />
-                      {formatMatchDateLabel(data.startTime)}
-                    </span>
-                    {data.venue ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <MapPin size={12} aria-hidden="true" />
-                        {data.venue}
-                      </span>
-                    ) : null}
-                    {data.referee ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <UserRound size={12} aria-hidden="true" />
-                        {data.referee}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                        <Shield size={12} aria-hidden="true" />
-                        Match Tags
-                      </div>
-                      <MatchTagLegend />
+                {topPerformers.length > 0 ? (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Top performers</span>
+                      <span className="text-[10px] text-slate-400">from available props</span>
                     </div>
-                    <MatchSignals
-                      homeScore={data.homeScore}
-                      awayScore={data.awayScore}
-                      gameFlow={data.gameFlow}
-                      odds={data.odds}
-                      className="justify-start"
-                    />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {topPerformers.map((player) => (
+                        <div key={player.id} className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs">
+                          <div className="font-semibold text-slate-800">{player.playerName}</div>
+                          <div className="text-[10px] text-slate-500">{player.teamName ?? data.homeTeam}</div>
+                          <div className="mt-1 flex items-center justify-between text-[11px]">
+                            <span>{player.oddsFractional ?? '—'}</span>
+                            <span className="font-mono tabular-nums">{player.goalsScored ?? 0} G</span>
+                            <span className="font-mono tabular-nums">{player.result ?? 'pending'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {propContext ? (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Prop-ready context</div>
+                    <div className="mt-1 text-xs text-slate-600">{JSON.stringify(propContext)}</div>
+                  </div>
+                ) : null}
+
+                <div className="mt-4 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      <Shield size={12} aria-hidden="true" />
+                      Match Signals
+                    </div>
+                    <MatchTagLegend />
+                  </div>
+                  <MatchSignals
+                    homeScore={data.homeScore}
+                    awayScore={data.awayScore}
+                    gameFlow={data.gameFlow}
+                    odds={data.odds}
+                    className="justify-start"
+                  />
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card id="bet-signals">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <SectionLabel>Bet Signals</SectionLabel>
+                <span className="text-xs text-slate-500">match + market context</span>
+              </div>
+            </CardHeader>
+            <CardBody>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Status</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-800">{matchStatus.label}</div>
+                  <div className="text-[11px] text-slate-500">{weatherContext.impact ?? 'No market impact context available'}</div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Venue Snapshot</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-800">{data.venue ?? 'TBD'}</div>
+                  <div className="text-[11px] text-slate-500">{weatherContext.condition ?? 'No weather snapshot available'}</div>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card id="risk-radar">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <SectionLabel>Risk Radar</SectionLabel>
+                <span className="text-xs text-slate-500">discipline + pace</span>
+              </div>
+            </CardHeader>
+            <CardBody>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Home Missing</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-800">{homeMissingStarters.join(', ') || 'No key omissions'}</div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Away Missing</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-800">{awayMissingStarters.join(', ') || 'No key omissions'}</div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Live Risk</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-800">
+                    {data.homeScore !== null && data.awayScore !== null ? `${data.homeScore + data.awayScore} total` : 'No score yet'}
                   </div>
                 </div>
               </div>
@@ -1418,6 +2114,7 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
           </div>
         </div>
       ) : null}
+
     </PageShell>
   );
 };
