@@ -192,26 +192,26 @@ const FINAL_STATUS_TOKENS = ["FINAL", "FINISHED", "COMPLETE"];
 const SMART_CHIP_QUERIES: Record<string, string> = {
   "Sharp Report": "Give me the full sharp report on this game.",
   "Best Bet": "What is the best bet for this game?",
-  "Public Fade": "Where is the public heavy? Should I fade?",
-  "Player Props": "Analyze the top player props.",
-  "Edge Today": "What games have edge today?",
-  "Line Moves": "Show me significant line moves.",
-  "Public Splits": "What are the public betting splits?",
-  "Injury News": "What's the latest injury news?",
+  "Public Fade": "Where is the public most concentrated, and is that a good fade candidate?",
+  "Player Props": "Analyze the highest-value player props for this matchup.",
+  "Edge Today": "Which games have the strongest edge right now?",
+  "Line Moves": "Show me the most meaningful line moves and why they matter.",
+  "Public Splits": "Break down the latest public betting splits by market.",
+  "Injury News": "What are the latest confirmed injury updates?",
   "Live Edge": "What live edges are available right now?",
-  Momentum: "How has momentum shifted? Any live play?",
-  "Live Games": "Which games are live right now with edge?",
-  "In-Play Edge": "What are the best in-play opportunities?",
-  Recap: "Recap tonight's results.",
-  "What Tailed / Faded": "Which positions should I tail or fade based on tonight's outcomes?",
-  "Tomorrow Slate": "Preview tomorrow's slate.",
-  Bankroll: "How's my bankroll looking?",
-  "New Slate": "What's on the slate today?",
-  "My Record": "Show my recent record and ROI.",
-  "Best Edge": "What's the highest confidence edge right now?",
-  Promos: "Any sportsbook promos worth grabbing?",
-  Futures: "Any futures with value right now?",
-  "Sharp Money": "Where is the sharp money flowing?",
+  Momentum: "How has momentum shifted? Any actionable live read?",
+  "Live Games": "Which games are live right now with clear edge?",
+  "In-Play Edge": "What are the best in-play opportunities now?",
+  Recap: "Summarize tonight's key results.",
+  "Tail / Fade": "Which sides were actually tailed or faded, and what was the outcome?",
+  "Tomorrow Slate": "Preview what matters on tomorrow's slate.",
+  Bankroll: "How should I allocate bankroll across opportunities?",
+  "New Slate": "What are the strongest edges on today's slate?",
+  "My Record": "Show my recent record and return on investment.",
+  "Best Edge": "What's the highest-confidence edge right now?",
+  Promos: "Any worthwhile sportsbook promos right now?",
+  Futures: "Any futures with value and clear context?",
+  "Sharp Money": "Where is sharp money influencing pricing this week?",
 };
 
 /**
@@ -227,13 +227,15 @@ const SYSTEM = {
     morph: { type: "spring", damping: 25, stiffness: 280 } as Transition,
   },
   surface: {
-    void: "bg-white",
-    panel: "bg-white border border-slate-200",
+    void: "bg-white/75 backdrop-blur-md",
+    panel: "bg-white/65 border border-white/45 backdrop-blur-sm",
     /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
-    glass: "bg-slate-50 backdrop-blur-xl backdrop-saturate-180 border border-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+    glass: "bg-white/60 backdrop-blur-xl backdrop-saturate-180 border border-white/45 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
     hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20 shadow-[inset_0_1px_0_rgba(245,158,11,0.1)]",
-    milled: "border-t border-slate-200 border-b border-black/50 border-x border-slate-200",
+    milled: "border-t border-white/30 border-b border-black/50 border-x border-white/30",
     alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20 shadow-[inset_0_1px_0_rgba(225,29,72,0.1)]",
+    glassPill: "bg-white/70 border border-white/50 backdrop-blur-sm",
+    shell: "bg-white/90 border border-white/60 backdrop-blur-md",
   },
   type: {
     mono: "font-mono text-[10px] tracking-widest uppercase text-slate-500 tabular-nums",
@@ -1610,7 +1612,11 @@ const ScrollAnchor: FC<{ visible: boolean; onClick: () => void }> = memo(({ visi
         exit={{ opacity: 0, y: 8, scale: 0.9 }}
         transition={SYSTEM.anim.fluid}
         onClick={() => { triggerHaptic(); onClick(); }}
-        className="absolute bottom-32 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 border border-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-slate-50 transition-colors"
+        className={cn(
+          "absolute bottom-32 left-1/2 -translate-x-1/2 z-40",
+          "flex items-center gap-2 px-3.5 py-1.5 rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.4)] hover:bg-white/80 transition-colors",
+          SYSTEM.surface.glass,
+        )}
         aria-label="Scroll to latest messages"
       >
         <ArrowDown size={10} className="text-emerald-400" />
@@ -1656,7 +1662,11 @@ const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={SYSTEM.anim.fluid}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-70 flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
+            className={cn(
+              "absolute bottom-28 left-1/2 -translate-x-1/2 z-70",
+              "flex items-center gap-3 px-4 py-2.5 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.35)] will-change-transform",
+              SYSTEM.surface.shell,
+            )}
           >
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]" />
             <span className="text-[12px] font-medium text-slate-900 tracking-tight">{toast.message}</span>
@@ -2168,12 +2178,12 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={SYSTEM.anim.fluid}
-      className={cn(
-        "my-8 relative overflow-hidden",
-        "rounded-xl",                          // M-23: 12px inner card radius
-        "bg-white",                        // M-24: Distinct elevated background
-        "border border-slate-200",          // M-24: Subtle but present border
-        "shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
+            className={cn(
+          "my-8 relative overflow-hidden",
+          "rounded-xl",                          // M-23: 12px inner card radius
+          "bg-white/70",                        // M-24: Distinct elevated background
+          "border border-white/45",          // M-24: Subtle but present border
+          "shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
       )}
     >
       {/* Ambient amber glow */}
@@ -2310,11 +2320,11 @@ AnalysisDisclosure.displayName = "AnalysisDisclosure";
 const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: number }> = memo(
   ({ onStop, status = "thinking", retryCount = 0 }) => {
     const [idx, setIdx] = useState(0);
-    const phrases = useMemo(() => ["CHECKING LINES", "SCANNING", "GRADING EDGE", "VERIFYING"], []);
+    const phrases = useMemo(() => ["Checking lines", "Scanning matchup", "Grading edge", "Verifying data"], []);
     const displayText = useMemo(() => {
-      if (retryCount > 0) return `RETRY ${retryCount}/${RETRY_CONFIG.maxAttempts}`;
-      if (status === "streaming") return "LIVE FEED";
-      if (status === "grounding") return "VERIFYING SOURCES";
+      if (retryCount > 0) return `Retry ${retryCount}/${RETRY_CONFIG.maxAttempts}`;
+      if (status === "streaming") return "Live feed";
+      if (status === "grounding") return "Verifying sources";
       return phrases[idx];
     }, [status, idx, phrases, retryCount]);
 
@@ -2332,7 +2342,7 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
         transition={SYSTEM.anim.fluid}
         role="status"
         aria-live="polite"
-        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-sm z-30 will-change-transform"
+        className={cn("absolute bottom-full left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full z-30 will-change-transform", SYSTEM.surface.glass)}
       >
         <OrbitalRadar />
         <AnimatePresence mode="wait">
@@ -2341,7 +2351,7 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
             initial={{ opacity: 0, filter: "blur(4px)" }}
             animate={{ opacity: 1, filter: "blur(0px)" }}
             exit={{ opacity: 0, filter: "blur(4px)" }}
-            className={cn(SYSTEM.type.mono, "text-slate-600 min-w-[100px] text-center")}
+            className={cn(SYSTEM.type.mono, "text-slate-600 min-w-[100px] text-center normal-case")}
           >
             {displayText}
           </motion.span>
@@ -2371,7 +2381,7 @@ const SmartChips: FC<{
       if (hasMatch) {
         switch (phase) {
           case "live": return ["Live Edge", "Sharp Report", "Momentum", "Live Games"];
-          case "postgame": return ["Recap", "What Tailed / Faded", "Tomorrow Slate", "Bankroll"];
+          case "postgame": return ["Recap", "Tail / Fade", "Tomorrow Slate", "Bankroll"];
           default: return ["Sharp Report", "Best Bet", "Public Fade", "Player Props"];
         }
       }
@@ -2387,9 +2397,9 @@ const SmartChips: FC<{
       <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide px-6" role="group" aria-label="Quick actions">
         {/* Matchup context chip — emerald accent, shows attached game */}
         {matchupLabel && (
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/6 border border-emerald-500/12 shrink-0 rounded-full">
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/10 border border-emerald-500/14 shrink-0 rounded-full">
             <div className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_4px_#10b981]" />
-            <span className="text-[10px] font-mono font-medium text-emerald-400/90 tracking-wide uppercase whitespace-nowrap">{matchupLabel}</span>
+            <span className="text-[10px] font-mono font-medium text-emerald-500 tracking-wide uppercase whitespace-nowrap">{matchupLabel}</span>
           </div>
         )}
         {chips.map((chip, i) => (
@@ -2401,7 +2411,7 @@ const SmartChips: FC<{
             transition={{ delay: (matchupLabel ? i + 1 : i) * 0.04, ...SYSTEM.anim.fluid }}
             whileHover={{ scale: 1.02, y: -1, backgroundColor: "rgba(255,255,255,0.06)" }}
             whileTap={{ scale: 0.98 }}
-            className={cn("px-3.5 py-2 bg-slate-50 border border-slate-200 transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
+            className={cn("px-3.5 py-2 transition-all backdrop-blur-sm shrink-0", SYSTEM.surface.glassPill, SYSTEM.geo.pill)}
           >
             <span className="text-[10px] font-medium text-slate-600 tracking-wide uppercase whitespace-nowrap">{chip}</span>
           </motion.button>
@@ -2777,7 +2787,7 @@ const MessageBubble: FC<{
         <div className={cn(
           "relative max-w-[92%] md:max-w-[88%]",
           isUser
-            ? "bg-white text-black rounded-[20px] rounded-tr-[6px] shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5"
+            ? "bg-white/80 border border-white/45 backdrop-blur-sm text-black rounded-[20px] rounded-tr-[6px] shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5"
             : "bg-transparent text-slate-900 px-0 max-w-full md:max-w-[96%]",
         )}>
           <div className={cn("prose prose-invert max-w-none", isUser && "prose-p:text-black/90")}>
@@ -2857,7 +2867,7 @@ const InputDeck: FC<{
 
     // File size validation
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      showToast(`File too large (${formatFileSize(file.size)}). Max 10 MB.`);
+      showToast(`File too large (${formatFileSize(file.size)}). Max is 10 MB.`);
       e.target.value = "";
       return;
     }
@@ -2871,14 +2881,14 @@ const InputDeck: FC<{
         { file, base64: r.split(",")[1] || "", mimeType: file.type || "application/octet-stream" },
       ]);
     };
-    reader.onerror = () => { showToast("Failed to read file"); };
+    reader.onerror = () => { showToast("Couldn’t read that file. Please try again."); };
     reader.readAsDataURL(file);
     e.target.value = "";
   };
 
   const toggleVoice = () => {
     const API = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!API) { showToast("Voice input not supported"); return; }
+    if (!API) { showToast("Voice input is not supported in this browser"); return; }
 
     if (isVoiceMode) {
       try { recognitionRef.current?.abort(); } catch { /* */ }
@@ -2902,8 +2912,8 @@ const InputDeck: FC<{
         recognitionRef.current = null;
         onVoiceModeChange(false);
         const msg = err instanceof DOMException && err.name === "NotAllowedError"
-          ? "Microphone access denied"
-          : "Voice input failed";
+          ? "Microphone access is blocked"
+          : "Voice input failed to start";
         showToast(msg);
       }
     }
@@ -2916,9 +2926,9 @@ const InputDeck: FC<{
   return (
     <motion.div
       layout
-      className={cn(
+        className={cn(
         "flex flex-col gap-2 p-1.5 relative overflow-hidden transition-colors duration-500 will-change-transform",
-        SYSTEM.geo.input, "bg-white shadow-sm focus-within:ring-1 focus-within:ring-slate-200",
+        SYSTEM.geo.input, SYSTEM.surface.shell, "focus-within:ring-1 focus-within:ring-emerald-400/40",
         isVoiceMode
           ? "border-emerald-500/30 shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)]"
           : isOffline ? "border-red-500/20" : SYSTEM.surface.milled,
@@ -2934,7 +2944,7 @@ const InputDeck: FC<{
             className="flex gap-2 overflow-x-auto p-2 mb-1 scrollbar-hide"
           >
             {attachments.map((a, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-200">
+              <div key={i} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full", SYSTEM.surface.glassPill)}>
                 <ImageIcon size={12} className="text-slate-900/50" />
                 <span className="text-[10px] text-slate-600 max-w-[80px] truncate">{a.file.name}</span>
                 <button
@@ -2953,7 +2963,7 @@ const InputDeck: FC<{
       <div className="flex items-end gap-2">
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="p-3.5 rounded-[18px] text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          className="p-3.5 rounded-[18px] text-slate-500 hover:text-slate-900 hover:bg-white/55 transition-colors disabled:opacity-30 disabled:pointer-events-none"
           aria-label="Attach file"
           disabled={isOffline || isProcessing}
         >
@@ -2964,7 +2974,7 @@ const InputDeck: FC<{
         {isVoiceMode ? (
           <div className="flex-1 flex items-center justify-center h-[52px] gap-3">
             <OrbitalRadar />
-            <span className={cn(SYSTEM.type.mono, "text-emerald-500 tracking-widest")}>LISTENING</span>
+            <span className={cn(SYSTEM.type.mono, "text-emerald-500 tracking-wide normal-case")}>Listening</span>
           </div>
         ) : (
           <textarea
@@ -2972,14 +2982,14 @@ const InputDeck: FC<{
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isOffline ? "Offline -- waiting for connection..." : isProcessing ? "Waiting for response..." : "Ask for edge, splits, or props..."}
+            placeholder={isOffline ? "Offline — waiting for connection" : isProcessing ? "Thinking... please wait" : "Ask for edges, splits, lines, props, or injuries"}
             rows={1}
             disabled={isOffline || isProcessing}
             aria-label="Message input"
             className={cn(
               "flex-1 bg-transparent border-none outline-none resize-none py-4 min-h-[52px] max-h-[120px]",
               SYSTEM.type.body, "text-slate-900 placeholder:text-slate-500 disabled:opacity-40",
-              "caret-amber-500/80 selection:bg-emerald-500/20",
+              "caret-emerald-500/90 selection:bg-emerald-500/20 selection:text-slate-900",
             )}
           />
         )}
@@ -2996,14 +3006,14 @@ const InputDeck: FC<{
               toggleVoice();
             }}
             className={cn(
-              "p-3 rounded-[18px] transition-all duration-300",
+              "p-3 rounded-[18px] border transition-all duration-300",
               isProcessing
-                ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                ? "bg-white/85 border-white/65 text-black shadow-[0_0_15px_rgba(255,255,255,0.25)]"
                 : canSend
-                  ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                  ? "bg-white/85 border-white/65 text-black shadow-[0_0_15px_rgba(255,255,255,0.25)]"
                   : isVoiceMode
                     ? "text-rose-400 bg-rose-500/10"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
+                    : "text-slate-500 border-white/35 hover:bg-white/55 hover:text-slate-900",
             )}
             aria-label={isProcessing ? "Stop processing" : canSend ? "Send message" : isVoiceMode ? "Stop voice input" : "Start voice input"}
           >
@@ -3047,10 +3057,10 @@ class ChatErrorBoundary extends Component<
     if (this.state.hasError)
       return (
         <div className="p-6 flex flex-col items-center justify-center gap-4" role="alert">
-          <div className="text-rose-400 font-mono text-xs text-center">System Error. {this.state.error?.message}</div>
+          <div className="text-rose-400 font-mono text-xs text-center">Chat renderer error. {this.state.error?.message}</div>
           <button
             onClick={() => { this.setState({ hasError: false, error: undefined }); this.props.onReset?.(); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-50 border border-slate-200 text-slate-900 text-xs hover:bg-slate-50 transition-colors"
+            className={cn("flex items-center gap-2 px-4 py-2 rounded-full text-slate-900 text-xs transition-colors", SYSTEM.surface.glassPill)}
           >
             <RotateCcw size={12} />
             Reset
@@ -3490,7 +3500,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
       <motion.button
         layoutId="chat"
         onClick={() => setIsMinimized?.(false)}
-        className={cn("flex items-center gap-3 px-6 py-3 rounded-full shadow-sm border-t border-slate-200", SYSTEM.surface.glass)}
+        className={cn("flex items-center gap-3 px-6 py-3 rounded-full shadow-sm border border-white/40", SYSTEM.surface.glass)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         aria-label="Open chat"
@@ -3509,7 +3519,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
         <motion.div
           layoutId={inline ? undefined : "chat"}
           role="dialog"
-          aria-label="Obsidian Weissach -- Betting Intelligence"
+          aria-label="AI Edge Assistant"
           className={cn(
             "flex flex-col overflow-hidden transition-all duration-500 isolate relative z-50 will-change-transform",
             inline
@@ -3517,7 +3527,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
               : cn(
                 "w-full md:w-[460px] h-dvh md:h-[min(840px,90dvh)]",
                 "rounded-[28px] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]",
-                "border border-slate-200",
+                "border border-white/35",
                 SYSTEM.surface.void,
               ),
           )}
@@ -3532,7 +3542,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
                 <span className={SYSTEM.type.h1}>
-                  Obsidian<span className="text-slate-900/30 font-normal ml-1">Weissach</span>
+                  AI<span className="text-slate-900/30 font-normal ml-1">Edge</span>
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -3569,17 +3579,17 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="h-full flex flex-col items-center justify-center text-center opacity-40"
+                  className="h-full flex flex-col items-center justify-center text-center opacity-70"
                 >
-                  <div className="w-16 h-16 rounded-[20px] border border-slate-200 bg-slate-50 flex items-center justify-center mb-5">
+                  <div className={cn("w-16 h-16 rounded-[20px] flex items-center justify-center mb-5", SYSTEM.surface.glass)}>
                     <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
                   </div>
-                  <p className="text-[11px] text-slate-400 tracking-wide max-w-[240px] leading-relaxed">
+                  <p className="text-[11px] text-slate-600 tracking-wide max-w-[280px] leading-relaxed">
                     {deriveGamePhase(normalizedContext) === "live"
-                      ? "Games are live. Ask for splits, momentum, or live props."
+                      ? "Game is live. Ask for momentum, live lines, or in-play opportunities."
                       : deriveGamePhase(normalizedContext) === "postgame"
-                        ? "Markets closed. Review your record or scout tomorrow."
-                        : "Pre-game window. Ask for injuries, line moves, or sharp action."}
+                        ? "Markets are closed. Review your recent record or scout tomorrow's slate."
+                        : "No active game selected. Ask for market context, player form, or edge setup."}
                   </p>
                 </motion.div>
               ) : (
@@ -3595,7 +3605,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-[12px] font-semibold text-amber-400 tracking-wide">Scanning slip via Gemini Vision...</span>
+                    <span className="text-[12px] font-semibold text-amber-400 tracking-wide">Scanning slip with vision extractor...</span>
                   </div>
                 </motion.div>
               )}
@@ -3638,7 +3648,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
           {/* Scroll anchor — visible when user has scrolled up */}
           <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
 
-          <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-6 backdrop-blur-xl bg-white/80 border-t border-slate-200/60 pointer-events-none">
+          <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-6 backdrop-blur-xl bg-white/80 border-t border-white/30 pointer-events-none">
             <div className="pointer-events-auto relative">
               <AnimatePresence>
                 {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}
