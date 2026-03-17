@@ -34,7 +34,7 @@ export const configService = {
 
             console.log('[Remote Config] Fetching latest gates...');
             const { data, error } = await supabase
-                .from<AppConfigRow>(APP_CONFIG_TABLE)
+                .from(APP_CONFIG_TABLE)
                 .select('key, value');
 
             if (error) {

@@ -101,7 +101,9 @@ const isStorageAccessError = (error: unknown): boolean => {
     message.includes('idb') ||
     message.includes('request storage') ||
     message.includes('failed to access storage') ||
-    message.includes('quota')
+    message.includes('quota') ||
+    message.includes('no space') ||
+    message.includes('file_error_no_space')
   );
 };
 
@@ -129,7 +131,9 @@ const canUseStorageEstimate = async () => {
   if (!('storage' in navigator) || !navigator.storage?.estimate) return true;
   try {
     const estimate = await navigator.storage.estimate();
-    return estimate.quota === undefined || estimate.quota > 0;
+    if (!estimate.quota || estimate.quota <= 0) return false;
+    if (estimate.usage == null) return true;
+    return estimate.usage / estimate.quota < 0.85;
   } catch {
     return false;
   }

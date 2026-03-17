@@ -10,6 +10,26 @@ export function optEnv(key: string, fallback = ""): string {
     return Deno.env.get(key) ?? fallback;
 }
 
+const DEFAULT_ALLOWED_HEADERS =
+    "authorization,apikey,content-type,x-client-info,x-client-timeout,x-trace-id,x-pipeline-secret,x-cron-secret,x-request-id";
+
+export function getCorsHeaders(req: Request): Record<string, string> {
+    const requestedHeaders = req.headers.get("access-control-request-headers") ?? "";
+    const allowedHeaders = requestedHeaders.trim().length > 0
+        ? requestedHeaders
+        : DEFAULT_ALLOWED_HEADERS;
+
+    const origin = req.headers.get("origin") ?? "*";
+
+    return {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": allowedHeaders,
+        "Access-Control-Max-Age": "86400",
+        "Vary": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+    };
+}
+
 /**
  * Validates that a request is authorized via one of:
  *  1. A valid service_role Bearer token in Authorization header
@@ -41,7 +61,7 @@ export function validateEdgeAuth(req: Request): Response | null {
 
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getCorsHeaders(req) },
     });
 }
 
