@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import TeamLogo from '../components/shared/TeamLogo';
 import { getLeagueDisplayName } from '../utils/leagueDisplay';
+import { getTeamLogo as resolveEspnTeamLogo } from '../lib/teamColors';
 
 type Direction = 'TREND' | 'FADE' | 'NEUTRAL';
 type DirectionFilter = 'ALL' | Direction;
@@ -40,6 +42,15 @@ type TeamRow = {
   logo_url?: unknown;
 };
 
+type MatchRow = {
+  id?: unknown;
+  league_id?: unknown;
+  home_team?: unknown;
+  away_team?: unknown;
+  start_time?: unknown;
+  status?: unknown;
+};
+
 type TeamFallbackRow = {
   name?: unknown;
   short_name?: unknown;
@@ -73,6 +84,15 @@ type TrendFetchError = {
   details?: string;
   message: string;
 };
+
+type NextMatchInfo = {
+  opponent: string;
+  isHome: boolean;
+  startsAt: string;
+  startsLabel: string;
+};
+
+type NextMatchLookup = Record<string, NextMatchInfo | null>;
 
 const SPORT_FILTERS: SportFilter[] = ['All', 'Soccer', 'NBA', 'NHL', 'MLB', 'NCAAB', 'MLS'];
 
@@ -121,7 +141,36 @@ const LEAGUE_BADGES: Record<string, string> = {
   'uefa.europa': 'UEFA Europa League',
 };
 
-const LEAGUE_BADGE_ICONS: Record<string, string> = {
+const LEAGUE_BADGE_ICON_URLS: Record<string, string> = {
+  nba: 'https://a.espncdn.com/i/teamlogos/leagues/500/nba.png',
+  nhl: 'https://a.espncdn.com/i/teamlogos/leagues/500/nhl.png',
+  mlb: 'https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png',
+  mls: 'https://a.espncdn.com/i/teamlogos/leagues/500/mls.png',
+  nfl: 'https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png',
+  wnba: 'https://a.espncdn.com/i/teamlogos/leagues/500/wnba.png',
+  'eng.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png',
+  eng1: 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png',
+  'esp.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/15.png',
+  esp1: 'https://a.espncdn.com/i/leaguelogos/soccer/500/15.png',
+  'ger.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/10.png',
+  ger1: 'https://a.espncdn.com/i/leaguelogos/soccer/500/10.png',
+  'fra.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/9.png',
+  fra1: 'https://a.espncdn.com/i/leaguelogos/soccer/500/9.png',
+  'ita.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/12.png',
+  ita1: 'https://a.espncdn.com/i/leaguelogos/soccer/500/12.png',
+  'usa.1': 'https://a.espncdn.com/i/leaguelogos/soccer/500/19.png',
+  'uefa.champions': 'https://a.espncdn.com/i/leaguelogos/soccer/500/2.png',
+  'uefa.europa': 'https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png',
+  'fifa.worldq.afc': 'https://a.espncdn.com/i/leaguelogos/soccer/500/62.png',
+  'fifa.worldq.conmebol': 'https://a.espncdn.com/i/leaguelogos/soccer/500/65.png',
+  'fifa.worldq.caf': 'https://a.espncdn.com/i/leaguelogos/soccer/500/63.png',
+  'fifa.worldq.concacaf': 'https://a.espncdn.com/i/leaguelogos/soccer/500/64.png',
+  'fifa.worldq.uefa': 'https://a.espncdn.com/i/leaguelogos/soccer/500/67.png',
+  'mens-college-basketball': 'https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png',
+  'ncaab': 'https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png',
+};
+
+const LEAGUE_BADGE_ICON_EMOJIS: Record<string, string> = {
   nba: '🏀',
   nhl: '🏒',
   mlb: '⚾',
@@ -164,22 +213,38 @@ function leagueDisplayLabel(value: string): string {
   return LEAGUE_BADGES[value] || LEAGUE_BADGES[normalizeLeagueLookupKey(value)] || getLeagueDisplayName(value);
 }
 
-function leagueDisplayIcon(value: string): string | null {
+function leagueDisplayIconUrl(value: string): string | null {
   const key = value.trim().toLowerCase();
   const compactKey = normalizeLeagueLookupKey(value);
   const normalizedWithDots = key.replace(/[^a-z0-9.]/g, '');
   const compactParts = compactKey.split('.');
 
-  if (LEAGUE_BADGE_ICONS[key]) return LEAGUE_BADGE_ICONS[key];
-  if (LEAGUE_BADGE_ICONS[compactKey]) return LEAGUE_BADGE_ICONS[compactKey];
-  if (compactParts[0] && LEAGUE_BADGE_ICONS[compactParts[0]]) return LEAGUE_BADGE_ICONS[compactParts[0]];
-  if (compactKey.startsWith('fifa.worldq')) return LEAGUE_BADGE_ICONS['fifa.worldq.afc'];
-  if (normalizedWithDots.includes('uefa.')) return LEAGUE_BADGE_ICONS['uefa.champions'];
+  if (LEAGUE_BADGE_ICON_URLS[key]) return LEAGUE_BADGE_ICON_URLS[key];
+  if (LEAGUE_BADGE_ICON_URLS[compactKey]) return LEAGUE_BADGE_ICON_URLS[compactKey];
+  if (compactParts[0] && LEAGUE_BADGE_ICON_URLS[compactParts[0]]) return LEAGUE_BADGE_ICON_URLS[compactParts[0]];
+  if (compactKey.startsWith('fifa.worldq')) return LEAGUE_BADGE_ICON_URLS['fifa.worldq.afc'];
+  if (normalizedWithDots.includes('uefa')) return LEAGUE_BADGE_ICON_URLS['uefa.champions'];
+  if (key.includes('basketball') || key.includes('nba') || key.includes('ncaab')) return LEAGUE_BADGE_ICON_URLS['nba'];
+  if (key.includes('hockey') || key.includes('nhl')) return LEAGUE_BADGE_ICON_URLS['nhl'];
+  if (key.includes('baseball') || key.includes('mlb')) return LEAGUE_BADGE_ICON_URLS['mlb'];
+  return null;
+}
+
+function leagueDisplayIconFallback(value: string): string | null {
+  const key = value.trim().toLowerCase();
+  const compactKey = normalizeLeagueLookupKey(value);
+  const normalizedWithDots = key.replace(/[^a-z0-9.]/g, '');
+  const compactParts = compactKey.split('.');
+
+  if (LEAGUE_BADGE_ICON_EMOJIS[key]) return LEAGUE_BADGE_ICON_EMOJIS[key];
+  if (LEAGUE_BADGE_ICON_EMOJIS[compactKey]) return LEAGUE_BADGE_ICON_EMOJIS[compactKey];
+  if (compactParts[0] && LEAGUE_BADGE_ICON_EMOJIS[compactParts[0]]) return LEAGUE_BADGE_ICON_EMOJIS[compactParts[0]];
+  if (compactKey.startsWith('fifa.worldq')) return LEAGUE_BADGE_ICON_EMOJIS['fifa.worldq.afc'];
+  if (normalizedWithDots.includes('uefa.')) return LEAGUE_BADGE_ICON_EMOJIS['uefa.champions'];
 
   if (key.includes('basketball') || key.includes('nba') || key.includes('ncaab')) return '🏀';
   if (key.includes('hockey') || key.includes('nhl')) return '🏒';
   if (key.includes('baseball') || key.includes('mlb')) return '⚾';
-
   return '🏆';
 }
 
@@ -285,12 +350,59 @@ function toSlug(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+function normalizeMatchTeam(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function teamsMatch(rawTeamA: unknown, rawTeamB: unknown): boolean {
+  const a = normalizeMatchTeam(normalizeText(rawTeamA));
+  const b = normalizeMatchTeam(normalizeText(rawTeamB));
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.includes(b) || b.includes(a)) return true;
+  if (a.length >= 3 && b.length >= 3 && (a.startsWith(b) || b.startsWith(a))) return true;
+  return false;
+}
+
+function formatNextGameTime(startTime: string): string {
+  const date = new Date(startTime);
+  if (Number.isNaN(date.getTime())) return 'TBD';
+
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const matchDayStart = new Date(date);
+  matchDayStart.setHours(0, 0, 0, 0);
+  const dayDiff = Math.round((matchDayStart.getTime() - dayStart.getTime()) / 86400000);
+
+  const time = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  });
+
+  if (dayDiff === 0) return `Today ${time}`;
+  if (dayDiff === 1) return `Tomorrow ${time}`;
+  if (dayDiff === -1) return `Yesterday ${time}`;
+
+  return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${time}`;
+}
+
 function teamLeagueKey(team: string, league: string): string {
   return `${toSlug(team)}|${toSlug(league)}`;
 }
 
 function teamAnyKey(team: string): string {
   return `${toSlug(team)}|`;
+}
+
+function resolveTeamLogo(logos: LogoLookup, team: string, league: string): string | undefined {
+  return logos[teamLeagueKey(team, league)] || logos[teamAnyKey(team)];
 }
 
 function dedupe(rows: TrendRow[]): TrendRow[] {
@@ -318,6 +430,21 @@ function dedupe(rows: TrendRow[]): TrendRow[] {
   }
 
   return Array.from(map.values());
+}
+
+function pickNextMatch(
+  matches: MatchRow[],
+  teamName: string,
+): MatchRow | null {
+  const target = normalizeMatchTeam(teamName);
+
+  for (const match of matches) {
+    if (teamsMatch(target, match.home_team) || teamsMatch(target, match.away_team)) {
+      return match;
+    }
+  }
+
+  return null;
 }
 
 function sportFromLeague(leagueId: string): SportFilter | null {
@@ -694,6 +821,86 @@ async function fetchTeamLogos(rows: TrendRow[]): Promise<LogoLookup> {
   return logos;
 }
 
+async function fetchNextGames(rows: TrendRow[]): Promise<NextMatchLookup> {
+  const result: NextMatchLookup = {};
+  if (rows.length === 0) return result;
+
+  const leagueSet = Array.from(new Set(rows.map((row) => row.league).filter(Boolean)));
+  if (leagueSet.length === 0) return result;
+
+  let query = supabase
+    .from('matches')
+    .select('id,league_id,home_team,away_team,start_time,status')
+    .in('league_id', leagueSet)
+    .gte('start_time', new Date().toISOString())
+    .order('start_time', { ascending: true })
+    .limit(5000);
+
+  const upcoming = await query.in('status', ['scheduled', 'live', 'halftime']);
+
+  if (upcoming.error || !Array.isArray(upcoming.data) || upcoming.data.length === 0) {
+    for (const row of rows) {
+      result[teamLeagueKey(row.team, row.league)] = null;
+    }
+    return result;
+  }
+
+  const matchesByLeague = new Map<string, MatchRow[]>();
+  for (const row of upcoming.data as MatchRow[]) {
+    const league = normalizeText(row.league_id);
+    if (!league) continue;
+    const existing = matchesByLeague.get(league) ?? [];
+    existing.push(row);
+    matchesByLeague.set(league, existing);
+  }
+
+  for (const row of rows) {
+    const key = teamLeagueKey(row.team, row.league);
+    const leagueMatches = matchesByLeague.get(row.league);
+
+    if (!leagueMatches) {
+      result[key] = null;
+      continue;
+    }
+
+    const next = pickNextMatch(leagueMatches, row.team);
+    if (!next || !normalizeText(next.start_time) || !normalizeText(next.home_team) || !normalizeText(next.away_team)) {
+      result[key] = null;
+      continue;
+    }
+
+    const homeTeam = normalizeText(next.home_team);
+    const awayTeam = normalizeText(next.away_team);
+    const isHome = teamsMatch(row.team, homeTeam);
+    const opponent = isHome ? awayTeam : homeTeam;
+    const startTime = normalizeText(next.start_time);
+    const startDate = new Date(startTime);
+    if (Number.isNaN(startDate.getTime())) {
+      result[key] = {
+        opponent,
+        isHome,
+        startsAt: startTime,
+        startsLabel: 'TBD',
+      };
+      continue;
+    }
+
+    result[key] = {
+      opponent,
+      isHome,
+      startsAt: startTime,
+      startsLabel: formatNextGameTime(startTime),
+    };
+  }
+
+  for (const row of rows) {
+    const key = teamLeagueKey(row.team, row.league);
+    if (!(key in result)) result[key] = null;
+  }
+
+  return result;
+}
+
 function SummaryCard({
   title,
   value,
@@ -746,6 +953,7 @@ export default function TrendsPage() {
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [error, setError] = useState<TrendFetchError | null>(null);
   const [apiRowCount, setApiRowCount] = useState<number | null>(null);
+  const [nextGames, setNextGames] = useState<NextMatchLookup>({});
 
   const [layerFilter, setLayerFilter] = useState<string>('All');
   const [sportFilter, setSportFilter] = useState<SportFilter>('All');
@@ -755,11 +963,13 @@ export default function TrendsPage() {
   const [search, setSearch] = useState('');
   const [minHit, setMinHit] = useState(80);
   const [minGames, setMinGames] = useState(10);
+  const [showTeamNames, setShowTeamNames] = useState(true);
 
   const [matchFeedMetrics, setMatchFeedMetrics] = useState<MatchFeedMetric | null>(null);
   const [matchFeedError, setMatchFeedError] = useState(false);
 
   const requestSeq = useRef(0);
+  const nextMatchSeq = useRef(0);
   const logoCacheRef = useRef<LogoLookup>({});
 
   const layerOptions = useMemo(() => {
@@ -826,6 +1036,23 @@ export default function TrendsPage() {
       });
     };
     void loadLogos();
+    return () => {
+      active = false;
+    };
+  }, [rows]);
+
+  useEffect(() => {
+    let active = true;
+    const seq = ++nextMatchSeq.current;
+
+    const loadNextGames = async () => {
+      const next = await fetchNextGames(rows);
+      if (!active || nextMatchSeq.current !== seq) return;
+      setNextGames(next);
+    };
+
+    void loadNextGames();
+
     return () => {
       active = false;
     };
@@ -1077,6 +1304,18 @@ export default function TrendsPage() {
                 className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none"
               />
             </label>
+
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Display</span>
+              <div className="flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={showTeamNames}
+                  onChange={(event) => setShowTeamNames(event.target.checked)}
+                />
+                <span>Show names</span>
+              </div>
+            </label>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -1155,7 +1394,7 @@ export default function TrendsPage() {
                     {summary.avgHitRate.toFixed(1)}%
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
-                    n={summary.count} · ≥80%: {summary.above80} · n≥10: {summary.sampleAtLeast10} · perfect: {summary.perfect}
+                    Rows: {summary.count} · Above 80%: {summary.above80} · 10+ Games: {summary.sampleAtLeast10} · Perfect: {summary.perfect}
                   </p>
                 </button>
               );
@@ -1180,11 +1419,12 @@ export default function TrendsPage() {
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
                 <tr>
                   <th className="w-12 px-4 py-2.5 text-right">#</th>
-                  <th className="px-4 py-2.5">Team / Entity</th>
+                  <th className="px-4 py-2.5">Team</th>
                   <th className="px-4 py-2.5">League</th>
                   <th className="px-4 py-2.5">Signal</th>
                   <th className="px-4 py-2.5">Layer</th>
                   <th className="px-4 py-2.5">Signal Quality</th>
+                  <th className="px-4 py-2.5">Next Game</th>
                   <th className="px-4 py-2.5 text-right">Game</th>
                   <th className="px-4 py-2.5">Direction</th>
                   <th className="px-4 py-2.5 text-center">Last held</th>
@@ -1193,7 +1433,7 @@ export default function TrendsPage() {
               <tbody>
                 {loadingRows ? (
                     <tr>
-                    <td colSpan={9}>
+                    <td colSpan={10}>
                       <div className="px-4 py-8 space-y-2">
                         <div className="h-6 w-1/3 rounded bg-slate-200 animate-pulse" />
                         <div className="h-4 w-full rounded bg-slate-100 animate-pulse" />
@@ -1204,39 +1444,46 @@ export default function TrendsPage() {
                   filtered.map((row, idx) => {
                     const quality = signalClass(row.signal_type);
                     const key = teamLeagueKey(row.team, row.league);
-                    const logo = logos[key];
-                    const leagueLabel = leagueDisplayLabel(row.league);
-                    const leagueIcon = leagueDisplayIcon(row.league);
-                    const strength = strengthScore(row);
-                    return (
+                    const logo = resolveTeamLogo(logos, row.team, row.league) || resolveEspnTeamLogo(row.team);
+                        const leagueLabel = leagueDisplayLabel(row.league);
+                        const leagueIcon = leagueDisplayIconUrl(row.league);
+                        const leagueIconFallback = leagueDisplayIconFallback(row.league);
+                        const nextGame = nextGames[key];
+                        const nextGameLogo = nextGame
+                          ? resolveTeamLogo(logos, nextGame.opponent, row.league) || resolveEspnTeamLogo(nextGame.opponent)
+                          : undefined;
+                        return (
                       <tr key={`${row.team}-${row.league}-${row.trend}-${idx}`} className="border-t border-slate-200 hover:bg-slate-50">
                         <td className="px-4 py-3 text-right text-xs font-mono text-slate-500">{idx + 1}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            {logo ? (
-                              <img
-                                src={logo}
-                                alt={row.team}
-                                width={18}
-                                height={18}
-                                loading="eager"
-                                decoding="async"
-                                className="h-5 w-5 rounded-full border border-slate-200 object-contain bg-white"
-                              />
+                            <TeamLogo logo={logo} name={row.team} className="h-5 w-5" />
+                            {showTeamNames ? (
+                              <span className="font-medium text-slate-800">
+                                {row.team}
+                                {row.record ? <span className="ml-1.5 text-xs text-slate-400">({row.record})</span> : null}
+                              </span>
                             ) : (
-                              <span className="inline-grid h-5 w-5 place-items-center rounded-full bg-slate-200 text-[10px] text-slate-500">
-                                {row.team.slice(0, 2).toUpperCase()}
+                              <span className="sr-only">
+                                {row.team}
+                                {row.record ? ` (${row.record})` : ''}
                               </span>
                             )}
-                            <span className="font-medium text-slate-800">
-                              {row.team}
-                              {row.record ? <span className="ml-1.5 text-xs text-slate-400">({row.record})</span> : null}
-                            </span>
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <span className="inline-flex items-center gap-2 text-xs text-slate-500">
-                            {leagueIcon ? <span aria-hidden="true">{leagueIcon}</span> : null}
+                            {leagueIcon ? (
+                              <img
+                                src={leagueIcon}
+                                alt=""
+                                className="h-4 w-4 rounded object-contain"
+                                loading="eager"
+                                decoding="async"
+                              />
+                            ) : (
+                              <span aria-hidden="true">{leagueIconFallback}</span>
+                            )}
                             <span className="font-normal">{leagueLabel}</span>
                           </span>
                         </td>
@@ -1248,6 +1495,31 @@ export default function TrendsPage() {
                         </td>
                         <td className="px-4 py-3">
                           <SignalQualityBar hitRate={row.hit_rate} sample={row.sample} />
+                        </td>
+                        <td className="px-4 py-3">
+                          {nextGame ? (
+                            <div className="text-xs leading-4">
+                              <p className="font-medium text-slate-700">
+                                <span className="mr-1 inline-flex items-center gap-1">
+                                  <TeamLogo logo={nextGameLogo} name={nextGame.opponent} className="h-4 w-4" />
+                                  {showTeamNames ? (
+                                    <span>
+                                      {nextGame.isHome ? 'vs' : '@'} {nextGame.opponent}
+                                    </span>
+                                  ) : (
+                                    <span className="sr-only">
+                                      {nextGame.isHome ? 'vs' : '@'} {nextGame.opponent}
+                                    </span>
+                                  )}
+                                </span>
+                              </p>
+                              <p className="font-mono text-slate-500" title={nextGame.startsAt}>
+                                {nextGame.startsLabel}
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right font-mono text-slate-700">{row.sample}</td>
                         <td className="px-4 py-3">
@@ -1264,7 +1536,7 @@ export default function TrendsPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-slate-500">
+                    <td colSpan={10} className="px-4 py-8 text-center text-sm text-slate-500">
                       {apiRowCount === 0
                         ? 'No trend rows returned from get_trends. Check API key/project configuration for this deployment.'
                         : 'No trends for current filters. Try lowering min hit %, lowering min games, or clearing search/signal filters.'}
