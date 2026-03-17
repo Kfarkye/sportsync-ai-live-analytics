@@ -53,50 +53,88 @@ const PUBLIC_PROXIES = [
     (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
 ];
 
+const BASE_PATH = '/apis/site/v2/sports/';
+
+const getEspnEndpoint = (url: string): string | null => {
+    try {
+        const u = new URL(url);
+        const idx = u.href.indexOf(BASE_PATH);
+        if (idx === -1) return null;
+        return u.href.substring(idx + BASE_PATH.length);
+    } catch {
+        return null;
+    }
+};
+
+const canUsePublicBrowserProxy = (): boolean => {
+    if (typeof window === 'undefined') return true;
+    const host = window.location.hostname;
+    return host === 'localhost' || host === '127.0.0.1';
+};
+
+const fetchViaFirstPartyProxy = async (endpoint: string): Promise<Response | null> => {
+    if (typeof window === 'undefined') return null;
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+        const res = await fetch(`/api/espn-proxy?endpoint=${encodeURIComponent(endpoint)}`, {
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) return res;
+    } catch {
+        // noop - caller applies fallbacks
+    }
+    return null;
+};
+
 // ============================================================================
 // REQUEST HANDLERS
 // ============================================================================
 
 export async function fetchWithFallback(url: string): Promise<any> {
+    const endpoint = getEspnEndpoint(url);
+
     // 1. Try Edge Function (optional proxy hook)
-    if (proxyInvoker) {
+    if (proxyInvoker && endpoint) {
         try {
-            const u = new URL(url);
-            const basePath = '/apis/site/v2/sports/';
-            const idx = u.href.indexOf(basePath);
-            if (idx > -1) {
-                const endpoint = u.href.substring(idx + basePath.length);
+            // Add explicit timeout to proxy call to prevent stalling on mobile
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
 
-                // Add explicit timeout to proxy call to prevent stalling on mobile
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+            const res = await proxyInvoker(endpoint, controller.signal);
 
-                const res = await proxyInvoker(endpoint, controller.signal);
+            clearTimeout(timeoutId);
 
-                clearTimeout(timeoutId);
-
-                if (res && res.ok) {
-                    return res;
-                }
+            if (res && res.ok) {
+                return res;
             }
         } catch (e) {
             Logger.debug('ESPNService', 'Edge proxy unavailable or timed out');
         }
     }
 
-    // 2. Try public CORS proxies
-    for (const proxy of PUBLIC_PROXIES) {
-        try {
-            const proxyUrl = proxy(url);
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
-            const res = await fetch(proxyUrl, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            if (res.ok) return res;
-        } catch { continue; }
+    // 2. Browser: try first-party Vercel API proxy (same-origin, no CORS risk)
+    if (endpoint) {
+        const firstPartyProxyRes = await fetchViaFirstPartyProxy(endpoint);
+        if (firstPartyProxyRes) return firstPartyProxyRes;
     }
 
-    // 3. Direct fetch (works in Node.js/SSR)
+    // 3. Optional public CORS proxies (dev/local only in browser, always allowed server-side)
+    if (canUsePublicBrowserProxy()) {
+        for (const proxy of PUBLIC_PROXIES) {
+            try {
+                const proxyUrl = proxy(url);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+                const res = await fetch(proxyUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (res.ok) return res;
+            } catch { continue; }
+        }
+    }
+
+    // 4. Direct fetch (works in Node.js/SSR)
     if (typeof window === 'undefined') {
         try { return await resilientFetch(url); } catch (e) { }
     }

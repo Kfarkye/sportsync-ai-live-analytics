@@ -4,9 +4,10 @@ import { createClient } from '@supabase/supabase-js';
 // CONFIGURATION
 // ====================================================================================
 
-// Retrieve configuration using static access only to prevent bundling of all VITE_ env vars
-const supabaseUrl = ((import.meta as any).env.VITE_SUPABASE_URL || '').trim();
-const supabaseAnonKey = ((import.meta as any).env.VITE_SUPABASE_ANON_KEY || '').trim();
+// Retrieve configuration using static access only to prevent bundling of unrelated env vars
+const env = (import.meta as any).env || {};
+const supabaseUrl = (env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+const supabaseAnonKey = (env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
 
 // Debug Logging
 const isKeyValid = supabaseAnonKey && supabaseAnonKey.length > 20 && !supabaseAnonKey.startsWith('Missing');

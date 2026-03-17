@@ -230,7 +230,7 @@ const SYSTEM = {
     void: "bg-slate-950/20 backdrop-blur-2xl border border-white/10",
     panel: "bg-white/82 border border-white/30",
     /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
-    glass: "bg-white/14 backdrop-blur-xl backdrop-saturate-180 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]",
+    glass: "bg-white/96 backdrop-blur-md border border-slate-200/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]",
     hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20 shadow-[inset_0_1px_0_rgba(245,158,11,0.1)]",
     milled: "border-t border-slate-200 border-b border-black/50 border-x border-slate-200",
     alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20 shadow-[inset_0_1px_0_rgba(225,29,72,0.1)]",
@@ -245,11 +245,11 @@ const SYSTEM = {
 } as const;
 
 const CHAT_SURFACES = {
-  shell: "bg-white/12 border border-white/22 backdrop-blur-xl",
+  shell: "bg-white/96 border border-slate-200/90 backdrop-blur-sm",
   panel: "bg-slate-900/65 border border-white/12 backdrop-blur-lg",
-  chip: "bg-white/10 border border-white/16 backdrop-blur-sm",
-  soft: "bg-white/8 border border-white/14",
-  textGlass: "bg-white/14 border border-white/24",
+  chip: "bg-slate-50/96 border border-slate-200/85 backdrop-blur-sm",
+  soft: "bg-white/94 border border-slate-200/85",
+  textGlass: "bg-white/92 border border-slate-200/85",
 } as const;
 
 const RETRY_CONFIG = { maxAttempts: 3, baseDelay: 1000, maxDelay: 8000, jitterFactor: 0.3 } as const;
@@ -3536,7 +3536,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
           className={cn(
             "flex flex-col overflow-hidden transition-all duration-500 isolate relative z-50 will-change-transform",
             inline
-              ? "w-full h-full bg-transparent"
+              ? "w-full h-full bg-white/96"
               : cn(
                 "w-full md:w-[460px] h-dvh md:h-[min(840px,90dvh)]",
                 "rounded-[28px] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]",
@@ -3661,7 +3661,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
           {/* Scroll anchor — visible when user has scrolled up */}
           <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
 
-          <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-6 backdrop-blur-xl bg-white/80 border-t border-slate-200/60 pointer-events-none">
+          <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-6 backdrop-blur-xl bg-white/96 border-t border-slate-200/80 pointer-events-none">
             <div className="pointer-events-auto relative">
               <AnimatePresence>
                 {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}

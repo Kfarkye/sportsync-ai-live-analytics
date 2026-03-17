@@ -41,6 +41,29 @@ const fetchFallbackMatches = async (date: Date, fetchedAt: number = Date.now()):
   ));
 };
 
+const fetchFallbackWithCache = async (
+  date: Date,
+  dateStr: string,
+  fetchedAt: number,
+  cached?: { etag: string; data: Match[] }
+): Promise<Match[]> => {
+  try {
+    const fallback = await fetchFallbackMatches(date, fetchedAt);
+    if (fallback.length > 0) {
+      matchCache.set(dateStr, {
+        etag: cached?.etag ?? `fallback-${fetchedAt}`,
+        data: fallback,
+      });
+      return fallback;
+    }
+  } catch (error) {
+    console.warn('ESPN fallback failed:', error);
+  }
+
+  if (cached?.data?.length) return cached.data;
+  return [];
+};
+
 const fetchMatches = async (date: Date): Promise<Match[]> => {
   if (!date || isNaN(date.getTime())) {
     console.error("useMatches: Invalid date provided to fetchMatches");
@@ -55,9 +78,21 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
   }
 
   const SUPABASE_URL = getSupabaseUrl();
+  const rawAnonKey = (
+    typeof import.meta.env.VITE_SUPABASE_ANON_KEY === 'string'
+      ? import.meta.env.VITE_SUPABASE_ANON_KEY
+      : typeof (import.meta as any).env?.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'string'
+        ? (import.meta as any).env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        : ''
+  ).trim();
+
+  if (!SUPABASE_URL || !rawAnonKey) {
+    return fetchFallbackWithCache(date, dateStr, Date.now(), matchCache.get(dateStr));
+  }
+
   // FIX: Provide Vite the exact string to replace at build-time
   // @ts-ignore - Vite needs this exact string format for replacement, despite TS warnings
-  const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY.trim();
+  const SUPABASE_ANON_KEY = rawAnonKey;
 
   const cached = matchCache.get(dateStr);
   let res: Response;
@@ -75,25 +110,43 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
     });
   } catch (err) {
     console.warn('fetch-matches network error, using ESPN fallback:', err);
-    return fetchFallbackMatches(date);
+    return fetchFallbackWithCache(date, dateStr, Date.now(), cached);
   }
 
   if (res.status === 304 && cached) {
     if (cached.data.length > 0) return cached.data;
-    return fetchFallbackMatches(date);
+    return fetchFallbackWithCache(date, dateStr, Date.now(), cached);
   }
 
   if (!res.ok) {
     const errText = await res.text();
     console.error("fetch-matches failed:", res.status, errText);
-    return fetchFallbackMatches(date);
+    return fetchFallbackWithCache(date, dateStr, Date.now(), cached);
   }
 
-  const data = await res.json();
   const fetchedAt = Date.now();
+  let data: unknown;
 
+  try {
+    data = await res.json();
+  } catch (error) {
+    console.warn('fetch-matches JSON parse failed:', error);
+    return fetchFallbackWithCache(date, dateStr, fetchedAt, cached);
+  }
+
+  const payload = data as { data?: unknown; matches?: unknown } | unknown[];
   // FIX: Safely extract matches in case Edge Function returns { data: [...] } or { matches: [...] }
-  const rawMatches = Array.isArray(data) ? data : (data?.data || data?.matches || []);
+  const rawMatches = Array.isArray(payload)
+    ? payload
+    : (payload && typeof payload === 'object' && Array.isArray(payload.data))
+      ? payload.data
+      : (payload && typeof payload === 'object' && Array.isArray(payload.matches))
+        ? payload.matches
+        : [];
+  if (!Array.isArray(rawMatches)) {
+    return fetchFallbackWithCache(date, dateStr, fetchedAt, cached);
+  }
+
   const matches: Match[] = rawMatches.map((item: Match) => (
     typeof item?.fetched_at === 'number'
       ? item
@@ -101,16 +154,17 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
   ));
   const etag = res.headers.get('etag');
   if (matches.length > 0) {
-    if (etag) matchCache.set(dateStr, { etag, data: matches });
+    matchCache.set(dateStr, {
+      etag: etag ?? cached?.etag ?? `primary-${fetchedAt}`,
+      data: matches,
+    });
     return matches;
   }
 
   // Fail-open fallback: if Edge returns an empty slate, hydrate directly from ESPN.
   // This protects feed availability when DB ingest/joins are delayed.
-  const fallbackMatches = await fetchFallbackMatches(date, fetchedAt);
-  if (etag && fallbackMatches.length > 0) {
-    matchCache.set(dateStr, { etag, data: fallbackMatches });
-  } else if (fallbackMatches.length === 0) {
+  const fallbackMatches = await fetchFallbackWithCache(date, dateStr, fetchedAt, cached);
+  if (fallbackMatches.length === 0 && !cached?.data?.length) {
     matchCache.delete(dateStr);
   }
   return fallbackMatches;
