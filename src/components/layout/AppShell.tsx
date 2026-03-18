@@ -7,6 +7,7 @@ import MatchList from '../match/MatchList';
 import MatchDetails from '../match/MatchDetails';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
+import ChatWidget from '../ChatWidget';
 import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
@@ -36,11 +37,13 @@ const AppShell: FC = () => {
     isSportDrawerOpen,
     isPricingModalOpen,
     isRankingsDrawerOpen,
+    isGlobalChatOpen,
     toggleCmdk,
     toggleAuthModal,
     togglePricingModal,
     toggleSportDrawer,
     toggleRankingsDrawer,
+    toggleGlobalChat,
     setShowLanding,
     setSelectedDate,
     closeAllOverlays,
@@ -277,6 +280,21 @@ const AppShell: FC = () => {
           </MotionDiv>
         )}
       </AnimatePresence>
+
+      <ChatWidget currentMatch={selectedMatch ?? undefined} matches={filteredMatches} />
+      {!isGlobalChatOpen && (
+        <button
+          type="button"
+          onClick={() => toggleGlobalChat(true)}
+          aria-label="Open AI chat"
+          className="fixed bottom-6 right-4 md:bottom-8 md:right-8 z-[9999] inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-slate-200 shadow-[0_14px_36px_-18px_rgba(15,23,42,0.45)] text-slate-800"
+        >
+          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+          <span className="text-[11px] font-semibold tracking-[0.05em] uppercase" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+            AI Chat
+          </span>
+        </button>
+      )}
 
       <Suspense fallback={null}>
         <CommandPalette isOpen={isCmdkOpen} onClose={() => toggleCmdk(false)} matches={matches} onSelect={setSelectedMatch} />

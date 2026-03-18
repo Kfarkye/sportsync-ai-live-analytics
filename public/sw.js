@@ -5,7 +5,7 @@
 // This gives the app installability + instant shell on repeat visits.
 // ============================================================================
 
-const CACHE_NAME = 'sportsync-v4';
+const CACHE_NAME = 'sportsync-v5';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
