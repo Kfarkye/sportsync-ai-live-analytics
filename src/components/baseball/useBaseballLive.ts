@@ -35,6 +35,25 @@ function getRefetchInterval(status: MatchStatus | string): number | false {
  * or returns null, the component renders with Match data alone.
  */
 async function fetchBaseballLiveData(matchId: string): Promise<BaseballLiveData | null> {
+  const fetchFromApiRoute = async (): Promise<BaseballLiveData | null> => {
+    try {
+      const eventId = String(matchId || '').split('_')[0];
+      if (!eventId) return null;
+
+      const res = await fetch(`/api/baseball-live?matchId=${encodeURIComponent(eventId)}`, {
+        method: 'GET',
+      });
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      if (!data || typeof data !== 'object') return null;
+      if ('error' in data) return null;
+      return data as BaseballLiveData;
+    } catch {
+      return null;
+    }
+  };
+
   try {
     const { data, error } = await supabase.functions.invoke('baseball-live', {
       body: { matchId },
@@ -45,17 +64,28 @@ async function fetchBaseballLiveData(matchId: string): Promise<BaseballLiveData 
       if (process.env.NODE_ENV === 'development') {
         console.warn('[useBaseballLive] Edge function error:', error.message);
       }
-      return null;
+      return fetchFromApiRoute();
     }
 
-    if (!data || typeof data !== 'object') return null;
+    if (!data || typeof data !== 'object') {
+      return fetchFromApiRoute();
+    }
 
-    return data as BaseballLiveData;
+    const candidate = data as BaseballLiveData;
+    const hasPitches = Array.isArray((candidate as { pitches?: unknown[] }).pitches)
+      && ((candidate as { pitches?: unknown[] }).pitches?.length ?? 0) > 0;
+
+    if (hasPitches) return candidate;
+
+    const fallback = await fetchFromApiRoute();
+    if (fallback) return fallback;
+
+    return candidate;
   } catch (err) {
     if (process.env.NODE_ENV === 'development') {
       console.warn('[useBaseballLive] Fetch failed:', err);
     }
-    return null;
+    return fetchFromApiRoute();
   }
 }
 

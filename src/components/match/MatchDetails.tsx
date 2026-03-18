@@ -1238,7 +1238,12 @@ export interface MatchDetailsProps {
 const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matches = [], onSelectMatch }) => {
   const { match, liveState, connectionStatus, error, isInitialLoad } = useMatchPolling(initialMatch as ExtendedMatch);
 
-  const isBaseball = match.sport === Sport.BASEBALL;
+  const sportKey = String(match.sport || '').toUpperCase();
+  const leagueKey = String(match.leagueId || '').toLowerCase();
+  const isBaseball =
+    match.sport === Sport.BASEBALL ||
+    sportKey.includes('BASEBALL') ||
+    leagueKey.includes('mlb');
   const { data: rawBaseballData } = useBaseballLive(match.id, match.status, isBaseball);
   const baseballData = rawBaseballData as BaseballLiveResponse | null | undefined;
 

@@ -339,7 +339,7 @@ const BSORow: FC<{ label: string; count: number; max: number; colorClass: string
             key={i}
             className={cn(
               'w-2 h-2 rounded-full transition-all duration-200',
-              i < count ? colorClass : 'bg-slate-100 border border-slate-200',
+              i < count ? colorClass : 'bg-slate-200 border border-slate-300',
             )}
             style={i < count ? { boxShadow: `0 0 4px currentColor` } : undefined}
           />
@@ -352,7 +352,7 @@ BSORow.displayName = 'BSORow';
 
 const BSO: FC<BSOProps> = memo(({ balls, strikes, outs, className }) => (
   <div
-    className={cn('flex gap-4 rounded-xl border border-slate-200 bg-white px-3 py-2.5', className)}
+    className={cn('flex gap-4 rounded-xl border border-slate-300 bg-slate-50/70 px-3 py-2.5', className)}
     aria-label={`Count: ${balls} balls, ${strikes} strikes, ${outs} outs`}
   >
     <BSORow label="B" count={balls} max={4} colorClass="bg-blue-500" aria={`${balls} balls`} />
@@ -513,8 +513,8 @@ const PlayerAvatar: FC<{ initials: string; color: string }> = memo(({ initials, 
   <div
     className="w-[46px] h-[46px] rounded-xl flex items-center justify-center font-mono text-[13px] font-black"
     style={{
-      background: `linear-gradient(135deg, ${color}22, ${color}08)`,
-      border: `1px solid ${color}22`,
+      background: `linear-gradient(135deg, ${color}2E, ${color}12)`,
+      border: `1px solid ${color}38`,
       color,
     }}
   >
@@ -597,7 +597,7 @@ const DueUp: FC<DueUpProps> = memo(({ teamName, teamColor, players }) => {
     <Card className="p-3! bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] border border-[#D8E2F1] shadow-[0_10px_22px_-20px_rgba(16,34,58,0.45)]">
       <div className="flex items-center gap-1.5 mb-2.5">
         <div className="w-[3px] h-2.5 rounded-sm" style={{ background: teamColor }} />
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{teamName} Due Up</span>
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">{teamName} Due Up</span>
       </div>
       <div className="grid grid-cols-2 gap-2">
         {players.slice(0, 2).map((p, i) => (
@@ -605,13 +605,13 @@ const DueUp: FC<DueUpProps> = memo(({ teamName, teamColor, players }) => {
             key={`due-${i}`}
             className="p-2.5 rounded-lg bg-slate-50 border border-slate-200"
           >
-            <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">{i === 0 ? 'ON DECK' : 'IN THE HOLE'}</span>
+            <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-600">{i === 0 ? 'ON DECK' : 'IN THE HOLE'}</span>
             <div className="mt-1 text-[13px] font-semibold text-slate-900">{p.name}</div>
-            <div className="mt-0.5 font-mono text-[10px] text-slate-500">
+            <div className="mt-0.5 font-mono text-[10px] text-slate-600">
               {p.position} ({p.bats})
             </div>
             <div className="flex justify-between mt-1">
-              <span className="font-mono text-[9px] text-slate-500 uppercase tracking-[0.12em]">Today</span>
+              <span className="font-mono text-[9px] text-slate-600 uppercase tracking-[0.12em]">Today</span>
               <span className="font-mono text-[10px] font-bold text-slate-900 tabular-nums">{p.todayLine}</span>
             </div>
           </div>
@@ -650,14 +650,14 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
   const cols = `38px repeat(${innings}, minmax(18px, 1fr)) 4px repeat(3, minmax(18px, 1fr))`;
 
   const HeaderCell: FC<{ label: string }> = ({ label }) => (
-    <div className="text-center py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</div>
+    <div className="text-center py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-600">{label}</div>
   );
 
   const ScoreCell: FC<{ val: string; active: boolean }> = ({ val, active }) => (
     <div
       className={cn(
         'font-mono text-[11px] tabular-nums text-center py-1.5 transition-all duration-300',
-        active ? 'font-bold text-slate-900 border-b-2 border-orange-500' : val ? 'text-slate-500' : 'text-slate-400',
+        active ? 'font-bold text-slate-900 border-b-2 border-orange-500' : val ? 'text-slate-600' : 'text-slate-400',
       )}
     >
       {val}
@@ -706,7 +706,7 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
         <HeaderCell label="E" />
       </div>
       <TeamRow team={away} scores={awayScores} isAway hits={awayBox.hits} errors={awayBox.errors} />
-      <div className="h-px bg-slate-100" />
+      <div className="h-px bg-slate-200" />
       <TeamRow team={home} scores={homeScores} isAway={false} hits={homeBox.hits} errors={homeBox.errors} />
     </Card>
   );
@@ -1008,6 +1008,38 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
 
   return (
     <motion.div {...FADE_IN} className="flex flex-col gap-2.5">
+      <Card className="p-3.5! bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] border border-[#D8E2F1] shadow-[0_10px_22px_-20px_rgba(16,34,58,0.45)]">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-2 w-2 rounded-full bg-[#1D9E75]" />
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#10223A]">
+              Baseball Live Hub
+            </span>
+          </div>
+          <span className="font-mono text-[10px] text-slate-600 uppercase tracking-[0.12em]">
+            {formatInning(inning, inningHalf)}
+          </span>
+        </div>
+        <div className="mt-2.5 grid grid-cols-3 gap-2">
+          <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+            <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500">Count</div>
+            <div className="font-mono text-[11px] font-bold text-slate-900 tabular-nums">
+              {balls}-{strikes}
+            </div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+            <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500">Outs</div>
+            <div className="font-mono text-[11px] font-bold text-slate-900 tabular-nums">{outs}</div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+            <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500">Runners</div>
+            <div className="font-mono text-[11px] font-bold text-slate-900 uppercase tracking-[0.1em]">
+              {runners.first || runners.second || runners.third ? 'On' : 'Empty'}
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {/* View Toggle (live only) */}
       {isLive && (
         <div
