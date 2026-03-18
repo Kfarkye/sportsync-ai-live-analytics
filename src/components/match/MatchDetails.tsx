@@ -18,6 +18,7 @@ import React, {
   useRef,
   memo,
   useDeferredValue,
+  useId,
   type FC,
   type ReactNode,
 } from 'react';
@@ -34,7 +35,6 @@ import { getMatchDisplayStats } from '../../utils/statDisplay';
 
 // Services
 import { fetchMatchDetailsExtended, fetchTeamLastFive } from '../../services/espnService';
-import { fetchNhlGameDetails } from '../../services/nhlService';
 import { supabase } from '../../lib/supabase';
 import { pregameIntelService, type PregameIntelResponse } from '../../services/pregameIntelService';
 import {
@@ -143,6 +143,11 @@ interface ExtendedMatch extends Omit<Match, 'context'> {
   awayTeam: Match['awayTeam'] & { last5?: RecentFormGame[] };
   dbProps?: ExtendedPropBet[];
   edge_tags?: MatchEdgeTag[];
+}
+
+interface BaseballLiveResponse {
+  edge?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 interface ForecastPoint { clock: string; fairTotal: number; marketTotal: number; edgeState: 'PLAY' | 'LEAN' | 'NEUTRAL' | string; timestamp: number; }
@@ -533,42 +538,48 @@ const BroadcastOverlay = memo(() => (
   </div>
 ));
 
-const BasketballCourt = memo(({ children }: { children?: ReactNode }) => (
-  <svg viewBox="0 0 100 56.25" className="w-full h-full select-none bg-[#FAFAFA]">
-    <defs>
-      <radialGradient id="courtGlow" cx="0.5" cy="0.5" r="0.8">
-        <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-        <stop offset="100%" stopColor="#f4f4f5" stopOpacity="1" />
-      </radialGradient>
-      <linearGradient id="floorShine" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="white" stopOpacity="0.6" />
-        <stop offset="50%" stopColor="white" stopOpacity="0" />
-      </linearGradient>
-    </defs>
-    <rect width="100" height="56.25" fill="url(#courtGlow)" />
-    <g fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth="0.4">
-      <rect x="2" y="2" width="96" height="52.25" rx="0.5" />
-      <line x1="50" y1="2" x2="50" y2="54.25" />
-      <circle cx="50" cy="28.125" r="6" />
-      <g>
-        <path d="M2,18.125 h14 v20 h-14" fill="rgba(0,0,0,0.015)" />
-        <circle cx="16" cy="28.125" r="6" strokeDasharray="1.5 1.5" />
-        <path d="M2,5.125 a23,23 0 0 1 0,46" />
-        <circle cx="5.25" cy="28.125" r="0.75" fill="rgba(0,0,0,0.8)" stroke="none" />
-        <line x1="4" y1="25.125" x2="4" y2="31.125" strokeWidth="0.6" />
+const BasketballCourt = memo(({ children }: { children?: ReactNode }) => {
+  const rawId = useId();
+  // Strip colons from useId() (e.g. ":r0:") to ensure valid SVG/CSS URL references
+  const courtId = rawId.replace(/:/g, '');
+
+  return (
+    <svg viewBox="0 0 100 56.25" className="w-full h-full select-none bg-[#FAFAFA]">
+      <defs>
+        <radialGradient id={`courtGlow-${courtId}`} cx="0.5" cy="0.5" r="0.8">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+          <stop offset="100%" stopColor="#f4f4f5" stopOpacity="1" />
+        </radialGradient>
+        <linearGradient id={`floorShine-${courtId}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="white" stopOpacity="0.6" />
+          <stop offset="50%" stopColor="white" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect width="100" height="56.25" fill={`url(#courtGlow-${courtId})`} />
+      <g fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth="0.4">
+        <rect x="2" y="2" width="96" height="52.25" rx="0.5" />
+        <line x1="50" y1="2" x2="50" y2="54.25" />
+        <circle cx="50" cy="28.125" r="6" />
+        <g>
+          <path d="M2,18.125 h14 v20 h-14" fill="rgba(0,0,0,0.015)" />
+          <circle cx="16" cy="28.125" r="6" strokeDasharray="1.5 1.5" />
+          <path d="M2,5.125 a23,23 0 0 1 0,46" />
+          <circle cx="5.25" cy="28.125" r="0.75" fill="rgba(0,0,0,0.8)" stroke="none" />
+          <line x1="4" y1="25.125" x2="4" y2="31.125" strokeWidth="0.6" />
+        </g>
+        <g transform="scale(-1, 1) translate(-100, 0)">
+          <path d="M2,18.125 h14 v20 h-14" fill="rgba(0,0,0,0.015)" />
+          <circle cx="16" cy="28.125" r="6" strokeDasharray="1.5 1.5" />
+          <path d="M2,5.125 a23,23 0 0 1 0,46" />
+          <circle cx="5.25" cy="28.125" r="0.75" fill="rgba(0,0,0,0.8)" stroke="none" />
+          <line x1="4" y1="25.125" x2="4" y2="31.125" strokeWidth="0.6" />
+        </g>
       </g>
-      <g transform="scale(-1, 1) translate(-100, 0)">
-        <path d="M2,18.125 h14 v20 h-14" fill="rgba(0,0,0,0.015)" />
-        <circle cx="16" cy="28.125" r="6" strokeDasharray="1.5 1.5" />
-        <path d="M2,5.125 a23,23 0 0 1 0,46" />
-        <circle cx="5.25" cy="28.125" r="0.75" fill="rgba(0,0,0,0.8)" stroke="none" />
-        <line x1="4" y1="25.125" x2="4" y2="31.125" strokeWidth="0.6" />
-      </g>
-    </g>
-    <rect width="100" height="56.25" fill="url(#floorShine)" pointerEvents="none" />
-    {children}
-  </svg>
-));
+      <rect width="100" height="56.25" fill={`url(#floorShine-${courtId})`} pointerEvents="none" />
+      {children}
+    </svg>
+  );
+});
 
 const Gridiron = memo(({ children }: { children?: ReactNode }) => (
   <svg viewBox="0 0 120 53.3" className="w-full h-full select-none bg-[#FAFAFA]">
@@ -632,7 +643,8 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
       );
     }
 
-    return <LiveGameTracker match={match as unknown as Match} liveState={liveState as any} showHeader={false} headerVariant="embedded" />;
+    // FIX 5: Clean type assertion to Record
+    return <LiveGameTracker match={match as unknown as Match} liveState={liveState as unknown as Record<string, unknown>} showHeader={false} headerVariant="embedded" />;
   };
 
   const periodLabel = match.period ? `P${match.period}` : '';
@@ -646,7 +658,7 @@ const CinematicGameTracker = memo(({ match, liveState }: { match: ExtendedMatch;
           {(liveState?.possession || match.possession) && (
             <div className="px-3.5 py-1.5 bg-black/80 backdrop-blur-xl text-white text-[10px] tracking-[0.25em] font-mono rounded-full ring-1 ring-white/10 uppercase shadow-lg font-semibold flex items-center gap-2">
               <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-              <span>POSS <span className="text-white/40 mx-0.5">/</span> {liveState?.possession || match.possession}</span>
+              <span className="whitespace-nowrap">POSS <span className="text-white/40 mx-0.5">/</span> {liveState?.possession || match.possession}</span>
             </div>
           )}
         </div>
@@ -747,8 +759,13 @@ const NbaContextPanel = memo(({ match, liveState }: { match: Match; liveState: L
       matchWithExtras.lead_ref ||
       null;
 
+    // FIX 4: Stable timestamp (rounded down to minute) to prevent network thrashing on clock ticks
+    const asOfTimestamp = isGameInProgress(match.status)
+      ? new Date(Math.floor(Date.now() / 60000) * 60000).toISOString()
+      : match.startTime;
+
     return {
-      asOf: isGameInProgress(match.status) ? new Date().toISOString() : match.startTime,
+      asOf: asOfTimestamp,
       period: liveState?.period ?? match.period ?? null,
       clock: liveState?.clock ?? match.displayClock ?? null,
       homeScore: liveState?.home_score ?? match.homeScore ?? null,
@@ -883,7 +900,11 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
         const h = live.home_score ?? prev.homeScore ?? 0;
         const a = live.away_score ?? prev.awayScore ?? 0;
         const c = live.clock || prev.displayClock;
-        const p = typeof live.period === 'string' ? parseInt(live.period, 10) || prev.period : (live.period ?? prev.period);
+        
+        // FIX 2: Safely parse '0' states accurately instead of dropping them due to falsiness
+        const parsedP = parseInt(String(live.period), 10);
+        const p = typeof live.period === 'string' ? (!Number.isNaN(parsedP) ? parsedP : prev.period) : (live.period ?? prev.period);
+        
         // FIX 1: Explicitly checking ID presence prevents undefined === undefined shallow merging error
         const lp = live.lastPlay
           ? (prev.lastPlay?.id != null && live.lastPlay.id != null && prev.lastPlay.id === live.lastPlay.id
@@ -1124,7 +1145,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
 
   }, [initialMatch.id]);
 
-  // FIX 4: Visibility-aware polling completely halts the event loop when the tab is hidden to save client CPU
+  // FIX 1: Prevent visibility polling overlaps (Memory Leak)
   useEffect(() => {
     let timeoutId: number | undefined;
     let isActive = true;
@@ -1144,6 +1165,10 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        if (timeoutId !== undefined) {
+          window.clearTimeout(timeoutId);
+          timeoutId = undefined;
+        }
         fetchData();
         scheduleNext();
       } else {
@@ -1157,6 +1182,10 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     if (document.visibilityState === 'visible') {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
       fetchData();
       scheduleNext();
     }
@@ -1210,7 +1239,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const { match, liveState, connectionStatus, error, isInitialLoad } = useMatchPolling(initialMatch as ExtendedMatch);
 
   const isBaseball = match.sport === Sport.BASEBALL;
-  const { data: baseballData } = useBaseballLive(match.id, match.status, isBaseball);
+  const { data: rawBaseballData } = useBaseballLive(match.id, match.status, isBaseball);
+  const baseballData = rawBaseballData as BaseballLiveResponse | null | undefined;
+
   const [pregameIntel, setPregameIntel] = useState<PregameIntelResponse | null>(null);
   useKeyboardNavigation(matches, match.id, onSelectMatch);
 
@@ -1225,7 +1256,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
   const homeColor = useMemo(() => normalizeColor(match?.homeTeam?.color, '#3B82F6'), [match.homeTeam]);
   const awayColor = useMemo(() => normalizeColor(match?.awayTeam?.color, '#EF4444'), [match.awayTeam]);
-  const displayStats = useMemo(() => getMatchDisplayStats(match, 8), [match]);
+  const displayStats = useMemo(
+    () => (match?.homeTeam && match?.awayTeam ? getMatchDisplayStats(match, 8) : []),
+    [match]
+  );
 
   const [activeTab, setActiveTab] = useState(isSched ? 'DETAILS' : 'OVERVIEW');
   const deferredTab = useDeferredValue(activeTab);
@@ -1254,8 +1288,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     const nextMatch = matches[(idx + dir + matches.length) % matches.length];
     if (nextMatch) onSelectMatch?.(nextMatch);
   }, [matches, match.id, onSelectMatch]);
-
-  if (!match?.homeTeam) return <MatchupLoader className="h-screen bg-[#FBFBFD]" label="Synchronizing Hub" />;
 
   const TABS = useMemo(() => isSched
     ? [{ id: "DETAILS", label: "Matchup" }, { id: "PROPS", label: "Props" }, { id: "DATA", label: "Edge" }]
@@ -1398,6 +1430,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     if (!match.dbProps) return base;
     return [...base, ...match.dbProps.map(prop => ({ entityId: prop.playerName, keywords: prop.playerName.split(' ').filter(n => n.length > 2) }))];
   }, [match.dbProps]);
+
+  if (!match?.homeTeam || !match?.awayTeam) {
+    return <MatchupLoader className="h-screen bg-[#FBFBFD]" label="Synchronizing Hub" />;
+  }
 
   return (
     <div className="min-h-dvh text-black relative overflow-y-auto overflow-x-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white pb-[calc(env(safe-area-inset-bottom)+8rem)]">
@@ -1614,42 +1650,17 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       </div>
                     )}
 
-                    {/* FIX 2: Strict structural mapping for baseballData child interface */}
-                    {isBaseball && (baseballData as any)?.edge && (
+                    {/* FIX 5: Strict structural mapping for baseballData child interface */}
+                    {isBaseball && baseballData?.edge && (
                       <div className="mb-14">
                         <div className="flex items-center gap-3 mb-6"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" /><span className="text-[11px] font-bold text-black/50 uppercase tracking-[0.2em]">Edge Convergence</span></div>
-                        <BaseballEdgePanel edge={(baseballData as any).edge} />
+                        <BaseballEdgePanel edge={baseballData.edge as any} />
                       </div>
                     )}
 
                     <div className="mb-12"><ForecastHistoryTable matchId={match.id} leagueId={match.leagueId} /></div>
                   </div>
                 )}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
               </motion.div>
             </AnimatePresence>
@@ -1664,5 +1675,3 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 };
 
 export default memo(MatchDetails);
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                //
