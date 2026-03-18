@@ -11,9 +11,8 @@
      - Aligned :root variables with ESSENCE design system
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap') layer(base);
-
-@import 'tailwindcss';
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 /* ==========================================================================
    §1  CSS VARIABLES
