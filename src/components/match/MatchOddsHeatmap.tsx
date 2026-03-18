@@ -48,6 +48,9 @@ interface MatchOddsHeatmapProps {
   enabled?: boolean;
 }
 
+type OddsViewMode = 'all' | 'main' | 'props';
+type OddsSortMode = 'default' | 'volume' | 'flow';
+
 const clamp01 = (value: number | null | undefined): number => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 0.5;
   return Math.min(1, Math.max(0, value));
@@ -223,8 +226,11 @@ const MatchOddsHeatmap = ({
   enabled = false,
 }: MatchOddsHeatmapProps) => {
   const [propsExpanded, setPropsExpanded] = useState(false);
+  const [viewMode, setViewMode] = useState<OddsViewMode>('all');
+  const [sortMode, setSortMode] = useState<OddsSortMode>('default');
+  const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
 
-  const { data: oddsPayload, isFetching } = useQuery<OddsPayload>({
+  const { data: oddsPayload, isFetching, isRefetching, isError, refetch } = useQuery<OddsPayload>({
     queryKey: ['match-details', 'odds-heatmap', homeTeamName, awayTeamName, startTime || ''],
     enabled: enabled && Boolean(homeTeamName && awayTeamName),
     staleTime: 1000 * 60 * 2,
@@ -375,8 +381,42 @@ const MatchOddsHeatmap = ({
     };
   }, [oddsPayload?.rows]);
 
-  const allRows = [...orderedOddsRows.nonProps, ...(propsExpanded ? orderedOddsRows.props : [])];
+  const visibleRows = useMemo(() => {
+    const mainRows = orderedOddsRows.nonProps.filter((row) => {
+      const type = (row.market_type || '').toLowerCase();
+      return type === 'moneyline' || type === 'total' || type === 'spread';
+    });
+
+    let rows = (() => {
+      if (viewMode === 'props') return orderedOddsRows.props;
+      if (viewMode === 'main') return mainRows;
+      return [...orderedOddsRows.nonProps, ...(propsExpanded ? orderedOddsRows.props : [])];
+    })();
+
+    if (sortMode === 'volume') {
+      rows = [...rows].sort((a, b) => Number(b.volume || 0) - Number(a.volume || 0));
+    } else if (sortMode === 'flow') {
+      rows = [...rows].sort((a, b) => {
+        const aFlow = Math.abs(clamp01(a.recent_volume_imbalance) - 0.5) + Math.abs(clamp01(a.yes_no_imbalance) - 0.5);
+        const bFlow = Math.abs(clamp01(b.recent_volume_imbalance) - 0.5) + Math.abs(clamp01(b.yes_no_imbalance) - 0.5);
+        return bFlow - aFlow;
+      });
+    }
+    return rows;
+  }, [orderedOddsRows.nonProps, orderedOddsRows.props, propsExpanded, sortMode, viewMode]);
+
+  const allRows = visibleRows;
   const latestCapturedAt = oddsPayload?.rows?.[0]?.captured_at;
+  const totalVolume = useMemo(
+    () => (oddsPayload?.rows || []).reduce((acc, row) => acc + Number(row.volume || 0), 0),
+    [oddsPayload?.rows]
+  );
+  const formatCompactNumber = (n: number): string => {
+    if (!Number.isFinite(n)) return '0';
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+    return String(Math.round(n));
+  };
 
   return (
     <div className="w-full space-y-3">
@@ -393,8 +433,69 @@ const MatchOddsHeatmap = ({
         </span>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#D9E2F3] bg-white px-3 py-2">
+        <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+          {(['all', 'main', 'props'] as OddsViewMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setViewMode(mode)}
+              className={`px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] rounded-md transition-all ${
+                viewMode === mode
+                  ? 'bg-white border border-slate-200 font-semibold text-[#10223A]'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <select
+            value={sortMode}
+            onChange={(event) => setSortMode(event.target.value as OddsSortMode)}
+            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-slate-600"
+          >
+            <option value="default">default</option>
+            <option value="volume">volume</option>
+            <option value="flow">flow</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              void refetch();
+            }}
+            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50"
+          >
+            {isRefetching ? 'syncing' : 'refresh'}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Markets</div>
+          <div className="mt-1 text-[13px] font-semibold text-[#10223A] font-mono">{oddsPayload?.rows?.length || 0}</div>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Volume</div>
+          <div className="mt-1 text-[13px] font-semibold text-[#10223A] font-mono">{formatCompactNumber(totalVolume)}</div>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Rows</div>
+          <div className="mt-1 text-[13px] font-semibold text-[#10223A] font-mono">{allRows.length}</div>
+        </div>
+      </div>
+
       {isFetching && !(oddsPayload?.rows?.length) ? (
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-[11px] text-slate-500">Syncing exchange depth...</div>
+      ) : null}
+
+      {isError ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[11px] text-rose-700">
+          Exchange feed unavailable right now.
+        </div>
       ) : null}
 
       {allRows.length ? (
@@ -436,7 +537,10 @@ const MatchOddsHeatmap = ({
                   : 'text-slate-500';
 
             return (
-              <div key={row.market_ticker} className="rounded-xl border border-[#D9E2F3] bg-white px-3.5 py-3 shadow-[0_10px_24px_-22px_rgba(16,34,58,0.45)]">
+              <div
+                key={row.market_ticker}
+                className="rounded-xl border border-[#D9E2F3] bg-white px-3.5 py-3 shadow-[0_10px_24px_-22px_rgba(16,34,58,0.45)] transition-all hover:border-[#BFD1EC]"
+              >
                 <div className="flex items-baseline justify-between gap-2">
                   <div className="min-w-0 truncate text-[13px] font-medium text-[#10223A] tracking-tight">
                     <span>{row.market_label || row.market_ticker}</span>
@@ -481,6 +585,31 @@ const MatchOddsHeatmap = ({
                 <div className={`mt-2 text-[11px] font-semibold tracking-[0.03em] ${actionTone}`}>
                   {actionLabel}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setExpandedTicker(expandedTicker === row.market_ticker ? null : row.market_ticker)}
+                  className="mt-2 text-[10px] uppercase tracking-[0.1em] text-slate-500 hover:text-slate-700"
+                >
+                  {expandedTicker === row.market_ticker ? 'hide detail' : 'show detail'}
+                </button>
+
+                {expandedTicker === row.market_ticker ? (
+                  <div className="mt-2 grid grid-cols-3 gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+                    <div>
+                      <div className="text-[9px] uppercase tracking-[0.1em] text-slate-500">volume</div>
+                      <div className="text-[11px] font-mono text-[#10223A]">{formatCompactNumber(Number(row.volume || 0))}</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] uppercase tracking-[0.1em] text-slate-500">open int</div>
+                      <div className="text-[11px] font-mono text-[#10223A]">{formatCompactNumber(Number(row.open_interest || 0))}</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] uppercase tracking-[0.1em] text-slate-500">last side</div>
+                      <div className="text-[11px] font-mono text-[#10223A]">{(row.last_trade_side || '—').toUpperCase()}</div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
