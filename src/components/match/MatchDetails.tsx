@@ -1433,43 +1433,61 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       <div className="space-y-4">
                         <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>
                           <div className="space-y-4">
-                            <div className="flex items-center gap-5 border-b border-black/[0.07] pb-1">
-                              <button
-                                type="button"
-                                onClick={() => setMarketsTab('TRENDS')}
-                                className={cn(
-                                  "pb-1.5 text-[11px] uppercase tracking-[0.16em] transition-colors",
-                                  marketsTab === 'TRENDS'
-                                    ? "text-black font-medium border-b-2 border-[#1D9E75]"
-                                    : "text-black/45 hover:text-black/75"
-                                )}
-                              >
-                                Trends
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setMarketsTab('ODDS')}
-                                className={cn(
-                                  "pb-1.5 text-[11px] uppercase tracking-[0.16em] transition-colors",
-                                  marketsTab === 'ODDS'
-                                    ? "text-black font-medium border-b-2 border-[#1D9E75]"
-                                    : "text-black/45 hover:text-black/75"
-                                )}
-                              >
-                                Odds
-                              </button>
+                            <div className="flex items-center justify-between gap-3 border-b border-black/[0.07] pb-1">
+                              <div className="inline-flex items-center rounded-lg border border-[#D4DEEF] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] p-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setMarketsTab('TRENDS')}
+                                  className={cn(
+                                    "px-3 py-1.5 rounded-md text-[10px] uppercase tracking-[0.16em] transition-all",
+                                    marketsTab === 'TRENDS'
+                                      ? "bg-white shadow-[0_6px_14px_-12px_rgba(0,0,0,0.5)] text-black font-semibold border border-black/[0.1]"
+                                      : "text-black/50 hover:text-black/80"
+                                  )}
+                                >
+                                  Trends
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setMarketsTab('ODDS')}
+                                  className={cn(
+                                    "px-3 py-1.5 rounded-md text-[10px] uppercase tracking-[0.16em] transition-all",
+                                    marketsTab === 'ODDS'
+                                      ? "bg-[linear-gradient(180deg,#1D9E75_0%,#177F60_100%)] text-white font-semibold shadow-[0_10px_20px_-16px_rgba(29,158,117,0.75)]"
+                                      : "text-black/50 hover:text-black/80"
+                                  )}
+                                >
+                                  Odds
+                                </button>
+                              </div>
+
+                              {marketsTab === 'ODDS' ? (
+                                <span className="text-[10px] font-mono text-black/45">Kalshi market depth</span>
+                              ) : null}
                             </div>
 
-                            {marketsTab === 'TRENDS' ? (
-                              isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />
-                            ) : (
-                              <MatchOddsHeatmap
-                                homeTeamName={match.homeTeam?.name || ''}
-                                awayTeamName={match.awayTeam?.name || ''}
-                                startTime={match.startTime}
-                                enabled={marketsTab === 'ODDS'}
-                              />
-                            )}
+                            <div className="rounded-xl border border-[#D9E2F3]/60 bg-[linear-gradient(180deg,#FFFFFF_0%,#FAFCFF_100%)] p-3 sm:p-4">
+                              {marketsTab === 'TRENDS' ? (
+                                isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />
+                              ) : (
+                                <MatchOddsHeatmap
+                                  homeTeamName={match.homeTeam?.name || ''}
+                                  awayTeamName={match.awayTeam?.name || ''}
+                                  startTime={match.startTime}
+                                  homeAliases={[
+                                    match.homeTeam?.shortName || '',
+                                    match.homeTeam?.abbreviation || '',
+                                    match.homeTeam?.displayName || '',
+                                  ]}
+                                  awayAliases={[
+                                    match.awayTeam?.shortName || '',
+                                    match.awayTeam?.abbreviation || '',
+                                    match.awayTeam?.displayName || '',
+                                  ]}
+                                  enabled={marketsTab === 'ODDS'}
+                                />
+                              )}
+                            </div>
                           </div>
                         </SpecSheetRow>
                         <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>

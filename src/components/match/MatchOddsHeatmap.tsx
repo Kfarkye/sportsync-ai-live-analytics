@@ -8,7 +8,8 @@ type KalshiEventCandidate = {
   home_team: string | null;
   away_team: string | null;
   game_date: string | null;
-  status: string;
+  status: string | null;
+  last_snapshot_at?: string | null;
 };
 
 type KalshiSnapshotRow = {
@@ -36,6 +37,8 @@ interface MatchOddsHeatmapProps {
   homeTeamName: string;
   awayTeamName: string;
   startTime?: string;
+  homeAliases?: string[];
+  awayAliases?: string[];
   enabled?: boolean;
 }
 
@@ -128,65 +131,139 @@ const marketRowComparator = (a: KalshiSnapshotRow, b: KalshiSnapshotRow, mainTot
   return (a.market_label || a.market_ticker).localeCompare(b.market_label || b.market_ticker);
 };
 
+const buildVariants = (names: string[]): { phrases: string[]; tokens: string[] } => {
+  const phraseSet = new Set<string>();
+  const tokenSet = new Set<string>();
+
+  names.forEach((name) => {
+    const normalized = normalizeToken(name);
+    if (!normalized) return;
+
+    phraseSet.add(normalized);
+    const tokens = normalized.split(' ').filter(Boolean);
+
+    if (tokens.length >= 2) phraseSet.add(tokens.slice(0, 2).join(' '));
+    if (tokens.length >= 3) phraseSet.add(tokens.slice(0, 3).join(' '));
+    if (tokens.length >= 2) phraseSet.add(tokens.slice(0, tokens.length - 1).join(' '));
+
+    tokens.forEach((token) => {
+      if (token.length >= 3) tokenSet.add(token);
+    });
+  });
+
+  return {
+    phrases: Array.from(phraseSet).sort((a, b) => b.length - a.length),
+    tokens: Array.from(tokenSet),
+  };
+};
+
+const teamMatchScore = (eventText: string, team: { phrases: string[]; tokens: string[] }): number => {
+  let phraseScore = 0;
+  for (const phrase of team.phrases) {
+    if (!phrase) continue;
+    if (eventText.includes(phrase)) {
+      phraseScore = Math.max(phraseScore, phrase.length * 2);
+      break;
+    }
+  }
+
+  const tokenHits = team.tokens.reduce((acc, token) => acc + (eventText.includes(token) ? 1 : 0), 0);
+  return phraseScore + tokenHits * 3;
+};
+
 const pickEventForMatch = (
   events: KalshiEventCandidate[],
-  homeTeamName: string,
-  awayTeamName: string,
+  homeNames: string[],
+  awayNames: string[],
+  startTime?: string,
 ): KalshiEventCandidate | null => {
-  const home = normalizeToken(homeTeamName);
-  const away = normalizeToken(awayTeamName);
+  const homeTeam = buildVariants(homeNames);
+  const awayTeam = buildVariants(awayNames);
+  const gameDate = startTime ? new Date(startTime) : null;
 
-  const candidates = events
+  const ranked = events
     .map((event) => {
       const text = normalizeToken(`${event.title || ''} ${event.home_team || ''} ${event.away_team || ''}`);
-      const homeHit = text.includes(home) ? home.length : 0;
-      const awayHit = text.includes(away) ? away.length : 0;
-      const score = homeHit + awayHit;
-      return { event, score, both: homeHit > 0 && awayHit > 0 };
+      const homeScore = teamMatchScore(text, homeTeam);
+      const awayScore = teamMatchScore(text, awayTeam);
+      const score = homeScore + awayScore;
+      const both = homeScore > 0 && awayScore > 0;
+
+      const eventDate = event.game_date ? new Date(`${event.game_date}T12:00:00Z`) : null;
+      const dateDistance = gameDate && eventDate
+        ? Math.abs(eventDate.getTime() - gameDate.getTime())
+        : Number.POSITIVE_INFINITY;
+
+      const snapshotTime = event.last_snapshot_at ? Date.parse(event.last_snapshot_at) : 0;
+      return { event, score, both, dateDistance, snapshotTime };
     })
     .filter((candidate) => candidate.score > 0)
     .sort((a, b) => {
       if (a.both !== b.both) return a.both ? -1 : 1;
       if (b.score !== a.score) return b.score - a.score;
-      const dateA = Date.parse(a.event.game_date || '');
-      const dateB = Date.parse(b.event.game_date || '');
-      if (Number.isFinite(dateA) && Number.isFinite(dateB)) return dateA - dateB;
-      return 0;
+      if (a.dateDistance !== b.dateDistance) return a.dateDistance - b.dateDistance;
+      return b.snapshotTime - a.snapshotTime;
     });
 
-  return candidates[0]?.event || null;
+  return ranked[0]?.event || null;
 };
 
-const MatchOddsHeatmap = ({ homeTeamName, awayTeamName, startTime, enabled = false }: MatchOddsHeatmapProps) => {
+const MatchOddsHeatmap = ({
+  homeTeamName,
+  awayTeamName,
+  startTime,
+  homeAliases = [],
+  awayAliases = [],
+  enabled = false,
+}: MatchOddsHeatmapProps) => {
   const [propsExpanded, setPropsExpanded] = useState(false);
 
-  const { data: oddsPayload } = useQuery<OddsPayload>({
+  const { data: oddsPayload, isFetching } = useQuery<OddsPayload>({
     queryKey: ['match-details', 'odds-heatmap', homeTeamName, awayTeamName, startTime || ''],
     enabled: enabled && Boolean(homeTeamName && awayTeamName),
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      const date = startTime ? new Date(startTime) : new Date();
-      const minDate = new Date(date);
-      minDate.setDate(minDate.getDate() - 1);
-      const maxDate = new Date(date);
-      maxDate.setDate(maxDate.getDate() + 1);
+      const homeNames = [homeTeamName, ...homeAliases].filter(Boolean);
+      const awayNames = [awayTeamName, ...awayAliases].filter(Boolean);
 
-      const minIso = minDate.toISOString().slice(0, 10);
-      const maxIso = maxDate.toISOString().slice(0, 10);
+      const queryEvents = async (dateScoped: boolean) => {
+        const date = startTime ? new Date(startTime) : null;
+        const minDate = date ? new Date(date) : null;
+        const maxDate = date ? new Date(date) : null;
 
-      const { data: events, error: eventsError } = await supabase
-        .from('kalshi_events_active')
-        .select('event_ticker,title,home_team,away_team,game_date,status')
-        .eq('status', 'active')
-        .gte('game_date', minIso)
-        .lte('game_date', maxIso)
-        .order('game_date', { ascending: true })
-        .limit(300);
+        if (minDate && maxDate) {
+          minDate.setDate(minDate.getDate() - 2);
+          maxDate.setDate(maxDate.getDate() + 2);
+        }
 
-      if (eventsError) throw eventsError;
-      const event = pickEventForMatch((events || []) as KalshiEventCandidate[], homeTeamName, awayTeamName);
+        let query = supabase
+          .from('kalshi_events_active')
+          .select('event_ticker,title,home_team,away_team,game_date,status,last_snapshot_at')
+          .or('status.eq.active,status.is.null')
+          .order('game_date', { ascending: true })
+          .limit(dateScoped ? 350 : 800);
+
+        if (dateScoped && minDate && maxDate) {
+          query = query
+            .gte('game_date', minDate.toISOString().slice(0, 10))
+            .lte('game_date', maxDate.toISOString().slice(0, 10));
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        return (data || []) as KalshiEventCandidate[];
+      };
+
+      const scopedEvents = await queryEvents(true);
+      let event = pickEventForMatch(scopedEvents, homeNames, awayNames, startTime);
+
+      if (!event) {
+        const broadEvents = await queryEvents(false);
+        event = pickEventForMatch(broadEvents, homeNames, awayNames, startTime);
+      }
+
       if (!event) return { eventTicker: null, rows: [] };
 
       const { data: snapshots, error: snapshotsError } = await supabase
@@ -194,7 +271,7 @@ const MatchOddsHeatmap = ({ homeTeamName, awayTeamName, startTime, enabled = fal
         .select('market_ticker,market_type,market_label,line_value,line_side,yes_price,no_price,volume,open_interest,yes_no_imbalance,recent_volume_imbalance,last_trade_side,captured_at')
         .eq('event_ticker', event.event_ticker)
         .order('captured_at', { ascending: false })
-        .limit(600);
+        .limit(900);
 
       if (snapshotsError) throw snapshotsError;
 
@@ -229,11 +306,31 @@ const MatchOddsHeatmap = ({ homeTeamName, awayTeamName, startTime, enabled = fal
     };
   }, [oddsPayload?.rows]);
 
+  const allRows = [...orderedOddsRows.nonProps, ...(propsExpanded ? orderedOddsRows.props : [])];
+  const latestCapturedAt = oddsPayload?.rows?.[0]?.captured_at;
+
   return (
-    <div className="mx-auto w-full max-w-[420px] space-y-2.5">
-      {oddsPayload?.rows?.length ? (
-        <>
-          {[...orderedOddsRows.nonProps, ...(propsExpanded ? orderedOddsRows.props : [])].map((row) => {
+    <div className="w-full space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#D9E2F3] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] px-3 py-2">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-2 w-2 rounded-full bg-[#1D9E75]" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#10223A]">Exchange Board</span>
+          {oddsPayload?.eventTicker ? (
+            <span className="text-[10px] font-mono text-slate-500">{oddsPayload.eventTicker}</span>
+          ) : null}
+        </div>
+        <span className="text-[10px] font-mono text-slate-500">
+          {latestCapturedAt ? `Updated ${new Date(latestCapturedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Awaiting market stream'}
+        </span>
+      </div>
+
+      {isFetching && !(oddsPayload?.rows?.length) ? (
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-[11px] text-slate-500">Syncing exchange depth...</div>
+      ) : null}
+
+      {allRows.length ? (
+        <div className="space-y-2.5">
+          {allRows.map((row) => {
             const yesSideInfo = deriveSides(row);
             const yesPrice = typeof row.yes_price === 'number'
               ? row.yes_price
@@ -270,11 +367,11 @@ const MatchOddsHeatmap = ({ homeTeamName, awayTeamName, startTime, enabled = fal
                   : 'text-slate-500';
 
             return (
-              <div key={row.market_ticker} className="rounded-xl border border-slate-200 bg-white px-3.5 py-3">
+              <div key={row.market_ticker} className="rounded-xl border border-[#D9E2F3] bg-white px-3.5 py-3 shadow-[0_10px_24px_-22px_rgba(16,34,58,0.45)]">
                 <div className="flex items-baseline justify-between gap-2">
-                  <div className="min-w-0 truncate text-[13px] font-medium text-slate-900 tracking-tight">
+                  <div className="min-w-0 truncate text-[13px] font-medium text-[#10223A] tracking-tight">
                     <span>{row.market_label || row.market_ticker}</span>
-                    <span className="font-mono tabular-nums text-slate-900"> · {yesPrice === null ? '—' : `${Math.round(yesPrice * 100)}¢`}</span>
+                    <span className="font-mono tabular-nums text-[#10223A]"> · {yesPrice === null ? '—' : `${Math.round(yesPrice * 100)}¢`}</span>
                   </div>
                   <div className="shrink-0 text-right text-[12px] text-slate-700 font-mono tabular-nums">
                     {formatAmericanOdds(american)}
@@ -290,7 +387,7 @@ const MatchOddsHeatmap = ({ homeTeamName, awayTeamName, startTime, enabled = fal
                     <div className="h-2 rounded-[4px] bg-slate-100 overflow-hidden border border-slate-200/80">
                       <div
                         className={`h-full bg-gradient-to-r ${betsFillClass} transition-all duration-200`}
-                        style={{ width: `${Math.round(betImbalance * 100)}%` }}
+                        style={{ width: `${Math.max(6, Math.round(betImbalance * 100))}%` }}
                       />
                     </div>
                   </div>
@@ -304,15 +401,15 @@ const MatchOddsHeatmap = ({ homeTeamName, awayTeamName, startTime, enabled = fal
                       <div
                         className={`h-full bg-gradient-to-r ${moneyFillClass} transition-all duration-200`}
                         style={{
-                          width: `${Math.round(moneyImbalance * 100)}%`,
-                          marginLeft: state === 'split' || moneyRaw < 0.5 ? 'auto' : undefined,
+                          width: `${Math.max(6, Math.round(moneyImbalance * 100))}%`,
+                          marginLeft: state === 'split' ? 'auto' : undefined,
                         }}
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className={`mt-2 text-[11px] font-medium tracking-[0.03em] ${actionTone}`}>
+                <div className={`mt-2 text-[11px] font-semibold tracking-[0.03em] ${actionTone}`}>
                   {actionLabel}
                 </div>
               </div>
@@ -334,9 +431,9 @@ const MatchOddsHeatmap = ({ homeTeamName, awayTeamName, startTime, enabled = fal
             <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2 w-3 rounded-[999px] bg-[#E24B4A]" />Opposing</span>
             <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2 w-3 rounded-[999px] bg-[#888780]" />Balanced</span>
           </div>
-        </>
+        </div>
       ) : (
-        <div className="text-[11px] text-slate-500">No exchange data available</div>
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-[11px] text-slate-500">No exchange data available</div>
       )}
     </div>
   );
