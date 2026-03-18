@@ -304,8 +304,43 @@ Role: Field Reporter. Direct, factual, concise.
 `}
 `.trim();
 
-const buildDynamicInstruction = ({ marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel, staleWarning }) => {
+const summarizeNbaPacketSection = (section) => {
+    if (!section || typeof section !== "object") return null;
+    const label = typeof section.label === "string" ? section.label : "Context";
+    const status = typeof section.status === "string" ? section.status : "unavailable";
+    const scope = typeof section.scope === "string" ? section.scope : "NA";
+    const summary = truncateText(
+        (typeof section.summary === "string" && section.summary) ||
+        (typeof section.detail === "string" && section.detail) ||
+        "Unavailable.",
+        220
+    );
+    const sample = typeof section.sampleLabel === "string" ? section.sampleLabel : "no sample label";
+    return `${label} [${status}] (${scope}) -> ${summary} | sample: ${sample}`;
+};
+
+const buildNbaProductContextBrief = (packet) => {
+    if (!packet || typeof packet !== "object") return "";
+    const availability = packet.availability && typeof packet.availability === "object" ? packet.availability : {};
+    const availabilityLine = [
+        `season=${availability.seasonContext ? "on" : "off"}`,
+        `live_state=${availability.liveStateContext ? "on" : "off"}`,
+        `environment=${availability.environmentContext ? "on" : "off"}`,
+        `recent_overlay=${availability.recentOverlaySupplement ? "on" : "off"}`
+    ].join(" | ");
+
+    const sections = [
+        summarizeNbaPacketSection(packet.seasonContext),
+        summarizeNbaPacketSection(packet.liveStateContext),
+        summarizeNbaPacketSection(packet.environmentContext)
+    ].filter(Boolean);
+
+    return [`AVAILABILITY: ${availabilityLine}`, ...sections].join("\n");
+};
+
+const buildDynamicInstruction = ({ marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel, staleWarning, nbaProductContext }) => {
     const now = new Date();
+    const nbaContextBrief = buildNbaProductContextBrief(nbaProductContext);
     return `
 <temporal>
 TODAY: ${now.toLocaleDateString("en-US", { timeZone: "America/New_York" })}
@@ -324,6 +359,7 @@ ${[
             `INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}`,
             `INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}`,
             evidence.temporal?.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : "",
+            nbaContextBrief ? `NBA_PRODUCT_CONTEXT:\n${nbaContextBrief}` : "",
             staleWarning
         ].filter(Boolean).join("\n")}
 </context>
@@ -619,6 +655,9 @@ export async function POST(req) {
         .filter(Boolean);
 
     let activeContext = body.gameContext || {};
+    const nbaProductContext = body.nba_product_context && typeof body.nba_product_context === "object"
+        ? body.nba_product_context
+        : null;
 
     // Safely extract final user query & detect images
     const lastMsgContent = messages.length > 0 ? messages[messages.length - 1].content : "";
@@ -703,7 +742,8 @@ export async function POST(req) {
             try {
                 const systemPrompt = `${buildStaticInstruction(MODE)}\n\n${buildDynamicInstruction({
                     marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel,
-                    staleWarning: isContextStale(activeContext) ? "\n⚠️ DATA WARNING: Context may be stale." : ""
+                    staleWarning: isContextStale(activeContext) ? "\n⚠️ DATA WARNING: Context may be stale." : "",
+                    nbaProductContext
                 })}`;
 
                 const result = await genAI.models.generateContentStream({

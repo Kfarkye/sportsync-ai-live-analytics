@@ -84,6 +84,8 @@ import {
 } from "lucide-react";
 import type { Match, MatchOdds } from "@/types";
 import { ESSENCE } from "@/lib/essence";
+import { useNbaProductContextPacket } from "@/hooks/useNbaContext";
+import type { NbaProductContextPacket } from "@/services/nbaProductContext";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -372,6 +374,7 @@ interface ChatContextPayload {
   gameContext?: GameContext | null;
   run_id: string;
   live_snapshot?: any;
+  nba_product_context?: NbaProductContextPacket | null;
 }
 
 type ConnectionStatus = "connected" | "reconnecting" | "offline";
@@ -3140,6 +3143,55 @@ const InnerChatWidget: FC<ChatWidgetProps & {
 
   /** Resilient game-context normalization — handles varied data shapes from API */
   const normalizedContext = useMemo(() => normalizeGameContext(currentMatch), [currentMatch]);
+  const isNbaMatch = useMemo(
+    () => String(normalizedContext?.sport || '').toUpperCase() === 'NBA',
+    [normalizedContext?.sport],
+  );
+  const nbaContextInput = useMemo(() => {
+    if (!isNbaMatch) return null;
+    const raw = (currentMatch || {}) as Record<string, unknown>;
+    const winProbability = (raw.win_probability || {}) as Record<string, unknown>;
+    const venue = (raw.venue || {}) as Record<string, unknown>;
+    const officials = Array.isArray(raw.officials)
+      ? (raw.officials as Array<Record<string, unknown>>)
+      : [];
+    const leadOfficial = officials[0] || {};
+
+    return {
+      asOf: normalizedContext?.start_time || new Date().toISOString(),
+      period: normalizedContext?.period ?? null,
+      clock: normalizedContext?.clock ?? null,
+      homeScore: normalizedContext?.home_score ?? null,
+      awayScore: normalizedContext?.away_score ?? null,
+      homeWinProb: (winProbability.home as number | string | null | undefined) ?? null,
+      totalOverProb: (winProbability.over as number | string | null | undefined) ?? null,
+      venueName:
+        (venue.name as string | null | undefined) ||
+        normalizedContext?.home_team ||
+        null,
+      leadRef:
+        (leadOfficial.fullName as string | null | undefined) ||
+        (leadOfficial.name as string | null | undefined) ||
+        null,
+    };
+  }, [
+    currentMatch,
+    isNbaMatch,
+    normalizedContext?.start_time,
+    normalizedContext?.period,
+    normalizedContext?.clock,
+    normalizedContext?.home_score,
+    normalizedContext?.away_score,
+    normalizedContext?.home_team,
+  ]);
+  const nbaContextQuery = useNbaProductContextPacket(
+    nbaContextInput || {},
+    { enabled: Boolean(nbaContextInput && normalizedContext?.match_id) },
+  );
+  const nbaProductContext = useMemo(
+    () => (isNbaMatch && nbaContextQuery.isFetched ? nbaContextQuery.data ?? null : null),
+    [isNbaMatch, nbaContextQuery.isFetched, nbaContextQuery.data],
+  );
 
   /** Per-card verdict outcomes, persisted to localStorage for session continuity */
   const [verdictOutcomes, setVerdictOutcomes] = useState<Record<string, VerdictOutcome>>(() => {
@@ -3430,6 +3482,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
         gameContext: livePayload.current_match || normalizedContext,
         run_id: generateId(),
         live_snapshot: livePayload.live_snapshot,
+        nba_product_context: nbaProductContext,
       };
 
       const controller = new AbortController();
