@@ -227,12 +227,19 @@ const SYSTEM = {
     morph: { type: "spring", damping: 25, stiffness: 280 } as Transition,
   },
   surface: {
+<<<<<<< HEAD
     void: "bg-white",
     panel: "bg-white border border-slate-200",
     /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
     glass: "bg-slate-50 backdrop-blur-xl backdrop-saturate-180 border border-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+=======
+    void: "bg-white shadow-[0_28px_90px_-36px_rgba(15,23,42,0.45)]",
+    panel: "bg-white border border-slate-200/90",
+    /** Quiet glass: support material only, not the primary shell aesthetic. */
+    glass: "bg-white/98 border border-slate-200/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]",
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
     hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20 shadow-[inset_0_1px_0_rgba(245,158,11,0.1)]",
-    milled: "border-t border-slate-200 border-b border-black/50 border-x border-slate-200",
+    milled: "border border-slate-200",
     alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20 shadow-[inset_0_1px_0_rgba(225,29,72,0.1)]",
   },
   type: {
@@ -244,6 +251,17 @@ const SYSTEM = {
   geo: { pill: "rounded-full", card: "rounded-[22px]", input: "rounded-[24px]" },
 } as const;
 
+<<<<<<< HEAD
+=======
+const CHAT_SURFACES = {
+  shell: "bg-white border border-slate-200/90",
+  panel: "bg-slate-950/96 border border-slate-800",
+  chip: "bg-slate-50 border border-slate-200",
+  soft: "bg-white border border-slate-200",
+  textGlass: "bg-white border border-slate-200",
+} as const;
+
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
 const RETRY_CONFIG = { maxAttempts: 3, baseDelay: 1000, maxDelay: 8000, jitterFactor: 0.3 } as const;
 const CHAT_TTFB_TIMEOUT_MS = 30_000;
 const CHAT_STREAM_IDLE_TIMEOUT_MS = 25_000;
@@ -2918,7 +2936,11 @@ const InputDeck: FC<{
       layout
       className={cn(
         "flex flex-col gap-2 p-1.5 relative overflow-hidden transition-colors duration-500 will-change-transform",
+<<<<<<< HEAD
         SYSTEM.geo.input, "bg-white shadow-sm focus-within:ring-1 focus-within:ring-slate-200",
+=======
+        SYSTEM.geo.input, CHAT_SURFACES.shell, "focus-within:ring-1 focus-within:ring-sky-200/80",
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
         isVoiceMode
           ? "border-emerald-500/30 shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)]"
           : isOffline ? "border-red-500/20" : SYSTEM.surface.milled,
@@ -2953,7 +2975,15 @@ const InputDeck: FC<{
       <div className="flex items-end gap-2">
         <button
           onClick={() => fileInputRef.current?.click()}
+<<<<<<< HEAD
           className="p-3.5 rounded-[18px] text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+=======
+          className={cn(
+            "p-3.5 rounded-[18px] text-slate-500 hover:text-slate-900 transition-colors disabled:opacity-30 disabled:pointer-events-none",
+            CHAT_SURFACES.chip,
+            "hover:bg-slate-100",
+          )}
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
           aria-label="Attach file"
           disabled={isOffline || isProcessing}
         >
@@ -2998,9 +3028,15 @@ const InputDeck: FC<{
             className={cn(
               "p-3 rounded-[18px] transition-all duration-300",
               isProcessing
+<<<<<<< HEAD
                 ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
                 : canSend
                   ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+=======
+                ? `${CHAT_SURFACES.textGlass} text-slate-900 shadow-[0_6px_18px_-14px_rgba(15,23,42,0.45)]`
+                : canSend
+                  ? `${CHAT_SURFACES.soft} text-slate-900 shadow-[0_6px_18px_-14px_rgba(15,23,42,0.45)]`
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
                   : isVoiceMode
                     ? "text-rose-400 bg-rose-500/10"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
@@ -3513,7 +3549,11 @@ const InnerChatWidget: FC<ChatWidgetProps & {
           className={cn(
             "flex flex-col overflow-hidden transition-all duration-500 isolate relative z-50 will-change-transform",
             inline
+<<<<<<< HEAD
               ? "w-full h-full bg-transparent"
+=======
+              ? "w-full h-full bg-white border border-slate-200/90"
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
               : cn(
                 "w-full md:w-[460px] h-dvh md:h-[min(840px,90dvh)]",
                 "rounded-[28px] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]",
@@ -3638,7 +3678,11 @@ const InnerChatWidget: FC<ChatWidgetProps & {
           {/* Scroll anchor — visible when user has scrolled up */}
           <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
 
+<<<<<<< HEAD
           <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-6 backdrop-blur-xl bg-white/80 border-t border-slate-200/60 pointer-events-none">
+=======
+          <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-6 bg-white border-t border-slate-200/90 pointer-events-none">
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
             <div className="pointer-events-auto relative">
               <AnimatePresence>
                 {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}

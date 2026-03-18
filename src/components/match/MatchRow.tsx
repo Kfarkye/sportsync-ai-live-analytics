@@ -169,7 +169,11 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
+<<<<<<< HEAD
       whileHover={{ backgroundColor: "#F8FAFC", zIndex: 10 }}
+=======
+      whileHover={{ backgroundColor: "rgba(248,250,252,0.94)", zIndex: 10, boxShadow: "0 12px 28px -20px rgba(15,23,42,0.22)" }}
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
       whileTap={{ scale: 0.998 }}
       transition={PHYSICS_MOTION}
       onClick={() => onSelect?.(match)}
@@ -179,9 +183,16 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       onKeyDown={(e: React.KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onSelect?.(match); } }}
       className={cn(
         "group relative flex items-center justify-between px-4 py-4 sm:px-4 sm:py-4 max-[390px]:px-3 max-[390px]:py-3 cursor-pointer transform-gpu min-h-[64px] max-[390px]:min-h-[58px] [-webkit-tap-highlight-color:transparent]",
+<<<<<<< HEAD
         "focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none focus-visible:ring-inset",
         "transition-colors duration-200",
         isSelected ? "bg-blue-50/70" : "bg-white hover:bg-blue-50/45"
+=======
+        "focus-visible:ring-2 focus-visible:ring-[#BFDBFE] focus-visible:outline-none focus-visible:ring-inset",
+        "transition-colors duration-200",
+        "border border-slate-200/90 bg-white shadow-[0_8px_20px_-18px_rgba(15,23,42,0.24)]",
+        isSelected ? "bg-emerald-50" : "hover:bg-slate-50"
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
       )}
     >
       <div className={cn(
@@ -190,7 +201,11 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           ? "bg-amber-500 w-[3px] opacity-100"
           : isSelected
             ? "bg-[#0B63F6] w-1 opacity-100"
+<<<<<<< HEAD
             : "bg-blue-300 w-[3px] scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100"
+=======
+            : "bg-slate-300 w-[3px] scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100"
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
       )} />
 
       {/* Team Data */}
@@ -281,7 +296,11 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1.5">
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
+<<<<<<< HEAD
               <div className="flex items-center gap-1.5 rounded-md px-2 py-0.5 border border-emerald-200 bg-emerald-50/70">
+=======
+              <div className="flex items-center gap-1.5 rounded-md px-2 py-0.5 border border-emerald-200 bg-emerald-50">
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
                 <span className="relative inline-flex h-2.5 w-2.5 items-center justify-center">
                   <span className="absolute inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500/30 animate-ping [animation-duration:2s]" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -298,7 +317,11 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         ) : isFinal ? (
           <div className="flex items-center gap-1.5">
             <PinButton isPinned={isPinned} onToggle={onTogglePin} />
+<<<<<<< HEAD
             <span className="text-[9px] font-semibold text-[#555555] bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md uppercase tracking-[0.12em] font-mono">FINAL</span>
+=======
+            <span className="text-[9px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md uppercase tracking-[0.12em] font-mono">FINAL</span>
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
           </div>
         ) : (
           <>

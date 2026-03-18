@@ -5,7 +5,11 @@
 // This gives the app installability + instant shell on repeat visits.
 // ============================================================================
 
+<<<<<<< HEAD
 const CACHE_NAME = 'sportsync-v1';
+=======
+const CACHE_NAME = 'sportsync-v5';
+>>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
 const SHELL_ASSETS = [
   '/',
   '/index.html',
