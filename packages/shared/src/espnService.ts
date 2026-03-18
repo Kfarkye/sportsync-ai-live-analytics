@@ -21,7 +21,6 @@ import { LEAGUES } from './constants.ts';
 
 import { resilientFetch, logger as Logger } from './resilience.ts';
 import { EspnAdapters, Safe } from './espnAdapters.ts';
-import { computeAISignals } from './gameStateEngine.ts';
 import { safeSlice } from './oddsUtils.ts';
 import { safeParseDate } from './dateUtils.ts';
 
@@ -291,18 +290,7 @@ export const fetchLeagueMatches = async (
             };
 
         }).filter((m: any | null): m is any => m !== null)
-            .map(m => {
-                try {
-                    return { ...m, ai_signals: computeAISignals(m) };
-                } catch (e) {
-                    Logger.warn('ESPNService', 'computeAISignals failed', {
-                        leagueId: league.id,
-                        matchId: m.id,
-                        error: String(e)
-                    });
-                    return { ...m, ai_signals: null };
-                }
-            });
+            .map(m => ({ ...m, ai_signals: null }));
 
     } catch (e) {
         Logger.debug('ESPNService', `fetchLeagueMatches failed: ${e}`);
@@ -397,9 +385,7 @@ export const fetchMatchDetailsExtended = async (
             predictor: EspnAdapters.Predictor(data)
         };
 
-        // Compute signals with enriched data
-        const fullMatch = result as Match;
-        result.ai_signals = computeAISignals(fullMatch);
+        result.ai_signals = null;
 
         return result;
 

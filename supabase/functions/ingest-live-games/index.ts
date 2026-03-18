@@ -1,7 +1,6 @@
 declare const Deno: any;
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { computeAISignals } from '../_shared/gameStateEngine.ts'
 import { EspnAdapters, Safe } from '../_shared/espnAdapters.ts'
 import { getCanonicalLeagueId, getCanonicalMatchId, generateDeterministicId, resolveCanonicalMatch } from '../_shared/match-registry.ts'
 import { writeCurrentOdds } from '../_shared/current-odds-writer.ts'
@@ -271,9 +270,97 @@ function eventStateRank(event: any): number {
   return 3;
 }
 
-function computeAISignalsSafely(matchPayload: any, context: { matchId: string; leagueId: string; mode: 'dry' | 'persist' }) {
-  try { return { value: computeAISignals(matchPayload), error: null as string | null }; }
-  catch (e: any) { Logger.error('AI_SIGNAL_COMPUTE_FAILED', { matchId: context.matchId, league_id: context.leagueId, error: e.message || String(e) }); return { value: null, error: String(e) }; }
+function parseDisplayClockToSeconds(clockRaw: string | null | undefined): number {
+  const raw = String(clockRaw || '').trim();
+  if (!raw) return 0;
+  const cleaned = raw.replace(/['"]/g, '');
+  const mmss = cleaned.match(/^(\d{1,3}):(\d{1,2})$/);
+  if (mmss) return Number(mmss[1]) * 60 + Number(mmss[2]);
+  const mins = cleaned.match(/^(\d{1,3})(?:\+(\d{1,2}))?$/);
+  if (mins) return Number(mins[1]) * 60 + Number(mins[2] ?? 0);
+  return 0;
+}
+
+function buildMarketPassthroughSignals(input: {
+  leagueId: string;
+  dbSport: string;
+  statusName?: string;
+  period?: number;
+  displayClock?: string;
+  homeScore: number;
+  awayScore: number;
+  effectiveOdds: any;
+  bpiPayloadData: any;
+}) {
+  const { leagueId, dbSport, statusName, period = 0, displayClock, homeScore, awayScore, effectiveOdds, bpiPayloadData } = input;
+  const sport = String(dbSport || '').toLowerCase();
+  const gameTotalMins =
+    ['basketball'].includes(sport) ? (leagueId === 'mens-college-basketball' ? 40 : 48)
+      : ['hockey', 'icehockey'].includes(sport) ? 60
+        : ['soccer'].includes(sport) ? 90
+          : ['baseball'].includes(sport) ? 54
+            : ['football', 'americanfootball'].includes(sport) ? 60
+              : 48;
+
+  const elapsedSecs = (() => {
+    const clockSecs = parseDisplayClockToSeconds(displayClock);
+    if (!displayClock) return 0;
+    if (['basketball'].includes(sport)) {
+      const periodMins = leagueId === 'mens-college-basketball' ? 20 : 12;
+      const completedPeriods = Math.max(0, Number(period || 0) - 1);
+      return completedPeriods * periodMins * 60 + Math.max(0, periodMins * 60 - clockSecs);
+    }
+    if (['soccer'].includes(sport)) {
+      return clockSecs;
+    }
+    return 0;
+  })();
+
+  const elapsedMins = Math.max(1, elapsedSecs / 60);
+  const currentTotal = (homeScore ?? 0) + (awayScore ?? 0);
+  const dkTotal = parsePoints(effectiveOdds?.total ?? effectiveOdds?.overUnder ?? effectiveOdds?.main?.total?.line);
+  const dkSpread = parsePoints(effectiveOdds?.homeSpread ?? effectiveOdds?.spread ?? effectiveOdds?.main?.spread?.home?.point);
+  const dkHomeML = parsePrice(effectiveOdds?.homeML ?? effectiveOdds?.moneylineHome ?? effectiveOdds?.homeWin ?? effectiveOdds?.home_ml ?? effectiveOdds?.main?.h2h?.home?.price);
+  const dkAwayML = parsePrice(effectiveOdds?.awayML ?? effectiveOdds?.moneylineAway ?? effectiveOdds?.awayWin ?? effectiveOdds?.away_ml ?? effectiveOdds?.main?.h2h?.away?.price);
+
+  const observedPPM = currentTotal / elapsedMins;
+  const projectedPPM = dkTotal ? dkTotal / gameTotalMins : 0;
+  const ppmDelta = observedPPM - projectedPPM;
+
+  const espnHomeWinPct = bpiPayloadData?.homePredWinPct ?? null;
+  const espnAwayWinPct = bpiPayloadData?.awayPredWinPct ?? null;
+  const isLive = String(statusName || '').toUpperCase() === 'STATUS_IN_PROGRESS';
+  const isBlowout = Math.abs((homeScore ?? 0) - (awayScore ?? 0)) > (['basketball'].includes(sport) ? 20 : ['soccer'].includes(sport) ? 3 : 4);
+  const regime = isBlowout ? 'BLOWOUT' : (elapsedSecs > gameTotalMins * 55) ? 'ENDGAME' : 'NORMAL';
+  const edgeState = isLive && Math.abs(ppmDelta / (projectedPPM || 1)) > 0.12 ? 'LEAN' : 'NEUTRAL';
+
+  return {
+    market_total: dkTotal,
+    market_spread: dkSpread,
+    market_home_ml: dkHomeML,
+    market_away_ml: dkAwayML,
+    espn_home_win_pct: espnHomeWinPct,
+    espn_away_win_pct: espnAwayWinPct,
+    deterministic_fair_total: dkTotal,
+    ppm: {
+      observed: Number(observedPPM.toFixed(4)),
+      projected: Number(projectedPPM.toFixed(4)),
+      delta: Number(ppmDelta.toFixed(4))
+    },
+    edge_state: edgeState,
+    edge_points: 0,
+    deterministic_regime: regime,
+    system_state: isLive ? 'ACTIVE' : 'SILENT',
+    game_progress: Math.min(1, elapsedSecs / (gameTotalMins * 60)),
+    variance_sd: null,
+    p10_total: null,
+    p90_total: null,
+    narrative: {
+      market_lean: ppmDelta > 0.05 ? 'OVER' : ppmDelta < -0.05 ? 'UNDER' : 'NEUTRAL',
+      signal_label: isLive ? 'LIVE READ' : 'PREGAME'
+    },
+    debug_trace: ['source:market_passthrough', `regime:${regime}`, `ppm_delta:${ppmDelta.toFixed(3)}`]
+  };
 }
 
 // ─── RESILIENT NETWORK FETCHERS ──────────────────────────────
@@ -515,9 +602,25 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
     const extractedPredictor = safeExtract('Predictor', () => EspnAdapters.Predictor(data));
 
     if (isDryRun) {
-      const drySignalsProbe = computeAISignalsSafely({ id: dbMatchId, league_id: league.id, sport: league.db_sport, status: comp.status?.type?.name, period: comp.status?.period, display_clock: comp.status?.displayClock, home_score: homeScore, away_score: awayScore, current_odds: null }, { matchId: dbMatchId, leagueId: league.id, mode: 'dry' });
+      const drySignalsProbe = buildMarketPassthroughSignals({
+        leagueId: league.id,
+        dbSport: league.db_sport,
+        statusName: comp.status?.type?.name,
+        period: comp.status?.period,
+        displayClock: comp.status?.displayClock,
+        homeScore,
+        awayScore,
+        effectiveOdds: null,
+        bpiPayloadData: null,
+      });
       stats.processed++; if (isLiveGame) stats.live++;
-      if (stats.dry_samples.length < 10) stats.dry_samples.push({ match_id: dbMatchId, status: comp.status?.type?.name, signal_guard: { ok: drySignalsProbe.error === null, error: drySignalsProbe.error } });
+      if (stats.dry_samples.length < 10) {
+        stats.dry_samples.push({
+          match_id: dbMatchId,
+          status: comp.status?.type?.name,
+          signal_guard: { ok: true, error: null, source: drySignalsProbe?.debug_trace?.[0] ?? null }
+        });
+      }
       return;
     }
 
@@ -820,23 +923,48 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
       if (minsToStart > -10 && minsToStart < 15 && !t0_snapshot) t0_snapshot = { odds: cleanFinalOdds, timestamp: new Date().toISOString() };
     }
 
-    // Engine-compatible aliases: computeAISignals expects Match interface with camelCase fields
-    matchPayload.homeScore = homeScore;
-    matchPayload.awayScore = awayScore;
-    matchPayload.displayClock = comp.status?.displayClock;
-    matchPayload.leagueId = league.id;
-    matchPayload.homeTeam = { id: home?.id, name: homeNameStr, shortName: homeNameStr, logo: '', score: homeScore };
-    matchPayload.awayTeam = { id: away?.id, name: awayNameStr, shortName: awayNameStr, logo: '', score: awayScore };
-    matchPayload.startTime = event.date;
+    const aiSignals: any = buildMarketPassthroughSignals({
+      leagueId: league.id,
+      dbSport: league.db_sport,
+      statusName: comp.status?.type?.name,
+      period: finalPeriod,
+      displayClock: comp.status?.displayClock,
+      homeScore,
+      awayScore,
+      effectiveOdds,
+      bpiPayloadData,
+    });
 
-    const aiSignalResult = computeAISignalsSafely(matchPayload, { matchId: dbMatchId, leagueId: league.id, mode: 'persist' });
-    const aiSignals = aiSignalResult.value;
-    if (aiSignalResult.error) { stats.errors.push(`SIGNAL_ERR/${dbMatchId}: ${aiSignalResult.error}`); }
-    if (!aiSignals) { stats.errors.push(`SIGNAL_NULL/${dbMatchId}: sport=${matchPayload.sport} homeScore=${matchPayload.homeScore} awayScore=${matchPayload.awayScore} clock=${matchPayload.displayClock} odds_total=${matchPayload.current_odds?.total}`); }
-    delete matchPayload.current_odds;
-    // Clean engine-only aliases before DB write
-    delete matchPayload.homeScore; delete matchPayload.awayScore; delete matchPayload.displayClock;
-    delete matchPayload.leagueId; delete matchPayload.homeTeam; delete matchPayload.awayTeam; delete matchPayload.startTime;
+    if (['nba', 'mens-college-basketball', 'nfl'].includes(league.id)) {
+      try {
+        const { data: latestProb } = await supabase
+          .from('espn_probabilities')
+          .select('total_over_prob, spread_cover_prob_home, home_win_pct, sequence_number')
+          .eq('espn_event_id', event.id)
+          .eq('league_id', league.id)
+          .order('sequence_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestProb) {
+          aiSignals.espn_total_over_prob = latestProb.total_over_prob != null ? Number(latestProb.total_over_prob) : null;
+          aiSignals.espn_spread_cover_prob = latestProb.spread_cover_prob_home != null ? Number(latestProb.spread_cover_prob_home) : null;
+          aiSignals.espn_home_win_pct = latestProb.home_win_pct != null ? Number(latestProb.home_win_pct) : aiSignals.espn_home_win_pct;
+          aiSignals.espn_sequence = latestProb.sequence_number ?? null;
+
+          if (aiSignals.espn_total_over_prob != null && aiSignals.market_total != null) {
+            const dkImpliedOverProb = 0.50;
+            aiSignals.espn_total_edge = aiSignals.espn_total_over_prob - dkImpliedOverProb;
+            aiSignals.calibration_zone =
+              aiSignals.espn_total_over_prob >= 0.60 ? 'ESPN_OVERESTIMATES'
+                : aiSignals.espn_total_over_prob <= 0.35 ? 'ESPN_UNDERESTIMATES'
+                  : 'ESPN_CALIBRATED';
+          }
+        }
+      } catch (e: any) {
+        Logger.warn('ESPN_PROB_LOOKUP_FAILED', { match_id: dbMatchId, league_id: league.id, error: e?.message || String(e) });
+      }
+    }
 
     const finalSituation = { ...(typeof mergedSituation === 'object' && mergedSituation ? mergedSituation : {}), ...(coreEnrichment.situation || {}) };
     const finalAdvancedMetrics = { ...(typeof extractedAdvancedMetrics === 'object' && extractedAdvancedMetrics ? extractedAdvancedMetrics : {}), ...(coreEnrichment.advanced_metrics || {}) };
