@@ -2,121 +2,131 @@
 -- 1) Backfill canonical team identity from team_logos
 -- 2) Upgrade resolver contract with ambiguity visibility
 
--- Backfill canonical teams from team_logos (idempotent).
-with source_rows as (
-  select
-    trim(tl.team_name) as team_name,
-    trim(coalesce(tl.league_id, 'unknown')) as league_id,
-    nullif(trim(tl.logo_url), '') as logo_url,
-    public.normalize_team_identity_text(tl.team_name) as normalized_name
-  from public.team_logos tl
-  where tl.team_name is not null
-    and trim(tl.team_name) <> ''
-),
-deduped as (
-  select distinct on (sr.league_id, sr.normalized_name)
-    sr.team_name,
-    sr.league_id,
-    sr.logo_url,
-    sr.normalized_name
-  from source_rows sr
-  where sr.normalized_name <> ''
-  order by sr.league_id, sr.normalized_name, (sr.logo_url is not null) desc, length(sr.team_name) desc
-),
-slugged as (
-  select
-    d.team_name as canonical_name,
-    d.league_id,
-    d.logo_url,
-    d.normalized_name,
-    public.to_canonical_team_slug(d.team_name) as base_slug,
-    row_number() over (
-      partition by public.to_canonical_team_slug(d.team_name)
-      order by d.league_id, d.team_name
-    ) as slug_rank
-  from deduped d
-),
-prepared as (
-  select
-    s.canonical_name,
-    case
-      when coalesce(s.base_slug, '') = '' then 'team_' || substr(md5(s.league_id || ':' || s.normalized_name), 1, 16)
-      when s.slug_rank = 1 then s.base_slug
-      else s.base_slug || '_' || regexp_replace(lower(s.league_id), '[^a-z0-9]+', '_', 'g')
-    end as canonical_slug,
-    s.league_id,
-    case
-      when s.league_id = 'mens-college-basketball' then 'basketball'
-      when s.league_id like 'nba%' then 'basketball'
-      when s.league_id like 'ncaab%' then 'basketball'
-      when s.league_id like 'nhl%' then 'hockey'
-      when s.league_id like 'mlb%' then 'baseball'
-      when s.league_id like 'nfl%' then 'football'
-      when s.league_id = 'college-football' then 'football'
-      else 'soccer'
-    end as sport,
-    s.logo_url,
-    s.normalized_name
-  from slugged s
-)
-insert into public.canonical_teams (
-  canonical_name,
-  canonical_slug,
-  league_id,
-  sport,
-  logo_url,
-  external_refs
-)
-select
-  p.canonical_name,
-  p.canonical_slug,
-  p.league_id,
-  p.sport,
-  p.logo_url,
-  jsonb_build_object('seed', 'team_logos_backfill')
-from prepared p
-on conflict (canonical_slug) do update
-set
-  canonical_name = excluded.canonical_name,
-  league_id = excluded.league_id,
-  sport = excluded.sport,
-  logo_url = coalesce(excluded.logo_url, canonical_teams.logo_url),
-  external_refs = canonical_teams.external_refs || excluded.external_refs,
-  updated_at = now();
+do $$
+begin
+  if to_regclass('public.team_logos') is null then
+    raise notice 'Skipping team identity backfill: public.team_logos not found';
+  else
+    execute $sql$
+      with source_rows as (
+        select
+          trim(tl.team_name) as team_name,
+          trim(coalesce(tl.league_id, 'unknown')) as league_id,
+          nullif(trim(tl.logo_url), '') as logo_url,
+          public.normalize_team_identity_text(tl.team_name) as normalized_name
+        from public.team_logos tl
+        where tl.team_name is not null
+          and trim(tl.team_name) <> ''
+      ),
+      deduped as (
+        select distinct on (sr.league_id, sr.normalized_name)
+          sr.team_name,
+          sr.league_id,
+          sr.logo_url,
+          sr.normalized_name
+        from source_rows sr
+        where sr.normalized_name <> ''
+        order by sr.league_id, sr.normalized_name, (sr.logo_url is not null) desc, length(sr.team_name) desc
+      ),
+      slugged as (
+        select
+          d.team_name as canonical_name,
+          d.league_id,
+          d.logo_url,
+          d.normalized_name,
+          public.to_canonical_team_slug(d.team_name) as base_slug,
+          row_number() over (
+            partition by public.to_canonical_team_slug(d.team_name)
+            order by d.league_id, d.team_name
+          ) as slug_rank
+        from deduped d
+      ),
+      prepared as (
+        select
+          s.canonical_name,
+          case
+            when coalesce(s.base_slug, '') = '' then 'team_' || substr(md5(s.league_id || ':' || s.normalized_name), 1, 16)
+            when s.slug_rank = 1 then s.base_slug
+            else s.base_slug || '_' || regexp_replace(lower(s.league_id), '[^a-z0-9]+', '_', 'g')
+          end as canonical_slug,
+          s.league_id,
+          case
+            when s.league_id = 'mens-college-basketball' then 'basketball'
+            when s.league_id like 'nba%' then 'basketball'
+            when s.league_id like 'ncaab%' then 'basketball'
+            when s.league_id like 'nhl%' then 'hockey'
+            when s.league_id like 'mlb%' then 'baseball'
+            when s.league_id like 'nfl%' then 'football'
+            when s.league_id = 'college-football' then 'football'
+            else 'soccer'
+          end as sport,
+          s.logo_url,
+          s.normalized_name
+        from slugged s
+      )
+      insert into public.canonical_teams (
+        canonical_name,
+        canonical_slug,
+        league_id,
+        sport,
+        logo_url,
+        external_refs
+      )
+      select
+        p.canonical_name,
+        p.canonical_slug,
+        p.league_id,
+        p.sport,
+        p.logo_url,
+        jsonb_build_object('seed', 'team_logos_backfill')
+      from prepared p
+      on conflict (canonical_slug) do update
+      set
+        canonical_name = excluded.canonical_name,
+        league_id = excluded.league_id,
+        sport = excluded.sport,
+        logo_url = coalesce(excluded.logo_url, canonical_teams.logo_url),
+        external_refs = canonical_teams.external_refs || excluded.external_refs,
+        updated_at = now();
+    $sql$;
 
--- Backfill aliases from all observed team_logos display names.
-with source_aliases as (
-  select
-    trim(tl.team_name) as team_name,
-    trim(coalesce(tl.league_id, 'unknown')) as league_id,
-    public.normalize_team_identity_text(tl.team_name) as normalized_name
-  from public.team_logos tl
-  where tl.team_name is not null
-    and trim(tl.team_name) <> ''
-),
-mapped_aliases as (
-  select distinct
-    ct.team_id,
-    sa.team_name as alias
-  from source_aliases sa
-  join public.canonical_teams ct
-    on ct.league_id = sa.league_id
-   and public.normalize_team_identity_text(ct.canonical_name) = sa.normalized_name
-  where sa.normalized_name <> ''
-)
-insert into public.team_aliases (
-  team_id,
-  alias,
-  alias_type,
-  source
-)
-select
-  ma.team_id,
-  ma.alias,
-  'display',
-  'team_logos_backfill'
-from mapped_aliases ma
-on conflict (team_id, normalized_alias) do nothing;
+    execute $sql$
+      with source_aliases as (
+        select
+          trim(tl.team_name) as team_name,
+          trim(coalesce(tl.league_id, 'unknown')) as league_id,
+          public.normalize_team_identity_text(tl.team_name) as normalized_name
+        from public.team_logos tl
+        where tl.team_name is not null
+          and trim(tl.team_name) <> ''
+      ),
+      mapped_aliases as (
+        select distinct
+          ct.team_id,
+          sa.team_name as alias
+        from source_aliases sa
+        join public.canonical_teams ct
+          on ct.league_id = sa.league_id
+         and public.normalize_team_identity_text(ct.canonical_name) = sa.normalized_name
+        where sa.normalized_name <> ''
+      )
+      insert into public.team_aliases (
+        team_id,
+        alias,
+        alias_type,
+        source
+      )
+      select
+        ma.team_id,
+        ma.alias,
+        'display',
+        'team_logos_backfill'
+      from mapped_aliases ma
+      on conflict (team_id, normalized_alias) do nothing;
+    $sql$;
+  end if;
+end
+$$;
 
 -- Resolver V2: expose ambiguity explicitly.
 drop function if exists public.resolve_team_logos(text[], text[]);

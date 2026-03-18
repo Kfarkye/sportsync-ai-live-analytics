@@ -60,6 +60,85 @@ create table if not exists public.canonical_teams (
   constraint canonical_teams_slug_format_chk check (canonical_slug ~ '^[a-z0-9]+(?:_[a-z0-9]+)*$')
 );
 
+-- Drift hardening: older environments may already have canonical_teams with a
+-- reduced column set. Ensure required columns exist before index/trigger setup.
+alter table public.canonical_teams
+  add column if not exists canonical_name text,
+  add column if not exists canonical_slug text,
+  add column if not exists league_id text,
+  add column if not exists sport text,
+  add column if not exists logo_url text,
+  add column if not exists is_active boolean,
+  add column if not exists country text,
+  add column if not exists external_refs jsonb,
+  add column if not exists created_at timestamptz,
+  add column if not exists updated_at timestamptz;
+
+alter table public.canonical_teams
+  alter column team_id set default gen_random_uuid(),
+  alter column is_active set default true,
+  alter column sport set default 'unknown',
+  alter column external_refs set default '{}'::jsonb,
+  alter column created_at set default now(),
+  alter column updated_at set default now();
+
+update public.canonical_teams
+set canonical_name = coalesce(nullif(trim(canonical_name), ''), 'unknown team')
+where canonical_name is null or trim(canonical_name) = '';
+
+update public.canonical_teams
+set league_id = coalesce(nullif(trim(league_id), ''), 'unknown')
+where league_id is null or trim(league_id) = '';
+
+update public.canonical_teams
+set sport = coalesce(nullif(trim(sport), ''), 'unknown')
+where sport is null or trim(sport) = '';
+
+update public.canonical_teams
+set canonical_slug = public.to_canonical_team_slug(canonical_name)
+where canonical_slug is null or trim(canonical_slug) = '';
+
+update public.canonical_teams
+set canonical_slug = 'team_' || substr(md5(coalesce(canonical_name, '') || ':' || coalesce(league_id, '')), 1, 16)
+where canonical_slug is null or trim(canonical_slug) = '';
+
+update public.canonical_teams
+set external_refs = '{}'::jsonb
+where external_refs is null;
+
+update public.canonical_teams
+set created_at = now()
+where created_at is null;
+
+update public.canonical_teams
+set updated_at = now()
+where updated_at is null;
+
+alter table public.canonical_teams
+  alter column canonical_name set not null,
+  alter column canonical_slug set not null,
+  alter column league_id set not null,
+  alter column sport set not null,
+  alter column is_active set not null,
+  alter column external_refs set not null,
+  alter column created_at set not null,
+  alter column updated_at set not null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.canonical_teams'::regclass
+      and conname = 'canonical_teams_slug_format_chk'
+  ) then
+    alter table public.canonical_teams
+      add constraint canonical_teams_slug_format_chk
+      check (canonical_slug ~ '^[a-z0-9]+(?:_[a-z0-9]+)*$');
+  end if;
+end
+$$;
+
 create unique index if not exists canonical_teams_slug_uidx on public.canonical_teams(canonical_slug);
 create index if not exists canonical_teams_league_idx on public.canonical_teams(league_id);
 create index if not exists canonical_teams_sport_idx on public.canonical_teams(sport);
