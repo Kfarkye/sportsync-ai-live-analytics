@@ -999,14 +999,28 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
       }
     })();
 
-    // FIX: Replaced dangerous substring .ilike with exact-match .in array targeting
-    const matchIds = Array.from(new Set([cur.id, getDbMatchId(cur.id, cur.leagueId?.toLowerCase() || '')]));
+    // FIX: Robust canonical + raw event ID matching for prop rows
+    const canonicalId = getDbMatchId(cur.id, cur.leagueId?.toLowerCase() || '');
+    const rawEventId = String(cur.id || '').split('_')[0];
+    const rawCanonicalId = getDbMatchId(rawEventId, cur.leagueId?.toLowerCase() || '');
+    const matchIds = Array.from(new Set([cur.id, canonicalId, rawEventId, rawCanonicalId].filter(Boolean)));
 
     const propsPromise = (async () => {
       try {
-        const { data: props } = await supabase.from('player_prop_bets').select('*')
+        const { data: exactProps } = await supabase.from('player_prop_bets').select('*')
           .in('match_id', matchIds)
           .order('player_name');
+
+        let props = exactProps || [];
+        if (props.length === 0 && rawEventId) {
+          const { data: fallbackProps } = await supabase
+            .from('player_prop_bets')
+            .select('*')
+            .ilike('match_id', `${rawEventId}%`)
+            .order('player_name')
+            .limit(500);
+          props = fallbackProps || [];
+        }
 
         if (!props || seq !== fetchSeqRef.current) return;
 
@@ -1521,8 +1535,13 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
                 {deferredTab === 'PROPS' && (
                   <div className="space-y-4">
-                    <div className="flex justify-end mb-4 pr-4">
-                      <button type="button" onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')} className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/70 transition-colors hover:text-black bg-black/[0.06] px-4 py-2 rounded-full border border-black/[0.05] transform-gpu">
+                    <div className="rounded-xl border border-[#D9E2F3]/70 bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex h-2 w-2 rounded-full bg-[#1D9E75]" />
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#10223A]">Prop Board</span>
+                        <span className="text-[10px] font-mono text-black/45">{match.dbProps?.length || 0} loaded</span>
+                      </div>
+                      <button type="button" onClick={() => setPropView(v => v === 'classic' ? 'cinematic' : 'classic')} className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/70 transition-colors hover:text-black bg-white px-4 py-2 rounded-full border border-black/[0.08] transform-gpu">
                         {propView === 'classic' ? 'VIEW: CLASSIC' : 'VIEW: CINEMATIC'}
                       </button>
                     </div>
