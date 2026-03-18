@@ -7,7 +7,7 @@ import { useAppStore } from '@/store/appStore';
 import { cn } from '@/lib/essence';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { Sport, Linescore } from '@/types';
-import { formatOddsByMode } from '@/lib/oddsDisplay';
+import { buildMatchRowOdds, type MatchRowOddPayload } from '@/lib/matchOdds';
 
 // Extend base props with poly data + selection state
 interface MatchRowProps extends BaseMatchRowProps {
@@ -27,8 +27,6 @@ const PHYSICS_MOTION = { type: "spring" as const, stiffness: 360, damping: 28 };
 const LOGO_W = 28;
 const TEAM_INDENT = LOGO_W + 16;
 
-const isValidOdd = (val: string | number | null | undefined): boolean => val !== null && val !== undefined && val !== '-' && val !== '';
-
 const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number | null | undefined; isWinner: boolean; isLoser: boolean }) => (
   <span
     className={cn(
@@ -42,26 +40,15 @@ const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number |
 ));
 ScoreCell.displayName = 'ScoreCell';
 
-const OddsChip = memo(({ label, value, mode }: {
-  label: string;
-  value: string | number | null | undefined;
-  mode: ReturnType<typeof useAppStore.getState>['oddsLens'];
-}) => {
-  if (!isValidOdd(value)) return null;
-  let display = String(value);
-  if (label === 'SPR') {
-    const num = Number(value);
-    if (!isNaN(num)) {
-      if (num === 0) display = 'PK';
-      else if (num > 0 && !display.startsWith('+')) display = `+${display}`;
-    }
-  } else if (label === 'ML') {
-    const converted = formatOddsByMode(value, mode, 'moneyline');
-    if (!converted) return null;
-    display = converted;
-  }
+const OddsChip = memo(({ label, display, mobileHidden }: MatchRowOddPayload) => {
   return (
-    <span className="inline-flex items-center gap-1.5 select-none" aria-label={`${label} ${display}`}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 select-none",
+        mobileHidden ? "max-[390px]:hidden" : undefined
+      )}
+      aria-label={`${label} ${display}`}
+    >
       <span className="font-semibold uppercase text-[8.5px] tracking-widest text-slate-400" aria-hidden="true">
         {label}
       </span>
@@ -149,7 +136,11 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const spread = match.odds?.homeSpread ?? match.odds?.spread ?? match.odds?.spread_home;
   const total = match.odds?.overUnder ?? match.odds?.total;
   const homeML = match.odds?.moneylineHome ?? match.odds?.homeML ?? match.odds?.homeWin ?? match.odds?.home_ml;
-  const hasOdds = isValidOdd(spread) || isValidOdd(total) || isValidOdd(homeML);
+  const oddsPayload = useMemo(
+    () => buildMatchRowOdds(spread, total, homeML, oddsLens, { maxMobileChips: 2, dedupeByValue: true }),
+    [spread, total, homeML, oddsLens]
+  );
+  const hasOdds = oddsPayload.length > 0;
 
   const { startTimeStr, dateStr, roundStr } = useMemo(() => {
     const d = new Date(match.startTime);
@@ -167,10 +158,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
     <motion.div
       ref={ref}
       layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      whileHover={{ backgroundColor: "rgba(255,255,255,0.42)", zIndex: 10, boxShadow: "0 12px 28px -20px rgba(15,23,42,0.45)" }}
-      whileTap={{ scale: 0.998 }}
+      initial={false}
       transition={PHYSICS_MOTION}
       onClick={() => onSelect?.(match)}
       role="button"
@@ -269,9 +257,14 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
         {hasOdds && !isFinal && !isLive && (
           <div className="flex items-center flex-wrap gap-x-4 gap-y-1 max-[390px]:gap-x-3 mt-1 max-[390px]:mt-0.5" style={{ paddingLeft: TEAM_INDENT }}>
-            <OddsChip label="SPR" value={spread} mode={oddsLens} />
-            <OddsChip label="O/U" value={total} mode={oddsLens} />
-            <OddsChip label="ML" value={homeML} mode={oddsLens} />
+            {oddsPayload.map((item) => (
+              <OddsChip
+                key={`${item.label}-${item.display}`}
+                label={item.label}
+                display={item.display}
+                mobileHidden={item.mobileHidden}
+              />
+            ))}
           </div>
         )}
       </div>

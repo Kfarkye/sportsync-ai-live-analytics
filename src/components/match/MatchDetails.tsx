@@ -62,8 +62,9 @@ import MarketEdgeCard from './MarketEdgeCard';
 import { MatchEdgeTags } from './MatchEdgeTags';
 import { usePolyOdds, findPolyForMatch, type PolyMatchOriented } from '@/hooks/usePolyOdds';
 import { MatchupLoader, MatchupContextPills } from '../ui';
-import ChatWidget from '../ChatWidget';
+
 import { TechnicalDebugView } from '../TechnicalDebugView';
+import TeamLogo from '../shared/TeamLogo';
 import {
   BaseballGamePanel,
   BaseballEdgePanel,
@@ -385,12 +386,19 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
               {hasMlColumn && <span className="text-right">ML</span>}
             </div>
 
-            <div className={cn(
-              "grid items-center gap-x-4 px-1 py-1.5",
-              hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
-            )}>
+                <div className={cn(
+                  "grid items-center gap-x-4 px-1 py-1.5",
+                  hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
+                )}>
               <div className="flex items-center gap-3 min-w-0">
-                {match.awayTeam?.logo && <img src={match.awayTeam.logo} alt="" className="w-6 h-6 object-contain shrink-0" loading="lazy" decoding="async" />}
+                {match.awayTeam?.logo && (
+                  <TeamLogo
+                    logo={match.awayTeam.logo}
+                    name={match.awayTeam.name || 'Away'}
+                    teamColor={match.awayTeam.color}
+                    className="w-6 h-6 object-contain shrink-0"
+                  />
+                )}
                 <div className="min-w-0 flex items-baseline gap-2">
                   <span className="text-[15px] font-semibold text-black truncate">{match.awayTeam?.name || match.awayTeam?.shortName}</span>
                   <span className="text-[12px] text-black/60 font-medium tabular-nums hidden sm:inline">{awayRecord}</span>
@@ -413,7 +421,14 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
               hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
             )}>
               <div className="flex items-center gap-3 min-w-0">
-                {match.homeTeam?.logo && <img src={match.homeTeam.logo} alt="" className="w-6 h-6 object-contain shrink-0" loading="lazy" decoding="async" />}
+                {match.homeTeam?.logo && (
+                  <TeamLogo
+                    logo={match.homeTeam.logo}
+                    name={match.homeTeam.name || 'Home'}
+                    teamColor={match.homeTeam.color}
+                    className="w-6 h-6 object-contain shrink-0"
+                  />
+                )}
                 <div className="min-w-0 flex items-baseline gap-2">
                   <span className="text-[15px] font-semibold text-black truncate">{match.homeTeam?.name || match.homeTeam?.shortName}</span>
                   <span className="text-[12px] text-black/60 font-medium tabular-nums hidden sm:inline">{homeRecord}</span>
@@ -1083,8 +1098,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   if (!match?.homeTeam) return <MatchupLoader className="h-screen bg-[#FBFBFD]" label="Synchronizing Hub" />;
 
   const TABS = useMemo(() => isSched
-    ? [{ id: 'DETAILS', label: 'Matchup' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }]
-    : [{ id: 'OVERVIEW', label: 'Game' }, { id: 'PROPS', label: 'Props' }, { id: 'DATA', label: 'Edge' }, { id: 'CHAT', label: 'AI' }],
+    ? [{ id: "DETAILS", label: "Matchup" }, { id: "PROPS", label: "Props" }, { id: "DATA", label: "Edge" }]
+    : [{ id: "OVERVIEW", label: "Game" }, { id: "PROPS", label: "Props" }, { id: "DATA", label: "Edge" }],
     [isSched]);
 
   const fallbackLiveState: LiveState | undefined = match.lastPlay
@@ -1366,31 +1381,31 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   </div>
                 )}
 
-                {deferredTab === 'CHAT' && (
-                  <div className="mx-auto w-full pb-8">
-                    <div className="grid gap-8 lg:grid-cols-[1fr_3fr] lg:items-start">
-                      <aside className="order-1 space-y-6 lg:sticky lg:top-32">
-                        <div className="rounded-[24px] border border-black/[0.04] bg-white/80 backdrop-blur-xl p-6 shadow-[0_12px_40px_rgba(0,0,0,0.04)] transform-gpu">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
-                            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/50">AI Context</div>
-                          </div>
-                          <div className="text-[13px] leading-relaxed text-black/70 font-medium">
-                            {isLive ? "Live workflow active. Anchor your read here before drilling into chat." : isSched ? "Pregame workflow active. Ask for market context, lineups, and pre-open risk." : "Postgame workflow active. Use chat for line review and trend analysis."}
-                          </div>
-                          <div className="mt-5 flex flex-wrap gap-2">
-                            <span className="rounded-lg border border-black/[0.05] bg-black/[0.02] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-black/60 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)]">{match.status || "STATUS"}</span>
-                            <span className="rounded-lg border border-black/[0.05] bg-black/[0.02] px-2.5 py-1.5 text-[11px] font-bold tabular-nums text-black/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)]">{match.awayScore ?? 0}-{match.homeScore ?? 0}</span>
-                          </div>
-                        </div>
-                        {isLive && <LiveIntelligenceCard match={match} />}
-                      </aside>
-                      <div className="order-2 h-[calc(100dvh-200px)] min-h-[600px] overflow-hidden rounded-[24px] border border-black/[0.04] bg-white shadow-[0_16px_50px_-12px_rgba(0,0,0,0.06)] relative z-20 transform-gpu">
-                        <ChatWidget currentMatch={match} inline />
-                      </div>
-                    </div>
-                  </div>
-                )}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
               </motion.div>
             </AnimatePresence>
           </LayoutGroup>
@@ -1404,3 +1419,5 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 };
 
 export default memo(MatchDetails);
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                //

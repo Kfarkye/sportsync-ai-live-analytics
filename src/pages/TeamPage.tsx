@@ -11,6 +11,7 @@ import {
 } from '../lib/postgame';
 import { formatMatchDate, matchUrl } from '../lib/slugs';
 import { color as C, fmt } from '../lib/tokens';
+import TeamLogo from '../components/shared/TeamLogo';
 
 // ============================================================================
 // Types
@@ -57,21 +58,30 @@ const THEME = {
     draw: 'bg-slate-100/80 text-slate-700 border-slate-200/80',
   },
   spread: {
-    covered: 'text-emerald-600 font-bold',
-    failed: 'text-rose-600 font-bold',
-    push: 'text-slate-500 font-bold',
-    off: 'text-slate-400 font-medium',
+    covered: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+    failed: 'bg-rose-50 text-rose-700 border-rose-200/80',
+    push: 'bg-slate-100 text-slate-500 border-slate-200/80',
+    off: 'bg-slate-100/70 text-slate-400 border-slate-200/70',
   },
   total: {
-    over: 'text-slate-800 font-bold',
-    under: 'text-slate-600 font-bold',
-    push: 'text-slate-500 font-bold',
-    off: 'text-slate-400 font-medium',
+    over: 'bg-rose-50 text-rose-700 border-rose-200/80',
+    under: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
+    push: 'bg-slate-100 text-slate-500 border-slate-200/80',
+    off: 'bg-slate-100/70 text-slate-400 border-slate-200/70',
   },
   layout: {
     page: 'h-(--vvh,100vh) overflow-y-auto overscroll-y-contain bg-slate-50/50 text-slate-900 font-sans pb-12 sm:pb-20 selection:bg-blue-100',
     header: 'sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur-md shadow-sm',
     section: 'rounded-2xl border border-slate-200/75 bg-white shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all',
+  },
+  row: {
+    shell: 'relative overflow-hidden rounded-2xl border border-slate-200/75 bg-white/95 shadow-[0_10px_30px_-24px_rgba(15,23,42,0.45)]',
+    shellInner: 'px-4 sm:px-5 py-3.5 sm:py-4',
+    accent: {
+      win: 'from-emerald-500/10 via-transparent to-emerald-500/5',
+      loss: 'from-rose-500/12 via-transparent to-rose-500/4',
+      draw: 'from-slate-400/12 via-transparent to-slate-400/4',
+    },
   },
   components: {
     navLink: 'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 transition-all active:scale-95',
@@ -242,62 +252,74 @@ function MatchRow({ row }: { row: LedgerRow }) {
   const resultTone = THEME.result[row.result];
   const spreadTone = THEME.spread[row.spreadOutcome];
   const totalTone = THEME.total[row.totalOutcome];
+  const isHome = row.venue === 'home';
 
   return (
-    <Link to={row.href} className="block group border-b border-slate-100/80 last:border-0 hover:bg-blue-50/40 transition-colors">
-
-      {/* Desktop Layout */}
-      <div className="hidden md:grid md:grid-cols-[130px_1fr_100px_180px_140px] gap-4 items-center px-5 py-3.5">
-        <div className="text-[13px] text-slate-500 tabular-nums leading-tight">
-          <div className="font-medium">{row.dateLabel}</div>
-          <div className="mt-0.5 uppercase tracking-widest text-[9px] font-bold text-slate-400">{row.venue === 'home' ? 'Home' : 'Away'}</div>
-        </div>
-
-        <div className="min-w-0 pr-4">
-          <div className="text-[15px] font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
-            <span className="text-slate-400 font-medium mr-1.5">{row.venue === 'home' ? 'vs' : '@'}</span>
-            {row.opponent}
+    <Link
+      to={row.href}
+      className={`${THEME.row.shell} block transition-all duration-300 hover:-translate-y-[1px] hover:shadow-[0_16px_34px_-24px_rgba(15,23,42,0.35)]`}
+    >
+      <span className={`pointer-events-none absolute inset-0 bg-gradient-to-r ${THEME.row.accent[row.result]} opacity-65`} />
+      <span className="pointer-events-none absolute left-0 top-0 bottom-0 w-[3px] bg-slate-900/15" />
+      <div className={THEME.row.shellInner}>
+        {/* Desktop Layout */}
+        <div className="hidden md:grid md:grid-cols-[118px_1fr_120px_155px_122px] gap-4 items-center">
+          <div className="text-[12px] text-slate-500 tabular-nums leading-tight">
+            <div className="font-semibold">{row.dateLabel}</div>
+            <div className="mt-1 uppercase tracking-[0.14em] text-[8.5px] font-bold text-slate-400">{isHome ? 'Home' : 'Away'}</div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2.5">
-          <span className={`rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${resultTone}`}>
-            {row.result}
+          <div className="min-w-0 pr-1">
+            <div className="text-[16px] sm:text-[17px] font-semibold text-slate-900 truncate group-hover:text-slate-950 transition-colors tracking-tight">
+              <span className="text-slate-400 font-medium mr-1.5">{isHome ? 'vs' : '@'}</span>
+              {row.opponent}
+            </div>
+            <div className="mt-1 text-[10px] sm:text-[11px] text-slate-500">Closing lines context</div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5">
+            <span className={`rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] ${resultTone}`}>
+              {row.result}
+            </span>
+            <span className="text-[18px] sm:text-xl font-bold tabular-nums text-slate-900">{row.score}</span>
+          </div>
+
+          <span className={`justify-self-start rounded-full border px-2.5 py-1 text-[11px] font-bold ${spreadTone}`}>
+            {row.spreadLabel}
           </span>
-          <span className="text-lg font-extrabold tabular-nums text-slate-900">{row.score}</span>
-        </div>
-
-        <div className={`text-[14px] tabular-nums ${spreadTone}`}>{row.spreadLabel}</div>
-        <div className={`text-[14px] tabular-nums ${totalTone}`}>{row.totalLabel}</div>
-      </div>
-
-      {/* Mobile Layout */}
-      <div className="md:hidden p-4 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-            {row.dateLabel} <span className="mx-1.5 text-slate-300">•</span> {row.venue}
-          </div>
-          <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] ${resultTone}`}>
-            {row.result}
+          <span className={`justify-self-start rounded-full border px-2.5 py-1 text-[11px] font-bold ${totalTone}`}>
+            {row.totalLabel}
           </span>
         </div>
 
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-[15px] font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
-            <span className="text-slate-400 font-medium mr-1.5">{row.venue === 'home' ? 'vs' : '@'}</span>
-            {row.opponent}
+        {/* Mobile Layout */}
+        <div className="md:hidden flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-500">
+              {row.dateLabel} <span className="mx-1.5 text-slate-300">•</span> {row.venue}
+            </div>
+            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] ${resultTone}`}>
+              {row.result}
+            </span>
           </div>
-          <div className="text-lg font-extrabold tabular-nums text-slate-900">{row.score}</div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-2 mt-1">
-          <div className={`rounded-lg border border-slate-200/60 bg-slate-50/50 px-2.5 py-1.5 flex flex-col items-center justify-center text-center ${spreadTone}`}>
-            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">ATS</span>
-            <span className="text-xs">{row.spreadLabel}</span>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[16px] font-bold text-slate-900 truncate group-hover:text-slate-950 transition-colors">
+              <span className="text-slate-400 font-medium mr-1.5">{isHome ? 'vs' : '@'}</span>
+              {row.opponent}
+            </div>
+            <div className="text-xl font-bold tabular-nums text-slate-900">{row.score}</div>
           </div>
-          <div className={`rounded-lg border border-slate-200/60 bg-slate-50/50 px-2.5 py-1.5 flex flex-col items-center justify-center text-center ${totalTone}`}>
-            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Total</span>
-            <span className="text-xs">{row.totalLabel}</span>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className={`rounded-xl border px-2.5 py-2 flex flex-col items-center justify-center text-center ${spreadTone}`}>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-1">ATS</span>
+              <span className="text-[11px] font-semibold">{row.spreadLabel}</span>
+            </div>
+            <div className={`rounded-xl border px-2.5 py-2 flex flex-col items-center justify-center text-center ${totalTone}`}>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-1">Total</span>
+              <span className="text-[11px] font-semibold">{row.totalLabel}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -470,7 +492,12 @@ export default function TeamPage() {
             <div className="flex items-center gap-4 sm:gap-6 min-w-0">
               <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex items-center justify-center p-3 shrink-0">
                 {meta?.logo_url ? (
-                  <img src={meta.logo_url} alt={teamName} className="h-full w-full object-contain drop-shadow-sm" />
+                  <TeamLogo
+                    logo={meta.logo_url}
+                    name={teamName}
+                    className="h-full w-full"
+                    teamColor={teamColor}
+                  />
                 ) : (
                   <span className="text-3xl sm:text-4xl font-extrabold" style={{ color: teamColor }}>{teamName[0]}</span>
                 )}
@@ -536,7 +563,7 @@ export default function TeamPage() {
           ) : (
             <div className="bg-white rounded-b-2xl">
               {/* Desktop Sticky Column Headers */}
-              <div className="hidden md:grid md:grid-cols-[130px_1fr_100px_180px_140px] gap-4 px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 bg-slate-50/95 border-b border-slate-200/80 sticky top-[57px] md:top-[65px] z-30 backdrop-blur-md shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+              <div className="hidden md:grid md:grid-cols-[118px_1fr_120px_155px_122px] gap-4 px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 bg-slate-50/95 border-b border-slate-200/80 sticky top-[57px] md:top-[65px] z-30 backdrop-blur-md shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                 <span>Date</span>
                 <span>Opponent</span>
                 <span>Result</span>
@@ -551,7 +578,7 @@ export default function TeamPage() {
                     <span className="text-slate-700">{group.month}</span>
                     <span className="text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-200">{group.items.length} Matches</span>
                   </div>
-                  <div className="divide-y divide-slate-100/80">
+                  <div className="space-y-2 px-4 pt-3 pb-4 md:px-5">
                     {group.items.map((row) => (
                       <MatchRow key={row.id} row={row} />
                     ))}

@@ -5,9 +5,9 @@ import { useMatches } from '../../hooks/useMatches';
 import { UnifiedHeader } from './UnifiedHeader';
 import MatchList from '../match/MatchList';
 import MatchDetails from '../match/MatchDetails';
-import ChatWidget from '../ChatWidget';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
+import ChatWidget from '../ChatWidget';
 import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
@@ -43,6 +43,7 @@ const AppShell: FC = () => {
     togglePricingModal,
     toggleSportDrawer,
     toggleRankingsDrawer,
+    toggleGlobalChat,
     setShowLanding,
     setSelectedDate,
     closeAllOverlays,
@@ -269,43 +270,31 @@ const AppShell: FC = () => {
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
             className={cn(
-              'fixed inset-0 z-60 overflow-hidden flex flex-col',
+              'fixed inset-0 z-[60] overflow-hidden flex flex-col',
               ESSENCE.tw.surface.subtle // bg-slate-50
             )}
           >
             {/* Sheet Handle for Mobile */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-70 md:hidden" />
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-[70] md:hidden" />
             <MatchDetails match={selectedMatch} matches={filteredMatches} onSelectMatch={setSelectedMatch} onBack={() => setSelectedMatch(null)} />
           </MotionDiv>
         )}
       </AnimatePresence>
 
-      {/* Desktop AI FAB — only visible on md+ when chat is closed */}
-      {!selectedMatch && (
+      <ChatWidget currentMatch={selectedMatch ?? undefined} matches={filteredMatches} />
+      {!isGlobalChatOpen && (
         <button
-          onClick={() => useAppStore.getState().toggleGlobalChat()}
-          className={cn(
-            'fixed bottom-5 right-5 z-50 hidden md:flex items-center justify-center',
-            'w-11 h-11 rounded-xl transition-all active:scale-90',
-            // SSOT: ink primary action
-            'bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800',
-            isGlobalChatOpen && 'rotate-45'
-          )}
-          aria-label={isGlobalChatOpen ? 'Close AI' : 'Open AI Analysis'}
+          type="button"
+          onClick={() => toggleGlobalChat(true)}
+          aria-label="Open AI chat"
+          className="fixed bottom-6 right-4 md:bottom-8 md:right-8 z-[9999] inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-slate-200 shadow-[0_14px_36px_-18px_rgba(15,23,42,0.45)] text-slate-800"
         >
-          {isGlobalChatOpen ? (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M4 4L12 12M12 4L4 12" />
-            </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
-              <path d="M9 1L11.5 6.5L17 9L11.5 11.5L9 17L6.5 11.5L1 9L6.5 6.5L9 1Z" fill="currentColor" opacity="0.85" />
-            </svg>
-          )}
+          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+          <span className="text-[11px] font-semibold tracking-[0.05em] uppercase" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+            AI Chat
+          </span>
         </button>
       )}
-
-      <ChatWidget currentMatch={selectedMatch} matches={matches} />
 
       <Suspense fallback={null}>
         <CommandPalette isOpen={isCmdkOpen} onClose={() => toggleCmdk(false)} matches={matches} onSelect={setSelectedMatch} />

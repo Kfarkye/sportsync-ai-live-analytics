@@ -5,6 +5,7 @@ import { User, Target, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Match, PlayerPropBet, Team, InjuryReport, RosterPlayer } from '@/types';
 import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { ESSENCE } from '@/lib/essence';
+import TeamLogo from '../shared/TeamLogo';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // UTILITIES
@@ -577,7 +578,7 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
         return (
             <div className="space-y-10">
                 <div className="flex items-center gap-4">
-                    <img src={team.logo} alt="" className="w-10 h-10 object-contain" />
+                    <TeamLogo logo={team.logo} name={team.name} className="w-10 h-10" teamColor={color} />
                     <div>
                         <h2 className="text-title-lg font-bold text-slate-900 tracking-tight">{team.name}</h2>
                         <span className="text-small text-slate-500 font-medium">

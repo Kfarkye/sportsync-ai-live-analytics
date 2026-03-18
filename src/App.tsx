@@ -19,6 +19,10 @@ const TrendsPage = lazy(() => import('./pages/TrendsPage'));
 const PostgameRouter = lazy(() => import('./pages/postgame/PostgameRouter'));
 
 const App: FC = () => {
+  const isSwDebugDisabled = typeof window !== 'undefined'
+    ? (window as typeof window & { __sportsyncSwDebugDisabled?: boolean }).__sportsyncSwDebugDisabled === true
+    : false;
+
   useEffect(() => {
     // 0) Apply ESSENCE -> CSS vars (SSOT)
     applyEssenceToRoot();
@@ -48,6 +52,11 @@ const App: FC = () => {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <BrowserRouter>
+            {isSwDebugDisabled ? (
+              <div className="fixed top-0 left-0 right-0 z-[100] bg-amber-100 border-b border-amber-300 px-3 py-2 text-center text-[11px] font-semibold text-amber-900">
+                Service Worker disabled for debug: ?disable-sw=1 or ?disable-sw=true. Re-enable with ?disable-sw=0 or ?disable-sw=false.
+              </div>
+            ) : null}
             <Suspense fallback={<AppLoadingScreen />}>
               <Routes>
                 <Route path="/soccer" element={<PostgameRouter />} />
