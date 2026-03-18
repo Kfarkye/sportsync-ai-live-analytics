@@ -7,6 +7,7 @@ import MatchList from '../match/MatchList';
 import MatchDetails from '../match/MatchDetails';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
+import ChatWidget from '../ChatWidget';
 import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
@@ -36,11 +37,13 @@ const AppShell: FC = () => {
     isSportDrawerOpen,
     isPricingModalOpen,
     isRankingsDrawerOpen,
+    isGlobalChatOpen,
     toggleCmdk,
     toggleAuthModal,
     togglePricingModal,
     toggleSportDrawer,
     toggleRankingsDrawer,
+    toggleGlobalChat,
     setShowLanding,
     setSelectedDate,
     closeAllOverlays,
