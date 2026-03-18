@@ -131,7 +131,10 @@ export function useNbaProductContext(input: NbaProductContextInput = {}) {
   });
 }
 
-export function useNbaProductContextPacket(input: NbaProductContextInput = {}) {
+export function useNbaProductContextPacket(
+  input: NbaProductContextInput = {},
+  options: { enabled?: boolean } = {},
+) {
   const lookup = useMemo(() => deriveNbaContextFilters(input), [
     normalizeDateKey(input.asOf),
     input.progressFraction ?? null,
@@ -180,6 +183,7 @@ export function useNbaProductContextPacket(input: NbaProductContextInput = {}) {
       }
     },
     placeholderData: placeholderPacket,
+    enabled: options.enabled ?? true,
     staleTime: TEN_MINUTES,
     gcTime: FIFTEEN_MINUTES,
     refetchOnWindowFocus: false,
