@@ -28,6 +28,9 @@
   --color-border: #DDE3F0;
   --color-accent: #0B63F6;
   --color-accent-soft: #F2E9FF;
+  --color-kalshi-yes: #1D9E75;
+  --color-kalshi-no: #E24B4A;
+  --color-kalshi-ink: #10223A;
 
   /* Motion */
   --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -81,6 +84,57 @@ body {
   position: relative;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+/* ==========================================================================
+   §2.1  KALSHI POLISH LAYER — subtle exchange-style depth
+   ========================================================================== */
+
+.kalshi-shell {
+  background:
+    radial-gradient(1200px 360px at 8% -10%, rgba(29, 158, 117, 0.09) 0%, transparent 64%),
+    radial-gradient(980px 320px at 92% -12%, rgba(11, 99, 246, 0.085) 0%, transparent 64%),
+    linear-gradient(180deg, #f6f8ff 0%, #f4f6ff 42%, #f8f9fc 100%);
+}
+
+.kalshi-panel {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #dbe3f2;
+  box-shadow:
+    0 14px 32px -26px rgba(16, 34, 58, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.kalshi-tab-btn {
+  border-color: #c9d4e7;
+  background: #ffffff;
+}
+
+.kalshi-tab-btn:hover {
+  border-color: #aebed8;
+  background: #f8fbff;
+}
+
+.kalshi-tab-btn-active {
+  border-color: #12396f;
+  background: linear-gradient(180deg, #1a4686 0%, #12396f 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 20px -16px rgba(18, 57, 111, 0.75);
+}
+
+.kalshi-live-btn-active {
+  border-color: #106856;
+  background: linear-gradient(180deg, #1d9e75 0%, #177f60 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 24px -14px rgba(29, 158, 117, 0.65);
+}
+
+.kalshi-fab {
+  border: 1px solid #cad5e9;
+  background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
+  box-shadow:
+    0 18px 34px -20px rgba(15, 23, 42, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
 /* ==========================================================================

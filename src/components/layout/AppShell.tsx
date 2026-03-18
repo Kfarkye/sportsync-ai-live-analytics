@@ -125,7 +125,7 @@ const AppShell: FC = () => {
         // Layout
         'min-h-screen h-(--vvh,100vh) relative flex flex-col antialiased',
         // Yahoo-inspired shell surface
-        'bg-[#F4F6FF] text-slate-900 font-sans',
+        'bg-[#F4F6FF] text-slate-900 font-sans kalshi-shell',
         // selection rule
         'selection:bg-blue-300/30'
       )}
@@ -271,7 +271,8 @@ const AppShell: FC = () => {
             transition={{ type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
             className={cn(
               'fixed inset-0 z-[60] overflow-hidden flex flex-col',
-              ESSENCE.tw.surface.subtle // bg-slate-50
+              ESSENCE.tw.surface.subtle, // bg-slate-50
+              'kalshi-shell'
             )}
           >
             {/* Sheet Handle for Mobile */}
@@ -287,7 +288,7 @@ const AppShell: FC = () => {
           type="button"
           onClick={() => toggleGlobalChat(true)}
           aria-label="Open AI chat"
-          className="fixed bottom-6 right-4 md:bottom-8 md:right-8 z-[9999] inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-slate-200 shadow-[0_14px_36px_-18px_rgba(15,23,42,0.45)] text-slate-800"
+          className="fixed bottom-6 right-4 md:bottom-8 md:right-8 z-[9999] inline-flex items-center gap-2 px-4 py-2.5 rounded-full kalshi-fab text-slate-800"
         >
           <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
           <span className="text-[11px] font-semibold tracking-[0.05em] uppercase" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>

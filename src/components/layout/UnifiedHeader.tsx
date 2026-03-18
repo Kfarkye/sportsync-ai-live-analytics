@@ -130,7 +130,7 @@ export const UnifiedHeader: FC = () => {
     const selectedDateValue = useMemo(() => formatDateValue(new Date(selectedDate)), [selectedDate]);
 
     return (
-        <header className="sticky top-0 z-40 w-full bg-white/95 supports-backdrop-filter:bg-white/88 backdrop-blur-md print:hidden pt-safe shadow-[0_1px_0_rgba(17,24,39,0.07)]">
+        <header className="sticky top-0 z-40 w-full bg-white/95 supports-backdrop-filter:bg-white/88 backdrop-blur-md print:hidden pt-safe shadow-[0_1px_0_rgba(17,24,39,0.07)] kalshi-panel">
             {/* ─── PRIMARY ROW: Brand + Sport Tabs + Actions ──── */}
             <div className="max-w-7xl mx-auto w-full">
                 <div className="h-[54px] max-[390px]:h-[50px] px-4 max-[390px]:px-3 md:px-7 flex items-center justify-between border-b border-slate-200/90">
@@ -193,8 +193,8 @@ export const UnifiedHeader: FC = () => {
                             className={cn(
                                 "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border",
                                 isTrendsPage
-                                    ? "bg-[#0A0A0A] border-[#0A0A0A] text-white"
-                                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400",
+                                    ? "kalshi-tab-btn-active"
+                                    : "kalshi-tab-btn text-slate-700",
                                 focusRing
                             )}
                             aria-label="Open trends"
@@ -209,8 +209,8 @@ export const UnifiedHeader: FC = () => {
                             className={cn(
                                 "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border",
                                 activeView === 'LIVE'
-                                    ? "bg-[#0B63F6] border-[#0B63F6] text-white shadow-[0_8px_20px_-10px_rgba(11,99,246,0.5)]"
-                                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400",
+                                    ? "kalshi-live-btn-active"
+                                    : "kalshi-tab-btn text-slate-700",
                                 focusRing
                             )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
