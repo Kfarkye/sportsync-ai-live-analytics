@@ -7,7 +7,7 @@ import { useAppStore } from '@/store/appStore';
 import { cn } from '@/lib/essence';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { Sport, Linescore } from '@/types';
-import { formatOddsByMode } from '@/lib/oddsDisplay';
+import { buildMatchRowOdds, type MatchRowOddPayload } from '@/lib/matchOdds';
 
 // Extend base props with poly data + selection state
 interface MatchRowProps extends BaseMatchRowProps {
@@ -27,8 +27,6 @@ const PHYSICS_MOTION = { type: "spring" as const, stiffness: 360, damping: 28 };
 const LOGO_W = 28;
 const TEAM_INDENT = LOGO_W + 16;
 
-const isValidOdd = (val: string | number | null | undefined): boolean => val !== null && val !== undefined && val !== '-' && val !== '';
-
 const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number | null | undefined; isWinner: boolean; isLoser: boolean }) => (
   <span
     className={cn(
@@ -42,26 +40,15 @@ const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number |
 ));
 ScoreCell.displayName = 'ScoreCell';
 
-const OddsChip = memo(({ label, value, mode }: {
-  label: string;
-  value: string | number | null | undefined;
-  mode: ReturnType<typeof useAppStore.getState>['oddsLens'];
-}) => {
-  if (!isValidOdd(value)) return null;
-  let display = String(value);
-  if (label === 'SPR') {
-    const num = Number(value);
-    if (!isNaN(num)) {
-      if (num === 0) display = 'PK';
-      else if (num > 0 && !display.startsWith('+')) display = `+${display}`;
-    }
-  } else if (label === 'ML') {
-    const converted = formatOddsByMode(value, mode, 'moneyline');
-    if (!converted) return null;
-    display = converted;
-  }
+const OddsChip = memo(({ label, display, mobileHidden }: MatchRowOddPayload) => {
   return (
-    <span className="inline-flex items-center gap-1.5 select-none" aria-label={`${label} ${display}`}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 select-none",
+        mobileHidden ? "max-[390px]:hidden" : undefined
+      )}
+      aria-label={`${label} ${display}`}
+    >
       <span className="font-semibold uppercase text-[8.5px] tracking-widest text-slate-400" aria-hidden="true">
         {label}
       </span>
@@ -149,7 +136,11 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const spread = match.odds?.homeSpread ?? match.odds?.spread ?? match.odds?.spread_home;
   const total = match.odds?.overUnder ?? match.odds?.total;
   const homeML = match.odds?.moneylineHome ?? match.odds?.homeML ?? match.odds?.homeWin ?? match.odds?.home_ml;
-  const hasOdds = isValidOdd(spread) || isValidOdd(total) || isValidOdd(homeML);
+  const oddsPayload = useMemo(
+    () => buildMatchRowOdds(spread, total, homeML, oddsLens, { maxMobileChips: 2, dedupeByValue: true }),
+    [spread, total, homeML, oddsLens]
+  );
+  const hasOdds = oddsPayload.length > 0;
 
   const { startTimeStr, dateStr, roundStr } = useMemo(() => {
     const d = new Date(match.startTime);
@@ -169,11 +160,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-<<<<<<< HEAD
-      whileHover={{ backgroundColor: "#F8FAFC", zIndex: 10 }}
-=======
       whileHover={{ backgroundColor: "rgba(248,250,252,0.94)", zIndex: 10, boxShadow: "0 12px 28px -20px rgba(15,23,42,0.22)" }}
->>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
       whileTap={{ scale: 0.998 }}
       transition={PHYSICS_MOTION}
       onClick={() => onSelect?.(match)}
@@ -183,16 +170,10 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       onKeyDown={(e: React.KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onSelect?.(match); } }}
       className={cn(
         "group relative flex items-center justify-between px-4 py-4 sm:px-4 sm:py-4 max-[390px]:px-3 max-[390px]:py-3 cursor-pointer transform-gpu min-h-[64px] max-[390px]:min-h-[58px] [-webkit-tap-highlight-color:transparent]",
-<<<<<<< HEAD
-        "focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none focus-visible:ring-inset",
-        "transition-colors duration-200",
-        isSelected ? "bg-blue-50/70" : "bg-white hover:bg-blue-50/45"
-=======
         "focus-visible:ring-2 focus-visible:ring-[#BFDBFE] focus-visible:outline-none focus-visible:ring-inset",
         "transition-colors duration-200",
         "border border-slate-200/90 bg-white shadow-[0_8px_20px_-18px_rgba(15,23,42,0.24)]",
         isSelected ? "bg-emerald-50" : "hover:bg-slate-50"
->>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
       )}
     >
       <div className={cn(
@@ -201,11 +182,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           ? "bg-amber-500 w-[3px] opacity-100"
           : isSelected
             ? "bg-[#0B63F6] w-1 opacity-100"
-<<<<<<< HEAD
-            : "bg-blue-300 w-[3px] scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100"
-=======
             : "bg-slate-300 w-[3px] scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100"
->>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
       )} />
 
       {/* Team Data */}
@@ -283,9 +260,14 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
         {hasOdds && !isFinal && !isLive && (
           <div className="flex items-center flex-wrap gap-x-4 gap-y-1 max-[390px]:gap-x-3 mt-1 max-[390px]:mt-0.5" style={{ paddingLeft: TEAM_INDENT }}>
-            <OddsChip label="SPR" value={spread} mode={oddsLens} />
-            <OddsChip label="O/U" value={total} mode={oddsLens} />
-            <OddsChip label="ML" value={homeML} mode={oddsLens} />
+            {oddsPayload.map((item) => (
+              <OddsChip
+                key={`${item.label}-${item.display}`}
+                label={item.label}
+                display={item.display}
+                mobileHidden={item.mobileHidden}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -296,11 +278,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1.5">
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-<<<<<<< HEAD
-              <div className="flex items-center gap-1.5 rounded-md px-2 py-0.5 border border-emerald-200 bg-emerald-50/70">
-=======
               <div className="flex items-center gap-1.5 rounded-md px-2 py-0.5 border border-emerald-200 bg-emerald-50">
->>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
                 <span className="relative inline-flex h-2.5 w-2.5 items-center justify-center">
                   <span className="absolute inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500/30 animate-ping [animation-duration:2s]" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -317,11 +295,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         ) : isFinal ? (
           <div className="flex items-center gap-1.5">
             <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-<<<<<<< HEAD
-            <span className="text-[9px] font-semibold text-[#555555] bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md uppercase tracking-[0.12em] font-mono">FINAL</span>
-=======
             <span className="text-[9px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md uppercase tracking-[0.12em] font-mono">FINAL</span>
->>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
           </div>
         ) : (
           <>

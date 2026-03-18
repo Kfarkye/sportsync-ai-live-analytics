@@ -229,17 +229,10 @@ const SYSTEM = {
     morph: { type: "spring", damping: 25, stiffness: 280 } as Transition,
   },
   surface: {
-<<<<<<< HEAD
-    void: "bg-white",
-    panel: "bg-white border border-slate-200",
-    /** Liquid Glass 2.0: Deep blur (24px), high saturation (180%), top-edge specular. */
-    glass: "bg-slate-50 backdrop-blur-xl backdrop-saturate-180 border border-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
-=======
     void: "bg-white shadow-[0_28px_90px_-36px_rgba(15,23,42,0.45)]",
     panel: "bg-white border border-slate-200/90",
     /** Quiet glass: support material only, not the primary shell aesthetic. */
     glass: "bg-white/98 border border-slate-200/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]",
->>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
     hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20 shadow-[inset_0_1px_0_rgba(245,158,11,0.1)]",
     milled: "border border-slate-200",
     alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20 shadow-[inset_0_1px_0_rgba(225,29,72,0.1)]",
@@ -253,8 +246,6 @@ const SYSTEM = {
   geo: { pill: "rounded-full", card: "rounded-[22px]", input: "rounded-[24px]" },
 } as const;
 
-<<<<<<< HEAD
-=======
 const CHAT_SURFACES = {
   shell: "bg-white border border-slate-200/90",
   panel: "bg-slate-950/96 border border-slate-800",
@@ -263,7 +254,6 @@ const CHAT_SURFACES = {
   textGlass: "bg-white border border-slate-200",
 } as const;
 
->>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
 const RETRY_CONFIG = { maxAttempts: 3, baseDelay: 1000, maxDelay: 8000, jitterFactor: 0.3 } as const;
 const CHAT_TTFB_TIMEOUT_MS = 30_000;
 const CHAT_STREAM_IDLE_TIMEOUT_MS = 25_000;
@@ -1631,7 +1621,10 @@ const ScrollAnchor: FC<{ visible: boolean; onClick: () => void }> = memo(({ visi
         exit={{ opacity: 0, y: 8, scale: 0.9 }}
         transition={SYSTEM.anim.fluid}
         onClick={() => { triggerHaptic(); onClick(); }}
-        className="absolute bottom-32 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 border border-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-slate-50 transition-colors"
+        className={cn(
+          "absolute bottom-32 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 transition-colors",
+          CHAT_SURFACES.textGlass,
+        )}
         aria-label="Scroll to latest messages"
       >
         <ArrowDown size={10} className="text-emerald-400" />
@@ -1677,8 +1670,11 @@ const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={SYSTEM.anim.fluid}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-70 flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform"
-          >
+            className={cn(
+              "absolute bottom-28 left-1/2 -translate-x-1/2 z-70 flex items-center gap-3 px-4 py-2.5 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform",
+              CHAT_SURFACES.textGlass,
+            )}
+            >
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]" />
             <span className="text-[12px] font-medium text-slate-900 tracking-tight">{toast.message}</span>
           </motion.div>
@@ -2192,8 +2188,7 @@ const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
       className={cn(
         "my-8 relative overflow-hidden",
         "rounded-xl",                          // M-23: 12px inner card radius
-        "bg-white",                        // M-24: Distinct elevated background
-        "border border-slate-200",          // M-24: Subtle but present border
+        CHAT_SURFACES.soft,                   // M-24: Glass surface with subtle depth
         "shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
       )}
     >
@@ -2353,7 +2348,10 @@ const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: numb
         transition={SYSTEM.anim.fluid}
         role="status"
         aria-live="polite"
-        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-sm z-30 will-change-transform"
+        className={cn(
+          "absolute bottom-full left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full shadow-sm z-30 will-change-transform",
+          CHAT_SURFACES.textGlass,
+        )}
       >
         <OrbitalRadar />
         <AnimatePresence mode="wait">
@@ -2422,7 +2420,7 @@ const SmartChips: FC<{
             transition={{ delay: (matchupLabel ? i + 1 : i) * 0.04, ...SYSTEM.anim.fluid }}
             whileHover={{ scale: 1.02, y: -1, backgroundColor: "rgba(255,255,255,0.06)" }}
             whileTap={{ scale: 0.98 }}
-            className={cn("px-3.5 py-2 bg-slate-50 border border-slate-200 transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill)}
+            className={cn("px-3.5 py-2 transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill, CHAT_SURFACES.chip)}
           >
             <span className="text-[10px] font-medium text-slate-600 tracking-wide uppercase whitespace-nowrap">{chip}</span>
           </motion.button>
@@ -2798,7 +2796,7 @@ const MessageBubble: FC<{
         <div className={cn(
           "relative max-w-[92%] md:max-w-[88%]",
           isUser
-            ? "bg-white text-black rounded-[20px] rounded-tr-[6px] shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5"
+            ? `${CHAT_SURFACES.soft} text-slate-900 rounded-[20px] rounded-tr-[6px] shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5`
             : "bg-transparent text-slate-900 px-0 max-w-full md:max-w-[96%]",
         )}>
           <div className={cn("prose prose-invert max-w-none", isUser && "prose-p:text-black/90")}>
@@ -2939,11 +2937,7 @@ const InputDeck: FC<{
       layout
       className={cn(
         "flex flex-col gap-2 p-1.5 relative overflow-hidden transition-colors duration-500 will-change-transform",
-<<<<<<< HEAD
-        SYSTEM.geo.input, "bg-white shadow-sm focus-within:ring-1 focus-within:ring-slate-200",
-=======
         SYSTEM.geo.input, CHAT_SURFACES.shell, "focus-within:ring-1 focus-within:ring-sky-200/80",
->>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
         isVoiceMode
           ? "border-emerald-500/30 shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)]"
           : isOffline ? "border-red-500/20" : SYSTEM.surface.milled,
@@ -2959,7 +2953,10 @@ const InputDeck: FC<{
             className="flex gap-2 overflow-x-auto p-2 mb-1 scrollbar-hide"
           >
             {attachments.map((a, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-200">
+              <div key={i} className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-full",
+                CHAT_SURFACES.chip,
+              )}>
                 <ImageIcon size={12} className="text-slate-900/50" />
                 <span className="text-[10px] text-slate-600 max-w-[80px] truncate">{a.file.name}</span>
                 <button
@@ -2978,15 +2975,11 @@ const InputDeck: FC<{
       <div className="flex items-end gap-2">
         <button
           onClick={() => fileInputRef.current?.click()}
-<<<<<<< HEAD
-          className="p-3.5 rounded-[18px] text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-=======
           className={cn(
             "p-3.5 rounded-[18px] text-slate-500 hover:text-slate-900 transition-colors disabled:opacity-30 disabled:pointer-events-none",
             CHAT_SURFACES.chip,
             "hover:bg-slate-100",
           )}
->>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
           aria-label="Attach file"
           disabled={isOffline || isProcessing}
         >
@@ -3031,15 +3024,9 @@ const InputDeck: FC<{
             className={cn(
               "p-3 rounded-[18px] transition-all duration-300",
               isProcessing
-<<<<<<< HEAD
-                ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                : canSend
-                  ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-=======
                 ? `${CHAT_SURFACES.textGlass} text-slate-900 shadow-[0_6px_18px_-14px_rgba(15,23,42,0.45)]`
                 : canSend
                   ? `${CHAT_SURFACES.soft} text-slate-900 shadow-[0_6px_18px_-14px_rgba(15,23,42,0.45)]`
->>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
                   : isVoiceMode
                     ? "text-rose-400 bg-rose-500/10"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
@@ -3602,11 +3589,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
           className={cn(
             "flex flex-col overflow-hidden transition-all duration-500 isolate relative z-50 will-change-transform",
             inline
-<<<<<<< HEAD
-              ? "w-full h-full bg-transparent"
-=======
               ? "w-full h-full bg-white border border-slate-200/90"
->>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
               : cn(
                 "w-full md:w-[460px] h-dvh md:h-[min(840px,90dvh)]",
                 "rounded-[28px] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]",
@@ -3731,11 +3714,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
           {/* Scroll anchor — visible when user has scrolled up */}
           <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
 
-<<<<<<< HEAD
-          <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-6 backdrop-blur-xl bg-white/80 border-t border-slate-200/60 pointer-events-none">
-=======
           <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-6 bg-white border-t border-slate-200/90 pointer-events-none">
->>>>>>> 2806f0b (fix: restore global ai chat widget launcher)
             <div className="pointer-events-auto relative">
               <AnimatePresence>
                 {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}
