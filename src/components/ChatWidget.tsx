@@ -1671,7 +1671,7 @@ const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={SYSTEM.anim.fluid}
             className={cn(
-              "absolute bottom-28 left-1/2 -translate-x-1/2 z-70 flex items-center gap-3 px-4 py-2.5 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform",
+              "absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform",
               CHAT_SURFACES.textGlass,
             )}
             >
@@ -3787,7 +3787,7 @@ const ChatWidget: FC<ChatWidgetProps> = (props) => {
               animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
               exit={{ opacity: 0, y: 80, scale: 0.95, filter: "blur(10px)" }}
               transition={SYSTEM.anim.fluid}
-              className={cn("fixed z-9999", isMinimized ? "bottom-8 right-8" : "inset-0 md:inset-auto md:bottom-8 md:right-8")}
+              className={cn("fixed z-[9999]", isMinimized ? "bottom-8 right-8" : "inset-0 md:inset-auto md:bottom-8 md:right-8")}
             >
               <InnerChatWidget {...props} inline={false} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             </motion.div>

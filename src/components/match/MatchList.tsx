@@ -177,20 +177,18 @@ const OptimizedMatchRow = memo(({
     }, [polyResult, match]);
 
     return (
-        <motion.div layout="position" layoutId={`match-row-${match.id}`} initial={false} className="transform-gpu">
-            <MatchRow
-                match={match}
-                isPinned={isPinned}
-                isLive={isLive}
-                isFinal={isFinal}
-                onSelect={handleSelect}
-                onTogglePin={handleToggle}
-                {...(polyHomeProb !== undefined ? { polyHomeProb } : {})}
-                {...(polyAwayProb !== undefined ? { polyAwayProb } : {})}
-                {...(homeEdge !== undefined ? { homeEdge } : {})}
-                {...(awayEdge !== undefined ? { awayEdge } : {})}
-            />
-        </motion.div>
+        <MatchRow
+            match={match}
+            isPinned={isPinned}
+            isLive={isLive}
+            isFinal={isFinal}
+            onSelect={handleSelect}
+            onTogglePin={handleToggle}
+            {...(polyHomeProb !== undefined ? { polyHomeProb } : {})}
+            {...(polyAwayProb !== undefined ? { polyAwayProb } : {})}
+            {...(homeEdge !== undefined ? { homeEdge } : {})}
+            {...(awayEdge !== undefined ? { awayEdge } : {})}
+        />
     );
 });
 OptimizedMatchRow.displayName = 'OptimizedMatchRow';

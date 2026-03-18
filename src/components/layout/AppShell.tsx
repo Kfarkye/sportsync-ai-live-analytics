@@ -270,12 +270,12 @@ const AppShell: FC = () => {
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
             className={cn(
-              'fixed inset-0 z-60 overflow-hidden flex flex-col',
+              'fixed inset-0 z-[60] overflow-hidden flex flex-col',
               ESSENCE.tw.surface.subtle // bg-slate-50
             )}
           >
             {/* Sheet Handle for Mobile */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-70 md:hidden" />
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-[70] md:hidden" />
             <MatchDetails match={selectedMatch} matches={filteredMatches} onSelectMatch={setSelectedMatch} onBack={() => setSelectedMatch(null)} />
           </MotionDiv>
         )}
