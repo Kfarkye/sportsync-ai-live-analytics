@@ -12,6 +12,12 @@ type KalshiEventCandidate = {
   last_snapshot_at?: string | null;
 };
 
+type SnapshotDiscoveryRow = {
+  event_ticker: string;
+  market_label: string | null;
+  captured_at: string;
+};
+
 type KalshiSnapshotRow = {
   market_ticker: string;
   market_type: string | null;
@@ -227,6 +233,8 @@ const MatchOddsHeatmap = ({
     queryFn: async () => {
       const homeNames = [homeTeamName, ...homeAliases].filter(Boolean);
       const awayNames = [awayTeamName, ...awayAliases].filter(Boolean);
+      const homeTeam = buildVariants(homeNames);
+      const awayTeam = buildVariants(awayNames);
 
       const queryEvents = async (dateScoped: boolean) => {
         const date = startTime ? new Date(startTime) : null;
@@ -241,7 +249,6 @@ const MatchOddsHeatmap = ({
         let query = supabase
           .from('kalshi_events_active')
           .select('event_ticker,title,home_team,away_team,game_date,status,last_snapshot_at')
-          .or('status.eq.active,status.is.null')
           .order('game_date', { ascending: true })
           .limit(dateScoped ? 350 : 800);
 
@@ -252,8 +259,76 @@ const MatchOddsHeatmap = ({
         }
 
         const { data, error } = await query;
-        if (error) throw error;
+        if (error) return [] as KalshiEventCandidate[];
         return (data || []) as KalshiEventCandidate[];
+      };
+
+      const fetchSnapshotsForEvent = async (eventTicker: string): Promise<KalshiSnapshotRow[]> => {
+        const { data: snapshots, error: snapshotsError } = await supabase
+          .from('kalshi_orderbook_snapshots')
+          .select('market_ticker,market_type,market_label,line_value,line_side,yes_price,no_price,volume,open_interest,yes_no_imbalance,recent_volume_imbalance,last_trade_side,captured_at')
+          .eq('event_ticker', eventTicker)
+          .order('captured_at', { ascending: false })
+          .limit(900);
+
+        if (snapshotsError) return [];
+
+        const deduped = new Map<string, KalshiSnapshotRow>();
+        (snapshots || []).forEach((row) => {
+          const ticker = String(row.market_ticker || '').trim();
+          if (!ticker || deduped.has(ticker)) return;
+          deduped.set(ticker, row as KalshiSnapshotRow);
+        });
+        return Array.from(deduped.values());
+      };
+
+      const discoverEventFromSnapshots = async (): Promise<string | null> => {
+        const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+          .from('kalshi_orderbook_snapshots')
+          .select('event_ticker,market_label,captured_at')
+          .gte('captured_at', sevenDaysAgoIso)
+          .order('captured_at', { ascending: false })
+          .limit(2500);
+
+        if (error || !data?.length) return null;
+
+        const byEvent = new Map<string, { score: number; both: boolean; homeSeen: boolean; awaySeen: boolean; latest: number }>();
+        (data as SnapshotDiscoveryRow[]).forEach((row) => {
+          const eventTicker = String(row.event_ticker || '').trim();
+          if (!eventTicker) return;
+          const text = normalizeToken(row.market_label || '');
+          if (!text) return;
+
+          const homeScore = teamMatchScore(text, homeTeam);
+          const awayScore = teamMatchScore(text, awayTeam);
+          if (homeScore <= 0 && awayScore <= 0) return;
+
+          const existing = byEvent.get(eventTicker) || {
+            score: 0,
+            both: false,
+            homeSeen: false,
+            awaySeen: false,
+            latest: 0,
+          };
+
+          existing.score += homeScore + awayScore;
+          existing.homeSeen = existing.homeSeen || homeScore > 0;
+          existing.awaySeen = existing.awaySeen || awayScore > 0;
+          existing.both = existing.homeSeen && existing.awaySeen;
+          existing.latest = Math.max(existing.latest, Date.parse(row.captured_at || '') || 0);
+          byEvent.set(eventTicker, existing);
+        });
+
+        const ranked = Array.from(byEvent.entries()).sort((a, b) => {
+          if (a[1].both !== b[1].both) return a[1].both ? -1 : 1;
+          if (b[1].score !== a[1].score) return b[1].score - a[1].score;
+          return b[1].latest - a[1].latest;
+        });
+
+        const best = ranked[0];
+        if (!best || best[1].score <= 0) return null;
+        return best[0];
       };
 
       const scopedEvents = await queryEvents(true);
@@ -264,28 +339,22 @@ const MatchOddsHeatmap = ({
         event = pickEventForMatch(broadEvents, homeNames, awayNames, startTime);
       }
 
-      if (!event) return { eventTicker: null, rows: [] };
+      if (event) {
+        const eventRows = await fetchSnapshotsForEvent(event.event_ticker);
+        if (eventRows.length) {
+          return { eventTicker: event.event_ticker, rows: eventRows };
+        }
+      }
 
-      const { data: snapshots, error: snapshotsError } = await supabase
-        .from('kalshi_orderbook_snapshots')
-        .select('market_ticker,market_type,market_label,line_value,line_side,yes_price,no_price,volume,open_interest,yes_no_imbalance,recent_volume_imbalance,last_trade_side,captured_at')
-        .eq('event_ticker', event.event_ticker)
-        .order('captured_at', { ascending: false })
-        .limit(900);
+      const snapshotEventTicker = await discoverEventFromSnapshots();
+      if (snapshotEventTicker) {
+        const snapshotRows = await fetchSnapshotsForEvent(snapshotEventTicker);
+        if (snapshotRows.length) {
+          return { eventTicker: snapshotEventTicker, rows: snapshotRows };
+        }
+      }
 
-      if (snapshotsError) throw snapshotsError;
-
-      const deduped = new Map<string, KalshiSnapshotRow>();
-      (snapshots || []).forEach((row) => {
-        const ticker = String(row.market_ticker || '').trim();
-        if (!ticker || deduped.has(ticker)) return;
-        deduped.set(ticker, row as KalshiSnapshotRow);
-      });
-
-      return {
-        eventTicker: event.event_ticker,
-        rows: Array.from(deduped.values()),
-      };
+      return { eventTicker: event?.event_ticker || null, rows: [] };
     },
   });
 
