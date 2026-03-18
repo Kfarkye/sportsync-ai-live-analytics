@@ -429,6 +429,13 @@ export const ClassicPlayerProps: React.FC<{ match: Match }> = memo(({ match }) =
 
   const groups = useMemo(() => {
     const map = new Map<string, PlayerPropGroup>();
+    const scoreProp = (prop: PlayerPropBet) => {
+      const confidence = typeof prop.confidenceScore === 'number' ? prop.confidenceScore : 0;
+      const hitRate = typeof prop.l5HitRate === 'number' ? prop.l5HitRate : 0;
+      const implied = typeof prop.impliedProbPct === 'number' ? prop.impliedProbPct : 0;
+      return confidence * 100 + hitRate + implied;
+    };
+
     dbProps.forEach(p => {
       if (!map.has(p.playerName)) {
         map.set(p.playerName, {
@@ -438,7 +445,21 @@ export const ClassicPlayerProps: React.FC<{ match: Match }> = memo(({ match }) =
           props: [] as PlayerPropBet[]
         });
       }
-      map.get(p.playerName)!.props.push(p);
+      const group = map.get(p.playerName)!;
+      const dedupeKey = `${String(p.betType || '').toLowerCase()}|${String(p.lineValue)}|${String(p.side || '').toLowerCase()}`;
+      const existingIndex = group.props.findIndex((candidate) => {
+        const candidateKey = `${String(candidate.betType || '').toLowerCase()}|${String(candidate.lineValue)}|${String(candidate.side || '').toLowerCase()}`;
+        return candidateKey === dedupeKey;
+      });
+
+      if (existingIndex === -1) {
+        group.props.push(p);
+        return;
+      }
+
+      if (scoreProp(p) > scoreProp(group.props[existingIndex])) {
+        group.props[existingIndex] = p;
+      }
     });
     return Array.from(map.values());
   }, [dbProps]);

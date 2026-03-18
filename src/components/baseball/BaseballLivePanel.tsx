@@ -116,6 +116,87 @@ const CONVERGENCE_COPY: Record<ConvergenceTier, string> = {
   WEAK: 'Signals inconclusive. Standard risk framework applies.',
 };
 
+const HITS_MATCHERS = [/^h$/, /hit/];
+const ERRORS_MATCHERS = [/^e$/, /error/];
+
+function toStatCell(raw: unknown): string | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? String(raw) : null;
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const numeric = trimmed.match(/-?\d+(\.\d+)?/);
+    return numeric ? String(Number(numeric[0])) : trimmed;
+  }
+  if (Array.isArray(raw)) {
+    for (const entry of raw) {
+      const parsed = toStatCell(entry);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  }
+  if (typeof raw === 'object') {
+    const rec = raw as Record<string, unknown>;
+    return toStatCell(rec.value ?? rec.displayValue ?? rec.stat ?? rec.total ?? null);
+  }
+  return null;
+}
+
+function statKeyMatches(key: string, patterns: RegExp[]): boolean {
+  const normalized = key.toLowerCase().replace(/[^a-z]/g, '');
+  return patterns.some((pattern) => pattern.test(normalized));
+}
+
+function readFromTeamStats(stats: unknown, patterns: RegExp[]): string | null {
+  if (!stats || typeof stats !== 'object' || Array.isArray(stats)) return null;
+  const rec = stats as Record<string, unknown>;
+
+  for (const [key, value] of Object.entries(rec)) {
+    if (statKeyMatches(key, patterns)) {
+      const direct = toStatCell(value);
+      if (direct !== null) return direct;
+    }
+
+    if (Array.isArray(value)) {
+      for (const line of value) {
+        if (!line || typeof line !== 'object') continue;
+        const lineRec = line as Record<string, unknown>;
+        const label = String(lineRec.label ?? lineRec.name ?? '').toLowerCase();
+        if (!statKeyMatches(label, patterns)) continue;
+        const parsed = toStatCell(lineRec.value ?? lineRec.displayValue ?? null);
+        if (parsed !== null) return parsed;
+      }
+    }
+  }
+
+  return null;
+}
+
+function readFromMatchStats(stats: Match['stats'] | undefined, isAway: boolean, patterns: RegExp[]): string | null {
+  if (!Array.isArray(stats)) return null;
+  for (const item of stats) {
+    const label = String(item.label ?? '').toLowerCase();
+    if (!statKeyMatches(label, patterns)) continue;
+    const parsed = toStatCell(isAway ? item.awayValue : item.homeValue);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function getTeamHitsErrors(match: Match, isAway: boolean): { hits: string; errors: string } {
+  const sideStats = isAway ? match.awayTeamStats : match.homeTeamStats;
+  const hits =
+    readFromTeamStats(sideStats, HITS_MATCHERS) ??
+    readFromMatchStats(match.stats, isAway, HITS_MATCHERS) ??
+    '—';
+  const errors =
+    readFromTeamStats(sideStats, ERRORS_MATCHERS) ??
+    readFromMatchStats(match.stats, isAway, ERRORS_MATCHERS) ??
+    '—';
+
+  return { hits, errors };
+}
+
 // ============================================================================
 // MOTION (respect prefers-reduced-motion via Framer's built-in support)
 // ============================================================================
@@ -152,10 +233,10 @@ const Diamond: FC<DiamondProps> = memo(({ onFirst, onSecond, onThird, size = 56,
     third: { x: cx - r, y: cy },
   };
 
-  const bases: Array<{ key: string; x: number; y: number; on: boolean }> = [
-    { key: 'first', x: pts.first.x, y: pts.first.y, on: !!onFirst },
-    { key: 'second', x: pts.second.x, y: pts.second.y, on: !!onSecond },
-    { key: 'third', x: pts.third.x, y: pts.third.y, on: !!onThird },
+  const bases: Array<{ key: string; label: string; x: number; y: number; on: boolean }> = [
+    { key: 'first', label: '1B', x: pts.first.x, y: pts.first.y, on: !!onFirst },
+    { key: 'second', label: '2B', x: pts.second.x, y: pts.second.y, on: !!onSecond },
+    { key: 'third', label: '3B', x: pts.third.x, y: pts.third.y, on: !!onThird },
   ];
 
   const label = [
@@ -176,9 +257,17 @@ const Diamond: FC<DiamondProps> = memo(({ onFirst, onSecond, onThird, size = 56,
       {/* Diamond outline */}
       <path
         d={`M${pts.home.x} ${pts.home.y}L${pts.first.x} ${pts.first.y}L${pts.second.x} ${pts.second.y}L${pts.third.x} ${pts.third.y}Z`}
-        fill="rgba(255,255,255,0.015)"
+        fill="rgba(248,250,252,0.86)"
         stroke={ESSENCE.colors.border.default}
         strokeWidth="0.8"
+      />
+      <circle
+        cx={cx}
+        cy={cy}
+        r={Math.max(3, size * 0.065)}
+        fill="rgba(148,163,184,0.18)"
+        stroke={ESSENCE.colors.border.subtle}
+        strokeWidth="0.5"
       />
       {/* Home plate */}
       <rect
@@ -192,22 +281,37 @@ const Diamond: FC<DiamondProps> = memo(({ onFirst, onSecond, onThird, size = 56,
       />
       {/* Bases */}
       {bases.map((b) => (
-        <rect
-          key={b.key}
-          x={b.x - bs / 2}
-          y={b.y - bs / 2}
-          width={bs}
-          height={bs}
-          rx={0.8}
-          fill={b.on ? ESSENCE.colors.accent.amber : 'rgba(255,255,255,0.06)'}
-          stroke={b.on ? 'none' : ESSENCE.colors.border.default}
-          strokeWidth={0.5}
-          transform={`rotate(45 ${b.x} ${b.y})`}
-          style={{
-            filter: b.on ? `drop-shadow(0 0 5px ${ESSENCE.colors.accent.amber}50)` : 'none',
-            transition: 'all 0.3s ease',
-          }}
-        />
+        <g key={b.key}>
+          {b.on && (
+            <circle cx={b.x} cy={b.y} r={Math.max(6, size * 0.11)} fill={`${ESSENCE.colors.accent.emerald}33`}>
+              <animate attributeName="opacity" values="0.5;0.18;0.5" dur="1.8s" repeatCount="indefinite" />
+            </circle>
+          )}
+          <rect
+            x={b.x - bs / 2}
+            y={b.y - bs / 2}
+            width={bs}
+            height={bs}
+            rx={0.8}
+            fill={b.on ? ESSENCE.colors.accent.emerald : 'rgba(255,255,255,0.06)'}
+            stroke={b.on ? 'none' : ESSENCE.colors.border.default}
+            strokeWidth={0.5}
+            transform={`rotate(45 ${b.x} ${b.y})`}
+            style={{
+              filter: b.on ? `drop-shadow(0 0 6px ${ESSENCE.colors.accent.emerald}55)` : 'none',
+              transition: 'all 0.3s ease',
+            }}
+          />
+          <text
+            x={b.x}
+            y={b.y + Math.max(12, size * 0.24)}
+            textAnchor="middle"
+            className="font-mono text-[6px] tracking-wide"
+            fill="rgba(15,23,42,0.65)"
+          >
+            {b.label}
+          </text>
+        </g>
       ))}
     </svg>
   );
@@ -228,14 +332,14 @@ interface BSOProps {
 const BSORow: FC<{ label: string; count: number; max: number; colorClass: string; aria: string }> = memo(
   ({ label, count, max, colorClass, aria }) => (
     <div className="flex items-center gap-1.5" role="group" aria-label={aria}>
-      <span className={ESSENCE.tier.t2Header}>{label}</span>
+      <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">{label}</span>
       <div className="flex gap-1">
         {Array.from({ length: max }).map((_, i) => (
           <div
             key={i}
             className={cn(
               'w-2 h-2 rounded-full transition-all duration-200',
-              i < count ? colorClass : 'bg-slate-100 border border-slate-200',
+              i < count ? colorClass : 'bg-slate-200 border border-slate-300',
             )}
             style={i < count ? { boxShadow: `0 0 4px currentColor` } : undefined}
           />
@@ -248,7 +352,7 @@ BSORow.displayName = 'BSORow';
 
 const BSO: FC<BSOProps> = memo(({ balls, strikes, outs, className }) => (
   <div
-    className={cn('flex gap-4', className)}
+    className={cn('flex gap-4 rounded-xl border border-slate-300 bg-slate-50/70 px-3 py-2.5', className)}
     aria-label={`Count: ${balls} balls, ${strikes} strikes, ${outs} outs`}
   >
     <BSORow label="B" count={balls} max={4} colorClass="bg-blue-500" aria={`${balls} balls`} />
@@ -409,8 +513,8 @@ const PlayerAvatar: FC<{ initials: string; color: string }> = memo(({ initials, 
   <div
     className="w-[46px] h-[46px] rounded-xl flex items-center justify-center font-mono text-[13px] font-black"
     style={{
-      background: `linear-gradient(135deg, ${color}22, ${color}08)`,
-      border: `1px solid ${color}22`,
+      background: `linear-gradient(135deg, ${color}2E, ${color}12)`,
+      border: `1px solid ${color}38`,
       color,
     }}
   >
@@ -425,17 +529,17 @@ const Matchup: FC<MatchupProps> = memo(({ pitcher, batter, awayColor, homeColor,
   const pcHot = pitcher.pitchCount > PITCH_COUNT_THRESHOLD;
 
   return (
-    <Card className="flex items-center justify-between p-3!">
+    <Card className="flex items-center justify-between p-3! bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] border border-[#D8E2F1] shadow-[0_12px_24px_-22px_rgba(16,34,58,0.52)]">
       {/* Pitcher */}
       <div className="flex items-center gap-2.5">
         <PlayerAvatar initials={pitcher.initials} color={awayColor} />
         <div>
-          <span className={ESSENCE.tier.t3Meta}>PITCHING</span>
-          <div className={cn(ESSENCE.tier.t2Team, 'mt-0.5')}>{pitcher.name}</div>
-          <div className={cn(ESSENCE.tier.t3Record, 'mt-0.5')}>
+          <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500">PITCHING</span>
+          <div className="mt-0.5 text-[13px] font-semibold text-slate-900">{pitcher.name}</div>
+          <div className="mt-0.5 font-mono text-[10px] font-semibold text-slate-700">
             {pitcher.ip} IP, {pitcher.pitchCount}PC
           </div>
-          <div className={ESSENCE.tier.t3Record}>
+          <div className="font-mono text-[10px] text-slate-500">
             {pitcher.er}ER, {pitcher.k}K
           </div>
         </div>
@@ -465,9 +569,9 @@ const Matchup: FC<MatchupProps> = memo(({ pitcher, batter, awayColor, homeColor,
       {/* Batter */}
       <div className="flex items-center gap-2.5">
         <div className="text-right">
-          <span className={ESSENCE.tier.t3Meta}>AT BAT</span>
-          <div className={cn(ESSENCE.tier.t2Team, 'mt-0.5')}>{batter.name}</div>
-          <div className={cn(ESSENCE.tier.t3Record, 'mt-0.5')}>{batter.todayLine}</div>
+          <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500">AT BAT</span>
+          <div className="mt-0.5 text-[13px] font-semibold text-slate-900">{batter.name}</div>
+          <div className="mt-0.5 font-mono text-[10px] font-semibold text-slate-700">{batter.todayLine}</div>
         </div>
         <PlayerAvatar initials={batter.initials} color={homeColor} />
       </div>
@@ -490,10 +594,10 @@ const DueUp: FC<DueUpProps> = memo(({ teamName, teamColor, players }) => {
   if (!players.length) return null;
 
   return (
-    <Card className="p-3!">
+    <Card className="p-3! bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] border border-[#D8E2F1] shadow-[0_10px_22px_-20px_rgba(16,34,58,0.45)]">
       <div className="flex items-center gap-1.5 mb-2.5">
         <div className="w-[3px] h-2.5 rounded-sm" style={{ background: teamColor }} />
-        <span className="text-xs font-semibold text-slate-400">{teamName} Due Up</span>
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">{teamName} Due Up</span>
       </div>
       <div className="grid grid-cols-2 gap-2">
         {players.slice(0, 2).map((p, i) => (
@@ -501,14 +605,14 @@ const DueUp: FC<DueUpProps> = memo(({ teamName, teamColor, players }) => {
             key={`due-${i}`}
             className="p-2.5 rounded-lg bg-slate-50 border border-slate-200"
           >
-            <span className={ESSENCE.tier.t3Meta}>{i === 0 ? 'ON DECK' : 'IN THE HOLE'}</span>
-            <div className={cn(ESSENCE.tier.t2Team, 'mt-1')}>{p.name}</div>
-            <div className={cn(ESSENCE.tier.t3Record, 'mt-0.5')}>
+            <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-600">{i === 0 ? 'ON DECK' : 'IN THE HOLE'}</span>
+            <div className="mt-1 text-[13px] font-semibold text-slate-900">{p.name}</div>
+            <div className="mt-0.5 font-mono text-[10px] text-slate-600">
               {p.position} ({p.bats})
             </div>
             <div className="flex justify-between mt-1">
-              <span className="font-mono text-[9px] text-slate-500">Today</span>
-              <span className="font-mono text-[10px] font-bold text-slate-900">{p.todayLine}</span>
+              <span className="font-mono text-[9px] text-slate-600 uppercase tracking-[0.12em]">Today</span>
+              <span className="font-mono text-[10px] font-bold text-slate-900 tabular-nums">{p.todayLine}</span>
             </div>
           </div>
         ))}
@@ -537,6 +641,8 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
   const home = match.homeTeam;
   const awayScores = away.linescores ?? [];
   const homeScores = home.linescores ?? [];
+  const awayBox = getTeamHitsErrors(match, true);
+  const homeBox = getTeamHitsErrors(match, false);
 
   const innings = Math.max(STANDARD_INNINGS, awayScores.length, homeScores.length);
 
@@ -544,27 +650,29 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
   const cols = `38px repeat(${innings}, minmax(18px, 1fr)) 4px repeat(3, minmax(18px, 1fr))`;
 
   const HeaderCell: FC<{ label: string }> = ({ label }) => (
-    <div className={cn(ESSENCE.tier.t2Header, 'text-center py-1')}>{label}</div>
+    <div className="text-center py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-600">{label}</div>
   );
 
   const ScoreCell: FC<{ val: string; active: boolean }> = ({ val, active }) => (
     <div
       className={cn(
-        'font-mono text-[10px] text-center py-1.5 transition-all duration-300',
-        active ? 'font-bold text-slate-900 border-b-2 border-orange-500' : val ? 'text-slate-400' : 'text-slate-500',
+        'font-mono text-[11px] tabular-nums text-center py-1.5 transition-all duration-300',
+        active ? 'font-bold text-slate-900 border-b-2 border-orange-500' : val ? 'text-slate-600' : 'text-slate-400',
       )}
     >
       {val}
     </div>
   );
 
-  const TeamRow: FC<{ team: Team; scores: Array<{ value?: number | string }>; isAway: boolean }> = ({
+  const TeamRow: FC<{ team: Team; scores: Array<{ value?: number | string }>; isAway: boolean; hits: string; errors: string }> = ({
     team,
     scores,
     isAway,
+    hits,
+    errors,
   }) => (
     <div style={{ display: 'grid', gridTemplateColumns: cols }}>
-      <div className="font-mono text-[10px] font-extrabold tracking-wider text-slate-900 py-1.5">
+      <div className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-900 py-1.5">
         {team.abbreviation || team.shortName}
       </div>
       {Array.from({ length: innings }).map((_, i) => {
@@ -576,17 +684,16 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
         return <ScoreCell key={i} val={val} active={active} />;
       })}
       <div />
-      <div className="font-mono text-[10px] font-extrabold text-slate-900 text-center py-1.5">
+      <div className="font-mono text-[11px] tabular-nums font-extrabold text-slate-900 text-center py-1.5">
         {team.score}
       </div>
-      {/* H and E — derive from linescores or show dash */}
-      <div className="font-mono text-[10px] font-extrabold text-slate-900 text-center py-1.5">-</div>
-      <div className="font-mono text-[10px] font-extrabold text-slate-900 text-center py-1.5">-</div>
+      <div className="font-mono text-[11px] tabular-nums font-extrabold text-slate-900 text-center py-1.5">{hits}</div>
+      <div className="font-mono text-[11px] tabular-nums font-extrabold text-slate-900 text-center py-1.5">{errors}</div>
     </div>
   );
 
   return (
-    <Card className="p-2! overflow-x-auto">
+    <Card className="p-2! overflow-x-auto bg-[linear-gradient(180deg,#FFFFFF_0%,#FAFCFF_100%)] border border-[#D8E2F1] shadow-[0_10px_22px_-20px_rgba(16,34,58,0.44)]">
       {/* Header row */}
       <div style={{ display: 'grid', gridTemplateColumns: cols }}>
         <HeaderCell label="" />
@@ -598,9 +705,9 @@ export const BaseballLineScore: FC<BaseballLineScoreProps> = memo(({ match, curr
         <HeaderCell label="H" />
         <HeaderCell label="E" />
       </div>
-      <TeamRow team={away} scores={awayScores} isAway />
-      <div className="h-px bg-slate-100" />
-      <TeamRow team={home} scores={homeScores} isAway={false} />
+      <TeamRow team={away} scores={awayScores} isAway hits={awayBox.hits} errors={awayBox.errors} />
+      <div className="h-px bg-slate-200" />
+      <TeamRow team={home} scores={homeScores} isAway={false} hits={homeBox.hits} errors={homeBox.errors} />
     </Card>
   );
 });
@@ -630,7 +737,7 @@ export const BaseballScoringSummary: FC<BaseballScoringSummaryProps> = memo(({
   }
 
   return (
-    <Card className="p-3.5!">
+    <Card className="p-3.5! bg-[linear-gradient(180deg,#FFFFFF_0%,#FAFCFF_100%)] border border-[#D8E2F1] shadow-[0_10px_22px_-20px_rgba(16,34,58,0.44)]">
       <span className={cn(ESSENCE.tier.t2Header, 'block mb-3')}>SCORING SUMMARY</span>
       {plays.map((play, i) => {
         const isAway = play.teamAbbr === awayAbbr;
@@ -859,8 +966,16 @@ export interface BaseballGamePanelProps {
 export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, baseballData }) => {
   const [view, setView] = useState<'atbat' | 'runners'>('atbat');
 
-  const isLive = match.status === 'LIVE' || match.status === 'HALFTIME';
-  const isFinal = match.status === 'FINISHED';
+  const normalizedStatus = String(match.status || '').toUpperCase();
+  const isLive =
+    normalizedStatus === 'LIVE' ||
+    normalizedStatus === 'HALFTIME' ||
+    normalizedStatus.includes('IN_PROGRESS');
+  const isFinal =
+    normalizedStatus === 'FINISHED' ||
+    normalizedStatus === 'FINAL' ||
+    normalizedStatus.includes('STATUS_FINAL') ||
+    normalizedStatus.includes('FULL_TIME');
 
   const situation = match.situation;
   const runners = {
@@ -893,10 +1008,42 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
 
   return (
     <motion.div {...FADE_IN} className="flex flex-col gap-2.5">
+      <Card className="p-3.5! bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] border border-[#D8E2F1] shadow-[0_10px_22px_-20px_rgba(16,34,58,0.45)]">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-2 w-2 rounded-full bg-[#1D9E75]" />
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#10223A]">
+              Baseball Live Hub
+            </span>
+          </div>
+          <span className="font-mono text-[10px] text-slate-600 uppercase tracking-[0.12em]">
+            {formatInning(inning, inningHalf)}
+          </span>
+        </div>
+        <div className="mt-2.5 grid grid-cols-3 gap-2">
+          <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+            <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500">Count</div>
+            <div className="font-mono text-[11px] font-bold text-slate-900 tabular-nums">
+              {balls}-{strikes}
+            </div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+            <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500">Outs</div>
+            <div className="font-mono text-[11px] font-bold text-slate-900 tabular-nums">{outs}</div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+            <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500">Runners</div>
+            <div className="font-mono text-[11px] font-bold text-slate-900 uppercase tracking-[0.1em]">
+              {runners.first || runners.second || runners.third ? 'On' : 'Empty'}
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {/* View Toggle (live only) */}
       {isLive && (
         <div
-          className="flex rounded-lg overflow-hidden border border-slate-200"
+          className="flex rounded-xl overflow-hidden border border-[#D8E2F1] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] p-1 shadow-[0_8px_18px_-16px_rgba(16,34,58,0.55)]"
           role="group"
           aria-label="View toggle"
         >
@@ -906,11 +1053,11 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
               aria-pressed={view === opt}
               onClick={() => setView(opt)}
               className={cn(
-                'flex-1 min-h-[44px] flex items-center justify-center',
-                'text-xs font-bold transition-all duration-200',
+                'flex-1 min-h-[40px] rounded-lg flex items-center justify-center',
+                'text-[11px] font-mono font-bold tracking-[0.14em] uppercase transition-all duration-200',
                 view === opt
-                  ? 'text-slate-900 bg-slate-100'
-                  : 'text-slate-500 hover:text-slate-600',
+                  ? 'text-white bg-[linear-gradient(180deg,#1D9E75_0%,#177F60_100%)] shadow-[0_10px_20px_-16px_rgba(29,158,117,0.78)]'
+                  : 'text-slate-500 hover:text-slate-700',
               )}
             >
               {opt === 'atbat' ? 'At-Bat' : 'Runners'}
@@ -935,18 +1082,18 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
             )}
 
             {/* Strike Zone + BSO + Pitch Log */}
-            <Card className="p-3.5!">
+            <Card className="p-3.5! bg-[linear-gradient(180deg,#FFFFFF_0%,#FAFCFF_100%)] border border-[#D8E2F1] shadow-[0_12px_24px_-22px_rgba(16,34,58,0.52)]">
               {hasPitchData ? (
                 <>
                   <StrikeZone pitches={baseballData!.pitches} />
-                  <div className="flex justify-center py-2">
+                  <div className="flex justify-center py-2.5">
                     <BSO balls={balls} strikes={strikes} outs={outs} />
                   </div>
                   <PitchLog pitches={baseballData!.pitches} />
                 </>
               ) : (
                 <>
-                  <div className="flex justify-center py-4">
+                  <div className="flex justify-center py-4.5">
                     <Diamond
                       onFirst={runners.first}
                       onSecond={runners.second}
@@ -954,7 +1101,7 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
                       size={80}
                     />
                   </div>
-                  <div className="flex justify-center py-2">
+                  <div className="flex justify-center py-2.5">
                     <BSO balls={balls} strikes={strikes} outs={outs} />
                   </div>
                   <EmptyState message="Awaiting pitch tracking data" />
@@ -969,7 +1116,7 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
       {isLive && view === 'runners' && (
         <AnimatePresence mode="wait">
           <motion.div key="runners" {...FADE_IN}>
-            <Card className="p-5! flex flex-col items-center gap-4">
+            <Card className="p-5! flex flex-col items-center gap-4 bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] border border-[#D8E2F1] shadow-[0_12px_24px_-22px_rgba(16,34,58,0.52)]">
               <Diamond
                 onFirst={runners.first}
                 onSecond={runners.second}
@@ -1007,7 +1154,7 @@ export const BaseballGamePanel: FC<BaseballGamePanelProps> = memo(({ match, base
           >
             {(battingTeam.abbreviation || battingTeam.shortName || '').slice(0, 2)}
           </div>
-          <span className="text-[13px] font-extrabold text-slate-900">
+          <span className="font-mono text-[12px] font-bold uppercase tracking-[0.14em] text-slate-900">
             {formatInning(inning, inningHalf)}
           </span>
         </div>

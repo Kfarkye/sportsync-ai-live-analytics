@@ -1,4 +1,4 @@
-# Sharp Edge AI Product Guardrails
+# SportsSync AI Product Guardrails
 
 ## 1. Product Fidelity & UI Integrity
 * **MASTER COMPONENT**: The `LiveAnalysisCard.tsx` is the authoritative UI for live match intelligence. 
@@ -7,10 +7,10 @@
 
 ## 2. Infrastructure Discipline
 * **TYPED IMPORTS**: Never use `(window as any)` or global shortcuts for system services. All database and Edge Function calls must use the established typed clients (e.g., `import { supabase } from '../lib/supabase'`).
-* **KINETIC RELIABILITY**: Before modifying any data engine (e.g., `gameStateEngine.ts`), run calculations to ensure PPM or clock adjustments aren't creating hallucinations.
+* **KINETIC RELIABILITY**: Before modifying live state math, validate that PPM/clock handling cannot fabricate pace spikes or stale-state hallucinations.
 
 ## 3. AI Kernel Protocol
-* **MODEL STRICTURE**: Use ONLY **Gemini 3** (`gemini-3-pro-preview`) for all analytical and textual processing. NO EXCEPTIONS.
+* **MODEL STRICTURE**: Use **Gemini 3.1 Pro Preview** (`gemini-3.1-pro-preview`) for core analytical/text processing unless explicitly overridden by approved model registry policy.
 * **MULTIMODAL EXCEPTION**: **Gemini 2.0** (or latest multimodal variant) is permitted ONLY for image/audio generation and vision tasks.
 * **FORBIDDEN MODELS**: **Gemini 1.5** (Pro or Flash) is strictly forbidden for this project's core intelligence.
 * **ROBUST PARSING**: All JSON parsing must happen in the Edge Function, and the frontend should receive a clean, structured object. If a 429 occurs, report the 429 to the user; do not mask it with fake data.
@@ -21,7 +21,7 @@
 * **AUDIT TRAIL**: Logs must include exactly which API key/source was used and which model version responded.
 
 ## 5. Branding & Verbiage
-* **STYLE**: Maintain the "Apple TV / DraftKings" aesthetic—high saturation, glassmorphism, and bold typography.
+* **STYLE**: Maintain the ESSENCE / Obsidian Weissach aesthetic—no glassmorphism, no gradient meshes, and no grain overlays.
 * **TERMINOLOGY**: Use sports-betting specific language ("Market Edge", "Pace Dislocation", "Fair Value") rather than clinical/legal language ("Forensic Audit", "Deterministic Baseline").
 
 ## 6. SSOT & Shared Code

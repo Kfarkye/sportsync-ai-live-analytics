@@ -2,9 +2,10 @@
 -- Source table: public.matches
 
 -- 1) League structural profiles
-DROP MATERIALIZED VIEW IF EXISTS public.mv_league_structural_profiles;
+-- Idempotent: avoid DROP here because downstream MVs can depend on this object in
+-- long-lived environments.
 
-CREATE MATERIALIZED VIEW public.mv_league_structural_profiles AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS public.mv_league_structural_profiles AS
 WITH completed AS (
   SELECT
     league_id,
@@ -39,9 +40,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS mv_league_structural_profiles_league_id_uidx
 
 
 -- 2) Team rolling form (last 10 matches, home+away perspective)
-DROP MATERIALIZED VIEW IF EXISTS public.mv_team_rolling_form;
+-- Idempotent: do not drop existing MV definitions in drifted environments.
 
-CREATE MATERIALIZED VIEW public.mv_team_rolling_form AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS public.mv_team_rolling_form AS
 WITH completed AS (
   SELECT
     id,
@@ -137,9 +138,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS mv_team_rolling_form_team_league_uidx
 
 
 -- 3) H2H summary (canonical alphabetical pair)
-DROP MATERIALIZED VIEW IF EXISTS public.mv_h2h_summary;
+-- Idempotent: do not drop existing MV definitions in drifted environments.
 
-CREATE MATERIALIZED VIEW public.mv_h2h_summary AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS public.mv_h2h_summary AS
 WITH completed AS (
   SELECT
     id,

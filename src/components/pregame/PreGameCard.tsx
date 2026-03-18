@@ -29,7 +29,7 @@ import SofaStats from './SofaStats';
 import { PropMarketListView } from '../analysis/PropMarketListView';
 import { americanToImpliedProb, calcEdge, getPolyData, usePolyOdds } from '../../hooks/usePolyOdds';
 
-export type PreGameTabId = 'DETAILS' | 'PROPS' | 'DATA' | 'CHAT';
+export type PreGameTabId = 'DETAILS' | 'PROPS' | 'DATA';
 
 interface PreGameCardProps {
     match: Match;

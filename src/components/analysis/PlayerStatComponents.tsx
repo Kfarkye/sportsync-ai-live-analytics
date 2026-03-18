@@ -5,6 +5,7 @@ import { User, Target, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Match, PlayerPropBet, Team, InjuryReport, RosterPlayer } from '@/types';
 import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { ESSENCE } from '@/lib/essence';
+import TeamLogo from '../shared/TeamLogo';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // UTILITIES
@@ -442,6 +443,12 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
 
     const { awayPlayers, homePlayers } = useMemo(() => {
         const groups = new Map<string, PlayerPropGroup>();
+        const scoreProp = (prop: PlayerPropBet) => {
+            const confidence = typeof prop.confidenceScore === 'number' ? prop.confidenceScore : 0;
+            const hitRate = typeof prop.l5HitRate === 'number' ? prop.l5HitRate : 0;
+            const implied = typeof prop.impliedProbPct === 'number' ? prop.impliedProbPct : 0;
+            return confidence * 100 + hitRate + implied;
+        };
 
         // Identity normalization helper
         const normalize = (s: string | undefined | null) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -476,7 +483,17 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
                 });
             }
             const group = groups.get(key)!;
-            group.props.push(prop);
+            const dedupeKey = `${String(prop.betType || '').toLowerCase()}|${String(prop.lineValue)}|${String(prop.side || '').toLowerCase()}`;
+            const existingIndex = group.props.findIndex((candidate) => {
+                const candidateKey = `${String(candidate.betType || '').toLowerCase()}|${String(candidate.lineValue)}|${String(candidate.side || '').toLowerCase()}`;
+                return candidateKey === dedupeKey;
+            });
+
+            if (existingIndex === -1) {
+                group.props.push(prop);
+            } else if (scoreProp(prop) > scoreProp(group.props[existingIndex])) {
+                group.props[existingIndex] = prop;
+            }
             // Optimization: If current group team is null but this prop has a team, populate it
             if (!group.team && prop.team) group.team = prop.team;
         });
@@ -577,7 +594,7 @@ export const CinematicPlayerProps: React.FC<{ match: Match }> = ({ match }) => {
         return (
             <div className="space-y-10">
                 <div className="flex items-center gap-4">
-                    <img src={team.logo} alt="" className="w-10 h-10 object-contain" />
+                    <TeamLogo logo={team.logo} name={team.name} className="w-10 h-10" teamColor={color} />
                     <div>
                         <h2 className="text-title-lg font-bold text-slate-900 tracking-tight">{team.name}</h2>
                         <span className="text-small text-slate-500 font-medium">

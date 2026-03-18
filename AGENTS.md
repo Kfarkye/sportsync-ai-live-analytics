@@ -75,6 +75,20 @@ Deployed to Supabase. Key functions:
 - **No fabricated performance stats.** Do not cite hit rates unless backed by verified data.
 - **Obsidian Weissach v7** is the canonical design for all edge cards (Pregame, Prop, Live). Dark aesthetic, earned minimalism, team accent colors, monospace data, luxury engineered not announced.
 
+## UI Prompt System and Quality Gates
+
+- Default product UI standard remains **Obsidian Weissach v7** for sports surfaces in this repo.
+- For cross-property or category-agnostic premium UI work, use:
+  - `docs/design/premium-ui-master-prompt.md`
+  - `docs/design/premium-ui-addons.md`
+- Restraint rules for category-agnostic premium UI:
+  - Monochrome or near-monochrome base + one restrained accent color.
+  - Maximum three typography roles (sans, optional single serif role, mono for utility metadata).
+  - Glass is optional and subordinate: maximum two utility surface types, never primary reading surfaces.
+  - No gradient blobs, no decorative icon clutter, no trend-first "AI premium" styling.
+  - Win through hierarchy, spacing cadence, and contrast clarity first.
+- If UI is touched, PRs must include a self-audit against these constraints (see PR template UI checklist).
+
 ## PR & Commit Conventions
 
 - Commit format: `type: description` (e.g., `feat: add lock detection engine`, `fix: bet365 name matching`).

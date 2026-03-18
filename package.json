@@ -11,6 +11,8 @@
     "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
     "test": "vitest run --passWithNoTests",
     "check:migrations": "node scripts/validate-migrations.mjs",
+    "analyze:live-state": "node scripts/analyze_live_state_enriched.mjs",
+    "analyze:context-studies": "node scripts/analyze_context_studies.mjs",
     "lint:types": "grep -RIn ': any\\b' src --include='*.ts' --include='*.tsx' | wc -l",
     "seed:fatigue": "export $(grep SUPABASE_SERVICE_ROLE_KEY .env | xargs) && npx tsx scripts/seed_master_schedule.ts",
     "seed:roster": "export $(grep SUPABASE_SERVICE_ROLE_KEY .env | xargs) && npx tsx scripts/seed_roster.ts",

@@ -26,6 +26,7 @@ import { BettingPickSchema } from "../lib/schemas/picks.js";
 import { generateSatelliteSlug } from "./lib/satellite.js";
 import { checkRateLimit } from "./lib/rateLimit.js";
 import { LruTtlCache } from "./lib/lruTtlCache.js";
+import { buildNbaPromptContextBlock } from "./lib/nbaContextPolicy.js";
 
 // Vercel Serverless timeout configuration (seconds)
 export const maxDuration = 300;
@@ -304,8 +305,9 @@ Role: Field Reporter. Direct, factual, concise.
 `}
 `.trim();
 
-const buildDynamicInstruction = ({ marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel, staleWarning }) => {
+const buildDynamicInstruction = ({ marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel, staleWarning, nbaProductContext }) => {
     const now = new Date();
+    const nbaContextBrief = buildNbaPromptContextBlock(nbaProductContext);
     return `
 <temporal>
 TODAY: ${now.toLocaleDateString("en-US", { timeZone: "America/New_York" })}
@@ -324,6 +326,7 @@ ${[
             `INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}`,
             `INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}`,
             evidence.temporal?.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : "",
+            nbaContextBrief ? nbaContextBrief : "",
             staleWarning
         ].filter(Boolean).join("\n")}
 </context>
@@ -619,6 +622,9 @@ export async function POST(req) {
         .filter(Boolean);
 
     let activeContext = body.gameContext || {};
+    const nbaProductContext = body.nba_product_context && typeof body.nba_product_context === "object"
+        ? body.nba_product_context
+        : null;
 
     // Safely extract final user query & detect images
     const lastMsgContent = messages.length > 0 ? messages[messages.length - 1].content : "";
@@ -703,7 +709,8 @@ export async function POST(req) {
             try {
                 const systemPrompt = `${buildStaticInstruction(MODE)}\n\n${buildDynamicInstruction({
                     marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel,
-                    staleWarning: isContextStale(activeContext) ? "\n⚠️ DATA WARNING: Context may be stale." : ""
+                    staleWarning: isContextStale(activeContext) ? "\n⚠️ DATA WARNING: Context may be stale." : "",
+                    nbaProductContext
                 })}`;
 
                 const result = await genAI.models.generateContentStream({

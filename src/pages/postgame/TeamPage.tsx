@@ -1,4 +1,4 @@
-import React, { type FC } from 'react';
+import React, { type FC, useMemo } from 'react';
 import { formatMatchDateLabel, formatPct, formatSignedNumber, leagueLabel } from '@/lib/postgamePages';
 import { useTeamPage } from '@/hooks/usePostgame';
 import { useTeamHistory } from '@/hooks/useTeamHistory';
@@ -116,7 +116,7 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
 
           <Card>
             <CardHeader>
-              <SectionLabel>v5 Trends</SectionLabel>
+              <SectionLabel>Team Card</SectionLabel>
             </CardHeader>
             <CardBody>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

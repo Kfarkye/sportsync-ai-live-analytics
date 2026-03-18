@@ -576,7 +576,7 @@ Deno.serve(async (req: Request) => {
       ${current_match?.home_team || 'Home'}: ${liveMatch.home_score || 0}
       Clock: ${liveMatch.display_clock || 'Pregame'}
       Status: ${liveMatch.status}
-      Model Fair Total: ${liveSignals?.deterministic_fair_total?.toFixed(1) || 'Calculating...'}
+      Reference Total (DK): ${liveSignals?.deterministic_fair_total?.toFixed(1) || 'Calculating...'}
       Edge Magnitude: ${liveSignals?.edge_points?.toFixed(1) || 0} points
       Pace (PPM): ${liveSignals?.ppm?.observed?.toFixed(3) || '0.000'}
     ` : "TELEMETRY: Offline. Use Search for live scores.";
@@ -692,10 +692,12 @@ Deno.serve(async (req: Request) => {
     ` : '';
 
     const signalsBlock = signals ? `
-      MODEL SIGNALS [Physics Engine]:
-      Fair Total: ${signals.deterministic_fair_total?.toFixed(1) || 'N/A'}
+      MODEL SIGNALS [Market Passthrough]:
+      Reference Total (DK): ${signals.deterministic_fair_total?.toFixed(1) || 'N/A'}
       Market Total: ${signals.market_total?.toFixed(1) || 'N/A'}
       Edge: ${signals.edge_points?.toFixed(1) || 0} pts (${signals.edge_state || 'NEUTRAL'})
+      ESPN Over Prob: ${signals.espn_total_over_prob?.toFixed(3) || 'N/A'}
+      ESPN Home Win: ${signals.espn_home_win_pct?.toFixed(3) || 'N/A'}
       Regime: ${signals.deterministic_regime || 'NORMAL'}
       PPM: Observed ${signals.ppm?.observed?.toFixed(3) || 0} vs Projected ${signals.ppm?.projected?.toFixed(3) || 0}
       P10-P90 Range: ${signals.p10_total?.toFixed(1) || 'N/A'} - ${signals.p90_total?.toFixed(1) || 'N/A'}
@@ -703,6 +705,15 @@ Deno.serve(async (req: Request) => {
       Market Lean: ${signals.narrative?.market_lean || 'NEUTRAL'}
       Signal Label: ${signals.narrative?.signal_label || 'LIVE READ'}
       ${signals.debug_trace?.slice(0, 3).join(' | ') || ''}
+    ` : '';
+
+    const confluenceBlock = signals?.confluence_tier ? `
+      CONFLUENCE SIGNAL (${signals.confluence_tier}):
+      ESPN Over Prob: ${signals.confluence_espn_prob?.toFixed?.(3) ?? 'N/A'}
+      Pinnacle Total: ${signals.confluence_pinnacle_total ?? 'N/A'}
+      DK Total: ${signals.market_total ?? 'N/A'}
+      Direction: ${signals.confluence_direction ?? 'N/A'}
+      Status: EXPERIMENTAL (small sample, do not present as certain)
     ` : '';
 
     // Fix: Use ?? to handle 0 spread correctly
@@ -845,6 +856,7 @@ DATA SOURCES (priority order):
 
 ${telemetryBlock}
 ${signalsBlock}
+${confluenceBlock}
 ${oddsBlock}
 ${livePlayBlock}
 ${recentPlaysBlock}

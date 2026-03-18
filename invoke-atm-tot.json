@@ -1,0 +1,21 @@
+{
+  "sport_key": "soccer_uefa_champs_league",
+  "match_id": "401862579_ucl",
+  "league_id": "uefa.champions",
+  "home_team": "Atletico Madrid",
+  "away_team": "Tottenham Hotspur",
+  "kickoff_utc": "2026-03-10T20:00:00Z",
+  "interval_min": 5,
+  "duration_min": 100,
+  "regions": "us,eu",
+  "score_timeline": [
+    { "minute": 0, "home_score": 0, "away_score": 0 },
+    { "minute": 6, "home_score": 1, "away_score": 0 },
+    { "minute": 14, "home_score": 2, "away_score": 0 },
+    { "minute": 15, "home_score": 3, "away_score": 0 },
+    { "minute": 22, "home_score": 4, "away_score": 0 },
+    { "minute": 26, "home_score": 4, "away_score": 1 },
+    { "minute": 55, "home_score": 5, "away_score": 1 },
+    { "minute": 76, "home_score": 5, "away_score": 2 }
+  ]
+}

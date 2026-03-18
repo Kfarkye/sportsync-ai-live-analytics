@@ -11,6 +11,37 @@ interface State {
   error: Error | null;
 }
 
+const SW_DISABLE_STORAGE_KEY = 'sportsync-sw-disabled';
+
+const clearServiceWorkerDisabled = () => {
+  try {
+    sessionStorage.removeItem(SW_DISABLE_STORAGE_KEY);
+  } catch {
+    // Storage is optional in constrained environments.
+  }
+};
+
+const isStorageAccessError = (error: unknown): boolean => {
+  if (!error) return false;
+  const normalized = [((error as { name?: unknown }).name as string | undefined), (error as Error)?.message].filter(Boolean).join(' ').toLowerCase();
+  const message = String((error as Error)?.message ?? error).toLowerCase();
+  return (
+    normalized.includes('invalidstateerror') ||
+    normalized.includes('databaseclosederror') ||
+    message.includes('backing store') ||
+    message.includes('opening backing store') ||
+    message.includes('storage') ||
+    message.includes('database connection') ||
+    message.includes('database is closing') ||
+    message.includes('connection is closing') ||
+    message.includes('indexeddb') ||
+    message.includes('idb') ||
+    message.includes('request storage') ||
+    message.includes('failed to access storage') ||
+    message.includes('quota')
+  );
+};
+
 export class GlobalErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false,
@@ -37,8 +68,15 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
 
       const clearCachedShell = async () => {
         if ('serviceWorker' in navigator) {
-          const registrations = await navigator.serviceWorker.getRegistrations().catch(() => []);
-          await Promise.all(registrations.map((registration) => registration.unregister()));
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+            clearServiceWorkerDisabled();
+          } catch (error) {
+            if (!isStorageAccessError(error)) {
+              console.warn('[GlobalErrorBoundary] Failed to clear service worker registrations', error);
+            }
+          }
         }
 
         if ('caches' in window) {

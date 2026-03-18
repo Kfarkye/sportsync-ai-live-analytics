@@ -176,6 +176,50 @@ const safeJuiceFmt = (val: any): string | null => {
     return n !== null ? fmtAmerican(n) : null;
 };
 
+const getPinnacleGapThreshold = (sport: string | null | undefined, leagueId: string | null | undefined): number | null => {
+    const normalizedSport = (sport || "").toLowerCase();
+    const normalizedLeague = (leagueId || "").toLowerCase();
+
+    if (normalizedSport === "basketball" && normalizedLeague.includes("nba")) return 1.5;
+    if (normalizedSport === "soccer") return 0.5;
+    if (normalizedSport === "hockey" || normalizedSport === "icehockey") return 0.5;
+    return null;
+};
+
+async function fetchPinnacleDivergenceContext(
+    supabase: any,
+    requestId: string,
+    args: {
+        matchId: string;
+        sport?: string | null;
+        leagueId?: string | null;
+        dkTotal?: number | null;
+    }
+) {
+    try {
+        const { data, error } = await supabase.rpc("get_pinnacle_divergence_context", {
+            p_match_id: args.matchId,
+            p_sport: args.sport || null,
+            p_league_id: args.leagueId || null,
+            p_dk_total: safeNumOrNull(args.dkTotal ?? null),
+        });
+
+        if (error) {
+            const msg = String(error.message || "");
+            if (msg.includes("get_pinnacle_divergence_context") && msg.includes("does not exist")) {
+                return null;
+            }
+            console.warn(`[Intel:${requestId}] get_pinnacle_divergence_context RPC error: ${msg}`);
+            return null;
+        }
+
+        return data || null;
+    } catch (err: any) {
+        console.warn(`[Intel:${requestId}] get_pinnacle_divergence_context failed: ${err?.message || "unknown_error"}`);
+        return null;
+    }
+}
+
 // -------------------------------------------------------------------------
 // MARKET SNAPSHOT
 // -------------------------------------------------------------------------
@@ -578,6 +622,33 @@ async function processSingleIntel(
         away_ml: dossier.market_snapshot.away_ml,
     };
 
+    const configuredGapThreshold = getPinnacleGapThreshold(dossier.sport, dossier.league_id);
+    const divergenceContext = configuredGapThreshold != null
+        ? await fetchPinnacleDivergenceContext(supabase, requestId, {
+            matchId: dbId,
+            sport: dossier.sport,
+            leagueId: dossier.league_id,
+            dkTotal: safeNumOrNull(dossier.market_snapshot.total),
+        })
+        : null;
+
+    const divergenceDirection = typeof divergenceContext?.direction === "string"
+        ? divergenceContext.direction
+        : null;
+    const divergenceGap = Number.isFinite(Number(divergenceContext?.gap))
+        ? Number(divergenceContext.gap)
+        : null;
+    const divergenceSampleSize = Number.isFinite(Number(divergenceContext?.historical_total))
+        ? Number(divergenceContext.historical_total)
+        : 0;
+    const divergenceAccuracyPct = Number.isFinite(Number(divergenceContext?.historical_accuracy_pct))
+        ? Number(divergenceContext.historical_accuracy_pct)
+        : null;
+    const divergenceQualifies = configuredGapThreshold != null
+        && divergenceDirection !== "ALIGNED"
+        && Boolean(divergenceContext?.qualifies)
+        && (divergenceGap != null ? Math.abs(divergenceGap) >= configuredGapThreshold : false);
+
     const home_ml = safeJuiceFmt(marketInput.home_ml ?? odds.homeWin ?? odds.home_ml ?? odds.best_h2h?.home?.price);
     const away_ml = safeJuiceFmt(marketInput.away_ml ?? odds.awayWin ?? odds.away_ml ?? odds.best_h2h?.away?.price);
 
@@ -738,6 +809,12 @@ async function processSingleIntel(
         : hasPolyProps
             ? "Player Props"
             : `${baseModelEdge} pts`;
+    const marketDislocationMetric = divergenceQualifies
+        ? ` | market dislocation ${divergenceDirection} (${Math.abs(divergenceGap || 0).toFixed(2)} pts, ${divergenceAccuracyPct != null ? `${divergenceAccuracyPct.toFixed(1)}%` : "NA"} hit, n=${divergenceSampleSize})`
+        : "";
+    const divergenceTrace = divergenceQualifies
+        ? `[SIGNAL:PIN_DIVERGENCE|DIR:${divergenceDirection}|GAP:${(divergenceGap || 0).toFixed(2)}|THRESH:${configuredGapThreshold?.toFixed(2)}|ACC:${divergenceAccuracyPct != null ? divergenceAccuracyPct.toFixed(1) : "NA"}|N:${divergenceSampleSize}]`
+        : "[SIGNAL:PIN_DIVERGENCE|QUALIFIED:false]";
 
     // 3. AI PROMPT (single call)
     // Cast to any safely prevents build failures if _shared dependencies aren't synced simultaneously
@@ -918,8 +995,8 @@ ${marketMenu}
         logic_group: intel.logic_group || null,
 
         // Keep this internal; UI should not display it. Tracks true driver of the logic (EV vs Points)
-        logic_authority: `${selectedOffer.label} | ${logicAuthorityMetric} edge`,
-        kernel_trace: `[METHOD:${method}]\n${thoughts || ""}`,
+        logic_authority: `${selectedOffer.label} | ${logicAuthorityMetric} edge${marketDislocationMetric}`,
+        kernel_trace: `[METHOD:${method}]\n${divergenceTrace}\n${thoughts || ""}`,
     };
 
     const upsertResult = await stripUnknownColumnsAndRetryUpsert(supabase, "pregame_intel", output, {

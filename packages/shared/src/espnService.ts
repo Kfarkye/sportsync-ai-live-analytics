@@ -21,7 +21,6 @@ import { LEAGUES } from './constants.ts';
 
 import { resilientFetch, logger as Logger } from './resilience.ts';
 import { EspnAdapters, Safe } from './espnAdapters.ts';
-import { computeAISignals } from './gameStateEngine.ts';
 import { safeSlice } from './oddsUtils.ts';
 import { safeParseDate } from './dateUtils.ts';
 
@@ -48,94 +47,93 @@ const CONFIG = {
 };
 
 // Proxy fallbacks for CORS
-const LOCAL_ESPN_PROXY = (url: string) =>
-    `/api/espn-proxy?endpoint=${encodeURIComponent(url)}`;
+const PUBLIC_PROXIES = [
+    (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+];
 
-const PUBLIC_PROXIES = (typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-    ? [
-        (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-      ]
-    : [];
+const BASE_PATH = '/apis/site/v2/sports/';
+
+const getEspnEndpoint = (url: string): string | null => {
+    try {
+        const u = new URL(url);
+        const idx = u.href.indexOf(BASE_PATH);
+        if (idx === -1) return null;
+        return u.href.substring(idx + BASE_PATH.length);
+    } catch {
+        return null;
+    }
+};
+
+const canUsePublicBrowserProxy = (): boolean => {
+    if (typeof window === 'undefined') return true;
+    const host = window.location.hostname;
+    return host === 'localhost' || host === '127.0.0.1';
+};
+
+const fetchViaFirstPartyProxy = async (endpoint: string): Promise<Response | null> => {
+    if (typeof window === 'undefined') return null;
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+        const res = await fetch(`/api/espn-proxy?endpoint=${encodeURIComponent(endpoint)}`, {
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) return res;
+    } catch {
+        // noop - caller applies fallbacks
+    }
+    return null;
+};
 
 // ============================================================================
 // REQUEST HANDLERS
 // ============================================================================
 
-const fetchViaLocalFallback = async (url: string): Promise<Response | null> => {
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
-        const proxyUrl = LOCAL_ESPN_PROXY(url);
-        const res = await fetch(proxyUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-            Logger.debug('ESPNService', `Local ESPN proxy returned ${res.status} for ${url}`);
-            return null;
-        }
-
-        return res;
-    } catch (e) {
-        Logger.debug('ESPNService', `Local ESPN proxy failed for ${url}: ${e}`);
-        return null;
-    }
-};
-
 export async function fetchWithFallback(url: string): Promise<any> {
+    const endpoint = getEspnEndpoint(url);
+
     // 1. Try Edge Function (optional proxy hook)
-    if (proxyInvoker) {
+    if (proxyInvoker && endpoint) {
         try {
-            const u = new URL(url);
-            const basePath = '/apis/site/v2/sports/';
-            const idx = u.href.indexOf(basePath);
-            if (idx > -1) {
-                const endpoint = u.href.substring(idx + basePath.length);
-
-                // Add explicit timeout to proxy call to prevent stalling on mobile
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
-
-                const res = await proxyInvoker(endpoint, controller.signal);
-
-                clearTimeout(timeoutId);
-
-                if (res && res.ok) {
-                    return res;
-                }
-
-                Logger.debug(
-                    'ESPNService',
-                    `Edge ESPN proxy returned !ok (${res?.status ?? 'n/a'}) for ${endpoint}`
-                );
-            }
-        } catch (e) {
-            Logger.debug('ESPNService', `Edge ESPN proxy unavailable or timed out: ${e}`);
-        }
-    }
-
-    // 2. Try same-origin Vercel proxy endpoint
-    if (typeof window !== 'undefined') {
-        const localResponse = await fetchViaLocalFallback(url);
-        if (localResponse) {
-            return localResponse;
-        }
-    }
-
-    // 3. Try public CORS proxies (dev fallback only)
-    for (const proxy of PUBLIC_PROXIES) {
-        try {
-            const proxyUrl = proxy(url);
+            // Add explicit timeout to proxy call to prevent stalling on mobile
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
-            const res = await fetch(proxyUrl, { signal: controller.signal });
+
+            const res = await proxyInvoker(endpoint, controller.signal);
+
             clearTimeout(timeoutId);
-            if (res.ok) return res;
-        } catch { continue; }
+
+            if (res && res.ok) {
+                return res;
+            }
+        } catch (e) {
+            Logger.debug('ESPNService', 'Edge proxy unavailable or timed out');
+        }
     }
 
-    // 3. Direct fetch (works in Node.js/SSR)
+    // 2. Browser: try first-party Vercel API proxy (same-origin, no CORS risk)
+    if (endpoint) {
+        const firstPartyProxyRes = await fetchViaFirstPartyProxy(endpoint);
+        if (firstPartyProxyRes) return firstPartyProxyRes;
+    }
+
+    // 3. Optional public CORS proxies (dev/local only in browser, always allowed server-side)
+    if (canUsePublicBrowserProxy()) {
+        for (const proxy of PUBLIC_PROXIES) {
+            try {
+                const proxyUrl = proxy(url);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+                const res = await fetch(proxyUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (res.ok) return res;
+            } catch { continue; }
+        }
+    }
+
+    // 4. Direct fetch (works in Node.js/SSR)
     if (typeof window === 'undefined') {
         try { return await resilientFetch(url); } catch (e) { }
     }
@@ -292,18 +290,7 @@ export const fetchLeagueMatches = async (
             };
 
         }).filter((m: any | null): m is any => m !== null)
-            .map(m => {
-                try {
-                    return { ...m, ai_signals: computeAISignals(m) };
-                } catch (e) {
-                    Logger.warn('ESPNService', 'computeAISignals failed', {
-                        leagueId: league.id,
-                        matchId: m.id,
-                        error: String(e)
-                    });
-                    return { ...m, ai_signals: null };
-                }
-            });
+            .map(m => ({ ...m, ai_signals: null }));
 
     } catch (e) {
         Logger.debug('ESPNService', `fetchLeagueMatches failed: ${e}`);
@@ -398,9 +385,7 @@ export const fetchMatchDetailsExtended = async (
             predictor: EspnAdapters.Predictor(data)
         };
 
-        // Compute signals with enriched data
-        const fullMatch = result as Match;
-        result.ai_signals = computeAISignals(fullMatch);
+        result.ai_signals = null;
 
         return result;
 

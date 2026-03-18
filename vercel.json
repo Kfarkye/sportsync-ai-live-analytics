@@ -9,7 +9,7 @@
     },
     "headers": [
         {
-            "source": "/assets/(.*)",
+            "source": "/assets/:path*",
             "headers": [
                 {
                     "key": "Cache-Control",
@@ -18,7 +18,25 @@
             ]
         },
         {
-            "source": "/icons/(.*)",
+            "source": "/",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=60, must-revalidate"
+                }
+            ]
+        },
+        {
+            "source": "/:path*",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=60, must-revalidate"
+                }
+            ]
+        },
+        {
+            "source": "/icons/:path*",
             "headers": [
                 {
                     "key": "Cache-Control",
@@ -36,7 +54,7 @@
             ]
         },
         {
-            "source": "/screenshots/(.*)",
+            "source": "/screenshots/:path*",
             "headers": [
                 {
                     "key": "Cache-Control",
@@ -47,11 +65,11 @@
     ],
     "rewrites": [
         {
-            "source": "/api/(.*)",
-            "destination": "/api/$1"
+            "source": "/api/:path*",
+            "destination": "/api/:path*"
         },
         {
-            "source": "/((?!api/|assets/).*)",
+            "source": "/:path*",
             "destination": "/index.html"
         }
     ],
