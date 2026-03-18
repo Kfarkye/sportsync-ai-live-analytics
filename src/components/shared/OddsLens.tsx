@@ -50,22 +50,21 @@ interface PillColors {
 
 function getPillColors(mode: OddsLensMode, value: number | undefined, isFavorite: boolean): PillColors {
   if (mode === 'AMERICAN') {
-    const isNeg = value !== undefined && value >= 50;
-    return isNeg
-      ? { text: '#0f172a', bg: 'rgba(15,23,42,0.03)', border: '#cbd5e1' }
-      : { text: '#64748b', bg: 'transparent', border: '#cbd5e1' };
+    return isFavorite
+      ? { text: '#0b5a45', bg: '#edfbf4', border: '#5ac9a5' }
+      : { text: '#4b5563', bg: '#ffffff', border: '#d1d5db' };
   }
 
   if (mode === 'DECIMAL') {
     return isFavorite
-      ? { text: '#0f172a', bg: 'rgba(15,23,42,0.03)', border: '#cbd5e1' }
-      : { text: '#64748b', bg: 'transparent', border: '#cbd5e1' };
+      ? { text: '#0b5a45', bg: '#edfbf4', border: '#5ac9a5' }
+      : { text: '#4b5563', bg: '#ffffff', border: '#d1d5db' };
   }
 
   // IMPLIED
   return isFavorite
-    ? { text: '#0f172a', bg: 'rgba(15,23,42,0.03)', border: '#cbd5e1' }
-    : { text: '#64748b', bg: 'transparent', border: '#cbd5e1' };
+    ? { text: '#0b5a45', bg: '#edfbf4', border: '#5ac9a5' }
+    : { text: '#4b5563', bg: '#ffffff', border: '#d1d5db' };
 }
 
 // ─── OddsLensPill ──────────────────────────────────────────────────────────
@@ -197,8 +196,8 @@ export const OddsLensToggle: React.FC<{ className?: string }> = memo(({ classNam
               fontFamily: 'ui-monospace, SFMono-Regular, monospace',
               letterSpacing: '-0.02em',
               color: active ? '#0f172a' : '#94a3b8',
-              backgroundColor: active ? '#ffffff' : 'transparent',
-              boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)' : 'none',
+              backgroundColor: active ? '#edfbf4' : 'transparent',
+              boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px rgba(90,201,165,0.5)' : 'none',
               cursor: 'pointer',
               outline: 'none',
             }}

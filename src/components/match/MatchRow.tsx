@@ -169,8 +169,8 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         "group relative flex items-center justify-between px-4 py-4 sm:px-4 sm:py-4 max-[390px]:px-3 max-[390px]:py-3 cursor-pointer transform-gpu min-h-[64px] max-[390px]:min-h-[58px] [-webkit-tap-highlight-color:transparent]",
         "focus-visible:ring-2 focus-visible:ring-[#BFDBFE] focus-visible:outline-none focus-visible:ring-inset",
         "transition-colors duration-200",
-        "border border-slate-200/90 bg-white shadow-[0_8px_20px_-18px_rgba(15,23,42,0.24)]",
-        isSelected ? "bg-emerald-50" : "hover:bg-slate-50"
+        "border border-[#D9E2F2] bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFDFF_100%)] shadow-[0_12px_24px_-22px_rgba(16,34,58,0.34)] rounded-xl",
+        isSelected ? "bg-[#ECFBF4]" : "hover:bg-[#F8FFFB]"
       )}
     >
       <div className={cn(
@@ -178,8 +178,8 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         isPinned
           ? "bg-amber-500 w-[3px] opacity-100"
           : isSelected
-            ? "bg-[#0B63F6] w-1 opacity-100"
-            : "bg-slate-300 w-[3px] scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100"
+            ? "bg-[#1D9E75] w-1 opacity-100"
+            : "bg-[#93C5B8] w-[3px] scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100"
       )} />
 
       {/* Team Data */}
@@ -275,7 +275,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1.5">
               <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-              <div className="flex items-center gap-1.5 rounded-md px-2 py-0.5 border border-emerald-200 bg-emerald-50">
+              <div className="flex items-center gap-1.5 rounded-md px-2 py-0.5 border border-[#9ED8C5] bg-[#ECFBF4]">
                 <span className="relative inline-flex h-2.5 w-2.5 items-center justify-center">
                   <span className="absolute inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500/30 animate-ping [animation-duration:2s]" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />

@@ -368,18 +368,18 @@ PropRow.displayName = 'PropRow';
 
 const PremiumProCTA = memo(({ onPricing, className }: { onPricing: () => void; className?: string }) => (
     <section className={cn(
-        "relative rounded-2xl bg-[linear-gradient(145deg,#ffffff,#f4f8ff)] p-4 max-[390px]:p-3.5 overflow-hidden shadow-[0_10px_24px_-12px_rgba(30,64,175,0.22)] ring-1 ring-blue-200/80",
+        "relative rounded-2xl bg-[linear-gradient(145deg,#ffffff,#f2fbf7)] p-4 max-[390px]:p-3.5 overflow-hidden shadow-[0_10px_24px_-12px_rgba(16,34,58,0.22)] ring-1 ring-[#9ED8C5]",
         className
     )}>
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[#0B63F6] to-transparent opacity-70" />
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[#1D9E75] to-transparent opacity-70" />
         <div className="relative z-10">
             <div className="flex items-center gap-2 mb-2.5">
-                <div className="flex items-center justify-center w-[20px] h-[20px] rounded bg-[#0B63F6] text-white shadow-[0_8px_14px_-8px_rgba(11,99,246,0.45)]">
+                <div className="flex items-center justify-center w-[20px] h-[20px] rounded bg-[#1D9E75] text-white shadow-[0_8px_14px_-8px_rgba(29,158,117,0.45)]">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                     </svg>
                 </div>
-                <h3 className="font-mono text-[10px] font-bold tracking-[0.14em] text-blue-700 uppercase">
+                <h3 className="font-mono text-[10px] font-bold tracking-[0.14em] text-[#0b5a45] uppercase">
                     Pro Access
                 </h3>
             </div>
@@ -389,7 +389,7 @@ const PremiumProCTA = memo(({ onPricing, className }: { onPricing: () => void; c
             <button
                 type="button"
                 onClick={onPricing}
-                className="group/btn w-full h-[38px] max-[390px]:h-[36px] bg-[#0B63F6] text-white text-[12px] max-[390px]:text-[11px] font-bold rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-blue-300 flex items-center justify-center gap-2 shadow-sm hover:bg-[#0954d1]"
+                className="group/btn w-full h-[38px] max-[390px]:h-[36px] bg-[#1D9E75] text-white text-[12px] max-[390px]:text-[11px] font-bold rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-[#9ED8C5] flex items-center justify-center gap-2 shadow-sm hover:bg-[#177f60]"
             >
                 Upgrade
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover/btn:translate-x-0.5 text-blue-100 group-hover/btn:text-white">
@@ -466,23 +466,23 @@ const LeagueGroup = memo(({
                 className={cn(
                     'flex items-center justify-between w-full h-11 px-3 sm:px-4 max-[390px]:px-2.5 [-webkit-tap-highlight-color:transparent]',
                     // Keep group headers static so ordering never shifts behind match rows.
-                    'bg-[#F8FAFC] backdrop-blur-sm border-b border-blue-200/70 z-20',
-                    'transition-colors hover:bg-blue-50/80',
+                    'bg-white backdrop-blur-sm border-b border-[#D9E2F2] z-20',
+                    'transition-colors hover:bg-[#F8FFFB]',
                     'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300',
-                    isExpanded ? 'border border-blue-200 border-b-blue-200/70 rounded-t-xl shadow-[0_12px_24px_-20px_rgba(30,64,175,0.36)]' : 'border border-blue-200 border-b-transparent rounded-xl shadow-[0_12px_24px_-20px_rgba(30,64,175,0.36)]'
+                    isExpanded ? 'border border-[#D9E2F2] border-b-[#D9E2F2] rounded-t-xl shadow-[0_12px_24px_-20px_rgba(16,34,58,0.26)]' : 'border border-[#D9E2F2] border-b-transparent rounded-xl shadow-[0_12px_24px_-20px_rgba(16,34,58,0.26)]'
                 )}
                 aria-expanded={isExpanded}
                 aria-controls={`league-content-${leagueId}`}
             >
                 <div className="flex items-center gap-2 max-[390px]:gap-1.5 min-w-0">
                     <h3 className="text-[12px] max-[390px]:text-[11px] font-semibold text-[#0A0A0A] tracking-tight truncate">{leagueName}</h3>
-                    <span className="text-[14px] text-blue-200 leading-none" aria-hidden="true">·</span>
+                    <span className="text-[14px] text-[#B9C5D7] leading-none" aria-hidden="true">·</span>
                     <span className="text-[11px] max-[390px]:text-[10px] font-mono tabular-nums font-normal text-[#555555] whitespace-nowrap">
                         {enrichedMatches.length} {enrichedMatches.length === 1 ? 'game' : 'games'}
                     </span>
                     {earliestTime && (
                         <>
-                            <span className="text-[14px] text-blue-200 leading-none" aria-hidden="true">·</span>
+                            <span className="text-[14px] text-[#B9C5D7] leading-none" aria-hidden="true">·</span>
                             <span className="text-[11px] max-[390px]:text-[10px] font-mono tabular-nums font-normal text-[#555555] whitespace-nowrap" suppressHydrationWarning>
                                 {earliestTime}
                             </span>
@@ -492,7 +492,7 @@ const LeagueGroup = memo(({
                     <motion.svg
                     xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                     fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                        className="text-blue-400" animate={{ rotate: isExpanded ? 0 : -90 }} transition={{ duration: 0.2 }}
+                        className="text-[#67BFA2]" animate={{ rotate: isExpanded ? 0 : -90 }} transition={{ duration: 0.2 }}
                     >
                     <path d="m6 9 6 6 6-6" />
                 </motion.svg>
@@ -509,7 +509,7 @@ const LeagueGroup = memo(({
                         transition={ACCORDION_SPRING}
                         className={cn(
                             'overflow-hidden relative z-0 -mt-px',
-                            'bg-white ring-1 ring-blue-200/80 rounded-b-xl shadow-[0_14px_28px_-20px_rgba(30,64,175,0.28)]'
+                            'bg-white ring-1 ring-[#D9E2F2] rounded-b-xl shadow-[0_14px_28px_-20px_rgba(16,34,58,0.22)]'
                         )}
                     >
                         <div ref={measureRef} className="flex flex-col divide-y divide-zinc-100/80">
@@ -786,15 +786,15 @@ const MatchList: React.FC<MatchListProps> = ({
                             {/* Mobile widgets parity for sidebar content */}
                             <div className="lg:hidden px-2.5 sm:px-0 pt-2.5 space-y-2.5">
                                 {pulseMarkets.length > 0 && (
-                                    <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Market Pulse">
-                                        <div className="px-3.5 max-[390px]:px-3 py-2.5 max-[390px]:py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
+                                    <section className="rounded-2xl bg-white border border-[#D9E2F2] overflow-hidden shadow-[0_14px_28px_-20px_rgba(16,34,58,0.2)]" aria-label="Market Pulse">
+                                        <div className="px-3.5 max-[390px]:px-3 py-2.5 max-[390px]:py-2 border-b border-slate-100 bg-[#F8FFFB] flex justify-between items-center">
                                             <div className="flex items-center gap-2">
-                                                <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
+                                                <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-[#ECFBF4] border border-[#9ED8C5] text-[#0b5a45]">
                                                     <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
                                                 </div>
-                                                <span className="font-mono text-[10px] max-[390px]:text-[9px] font-bold tracking-widest text-blue-800 uppercase">Market Pulse</span>
+                                                <span className="font-mono text-[10px] max-[390px]:text-[9px] font-bold tracking-widest text-[#0b5a45] uppercase">Market Pulse</span>
                                             </div>
-                                            <span className="font-mono text-[8.5px] max-[390px]:text-[8px] text-blue-300 tracking-[0.03em] uppercase">Via Polymarket</span>
+                                            <span className="font-mono text-[8.5px] max-[390px]:text-[8px] text-[#8AB9A9] tracking-[0.03em] uppercase">Via Polymarket</span>
                                         </div>
                                         <div className="divide-y divide-slate-100/80">
                                         {pulseMarkets.slice(0, 3).map(({ poly, match }, i) => (
@@ -810,17 +810,17 @@ const MatchList: React.FC<MatchListProps> = ({
                                 )}
 
                                 {featuredPropRows.length > 0 && (
-                                    <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Featured Props">
-                                        <div className="px-3.5 max-[390px]:px-3 py-2.5 max-[390px]:py-2 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
+                                    <section className="rounded-2xl bg-white border border-[#D9E2F2] overflow-hidden shadow-[0_14px_28px_-20px_rgba(16,34,58,0.2)]" aria-label="Featured Props">
+                                        <div className="px-3.5 max-[390px]:px-3 py-2.5 max-[390px]:py-2 border-b border-slate-100 bg-[#F8FFFB] flex justify-between items-center">
                                             <div className="flex items-center gap-2">
-                                                <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
+                                                <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-[#ECFBF4] border border-[#9ED8C5] text-[#0b5a45]">
                                                     <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                                         <path d="M1 10L5 6L8 9L13 4" /><path d="M9 4H13V8" />
                                                     </svg>
                                                 </div>
-                                                <span className="font-mono text-[10px] max-[390px]:text-[9px] font-bold tracking-widest text-blue-800 uppercase">Featured Props</span>
+                                                <span className="font-mono text-[10px] max-[390px]:text-[9px] font-bold tracking-widest text-[#0b5a45] uppercase">Featured Props</span>
                                             </div>
-                                            <span className="font-mono text-[8.5px] max-[390px]:text-[8px] text-blue-300 tracking-[0.03em] uppercase">
+                                            <span className="font-mono text-[8.5px] max-[390px]:text-[8px] text-[#8AB9A9] tracking-[0.03em] uppercase">
                                                 {featuredPropRows[0]?.prop.event_date === todayIso ? 'Today' : 'Tomorrow'}
                                             </span>
                                         </div>
@@ -846,15 +846,15 @@ const MatchList: React.FC<MatchListProps> = ({
                         <aside className="hidden lg:flex flex-col sticky top-[104px] gap-3 pt-4">
                             {/* Market Pulse — Polymarket (now memoized) */}
                             {pulseMarkets.length > 0 && (
-                                <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Market Pulse">
-                                    <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
+                                <section className="rounded-2xl bg-white border border-[#D9E2F2] overflow-hidden shadow-[0_14px_28px_-20px_rgba(16,34,58,0.2)]" aria-label="Market Pulse">
+                                    <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FFFB] flex justify-between items-center">
                                         <div className="flex items-center gap-2">
-                                            <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
+                                            <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-[#ECFBF4] border border-[#9ED8C5] text-[#0b5a45]">
                                                 <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
                                             </div>
-                                            <span className="font-mono text-[10px] font-bold tracking-widest text-blue-800 uppercase">Market Pulse</span>
+                                            <span className="font-mono text-[10px] font-bold tracking-widest text-[#0b5a45] uppercase">Market Pulse</span>
                                         </div>
-                                        <span className="font-mono text-[8.5px] text-blue-300 tracking-[0.03em] uppercase">Via Polymarket</span>
+                                        <span className="font-mono text-[8.5px] text-[#8AB9A9] tracking-[0.03em] uppercase">Via Polymarket</span>
                                     </div>
                                     <div className="divide-y divide-slate-100/80">
                                     {pulseMarkets.map(({ poly, match }, i) => (
@@ -871,17 +871,17 @@ const MatchList: React.FC<MatchListProps> = ({
 
                             {/* Featured Props */}
                             {featuredPropRows.length > 0 && (
-                                <section className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[0_14px_28px_-20px_rgba(30,64,175,0.2)]" aria-label="Featured Props">
-                                    <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FAFC] flex justify-between items-center">
+                                <section className="rounded-2xl bg-white border border-[#D9E2F2] overflow-hidden shadow-[0_14px_28px_-20px_rgba(16,34,58,0.2)]" aria-label="Featured Props">
+                                    <div className="px-3.5 py-2.5 border-b border-slate-100 bg-[#F8FFFB] flex justify-between items-center">
                                         <div className="flex items-center gap-2">
-                                            <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-100 border border-blue-200 text-blue-700">
+                                            <div className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-[#ECFBF4] border border-[#9ED8C5] text-[#0b5a45]">
                                                 <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                                     <path d="M1 10L5 6L8 9L13 4"/><path d="M9 4H13V8"/>
                                                 </svg>
                                             </div>
-                                            <span className="font-mono text-[10px] font-bold tracking-widest text-blue-800 uppercase">Featured Props</span>
+                                            <span className="font-mono text-[10px] font-bold tracking-widest text-[#0b5a45] uppercase">Featured Props</span>
                                         </div>
-                                        <span className="font-mono text-[8.5px] text-blue-300 tracking-[0.03em] uppercase">
+                                        <span className="font-mono text-[8.5px] text-[#8AB9A9] tracking-[0.03em] uppercase">
                                             {featuredPropRows[0]?.prop.event_date === todayIso ? 'Today' : 'Tomorrow'}
                                         </span>
                                     </div>
