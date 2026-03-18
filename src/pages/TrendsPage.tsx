@@ -206,7 +206,6 @@ const LEAGUE_BADGE_ICON_EMOJIS: Record<string, string> = {
   laliga: '⚽',
   seriea: '⚽',
   ligue1: '⚽',
-  mls: '⚽',
   uefa: '🏆',
   'uefa.champions': '🏆',
   'uefa.europa': '🏆',
@@ -327,7 +326,6 @@ const LAYER_LABELS: Record<string, string> = {
   SOCCER_CORNERS: 'Corners',
   SOCCER_CARDS: 'Cards',
   SOCCER_1H_TOTAL: '1H Total',
-  SOCCER_CORNERS: 'Corners',
   SOCCER_TEAM_TOTAL: 'Team Total',
 };
 

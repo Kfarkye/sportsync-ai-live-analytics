@@ -34,7 +34,7 @@ export const configService = {
 
             console.log('[Remote Config] Fetching latest gates...');
             const { data, error } = await supabase
-                .from<AppConfigRow>(APP_CONFIG_TABLE)
+                .from(APP_CONFIG_TABLE)
                 .select('key, value');
 
             if (error) {
@@ -49,11 +49,12 @@ export const configService = {
 
             appConfigTableAvailable = true;
             if (data) {
+                const rows = data as AppConfigRow[];
                 const overrides: GateOverrides = {};
 
                 // Map DB keys to System Gate keys
                 // DB: NHL_GATES -> Engine: NHL
-                data.forEach(row => {
+                rows.forEach(row => {
                     if (row.key === 'NHL_GATES') overrides.NHL = row.value;
                     if (row.key === 'NBA_GATES') overrides.NBA = row.value;
                     if (row.key === 'NFL_GATES') overrides.NFL = row.value;

@@ -359,7 +359,7 @@ const parseH2HFromRaw = (
         }
         return 'D';
       })
-      .filter((item): item is string => item !== null);
+      .filter((item): item is 'W' | 'L' | 'D' => item !== null);
 
     return {
       lastFive: rows.slice(0, 5).join(' ') || '—',
@@ -1608,7 +1608,8 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
         <div className="space-y-6 sm:space-y-7">
           {mobileRail}
 
-          <Card id="key-stats">
+          <section id="key-stats">
+            <Card>
             <CardBody>
               <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -1811,9 +1812,11 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                 </div>
               </div>
             </CardBody>
-          </Card>
+            </Card>
+          </section>
 
-          <Card id="bet-signals">
+          <section id="bet-signals">
+            <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <SectionLabel>Bet Signals</SectionLabel>
@@ -1834,9 +1837,11 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                 </div>
               </div>
             </CardBody>
-          </Card>
+            </Card>
+          </section>
 
-          <Card id="risk-radar">
+          <section id="risk-radar">
+            <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <SectionLabel>Risk Radar</SectionLabel>
@@ -1861,7 +1866,8 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
                 </div>
               </div>
             </CardBody>
-          </Card>
+            </Card>
+          </section>
 
           {timelineEvents.length > 0 ? (
             <Card>
