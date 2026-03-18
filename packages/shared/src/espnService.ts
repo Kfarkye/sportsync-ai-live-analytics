@@ -48,14 +48,40 @@ const CONFIG = {
 };
 
 // Proxy fallbacks for CORS
-const PUBLIC_PROXIES = [
-    (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-];
+const LOCAL_ESPN_PROXY = (url: string) =>
+    `/api/espn-proxy?endpoint=${encodeURIComponent(url)}`;
+
+const PUBLIC_PROXIES = (typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+    ? [
+        (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+        (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+      ]
+    : [];
 
 // ============================================================================
 // REQUEST HANDLERS
 // ============================================================================
+
+const fetchViaLocalFallback = async (url: string): Promise<Response | null> => {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+        const proxyUrl = LOCAL_ESPN_PROXY(url);
+        const res = await fetch(proxyUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+            Logger.debug('ESPNService', `Local ESPN proxy returned ${res.status} for ${url}`);
+            return null;
+        }
+
+        return res;
+    } catch (e) {
+        Logger.debug('ESPNService', `Local ESPN proxy failed for ${url}: ${e}`);
+        return null;
+    }
+};
 
 export async function fetchWithFallback(url: string): Promise<any> {
     // 1. Try Edge Function (optional proxy hook)
@@ -78,13 +104,26 @@ export async function fetchWithFallback(url: string): Promise<any> {
                 if (res && res.ok) {
                     return res;
                 }
+
+                Logger.debug(
+                    'ESPNService',
+                    `Edge ESPN proxy returned !ok (${res?.status ?? 'n/a'}) for ${endpoint}`
+                );
             }
         } catch (e) {
-            Logger.debug('ESPNService', 'Edge proxy unavailable or timed out');
+            Logger.debug('ESPNService', `Edge ESPN proxy unavailable or timed out: ${e}`);
         }
     }
 
-    // 2. Try public CORS proxies
+    // 2. Try same-origin Vercel proxy endpoint
+    if (typeof window !== 'undefined') {
+        const localResponse = await fetchViaLocalFallback(url);
+        if (localResponse) {
+            return localResponse;
+        }
+    }
+
+    // 3. Try public CORS proxies (dev fallback only)
     for (const proxy of PUBLIC_PROXIES) {
         try {
             const proxyUrl = proxy(url);

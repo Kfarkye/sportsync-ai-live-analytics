@@ -18,6 +18,7 @@ const MotionDiv = motion.div;
 const HEADER_SPORTS: { label: string; sport: Sport | 'all' }[] = [
     { label: 'All Sports', sport: 'all' as any },
     { label: 'NBA', sport: Sport.NBA },
+    { label: 'MLB', sport: Sport.BASEBALL },
     { label: 'NHL', sport: Sport.HOCKEY },
     { label: 'NFL', sport: Sport.NFL },
     { label: 'NCAAB', sport: Sport.COLLEGE_BASKETBALL },
@@ -67,7 +68,7 @@ export const UnifiedHeader: FC = () => {
     );
     const hasActiveLiveGames = liveGamesCount > 0;
     const isEdgePage = typeof window !== 'undefined' && (
-        window.location.pathname.includes('/edge') || window.location.pathname.includes('/reports')
+        window.location.pathname.includes('/edge') || window.location.pathname.includes('/reports') || window.location.pathname.includes('/trends')
     );
 
     useEffect(() => {
@@ -179,7 +180,7 @@ export const UnifiedHeader: FC = () => {
                     {/* Right: LIVE + Lens + Search + User */}
                     <div className="flex items-center gap-2 max-[390px]:gap-1">
                         <a
-                            href="/edge"
+                            href="/trends"
                             className={cn(
                                 "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border",
                                 isEdgePage
@@ -188,7 +189,7 @@ export const UnifiedHeader: FC = () => {
                             )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
-                            EDGE
+                            TRENDS
                         </a>
                         <button
                             type="button"
