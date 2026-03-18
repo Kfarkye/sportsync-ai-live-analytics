@@ -57,6 +57,7 @@ import MatchupHeader from '../pregame/MatchupHeader';
 import RecentForm from '../pregame/RecentForm';
 import SafePregameIntelCards from '../pregame/PregameIntelCards';
 import OddsCard from '../betting/OddsCard';
+import MatchOddsHeatmap from './MatchOddsHeatmap';
 import EdgeCard from './EdgeCard';
 import MarketEdgeCard from './MarketEdgeCard';
 import { MatchEdgeTags } from './MatchEdgeTags';
@@ -1175,11 +1176,16 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const isPendingTab = activeTab !== deferredTab;
 
   const [propView, setPropView] = useState<'classic' | 'cinematic'>('classic');
+  const [marketsTab, setMarketsTab] = useState<'TRENDS' | 'ODDS'>('TRENDS');
 
   useEffect(() => {
     if (isSched && activeTab === 'OVERVIEW') setActiveTab('DETAILS');
     if (!isSched && activeTab === 'DETAILS') setActiveTab('OVERVIEW');
   }, [isSched, activeTab]);
+
+  useEffect(() => {
+    setMarketsTab('TRENDS');
+  }, [match.id]);
 
   const handleTabChange = useCallback((id: string) => {
     setActiveTab(id);
@@ -1425,7 +1431,47 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     )}
                     <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
                       <div className="space-y-4">
-                        <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>{isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}</SpecSheetRow>
+                        <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-5 border-b border-black/[0.07] pb-1">
+                              <button
+                                type="button"
+                                onClick={() => setMarketsTab('TRENDS')}
+                                className={cn(
+                                  "pb-1.5 text-[11px] uppercase tracking-[0.16em] transition-colors",
+                                  marketsTab === 'TRENDS'
+                                    ? "text-black font-medium border-b-2 border-[#1D9E75]"
+                                    : "text-black/45 hover:text-black/75"
+                                )}
+                              >
+                                Trends
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMarketsTab('ODDS')}
+                                className={cn(
+                                  "pb-1.5 text-[11px] uppercase tracking-[0.16em] transition-colors",
+                                  marketsTab === 'ODDS'
+                                    ? "text-black font-medium border-b-2 border-[#1D9E75]"
+                                    : "text-black/45 hover:text-black/75"
+                                )}
+                              >
+                                Odds
+                              </button>
+                            </div>
+
+                            {marketsTab === 'TRENDS' ? (
+                              isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />
+                            ) : (
+                              <MatchOddsHeatmap
+                                homeTeamName={match.homeTeam?.name || ''}
+                                awayTeamName={match.awayTeam?.name || ''}
+                                startTime={match.startTime}
+                                enabled={marketsTab === 'ODDS'}
+                              />
+                            )}
+                          </div>
+                        </SpecSheetRow>
                         <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
                       </div>
                       <div className="space-y-4">
