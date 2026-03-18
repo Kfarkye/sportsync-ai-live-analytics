@@ -267,16 +267,31 @@ const AppShell: FC = () => {
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
             className={cn(
-              'fixed inset-0 z-60 overflow-hidden flex flex-col',
+              'fixed inset-0 z-[60] overflow-hidden flex flex-col',
               ESSENCE.tw.surface.subtle // bg-slate-50
             )}
           >
             {/* Sheet Handle for Mobile */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-70 md:hidden" />
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-[70] md:hidden" />
             <MatchDetails match={selectedMatch} matches={filteredMatches} onSelectMatch={setSelectedMatch} onBack={() => setSelectedMatch(null)} />
           </MotionDiv>
         )}
       </AnimatePresence>
+
+      <ChatWidget currentMatch={selectedMatch ?? undefined} matches={filteredMatches} />
+      {!isGlobalChatOpen && (
+        <button
+          type="button"
+          onClick={() => toggleGlobalChat(true)}
+          aria-label="Open AI chat"
+          className="fixed bottom-6 right-4 md:bottom-8 md:right-8 z-[9999] inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-slate-200 shadow-[0_14px_36px_-18px_rgba(15,23,42,0.45)] text-slate-800"
+        >
+          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+          <span className="text-[11px] font-semibold tracking-[0.05em] uppercase" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+            AI Chat
+          </span>
+        </button>
+      )}
 
       <Suspense fallback={null}>
         <CommandPalette isOpen={isCmdkOpen} onClose={() => toggleCmdk(false)} matches={matches} onSelect={setSelectedMatch} />

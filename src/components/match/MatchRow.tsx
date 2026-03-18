@@ -158,10 +158,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
     <motion.div
       ref={ref}
       layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      whileHover={{ backgroundColor: "rgba(255,255,255,0.42)", zIndex: 10, boxShadow: "0 12px 28px -20px rgba(15,23,42,0.45)" }}
-      whileTap={{ scale: 0.998 }}
+      initial={false}
       transition={PHYSICS_MOTION}
       onClick={() => onSelect?.(match)}
       role="button"
