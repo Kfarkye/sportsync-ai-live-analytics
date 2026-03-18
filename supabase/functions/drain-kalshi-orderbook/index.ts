@@ -118,6 +118,12 @@ function isFinalizedStatus(statusValue: string | null): boolean {
   );
 }
 
+function isTradableStatus(statusValue: string | null): boolean {
+  if (!statusValue) return true;
+  const status = statusValue.toLowerCase();
+  return status.includes("active") || status.includes("open") || status.includes("trade") || status.includes("live");
+}
+
 function inferSnapshotType(statusValue: string | null, gameDate: string | null): SnapshotType {
   const status = (statusValue || "").toLowerCase();
   if (isFinalizedStatus(status)) return "settled";
@@ -164,27 +170,50 @@ function parseDateFromEventTicker(eventTicker: string): string | null {
   return d.toISOString().slice(0, 10);
 }
 
+function extractGameKey(value: string | null): string | null {
+  if (!value) return null;
+  const m = String(value).toUpperCase().match(/(\d{2}(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{2}[A-Z0-9]+)/);
+  return m ? m[1] : null;
+}
+
 function resolveGameDate(eventTicker: string, ...dateHints: Array<any>): string | null {
   const tickerDate = parseDateFromEventTicker(eventTicker);
   if (tickerDate) return tickerDate;
 
   for (const hint of dateHints) {
+    const embeddedDate = parseDateFromEventTicker(String(hint || ""));
+    if (embeddedDate) return embeddedDate;
     const normalized = normalizeDateLike(hint);
     if (normalized) return normalized;
   }
   return null;
 }
 
-function inferSportLeague(seriesTicker: string | null, title: string | null, category: string | null = null): { sport: string | null; league: string | null } {
+function inferSportLeague(
+  seriesTicker: string | null,
+  title: string | null,
+  category: string | null = null,
+  eventTicker: string | null = null,
+  marketTicker: string | null = null
+): { sport: string | null; league: string | null } {
   const s = (seriesTicker || "").toUpperCase();
+  const e = (eventTicker || "").toUpperCase();
+  const m = (marketTicker || "").toUpperCase();
   const t = (title || "").toLowerCase();
   const c = (category || "").toLowerCase();
+  const em = `${e} ${m}`;
 
-  if (s.includes("KXNCAAMB")) return { sport: "basketball", league: "ncaamb" };
+  if (
+    s.includes("KXNCAAMB") ||
+    em.includes("KXNCAAMB") ||
+    em.includes("CBCHAMPIONSHIP")
+  ) {
+    return { sport: "basketball", league: "ncaamb" };
+  }
 
-  if (s.includes("KXNBA")) return { sport: "basketball", league: "nba" };
-  if (s.includes("KXNHL")) return { sport: "hockey", league: "nhl" };
-  if (s.includes("KXMLB")) return { sport: "baseball", league: "mlb" };
+  if (s.includes("KXNBA") || em.includes("KXNBA")) return { sport: "basketball", league: "nba" };
+  if (s.includes("KXNHL") || em.includes("KXNHL")) return { sport: "hockey", league: "nhl" };
+  if (s.includes("KXMLB") || em.includes("KXMLB")) return { sport: "baseball", league: "mlb" };
 
   if (
     s.includes("EPL") ||
@@ -194,6 +223,13 @@ function inferSportLeague(seriesTicker: string | null, title: string | null, cat
     s.includes("LIGA") ||
     s.includes("SERIE") ||
     s.includes("SOCCER") ||
+    em.includes("KXSOCCER") ||
+    em.includes("KXUCL") ||
+    em.includes("KXEPL") ||
+    em.includes("KXMLS") ||
+    em.includes("KXBUND") ||
+    em.includes("KXLIGA") ||
+    em.includes("KXSERIE") ||
     t.includes("soccer")
   ) {
     return { sport: "soccer", league: "soccer" };
@@ -479,6 +515,8 @@ async function discoverPhase(
   };
 
   const eventTickers: string[] = [];
+  const listedMarketTickersByEvent = new Map<string, Set<string>>();
+  const listedMarketTickersByGameKey = new Map<string, Set<string>>();
 
   if (eventTickersOverride.length > 0) {
     eventTickers.push(...eventTickersOverride);
@@ -486,7 +524,7 @@ async function discoverPhase(
     let cursor: string | null = null;
 
     for (let page = 0; page < DISCOVERY_MAX_PAGES; page++) {
-      const path = `/trade-api/v2/markets?status=open&limit=${DISCOVERY_PAGE_LIMIT}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
+      const path = `/trade-api/v2/markets?limit=${DISCOVERY_PAGE_LIMIT}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
       const res = await kalshiGet(path, keyId, privateKeyPem);
       if (!res.ok) {
         stats.errors.push(`markets_discovery:${res.status}:${res.error.slice(0, 180)}`);
@@ -495,15 +533,36 @@ async function discoverPhase(
 
       const markets = Array.isArray(res.data?.markets) ? res.data.markets : [];
       for (const market of markets) {
+        const marketStatus = getStringField(market, ["status"]);
+        if (isFinalizedStatus(marketStatus) || !isTradableStatus(marketStatus)) continue;
+
         const eventTicker = getStringField(market, ["event_ticker", "eventTicker"]);
+        const marketTicker = getStringField(market, ["ticker", "market_ticker"]);
         if (!eventTicker) continue;
         const inferred = inferSportLeague(
           getStringField(market, ["series_ticker", "seriesTicker"]),
           getStringField(market, ["title"]),
-          getStringField(market, ["category"])
+          getStringField(market, ["category"]),
+          eventTicker,
+          marketTicker
         );
         if (!matchesSportFilter(sportFilter, inferred.sport, inferred.league)) continue;
         eventTickers.push(eventTicker);
+
+        if (marketTicker) {
+          if (!listedMarketTickersByEvent.has(eventTicker)) {
+            listedMarketTickersByEvent.set(eventTicker, new Set<string>());
+          }
+          listedMarketTickersByEvent.get(eventTicker)!.add(marketTicker);
+
+          const gameKey = extractGameKey(eventTicker) || extractGameKey(marketTicker);
+          if (gameKey) {
+            if (!listedMarketTickersByGameKey.has(gameKey)) {
+              listedMarketTickersByGameKey.set(gameKey, new Set<string>());
+            }
+            listedMarketTickersByGameKey.get(gameKey)!.add(marketTicker);
+          }
+        }
       }
 
       cursor = getStringField(res.data, ["cursor"]);
@@ -532,8 +591,9 @@ async function discoverPhase(
         new Set(
           (fallbackRows || [])
             .filter((row: any) => {
-              const sport = row?.sport ? String(row.sport).toLowerCase() : null;
-              const league = row?.league ? String(row.league).toLowerCase() : null;
+              const inferredRow = inferSportLeague(null, null, null, String(row?.event_ticker || ""));
+              const sport = row?.sport ? String(row.sport).toLowerCase() : inferredRow.sport;
+              const league = row?.league ? String(row.league).toLowerCase() : inferredRow.league;
               if (!matchesSportFilter(sportFilter, sport, league)) return false;
               if (isFinalizedStatus(row?.status ? String(row.status) : null)) return false;
 
@@ -570,10 +630,15 @@ async function discoverPhase(
     const markets = Array.isArray(ev.data?.markets) ? ev.data.markets : [];
     const seriesTicker = getStringField(eventObj, ["series_ticker", "seriesTicker"]);
     const title = getStringField(eventObj, ["title"]);
+    const firstMarket = markets[0] || null;
+    const firstMarketTicker = getStringField(firstMarket, ["ticker", "market_ticker"]);
+
     const inferred = inferSportLeague(
       seriesTicker,
       title,
-      getStringField(eventObj, ["category"]) || getStringField(eventObj?.product_metadata, ["competition"])
+      getStringField(eventObj, ["category"]) || getStringField(eventObj?.product_metadata, ["competition"]),
+      eventTicker,
+      firstMarketTicker
     );
 
     if (!matchesSportFilter(sportFilter, inferred.sport, inferred.league)) {
@@ -587,13 +652,43 @@ async function discoverPhase(
       .filter((t: string | null): t is string => !!t);
 
     if (marketTickers.length === 0) {
+      await sleep(REQUEST_DELAY_MS);
+      const lookupRes = await kalshiGet(
+        `/trade-api/v2/markets?event_ticker=${encodeURIComponent(eventTicker)}&limit=500`,
+        keyId,
+        privateKeyPem
+      );
+      if (lookupRes.ok) {
+        const lookupMarkets = Array.isArray(lookupRes.data?.markets) ? lookupRes.data.markets : [];
+        for (const m of lookupMarkets) {
+          const t = getStringField(m, ["ticker", "market_ticker"]);
+          if (t) marketTickers.push(t);
+        }
+      }
+    }
+
+    const fromEventListing = listedMarketTickersByEvent.get(eventTicker);
+    if (fromEventListing) {
+      for (const ticker of fromEventListing) marketTickers.push(ticker);
+    }
+
+    const gameKey = extractGameKey(eventTicker);
+    if (gameKey) {
+      const fromGameKey = listedMarketTickersByGameKey.get(gameKey);
+      if (fromGameKey) {
+        for (const ticker of fromGameKey) marketTickers.push(ticker);
+      }
+    }
+
+    const uniqueMarketTickers = Array.from(new Set(marketTickers));
+    if (uniqueMarketTickers.length === 0) {
       stats.events_skipped++;
       continue;
     }
 
-    const firstMarket = markets[0] || null;
     const gameDate = resolveGameDate(
       eventTicker,
+      firstMarketTicker,
       getStringField(eventObj, ["expected_expiration_time", "expiration_time", "open_time"]),
       getStringField(firstMarket, ["expected_expiration_time", "expiration_time", "open_time", "close_time"])
     );
@@ -611,8 +706,8 @@ async function discoverPhase(
       home_team: home,
       away_team: away,
       game_date: gameDate,
-      market_count: marketTickers.length,
-      market_tickers: Array.from(new Set(marketTickers)),
+      market_count: uniqueMarketTickers.length,
+      market_tickers: uniqueMarketTickers,
       status: "active",
     });
   }
@@ -670,10 +765,13 @@ async function snapshotPhase(
       const eventObj = ev.data?.event || {};
       const markets = Array.isArray(ev.data?.markets) ? ev.data.markets : [];
       const seriesTicker = getStringField(eventObj, ["series_ticker", "seriesTicker"]);
+      const firstMarket = markets[0] || null;
       const inferred = inferSportLeague(
         seriesTicker,
         getStringField(eventObj, ["title"]),
-        getStringField(eventObj, ["category"]) || getStringField(eventObj?.product_metadata, ["competition"])
+        getStringField(eventObj, ["category"]) || getStringField(eventObj?.product_metadata, ["competition"]),
+        eventTicker,
+        getStringField(firstMarket, ["ticker", "market_ticker"])
       );
       eventRows.push({
         event_ticker: eventTicker,
@@ -681,6 +779,7 @@ async function snapshotPhase(
         league: inferred.league,
         game_date: resolveGameDate(
           eventTicker,
+          getStringField(firstMarket, ["ticker", "market_ticker"]),
           getStringField(eventObj, ["expected_expiration_time", "expiration_time", "open_time"])
         ),
         market_tickers: markets
@@ -720,19 +819,34 @@ async function snapshotPhase(
   const staleDateFixes = eventRows
     .map((row) => {
       const eventTicker = String(row?.event_ticker || "");
+      const inferred = inferSportLeague(null, null, null, eventTicker);
       return {
         eventTicker,
+        currentSport: row?.sport ? String(row.sport).toLowerCase() : null,
+        currentLeague: row?.league ? String(row.league).toLowerCase() : null,
         currentDate: normalizeDateLike(row?.game_date),
         parsedDate: parseDateFromEventTicker(eventTicker),
+        inferredSport: inferred.sport,
+        inferredLeague: inferred.league,
       };
     })
-    .filter((row) => !!row.parsedDate && row.parsedDate !== row.currentDate);
+    .filter((row) => {
+      const dateNeedsFix = !!row.parsedDate && row.parsedDate !== row.currentDate;
+      const sportNeedsFix = !row.currentSport && !!row.inferredSport;
+      const leagueNeedsFix = !row.currentLeague && !!row.inferredLeague;
+      return dateNeedsFix || sportNeedsFix || leagueNeedsFix;
+    });
 
   for (const row of staleDateFixes) {
-    if (!row.parsedDate) continue;
+    const patch: Record<string, any> = {};
+    if (row.parsedDate && row.parsedDate !== row.currentDate) patch.game_date = row.parsedDate;
+    if (!row.currentSport && row.inferredSport) patch.sport = row.inferredSport;
+    if (!row.currentLeague && row.inferredLeague) patch.league = row.inferredLeague;
+    if (Object.keys(patch).length === 0) continue;
+
     await supabase
       .from("kalshi_events_active")
-      .update({ game_date: row.parsedDate })
+      .update(patch)
       .eq("event_ticker", row.eventTicker);
   }
 
@@ -740,7 +854,7 @@ async function snapshotPhase(
     if (!matchesSportFilter(sportFilter, row?.sport || null, row?.league || null)) return false;
 
     const gameDate = normalizeDateLike(row?.game_date);
-    if (!gameDate) return true;
+    if (!gameDate) return false;
     return gameDate >= windowStart && gameDate <= windowEnd;
   });
 
@@ -791,6 +905,13 @@ async function snapshotPhase(
     }
 
     const market = marketRes.data?.market ?? marketRes.data ?? {};
+    const marketInferred = inferSportLeague(
+      getStringField(market, ["series_ticker", "seriesTicker"]),
+      getStringField(market, ["title"]),
+      getStringField(market, ["category"]) || getStringField(market?.product_metadata, ["competition"]),
+      candidate.eventTicker,
+      candidate.marketTicker
+    );
     const status = getStringField(market, ["status"]);
     const snapshotType = inferSnapshotType(status, candidate.gameDate);
     const identity = classifyMarketIdentity(candidate.marketTicker, market);
@@ -850,10 +971,10 @@ async function snapshotPhase(
     if (noPrice === null && yesPrice !== null) noPrice = Number((1 - yesPrice).toFixed(6));
 
     rows.push({
-      event_ticker: getStringField(market, ["event_ticker", "eventTicker"]) || candidate.eventTicker,
+      event_ticker: candidate.eventTicker,
       market_ticker: candidate.marketTicker,
-      sport: candidate.sport,
-      league: candidate.league,
+      sport: candidate.sport || marketInferred.sport,
+      league: candidate.league || marketInferred.league,
 
       market_type: identity.marketType,
       market_label: identity.marketLabel,
