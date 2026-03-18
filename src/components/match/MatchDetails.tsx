@@ -1022,6 +1022,48 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           props = fallbackProps || [];
         }
 
+        if (props.length === 0) {
+          const eventDate = cur.startTime ? new Date(cur.startTime).toISOString().slice(0, 10) : null;
+          if (eventDate) {
+            const { data: dateProps } = await supabase
+              .from('player_prop_bets')
+              .select('*')
+              .eq('event_date', eventDate)
+              .order('player_name')
+              .limit(2000);
+
+            const pool = dateProps || [];
+            if (pool.length > 0) {
+              const normalize = (value: string | undefined | null) =>
+                (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              const homeTokens = [
+                cur.homeTeam?.name,
+                cur.homeTeam?.shortName,
+                cur.homeTeam?.abbreviation,
+              ].map(normalize).filter((token) => token.length >= 2);
+              const awayTokens = [
+                cur.awayTeam?.name,
+                cur.awayTeam?.shortName,
+                cur.awayTeam?.abbreviation,
+              ].map(normalize).filter((token) => token.length >= 2);
+
+              props = pool.filter((candidate) => {
+                const rowMatchId = normalize(String((candidate as { match_id?: string }).match_id || ''));
+                const rowTeam = normalize(String((candidate as { team?: string }).team || ''));
+                const rowLeague = normalize(String((candidate as { league?: string }).league || ''));
+                const targetLeague = normalize(cur.leagueId || '');
+                const leagueMatches = !targetLeague || !rowLeague || rowLeague.includes(targetLeague) || targetLeague.includes(rowLeague);
+                if (!leagueMatches) return false;
+
+                if (rawEventId && rowMatchId.includes(normalize(rawEventId))) return true;
+                const isHome = homeTokens.some((token) => token && rowTeam.includes(token));
+                const isAway = awayTokens.some((token) => token && rowTeam.includes(token));
+                return isHome || isAway;
+              });
+            }
+          }
+        }
+
         if (!props || seq !== fetchSeqRef.current) return;
 
         const propsHash = hashPayload(props);
