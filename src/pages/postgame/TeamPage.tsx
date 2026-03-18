@@ -379,7 +379,7 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
                   ) : null}
                 </>
               ) : (
-                <div className="mx-auto w-full max-w-[420px] space-y-3">
+                <div className="mx-auto w-full max-w-[420px] space-y-2.5">
                   {oddsPayload?.rows?.length ? (
                     <>
                       {[...orderedOddsRows.nonProps, ...(propsExpanded ? orderedOddsRows.props : [])].map((row) => {
@@ -419,26 +419,26 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
                             : 'text-slate-500';
 
                         return (
-                          <div key={row.market_ticker} className="rounded-xl border border-slate-200 bg-white p-3">
+                          <div key={row.market_ticker} className="rounded-xl border border-slate-200 bg-white px-3.5 py-3">
                             <div className="flex items-baseline justify-between gap-2">
-                              <div className="min-w-0 truncate text-[13px] font-medium text-slate-900">
+                              <div className="min-w-0 truncate text-[13px] font-medium text-slate-900 tracking-tight">
                                 <span>{row.market_label || row.market_ticker}</span>
-                                <span className="font-mono tabular-nums"> · {yesPrice === null ? '—' : `${Math.round(yesPrice * 100)}¢`}</span>
+                                <span className="font-mono tabular-nums text-slate-900"> · {yesPrice === null ? '—' : `${Math.round(yesPrice * 100)}¢`}</span>
                               </div>
-                              <div className="shrink-0 text-right text-[12px] text-slate-500 font-mono tabular-nums">
+                              <div className="shrink-0 text-right text-[12px] text-slate-700 font-mono tabular-nums">
                                 {formatAmericanOdds(american)}
                               </div>
                             </div>
 
-                            <div className="mt-3 space-y-2.5">
+                            <div className="mt-2.5 space-y-2.5">
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between text-[11px] text-slate-500">
                                   <span>Bets</span>
-                                  <span className="font-mono tabular-nums">{Math.round(betImbalance * 100)}% {betSide}</span>
+                                  <span className="font-mono tabular-nums text-slate-700">{Math.round(betImbalance * 100)}% {betSide}</span>
                                 </div>
-                                <div className="h-2 rounded-[4px] bg-slate-200 overflow-hidden">
+                                <div className="h-2 rounded-[4px] bg-slate-100 overflow-hidden border border-slate-200/80">
                                   <div
-                                    className={`h-full bg-gradient-to-r ${betsFillClass}`}
+                                    className={`h-full bg-gradient-to-r ${betsFillClass} transition-all duration-200`}
                                     style={{ width: `${Math.round(betImbalance * 100)}%` }}
                                   />
                                 </div>
@@ -447,11 +447,11 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between text-[11px] text-slate-500">
                                   <span>Money</span>
-                                  <span className="font-mono tabular-nums">{Math.round(moneyImbalance * 100)}% {moneySide}</span>
+                                  <span className="font-mono tabular-nums text-slate-700">{Math.round(moneyImbalance * 100)}% {moneySide}</span>
                                 </div>
-                                <div className="h-2 rounded-[4px] bg-slate-200 overflow-hidden flex">
+                                <div className="h-2 rounded-[4px] bg-slate-100 overflow-hidden border border-slate-200/80 flex">
                                   <div
-                                    className={`h-full bg-gradient-to-r ${moneyFillClass}`}
+                                    className={`h-full bg-gradient-to-r ${moneyFillClass} transition-all duration-200`}
                                     style={{
                                       width: `${Math.round(moneyImbalance * 100)}%`,
                                       marginLeft: state === 'split' || moneyRaw < 0.5 ? 'auto' : undefined,
@@ -461,7 +461,7 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
                               </div>
                             </div>
 
-                            <div className={`mt-2 text-[11px] font-medium ${actionTone}`}>
+                            <div className={`mt-2 text-[11px] font-medium tracking-[0.03em] ${actionTone}`}>
                               {actionLabel}
                             </div>
                           </div>
@@ -472,7 +472,7 @@ export const TeamPage: FC<TeamPageProps> = ({ teamSlug, query }) => {
                         <button
                           type="button"
                           onClick={() => setPropsExpanded(true)}
-                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] uppercase tracking-[0.08em] text-slate-600"
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] uppercase tracking-[0.08em] text-slate-700 hover:bg-slate-100"
                         >
                           Show props ({orderedOddsRows.props.length})
                         </button>
