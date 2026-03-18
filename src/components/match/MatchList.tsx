@@ -406,19 +406,31 @@ PremiumProCTA.displayName = 'PremiumProCTA';
 // ============================================================================
 
 const MatchRowSkeleton = () => (
-    <div className="w-full h-[74px] border-b border-zinc-100 flex items-center bg-white" aria-hidden="true">
-        <div className="w-[64px] sm:w-[80px] h-full border-r border-zinc-100 bg-zinc-50/50 flex flex-col justify-center items-center gap-2 shrink-0">
-            <div className="w-6 sm:w-8 h-1.5 bg-zinc-200 rounded-full animate-pulse" />
-            <div className="w-8 sm:w-10 h-1.5 bg-zinc-100 rounded-full animate-pulse" style={{ animationDelay: '100ms' }} />
-        </div>
-        <div className="flex-1 px-4 sm:px-5 flex flex-col justify-center gap-3.5 min-w-0">
-            <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded-full bg-zinc-100 animate-pulse shrink-0" style={{ animationDelay: '50ms' }} />
-                <div className="h-2 w-24 sm:w-32 bg-zinc-200 rounded-full animate-pulse" style={{ animationDelay: '100ms' }} />
+    <div
+        className="w-full rounded-2xl border border-[#D4DEEF] bg-[linear-gradient(180deg,#FFFFFF_0%,#F6F9FF_100%)] shadow-[0_16px_30px_-24px_rgba(16,34,58,0.28)] px-4 py-3.5"
+        aria-hidden="true"
+    >
+        <div className="flex items-center justify-between pb-3">
+            <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-rose-200 animate-pulse" />
+                <div className="h-2 w-16 bg-zinc-200 rounded-full animate-pulse" />
             </div>
-            <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded-full bg-zinc-100 animate-pulse shrink-0" style={{ animationDelay: '150ms' }} />
-                <div className="h-2 w-16 sm:w-24 bg-zinc-100 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
+            <div className="h-2 w-20 bg-zinc-100 rounded-full animate-pulse" />
+        </div>
+        <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-zinc-100 animate-pulse shrink-0" />
+                    <div className="h-2.5 w-28 sm:w-36 bg-zinc-200 rounded-full animate-pulse" />
+                </div>
+                <div className="h-7 w-16 bg-zinc-100 rounded-full animate-pulse" />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-zinc-100 animate-pulse shrink-0" />
+                    <div className="h-2.5 w-24 sm:w-32 bg-zinc-100 rounded-full animate-pulse" />
+                </div>
+                <div className="h-7 w-16 bg-zinc-100 rounded-full animate-pulse" />
             </div>
         </div>
     </div>
@@ -512,7 +524,7 @@ const LeagueGroup = memo(({
                             'bg-white ring-1 ring-[#D9E2F2] rounded-b-xl shadow-[0_14px_28px_-20px_rgba(16,34,58,0.22)]'
                         )}
                     >
-                        <div ref={measureRef} className="flex flex-col divide-y divide-zinc-100/80">
+                        <div ref={measureRef} className="flex flex-col gap-2.5 p-2.5">
                             {enrichedMatches.map(({ match, isPinned, isLive, isFinal }) => (
                                 <OptimizedMatchRow
                                     key={match.id}
@@ -713,7 +725,7 @@ const MatchList: React.FC<MatchListProps> = ({
             <div className="min-h-screen bg-[#F4F6FF] pt-2 sm:pt-6 lg:pt-6" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
                 <div className="max-w-7xl mx-auto w-full px-0 lg:px-6" aria-busy="true" aria-label="Loading matches">
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-6 items-start">
-                        <div className="flex flex-col w-full rounded-2xl overflow-hidden bg-white ring-1 ring-slate-200 shadow-[0_14px_28px_-20px_rgba(30,64,175,0.22)]">
+                        <div className="flex flex-col gap-2.5 p-2.5 w-full rounded-2xl overflow-hidden bg-white ring-1 ring-slate-200 shadow-[0_14px_28px_-20px_rgba(30,64,175,0.22)]">
                             {Array.from({ length: 8 }, (_, i) => <MatchRowSkeleton key={`skel-${i}`} />)}
                         </div>
                         <aside className="hidden lg:flex flex-col gap-4">
