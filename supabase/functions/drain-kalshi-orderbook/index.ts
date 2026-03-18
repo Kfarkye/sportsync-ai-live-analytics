@@ -9,7 +9,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
-const KALSHI_BASE_URL = Deno.env.get("KALSHI_BASE_URL") || "https://trading-api.kalshi.com";
+const KALSHI_BASE_URL = Deno.env.get("KALSHI_BASE_URL") || "https://api.elections.kalshi.com";
 const MAX_MARKETS_PER_RUN = 30;
 const REQUEST_DELAY_MS = 150;
 
@@ -85,8 +85,22 @@ function parseSideLevels(rawSide: any): Array<{ price: number; qty: number }> {
 function parseOrderbookPayload(payload: any) {
   const root = payload?.orderbook ?? payload?.data?.orderbook ?? payload ?? {};
 
-  const yesRaw = root?.yes ?? root?.yes_bids ?? root?.yes_levels ?? root?.bids_yes ?? [];
-  const noRaw = root?.no ?? root?.no_bids ?? root?.no_levels ?? root?.bids_no ?? [];
+  const yesRaw =
+    root?.yes ??
+    root?.yes_bids ??
+    root?.yes_levels ??
+    root?.bids_yes ??
+    root?.orderbook_fp?.yes_dollars ??
+    payload?.orderbook_fp?.yes_dollars ??
+    [];
+  const noRaw =
+    root?.no ??
+    root?.no_bids ??
+    root?.no_levels ??
+    root?.bids_no ??
+    root?.orderbook_fp?.no_dollars ??
+    payload?.orderbook_fp?.no_dollars ??
+    [];
 
   const yesLevels = parseSideLevels(yesRaw);
   const noLevels = parseSideLevels(noRaw);
@@ -175,15 +189,6 @@ function inferSnapshotType(statusValue: string | null, gameDate: string | null):
   return "pregame";
 }
 
-function toBase64(bytes: Uint8Array): string {
-  let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
-}
-
 function normalizePem(pem: string): string {
   return pem
     .trim()
@@ -191,71 +196,54 @@ function normalizePem(pem: string): string {
     .replace(/\\n/g, "\n");
 }
 
-function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const normalizedPem = normalizePem(pem);
-
-  const base64Raw = normalizedPem
-    .replace(/-----BEGIN[^-]+-----/g, "")
-    .replace(/-----END[^-]+-----/g, "")
-    .replace(/\s+/g, "");
-
-  const base64 = base64Raw
-    .replace(/[^A-Za-z0-9+/=_-]/g, "")
-    .replace(/-/g, "+")
-    .replace(/_/g, "/");
-
-  if (!base64) {
-    throw new Error("Kalshi RSA key is empty or malformed");
-  }
-
-  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
-}
-
 async function signKalshiMessage(message: string, privateKeyPem: string): Promise<string> {
   const normalizedPem = normalizePem(privateKeyPem);
-  try {
-    const keyBuffer = pemToArrayBuffer(normalizedPem);
-    const key = await crypto.subtle.importKey(
-      "pkcs8",
-      keyBuffer,
-      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-      false,
-      ["sign"]
-    );
-    const signatureBuffer = await crypto.subtle.sign(
-      "RSASSA-PKCS1-v1_5",
-      key,
-      new TextEncoder().encode(message)
-    );
-    return toBase64(new Uint8Array(signatureBuffer));
-  } catch {
-    const signer = createSign("RSA-SHA256");
-    signer.update(message);
-    signer.end();
-    return signer.sign(normalizedPem, "base64");
-  }
+  const signer = createSign("RSA-SHA256");
+  signer.update(message);
+  signer.end();
+  return signer.sign(normalizedPem, "base64");
 }
 
 async function kalshiGet(
   pathWithQuery: string,
-  keyId: string,
-  privateKeyPem: string
+  keyId: string | null,
+  privateKeyPem: string | null
 ): Promise<{ ok: true; data: any } | { ok: false; status: number; error: string }> {
   try {
-    const ts = Date.now().toString();
-    const signature = await signKalshiMessage(`${ts}GET${pathWithQuery}`, privateKeyPem);
-    const res = await fetch(`${KALSHI_BASE_URL}${pathWithQuery}`, {
-      headers: {
-        "KALSHI-ACCESS-KEY": keyId,
-        "KALSHI-ACCESS-TIMESTAMP": ts,
-        "KALSHI-ACCESS-SIGNATURE": signature,
-      },
-      signal: AbortSignal.timeout(12000),
-    });
+    const runRequest = async (baseUrl: string, signed: boolean) => {
+      const headers: Record<string, string> = {};
+      if (signed && keyId && privateKeyPem) {
+        const ts = Date.now().toString();
+        const signature = await signKalshiMessage(`${ts}GET${pathWithQuery}`, privateKeyPem);
+        headers["KALSHI-ACCESS-KEY"] = keyId;
+        headers["KALSHI-ACCESS-TIMESTAMP"] = ts;
+        headers["KALSHI-ACCESS-SIGNATURE"] = signature;
+      }
+      return fetch(`${baseUrl}${pathWithQuery}`, {
+        headers,
+        signal: AbortSignal.timeout(12000),
+      });
+    };
+
+    // Public-first: market data endpoints are readable without signed auth.
+    let res = await runRequest(KALSHI_BASE_URL, false);
+
+    if ((res.status === 401 || res.status === 403) && keyId && privateKeyPem) {
+      res = await runRequest(KALSHI_BASE_URL, true);
+    }
+
+    if (!res.ok) {
+      const msg = await res.text();
+      const shouldFallbackHost = msg.toLowerCase().includes("moved to https://api.elections.kalshi.com");
+      if (shouldFallbackHost && !KALSHI_BASE_URL.includes("api.elections.kalshi.com")) {
+        res = await runRequest("https://api.elections.kalshi.com", false);
+        if ((res.status === 401 || res.status === 403) && keyId && privateKeyPem) {
+          res = await runRequest("https://api.elections.kalshi.com", true);
+        }
+      } else {
+        return { ok: false, status: res.status, error: msg };
+      }
+    }
 
     if (!res.ok) {
       return { ok: false, status: res.status, error: await res.text() };
@@ -276,8 +264,8 @@ Deno.serve(async (req: Request) => {
       ? payload.market_tickers.map((x: any) => String(x).trim()).filter(Boolean)
       : [];
 
-    const keyId = Deno.env.get("KALSHI_API_KEY_ID") || "";
-    const privateKeyPem = Deno.env.get("KALSHI_RSA_PRIVATE_KEY") || "";
+    const keyId = Deno.env.get("KALSHI_API_KEY_ID") || null;
+    const privateKeyPem = Deno.env.get("KALSHI_RSA_PRIVATE_KEY") || null;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -357,17 +345,6 @@ Deno.serve(async (req: Request) => {
       .slice(0, Math.min(MAX_MARKETS_PER_RUN, toInt(payload?.max_markets) || MAX_MARKETS_PER_RUN));
 
     stats.selected_markets = markets.length;
-
-    if (!keyId || !privateKeyPem) {
-      return new Response(
-        JSON.stringify({
-          status: "ok",
-          reason: "kalshi_credentials_missing",
-          ...stats,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     const rowsToInsert: Array<any> = [];
 
