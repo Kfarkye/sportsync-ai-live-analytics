@@ -91,6 +91,29 @@ function asStringList(value: unknown): string[] {
     .filter((item): item is string => Boolean(item));
 }
 
+function toConsumerCopy(value: string): string {
+  return value
+    .replace(/Live Market Is Balanced/gi, "Live Trend Pulse")
+    .replace(
+      /Trend profile is still stabilizing through the current game state\.?/gi,
+      "No clear edge yet. Wait for the next big moment before adjusting your position.",
+    )
+    .replace(
+      /Clock state\s*([^;]+);\s*re-grade after the next major swing\.?/gi,
+      "$1 on the clock. Reassess after the next key event.",
+    )
+    .replace(
+      /Monitor clock and possession state before sizing\.?/gi,
+      "Wait for the next key event before increasing stake size.",
+    )
+    .replace(/No recent event spike in feed\.?/gi, "No major momentum shift yet.")
+    .replace(
+      /Recheck after next score or major possession swing\.?/gi,
+      "Reassess after the next goal or major possession swing.",
+    )
+    .trim();
+}
+
 function clampConfidence(value: unknown, fallback = 46): number {
   const parsed = normalizeNumber(value);
   if (parsed === null) return fallback;
@@ -249,7 +272,7 @@ function buildTrendLines(match: Match, totalEdge: number | null, fairEdge: numbe
   if (uniqueTrends.length > 0) return uniqueTrends.slice(0, 3);
 
   return [
-    `${formatTrendTeamName(awayName, awayRecord)} vs ${formatTrendTeamName(homeName, homeRecord)}: Trend profile still stabilizing`,
+    `${formatTrendTeamName(awayName, awayRecord)} vs ${formatTrendTeamName(homeName, homeRecord)}: No clear trend edge yet`,
   ];
 }
 
@@ -306,12 +329,12 @@ function buildDeterministicCard(match: Match): LiveIntelligenceCardPayload {
   const contextDrivers: string[] = [];
   if (marketTotal !== null && fairTotal !== null) {
     contextDrivers.push(
-      `Model fair total ${fairTotal.toFixed(1)} vs market ${marketTotal.toFixed(1)} (${fairEdge && fairEdge > 0 ? "+" : ""}${fairEdge?.toFixed(1) ?? "0.0"}).`,
+      `Projected total ${fairTotal.toFixed(1)} vs line ${marketTotal.toFixed(1)} (${fairEdge && fairEdge > 0 ? "+" : ""}${fairEdge?.toFixed(1) ?? "0.0"}).`,
     );
   }
   if (marketTotal !== null && paceTotal !== null && paceProjection) {
     contextDrivers.push(
-      `Pace projection ${paceTotal.toFixed(1)} at ${(paceProjection.elapsedPct * 100).toFixed(0)}% elapsed vs market ${marketTotal.toFixed(1)}.`,
+      `Live pace projection ${paceTotal.toFixed(1)} with ${(paceProjection.elapsedPct * 100).toFixed(0)}% elapsed.`,
     );
   }
 
@@ -321,7 +344,7 @@ function buildDeterministicCard(match: Match): LiveIntelligenceCardPayload {
     headline: lean === "PASS" ? "Live Trend Pulse" : `Live ${lean} Trend Signal`,
     thesis:
       totalEdge === null
-        ? `${awayTeam} vs ${homeTeam} is active. Trend profile is still stabilizing through the current game state.`
+        ? `${awayTeam} vs ${homeTeam} is active. No clear edge yet, so wait for the next major event before changing your position.`
         : `${awayTeam} @ ${homeTeam}: composite total edge ${totalEdge > 0 ? "+" : ""}${totalEdge.toFixed(1)} using live pace and fair-value anchors.`,
     confidence,
     lean,
@@ -332,11 +355,11 @@ function buildDeterministicCard(match: Match): LiveIntelligenceCardPayload {
         ? [...contextDrivers, ...drivers].slice(0, 4)
         : ["No clear live stat dominance in the current state sample."],
     watchouts: [
-      clockText ? `Clock state ${clockText}; re-grade after the next major swing.` : "Monitor clock and possession state before sizing.",
+      clockText ? `${clockText} on the clock. Reassess after the next key event.` : "Wait for the next key event before increasing stake size.",
       lastEvent
         ? `Last event: ${normalizeText(lastEvent.type) || "play"} ${normalizeText(lastEvent.time || lastEvent.clock) || ""}`.trim()
-        : "No recent event spike in feed.",
-      "Recheck after next score or major possession swing.",
+        : "No major momentum shift yet.",
+      "Reassess after the next goal or major possession swing.",
     ],
   };
 }
@@ -355,13 +378,13 @@ function sanitizeCard(
     fallback.headline;
   return {
     headline: /live market is balanced/i.test(headline) ? "Live Trend Pulse" : headline,
-    thesis: normalizeText(record.thesis) || fallback.thesis,
+    thesis: toConsumerCopy(normalizeText(record.thesis) || fallback.thesis),
     confidence: clampConfidence(record.confidence, fallback.confidence),
     lean: normalizeLean(record.lean, fallback.lean),
     market: normalizeMarket(record.market, fallback.market),
-    trends: trends.length > 0 ? trends.slice(0, 3) : fallback.trends,
-    drivers: drivers.length > 0 ? drivers.slice(0, 4) : fallback.drivers,
-    watchouts: watchouts.length > 0 ? watchouts.slice(0, 3) : fallback.watchouts,
+    trends: (trends.length > 0 ? trends.slice(0, 3) : fallback.trends).map(toConsumerCopy),
+    drivers: (drivers.length > 0 ? drivers.slice(0, 4) : fallback.drivers).map(toConsumerCopy),
+    watchouts: (watchouts.length > 0 ? watchouts.slice(0, 3) : fallback.watchouts).map(toConsumerCopy),
   };
 }
 

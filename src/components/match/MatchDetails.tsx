@@ -1295,8 +1295,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   }, [matches, match.id, onSelectMatch]);
 
   const TABS = useMemo(() => isSched
-    ? [{ id: "DETAILS", label: "Matchup" }, { id: "PROPS", label: "Props" }, { id: "DATA", label: "Edge" }]
-    : [{ id: "OVERVIEW", label: "Game" }, { id: "PROPS", label: "Props" }, { id: "DATA", label: "Edge" }],
+    ? [{ id: "DETAILS", label: "Matchup" }, { id: "PROPS", label: "Props" }, { id: "DATA", label: "Analysis" }]
+    : [{ id: "OVERVIEW", label: "Game" }, { id: "PROPS", label: "Props" }, { id: "DATA", label: "Analysis" }],
     [isSched]);
 
   const fallbackLiveState: LiveState | undefined = match.lastPlay
@@ -1460,7 +1460,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             <div className="rounded-xl border border-[#D8E2F1] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] px-3 py-2.5 flex items-center justify-between gap-3 shadow-[0_12px_24px_-22px_rgba(16,34,58,0.52)]">
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="inline-flex h-2 w-2 rounded-full bg-[#1D9E75] shrink-0" />
-                <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#10223A]">Exchange Mode</span>
+                <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#10223A]">Live Market</span>
                 <span className="text-[10px] font-mono text-black/45 truncate">{String(match.current_odds?.provider || 'MARKET')}</span>
               </div>
               <div className="shrink-0 text-[10px] font-mono text-black/55">
@@ -1578,7 +1578,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                               </div>
 
                               {marketsTab === 'ODDS' ? (
-                                <span className="text-[10px] font-mono text-black/45">Kalshi market depth</span>
+                                <span className="text-[10px] font-mono text-black/45">Real-time market depth</span>
                               ) : null}
                             </div>
 
