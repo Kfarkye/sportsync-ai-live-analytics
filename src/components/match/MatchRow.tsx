@@ -23,16 +23,16 @@ interface MatchRowProps extends BaseMatchRowProps {
   awayEdge?: number;
 }
 
-const PHYSICS_MOTION = { type: 'spring' as const, stiffness: 360, damping: 28 };
-const ROW_HOVER_MOTION = { y: -1 };
-const ROW_TAP_MOTION = { scale: 0.996 };
+const PHYSICS_MOTION = { type: 'spring' as const, stiffness: 420, damping: 30 };
+const ROW_HOVER_MOTION = { y: -2, scale: 1.003 };
+const ROW_TAP_MOTION = { scale: 0.992 };
 const LOGO_W = 28;
 
 const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number | null | undefined; isWinner: boolean; isLoser: boolean }) => (
   <span
     className={cn(
-      'inline-flex items-center justify-center font-mono tabular-nums font-semibold select-none w-[30px] h-[22px] max-[390px]:w-[26px] max-[390px]:h-[20px] rounded-[6px] text-[14px] max-[390px]:text-[13px] shrink-0 border',
-      isLoser ? 'text-[#8B93A5] border-[#DCE4F2] bg-[#F8FAFF]' : 'text-[#10223A] border-[#C7D3E8] bg-white',
+      'inline-flex items-center justify-center font-mono tabular-nums font-semibold select-none w-[34px] h-[24px] max-[390px]:w-[30px] max-[390px]:h-[22px] rounded-[7px] text-[15px] max-[390px]:text-[13px] shrink-0 border',
+      isLoser ? 'text-[#8B93A5] border-[#DCE4F2] bg-[#F8FAFF]' : 'text-[#10223A] border-[#BFD0EA] bg-white',
       isWinner ? 'font-bold' : 'font-semibold'
     )}
   >
@@ -109,7 +109,7 @@ const ProbabilityPill = memo(({
 }) => {
   if (value === undefined) {
     return (
-      <span className="inline-flex items-center justify-center h-[34px] min-w-[76px] rounded-full border border-[#E1E8F4] bg-white text-slate-300 px-3 font-mono font-semibold text-[12px] tabular-nums">
+      <span className="inline-flex items-center justify-center h-[36px] min-w-[86px] max-[390px]:min-w-[78px] rounded-full border border-[#E1E8F4] bg-white text-slate-300 px-3 font-mono font-semibold text-[12px] tabular-nums">
         —
       </span>
     );
@@ -118,10 +118,10 @@ const ProbabilityPill = memo(({
   return (
     <span
       className={cn(
-        'inline-flex items-center justify-center h-[34px] min-w-[76px] rounded-full border px-3 tabular-nums font-mono font-semibold text-[12px] tracking-tight transition-all duration-300',
+        'inline-flex items-center justify-center h-[36px] min-w-[86px] max-[390px]:min-w-[78px] rounded-full border px-3.5 max-[390px]:px-3 tabular-nums font-mono font-semibold text-[13px] max-[390px]:text-[12px] tracking-tight transition-all duration-300',
         isFavorite
-          ? 'border-[#5AC9A5] text-[#0B5A45] bg-[#ECFBF4]'
-          : 'border-[#CED7E7] text-slate-700 bg-white'
+          ? 'border-[#49BA95] text-[#084F3D] bg-[linear-gradient(180deg,#F2FFF9_0%,#E7FAF2_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-14px_rgba(29,158,117,0.55)]'
+          : 'border-[#C6D3E7] text-slate-700 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]'
       )}
     >
       {formatProbabilityValue(value, oddsLens)}
@@ -134,15 +134,15 @@ const OddsChip = memo(({ label, display, mobileHidden }: MatchRowOddPayload) => 
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 select-none',
+        'inline-flex items-center gap-1.5 select-none rounded-full border border-[#D5DFEE] bg-white/90 px-2 py-1',
         mobileHidden ? 'max-[390px]:hidden' : undefined
       )}
       aria-label={`${label} ${display}`}
     >
-      <span className="font-semibold uppercase text-[8.5px] tracking-widest text-slate-400" aria-hidden="true">
+      <span className="font-semibold uppercase text-[8px] tracking-[0.14em] text-slate-400" aria-hidden="true">
         {label}
       </span>
-      <span className="font-mono font-medium tabular-nums text-[10px] text-slate-600">
+      <span className="font-mono font-semibold tabular-nums text-[10px] text-slate-700">
         {display}
       </span>
     </span>
@@ -158,7 +158,7 @@ const PinButton = memo(({ isPinned, onToggle }: { isPinned: boolean; onToggle?: 
     className={cn(
       'shrink-0 p-2 -m-1.5 rounded transition-all duration-200',
       isPinned
-        ? 'opacity-100'
+        ? 'opacity-100 scale-105'
         : 'opacity-45 group-hover:opacity-100 hover:opacity-100'
     )}
     aria-label={isPinned ? 'Unpin game' : 'Pin game'}
@@ -268,6 +268,8 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const liveMeta = isTennis && roundStr ? roundStr : getPeriodDisplay(match);
   const topAccentColor = isLive ? '#E11D48' : isFinal ? '#7C879A' : '#1D9E75';
   const handleSelect = () => onSelect?.(match);
+  const railPrimaryLabel = isLive ? liveClock : isFinal ? 'FINAL' : startTimeStr;
+  const railSecondaryLabel = isLive ? (liveMeta || 'In Play') : isFinal ? 'Closed' : dateStr;
 
   return (
     <motion.div
@@ -283,36 +285,33 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       aria-label={`${match.awayTeam?.name || 'Away Team'} vs ${match.homeTeam?.name || 'Home Team'}`}
       onKeyDown={(e: React.KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); handleSelect(); } }}
       className={cn(
-        'group relative overflow-hidden px-3.5 py-3.5 sm:px-4 sm:py-4 cursor-pointer transform-gpu [-webkit-tap-highlight-color:transparent]',
+        'group relative overflow-hidden px-3 py-3 sm:px-4 sm:py-4 max-[390px]:px-2.5 max-[390px]:py-2.5 cursor-pointer transform-gpu [-webkit-tap-highlight-color:transparent]',
         'focus-visible:ring-2 focus-visible:ring-[#BFDBFE] focus-visible:outline-none focus-visible:ring-inset',
-        'transition-all duration-300',
+        'transition-all duration-300 active:scale-[0.992]',
         'border border-[#D4DEEF] bg-[linear-gradient(180deg,#FFFFFF_0%,#F6F9FF_100%)] shadow-[0_16px_30px_-24px_rgba(16,34,58,0.38),inset_0_1px_0_rgba(255,255,255,0.95)] rounded-2xl',
         isSelected
           ? 'border-[#9ED8C5] bg-[linear-gradient(180deg,#F8FFFB_0%,#F1F9FF_100%)] shadow-[0_18px_34px_-24px_rgba(29,158,117,0.36),inset_0_1px_0_rgba(255,255,255,0.95)]'
-          : 'hover:border-[#B7C8E4] hover:bg-[linear-gradient(180deg,#FFFFFF_0%,#F3F8FF_100%)]'
+          : 'hover:border-[#B7C8E4] hover:bg-[linear-gradient(180deg,#FFFFFF_0%,#F3F8FF_100%)] hover:shadow-[0_24px_42px_-30px_rgba(16,34,58,0.55),inset_0_1px_0_rgba(255,255,255,0.95)]'
       )}
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${topAccentColor}, transparent)` }} />
       <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(11,99,246,0.12)_0%,rgba(11,99,246,0)_72%)]" />
 
       {/* Header */}
-      <div className="relative z-10 flex items-center justify-between gap-2 pb-3">
+      <div className="relative z-10 flex items-center justify-between gap-2 pb-2.5">
         <div className="min-w-0 flex items-center gap-2">
           {isLive ? (
             <>
               <span className="relative inline-flex h-2.5 w-2.5 items-center justify-center shrink-0">
                 <motion.span
                   className="absolute inline-flex h-2.5 w-2.5 rounded-full bg-rose-500/35"
-                  animate={{ opacity: [1, 0.35, 1], scale: [1, 1.12, 1] }}
-                  transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                  animate={{ opacity: [1, 0.25, 1], scale: [1, 1.22, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
                 />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-600" />
               </span>
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] font-bold text-rose-600">Live</span>
-              <span className="font-mono text-[11px] tabular-nums text-[#10223A] font-semibold">{liveClock}</span>
-              {liveMeta ? (
-                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 truncate">{liveMeta}</span>
-              ) : null}
+              <span className="font-mono text-[11px] tabular-nums text-[#10223A] font-semibold sm:hidden">{liveClock}</span>
             </>
           ) : isFinal ? (
             <span className="inline-flex items-center rounded-md border border-slate-300/90 bg-slate-100/85 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">
@@ -320,19 +319,17 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
             </span>
           ) : (
             <>
-              <span className="font-mono text-[13px] tabular-nums font-semibold text-[#10223A]" suppressHydrationWarning>{startTimeStr}</span>
-              <span className="text-[10px] font-medium text-slate-500" suppressHydrationWarning>{dateStr}</span>
-              {isTennis && roundStr ? (
-                <span className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400 truncate">{roundStr}</span>
-              ) : null}
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] font-bold text-[#1D9E75]">Scheduled</span>
+              <span className="font-mono text-[12px] tabular-nums font-semibold text-[#10223A] sm:hidden" suppressHydrationWarning>{startTimeStr}</span>
             </>
           )}
+
+          <span className="sm:hidden text-[9px] font-medium uppercase tracking-[0.08em] text-slate-500 truncate max-w-[140px]">
+            {leagueDisplayName}
+          </span>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="hidden sm:inline text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500 max-w-[130px] truncate">
-            {leagueDisplayName}
-          </span>
           <PinButton isPinned={isPinned} onToggle={onTogglePin} />
           <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#D8E2F2] bg-white text-slate-400 group-hover:text-[#10223A] group-hover:border-[#BFD0EA] transition-colors">
             <ChevronRight size={13} />
@@ -340,184 +337,234 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         </div>
       </div>
 
-      {/* Team Data */}
-      <div className="relative z-10 flex flex-col gap-2.5">
-        {[match.awayTeam, match.homeTeam].map((team, idx) => {
-          // Guard against malformed API payloads where one team is null
-          if (!team) return null;
+      {/* Mobile sub-meta */}
+      <div className="relative z-10 sm:hidden mb-2.5 flex items-center gap-1.5 text-[10px]">
+        <span className="font-mono font-semibold tabular-nums text-[#10223A]" suppressHydrationWarning>{railPrimaryLabel}</span>
+        <span className="text-slate-300">·</span>
+        <span className="font-medium text-slate-500 uppercase tracking-[0.07em] truncate">
+          {railSecondaryLabel}
+        </span>
+      </div>
 
-          const isHome = idx === 1;
-          const score = isHome ? match.homeScore : match.awayScore;
-          const otherScore = isHome ? match.awayScore : match.homeScore;
+      <div className="relative z-10 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_90px] gap-3">
+        {/* Team Data */}
+        <div className="flex flex-col gap-2.5">
+          <div className="hidden sm:flex items-center justify-end -mb-1">
+            {shouldShowProbabilities && (
+              <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                Model Win Share
+              </span>
+            )}
+          </div>
+          {[match.awayTeam, match.homeTeam].map((team, idx) => {
+            // Guard against malformed API payloads where one team is null
+            if (!team) return null;
 
-          // Math-safe: coerce to Number to prevent string comparison bugs ("10" < "9")
-          const numScore = Number(score);
-          const numOther = Number(otherScore);
-          const hasScores = score != null && otherScore != null && !isNaN(numScore) && !isNaN(numOther);
-          const isWinner = isFinal && hasScores && numScore > numOther;
-          const isLoser = isFinal && hasScores && numScore < numOther;
+            const isHome = idx === 1;
+            const score = isHome ? match.homeScore : match.awayScore;
+            const otherScore = isHome ? match.awayScore : match.homeScore;
 
-          const prob = isHome ? homeProb : awayProb;
-          const isFav = isHome ? homeFav : !homeFav;
-          const edge = isHome ? homeEdge : awayEdge;
-          const hasProbability = typeof prob === 'number' && prob > 0 && prob <= 100;
-          const trackWidth = hasProbability ? `${Math.max(8, Math.min(100, Math.round(prob)))}%` : '0%';
-          const railColor = isFav ? '#1D9E75' : '#98A4B8';
-          const displayEdge = typeof edge === 'number' ? `${edge > 0 ? '+' : ''}${edge.toFixed(1)}%` : null;
+            // Math-safe: coerce to Number to prevent string comparison bugs ("10" < "9")
+            const numScore = Number(score);
+            const numOther = Number(otherScore);
+            const hasScores = score != null && otherScore != null && !isNaN(numScore) && !isNaN(numOther);
+            const isWinner = isFinal && hasScores && numScore > numOther;
+            const isLoser = isFinal && hasScores && numScore < numOther;
 
-          return (
-            <div key={team.id || idx} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5">
-              <div className="min-w-0">
-                <div className="flex items-center gap-3 max-[390px]:gap-2.5">
-                  <div className="shrink-0 flex items-center justify-center rounded-full bg-white border border-[#D8E2F2] shadow-[0_5px_12px_-10px_rgba(16,34,58,0.45)]" style={{ width: LOGO_W + 8, height: LOGO_W + 8 }} aria-hidden="true">
-                    {isTennis && team.flag ? (
-                      <div className="w-[18px] h-[13px] overflow-hidden rounded-[1px]">
-                        <img src={team.flag} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    ) : (
-                      <TeamLogo
-                        logo={team.logo}
-                        name={team.name}
-                        teamColor={team.color}
-                        className="w-[24px] h-[24px] object-contain relative z-10 transition-transform duration-300 group-hover:scale-110"
-                      />
-                    )}
+            const prob = isHome ? homeProb : awayProb;
+            const isFav = isHome ? homeFav : !homeFav;
+            const edge = isHome ? homeEdge : awayEdge;
+            const hasProbability = typeof prob === 'number' && prob > 0 && prob <= 100;
+            const trackWidth = hasProbability ? `${Math.max(8, Math.min(100, Math.round(prob)))}%` : '0%';
+            const railColor = isFav ? '#1D9E75' : '#98A4B8';
+            const displayEdge = typeof edge === 'number' ? `${edge > 0 ? '+' : ''}${edge.toFixed(1)}%` : null;
+            const teamRing = team.color ? `#${String(team.color).replace(/^#/, '')}` : '#D8E2F2';
+
+            return (
+              <div key={team.id || idx} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3 max-[390px]:gap-2">
+                    <div
+                      className="shrink-0 flex items-center justify-center rounded-full bg-white border shadow-[0_5px_12px_-10px_rgba(16,34,58,0.45)]"
+                      style={{
+                        width: LOGO_W + 8,
+                        height: LOGO_W + 8,
+                        borderColor: `${teamRing}66`,
+                        boxShadow: `0 5px 12px -10px rgba(16,34,58,0.45), inset 0 0 0 1px ${teamRing}22`
+                      }}
+                      aria-hidden="true"
+                    >
+                      {isTennis && team.flag ? (
+                        <div className="w-[18px] h-[13px] overflow-hidden rounded-[1px]">
+                          <img src={team.flag} alt="" className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <TeamLogo
+                          logo={team.logo}
+                          name={team.name}
+                          teamColor={team.color}
+                          className="w-[24px] h-[24px] object-contain relative z-10 transition-transform duration-300 group-hover:scale-110"
+                        />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex items-baseline gap-2">
+                      <span className={cn(
+                        'text-[15px] max-[390px]:text-[14px] leading-[1.15] tracking-tight truncate transition-colors duration-300 select-none',
+                        isLoser ? 'text-[#7B869B] font-medium' : 'text-[#10223A] font-semibold'
+                      )}>
+                        {team.name}
+                      </span>
+                      {team.record && !isLive && (
+                        <span className="text-[10px] font-mono font-medium text-slate-400 tabular-nums shrink-0 hidden sm:inline">
+                          {team.record}
+                        </span>
+                      )}
+                      {displayEdge && (
+                        <span className={cn(
+                          'hidden sm:inline-flex items-center rounded-full px-1.5 py-[1px] text-[9px] font-mono font-semibold tabular-nums',
+                          typeof edge === 'number' && edge >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                        )}>
+                          Edge {displayEdge}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
+                  {hasProbability && (
+                    <div className="pl-[44px] pt-1.5 pr-1.5 max-[390px]:pl-[40px]">
+                      <div className="h-[3px] rounded-full bg-[#E3E9F4] overflow-hidden">
+                        <span className="block h-full rounded-full transition-all duration-500" style={{ width: trackWidth, backgroundColor: railColor }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {showScores && (
+                    <div className={cn('shrink-0 flex items-center justify-end', isTennis ? 'w-auto' : 'w-[34px] max-[390px]:w-[30px]')}>
+                      {isTennis ? (
+                        <TennisSetScores linescores={team.linescores} />
+                      ) : (
+                        <ScoreCell score={score} isWinner={isWinner} isLoser={isLoser} />
+                      )}
+                    </div>
+                  )}
+
+                  {shouldShowProbabilities && (
+                    <ProbabilityPill
+                      value={prob}
+                      isFavorite={isFav}
+                      oddsLens={oddsLens}
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {showSoccerTieRow && (
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-3 max-[390px]:gap-2">
+                  <span
+                    className="shrink-0 inline-flex items-center justify-center rounded-full bg-white border border-[#D8E2F2] shadow-[0_5px_12px_-10px_rgba(16,34,58,0.45)]"
+                    style={{ width: LOGO_W + 8, height: LOGO_W + 8 }}
+                    aria-hidden="true"
+                  >
+                    <span className="h-4 w-4 rounded-full border border-[#9CA9BF] bg-[linear-gradient(90deg,#9CA9BF_0%,#9CA9BF_50%,#F8FAFF_50%,#F8FAFF_100%)]" />
+                  </span>
+
                   <div className="min-w-0 flex items-baseline gap-2">
-                    <span className={cn(
-                      'text-[15px] max-[390px]:text-[14px] leading-[1.15] tracking-tight truncate transition-colors duration-300 select-none',
-                      isLoser ? 'text-[#7B869B] font-medium' : 'text-[#10223A] font-semibold'
-                    )}>
-                      {team.name}
+                    <span className="text-[15px] max-[390px]:text-[14px] leading-[1.15] tracking-tight truncate font-semibold text-[#10223A]">
+                      Tie
                     </span>
-                    {team.record && !isLive && (
-                      <span className="text-[10px] font-mono font-medium text-slate-400 tabular-nums shrink-0 hidden sm:inline">
-                        {team.record}
-                      </span>
-                    )}
-                    {displayEdge && (
-                      <span className={cn(
-                        'hidden sm:inline-flex items-center rounded-full px-1.5 py-[1px] text-[9px] font-mono font-semibold tabular-nums',
-                        typeof edge === 'number' && edge >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                      )}>
-                        Edge {displayEdge}
+                    {drawPriceLabel && (
+                      <span className="text-[10px] font-mono font-semibold text-slate-600 tabular-nums">
+                        {drawPriceLabel}
                       </span>
                     )}
                   </div>
                 </div>
 
-                {hasProbability && (
-                  <div className="pl-[46px] pt-1.5 pr-1.5">
+                {typeof drawProb === 'number' && (
+                  <div className="pl-[44px] pt-1.5 pr-1.5 max-[390px]:pl-[40px]">
                     <div className="h-[3px] rounded-full bg-[#E3E9F4] overflow-hidden">
-                      <span className="block h-full rounded-full transition-all duration-500" style={{ width: trackWidth, backgroundColor: railColor }} />
+                      <span className="block h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(8, Math.min(100, Math.round(drawProb)))}%`, backgroundColor: '#98A4B8' }} />
                     </div>
                   </div>
                 )}
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {showScores && (
-                  <div className={cn('shrink-0 flex items-center justify-end', isTennis ? 'w-auto' : 'w-[32px] max-[390px]:w-[26px]')}>
-                    {isTennis ? (
-                      <TennisSetScores linescores={team.linescores} />
-                    ) : (
-                      <ScoreCell score={score} isWinner={isWinner} isLoser={isLoser} />
-                    )}
-                  </div>
-                )}
-
-                {shouldShowProbabilities && (
-                  <ProbabilityPill
-                    value={prob}
-                    isFavorite={isFav}
-                    oddsLens={oddsLens}
-                  />
-                )}
+                <ProbabilityPill
+                  value={drawProb}
+                  isFavorite={false}
+                  oddsLens={oddsLens}
+                />
               </div>
             </div>
-          );
-        })}
+          )}
 
-        {showSoccerTieRow && (
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5">
-            <div className="min-w-0">
-              <div className="flex items-center gap-3 max-[390px]:gap-2.5">
-                <span
-                  className="shrink-0 inline-flex items-center justify-center rounded-full bg-white border border-[#D8E2F2] shadow-[0_5px_12px_-10px_rgba(16,34,58,0.45)]"
-                  style={{ width: LOGO_W + 8, height: LOGO_W + 8 }}
-                  aria-hidden="true"
-                >
-                  <span className="h-4 w-4 rounded-full border border-[#9CA9BF] bg-[linear-gradient(90deg,#9CA9BF_0%,#9CA9BF_50%,#F8FAFF_50%,#F8FAFF_100%)]" />
+          {(hasOdds && !isFinal && !isLive) || hasEdgeInsights ? (
+            <div className="mt-3 pt-2.5 border-t border-[#E4EAF5] flex items-center justify-between gap-3">
+              <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1.5 min-w-0">
+                <span className="inline-flex items-center rounded-full px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.14em] text-slate-500 border border-[#D5DFEE] bg-[#F5F8FE]">
+                  Markets
                 </span>
-
-                <div className="min-w-0 flex items-baseline gap-2">
-                  <span className="text-[15px] max-[390px]:text-[14px] leading-[1.15] tracking-tight truncate font-semibold text-[#10223A]">
-                    Tie
+                {hasOdds && !isFinal && !isLive ? oddsPayload.map((item) => (
+                  <OddsChip
+                    key={`${item.label}-${item.display}`}
+                    label={item.label}
+                    display={item.display}
+                    mobileHidden={item.mobileHidden}
+                  />
+                )) : null}
+                {typeof homeEdge === 'number' && (
+                  <span className={cn(
+                    'inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold tabular-nums',
+                    homeEdge >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                  )}>
+                    {match.homeTeam?.shortName || 'Home'} {homeEdge > 0 ? '+' : ''}{homeEdge.toFixed(1)}%
                   </span>
-                  {drawPriceLabel && (
-                    <span className="text-[10px] font-mono font-medium text-slate-500 tabular-nums">
-                      {drawPriceLabel}
-                    </span>
-                  )}
-                </div>
+                )}
+                {typeof awayEdge === 'number' && (
+                  <span className={cn(
+                    'inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold tabular-nums',
+                    awayEdge >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                  )}>
+                    {match.awayTeam?.shortName || 'Away'} {awayEdge > 0 ? '+' : ''}{awayEdge.toFixed(1)}%
+                  </span>
+                )}
               </div>
 
-              {typeof drawProb === 'number' && (
-                <div className="pl-[46px] pt-1.5 pr-1.5">
-                  <div className="h-[3px] rounded-full bg-[#E3E9F4] overflow-hidden">
-                    <span className="block h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(8, Math.min(100, Math.round(drawProb)))}%`, backgroundColor: '#98A4B8' }} />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <ProbabilityPill
-                value={drawProb}
-                isFavorite={false}
-                oddsLens={oddsLens}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {(hasOdds && !isFinal && !isLive) || hasEdgeInsights ? (
-        <div className="relative z-10 mt-3 pt-2.5 border-t border-[#E4EAF5] flex items-center justify-between gap-3">
-          <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 min-w-0">
-            {hasOdds && !isFinal && !isLive ? oddsPayload.map((item) => (
-              <OddsChip
-                key={`${item.label}-${item.display}`}
-                label={item.label}
-                display={item.display}
-                mobileHidden={item.mobileHidden}
-              />
-            )) : null}
-            {typeof homeEdge === 'number' && (
-              <span className={cn(
-                'inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold tabular-nums',
-                homeEdge >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-              )}>
-                {match.homeTeam?.shortName || 'Home'} {homeEdge > 0 ? '+' : ''}{homeEdge.toFixed(1)}%
+              <span className="inline-flex sm:hidden items-center gap-1 font-mono text-[9px] uppercase tracking-[0.11em] text-slate-500 shrink-0">
+                Open
+                <ChevronRight size={10} />
               </span>
-            )}
-            {typeof awayEdge === 'number' && (
-              <span className={cn(
-                'inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold tabular-nums',
-                awayEdge >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-              )}>
-                {match.awayTeam?.shortName || 'Away'} {awayEdge > 0 ? '+' : ''}{awayEdge.toFixed(1)}%
-              </span>
-            )}
-          </div>
-
-          <span className="hidden sm:inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.11em] text-slate-500 shrink-0">
-            Open Match
-            <ChevronRight size={11} />
-          </span>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+
+        {/* Right meta rail */}
+        <aside className="hidden sm:flex flex-col items-end justify-center gap-1 pl-3 border-l border-[#E4EAF5] min-w-[90px]">
+          <span
+            className={cn(
+              'font-mono tabular-nums font-semibold text-[12px]',
+              isLive ? 'text-rose-600' : isFinal ? 'text-slate-600' : 'text-[#10223A]'
+            )}
+            suppressHydrationWarning
+          >
+            {railPrimaryLabel}
+          </span>
+          <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 text-right">
+            {railSecondaryLabel}
+          </span>
+          <span className="text-[9px] font-medium uppercase tracking-[0.08em] text-slate-400 text-right max-w-[86px] truncate">
+            {leagueDisplayName}
+          </span>
+        </aside>
+      </div>
     </motion.div>
   );
 });

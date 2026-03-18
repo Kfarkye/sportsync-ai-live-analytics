@@ -288,10 +288,10 @@ const AppShell: FC = () => {
           type="button"
           onClick={() => toggleGlobalChat(true)}
           aria-label="Open AI chat"
-          className="fixed bottom-6 right-4 md:bottom-8 md:right-8 z-[9999] inline-flex items-center gap-2 px-4 py-2.5 rounded-full kalshi-fab text-slate-800"
+          className="fixed right-3 md:right-8 bottom-[calc(env(safe-area-inset-bottom,0px)+10px)] md:bottom-8 z-[65] md:z-[9999] inline-flex items-center justify-center gap-2 h-10 md:h-auto w-10 md:w-auto md:px-4 md:py-2.5 rounded-full kalshi-fab text-slate-800 opacity-90 hover:opacity-100 transition-opacity"
         >
           <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
-          <span className="text-[11px] font-semibold tracking-[0.05em] uppercase" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+          <span className="hidden md:inline text-[11px] font-semibold tracking-[0.05em] uppercase" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
             AI Chat
           </span>
         </button>

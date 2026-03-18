@@ -10,6 +10,7 @@ export interface LiveIntelligenceCardPayload {
   confidence: number;
   lean: LiveIntelligenceLean;
   market: LiveIntelligenceMarket;
+  trends: string[];
   drivers: string[];
   watchouts: string[];
 }
@@ -182,6 +183,76 @@ function deriveStatDrivers(match: Match): string[] {
     .map((entry) => entry.line);
 }
 
+function isSoccerMatch(match: Match): boolean {
+  const sport = normalizeText(match.sport)?.toLowerCase() || "";
+  const league = normalizeText(match.leagueId)?.toLowerCase() || "";
+  return (
+    sport.includes("soccer") ||
+    league.includes("uefa") ||
+    league.includes("fifa") ||
+    league.includes("mls") ||
+    league.includes("premier") ||
+    league.includes("laliga") ||
+    league.includes("bundesliga") ||
+    league.includes("serie") ||
+    league.includes("ligue")
+  );
+}
+
+function formatTrendTeamName(teamName: string, record?: string | null): string {
+  const cleanRecord = normalizeText(record);
+  return cleanRecord ? `${teamName} (${cleanRecord})` : teamName;
+}
+
+function buildTrendLines(match: Match, totalEdge: number | null, fairEdge: number | null): string[] {
+  const homeName = match.homeTeam?.shortName || match.homeTeam?.name || "Home";
+  const awayName = match.awayTeam?.shortName || match.awayTeam?.name || "Away";
+  const homeRecord = normalizeText(match.homeTeam?.record);
+  const awayRecord = normalizeText(match.awayTeam?.record);
+  const homeScore = normalizeNumber(match.homeScore);
+  const awayScore = normalizeNumber(match.awayScore);
+  const period = normalizeNumber(match.period) ?? 1;
+  const stats = deriveStatDrivers(match);
+  const trends: string[] = [];
+  const soccer = isSoccerMatch(match);
+
+  if (soccer && homeScore !== null && awayScore !== null && period >= 2) {
+    if (homeScore !== awayScore) {
+      const trailingIsHome = homeScore < awayScore;
+      const trailingTeam = trailingIsHome ? homeName : awayName;
+      const trailingRecord = trailingIsHome ? homeRecord : awayRecord;
+      trends.push(`${formatTrendTeamName(trailingTeam, trailingRecord)}: Concedes in 2nd Half`);
+    } else {
+      trends.push(`${formatTrendTeamName(homeName, homeRecord)}: Late 2nd-half swing profile`);
+    }
+  }
+
+  if (totalEdge !== null) {
+    if (totalEdge >= 1.5) {
+      trends.push(`Total trend: Pace tracking OVER by +${totalEdge.toFixed(1)}`);
+    } else if (totalEdge <= -1.5) {
+      trends.push(`Total trend: Pace tracking UNDER by ${totalEdge.toFixed(1)}`);
+    }
+  }
+
+  if (fairEdge !== null && Math.abs(fairEdge) >= 1) {
+    trends.push(
+      `Model trend: Fair total ${fairEdge > 0 ? "+" : ""}${fairEdge.toFixed(1)} vs live market`,
+    );
+  }
+
+  if (stats.length > 0) {
+    trends.push(`Stat trend: ${stats[0]}`);
+  }
+
+  const uniqueTrends = Array.from(new Set(trends.filter((line) => line.trim().length > 0)));
+  if (uniqueTrends.length > 0) return uniqueTrends.slice(0, 3);
+
+  return [
+    `${formatTrendTeamName(awayName, awayRecord)} vs ${formatTrendTeamName(homeName, homeRecord)}: Trend profile still stabilizing`,
+  ];
+}
+
 function buildDeterministicCard(match: Match): LiveIntelligenceCardPayload {
   const homeTeam = match.homeTeam?.shortName || match.homeTeam?.name || "Home";
   const awayTeam = match.awayTeam?.shortName || match.awayTeam?.name || "Away";
@@ -244,16 +315,18 @@ function buildDeterministicCard(match: Match): LiveIntelligenceCardPayload {
     );
   }
 
+  const trends = buildTrendLines(match, totalEdge, fairEdge);
+
   return {
-    headline:
-      lean === "PASS" ? "Live Market Is Balanced" : `Live ${lean} Signal Forming`,
+    headline: lean === "PASS" ? "Live Trend Pulse" : `Live ${lean} Trend Signal`,
     thesis:
       totalEdge === null
-        ? `${awayTeam} vs ${homeTeam} is active. No stable dislocation yet between scoreboard pace and the active market.`
+        ? `${awayTeam} vs ${homeTeam} is active. Trend profile is still stabilizing through the current game state.`
         : `${awayTeam} @ ${homeTeam}: composite total edge ${totalEdge > 0 ? "+" : ""}${totalEdge.toFixed(1)} using live pace and fair-value anchors.`,
     confidence,
     lean,
     market,
+    trends,
     drivers:
       [...contextDrivers, ...drivers].length > 0
         ? [...contextDrivers, ...drivers].slice(0, 4)
@@ -276,12 +349,17 @@ function sanitizeCard(
   const record = candidate as Record<string, unknown>;
   const drivers = asStringList(record.drivers);
   const watchouts = asStringList(record.watchouts);
+  const trends = asStringList(record.trends);
+  const headline =
+    normalizeText(record.headline) ||
+    fallback.headline;
   return {
-    headline: normalizeText(record.headline) || fallback.headline,
+    headline: /live market is balanced/i.test(headline) ? "Live Trend Pulse" : headline,
     thesis: normalizeText(record.thesis) || fallback.thesis,
     confidence: clampConfidence(record.confidence, fallback.confidence),
     lean: normalizeLean(record.lean, fallback.lean),
     market: normalizeMarket(record.market, fallback.market),
+    trends: trends.length > 0 ? trends.slice(0, 3) : fallback.trends,
     drivers: drivers.length > 0 ? drivers.slice(0, 4) : fallback.drivers,
     watchouts: watchouts.length > 0 ? watchouts.slice(0, 3) : fallback.watchouts,
   };
@@ -305,6 +383,7 @@ function mapAnalyzeMatchCard(
     sharp.executive_bullets && typeof sharp.executive_bullets === "object"
       ? (sharp.executive_bullets as Record<string, unknown>)
       : null;
+  const sharpTrends = asStringList(sharp.trends);
 
   const candidate = {
     headline:
@@ -328,6 +407,14 @@ function mapAnalyzeMatchCard(
       normalizeText(rec?.market_type) ||
       normalizeText(sharp.market) ||
       fallback.market,
+    trends:
+      sharpTrends.length > 0
+        ? sharpTrends
+        : [
+            normalizeText(sharp.market_signal),
+            normalizeText(sharp.the_read),
+            normalizeText((sharp as Record<string, unknown>).key_trend),
+          ].filter((entry): entry is string => Boolean(entry)),
     drivers: [
       normalizeText(bullets?.driver),
       normalizeText(bullets?.setup),

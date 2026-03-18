@@ -47,6 +47,18 @@ export const LiveIntelligenceCard: React.FC<Props> = ({ match }) => {
   const watchouts = Array.isArray(card.watchouts)
     ? card.watchouts.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     : [];
+  const rawTrendItems = Array.isArray(card.trends)
+    ? card.trends.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+  const trendItems =
+    rawTrendItems.length > 0
+      ? rawTrendItems
+      : drivers.length > 0
+        ? drivers.slice(0, 3).map((driver) => `Trend: ${driver}`)
+        : ["Trend profile is still stabilizing in this live state."];
+  const displayHeadline = /live market is balanced/i.test(card.headline)
+    ? "Live Trend Pulse"
+    : card.headline;
   const clampedConfidence = Math.max(0, Math.min(100, Math.round(card.confidence)));
   const stateHash =
     typeof data.state_hash === "string" && data.state_hash.trim().length > 0
@@ -65,10 +77,10 @@ export const LiveIntelligenceCard: React.FC<Props> = ({ match }) => {
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
-            Live Intelligence
+            Trends
           </div>
           <h3 className="mt-1 text-[17px] font-semibold tracking-tight text-slate-900">
-            {card.headline}
+            {displayHeadline}
           </h3>
         </div>
         <div className="text-right">
@@ -95,15 +107,48 @@ export const LiveIntelligenceCard: React.FC<Props> = ({ match }) => {
         </div>
       </div>
 
+      <div className="mb-4">
+        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+          Trend Feed
+        </div>
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80">
+          {trendItems.map((trend, idx) => {
+            const splitIndex = trend.indexOf(":");
+            const hasLead = splitIndex > 0 && splitIndex < 44;
+            const lead = hasLead ? trend.slice(0, splitIndex).trim() : "";
+            const detail = hasLead ? trend.slice(splitIndex + 1).trim() : trend.trim();
+
+            return (
+              <div
+                key={`${trend}-${idx}`}
+                className={cn(
+                  "px-3 py-2.5",
+                  idx < trendItems.length - 1 ? "border-b border-slate-200/80" : "",
+                )}
+              >
+                {hasLead ? (
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <span className="text-[12px] font-semibold text-slate-900">{lead}</span>
+                    <span className="text-[12px] text-slate-700">{detail}</span>
+                  </div>
+                ) : (
+                  <div className="text-[12px] text-slate-700">{detail}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <p className="mb-4 text-[13px] leading-relaxed text-slate-700">{card.thesis}</p>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-            Drivers
+            Signals
           </div>
           <ul className="space-y-1">
-            {(drivers.length > 0 ? drivers : ["No decisive live driver yet."]).map((driver, idx) => (
+            {(drivers.length > 0 ? drivers : ["No decisive supporting signal yet."]).map((driver, idx) => (
               <li key={idx} className="text-[12px] text-slate-700">
                 • {driver}
               </li>

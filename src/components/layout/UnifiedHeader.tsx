@@ -191,10 +191,10 @@ export const UnifiedHeader: FC = () => {
                         <a
                             href="/trends"
                             className={cn(
-                                "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border",
+                                "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-2.5 max-[390px]:px-2 rounded-lg text-[10.5px] max-[390px]:text-[10px] font-medium tracking-[0.06em] transition-all active:scale-95 select-none border",
                                 isTrendsPage
                                     ? "kalshi-tab-btn-active"
-                                    : "kalshi-tab-btn text-slate-700",
+                                    : "bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300",
                                 focusRing
                             )}
                             aria-label="Open trends"
@@ -234,7 +234,7 @@ export const UnifiedHeader: FC = () => {
                             type="button"
                             onClick={() => toggleAuthModal(true)}
                             aria-label={user ? 'Open account menu' : 'Open login modal'}
-                            className={`h-[34px] max-[390px]:h-[32px] px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border bg-white border-slate-300 text-slate-700 hover:bg-slate-50 ${focusRing}`}
+                            className={`h-[34px] max-[390px]:h-[32px] px-2.5 max-[390px]:px-2 rounded-lg text-[10.5px] max-[390px]:text-[10px] font-medium tracking-[0.06em] transition-all active:scale-95 select-none border bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300 ${focusRing}`}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
                             Log in
