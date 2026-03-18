@@ -70,6 +70,7 @@ import {
   useBaseballLive,
 } from '@/components/baseball';
 import { LiveSweatProvider, type AIWatchTrigger } from '@/context/LiveSweatContext';
+import { useNbaProductContextPacket } from '@/hooks/useNbaContext';
 
 // ============================================================================
 // SECTION 2: STRICT TYPE DEFINITIONS
@@ -710,6 +711,103 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
   );
 };
 
+const NbaContextPanel = memo(({ match, liveState }: { match: Match; liveState: LiveState | null }) => {
+  const contextInput = useMemo(() => {
+    const matchWithExtras = match as Match & {
+      venue?: { name?: string | null };
+      officials?: Array<{ fullName?: string | null; name?: string | null }>;
+      lead_ref?: string | null;
+      win_probability?: { home?: number | string | null; over?: number | string | null };
+    };
+
+    const venueName =
+      matchWithExtras.venue?.name ||
+      match.homeTeam?.stadium ||
+      match.court ||
+      null;
+    const leadRef =
+      matchWithExtras.officials?.[0]?.fullName ||
+      matchWithExtras.officials?.[0]?.name ||
+      matchWithExtras.lead_ref ||
+      null;
+
+    return {
+      asOf: isGameInProgress(match.status) ? new Date().toISOString() : match.startTime,
+      period: liveState?.period ?? match.period ?? null,
+      clock: liveState?.clock ?? match.displayClock ?? null,
+      homeScore: liveState?.home_score ?? match.homeScore ?? null,
+      awayScore: liveState?.away_score ?? match.awayScore ?? null,
+      homeWinProb: matchWithExtras.win_probability?.home ?? null,
+      totalOverProb: matchWithExtras.win_probability?.over ?? null,
+      venueName,
+      leadRef,
+    };
+  }, [
+    match.status,
+    match.startTime,
+    match.period,
+    match.displayClock,
+    match.homeScore,
+    match.awayScore,
+    match.homeTeam?.stadium,
+    match.court,
+    (match as Match & { win_probability?: { home?: number | string | null; over?: number | string | null } }).win_probability?.home,
+    (match as Match & { win_probability?: { home?: number | string | null; over?: number | string | null } }).win_probability?.over,
+    liveState?.period,
+    liveState?.clock,
+    liveState?.home_score,
+    liveState?.away_score,
+  ]);
+
+  const { data: packet } = useNbaProductContextPacket(contextInput);
+  const sections = packet
+    ? [packet.seasonContext, packet.liveStateContext, packet.environmentContext]
+    : [];
+
+  const tokenClassForStatus = (status: string) => {
+    if (status === 'ready') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (status === 'suppressed') return 'bg-amber-50 text-amber-700 border-amber-200';
+    return 'bg-slate-100 text-slate-600 border-slate-200';
+  };
+
+  return (
+    <SpecSheetRow label="08 // NBA CONTEXT" defaultOpen={true}>
+      <div className="space-y-3">
+        {sections.map((section) => (
+          <div
+            key={section.label}
+            className="rounded-[18px] border border-black/[0.06] bg-white px-4 py-3.5 shadow-[0_3px_12px_rgba(15,23,42,0.03)]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <span className="text-[11px] font-semibold tracking-tight text-black/80">
+                {section.label}
+              </span>
+              <span
+                className={cn(
+                  "rounded-md border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em]",
+                  tokenClassForStatus(section.status),
+                )}
+              >
+                {section.status}
+              </span>
+            </div>
+
+            <p className="mt-2 text-[12.5px] leading-relaxed text-black/70">
+              {section.summary || section.detail || 'Context unavailable for this game state.'}
+            </p>
+
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[9px] font-mono uppercase tracking-[0.08em] text-black/50">
+              {section.sampleLabel ? <span>{section.sampleLabel}</span> : null}
+              {section.scope ? <span>· {section.scope}</span> : null}
+              {section.matchStrategy ? <span>· {section.matchStrategy}</span> : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    </SpecSheetRow>
+  );
+});
+
 const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: { match: ExtendedMatch; isScheduled: boolean; onSwipe: (dir: number) => void }) => {
   const x = useMotionValue(0);
   return (
@@ -1307,6 +1405,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                 {deferredTab === 'DETAILS' && (
                   <div className="space-y-4">
                     <SafePregameIntelCards match={match} />
+                    {String(match.sport || '').toUpperCase() === 'NBA' && (
+                      <NbaContextPanel match={match as Match} liveState={liveState} />
+                    )}
                     <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
                       <div className="space-y-4">
                         <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>{isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />}</SpecSheetRow>
