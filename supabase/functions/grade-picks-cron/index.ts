@@ -112,6 +112,58 @@ function alignScoreToPick(pick: PendingPick, score: ScoreBundle): ScoreBundle {
     return score;
 }
 
+async function recordPinnacleDivergence(
+    supabase: any,
+    matchId: string,
+    trace: string[]
+) {
+    try {
+        const { data, error } = await supabase.rpc("record_pinnacle_divergence_signal", {
+            p_match_id: matchId
+        });
+        if (error) {
+            const msg = String(error.message || "");
+            if (msg.includes("record_pinnacle_divergence_signal") && msg.includes("does not exist")) {
+                return;
+            }
+            trace.push(`[pin-div] ${matchId}: rpc_error=${msg}`);
+            return;
+        }
+
+        if (data?.status === "ok") {
+            trace.push(`[pin-div] ${matchId}: ${data.gap_direction} gap=${data.pregame_gap}`);
+        }
+    } catch (err: any) {
+        trace.push(`[pin-div] ${matchId}: exception=${err?.message || "unknown_error"}`);
+    }
+}
+
+async function recordConfluenceSignal(
+    supabase: any,
+    matchId: string,
+    trace: string[]
+) {
+    try {
+        const { data, error } = await supabase.rpc("record_confluence_signal", {
+            p_match_id: matchId
+        });
+        if (error) {
+            const msg = String(error.message || "");
+            if (msg.includes("record_confluence_signal") && msg.includes("does not exist")) {
+                return;
+            }
+            trace.push(`[confluence] ${matchId}: rpc_error=${msg}`);
+            return;
+        }
+
+        if (data?.status === "ok") {
+            trace.push(`[confluence] ${matchId}: ${data.confluence_tier ?? "NO_SIGNAL"}`);
+        }
+    } catch (err: any) {
+        trace.push(`[confluence] ${matchId}: exception=${err?.message || "unknown_error"}`);
+    }
+}
+
 function gradePick(pick: PendingPick, score: ScoreBundle): { outcome: 'WIN' | 'LOSS' | 'PUSH' | 'NO_PICK', reason: string } {
     const meta = pick.grading_metadata;
     if (!meta || !meta.side) return { outcome: 'NO_PICK', reason: 'Missing metadata' };
@@ -379,6 +431,8 @@ Deno.serve(async (req: Request) => {
                     final_home_score: scoreBundle.homeScore,
                     final_away_score: scoreBundle.awayScore
                 }).eq("intel_id", pick.intel_id);
+                await recordPinnacleDivergence(supabase, pick.match_id, trace);
+                await recordConfluenceSignal(supabase, pick.match_id, trace);
 
                 trace.push(`[grade] ${pick.match_id} (${source}): ${result.outcome}`);
                 graded++;
@@ -442,6 +496,8 @@ Deno.serve(async (req: Request) => {
                     actual_away_score: m.away_score,
                     closing_line_delta: clv
                 }).eq("id", sp.id);
+                await recordPinnacleDivergence(supabase, mid, trace);
+                await recordConfluenceSignal(supabase, mid, trace);
                 sharpGraded++;
             }
         }
@@ -481,6 +537,8 @@ Deno.serve(async (req: Request) => {
                     graded_at: new Date().toISOString(),
                     clv: clv
                 }).eq("id", p.id);
+                await recordPinnacleDivergence(supabase, mid, trace);
+                await recordConfluenceSignal(supabase, mid, trace);
                 chatGraded++;
             }
         }

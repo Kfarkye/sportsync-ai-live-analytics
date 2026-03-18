@@ -707,6 +707,15 @@ Deno.serve(async (req: Request) => {
       ${signals.debug_trace?.slice(0, 3).join(' | ') || ''}
     ` : '';
 
+    const confluenceBlock = signals?.confluence_tier ? `
+      CONFLUENCE SIGNAL (${signals.confluence_tier}):
+      ESPN Over Prob: ${signals.confluence_espn_prob?.toFixed?.(3) ?? 'N/A'}
+      Pinnacle Total: ${signals.confluence_pinnacle_total ?? 'N/A'}
+      DK Total: ${signals.market_total ?? 'N/A'}
+      Direction: ${signals.confluence_direction ?? 'N/A'}
+      Status: EXPERIMENTAL (small sample, do not present as certain)
+    ` : '';
+
     // Fix: Use ?? to handle 0 spread correctly
     const oddsBlock = dbOdds ? `
       ODDS SNAPSHOT:
@@ -847,6 +856,7 @@ DATA SOURCES (priority order):
 
 ${telemetryBlock}
 ${signalsBlock}
+${confluenceBlock}
 ${oddsBlock}
 ${livePlayBlock}
 ${recentPlaysBlock}

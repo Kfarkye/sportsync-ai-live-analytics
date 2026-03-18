@@ -281,7 +281,7 @@ function parseDisplayClockToSeconds(clockRaw: string | null | undefined): number
   return 0;
 }
 
-function buildMarketPassthroughSignals(input: {
+async function buildMarketPassthroughSignals(input: {
   leagueId: string;
   dbSport: string;
   statusName?: string;
@@ -291,8 +291,10 @@ function buildMarketPassthroughSignals(input: {
   awayScore: number;
   effectiveOdds: any;
   bpiPayloadData: any;
+  dbMatchId: string;
+  supabase: any;
 }) {
-  const { leagueId, dbSport, statusName, period = 0, displayClock, homeScore, awayScore, effectiveOdds, bpiPayloadData } = input;
+  const { leagueId, dbSport, statusName, period = 0, displayClock, homeScore, awayScore, effectiveOdds, bpiPayloadData, dbMatchId, supabase } = input;
   const sport = String(dbSport || '').toLowerCase();
   const gameTotalMins =
     ['basketball'].includes(sport) ? (leagueId === 'mens-college-basketball' ? 40 : 48)
@@ -318,12 +320,39 @@ function buildMarketPassthroughSignals(input: {
 
   const elapsedMins = Math.max(1, elapsedSecs / 60);
   const currentTotal = (homeScore ?? 0) + (awayScore ?? 0);
-  const dkTotal = parsePoints(effectiveOdds?.total ?? effectiveOdds?.overUnder ?? effectiveOdds?.main?.total?.line);
-  const dkSpread = parsePoints(effectiveOdds?.homeSpread ?? effectiveOdds?.spread ?? effectiveOdds?.main?.spread?.home?.point);
-  const dkHomeML = parsePrice(effectiveOdds?.homeML ?? effectiveOdds?.moneylineHome ?? effectiveOdds?.homeWin ?? effectiveOdds?.home_ml ?? effectiveOdds?.main?.h2h?.home?.price);
-  const dkAwayML = parsePrice(effectiveOdds?.awayML ?? effectiveOdds?.moneylineAway ?? effectiveOdds?.awayWin ?? effectiveOdds?.away_ml ?? effectiveOdds?.main?.h2h?.away?.price);
+  let dkTotal = parsePoints(effectiveOdds?.total ?? effectiveOdds?.overUnder ?? effectiveOdds?.main?.total?.line);
+  let dkSpread = parsePoints(effectiveOdds?.homeSpread ?? effectiveOdds?.spread ?? effectiveOdds?.main?.spread?.home?.point);
+  let dkHomeML = parsePrice(effectiveOdds?.homeML ?? effectiveOdds?.moneylineHome ?? effectiveOdds?.homeWin ?? effectiveOdds?.home_ml ?? effectiveOdds?.main?.h2h?.home?.price);
+  let dkAwayML = parsePrice(effectiveOdds?.awayML ?? effectiveOdds?.moneylineAway ?? effectiveOdds?.awayWin ?? effectiveOdds?.away_ml ?? effectiveOdds?.main?.h2h?.away?.price);
+  const debugTrace = ['source:market_passthrough'];
 
-  const observedPPM = currentTotal / elapsedMins;
+  if (dkTotal == null || dkSpread == null || dkHomeML == null || dkAwayML == null) {
+    try {
+      const { data: matchRow } = await supabase
+        .from('matches')
+        .select('current_odds, opening_odds')
+        .eq('id', dbMatchId)
+        .maybeSingle();
+
+      if (matchRow) {
+        const cur = matchRow.current_odds || {};
+        const open = matchRow.opening_odds || {};
+
+        if (dkTotal == null) dkTotal = parsePoints(cur?.total ?? cur?.overUnder ?? open?.total ?? open?.overUnder);
+        if (dkSpread == null) dkSpread = parsePoints(cur?.homeSpread ?? cur?.spread ?? open?.homeSpread ?? open?.spread);
+        if (dkHomeML == null) dkHomeML = parsePrice(cur?.homeML ?? cur?.moneylineHome ?? cur?.homeWin ?? open?.homeML ?? open?.moneylineHome ?? open?.homeWin);
+        if (dkAwayML == null) dkAwayML = parsePrice(cur?.awayML ?? cur?.moneylineAway ?? cur?.awayWin ?? open?.awayML ?? open?.moneylineAway ?? open?.awayWin);
+
+        if (dkTotal != null) {
+          debugTrace.push('odds_source:matches_fallback');
+        }
+      }
+    } catch (e: any) {
+      Logger.warn('MARKET_PASSTHROUGH_FALLBACK_FAILED', { match_id: dbMatchId, error: e?.message || String(e) });
+    }
+  }
+
+  const observedPPM = elapsedSecs > 60 ? currentTotal / elapsedMins : 0;
   const projectedPPM = dkTotal ? dkTotal / gameTotalMins : 0;
   const ppmDelta = observedPPM - projectedPPM;
 
@@ -332,13 +361,22 @@ function buildMarketPassthroughSignals(input: {
   const isLive = String(statusName || '').toUpperCase() === 'STATUS_IN_PROGRESS';
   const isBlowout = Math.abs((homeScore ?? 0) - (awayScore ?? 0)) > (['basketball'].includes(sport) ? 20 : ['soccer'].includes(sport) ? 3 : 4);
   const regime = isBlowout ? 'BLOWOUT' : (elapsedSecs > gameTotalMins * 55) ? 'ENDGAME' : 'NORMAL';
-  const edgeState = isLive && Math.abs(ppmDelta / (projectedPPM || 1)) > 0.12 ? 'LEAN' : 'NEUTRAL';
+  const edgeState = isLive && projectedPPM > 0 && Math.abs(ppmDelta / projectedPPM) > 0.12 ? 'LEAN' : 'NEUTRAL';
+  const marketSourceType = String(effectiveOdds?.market_source_type || 'unknown');
+  const marketSourceBook = String(effectiveOdds?.market_source_book || effectiveOdds?.provider || 'unknown');
+  const marketSourceConfidence = String(effectiveOdds?.market_source_confidence || 'unknown');
+  debugTrace.push(`regime:${regime}`);
+  debugTrace.push(`ppm_delta:${ppmDelta.toFixed(3)}`);
+  debugTrace.push(`book:${marketSourceBook}`);
 
   return {
     market_total: dkTotal,
     market_spread: dkSpread,
     market_home_ml: dkHomeML,
     market_away_ml: dkAwayML,
+    market_source_type: marketSourceType,
+    market_source_book: marketSourceBook,
+    market_source_confidence: marketSourceConfidence,
     espn_home_win_pct: espnHomeWinPct,
     espn_away_win_pct: espnAwayWinPct,
     deterministic_fair_total: dkTotal,
@@ -359,7 +397,7 @@ function buildMarketPassthroughSignals(input: {
       market_lean: ppmDelta > 0.05 ? 'OVER' : ppmDelta < -0.05 ? 'UNDER' : 'NEUTRAL',
       signal_label: isLive ? 'LIVE READ' : 'PREGAME'
     },
-    debug_trace: ['source:market_passthrough', `regime:${regime}`, `ppm_delta:${ppmDelta.toFixed(3)}`]
+    debug_trace: debugTrace
   };
 }
 
@@ -872,8 +910,42 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
     }
 
     if (parsedCoreOdds) finalMarketOdds = { ...finalMarketOdds, ...parsedCoreOdds };
-    if (premiumFeed && !premiumFeed.is_stale) { finalMarketOdds = { homeSpread: parsePoints(premiumFeed.spread?.home?.point), awaySpread: parsePoints(premiumFeed.spread?.away?.point), total: parsePoints(premiumFeed.total?.over?.point), homeWin: parsePrice(premiumFeed.h2h?.home?.price), awayWin: parsePrice(premiumFeed.h2h?.away?.price), isInstitutional: true, provider: "Institutional" }; }
-    else { const hasEspnOdds = espnOdds.homeSpread != null || espnOdds.homeWin != null || espnOdds.total != null; const isExistingExternalDb = isExternalProvider(existingMatch?.current_odds?.provider); if (hasEspnOdds && (!isExistingExternalDb || isExternalProvider(espnOdds.provider))) { finalMarketOdds = { ...espnOdds, provider: espnOdds.provider || 'ESPN' }; } }
+    if (premiumFeed && !premiumFeed.is_stale) {
+      const totalBook = String(premiumFeed.total?.bookmaker || premiumFeed.total?.over?.bookmaker || '').trim() || null;
+      const mlBook = String(premiumFeed.h2h?.bookmaker || premiumFeed.h2h?.home?.bookmaker || premiumFeed.h2h?.away?.bookmaker || '').trim() || null;
+      const spreadBook = String(premiumFeed.spread?.bookmaker || premiumFeed.spread?.home?.bookmaker || premiumFeed.spread?.away?.bookmaker || '').trim() || null;
+      const primaryBook = totalBook || mlBook || spreadBook || 'unknown';
+      const sharpBooks = ['pinnacle', 'lowvig', 'betonlineag', 'gtbets'];
+      const isSharp = sharpBooks.includes(String(primaryBook).toLowerCase());
+
+      finalMarketOdds = {
+        homeSpread: parsePoints(premiumFeed.spread?.home?.point),
+        awaySpread: parsePoints(premiumFeed.spread?.away?.point),
+        total: parsePoints(premiumFeed.total?.over?.point),
+        homeWin: parsePrice(premiumFeed.h2h?.home?.price),
+        awayWin: parsePrice(premiumFeed.h2h?.away?.price),
+        isInstitutional: true,
+        provider: 'Institutional',
+        market_source_type: 'odds_api_best',
+        market_source_book: primaryBook,
+        market_source_confidence: isSharp ? 'sharp' : 'mainstream',
+        market_source_total_book: totalBook,
+        market_source_ml_book: mlBook,
+        market_source_spread_book: spreadBook
+      };
+    } else {
+      const hasEspnOdds = espnOdds.homeSpread != null || espnOdds.homeWin != null || espnOdds.total != null;
+      const isExistingExternalDb = isExternalProvider(existingMatch?.current_odds?.provider);
+      if (hasEspnOdds && (!isExistingExternalDb || isExternalProvider(espnOdds.provider))) {
+        finalMarketOdds = {
+          ...espnOdds,
+          provider: espnOdds.provider || 'ESPN',
+          market_source_type: 'espn_scoreboard',
+          market_source_book: espnOdds.provider || 'ESPN',
+          market_source_confidence: 'fallback'
+        };
+      }
+    }
 
     const isExistingExternalDb = isExternalProvider(existingMatch?.current_odds?.provider);
     let canonicalOddsPayload = null;
@@ -881,7 +953,15 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
     if (finalOddsHasKeys && (!isExistingExternalDb || isExternalProvider(finalMarketOdds.provider))) {
       canonicalOddsPayload = toCanonicalOdds(finalMarketOdds, { provider: finalMarketOdds.provider || 'ESPN', isLive: isLiveGame, updatedAt: new Date().toISOString() });
     }
-    const effectiveOdds = (isExistingExternalDb && !isExternalProvider(finalMarketOdds.provider) && existingMatch?.current_odds) ? existingMatch.current_odds : (canonicalOddsPayload ?? existingMatch?.current_odds ?? null);
+    let effectiveOdds = (isExistingExternalDb && !isExternalProvider(finalMarketOdds.provider) && existingMatch?.current_odds) ? existingMatch.current_odds : (canonicalOddsPayload ?? existingMatch?.current_odds ?? null);
+    if (effectiveOdds && typeof effectiveOdds === 'object') {
+      effectiveOdds = {
+        ...effectiveOdds,
+        market_source_type: finalMarketOdds?.market_source_type ?? effectiveOdds?.market_source_type ?? 'unknown',
+        market_source_book: finalMarketOdds?.market_source_book ?? effectiveOdds?.market_source_book ?? finalMarketOdds?.provider ?? effectiveOdds?.provider ?? 'unknown',
+        market_source_confidence: finalMarketOdds?.market_source_confidence ?? effectiveOdds?.market_source_confidence ?? 'unknown',
+      };
+    }
 
     let finalPeriod = parseInt(comp.status?.period, 10) || 0;
     if (existingMatch) {
@@ -923,7 +1003,7 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
       if (minsToStart > -10 && minsToStart < 15 && !t0_snapshot) t0_snapshot = { odds: cleanFinalOdds, timestamp: new Date().toISOString() };
     }
 
-    const aiSignals: any = buildMarketPassthroughSignals({
+    const aiSignals: any = await buildMarketPassthroughSignals({
       leagueId: league.id,
       dbSport: league.db_sport,
       statusName: comp.status?.type?.name,
@@ -933,6 +1013,8 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
       awayScore,
       effectiveOdds,
       bpiPayloadData,
+      dbMatchId,
+      supabase,
     });
 
     if (['nba', 'mens-college-basketball', 'nfl'].includes(league.id)) {
@@ -963,6 +1045,59 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
         }
       } catch (e: any) {
         Logger.warn('ESPN_PROB_LOOKUP_FAILED', { match_id: dbMatchId, league_id: league.id, error: e?.message || String(e) });
+      }
+    }
+
+    if (
+      league.id === 'nba' &&
+      String(comp.status?.type?.name || '').toUpperCase() === 'STATUS_IN_PROGRESS' &&
+      aiSignals.espn_total_over_prob != null &&
+      aiSignals.market_total != null
+    ) {
+      const sourceBook = String(effectiveOdds?.market_source_book || '').toLowerCase();
+      const isAlreadyPinnacle = sourceBook === 'pinnacle' || sourceBook === 'lowvig';
+
+      if (!isAlreadyPinnacle) {
+        try {
+          const { data: pinSnap } = await supabase
+            .from('live_odds_snapshots')
+            .select('total')
+            .eq('match_id', dbMatchId)
+            .eq('provider', 'Pinnacle')
+            .not('total', 'is', null)
+            .order('captured_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const pinTotal = pinSnap?.total != null ? Number(pinSnap.total) : null;
+          const dkTotal = aiSignals.market_total != null ? Number(aiSignals.market_total) : null;
+          const espnProb = aiSignals.espn_total_over_prob != null ? Number(aiSignals.espn_total_over_prob) : null;
+
+          if (pinTotal != null && dkTotal != null && espnProb != null) {
+            const espnOver = espnProb > 0.55;
+            const espnUnder = espnProb < 0.45;
+            const pinOver = pinTotal > dkTotal + 2;
+            const pinUnder = pinTotal < dkTotal - 2;
+
+            if ((espnOver && pinOver) || (espnUnder && pinUnder)) {
+              aiSignals.confluence_tier = (espnProb >= 0.65 || espnProb <= 0.35) ? 'CONFLUENCE_STRONG' : 'CONFLUENCE_LEAN';
+              aiSignals.confluence_direction = espnOver ? 'OVER' : 'UNDER';
+              aiSignals.confluence_espn_prob = espnProb;
+              aiSignals.confluence_pinnacle_total = pinTotal;
+            } else if ((espnOver && pinUnder) || (espnUnder && pinOver)) {
+              aiSignals.confluence_tier = 'CONFLICT';
+              aiSignals.confluence_direction = null;
+              aiSignals.confluence_espn_prob = espnProb;
+              aiSignals.confluence_pinnacle_total = pinTotal;
+            }
+          }
+        } catch (e: any) {
+          Logger.warn('CONFLUENCE_EVAL_FAILED', { match_id: dbMatchId, error: e?.message || String(e) });
+        }
+      } else {
+        if (Array.isArray(aiSignals.debug_trace)) {
+          aiSignals.debug_trace.push('confluence:skipped_pinnacle_is_source');
+        }
       }
     }
 

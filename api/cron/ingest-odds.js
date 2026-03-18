@@ -17,7 +17,14 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/json',
                 'x-cron-secret': process.env.CRON_SECRET || ''
             },
-            body: JSON.stringify({ leagues: ["nba", "nfl", "nhl", "mens-college-basketball", "soccer_epl", "soccer_spain_la_liga", "soccer_italy_serie_a", "tennis_atp_australian_open", "tennis_wta_australian_open"] }),
+            body: JSON.stringify({
+                leagues: [
+                    "nba", "nhl", "mlb", "mens-college-basketball",
+                    "soccer_epl", "soccer_spain_la_liga", "soccer_italy_serie_a",
+                    "soccer_germany_bundesliga", "soccer_france_ligue_one",
+                    "soccer_uefa_champs_league"
+                ]
+            }),
             signal: controller.signal
         });
         clearTimeout(timeout);

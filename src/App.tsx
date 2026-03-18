@@ -41,9 +41,6 @@ const App: FC = () => {
       'font-size:11px;color:#64748B;line-height:1.6;'
     );
 
-    // 4) Global grain overlay
-    document.getElementById('root')?.classList.add('grain-overlay');
-
     return unbindViewport;
   }, []);
 
