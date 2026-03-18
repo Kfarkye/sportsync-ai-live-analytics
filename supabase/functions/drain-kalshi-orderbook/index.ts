@@ -1,6 +1,7 @@
 declare const Deno: any;
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { createSign } from "node:crypto";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -183,32 +184,60 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+function normalizePem(pem: string): string {
+  return pem
+    .trim()
+    .replace(/^\"([\s\S]+)\"$/, "$1")
+    .replace(/\\n/g, "\n");
+}
+
 function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const base64 = pem
+  const normalizedPem = normalizePem(pem);
+
+  const base64Raw = normalizedPem
     .replace(/-----BEGIN[^-]+-----/g, "")
     .replace(/-----END[^-]+-----/g, "")
     .replace(/\s+/g, "");
-  const binary = atob(base64);
+
+  const base64 = base64Raw
+    .replace(/[^A-Za-z0-9+/=_-]/g, "")
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+
+  if (!base64) {
+    throw new Error("Kalshi RSA key is empty or malformed");
+  }
+
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes.buffer;
 }
 
 async function signKalshiMessage(message: string, privateKeyPem: string): Promise<string> {
-  const keyBuffer = pemToArrayBuffer(privateKeyPem);
-  const key = await crypto.subtle.importKey(
-    "pkcs8",
-    keyBuffer,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const signatureBuffer = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    key,
-    new TextEncoder().encode(message)
-  );
-  return toBase64(new Uint8Array(signatureBuffer));
+  const normalizedPem = normalizePem(privateKeyPem);
+  try {
+    const keyBuffer = pemToArrayBuffer(normalizedPem);
+    const key = await crypto.subtle.importKey(
+      "pkcs8",
+      keyBuffer,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const signatureBuffer = await crypto.subtle.sign(
+      "RSASSA-PKCS1-v1_5",
+      key,
+      new TextEncoder().encode(message)
+    );
+    return toBase64(new Uint8Array(signatureBuffer));
+  } catch {
+    const signer = createSign("RSA-SHA256");
+    signer.update(message);
+    signer.end();
+    return signer.sign(normalizedPem, "base64");
+  }
 }
 
 async function kalshiGet(
