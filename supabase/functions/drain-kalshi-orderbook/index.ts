@@ -12,6 +12,8 @@ const corsHeaders = {
 const KALSHI_BASE_URL = Deno.env.get("KALSHI_BASE_URL") || "https://api.elections.kalshi.com";
 const MAX_MARKETS_PER_RUN = 30;
 const REQUEST_DELAY_MS = 150;
+const AUTO_SELECT_LOOKBACK_DAYS = 3;
+const AUTO_SELECT_LOOKAHEAD_DAYS = 4;
 
 const TODAY_UTC = () => new Date().toISOString().slice(0, 10);
 
@@ -54,6 +56,22 @@ function normalizeDateLike(value: any): string | null {
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString().slice(0, 10);
+}
+
+function shiftUtcDate(yyyyMmDd: string, deltaDays: number): string {
+  const d = new Date(`${yyyyMmDd}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  return d.toISOString().slice(0, 10);
+}
+
+function isFinalizedStatus(status: string): boolean {
+  return (
+    status.includes("final") ||
+    status.includes("settl") ||
+    status.includes("close") ||
+    status.includes("resolv") ||
+    status.includes("expire")
+  );
 }
 
 function parseLevel(raw: any): { price: number; qty: number } | null {
@@ -287,6 +305,7 @@ Deno.serve(async (req: Request) => {
       const { data, error } = await supabase
         .from("kalshi_line_markets")
         .select("*")
+        .order("game_date", { ascending: false })
         .limit(500);
 
       if (error) {
@@ -297,17 +316,42 @@ Deno.serve(async (req: Request) => {
       }
 
       const today = TODAY_UTC();
-      const active = (data || []).filter((row: any) => {
+      const windowStart = shiftUtcDate(today, -AUTO_SELECT_LOOKBACK_DAYS);
+      const windowEnd = shiftUtcDate(today, AUTO_SELECT_LOOKAHEAD_DAYS);
+      const sourceRows = data || [];
+
+      const active = sourceRows.filter((row: any) => {
         const status = (getStringField(row, ["status", "market_status", "state", "marketState"]) || "").toLowerCase();
         const gameDate = normalizeDateLike(
           row?.game_date ?? row?.date ?? row?.start_date ?? row?.starts_at ?? row?.start_time
         );
         const statusOpen =
-          status.includes("open") || status.includes("active") || status.includes("live") || status.includes("trading");
-        return statusOpen || gameDate === today;
+          status.includes("open") ||
+          status.includes("active") ||
+          status.includes("live") ||
+          status.includes("trading") ||
+          status.includes("initial") ||
+          status.includes("preopen");
+        const inWindow = !!gameDate && gameDate >= windowStart && gameDate <= windowEnd;
+        const likelyTradable = status ? !isFinalizedStatus(status) : true;
+        return statusOpen || (inWindow && likelyTradable);
       });
 
-      marketRows.push(...active);
+      const fallbackRecent = sourceRows
+        .filter((row: any) => {
+          const gameDate = normalizeDateLike(
+            row?.game_date ?? row?.date ?? row?.start_date ?? row?.starts_at ?? row?.start_time
+          );
+          return !!gameDate && gameDate >= windowStart && gameDate <= windowEnd;
+        })
+        .sort((a: any, b: any) => {
+          const aDate = normalizeDateLike(a?.game_date ?? a?.date ?? a?.start_date ?? a?.starts_at ?? a?.start_time) || "";
+          const bDate = normalizeDateLike(b?.game_date ?? b?.date ?? b?.start_date ?? b?.starts_at ?? b?.start_time) || "";
+          return aDate > bDate ? -1 : aDate < bDate ? 1 : 0;
+        })
+        .slice(0, MAX_MARKETS_PER_RUN);
+
+      marketRows.push(...(active.length > 0 ? active : fallbackRecent));
     }
 
     const manualRows = bodyTickers.map((ticker: string) => ({ market_ticker: ticker }));
