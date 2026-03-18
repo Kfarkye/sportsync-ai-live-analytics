@@ -243,7 +243,7 @@ const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'con
   const isConnected = status === 'connected';
   const isConnecting = status === 'connecting';
   return (
-    <div className="flex items-center gap-2.5 bg-black/[0.05] px-3 py-1.5 rounded-full border border-black/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7)] backdrop-blur-md">
+    <div className="flex items-center gap-2.5 bg-[linear-gradient(180deg,#FFFFFF_0%,#F6FAFF_100%)] px-3 py-1.5 rounded-full border border-[#D4DEEF] shadow-[0_10px_22px_-18px_rgba(16,34,58,0.48),inset_0_1px_0_rgba(255,255,255,0.95)] backdrop-blur-md">
       <div className="relative flex items-center justify-center w-[12px] h-[12px]">
         {isConnected && (
           <><span className="absolute w-full h-full rounded-full bg-emerald-500/30 animate-ping" /><span className="relative w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" /></>
@@ -1351,12 +1351,27 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       }} />
 
       <LiveSweatProvider latestPlayByPlayText={playByPlayText} aiTriggers={sweatTriggers}>
-        <header className="sticky top-0 z-50 bg-[#FBFBFD]/85 pt-safe backdrop-blur-2xl transition-colors duration-500 shadow-[0_1px_0_rgba(0,0,0,0.03)] transform-gpu">
+        <header className="sticky top-0 z-50 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(249,252,255,0.92)_100%)] pt-safe backdrop-blur-2xl transition-colors duration-500 shadow-[0_1px_0_rgba(16,34,58,0.08),0_18px_32px_-28px_rgba(16,34,58,0.65)] border-b border-[#DAE3F1]/70 transform-gpu">
           <div className="flex items-center justify-between px-4 sm:px-6 py-3">
             <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-black/[0.04] rounded-full transition-colors duration-200 transform-gpu">
               <BackArrow />
             </button>
             <ConnectionBadge status={connectionStatus} />
+          </div>
+
+          <div className="px-4 sm:px-6 pb-2">
+            <div className="rounded-xl border border-[#D8E2F1] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] px-3 py-2.5 flex items-center justify-between gap-3 shadow-[0_12px_24px_-22px_rgba(16,34,58,0.52)]">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="inline-flex h-2 w-2 rounded-full bg-[#1D9E75] shrink-0" />
+                <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#10223A]">Exchange Mode</span>
+                <span className="text-[10px] font-mono text-black/45 truncate">{String(match.current_odds?.provider || 'MARKET')}</span>
+              </div>
+              <div className="shrink-0 text-[10px] font-mono text-black/55">
+                {match.current_odds?.total !== undefined && match.current_odds?.total !== null
+                  ? `TOTAL ${String(match.current_odds.total)}`
+                  : 'TOTAL —'}
+              </div>
+            </div>
           </div>
           {error && (
             <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2 overflow-hidden will-change-transform">
@@ -1366,12 +1381,16 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             </motion.div>
           )}
 
-          <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
+          <div className="px-3 sm:px-4">
+            <div className="rounded-[22px] border border-[#DAE3F1]/85 bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] shadow-[0_16px_32px_-28px_rgba(16,34,58,0.52)]">
+              <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
+            </div>
+          </div>
 
           {/* SOTA Concurrent Nav Segment */}
-          <div className="relative mt-2 w-full pb-3 px-4 sm:px-6">
+          <div className="relative mt-3 w-full pb-3 px-4 sm:px-6">
             <nav className={cn(
-              "relative flex p-1 bg-black/[0.05] rounded-[14px] max-w-full overflow-x-auto no-scrollbar mx-auto border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] w-fit transform-gpu transition-opacity duration-200",
+              "relative flex p-1.5 bg-[linear-gradient(180deg,#FFFFFF_0%,#F6FAFF_100%)] rounded-[16px] max-w-full overflow-x-auto no-scrollbar mx-auto border border-[#D4DEEF] shadow-[0_12px_24px_-20px_rgba(16,34,58,0.5),inset_0_1px_0_rgba(255,255,255,0.95)] w-fit transform-gpu transition-opacity duration-200",
               isPendingTab && "opacity-80 pointer-events-none"
             )}>
               {TABS.map((tab) => {
@@ -1381,14 +1400,14 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     key={tab.id}
                     onClick={() => handleTabChange(tab.id)}
                     className={cn(
-                      "relative h-8 px-5 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors duration-200 whitespace-nowrap outline-none flex items-center justify-center flex-1 min-w-[100px]",
-                      isActive ? "text-black" : "text-black/70 hover:text-black/90"
+                      "relative h-8 px-5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors duration-200 whitespace-nowrap outline-none flex items-center justify-center flex-1 min-w-[100px] font-mono",
+                      isActive ? "text-[#10223A]" : "text-black/60 hover:text-black/85"
                     )}
                   >
                     {isActive && (
                       <motion.div
                         layoutId="activePill"
-                        className="absolute inset-0 bg-white rounded-[10px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-black/[0.04] will-change-transform"
+                        className="absolute inset-0 bg-[linear-gradient(180deg,#FFFFFF_0%,#EEF5FF_100%)] rounded-[10px] shadow-[0_8px_18px_-14px_rgba(16,34,58,0.6)] border border-[#C8D7EE] will-change-transform"
                         transition={PHYSICS.SPRING}
                       />
                     )}
