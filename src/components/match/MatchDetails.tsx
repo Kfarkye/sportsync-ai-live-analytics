@@ -70,6 +70,7 @@ import {
   BaseballGamePanel,
   BaseballEdgePanel,
   useBaseballLive,
+  type BaseballLiveData,
 } from '@/components/baseball';
 import { LiveSweatProvider, type AIWatchTrigger } from '@/context/LiveSweatContext';
 import { useNbaProductContextPacket } from '@/hooks/useNbaContext';
@@ -143,11 +144,6 @@ interface ExtendedMatch extends Omit<Match, 'context'> {
   awayTeam: Match['awayTeam'] & { last5?: RecentFormGame[] };
   dbProps?: ExtendedPropBet[];
   edge_tags?: MatchEdgeTag[];
-}
-
-interface BaseballLiveResponse {
-  edge?: Record<string, unknown>;
-  [key: string]: unknown;
 }
 
 interface ForecastPoint { clock: string; fairTotal: number; marketTotal: number; edgeState: 'PLAY' | 'LEAN' | 'NEUTRAL' | string; timestamp: number; }
@@ -1245,7 +1241,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     sportKey.includes('BASEBALL') ||
     leagueKey.includes('mlb');
   const { data: rawBaseballData } = useBaseballLive(match.id, match.status, isBaseball);
-  const baseballData = rawBaseballData as BaseballLiveResponse | null | undefined;
+  const baseballData: BaseballLiveData | null | undefined = rawBaseballData;
 
   const [pregameIntel, setPregameIntel] = useState<PregameIntelResponse | null>(null);
   useKeyboardNavigation(matches, match.id, onSelectMatch);
@@ -1261,6 +1257,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
   const homeColor = useMemo(() => normalizeColor(match?.homeTeam?.color, '#3B82F6'), [match.homeTeam]);
   const awayColor = useMemo(() => normalizeColor(match?.awayTeam?.color, '#EF4444'), [match.awayTeam]);
+  const oddsHeatmapStartTime = useMemo(() => {
+    if (typeof match.startTime === 'string') return match.startTime;
+    if (match.startTime instanceof Date) return match.startTime.toISOString();
+    return undefined;
+  }, [match.startTime]);
   const displayStats = useMemo(
     () => (match?.homeTeam && match?.awayTeam ? getMatchDisplayStats(match, 8) : []),
     [match]
@@ -1589,16 +1590,16 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                                 <MatchOddsHeatmap
                                   homeTeamName={match.homeTeam?.name || ''}
                                   awayTeamName={match.awayTeam?.name || ''}
-                                  startTime={match.startTime}
+                                  startTime={oddsHeatmapStartTime}
                                   homeAliases={[
                                     match.homeTeam?.shortName || '',
                                     match.homeTeam?.abbreviation || '',
-                                    match.homeTeam?.displayName || '',
+                                    match.homeTeam?.name || '',
                                   ]}
                                   awayAliases={[
                                     match.awayTeam?.shortName || '',
                                     match.awayTeam?.abbreviation || '',
-                                    match.awayTeam?.displayName || '',
+                                    match.awayTeam?.name || '',
                                   ]}
                                   enabled={marketsTab === 'ODDS'}
                                 />
