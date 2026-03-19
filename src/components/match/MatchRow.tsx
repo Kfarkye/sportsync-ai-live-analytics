@@ -1,5 +1,5 @@
 import React, { useMemo, memo, forwardRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { MatchRowProps as BaseMatchRowProps } from '@/types/matchList';
 import TeamLogo from '../shared/TeamLogo';
@@ -214,6 +214,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   onTogglePin,
 }, ref) => {
   const showScores = isLive || isFinal;
+  const prefersReducedMotion = useReducedMotion();
   const isTennis = match.sport === Sport.TENNIS;
   const oddsLens = useAppStore((state) => state.oddsLens);
   const leagueDisplayName = useMemo(() => getLeagueDisplayName(match.leagueId || ''), [match.leagueId]);
@@ -276,9 +277,9 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       ref={ref}
       layout
       initial={false}
-      transition={PHYSICS_MOTION}
-      whileHover={ROW_HOVER_MOTION}
-      whileTap={ROW_TAP_MOTION}
+      transition={prefersReducedMotion ? { duration: 0 } : PHYSICS_MOTION}
+      whileHover={prefersReducedMotion ? undefined : ROW_HOVER_MOTION}
+      whileTap={prefersReducedMotion ? undefined : ROW_TAP_MOTION}
       onClick={handleSelect}
       role="button"
       tabIndex={0}
@@ -305,8 +306,8 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
               <span className="relative inline-flex h-2.5 w-2.5 items-center justify-center shrink-0">
                 <motion.span
                   className="absolute inline-flex h-2.5 w-2.5 rounded-full bg-rose-500/35"
-                  animate={{ opacity: [1, 0.25, 1], scale: [1, 1.22, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                  animate={prefersReducedMotion ? { opacity: 1, scale: 1 } : { opacity: [1, 0.25, 1], scale: [1, 1.22, 1] }}
+                  transition={prefersReducedMotion ? { duration: 0 } : { duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
                 />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-600" />
               </span>

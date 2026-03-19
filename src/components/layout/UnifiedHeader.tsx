@@ -2,6 +2,7 @@
 import React, { FC, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Grid3X3, List } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../store/appStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeekNavigation } from '../../hooks/useWeekNavigation';
@@ -42,6 +43,7 @@ const formatDateValue = (date: Date): string =>
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-white';
 
 export const UnifiedHeader: FC = () => {
+    const navigate = useNavigate();
     const {
         selectedSport,
         selectedDate,
@@ -96,8 +98,14 @@ export const UnifiedHeader: FC = () => {
     }, [setSelectedSport, setActiveView, activeView]);
 
     const handleLiveClick = useCallback(() => {
-        setActiveView(activeView === 'LIVE' ? 'FEED' : 'LIVE');
-    }, [setActiveView, activeView]);
+        if (activeView === 'LIVE') {
+            setActiveView('FEED');
+            navigate('/');
+            return;
+        }
+        setActiveView('LIVE');
+        navigate('/live');
+    }, [setActiveView, activeView, navigate]);
 
     // Date display
     const dateDisplay = useMemo(() => {
@@ -133,13 +141,13 @@ export const UnifiedHeader: FC = () => {
         <header className="sticky top-0 z-40 w-full bg-white/95 supports-backdrop-filter:bg-white/88 backdrop-blur-md print:hidden pt-safe shadow-[0_1px_0_rgba(17,24,39,0.07)] kalshi-panel">
             {/* ─── PRIMARY ROW: Brand + Sport Tabs + Actions ──── */}
             <div className="max-w-7xl mx-auto w-full">
-                <div className="h-[54px] max-[390px]:h-[50px] px-4 max-[390px]:px-3 md:px-7 flex items-center justify-between border-b border-slate-200/90">
+                <div className="h-16 max-[390px]:h-14 px-4 max-[390px]:px-3 md:px-7 flex items-center justify-between border-b border-slate-200/90">
                     <div className="flex items-center gap-5 max-[390px]:gap-3">
                         {/* Wordmark */}
                         <button
                             aria-label="Open sport menu"
                             onClick={() => toggleSportDrawer(true)}
-                            className={`flex items-center select-none active:scale-[0.97] transition-transform md:cursor-default ${focusRing}`}
+                            className={`h-11 min-w-11 px-1 flex items-center select-none active:scale-[0.97] transition-transform md:cursor-default ${focusRing}`}
                         >
                             <span
                                 className="text-[21px] max-[390px]:text-[19px] tracking-[-0.03em] text-[#0B63F6] leading-none font-extrabold"
@@ -187,14 +195,14 @@ export const UnifiedHeader: FC = () => {
                     </div>
 
                         {/* Right: Trends + LIVE + Lens + Account */}
-                    <div className="flex items-center gap-2 max-[390px]:gap-1 shrink-0">
+                    <div className="flex items-center gap-2 max-[390px]:gap-1.5 shrink-0">
                         <a
                             href="/trends"
                             className={cn(
-                                "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-2.5 max-[390px]:px-2 rounded-lg text-[10.5px] max-[390px]:text-[10px] font-medium tracking-[0.06em] transition-all active:scale-95 select-none border",
+                                "h-11 min-w-11 flex items-center justify-center gap-1.5 px-3 rounded-lg text-[11px] font-medium tracking-[0.06em] transition-all active:scale-95 select-none",
                                 isTrendsPage
-                                    ? "kalshi-tab-btn-active"
-                                    : "bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300",
+                                    ? "text-[#12396F] underline underline-offset-4 decoration-[#93C5FD]"
+                                    : "text-slate-500 hover:text-slate-800",
                                 focusRing
                             )}
                             aria-label="Open trends"
@@ -207,10 +215,10 @@ export const UnifiedHeader: FC = () => {
                             aria-label={activeView === 'LIVE' ? 'Switch to feed view' : 'Switch to live view'}
                             onClick={handleLiveClick}
                             className={cn(
-                                "h-[34px] max-[390px]:h-[32px] flex items-center gap-1.5 px-3 max-[390px]:px-2.5 rounded-lg text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.05em] transition-all active:scale-95 select-none border",
+                                "h-11 min-w-11 flex items-center gap-1.5 px-4 rounded-lg text-[11px] font-semibold tracking-[0.08em] transition-all active:scale-95 select-none border",
                                 activeView === 'LIVE'
                                     ? "kalshi-live-btn-active"
-                                    : "kalshi-tab-btn text-slate-700",
+                                    : "border-[#106856] bg-linear-to-b from-[#1D9E75] to-[#177F60] text-white shadow-[0_10px_24px_-14px_rgba(29,158,117,0.65)] hover:brightness-105",
                                 focusRing
                             )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
@@ -234,7 +242,7 @@ export const UnifiedHeader: FC = () => {
                             type="button"
                             onClick={() => toggleAuthModal(true)}
                             aria-label={user ? 'Open account menu' : 'Open login modal'}
-                            className={`h-[34px] max-[390px]:h-[32px] px-2.5 max-[390px]:px-2 rounded-lg text-[10.5px] max-[390px]:text-[10px] font-medium tracking-[0.06em] transition-all active:scale-95 select-none border bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300 ${focusRing}`}
+                            className={`h-11 min-w-11 px-3 rounded-lg text-[11px] font-medium tracking-[0.06em] transition-all active:scale-95 select-none border bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300 ${focusRing}`}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
                         >
                             Log in
@@ -245,7 +253,7 @@ export const UnifiedHeader: FC = () => {
 
             {/* ─── SECONDARY ROW: Date Strip ──────────────────── */}
             <div className="max-w-7xl mx-auto w-full">
-                <div className="h-[48px] max-[390px]:h-[44px] px-4 max-[390px]:px-3 md:px-7 flex items-center justify-between border-b border-slate-200/80">
+                <div className="h-14 max-[390px]:h-[52px] px-4 max-[390px]:px-3 md:px-7 flex items-center justify-between border-b border-slate-200/80">
                     <AnimatePresence mode="wait">
                         {activeView === 'FEED' ? (
                             <MotionDiv
@@ -261,7 +269,7 @@ export const UnifiedHeader: FC = () => {
                                         type="button"
                                         aria-label={dateDisplay.isToday ? 'Previous day' : 'Go to previous date step'}
                                         onClick={() => setSelectedDate(-navStep)}
-                                        className={`w-[34px] h-[34px] max-[390px]:w-[30px] max-[390px]:h-[30px] flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-300 rounded-lg bg-white transition-all active:scale-90 ${focusRing}`}
+                                        className={`w-11 h-11 flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-300 rounded-lg bg-white transition-all active:scale-90 ${focusRing}`}
                                     >
                                         <ChevronLeft size={16} />
                                     </button>
@@ -269,7 +277,7 @@ export const UnifiedHeader: FC = () => {
                                     <button
                                         type="button"
                                         aria-label={`Current date: ${dateDisplay.label}`}
-                                        className={`h-[34px] max-[390px]:h-[30px] flex items-center gap-2 max-[390px]:gap-1.5 px-3.5 max-[390px]:px-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors select-none ${focusRing}`}
+                                        className={`h-11 flex items-center gap-2 max-[390px]:gap-1.5 px-3.5 max-[390px]:px-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors select-none ${focusRing}`}
                                     >
                                         <span className="text-[13px] max-[390px]:text-[12px] font-semibold text-slate-900">{dateDisplay.label}</span>
                                         {dateDisplay.isToday && (
@@ -289,7 +297,7 @@ export const UnifiedHeader: FC = () => {
                                         type="button"
                                         aria-label="Next day"
                                         onClick={() => setSelectedDate(navStep)}
-                                        className={`w-[34px] h-[34px] max-[390px]:w-[30px] max-[390px]:h-[30px] flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-300 rounded-lg bg-white transition-all active:scale-90 ${focusRing}`}
+                                        className={`w-11 h-11 flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-300 rounded-lg bg-white transition-all active:scale-90 ${focusRing}`}
                                     >
                                         <ChevronRight size={16} />
                                     </button>
@@ -305,7 +313,7 @@ export const UnifiedHeader: FC = () => {
                                                 onClick={() => handleWeekSelect(qd.value)}
                                                 aria-label={`Jump to ${qd.label}`}
                                                 className={cn(
-                                                    "px-2.5 py-1 rounded-[5px] text-[11px] transition-all select-none",
+                                                    "h-11 px-3 rounded-[8px] text-[11px] transition-all select-none",
                                                     isSelected
                                                         ? "text-[#1D4ED8] bg-[#EFF6FF] ring-1 ring-[#BFDBFE]"
                                                         : "text-slate-500 hover:text-[#1D4ED8] hover:bg-[#EFF6FF]",
@@ -338,7 +346,7 @@ export const UnifiedHeader: FC = () => {
                                                 onClick={() => setLiveTab(tab)}
                                                 aria-label={`${labels[tab]} games`}
                                                 className={cn(
-                                                    "relative px-3 max-[390px]:px-2.5 py-1.5 max-[390px]:py-1 rounded-md text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.02em] transition-colors",
+                                                    "relative h-11 min-w-[72px] px-3 max-[390px]:px-2.5 rounded-md text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.02em] transition-colors",
                                                     isActive ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
                                                     focusRing
                                                 )}
@@ -357,7 +365,7 @@ export const UnifiedHeader: FC = () => {
                                             placeholder="Filter..."
                                             value={liveFilter}
                                             onChange={(e) => setLiveFilter(e.target.value)}
-                                            className="w-32 max-[390px]:w-28 bg-white border border-slate-300 rounded-lg py-1.5 max-[390px]:py-1 pl-2 pr-2 text-[11px] max-[390px]:text-[10px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#93C5FD] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                                            className="w-32 max-[390px]:w-28 h-11 bg-white border border-slate-300 rounded-lg py-1.5 pl-2 pr-2 text-[11px] max-[390px]:text-[10px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#93C5FD] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                                         />
                                     </div>
                                     <div className="flex bg-slate-50 rounded-lg p-0.5 border border-slate-300">
@@ -366,7 +374,7 @@ export const UnifiedHeader: FC = () => {
                                             aria-label="List view"
                                             onClick={() => setLiveLayout('LIST')}
                                             className={cn(
-                                                "p-1.5 rounded-md transition-colors",
+                                                "w-11 h-11 flex items-center justify-center rounded-md transition-colors",
                                                 liveLayout === 'LIST' ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
                                                 focusRing
                                             )}
@@ -378,7 +386,7 @@ export const UnifiedHeader: FC = () => {
                                             aria-label="Grid view"
                                             onClick={() => setLiveLayout('GRID')}
                                             className={cn(
-                                                "p-1.5 rounded-md transition-colors",
+                                                "w-11 h-11 flex items-center justify-center rounded-md transition-colors",
                                                 liveLayout === 'GRID' ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
                                                 focusRing
                                             )}
