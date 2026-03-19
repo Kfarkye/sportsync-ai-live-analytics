@@ -23,7 +23,7 @@ import { google } from "@ai-sdk/google";
 import { waitUntil } from "@vercel/functions";
 
 import { BettingPickSchema } from "../lib/schemas/picks.js";
-import { generateSatelliteSlug } from "./lib/satellite.js";
+import { generateSatelliteSlug, isSatelliteConfigured } from "./lib/satellite.js";
 import { checkRateLimit } from "./lib/rateLimit.js";
 import { LruTtlCache } from "./lib/lruTtlCache.js";
 import { buildNbaPromptContextBlock } from "./lib/nbaContextPolicy.js";
@@ -320,7 +320,9 @@ MODE: ${MODE}
 ${[
             `MATCHUP: ${activeContext?.away_team || "TBD"} @ ${activeContext?.home_team || "TBD"}`,
             isLive ? `🔴 LIVE: ${activeContext?.away_score || 0}-${activeContext?.home_score || 0} | ${activeContext?.clock || ""}` : "",
-            ...(liveDataUrls.length > 0 ? [`LIVE_DATA_URLS: ${liveDataUrls.join(", ")}`, "(Fetch these endpoints via URL Context for authoritative real-time data)"] : []),
+            ...(liveDataUrls.length > 0
+                ? [`LIVE_DATA_URLS: ${liveDataUrls.join(", ")}`, "(Fetch these endpoints via URL Context for authoritative real-time data)"]
+                : ["LIVE_DATA_URLS: none provided for this request. Use snapshot and stats context only."]),
             `ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}`,
             lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : "",
             `INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}`,
@@ -665,15 +667,17 @@ export async function POST(req) {
         : "";
 
     const liveDataUrls = [];
-    if (activeContext?.match_id) {
+    if (activeContext?.match_id && isSatelliteConfigured()) {
         const origin = getPublicOrigin();
         const gid = encodeURIComponent(String(activeContext.match_id));
         const [scores, odds, pbp] = ["scores", "odds", "pbp"].map(t => generateSatelliteSlug(String(activeContext.match_id), t));
-        liveDataUrls.push(
-            `${origin}/api/live/scores/${scores.slug}?g=${gid}&n=${scores.nonce}`,
-            `${origin}/api/live/odds/${odds.slug}?g=${gid}&n=${odds.nonce}`,
-            `${origin}/api/live/pbp/${pbp.slug}?g=${gid}&n=${pbp.nonce}`
-        );
+        if (scores.slug && scores.nonce && odds.slug && odds.nonce && pbp.slug && pbp.nonce) {
+            liveDataUrls.push(
+                `${origin}/api/live/scores/${scores.slug}?g=${gid}&n=${scores.nonce}`,
+                `${origin}/api/live/odds/${odds.slug}?g=${gid}&n=${odds.nonce}`,
+                `${origin}/api/live/pbp/${pbp.slug}?g=${gid}&n=${pbp.nonce}`
+            );
+        }
     }
 
     const geminiHistory = normalizeGeminiHistory(messages, liveDataUrls);

@@ -18,6 +18,11 @@ const SATELLITE_SECRET = process.env.SATELLITE_SECRET;
 if (!SATELLITE_SECRET) {
     console.warn("WARNING: SATELLITE_SECRET is missing. URLs generated will be invalid.");
 }
+const SATELLITE_CONFIGURED = Boolean(SATELLITE_SECRET);
+
+export function isSatelliteConfigured() {
+    return SATELLITE_CONFIGURED;
+}
 
 /**
  * Generate an HMAC-signed slug + nonce for a satellite endpoint.
@@ -28,9 +33,9 @@ if (!SATELLITE_SECRET) {
 export function generateSatelliteSlug(gameId, endpoint) {
     const nonce = randomBytes(16).toString("hex"); // 32 hex chars
 
-    // Fallback: If no secret is configured, return dummy values to avoid crashing the AI stream
+    // If no secret is configured, skip URL generation for this request.
     if (!SATELLITE_SECRET) {
-        return { slug: "UNCONFIGURED_SECRET", nonce };
+        return { slug: null, nonce: null };
     }
 
     const ttlBucket = Math.floor(Date.now() / 60_000); // 1-min buckets
