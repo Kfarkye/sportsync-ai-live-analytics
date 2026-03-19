@@ -12,6 +12,7 @@ import {
 import { formatMatchDate, matchUrl } from '../lib/slugs';
 import { color as C, fmt } from '../lib/tokens';
 import TeamLogo from '../components/shared/TeamLogo';
+import SEOHead from '@/components/seo/SEOHead';
 
 // ============================================================================
 // Types
@@ -377,17 +378,6 @@ export default function TeamPage() {
 
         const nextRecord = computeTeamRecord(teamMatches, canonicalTeamName);
         setRecord(nextRecord);
-
-        // Document Meta Tags
-        const pageTitle = `${canonicalTeamName} ATS Record & Results | The Drip`;
-        document.title = pageTitle;
-
-        const atsDen = nextRecord.ats.covered + nextRecord.ats.failed;
-        const coverPct = atsDen > 0 ? ((nextRecord.ats.covered / atsDen) * 100).toFixed(1) : '0.0';
-        const desc = `${canonicalTeamName} ATS record: ${nextRecord.ats.covered}-${nextRecord.ats.failed}. Cover rate: ${coverPct}%. Full season results with closing lines.`;
-
-        document.querySelector('meta[property="og:title"]')?.setAttribute('content', pageTitle);
-        document.querySelector('meta[property="og:description"]')?.setAttribute('content', desc);
       }
 
       setLoading(false);
@@ -399,6 +389,9 @@ export default function TeamPage() {
 
   const teamName = meta?.name || meta?.short_name || (slug || '').replace(/-/g, ' ');
   const teamColor = meta?.color || C.accent;
+  const canonicalPath = slug ? `/team/${encodeURIComponent(slug)}` : '/team';
+  const loadingSeoTitle = `${teamName || 'Team'} ATS Record & Results | The Drip`;
+  const loadingSeoDescription = `${teamName || 'Team'} team results, ATS record, and closing line context.`;
 
   // 1. Process all matches into strictly typed rows
   const ledgerRows = useMemo<LedgerRow[]>(() => {
@@ -442,24 +435,38 @@ export default function TeamPage() {
 
   if (loading) {
     return (
-      <div className={`${THEME.layout.page} flex items-center justify-center min-h-screen`}>
-        <div className="flex flex-col items-center gap-3">
-          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Loading Team Ledger...</div>
+      <>
+        <SEOHead
+          title={loadingSeoTitle}
+          description={loadingSeoDescription}
+          canonicalPath={canonicalPath}
+        />
+        <div className={`${THEME.layout.page} flex items-center justify-center min-h-screen`}>
+          <div className="flex flex-col items-center gap-3">
+            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+            <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Loading Team Ledger...</div>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (!record || matches.length === 0) {
     return (
-      <div className={`${THEME.layout.page} flex flex-col items-center justify-center min-h-screen gap-5`}>
-        <div className="h-16 w-16 rounded-full bg-slate-100 border border-slate-200/60 flex items-center justify-center text-2xl">🔍</div>
-        <p className="text-base font-bold text-slate-700">Team record not found.</p>
-        <Link to="/edge" className={THEME.components.navLink}>
-          Back to Edge
-        </Link>
-      </div>
+      <>
+        <SEOHead
+          title={loadingSeoTitle}
+          description={loadingSeoDescription}
+          canonicalPath={canonicalPath}
+        />
+        <div className={`${THEME.layout.page} flex flex-col items-center justify-center min-h-screen gap-5`}>
+          <div className="h-16 w-16 rounded-full bg-slate-100 border border-slate-200/60 flex items-center justify-center text-2xl">🔍</div>
+          <p className="text-base font-bold text-slate-700">Team record not found.</p>
+          <Link to="/edge" className={THEME.components.navLink}>
+            Back to Edge
+          </Link>
+        </div>
+      </>
     );
   }
 
@@ -467,9 +474,20 @@ export default function TeamPage() {
   const coverPct = atsTotal > 0 ? (record.ats.covered / atsTotal) * 100 : 0;
   const totalGames = Math.max(1, record.wins + record.draws + record.losses);
   const cleanSheetPct = ((record.cleanSheets / totalGames) * 100).toFixed(1);
+  const atsDenForSeo = record.ats.covered + record.ats.failed;
+  const coverPctForSeo =
+    atsDenForSeo > 0 ? ((record.ats.covered / atsDenForSeo) * 100).toFixed(1) : '0.0';
+  const seoTitle = `${teamName} ATS Record & Results | The Drip`;
+  const seoDescription = `${teamName} ATS record: ${record.ats.covered}-${record.ats.failed}. Cover rate: ${coverPctForSeo}%. Full season results with closing lines.`;
 
   return (
-    <div className={THEME.layout.page} style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.4s ease-out' }}>
+    <>
+      <SEOHead
+        title={seoTitle}
+        description={seoDescription}
+        canonicalPath={canonicalPath}
+      />
+      <div className={THEME.layout.page} style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.4s ease-out' }}>
 
       {/* Top Header Navigation */}
       <header className={THEME.layout.header}>
@@ -590,6 +608,7 @@ export default function TeamPage() {
         </section>
 
       </main>
-    </div>
+      </div>
+    </>
   );
 }

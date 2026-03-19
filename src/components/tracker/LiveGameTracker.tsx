@@ -120,7 +120,7 @@ const TOKENS = {
 
 const DEFAULT_CLOCK = '00:00';
 const DEFAULT_DATE_LABEL = 'TODAY';
-const TABS = ['GAME', 'PROPS', 'EDGE', 'AI'] as const;
+const TABS = ['GAME', 'PROPS', 'ANALYSIS', 'AI'] as const;
 type TabKey = (typeof TABS)[number];
 type ScoreHeaderVariant = 'full' | 'embedded';
 
@@ -142,9 +142,49 @@ const parseSafeDateMs = (dateStr?: string): number | null => {
 const formatLocalDate = (ms: number | null) => ms ? new Date(ms).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase() : DEFAULT_DATE_LABEL;
 const formatLocalTime = (ms: number | null) => ms ? new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : DEFAULT_CLOCK;
 
-const calculateWinProbability = (homeScore: number, awayScore: number, period: number, isFinished: boolean) => {
+const parseLiveMinute = (clock: string | undefined, period: number): number | null => {
+    if (!clock) return null;
+    const numeric = clock.match(/(\d{1,3})/);
+    if (!numeric) return null;
+    const value = Number(numeric[1]);
+    if (!Number.isFinite(value)) return null;
+
+    if (clock.includes(':') && period >= 2 && value <= 45) {
+        return 45 + value;
+    }
+
+    if (!clock.includes(':') && period >= 2 && value <= 45) {
+        return 45 + value;
+    }
+
+    return value;
+};
+
+const calculateWinProbability = (
+    homeScore: number,
+    awayScore: number,
+    period: number,
+    isFinished: boolean,
+    sport: string | undefined,
+    displayClock: string | undefined,
+) => {
     if (isFinished) return homeScore > awayScore ? 100 : homeScore < awayScore ? 0 : 50;
     const diff = homeScore - awayScore;
+    const isSoccer = String(sport || '').toUpperCase() === 'SOCCER';
+    const minute = parseLiveMinute(displayClock, Math.max(1, period));
+
+    if (isSoccer && minute !== null) {
+        const margin = Math.abs(diff);
+        if (margin >= 3 && minute >= 55) {
+            const trailingProb = Math.max(1, Math.min(15, Math.round(12 - (margin - 3) * 5 - (minute - 55) * 0.2)));
+            return diff > 0 ? 100 - trailingProb : trailingProb;
+        }
+        if (margin >= 2 && minute >= 70) {
+            const trailingProb = Math.max(3, Math.min(24, Math.round(24 - (margin - 2) * 6 - (minute - 70) * 0.3)));
+            return diff > 0 ? 100 - trailingProb : trailingProb;
+        }
+    }
+
     const timeMultiplier = 1 + (Math.max(1, period) * 0.2);
     const p = 50 + (diff * 3.5 * timeMultiplier);
     return Math.max(1, Math.min(99, Math.round(p)));
@@ -239,7 +279,14 @@ function useGameViewModel(match: RawMatch | undefined): GameViewModel | null {
 
     // ── Slice 3: GAMEPLAY ────────────────────────────────────────────────────
     const gameplaySlice = useMemo<GameplaySlice>(() => {
-        const wpHome = match?.winProbability?.home ?? calculateWinProbability(homeScore, awayScore, safeNumber(match?.period, 1), isFinal);
+        const wpHome = match?.winProbability?.home ?? calculateWinProbability(
+            homeScore,
+            awayScore,
+            safeNumber(match?.period, 1),
+            isFinal,
+            String(match?.sport || ''),
+            match?.displayClock,
+        );
 
         let momentumData = match?.momentumData?.length ? match.momentumData : [];
         if (!momentumData.length && !isPregame) {
@@ -992,7 +1039,7 @@ export const LiveGameTracker: FC<{ match: Match; liveState?: Partial<ExtendedMat
                             {/* Memoized decoupled slices guarantee React strictly bails out of rendering inactive properties */}
                             {activeTab === 'GAME' && <GameTab gameplay={vm.gameplay} teams={vm.teams} meta={vm.meta} />}
                             {activeTab === 'PROPS' && <PropsTab stats={vm.stats} />}
-                            {activeTab === 'EDGE' && <EdgeTab betting={vm.betting} teams={vm.teams} />}
+                            {activeTab === 'ANALYSIS' && <EdgeTab betting={vm.betting} teams={vm.teams} />}
                             {activeTab === 'AI' && <AITab meta={vm.meta} teams={vm.teams} betting={vm.betting} />}
                         </motion.div>
                     </AnimatePresence>

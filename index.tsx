@@ -19,6 +19,7 @@ const SW_DISABLE_STORAGE_KEY = 'sportsync-sw-disabled';
 const SW_STORAGE_RELOAD_KEY = 'sportsync-sw-reloaded-for-storage';
 const SW_DEBUG_DISABLE_PARAM = 'disable-sw';
 type ServiceWorkerQuerySetting = 'enabled' | 'disabled';
+const IS_DEV = import.meta.env.DEV;
 
 const disableServiceWorker = async (reason: string = '1') => {
   try {
@@ -239,6 +240,12 @@ if ('serviceWorker' in navigator) {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const initializeServiceWorker = async () => {
+      if (IS_DEV) {
+        (window as typeof window & { __sportsyncSwDebugDisabled?: boolean }).__sportsyncSwDebugDisabled = true;
+        await clearServiceWorkerArtifacts();
+        return;
+      }
+
       const swQuerySetting = getServiceWorkerQuerySetting();
 
       if (swQuerySetting === 'disabled') {

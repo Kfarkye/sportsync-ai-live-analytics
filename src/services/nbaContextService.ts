@@ -463,7 +463,11 @@ function selectBestLiveStateCandidate(
   return scored[0]?.row ?? null;
 }
 
-function applyFilters<TData>(query: QueryChain<TData>, filters: QueryFilter[]): QueryChain<TData> {
+type EqFilterable<TQuery> = {
+  eq(column: string, value: QueryFilterValue): TQuery;
+};
+
+function applyFilters<TQuery extends EqFilterable<TQuery>>(query: TQuery, filters: QueryFilter[]): TQuery {
   let nextQuery = query;
   for (const filter of filters) {
     nextQuery = nextQuery.eq(filter.column, filter.value);

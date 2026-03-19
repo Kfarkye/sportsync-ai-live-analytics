@@ -10,6 +10,7 @@ export interface LiveIntelligenceCardPayload {
   confidence: number;
   lean: LiveIntelligenceLean;
   market: LiveIntelligenceMarket;
+  trends: string[];
   drivers: string[];
   watchouts: string[];
 }
@@ -88,6 +89,29 @@ function asStringList(value: unknown): string[] {
   return value
     .map((item) => normalizeText(item))
     .filter((item): item is string => Boolean(item));
+}
+
+function toConsumerCopy(value: string): string {
+  return value
+    .replace(/Live Market Is Balanced/gi, "Live Trend Pulse")
+    .replace(
+      /Trend profile is still stabilizing through the current game state\.?/gi,
+      "No clear edge yet. Wait for the next big moment before adjusting your position.",
+    )
+    .replace(
+      /Clock state\s*([^;]+);\s*re-grade after the next major swing\.?/gi,
+      "$1 on the clock. Reassess after the next key event.",
+    )
+    .replace(
+      /Monitor clock and possession state before sizing\.?/gi,
+      "Wait for the next key event before increasing stake size.",
+    )
+    .replace(/No recent event spike in feed\.?/gi, "No major momentum shift yet.")
+    .replace(
+      /Recheck after next score or major possession swing\.?/gi,
+      "Reassess after the next goal or major possession swing.",
+    )
+    .trim();
 }
 
 function clampConfidence(value: unknown, fallback = 46): number {
@@ -182,6 +206,76 @@ function deriveStatDrivers(match: Match): string[] {
     .map((entry) => entry.line);
 }
 
+function isSoccerMatch(match: Match): boolean {
+  const sport = normalizeText(match.sport)?.toLowerCase() || "";
+  const league = normalizeText(match.leagueId)?.toLowerCase() || "";
+  return (
+    sport.includes("soccer") ||
+    league.includes("uefa") ||
+    league.includes("fifa") ||
+    league.includes("mls") ||
+    league.includes("premier") ||
+    league.includes("laliga") ||
+    league.includes("bundesliga") ||
+    league.includes("serie") ||
+    league.includes("ligue")
+  );
+}
+
+function formatTrendTeamName(teamName: string, record?: string | null): string {
+  const cleanRecord = normalizeText(record);
+  return cleanRecord ? `${teamName} (${cleanRecord})` : teamName;
+}
+
+function buildTrendLines(match: Match, totalEdge: number | null, fairEdge: number | null): string[] {
+  const homeName = match.homeTeam?.shortName || match.homeTeam?.name || "Home";
+  const awayName = match.awayTeam?.shortName || match.awayTeam?.name || "Away";
+  const homeRecord = normalizeText(match.homeTeam?.record);
+  const awayRecord = normalizeText(match.awayTeam?.record);
+  const homeScore = normalizeNumber(match.homeScore);
+  const awayScore = normalizeNumber(match.awayScore);
+  const period = normalizeNumber(match.period) ?? 1;
+  const stats = deriveStatDrivers(match);
+  const trends: string[] = [];
+  const soccer = isSoccerMatch(match);
+
+  if (soccer && homeScore !== null && awayScore !== null && period >= 2) {
+    if (homeScore !== awayScore) {
+      const trailingIsHome = homeScore < awayScore;
+      const trailingTeam = trailingIsHome ? homeName : awayName;
+      const trailingRecord = trailingIsHome ? homeRecord : awayRecord;
+      trends.push(`${formatTrendTeamName(trailingTeam, trailingRecord)}: Concedes in 2nd Half`);
+    } else {
+      trends.push(`${formatTrendTeamName(homeName, homeRecord)}: Late 2nd-half swing profile`);
+    }
+  }
+
+  if (totalEdge !== null) {
+    if (totalEdge >= 1.5) {
+      trends.push(`Total trend: Pace tracking OVER by +${totalEdge.toFixed(1)}`);
+    } else if (totalEdge <= -1.5) {
+      trends.push(`Total trend: Pace tracking UNDER by ${totalEdge.toFixed(1)}`);
+    }
+  }
+
+  if (fairEdge !== null && Math.abs(fairEdge) >= 1) {
+    trends.push(
+      `Model trend: Fair total ${fairEdge > 0 ? "+" : ""}${fairEdge.toFixed(1)} vs live market`,
+    );
+  }
+
+  if (stats.length > 0) {
+    trends.push(`Stat trend: ${stats[0]}`);
+  }
+
+  const uniqueTrends = Array.from(new Set(trends.filter((line) => line.trim().length > 0)));
+  if (uniqueTrends.length > 0) return uniqueTrends.slice(0, 3);
+
+  return [
+    `${formatTrendTeamName(awayName, awayRecord)} vs ${formatTrendTeamName(homeName, homeRecord)}: No clear trend edge yet`,
+  ];
+}
+
 function buildDeterministicCard(match: Match): LiveIntelligenceCardPayload {
   const homeTeam = match.homeTeam?.shortName || match.homeTeam?.name || "Home";
   const awayTeam = match.awayTeam?.shortName || match.awayTeam?.name || "Away";
@@ -235,35 +329,37 @@ function buildDeterministicCard(match: Match): LiveIntelligenceCardPayload {
   const contextDrivers: string[] = [];
   if (marketTotal !== null && fairTotal !== null) {
     contextDrivers.push(
-      `Model fair total ${fairTotal.toFixed(1)} vs market ${marketTotal.toFixed(1)} (${fairEdge && fairEdge > 0 ? "+" : ""}${fairEdge?.toFixed(1) ?? "0.0"}).`,
+      `Projected total ${fairTotal.toFixed(1)} vs line ${marketTotal.toFixed(1)} (${fairEdge && fairEdge > 0 ? "+" : ""}${fairEdge?.toFixed(1) ?? "0.0"}).`,
     );
   }
   if (marketTotal !== null && paceTotal !== null && paceProjection) {
     contextDrivers.push(
-      `Pace projection ${paceTotal.toFixed(1)} at ${(paceProjection.elapsedPct * 100).toFixed(0)}% elapsed vs market ${marketTotal.toFixed(1)}.`,
+      `Live pace projection ${paceTotal.toFixed(1)} with ${(paceProjection.elapsedPct * 100).toFixed(0)}% elapsed.`,
     );
   }
 
+  const trends = buildTrendLines(match, totalEdge, fairEdge);
+
   return {
-    headline:
-      lean === "PASS" ? "Live Market Is Balanced" : `Live ${lean} Signal Forming`,
+    headline: lean === "PASS" ? "Live Trend Pulse" : `Live ${lean} Trend Signal`,
     thesis:
       totalEdge === null
-        ? `${awayTeam} vs ${homeTeam} is active. No stable dislocation yet between scoreboard pace and the active market.`
+        ? `${awayTeam} vs ${homeTeam} is active. No clear edge yet, so wait for the next major event before changing your position.`
         : `${awayTeam} @ ${homeTeam}: composite total edge ${totalEdge > 0 ? "+" : ""}${totalEdge.toFixed(1)} using live pace and fair-value anchors.`,
     confidence,
     lean,
     market,
+    trends,
     drivers:
       [...contextDrivers, ...drivers].length > 0
         ? [...contextDrivers, ...drivers].slice(0, 4)
         : ["No clear live stat dominance in the current state sample."],
     watchouts: [
-      clockText ? `Clock state ${clockText}; re-grade after the next major swing.` : "Monitor clock and possession state before sizing.",
+      clockText ? `${clockText} on the clock. Reassess after the next key event.` : "Wait for the next key event before increasing stake size.",
       lastEvent
         ? `Last event: ${normalizeText(lastEvent.type) || "play"} ${normalizeText(lastEvent.time || lastEvent.clock) || ""}`.trim()
-        : "No recent event spike in feed.",
-      "Recheck after next score or major possession swing.",
+        : "No major momentum shift yet.",
+      "Reassess after the next goal or major possession swing.",
     ],
   };
 }
@@ -276,14 +372,19 @@ function sanitizeCard(
   const record = candidate as Record<string, unknown>;
   const drivers = asStringList(record.drivers);
   const watchouts = asStringList(record.watchouts);
+  const trends = asStringList(record.trends);
+  const headline =
+    normalizeText(record.headline) ||
+    fallback.headline;
   return {
-    headline: normalizeText(record.headline) || fallback.headline,
-    thesis: normalizeText(record.thesis) || fallback.thesis,
+    headline: /live market is balanced/i.test(headline) ? "Live Trend Pulse" : headline,
+    thesis: toConsumerCopy(normalizeText(record.thesis) || fallback.thesis),
     confidence: clampConfidence(record.confidence, fallback.confidence),
     lean: normalizeLean(record.lean, fallback.lean),
     market: normalizeMarket(record.market, fallback.market),
-    drivers: drivers.length > 0 ? drivers.slice(0, 4) : fallback.drivers,
-    watchouts: watchouts.length > 0 ? watchouts.slice(0, 3) : fallback.watchouts,
+    trends: (trends.length > 0 ? trends.slice(0, 3) : fallback.trends).map(toConsumerCopy),
+    drivers: (drivers.length > 0 ? drivers.slice(0, 4) : fallback.drivers).map(toConsumerCopy),
+    watchouts: (watchouts.length > 0 ? watchouts.slice(0, 3) : fallback.watchouts).map(toConsumerCopy),
   };
 }
 
@@ -305,6 +406,7 @@ function mapAnalyzeMatchCard(
     sharp.executive_bullets && typeof sharp.executive_bullets === "object"
       ? (sharp.executive_bullets as Record<string, unknown>)
       : null;
+  const sharpTrends = asStringList(sharp.trends);
 
   const candidate = {
     headline:
@@ -328,6 +430,14 @@ function mapAnalyzeMatchCard(
       normalizeText(rec?.market_type) ||
       normalizeText(sharp.market) ||
       fallback.market,
+    trends:
+      sharpTrends.length > 0
+        ? sharpTrends
+        : [
+            normalizeText(sharp.market_signal),
+            normalizeText(sharp.the_read),
+            normalizeText((sharp as Record<string, unknown>).key_trend),
+          ].filter((entry): entry is string => Boolean(entry)),
     drivers: [
       normalizeText(bullets?.driver),
       normalizeText(bullets?.setup),

@@ -359,7 +359,7 @@ const parseH2HFromRaw = (
         }
         return 'D';
       })
-      .filter((item): item is string => item !== null);
+      .filter((item): item is 'W' | 'L' | 'D' => item !== null);
 
     return {
       lastFive: rows.slice(0, 5).join(' ') || '—',
@@ -2109,7 +2109,7 @@ export const MatchPage: FC<MatchPageProps> = ({ slug }) => {
           ) : null}
 
           <div className="flex items-center justify-between border-t border-slate-200 pb-4 pt-3">
-            <span className="text-xs text-slate-500">thedrip.to</span>
+            <span className="text-xs text-slate-500">thedrip.bet</span>
             <span className="text-xs tabular-nums text-slate-500">soccer_postgame · {data.leagueName} · {formatMatchDateLabel(data.startTime)}</span>
           </div>
         </div>

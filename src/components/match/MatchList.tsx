@@ -13,7 +13,7 @@ import { Match } from '@/types';
 import { LEAGUES } from '@/constants';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
-import { LayoutGroup, motion, AnimatePresence } from 'framer-motion';
+import { LayoutGroup, motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/essence';
 import { getTeamColor, getTeamLogo } from '@/lib/teamColors';
@@ -407,7 +407,7 @@ PremiumProCTA.displayName = 'PremiumProCTA';
 
 const MatchRowSkeleton = () => (
     <div
-        className="w-full rounded-2xl border border-[#D4DEEF] bg-[linear-gradient(180deg,#FFFFFF_0%,#F6F9FF_100%)] shadow-[0_16px_30px_-24px_rgba(16,34,58,0.28)] px-4 py-3.5"
+        className="w-full rounded-2xl border border-[#D4DEEF] bg-[linear-gradient(180deg,#FFFFFF_0%,#F6F9FF_100%)] shadow-[0_16px_30px_-24px_rgba(16,34,58,0.28)] px-3 py-3 sm:px-4 sm:py-3.5"
         aria-hidden="true"
     >
         <div className="flex items-center justify-between pb-3">
@@ -448,6 +448,7 @@ const LeagueGroup = memo(({
     groupIndex: number; polyResult?: PolyOddsResult; isMounted?: boolean;
 }) => {
     const [isExpanded, setIsExpanded] = useState(true);
+    const prefersReducedMotion = useReducedMotion();
     const [measureRef, bounds] = useMeasure();
     const toggle = useCallback(() => setIsExpanded((prev) => !prev), []);
 
@@ -467,9 +468,9 @@ const LeagueGroup = memo(({
     return (
         <motion.div
             layout="position"
-            initial={{ opacity: 0, y: 10 }}
+            initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: groupIndex * STAGGER_DELAY }}
+            transition={prefersReducedMotion ? { duration: 0 } : { delay: groupIndex * STAGGER_DELAY }}
             className="flex flex-col relative transform-gpu"
         >
             <button
@@ -518,13 +519,13 @@ const LeagueGroup = memo(({
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: bounds.height || 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={ACCORDION_SPRING}
+                        transition={prefersReducedMotion ? { duration: 0 } : ACCORDION_SPRING}
                         className={cn(
                             'overflow-hidden relative z-0 -mt-px',
                             'bg-white ring-1 ring-[#D9E2F2] rounded-b-xl shadow-[0_14px_28px_-20px_rgba(16,34,58,0.22)]'
                         )}
                     >
-                        <div ref={measureRef} className="flex flex-col gap-2.5 p-2.5">
+                        <div ref={measureRef} className="flex flex-col gap-2 sm:gap-2.5 p-2 sm:p-2.5">
                             {enrichedMatches.map(({ match, isPinned, isLive, isFinal }) => (
                                 <OptimizedMatchRow
                                     key={match.id}
@@ -553,7 +554,10 @@ LeagueGroup.displayName = 'LeagueGroup';
 const MatchList: React.FC<MatchListProps> = ({
     matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal, onOpenPricing,
 }) => {
+    const prefersReducedMotion = useReducedMotion();
     const oddsLens = useAppStore((state) => state.oddsLens);
+    const selectedDate = useAppStore((state) => state.selectedDate);
+    const setSelectedDate = useAppStore((state) => state.setSelectedDate);
 
     // ONLY UI user-interactions use event callbacks. State/Data derivatives MUST stay as standard dependencies.
     const handleSelect = useEventCallback(onSelectMatch);
@@ -572,6 +576,19 @@ const MatchList: React.FC<MatchListProps> = ({
     const { data: polyResult } = usePolyOdds();
     const { data: featuredProps = [] } = useFeaturedProps(4);
     const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const selectedDateIso = useMemo(
+        () => new Date(selectedDate).toISOString().split('T')[0],
+        [selectedDate]
+    );
+    const selectedDateLabel = useMemo(
+        () =>
+            new Date(selectedDate).toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+            }),
+        [selectedDate]
+    );
     const latestDataUpdatedMs = useMemo(() => {
         return matches.reduce((latest, match) => {
             const updatedMs = parseUpdatedAtMs(match);
@@ -725,7 +742,7 @@ const MatchList: React.FC<MatchListProps> = ({
             <div className="min-h-screen bg-[#F4F6FF] pt-2 sm:pt-6 lg:pt-6" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
                 <div className="max-w-7xl mx-auto w-full px-0 lg:px-6" aria-busy="true" aria-label="Loading matches">
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-6 items-start">
-                        <div className="flex flex-col gap-2.5 p-2.5 w-full rounded-2xl overflow-hidden bg-white ring-1 ring-slate-200 shadow-[0_14px_28px_-20px_rgba(30,64,175,0.22)]">
+                        <div className="flex flex-col gap-2 sm:gap-2.5 p-2 sm:p-2.5 w-full rounded-2xl overflow-hidden bg-white ring-1 ring-slate-200 shadow-[0_14px_28px_-20px_rgba(30,64,175,0.22)]">
                             {Array.from({ length: 8 }, (_, i) => <MatchRowSkeleton key={`skel-${i}`} />)}
                         </div>
                         <aside className="hidden lg:flex flex-col gap-4">
@@ -742,9 +759,9 @@ const MatchList: React.FC<MatchListProps> = ({
     if (matches.length === 0) {
         return (
             <motion.div
-                initial={{ opacity: 0, scale: 0.99 }}
+                initial={prefersReducedMotion ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.99 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
+                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.3, ease: "easeOut" }}
                 className="flex flex-col items-center justify-center min-h-[50vh] text-zinc-400 select-none bg-[#F4F6FF] px-6 text-center"
                 style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}
             >
@@ -753,8 +770,32 @@ const MatchList: React.FC<MatchListProps> = ({
                         <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                     </svg>
                 </div>
-                <span className="text-[13px] font-semibold text-zinc-900 mb-1 tracking-tight">No Action Found</span>
-                <span className="text-[12px] font-medium text-zinc-500 max-w-[260px] leading-relaxed">There are currently no matches matching your selected criteria.</span>
+                <span className="text-[13px] font-semibold text-zinc-900 mb-1 tracking-tight">
+                    No board action for {selectedDateLabel}
+                </span>
+                <span className="text-[12px] font-medium text-zinc-500 max-w-[300px] leading-relaxed">
+                    Shift to the next slate or open Trends while this board is quiet.
+                </span>
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+                    <button
+                        type="button"
+                        onClick={() => setSelectedDate(1)}
+                        className="h-11 rounded-lg border border-zinc-300 bg-white px-3.5 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                    >
+                        Next Date
+                    </button>
+                    <a
+                        href="/trends"
+                        className="inline-flex h-11 items-center rounded-lg border border-zinc-300 bg-white px-3.5 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                    >
+                        Open Trends
+                    </a>
+                </div>
+                {selectedDateIso === todayIso ? (
+                    <p className="mt-3 text-[11px] font-medium text-zinc-500">
+                        No live games right now. Check back before the next tip.
+                    </p>
+                ) : null}
             </motion.div>
         );
     }

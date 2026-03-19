@@ -1,5 +1,6 @@
 import React, { FC, lazy, Suspense, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import { useAppStore, usePinStore } from '../../store/appStore';
 import { useMatches } from '../../hooks/useMatches';
 import { UnifiedHeader } from './UnifiedHeader';
@@ -8,6 +9,7 @@ import MatchDetails from '../match/MatchDetails';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
 import ChatWidget from '../ChatWidget';
+import LiveAccessGate from '../live/LiveAccessGate';
 import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
@@ -46,10 +48,13 @@ const AppShell: FC = () => {
     toggleGlobalChat,
     setShowLanding,
     setSelectedDate,
+    setActiveView,
     closeAllOverlays,
   } = useAppStore();
 
   const { pinnedMatchIds, togglePin } = usePinStore();
+  const location = useLocation();
+  const prefersReducedMotion = useReducedMotion();
   const [defaultSportResolved, setDefaultSportResolved] = React.useState(false);
   const persistedSportExists = React.useMemo(() => hasPersistedSportContext(), []);
 
@@ -117,7 +122,18 @@ const AppShell: FC = () => {
     setSelectedSport,
   ]);
 
-  if (showLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
+  useEffect(() => {
+    if (location.pathname === '/live') {
+      setShowLanding(false);
+      if (activeView !== 'LIVE') {
+        setActiveView('LIVE');
+      }
+    }
+  }, [location.pathname, activeView, setActiveView, setShowLanding]);
+
+  const shouldShowLanding = showLanding && location.pathname === '/';
+
+  if (shouldShowLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
 
   return (
     <div
@@ -141,13 +157,13 @@ const AppShell: FC = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
                 {/* LOADING STATE */}
                 {isLoading && filteredMatches.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 opacity-80">
                     <div className="w-6 h-6 border-2 border-blue-200 border-t-[#0B63F6] rounded-full animate-spin mb-4" />
-                    <p className={cn(ESSENCE.tier.t2Header, 'text-slate-500')}>Syncing Sports Data</p>
+                    <p className={cn(ESSENCE.tier.t2Header, 'text-slate-500')}>Refreshing board</p>
                     <button
                       onClick={() => window.location.reload()}
                       className={cn('mt-6 px-4 py-1.5 rounded-full border border-blue-200 bg-white text-[10px] font-medium text-blue-700 hover:bg-blue-50 active:scale-95')}
@@ -165,27 +181,40 @@ const AppShell: FC = () => {
                     </div>
 
                     <h3 className="text-xl font-bold text-slate-900 tracking-tight">
-                      {new Date(selectedDate).toDateString() === new Date().toDateString() ? 'No Games Today' : 'No Games Scheduled'}
+                      {new Date(selectedDate).toDateString() === new Date().toDateString() ? 'No live board right now' : 'No games on this date'}
                     </h3>
 
-                    <p className="text-slate-600 text-[13px] mt-2 max-w-[220px] leading-relaxed">
-                      Check back later or navigate to another date in the timeline.
+                    <p className="text-slate-600 text-[13px] mt-2 max-w-[280px] leading-relaxed">
+                      Switch the date, then check Trends for pregame setups while you wait for tip-off.
                     </p>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDate(new Date())}
-                      className={cn(
-                        ESSENCE.nav.pill,
-                        'mt-5 px-4 py-2',
-                        'text-[10px] font-bold uppercase tracking-widest text-slate-600',
-                        'hover:text-slate-900 hover:border-slate-300',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50',
-                        'transition-all'
-                      )}
-                    >
-                      Back to Today
-                    </button>
+                    <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDate(new Date())}
+                        className={cn(
+                          ESSENCE.nav.pill,
+                          'h-11 px-4',
+                          'text-[10px] font-bold uppercase tracking-widest text-slate-600',
+                          'hover:text-slate-900 hover:border-slate-300',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50',
+                          'transition-all'
+                        )}
+                      >
+                        Back to Today
+                      </button>
+                      <a
+                        href="/trends"
+                        className={cn(
+                          ESSENCE.nav.pill,
+                          'h-11 px-4 inline-flex items-center',
+                          'text-[10px] font-bold uppercase tracking-widest text-slate-600',
+                          'hover:text-slate-900 hover:border-slate-300'
+                        )}
+                      >
+                        Open Trends
+                      </a>
+                    </div>
                   </div>
                 )}
 
@@ -208,28 +237,30 @@ const AppShell: FC = () => {
             {activeView === 'LIVE' && (
               <MotionDiv
                 key="live"
-                initial={{ opacity: 0, y: 10 }}
+                initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                exit={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
+                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
-                <LiveDashboard
-                  matches={matches}
-                  onSelectMatch={setSelectedMatch}
-                  isMatchLive={(m) => isGameInProgress(m.status)}
-                  pinnedMatchIds={pinnedSet}
-                  onTogglePin={togglePin}
-                />
+                <LiveAccessGate>
+                  <LiveDashboard
+                    matches={matches}
+                    onSelectMatch={setSelectedMatch}
+                    isMatchLive={(m) => isGameInProgress(m.status)}
+                    pinnedMatchIds={pinnedSet}
+                    onTogglePin={togglePin}
+                  />
+                </LiveAccessGate>
               </MotionDiv>
             )}
 
             {activeView === 'TITAN' && (
               <MotionDiv
                 key="titan"
-                initial={{ opacity: 0, y: 10 }}
+                initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                exit={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
+                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
                 <Suspense
                   fallback={
@@ -265,10 +296,10 @@ const AppShell: FC = () => {
       <AnimatePresence>
         {selectedMatch && (
           <MotionDiv
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
+            initial={prefersReducedMotion ? { opacity: 1 } : { y: '100%' }}
+            animate={prefersReducedMotion ? { opacity: 1 } : { y: 0 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { y: '100%' }}
+            transition={prefersReducedMotion ? { duration: 0.15 } : { type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
             className={cn(
               'fixed inset-0 z-[60] overflow-hidden flex flex-col',
               ESSENCE.tw.surface.subtle, // bg-slate-50
@@ -287,12 +318,12 @@ const AppShell: FC = () => {
         <button
           type="button"
           onClick={() => toggleGlobalChat(true)}
-          aria-label="Open AI chat"
-          className="fixed bottom-6 right-4 md:bottom-8 md:right-8 z-[9999] inline-flex items-center gap-2 px-4 py-2.5 rounded-full kalshi-fab text-slate-800"
+          aria-label="Open chat"
+          className="fixed right-3 md:right-8 bottom-[calc(env(safe-area-inset-bottom,0px)+10px)] md:bottom-8 z-[65] md:z-[9999] inline-flex items-center justify-center gap-2 h-10 md:h-auto w-10 md:w-auto md:px-4 md:py-2.5 rounded-full kalshi-fab text-slate-800 opacity-90 hover:opacity-100 transition-opacity"
         >
           <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
-          <span className="text-[11px] font-semibold tracking-[0.05em] uppercase" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-            AI Chat
+          <span className="hidden md:inline text-[11px] font-semibold tracking-[0.05em] uppercase" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+            Chat
           </span>
         </button>
       )}

@@ -18,8 +18,8 @@ export const TopNav: FC = () => (
   </nav>
 );
 
-export const Card: FC<PropsWithChildren<{ className?: string }>> = ({ className, children }) => (
-  <section className={cn('rounded-xl border border-slate-200 bg-white', className)}>{children}</section>
+export const Card: FC<PropsWithChildren<{ className?: string; id?: string }>> = ({ className, id, children }) => (
+  <section id={id} className={cn('rounded-xl border border-slate-200 bg-white', className)}>{children}</section>
 );
 
 export const CardHeader: FC<PropsWithChildren<{ className?: string }>> = ({ className, children }) => (

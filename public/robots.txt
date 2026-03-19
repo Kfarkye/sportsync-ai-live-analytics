@@ -2,4 +2,7 @@ User-agent: APIs-Google
 Allow: /api/live/
 
 User-agent: *
+Allow: /
 Disallow: /api/
+
+Sitemap: https://thedrip.bet/sitemap.xml
