@@ -202,6 +202,7 @@ const calculateLineMovement = (currentOdds, t60Snapshot) => {
 
 const classifyQuestionType = (query) => {
     const q = (query || "").toLowerCase();
+    if (/(power play|powerplay|penalt(?:y|ies)|last penalty|penalty summary)/i.test(q)) return "power_play";
     if (/(top scorer|most points|points leader|who scored)/i.test(q)) return "top_scorer";
     if (/(rebounds|rebounding leader)/i.test(q)) return "rebounds";
     if (/(assists|assist leader)/i.test(q)) return "assists";
@@ -220,11 +221,99 @@ const QUALITY_FAILURE_CODES = Object.freeze({
     PACKET_BYPASS: "F6_PACKET_BYPASS",
 });
 
-const LIVE_QUESTION_TYPES = new Set(["top_scorer", "rebounds", "assists", "events", "market"]);
+const LIVE_QUESTION_TYPES = new Set(["power_play", "top_scorer", "rebounds", "assists", "events", "market"]);
 const PACKET_STALE_THRESHOLD_SECONDS = 60;
+
+const RESPONSE_CLASSES = Object.freeze({
+    FACT: "fact",
+    STATE: "state",
+    EDGE: "edge",
+});
+
+const EDGE_INTENT_RE = /\b(best bet|bet|tail|fade|edge|value|play|take|lean|lock|odds edge|mispriced|over\/under|moneyline)\b/i;
+
+const PENALTY_TERMS = [
+    "power play",
+    "penalty",
+    "high-sticking",
+    "tripping",
+    "hooking",
+    "slashing",
+    "cross-checking",
+    "interference",
+    "roughing",
+    "holding",
+    "boarding",
+    "charging",
+    "elbowing",
+    "too many men",
+    "delay of game",
+];
+
+const toFactLine = (value, max = 120) => {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    if (!text) return "";
+    return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+};
+
+const getPacketEvents = (packet) => (
+    Array.isArray(packet?.events)
+        ? packet.events.filter((event) => event && typeof event === "object")
+        : []
+);
+
+const isPenaltyLikeEvent = (event) => {
+    const haystack = `${event?.type || ""} ${event?.text || ""}`.toLowerCase();
+    return PENALTY_TERMS.some((term) => haystack.includes(term));
+};
+
+const buildDeterministicFactAnswer = ({ questionType, userQuery, trustedPacket }) => {
+    if (!trustedPacket || typeof trustedPacket !== "object" || trustedPacket.error) return null;
+    const events = getPacketEvents(trustedPacket);
+    if (!events.length) return null;
+
+    const q = (userQuery || "").toLowerCase();
+
+    if (questionType === "power_play" || /power play|penalt(?:y|ies)/i.test(q)) {
+        const penaltyEvents = events.filter(isPenaltyLikeEvent);
+        if (!penaltyEvents.length) return null;
+
+        const latest = penaltyEvents[penaltyEvents.length - 1];
+        const recent = penaltyEvents.slice(-3).reverse();
+        const latestLine = `Last power-play event: ${latest?.t || "N/A"} — ${toFactLine(latest?.text)}`;
+        if (recent.length === 1) return latestLine;
+
+        return [
+            latestLine,
+            "",
+            "Recent penalties:",
+            ...recent.map((event) => `- ${event?.t || "N/A"} — ${toFactLine(event?.text)}`),
+        ].join("\n");
+    }
+
+    if (questionType === "events" || /last play|what happened|recent plays/i.test(q)) {
+        const latest = events[events.length - 1];
+        if (!latest?.text) return null;
+        return `Latest event: ${latest?.t || "N/A"} — ${toFactLine(latest?.text)}`;
+    }
+
+    return null;
+};
+
+const classifyResponseClass = ({ questionType, userQuery }) => {
+    if (["power_play", "top_scorer", "rebounds", "assists", "events"].includes(questionType)) {
+        return RESPONSE_CLASSES.FACT;
+    }
+    if (questionType === "market") {
+        return EDGE_INTENT_RE.test(userQuery || "") ? RESPONSE_CLASSES.EDGE : RESPONSE_CLASSES.STATE;
+    }
+    return EDGE_INTENT_RE.test(userQuery || "") ? RESPONSE_CLASSES.EDGE : RESPONSE_CLASSES.STATE;
+};
 
 const getRequiredAnswerabilityKeys = (questionType) => {
     switch (questionType) {
+        case "power_play":
+            return ["can_answer_recent_events"];
         case "top_scorer":
             return ["can_answer_top_scorer"];
         case "rebounds":
@@ -394,12 +483,33 @@ async function fetchTrustedMatchPacket(matchId, questionType = "general") {
     if (!supabase || !matchId) return null;
     try {
         const started = Date.now();
+        const maxEvents = ["power_play", "events", "top_scorer", "rebounds", "assists"].includes(questionType)
+            ? 25
+            : 10;
         const { data, error } = await supabase
-            .rpc("get_ai_match_packet", { p_match_id: String(matchId), p_max_events: 10 })
+            .rpc("get_ai_match_packet", { p_match_id: String(matchId), p_max_events: maxEvents })
             .abortSignal(AbortSignal.timeout(3000));
 
         if (error || !data) {
             console.warn("[TrustedPacket] RPC failed:", error?.message || "no_data");
+            try {
+                await supabase.from("ai_tool_logs").insert({
+                    tool_name: "get_live_context",
+                    match_id: String(matchId),
+                    question_type: questionType,
+                    latency_ms: Date.now() - started,
+                    packet_freshness_seconds: null,
+                    missing_fields: ["trusted_packet_missing"],
+                    success: false,
+                    error: error?.message || "trusted_packet_missing",
+                    meta: {
+                        failure_code: QUALITY_FAILURE_CODES.PACKET_BYPASS,
+                        route: "api/chat",
+                    },
+                });
+            } catch (logErr) {
+                console.warn("[TrustedPacket] error-log insert failed:", logErr?.message || logErr);
+            }
             return null;
         }
 
@@ -435,6 +545,23 @@ async function fetchTrustedMatchPacket(matchId, questionType = "general") {
         return packet;
     } catch (err) {
         console.warn("[TrustedPacket] fetch error:", err?.message || err);
+        try {
+            await supabase.from("ai_tool_logs").insert({
+                tool_name: "get_live_context",
+                match_id: String(matchId),
+                question_type: questionType,
+                packet_freshness_seconds: null,
+                missing_fields: ["trusted_packet_fetch_exception"],
+                success: false,
+                error: err?.message || "trusted_packet_fetch_exception",
+                meta: {
+                    failure_code: QUALITY_FAILURE_CODES.PACKET_BYPASS,
+                    route: "api/chat",
+                },
+            });
+        } catch (logErr) {
+            console.warn("[TrustedPacket] catch-log insert failed:", logErr?.message || logErr);
+        }
         return null;
     }
 }
@@ -507,6 +634,7 @@ You are "The Obsidian Ledger," a forensic sports analyst.
 - If TRUSTED_MATCH_PACKET conflicts with web snippets, TRUSTED_MATCH_PACKET wins.
 - If answerability.can_answer_top_scorer is false and the user asks top-scorer/most-points, reply: "Live scorer feed not available yet."
 - Never say "access blocked", "unconfigured access", or "cannot verify due to endpoint access" for packet-backed questions.
+- If TRUSTED_MATCH_PACKET says "Inference Mode: snapshot_only", do not claim transition-level causality. State that transition evidence is not available yet.
 
 **RULE 5 (MATCHUP LINE - DATE/TIME):**
 - For each pick, output a MATCHUP line that includes matchup + date + time + timezone.
@@ -550,10 +678,40 @@ Role: Field Reporter. Direct, factual, concise.
 `}
 `.trim();
 
-const buildDynamicInstruction = ({ marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel, staleWarning, nbaProductContext, trustedPacket }) => {
+const buildResponseClassDirective = (responseClass, questionType) => {
+    if (responseClass === RESPONSE_CLASSES.FACT) {
+        return `
+<response_class_fact>
+- Question type: ${questionType}
+- Answer first, then stop. Maximum 2 short lines unless user asked for a list.
+- No verdict labels, no betting recommendation language, no confidence labels.
+- For power play / penalty questions, include exact most recent timestamp and event text.
+- If additional detail is useful, add up to 3 bullet lines only.
+</response_class_fact>
+`.trim();
+    }
+    if (responseClass === RESPONSE_CLASSES.STATE) {
+        return `
+<response_class_state>
+- Question type: ${questionType}
+- Give a short game-state read in 1 sentence.
+- Add 2-4 compact evidence bullets tied to score, clock, events, and movement.
+- Do not use verdict labels, Tail/Fade language, or confidence percentages.
+</response_class_state>
+`.trim();
+    }
+    return `
+<response_class_edge>
+- This is a betting intent response. Use verdict-first structure with evidence.
+</response_class_edge>
+`.trim();
+};
+
+const buildDynamicInstruction = ({ marketPhase, MODE, responseClass, questionType, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel, staleWarning, nbaProductContext, trustedPacket }) => {
     const now = new Date();
     const nbaContextBrief = buildNbaPromptContextBlock(nbaProductContext);
     const trustedPacketBlock = buildTrustedPacketContextBlock(trustedPacket);
+    const responseDirective = buildResponseClassDirective(responseClass, questionType);
     return `
 <temporal>
 TODAY: ${now.toLocaleDateString("en-US", { timeZone: "America/New_York" })}
@@ -561,6 +719,8 @@ TIME: ${now.toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET
 MARKET_PHASE: ${marketPhase}
 MODE: ${MODE}
 </temporal>
+
+${responseDirective}
 
 <context>
 ${[
@@ -908,6 +1068,8 @@ export async function POST(req) {
     const validLiveStatuses = ["IN_PROGRESS", "LIVE", "HALFTIME", "END_PERIOD"];
     isLive = isLive || validLiveStatuses.some(st => (activeContext?.status || "").toUpperCase().includes(st));
     const questionType = classifyQuestionType(userQuery);
+    const responseClass = classifyResponseClass({ questionType, userQuery });
+    const modeForPrompt = responseClass === RESPONSE_CLASSES.EDGE ? "ANALYSIS" : "CONVERSATION";
 
     const trustedPacketMatchId = activeContext?.match_id ? String(activeContext.match_id) : null;
     const trustedPacket = trustedPacketMatchId ? await fetchTrustedMatchPacket(trustedPacketMatchId, questionType) : null;
@@ -916,7 +1078,36 @@ export async function POST(req) {
         ? Number(trustedPacket.packet_meta.freshness_seconds)
         : null;
     const trustedPacketAsOf = trustedPacket?.packet_meta?.as_of || null;
-    const canAnswerTopScorer = trustedPacket?.answerability?.can_answer_top_scorer === true;
+    const inferenceMode = deriveInferenceMode(trustedPacket);
+    const requiredAnswerabilityKeys = getRequiredAnswerabilityKeys(questionType);
+    const missingRequiredKeys = trustedPacket
+        ? requiredAnswerabilityKeys.filter((key) => trustedPacket?.answerability?.[key] !== true)
+        : requiredAnswerabilityKeys;
+    const requiresTrustedPacket = isLive || (LIVE_QUESTION_TYPES.has(questionType) && Boolean(trustedPacketMatchId));
+    const packetIsStale = Number.isFinite(trustedFreshnessSeconds)
+        && trustedFreshnessSeconds > PACKET_STALE_THRESHOLD_SECONDS;
+    const deterministicFactAnswer = buildDeterministicFactAnswer({
+        questionType,
+        userQuery,
+        trustedPacket,
+    });
+
+    let qualityFailureCode = QUALITY_FAILURE_CODES.OK;
+    let qualityFailureReason = null;
+
+    if (requiresTrustedPacket && !trustedPacket) {
+        qualityFailureCode = QUALITY_FAILURE_CODES.PACKET_BYPASS;
+        qualityFailureReason = "trusted_packet_missing";
+    } else if (requiresTrustedPacket && packetIsStale) {
+        qualityFailureCode = QUALITY_FAILURE_CODES.STALE_CONFIDENT_ANSWER;
+        qualityFailureReason = "trusted_packet_stale";
+    } else if (requiresTrustedPacket && missingRequiredKeys.length > 0) {
+        qualityFailureCode = QUALITY_FAILURE_CODES.PARTIAL_PACKET_OVERREACH;
+        qualityFailureReason = `missing_required_fields:${missingRequiredKeys.join(",")}`;
+    } else if (questionType === "market" && inferenceMode === "snapshot_only") {
+        qualityFailureCode = QUALITY_FAILURE_CODES.SNAPSHOT_AS_TRANSITION;
+        qualityFailureReason = "market_query_without_transition_evidence";
+    }
 
     const marketPhase = getMarketPhase(activeContext);
     const lineMovementIntel = (evidence.lineMovement?.available && evidence.lineMovement.movements?.length > 0)
@@ -938,6 +1129,17 @@ export async function POST(req) {
     }
 
     const geminiHistory = normalizeGeminiHistory(messages, liveDataUrls);
+    waitUntil(logResponseQualityGuard({
+        matchId: trustedPacketMatchId,
+        questionType,
+        failureCode: qualityFailureCode,
+        missingFields: missingRequiredKeys,
+        freshnessSeconds: trustedFreshnessSeconds,
+        inferenceMode,
+        isLiveIntent: isLive || LIVE_QUESTION_TYPES.has(questionType),
+        requiresPacket: requiresTrustedPacket,
+        reason: qualityFailureReason,
+    }));
 
     // -------------------------------------------------------------------------
     // STREAM ENGINE: Native Web Streams
@@ -962,15 +1164,29 @@ export async function POST(req) {
             })();
 
             controller.enqueue(ENCODER.encode(`:ok\n\n`));
+            safeWrite({ type: "response_class", class: responseClass });
 
             let fullText = "";
             let rawThoughts = "";
             let finalMetadata = null;
 
             try {
-                const systemPrompt = `${buildStaticInstruction(MODE)}\n\n${buildDynamicInstruction({
-                    marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel,
-                    staleWarning: isContextStale(activeContext) ? "\n⚠️ DATA WARNING: Context may be stale." : "",
+                const systemPrompt = `${buildStaticInstruction(modeForPrompt)}\n\n${buildDynamicInstruction({
+                    marketPhase,
+                    MODE: modeForPrompt,
+                    responseClass,
+                    questionType,
+                    activeContext,
+                    isLive,
+                    liveDataUrls,
+                    evidence,
+                    lineMovementIntel,
+                    staleWarning: [
+                        isContextStale(activeContext) ? "⚠️ DATA WARNING: Context may be stale." : "",
+                        qualityFailureCode === QUALITY_FAILURE_CODES.SNAPSHOT_AS_TRANSITION
+                            ? "⚠️ QUALITY MODE: Snapshot-only context. Do not claim transition-level causality."
+                            : ""
+                    ].filter(Boolean).map((line) => `\n${line}`).join(""),
                     nbaProductContext,
                     trustedPacket
                 })}`;
@@ -984,10 +1200,32 @@ export async function POST(req) {
                     });
                 }
 
-                if (questionType === "top_scorer" && !canAnswerTopScorer) {
-                    fullText = "Live scorer feed not available yet.";
+                const hardStopFailureCodes = new Set([
+                    QUALITY_FAILURE_CODES.PACKET_BYPASS,
+                    QUALITY_FAILURE_CODES.STALE_CONFIDENT_ANSWER,
+                    QUALITY_FAILURE_CODES.PARTIAL_PACKET_OVERREACH,
+                ]);
+
+                if (hardStopFailureCodes.has(qualityFailureCode)) {
+                    fullText = getGuardrailMessage({
+                        failureCode: qualityFailureCode,
+                        questionType,
+                        missingKeys: missingRequiredKeys,
+                        freshnessSeconds: trustedFreshnessSeconds,
+                    });
                     safeWrite({ type: "text", content: fullText });
-                    sendDone({ fallback: "top_scorer_unavailable" });
+                    safeWrite({
+                        type: "quality",
+                        content: `quality_guard:${qualityFailureCode}`,
+                    });
+                    sendDone({ fallback: qualityFailureCode });
+                    return;
+                }
+
+                if (responseClass === RESPONSE_CLASSES.FACT && deterministicFactAnswer) {
+                    fullText = deterministicFactAnswer;
+                    safeWrite({ type: "text", content: fullText });
+                    sendDone({ fallback: "deterministic_fact" });
                     return;
                 }
 
@@ -1030,7 +1268,7 @@ export async function POST(req) {
 
                             const cleanMatchId = activeContext?.match_id ? String(activeContext.match_id) : null;
 
-                            if (MODE === "ANALYSIS") {
+                            if (modeForPrompt === "ANALYSIS") {
                                 const analysisTask = (async () => {
                                     const map = buildClaimMap(fullText, rawThoughts);
                                     const gate = gateDecision(map, true);

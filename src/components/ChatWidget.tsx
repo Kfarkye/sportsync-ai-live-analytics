@@ -326,6 +326,7 @@ interface FileContent { type: "file"; source: { type: "base64"; media_type: stri
 type MessagePart = TextContent | ImageContent | FileContent;
 type MessageContent = string | MessagePart[];
 type VerdictOutcome = "tail" | "fade" | null;
+type ResponseClass = "fact" | "state" | "edge";
 
 interface Message {
   id: string;
@@ -339,6 +340,7 @@ interface Message {
   isStreaming?: boolean;
   timestamp: string;
   verdictOutcome?: VerdictOutcome;
+  responseClass?: ResponseClass;
 }
 
 interface Attachment { file: File; base64: string; mimeType: string }
@@ -363,8 +365,9 @@ interface GameContext {
 interface ChatWidgetProps { currentMatch?: GameContext | Match; matches?: Match[]; inline?: boolean }
 
 interface StreamChunk {
-  type: "text" | "thought" | "grounding" | "error" | "evidence";
+  type: "text" | "thought" | "grounding" | "error" | "evidence" | "response_class";
   content?: string;
+  class?: ResponseClass;
   metadata?: GroundingMetadata;
   lines?: string[];
   freshness_seconds?: number | null;
@@ -2496,6 +2499,9 @@ const MessageBubble: FC<{
 }> = memo(
   ({ message, onTrackVerdict, verdictOutcomes, showCitations = true }) => {
     const isUser = message.role === "user";
+    const responseClass: ResponseClass = message.responseClass || "state";
+    const isEdgeClass = !isUser && responseClass === "edge";
+    const isFactClass = !isUser && responseClass === "fact";
     const rawText = useMemo(() => extractTextContent(message.content), [message.content]);
     const verifiedContent = useMemo(() => {
       const t = rawText;
@@ -2535,11 +2541,11 @@ const MessageBubble: FC<{
      * During streaming, show everything — split only on completed messages.
      */
     const { pickContent, analysisBlocks } = useMemo(() => {
-      if (isUser || !contentSansMatchups || message.isStreaming) {
+      if (isUser || !contentSansMatchups || message.isStreaming || !isEdgeClass) {
         return { pickContent: contentSansMatchups, analysisBlocks: [] };
       }
       return splitPickContent(contentSansMatchups);
-    }, [contentSansMatchups, isUser, message.isStreaming]);
+    }, [contentSansMatchups, isEdgeClass, isUser, message.isStreaming]);
 
     /** Double-disclosure state — controlled from here, triggered from the pick card */
     const [analysisOpenByKey, setAnalysisOpenByKey] = useState<Record<string, boolean>>({});
@@ -2561,7 +2567,7 @@ const MessageBubble: FC<{
           return c.length > 5 ? <TacticalHUD content={c} /> : null;
         }
         return (
-          <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-6 last:mb-0")}>
+          <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", isFactClass ? "mb-3 last:mb-0" : "mb-6 last:mb-0")}>
             {children}
           </div>
         );
@@ -2663,7 +2669,7 @@ const MessageBubble: FC<{
           p: ({ children }) => {
             const text = flattenText(children);
 
-            if (REGEX_VERDICT_MATCH.test(text)) {
+            if (isEdgeClass && REGEX_VERDICT_MATCH.test(text)) {
               const verdictPayload = extractVerdictPayload(text);
               const confidence = extractConfidence(verdictPayload);
               const trackingKey = `${message.id}:v${verdictCardIndex}`;
@@ -2701,14 +2707,14 @@ const MessageBubble: FC<{
             }
 
             // Suppress paragraphs already rendered inside EdgeVerdictCard as synopsis
-            if (synopses.length > 0) {
+            if (isEdgeClass && synopses.length > 0) {
               const cleaned = text.replace(/\*+/g, "").replace(/\s+/g, " ").trim();
               if (synopses.some(s => s && cleaned.length > 10 && cleaned.includes(s))) return null;
             }
 
             // M-26: Apply typography normalization to body paragraphs
             return (
-              <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-6 last:mb-0")}>
+              <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", isFactClass ? "mb-3 last:mb-0" : "mb-6 last:mb-0")}>
                 {children}
               </div>
             );
@@ -2817,7 +2823,7 @@ const MessageBubble: FC<{
           ),
         };
       },
-      [analysisBlocks, analysisComponents, analysisOpenByKey, isUser, matchups, message.id, message.verdictOutcome, onTrackVerdict, synopses, toggleAnalysis, verdictOutcomes],
+      [analysisBlocks, analysisComponents, analysisOpenByKey, isEdgeClass, isFactClass, isUser, matchups, message.id, message.verdictOutcome, onTrackVerdict, synopses, toggleAnalysis, verdictOutcomes],
     );
 
     return (
@@ -2825,7 +2831,7 @@ const MessageBubble: FC<{
         initial={{ opacity: 0, y: 20, filter: "blur(4px)" }}
         animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
         transition={SYSTEM.anim.fluid}
-        className={cn("flex flex-col mb-10 w-full relative group isolate", isUser ? "items-end" : "items-start")}
+        className={cn("flex flex-col w-full relative group isolate", isFactClass ? "mb-6" : "mb-10", isUser ? "items-end" : "items-start")}
       >
         {/* M-18: iMessage-style flattened top-right corner for user bubbles */}
         <div className={cn(
@@ -2861,7 +2867,7 @@ const MessageBubble: FC<{
             </div>
           )}
 
-          {!isUser && !message.isStreaming && verifiedContent && !REGEX_VERDICT_MATCH.test(extractTextContent(message.content)) && (
+          {!isUser && !message.isStreaming && verifiedContent && (!isEdgeClass || !REGEX_VERDICT_MATCH.test(extractTextContent(message.content))) && (
             <div className="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity delay-75">
               <CopyButton content={verifiedContent} />
             </div>
@@ -3544,6 +3550,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
       let evidenceLines: string[] = [];
       let evidenceFreshnessSeconds: number | null = null;
       let evidenceAsOf: string | null = null;
+      let responseClass: ResponseClass | null = null;
 
       await edgeService.chat(
         wireMessages,
@@ -3576,6 +3583,12 @@ const InnerChatWidget: FC<ChatWidgetProps & {
               evidenceFreshnessSeconds,
               evidenceAsOf,
             });
+          }
+          if (chunk.type === "response_class") {
+            responseClass = chunk.class || null;
+            if (responseClass) {
+              enqueuePatch({ responseClass });
+            }
           }
           if (chunk.type === "error") {
             const errMsg = chunk.content || "An error occurred. Please try again.";
