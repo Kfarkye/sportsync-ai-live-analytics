@@ -17,7 +17,6 @@ import React, {
   useCallback,
   useRef,
   memo,
-  useDeferredValue,
   useId,
   type FC,
   type ReactNode,
@@ -77,6 +76,10 @@ import { useNbaProductContextPacket } from '@/hooks/useNbaContext';
 // ============================================================================
 
 interface DbPlayerPropRow {
+  id?: string | null;
+  match_id?: string | null;
+  league?: string | null;
+  event_date?: string | null;
   player_name?: string | null;
   bet_type?: string | null;
   line_value?: number | string | null;
@@ -805,38 +808,39 @@ const NbaContextPanel = memo(({ match, liveState }: { match: Match; liveState: L
     ? [packet.seasonContext, packet.liveStateContext, packet.environmentContext]
     : [];
 
-  if (sections.length === 0) return null;
+  const visibleSections = sections.filter((section) => {
+    const status = String(section?.status || '').toLowerCase();
+    const hasContent = Boolean(String(section?.summary || section?.detail || '').trim());
+    return status !== 'suppressed' && hasContent;
+  });
 
-  const tokenClassForStatus = (status: string) => {
-    if (status === 'ready') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    if (status === 'suppressed') return 'bg-amber-50 text-amber-700 border-amber-200';
-    return 'bg-slate-100 text-slate-600 border-slate-200';
+  if (visibleSections.length === 0) return null;
+
+  const normalizeSectionCopy = (value: string) => {
+    const text = value.trim();
+    if (/no venue was provided for the context lookup/i.test(text)) {
+      return 'Venue and officiating context will appear once source feeds lock in.';
+    }
+    if (/no qualifying historical backbone bucket matched/i.test(text)) {
+      return 'Historical matchup context will appear once comparable game states are identified.';
+    }
+    return text;
   };
 
   return (
     <SpecSheetRow label="08 // NBA CONTEXT" defaultOpen={true}>
       <div className="space-y-3">
-        {sections.map((section) => (
+        {visibleSections.map((section) => (
           <div
             key={section.label}
             className="rounded-[18px] border border-black/[0.06] bg-white px-4 py-3.5 shadow-[0_3px_12px_rgba(15,23,42,0.03)]"
           >
-            <div className="flex items-start justify-between gap-3">
-              <span className="text-[11px] font-semibold tracking-tight text-black/80">
-                {section.label}
-              </span>
-              <span
-                className={cn(
-                  "rounded-md border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em]",
-                  tokenClassForStatus(section.status),
-                )}
-              >
-                {section.status}
-              </span>
+            <div className="flex items-start gap-3">
+              <span className="text-[11px] font-semibold tracking-tight text-black/80">{section.label}</span>
             </div>
 
             <p className="mt-2 text-[12.5px] leading-relaxed text-black/70">
-              {section.summary || section.detail || 'Context unavailable for this game state.'}
+              {normalizeSectionCopy(section.summary || section.detail || 'Context unavailable for this game state.')}
             </p>
 
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[9px] font-mono uppercase tracking-[0.08em] text-black/50">
@@ -1038,60 +1042,132 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
 
     const propsPromise = (async () => {
       try {
-        const { data: exactProps } = await supabase.from('player_prop_bets').select('*')
+        const normalize = (value: string | undefined | null) =>
+          (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        const uniqueRows = new Map<string, DbPlayerPropRow>();
+        const pushRows = (rows: DbPlayerPropRow[] | null | undefined) => {
+          (rows || []).forEach((row) => {
+            const dedupeKey = [
+              String((row as { match_id?: string }).match_id || ''),
+              String(row.player_name || ''),
+              String(row.bet_type || ''),
+              String(row.line_value ?? ''),
+              String(row.side || ''),
+              String(row.team || ''),
+              String(row.opponent || ''),
+              String(row.odds_american ?? ''),
+            ].join('|');
+            if (!uniqueRows.has(dedupeKey)) uniqueRows.set(dedupeKey, row);
+          });
+        };
+
+        const normalizedMatchIds = matchIds.map(normalize).filter(Boolean);
+        const targetLeague = normalize(cur.leagueId || '');
+        const homeTokens = [
+          cur.homeTeam?.name,
+          cur.homeTeam?.shortName,
+          cur.homeTeam?.abbreviation,
+        ].map(normalize).filter((token) => token.length >= 2);
+        const awayTokens = [
+          cur.awayTeam?.name,
+          cur.awayTeam?.shortName,
+          cur.awayTeam?.abbreviation,
+        ].map(normalize).filter((token) => token.length >= 2);
+
+        const rowBelongsToMatch = (candidate: DbPlayerPropRow): boolean => {
+          const rowMatchId = normalize(String((candidate as { match_id?: string }).match_id || ''));
+          const rowTeam = normalize(String(candidate.team || ''));
+          const rowOpponent = normalize(String(candidate.opponent || ''));
+          const rowLeague = normalize(String((candidate as { league?: string }).league || ''));
+
+          const leagueMatches = !targetLeague || !rowLeague || rowLeague.includes(targetLeague) || targetLeague.includes(rowLeague);
+          if (!leagueMatches) return false;
+
+          if (normalizedMatchIds.some((idToken) => idToken && (rowMatchId === idToken || rowMatchId.includes(idToken)))) {
+            return true;
+          }
+
+          const teamTokenMatch = homeTokens.some((token) => token && (rowTeam.includes(token) || rowOpponent.includes(token)))
+            && awayTokens.some((token) => token && (rowTeam.includes(token) || rowOpponent.includes(token)));
+          if (teamTokenMatch) return true;
+
+          const singleTeamMatch = homeTokens.some((token) => token && (rowTeam.includes(token) || rowOpponent.includes(token)))
+            || awayTokens.some((token) => token && (rowTeam.includes(token) || rowOpponent.includes(token)));
+          return singleTeamMatch;
+        };
+
+        const toIsoDate = (date: Date) => {
+          const clone = new Date(date.getTime());
+          return Number.isNaN(clone.getTime()) ? '' : clone.toISOString().slice(0, 10);
+        };
+        const eventDateSeed = cur.startTime ? new Date(cur.startTime) : null;
+        const dateWindow = eventDateSeed && !Number.isNaN(eventDateSeed.getTime())
+          ? Array.from(new Set([
+            toIsoDate(new Date(eventDateSeed.getTime() - 24 * 60 * 60 * 1000)),
+            toIsoDate(eventDateSeed),
+            toIsoDate(new Date(eventDateSeed.getTime() + 24 * 60 * 60 * 1000)),
+          ].filter(Boolean)))
+          : [];
+
+        const { data: exactProps } = await supabase
+          .from('player_prop_bets')
+          .select('*')
           .in('match_id', matchIds)
           .order('player_name');
+        pushRows(exactProps as DbPlayerPropRow[] | null | undefined);
 
-        let props = exactProps || [];
+        let props = Array.from(uniqueRows.values());
         if (props.length === 0 && rawEventId) {
           const { data: fallbackProps } = await supabase
             .from('player_prop_bets')
             .select('*')
             .ilike('match_id', `${rawEventId}%`)
             .order('player_name')
-            .limit(500);
-          props = fallbackProps || [];
+            .limit(1500);
+          pushRows(fallbackProps as DbPlayerPropRow[] | null | undefined);
+          props = Array.from(uniqueRows.values());
         }
 
-        if (props.length === 0) {
-          const eventDate = cur.startTime ? new Date(cur.startTime).toISOString().slice(0, 10) : null;
-          if (eventDate) {
+        if (props.length === 0 && dateWindow.length > 0) {
+          const dateQueries = dateWindow.map(async (eventDate) => {
             const { data: dateProps } = await supabase
               .from('player_prop_bets')
               .select('*')
               .eq('event_date', eventDate)
               .order('player_name')
-              .limit(2000);
+              .limit(5000);
+            return dateProps as DbPlayerPropRow[] | null;
+          });
+          const dateResults = await Promise.all(dateQueries);
+          dateResults.forEach((rows) => pushRows((rows || []).filter(rowBelongsToMatch)));
+          props = Array.from(uniqueRows.values());
+        }
 
-            const pool = dateProps || [];
-            if (pool.length > 0) {
-              const normalize = (value: string | undefined | null) =>
-                (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-              const homeTokens = [
-                cur.homeTeam?.name,
-                cur.homeTeam?.shortName,
-                cur.homeTeam?.abbreviation,
-              ].map(normalize).filter((token) => token.length >= 2);
-              const awayTokens = [
-                cur.awayTeam?.name,
-                cur.awayTeam?.shortName,
-                cur.awayTeam?.abbreviation,
-              ].map(normalize).filter((token) => token.length >= 2);
+        if (props.length === 0 && (cur.homeTeam?.name || cur.awayTeam?.name)) {
+          const home = (cur.homeTeam?.name || '').trim();
+          const away = (cur.awayTeam?.name || '').trim();
+          const teamOrFilters = [
+            home ? `team.ilike.%${home}%` : null,
+            away ? `team.ilike.%${away}%` : null,
+            home ? `opponent.ilike.%${home}%` : null,
+            away ? `opponent.ilike.%${away}%` : null,
+          ].filter(Boolean).join(',');
 
-              props = pool.filter((candidate) => {
-                const rowMatchId = normalize(String((candidate as { match_id?: string }).match_id || ''));
-                const rowTeam = normalize(String((candidate as { team?: string }).team || ''));
-                const rowLeague = normalize(String((candidate as { league?: string }).league || ''));
-                const targetLeague = normalize(cur.leagueId || '');
-                const leagueMatches = !targetLeague || !rowLeague || rowLeague.includes(targetLeague) || targetLeague.includes(rowLeague);
-                if (!leagueMatches) return false;
-
-                if (rawEventId && rowMatchId.includes(normalize(rawEventId))) return true;
-                const isHome = homeTokens.some((token) => token && rowTeam.includes(token));
-                const isAway = awayTokens.some((token) => token && rowTeam.includes(token));
-                return isHome || isAway;
-              });
-            }
+          if (teamOrFilters) {
+            const { data: teamPool } = await supabase
+              .from('player_prop_bets')
+              .select('*')
+              .or(teamOrFilters)
+              .order('event_date', { ascending: false })
+              .limit(3000);
+            const allowedDates = new Set(dateWindow);
+            pushRows((teamPool as DbPlayerPropRow[] | null | undefined)?.filter((row) => {
+              const rowDate = String((row as { event_date?: string }).event_date || '');
+              if (allowedDates.size > 0 && rowDate && !allowedDates.has(rowDate)) return false;
+              return rowBelongsToMatch(row);
+            }));
+            props = Array.from(uniqueRows.values());
           }
         }
 
@@ -1131,7 +1207,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
               opponent: p.opponent || undefined,
               fantasyDvpRank: p.fantasy_dvp_rank ? Number(p.fantasy_dvp_rank) : undefined,
               avgL5: p.avg_l5 ? Number(p.avg_l5) : undefined,
-              eventDate: new Date().toISOString(),
+              eventDate: String((p as { event_date?: string }).event_date || cur.startTime || new Date().toISOString()),
               league: prev.leagueId || '',
               stakeAmount: 0,
               result: 'pending',
@@ -1140,6 +1216,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
             };
           });
 
+          if (parsed.length === 0 && (prev.dbProps?.length || 0) > 0) return prev;
           const next = { ...prev, dbProps: parsed };
           matchRef.current = next;
           return next;
@@ -1282,8 +1359,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   );
 
   const [activeTab, setActiveTab] = useState(isSched ? 'DETAILS' : 'OVERVIEW');
-  const deferredTab = useDeferredValue(activeTab);
-  const isPendingTab = activeTab !== deferredTab;
+  const currentTab = activeTab;
+  const isPendingTab = false;
 
   const [propView, setPropView] = useState<'classic' | 'cinematic'>('classic');
   const [marketsTab, setMarketsTab] = useState<'TRENDS' | 'ODDS'>('TRENDS');
@@ -1348,7 +1425,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
     if (lines.length === 0) {
       addLine(
-        `${match.awayTeam?.name || 'Away'} vs ${match.homeTeam?.name || 'Home'}: no pregame trend signal posted yet.`
+        `${match.awayTeam?.name || 'Away'} vs ${match.homeTeam?.name || 'Home'}: pregame trend signal posts closer to tip-off.`
       );
     }
 
@@ -1420,7 +1497,49 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           .order('generated_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (active && fallback) setPregameIntel({ ...(fallback as PregameIntelResponse), match_id: match.id, freshness: 'RECENT' });
+
+        if (active && fallback) {
+          setPregameIntel({ ...(fallback as PregameIntelResponse), match_id: match.id, freshness: 'RECENT' });
+          return;
+        }
+
+        const normalize = (value: string | null | undefined) =>
+          (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const homeNeedle = normalize(match.homeTeam?.name || '');
+        const awayNeedle = normalize(match.awayTeam?.name || '');
+        const eventSeed = match.startTime ? new Date(match.startTime) : null;
+        const toIsoDate = (date: Date) => date.toISOString().slice(0, 10);
+        const dateWindow = eventSeed && !Number.isNaN(eventSeed.getTime())
+          ? Array.from(new Set([
+            toIsoDate(new Date(eventSeed.getTime() - 24 * 60 * 60 * 1000)),
+            toIsoDate(eventSeed),
+            toIsoDate(new Date(eventSeed.getTime() + 24 * 60 * 60 * 1000)),
+          ]))
+          : [];
+
+        const baseQuery = supabase
+          .from('pregame_intel')
+          .select('*')
+          .order('generated_at', { ascending: false })
+          .limit(120);
+
+        const scopedQuery = (dateWindow.length > 0 ? baseQuery.in('game_date', dateWindow) : baseQuery)
+          .eq('league_id', match.leagueId || '');
+        const { data: scopedRows } = await scopedQuery;
+
+        const rows = (scopedRows || []).filter((row) => {
+          const rowHome = normalize(String((row as { home_team?: string }).home_team || ''));
+          const rowAway = normalize(String((row as { away_team?: string }).away_team || ''));
+          if (!homeNeedle || !awayNeedle) return false;
+          const direct = rowHome.includes(homeNeedle) && rowAway.includes(awayNeedle);
+          const swapped = rowHome.includes(awayNeedle) && rowAway.includes(homeNeedle);
+          return direct || swapped;
+        });
+
+        const best = rows[0];
+        if (active && best) {
+          setPregameIntel({ ...(best as PregameIntelResponse), match_id: match.id, freshness: 'RECENT' });
+        }
       } catch { }
     };
     fetchIntel();
@@ -1428,7 +1547,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   }, [isSched, match.id, match.homeTeam?.name, match.awayTeam?.name, match.sport, match.leagueId]);
 
   const gameEdgeCardData = useMemo(() => {
-    if (deferredTab !== 'DATA' || !pregameIntel || !match.homeTeam || !match.awayTeam) return null;
+    if (currentTab !== 'DATA' || !pregameIntel || !match.homeTeam || !match.awayTeam) return null;
 
     const pickText = (pregameIntel.recommended_pick || pregameIntel.grading_metadata?.selection || '').trim();
     const norm = (s?: string) => (s || '').toLowerCase();
@@ -1518,7 +1637,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       l5Results: [],
       l5HitRate: 0
     });
-  }, [deferredTab, match, pregameIntel]);
+  }, [currentTab, match, pregameIntel]);
 
   const playByPlayText = liveState?.lastPlay?.text || match.lastPlay?.text || '';
   const sweatTriggers: AIWatchTrigger[] = useMemo(() => {
@@ -1612,9 +1731,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
           <LayoutGroup>
             <AnimatePresence mode="wait">
-              {/* Uses deferredTab to keep the Segment Control click animation instant while DOM renders in background */}
-              <motion.div key={deferredTab} {...PHYSICS.SLIDE_UP} className="transform-gpu will-change-transform">
-                {deferredTab === 'OVERVIEW' && (
+              {/* Tab panel */}
+              <motion.div key={currentTab} {...PHYSICS.SLIDE_UP} className="transform-gpu will-change-transform">
+                {currentTab === 'OVERVIEW' && (
                   <div className="space-y-4">
                     <SpecSheetRow label="01 // BROADCAST" defaultOpen={true} collapsible={false}>
                       {isBaseball ? <BaseballGamePanel match={match} baseballData={baseballData} /> : <CinematicGameTracker match={match} liveState={liveState || undefined} />}
@@ -1630,7 +1749,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   </div>
                 )}
 
-                {deferredTab === 'DETAILS' && (
+                {currentTab === 'DETAILS' && (
                   <div className="space-y-4">
                     <SpecSheetRow label="03 // TRENDS" defaultOpen={true} collapsible={false}>
                       <div className="space-y-2.5">
@@ -1734,7 +1853,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   </div>
                 )}
 
-                {deferredTab === 'PROPS' && (
+                {currentTab === 'PROPS' && (
                   <div className="space-y-4">
                     <div className="rounded-xl border border-[#D9E2F3]/70 bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] px-4 py-3 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
@@ -1750,7 +1869,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                   </div>
                 )}
 
-                {deferredTab === 'DATA' && (
+                {currentTab === 'DATA' && (
                   <div className="space-y-0">
                     {polyData && match.homeTeam && match.awayTeam && (
                       <div className="mb-14 space-y-6">

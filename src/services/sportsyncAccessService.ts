@@ -8,6 +8,19 @@ function normalizeBaseUrl(raw: string | undefined | null): string {
   return value.replace(/\/+$/, '');
 }
 
+function sanitizeAccessErrorMessage(raw: unknown, fallback: string): string {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return fallback;
+  const redacted = raw
+    .replace(/\b(?:sk|rk|pk)_(?:test|live)_[A-Za-z0-9]+\b/g, '[redacted]')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const sensitivePattern = /(invalid api key|api key provided|secret key|authentication|permission denied|not configured)/i;
+  if (sensitivePattern.test(redacted)) return fallback;
+  if (redacted.length > 180) return fallback;
+  return redacted;
+}
+
 export function getSportsyncProjectUrl(): string {
   const env = import.meta.env as Record<string, string | undefined>;
   return normalizeBaseUrl(env.VITE_SPORTSYNC_SUPABASE_URL || env.NEXT_PUBLIC_SPORTSYNC_SUPABASE_URL);
@@ -41,7 +54,10 @@ export async function createCheckoutSession(product: CheckoutProduct, email: str
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const message = typeof payload?.message === 'string' ? payload.message : 'Could not start checkout.';
+    const message = sanitizeAccessErrorMessage(
+      payload?.message,
+      'Checkout is temporarily unavailable. Please try again in a minute.',
+    );
     throw new Error(message);
   }
 
@@ -65,7 +81,10 @@ export async function retrieveApiKey(sessionId: string): Promise<{ key: string; 
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const message = typeof payload?.message === 'string' ? payload.message : 'Could not retrieve API key.';
+    const message = sanitizeAccessErrorMessage(
+      payload?.message,
+      'Could not verify live access right now. Please try again.',
+    );
     throw new Error(message);
   }
 
@@ -82,11 +101,16 @@ export async function retrieveApiKey(sessionId: string): Promise<{ key: string; 
 }
 
 export async function validateGatewayKey(apiKey: string): Promise<boolean> {
+  const trimmed = apiKey.trim();
+  if (!/^ssk_[A-Za-z0-9]/.test(trimmed)) {
+    return false;
+  }
+
   const response = await fetch(`${getGatewayUrl()}?endpoint=health`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
+      'x-api-key': trimmed,
     },
   });
 

@@ -16,6 +16,19 @@ function normalizeEmail(value: string): string | null {
   return pattern.test(trimmed) ? trimmed : null;
 }
 
+function sanitizeGateError(raw: unknown, fallback: string): string {
+  if (!(raw instanceof Error) || typeof raw.message !== 'string') return fallback;
+  const redacted = raw.message
+    .replace(/\b(?:sk|rk|pk)_(?:test|live)_[A-Za-z0-9]+\b/g, '[redacted]')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!redacted) return fallback;
+  if (/invalid api key|api key provided|secret key|authentication|permission denied/i.test(redacted)) {
+    return fallback;
+  }
+  return redacted;
+}
+
 export const LiveAccessGate: React.FC<Props> = ({ children }) => {
   const location = useLocation();
   const [state, setState] = useState<AccessState>('checking');
@@ -37,6 +50,9 @@ export const LiveAccessGate: React.FC<Props> = ({ children }) => {
         if (sessionId) {
           setState('retrieving');
           const result = await retrieveApiKey(sessionId);
+          if (!/^ssk_[A-Za-z0-9]/.test(result.key.trim())) {
+            throw new Error('Retrieved access key was invalid.');
+          }
           localStorage.setItem(DRIP_API_KEY_STORAGE, result.key);
 
           const cleanPath = location.pathname || '/live';
@@ -63,8 +79,9 @@ export const LiveAccessGate: React.FC<Props> = ({ children }) => {
         if (!isCancelled) setState('authorized');
       } catch (error) {
         if (!isCancelled) {
-          setState('error');
-          setErrorMessage(error instanceof Error ? error.message : 'Live access check failed.');
+          localStorage.removeItem(DRIP_API_KEY_STORAGE);
+          setState('locked');
+          setErrorMessage(sanitizeGateError(error, 'Live access check failed. Start Live to continue.'));
         }
       }
     };
@@ -91,7 +108,7 @@ export const LiveAccessGate: React.FC<Props> = ({ children }) => {
       window.location.href = checkoutUrl;
     } catch (error) {
       setState('locked');
-      setErrorMessage(error instanceof Error ? error.message : 'Could not start checkout.');
+      setErrorMessage(sanitizeGateError(error, 'Could not start checkout right now. Please try again.'));
     }
   };
 

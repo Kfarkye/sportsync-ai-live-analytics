@@ -406,6 +406,8 @@ const MatchOddsHeatmap = ({
   }, [orderedOddsRows.nonProps, orderedOddsRows.props, propsExpanded, sortMode, viewMode]);
 
   const allRows = visibleRows;
+  const hasRows = allRows.length > 0;
+  const bootstrapping = isFetching && !hasRows;
   const latestCapturedAt = oddsPayload?.rows?.[0]?.captured_at;
   const totalVolume = useMemo(
     () => (oddsPayload?.rows || []).reduce((acc, row) => acc + Number(row.volume || 0), 0),
@@ -429,7 +431,9 @@ const MatchOddsHeatmap = ({
           ) : null}
         </div>
         <span className="text-[10px] font-mono text-slate-500">
-          {latestCapturedAt ? `Updated ${new Date(latestCapturedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Awaiting market stream'}
+          {latestCapturedAt
+            ? `Updated ${new Date(latestCapturedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+            : 'Stand by for first quote'}
         </span>
       </div>
 
@@ -488,8 +492,10 @@ const MatchOddsHeatmap = ({
         </div>
       </div>
 
-      {isFetching && !(oddsPayload?.rows?.length) ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-[11px] text-slate-500">Syncing exchange depth...</div>
+      {bootstrapping ? (
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-[11px] text-slate-500">
+          Loading opening exchange quotes...
+        </div>
       ) : null}
 
       {isError ? (
@@ -498,7 +504,7 @@ const MatchOddsHeatmap = ({
         </div>
       ) : null}
 
-      {allRows.length ? (
+      {hasRows ? (
         <div className="space-y-2.5">
           {allRows.map((row) => {
             const yesSideInfo = deriveSides(row);
@@ -631,7 +637,9 @@ const MatchOddsHeatmap = ({
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-[11px] text-slate-500">No exchange data available</div>
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-[11px] text-slate-500">
+          Exchange quotes are not live for this matchup yet.
+        </div>
       )}
     </div>
   );
