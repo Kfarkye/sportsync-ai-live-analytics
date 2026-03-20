@@ -62,8 +62,6 @@ import MarketEdgeCard from './MarketEdgeCard';
 import { MatchEdgeTags } from './MatchEdgeTags';
 import { usePolyOdds, findPolyForMatch, type PolyMatchOriented } from '@/hooks/usePolyOdds';
 import { MatchupLoader, MatchupContextPills } from '../ui';
-
-import { TechnicalDebugView } from '../TechnicalDebugView';
 import TeamLogo from '../shared/TeamLogo';
 import {
   BaseballGamePanel,
@@ -1793,8 +1791,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         </main>
       </LiveSweatProvider>
 
-      {/* SOTA SEC: Safe compile-time conditional */}
-      {process.env.NODE_ENV === 'development' && <TechnicalDebugView match={match} />}
     </div>
   );
 };

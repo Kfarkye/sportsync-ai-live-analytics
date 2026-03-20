@@ -333,6 +333,9 @@ interface Message {
   content: MessageContent;
   thoughts?: string;
   groundingMetadata?: GroundingMetadata;
+  evidenceLines?: string[];
+  evidenceFreshnessSeconds?: number | null;
+  evidenceAsOf?: string | null;
   isStreaming?: boolean;
   timestamp: string;
   verdictOutcome?: VerdictOutcome;
@@ -360,9 +363,12 @@ interface GameContext {
 interface ChatWidgetProps { currentMatch?: GameContext | Match; matches?: Match[]; inline?: boolean }
 
 interface StreamChunk {
-  type: "text" | "thought" | "grounding" | "error";
+  type: "text" | "thought" | "grounding" | "error" | "evidence";
   content?: string;
   metadata?: GroundingMetadata;
+  lines?: string[];
+  freshness_seconds?: number | null;
+  as_of?: string | null;
   done?: boolean;
 }
 
@@ -441,6 +447,25 @@ function formatTimestamp(iso: string): string {
   } catch {
     return "";
   }
+}
+
+function formatEvidenceFreshness(seconds?: number | null, asOf?: string | null): string {
+  if (Number.isFinite(seconds) && typeof seconds === "number") {
+    if (seconds < 60) return `Updated ${seconds}s ago`;
+    if (seconds < 3600) return `Updated ${Math.floor(seconds / 60)}m ago`;
+    return `Updated ${Math.floor(seconds / 3600)}h ago`;
+  }
+  if (asOf) {
+    try {
+      const ts = new Date(asOf);
+      if (!Number.isNaN(ts.getTime())) {
+        return `Updated ${ts.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+      }
+    } catch {
+      // Fall through.
+    }
+  }
+  return "Updated just now";
 }
 
 function formatFileSize(bytes: number): string {
@@ -2484,6 +2509,16 @@ const MessageBubble: FC<{
     }, [message.content, message.groundingMetadata, message.isStreaming, isUser, showCitations]);
 
     const formattedTime = useMemo(() => formatTimestamp(message.timestamp), [message.timestamp]);
+    const evidenceLines = useMemo(() => {
+      if (isUser) return [];
+      return Array.isArray(message.evidenceLines)
+        ? message.evidenceLines.filter((line) => typeof line === "string" && line.trim().length > 0).slice(0, 3)
+        : [];
+    }, [isUser, message.evidenceLines]);
+    const evidenceFreshnessLabel = useMemo(
+      () => formatEvidenceFreshness(message.evidenceFreshnessSeconds, message.evidenceAsOf),
+      [message.evidenceFreshnessSeconds, message.evidenceAsOf],
+    );
 
     /** Edge synopses extracted once per message for verdict card enrichment */
     const synopses = useMemo(() => extractEdgeSynopses(rawText), [rawText]);
@@ -2810,6 +2845,21 @@ const MessageBubble: FC<{
             )}
 
           </div>
+
+          {!isUser && evidenceLines.length > 0 && (
+            <div className="mt-4 rounded-[16px] border border-slate-200 bg-slate-50/80 px-3 py-2.5">
+              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">
+                {evidenceFreshnessLabel}
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {evidenceLines.map((line, idx) => (
+                  <div key={`${message.id}-evidence-${idx}`} className="text-[12px] leading-relaxed text-slate-600">
+                    {line}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {!isUser && !message.isStreaming && verifiedContent && !REGEX_VERDICT_MATCH.test(extractTextContent(message.content)) && (
             <div className="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity delay-75">
@@ -3491,6 +3541,9 @@ const InnerChatWidget: FC<ChatWidgetProps & {
       let fullText = "";
       let fullThought = "";
       let groundingData: GroundingMetadata | null = null;
+      let evidenceLines: string[] = [];
+      let evidenceFreshnessSeconds: number | null = null;
+      let evidenceAsOf: string | null = null;
 
       await edgeService.chat(
         wireMessages,
@@ -3509,6 +3562,20 @@ const InnerChatWidget: FC<ChatWidgetProps & {
           if (chunk.type === "grounding") {
             groundingData = chunk.metadata || null;
             enqueuePatch({ groundingMetadata: groundingData || undefined });
+          }
+          if (chunk.type === "evidence") {
+            evidenceLines = Array.isArray(chunk.lines)
+              ? chunk.lines.filter((line) => typeof line === "string" && line.trim().length > 0).slice(0, 3)
+              : [];
+            evidenceFreshnessSeconds = typeof chunk.freshness_seconds === "number"
+              ? chunk.freshness_seconds
+              : null;
+            evidenceAsOf = typeof chunk.as_of === "string" ? chunk.as_of : null;
+            enqueuePatch({
+              evidenceLines,
+              evidenceFreshnessSeconds,
+              evidenceAsOf,
+            });
           }
           if (chunk.type === "error") {
             const errMsg = chunk.content || "An error occurred. Please try again.";
