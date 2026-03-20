@@ -161,8 +161,18 @@ interface TeamAvailabilitySnapshot {
   outCount: number;
   activeCore: AvailabilityPlayer[];
   watchList: AvailabilityPlayer[];
+  players: AvailabilityPlayer[];
+  injuryImpact?: number | null;
+  injuryNotes?: string | null;
   updatedAt?: string;
   totalPlayers: number;
+}
+
+interface DbTeamContextRow {
+  team?: string | null;
+  game_date?: string | null;
+  injury_impact?: number | null;
+  injury_notes?: string | null;
 }
 
 type EspnExtendedMatch = Partial<ExtendedMatch> & { statistics?: Match['stats'] };
@@ -468,19 +478,23 @@ const statusTone: Record<AvailabilityState, string> = {
 const TeamAvailabilityPanel = memo(({
   homeTeamName,
   awayTeamName,
+  homeCorePlayers,
+  awayCorePlayers,
   homeSnapshot,
   awaySnapshot,
   isLoading,
 }: {
   homeTeamName: string;
   awayTeamName: string;
+  homeCorePlayers: string[];
+  awayCorePlayers: string[];
   homeSnapshot: TeamAvailabilitySnapshot | null;
   awaySnapshot: TeamAvailabilitySnapshot | null;
   isLoading: boolean;
 }) => {
   const columns = [
-    { key: 'away', teamName: awayTeamName, snapshot: awaySnapshot },
-    { key: 'home', teamName: homeTeamName, snapshot: homeSnapshot },
+    { key: 'away', teamName: awayTeamName, snapshot: awaySnapshot, corePlayers: awayCorePlayers },
+    { key: 'home', teamName: homeTeamName, snapshot: homeSnapshot, corePlayers: homeCorePlayers },
   ] as const;
 
   if (isLoading && !homeSnapshot && !awaySnapshot) {
@@ -494,84 +508,145 @@ const TeamAvailabilityPanel = memo(({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {columns.map(({ key, teamName, snapshot }) => (
-        <div
-          key={key}
-          className="rounded-[16px] border border-[#D8E2F2] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] p-4 shadow-[0_10px_20px_-18px_rgba(16,34,58,0.45)]"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <h4 className="text-[13px] font-semibold tracking-tight text-[#10223A] truncate">
-              {teamName}
-            </h4>
-            {snapshot?.updatedAt ? (
-              <span className="text-[10px] font-mono text-black/45">Updated {formatAvailabilityDate(snapshot.updatedAt)}</span>
-            ) : null}
-          </div>
+      {columns.map(({ key, teamName, snapshot, corePlayers }) => {
+        const coreSet = new Set(corePlayers.map((name) => normalizeTeamToken(name)));
+        const flaggedPlayers = (snapshot?.players || [])
+          .filter((player) => player.state !== 'active')
+          .map((player) => ({
+            ...player,
+            isCore: coreSet.has(normalizeTeamToken(player.playerName)),
+          }))
+          .sort((a, b) => {
+            if (a.isCore !== b.isCore) return a.isCore ? -1 : 1;
+            const stateDelta = statePriority(b.state) - statePriority(a.state);
+            if (stateDelta !== 0) return stateDelta;
+            return a.playerName.localeCompare(b.playerName);
+          });
 
-          {!snapshot || snapshot.totalPlayers === 0 ? (
-            <p className="mt-3 text-[12px] text-black/55 leading-relaxed">
-              Roster feed has not populated this matchup yet.
-            </p>
-          ) : (
-            <div className="mt-3 space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5">
-                  <div className="text-[9px] uppercase tracking-[0.14em] text-emerald-700 font-semibold">Active</div>
-                  <div className="text-[14px] font-mono font-semibold text-emerald-900">{snapshot.activeCount}</div>
-                </div>
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
-                  <div className="text-[9px] uppercase tracking-[0.14em] text-amber-700 font-semibold">Limited</div>
-                  <div className="text-[14px] font-mono font-semibold text-amber-900">{snapshot.limitedCount}</div>
-                </div>
-                <div className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5">
-                  <div className="text-[9px] uppercase tracking-[0.14em] text-rose-700 font-semibold">Out</div>
-                  <div className="text-[14px] font-mono font-semibold text-rose-900">{snapshot.outCount}</div>
-                </div>
-              </div>
+        const coreOutPlayers = flaggedPlayers.filter((player) => player.isCore && player.state === 'out');
+        const coreWatchPlayers = flaggedPlayers.filter((player) => player.isCore && player.state === 'limited');
+        const depthPlayers = flaggedPlayers.filter((player) => !player.isCore);
+        const coreOutCount = coreOutPlayers.length;
+        const coreWatchCount = coreWatchPlayers.length;
+        const depthFlagCount = depthPlayers.length;
 
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-black/55 font-semibold mb-1.5">Likely Available Core</div>
-                {snapshot.activeCore.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {snapshot.activeCore.map((player) => (
-                      <span
-                        key={`${teamName}-core-${player.playerName}`}
-                        className="inline-flex items-center gap-1 rounded-full border border-[#D7E3F4] bg-white px-2.5 py-1 text-[11px] text-[#10223A]"
-                      >
-                        <span className="font-semibold">{player.playerName}</span>
-                        {player.position ? <span className="font-mono text-[10px] text-black/55">{player.position}</span> : null}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-[12px] text-black/50">No active-player list available yet.</div>
-                )}
-              </div>
+        const formatPlayerNames = (players: Array<{ playerName: string }>, max = 2) => {
+          if (players.length === 0) return 'None';
+          const names = players.slice(0, max).map((player) => player.playerName);
+          if (players.length <= max) return names.join(', ');
+          return `${names.join(', ')} +${players.length - max}`;
+        };
 
-              {snapshot.watchList.length > 0 ? (
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-black/55 font-semibold mb-1.5">Availability Watch</div>
-                  <div className="space-y-1.5">
-                    {snapshot.watchList.slice(0, 4).map((player) => (
-                      <div key={`${teamName}-watch-${player.playerName}`} className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-[12px] font-semibold text-[#10223A] truncate">{player.playerName}</div>
-                          {player.injuryNote ? (
-                            <div className="text-[11px] text-black/55 leading-snug line-clamp-2">{player.injuryNote}</div>
-                          ) : null}
-                        </div>
-                        <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em]', statusTone[player.state])}>
-                          {player.statusLabel}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+        let summary = 'No major availability concerns in the current feed.';
+        if (snapshot?.injuryNotes) {
+          summary = compactText(snapshot.injuryNotes, 120);
+        } else if (coreOutCount > 0) {
+          summary = `${coreOutCount} projected core ${coreOutCount > 1 ? 'players are' : 'player is'} out.`;
+        } else if (coreWatchCount > 0) {
+          summary = `${coreWatchCount} projected core ${coreWatchCount > 1 ? 'players are' : 'player is'} on availability watch.`;
+        } else if (depthFlagCount > 0) {
+          summary = 'Most current flags are depth or rotation pieces.';
+        }
+
+        let lineRead = 'No major pregame availability drag is signaled for this side.';
+        if (typeof snapshot?.injuryImpact === 'number') {
+          if (snapshot.injuryImpact >= 7) {
+            lineRead = 'Line implication: high injury pressure against this side.';
+          } else if (snapshot.injuryImpact >= 4) {
+            lineRead = 'Line implication: moderate injury pressure. Verify before entry.';
+          } else if (snapshot.injuryImpact > 0) {
+            lineRead = 'Line implication: light injury pressure, mostly depth level.';
+          }
+        } else if (coreOutCount > 0) {
+          lineRead = 'Line implication: meaningful lineup hit from an expected core piece.';
+        } else if (coreWatchCount > 0) {
+          lineRead = 'Line implication: rotation risk is live until final status confirms.';
+        } else if (depthFlagCount > 0) {
+          lineRead = 'Line implication: depth-only flags, limited pregame line effect.';
+        }
+
+        return (
+          <div
+            key={key}
+            className="rounded-[16px] border border-[#D8E2F2] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] p-4 shadow-[0_10px_20px_-18px_rgba(16,34,58,0.45)]"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="text-[13px] font-semibold tracking-tight text-[#10223A] truncate">
+                {teamName}
+              </h4>
+              {snapshot?.updatedAt ? (
+                <span className="text-[10px] font-mono text-black/45">Updated {formatAvailabilityDate(snapshot.updatedAt)}</span>
               ) : null}
             </div>
-          )}
-        </div>
-      ))}
+
+            {!snapshot || snapshot.totalPlayers === 0 ? (
+              <p className="mt-3 text-[12px] text-black/55 leading-relaxed">
+                Availability feed has not populated this team yet.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <div className="rounded-lg border border-[#DBE5F5] bg-white px-3 py-2.5 space-y-2">
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="uppercase tracking-[0.14em] font-semibold text-rose-700">Important Absence</span>
+                    <span className="text-[#10223A] font-semibold text-right">{formatPlayerNames(coreOutPlayers)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="uppercase tracking-[0.14em] font-semibold text-amber-700">Rotation Watch</span>
+                    <span className="text-[#10223A] font-semibold text-right">{formatPlayerNames(coreWatchPlayers)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="uppercase tracking-[0.14em] font-semibold text-[#3A4F71]">Depth Flags</span>
+                    <span className="text-[#10223A] font-semibold">{depthFlagCount}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-[#DBE5F5] bg-white px-3 py-2 text-[12px] leading-relaxed text-[#10223A]/80 space-y-1">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-black/55 mr-2">What changed</span>
+                    {summary}
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-black/55 mr-2">Line implication</span>
+                    {lineRead}
+                  </div>
+                  {typeof snapshot.injuryImpact === 'number' ? (
+                    <span className="ml-2 text-[10px] font-mono text-black/55">impact {snapshot.injuryImpact.toFixed(1)}/10</span>
+                  ) : null}
+                </div>
+
+                {flaggedPlayers.length > 0 ? (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-black/55 font-semibold mb-1.5">Impact Watch</div>
+                    <div className="space-y-1.5">
+                      {flaggedPlayers.slice(0, 5).map((player) => (
+                        <div key={`${teamName}-watch-${player.playerName}`} className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <div className="text-[12px] font-semibold text-[#10223A] truncate">{player.playerName}</div>
+                              <span className={cn(
+                                'shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.12em]',
+                                player.isCore ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-[#D8E2F2] bg-[#F6FAFF] text-[#3A4F71]'
+                              )}>
+                                {player.isCore ? 'Core' : 'Depth'}
+                              </span>
+                            </div>
+                            {player.injuryNote ? (
+                              <div className="text-[11px] text-black/55 leading-snug line-clamp-2">{player.injuryNote}</div>
+                            ) : null}
+                          </div>
+                          <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em]', statusTone[player.state])}>
+                            {player.statusLabel}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 });
@@ -1686,6 +1761,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
       const rosterRows: DbRosterRow[] = [];
       const injuryRows: DbInjuryRow[] = [];
+      const contextRows: DbTeamContextRow[] = [];
+      const targetDateMs = new Date(match.startTime).getTime();
 
       for (const needle of needles.slice(0, 3)) {
         const rosterRes = await supabase
@@ -1703,6 +1780,14 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           .order('report_date', { ascending: false })
           .limit(60);
         if (!injuryRes.error && injuryRes.data) injuryRows.push(...(injuryRes.data as DbInjuryRow[]));
+
+        const contextRes = await supabase
+          .from('team_game_context')
+          .select('team,game_date,injury_impact,injury_notes')
+          .ilike('team', `%${needle}%`)
+          .order('game_date', { ascending: false })
+          .limit(8);
+        if (!contextRes.error && contextRes.data) contextRows.push(...(contextRes.data as DbTeamContextRow[]));
       }
 
       const players = new Map<string, AvailabilityPlayer>();
@@ -1748,8 +1833,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       }
 
       const mergedPlayers = Array.from(players.values());
-      if (mergedPlayers.length === 0) return null;
-
       const sorted = mergedPlayers.sort((a, b) => {
         const stateDelta = statePriority(b.state) - statePriority(a.state);
         if (stateDelta !== 0) return stateDelta;
@@ -1769,6 +1852,17 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
       const limitedCount = mergedPlayers.filter((player) => player.state === 'limited').length;
       const outCount = mergedPlayers.filter((player) => player.state === 'out').length;
 
+      const matchingContextRows = contextRows.filter((row) => teamNameMatches(row.team, needles));
+      const contextRow = matchingContextRows
+        .sort((a, b) => {
+          const aDate = new Date(a.game_date || '').getTime();
+          const bDate = new Date(b.game_date || '').getTime();
+          if (!Number.isFinite(targetDateMs)) return bDate - aDate;
+          return Math.abs(aDate - targetDateMs) - Math.abs(bDate - targetDateMs);
+        })[0];
+
+      if (mergedPlayers.length === 0 && !contextRow) return null;
+
       return {
         teamLabel: team.name,
         activeCount,
@@ -1776,6 +1870,9 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         outCount,
         activeCore,
         watchList: sorted.filter((player) => player.state !== 'active'),
+        players: mergedPlayers,
+        injuryImpact: typeof contextRow?.injury_impact === 'number' ? contextRow.injury_impact : null,
+        injuryNotes: contextRow?.injury_notes || null,
         updatedAt,
         totalPlayers: mergedPlayers.length,
       };
@@ -1846,6 +1943,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     };
   }, [
     match.id,
+    match.startTime,
     match.homeTeam?.id,
     match.homeTeam?.name,
     match.homeTeam?.shortName,
@@ -1952,6 +2050,53 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   }, [match.awayTeam?.name, match.awayTeam?.record, match.current_odds, match.edge_tags, match.homeTeam?.name, match.homeTeam?.record, match.odds, pregameIntel]);
 
   const headerTrendLine = trendLines[0];
+
+  const corePlayersByTeam = useMemo(() => {
+    const homeNeedles = buildTeamNeedles(match.homeTeam);
+    const awayNeedles = buildTeamNeedles(match.awayTeam);
+    const homeTally = new Map<string, { name: string; weight: number }>();
+    const awayTally = new Map<string, { name: string; weight: number }>();
+
+    for (const prop of (match.dbProps || [])) {
+      const playerName = String(prop.playerName || '').trim();
+      if (!playerName) continue;
+      const key = normalizeTeamToken(playerName);
+      if (!key) continue;
+
+      const betType = String((prop as { betType?: string }).betType || '').toLowerCase();
+      const baseWeight = betType.includes('points') || betType.includes('goals') || betType.includes('assists') ? 2 : 1;
+      const teamField = String((prop as { team?: string }).team || '');
+
+      if (teamNameMatches(teamField, homeNeedles)) {
+        const current = homeTally.get(key);
+        homeTally.set(key, { name: playerName, weight: (current?.weight || 0) + baseWeight });
+      } else if (teamNameMatches(teamField, awayNeedles)) {
+        const current = awayTally.get(key);
+        awayTally.set(key, { name: playerName, weight: (current?.weight || 0) + baseWeight });
+      }
+    }
+
+    const topNames = (map: Map<string, { name: string; weight: number }>) =>
+      Array.from(map.values())
+        .sort((a, b) => b.weight - a.weight || a.name.localeCompare(b.name))
+        .slice(0, 7)
+        .map((entry) => entry.name);
+
+    return {
+      home: topNames(homeTally),
+      away: topNames(awayTally),
+    };
+  }, [
+    match.dbProps,
+    match.homeTeam?.id,
+    match.homeTeam?.name,
+    match.homeTeam?.shortName,
+    match.homeTeam?.abbreviation,
+    match.awayTeam?.id,
+    match.awayTeam?.name,
+    match.awayTeam?.shortName,
+    match.awayTeam?.abbreviation,
+  ]);
 
   const awayRecentGames = useMemo(
     () => recentFormSnapshot.away.length > 0 ? recentFormSnapshot.away : (match.awayTeam?.last5 || []),
@@ -2378,6 +2523,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                           <TeamAvailabilityPanel
                             homeTeamName={match.homeTeam.name}
                             awayTeamName={match.awayTeam.name}
+                            homeCorePlayers={corePlayersByTeam.home}
+                            awayCorePlayers={corePlayersByTeam.away}
                             homeSnapshot={availabilitySnapshot.home}
                             awaySnapshot={availabilitySnapshot.away}
                             isLoading={availabilityLoading}
