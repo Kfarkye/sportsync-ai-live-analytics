@@ -130,6 +130,11 @@ const formatProbabilityValue = (probability: number, mode: OddsLensMode): string
   return `${Math.round(probability)}%`;
 };
 
+const formatGapValue = (value: number): string => {
+  if (!Number.isFinite(value)) return '—';
+  return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
+};
+
 const ProbabilityPill = memo(({
   value,
   isFavorite,
@@ -161,6 +166,38 @@ const ProbabilityPill = memo(({
   );
 });
 ProbabilityPill.displayName = 'ProbabilityPill';
+
+const GapPill = memo(({ value }: { value: number | undefined }) => {
+  if (value === undefined || !Number.isFinite(value)) {
+    return (
+      <span className="inline-flex items-center justify-center h-[36px] min-w-[86px] max-[390px]:min-w-[78px] rounded-full border border-[#E1E8F4] bg-white text-slate-300 px-3 font-mono font-semibold text-[12px] tabular-nums">
+        —
+      </span>
+    );
+  }
+
+  const abs = Math.abs(value);
+  const tone =
+    abs < 0.2
+      ? 'border-[#C6D3E7] text-slate-700 bg-white'
+      : value > 0
+        ? 'border-[#49BA95] text-[#084F3D] bg-[linear-gradient(180deg,#F2FFF9_0%,#E7FAF2_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-14px_rgba(29,158,117,0.55)]'
+        : 'border-[#F4B3B3] text-[#8A1E1E] bg-[linear-gradient(180deg,#FFF6F6_0%,#FFECEC_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-14px_rgba(185,59,59,0.45)]';
+
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center justify-center h-[36px] min-w-[86px] max-[390px]:min-w-[78px] rounded-full border px-3.5 max-[390px]:px-3 tabular-nums font-mono font-semibold text-[13px] max-[390px]:text-[12px] tracking-tight transition-all duration-300',
+        tone
+      )}
+      aria-label={`Market gap ${formatGapValue(value)}`}
+      title={`Book vs prediction-market gap ${formatGapValue(value)}`}
+    >
+      {formatGapValue(value)}
+    </span>
+  );
+});
+GapPill.displayName = 'GapPill';
 
 const OddsChip = memo(({ label, display, mobileHidden }: MatchRowOddPayload) => {
   return (
@@ -266,7 +303,13 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   );
   const hasOdds = oddsPayload.length > 0;
   const hasEdgeInsights = typeof homeEdge === 'number' || typeof awayEdge === 'number';
-  const shouldShowProbabilities = !isTennis && (homeProb !== undefined || awayProb !== undefined);
+  const shouldShowGapRail = !isTennis && hasEdgeInsights;
+  const shouldShowProbabilities = !isTennis && !shouldShowGapRail && (homeProb !== undefined || awayProb !== undefined);
+  const probabilityRailLabel = shouldShowGapRail
+    ? 'Book vs PM Gap'
+    : oddsLens === 'IMPLIED'
+      ? 'PM Probability'
+      : 'PM Fair Price';
   const drawRawOdds =
     match.odds?.draw ??
     match.odds?.drawWin ??
@@ -280,9 +323,9 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
     : undefined;
   const drawProbFromOdds = impliedProbabilityFromOddsRaw(drawRawOdds);
   const drawProb =
-    (typeof drawProbFromResidual === 'number' && drawProbFromResidual > 0.1 && drawProbFromResidual < 99.9)
-      ? drawProbFromResidual
-      : (typeof drawProbFromOdds === 'number' && drawProbFromOdds > 0 && drawProbFromOdds <= 100 ? drawProbFromOdds : undefined);
+    (typeof drawProbFromOdds === 'number' && drawProbFromOdds > 0 && drawProbFromOdds <= 100)
+      ? drawProbFromOdds
+      : (typeof drawProbFromResidual === 'number' && drawProbFromResidual > 0.1 && drawProbFromResidual < 99.9 ? drawProbFromResidual : undefined);
   const showSoccerTieRow = match.sport === Sport.SOCCER && (drawPriceLabel !== null || drawProb !== undefined);
   const trendPreview = useMemo(() => trendPreviewFromMatch(match), [match]);
 
@@ -388,7 +431,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           <div className="hidden sm:flex items-center justify-end -mb-1">
             {shouldShowProbabilities && (
               <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-                Model Win Share
+                {probabilityRailLabel}
               </span>
             )}
           </div>
@@ -456,7 +499,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                           {team.record}
                         </span>
                       )}
-                      {displayEdge && (
+                      {displayEdge && !shouldShowGapRail && (
                         <span className={cn(
                           'hidden sm:inline-flex items-center rounded-full px-1.5 py-[1px] text-[9px] font-mono font-semibold tabular-nums',
                           typeof edge === 'number' && edge >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -487,13 +530,15 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                     </div>
                   )}
 
-                  {shouldShowProbabilities && (
+                  {shouldShowGapRail ? (
+                    <GapPill value={typeof edge === 'number' ? edge : undefined} />
+                  ) : shouldShowProbabilities ? (
                     <ProbabilityPill
                       value={prob}
                       isFavorite={isFav}
                       oddsLens={oddsLens}
                     />
-                  )}
+                  ) : null}
                 </div>
               </div>
             );
@@ -515,15 +560,10 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                     <span className="text-[15px] max-[390px]:text-[14px] leading-[1.15] tracking-tight truncate font-semibold text-[#10223A]">
                       Tie
                     </span>
-                    {drawPriceLabel && (
-                      <span className="text-[10px] font-mono font-semibold text-slate-600 tabular-nums">
-                        {drawPriceLabel}
-                      </span>
-                    )}
                   </div>
                 </div>
 
-                {typeof drawProb === 'number' && (
+                {typeof drawProb === 'number' && !shouldShowGapRail && (
                   <div className="pl-[44px] pt-1.5 pr-1.5 max-[390px]:pl-[40px]">
                     <div className="h-[3px] rounded-full bg-[#E3E9F4] overflow-hidden">
                       <span className="block h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(8, Math.min(100, Math.round(drawProb)))}%`, backgroundColor: '#98A4B8' }} />
@@ -533,11 +573,15 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <ProbabilityPill
-                  value={drawProb}
-                  isFavorite={false}
-                  oddsLens={oddsLens}
-                />
+                {shouldShowGapRail ? (
+                  <GapPill value={undefined} />
+                ) : (
+                  <ProbabilityPill
+                    value={drawProb}
+                    isFavorite={false}
+                    oddsLens={oddsLens}
+                  />
+                )}
               </div>
             </div>
           )}
@@ -567,7 +611,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                     mobileHidden={item.mobileHidden}
                   />
                 )) : null}
-                {typeof homeEdge === 'number' && (
+                {typeof homeEdge === 'number' && !shouldShowGapRail && (
                   <span className={cn(
                     'inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold tabular-nums',
                     homeEdge >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -575,7 +619,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                     {match.homeTeam?.shortName || 'Home'} {homeEdge > 0 ? '+' : ''}{homeEdge.toFixed(1)}%
                   </span>
                 )}
-                {typeof awayEdge === 'number' && (
+                {typeof awayEdge === 'number' && !shouldShowGapRail && (
                   <span className={cn(
                     'inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold tabular-nums',
                     awayEdge >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'

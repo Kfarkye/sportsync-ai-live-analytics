@@ -1357,6 +1357,17 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     () => (match?.homeTeam && match?.awayTeam ? getMatchDisplayStats(match, 8) : []),
     [match]
   );
+  const scheduledKickoffLabel = useMemo(() => {
+    const parsed = new Date(match.startTime);
+    if (Number.isNaN(parsed.getTime())) return 'Scheduled time pending';
+    return parsed.toLocaleString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }, [match.startTime]);
 
   const [activeTab, setActiveTab] = useState(isSched ? 'DETAILS' : 'OVERVIEW');
   const currentTab = activeTab;
@@ -1394,6 +1405,27 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const trendLines = useMemo(() => {
     const lines: string[] = [];
     const seen = new Set<string>();
+    const odds = match.current_odds || match.odds;
+
+    const toNumber = (value: unknown): number | null => {
+      if (value === undefined || value === null) return null;
+      const parsed = typeof value === 'string' ? Number(value) : Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const fmtAmerican = (value: unknown): string | null => {
+      const parsed = toNumber(value);
+      if (parsed === null) return null;
+      if (parsed > 0) return `+${Math.round(parsed)}`;
+      if (parsed < 0) return `${Math.round(parsed)}`;
+      return 'PK';
+    };
+
+    const fmtTotal = (value: unknown): string | null => {
+      const parsed = toNumber(value);
+      if (parsed === null) return null;
+      return Number.isInteger(parsed) ? String(parsed) : parsed.toFixed(1);
+    };
 
     const addLine = (value: unknown) => {
       if (typeof value !== 'string') return;
@@ -1424,13 +1456,29 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     addLine(String(pregameIntel?.headline || pregameIntel?.briefing || ''));
 
     if (lines.length === 0) {
-      addLine(
-        `${match.awayTeam?.name || 'Away'} vs ${match.homeTeam?.name || 'Home'}: pregame trend signal posts closer to tip-off.`
-      );
+      const homeName = match.homeTeam?.name || 'Home';
+      const awayName = match.awayTeam?.name || 'Away';
+      const homeML = fmtAmerican(odds?.moneylineHome ?? odds?.home_ml ?? odds?.homeWin ?? odds?.homeML);
+      const awayML = fmtAmerican(odds?.moneylineAway ?? odds?.away_ml ?? odds?.awayWin ?? odds?.awayML);
+      const spread = odds?.spread ?? odds?.homeSpread ?? odds?.spread_home ?? odds?.spread_home_value;
+      const total = fmtTotal(odds?.total ?? odds?.overUnder ?? odds?.total_value);
+
+      const marketParts: string[] = [];
+      if (homeML || awayML) marketParts.push(`ML ${awayML || '—'} / ${homeML || '—'}`);
+      if (spread !== undefined && spread !== null && String(spread).trim() !== '') marketParts.push(`Spread ${String(spread)}`);
+      if (total) marketParts.push(`Total ${total}`);
+
+      if (marketParts.length > 0) {
+        addLine(`${awayName} at ${homeName} · ${marketParts.join(' · ')}`);
+      } else {
+        const awayRecord = match.awayTeam?.record || '—';
+        const homeRecord = match.homeTeam?.record || '—';
+        addLine(`${awayName} (${awayRecord}) at ${homeName} (${homeRecord})`);
+      }
     }
 
     return lines.slice(0, 3);
-  }, [match.awayTeam?.name, match.edge_tags, match.homeTeam?.name, pregameIntel]);
+  }, [match.awayTeam?.name, match.awayTeam?.record, match.current_odds, match.edge_tags, match.homeTeam?.name, match.homeTeam?.record, match.odds, pregameIntel]);
 
   const headerTrendLine = trendLines[0];
 
@@ -1900,7 +1948,27 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                       </div>
                     )}
 
-                    <div className="mb-12"><ForecastHistoryTable matchId={match.id} leagueId={match.leagueId} /></div>
+                    {isSched ? (
+                      <div className="mb-12 rounded-[20px] border border-[#D7E1F0] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] px-5 py-4 shadow-[0_16px_28px_-24px_rgba(16,34,58,0.55)]">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#10223A]/70">Pregame Read</div>
+                        <p className="mt-2 text-[13px] leading-relaxed text-[#10223A]">
+                          {pregameIntel?.headline?.trim()
+                            || `${match.awayTeam?.name || 'Away'} at ${match.homeTeam?.name || 'Home'} tips ${scheduledKickoffLabel}.`}
+                        </p>
+                        <p className="mt-2 text-[12px] leading-relaxed text-black/65">
+                          {pregameIntel?.briefing?.trim()
+                            || 'Live play timeline will appear after tip. For now, use opening lines and team form to frame the matchup.'}
+                        </p>
+                        <div className="mt-3 grid gap-2 text-[11px] font-mono text-black/70 sm:grid-cols-2">
+                          <div>ML {String(match.current_odds?.moneylineAway ?? match.current_odds?.away_ml ?? '—')} / {String(match.current_odds?.moneylineHome ?? match.current_odds?.home_ml ?? '—')}</div>
+                          <div>Spread {String(match.current_odds?.spread ?? match.current_odds?.homeSpread ?? '—')}</div>
+                          <div>Total {String(match.current_odds?.total ?? match.current_odds?.overUnder ?? '—')}</div>
+                          <div>{match.awayTeam?.record || '—'} at {match.homeTeam?.record || '—'}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mb-12"><ForecastHistoryTable matchId={match.id} leagueId={match.leagueId} /></div>
+                    )}
                   </div>
                 )}
 
