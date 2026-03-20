@@ -537,7 +537,7 @@ const TeamAvailabilityPanel = memo(({
           return `${names.join(', ')} +${players.length - max}`;
         };
 
-        let summary = 'No major availability concerns in the current feed.';
+        let summary = 'No major availability concerns in the latest report.';
         if (snapshot?.injuryNotes) {
           summary = compactText(snapshot.injuryNotes, 120);
         } else if (coreOutCount > 0) {
@@ -581,7 +581,7 @@ const TeamAvailabilityPanel = memo(({
 
             {!snapshot || snapshot.totalPlayers === 0 ? (
               <p className="mt-3 text-[12px] text-black/55 leading-relaxed">
-                Availability feed has not populated this team yet.
+                No confirmed availability update yet.
               </p>
             ) : (
               <div className="mt-3 space-y-3">
@@ -1596,6 +1596,55 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     () => (match?.homeTeam && match?.awayTeam ? getMatchDisplayStats(match, 8) : []),
     [match]
   );
+  const detailMatchupStats = useMemo(() => {
+    const parseMetricValue = (value: string | number | null | undefined): number => {
+      if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+      if (typeof value !== 'string') return 0;
+      const parsed = Number.parseFloat(value.replace(/[^0-9.-]/g, ''));
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const priorityOrder = [
+      'points',
+      'goals',
+      'shots',
+      'field goal',
+      'three point',
+      'rebounds',
+      'assists',
+      'turnovers',
+      'steals',
+      'blocks',
+      'possession',
+      'pass',
+      'shots on target',
+      'corners',
+      'cards',
+      'yards',
+      'first downs',
+    ];
+
+    const priorityRank = (label: string): number => {
+      const normalized = label.toLowerCase();
+      const idx = priorityOrder.findIndex((token) => normalized.includes(token));
+      return idx === -1 ? 999 : idx;
+    };
+
+    return displayStats
+      .filter((stat) => {
+        const label = String(stat.label || '').trim().toLowerCase();
+        if (!label || label === 'streak') return false;
+        const home = parseMetricValue(stat.homeValue);
+        const away = parseMetricValue(stat.awayValue);
+        return home !== 0 || away !== 0;
+      })
+      .sort((a, b) => {
+        const rankDelta = priorityRank(String(a.label || '')) - priorityRank(String(b.label || ''));
+        if (rankDelta !== 0) return rankDelta;
+        return String(a.label || '').localeCompare(String(b.label || ''));
+      })
+      .slice(0, 6);
+  }, [displayStats]);
   const scheduledKickoffLabel = useMemo(() => {
     const parsed = new Date(match.startTime);
     if (Number.isNaN(parsed.getTime())) return 'Scheduled time pending';
@@ -1890,13 +1939,13 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     if (lines.length === 0) {
       const homeName = match.homeTeam?.name || 'Home';
       const awayName = match.awayTeam?.name || 'Away';
-      addLine(`${awayName} vs ${homeName}: no pregame trend signal posted yet.`);
+      addLine(`${awayName} vs ${homeName}: no pregame read posted yet.`);
     }
 
     return lines.slice(0, 3);
   }, [match.awayTeam?.name, match.edge_tags, match.homeTeam?.name, pregameIntel]);
 
-  const headerTrendLine = trendLines[0] || 'No pregame trend signal posted yet.';
+  const headerTrendLine = trendLines[0] || 'No pregame read posted yet.';
 
   const corePlayersByTeam = useMemo(() => {
     const homeNeedles = buildTeamNeedles(match.homeTeam);
@@ -2190,7 +2239,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             <div className="rounded-xl border border-[#D8E2F1] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] px-3 py-2.5 flex items-center justify-between gap-3 shadow-[0_12px_24px_-22px_rgba(16,34,58,0.52)]">
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="inline-flex h-2 w-2 rounded-full bg-[#1D9E75] shrink-0" />
-                <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#10223A]">Trends</span>
+                <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#10223A]">Match Read</span>
                 <span className="text-[10px] font-mono text-black/45 truncate">{headerTrendLine}</span>
               </div>
               <div className="shrink-0 text-[10px] font-mono text-black/55">
@@ -2279,67 +2328,45 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
                       <div className="space-y-4">
                         <SpecSheetRow label="03 // MARKETS" defaultOpen={true}>
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between gap-3 border-b border-black/[0.07] pb-1">
-                              <div className="inline-flex items-center rounded-lg border border-[#D4DEEF] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] p-1">
-                                <button
-                                  type="button"
-                                  onClick={() => setMarketsTab('TRENDS')}
-                                  className={cn(
-                                    "px-3 py-1.5 rounded-md text-[10px] uppercase tracking-[0.16em] transition-all",
-                                    marketsTab === 'TRENDS'
-                                      ? "bg-white shadow-[0_6px_14px_-12px_rgba(0,0,0,0.5)] text-black font-semibold border border-black/[0.1]"
-                                      : "text-black/50 hover:text-black/80"
-                                  )}
-                                >
-                                  Lines
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setMarketsTab('ODDS')}
-                                  className={cn(
-                                    "px-3 py-1.5 rounded-md text-[10px] uppercase tracking-[0.16em] transition-all",
-                                    marketsTab === 'ODDS'
-                                      ? "bg-[linear-gradient(180deg,#1D9E75_0%,#177F60_100%)] text-white font-semibold shadow-[0_10px_20px_-16px_rgba(29,158,117,0.75)]"
-                                      : "text-black/50 hover:text-black/80"
-                                  )}
-                                >
-                                  Depth
-                                </button>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#10223A]">
+                                {marketsTab === 'TRENDS' ? 'Lines' : 'Depth'}
                               </div>
-
-                              {marketsTab === 'ODDS' ? (
-                                <span className="text-[10px] font-mono text-black/45">Real-time market depth</span>
-                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => setMarketsTab(marketsTab === 'TRENDS' ? 'ODDS' : 'TRENDS')}
+                                className="inline-flex items-center rounded-full border border-[#D4DEEF] bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#10223A] transition-colors hover:bg-[#F6FAFF]"
+                              >
+                                {marketsTab === 'TRENDS' ? 'Show Depth' : 'Back To Lines'}
+                              </button>
                             </div>
 
-                            <div className="rounded-xl border border-[#D9E2F3]/60 bg-[linear-gradient(180deg,#FFFFFF_0%,#FAFCFF_100%)] p-3 sm:p-4">
-                              {marketsTab === 'TRENDS' ? (
-                                isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />
-                              ) : (
-                                <MatchOddsHeatmap
-                                  homeTeamName={match.homeTeam?.name || ''}
-                                  awayTeamName={match.awayTeam?.name || ''}
-                                  startTime={oddsHeatmapStartTime}
-                                  homeAliases={[
-                                    match.homeTeam?.shortName || '',
-                                    match.homeTeam?.abbreviation || '',
-                                    match.homeTeam?.name || '',
-                                  ]}
-                                  awayAliases={[
-                                    match.awayTeam?.shortName || '',
-                                    match.awayTeam?.abbreviation || '',
-                                    match.awayTeam?.name || '',
-                                  ]}
-                                  enabled={marketsTab === 'ODDS'}
-                                />
-                              )}
-                            </div>
+                            {marketsTab === 'TRENDS' ? (
+                              isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />
+                            ) : (
+                              <MatchOddsHeatmap
+                                homeTeamName={match.homeTeam?.name || ''}
+                                awayTeamName={match.awayTeam?.name || ''}
+                                startTime={oddsHeatmapStartTime}
+                                homeAliases={[
+                                  match.homeTeam?.shortName || '',
+                                  match.homeTeam?.abbreviation || '',
+                                  match.homeTeam?.name || '',
+                                ]}
+                                awayAliases={[
+                                  match.awayTeam?.shortName || '',
+                                  match.awayTeam?.abbreviation || '',
+                                  match.awayTeam?.name || '',
+                                ]}
+                                enabled={marketsTab === 'ODDS'}
+                              />
+                            )}
                           </div>
                         </SpecSheetRow>
                         <SpecSheetRow label="05 // TRAJECTORY" defaultOpen={hasRecentForm}>
                           {availabilityLoading && !hasRecentForm ? (
-                            <div className="text-[12px] text-black/55">Loading recent team form…</div>
+                            <div className="text-[12px] text-black/55">Building recent form…</div>
                           ) : (
                             <RecentForm
                               homeTeam={{ last5: homeRecentGames }}
@@ -2353,7 +2380,15 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         </SpecSheetRow>
                       </div>
                       <div className="space-y-4">
-                        <SpecSheetRow label="04 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
+                        <SpecSheetRow label="04 // MATCHUP" defaultOpen={true}>
+                          {isInitialLoad ? (
+                            <StatsGridSkeleton />
+                          ) : detailMatchupStats.length > 0 ? (
+                            <TeamStatsGrid stats={detailMatchupStats} match={match} colors={{ home: homeColor, away: awayColor }} />
+                          ) : (
+                            <div className="text-[12px] text-black/55">No matchup stats posted yet.</div>
+                          )}
+                        </SpecSheetRow>
                         <SpecSheetRow label="06 // AVAILABILITY" defaultOpen={true}>
                           <TeamAvailabilityPanel
                             homeTeamName={match.homeTeam.name}
@@ -2368,7 +2403,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         <SpecSheetRow label="07 // CONTEXT" defaultOpen={hasContextData}>
                           {hasContextData
                             ? <MatchupContextPills {...match.context} sport={match.sport} />
-                            : <div className="text-black/50 text-[12px] font-medium">Context will populate as the live feed syncs.</div>}
+                            : <div className="text-black/50 text-[12px] font-medium">Venue, weather, and broadcast context appears as feeds lock in.</div>}
                         </SpecSheetRow>
                       </div>
                     </div>
@@ -2431,11 +2466,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         </p>
                         <p className="mt-2 text-[12px] leading-relaxed text-black/65">
                           {pregameIntel?.briefing?.trim()
-                            || 'Live play timeline will appear after tip. For now, use opening lines and team form to frame the matchup.'}
+                            || 'Live timeline appears after tip. Use form and availability to frame pregame risk.'}
                         </p>
                         <div className="mt-3 grid gap-2 text-[11px] font-mono text-black/70 sm:grid-cols-2">
                           <div>{match.awayTeam?.record || '—'} at {match.homeTeam?.record || '—'}</div>
-                          <div>{isGameInProgress(match.status) ? 'Live context active' : 'Pregame context active'}</div>
+                          <div>{isGameInProgress(match.status) ? 'Live model running' : 'Pregame model running'}</div>
                         </div>
                       </div>
                     ) : (

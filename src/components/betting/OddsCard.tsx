@@ -173,7 +173,7 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
     }, [match]);
 
     // Status label logic
-    const oddsLabel = isFinal ? 'Closing Lines' : isLive ? 'Live Lines' : 'Game Lines';
+    const oddsLabel = isFinal ? 'Closing Lines' : isLive ? 'Live Lines' : 'Opening Lines';
 
     return (
         <div className={cn(
@@ -182,7 +182,7 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
         )}>
             {isStale && (
                 <div className="absolute top-0 right-0 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 z-10">
-                    <span className="font-mono text-[8px] font-bold tracking-wider text-red-400">STALE</span>
+                    <span className="font-mono text-[8px] font-bold tracking-wider text-red-400">DELAYED</span>
                 </div>
             )}
             {/* Section Header - Elite Style */}
@@ -196,7 +196,7 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
                 </span>
                 {isHalftime && (
                     <div className="ml-auto flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10">
-                        <span className="text-[9px] font-bold uppercase text-amber-400">HALF</span>
+                        <span className="text-[9px] font-bold uppercase text-amber-400">HALFTIME</span>
                     </div>
                 )}
             </div>
@@ -204,7 +204,7 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
             {lineTimeline.hasAny && (
                 <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
                     <div className="grid grid-cols-[minmax(0,1fr)_92px_92px_92px] items-center gap-2 border-b border-slate-200 pb-2">
-                        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">Market</span>
+                        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">Type</span>
                         <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-right text-slate-500">Open</span>
                         <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-right text-slate-900">Current</span>
                         <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-right text-slate-500">Close</span>
@@ -236,7 +236,7 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
                     <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] text-center">
                         {match.sport === Sport.TENNIS ? 'Games' : 'Total'}
                     </div>
-                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] text-center">Money</div>
+                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] text-center">ML</div>
                 </div>
             </div>
 

@@ -1,14 +1,12 @@
 
 import React, { memo } from 'react';
 import type { ComponentType } from 'react';
-import { cn, ESSENCE } from '@/lib/essence';
+import { cn } from '@/lib/essence';
 import {
     MapPin,
     Thermometer,
     Tv,
     Calendar,
-    Users,
-    Info
 } from 'lucide-react';
 import { Sport } from '@/types';
 
@@ -50,9 +48,19 @@ export const MatchupContextPills = memo(({
 
     // Only show weather if significant/not indoor
     const showWeather = weather && weather.temp !== 0 && !isArenaSport;
+    const broadcastLabel = (broadcast || '').replace(/network/gi, '').replace(/\s+/g, ' ').trim();
+    const venueLabel = [venue?.name, venue?.city].filter(Boolean).join(', ');
 
     return (
         <div className={cn("flex flex-wrap gap-2.5", className)}>
+            {venueLabel && (
+                <ContextPill
+                    icon={MapPin}
+                    value={venueLabel}
+                    color="text-indigo-500/70"
+                />
+            )}
+
             {/* 1. Game Context (Round/Bowl/Week) */}
             {gameContext && (
                 <ContextPill
@@ -63,10 +71,10 @@ export const MatchupContextPills = memo(({
             )}
 
             {/* 2. Broadcast (Access) */}
-            {broadcast && (
+            {broadcastLabel && (
                 <ContextPill
                     icon={Tv}
-                    value={broadcast.toUpperCase().replace('NETWORK', '').trim()}
+                    value={broadcastLabel}
                     color="text-emerald-500/70"
                 />
             )}
