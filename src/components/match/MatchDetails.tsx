@@ -33,7 +33,7 @@ import { cn, ESSENCE } from '@/lib/essence';
 import { getMatchDisplayStats } from '../../utils/statDisplay';
 
 // Services
-import { fetchMatchDetailsExtended, fetchTeamLastFive } from '../../services/espnService';
+import { fetchMatchDetailsExtended } from '../../services/espnService';
 import { supabase } from '../../lib/supabase';
 import { pregameIntelService, type PregameIntelResponse } from '../../services/pregameIntelService';
 import {
@@ -111,6 +111,58 @@ interface DbMatchRow {
   odds?: Match['odds'];
   home_score?: number;
   away_score?: number;
+}
+
+interface DbRosterRow {
+  team?: string | null;
+  player_name?: string | null;
+  position?: string | null;
+  status?: string | null;
+  injury_report?: string | null;
+  injury_date?: string | null;
+  updated_at?: string | null;
+}
+
+interface DbInjuryRow {
+  team?: string | null;
+  player_name?: string | null;
+  status?: string | null;
+  report?: string | null;
+  report_date?: string | null;
+  created_at?: string | null;
+}
+
+interface DbRecentMatchRow {
+  id?: string;
+  start_time?: string;
+  game_date?: string;
+  status?: string;
+  home_team?: string | null;
+  away_team?: string | null;
+  home_score?: number | null;
+  away_score?: number | null;
+}
+
+type AvailabilityState = 'active' | 'limited' | 'out';
+
+interface AvailabilityPlayer {
+  playerName: string;
+  position: string;
+  statusLabel: string;
+  injuryNote?: string;
+  injuryDate?: string;
+  state: AvailabilityState;
+}
+
+interface TeamAvailabilitySnapshot {
+  teamLabel: string;
+  activeCount: number;
+  limitedCount: number;
+  outCount: number;
+  activeCore: AvailabilityPlayer[];
+  watchList: AvailabilityPlayer[];
+  updatedAt?: string;
+  totalPlayers: number;
 }
 
 type EspnExtendedMatch = Partial<ExtendedMatch> & { statistics?: Match['stats'] };
@@ -233,6 +285,120 @@ function compactText(input: string, maxLength = 100): string {
   return `${text.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
+function normalizeTeamToken(value: string | null | undefined): string {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function shortTeamLabel(value: string | null | undefined): string {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return 'Team';
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  return tokens.length <= 1 ? trimmed : tokens.slice(-1)[0] || trimmed;
+}
+
+function buildTeamNeedles(team: Match['homeTeam'] | Match['awayTeam']): string[] {
+  return Array.from(new Set(
+    [team?.name, team?.shortName, team?.abbreviation]
+      .map((item) => String(item || '').trim())
+      .filter((item) => item.length >= 3)
+  ));
+}
+
+function teamNameMatches(value: string | null | undefined, needles: string[]): boolean {
+  const normalizedValue = normalizeTeamToken(value);
+  if (!normalizedValue) return false;
+  return needles.some((needle) => {
+    const normalizedNeedle = normalizeTeamToken(needle);
+    return Boolean(normalizedNeedle) && (
+      normalizedValue === normalizedNeedle
+      || normalizedValue.includes(normalizedNeedle)
+      || normalizedNeedle.includes(normalizedValue)
+    );
+  });
+}
+
+function classifyAvailabilityState(status: string | null | undefined): AvailabilityState {
+  const normalized = String(status || '').toLowerCase();
+  if (!normalized || normalized === 'active' || normalized === 'available') return 'active';
+  if (
+    normalized.includes('out')
+    || normalized.includes('injured reserve')
+    || normalized.includes('inactive')
+    || normalized.includes('suspended')
+  ) {
+    return 'out';
+  }
+  if (
+    normalized.includes('questionable')
+    || normalized.includes('doubtful')
+    || normalized.includes('probable')
+    || normalized.includes('day-to-day')
+    || normalized.includes('game-time')
+  ) {
+    return 'limited';
+  }
+  return 'limited';
+}
+
+function statePriority(state: AvailabilityState): number {
+  if (state === 'out') return 2;
+  if (state === 'limited') return 1;
+  return 0;
+}
+
+function positionPriority(position: string): number {
+  const normalized = position.toLowerCase();
+  if (normalized.includes('guard') || normalized === 'pg' || normalized === 'sg') return 1;
+  if (normalized.includes('forward') || normalized === 'sf' || normalized === 'pf') return 2;
+  if (normalized.includes('center') || normalized === 'c') return 3;
+  return 4;
+}
+
+function isSettledFinalStatus(status: string | null | undefined): boolean {
+  const normalized = String(status || '').toUpperCase();
+  return normalized.includes('FINAL') || normalized === 'FT' || normalized === 'POST';
+}
+
+function toRecentFormEntry(row: DbRecentMatchRow, needles: string[]): RecentFormGame | null {
+  const homeTeam = String(row.home_team || '').trim();
+  const awayTeam = String(row.away_team || '').trim();
+  const homeScore = Number(row.home_score);
+  const awayScore = Number(row.away_score);
+  if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore)) return null;
+
+  const isHome = teamNameMatches(homeTeam, needles);
+  const isAway = teamNameMatches(awayTeam, needles);
+  if (!isHome && !isAway) return null;
+
+  const teamScore = isHome ? homeScore : awayScore;
+  const oppScore = isHome ? awayScore : homeScore;
+  const opponentName = isHome ? awayTeam : homeTeam;
+  const result: RecentFormGame['result'] = teamScore > oppScore ? 'W' : teamScore < oppScore ? 'L' : 'D';
+  const fallbackDate = row.start_time || row.game_date || '';
+
+  return {
+    id: row.id,
+    date: fallbackDate,
+    isHome,
+    result,
+    teamScore,
+    opponent: {
+      name: opponentName,
+      shortName: shortTeamLabel(opponentName),
+      score: oppScore,
+    },
+  };
+}
+
+function formatAvailabilityDate(value: string | undefined): string {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 // ============================================================================
 // 💎 MICRO-COMPONENTS (PURE CSS GEOMETRY & GPU ACCELERATION)
 // ============================================================================
@@ -292,6 +458,123 @@ const StatsGridSkeleton = memo(() => (
     {[...Array(8)].map((_idx, i) => (<SkeletonShimmer key={i} className="h-20 rounded-[16px]" />))}
   </div>
 ));
+
+const statusTone: Record<AvailabilityState, string> = {
+  active: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+  limited: 'text-amber-700 bg-amber-50 border-amber-200',
+  out: 'text-rose-700 bg-rose-50 border-rose-200',
+};
+
+const TeamAvailabilityPanel = memo(({
+  homeTeamName,
+  awayTeamName,
+  homeSnapshot,
+  awaySnapshot,
+  isLoading,
+}: {
+  homeTeamName: string;
+  awayTeamName: string;
+  homeSnapshot: TeamAvailabilitySnapshot | null;
+  awaySnapshot: TeamAvailabilitySnapshot | null;
+  isLoading: boolean;
+}) => {
+  const columns = [
+    { key: 'away', teamName: awayTeamName, snapshot: awaySnapshot },
+    { key: 'home', teamName: homeTeamName, snapshot: homeSnapshot },
+  ] as const;
+
+  if (isLoading && !homeSnapshot && !awaySnapshot) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <SkeletonShimmer className="h-[176px] rounded-[16px]" />
+        <SkeletonShimmer className="h-[176px] rounded-[16px]" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {columns.map(({ key, teamName, snapshot }) => (
+        <div
+          key={key}
+          className="rounded-[16px] border border-[#D8E2F2] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] p-4 shadow-[0_10px_20px_-18px_rgba(16,34,58,0.45)]"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-[13px] font-semibold tracking-tight text-[#10223A] truncate">
+              {teamName}
+            </h4>
+            {snapshot?.updatedAt ? (
+              <span className="text-[10px] font-mono text-black/45">Updated {formatAvailabilityDate(snapshot.updatedAt)}</span>
+            ) : null}
+          </div>
+
+          {!snapshot || snapshot.totalPlayers === 0 ? (
+            <p className="mt-3 text-[12px] text-black/55 leading-relaxed">
+              Roster feed has not populated this matchup yet.
+            </p>
+          ) : (
+            <div className="mt-3 space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5">
+                  <div className="text-[9px] uppercase tracking-[0.14em] text-emerald-700 font-semibold">Active</div>
+                  <div className="text-[14px] font-mono font-semibold text-emerald-900">{snapshot.activeCount}</div>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
+                  <div className="text-[9px] uppercase tracking-[0.14em] text-amber-700 font-semibold">Limited</div>
+                  <div className="text-[14px] font-mono font-semibold text-amber-900">{snapshot.limitedCount}</div>
+                </div>
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5">
+                  <div className="text-[9px] uppercase tracking-[0.14em] text-rose-700 font-semibold">Out</div>
+                  <div className="text-[14px] font-mono font-semibold text-rose-900">{snapshot.outCount}</div>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-black/55 font-semibold mb-1.5">Likely Available Core</div>
+                {snapshot.activeCore.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {snapshot.activeCore.map((player) => (
+                      <span
+                        key={`${teamName}-core-${player.playerName}`}
+                        className="inline-flex items-center gap-1 rounded-full border border-[#D7E3F4] bg-white px-2.5 py-1 text-[11px] text-[#10223A]"
+                      >
+                        <span className="font-semibold">{player.playerName}</span>
+                        {player.position ? <span className="font-mono text-[10px] text-black/55">{player.position}</span> : null}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[12px] text-black/50">No active-player list available yet.</div>
+                )}
+              </div>
+
+              {snapshot.watchList.length > 0 ? (
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-black/55 font-semibold mb-1.5">Availability Watch</div>
+                  <div className="space-y-1.5">
+                    {snapshot.watchList.slice(0, 4).map((player) => (
+                      <div key={`${teamName}-watch-${player.playerName}`} className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[12px] font-semibold text-[#10223A] truncate">{player.playerName}</div>
+                          {player.injuryNote ? (
+                            <div className="text-[11px] text-black/55 leading-snug line-clamp-2">{player.injuryNote}</div>
+                          ) : null}
+                        </div>
+                        <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em]', statusTone[player.state])}>
+                          {player.statusLabel}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+});
 
 /** GameInfoStrip — High-Density Bento Card Readout (SOTA Polish) */
 const GameInfoStrip = memo(({ match }: { match: Match }) => {
@@ -1375,6 +1658,15 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
   const [propView, setPropView] = useState<'classic' | 'cinematic'>('classic');
   const [marketsTab, setMarketsTab] = useState<'TRENDS' | 'ODDS'>('TRENDS');
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilitySnapshot, setAvailabilitySnapshot] = useState<{ home: TeamAvailabilitySnapshot | null; away: TeamAvailabilitySnapshot | null }>({
+    home: null,
+    away: null,
+  });
+  const [recentFormSnapshot, setRecentFormSnapshot] = useState<{ home: RecentFormGame[]; away: RecentFormGame[] }>({
+    home: [],
+    away: [],
+  });
 
   useEffect(() => {
     if (isSched && activeTab === 'OVERVIEW') setActiveTab('DETAILS');
@@ -1384,6 +1676,185 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   useEffect(() => {
     setMarketsTab('TRENDS');
   }, [match.id]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchTeamAvailability = async (team: Match['homeTeam'] | Match['awayTeam']): Promise<TeamAvailabilitySnapshot | null> => {
+      const needles = buildTeamNeedles(team);
+      if (needles.length === 0) return null;
+
+      const rosterRows: DbRosterRow[] = [];
+      const injuryRows: DbInjuryRow[] = [];
+
+      for (const needle of needles.slice(0, 3)) {
+        const rosterRes = await supabase
+          .from('team_rosters')
+          .select('team,player_name,position,status,injury_report,injury_date,updated_at')
+          .ilike('team', `%${needle}%`)
+          .order('updated_at', { ascending: false })
+          .limit(60);
+        if (!rosterRes.error && rosterRes.data) rosterRows.push(...(rosterRes.data as DbRosterRow[]));
+
+        const injuryRes = await supabase
+          .from('injury_snapshots')
+          .select('team,player_name,status,report,report_date,created_at')
+          .ilike('team', `%${needle}%`)
+          .order('report_date', { ascending: false })
+          .limit(60);
+        if (!injuryRes.error && injuryRes.data) injuryRows.push(...(injuryRes.data as DbInjuryRow[]));
+      }
+
+      const players = new Map<string, AvailabilityPlayer>();
+      let updatedAt = '';
+
+      for (const row of rosterRows) {
+        if (!teamNameMatches(row.team, needles)) continue;
+        const playerName = String(row.player_name || '').trim();
+        if (!playerName) continue;
+        const key = normalizeTeamToken(playerName);
+        const statusLabel = String(row.status || 'Active').trim() || 'Active';
+        const candidate: AvailabilityPlayer = {
+          playerName,
+          position: String(row.position || '').trim(),
+          statusLabel,
+          injuryNote: row.injury_report || undefined,
+          injuryDate: row.injury_date || undefined,
+          state: classifyAvailabilityState(statusLabel),
+        };
+        players.set(key, candidate);
+        if (row.updated_at && (!updatedAt || row.updated_at > updatedAt)) updatedAt = row.updated_at;
+      }
+
+      for (const row of injuryRows) {
+        if (!teamNameMatches(row.team, needles)) continue;
+        const playerName = String(row.player_name || '').trim();
+        if (!playerName) continue;
+        const key = normalizeTeamToken(playerName);
+        const statusLabel = String(row.status || 'Questionable').trim() || 'Questionable';
+        const injuryState = classifyAvailabilityState(statusLabel);
+        const existing = players.get(key);
+        const merged: AvailabilityPlayer = {
+          playerName,
+          position: existing?.position || '',
+          statusLabel,
+          injuryNote: row.report || existing?.injuryNote,
+          injuryDate: row.report_date || existing?.injuryDate,
+          state: injuryState,
+        };
+        if (!existing || statePriority(injuryState) >= statePriority(existing.state)) {
+          players.set(key, merged);
+        }
+      }
+
+      const mergedPlayers = Array.from(players.values());
+      if (mergedPlayers.length === 0) return null;
+
+      const sorted = mergedPlayers.sort((a, b) => {
+        const stateDelta = statePriority(b.state) - statePriority(a.state);
+        if (stateDelta !== 0) return stateDelta;
+        return a.playerName.localeCompare(b.playerName);
+      });
+
+      const activeCore = mergedPlayers
+        .filter((player) => player.state === 'active')
+        .sort((a, b) => {
+          const positionDelta = positionPriority(a.position) - positionPriority(b.position);
+          if (positionDelta !== 0) return positionDelta;
+          return a.playerName.localeCompare(b.playerName);
+        })
+        .slice(0, 5);
+
+      const activeCount = mergedPlayers.filter((player) => player.state === 'active').length;
+      const limitedCount = mergedPlayers.filter((player) => player.state === 'limited').length;
+      const outCount = mergedPlayers.filter((player) => player.state === 'out').length;
+
+      return {
+        teamLabel: team.name,
+        activeCount,
+        limitedCount,
+        outCount,
+        activeCore,
+        watchList: sorted.filter((player) => player.state !== 'active'),
+        updatedAt,
+        totalPlayers: mergedPlayers.length,
+      };
+    };
+
+    const fetchTeamRecentForm = async (team: Match['homeTeam'] | Match['awayTeam']): Promise<RecentFormGame[]> => {
+      const needles = buildTeamNeedles(team);
+      if (needles.length === 0) return [];
+
+      const rows = new Map<string, DbRecentMatchRow>();
+
+      for (const needle of needles.slice(0, 3)) {
+        const [homeRes, awayRes] = await Promise.all([
+          supabase
+            .from('matches')
+            .select('id,start_time,game_date,status,home_team,away_team,home_score,away_score')
+            .ilike('home_team', `%${needle}%`)
+            .order('start_time', { ascending: false })
+            .limit(25),
+          supabase
+            .from('matches')
+            .select('id,start_time,game_date,status,home_team,away_team,home_score,away_score')
+            .ilike('away_team', `%${needle}%`)
+            .order('start_time', { ascending: false })
+            .limit(25),
+        ]);
+
+        const mergedRows = [
+          ...((homeRes.error || !homeRes.data) ? [] : (homeRes.data as DbRecentMatchRow[])),
+          ...((awayRes.error || !awayRes.data) ? [] : (awayRes.data as DbRecentMatchRow[])),
+        ];
+
+        for (const row of mergedRows) {
+          if (!row.id) continue;
+          rows.set(row.id, row);
+        }
+      }
+
+      return Array.from(rows.values())
+        .filter((row) => isSettledFinalStatus(row.status))
+        .sort((a, b) => new Date(b.start_time || b.game_date || '').getTime() - new Date(a.start_time || a.game_date || '').getTime())
+        .map((row) => toRecentFormEntry(row, needles))
+        .filter((entry): entry is RecentFormGame => Boolean(entry))
+        .slice(0, 5);
+    };
+
+    const hydrateSportData = async () => {
+      setAvailabilityLoading(true);
+      try {
+        const [homeAvailability, awayAvailability, homeRecent, awayRecent] = await Promise.all([
+          fetchTeamAvailability(match.homeTeam),
+          fetchTeamAvailability(match.awayTeam),
+          fetchTeamRecentForm(match.homeTeam),
+          fetchTeamRecentForm(match.awayTeam),
+        ]);
+
+        if (!isActive) return;
+        setAvailabilitySnapshot({ home: homeAvailability, away: awayAvailability });
+        setRecentFormSnapshot({ home: homeRecent, away: awayRecent });
+      } finally {
+        if (isActive) setAvailabilityLoading(false);
+      }
+    };
+
+    hydrateSportData();
+    return () => {
+      isActive = false;
+    };
+  }, [
+    match.id,
+    match.homeTeam?.id,
+    match.homeTeam?.name,
+    match.homeTeam?.shortName,
+    match.homeTeam?.abbreviation,
+    match.awayTeam?.id,
+    match.awayTeam?.name,
+    match.awayTeam?.shortName,
+    match.awayTeam?.abbreviation,
+  ]);
 
   const handleTabChange = useCallback((id: string) => {
     setActiveTab(id);
@@ -1482,11 +1953,20 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
   const headerTrendLine = trendLines[0];
 
+  const awayRecentGames = useMemo(
+    () => recentFormSnapshot.away.length > 0 ? recentFormSnapshot.away : (match.awayTeam?.last5 || []),
+    [recentFormSnapshot.away, match.awayTeam?.last5]
+  );
+  const homeRecentGames = useMemo(
+    () => recentFormSnapshot.home.length > 0 ? recentFormSnapshot.home : (match.homeTeam?.last5 || []),
+    [recentFormSnapshot.home, match.homeTeam?.last5]
+  );
+
   const hasRecentForm = useMemo(() => {
-    const awayGames = (match.awayTeam?.last5 || []).length;
-    const homeGames = (match.homeTeam?.last5 || []).length;
+    const awayGames = awayRecentGames.length;
+    const homeGames = homeRecentGames.length;
     return awayGames > 0 || homeGames > 0;
-  }, [match.awayTeam?.last5, match.homeTeam?.last5]);
+  }, [awayRecentGames.length, homeRecentGames.length]);
 
   const hasContextData = useMemo(() => {
     const context = match.context as Record<string, unknown> | undefined;
@@ -1879,17 +2359,30 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                           </div>
                         </SpecSheetRow>
                         <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={hasRecentForm}>
-                          <RecentForm
-                            homeTeam={match.homeTeam}
-                            awayTeam={match.awayTeam}
-                            homeName={match.homeTeam.name}
-                            awayName={match.awayTeam.name}
-                            homeColor={homeColor}
-                            awayColor={awayColor}
-                          />
+                          {availabilityLoading && !hasRecentForm ? (
+                            <div className="text-[12px] text-black/55">Loading recent team form…</div>
+                          ) : (
+                            <RecentForm
+                              homeTeam={{ last5: homeRecentGames }}
+                              awayTeam={{ last5: awayRecentGames }}
+                              homeName={match.homeTeam.name}
+                              awayName={match.awayTeam.name}
+                              homeColor={homeColor}
+                              awayColor={awayColor}
+                            />
+                          )}
                         </SpecSheetRow>
                       </div>
                       <div className="space-y-4">
+                        <SpecSheetRow label="08 // AVAILABILITY" defaultOpen={true}>
+                          <TeamAvailabilityPanel
+                            homeTeamName={match.homeTeam.name}
+                            awayTeamName={match.awayTeam.name}
+                            homeSnapshot={availabilitySnapshot.home}
+                            awaySnapshot={availabilitySnapshot.away}
+                            isLoading={availabilityLoading}
+                          />
+                        </SpecSheetRow>
                         <SpecSheetRow label="07 // CONTEXT" defaultOpen={hasContextData}>
                           {hasContextData
                             ? <MatchupContextPills {...match.context} sport={match.sport} />
