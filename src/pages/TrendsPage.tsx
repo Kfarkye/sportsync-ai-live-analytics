@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import TeamLogo from '../components/shared/TeamLogo';
 import { getLeagueDisplayName } from '../utils/leagueDisplay';
 import { getTeamLogo as resolveEspnTeamLogo } from '../lib/teamColors';
+import { getGatewayUrl } from '@/services/sportsyncAccessService';
 import SEOHead from '@/components/seo/SEOHead';
 
 type Direction = 'TREND' | 'FADE' | 'NEUTRAL';
@@ -78,7 +79,7 @@ type LayerSummary = {
 };
 
 type MatchFeedMetric = {
-  avgGoals: number | null;
+  avgTotalScore: number | null;
   avgCorners: number | null;
   avgCards: number | null;
   avgPassPct: number | null;
@@ -201,6 +202,7 @@ const LOOKUP_TABLE_AVAILABILITY: Record<TrendLookupTable, TableAvailability> = {
 };
 
 const LOOKUP_TABLE_PROBES: Partial<Record<TrendLookupTable, Promise<boolean>>> = {};
+const SPORTS_GATEWAY_URL = getGatewayUrl();
 
 const isTableUnavailableError = (error: unknown): boolean => {
   if (!error) return false;
@@ -537,33 +539,78 @@ async function fetchTrends(minHit: number, minGames: number, layerFilter: string
   };
   if (layerFilter !== 'All') params.p_layer = layerFilter;
 
+  let sourceRows: RawTrendRow[] = [];
   const rpc = await supabase.rpc('get_trends', params);
-  if (rpc.error) throw toTrendFetchError(rpc.error);
+  if (!rpc.error && Array.isArray(rpc.data) && rpc.data.length > 0) {
+    sourceRows = rpc.data as RawTrendRow[];
+  } else if (rpc.error && !isRpcUnavailableError(rpc.error, 'get_trends')) {
+    throw toTrendFetchError(rpc.error);
+  }
 
-  const rows = Array.isArray(rpc.data) ? (rpc.data as RawTrendRow[]) : [];
+  if (sourceRows.length === 0) {
+    const table = await supabase.from('trends').select('*').limit(5000);
+    if (!table.error && Array.isArray(table.data) && table.data.length > 0) {
+      sourceRows = table.data as RawTrendRow[];
+    } else if (table.error && !isTableUnavailableError(table.error)) {
+      throw toTrendFetchError(table.error);
+    }
+  }
+
+  if (sourceRows.length === 0) {
+    try {
+      const url = new URL(SPORTS_GATEWAY_URL);
+      url.searchParams.set('endpoint', 'trends');
+      url.searchParams.set('limit', '200');
+      const response = await fetch(url.toString(), { method: 'GET' });
+      if (response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        if (Array.isArray(payload?.data)) {
+          sourceRows = payload.data as RawTrendRow[];
+        }
+      }
+    } catch {
+      // Keep downstream fallback behavior stable.
+    }
+  }
+
   const parsed: TrendRow[] = [];
-
-  for (const row of rows) {
+  for (const raw of sourceRows) {
+    const row = raw as Record<string, unknown>;
     const layer = sanitizeLayer(
-      normalizeText(row.layer, normalizeText(row.section ? sectionToLayer(row.section as string) : undefined)),
+      normalizeText(
+        row.layer,
+        normalizeText(row.section ? sectionToLayer(String(row.section)) : undefined, 'TEAM'),
+      ),
     );
-    const team = normalizeText(row.team);
-    const league = normalizeText(row.league);
-    const trend = normalizeText(row.trend);
-    const sample = normalizeInteger(row.sample, 0);
-    const hitRate = normalizeNumber(row.hit_rate, 0);
+    const team = normalizeText(row.team, normalizeText(row.entity, normalizeText(row.team_name)));
+    const league = normalizeText(row.league, normalizeText(row.league_id, normalizeText(row.sport_league)));
+    const trend = normalizeText(row.trend, normalizeText(row.signal, normalizeText(row.description)));
+    const sample = Math.round(
+      normalizeNumber(
+        row.sample,
+        normalizeNumber(row.sample_size, normalizeNumber(row.games_sampled, normalizeNumber(row.n, 0))),
+      ),
+    );
+    const hitRaw = normalizeNumber(
+      row.hit_rate,
+      normalizeNumber(row.success_rate, normalizeNumber(row.win_rate, normalizeNumber(row.rate, 0))),
+    );
+    const hitRate = hitRaw <= 1 ? hitRaw * 100 : hitRaw;
+    const clampedHitRate = Math.min(100, Math.max(0, hitRate));
 
-    if (!team || !trend || sample < minGames) continue;
+    if (!team || !league || !trend || sample < 1) continue;
+    if (layerFilter !== 'All' && layer !== layerFilter) continue;
+
     parsed.push({
       layer,
       team,
       league,
       trend,
-      record: normalizeText(row.record),
-      hit_rate: hitRate,
+      record: normalizeText(row.record, normalizeText(row.data_window)),
+      hit_rate: clampedHitRate,
       sample,
-      last_held: normalizeBoolean(row.last_held),
-      signal_type: normalizeDirection(row.signal_type),
+      last_held: normalizeBoolean(row.last_held ?? row.last_hit),
+      signal_type: normalizeDirection(row.signal_type ?? row.direction ?? row.signal),
     });
   }
 
@@ -578,6 +625,18 @@ function extractNumeric(row: Record<string, unknown>, keys: string[]): number | 
   return null;
 }
 
+function sumPair(left: number | null, right: number | null): number | null {
+  if (!Number.isFinite(left ?? Number.NaN) && !Number.isFinite(right ?? Number.NaN)) return null;
+  return (left ?? 0) + (right ?? 0);
+}
+
+function bounded(value: number | null, min: number, max: number): number | null {
+  if (!Number.isFinite(value ?? Number.NaN)) return null;
+  const next = value as number;
+  if (next < min || next > max) return null;
+  return next;
+}
+
 async function fetchMatchFeedSummary(): Promise<MatchFeedMetric | null> {
   const result = await supabase
     .from('match_feed')
@@ -585,11 +644,31 @@ async function fetchMatchFeedSummary(): Promise<MatchFeedMetric | null> {
     .eq('status', 'finished')
     .limit(5000);
 
-  if (result.error || !Array.isArray(result.data) || result.data.length === 0) {
+  let sourceRows: unknown[] = Array.isArray(result.data) ? result.data : [];
+  if (result.error || sourceRows.length === 0) {
+    try {
+      const url = new URL(SPORTS_GATEWAY_URL);
+      url.searchParams.set('endpoint', 'scores');
+      url.searchParams.set('status', 'finished');
+      url.searchParams.set('limit', '200');
+
+      const response = await fetch(url.toString(), { method: 'GET' });
+      if (response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        if (Array.isArray(payload?.data)) {
+          sourceRows = payload.data as unknown[];
+        }
+      }
+    } catch {
+      // Keep null fallback if no source is reachable.
+    }
+  }
+
+  if (sourceRows.length === 0) {
     return null;
   }
 
-  let goalsTotal = 0;
+  let totalScoreSum = 0;
   let cornersTotal = 0;
   let cardsTotal = 0;
   let passTotal = 0;
@@ -597,7 +676,7 @@ async function fetchMatchFeedSummary(): Promise<MatchFeedMetric | null> {
   let overRoiTotal = 0;
   let atsRoiTotal = 0;
 
-  let goalCount = 0;
+  let totalScoreCount = 0;
   let cornerCount = 0;
   let cardCount = 0;
   let passCount = 0;
@@ -605,36 +684,44 @@ async function fetchMatchFeedSummary(): Promise<MatchFeedMetric | null> {
   let overRoiCount = 0;
   let atsRoiCount = 0;
 
-  for (const rawRow of result.data as unknown[]) {
+  for (const rawRow of sourceRows) {
     const row = rawRow as Record<string, unknown>;
 
-    const homeGoals = extractNumeric(row, ['home_goals', 'goals_for_home', 'home_score']);
-    const awayGoals = extractNumeric(row, ['away_goals', 'goals_for_away', 'away_score']);
-    const goals = extractNumeric(row, ['goals', 'total_goals', 'goal_total']);
-    const resolvedGoals = Number.isFinite(goals ?? Number.NaN)
-      ? goals!
-      : (Number.isFinite(homeGoals ?? Number.NaN) && Number.isFinite(awayGoals ?? Number.NaN)
-        ? (homeGoals ?? 0) + (awayGoals ?? 0)
-        : null);
+    const homeScore = extractNumeric(row, ['home_score', 'home_points']);
+    const awayScore = extractNumeric(row, ['away_score', 'away_points']);
+    const totalScore = extractNumeric(row, ['total_score', 'total_points', 'combined_score']);
+    const resolvedTotalScore = bounded(
+      totalScore ?? sumPair(homeScore, awayScore),
+      0,
+      400,
+    );
 
-    const corners = extractNumeric(row, ['corners', 'total_corners', 'corner_count', 'home_corners', 'away_corners']);
+    const corners = extractNumeric(row, ['corners', 'total_corners', 'corner_count']);
     const cornerHome = extractNumeric(row, ['home_corners', 'corners_for_home']);
     const cornerAway = extractNumeric(row, ['away_corners', 'corners_for_away']);
-    const resolvedCorners = Number.isFinite(corners ?? Number.NaN) ? corners! : ((cornerHome ?? 0) + (cornerAway ?? 0));
+    const resolvedCorners = bounded(corners ?? sumPair(cornerHome, cornerAway), 0, 40);
 
-    const cards = extractNumeric(row, ['cards', 'total_cards', 'card_count', 'home_cards', 'away_cards']);
+    const cards = extractNumeric(row, ['cards', 'total_cards', 'card_count']);
     const cardHome = extractNumeric(row, ['home_cards', 'cards_for_home', 'home_team_cards']);
     const cardAway = extractNumeric(row, ['away_cards', 'cards_for_away', 'away_team_cards']);
-    const resolvedCards = Number.isFinite(cards ?? Number.NaN) ? cards! : ((cardHome ?? 0) + (cardAway ?? 0));
+    const resolvedCards = bounded(cards ?? sumPair(cardHome, cardAway), 0, 20);
 
-    const pass = extractNumeric(row, ['pass_pct', 'passes_pct', 'pass_percent', 'team_pass_pct', 'passing_pct']);
-    const shot = extractNumeric(row, ['shot_accuracy', 'shot_pct', 'shooting_accuracy', 'shots_accuracy']);
-    const overRoi = extractNumeric(row, ['over_roi', 'roi_over', 'odds_over_roi']);
-    const homeAtsRoi = extractNumeric(row, ['home_ats_roi', 'ats_home_roi', 'ats_roi_home']);
+    const pass = bounded(
+      extractNumeric(row, ['pass_pct', 'passes_pct', 'pass_percent', 'team_pass_pct', 'passing_pct']),
+      0,
+      100,
+    );
+    const shot = bounded(
+      extractNumeric(row, ['shot_accuracy', 'shot_pct', 'shooting_accuracy', 'shots_accuracy']),
+      0,
+      100,
+    );
+    const overRoi = bounded(extractNumeric(row, ['over_roi', 'roi_over', 'odds_over_roi']), -200, 200);
+    const homeAtsRoi = bounded(extractNumeric(row, ['home_ats_roi', 'ats_home_roi', 'ats_roi_home']), -200, 200);
 
-    if (resolvedGoals !== null) {
-      goalsTotal += resolvedGoals;
-      goalCount += 1;
+    if (resolvedTotalScore !== null) {
+      totalScoreSum += resolvedTotalScore;
+      totalScoreCount += 1;
     }
     if (resolvedCorners !== null) {
       cornersTotal += resolvedCorners;
@@ -663,7 +750,7 @@ async function fetchMatchFeedSummary(): Promise<MatchFeedMetric | null> {
   }
 
   return {
-    avgGoals: goalCount > 0 ? goalsTotal / goalCount : null,
+    avgTotalScore: totalScoreCount > 0 ? totalScoreSum / totalScoreCount : null,
     avgCorners: cornerCount > 0 ? cornersTotal / cornerCount : null,
     avgCards: cardCount > 0 ? cardsTotal / cardCount : null,
     avgPassPct: passCount > 0 ? passTotal / passCount : null,
@@ -1156,8 +1243,8 @@ export default function TrendsPage() {
   const kpiRows = useMemo(
     () => [
       {
-        title: 'AVG GOALS',
-        value: matchFeedMetrics?.avgGoals == null ? 'N/A' : `${matchFeedMetrics.avgGoals.toFixed(1)}`,
+        title: 'AVG TOTAL SCORE',
+        value: matchFeedMetrics?.avgTotalScore == null ? 'N/A' : `${matchFeedMetrics.avgTotalScore.toFixed(1)}`,
       },
       {
         title: 'AVG CORNERS',
@@ -1535,7 +1622,7 @@ export default function TrendsPage() {
                   <tr>
                     <td colSpan={10} className="px-4 py-8 text-center text-sm text-slate-500">
                       {apiRowCount === 0
-                        ? 'No trend rows returned from get_trends. Check API key/project configuration for this deployment.'
+                        ? 'No trend rows returned from configured sources (RPC/table/gateway). Check environment project wiring and data sync.'
                         : 'No trends for current filters. Try lowering min hit %, lowering min games, or clearing search/signal filters.'}
                     </td>
                   </tr>
