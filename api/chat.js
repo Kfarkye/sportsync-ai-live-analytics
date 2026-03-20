@@ -200,6 +200,245 @@ const calculateLineMovement = (currentOdds, t60Snapshot) => {
     };
 };
 
+const classifyQuestionType = (query) => {
+    const q = (query || "").toLowerCase();
+    if (/(top scorer|most points|points leader|who scored)/i.test(q)) return "top_scorer";
+    if (/(rebounds|rebounding leader)/i.test(q)) return "rebounds";
+    if (/(assists|assist leader)/i.test(q)) return "assists";
+    if (/(line|odds|spread|total|moneyline|ml)/i.test(q)) return "market";
+    if (/(last play|recent plays|events|what happened)/i.test(q)) return "events";
+    return "general";
+};
+
+const QUALITY_FAILURE_CODES = Object.freeze({
+    OK: "OK",
+    STALE_CONFIDENT_ANSWER: "F1_STALE_CONFIDENT_ANSWER",
+    PARTIAL_PACKET_OVERREACH: "F2_PARTIAL_PACKET_OVERREACH",
+    SNAPSHOT_AS_TRANSITION: "F3_SNAPSHOT_AS_TRANSITION",
+    CAUSAL_WITHOUT_EXECUTION: "F4_CAUSAL_WITHOUT_EXECUTION",
+    SILENT_FALLBACK: "F5_SILENT_FALLBACK",
+    PACKET_BYPASS: "F6_PACKET_BYPASS",
+});
+
+const LIVE_QUESTION_TYPES = new Set(["top_scorer", "rebounds", "assists", "events", "market"]);
+const PACKET_STALE_THRESHOLD_SECONDS = 60;
+
+const getRequiredAnswerabilityKeys = (questionType) => {
+    switch (questionType) {
+        case "top_scorer":
+            return ["can_answer_top_scorer"];
+        case "rebounds":
+            return ["can_answer_rebounds_leader"];
+        case "assists":
+            return ["can_answer_assists_leader"];
+        case "events":
+            return ["can_answer_recent_events"];
+        case "market":
+            return ["can_answer_market_movement"];
+        default:
+            return ["can_answer_scoreboard"];
+    }
+};
+
+const deriveInferenceMode = (packet) => {
+    const hasTransitionEvidence = Number.isFinite(packet?.market_structure?.trigger_window?.corridor_width_points)
+        || Number.isFinite(packet?.market_structure?.clob_repricing?.delta_open_to_latest);
+    return hasTransitionEvidence ? "transition_grounded" : "snapshot_only";
+};
+
+const getGuardrailMessage = ({ failureCode, questionType, missingKeys = [], freshnessSeconds = null }) => {
+    switch (failureCode) {
+        case QUALITY_FAILURE_CODES.PACKET_BYPASS:
+            return "Live context is not available right now. I cannot answer this safely until the trusted match packet is back.";
+        case QUALITY_FAILURE_CODES.STALE_CONFIDENT_ANSWER:
+            return `Live packet is stale (${freshnessSeconds ?? "unknown"}s old). I can only provide limited context until freshness recovers.`;
+        case QUALITY_FAILURE_CODES.PARTIAL_PACKET_OVERREACH: {
+            if (questionType === "top_scorer") return "Live scorer feed not available yet.";
+            if (questionType === "rebounds") return "Live rebound leader feed not available yet.";
+            if (questionType === "assists") return "Live assist leader feed not available yet.";
+            if (questionType === "events") return "Recent live event feed not available yet.";
+            if (questionType === "market") return "Live line-movement feed not available yet.";
+            return `Required live fields are missing: ${missingKeys.join(", ") || "unknown"}.`;
+        }
+        default:
+            return "Live data quality guard triggered. I can only give limited context right now.";
+    }
+};
+
+const getSeverityForFailureCode = (failureCode) => {
+    if ([QUALITY_FAILURE_CODES.STALE_CONFIDENT_ANSWER, QUALITY_FAILURE_CODES.PACKET_BYPASS].includes(failureCode)) return "S0";
+    if ([QUALITY_FAILURE_CODES.PARTIAL_PACKET_OVERREACH, QUALITY_FAILURE_CODES.SNAPSHOT_AS_TRANSITION, QUALITY_FAILURE_CODES.CAUSAL_WITHOUT_EXECUTION, QUALITY_FAILURE_CODES.SILENT_FALLBACK].includes(failureCode)) return "S1";
+    return "S2";
+};
+
+async function logResponseQualityGuard({
+    matchId = null,
+    questionType = "general",
+    failureCode = QUALITY_FAILURE_CODES.OK,
+    missingFields = [],
+    freshnessSeconds = null,
+    inferenceMode = "snapshot_only",
+    isLiveIntent = false,
+    requiresPacket = false,
+    reason = null,
+}) {
+    if (!supabase) return;
+    try {
+        await supabase.from("ai_tool_logs").insert({
+            tool_name: "response_guard",
+            match_id: matchId ? String(matchId) : null,
+            question_type: questionType,
+            packet_freshness_seconds: Number.isFinite(freshnessSeconds) ? Number(freshnessSeconds) : null,
+            missing_fields: Array.isArray(missingFields) ? missingFields : [],
+            success: failureCode === QUALITY_FAILURE_CODES.OK,
+            error: failureCode === QUALITY_FAILURE_CODES.OK ? null : failureCode,
+            meta: {
+                failure_code: failureCode,
+                severity: getSeverityForFailureCode(failureCode),
+                inference_mode: inferenceMode,
+                is_live_intent: Boolean(isLiveIntent),
+                requires_packet: Boolean(requiresPacket),
+                route: "api/chat",
+                reason: reason || null,
+            },
+        });
+    } catch (logErr) {
+        console.warn("[QualityGuard] log insert failed:", logErr?.message || logErr);
+    }
+}
+
+const extractEvidenceLinesFromPacket = (packet) => {
+    const lines = [];
+    if (!packet || typeof packet !== "object") return lines;
+
+    const away = packet?.match?.away_team || "Away";
+    const home = packet?.match?.home_team || "Home";
+    const awayScore = packet?.scoreboard?.away;
+    const homeScore = packet?.scoreboard?.home;
+    const clock = packet?.scoreboard?.clock || "N/A";
+
+    if (Number.isFinite(awayScore) && Number.isFinite(homeScore)) {
+        lines.push(`${away} ${awayScore} - ${homeScore} ${home} (${clock})`);
+    }
+
+    const move = packet?.market?.movement_total;
+    if (Number.isFinite(move)) {
+        const sign = move > 0 ? "+" : "";
+        lines.push(
+            `Total movement: ${sign}${Number(move).toFixed(1)} (open ${packet?.market?.open_total ?? "—"} -> live ${packet?.market?.live_total ?? "—"})`,
+        );
+    }
+
+    const corridorWidth = packet?.market_structure?.trigger_window?.corridor_width_points;
+    if (Number.isFinite(corridorWidth)) {
+        lines.push(`Live corridor: ${Number(corridorWidth).toFixed(1)} points at trigger`);
+    } else {
+        const clobDelta = packet?.market_structure?.clob_repricing?.delta_open_to_latest;
+        if (Number.isFinite(clobDelta)) {
+            const sign = clobDelta > 0 ? "+" : "";
+            lines.push(`Market repricing: ${sign}${Number(clobDelta).toFixed(3)} vs open probability`);
+        }
+    }
+
+    if (Array.isArray(packet?.events) && packet.events.length > 0) {
+        const latestEvent = packet.events[packet.events.length - 1];
+        if (latestEvent?.text) {
+            lines.push(`Latest event: ${latestEvent.t || "N/A"} ${latestEvent.text}`);
+        }
+    }
+
+    if (Array.isArray(packet?.trends) && packet.trends.length > 0) {
+        const trend = packet.trends[0];
+        lines.push(`Trend: ${trend?.label || "Signal"} — ${trend?.value || "Active"}`);
+    }
+
+    return lines.slice(0, 3);
+};
+
+const buildTrustedPacketContextBlock = (packet) => {
+    if (!packet || typeof packet !== "object" || packet.error) {
+        return "TRUSTED_MATCH_PACKET: unavailable";
+    }
+
+    const answerability = packet.answerability || {};
+    const inferenceMode = deriveInferenceMode(packet);
+    const answerabilityLine = Object.entries(answerability)
+        .map(([key, value]) => `${key}:${value ? "yes" : "no"}`)
+        .join(" | ");
+
+    const eventLines = Array.isArray(packet.events)
+        ? packet.events.slice(-3).map((e) => `- ${e?.t || "N/A"} ${e?.text || ""}`).join("\n")
+        : "- none";
+
+    const trendLines = Array.isArray(packet.trends)
+        ? packet.trends.slice(0, 3).map((t) => `- ${t?.label || "Signal"}: ${t?.value || "Active"}`).join("\n")
+        : "- none";
+
+    return `
+TRUSTED_MATCH_PACKET (SYSTEM OF RECORD):
+- Match: ${packet?.match?.away_team || "Away"} @ ${packet?.match?.home_team || "Home"} [${packet?.match?.id || "unknown"}]
+- Scoreboard: ${packet?.scoreboard?.away ?? "N/A"}-${packet?.scoreboard?.home ?? "N/A"} | Clock ${packet?.scoreboard?.clock || "N/A"} | Period ${packet?.scoreboard?.period ?? "N/A"} | Status ${packet?.scoreboard?.status || "N/A"}
+- Market: Live Total ${packet?.market?.live_total ?? "N/A"} | Open Total ${packet?.market?.open_total ?? "N/A"} | Movement ${packet?.market?.movement_total ?? "N/A"}
+- Market Structure: Corridor ${packet?.market_structure?.trigger_window?.corridor_width_points ?? "N/A"} | Kalshi Delta ${packet?.market_structure?.clob_repricing?.delta_open_to_latest ?? "N/A"}
+- Inference Mode: ${inferenceMode}
+- Leaders available: ${answerabilityLine || "none"}
+- Packet as_of: ${packet?.packet_meta?.as_of || "N/A"} | freshness_seconds: ${packet?.packet_meta?.freshness_seconds ?? "N/A"}
+RECENT EVENTS:
+${eventLines}
+TRENDS / INTEL:
+${trendLines}
+`.trim();
+};
+
+async function fetchTrustedMatchPacket(matchId, questionType = "general") {
+    if (!supabase || !matchId) return null;
+    try {
+        const started = Date.now();
+        const { data, error } = await supabase
+            .rpc("get_ai_match_packet", { p_match_id: String(matchId), p_max_events: 10 })
+            .abortSignal(AbortSignal.timeout(3000));
+
+        if (error || !data) {
+            console.warn("[TrustedPacket] RPC failed:", error?.message || "no_data");
+            return null;
+        }
+
+        const packet = data;
+        const answerability = packet?.answerability || {};
+        const missingFields = Object.entries(answerability)
+            .filter(([, canAnswer]) => canAnswer === false)
+            .map(([k]) => k);
+
+        const freshness = Number.isFinite(packet?.packet_meta?.freshness_seconds)
+            ? packet.packet_meta.freshness_seconds
+            : null;
+
+        // Best-effort observability write (table may not exist in older envs)
+        try {
+            await supabase.from("ai_tool_logs").insert({
+                tool_name: "get_live_context",
+                match_id: String(matchId),
+                question_type: questionType,
+                latency_ms: Date.now() - started,
+                packet_freshness_seconds: freshness,
+                missing_fields: missingFields,
+                success: true,
+                meta: {
+                    evidence_lines: extractEvidenceLinesFromPacket(packet).length,
+                    packet_as_of: packet?.packet_meta?.as_of || null,
+                },
+            });
+        } catch (logErr) {
+            console.warn("[TrustedPacket] log insert failed:", logErr?.message || logErr);
+        }
+
+        return packet;
+    } catch (err) {
+        console.warn("[TrustedPacket] fetch error:", err?.message || err);
+        return null;
+    }
+}
+
 // =============================================================================
 // NETWORK / IP HARDENING
 // =============================================================================
@@ -263,7 +502,13 @@ You are "The Obsidian Ledger," a forensic sports analyst.
 - **MANDATORY:** Use grounded tools to verify current event claims.
 - Do NOT output bracket citation tokens like [1] or [1.x]. Citations are handled automatically by the grounding system.
 
-**RULE 4 (MATCHUP LINE - DATE/TIME):**
+**RULE 4 (TRUSTED MATCH PACKET):**
+- The TRUSTED_MATCH_PACKET block is the primary source for score, clock, leaders, events, and line movement.
+- If TRUSTED_MATCH_PACKET conflicts with web snippets, TRUSTED_MATCH_PACKET wins.
+- If answerability.can_answer_top_scorer is false and the user asks top-scorer/most-points, reply: "Live scorer feed not available yet."
+- Never say "access blocked", "unconfigured access", or "cannot verify due to endpoint access" for packet-backed questions.
+
+**RULE 5 (MATCHUP LINE - DATE/TIME):**
 - For each pick, output a MATCHUP line that includes matchup + date + time + timezone.
 - You MUST ground the date/time via tools. If not grounded, write "Time TBD" (do NOT guess).
 </prime_directive>
@@ -305,9 +550,10 @@ Role: Field Reporter. Direct, factual, concise.
 `}
 `.trim();
 
-const buildDynamicInstruction = ({ marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel, staleWarning, nbaProductContext }) => {
+const buildDynamicInstruction = ({ marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel, staleWarning, nbaProductContext, trustedPacket }) => {
     const now = new Date();
     const nbaContextBrief = buildNbaPromptContextBlock(nbaProductContext);
+    const trustedPacketBlock = buildTrustedPacketContextBlock(trustedPacket);
     return `
 <temporal>
 TODAY: ${now.toLocaleDateString("en-US", { timeZone: "America/New_York" })}
@@ -328,6 +574,7 @@ ${[
             `INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}`,
             `INJURIES_AWAY: ${safeJsonStringify(evidence.injuries.away, 400)}`,
             evidence.temporal?.t60 ? `T-60_ODDS: ${safeJsonStringify(evidence.temporal.t60.odds, 300)}` : "",
+            trustedPacketBlock,
             nbaContextBrief ? nbaContextBrief : "",
             staleWarning
         ].filter(Boolean).join("\n")}
@@ -660,6 +907,16 @@ export async function POST(req) {
 
     const validLiveStatuses = ["IN_PROGRESS", "LIVE", "HALFTIME", "END_PERIOD"];
     isLive = isLive || validLiveStatuses.some(st => (activeContext?.status || "").toUpperCase().includes(st));
+    const questionType = classifyQuestionType(userQuery);
+
+    const trustedPacketMatchId = activeContext?.match_id ? String(activeContext.match_id) : null;
+    const trustedPacket = trustedPacketMatchId ? await fetchTrustedMatchPacket(trustedPacketMatchId, questionType) : null;
+    const trustedEvidenceLines = extractEvidenceLinesFromPacket(trustedPacket);
+    const trustedFreshnessSeconds = Number.isFinite(trustedPacket?.packet_meta?.freshness_seconds)
+        ? Number(trustedPacket.packet_meta.freshness_seconds)
+        : null;
+    const trustedPacketAsOf = trustedPacket?.packet_meta?.as_of || null;
+    const canAnswerTopScorer = trustedPacket?.answerability?.can_answer_top_scorer === true;
 
     const marketPhase = getMarketPhase(activeContext);
     const lineMovementIntel = (evidence.lineMovement?.available && evidence.lineMovement.movements?.length > 0)
@@ -714,8 +971,25 @@ export async function POST(req) {
                 const systemPrompt = `${buildStaticInstruction(MODE)}\n\n${buildDynamicInstruction({
                     marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel,
                     staleWarning: isContextStale(activeContext) ? "\n⚠️ DATA WARNING: Context may be stale." : "",
-                    nbaProductContext
+                    nbaProductContext,
+                    trustedPacket
                 })}`;
+
+                if (trustedPacket && trustedEvidenceLines.length > 0) {
+                    safeWrite({
+                        type: "evidence",
+                        lines: trustedEvidenceLines,
+                        freshness_seconds: trustedFreshnessSeconds,
+                        as_of: trustedPacketAsOf
+                    });
+                }
+
+                if (questionType === "top_scorer" && !canAnswerTopScorer) {
+                    fullText = "Live scorer feed not available yet.";
+                    safeWrite({ type: "text", content: fullText });
+                    sendDone({ fallback: "top_scorer_unavailable" });
+                    return;
+                }
 
                 const result = await genAI.models.generateContentStream({
                     model: CONFIG.MODEL_ID,
