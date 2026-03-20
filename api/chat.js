@@ -648,8 +648,8 @@ ${MODE === "ANALYSIS" ? `
 **MATCHUP:** [Away] vs [Home] — [Month Day, Time TZ or "Time TBD"]
 **VERDICT:** [Team/Side] [Line/Price] ([Confidence: High/Med/Low])
 
-**THE EDGE**
-(2-3 sentences max. State the market inefficiency directly. No hedging.)
+**BETTING ANGLE**
+(2-3 sentences max. Explain what changed in the game and why the current line matters. No hedging.)
 
 **KEY FACTORS**
 - [Factor 1]

@@ -302,8 +302,8 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const liveMeta = isTennis && roundStr ? roundStr : getPeriodDisplay(match);
   const topAccentColor = isLive ? '#E11D48' : isFinal ? '#7C879A' : '#1D9E75';
   const handleSelect = () => onSelect?.(match);
-  const railPrimaryLabel = isLive ? liveClock : isFinal ? 'FINAL' : startTimeStr;
-  const railSecondaryLabel = isLive ? (liveMeta || 'In Play') : isFinal ? 'Closed' : dateStr;
+  const railPrimaryLabel = isLive ? liveClock : isFinal ? dateStr : startTimeStr;
+  const railSecondaryLabel = isLive ? (liveMeta || 'In Play') : isFinal ? '' : dateStr;
 
   return (
     <motion.div
@@ -345,7 +345,6 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-600" />
               </span>
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] font-bold text-rose-600">Live</span>
-              <span className="font-mono text-[11px] tabular-nums text-[#10223A] font-semibold sm:hidden">{liveClock}</span>
             </>
           ) : isFinal ? (
             <span className="inline-flex items-center rounded-md border border-slate-300/90 bg-slate-100/85 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">
@@ -354,7 +353,6 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           ) : (
             <>
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] font-bold text-[#1D9E75]">Scheduled</span>
-              <span className="font-mono text-[12px] tabular-nums font-semibold text-[#10223A] sm:hidden" suppressHydrationWarning>{startTimeStr}</span>
             </>
           )}
 
@@ -374,10 +372,14 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       {/* Mobile sub-meta */}
       <div className="relative z-10 sm:hidden mb-2.5 flex items-center gap-1.5 text-[10px]">
         <span className="font-mono font-semibold tabular-nums text-[#10223A]" suppressHydrationWarning>{railPrimaryLabel}</span>
-        <span className="text-slate-300">·</span>
-        <span className="font-medium text-slate-500 uppercase tracking-[0.07em] truncate">
-          {railSecondaryLabel}
-        </span>
+        {railSecondaryLabel ? (
+          <>
+            <span className="text-slate-300">·</span>
+            <span className="font-medium text-slate-500 uppercase tracking-[0.07em] truncate">
+              {railSecondaryLabel}
+            </span>
+          </>
+        ) : null}
       </div>
 
       <div className="relative z-10 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_90px] gap-3">
@@ -602,9 +604,11 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           >
             {railPrimaryLabel}
           </span>
-          <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 text-right">
-            {railSecondaryLabel}
-          </span>
+          {railSecondaryLabel ? (
+            <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 text-right">
+              {railSecondaryLabel}
+            </span>
+          ) : null}
           <span className="text-[9px] font-medium uppercase tracking-[0.08em] text-slate-400 text-right max-w-[86px] truncate">
             {leagueDisplayName}
           </span>

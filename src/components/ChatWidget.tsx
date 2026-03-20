@@ -96,12 +96,12 @@ const REGEX_VERDICT_MATCH = /\bverdict\s*:/i;
 const REGEX_WATCH_PREFIX = /.*what to watch(?:\s+live)?.*?:\s*/i;
 const REGEX_WATCH_MATCH = /what to watch(?:\s+live)?/i;
 
-const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHY(?:\s*\(.*\))?|WHAT TO WATCH(?:\s+LIVE)?|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT|INVALIDATION(?:\s+CONDITIONS)?|EXECUTION(?:\s+PLAN)?|FRESHNESS(?:\s+CHECK)?|EVIDENCE)(?:\*{0,2})?:?/i;
+const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|BETTING ANGLE|KEY FACTORS|MARKET DYNAMICS|WHY(?:\s*\(.*\))?|WHAT TO WATCH(?:\s+LIVE)?|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT|INVALIDATION(?:\s+CONDITIONS)?|EXECUTION(?:\s+PLAN)?|FRESHNESS(?:\s+CHECK)?|EVIDENCE)(?:\*{0,2})?:?/i;
 // Match "MATCHUP 2: Team A vs Team B — Feb 16, 7:00 PM ET" with optional brackets, bullets, markdown.
 const REGEX_MATCHUP_LINE = /^\s*(?:\[)?\s*(?:[●•·‣-]\s*)?(?:\*{1,3}\s*)?MATCHUP(?:\s*\d+)?\s*[:—-]\s*(.+?)(?:\s*\*{1,3})?\s*(?:\])?\s*$/i;
 
 /** Sections that should never render in analysis */
-const EXCLUDED_SECTIONS = ['the edge', 'the_edge', 'edge', 'triple confluence', 'triple_confluence'];
+const EXCLUDED_SECTIONS = ['the edge', 'the_edge', 'edge', 'betting angle', 'betting_angle', 'triple confluence', 'triple_confluence'];
 
 const REGEX_SIGNED_NUMERIC = /[+\-\u2212]\d+(?:\.\d+)?/g;
 
@@ -3054,7 +3054,7 @@ const InputDeck: FC<{
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isOffline ? "Offline -- waiting for connection..." : isProcessing ? "Waiting for response..." : "Ask for edge, splits, or props..."}
+            placeholder={isOffline ? "Offline -- waiting for connection..." : isProcessing ? "Waiting for response..." : "Ask what changed, why it matters, or market impact..."}
             rows={1}
             disabled={isOffline || isProcessing}
             aria-label="Message input"

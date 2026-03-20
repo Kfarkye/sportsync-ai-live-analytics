@@ -28,6 +28,22 @@ function normalizeEmail(value: unknown): string | null {
   return emailRegex.test(trimmed) ? trimmed : null;
 }
 
+function sanitizeStripeErrorMessage(raw: unknown): string {
+  if (!(raw instanceof Error) || typeof raw.message !== 'string') {
+    return 'Checkout session creation failed';
+  }
+  const redacted = raw.message
+    .replace(/\b(?:sk|rk|pk)_(?:test|live)_[A-Za-z0-9]+\b/g, '[redacted]')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (/invalid api key|api key provided|secret key|authentication|permission denied/i.test(redacted)) {
+    return 'Checkout is temporarily unavailable. Please try again shortly.';
+  }
+
+  return redacted || 'Checkout session creation failed';
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -113,7 +129,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(
       {
         error: 'stripe_error',
-        message: error instanceof Error ? error.message : 'Checkout session creation failed',
+        message: sanitizeStripeErrorMessage(error),
       },
       500,
     );
