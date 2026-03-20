@@ -651,69 +651,18 @@ const TeamAvailabilityPanel = memo(({
   );
 });
 
-/** GameInfoStrip — High-Density Bento Card Readout (SOTA Polish) */
+/** GameInfoStrip — high-signal matchup metadata without duplicate market lines */
 const GameInfoStrip = memo(({ match }: { match: Match }) => {
   const dateObj = new Date(match.startTime);
   const isValidDate = !isNaN(dateObj.getTime());
   const fullDateStr = isValidDate ? dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
   const timeStr = isValidDate ? dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
-
-  const odds = match.current_odds || match.odds;
-  const homeRecord = match.homeTeam?.record;
-  const awayRecord = match.awayTeam?.record;
+  const homeRecord = match.homeTeam?.record || '—';
+  const awayRecord = match.awayTeam?.record || '—';
   const venue = (match as Match & { venue?: { name?: string; city?: string; state?: string } }).venue;
   const venueName = venue?.name || match.homeTeam?.stadium || match.court;
   const leagueLabel = getLeagueDisplayName(match.leagueId, String(match.sport || ''));
-
-  const homeSpreadRaw = odds?.homeSpread ?? odds?.spread ?? odds?.spread_home ?? odds?.spread_home_value;
-  const awaySpreadRaw = odds?.awaySpread ?? odds?.away_spread ?? odds?.spread_away ?? odds?.spread_away_value;
-  const totalVal = odds?.total ?? odds?.overUnder ?? odds?.total_value;
-  const homeML = odds?.moneylineHome ?? odds?.homeWin ?? odds?.home_ml ?? odds?.homeML;
-  const awayML = odds?.moneylineAway ?? odds?.awayWin ?? odds?.away_ml ?? odds?.awayML;
-
-  const toNumber = (v: unknown) => {
-    if (v === undefined || v === null) return null;
-    const num = typeof v === 'string' ? parseFloat(v) : Number(v);
-    return Number.isFinite(num) ? num : null;
-  };
-
-  const homeSpread = toNumber(homeSpreadRaw);
-  const awaySpread = toNumber(awaySpreadRaw);
-  const resolvedHomeSpread = homeSpread ?? (awaySpread !== null ? awaySpread * -1 : null);
-  const resolvedAwaySpread = awaySpread ?? (homeSpread !== null ? homeSpread * -1 : null);
-
-  const fmtOdds = (v?: string | number | null) => {
-    if (v === undefined || v === null) return '—';
-    const num = toNumber(v);
-    if (num === null) return String(v);
-    return num > 0 ? `+${num}` : `${num}`;
-  };
-
-  const fmtSpread = (v?: string | number | null) => {
-    if (v === undefined || v === null) return '—';
-    const num = toNumber(v);
-    if (num === null) return String(v);
-    if (num === 0) return 'PK';
-    return num > 0 ? `+${num}` : `${num}`;
-  };
-
-  const fmtTotal = (v?: string | number | null) => {
-    if (v === undefined || v === null) return '—';
-    const num = toNumber(v);
-    return num === null ? String(v) : `${num}`;
-  };
-
-  const isFinal = isGameFinal(match.status);
-  const isLive = isGameInProgress(match.status);
-  const oddsTimestamp = odds?.lastUpdated ?? odds?.updated_at ?? odds?.last_updated;
-  const gameStart = new Date(match.startTime).getTime();
-  const oddsAge = oddsTimestamp ? new Date(oddsTimestamp).getTime() : 0;
-  const oddsAreFresh = oddsAge > gameStart;
-  const linesLabel = isFinal ? 'Closing' : (isLive && oddsAreFresh) ? 'Current' : isLive ? 'Opening' : 'Lines';
-
-  const hasTotal = totalVal !== undefined && totalVal !== null;
-  const hasMlColumn = homeML !== undefined && homeML !== null || awayML !== undefined && awayML !== null;
-  const hasAnyLine = resolvedHomeSpread !== null || resolvedAwaySpread !== null || hasTotal || homeML !== undefined && homeML !== null || awayML !== undefined && awayML !== null;
+  const statusLabel = isGameFinal(match.status) ? 'Final' : isGameInProgress(match.status) ? 'Live' : 'Scheduled';
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 items-start gap-3 lg:gap-4 mb-7 lg:mb-8 relative z-10">
@@ -722,6 +671,7 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <span className="px-2.5 py-1 bg-black/[0.06] rounded-lg text-[10px] font-bold text-black/75 uppercase tracking-widest">{leagueLabel}</span>
+            <span className="px-2.5 py-1 bg-[#F1F5FD] rounded-lg text-[10px] font-bold text-[#324B74] uppercase tracking-widest">{statusLabel}</span>
           </div>
           {isValidDate && (
             <div className="space-y-1">
@@ -742,94 +692,25 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-black/20" />
-            <span className="text-[11px] font-bold text-black/60 uppercase tracking-widest">{linesLabel}</span>
+            <span className="text-[11px] font-bold text-black/60 uppercase tracking-widest">Match Snapshot</span>
           </div>
           {match.edge_tags && match.edge_tags.length > 0 && (
             <MatchEdgeTags tags={match.edge_tags} size="sm" />
           )}
         </div>
 
-        {!hasAnyLine ? (
-          <div className="text-[12px] text-black/60 italic">Off Board</div>
-        ) : (
-          <div className="space-y-3">
-            <div className={cn(
-              "grid items-center gap-x-4 px-1 text-[10px] text-black/60 uppercase font-bold tracking-wider",
-              hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
-            )}>
-              <span>Team</span>
-              <span className="text-right">Spread</span>
-              {hasMlColumn && <span className="text-right">ML</span>}
-            </div>
-
-                <div className={cn(
-                  "grid items-center gap-x-4 px-1 py-1.5",
-                  hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
-                )}>
-              <div className="flex items-center gap-3 min-w-0">
-                {match.awayTeam?.logo && (
-                  <TeamLogo
-                    logo={match.awayTeam.logo}
-                    name={match.awayTeam.name || 'Away'}
-                    teamColor={match.awayTeam.color}
-                    className="w-6 h-6 object-contain shrink-0"
-                  />
-                )}
-                <div className="min-w-0 flex items-baseline gap-2">
-                  <span className="text-[15px] font-semibold text-black truncate">{match.awayTeam?.name || match.awayTeam?.shortName}</span>
-                  <span className="text-[12px] text-black/60 font-medium tabular-nums hidden sm:inline">{awayRecord}</span>
-                </div>
-              </div>
-              <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.06] px-3 py-1.5 rounded-xl text-right">
-                {fmtSpread(resolvedAwaySpread)}
-              </span>
-              {hasMlColumn && (
-                <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.06] px-3 py-1.5 rounded-xl text-right">
-                  {fmtOdds(awayML)}
-                </span>
-              )}
-            </div>
-
-            <div className="w-full h-px bg-black/[0.05]" />
-
-            <div className={cn(
-              "grid items-center gap-x-4 px-1 py-1.5",
-              hasMlColumn ? "grid-cols-[minmax(0,1fr)_104px_104px]" : "grid-cols-[minmax(0,1fr)_104px]"
-            )}>
-              <div className="flex items-center gap-3 min-w-0">
-                {match.homeTeam?.logo && (
-                  <TeamLogo
-                    logo={match.homeTeam.logo}
-                    name={match.homeTeam.name || 'Home'}
-                    teamColor={match.homeTeam.color}
-                    className="w-6 h-6 object-contain shrink-0"
-                  />
-                )}
-                <div className="min-w-0 flex items-baseline gap-2">
-                  <span className="text-[15px] font-semibold text-black truncate">{match.homeTeam?.name || match.homeTeam?.shortName}</span>
-                  <span className="text-[12px] text-black/60 font-medium tabular-nums hidden sm:inline">{homeRecord}</span>
-                </div>
-              </div>
-              <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.06] px-3 py-1.5 rounded-xl text-right">
-                {fmtSpread(resolvedHomeSpread)}
-              </span>
-              {hasMlColumn && (
-                <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.06] px-3 py-1.5 rounded-xl text-right">
-                  {fmtOdds(homeML)}
-                </span>
-              )}
-            </div>
-
-            {hasTotal && (
-              <div className="pt-3 mt-1 border-t border-black/[0.05] flex items-center justify-end gap-2">
-                <span className="text-[10px] text-black/60 uppercase font-bold tracking-wider">Total</span>
-                <span className="text-[14px] font-mono font-semibold text-black tabular-nums bg-black/[0.06] px-3 py-1.5 rounded-xl text-right">
-                  O/U {fmtTotal(totalVal)}
-                </span>
-              </div>
-            )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-[#D7E3F4] bg-white px-3 py-2.5">
+            <div className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#324B74] mb-1">Away</div>
+            <div className="text-[15px] font-semibold text-[#10223A] truncate">{match.awayTeam?.name || 'Away'}</div>
+            <div className="text-[12px] text-black/60 font-mono mt-0.5">{awayRecord}</div>
           </div>
-        )}
+          <div className="rounded-xl border border-[#D7E3F4] bg-white px-3 py-2.5">
+            <div className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#324B74] mb-1">Home</div>
+            <div className="text-[15px] font-semibold text-[#10223A] truncate">{match.homeTeam?.name || 'Home'}</div>
+            <div className="text-[12px] text-black/60 font-mono mt-0.5">{homeRecord}</div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1974,32 +1855,14 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   const trendLines = useMemo(() => {
     const lines: string[] = [];
     const seen = new Set<string>();
-    const odds = match.current_odds || match.odds;
-
-    const toNumber = (value: unknown): number | null => {
-      if (value === undefined || value === null) return null;
-      const parsed = typeof value === 'string' ? Number(value) : Number(value);
-      return Number.isFinite(parsed) ? parsed : null;
-    };
-
-    const fmtAmerican = (value: unknown): string | null => {
-      const parsed = toNumber(value);
-      if (parsed === null) return null;
-      if (parsed > 0) return `+${Math.round(parsed)}`;
-      if (parsed < 0) return `${Math.round(parsed)}`;
-      return 'PK';
-    };
-
-    const fmtTotal = (value: unknown): string | null => {
-      const parsed = toNumber(value);
-      if (parsed === null) return null;
-      return Number.isInteger(parsed) ? String(parsed) : parsed.toFixed(1);
-    };
+    const isOddsLikeLine = (value: string) =>
+      /\b(ml|moneyline|spread|o\/u|total|odds|book|line)\b/i.test(value) ||
+      /[+-]\d{2,4}/.test(value);
 
     const addLine = (value: unknown) => {
       if (typeof value !== 'string') return;
       const normalized = compactText(value);
-      if (!normalized || seen.has(normalized)) return;
+      if (!normalized || seen.has(normalized) || isOddsLikeLine(normalized)) return;
       seen.add(normalized);
       lines.push(normalized);
     };
@@ -2027,29 +1890,13 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     if (lines.length === 0) {
       const homeName = match.homeTeam?.name || 'Home';
       const awayName = match.awayTeam?.name || 'Away';
-      const homeML = fmtAmerican(odds?.moneylineHome ?? odds?.home_ml ?? odds?.homeWin ?? odds?.homeML);
-      const awayML = fmtAmerican(odds?.moneylineAway ?? odds?.away_ml ?? odds?.awayWin ?? odds?.awayML);
-      const spread = odds?.spread ?? odds?.homeSpread ?? odds?.spread_home ?? odds?.spread_home_value;
-      const total = fmtTotal(odds?.total ?? odds?.overUnder ?? odds?.total_value);
-
-      const marketParts: string[] = [];
-      if (homeML || awayML) marketParts.push(`ML ${awayML || '—'} / ${homeML || '—'}`);
-      if (spread !== undefined && spread !== null && String(spread).trim() !== '') marketParts.push(`Spread ${String(spread)}`);
-      if (total) marketParts.push(`Total ${total}`);
-
-      if (marketParts.length > 0) {
-        addLine(`${awayName} at ${homeName} · ${marketParts.join(' · ')}`);
-      } else {
-        const awayRecord = match.awayTeam?.record || '—';
-        const homeRecord = match.homeTeam?.record || '—';
-        addLine(`${awayName} (${awayRecord}) at ${homeName} (${homeRecord})`);
-      }
+      addLine(`${awayName} vs ${homeName}: no pregame trend signal posted yet.`);
     }
 
     return lines.slice(0, 3);
-  }, [match.awayTeam?.name, match.awayTeam?.record, match.current_odds, match.edge_tags, match.homeTeam?.name, match.homeTeam?.record, match.odds, pregameIntel]);
+  }, [match.awayTeam?.name, match.edge_tags, match.homeTeam?.name, pregameIntel]);
 
-  const headerTrendLine = trendLines[0];
+  const headerTrendLine = trendLines[0] || 'No pregame trend signal posted yet.';
 
   const corePlayersByTeam = useMemo(() => {
     const homeNeedles = buildTeamNeedles(match.homeTeam);
@@ -2347,9 +2194,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                 <span className="text-[10px] font-mono text-black/45 truncate">{headerTrendLine}</span>
               </div>
               <div className="shrink-0 text-[10px] font-mono text-black/55">
-                {match.current_odds?.total !== undefined && match.current_odds?.total !== null
-                  ? `O/U ${String(match.current_odds.total)}`
-                  : String(match.current_odds?.provider || 'Pregame')}
+                {isGameInProgress(match.status)
+                  ? 'Live'
+                  : isGameFinal(match.status)
+                    ? 'Final'
+                    : 'Pregame'}
               </div>
             </div>
           </div>
@@ -2424,27 +2273,12 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
                 {currentTab === 'DETAILS' && (
                   <div className="space-y-4">
-                    <SpecSheetRow label="03 // TRENDS" defaultOpen={true} collapsible={false}>
-                      <div className="space-y-2.5">
-                        {trendLines.map((line, idx) => (
-                          <div
-                            key={`${line}-${idx}`}
-                            className={cn(
-                              "rounded-xl border border-[#D9E2F3]/70 bg-[linear-gradient(180deg,#FFFFFF_0%,#FAFCFF_100%)] px-3.5 py-3 text-[12px] leading-relaxed text-black/75",
-                              idx === 0 ? "font-medium text-black/85" : ""
-                            )}
-                          >
-                            {line}
-                          </div>
-                        ))}
-                      </div>
-                    </SpecSheetRow>
                     {String(match.sport || '').toUpperCase() === 'NBA' && (
                       <NbaContextPanel match={match as Match} liveState={liveState} />
                     )}
                     <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
                       <div className="space-y-4">
-                        <SpecSheetRow label="04 // MARKETS" defaultOpen={true}>
+                        <SpecSheetRow label="03 // MARKETS" defaultOpen={true}>
                           <div className="space-y-4">
                             <div className="flex items-center justify-between gap-3 border-b border-black/[0.07] pb-1">
                               <div className="inline-flex items-center rounded-lg border border-[#D4DEEF] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] p-1">
@@ -2458,7 +2292,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                                       : "text-black/50 hover:text-black/80"
                                   )}
                                 >
-                                  Trends
+                                  Lines
                                 </button>
                                 <button
                                   type="button"
@@ -2470,7 +2304,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                                       : "text-black/50 hover:text-black/80"
                                   )}
                                 >
-                                  Odds
+                                  Depth
                                 </button>
                               </div>
 
@@ -2503,7 +2337,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                             </div>
                           </div>
                         </SpecSheetRow>
-                        <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={hasRecentForm}>
+                        <SpecSheetRow label="05 // TRAJECTORY" defaultOpen={hasRecentForm}>
                           {availabilityLoading && !hasRecentForm ? (
                             <div className="text-[12px] text-black/55">Loading recent team form…</div>
                           ) : (
@@ -2519,7 +2353,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         </SpecSheetRow>
                       </div>
                       <div className="space-y-4">
-                        <SpecSheetRow label="08 // AVAILABILITY" defaultOpen={true}>
+                        <SpecSheetRow label="04 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
+                        <SpecSheetRow label="06 // AVAILABILITY" defaultOpen={true}>
                           <TeamAvailabilityPanel
                             homeTeamName={match.homeTeam.name}
                             awayTeamName={match.awayTeam.name}
@@ -2533,9 +2368,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         <SpecSheetRow label="07 // CONTEXT" defaultOpen={hasContextData}>
                           {hasContextData
                             ? <MatchupContextPills {...match.context} sport={match.sport} />
-                            : <div className="text-black/50 text-[12px] font-medium">No matchup context posted yet.</div>}
+                            : <div className="text-black/50 text-[12px] font-medium">Context will populate as the live feed syncs.</div>}
                         </SpecSheetRow>
-                        <SpecSheetRow label="05 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
                       </div>
                     </div>
                   </div>
@@ -2600,10 +2434,8 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                             || 'Live play timeline will appear after tip. For now, use opening lines and team form to frame the matchup.'}
                         </p>
                         <div className="mt-3 grid gap-2 text-[11px] font-mono text-black/70 sm:grid-cols-2">
-                          <div>ML {String(match.current_odds?.moneylineAway ?? match.current_odds?.away_ml ?? '—')} / {String(match.current_odds?.moneylineHome ?? match.current_odds?.home_ml ?? '—')}</div>
-                          <div>Spread {String(match.current_odds?.spread ?? match.current_odds?.homeSpread ?? '—')}</div>
-                          <div>Total {String(match.current_odds?.total ?? match.current_odds?.overUnder ?? '—')}</div>
                           <div>{match.awayTeam?.record || '—'} at {match.homeTeam?.record || '—'}</div>
+                          <div>{isGameInProgress(match.status) ? 'Live context active' : 'Pregame context active'}</div>
                         </div>
                       </div>
                     ) : (
