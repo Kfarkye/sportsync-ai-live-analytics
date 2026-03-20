@@ -105,6 +105,7 @@ const MATCH_SELECT_COLUMNS = [
     'away_team',
     'home_team_id',
     'away_team_id',
+    'ai_signals',
     'current_odds',
     'odds_home_ml_safe',
     'odds_away_ml_safe',
@@ -499,6 +500,7 @@ Deno.serve(async (req: Request) => {
         // ── 3. Fetch Closing Lines ────────────────────────────────────────────
         const closingStart = Date.now();
         const closingMap = new Map<string, any>();
+        const edgeTagMap = new Map<string, any[]>();
         const matchIds = dbMatches.map(m => m.id).filter(Boolean);
 
         if (matchIds.length > 0) {
@@ -536,6 +538,70 @@ Deno.serve(async (req: Request) => {
         }
         timings.push({ name: 'closing', dur: Date.now() - closingStart, desc: 'closing lines join' });
 
+        // ── 3B. Fetch Match Edge Tags (Trend Intelligence) ───────────────────
+        const edgeTagStart = Date.now();
+        if (matchIds.length > 0) {
+            try {
+                const chunkSize = 200;
+                const canonicalIds = Array.from(
+                    new Set(
+                        matchIds.flatMap((id) => {
+                            const str = String(id);
+                            const stripped = str.split('_')[0];
+                            return stripped && stripped !== str ? [str, stripped] : [str];
+                        })
+                    )
+                );
+
+                const chunkPromises = [];
+                for (let i = 0; i < canonicalIds.length; i += chunkSize) {
+                    const chunk = canonicalIds.slice(i, i + chunkSize);
+                    chunkPromises.push(
+                        supabase
+                            .from('match_edge_tags')
+                            .select('match_id, trend_key, tag_type, status, edge_payload, created_at')
+                            .in('match_id', chunk)
+                            .eq('status', 'active')
+                            .order('created_at', { ascending: false })
+                    );
+                }
+
+                const chunkResults = await Promise.allSettled(chunkPromises);
+                for (const res of chunkResults) {
+                    if (res.status !== 'fulfilled' || !res.value?.data) continue;
+                    for (const row of res.value.data) {
+                        const rawId = String(row.match_id || '');
+                        if (!rawId) continue;
+                        const strippedId = rawId.split('_')[0];
+                        const keys = rawId === strippedId ? [rawId] : [rawId, strippedId];
+
+                        for (const key of keys) {
+                            if (!edgeTagMap.has(key)) edgeTagMap.set(key, []);
+                            edgeTagMap.get(key)!.push({
+                                trend_key: row.trend_key,
+                                tag_type: row.tag_type,
+                                status: row.status,
+                                edge_payload: row.edge_payload || {},
+                            });
+                        }
+                    }
+                }
+
+                // Keep payload compact and deterministic for feed performance.
+                edgeTagMap.forEach((tags, key) => {
+                    const unique = new Map<string, any>();
+                    for (const tag of tags) {
+                        const dedupeKey = `${String(tag.trend_key || '')}|${String(tag.tag_type || '')}`;
+                        if (!unique.has(dedupeKey)) unique.set(dedupeKey, tag);
+                    }
+                    edgeTagMap.set(key, Array.from(unique.values()).slice(0, 3));
+                });
+            } catch (e) {
+                console.error(JSON.stringify({ level: 'warn', requestId, message: 'match_edge_tags_fetch_failed', error: String(e) }));
+            }
+        }
+        timings.push({ name: 'edge_tags', dur: Date.now() - edgeTagStart, desc: 'edge tags join' });
+
         // ── 4. Shape Response ────────────────────────────────────────────────
         const shapeStart = Date.now();
         const matches = dbMatches.map(m => {
@@ -557,12 +623,14 @@ Deno.serve(async (req: Request) => {
                 awayTeam: { ...awayObj, id: awayObj.id || m.away_team_id, name: awayObj.name || m.away_team },
                 homeScore: String(m.home_score ?? homeObj.score ?? 0),
                 awayScore: String(m.away_score ?? awayObj.score ?? 0),
+                edge_tags: edgeTagMap.get(String(m.id)) || edgeTagMap.get(String(m.id).split('_')[0]) || [],
             };
 
             match.homeTeam.score = match.homeScore;
             match.awayTeam.score = match.awayScore;
 
             match.current_odds = safeJsonParse(m.current_odds);
+            match.ai_signals = safeJsonParse(m.ai_signals);
 
             const closing = closingMap.get(m.id);
             if (closing) match.closing_odds = closing;

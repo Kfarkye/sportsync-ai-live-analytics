@@ -5,8 +5,26 @@ import LeaguePage from './LeaguePage';
 import TeamPage from './TeamPage';
 import MatchPage from './MatchPage';
 import { EmptyBlock, PageShell, TopNav } from './PostgamePrimitives';
+import SEOHead from '@/components/seo/SEOHead';
 
 const toSafeSlug = (value: string): string => decodeURIComponent(value).trim().toLowerCase();
+const titleCaseFromSlug = (value: string): string =>
+  value
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+
+const LEAGUE_LABELS: Record<string, string> = {
+  epl: 'Premier League',
+  laliga: 'La Liga',
+  seriea: 'Serie A',
+  bundesliga: 'Bundesliga',
+  ligue1: 'Ligue 1',
+  mls: 'MLS',
+  ucl: 'Champions League',
+  uel: 'Europa League',
+};
 
 export const PostgameRouter: FC = () => {
   const { pathname, query } = useMemo(() => {
@@ -15,7 +33,16 @@ export const PostgameRouter: FC = () => {
   }, []);
 
   if (pathname === '/soccer') {
-    return <SoccerHubPage />;
+    return (
+      <>
+        <SEOHead
+          title="Soccer Postgame Hub | The Drip"
+          description="Postgame hub for soccer leagues with match archives, scorelines, and betting context."
+          canonicalPath="/soccer"
+        />
+        <SoccerHubPage />
+      </>
+    );
   }
 
   if (pathname.startsWith('/league/')) {
@@ -28,17 +55,46 @@ export const PostgameRouter: FC = () => {
         </PageShell>
       );
     }
-    return <LeaguePage leagueId={leagueId} query={query} />;
+    const leagueName = LEAGUE_LABELS[leagueId] || titleCaseFromSlug(leagueId);
+    return (
+      <>
+        <SEOHead
+          title={`${leagueName} Results and Betting Splits | The Drip`}
+          description={`${leagueName} postgame results, scoreline distributions, first-goal timing, and market context.`}
+          canonicalPath={`/league/${leagueId}`}
+        />
+        <LeaguePage leagueId={leagueId} query={query} />
+      </>
+    );
   }
 
   if (pathname.startsWith('/team/')) {
     const teamSlug = toSafeSlug(pathname.slice('/team/'.length));
-    return <TeamPage teamSlug={teamSlug} query={query} />;
+    const teamName = titleCaseFromSlug(teamSlug);
+    return (
+      <>
+        <SEOHead
+          title={`${teamName} Team Results and Betting Record | The Drip`}
+          description={`${teamName} postgame results, form profile, and line history from completed matches.`}
+          canonicalPath={`/team/${teamSlug}`}
+        />
+        <TeamPage teamSlug={teamSlug} query={query} />
+      </>
+    );
   }
 
   if (pathname.startsWith('/match/')) {
     const slug = decodeURIComponent(pathname.slice('/match/'.length));
-    return <MatchPage slug={slug} />;
+    return (
+      <>
+        <SEOHead
+          title="Match Breakdown and Betting Context | The Drip"
+          description="Postgame match breakdown with scoreline context, timeline events, and market snapshots."
+          canonicalPath={`/match/${slug}`}
+        />
+        <MatchPage slug={slug} />
+      </>
+    );
   }
 
   return (

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchLeagueIds, fetchLeagueMatches, fetchTeamsInLeague, getSpreadResult, getTotalResult, type SoccerPostgame } from '../lib/postgame';
 import { LEAGUE_LABELS, formatMatchDate, matchUrl, teamUrl } from '../lib/slugs';
+import SEOHead from '@/components/seo/SEOHead';
 
 // ============================================================================
 // Types
@@ -497,7 +498,6 @@ export default function ReportsPage() {
         if (!active) return;
         setMatches(leagueMatches);
         setTeamRows(computeStandings(leagueMatches, teams));
-        document.title = `${LEAGUE_LABELS[leagueId] ?? leagueId} Edge | The Drip`;
       } finally {
         if (active) setLoading(false);
       }
@@ -643,6 +643,8 @@ export default function ReportsPage() {
 
   const selectedLeague = leagueOptions.find((league) => league.id === leagueId);
   const leagueLabel = selectedLeague?.label || LEAGUE_LABELS[leagueId] || leagueId.toUpperCase();
+  const seoTitle = `${leagueLabel || 'League'} Edge Report | The Drip`;
+  const seoDescription = `${leagueLabel || 'League'} results, standings, ATS coverage, and totals performance from closing-line records.`;
 
   const handleReset = () => {
     setSearch('');
@@ -655,7 +657,9 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className={THEME.layout.page}>
+    <>
+      <SEOHead title={seoTitle} description={seoDescription} canonicalPath="/edge" />
+      <div className={THEME.layout.page}>
 
       {/* Navigation Header */}
       <header className={THEME.layout.header}>
@@ -844,6 +848,7 @@ export default function ReportsPage() {
           </section>
         )}
       </main>
-    </div>
+      </div>
+    </>
   );
 }

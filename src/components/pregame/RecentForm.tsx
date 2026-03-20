@@ -56,6 +56,10 @@ interface RecentGame {
 
 // "Status LED" Stream: Pure CSS indicators for Win/Loss streak
 const StreakTimeline = ({ games, teamColor }: { games: RecentGame[]; teamColor?: string }) => {
+  if (games.length === 0) {
+    return <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-slate-400">No Games</span>;
+  }
+
   return (
     <div className="flex items-center gap-[3px] opacity-90" title="Last 5 Games">
       {games.map((g, i) => {
@@ -70,7 +74,7 @@ const StreakTimeline = ({ games, teamColor }: { games: RecentGame[]; teamColor?:
               className={cn(
                 "rounded-[1px] transition-all duration-300",
                 isWin ? "w-1.5 h-3" : "w-1 h-2",
-                isWin ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)]" : isLoss ? "bg-zinc-700" : "bg-zinc-600"
+                isWin ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)]" : isLoss ? "bg-slate-500" : "bg-slate-300"
               )}
               style={isWin && color ? { backgroundColor: color, boxShadow: `0 0 8px ${color}66` } : undefined}
             />
@@ -121,7 +125,7 @@ const GameRow = ({
 
       {/* 1. Date (Technical Mono) */}
       <div className={cn(
-        "w-12 shrink-0 font-mono text-[9px] text-zinc-600 tracking-wider group-hover:text-zinc-400 transition-colors select-none",
+        "w-12 shrink-0 font-mono text-[9px] text-slate-500 tracking-wider group-hover:text-slate-700 transition-colors select-none",
         align === 'right' ? "pr-0 pl-2" : "pl-3 pr-2"
       )}>
         {dateStr}
@@ -135,7 +139,7 @@ const GameRow = ({
         <div className="relative w-5 h-5 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity grayscale group-hover:grayscale-0">
           <TeamLogo logo={game.opponent?.logo} className="w-full h-full object-contain" />
         </div>
-        <span className="text-[12px] font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors tracking-tight truncate uppercase">
+        <span className="text-[12px] font-medium text-slate-600 group-hover:text-slate-800 transition-colors tracking-tight truncate uppercase">
           {game.opponent?.shortName || game.opponent?.name?.split(' ').pop() || 'OPP'}
         </span>
       </div>
@@ -148,15 +152,15 @@ const GameRow = ({
         <div
           className={cn(
             "flex items-center justify-center w-5 h-5 rounded-[2px] text-[10px] font-bold border transition-colors duration-300",
-            isWin
+                isWin
               ? "bg-white/5 border-white/10 text-white shadow-[0_0_8px_rgba(255,255,255,0.05)]"
-              : "bg-transparent border-zinc-800 text-zinc-600"
+              : "bg-transparent border-slate-200 text-slate-500"
           )}
           style={isWin ? { borderColor: activeColor, color: activeColor } : undefined}
         >
           {result}
         </div>
-        <span className="text-[10px] text-zinc-500 group-hover:text-zinc-300 transition-colors tabular-nums tracking-wide">
+        <span className="text-[10px] text-slate-500 group-hover:text-slate-700 transition-colors tabular-nums tracking-wide">
           {teamScore}-{oppScore}
         </span>
       </div>
@@ -175,6 +179,13 @@ const RecentForm: React.FC<RecentFormProps> = ({
   const homeGames = homeTeam?.last5 ?? [];
 
   if (!homeTeam && !awayTeam) return null;
+  if (awayGames.length === 0 && homeGames.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-[12px] text-slate-600">
+        Recent form will appear once each team has recent games in feed.
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">
@@ -183,14 +194,14 @@ const RecentForm: React.FC<RecentFormProps> = ({
         {/* AWAY TEAM COLUMN */}
         <section>
           {/* Header (Spec Sheet Label) */}
-          <div className="flex items-end justify-between mb-6 pb-2 border-b border-white/6">
+          <div className="flex items-end justify-between mb-6 pb-2 border-b border-slate-100">
             <div className="flex flex-col gap-1">
-              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.25em] font-mono select-none">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.25em] font-mono select-none">
                 01 // AWAY FORM
               </span>
               <div className="flex items-center gap-2">
                 <div className="w-1 h-1 rounded-full" style={{ backgroundColor: awayColor || '#fff' }} />
-                <span className="text-[13px] font-semibold text-zinc-200 tracking-wide uppercase">
+                <span className="text-[13px] font-semibold text-slate-700 tracking-wide uppercase">
                   {awayName}
                 </span>
               </div>
@@ -206,23 +217,27 @@ const RecentForm: React.FC<RecentFormProps> = ({
             variants={{ visible: { transition: { staggerChildren: STAGGER_DELAY } } }}
             className="space-y-px"
           >
-            {awayGames.map((g, i) => (
-              <GameRow key={i} game={g} align="left" teamColor={awayColor} />
-            ))}
+            {awayGames.length > 0 ? (
+              awayGames.map((g, i) => (
+                <GameRow key={i} game={g} align="left" teamColor={awayColor} />
+              ))
+            ) : (
+              <div className="px-3 py-2 text-[11px] text-slate-500">No away form posted yet.</div>
+            )}
           </motion.div>
         </section>
 
         {/* HOME TEAM COLUMN (Mirrored) */}
         <section>
           {/* Header (Mirrored) */}
-          <div className="flex items-end justify-between flex-row-reverse mb-6 pb-2 border-b border-white/6">
+          <div className="flex items-end justify-between flex-row-reverse mb-6 pb-2 border-b border-slate-100">
             <div className="flex flex-col gap-1 items-end text-right">
-              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.25em] font-mono select-none">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.25em] font-mono select-none">
                 02 // HOME FORM
               </span>
               <div className="flex items-center gap-2 flex-row-reverse">
                 <div className="w-1 h-1 rounded-full" style={{ backgroundColor: homeColor || '#fff' }} />
-                <span className="text-[13px] font-semibold text-zinc-200 tracking-wide uppercase">
+                <span className="text-[13px] font-semibold text-slate-700 tracking-wide uppercase">
                   {homeName}
                 </span>
               </div>
@@ -238,9 +253,13 @@ const RecentForm: React.FC<RecentFormProps> = ({
             variants={{ visible: { transition: { staggerChildren: STAGGER_DELAY } } }}
             className="space-y-px"
           >
-            {homeGames.map((g, i) => (
-              <GameRow key={i} game={g} align="right" teamColor={homeColor} />
-            ))}
+            {homeGames.length > 0 ? (
+              homeGames.map((g, i) => (
+                <GameRow key={i} game={g} align="right" teamColor={homeColor} />
+              ))
+            ) : (
+              <div className="px-3 py-2 text-[11px] text-slate-500 text-right">No home form posted yet.</div>
+            )}
           </motion.div>
         </section>
 

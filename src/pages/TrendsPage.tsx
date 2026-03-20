@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import TeamLogo from '../components/shared/TeamLogo';
 import { getLeagueDisplayName } from '../utils/leagueDisplay';
 import { getTeamLogo as resolveEspnTeamLogo } from '../lib/teamColors';
+import SEOHead from '@/components/seo/SEOHead';
 
 type Direction = 'TREND' | 'FADE' | 'NEUTRAL';
 type DirectionFilter = 'ALL' | Direction;
@@ -1187,7 +1188,13 @@ export default function TrendsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <>
+      <SEOHead
+        title="Trends Board | The Drip"
+        description="Live trend board with direction, hit rate, sample size, and next-game context across major leagues."
+        canonicalPath="/trends"
+      />
+      <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">
@@ -1543,6 +1550,7 @@ export default function TrendsPage() {
           <p>{loadingRows ? 'Updating…' : `${filtered.length} total`}</p>
         </section>
       </main>
-    </div>
+      </div>
+    </>
   );
 }

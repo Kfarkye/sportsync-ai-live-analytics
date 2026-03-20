@@ -93,13 +93,13 @@ function asStringList(value: unknown): string[] {
 
 function toConsumerCopy(value: string): string {
   return value
-    .replace(/Live Market Is Balanced/gi, "Live Trend Pulse")
+    .replace(/market is balanced/gi, "Live Trend Pulse")
     .replace(
-      /Trend profile is still stabilizing through the current game state\.?/gi,
+      /profile is still [^.]*current game state\.?/gi,
       "No clear edge yet. Wait for the next big moment before adjusting your position.",
     )
     .replace(
-      /Clock state\s*([^;]+);\s*re-grade after the next major swing\.?/gi,
+      /clock\s*([^;]+);\s*re[^.]*major swing\.?/gi,
       "$1 on the clock. Reassess after the next key event.",
     )
     .replace(

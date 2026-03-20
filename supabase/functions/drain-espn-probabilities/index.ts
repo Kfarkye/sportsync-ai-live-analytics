@@ -116,6 +116,12 @@ Deno.serve(async (req: Request) => {
             const awayWinPct = awayWinPctRaw != null
               ? awayWinPctRaw
               : (homeWinPct != null ? Math.max(0, 1 - homeWinPct - (tiePct || 0)) : null);
+            // ESPN has used multiple payload variants across seasons.
+            // Accept both legacy and current field names for resilience.
+            const spreadCoverProbHome = toNumOrNull(item?.spreadCoverProbHome ?? item?.spreadWinPercentageHome);
+            const spreadPushProb = toNumOrNull(item?.spreadPushProb ?? item?.spreadPushPercentage);
+            const totalOverProb = toNumOrNull(item?.totalOverProb ?? item?.overPercentage);
+            const totalPushProb = toNumOrNull(item?.totalPushProb ?? item?.totalPushPercentage);
 
             return {
               match_id: String(match.id),
@@ -127,10 +133,10 @@ Deno.serve(async (req: Request) => {
               home_win_pct: homeWinPct,
               away_win_pct: awayWinPct,
               tie_pct: tiePct,
-              spread_cover_prob_home: toNumOrNull(item?.spreadWinPercentageHome),
-              spread_push_prob: toNumOrNull(item?.spreadPushPercentage),
-              total_over_prob: toNumOrNull(item?.overPercentage),
-              total_push_prob: toNumOrNull(item?.totalPushPercentage),
+              spread_cover_prob_home: spreadCoverProbHome,
+              spread_push_prob: spreadPushProb,
+              total_over_prob: totalOverProb,
+              total_push_prob: totalPushProb,
               seconds_left: toNumOrNull(item?.secondsLeft),
               source_state: "live_drain",
               last_modified: new Date().toISOString(),

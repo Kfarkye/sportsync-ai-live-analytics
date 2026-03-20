@@ -272,7 +272,7 @@ export const SoccerHubPage: FC = () => {
           </Card>
 
           <div className="flex items-center justify-between border-t border-slate-200 pt-3 pb-4">
-            <span className="text-xs text-slate-500">thedrip.to</span>
+            <span className="text-xs text-slate-500">thedrip.bet</span>
             <span className="text-xs tabular-nums text-slate-500">
               <ValueText className="text-xs text-slate-700">soccer_postgame</ValueText> · {totalMatches} matches · {latestLabel}
             </span>

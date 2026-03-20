@@ -55,7 +55,6 @@ import { CinematicPlayerProps } from '../analysis/PlayerStatComponents';
 import InsightCard, { toInsightCard } from '../analysis/InsightCard';
 import MatchupHeader from '../pregame/MatchupHeader';
 import RecentForm from '../pregame/RecentForm';
-import SafePregameIntelCards from '../pregame/PregameIntelCards';
 import OddsCard from '../betting/OddsCard';
 import MatchOddsHeatmap from './MatchOddsHeatmap';
 import EdgeCard from './EdgeCard';
@@ -216,6 +215,21 @@ function parseTsMs(v: string | number | Date | null | undefined, fallbackMs: num
   if (typeof v === 'string') { const t = new Date(v).getTime(); return Number.isFinite(t) ? t : fallbackMs; }
   if (v instanceof Date) { const t = v.getTime(); return Number.isFinite(t) ? t : fallbackMs; }
   return fallbackMs;
+}
+
+function toTitleCase(input: string): string {
+  return input
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function compactText(input: string, maxLength = 100): string {
+  const text = input.replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
 // ============================================================================
@@ -793,6 +807,8 @@ const NbaContextPanel = memo(({ match, liveState }: { match: Match; liveState: L
     ? [packet.seasonContext, packet.liveStateContext, packet.environmentContext]
     : [];
 
+  if (sections.length === 0) return null;
+
   const tokenClassForStatus = (status: string) => {
     if (status === 'ready') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     if (status === 'suppressed') return 'bg-amber-50 text-amber-700 border-amber-200';
@@ -1300,6 +1316,82 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     : [{ id: "OVERVIEW", label: "Game" }, { id: "PROPS", label: "Props" }, { id: "DATA", label: "Analysis" }],
     [isSched]);
 
+  const trendLines = useMemo(() => {
+    const lines: string[] = [];
+    const seen = new Set<string>();
+
+    const addLine = (value: unknown) => {
+      if (typeof value !== 'string') return;
+      const normalized = compactText(value);
+      if (!normalized || seen.has(normalized)) return;
+      seen.add(normalized);
+      lines.push(normalized);
+    };
+
+    for (const tag of (match.edge_tags || []).filter((item) => item?.status === 'active')) {
+      const keyLabel = toTitleCase(String(tag.trend_key || '').trim());
+      const recommendation = String(tag.edge_payload?.recommended_side || '').trim().toUpperCase();
+      const marketTotal = tag.edge_payload?.market_total;
+      if (keyLabel && recommendation && recommendation !== 'PASS') {
+        addLine(`${keyLabel}: ${recommendation}${marketTotal ? ` ${marketTotal}` : ''}`);
+      } else if (keyLabel) {
+        addLine(keyLabel);
+      }
+    }
+
+    if (pregameIntel?.cards?.length) {
+      const trendCard = pregameIntel.cards.find((card) =>
+        String(card?.category || '').toLowerCase().includes('trend')
+      );
+      addLine(String(trendCard?.thesis || trendCard?.market_implication || ''));
+    }
+
+    addLine(String(pregameIntel?.headline || pregameIntel?.briefing || ''));
+
+    if (lines.length === 0) {
+      addLine(
+        `${match.awayTeam?.name || 'Away'} vs ${match.homeTeam?.name || 'Home'}: no pregame trend signal posted yet.`
+      );
+    }
+
+    return lines.slice(0, 3);
+  }, [match.awayTeam?.name, match.edge_tags, match.homeTeam?.name, pregameIntel]);
+
+  const headerTrendLine = trendLines[0];
+
+  const hasRecentForm = useMemo(() => {
+    const awayGames = (match.awayTeam?.last5 || []).length;
+    const homeGames = (match.homeTeam?.last5 || []).length;
+    return awayGames > 0 || homeGames > 0;
+  }, [match.awayTeam?.last5, match.homeTeam?.last5]);
+
+  const hasContextData = useMemo(() => {
+    const context = match.context as Record<string, unknown> | undefined;
+    if (!context || typeof context !== 'object') return false;
+
+    const gameContext = typeof context.gameContext === 'string' && context.gameContext.trim().length > 0;
+    const hasVenue = !!(
+      context.venue &&
+      typeof context.venue === 'object' &&
+      'name' in context.venue &&
+      typeof (context.venue as { name?: string }).name === 'string' &&
+      (context.venue as { name?: string }).name!.trim().length > 0
+    );
+    const hasWeather = !!(
+      context.weather &&
+      typeof context.weather === 'object' &&
+      'temp' in context.weather &&
+      (context.weather as { temp?: unknown }).temp !== undefined &&
+      (context.weather as { temp?: unknown }).temp !== null
+    );
+    const hasBroadcast = !!(
+      context.broadcast && typeof context.broadcast === 'string' && context.broadcast.trim().length > 0
+    );
+    const hasBroadcasts = Array.isArray(context.broadcasts) && context.broadcasts.length > 0;
+
+    return gameContext || hasVenue || hasWeather || hasBroadcast || hasBroadcasts;
+  }, [match.context]);
+
   const fallbackLiveState: LiveState | undefined = match.lastPlay
     ? {
       lastPlay: {
@@ -1461,13 +1553,13 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             <div className="rounded-xl border border-[#D8E2F1] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] px-3 py-2.5 flex items-center justify-between gap-3 shadow-[0_12px_24px_-22px_rgba(16,34,58,0.52)]">
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="inline-flex h-2 w-2 rounded-full bg-[#1D9E75] shrink-0" />
-                <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#10223A]">Live Market</span>
-                <span className="text-[10px] font-mono text-black/45 truncate">{String(match.current_odds?.provider || 'MARKET')}</span>
+                <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#10223A]">Trends</span>
+                <span className="text-[10px] font-mono text-black/45 truncate">{headerTrendLine}</span>
               </div>
               <div className="shrink-0 text-[10px] font-mono text-black/55">
                 {match.current_odds?.total !== undefined && match.current_odds?.total !== null
-                  ? `TOTAL ${String(match.current_odds.total)}`
-                  : 'TOTAL —'}
+                  ? `O/U ${String(match.current_odds.total)}`
+                  : String(match.current_odds?.provider || 'Pregame')}
               </div>
             </div>
           </div>
@@ -1542,7 +1634,21 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
                 {deferredTab === 'DETAILS' && (
                   <div className="space-y-4">
-                    <SafePregameIntelCards match={match} />
+                    <SpecSheetRow label="03 // TRENDS" defaultOpen={true} collapsible={false}>
+                      <div className="space-y-2.5">
+                        {trendLines.map((line, idx) => (
+                          <div
+                            key={`${line}-${idx}`}
+                            className={cn(
+                              "rounded-xl border border-[#D9E2F3]/70 bg-[linear-gradient(180deg,#FFFFFF_0%,#FAFCFF_100%)] px-3.5 py-3 text-[12px] leading-relaxed text-black/75",
+                              idx === 0 ? "font-medium text-black/85" : ""
+                            )}
+                          >
+                            {line}
+                          </div>
+                        ))}
+                      </div>
+                    </SpecSheetRow>
                     {String(match.sport || '').toUpperCase() === 'NBA' && (
                       <NbaContextPanel match={match as Match} liveState={liveState} />
                     )}
@@ -1607,10 +1713,23 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                             </div>
                           </div>
                         </SpecSheetRow>
-                        <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={false}><RecentForm homeTeam={match.homeTeam} awayTeam={match.awayTeam} homeName={match.homeTeam.name} awayName={match.awayTeam.name} homeColor={homeColor} awayColor={awayColor} /></SpecSheetRow>
+                        <SpecSheetRow label="06 // TRAJECTORY" defaultOpen={hasRecentForm}>
+                          <RecentForm
+                            homeTeam={match.homeTeam}
+                            awayTeam={match.awayTeam}
+                            homeName={match.homeTeam.name}
+                            awayName={match.awayTeam.name}
+                            homeColor={homeColor}
+                            awayColor={awayColor}
+                          />
+                        </SpecSheetRow>
                       </div>
                       <div className="space-y-4">
-                        <SpecSheetRow label="07 // CONTEXT" defaultOpen={true}>{match.context ? <MatchupContextPills {...match.context} sport={match.sport} /> : <div className="text-black/40 italic text-xs font-medium">No context available.</div>}</SpecSheetRow>
+                        <SpecSheetRow label="07 // CONTEXT" defaultOpen={hasContextData}>
+                          {hasContextData
+                            ? <MatchupContextPills {...match.context} sport={match.sport} />
+                            : <div className="text-black/50 text-[12px] font-medium">No matchup context posted yet.</div>}
+                        </SpecSheetRow>
                         <SpecSheetRow label="05 // MATCHUP" defaultOpen={true}>{isInitialLoad ? <StatsGridSkeleton /> : <TeamStatsGrid stats={displayStats} match={match} colors={{ home: homeColor, away: awayColor }} />}</SpecSheetRow>
                       </div>
                     </div>

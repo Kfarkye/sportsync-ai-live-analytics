@@ -316,11 +316,6 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                 ? (match.awayTeam?.shortName || (match.awayTeam?.name || 'TBA').substring(0, 3).toUpperCase())
                 : rawSide;
 
-        const confVal = sharp_data.confidence_level ?? sharp_data.confidence_rating ?? "—";
-        const rawConf = String(confVal).replace(/%/g, '');
-        const confNum = Number(rawConf);
-        const displayConf = Number.isFinite(confNum) ? `${confNum}%` : "—";
-
         const score = liveState?.away_score !== undefined
             ? `${liveState.away_score}-${liveState.home_score}`
             : `${match.awayScore ?? 0}-${match.homeScore ?? 0}`;
@@ -340,7 +335,6 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
             isEdge,
             marketType,
             displaySide,
-            displayConf,
             score,
             clock,
             formattedTime,
@@ -412,12 +406,12 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                 ))}
                             </div>
                             <span className={cn("text-[10px] font-black tracking-[0.2em] uppercase", ui.accentColor)}>
-                                {ui.isEdge ? "Tactical Alpha Detected" : "Market Efficiency Confirmed"}
+                                {ui.isEdge ? "Live Match Read" : "Balanced State"}
                             </span>
                         </div>
                         {ui.formattedTime && (
                             <span className="text-[9px] font-mono text-slate-500 tracking-tighter uppercase opacity-60" suppressHydrationWarning>
-                                Audit Hash: {ui.formattedTime} • v4.2 ARCHITECT
+                                Updated {ui.formattedTime}
                             </span>
                         )}
                     </div>
@@ -466,11 +460,10 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                         </div>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-slate-500 tracking-widest uppercase">Confidence</span>
+                        <span className="text-[9px] font-black text-slate-500 tracking-widest uppercase">Market</span>
                         <div className="flex items-center gap-1.5">
-                            <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity }} className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
                             <span className="font-mono text-[16px] font-bold text-slate-200 tabular-nums tracking-tight">
-                                {ui.displayConf}
+                                {ui.marketType}
                             </span>
                         </div>
                     </div>
@@ -552,7 +545,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
                                 className="text-[10px] font-black text-slate-500 hover:text-slate-300 transition-colors uppercase tracking-[0.2em] flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 rounded px-1"
                             >
                                 <Terminal size={12} className="opacity-40" aria-hidden="true" />
-                                <span>{showTrace ? 'Seal Trace' : 'Audit Pipeline'}</span>
+                                <span>{showTrace ? 'Hide Notes' : 'Analysis Notes'}</span>
                             </button>
                         )}
                     </nav>

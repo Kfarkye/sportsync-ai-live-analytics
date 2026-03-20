@@ -17,6 +17,9 @@ import { AppLoadingScreen } from './components/system/AppLoadingScreen';
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const TrendsPage = lazy(() => import('./pages/TrendsPage'));
 const PostgameRouter = lazy(() => import('./pages/postgame/PostgameRouter'));
+const SportsyncApiLandingPage = lazy(() => import('./pages/SportsyncApiLandingPage'));
+const SportsyncApiDocsPage = lazy(() => import('./pages/SportsyncApiDocsPage'));
+const ApiKeyWelcomePage = lazy(() => import('./pages/ApiKeyWelcomePage'));
 
 const App: FC = () => {
   const isSwDebugDisabled = typeof window !== 'undefined'
@@ -63,6 +66,9 @@ const App: FC = () => {
                 <Route path="/edge" element={<ReportsPage />} />
                 <Route path="/reports" element={<Navigate to="/edge" replace />} />
                 <Route path="/trends" element={<TrendsPage />} />
+                <Route path="/sportsync" element={<SportsyncApiLandingPage />} />
+                <Route path="/sportsync/docs" element={<SportsyncApiDocsPage />} />
+                <Route path="/welcome" element={<ApiKeyWelcomePage />} />
                 <Route path="*" element={<AppShell />} />
               </Routes>
             </Suspense>

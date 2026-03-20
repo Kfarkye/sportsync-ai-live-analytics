@@ -45,3 +45,15 @@ verify_jwt = false
 
 [functions.nhl-postgame-backfill-worker]
 verify_jwt = false
+
+[functions.api]
+verify_jwt = false
+
+[functions.api-keys]
+verify_jwt = false
+
+[functions.stripe-checkout]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false

@@ -838,7 +838,7 @@ export const LeaguePage: FC<LeaguePageProps> = ({ leagueId, query }) => {
           ) : null}
 
           <div className="flex items-center justify-between border-t border-slate-200 pb-4 pt-3">
-            <span className="text-xs text-slate-500">thedrip.to</span>
+            <span className="text-xs text-slate-500">thedrip.bet</span>
             <span className="text-xs tabular-nums text-slate-500">
               soccer_postgame · {aggregate.n} matches · {latestLabel}
             </span>

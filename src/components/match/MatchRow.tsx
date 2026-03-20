@@ -7,7 +7,7 @@ import { useAppStore, type OddsLensMode } from '@/store/appStore';
 import { cn } from '@/lib/essence';
 import { getPeriodDisplay } from '../../utils/matchUtils';
 import { getLeagueDisplayName } from '@/constants';
-import { Sport, Linescore } from '@/types';
+import { Sport, Linescore, Match } from '@/types';
 import { buildMatchRowOdds, type MatchRowOddPayload } from '@/lib/matchOdds';
 
 // Extend base props with poly data + selection state
@@ -89,6 +89,38 @@ const formatDrawPrice = (value: unknown): string | null => {
     return 'PK';
   }
   return String(value);
+};
+
+const toTitleCase = (value: string): string =>
+  value
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const compact = (value: string, maxLen = 96): string => {
+  const clean = value.replace(/\s+/g, ' ').trim();
+  if (clean.length <= maxLen) return clean;
+  return `${clean.slice(0, maxLen - 1).trimEnd()}…`;
+};
+
+const trendPreviewFromMatch = (match: Match): string | null => {
+  const activeTags = (match.edge_tags || []).filter((tag) => tag?.status === 'active');
+  for (const tag of activeTags) {
+    const payload = tag.edge_payload || {};
+    const trigger = typeof payload.trigger === 'string' ? payload.trigger : '';
+    if (trigger.trim().length > 0) return compact(trigger);
+
+    const key = typeof tag.trend_key === 'string' ? toTitleCase(tag.trend_key) : '';
+    const side = typeof payload.recommended_side === 'string' ? payload.recommended_side.trim().toUpperCase() : '';
+    if (key && side && side !== 'PASS') return `${key}: ${side}`;
+    if (key) return key;
+  }
+
+  const summary = match.ai_signals?.context_summary;
+  if (typeof summary === 'string' && summary.trim().length > 0) return compact(summary);
+  return null;
 };
 
 const formatProbabilityValue = (probability: number, mode: OddsLensMode): string => {
@@ -252,6 +284,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       ? drawProbFromResidual
       : (typeof drawProbFromOdds === 'number' && drawProbFromOdds > 0 && drawProbFromOdds <= 100 ? drawProbFromOdds : undefined);
   const showSoccerTieRow = match.sport === Sport.SOCCER && (drawPriceLabel !== null || drawProb !== undefined);
+  const trendPreview = useMemo(() => trendPreviewFromMatch(match), [match]);
 
   const { startTimeStr, dateStr, roundStr } = useMemo(() => {
     const d = new Date(match.startTime);
@@ -506,6 +539,17 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
               </div>
             </div>
           )}
+
+          {!isFinal && !isLive && trendPreview ? (
+            <div className="mt-2 pt-2 border-t border-[#EAF0F9] flex items-center gap-2 min-w-0">
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#0F5B45] border border-[#BEE3D4] bg-[#F1FAF6] shrink-0">
+                Trend
+              </span>
+              <span className="text-[11px] text-slate-600 leading-tight truncate">
+                {trendPreview}
+              </span>
+            </div>
+          ) : null}
 
           {(hasOdds && !isFinal && !isLive) || hasEdgeInsights ? (
             <div className="mt-3 pt-2.5 border-t border-[#E4EAF5] flex items-center justify-between gap-3">
