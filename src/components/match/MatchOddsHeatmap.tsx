@@ -425,10 +425,7 @@ const MatchOddsHeatmap = ({
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#D9E2F3] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="inline-flex h-2 w-2 rounded-full bg-[#1D9E75]" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#10223A]">Market Depth</span>
-          {oddsPayload?.eventTicker ? (
-            <span className="text-[10px] font-mono text-slate-500">Kalshi</span>
-          ) : null}
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#10223A]">Depth</span>
         </div>
         <span className="text-[10px] font-mono text-slate-500">
           {latestCapturedAt
@@ -477,19 +474,12 @@ const MatchOddsHeatmap = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Markets</div>
-          <div className="mt-1 text-[13px] font-semibold text-[#10223A] font-mono">{oddsPayload?.rows?.length || 0}</div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Volume</div>
-          <div className="mt-1 text-[13px] font-semibold text-[#10223A] font-mono">{formatCompactNumber(totalVolume)}</div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Quotes</div>
-          <div className="mt-1 text-[13px] font-semibold text-[#10223A] font-mono">{allRows.length}</div>
-        </div>
+      <div className="flex items-center gap-3 text-[10px] font-mono text-slate-500 px-1">
+        <span>{oddsPayload?.rows?.length || 0} markets</span>
+        <span>•</span>
+        <span>{formatCompactNumber(totalVolume)} volume</span>
+        <span>•</span>
+        <span>{allRows.length} quotes</span>
       </div>
 
       {bootstrapping ? (

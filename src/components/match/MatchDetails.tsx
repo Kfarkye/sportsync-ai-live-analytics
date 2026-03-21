@@ -42,7 +42,6 @@ import {
   isGameScheduled,
   getDbMatchId,
 } from '../../utils/matchUtils';
-import { getLeagueDisplayName } from '../../utils/leagueDisplay';
 
 // Components
 import { ScoreHeader, LiveGameTracker } from '../analysis/Gamecast';
@@ -58,7 +57,6 @@ import OddsCard from '../betting/OddsCard';
 import MatchOddsHeatmap from './MatchOddsHeatmap';
 import EdgeCard from './EdgeCard';
 import MarketEdgeCard from './MarketEdgeCard';
-import { MatchEdgeTags } from './MatchEdgeTags';
 import { usePolyOdds, findPolyForMatch, type PolyMatchOriented } from '@/hooks/usePolyOdds';
 import { MatchupLoader, MatchupContextPills } from '../ui';
 import TeamLogo from '../shared/TeamLogo';
@@ -548,21 +546,21 @@ const TeamAvailabilityPanel = memo(({
           summary = 'Most current flags are depth or rotation pieces.';
         }
 
-        let lineRead = 'No major pregame availability drag is signaled for this side.';
+        let lineRead = 'No major availability impact is signaled for this side.';
         if (typeof snapshot?.injuryImpact === 'number') {
           if (snapshot.injuryImpact >= 7) {
-            lineRead = 'Line implication: high injury pressure against this side.';
+            lineRead = 'High availability pressure against this side.';
           } else if (snapshot.injuryImpact >= 4) {
-            lineRead = 'Line implication: moderate injury pressure. Verify before entry.';
+            lineRead = 'Moderate availability pressure. Verify before entry.';
           } else if (snapshot.injuryImpact > 0) {
-            lineRead = 'Line implication: light injury pressure, mostly depth level.';
+            lineRead = 'Light availability pressure, mostly depth level.';
           }
         } else if (coreOutCount > 0) {
-          lineRead = 'Line implication: meaningful lineup hit from an expected core piece.';
+          lineRead = 'Meaningful lineup hit from an expected core piece.';
         } else if (coreWatchCount > 0) {
-          lineRead = 'Line implication: rotation risk is live until final status confirms.';
+          lineRead = 'Rotation risk stays live until final status confirms.';
         } else if (depthFlagCount > 0) {
-          lineRead = 'Line implication: depth-only flags, limited pregame line effect.';
+          lineRead = 'Depth-only flags with limited pregame impact.';
         }
 
         return (
@@ -606,7 +604,7 @@ const TeamAvailabilityPanel = memo(({
                     {summary}
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-black/55 mr-2">Line implication</span>
+                    <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-black/55 mr-2">Market impact</span>
                     {lineRead}
                   </div>
                   {typeof snapshot.injuryImpact === 'number' ? (
@@ -616,7 +614,7 @@ const TeamAvailabilityPanel = memo(({
 
                 {flaggedPlayers.length > 0 ? (
                   <div>
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-black/55 font-semibold mb-1.5">Impact Watch</div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-black/55 font-semibold mb-1.5">Player Watch</div>
                     <div className="space-y-1.5">
                       {flaggedPlayers.slice(0, 5).map((player) => (
                         <div key={`${teamName}-watch-${player.playerName}`} className="flex items-start justify-between gap-2">
@@ -647,71 +645,6 @@ const TeamAvailabilityPanel = memo(({
           </div>
         );
       })}
-    </div>
-  );
-});
-
-/** GameInfoStrip — high-signal matchup metadata without duplicate market lines */
-const GameInfoStrip = memo(({ match }: { match: Match }) => {
-  const dateObj = new Date(match.startTime);
-  const isValidDate = !isNaN(dateObj.getTime());
-  const fullDateStr = isValidDate ? dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
-  const timeStr = isValidDate ? dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
-  const homeRecord = match.homeTeam?.record || '—';
-  const awayRecord = match.awayTeam?.record || '—';
-  const venue = (match as Match & { venue?: { name?: string; city?: string; state?: string } }).venue;
-  const venueName = venue?.name || match.homeTeam?.stadium || match.court;
-  const leagueLabel = getLeagueDisplayName(match.leagueId, String(match.sport || ''));
-  const statusLabel = isGameFinal(match.status) ? 'Final' : isGameInProgress(match.status) ? 'Live' : 'Scheduled';
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 items-start gap-3 lg:gap-4 mb-7 lg:mb-8 relative z-10">
-      <div className="lg:col-span-4 xl:col-span-5 bg-white/90 backdrop-blur-2xl rounded-[24px] p-5 sm:p-6 ring-1 ring-black/[0.04] shadow-[0_8px_30px_rgba(0,0,0,0.03)] flex flex-col overflow-hidden relative group transition-shadow hover:shadow-[0_12px_40px_rgba(0,0,0,0.05)] transform-gpu">
-        <div className="absolute -right-16 -top-16 w-40 h-40 bg-black/[0.02] rounded-full blur-3xl group-hover:bg-black/[0.04] transition-colors duration-700 pointer-events-none" />
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <span className="px-2.5 py-1 bg-black/[0.06] rounded-lg text-[10px] font-bold text-black/75 uppercase tracking-widest">{leagueLabel}</span>
-            <span className="px-2.5 py-1 bg-[#F1F5FD] rounded-lg text-[10px] font-bold text-[#324B74] uppercase tracking-widest">{statusLabel}</span>
-          </div>
-          {isValidDate && (
-            <div className="space-y-1">
-              <div className="text-[22px] font-semibold text-black tracking-tight leading-none">{fullDateStr}</div>
-              <div className="text-[14px] text-black/70 font-medium tabular-nums">{timeStr}</div>
-            </div>
-          )}
-        </div>
-        {venueName && (
-          <div className="mt-5 flex items-center gap-2 text-[12px] text-black/70 font-medium">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-60"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
-            <span className="truncate">{venueName}{venue?.city ? `, ${venue.city}` : ''}</span>
-          </div>
-        )}
-      </div>
-
-      <div className="lg:col-span-8 xl:col-span-7 bg-white/90 backdrop-blur-2xl rounded-[24px] p-5 sm:p-6 ring-1 ring-black/[0.04] shadow-[0_8px_30px_rgba(0,0,0,0.03)] flex flex-col transform-gpu">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-black/20" />
-            <span className="text-[11px] font-bold text-black/60 uppercase tracking-widest">Match Snapshot</span>
-          </div>
-          {match.edge_tags && match.edge_tags.length > 0 && (
-            <MatchEdgeTags tags={match.edge_tags} size="sm" />
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="rounded-xl border border-[#D7E3F4] bg-white px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#324B74] mb-1">Away</div>
-            <div className="text-[15px] font-semibold text-[#10223A] truncate">{match.awayTeam?.name || 'Away'}</div>
-            <div className="text-[12px] text-black/60 font-mono mt-0.5">{awayRecord}</div>
-          </div>
-          <div className="rounded-xl border border-[#D7E3F4] bg-white px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#324B74] mb-1">Home</div>
-            <div className="text-[15px] font-semibold text-[#10223A] truncate">{match.homeTeam?.name || 'Home'}</div>
-            <div className="text-[12px] text-black/60 font-mono mt-0.5">{homeRecord}</div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 });
@@ -2216,7 +2149,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   }, [match.dbProps]);
 
   if (!match?.homeTeam || !match?.awayTeam) {
-    return <MatchupLoader className="h-screen bg-[#FBFBFD]" label="Synchronizing Hub" />;
+    return <MatchupLoader className="h-screen bg-[#FBFBFD]" label="Loading match details" />;
   }
 
   return (
@@ -2254,7 +2187,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           {error && (
             <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2 overflow-hidden will-change-transform">
               <div className="bg-red-50/90 backdrop-blur-md border border-red-200 text-red-600 text-[10px] uppercase tracking-[0.2em] font-mono py-1.5 px-3 text-center rounded-[8px] shadow-[0_4px_12px_rgba(239,68,68,0.1)]">
-                Telemetry Link Offline
+                Live feed delayed
               </div>
             </motion.div>
           )}
@@ -2298,8 +2231,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
         </header>
 
         <main className="relative z-10 mx-auto max-w-[1200px] px-4 pt-8 sm:px-6 lg:pt-10">
-          <GameInfoStrip match={match} />
-
           <LayoutGroup>
             <AnimatePresence mode="wait">
               {/* Tab panel */}
@@ -2470,7 +2401,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                         </p>
                         <div className="mt-3 grid gap-2 text-[11px] font-mono text-black/70 sm:grid-cols-2">
                           <div>{match.awayTeam?.record || '—'} at {match.homeTeam?.record || '—'}</div>
-                          <div>{isGameInProgress(match.status) ? 'Live model running' : 'Pregame model running'}</div>
+                          <div>{isGameInProgress(match.status) ? 'Live feed active' : 'Pregame feed active'}</div>
                         </div>
                       </div>
                     ) : (
