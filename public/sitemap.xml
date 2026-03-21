@@ -79,6 +79,18 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://thedrip.bet/world-cup-2026</loc>
+    <lastmod>2026-03-20</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://thedrip.bet/world-cup-2026/groups/group-b</loc>
+    <lastmod>2026-03-20</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
     <loc>https://thedrip.bet/sportsync</loc>
     <lastmod>2026-03-19</lastmod>
     <changefreq>daily</changefreq>
