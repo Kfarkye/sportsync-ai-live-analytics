@@ -392,6 +392,7 @@ export const TechnicalAuditHub = ({ canonicalId }: { canonicalId?: string }) => 
 
     const fetchAll = useCallback(async () => {
         if (!canonicalId) {
+            setEventData(null);
             setLoading(false);
             return;
         }
@@ -418,7 +419,23 @@ export const TechnicalAuditHub = ({ canonicalId }: { canonicalId?: string }) => 
         ]);
 
         if (!auditRes.error && auditRes.data) setAuditData(auditRes.data as TechnicalAuditData);
-        if (!eventRes.error && eventRes.data) setEventData(eventRes.data as CanonicalEvent);
+        let resolvedEventData: CanonicalEvent | null =
+            (!eventRes.error && eventRes.data) ? (eventRes.data as CanonicalEvent) : null;
+
+        // Compatibility fallback for new object-ledger identities that are not mirrored into canonical_registry.
+        if (!resolvedEventData && canonicalId.startsWith('wc-2026')) {
+            const { data: compatData, error: compatErr } = await supabase
+                .from('v_canonical_registry_compat')
+                .select('internal_id, home_team, away_team, sport, league, event_date')
+                .eq('internal_id', canonicalId)
+                .maybeSingle();
+
+            if (!compatErr && compatData) {
+                resolvedEventData = compatData as CanonicalEvent;
+            }
+        }
+
+        setEventData(resolvedEventData);
         if (!oddsRes.error && oddsRes.data) setOddsData(oddsRes.data as PlatformOddsRow[]);
 
         // Check for existing permalink
