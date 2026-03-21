@@ -1,10 +1,9 @@
 
 import React, { useMemo, useRef, memo } from 'react';
 import { Match, Sport } from '@/types';
-import { cn, ESSENCE } from '@/lib/essence';
+import { cn } from '@/lib/essence';
 import { analyzeSpread, analyzeTotal, analyzeMoneyline } from '../../utils/oddsUtils';
 import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
-import { TrendingUp, TrendingDown } from 'lucide-react';
 import TeamLogo from '../shared/TeamLogo';
 import { getTeamLogo } from '@/lib/teamColors';
 import { motion } from 'framer-motion';
@@ -57,24 +56,6 @@ const useStableOdds = (match: Match) => {
 /*                      ELITE DESIGN SYSTEM - UNIFIED                         */
 /* -------------------------------------------------------------------------- */
 
-/** Movement indicator for line changes */
-const MovementIndicator = memo(({ current, previous }: { current?: string, previous?: string }) => {
-    const curVal = current ? parseFloat(current.replace(/[^0-9.-]/g, '')) : undefined;
-    const prevVal = previous ? parseFloat(previous.replace(/[^0-9.-]/g, '')) : undefined;
-
-    if (curVal === undefined || prevVal === undefined || curVal === prevVal) return null;
-    const diff = curVal - prevVal;
-    const isPositive = diff > 0;
-
-    return (
-        <div className={`flex items-center gap-0.5 text-[9px] font-semibold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {isPositive ? <TrendingUp size={9} strokeWidth={2.5} /> : <TrendingDown size={9} strokeWidth={2.5} />}
-            <span className="tabular-nums">{Math.abs(diff).toFixed(1)}</span>
-        </div>
-    );
-});
-MovementIndicator.displayName = 'MovementIndicator';
-
 /** Minimal odds cell matching PregameOdds style */
 const OddsCell = memo(({ value, subValue, prefix }: { value?: string, subValue?: string, prefix?: string }) => {
     const isFlashing = useValueFlash(value);
@@ -113,64 +94,6 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
     const isLive = isLiveMatch || isLiveOdds;
     const isFinal = isGameFinished(match.status);
     const isHalftime = match.status === 'STATUS_HALFTIME' || String(match.status).includes('HALFTIME');
-    const lineTimeline = useMemo(() => {
-        const base = {
-            ...match,
-            current_odds: undefined,
-            odds: undefined,
-            opening_odds: undefined,
-            closing_odds: undefined,
-        } as Match;
-
-        const formatPair = (a: string, b: string) => {
-            if (a === '-' && b === '-') return '—';
-            return `${a} / ${b}`;
-        };
-
-        const buildStage = (source: Match['opening_odds'] | Match['current_odds'] | Match['closing_odds'] | undefined, sourceKey: 'opening_odds' | 'current_odds' | 'closing_odds', status: string) => {
-            if (!source || typeof source !== 'object' || Object.keys(source).length === 0) {
-                return {
-                    spread: '—',
-                    total: '—',
-                    moneyline: '—',
-                    hasAny: false,
-                };
-            }
-
-            const stageMatch = {
-                ...base,
-                status,
-                [sourceKey]: source,
-            } as Match;
-
-            const spread = analyzeSpread(stageMatch);
-            const total = analyzeTotal(stageMatch);
-            const moneyline = analyzeMoneyline(stageMatch);
-
-            const spreadPair = formatPair(spread.awayDisplay, spread.display);
-            const totalPair = formatPair(total.overDisplay, total.underDisplay);
-            const moneylinePair = formatPair(moneyline.away, moneyline.home);
-
-            return {
-                spread: spreadPair,
-                total: totalPair,
-                moneyline: moneylinePair,
-                hasAny: spreadPair !== '—' || totalPair !== '—' || moneylinePair !== '—',
-            };
-        };
-
-        const opening = buildStage(match.opening_odds, 'opening_odds', 'STATUS_SCHEDULED');
-        const currentSource = match.current_odds || match.odds;
-        const current = buildStage(currentSource as Match['current_odds'] | undefined, 'current_odds', 'STATUS_IN_PROGRESS');
-        const closing = buildStage(match.closing_odds, 'closing_odds', 'STATUS_FINAL');
-
-        return {
-            opening,
-            current,
-            closing,
-            hasAny: opening.hasAny || current.hasAny || closing.hasAny,
-        };
-    }, [match]);
 
     // Status label logic
     const oddsLabel = isFinal ? 'Closing Lines' : isLive ? 'Live Lines' : 'Opening Lines';
@@ -200,31 +123,6 @@ export const OddsCard = memo(({ match }: { match: Match }) => {
                     </div>
                 )}
             </div>
-
-            {lineTimeline.hasAny && (
-                <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                    <div className="grid grid-cols-[minmax(0,1fr)_92px_92px_92px] items-center gap-2 border-b border-slate-200 pb-2">
-                        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">Type</span>
-                        <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-right text-slate-500">Open</span>
-                        <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-right text-slate-900">Current</span>
-                        <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-right text-slate-500">Close</span>
-                    </div>
-                    <div className="mt-2 space-y-1.5">
-                        {[
-                            { label: 'Spread', open: lineTimeline.opening.spread, current: lineTimeline.current.spread, close: lineTimeline.closing.spread },
-                            { label: match.sport === Sport.TENNIS ? 'Games' : 'Total', open: lineTimeline.opening.total, current: lineTimeline.current.total, close: lineTimeline.closing.total },
-                            { label: 'ML', open: lineTimeline.opening.moneyline, current: lineTimeline.current.moneyline, close: lineTimeline.closing.moneyline },
-                        ].map((row) => (
-                            <div key={row.label} className="grid grid-cols-[minmax(0,1fr)_92px_92px_92px] items-center gap-2">
-                                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">{row.label}</span>
-                                <span className="text-[11px] font-mono tabular-nums text-right text-slate-600">{row.open}</span>
-                                <span className="text-[11px] font-mono tabular-nums text-right text-slate-900">{row.current}</span>
-                                <span className="text-[11px] font-mono tabular-nums text-right text-slate-600">{row.close}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {/* Column Headers */}
             <div className="flex items-center gap-4 mb-3 pb-3 border-b border-slate-200">
