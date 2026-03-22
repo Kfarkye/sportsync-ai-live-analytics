@@ -91,7 +91,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                                 layout === 'GRID' ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"
                             )}
                         >
-                            <AnimatePresence mode='popLayout'>
+                            <AnimatePresence>
                                 {displayMatches.length > 0 ? (
                                     displayMatches.map((match, i) => {
                                         const isFinal = match.status === MatchStatus.FINISHED || String(match.status).includes('FINAL');

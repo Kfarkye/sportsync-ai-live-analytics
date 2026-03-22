@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { mergeSnapshotGroupOdds, normalizeWorldCupGroupRow } from './worldCupLedgerService';
+import {
+  buildSnapshotOddsOverlay,
+  mergeSnapshotGroupOdds,
+  normalizeWorldCupGroupRow,
+} from './worldCupLedgerService';
 
 describe('normalizeWorldCupGroupRow', () => {
   it('maps summary view payload into stable frontend shape', () => {
@@ -95,6 +99,7 @@ describe('normalizeWorldCupGroupRow', () => {
     expect(payload.history.eventCounts.oddsUpdated).toBe(3);
     expect(payload.history.recentEvents[0]?.eventType).toBe('odds_updated');
     expect(payload.relatedLinks[0]?.path).toBe('/world-cup-2026/teams/argentina');
+    expect(payload.oddsTelemetry.source).toBe('ledger_seed');
   });
 
   it('falls back safely when optional JSON fields are missing', () => {
@@ -119,6 +124,89 @@ describe('normalizeWorldCupGroupRow', () => {
     expect(payload.fixtures).toEqual([]);
     expect(payload.relatedLinks).toEqual([]);
     expect(payload.history.eventCounts.matchCompleted).toBe(0);
+    expect(payload.oddsTelemetry.snapshotRowsScanned).toBe(0);
+  });
+});
+
+describe('buildSnapshotOddsOverlay', () => {
+  it('returns snapshot overlay telemetry when candidates are applied', () => {
+    const overlay = buildSnapshotOddsOverlay(
+      [
+        {
+          team: 'Argentina',
+          toQualifyPct: 76,
+          toWinGroupPct: 58,
+          toQualifyPriceCents: 76,
+          toWinGroupPriceCents: 58,
+          provider: 'Kalshi',
+          lastUpdatedAt: '2026-03-20T15:00:00Z',
+        },
+      ],
+      [
+        {
+          market_ticker: 'KXWCGRPB-ARG-TOQUALIFY',
+          event_ticker: 'KXWCGROUPBQUALIFIERS',
+          market_label: 'Argentina to Qualify from Group B',
+          yes_price: 0.8,
+          captured_at: '2026-03-21T10:00:00Z',
+          sport: 'soccer',
+          league: 'soccer',
+          market_type: 'prop',
+        },
+      ],
+      {
+        groupSlug: 'group-b',
+        teamOrder: ['Argentina'],
+        fallbackLastUpdated: '2026-03-20T15:00:00Z',
+        generatedAt: '2026-03-21T10:05:00Z',
+      },
+    );
+
+    expect(overlay.telemetry.source).toBe('kalshi_snapshot_overlay');
+    expect(overlay.telemetry.snapshotRowsScanned).toBe(1);
+    expect(overlay.telemetry.matchedCandidates).toBe(1);
+    expect(overlay.telemetry.matchedTeams).toBe(1);
+    expect(overlay.telemetry.overriddenTeams).toBe(1);
+    expect(overlay.telemetry.generatedAt).toBe('2026-03-21T10:05:00Z');
+  });
+
+  it('returns ledger telemetry when no candidates match', () => {
+    const overlay = buildSnapshotOddsOverlay(
+      [
+        {
+          team: 'Argentina',
+          toQualifyPct: 76,
+          toWinGroupPct: 58,
+          toQualifyPriceCents: 76,
+          toWinGroupPriceCents: 58,
+          provider: 'Kalshi',
+          lastUpdatedAt: '2026-03-20T15:00:00Z',
+        },
+      ],
+      [
+        {
+          market_ticker: 'KXWCOUTRIGHT-ARG',
+          event_ticker: 'KXWCTOURNAMENTWINNER',
+          market_label: 'Argentina to win World Cup',
+          yes_price: 0.1,
+          captured_at: '2026-03-21T10:00:00Z',
+          sport: 'soccer',
+          league: 'soccer',
+          market_type: 'prop',
+        },
+      ],
+      {
+        groupSlug: 'group-b',
+        teamOrder: ['Argentina'],
+        fallbackLastUpdated: '2026-03-20T15:00:00Z',
+        generatedAt: '2026-03-21T10:05:00Z',
+      },
+    );
+
+    expect(overlay.telemetry.source).toBe('ledger_seed');
+    expect(overlay.telemetry.snapshotRowsScanned).toBe(1);
+    expect(overlay.telemetry.matchedCandidates).toBe(0);
+    expect(overlay.telemetry.overriddenTeams).toBe(0);
   });
 });
 

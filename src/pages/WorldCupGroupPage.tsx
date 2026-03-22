@@ -72,6 +72,11 @@ const renderTotal = (total: WorldCupGroupSummary['matchAnchor']['total']): strin
   return `Line ${line}  O ${over}  U ${under}`;
 };
 
+const formatOddsTelemetrySource = (source: WorldCupGroupSummary['oddsTelemetry']['source']): string => {
+  if (source === 'kalshi_snapshot_overlay') return 'Kalshi Snapshot Overlay';
+  return 'Ledger Seed Fallback';
+};
+
 const GroupStatePill: React.FC<{ state: string }> = ({ state }) => {
   const key = state.toLowerCase();
   const tone = STATE_TONE[key] || 'text-slate-200 border-white/20 bg-white/10';
@@ -311,6 +316,17 @@ const WorldCupGroupPage: React.FC = () => {
             <p className="mt-2 text-sm text-white/70">
               Kalshi-style group markets: to qualify and to win group. Tournament outrights are intentionally excluded from this surface.
             </p>
+            <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3">
+              <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Odds Source Telemetry</p>
+              <p className="mt-1 text-sm font-medium text-white">{formatOddsTelemetrySource(summary.oddsTelemetry.source)}</p>
+              <p className="mt-1 font-mono text-[11px] text-white/70">
+                scanned {summary.oddsTelemetry.snapshotRowsScanned} • matched {summary.oddsTelemetry.matchedCandidates} • teams updated{' '}
+                {summary.oddsTelemetry.overriddenTeams}
+              </p>
+              <p className="mt-1 font-mono text-[11px] text-white/55">
+                generated {formatDateTime(summary.oddsTelemetry.generatedAt)}
+              </p>
+            </div>
             <div className="mt-4">
               <OddsTable rows={summary.atAGlance.qualificationOdds} fallbackLastUpdated={summary.lastUpdatedAt} />
             </div>
