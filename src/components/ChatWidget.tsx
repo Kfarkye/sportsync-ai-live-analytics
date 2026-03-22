@@ -3720,7 +3720,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
             className="relative flex-1 overflow-y-auto px-6 pt-4 scroll-smooth no-scrollbar z-10 will-change-transform"
             style={{ paddingBottom: footerHeight }}
           >
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence>
               {messages.length === 0 ? (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}

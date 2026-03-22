@@ -82,10 +82,20 @@ export interface WorldCupGroupSummary {
   standings: WorldCupStanding[];
   fixtures: WorldCupFixture[];
   relatedLinks: Array<{ label: string; path: string }>;
+  oddsTelemetry: WorldCupOddsTelemetry;
   lastUpdatedAt: string;
 }
 
 type GroupMarketType = 'to_qualify' | 'to_win_group';
+
+export interface WorldCupOddsTelemetry {
+  source: 'ledger_seed' | 'kalshi_snapshot_overlay';
+  snapshotRowsScanned: number;
+  matchedCandidates: number;
+  matchedTeams: number;
+  overriddenTeams: number;
+  generatedAt: string;
+}
 
 interface KalshiSnapshotMarketRow {
   market_ticker: string | null;
@@ -318,30 +328,53 @@ const pickBestGroupMarketCandidates = (candidates: GroupMarketCandidate[]): Map<
   return selected;
 };
 
-export function mergeSnapshotGroupOdds(
+const buildBaseTelemetry = (generatedAt: string, snapshotRowsScanned: number): WorldCupOddsTelemetry => ({
+  source: 'ledger_seed',
+  snapshotRowsScanned,
+  matchedCandidates: 0,
+  matchedTeams: 0,
+  overriddenTeams: 0,
+  generatedAt,
+});
+
+export function buildSnapshotOddsOverlay(
   baseOdds: WorldCupQualificationOdds[],
   snapshotRows: KalshiSnapshotMarketRow[],
   options: {
     groupSlug: string;
     teamOrder: string[];
     fallbackLastUpdated: string;
+    generatedAt?: string;
   },
-): WorldCupQualificationOdds[] {
+): { odds: WorldCupQualificationOdds[]; telemetry: WorldCupOddsTelemetry } {
+  const generatedAt = options.generatedAt ?? new Date().toISOString();
   const teamOrder = uniqueStrings(
     [
       ...options.teamOrder.map((team) => team.trim()).filter(Boolean),
       ...baseOdds.map((row) => row.team.trim()).filter(Boolean),
     ],
   );
-  if (!teamOrder.length) return baseOdds;
+  if (!teamOrder.length) {
+    return {
+      odds: baseOdds,
+      telemetry: buildBaseTelemetry(generatedAt, snapshotRows.length),
+    };
+  }
 
   const candidates = buildGroupMarketCandidates(snapshotRows, options.groupSlug, teamOrder);
-  if (!candidates.length) return baseOdds;
+  if (!candidates.length) {
+    return {
+      odds: baseOdds,
+      telemetry: buildBaseTelemetry(generatedAt, snapshotRows.length),
+    };
+  }
 
   const chosen = pickBestGroupMarketCandidates(candidates);
   const byTeam = new Map(baseOdds.map((row) => [row.team, row]));
+  const matchedTeams = chosen.size;
+  let overriddenTeams = 0;
 
-  return teamOrder.map((team) => {
+  const mergedOdds = teamOrder.map((team) => {
     const base = byTeam.get(team) ?? {
       team,
       toQualifyPct: null,
@@ -367,6 +400,8 @@ export function mergeSnapshotGroupOdds(
       };
     }
 
+    overriddenTeams += 1;
+
     return {
       team,
       toQualifyPct: qualify?.probabilityPct ?? base.toQualifyPct,
@@ -377,6 +412,30 @@ export function mergeSnapshotGroupOdds(
       lastUpdatedAt,
     };
   });
+
+  return {
+    odds: mergedOdds,
+    telemetry: {
+      source: overriddenTeams > 0 ? 'kalshi_snapshot_overlay' : 'ledger_seed',
+      snapshotRowsScanned: snapshotRows.length,
+      matchedCandidates: candidates.length,
+      matchedTeams,
+      overriddenTeams,
+      generatedAt,
+    },
+  };
+}
+
+export function mergeSnapshotGroupOdds(
+  baseOdds: WorldCupQualificationOdds[],
+  snapshotRows: KalshiSnapshotMarketRow[],
+  options: {
+    groupSlug: string;
+    teamOrder: string[];
+    fallbackLastUpdated: string;
+  },
+): WorldCupQualificationOdds[] {
+  return buildSnapshotOddsOverlay(baseOdds, snapshotRows, options).odds;
 }
 
 const normalizeQualificationOdds = (value: unknown): WorldCupQualificationOdds[] => {
@@ -436,6 +495,21 @@ const normalizeHistoryEvents = (value: unknown): WorldCupHistoryEvent[] => {
     .filter((entry) => entry.eventType.length > 0);
 };
 
+const normalizeOddsTelemetry = (value: unknown, fallbackGeneratedAt: string): WorldCupOddsTelemetry => {
+  const record = asRecord(value);
+  const sourceRaw = asString(record.source);
+  const source = sourceRaw === 'kalshi_snapshot_overlay' ? 'kalshi_snapshot_overlay' : 'ledger_seed';
+
+  return {
+    source,
+    snapshotRowsScanned: asNumber(record.snapshot_rows_scanned) ?? 0,
+    matchedCandidates: asNumber(record.matched_candidates) ?? 0,
+    matchedTeams: asNumber(record.matched_teams) ?? 0,
+    overriddenTeams: asNumber(record.overridden_teams) ?? 0,
+    generatedAt: asString(record.generated_at, fallbackGeneratedAt),
+  };
+};
+
 export function normalizeWorldCupGroupRow(raw: Record<string, unknown>): WorldCupGroupSummary {
   const atAGlance = asRecord(raw.at_a_glance);
   const matchAnchor = asRecord(raw.match_anchor);
@@ -443,6 +517,7 @@ export function normalizeWorldCupGroupRow(raw: Record<string, unknown>): WorldCu
   const historyEventCounts = asRecord(history.event_counts);
   const shareSnapshot = asRecord(raw.share_snapshot);
   const seoSummary = asRecord(raw.seo_summary);
+  const fallbackGeneratedAt = asString(raw.last_updated_at, new Date().toISOString());
 
   const teamNeedsRaw = asRecord(matchAnchor.team_needs);
   const teamNeeds: Record<string, string> = {};
@@ -502,6 +577,7 @@ export function normalizeWorldCupGroupRow(raw: Record<string, unknown>): WorldCu
     standings: normalizeStandings(raw.standings),
     fixtures: normalizeFixtures(raw.fixtures),
     relatedLinks: normalizeRelatedLinks(raw.related_links),
+    oddsTelemetry: normalizeOddsTelemetry(raw.odds_telemetry, fallbackGeneratedAt),
     lastUpdatedAt: asString(raw.last_updated_at),
   };
 }
@@ -568,26 +644,35 @@ export async function fetchWorldCupGroupSummary(groupSlug: string): Promise<Worl
     ...summary.atAGlance.qualificationOdds.map((row) => row.team.trim()).filter(Boolean),
   ]);
 
+  const generatedAt = new Date().toISOString();
   if (!teamOrder.length) {
-    return summary;
+    return {
+      ...summary,
+      oddsTelemetry: {
+        source: 'ledger_seed',
+        snapshotRowsScanned: 0,
+        matchedCandidates: 0,
+        matchedTeams: 0,
+        overriddenTeams: 0,
+        generatedAt,
+      },
+    };
   }
 
   const snapshotRows = await fetchRecentSoccerKalshiSnapshots();
-  if (!snapshotRows.length) {
-    return summary;
-  }
-
-  const mergedOdds = mergeSnapshotGroupOdds(summary.atAGlance.qualificationOdds, snapshotRows, {
+  const overlay = buildSnapshotOddsOverlay(summary.atAGlance.qualificationOdds, snapshotRows, {
     groupSlug: slug,
     teamOrder,
     fallbackLastUpdated: summary.lastUpdatedAt,
+    generatedAt,
   });
 
   return {
     ...summary,
     atAGlance: {
       ...summary.atAGlance,
-      qualificationOdds: mergedOdds,
+      qualificationOdds: overlay.odds,
     },
+    oddsTelemetry: overlay.telemetry,
   };
 }

@@ -729,7 +729,7 @@ export const ForecastHistoryTable: React.FC<ForecastHistoryTableProps> = ({ matc
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100">
-                        <AnimatePresence mode="popLayout">
+                        <AnimatePresence>
                             {displayRows.map((r) => (
                                 <motion.tr
                                     key={r.id}
