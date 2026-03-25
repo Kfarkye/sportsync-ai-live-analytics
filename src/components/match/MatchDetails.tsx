@@ -278,15 +278,6 @@ function parseTsMs(v: string | number | Date | null | undefined, fallbackMs: num
   return fallbackMs;
 }
 
-function toTitleCase(input: string): string {
-  return input
-    .replace(/_/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
 function compactText(input: string, maxLength = 100): string {
   const text = input.replace(/\s+/g, ' ').trim();
   if (text.length <= maxLength) return text;
@@ -1834,52 +1825,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     : [{ id: "OVERVIEW", label: "Game" }, { id: "PROPS", label: "Props" }, { id: "DATA", label: "Analysis" }],
     [isSched]);
 
-  const trendLines = useMemo(() => {
-    const lines: string[] = [];
-    const seen = new Set<string>();
-    const isOddsLikeLine = (value: string) =>
-      /\b(ml|moneyline|spread|o\/u|total|odds|book|line)\b/i.test(value) ||
-      /[+-]\d{2,4}/.test(value);
-
-    const addLine = (value: unknown) => {
-      if (typeof value !== 'string') return;
-      const normalized = compactText(value);
-      if (!normalized || seen.has(normalized) || isOddsLikeLine(normalized)) return;
-      seen.add(normalized);
-      lines.push(normalized);
-    };
-
-    for (const tag of (match.edge_tags || []).filter((item) => item?.status === 'active')) {
-      const keyLabel = toTitleCase(String(tag.trend_key || '').trim());
-      const recommendation = String(tag.edge_payload?.recommended_side || '').trim().toUpperCase();
-      const marketTotal = tag.edge_payload?.market_total;
-      if (keyLabel && recommendation && recommendation !== 'PASS') {
-        addLine(`${keyLabel}: ${recommendation}${marketTotal ? ` ${marketTotal}` : ''}`);
-      } else if (keyLabel) {
-        addLine(keyLabel);
-      }
-    }
-
-    if (pregameIntel?.cards?.length) {
-      const trendCard = pregameIntel.cards.find((card) =>
-        String(card?.category || '').toLowerCase().includes('trend')
-      );
-      addLine(String(trendCard?.thesis || trendCard?.market_implication || ''));
-    }
-
-    addLine(String(pregameIntel?.headline || pregameIntel?.briefing || ''));
-
-    if (lines.length === 0) {
-      const homeName = match.homeTeam?.name || 'Home';
-      const awayName = match.awayTeam?.name || 'Away';
-      addLine(`${awayName} vs ${homeName}: no pregame read posted yet.`);
-    }
-
-    return lines.slice(0, 3);
-  }, [match.awayTeam?.name, match.edge_tags, match.homeTeam?.name, pregameIntel]);
-
-  const headerTrendLine = trendLines[0] || 'No pregame read posted yet.';
-
   const corePlayersByTeam = useMemo(() => {
     const homeNeedles = buildTeamNeedles(match.homeTeam);
     const awayNeedles = buildTeamNeedles(match.awayTeam);
@@ -2168,22 +2113,6 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             <ConnectionBadge status={connectionStatus} />
           </div>
 
-          <div className="px-4 sm:px-6 pb-2">
-            <div className="rounded-xl border border-[#D8E2F1] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] px-3 py-2.5 flex items-center justify-between gap-3 shadow-[0_12px_24px_-22px_rgba(16,34,58,0.52)]">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="inline-flex h-2 w-2 rounded-full bg-[#1D9E75] shrink-0" />
-                <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#10223A]">Match Read</span>
-                <span className="text-[10px] font-mono text-black/45 truncate">{headerTrendLine}</span>
-              </div>
-              <div className="shrink-0 text-[10px] font-mono text-black/55">
-                {isGameInProgress(match.status)
-                  ? 'Live'
-                  : isGameFinal(match.status)
-                    ? 'Final'
-                    : 'Pregame'}
-              </div>
-            </div>
-          </div>
           {error && (
             <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2 overflow-hidden will-change-transform">
               <div className="bg-red-50/90 backdrop-blur-md border border-red-200 text-red-600 text-[10px] uppercase tracking-[0.2em] font-mono py-1.5 px-3 text-center rounded-[8px] shadow-[0_4px_12px_rgba(239,68,68,0.1)]">
