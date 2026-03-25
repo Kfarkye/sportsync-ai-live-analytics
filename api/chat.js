@@ -256,6 +256,186 @@ const toFactLine = (value, max = 120) => {
     return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 };
 
+const toFiniteNumber = (value) => {
+    const num = normalizeOddsNumber(value);
+    return Number.isFinite(num) ? num : null;
+};
+
+const extractTotalFromOdds = (oddsLike) => {
+    if (!oddsLike || typeof oddsLike !== "object") return null;
+    const candidatePaths = [
+        oddsLike.total,
+        oddsLike.overUnder,
+        oddsLike.over_under,
+        oddsLike.main?.total?.line,
+        oddsLike.consensus?.total,
+    ];
+    for (const candidate of candidatePaths) {
+        const num = toFiniteNumber(candidate);
+        if (Number.isFinite(num)) return num;
+    }
+    return null;
+};
+
+const parsePeriodNumber = (period) => {
+    if (Number.isFinite(Number(period))) return Number(period);
+    const text = String(period || "").trim();
+    if (!text) return null;
+    const m = text.match(/(\d{1,2})/);
+    return m ? Number(m[1]) : null;
+};
+
+const parseClockSeconds = (clock) => {
+    const raw = String(clock || "").trim();
+    if (!raw) return null;
+    const cleaned = raw.replace(/['"]/g, "");
+    const mmss = cleaned.match(/^(\d{1,3}):(\d{1,2})$/);
+    if (mmss) return Number(mmss[1]) * 60 + Number(mmss[2]);
+    const minsOnly = cleaned.match(/^(\d{1,3})$/);
+    if (minsOnly) return Number(minsOnly[1]) * 60;
+    return null;
+};
+
+const inferSportKey = ({ trustedPacket, activeContext }) => {
+    const league = String(
+        trustedPacket?.match?.league
+        || activeContext?.league
+        || activeContext?.sport
+        || ""
+    ).toLowerCase();
+    if (league.includes("nhl") || league.includes("hockey")) return "hockey";
+    if (league.includes("ncaab") || league.includes("college-basketball")) return "ncaab";
+    if (league.includes("nba") || league.includes("basketball")) return "basketball";
+    if (league.includes("soccer") || league.includes("epl") || league.includes("liga")) return "soccer";
+    if (league.includes("mlb") || league.includes("baseball")) return "baseball";
+    if (league.includes("nfl") || league.includes("football")) return "football";
+    return "unknown";
+};
+
+const inferScoreUnit = (sportKey) => {
+    if (sportKey === "hockey" || sportKey === "soccer") return "goals";
+    if (sportKey === "baseball") return "runs";
+    return "points";
+};
+
+const computeGameTiming = ({ sportKey, period, clock }) => {
+    const periodNum = parsePeriodNumber(period);
+    const clockSecs = parseClockSeconds(clock);
+    if (!Number.isFinite(periodNum) || !Number.isFinite(clockSecs)) return null;
+
+    const cfg = (() => {
+        if (sportKey === "hockey") return { periods: 3, secsPerPeriod: 20 * 60 };
+        if (sportKey === "ncaab") return { periods: 2, secsPerPeriod: 20 * 60 };
+        if (sportKey === "basketball") return { periods: 4, secsPerPeriod: 12 * 60 };
+        if (sportKey === "football") return { periods: 4, secsPerPeriod: 15 * 60 };
+        return null;
+    })();
+
+    if (!cfg) return null;
+    const totalSecs = cfg.periods * cfg.secsPerPeriod;
+    const elapsedSecs = Math.max(
+        0,
+        Math.min(totalSecs, ((periodNum - 1) * cfg.secsPerPeriod) + (cfg.secsPerPeriod - clockSecs))
+    );
+    const remainingSecs = Math.max(0, totalSecs - elapsedSecs);
+
+    return {
+        elapsedMins: elapsedSecs / 60,
+        remainingMins: remainingSecs / 60,
+        totalMins: totalSecs / 60,
+    };
+};
+
+const buildDeterministicMarketFallbackAnswer = ({ userQuery, trustedPacket, activeContext, evidence }) => {
+    const homeScore = toFiniteNumber(
+        trustedPacket?.scoreboard?.home
+        ?? activeContext?.home_score
+        ?? activeContext?.homeScore
+        ?? evidence?.liveState?.score?.home
+    );
+    const awayScore = toFiniteNumber(
+        trustedPacket?.scoreboard?.away
+        ?? activeContext?.away_score
+        ?? activeContext?.awayScore
+        ?? evidence?.liveState?.score?.away
+    );
+
+    const openTotal =
+        toFiniteNumber(trustedPacket?.market?.open_total)
+        ?? extractTotalFromOdds(activeContext?.opening_odds)
+        ?? extractTotalFromOdds(evidence?.temporal?.t60?.odds)
+        ?? extractTotalFromOdds(evidence?.temporal?.t0?.odds);
+
+    const liveTotal =
+        toFiniteNumber(trustedPacket?.market?.live_total)
+        ?? extractTotalFromOdds(activeContext?.current_odds)
+        ?? extractTotalFromOdds(evidence?.liveState?.odds);
+
+    if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore) || !Number.isFinite(openTotal)) {
+        return null;
+    }
+
+    const q = String(userQuery || "").toLowerCase();
+    const asksUnder = /\bunder\b/.test(q);
+    const asksOver = /\bover\b/.test(q);
+    const sportKey = inferSportKey({ trustedPacket, activeContext });
+    const scoreUnit = inferScoreUnit(sportKey);
+    const clock = trustedPacket?.scoreboard?.clock || activeContext?.clock || evidence?.liveState?.clock || "N/A";
+    const period = trustedPacket?.scoreboard?.period || activeContext?.period || evidence?.liveState?.period || "N/A";
+    const currentTotal = homeScore + awayScore;
+    const overTrigger = Math.floor(openTotal + 1);
+    const neededToClearOver = Math.max(0, overTrigger - currentTotal);
+
+    const timing = computeGameTiming({ sportKey, period, clock });
+    const projectedFinal = timing && timing.elapsedMins > 1
+        ? (currentTotal / timing.elapsedMins) * timing.totalMins
+        : null;
+
+    const movement = Number.isFinite(liveTotal) ? liveTotal - openTotal : null;
+    let lead;
+
+    if (asksUnder) {
+        if (currentTotal >= overTrigger) {
+            lead = `No - it already cleared the pregame total (${openTotal}).`;
+        } else if (Number.isFinite(projectedFinal) && projectedFinal > openTotal + 0.75) {
+            lead = `Still possible, but under needs a slower finish from here.`;
+        } else {
+            lead = `Yes - under is still in play right now.`;
+        }
+    } else if (asksOver) {
+        if (currentTotal >= overTrigger) {
+            lead = `Yes - it already moved over the pregame total (${openTotal}).`;
+        } else if (Number.isFinite(projectedFinal) && projectedFinal < openTotal - 0.75) {
+            lead = `Over is still possible, but pace is tracking below the pregame number.`;
+        } else {
+            lead = `Over is still live from this game state.`;
+        }
+    } else {
+        if (currentTotal >= overTrigger) {
+            lead = `The game is already over the pregame total (${openTotal}).`;
+        } else {
+            lead = `The game is still below the pregame total (${openTotal}).`;
+        }
+    }
+
+    const detailLines = [
+        `Current total: ${currentTotal} ${scoreUnit} (${awayScore}-${homeScore}), ${clock} ${period}.`,
+        currentTotal >= overTrigger
+            ? "Over already cleared; under is no longer live at the pregame number."
+            : `It needs ${neededToClearOver} more ${scoreUnit} to clear the pregame total.`,
+    ];
+
+    if (Number.isFinite(projectedFinal)) {
+        detailLines.push(`Pace projection: ${projectedFinal.toFixed(1)} vs pregame ${openTotal}.`);
+    }
+    if (Number.isFinite(liveTotal) && Number.isFinite(movement)) {
+        const sign = movement >= 0 ? "+" : "";
+        detailLines.push(`Live total: ${liveTotal} (${sign}${movement.toFixed(1)} vs pregame).`);
+    }
+
+    return [lead, "", ...detailLines.map((line) => `- ${line}`)].join("\n");
+};
+
 const getPacketEvents = (packet) => (
     Array.isArray(packet?.events)
         ? packet.events.filter((event) => event && typeof event === "object")
@@ -335,22 +515,25 @@ const deriveInferenceMode = (packet) => {
     return hasTransitionEvidence ? "transition_grounded" : "snapshot_only";
 };
 
-const getGuardrailMessage = ({ failureCode, questionType, missingKeys = [], freshnessSeconds = null }) => {
+const getGuardrailMessage = ({ failureCode, questionType, freshnessSeconds = null }) => {
     switch (failureCode) {
         case QUALITY_FAILURE_CODES.PACKET_BYPASS:
-            return "Live context is not available right now. I cannot answer this safely until the trusted match packet is back.";
+            if (questionType === "market") {
+                return "I can’t see the live line update for this game right now. Ask again in a few seconds and I’ll check it against the pregame number.";
+            }
+            return "I’m missing the live game update right now. Ask again in a few seconds.";
         case QUALITY_FAILURE_CODES.STALE_CONFIDENT_ANSWER:
-            return `Live packet is stale (${freshnessSeconds ?? "unknown"}s old). I can only provide limited context until freshness recovers.`;
+            return `Live updates are delayed (${freshnessSeconds ?? "unknown"}s behind). I can give a light read, but wait for a fresh update for a firm call.`;
         case QUALITY_FAILURE_CODES.PARTIAL_PACKET_OVERREACH: {
             if (questionType === "top_scorer") return "Live scorer feed not available yet.";
             if (questionType === "rebounds") return "Live rebound leader feed not available yet.";
             if (questionType === "assists") return "Live assist leader feed not available yet.";
             if (questionType === "events") return "Recent live event feed not available yet.";
             if (questionType === "market") return "Live line-movement feed not available yet.";
-            return `Required live fields are missing: ${missingKeys.join(", ") || "unknown"}.`;
+            return "I don’t have enough live details to answer that right now.";
         }
         default:
-            return "Live data quality guard triggered. I can only give limited context right now.";
+            return "Live updates are limited right now. Ask again in a few seconds.";
     }
 };
 
@@ -1207,12 +1390,30 @@ export async function POST(req) {
                 ]);
 
                 if (hardStopFailureCodes.has(qualityFailureCode)) {
-                    fullText = getGuardrailMessage({
-                        failureCode: qualityFailureCode,
-                        questionType,
-                        missingKeys: missingRequiredKeys,
-                        freshnessSeconds: trustedFreshnessSeconds,
-                    });
+                    if (questionType === "market") {
+                        const fallbackMarketRead = buildDeterministicMarketFallbackAnswer({
+                            userQuery,
+                            trustedPacket,
+                            activeContext,
+                            evidence,
+                        });
+                        if (fallbackMarketRead) {
+                            safeWrite({ type: "response_class", class: RESPONSE_CLASSES.STATE });
+                            fullText = fallbackMarketRead;
+                        } else {
+                            fullText = getGuardrailMessage({
+                                failureCode: qualityFailureCode,
+                                questionType,
+                                freshnessSeconds: trustedFreshnessSeconds,
+                            });
+                        }
+                    } else {
+                        fullText = getGuardrailMessage({
+                            failureCode: qualityFailureCode,
+                            questionType,
+                            freshnessSeconds: trustedFreshnessSeconds,
+                        });
+                    }
                     safeWrite({ type: "text", content: fullText });
                     safeWrite({
                         type: "quality",

@@ -2502,7 +2502,13 @@ const MessageBubble: FC<{
     const responseClass: ResponseClass = message.responseClass || "state";
     const isEdgeClass = !isUser && responseClass === "edge";
     const isFactClass = !isUser && responseClass === "fact";
+    const isStateClass = !isUser && responseClass === "state";
     const rawText = useMemo(() => extractTextContent(message.content), [message.content]);
+    const hasEdgeVerdict = useMemo(
+      () => Boolean(isEdgeClass && REGEX_VERDICT_MATCH.test(rawText)),
+      [isEdgeClass, rawText],
+    );
+    const useStructuredShell = !isUser && (isFactClass || isStateClass || (isEdgeClass && !hasEdgeVerdict));
     const verifiedContent = useMemo(() => {
       const t = rawText;
       if (isUser) return t;
@@ -2567,7 +2573,15 @@ const MessageBubble: FC<{
           return c.length > 5 ? <TacticalHUD content={c} /> : null;
         }
         return (
-          <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", isFactClass ? "mb-3 last:mb-0" : "mb-6 last:mb-0")}>
+          <div className={cn(
+            SYSTEM.type.body,
+            isUser && "text-[#1a1a1a]",
+            isFactClass
+              ? "mb-3 last:mb-0 text-[15px] leading-[1.55] text-slate-700"
+              : isStateClass
+                ? "mb-4 last:mb-0 text-[15px] leading-[1.62] text-slate-700"
+                : "mb-6 last:mb-0",
+          )}>
             {children}
           </div>
         );
@@ -2653,7 +2667,7 @@ const MessageBubble: FC<{
           <span className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]")}>{children}</span>
         </li>
       ),
-    }), [isUser]);
+    }), [isFactClass, isStateClass, isUser]);
 
     const components: Components = useMemo(
       () => {
@@ -2669,7 +2683,7 @@ const MessageBubble: FC<{
           p: ({ children }) => {
             const text = flattenText(children);
 
-            if (isEdgeClass && REGEX_VERDICT_MATCH.test(text)) {
+            if (isEdgeClass && hasEdgeVerdict && REGEX_VERDICT_MATCH.test(text)) {
               const verdictPayload = extractVerdictPayload(text);
               const confidence = extractConfidence(verdictPayload);
               const trackingKey = `${message.id}:v${verdictCardIndex}`;
@@ -2714,7 +2728,15 @@ const MessageBubble: FC<{
 
             // M-26: Apply typography normalization to body paragraphs
             return (
-              <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", isFactClass ? "mb-3 last:mb-0" : "mb-6 last:mb-0")}>
+              <div className={cn(
+                SYSTEM.type.body,
+                isUser && "text-[#1a1a1a]",
+                isFactClass
+                  ? "mb-3 last:mb-0 text-[15px] leading-[1.55] text-slate-700"
+                  : isStateClass
+                    ? "mb-4 last:mb-0 text-[15px] leading-[1.62] text-slate-700"
+                    : "mb-6 last:mb-0",
+              )}>
                 {children}
               </div>
             );
@@ -2823,7 +2845,7 @@ const MessageBubble: FC<{
           ),
         };
       },
-      [analysisBlocks, analysisComponents, analysisOpenByKey, isEdgeClass, isFactClass, isUser, matchups, message.id, message.verdictOutcome, onTrackVerdict, synopses, toggleAnalysis, verdictOutcomes],
+      [analysisBlocks, analysisComponents, analysisOpenByKey, hasEdgeVerdict, isEdgeClass, isFactClass, isStateClass, isUser, matchups, message.id, message.verdictOutcome, onTrackVerdict, synopses, toggleAnalysis, verdictOutcomes],
     );
 
     return (
@@ -2838,7 +2860,9 @@ const MessageBubble: FC<{
           "relative max-w-[92%] md:max-w-[88%]",
           isUser
             ? `${CHAT_SURFACES.soft} text-slate-900 rounded-[20px] rounded-tr-[6px] shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5`
-            : "bg-transparent text-slate-900 px-0 max-w-full md:max-w-[96%]",
+            : useStructuredShell
+              ? "text-slate-900 px-4 py-3 rounded-[18px] border border-slate-200 bg-slate-50/80 shadow-[0_1px_8px_rgba(15,23,42,0.04)] max-w-full md:max-w-[96%]"
+              : "bg-transparent text-slate-900 px-0 max-w-full md:max-w-[96%]",
         )}>
           <div className={cn("prose prose-invert max-w-none", isUser && "prose-p:text-black/90")}>
             {/* M-27: Show skeleton while AI is generating but no content yet */}
@@ -2867,7 +2891,7 @@ const MessageBubble: FC<{
             </div>
           )}
 
-          {!isUser && !message.isStreaming && verifiedContent && (!isEdgeClass || !REGEX_VERDICT_MATCH.test(extractTextContent(message.content))) && (
+          {!isUser && !message.isStreaming && verifiedContent && (!isEdgeClass || !hasEdgeVerdict) && (
             <div className="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity delay-75">
               <CopyButton content={verifiedContent} />
             </div>
