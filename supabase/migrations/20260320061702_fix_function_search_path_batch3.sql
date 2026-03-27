@@ -1,0 +1,33 @@
+
+-- Fix mutable search_path batch 3: remaining get + grade + heal + invoke functions
+ALTER FUNCTION public.get_prop_edges(text, integer, numeric, text) SET search_path = '';
+ALTER FUNCTION public.get_team_betting_profile(text, text) SET search_path = '';
+ALTER FUNCTION public.get_team_form(text) SET search_path = '';
+ALTER FUNCTION public.get_team_goal_distribution(text, text) SET search_path = '';
+ALTER FUNCTION public.get_team_upcoming_with_context(text, text, integer) SET search_path = '';
+ALTER FUNCTION public.get_todays_prop_edges(date, integer, numeric, text) SET search_path = '';
+ALTER FUNCTION public.get_trend_record(uuid, text) SET search_path = '';
+ALTER FUNCTION public.get_ucl_league_vs_league() SET search_path = '';
+ALTER FUNCTION public.grade_pending_model_picks() SET search_path = '';
+ALTER FUNCTION public.grade_player_props(text, boolean) SET search_path = '';
+ALTER FUNCTION public.grade_todays_confluence(date) SET search_path = '';
+ALTER FUNCTION public.heal_team_identity(text, text, text, text) SET search_path = '';
+ALTER FUNCTION public.invoke_backfill_1h_lines(jsonb) SET search_path = '';
+ALTER FUNCTION public.invoke_backfill_espn_pbp(jsonb) SET search_path = '';
+ALTER FUNCTION public.invoke_capture_opening_lines() SET search_path = '';
+ALTER FUNCTION public.invoke_espn_sync() SET search_path = '';
+ALTER FUNCTION public.invoke_generate_pregame_context() SET search_path = '';
+ALTER FUNCTION public.invoke_grade_tennis_backfill() SET search_path = '';
+ALTER FUNCTION public.invoke_ingest_live_games() SET search_path = '';
+ALTER FUNCTION public.invoke_ingest_live_games(text, integer) SET search_path = '';
+ALTER FUNCTION public.invoke_ingest_nba_live() SET search_path = '';
+ALTER FUNCTION public.invoke_ingest_nfl_live() SET search_path = '';
+ALTER FUNCTION public.invoke_ingest_odds() SET search_path = '';
+ALTER FUNCTION public.invoke_ingest_odds_staggered() SET search_path = '';
+ALTER FUNCTION public.invoke_ingest_seriea_live() SET search_path = '';
+ALTER FUNCTION public.invoke_live_odds_tracker() SET search_path = '';
+ALTER FUNCTION public.invoke_match_discovery() SET search_path = '';
+ALTER FUNCTION public.invoke_nba_bridge() SET search_path = '';
+ALTER FUNCTION public.invoke_nightly_alpha_sync() SET search_path = '';
+ALTER FUNCTION public.invoke_pregame_intel_cron() SET search_path = '';
+;

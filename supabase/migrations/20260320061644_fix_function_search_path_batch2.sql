@@ -1,0 +1,33 @@
+
+-- Fix mutable search_path batch 2: debug + derive + devig + extract + find + generate + get functions
+ALTER FUNCTION public.debug_relation_matches() SET search_path = '';
+ALTER FUNCTION public.derive_nba_possession(jsonb, text, text) SET search_path = '';
+ALTER FUNCTION public.devig_2way(integer, integer) SET search_path = '';
+ALTER FUNCTION public.devig_home_probability(numeric, numeric) SET search_path = '';
+ALTER FUNCTION public.extract_snapshot_stat_numeric(jsonb, text, text) SET search_path = '';
+ALTER FUNCTION public.extract_snapshot_stat_pair_piece(jsonb, text, text, integer) SET search_path = '';
+ALTER FUNCTION public.find_canonical_team(text, text, double precision) SET search_path = '';
+ALTER FUNCTION public.generate_backfill_id(text, text, timestamptz, text) SET search_path = '';
+ALTER FUNCTION public.get_ai_match_brief(text) SET search_path = '';
+ALTER FUNCTION public.get_ai_match_deep(text) SET search_path = '';
+ALTER FUNCTION public.get_all_team_profiles() SET search_path = '';
+ALTER FUNCTION public.get_corridor_scan(date) SET search_path = '';
+ALTER FUNCTION public.get_db_health() SET search_path = '';
+ALTER FUNCTION public.get_demo_matches(integer) SET search_path = '';
+ALTER FUNCTION public.get_first_goal_timing() SET search_path = '';
+ALTER FUNCTION public.get_golden_boot_standings(integer, text) SET search_path = '';
+ALTER FUNCTION public.get_h2h(text, text) SET search_path = '';
+ALTER FUNCTION public.get_last_game_per_team() SET search_path = '';
+ALTER FUNCTION public.get_league_profiles() SET search_path = '';
+ALTER FUNCTION public.get_league_scoring_trends(text) SET search_path = '';
+ALTER FUNCTION public.get_middle_summary(text, date) SET search_path = '';
+ALTER FUNCTION public.get_nba_monthly() SET search_path = '';
+ALTER FUNCTION public.get_nba_ou_by_spread() SET search_path = '';
+ALTER FUNCTION public.get_nhl_scoring_trends() SET search_path = '';
+ALTER FUNCTION public.get_or_create_conversation(text, text) SET search_path = '';
+ALTER FUNCTION public.get_pinnacle_divergence_accuracy(text, text, numeric) SET search_path = '';
+ALTER FUNCTION public.get_player_atgs_summary(text) SET search_path = '';
+ALTER FUNCTION public.get_player_impact(text, text, date, integer) SET search_path = '';
+ALTER FUNCTION public.get_player_prop_profile(text, text, text, integer) SET search_path = '';
+ALTER FUNCTION public.get_pregame_sharp_signals(date) SET search_path = '';
+;

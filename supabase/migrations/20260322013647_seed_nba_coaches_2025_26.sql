@@ -1,0 +1,35 @@
+
+-- Seed 30 NBA coaches for 2025-26 season
+INSERT INTO coaches (id, team_id, team_name, team_abbrev, coach_name, sport, league_id) VALUES
+(gen_random_uuid(), '1', 'Atlanta Hawks', 'ATL', 'Quin Snyder', 'NBA', 'nba'),
+(gen_random_uuid(), '2', 'Boston Celtics', 'BOS', 'Joe Mazzulla', 'NBA', 'nba'),
+(gen_random_uuid(), '17', 'Brooklyn Nets', 'BKN', 'Jordi Fernandez', 'NBA', 'nba'),
+(gen_random_uuid(), '30', 'Charlotte Hornets', 'CHA', 'Charles Lee', 'NBA', 'nba'),
+(gen_random_uuid(), '4', 'Chicago Bulls', 'CHI', 'Billy Donovan', 'NBA', 'nba'),
+(gen_random_uuid(), '5', 'Cleveland Cavaliers', 'CLE', 'Kenny Atkinson', 'NBA', 'nba'),
+(gen_random_uuid(), '6', 'Dallas Mavericks', 'DAL', 'Jason Kidd', 'NBA', 'nba'),
+(gen_random_uuid(), '7', 'Denver Nuggets', 'DEN', 'Michael Malone', 'NBA', 'nba'),
+(gen_random_uuid(), '8', 'Detroit Pistons', 'DET', 'J.B. Bickerstaff', 'NBA', 'nba'),
+(gen_random_uuid(), '9', 'Golden State Warriors', 'GSW', 'Steve Kerr', 'NBA', 'nba'),
+(gen_random_uuid(), '10', 'Houston Rockets', 'HOU', 'Ime Udoka', 'NBA', 'nba'),
+(gen_random_uuid(), '11', 'Indiana Pacers', 'IND', 'Rick Carlisle', 'NBA', 'nba'),
+(gen_random_uuid(), '12', 'LA Clippers', 'LAC', 'Tyronn Lue', 'NBA', 'nba'),
+(gen_random_uuid(), '13', 'Los Angeles Lakers', 'LAL', 'JJ Redick', 'NBA', 'nba'),
+(gen_random_uuid(), '29', 'Memphis Grizzlies', 'MEM', 'Taylor Jenkins', 'NBA', 'nba'),
+(gen_random_uuid(), '14', 'Miami Heat', 'MIA', 'Erik Spoelstra', 'NBA', 'nba'),
+(gen_random_uuid(), '15', 'Milwaukee Bucks', 'MIL', 'Doc Rivers', 'NBA', 'nba'),
+(gen_random_uuid(), '16', 'Minnesota Timberwolves', 'MIN', 'Chris Finch', 'NBA', 'nba'),
+(gen_random_uuid(), '3', 'New Orleans Pelicans', 'NOP', 'Willie Green', 'NBA', 'nba'),
+(gen_random_uuid(), '18', 'New York Knicks', 'NYK', 'Tom Thibodeau', 'NBA', 'nba'),
+(gen_random_uuid(), '25', 'Oklahoma City Thunder', 'OKC', 'Mark Daigneault', 'NBA', 'nba'),
+(gen_random_uuid(), '19', 'Orlando Magic', 'ORL', 'Jamahl Mosley', 'NBA', 'nba'),
+(gen_random_uuid(), '20', 'Philadelphia 76ers', 'PHI', 'Nick Nurse', 'NBA', 'nba'),
+(gen_random_uuid(), '21', 'Phoenix Suns', 'PHX', 'Mike Budenholzer', 'NBA', 'nba'),
+(gen_random_uuid(), '22', 'Portland Trail Blazers', 'POR', 'Chauncey Billups', 'NBA', 'nba'),
+(gen_random_uuid(), '23', 'Sacramento Kings', 'SAC', 'Mike Brown', 'NBA', 'nba'),
+(gen_random_uuid(), '24', 'San Antonio Spurs', 'SAS', 'Mitch Johnson', 'NBA', 'nba'),
+(gen_random_uuid(), '28', 'Toronto Raptors', 'TOR', 'Darko Rajakovic', 'NBA', 'nba'),
+(gen_random_uuid(), '26', 'Utah Jazz', 'UTA', 'Will Hardy', 'NBA', 'nba'),
+(gen_random_uuid(), '27', 'Washington Wizards', 'WAS', 'Brian Keefe', 'NBA', 'nba')
+ON CONFLICT DO NOTHING;
+;

@@ -2,6 +2,10 @@
 
 DO $$
 BEGIN
+  IF to_regclass('public.rate_limit_buckets') IS NULL THEN
+    RETURN;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1
     FROM pg_constraint
