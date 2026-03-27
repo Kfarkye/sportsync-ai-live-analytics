@@ -1,10 +1,11 @@
 export type CheckoutProduct = 'api' | 'drip';
 
-const DEFAULT_SPORTSYNC_PROJECT_URL = 'https://hylnixnuabtnmjcdnujm.supabase.co';
+// Google-native Cloud Functions base URL (Phase 4 migration)
+const DEFAULT_FUNCTIONS_BASE_URL = 'https://us-central1-sportsync-evidence.cloudfunctions.net';
 
 function normalizeBaseUrl(raw: string | undefined | null): string {
   const value = (raw ?? '').trim();
-  if (!value) return DEFAULT_SPORTSYNC_PROJECT_URL;
+  if (!value) return DEFAULT_FUNCTIONS_BASE_URL;
   return value.replace(/\/+$/, '');
 }
 
@@ -21,25 +22,21 @@ function sanitizeAccessErrorMessage(raw: unknown, fallback: string): string {
   return redacted;
 }
 
-export function getSportsyncProjectUrl(): string {
-  const env = import.meta.env as Record<string, string | undefined>;
-  return normalizeBaseUrl(env.VITE_SPORTSYNC_SUPABASE_URL || env.NEXT_PUBLIC_SPORTSYNC_SUPABASE_URL);
-}
-
 export function getSportsyncFunctionsBaseUrl(): string {
-  return `${getSportsyncProjectUrl()}/functions/v1`;
+  const env = import.meta.env as Record<string, string | undefined>;
+  return normalizeBaseUrl(env.VITE_SPORTSYNC_FUNCTIONS_URL || env.NEXT_PUBLIC_SPORTSYNC_FUNCTIONS_URL);
 }
 
 export function getGatewayUrl(): string {
-  return `${getSportsyncFunctionsBaseUrl()}/api`;
+  return `${getSportsyncFunctionsBaseUrl()}/apiGateway`;
 }
 
 export function getApiKeysUrl(): string {
-  return `${getSportsyncFunctionsBaseUrl()}/api-keys`;
+  return `${getSportsyncFunctionsBaseUrl()}/apiKeys`;
 }
 
 export function getStripeCheckoutUrl(): string {
-  return `${getSportsyncFunctionsBaseUrl()}/stripe-checkout`;
+  return `${getSportsyncFunctionsBaseUrl()}/stripeCheckout`;
 }
 
 export async function createCheckoutSession(product: CheckoutProduct, email: string): Promise<string> {

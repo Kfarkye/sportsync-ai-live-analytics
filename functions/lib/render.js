@@ -35,7 +35,7 @@ function metaDescription(team, stats) {
 
 // ── Template ─────────────────────────────────────────────────────────────────
 
-export function renderTeamPage(team, stats) {
+export function renderTeamPage(team, stats, dataDrivenDate) {
   const { home, away, restSplits, biggestOvers, recentGames, lineMovements, upcomingGames, strongestPlays } = stats;
 
   // ── Dynamic accent color ─────────────────────────────────────────────────
@@ -301,7 +301,7 @@ ${recentGames.map(g => `            <tr${g.result === 'OVER' ? ' class="row-high
     </section>
 
     <footer class="page-footer">
-      <div>Auto-generated ${stats.generatedDate}. ${stats.totalGames} games through ${stats.throughDate}.</div>
+      <div>Trends as of ${dataDrivenDate || stats.generatedDate}. ${stats.totalGames} games through ${stats.throughDate}.</div>
       <div style="margin-top:8px;"><a href="/trends/">← All team profiles</a></div>
     </footer>
   </main>
