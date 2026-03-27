@@ -3,6 +3,16 @@
  * Pure functions — no I/O. Takes raw game arrays, returns computed stats.
  */
 
+// ── Bayesian Smoothing ───────────────────────────────────────────────────────
+// Adds a prior of 4 wins + 4 losses, pulling small samples toward 50%.
+// A 10-0 record → 77.7%, while a 2-0 record → 60%. Prevents small-sample
+// percentages from dominating sort order. Ported from ref tendencies engine.
+function bayesianPct(wins, losses) {
+  const trials = wins + losses;
+  if (trials === 0) return 50;
+  return ((wins + 4) / (trials + 8)) * 100;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function getClosingTotal(odds) {
@@ -78,14 +88,18 @@ function computeLocationStats(games, isHome) {
   }
 
   const n = games.length || 1;
+  const rawOverPct  = gamesWithLine   ? +(overs / gamesWithLine * 100).toFixed(1)     : 0;
+  const rawCoverPct = gamesWithSpread ? +(covers / gamesWithSpread * 100).toFixed(1)  : 0;
   return {
     games: games.length,
     gamesWithLine,
     overs, unders,
-    overPct:    gamesWithLine   ? +(overs / gamesWithLine * 100).toFixed(1)     : 0,
+    overPct:    rawOverPct,
+    overBayes:  +bayesianPct(overs, unders).toFixed(1),    // Bayesian-smoothed over %
     avgVsClose: gamesWithLine   ? +(vsCloseSum / gamesWithLine).toFixed(1)      : 0,
     covers, nonCovers, gamesWithSpread,
-    coverPct:   gamesWithSpread ? +(covers / gamesWithSpread * 100).toFixed(1)  : 0,
+    coverPct:   rawCoverPct,
+    coverBayes: +bayesianPct(covers, nonCovers).toFixed(1), // Bayesian-smoothed cover %
     ppg:      +(ppgSum / n).toFixed(1),
     oppPpg:   +(oppPpgSum / n).toFixed(1),
     avgTotal: +((ppgSum + oppPpgSum) / n).toFixed(1),
@@ -223,14 +237,14 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
 
   if (home.overPct >= 55 && home.gamesWithLine >= 10) {
     strongestPlays.push({
-      desc: 'Over at home', pct: home.overPct,
+      desc: 'Over at home', pct: home.overPct, bayesPct: home.overBayes,
       sample: `${home.games} games`, detail: `${home.avgVsClose >= 0 ? '+' : ''}${home.avgVsClose} vs close`,
     });
   }
 
   if (away.overPct >= 55 && away.gamesWithLine >= 10) {
     strongestPlays.push({
-      desc: 'Over on the road', pct: away.overPct,
+      desc: 'Over on the road', pct: away.overPct, bayesPct: away.overBayes,
       sample: `${away.games} games`, detail: `${away.avgVsClose >= 0 ? '+' : ''}${away.avgVsClose} vs close`,
     });
   }
@@ -260,14 +274,14 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
 
   if (home.coverPct >= 55 && home.gamesWithSpread >= 10) {
     strongestPlays.push({
-      desc: 'Home cover (all rest)', pct: home.coverPct,
+      desc: 'Home cover (all rest)', pct: home.coverPct, bayesPct: home.coverBayes,
       sample: `${home.gamesWithSpread} games`, detail: '',
     });
   }
 
   if (away.coverPct >= 55 && away.gamesWithSpread >= 10) {
     strongestPlays.push({
-      desc: 'Road cover (all rest)', pct: away.coverPct,
+      desc: 'Road cover (all rest)', pct: away.coverPct, bayesPct: away.coverBayes,
       sample: `${away.gamesWithSpread} games`, detail: '',
     });
   }
@@ -280,7 +294,8 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
     seen.add(key);
     return true;
   });
-  uniquePlays.sort((a, b) => b.pct - a.pct);
+  // Sort by Bayesian-smoothed pct so small-sample 100% doesn't outrank robust 68%
+  uniquePlays.sort((a, b) => (b.bayesPct || b.pct) - (a.bayesPct || a.pct));
 
   // ── Determine headline signal ─────────────────────────────────────────────
   let headlineType, headlinePct, headlineAvgVs, headlineExtra;
