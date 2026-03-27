@@ -67,3 +67,6 @@ coverage
 *.pem
 .vercel
 .env*.local
+
+# Firebase
+.firebase/
