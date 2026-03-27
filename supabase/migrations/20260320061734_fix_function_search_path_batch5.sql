@@ -1,0 +1,33 @@
+
+-- Fix mutable search_path batch 5: reddit + refresh + release + resolve + safe + score + seal + set + settle + sync + track + update + upsert
+ALTER FUNCTION public.reddit_comments_search_trigger() SET search_path = '';
+ALTER FUNCTION public.reddit_increment_counts(text, integer, integer) SET search_path = '';
+ALTER FUNCTION public.reddit_posts_search_trigger() SET search_path = '';
+ALTER FUNCTION public.refresh_all_intelligence_views() SET search_path = '';
+ALTER FUNCTION public.refresh_corridor_engine() SET search_path = '';
+ALTER FUNCTION public.refresh_live_state_enriched_nba(text, timestamptz) SET search_path = '';
+ALTER FUNCTION public.refresh_market_structure_views() SET search_path = '';
+ALTER FUNCTION public.refresh_model_performance() SET search_path = '';
+ALTER FUNCTION public.refresh_nba_context_views() SET search_path = '';
+ALTER FUNCTION public.refresh_player_impact_cache(date, integer, numeric, integer) SET search_path = '';
+ALTER FUNCTION public.refresh_player_impact_cache(date, integer, numeric, integer, integer, integer) SET search_path = '';
+ALTER FUNCTION public.refresh_prop_analytics() SET search_path = '';
+ALTER FUNCTION public.release_ingest_lock(text) SET search_path = '';
+ALTER FUNCTION public.release_intel_lease(uuid) SET search_path = '';
+ALTER FUNCTION public.release_originator_lock(text) SET search_path = '';
+ALTER FUNCTION public.resolve_canonical_team(text, text) SET search_path = '';
+ALTER FUNCTION public.resolve_market_feed(text, text) SET search_path = '';
+ALTER FUNCTION public.safe_cast_numeric(text) SET search_path = '';
+ALTER FUNCTION public.safe_int(text) SET search_path = '';
+ALTER FUNCTION public.safe_numeric(text) SET search_path = '';
+ALTER FUNCTION public.safe_to_numeric(text) SET search_path = '';
+ALTER FUNCTION public.score_entry_signals(date) SET search_path = '';
+ALTER FUNCTION public.seal_technical_audit(text, text, numeric, numeric, text, jsonb, text, integer, text) SET search_path = '';
+ALTER FUNCTION public.set_app_config(text, jsonb, text) SET search_path = '';
+ALTER FUNCTION public.set_updated_at() SET search_path = '';
+ALTER FUNCTION public.settle_match_outcomes() SET search_path = '';
+ALTER FUNCTION public.sync_game_recap_final() SET search_path = '';
+ALTER FUNCTION public.sync_prop_to_match_id() SET search_path = '';
+ALTER FUNCTION public.sync_tennis_matches_from_feeds() SET search_path = '';
+ALTER FUNCTION public.track_match_view(text, text, integer) SET search_path = '';
+;
