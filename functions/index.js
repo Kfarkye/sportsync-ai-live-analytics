@@ -118,13 +118,23 @@ class SupabaseClient {
 
   async refreshMasterViews() {
     logger.info('⏳ Refreshing NBA master materialized views...');
-    const url = `${this.config.supabaseUrl}/rest/v1/rpc/refresh_nba_master_views`;
+    const nbaUrl = `${this.config.supabaseUrl}/rest/v1/rpc/refresh_nba_master_views`;
+    const refUrl = `${this.config.supabaseUrl}/rest/v1/rpc/refresh_ref_tendencies_records`;
 
     try {
-      await NetworkUtils.fetchWithRetry(url, { method: 'POST', headers: this.headers, body: '{}' }, 1, 25000);
+      await NetworkUtils.fetchWithRetry(nbaUrl, { method: 'POST', headers: this.headers, body: '{}' }, 1, 25000);
       logger.info('✅ Master views refreshed');
+
+      logger.info('⏳ Refreshing ref tendencies aggregates...');
+      await NetworkUtils.fetchWithRetry(
+        refUrl,
+        { method: 'POST', headers: this.headers, body: JSON.stringify({ p_sport: 'basketball' }) },
+        1,
+        25000
+      );
+      logger.info('✅ Ref tendencies refreshed');
     } catch (error) {
-      logger.warn('⚠️ Master view refresh error (non-fatal):', { error: error.message });
+      logger.warn('⚠️ Master/ref refresh error (non-fatal):', { error: error.message });
     }
   }
 
@@ -711,4 +721,3 @@ export const apiKeys = onRequest(
     }
   }
 );
-
