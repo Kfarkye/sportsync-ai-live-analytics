@@ -208,6 +208,23 @@ Deno.serve(async (req: Request) => {
                 } else {
                     trace.push(`[master-views] Error refreshing NBA master views: ${masterRes.status}`);
                 }
+
+                // 4d. Refresh ref tendency aggregates consumed by ref-tendencies frontend
+                trace.push(`[ref-tendencies] Triggering refresh-ref-tendencies...`);
+                const refRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/refresh-ref-tendencies`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (refRes.ok) {
+                    const refData = await refRes.json();
+                    trace.push(`[ref-tendencies] Refreshed: team=${refData.team_rows ?? '?'}, coach=${refData.coach_rows ?? '?'}, player=${refData.player_rows ?? '?'} rows (${refData.duration_ms ?? '?'}ms)`);
+                } else {
+                    trace.push(`[ref-tendencies] Error refreshing ref tendencies: ${refRes.status}`);
+                }
             }
         }
 
