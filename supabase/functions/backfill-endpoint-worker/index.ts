@@ -21,6 +21,11 @@ interface LeagueContext {
   eventId: string;
 }
 
+interface PlayAthleteLookupEntry {
+  name: string | null;
+  teamId: string | null;
+}
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
@@ -110,6 +115,12 @@ function toInt32Sequence(value: unknown): number | null {
   return parsed;
 }
 
+function asNonEmptyString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  return raw ? raw : null;
+}
+
 function computePlaySequence(play: any, index: number): number {
   const fromSequence = toInt32Sequence(play?.sequenceNumber) ?? toInt32Sequence(play?.sequence);
   if (fromSequence !== null) return fromSequence;
@@ -119,6 +130,80 @@ function computePlaySequence(play: any, index: number): number {
   if (fromId !== null) return fromId;
 
   return index + 1;
+}
+
+function extractParticipantAthleteIds(play: any): string[] {
+  const participants = Array.isArray(play?.participants) ? play.participants : [];
+  const ids: string[] = [];
+
+  for (const participant of participants) {
+    const athleteId = asNonEmptyString(
+      participant?.athlete?.id ??
+      participant?.athleteId ??
+      participant?.id,
+    );
+    if (!athleteId || ids.includes(athleteId)) continue;
+    ids.push(athleteId);
+  }
+
+  return ids;
+}
+
+function buildPlayAthleteLookup(summary: any): Map<string, PlayAthleteLookupEntry> {
+  const lookup = new Map<string, PlayAthleteLookupEntry>();
+  const teamBlocks = Array.isArray(summary?.boxscore?.players) ? summary.boxscore.players : [];
+
+  for (const teamBlock of teamBlocks) {
+    const teamId = asNonEmptyString(teamBlock?.team?.id);
+    const statGroups = Array.isArray(teamBlock?.statistics) ? teamBlock.statistics : [];
+
+    for (const statGroup of statGroups) {
+      const athletes = Array.isArray(statGroup?.athletes) ? statGroup.athletes : [];
+      for (const athleteEntry of athletes) {
+        const athleteNode = athleteEntry?.athlete ?? {};
+        const athleteId = asNonEmptyString(athleteNode?.id);
+        if (!athleteId) continue;
+
+        const name = asNonEmptyString(
+          athleteNode?.displayName ??
+          athleteNode?.shortName ??
+          athleteEntry?.displayName,
+        );
+
+        const existing = lookup.get(athleteId);
+        if (!existing) {
+          lookup.set(athleteId, { name, teamId });
+          continue;
+        }
+
+        lookup.set(athleteId, {
+          name: existing.name ?? name,
+          teamId: existing.teamId ?? teamId,
+        });
+      }
+    }
+  }
+
+  return lookup;
+}
+
+function extractPlayTeamId(
+  play: any,
+  athleteLookup: Map<string, PlayAthleteLookupEntry>,
+): string | null {
+  const directTeamId =
+    asNonEmptyString(play?.team?.id) ??
+    asNonEmptyString(play?.teamId) ??
+    asNonEmptyString(play?.team_id);
+  if (directTeamId) return directTeamId;
+
+  const participantAthleteIds = extractParticipantAthleteIds(play);
+  for (const athleteId of participantAthleteIds) {
+    const mapped = athleteLookup.get(athleteId);
+    if (mapped?.teamId) return mapped.teamId;
+  }
+
+  return null;
 }
 
 async function fetchJson(url: string): Promise<{ ok: boolean; status: number; data: any; error?: string }> {
@@ -332,6 +417,58 @@ function parseBoxscoreTeamStats(teamBox: any): Record<string, string> {
   return map;
 }
 
+function parseMinutes(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  if (raw.includes(":")) {
+    const [minsRaw, secsRaw] = raw.split(":", 2);
+    const mins = toInt(minsRaw);
+    const secs = toInt(secsRaw);
+    if (mins === null || secs === null) return null;
+    return mins + (secs >= 30 ? 1 : 0);
+  }
+
+  return toInt(raw);
+}
+
+function parseMadeAttempted(value: string | null): { made: number | null; attempted: number | null } {
+  if (!value) return { made: null, attempted: null };
+  const match = String(value).trim().match(/^(-?\d+)\s*-\s*(-?\d+)$/);
+  if (!match) return { made: null, attempted: null };
+  return { made: toInt(match[1]), attempted: toInt(match[2]) };
+}
+
+function parseOptionalBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return null;
+}
+
+function toIsoDate(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 10);
+}
+
+function parseAthleteStats(keys: string[], values: any[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  const upper = Math.min(keys.length, values.length);
+  for (let i = 0; i < upper; i += 1) {
+    const key = normalizeKey(String(keys[i] ?? ""));
+    const value = values[i];
+    if (!key || value === null || value === undefined) continue;
+    map[key] = String(value);
+  }
+  return map;
+}
+
 function parseWinProbabilityTimeline(winProbData: any): Array<{ playId: string | null; tiePct: number; homeWinPct: number }> {
   if (!Array.isArray(winProbData)) return [];
   const rows = winProbData
@@ -517,20 +654,6 @@ async function processPlays(
   item: ClaimedBackfillItem,
   league: LeagueContext,
 ) {
-  const { count, error: countError } = await supabase
-    .from("game_events")
-    .select("id", { head: true, count: "exact" })
-    .eq("match_id", item.match_id)
-    .eq("event_type", "play");
-
-  if (countError) {
-    throw new Error(`plays existing-count query failed: ${countError.message}`);
-  }
-
-  if ((count ?? 0) > 0) {
-    return;
-  }
-
   const summaryRes = await fetchJson(summaryUrl(league));
   if (!summaryRes.ok) {
     throw new Error(`plays summary fetch failed: ${summaryRes.error ?? summaryRes.status}`);
@@ -541,38 +664,85 @@ async function processPlays(
   if (plays.length === 0) {
     throw new Error("plays endpoint returned no events");
   }
+  const { home, away } = findCompetitors(summary);
+  const athleteLookup = buildPlayAthleteLookup(summary);
+  const homeTeamId = asNonEmptyString(home?.team?.id);
+  const awayTeamId = asNonEmptyString(away?.team?.id);
+  const teamNameById = new Map<string, string | null>();
+  if (homeTeamId) {
+    teamNameById.set(homeTeamId, asNonEmptyString(home?.team?.displayName ?? home?.team?.name));
+  }
+  if (awayTeamId) {
+    teamNameById.set(awayTeamId, asNonEmptyString(away?.team?.displayName ?? away?.team?.name));
+  }
 
   const rows = plays
     .filter((play: any) => !!play?.id || !!play?.text)
-    .map((play: any, index: number) => ({
-      match_id: item.match_id,
-      league_id: league.dbLeagueId,
-      sport: league.sport,
-      event_type: "play",
-      sequence: computePlaySequence(play, index),
-      period: toInt(play?.period?.number ?? play?.period),
-      clock: play?.clock?.displayValue ?? play?.clock?.value ?? null,
-      home_score: toInt(play?.homeScore) ?? 0,
-      away_score: toInt(play?.awayScore) ?? 0,
-      play_data: {
-        id: play?.id ?? null,
-        text: play?.text ?? null,
-        type: play?.type?.text ?? play?.type ?? null,
-        scoringPlay: !!play?.scoringPlay,
-        scoreValue: toInt(play?.scoreValue),
-      },
-      source: "backfill-endpoint-worker",
-    }));
+    .map((play: any, index: number) => {
+      const participantAthleteIds = extractParticipantAthleteIds(play);
+      const firstAthleteId = participantAthleteIds[0] ?? null;
+      const playerMeta = firstAthleteId ? athleteLookup.get(firstAthleteId) : null;
+      const teamId = extractPlayTeamId(play, athleteLookup);
+      const playType = asNonEmptyString(play?.type?.text ?? play?.type);
+      const points = toInt(play?.scoreValue);
+      const scoringPlay = !!play?.scoringPlay;
 
-  if (rows.length === 0) {
+      return {
+        match_id: item.match_id,
+        league_id: league.dbLeagueId,
+        sport: league.sport,
+        event_type: "play",
+        sequence: computePlaySequence(play, index),
+        period: toInt(play?.period?.number ?? play?.period),
+        clock: play?.clock?.displayValue ?? play?.clock?.value ?? null,
+        home_score: toInt(play?.homeScore) ?? 0,
+        away_score: toInt(play?.awayScore) ?? 0,
+        play_data: {
+          id: play?.id ?? null,
+          text: play?.text ?? null,
+          type: playType,
+          type_code: asNonEmptyString(play?.type?.id),
+          scoringPlay,
+          scoring_play: scoringPlay,
+          scoreValue: points,
+          points,
+          team_id: teamId,
+          team: (teamId ? teamNameById.get(teamId) ?? null : null) ?? asNonEmptyString(play?.team?.displayName ?? play?.team?.name),
+          player: playerMeta?.name ?? null,
+          player_id: firstAthleteId,
+          participant_ids: participantAthleteIds.length > 0 ? participantAthleteIds : null,
+          wallclock: asNonEmptyString(play?.wallclock),
+        },
+        source: "backfill-endpoint-worker",
+      };
+    });
+
+  const dedupedBySequence = new Map<number, Record<string, any>>();
+  for (const row of rows) {
+    const existing = dedupedBySequence.get(row.sequence);
+    if (!existing) {
+      dedupedBySequence.set(row.sequence, row);
+      continue;
+    }
+
+    const existingHasTeam = !!existing?.play_data?.team_id;
+    const candidateHasTeam = !!row?.play_data?.team_id;
+    if (!existingHasTeam && candidateHasTeam) {
+      dedupedBySequence.set(row.sequence, row);
+    }
+  }
+
+  const rowsToUpsert = Array.from(dedupedBySequence.values());
+
+  if (rowsToUpsert.length === 0) {
     throw new Error("plays endpoint had no valid rows");
   }
 
-  for (let i = 0; i < rows.length; i += 200) {
-    const chunk = rows.slice(i, i + 200);
+  for (let i = 0; i < rowsToUpsert.length; i += 200) {
+    const chunk = rowsToUpsert.slice(i, i + 200);
     const { error: upsertError } = await supabase.from("game_events").upsert(chunk, {
       onConflict: "match_id,event_type,sequence",
-      ignoreDuplicates: true,
+      ignoreDuplicates: false,
     });
     if (upsertError) {
       throw new Error(`plays upsert failed: ${upsertError.message}`);
@@ -768,6 +938,154 @@ function getBoxscoreTeamNode(teams: any[], competitor: any, fallbackIndex: numbe
   return teams[fallbackIndex] ?? null;
 }
 
+function buildPlayerGameStatsRows(
+  summary: any,
+  item: ClaimedBackfillItem,
+  league: LeagueContext,
+  home: any,
+  away: any,
+  startTime: string | null,
+): Array<Record<string, unknown>> {
+  const boxscorePlayers = Array.isArray(summary?.boxscore?.players) ? summary.boxscore.players : [];
+  if (boxscorePlayers.length === 0) return [];
+
+  const homeTeamId = home?.team?.id ? String(home.team.id) : null;
+  const awayTeamId = away?.team?.id ? String(away.team.id) : null;
+  const homeTeamName = String(home?.team?.displayName ?? "").trim() || null;
+  const awayTeamName = String(away?.team?.displayName ?? "").trim() || null;
+  const gameDate = toIsoDate(startTime ?? summary?.header?.competitions?.[0]?.date ?? summary?.date) ?? new Date().toISOString().slice(0, 10);
+  const nowIso = new Date().toISOString();
+
+  const rows = new Map<string, Record<string, unknown>>();
+
+  for (const teamBlock of boxscorePlayers) {
+    const teamNode = teamBlock?.team ?? {};
+    const blockTeamId = teamNode?.id ? String(teamNode.id) : null;
+    const blockTeamName =
+      String(teamNode?.displayName ?? teamNode?.name ?? "").trim() ||
+      (blockTeamId && homeTeamId && blockTeamId === homeTeamId ? homeTeamName : null) ||
+      (blockTeamId && awayTeamId && blockTeamId === awayTeamId ? awayTeamName : null);
+
+    const isHomeTeam =
+      (blockTeamId && homeTeamId ? blockTeamId === homeTeamId : false) ||
+      (!blockTeamId && !!blockTeamName && !!homeTeamName && blockTeamName.toLowerCase() === homeTeamName.toLowerCase());
+    const isAwayTeam =
+      (blockTeamId && awayTeamId ? blockTeamId === awayTeamId : false) ||
+      (!blockTeamId && !!blockTeamName && !!awayTeamName && blockTeamName.toLowerCase() === awayTeamName.toLowerCase());
+
+    const opponentTeam = isHomeTeam ? awayTeamName : isAwayTeam ? homeTeamName : homeTeamName ?? awayTeamName;
+    const opponentTeamId = isHomeTeam ? awayTeamId : isAwayTeam ? homeTeamId : null;
+    if (!blockTeamName || !opponentTeam) continue;
+
+    const statGroups = Array.isArray(teamBlock?.statistics) ? teamBlock.statistics : [];
+    for (const statGroup of statGroups) {
+      const keys = Array.isArray(statGroup?.keys) ? statGroup.keys.map((key: any) => String(key ?? "")) : [];
+      const athletes = Array.isArray(statGroup?.athletes) ? statGroup.athletes : [];
+
+      for (const athleteEntry of athletes) {
+        const athleteNode = athleteEntry?.athlete ?? {};
+        const espnPlayerId = athleteNode?.id ? String(athleteNode.id) : null;
+        const playerName = String(athleteNode?.displayName ?? athleteNode?.shortName ?? "").trim() || null;
+        if (!espnPlayerId || !playerName) continue;
+
+        const statValues = Array.isArray(athleteEntry?.stats) ? athleteEntry.stats : [];
+        const statMap = parseAthleteStats(keys, statValues);
+
+        const fg = parseMadeAttempted(
+          readStatValue(statMap, ["fieldGoalsMadeFieldGoalsAttempted", "fieldGoals", "fg"]),
+        );
+        const threePt = parseMadeAttempted(
+          readStatValue(statMap, [
+            "threePointFieldGoalsMadeThreePointFieldGoalsAttempted",
+            "threePointFieldGoals",
+            "3pt",
+          ]),
+        );
+        const ft = parseMadeAttempted(
+          readStatValue(statMap, ["freeThrowsMadeFreeThrowsAttempted", "freeThrows", "ft"]),
+        );
+
+        const points = toInt(readStatValue(statMap, ["points", "pts"]));
+        const rebounds = toInt(readStatValue(statMap, ["rebounds", "totalRebounds", "reb"]));
+        const assists = toInt(readStatValue(statMap, ["assists", "ast"]));
+        const didNotPlay = parseOptionalBoolean(athleteEntry?.didNotPlay) === true;
+
+        const row: Record<string, unknown> = {
+          id: `${item.match_id}_${espnPlayerId}`,
+          match_id: item.match_id,
+          espn_event_id: league.eventId,
+          espn_player_id: espnPlayerId,
+          player_name: playerName,
+          espn_team_id: blockTeamId,
+          team: blockTeamName,
+          opponent: opponentTeam,
+          opponent_team_id: opponentTeamId,
+          league_id: "nba",
+          season: "2025-26",
+          game_date: gameDate,
+          minutes: parseMinutes(readStatValue(statMap, ["minutes", "min"])),
+          is_starter: parseOptionalBoolean(athleteEntry?.starter),
+          is_dnp: didNotPlay,
+          dnp_reason: didNotPlay ? String(athleteEntry?.reason ?? "").trim() || null : null,
+          points,
+          fgm: fg.made,
+          fga: fg.attempted,
+          fg_pct: fg.made !== null && fg.attempted && fg.attempted > 0 ? Number((fg.made / fg.attempted).toFixed(3)) : null,
+          three_pm: threePt.made,
+          three_pa: threePt.attempted,
+          three_pct:
+            threePt.made !== null && threePt.attempted && threePt.attempted > 0
+              ? Number((threePt.made / threePt.attempted).toFixed(3))
+              : null,
+          ftm: ft.made,
+          fta: ft.attempted,
+          ft_pct: ft.made !== null && ft.attempted && ft.attempted > 0 ? Number((ft.made / ft.attempted).toFixed(3)) : null,
+          rebounds,
+          off_rebounds: toInt(readStatValue(statMap, ["offensiveRebounds", "oreb"])),
+          def_rebounds: toInt(readStatValue(statMap, ["defensiveRebounds", "dreb"])),
+          assists,
+          steals: toInt(readStatValue(statMap, ["steals", "stl"])),
+          blocks: toInt(readStatValue(statMap, ["blocks", "blk"])),
+          turnovers: toInt(readStatValue(statMap, ["turnovers", "to"])),
+          personal_fouls: toInt(readStatValue(statMap, ["fouls", "personalFouls", "pf"])),
+          tech_fouls: toInt(readStatValue(statMap, ["technicalFouls", "techFouls"])) ?? 0,
+          flagrant_fouls: toInt(readStatValue(statMap, ["flagrantFouls"])) ?? 0,
+          pra:
+            points !== null && rebounds !== null && assists !== null
+              ? points + rebounds + assists
+              : null,
+          pts_rebs: points !== null && rebounds !== null ? points + rebounds : null,
+          pts_asts: points !== null && assists !== null ? points + assists : null,
+          venue: isHomeTeam ? "HOME" : isAwayTeam ? "AWAY" : null,
+          source: "espn_boxscore",
+          source_updated_at: nowIso,
+        };
+
+        rows.set(String(row.id), row);
+      }
+    }
+  }
+
+  return Array.from(rows.values());
+}
+
+async function upsertPlayerGameStats(
+  supabase: ReturnType<typeof createClient>,
+  rows: Array<Record<string, unknown>>,
+) {
+  if (rows.length === 0) return;
+  for (let i = 0; i < rows.length; i += 250) {
+    const chunk = rows.slice(i, i + 250);
+    const { error } = await supabase.from("player_game_stats").upsert(chunk, {
+      onConflict: "match_id,espn_player_id",
+      ignoreDuplicates: false,
+    });
+    if (error) {
+      throw new Error(`player_game_stats upsert failed: ${error.message}`);
+    }
+  }
+}
+
 async function processStatistics(
   supabase: ReturnType<typeof createClient>,
   item: ClaimedBackfillItem,
@@ -827,6 +1145,14 @@ async function processStatistics(
     competition?.date ??
     summary?.header?.competitions?.[0]?.date ??
     null;
+  const shouldDrainPlayerStats =
+    league.dbLeagueId.toLowerCase() === "nba" ||
+    item.match_id.toLowerCase().endsWith("_nba");
+
+  if (shouldDrainPlayerStats) {
+    const playerRows = buildPlayerGameStatsRows(summary, item, league, home, away, startTime);
+    await upsertPlayerGameStats(supabase, playerRows);
+  }
 
   const { data: matchMeta } = await supabase
     .from("matches")
