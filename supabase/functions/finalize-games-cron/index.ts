@@ -191,6 +191,23 @@ Deno.serve(async (req: Request) => {
                 } else {
                     trace.push(`[ledger] Error updating edge trend ledger: ${ledgerRes.status}`);
                 }
+
+                // 4c. Refresh NBA master materialized views with settled game data
+                trace.push(`[master-views] Triggering refresh-nba-master-views...`);
+                const masterRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/refresh-nba-master-views`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (masterRes.ok) {
+                    const masterData = await masterRes.json();
+                    trace.push(`[master-views] Refreshed: game=${masterData.mv_nba_game_master ?? '?'}, team=${masterData.mv_nba_team_game_master ?? '?'} rows (${masterData.duration_ms ?? '?'}ms)`);
+                } else {
+                    trace.push(`[master-views] Error refreshing NBA master views: ${masterRes.status}`);
+                }
             }
         }
 
