@@ -67,9 +67,10 @@ const MARKET_TO_ENUM: Record<string, string> = {
     'player_reception_yds': 'receiving_yards',
     'player_anytime_td': 'anytime_td',
     'player_pass_interceptions': 'interceptions',
-    'pitcher_strikeouts': 'strikeouts',
-    'batter_hits': 'hits',
-    'batter_total_bases': 'total_bases',
+    // MLB v1 markets: keep canonical market keys for league-aware grading.
+    'pitcher_strikeouts': 'pitcher_strikeouts',
+    'batter_hits': 'batter_hits',
+    'batter_total_bases': 'batter_total_bases',
     'player_goals': 'goals',
     'player_shots_on_goal': 'shots_on_goal',
 };
@@ -82,6 +83,34 @@ const PLAYER_PROP_MARKETS: Record<string, string> = {
     'baseball_mlb': 'batter_hits,batter_total_bases,pitcher_strikeouts',
     'icehockey_nhl': 'player_points,player_goals,player_shots_on_goal',
 };
+
+const DEFAULT_BOOK_PREFERENCE = ['draftkings', 'fanduel', 'bovada', 'betmgm', 'betrivers', 'caesars'];
+const BOOK_PREFERENCE_BY_SPORT: Record<string, string[]> = {
+    // Phase 1 lock: MLB priority draftkings > fanduel > bovada > betmgm.
+    'baseball_mlb': ['draftkings', 'fanduel', 'bovada', 'betmgm'],
+};
+
+function normalizeLeagueFilter(raw: string | null): string[] {
+    if (!raw) return [];
+    return raw
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean);
+}
+
+function resolveBookPreference(sportKey: string): string[] {
+    return BOOK_PREFERENCE_BY_SPORT[sportKey] ?? DEFAULT_BOOK_PREFERENCE;
+}
+
+function pickBookmaker(bookmakers: any[], sportKey: string): any | null {
+    if (!Array.isArray(bookmakers) || bookmakers.length === 0) return null;
+    const preferred = resolveBookPreference(sportKey);
+    return [...bookmakers].sort((a: any, b: any) => {
+        const ia = preferred.indexOf(String(a?.key || '').toLowerCase());
+        const ib = preferred.indexOf(String(b?.key || '').toLowerCase());
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    })[0] ?? null;
+}
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -96,27 +125,44 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const logs: { event: string;[key: string]: any }[] = [];
+    const requestUrl = new URL(req.url);
+    const requestedLeagues = normalizeLeagueFilter(requestUrl.searchParams.get('league'));
 
     try {
         // 1. Get matches that have an Odds API Event ID and are today/tomorrow
         const now = new Date();
         const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000);
         const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-
-        const { data: matches, error: matchesError } = await supabase
+        let matchesQuery = supabase
             .from('matches')
             .select('id, odds_api_event_id, league_id, home_team, away_team, start_time')
             .not('odds_api_event_id', 'is', null)
             .gte('start_time', twelveHoursAgo.toISOString())
             .lte('start_time', tomorrow.toISOString());
 
+        if (requestedLeagues.length === 1) {
+            matchesQuery = matchesQuery.eq('league_id', requestedLeagues[0]);
+        } else if (requestedLeagues.length > 1) {
+            matchesQuery = matchesQuery.in('league_id', requestedLeagues);
+        }
+
+        const { data: matches, error: matchesError } = await matchesQuery;
+
         if (matchesError) throw matchesError;
 
         if (!matches || matches.length === 0) {
-            return new Response(JSON.stringify({ message: "No matches found for prop sync", logs }), { headers: corsHeaders });
+            return new Response(JSON.stringify({
+                message: "No matches found for prop sync",
+                leagues: requestedLeagues.length > 0 ? requestedLeagues : 'all',
+                logs
+            }), { headers: corsHeaders });
         }
 
-        logs.push({ event: "matches_found", count: matches.length });
+        logs.push({
+            event: "matches_found",
+            count: matches.length,
+            leagues: requestedLeagues.length > 0 ? requestedLeagues : 'all'
+        });
 
         // 2. Process each match
         for (const match of (matches as PropMatch[])) {
@@ -135,6 +181,7 @@ Deno.serve(async (req: Request) => {
                 const athleteMap = new Map();
                 const sportPath = match.league_id === 'nfl' ? 'football/nfl' :
                     match.league_id === 'nba' ? 'basketball/nba' :
+                        match.league_id === 'mlb' ? 'baseball/mlb' :
                         match.league_id === 'nhl' ? 'hockey/nhl' :
                             match.league_id === 'college-football' ? 'football/college-football' :
                                 match.league_id === 'mens-college-basketball' ? 'basketball/mens-college-basketball' :
@@ -212,13 +259,7 @@ Deno.serve(async (req: Request) => {
                 const bookmakers = data.bookmakers || [];
                 console.log(`[Props] API returned ${bookmakers.length} bookmakers for ${match.home_team}`);
 
-                // Select best available bookmaker for props (Preference: DraftKings, FanDuel, Bovada)
-                const preferred = ['draftkings', 'fanduel', 'bovada', 'betmgm', 'betrivers', 'caesars'];
-                const book = bookmakers.sort((a: any, b: any) => {
-                    const ia = preferred.indexOf(a.key);
-                    const ib = preferred.indexOf(b.key);
-                    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-                })[0];
+                const book = pickBookmaker(bookmakers, sportKey);
 
                 if (!book) {
                     logs.push({ event: "no_prop_books", matchId: match.id });
@@ -249,6 +290,7 @@ Deno.serve(async (req: Request) => {
                         propUpserts.push({
                             match_id: match.id,
                             player_id: athlete?.id,
+                            espn_player_id: athlete?.id,
                             player_name: playerName,
                             headshot_url: athlete?.headshot,
                             team: athlete?.team || (outcome.name?.includes('(') ? outcome.name.split('(')[1].replace(')', '') : null),
@@ -260,7 +302,7 @@ Deno.serve(async (req: Request) => {
                             provider: book.key,
                             sportsbook: book.title,
                             event_date: eventDate,
-                            league: match.league_id.toUpperCase()
+                            league: match.league_id
                         });
                     }
                 }

@@ -4,7 +4,7 @@ var CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
-var DRAIN_VERSION = "v2";
+var DRAIN_VERSION = "v4";
 var MAX_CONCURRENT = 3;
 var INTER_BATCH_MS = 400;
 var FETCH_TIMEOUT_MS = 15e3;
@@ -36,6 +36,37 @@ function asNumber(value) {
     if (cleaned.length === 0) return null;
     const parsed = Number(cleaned);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+function parsePrice(value) {
+  if (value === null || value === void 0) return null;
+  if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
+  if (typeof value === "string") {
+    const raw = value.trim().toUpperCase();
+    if (!raw) return null;
+    if (raw === "EV" || raw === "EVEN") return 100;
+    const parsed = parseInt(raw.replace(/[+,]/g, ""), 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  if (typeof value === "object") {
+    return parsePrice(value?.american) ?? parsePrice(value?.value) ?? parsePrice(value?.moneyLine) ?? parsePrice(value?.odds) ?? null;
+  }
+  return null;
+}
+function parsePoints(value) {
+  if (value === null || value === void 0) return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const raw = value.trim().toUpperCase();
+    if (!raw) return null;
+    if (raw === "PK" || raw === "PICK" || raw === "EVEN") return 0;
+    if (/^[+-]\d{3,}$/.test(raw)) return null;
+    const parsed = parseFloat(raw.replace(/[+,]/g, ""));
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  if (typeof value === "object") {
+    return parsePoints(value?.value) ?? parsePoints(value?.points) ?? parsePoints(value?.line) ?? parsePoints(value?.american) ?? null;
   }
   return null;
 }
@@ -112,14 +143,23 @@ function fsInt(stats, cat, name) {
 }
 function extractOdds(data) {
   const pc = data.pickcenter?.[0];
-  if (!pc) return {};
+  if (!pc) return {
+    dk_home_ml: null,
+    dk_away_ml: null,
+    dk_spread: null,
+    dk_total: null,
+    dk_over_price: null,
+    dk_under_price: null,
+    home_run_line: null
+  };
   return {
-    dk_home_ml: asInt(pc.homeTeamOdds?.moneyLine),
-    dk_away_ml: asInt(pc.awayTeamOdds?.moneyLine),
-    dk_spread: asNumber(pc.spread),
-    dk_total: asNumber(pc.overUnder),
-    dk_over_price: asNumber(pc.overOdds),
-    dk_under_price: asNumber(pc.underOdds)
+    dk_home_ml: parsePrice(pc.homeTeamOdds?.moneyLine),
+    dk_away_ml: parsePrice(pc.awayTeamOdds?.moneyLine),
+    dk_spread: parsePoints(pc.spread),
+    dk_total: parsePoints(pc.overUnder),
+    dk_over_price: parsePrice(pc.overOdds),
+    dk_under_price: parsePrice(pc.underOdds),
+    home_run_line: parsePoints(pc.homeTeamOdds?.runLine) ?? parsePoints(pc.homeTeamOdds?.spread) ?? parsePoints(pc.spread)
   };
 }
 function extractFullCategory(stats, catName) {
@@ -150,6 +190,54 @@ function getWeatherCondition(weather) {
   const conditionId = asInt(weather?.conditionId);
   if (conditionId === null) return null;
   return WEATHER_CONDITIONS[conditionId] ?? String(conditionId);
+}
+function extractHomePlateUmpire(gameInfo) {
+  const officials = Array.isArray(gameInfo?.officials) ? gameInfo.officials : [];
+  const homePlate = officials.find((official) => {
+    const position = String(official?.position?.name ?? "").toLowerCase();
+    return position.includes("home plate") || asInt(official?.order) === 1;
+  });
+  if (!homePlate) return { name: null, id: null };
+  return {
+    name: asString(homePlate?.displayName) ?? asString(homePlate?.fullName) ?? asString(homePlate?.name),
+    id: asString(homePlate?.id) ?? asString(homePlate?.position?.id)
+  };
+}
+function getHourInTimeZone(date, timeZone) {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      hour: "2-digit",
+      hour12: false,
+      timeZone
+    });
+    const hour = parseInt(formatter.format(date), 10);
+    return Number.isFinite(hour) ? hour : null;
+  } catch {
+    return null;
+  }
+}
+function resolveDayNight(startTime, gameInfo) {
+  const provided = asString(gameInfo?.dayNight) ?? asString(gameInfo?.dayOrNight);
+  if (provided) {
+    const normalized = provided.toLowerCase();
+    if (normalized.includes("day")) return "day";
+    if (normalized.includes("night")) return "night";
+  }
+  if (!startTime) return null;
+  const date = new Date(startTime);
+  if (Number.isNaN(date.getTime())) return null;
+  const timeZone = asString(gameInfo?.venue?.address?.timezone) ?? asString(gameInfo?.venue?.timezone) ?? asString(gameInfo?.timezone);
+  const hour = timeZone ? getHourInTimeZone(date, timeZone) : date.getUTCHours();
+  if (hour === null) return null;
+  return hour < 17 ? "day" : "night";
+}
+function resolveRunLineResult(homeRunLine, homeScore, awayScore) {
+  if (homeRunLine === null || homeScore === null || awayScore === null) return null;
+  const margin = homeScore - awayScore;
+  const graded = margin + homeRunLine;
+  if (graded > 0) return "cover";
+  if (graded < 0) return "miss";
+  return "push";
 }
 function resolveSeasonType(data, startTime) {
   const espnType = asInt(data?.header?.season?.type) ?? asInt(data?.season?.type);
@@ -294,6 +382,293 @@ function extractPitcherDetails(data, matchId, eventId, startTime, seasonType, ho
   });
   return { starters, rows };
 }
+function mapTeamSides(data) {
+  const sideByTeamId = /* @__PURE__ */ new Map();
+  const sideByTeamName = /* @__PURE__ */ new Map();
+  for (const competitor of data?.header?.competitions?.[0]?.competitors || []) {
+    const side = competitor?.homeAway === "home" ? "home" : competitor?.homeAway === "away" ? "away" : null;
+    if (!side) continue;
+    const teamId = asString(competitor?.team?.id);
+    const teamName = asString(competitor?.team?.displayName);
+    if (teamId) sideByTeamId.set(teamId, side);
+    if (teamName) sideByTeamName.set(teamName, side);
+  }
+  return { sideByTeamId, sideByTeamName };
+}
+function getBattingCategory(playerGroup) {
+  const stats = playerGroup?.statistics;
+  if (!Array.isArray(stats)) return null;
+  return stats.find((category) => (category?.labels || []).some((label) => normalizeKey(asString(label)) === "AB")) ?? stats[0] ?? null;
+}
+function extractBatterDetails(data, matchId, eventId, startTime, seasonType, homeTeam, awayTeam) {
+  const groups = data.boxscore?.players || [];
+  const { sideByTeamId, sideByTeamName } = mapTeamSides(data);
+  const rows = [];
+  const gameDate = startTime?.slice(0, 10) ?? null;
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  groups.forEach((group, groupIndex) => {
+    const teamId = asString(group?.team?.id);
+    const teamName = asString(group?.team?.displayName);
+    const side = resolveTeamSide(sideByTeamId, sideByTeamName, teamId, teamName) ?? (groupIndex === 0 ? "away" : groupIndex === 1 ? "home" : null);
+    if (!side) return;
+    const battingCategory = getBattingCategory(group);
+    if (!battingCategory) return;
+    const athletes = battingCategory?.athletes || [];
+    const labels = battingCategory?.labels || [];
+    const opponentTeam = side === "home" ? awayTeam : homeTeam;
+    athletes.forEach((athleteRow, athleteIndex) => {
+      const athleteId = asString(athleteRow?.athlete?.id);
+      const athleteName = asString(athleteRow?.athlete?.displayName) ?? asString(athleteRow?.athlete?.fullName);
+      if (!athleteId || !athleteName) return;
+      const statMap = buildStatMap(labels, athleteRow?.stats || []);
+      rows.push({
+        id: `${eventId}_${athleteId}_bat_mlb`,
+        match_id: matchId,
+        espn_event_id: eventId,
+        game_date: gameDate,
+        season_type: seasonType,
+        team: teamName,
+        team_abbr: asString(group?.team?.abbreviation),
+        opponent: opponentTeam,
+        is_home: side === "home",
+        athlete_id: athleteId,
+        athlete_name: athleteName,
+        batting_order: asInt(athleteRow?.battingOrder) ?? asInt(athleteRow?.order) ?? athleteIndex + 1,
+        position: asString(athleteRow?.athlete?.position?.abbreviation) ?? asString(athleteRow?.position?.abbreviation) ?? asString(athleteRow?.athlete?.position?.displayName),
+        at_bats: asInt(statMap.AB),
+        runs: asInt(statMap.R),
+        hits: asInt(statMap.H),
+        doubles: asInt(statMap["2B"]),
+        triples: asInt(statMap["3B"]),
+        home_runs: asInt(statMap.HR),
+        rbi: asInt(statMap.RBI),
+        walks: asInt(statMap.BB),
+        strikeouts: asInt(statMap.K) ?? asInt(statMap.SO),
+        stolen_bases: asInt(statMap.SB),
+        caught_stealing: asInt(statMap.CS),
+        hit_by_pitch: asInt(statMap.HBP),
+        total_bases: asInt(statMap.TB),
+        extra_base_hits: asInt(statMap.XBH),
+        batting_avg: asNumber(statMap.AVG),
+        obp: asNumber(statMap.OBP),
+        slg: asNumber(statMap.SLG),
+        ops: asNumber(statMap.OPS),
+        isolated_power: asNumber(statMap.ISOP),
+        secondary_avg: asNumber(statMap.SECA),
+        runs_created: asNumber(statMap.RC),
+        runs_created_27: asNumber(statMap.RC27),
+        bb_k_ratio: asNumber(statMap.BBK) ?? asNumber(statMap["BB/K"]),
+        ab_per_hr: asNumber(statMap.ABHR),
+        go_fo_ratio: asNumber(statMap.GOFO) ?? asNumber(statMap["GO/FO"]),
+        sb_pct: asNumber(statMap["SB%"]) ?? asNumber(statMap.SBPCT),
+        war: asNumber(statMap.WAR),
+        plate_appearances: asInt(statMap.PA),
+        sac_flies: asInt(statMap.SF),
+        sac_bunts: asInt(statMap.SH),
+        gidp: asInt(statMap.GIDP),
+        lob: asInt(statMap.LOB),
+        raw_stats: statMap,
+        drain_version: DRAIN_VERSION,
+        last_drained_at: now,
+        created_at: now,
+        updated_at: now
+      });
+    });
+  });
+  return rows;
+}
+function extractPitchEvents(data, matchId, eventId) {
+  const plays = Array.isArray(data?.plays) ? data.plays : [];
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const rows = [];
+  for (const play of plays) {
+    const playId = asString(play?.id);
+    const playType = asString(play?.type?.type);
+    const hasPitchSignal = play?.atBatPitchNumber !== void 0 || play?.pitchType !== void 0 || play?.pitchVelocity !== void 0 || play?.pitchCoordinate !== void 0;
+    if (!playId || !hasPitchSignal) continue;
+    const participants = Array.isArray(play?.participants) ? play.participants : [];
+    const pitcher = participants.find((item) => String(item?.type || "").toLowerCase() === "pitcher");
+    const batter = participants.find((item) => String(item?.type || "").toLowerCase() === "batter");
+    const lowerType = String(playType || "").toLowerCase();
+    rows.push({
+      id: playId,
+      match_id: matchId,
+      espn_event_id: eventId,
+      sequence_number: asInt(play?.sequenceNumber),
+      at_bat_id: asString(play?.atBatId),
+      at_bat_pitch_number: asInt(play?.atBatPitchNumber),
+      inning_number: asInt(play?.period?.number),
+      inning_half: asString(play?.period?.type),
+      wallclock: asString(play?.wallclock),
+      pitcher_athlete_id: asString(pitcher?.athlete?.id),
+      batter_athlete_id: asString(batter?.athlete?.id),
+      batter_side: asString(play?.bats?.abbreviation) ?? asString(play?.bats?.type),
+      pitch_type_id: asString(play?.pitchType?.id),
+      pitch_type: asString(play?.pitchType?.text),
+      pitch_type_abbr: asString(play?.pitchType?.abbreviation),
+      pitch_velocity: asInt(play?.pitchVelocity),
+      pitch_coord_x: asNumber(play?.pitchCoordinate?.x),
+      pitch_coord_y: asNumber(play?.pitchCoordinate?.y),
+      trajectory: asString(play?.trajectory),
+      pre_balls: asInt(play?.pitchCount?.balls),
+      pre_strikes: asInt(play?.pitchCount?.strikes),
+      post_balls: asInt(play?.resultCount?.balls),
+      post_strikes: asInt(play?.resultCount?.strikes),
+      outs: asInt(play?.outs),
+      play_type: playType,
+      play_text: asString(play?.text),
+      scoring_play: play?.scoringPlay === true,
+      score_value: asInt(play?.scoreValue),
+      away_score: asInt(play?.awayScore),
+      home_score: asInt(play?.homeScore),
+      is_called_strike: lowerType === "strike-looking",
+      is_ball: lowerType === "ball",
+      is_swinging_strike: lowerType === "strike-swinging",
+      is_foul: lowerType.includes("foul"),
+      is_in_play: lowerType === "single" || lowerType === "double" || lowerType === "triple" || lowerType === "home-run" || lowerType === "groundout" || lowerType === "flyout" || lowerType === "lineout",
+      drain_version: DRAIN_VERSION,
+      last_drained_at: now,
+      created_at: now,
+      updated_at: now
+    });
+  }
+  return rows;
+}
+function derivePitchMixStats(pitchEvents, pitcherSideById, side) {
+  const sideEvents = pitchEvents.filter((row) => {
+    const pitcherId = asString(row?.pitcher_athlete_id);
+    return pitcherId && pitcherSideById.get(pitcherId) === side;
+  });
+  if (sideEvents.length === 0) {
+    return {
+      pitchTypesUsed: 0,
+      pitchPctVsLhb: null,
+      pitchPctVsRhb: null,
+      primaryPitch: null,
+      primaryPitchShare: null
+    };
+  }
+  const typeCounts = /* @__PURE__ */ new Map();
+  let vsL = 0;
+  let vsR = 0;
+  let recognizedHandedness = 0;
+  for (const row of sideEvents) {
+    const pitchType = asString(row?.pitch_type_abbr) ?? asString(row?.pitch_type) ?? "UNK";
+    typeCounts.set(pitchType, (typeCounts.get(pitchType) || 0) + 1);
+    const batterSide = String(asString(row?.batter_side) || "").toUpperCase();
+    if (batterSide.startsWith("L")) {
+      vsL += 1;
+      recognizedHandedness += 1;
+    } else if (batterSide.startsWith("R")) {
+      vsR += 1;
+      recognizedHandedness += 1;
+    }
+  }
+  let primaryPitch = null;
+  let primaryPitchCount = 0;
+  for (const [pitch, count] of typeCounts.entries()) {
+    if (count > primaryPitchCount) {
+      primaryPitch = pitch;
+      primaryPitchCount = count;
+    }
+  }
+  return {
+    pitchTypesUsed: typeCounts.size,
+    pitchPctVsLhb: recognizedHandedness > 0 ? Number((vsL / recognizedHandedness).toFixed(4)) : null,
+    pitchPctVsRhb: recognizedHandedness > 0 ? Number((vsR / recognizedHandedness).toFixed(4)) : null,
+    primaryPitch,
+    primaryPitchShare: sideEvents.length > 0 ? Number((primaryPitchCount / sideEvents.length).toFixed(4)) : null
+  };
+}
+function leashBucket(starterPitches, starterOuts) {
+  if (starterPitches === null || starterOuts === null) return null;
+  if (starterOuts < 15 && starterPitches <= 80) return "SHORT";
+  if (starterPitches >= 100 || starterOuts >= 21) return "LONG";
+  return "STANDARD";
+}
+function deriveContextLayerRow(postgame, pitcherRows, pitchEvents) {
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const homeStarter = pitcherRows.find((row) => row?.home_away === "home" && row?.is_starter === true) ?? null;
+  const awayStarter = pitcherRows.find((row) => row?.home_away === "away" && row?.is_starter === true) ?? null;
+  const homeBullpenRows = pitcherRows.filter((row) => row?.home_away === "home" && row?.is_starter !== true);
+  const awayBullpenRows = pitcherRows.filter((row) => row?.home_away === "away" && row?.is_starter !== true);
+  const calledStrikeCount = pitchEvents.reduce((sum, row) => sum + (row?.is_called_strike ? 1 : 0), 0);
+  const calledBallCount = pitchEvents.reduce((sum, row) => sum + (row?.is_ball ? 1 : 0), 0);
+  const calledTotal = calledStrikeCount + calledBallCount;
+  const pitcherSideById = /* @__PURE__ */ new Map();
+  for (const row of pitcherRows) {
+    const pitcherId = asString(row?.athlete_id);
+    const side = asString(row?.home_away);
+    if (pitcherId && side) pitcherSideById.set(pitcherId, side);
+  }
+  const homePitchMix = derivePitchMixStats(pitchEvents, pitcherSideById, "home");
+  const awayPitchMix = derivePitchMixStats(pitchEvents, pitcherSideById, "away");
+  const homeStarterPitches = asInt(homeStarter?.pitches_thrown);
+  const awayStarterPitches = asInt(awayStarter?.pitches_thrown);
+  const homeStarterOuts = asInt(homeStarter?.innings_outs);
+  const awayStarterOuts = asInt(awayStarter?.innings_outs);
+  const homeStarterPitchesPerOut = homeStarterPitches !== null && homeStarterOuts && homeStarterOuts > 0 ? Number((homeStarterPitches / homeStarterOuts).toFixed(4)) : null;
+  const awayStarterPitchesPerOut = awayStarterPitches !== null && awayStarterOuts && awayStarterOuts > 0 ? Number((awayStarterPitches / awayStarterOuts).toFixed(4)) : null;
+  const pitchEventCount = pitchEvents.length;
+  const dataQualityTier = pitchEventCount >= 200 && homeStarterPitches !== null && awayStarterPitches !== null && asString(postgame?.home_plate_umpire) ? "A" : pitchEventCount >= 100 ? "B" : pitchEventCount > 0 ? "C" : "D";
+  return {
+    match_id: asString(postgame?.id),
+    espn_event_id: asString(postgame?.espn_event_id),
+    start_time: asString(postgame?.start_time),
+    game_date: asString(postgame?.start_time)?.slice(0, 10) ?? null,
+    season_type: asString(postgame?.season_type),
+    home_team: asString(postgame?.home_team),
+    away_team: asString(postgame?.away_team),
+    venue: asString(postgame?.venue),
+    venue_city: asString(postgame?.venue_city),
+    venue_state: asString(postgame?.venue_state),
+    venue_indoor: postgame?.venue_indoor === true,
+    weather_temp: asInt(postgame?.weather_temp),
+    weather_condition: asString(postgame?.weather_condition),
+    weather_gust: asInt(postgame?.weather_gust),
+    weather_precipitation: asInt(postgame?.weather_precipitation),
+    home_plate_umpire: asString(postgame?.home_plate_umpire),
+    home_plate_umpire_id: asString(postgame?.home_plate_umpire_id),
+    umpire_called_strike_rate: calledTotal > 0 ? Number((calledStrikeCount / calledTotal).toFixed(4)) : null,
+    umpire_ball_rate: calledTotal > 0 ? Number((calledBallCount / calledTotal).toFixed(4)) : null,
+    umpire_total_called_pitches: calledTotal,
+    home_starter_id: asString(homeStarter?.athlete_id) ?? asString(postgame?.home_starter_id),
+    home_starter_name: asString(homeStarter?.athlete_name) ?? asString(postgame?.home_starter_name),
+    away_starter_id: asString(awayStarter?.athlete_id) ?? asString(postgame?.away_starter_id),
+    away_starter_name: asString(awayStarter?.athlete_name) ?? asString(postgame?.away_starter_name),
+    home_starter_pitch_count: homeStarterPitches,
+    away_starter_pitch_count: awayStarterPitches,
+    home_starter_outs: homeStarterOuts,
+    away_starter_outs: awayStarterOuts,
+    home_starter_pitches_per_out: homeStarterPitchesPerOut,
+    away_starter_pitches_per_out: awayStarterPitchesPerOut,
+    home_starter_leash_bucket: leashBucket(homeStarterPitches, homeStarterOuts),
+    away_starter_leash_bucket: leashBucket(awayStarterPitches, awayStarterOuts),
+    home_bullpen_pitchers_used: homeBullpenRows.length,
+    away_bullpen_pitchers_used: awayBullpenRows.length,
+    home_bullpen_outs: homeBullpenRows.reduce((sum, row) => sum + (asInt(row?.innings_outs) || 0), 0),
+    away_bullpen_outs: awayBullpenRows.reduce((sum, row) => sum + (asInt(row?.innings_outs) || 0), 0),
+    home_bullpen_pitches: homeBullpenRows.reduce((sum, row) => sum + (asInt(row?.pitches_thrown) || 0), 0),
+    away_bullpen_pitches: awayBullpenRows.reduce((sum, row) => sum + (asInt(row?.pitches_thrown) || 0), 0),
+    home_pitch_types_used: homePitchMix.pitchTypesUsed,
+    away_pitch_types_used: awayPitchMix.pitchTypesUsed,
+    home_pitch_pct_vs_lhb: homePitchMix.pitchPctVsLhb,
+    home_pitch_pct_vs_rhb: homePitchMix.pitchPctVsRhb,
+    away_pitch_pct_vs_lhb: awayPitchMix.pitchPctVsLhb,
+    away_pitch_pct_vs_rhb: awayPitchMix.pitchPctVsRhb,
+    home_primary_pitch: homePitchMix.primaryPitch,
+    away_primary_pitch: awayPitchMix.primaryPitch,
+    home_primary_pitch_share: homePitchMix.primaryPitchShare,
+    away_primary_pitch_share: awayPitchMix.primaryPitchShare,
+    pitch_events_count: pitchEventCount,
+    data_quality_tier: dataQualityTier,
+    source: "mlb_postgame_drain_v4",
+    drain_version: DRAIN_VERSION,
+    last_drained_at: now,
+    created_at: now,
+    updated_at: now
+  };
+}
 function buildInningScoreRow(data, matchId, eventId, startTime, seasonType, homeTeam, awayTeam, homeScore, awayScore) {
   const homeCompetitor = getCompetitor(data, "home");
   const awayCompetitor = getCompetitor(data, "away");
@@ -344,7 +719,7 @@ function buildHalftimeScoreRow(postgame, inningScores) {
     h1_away_score: sumRuns(awayInnings, 0, 5),
     ft_home_score: asInt(postgame.home_score),
     ft_away_score: asInt(postgame.away_score),
-    source: "mlb_postgame_drain_v2"
+    source: "mlb_postgame_drain_v4"
   };
 }
 function extractPostgamePayload(data, eventId, matchId, startTime, canonicalGameId) {
@@ -356,11 +731,15 @@ function extractPostgamePayload(data, eventId, matchId, startTime, canonicalGame
   const awayStats = awayTeamBox?.statistics || [];
   const homeCompetitor = getCompetitor(data, "home");
   const awayCompetitor = getCompetitor(data, "away");
+  const competition = data?.header?.competitions?.[0] || {};
   const gameInfo = data.gameInfo || {};
   const venue = gameInfo?.venue || {};
   const weather = gameInfo?.weather || {};
+  const seriesInfo = competition?.series || {};
   const odds = extractOdds(data);
   const seasonType = resolveSeasonType(data, startTime);
+  const dayNight = resolveDayNight(startTime, gameInfo);
+  const umpire = extractHomePlateUmpire(gameInfo);
   const homeTeam = asString(homeCompetitor?.team?.displayName) ?? asString(homeTeamBox?.team?.displayName);
   const awayTeam = asString(awayCompetitor?.team?.displayName) ?? asString(awayTeamBox?.team?.displayName);
   const homeScore = asInt(homeCompetitor?.score);
@@ -383,6 +762,16 @@ function extractPostgamePayload(data, eventId, matchId, startTime, canonicalGame
   const awayStarterFallback = extractStarterFromCompetitor(data, "away");
   if (!starters.home.name && homeStarterFallback) starters.home = homeStarterFallback;
   if (!starters.away.name && awayStarterFallback) starters.away = awayStarterFallback;
+  const batterLogs = extractBatterDetails(
+    data,
+    matchId,
+    eventId,
+    startTime,
+    seasonType,
+    homeTeam,
+    awayTeam
+  );
+  const pitchEvents = extractPitchEvents(data, matchId, eventId);
   const inningScores = buildInningScoreRow(
     data,
     matchId,
@@ -414,10 +803,15 @@ function extractPostgamePayload(data, eventId, matchId, startTime, canonicalGame
     weather_condition: getWeatherCondition(weather),
     weather_gust: asInt(weather?.gust),
     weather_precipitation: asInt(weather?.precipitation),
+    day_night: dayNight,
     home_starter_name: starters.home.name,
     away_starter_name: starters.away.name,
     home_starter_id: starters.home.id,
     away_starter_id: starters.away.id,
+    home_plate_umpire: umpire.name,
+    home_plate_umpire_id: umpire.id,
+    series_game_number: asInt(seriesInfo?.gameNumber),
+    series_length: asInt(seriesInfo?.maxGames),
     total_innings: totalInnings,
     is_extra_innings: totalInnings !== null ? totalInnings > 9 : null,
     season_type: seasonType,
@@ -445,6 +839,22 @@ function extractPostgamePayload(data, eventId, matchId, startTime, canonicalGame
     away_lob: fsInt(awayStats, "batting", "LOB") ?? fsInt(awayStats, "batting", "leftOnBase"),
     home_stolen_bases: fsInt(homeStats, "batting", "SB") ?? fsInt(homeStats, "batting", "stolenBases"),
     away_stolen_bases: fsInt(awayStats, "batting", "SB") ?? fsInt(awayStats, "batting", "stolenBases"),
+    home_iso: fsNum(homeStats, "batting", "ISO") ?? fsNum(homeStats, "batting", "isolatedPower"),
+    away_iso: fsNum(awayStats, "batting", "ISO") ?? fsNum(awayStats, "batting", "isolatedPower"),
+    home_runs_created: fsNum(homeStats, "batting", "RC") ?? fsNum(homeStats, "batting", "runsCreated"),
+    away_runs_created: fsNum(awayStats, "batting", "RC") ?? fsNum(awayStats, "batting", "runsCreated"),
+    home_bb_k: fsNum(homeStats, "batting", "BB/K") ?? fsNum(homeStats, "batting", "bbk"),
+    away_bb_k: fsNum(awayStats, "batting", "BB/K") ?? fsNum(awayStats, "batting", "bbk"),
+    home_xbh: fsInt(homeStats, "batting", "XBH") ?? fsInt(homeStats, "batting", "extraBaseHits"),
+    away_xbh: fsInt(awayStats, "batting", "XBH") ?? fsInt(awayStats, "batting", "extraBaseHits"),
+    home_war_batting: fsNum(homeStats, "batting", "WAR") ?? fsNum(homeStats, "batting", "war"),
+    away_war_batting: fsNum(awayStats, "batting", "WAR") ?? fsNum(awayStats, "batting", "war"),
+    home_go_fo: fsNum(homeStats, "batting", "GO/FO") ?? fsNum(homeStats, "batting", "goFo"),
+    away_go_fo: fsNum(awayStats, "batting", "GO/FO") ?? fsNum(awayStats, "batting", "goFo"),
+    home_sb_pct: fsNum(homeStats, "batting", "SB%") ?? fsNum(homeStats, "batting", "stolenBasePct"),
+    away_sb_pct: fsNum(awayStats, "batting", "SB%") ?? fsNum(awayStats, "batting", "stolenBasePct"),
+    home_pa: fsInt(homeStats, "batting", "PA") ?? fsInt(homeStats, "batting", "plateAppearances"),
+    away_pa: fsInt(awayStats, "batting", "PA") ?? fsInt(awayStats, "batting", "plateAppearances"),
     home_era: fsNum(homeStats, "pitching", "ERA") ?? fsNum(homeStats, "pitching", "era"),
     away_era: fsNum(awayStats, "pitching", "ERA") ?? fsNum(awayStats, "pitching", "era"),
     home_innings_pitched: findStat(homeStats, "pitching", "IP") ?? findStat(homeStats, "pitching", "innings"),
@@ -463,6 +873,48 @@ function extractPostgamePayload(data, eventId, matchId, startTime, canonicalGame
     away_pitches_thrown: fsInt(awayStats, "pitching", "P") ?? fsInt(awayStats, "pitching", "NP") ?? fsInt(awayStats, "pitching", "numberOfPitches"),
     home_hr_allowed: fsInt(homeStats, "pitching", "HR") ?? fsInt(homeStats, "pitching", "homeRuns"),
     away_hr_allowed: fsInt(awayStats, "pitching", "HR") ?? fsInt(awayStats, "pitching", "homeRuns"),
+    home_ground_balls: fsInt(homeStats, "pitching", "GB") ?? fsInt(homeStats, "pitching", "groundBalls"),
+    away_ground_balls: fsInt(awayStats, "pitching", "GB") ?? fsInt(awayStats, "pitching", "groundBalls"),
+    home_fly_balls: fsInt(homeStats, "pitching", "FB") ?? fsInt(homeStats, "pitching", "flyBalls"),
+    away_fly_balls: fsInt(awayStats, "pitching", "FB") ?? fsInt(awayStats, "pitching", "flyBalls"),
+    home_gb_fb_ratio: fsNum(homeStats, "pitching", "GB/FB") ?? fsNum(homeStats, "pitching", "gbFbRatio"),
+    away_gb_fb_ratio: fsNum(awayStats, "pitching", "GB/FB") ?? fsNum(awayStats, "pitching", "gbFbRatio"),
+    home_k_9: fsNum(homeStats, "pitching", "K/9") ?? fsNum(homeStats, "pitching", "k9"),
+    away_k_9: fsNum(awayStats, "pitching", "K/9") ?? fsNum(awayStats, "pitching", "k9"),
+    home_k_bb: fsNum(homeStats, "pitching", "K/BB") ?? fsNum(homeStats, "pitching", "kbb"),
+    away_k_bb: fsNum(awayStats, "pitching", "K/BB") ?? fsNum(awayStats, "pitching", "kbb"),
+    home_opp_avg: fsNum(homeStats, "pitching", "OBA") ?? fsNum(homeStats, "pitching", "oppAvg"),
+    away_opp_avg: fsNum(awayStats, "pitching", "OBA") ?? fsNum(awayStats, "pitching", "oppAvg"),
+    home_opp_obp: fsNum(homeStats, "pitching", "OOBP") ?? fsNum(homeStats, "pitching", "oppObp"),
+    away_opp_obp: fsNum(awayStats, "pitching", "OOBP") ?? fsNum(awayStats, "pitching", "oppObp"),
+    home_opp_slg: fsNum(homeStats, "pitching", "OSLG") ?? fsNum(homeStats, "pitching", "oppSlg"),
+    away_opp_slg: fsNum(awayStats, "pitching", "OSLG") ?? fsNum(awayStats, "pitching", "oppSlg"),
+    home_opp_ops: fsNum(homeStats, "pitching", "OOPS") ?? fsNum(homeStats, "pitching", "oppOps"),
+    away_opp_ops: fsNum(awayStats, "pitching", "OOPS") ?? fsNum(awayStats, "pitching", "oppOps"),
+    home_quality_starts: fsInt(homeStats, "pitching", "QS") ?? fsInt(homeStats, "pitching", "qualityStarts"),
+    away_quality_starts: fsInt(awayStats, "pitching", "QS") ?? fsInt(awayStats, "pitching", "qualityStarts"),
+    home_inherited_runners: fsInt(homeStats, "pitching", "IR") ?? fsInt(homeStats, "pitching", "inheritedRunners"),
+    away_inherited_runners: fsInt(awayStats, "pitching", "IR") ?? fsInt(awayStats, "pitching", "inheritedRunners"),
+    home_inherited_scored: fsInt(homeStats, "pitching", "IRS") ?? fsInt(homeStats, "pitching", "inheritedScored"),
+    away_inherited_scored: fsInt(awayStats, "pitching", "IRS") ?? fsInt(awayStats, "pitching", "inheritedScored"),
+    home_holds: fsInt(homeStats, "pitching", "HLD") ?? fsInt(homeStats, "pitching", "holds"),
+    away_holds: fsInt(awayStats, "pitching", "HLD") ?? fsInt(awayStats, "pitching", "holds"),
+    home_blown_saves: fsInt(homeStats, "pitching", "BS") ?? fsInt(homeStats, "pitching", "blownSaves"),
+    away_blown_saves: fsInt(awayStats, "pitching", "BS") ?? fsInt(awayStats, "pitching", "blownSaves"),
+    home_save_opps: fsInt(homeStats, "pitching", "SVO") ?? fsInt(homeStats, "pitching", "saveOpportunities"),
+    away_save_opps: fsInt(awayStats, "pitching", "SVO") ?? fsInt(awayStats, "pitching", "saveOpportunities"),
+    home_tbf: fsInt(homeStats, "pitching", "BF") ?? fsInt(homeStats, "pitching", "TBF") ?? fsInt(homeStats, "pitching", "battersFaced"),
+    away_tbf: fsInt(awayStats, "pitching", "BF") ?? fsInt(awayStats, "pitching", "TBF") ?? fsInt(awayStats, "pitching", "battersFaced"),
+    home_war_pitching: fsNum(homeStats, "pitching", "WAR") ?? fsNum(homeStats, "pitching", "war"),
+    away_war_pitching: fsNum(awayStats, "pitching", "WAR") ?? fsNum(awayStats, "pitching", "war"),
+    home_run_support: fsNum(homeStats, "pitching", "RSA") ?? fsNum(homeStats, "pitching", "runSupport"),
+    away_run_support: fsNum(awayStats, "pitching", "RSA") ?? fsNum(awayStats, "pitching", "runSupport"),
+    home_errors: fsInt(homeStats, "fielding", "E") ?? fsInt(homeStats, "fielding", "errors"),
+    away_errors: fsInt(awayStats, "fielding", "E") ?? fsInt(awayStats, "fielding", "errors"),
+    home_fielding_pct: fsNum(homeStats, "fielding", "FPCT") ?? fsNum(homeStats, "fielding", "fieldingPct"),
+    away_fielding_pct: fsNum(awayStats, "fielding", "FPCT") ?? fsNum(awayStats, "fielding", "fieldingPct"),
+    home_dwar: fsNum(homeStats, "fielding", "DWAR") ?? fsNum(homeStats, "fielding", "dwar"),
+    away_dwar: fsNum(awayStats, "fielding", "DWAR") ?? fsNum(awayStats, "fielding", "dwar"),
     home_batting_stats: extractFullCategory(homeStats, "batting"),
     away_batting_stats: extractFullCategory(awayStats, "batting"),
     home_pitching_stats: extractFullCategory(homeStats, "pitching"),
@@ -470,14 +922,19 @@ function extractPostgamePayload(data, eventId, matchId, startTime, canonicalGame
     home_fielding_stats: extractFullCategory(homeStats, "fielding"),
     away_fielding_stats: extractFullCategory(awayStats, "fielding"),
     ...odds,
+    run_line_result: resolveRunLineResult(odds.home_run_line, homeScore, awayScore),
     win_probability: winProbability,
     drain_version: DRAIN_VERSION,
     last_drained_at: (/* @__PURE__ */ new Date()).toISOString()
   };
+  const contextLayer = deriveContextLayerRow(postgame, pitcherLogs, pitchEvents);
   return {
     postgame,
     inningScores,
     pitcherLogs,
+    batterLogs,
+    pitchEvents,
+    contextLayer,
     halftimeRow: buildHalftimeScoreRow(postgame, inningScores)
   };
 }
@@ -623,6 +1080,7 @@ Deno.serve(async (req) => {
   );
   const url = new URL(req.url);
   const daysBack = parseInt(url.searchParams.get("days") || "60", 10);
+  const batchLimit = parseInt(url.searchParams.get("limit") || "30", 10);
   const dry = url.searchParams.get("dry") === "true";
   const force = url.searchParams.get("force") === "true";
   const errors = [];
@@ -639,7 +1097,7 @@ Deno.serve(async (req) => {
   let toDrain = matchRows || [];
   if (!force && toDrain.length > 0) {
     const ids = toDrain.map((row) => row.id);
-    const { data: existing, error: existingError } = await supabase.from("mlb_postgame").select("id, drain_version, home_starter_name, away_starter_name, total_innings").in("id", ids);
+    const { data: existing, error: existingError } = await supabase.from("mlb_postgame").select("id, drain_version, home_starter_name, away_starter_name, total_innings, home_at_bats, away_at_bats, home_iso, away_iso, home_k_9, away_k_9, home_errors, away_errors").in("id", ids);
     if (existingError) {
       errors.push(`mlb_postgame lookup: ${existingError.message}`);
     } else {
@@ -647,17 +1105,24 @@ Deno.serve(async (req) => {
       toDrain = toDrain.filter((row) => {
         const existingRow = existingById.get(row.id);
         if (!existingRow) return true;
-        return existingRow.drain_version !== DRAIN_VERSION || !existingRow.home_starter_name || !existingRow.away_starter_name || existingRow.total_innings === null || existingRow.total_innings === void 0;
+        const hasCoreBatting = existingRow.home_at_bats !== null && existingRow.away_at_bats !== null;
+        const missingV4Derived = hasCoreBatting && existingRow.home_iso === null && existingRow.away_iso === null && existingRow.home_k_9 === null && existingRow.away_k_9 === null && existingRow.home_errors === null && existingRow.away_errors === null;
+        return existingRow.drain_version !== DRAIN_VERSION || !existingRow.home_starter_name || !existingRow.away_starter_name || existingRow.total_innings === null || existingRow.total_innings === void 0 || missingV4Derived;
       });
     }
   }
-  const skipped = found - toDrain.length;
+  const totalEligible = toDrain.length;
+  toDrain = toDrain.slice(0, batchLimit);
+  const skipped = found - totalEligible;
   if (dry) {
     return new Response(JSON.stringify({
       dryRun: true,
       found,
+      totalEligible,
       wouldDrain: toDrain.length,
       skipped,
+      batchLimit,
+      remaining: totalEligible - toDrain.length,
       targetVersion: DRAIN_VERSION
     }, null, 2), {
       headers: { ...CORS, "Content-Type": "application/json" }
@@ -706,20 +1171,44 @@ Deno.serve(async (req) => {
   });
   const inningRows = persistedValid.map((item) => item.inningScores);
   const pitcherRows = persistedValid.flatMap((item) => item.pitcherLogs);
+  const batterRows = persistedValid.flatMap((item) => item.batterLogs || []);
+  const pitchEventRows = persistedValid.flatMap((item) => item.pitchEvents || []);
+  const contextRows = persistedValid.map((item) => item.contextLayer).filter((row) => {
+    const matchId = asString(row?.match_id);
+    return Boolean(matchId);
+  });
   const halftimeRows = persistedValid.map((item) => item.halftimeRow).filter(Boolean);
   const drainedMatchIds = Array.from(persistedMatchIds);
   await replaceRowsByMatchId(supabase, "mlb_inning_scores", drainedMatchIds, inningRows, errors, 50);
   await replaceRowsByMatchId(supabase, "mlb_pitcher_game_logs", drainedMatchIds, pitcherRows, errors, 100);
+  await replaceRowsByMatchId(supabase, "mlb_batter_game_logs", drainedMatchIds, batterRows, errors, 150);
+  await replaceRowsByMatchId(supabase, "mlb_pitch_events", drainedMatchIds, pitchEventRows, errors, 500);
+  await replaceRowsByMatchId(supabase, "mlb_game_context_layers", drainedMatchIds, contextRows, errors, 100);
   const halftimeInserted = await insertMissingHalftimeRows(supabase, halftimeRows, errors);
+  let rollingFormRefreshed = false;
+  if (drainedMatchIds.length > 0) {
+    const { error: refreshError } = await supabase.rpc("refresh_mlb_team_rolling_form");
+    if (refreshError) {
+      errors.push(`refresh_mlb_team_rolling_form: ${refreshError.message}`);
+    } else {
+      rollingFormRefreshed = true;
+    }
+  }
   const samplePostgame = postgameRows[0] ?? null;
   const sampleInnings = inningRows[0] ?? null;
   const samplePitcher = pitcherRows.find((row) => row.is_starter === true) ?? pitcherRows[0] ?? null;
+  const sampleBatter = batterRows[0] ?? null;
+  const samplePitchEvent = pitchEventRows.find((row) => row.pitch_type || row.play_type) ?? pitchEventRows[0] ?? null;
+  const sampleContext = contextRows[0] ?? null;
   const sample = samplePostgame ? {
     match: `${samplePostgame.away_team} @ ${samplePostgame.home_team}: ${samplePostgame.away_score}-${samplePostgame.home_score}`,
     starters: `${samplePostgame.away_starter_name || "n/a"} vs ${samplePostgame.home_starter_name || "n/a"}`,
     venue_weather: `${samplePostgame.venue || "Unknown venue"} | ${samplePostgame.venue_city || "n/a"}, ${samplePostgame.venue_state || "n/a"} | temp ${samplePostgame.weather_temp ?? "n/a"} | cond ${samplePostgame.weather_condition ?? "n/a"}`,
     inning_shape: sampleInnings ? `F5 ${sampleInnings.away_f5_runs}-${sampleInnings.home_f5_runs} | L4 ${sampleInnings.away_l4_runs}-${sampleInnings.home_l4_runs} | innings ${sampleInnings.total_innings}` : null,
     pitcher_log_sample: samplePitcher ? `${samplePitcher.athlete_name} ${samplePitcher.innings_pitched || "n/a"} IP | K ${samplePitcher.strikeouts ?? "n/a"} | BB ${samplePitcher.walks ?? "n/a"} | ERA ${samplePitcher.era ?? "n/a"}` : null,
+    batter_log_sample: sampleBatter ? `${sampleBatter.athlete_name} ${sampleBatter.hits ?? "n/a"} H | ${sampleBatter.home_runs ?? "n/a"} HR | OPS ${sampleBatter.ops ?? "n/a"}` : null,
+    pitch_event_sample: samplePitchEvent ? `${samplePitchEvent.play_type || "play"} ${samplePitchEvent.pitch_type_abbr || samplePitchEvent.pitch_type || "n/a"} ${samplePitchEvent.pitch_velocity ?? "n/a"}mph` : null,
+    context_sample: sampleContext ? `Leash ${sampleContext.away_starter_leash_bucket || "n/a"}/${sampleContext.home_starter_leash_bucket || "n/a"} | Bullpen pitches ${sampleContext.away_bullpen_pitches ?? "n/a"}/${sampleContext.home_bullpen_pitches ?? "n/a"} | Ump called-strike ${sampleContext.umpire_called_strike_rate ?? "n/a"}` : null,
     dk_line: `ML ${samplePostgame.dk_home_ml ?? "n/a"}/${samplePostgame.dk_away_ml ?? "n/a"} | Total ${samplePostgame.dk_total ?? "n/a"}`
   } : null;
   return new Response(JSON.stringify({
@@ -731,7 +1220,11 @@ Deno.serve(async (req) => {
     skipped,
     inningScoreRows: inningRows.length,
     pitcherLogRows: pitcherRows.length,
+    batterLogRows: batterRows.length,
+    pitchEventRows: pitchEventRows.length,
+    contextLayerRows: contextRows.length,
     halftimeRowsInserted: halftimeInserted,
+    rollingFormRefreshed,
     sample,
     errorsCount: errors.length,
     errors: chunk(errors, 20)
