@@ -279,6 +279,53 @@ function parsePitchSummary(rawValue) {
     strikes: numbers[1] ?? null
   };
 }
+function parseStatInt(stats, keys) {
+  if (!stats || typeof stats !== "object") return null;
+  for (const key of keys) {
+    const value = asInt(stats?.[key]);
+    if (value !== null) return value;
+  }
+  return null;
+}
+function parseStatNumber(stats, keys) {
+  if (!stats || typeof stats !== "object") return null;
+  for (const key of keys) {
+    const value = asNumber(stats?.[key]);
+    if (value !== null) return value;
+  }
+  return null;
+}
+function computeTotalBasesFromComponents(hits, doubles, triples, homeRuns) {
+  if (hits === null || doubles === null || triples === null || homeRuns === null) return null;
+  return hits + doubles + 2 * triples + 3 * homeRuns;
+}
+function computeTotalBasesFromSlugging(slg, atBats) {
+  if (slg === null || atBats === null || atBats <= 0) return null;
+  return Math.round(slg * atBats);
+}
+async function fetchMlbGameLogStatsByEvent(supabase, eventId, errors) {
+  const byAthlete = /* @__PURE__ */ new Map();
+  if (!supabase || !eventId) return byAthlete;
+  const { data, error } = await supabase.from("espn_game_logs").select("athlete_id, espn_athlete_id, stats, created_at").eq("espn_event_id", eventId).eq("sport", "baseball").eq("league_id", "mlb").order("created_at", { ascending: false });
+  if (error) {
+    if (Array.isArray(errors)) errors.push(`${eventId}: espn_game_logs fallback query failed (${error.message})`);
+    return byAthlete;
+  }
+  for (const row of data || []) {
+    const stats = row?.stats && typeof row.stats === "object" ? row.stats : null;
+    if (!stats) continue;
+    const athleteKeys = [
+      asString(row?.espn_athlete_id),
+      stripLeagueSuffix(asString(row?.athlete_id)),
+      asString(row?.athlete_id)
+    ];
+    for (const key of athleteKeys) {
+      if (!key || byAthlete.has(key)) continue;
+      byAthlete.set(key, stats);
+    }
+  }
+  return byAthlete;
+}
 function toNumericEventId(value) {
   const digits = String(value || "").replace(/\D/g, "");
   if (!digits) return null;
@@ -400,12 +447,13 @@ function getBattingCategory(playerGroup) {
   if (!Array.isArray(stats)) return null;
   return stats.find((category) => (category?.labels || []).some((label) => normalizeKey(asString(label)) === "AB")) ?? stats[0] ?? null;
 }
-function extractBatterDetails(data, matchId, eventId, startTime, seasonType, homeTeam, awayTeam) {
+async function extractBatterDetails(supabase, data, matchId, eventId, startTime, seasonType, homeTeam, awayTeam, errors) {
   const groups = data.boxscore?.players || [];
   const { sideByTeamId, sideByTeamName } = mapTeamSides(data);
   const rows = [];
   const gameDate = startTime?.slice(0, 10) ?? null;
   const now = (/* @__PURE__ */ new Date()).toISOString();
+  const gameLogByAthlete = await fetchMlbGameLogStatsByEvent(supabase, eventId, errors);
   groups.forEach((group, groupIndex) => {
     const teamId = asString(group?.team?.id);
     const teamName = asString(group?.team?.displayName);
@@ -421,6 +469,19 @@ function extractBatterDetails(data, matchId, eventId, startTime, seasonType, hom
       const athleteName = asString(athleteRow?.athlete?.displayName) ?? asString(athleteRow?.athlete?.fullName);
       if (!athleteId || !athleteName) return;
       const statMap = buildStatMap(labels, athleteRow?.stats || []);
+      const gameLogStats = gameLogByAthlete.get(athleteId) ?? null;
+      const atBats = asInt(statMap.AB) ?? parseStatInt(gameLogStats, ["AB", "atBats"]);
+      const hits = asInt(statMap.H) ?? parseStatInt(gameLogStats, ["H", "hits"]);
+      const doubles = asInt(statMap["2B"]) ?? parseStatInt(gameLogStats, ["2B", "doubles"]);
+      const triples = asInt(statMap["3B"]) ?? parseStatInt(gameLogStats, ["3B", "triples"]);
+      const homeRuns = asInt(statMap.HR) ?? parseStatInt(gameLogStats, ["HR", "homeRuns"]);
+      const stolenBases = asInt(statMap.SB) ?? parseStatInt(gameLogStats, ["SB", "stolenBases"]);
+      const caughtStealing = asInt(statMap.CS) ?? parseStatInt(gameLogStats, ["CS", "caughtStealing"]);
+      const hitByPitch = asInt(statMap.HBP) ?? parseStatInt(gameLogStats, ["HBP", "hitByPitch"]);
+      const slg = asNumber(statMap.SLG) ?? parseStatNumber(gameLogStats, ["SLG", "sluggingPct", "slugging"]);
+      let totalBases = asInt(statMap.TB) ?? parseStatInt(gameLogStats, ["TB", "totalBases"]);
+      if (totalBases === null) totalBases = computeTotalBasesFromComponents(hits, doubles, triples, homeRuns);
+      if (totalBases === null) totalBases = computeTotalBasesFromSlugging(slg, atBats);
       rows.push({
         id: `${eventId}_${athleteId}_bat_mlb`,
         match_id: matchId,
@@ -435,24 +496,24 @@ function extractBatterDetails(data, matchId, eventId, startTime, seasonType, hom
         athlete_name: athleteName,
         batting_order: asInt(athleteRow?.battingOrder) ?? asInt(athleteRow?.order) ?? athleteIndex + 1,
         position: asString(athleteRow?.athlete?.position?.abbreviation) ?? asString(athleteRow?.position?.abbreviation) ?? asString(athleteRow?.athlete?.position?.displayName),
-        at_bats: asInt(statMap.AB),
+        at_bats: atBats,
         runs: asInt(statMap.R),
-        hits: asInt(statMap.H),
-        doubles: asInt(statMap["2B"]),
-        triples: asInt(statMap["3B"]),
-        home_runs: asInt(statMap.HR),
+        hits,
+        doubles,
+        triples,
+        home_runs: homeRuns,
         rbi: asInt(statMap.RBI),
         walks: asInt(statMap.BB),
-        strikeouts: asInt(statMap.K) ?? asInt(statMap.SO),
-        stolen_bases: asInt(statMap.SB),
-        caught_stealing: asInt(statMap.CS),
-        hit_by_pitch: asInt(statMap.HBP),
-        total_bases: asInt(statMap.TB),
+        strikeouts: asInt(statMap.K) ?? asInt(statMap.SO) ?? parseStatInt(gameLogStats, ["SO", "K", "strikeouts"]),
+        stolen_bases: stolenBases,
+        caught_stealing: caughtStealing,
+        hit_by_pitch: hitByPitch,
+        total_bases: totalBases,
         extra_base_hits: asInt(statMap.XBH),
         batting_avg: asNumber(statMap.AVG),
         obp: asNumber(statMap.OBP),
-        slg: asNumber(statMap.SLG),
-        ops: asNumber(statMap.OPS),
+        slg,
+        ops: asNumber(statMap.OPS) ?? parseStatNumber(gameLogStats, ["OPS", "ops"]),
         isolated_power: asNumber(statMap.ISOP),
         secondary_avg: asNumber(statMap.SECA),
         runs_created: asNumber(statMap.RC),
@@ -722,7 +783,7 @@ function buildHalftimeScoreRow(postgame, inningScores) {
     source: "mlb_postgame_drain_v4"
   };
 }
-function extractPostgamePayload(data, eventId, matchId, startTime, canonicalGameId) {
+async function extractPostgamePayload(supabase, data, eventId, matchId, startTime, canonicalGameId, errors) {
   const boxTeams = data.boxscore?.teams || [];
   if (boxTeams.length < 2) return null;
   const awayTeamBox = boxTeams[0];
@@ -762,14 +823,16 @@ function extractPostgamePayload(data, eventId, matchId, startTime, canonicalGame
   const awayStarterFallback = extractStarterFromCompetitor(data, "away");
   if (!starters.home.name && homeStarterFallback) starters.home = homeStarterFallback;
   if (!starters.away.name && awayStarterFallback) starters.away = awayStarterFallback;
-  const batterLogs = extractBatterDetails(
+  const batterLogs = await extractBatterDetails(
+    supabase,
     data,
     matchId,
     eventId,
     startTime,
     seasonType,
     homeTeam,
-    awayTeam
+    awayTeam,
+    errors
   );
   const pitchEvents = extractPitchEvents(data, matchId, eventId);
   const inningScores = buildInningScoreRow(
@@ -1145,7 +1208,15 @@ Deno.serve(async (req) => {
         errors.push(`${eventId}: no boxscore teams`);
         return null;
       }
-      const payload = extractPostgamePayload(data, eventId, row.id, row.start_time, row.canonical_game_id ?? row.canonical_id ?? null);
+      const payload = await extractPostgamePayload(
+        supabase,
+        data,
+        eventId,
+        row.id,
+        row.start_time,
+        row.canonical_game_id ?? row.canonical_id ?? null,
+        errors
+      );
       if (!payload) {
         errors.push(`${eventId}: unable to extract postgame payload`);
         return null;
