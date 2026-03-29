@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBA Pregame Script — Operator Playbook | SportsSync Evidence</title>
+<meta name="description" content="7-layer NBA pregame prop analysis methodology. Team suppression, defender fingerprints, ref profiles, structural context, blowout state, and behavioral flags.">
+<link rel="canonical" href="https://sportsync-evidence.web.app/pregame">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f3ef;--surface:#ffffff;--card:#ffffff;--border:rgba(0,0,0,.08);
+  --text:#1a1a2e;--muted:#6b6b80;--dim:#9b9bb0;
+  --blue:#2563eb;--red:#dc2626;--orange:#ea580c;--purple:#7c3aed;
+  --green:#059669;--yellow:#ca8a04;--cyan:#0891b2;--brown:#92400e;
+  --accent:#c45a2d;--accent-light:rgba(196,90,45,.08);
+  --radius:16px;--radius-sm:10px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.06);
+  --shadow-md:0 4px 16px rgba(0,0,0,.06);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.08);
+}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+a{color:var(--accent);text-decoration:none;transition:color .2s}
+a:hover{color:var(--brown)}
+code,pre{font-family:'JetBrains Mono',monospace}
+code{background:rgba(0,0,0,.04);padding:2px 6px;border-radius:4px;font-size:.82em}
+
+/* ─── Nav ─── */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px);background:rgba(255,255,255,.85)}
+.topbar-brand{font-weight:800;font-size:.9rem;letter-spacing:-.02em;color:var(--text)}
+.topbar-brand span{color:var(--accent)}
+.topbar-nav{display:flex;gap:8px}
+.topbar-nav a{font-size:.82rem;font-weight:500;color:var(--muted);padding:6px 14px;border-radius:8px;transition:all .2s}
+.topbar-nav a:hover,.topbar-nav a.active{color:var(--text);background:rgba(0,0,0,.04)}
+
+/* ─── Container ─── */
+.container{max-width:960px;margin:0 auto;padding:0 24px}
+
+/* ─── Hero ─── */
+.hero{padding:64px 0 48px;position:relative}
+.hero-eyebrow{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:12px}
+.hero h1{font-size:clamp(2.2rem,4.5vw,3.2rem);font-weight:900;letter-spacing:-.04em;color:var(--text);line-height:1.1;margin-bottom:16px}
+.hero h1 em{font-style:italic;background:linear-gradient(135deg,var(--accent),#e07940);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero .sub{font-size:1.05rem;color:var(--muted);max-width:580px;line-height:1.7}
+.badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:28px}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:100px;font-size:.74rem;font-weight:600;background:var(--surface);border:1px solid var(--border);color:var(--muted);box-shadow:var(--shadow-sm)}
+.badge .dot{width:7px;height:7px;border-radius:50%}
+
+/* ─── Pipeline ─── */
+.pipeline-section{padding:40px 0 48px}
+.section-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);margin-bottom:16px}
+.steps-track{display:flex;gap:0;overflow-x:auto;padding:4px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.steps-track::-webkit-scrollbar{display:none}
+.step-chip{display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:0;background:var(--surface);border:1px solid var(--border);border-right:none;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;position:relative;color:var(--text)}
+.step-chip:first-child{border-radius:var(--radius-sm) 0 0 var(--radius-sm)}
+.step-chip:last-child{border-radius:0 var(--radius-sm) var(--radius-sm) 0;border-right:1px solid var(--border)}
+.step-chip:hover{background:var(--accent-light);color:var(--accent)}
+.step-chip .num{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:800;color:#fff;flex-shrink:0}
+
+/* ─── Rules Section ─── */
+.rules-section{padding:40px 0;border-top:1px solid var(--border)}
+.rules-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.rules-header h2{font-size:1.15rem;font-weight:800;letter-spacing:-.02em}
+.rules-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.rule-card{padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);transition:all .25s}
+.rule-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.rule-card .tag{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:8px}
+.rule-card p{font-size:.84rem;color:var(--muted);line-height:1.5}
+
+/* ─── Tables ─── */
+.data-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);margin:20px 0}
+.data-table-wrap h3{font-size:.9rem;font-weight:700;padding:16px 20px 0;color:var(--text)}
+.data-table{width:100%;border-collapse:collapse;font-size:.84rem}
+.data-table th{text-align:left;padding:12px 20px;background:rgba(0,0,0,.02);border-bottom:1px solid var(--border);color:var(--muted);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
+.data-table td{padding:12px 20px;border-bottom:1px solid rgba(0,0,0,.04)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(196,90,45,.02)}
+.mono{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text)}
+
+/* ─── Layer Cards ─── */
+.layers-section{padding:40px 0}
+.layer-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden;box-shadow:var(--shadow-sm);transition:all .3s}
+.layer-card:hover{box-shadow:var(--shadow-md)}
+.layer-card.open{box-shadow:var(--shadow-lg)}
+.layer-header{display:flex;align-items:center;gap:16px;padding:20px 24px;cursor:pointer;user-select:none;transition:background .2s}
+.layer-header:hover{background:rgba(0,0,0,.015)}
+.layer-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:800;flex-shrink:0;color:#fff}
+.layer-meta{flex:1}
+.layer-meta h3{font-size:1rem;font-weight:700;letter-spacing:-.02em;margin-bottom:2px}
+.layer-meta p{font-size:.82rem;color:var(--muted);line-height:1.45}
+.layer-chevron{width:20px;height:20px;transition:transform .3s cubic-bezier(.4,0,.2,1);color:var(--dim)}
+.layer-card.open .layer-chevron{transform:rotate(180deg)}
+.layer-body{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.4,0,.2,1),padding .3s}
+.layer-card.open .layer-body{max-height:2000px;padding:0 24px 24px}
+.layer-divider{height:1px;background:var(--border);margin-bottom:20px}
+
+/* ─── SQL Blocks ─── */
+.sql-label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);margin-bottom:8px}
+pre.sql{background:#fafaf8;border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 20px;font-size:.78rem;line-height:1.6;overflow-x:auto;color:#4a4a5e;margin-bottom:16px;white-space:pre-wrap;word-break:break-all}
+pre.sql .kw{color:var(--blue)}
+pre.sql .fn{color:var(--cyan)}
+pre.sql .str{color:var(--green)}
+pre.sql .num{color:var(--orange)}
+pre.sql .var{color:var(--yellow)}
+
+/* ─── Output Section ─── */
+.output-section{padding:40px 0;border-top:1px solid var(--border)}
+.output-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;font-family:'JetBrains Mono',monospace;font-size:.8rem;line-height:1.75;color:#4a4a5e;box-shadow:var(--shadow-sm)}
+.output-block .label{color:var(--accent);font-weight:600}
+.output-block .hl{color:var(--green)}
+.output-block .warn{color:var(--yellow)}
+.output-block .skip{color:var(--red)}
+
+/* ─── Protocol Cards ─── */
+.protocol-section{padding:40px 0;border-top:1px solid var(--border)}
+.protocol-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.protocol-card{padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);transition:all .25s}
+.protocol-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.protocol-card .tag{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:8px}
+.protocol-card p{font-size:.84rem;color:var(--muted);line-height:1.5}
+
+/* ─── Footer ─── */
+.footer{padding:40px 0;border-top:1px solid var(--border);text-align:center}
+.footer p{color:var(--dim);font-size:.78rem}
+.footer a{color:var(--accent)}
+
+/* ─── Responsive ─── */
+@media(max-width:768px){
+  .rules-grid,.protocol-grid{grid-template-columns:1fr}
+  .hero{padding:40px 0 32px}
+  .hero h1{font-size:2rem}
+  .layer-header{padding:16px}
+  .layer-card.open .layer-body{padding:0 16px 16px}
+  .output-block{padding:16px;font-size:.72rem}
+  .topbar{padding:0 16px}
+  .topbar-nav{display:none}
+  .steps-track{gap:0}
+}
+</style>
+</head>
+<body>
+
+<!-- JSON-LD Machine Contract -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "NBA Pregame Prop Analysis Script",
+  "description": "7-layer pregame prop analysis methodology for NBA games. Covers team suppression profiles, defender fingerprints, referee tendencies, structural context, blowout state analysis, and behavioral flags.",
+  "url": "https://sportsync-evidence.web.app/pregame",
+  "creator": {
+    "@type": "Organization",
+    "name": "SportsSync Evidence"
+  },
+  "step": [
+    {"@type":"HowToStep","position":1,"name":"Resolve Game + Market Snapshot","text":"Get match_id, spread, total, and implied win probability from matches table."},
+    {"@type":"HowToStep","position":2,"name":"Live Board Snapshot","text":"Pull current DraftKings board for points, assists, rebounds, threes_made, pra markets."},
+    {"@type":"HowToStep","position":3,"name":"Team Suppression Profile","text":"Compare each team's opponent under rates to league baselines across all prop markets."},
+    {"@type":"HowToStep","position":4,"name":"Defender Fingerprint","text":"Identify elite defenders (starter rate >= 50%, avg minutes >= 20, avg stocks >= 1.5) and measure their suppression effect by tier."},
+    {"@type":"HowToStep","position":5,"name":"Defender Tier Effect","text":"Measure opponent points under performance when defender starts and plays 15+ minutes, bucketed by scorer tier."},
+    {"@type":"HowToStep","position":6,"name":"Defender Opponent Environment","text":"Measure tomorrow's opponent player prop performance when defender is active in game environment."},
+    {"@type":"HowToStep","position":7,"name":"Ref Profile","text":"Classify primary official as under ref (>= 55%), neutral (51-54.9%), or over ref (<= 50%) based on historical tendencies."},
+    {"@type":"HowToStep","position":8,"name":"Team Structural Profile","text":"Evaluate team over/under rate vs closing totals to judge line inflation."},
+    {"@type":"HowToStep","position":9,"name":"Blowout State","text":"If spread >= 8, analyze favorite starter minute splits and underdog prop performance in blowout vs normal game states."},
+    {"@type":"HowToStep","position":10,"name":"Star Behavioral State","text":"Check back-to-back status, injury returns, and usage disruption flags from direct evidence."},
+    {"@type":"HowToStep","position":11,"name":"Candidate Prop Screen","text":"Run exact-line and opponent historical screen for all surviving candidate props."},
+    {"@type":"HowToStep","position":12,"name":"Live Canary Selection","text":"Identify one canary player as an in-game suppression health check."}
+  ],
+  "tool": [
+    {"@type":"HowToTool","name":"Supabase MCP"},
+    {"@type":"HowToTool","name":"DraftKings Live Board"},
+    {"@type":"HowToTool","name":"player_prop_outcomes table"},
+    {"@type":"HowToTool","name":"player_game_stats table"},
+    {"@type":"HowToTool","name":"game_officials table"},
+    {"@type":"HowToTool","name":"official_tendencies table"}
+  ],
+  "totalTime": "PT15M"
+}
+</script>
+
+<!-- Nav -->
+<nav class="topbar">
+  <div class="topbar-brand">SportsSync <span>Evidence</span></div>
+  <div class="topbar-nav">
+    <a href="/props">Props</a>
+    <a href="/trends">Trends</a>
+    <a href="/pregame" class="active">Pregame</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">NBA 2025-26</div>
+    <h1>Pregame <em>Script</em></h1>
+    <p class="sub">7-layer operator playbook for NBA prop analysis. Every claim query-grounded. No assumptions. Structured for both human operators and machine agents.</p>
+    <div class="badge-row">
+      <span class="badge"><span class="dot" style="background:var(--green)"></span>7 Layers</span>
+      <span class="badge"><span class="dot" style="background:var(--blue)"></span>12 Steps</span>
+      <span class="badge"><span class="dot" style="background:var(--orange)"></span>DraftKings Board</span>
+      <span class="badge"><span class="dot" style="background:var(--purple)"></span>Supabase MCP</span>
+      <span class="badge"><span class="dot" style="background:var(--cyan)"></span>JSON-LD Contract</span>
+    </div>
+  </div>
+</section>
+
+<!-- Execution Pipeline -->
+<section class="pipeline-section">
+  <div class="container">
+    <div class="section-label">Execution Pipeline</div>
+    <div class="steps-track">
+      <div class="step-chip" data-target="layer-0"><span class="num" style="background:var(--blue)">0</span>Resolve</div>
+      <div class="step-chip" data-target="layer-1"><span class="num" style="background:var(--blue)">1</span>Board</div>
+      <div class="step-chip" data-target="layer-l1"><span class="num" style="background:var(--red)">L1</span>Suppression</div>
+      <div class="step-chip" data-target="layer-l2"><span class="num" style="background:var(--orange)">L2</span>Defenders</div>
+      <div class="step-chip" data-target="layer-l2a"><span class="num" style="background:var(--orange)">2A</span>Tier</div>
+      <div class="step-chip" data-target="layer-l2b"><span class="num" style="background:var(--orange)">2B</span>Opp Env</div>
+      <div class="step-chip" data-target="layer-l3"><span class="num" style="background:var(--purple)">L3</span>Ref</div>
+      <div class="step-chip" data-target="layer-l4"><span class="num" style="background:var(--green)">L4</span>Structural</div>
+      <div class="step-chip" data-target="layer-l5"><span class="num" style="background:var(--yellow)">L5</span>Blowout</div>
+      <div class="step-chip" data-target="layer-l6"><span class="num" style="background:var(--cyan)">L6</span>Behavior</div>
+      <div class="step-chip" data-target="layer-7"><span class="num" style="background:var(--text)">7</span>Screen</div>
+      <div class="step-chip" data-target="layer-canary"><span class="num" style="background:var(--dim)">C</span>Canary</div>
+    </div>
+  </div>
+</section>
+
+<!-- Global Rules -->
+<section class="rules-section">
+  <div class="container">
+    <div class="rules-header"><h2>Global Rules</h2></div>
+    <div class="rules-grid">
+      <div class="rule-card"><div class="tag">Data Source</div><p>Only use queried data. No assumptions. Run every query before making claims.</p></div>
+      <div class="rule-card"><div class="tag">League</div><p><code>league_id = nba</code> · <code>sport = basketball</code></p></div>
+      <div class="rule-card"><div class="tag">Join Key</div><p><code>match_id</code> is the primary cross-table join.</p></div>
+      <div class="rule-card"><div class="tag">Prop Side</div><p>Use <code>side = 'under'</code> and <code>result IN ('won','lost')</code> unless checking over leans.</p></div>
+      <div class="rule-card"><div class="tag">Live Board</div><p>DraftKings as sportsbook source from <code>player_prop_bets</code>.</p></div>
+      <div class="rule-card"><div class="tag">Conviction Rank</div><p>1) Sample quality → 2) Layer alignment → 3) Miss magnitude vs line.</p></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px">
+      <div class="data-table-wrap">
+        <h3>Sample Thresholds</h3>
+        <table class="data-table">
+          <thead><tr><th>Context</th><th>Min Sample</th></tr></thead>
+          <tbody>
+            <tr><td>Team-level market profile</td><td class="mono">50 props</td></tr>
+            <tr><td>Defender tier profile</td><td class="mono">10 props</td></tr>
+            <tr><td>Defender-driven opponent environment</td><td class="mono">3 props</td></tr>
+            <tr><td>Blowout split</td><td class="mono">3 games</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="data-table-wrap">
+        <h3>League Baselines (Under %)</h3>
+        <table class="data-table">
+          <thead><tr><th>Market</th><th>Baseline Under %</th></tr></thead>
+          <tbody>
+            <tr><td>Points</td><td class="mono">52.8%</td></tr>
+            <tr><td>Assists</td><td class="mono">53.5%</td></tr>
+            <tr><td>Rebounds</td><td class="mono">52.8%</td></tr>
+            <tr><td>Threes Made</td><td class="mono">55.5%</td></tr>
+            <tr><td>PRA</td><td class="mono">53.4%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Layers -->
+<section class="layers-section">
+  <div class="container">
+    <div class="section-label">Analysis Layers</div>
+
+    <!-- Step 0 -->
+    <div class="layer-card" id="layer-0">
+      <div class="layer-header" onclick="toggleLayer(this)">
+        <div class="layer-icon" style="background:var(--blue)">0</div>
+        <div class="layer-meta"><h3>Resolve Game + Market Snapshot</h3><p>Get match_id, spread, total, implied win probability. This anchors every downstream query.</p></div>
+        <svg class="layer-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+      </div>
+      <div class="layer-body">
+        <div class="layer-divider"></div>
+        <p class="sql-label">SQL Query</p>
+        <pre class="sql">SELECT m.id AS match_id, m.away_team, m.home_team,
+  m.start_time AT TIME ZONE 'America/Los_Angeles' AS start_time_pt,
+  m.odds_away_spread_safe AS away_spread,
+  m.odds_home_spread_safe AS home_spread,
+  m.odds_total_safe AS total,
+  m.odds_away_ml_safe AS away_ml,
+  m.odds_home_ml_safe AS home_ml
+FROM matches m
+WHERE m.sport = 'basketball' AND m.league_id = 'nba'
+  AND m.away_team = '[AWAY]' AND m.home_team = '[HOME]'
+  AND (m.start_time AT TIME ZONE 'America/Los_Angeles')::date = DATE '[YYYY-MM-DD]';</pre>
+        <p style="font-size:.84rem;color:var(--muted)"><strong>Output:</strong> <code>GAME: [AWAY] @ [HOME] | Spread: [X] | Total: [X] | Win Prob: [X]%</code></p>
+      </div>
+    </div>
+
+    <!-- Step 1 -->
+    <div class="layer-card" id="layer-1">
+      <div class="layer-header" onclick="toggleLayer(this)">
+        <div class="layer-icon" style="background:var(--blue)">1</div>
+        <div class="layer-meta"><h3>Live Board Snapshot</h3><p>Current DraftKings props: points, assists, rebounds, threes_made, pra.</p></div>
+        <svg class="layer-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+      </div>
+      <div class="layer-body">
+        <div class="layer-divider"></div>
+        <p class="sql-label">SQL Query</p>
+        <pre class="sql">SELECT pb.player_name, pb.bet_type, pb.line_value,
+  MAX(CASE WHEN pb.side='over' THEN pb.odds_american END) AS over_odds,
+  MAX(CASE WHEN pb.side='under' THEN pb.odds_american END) AS under_odds
+FROM player_prop_bets pb
+WHERE pb.sportsbook = 'DraftKings' AND pb.match_id = '[MATCH_ID]'
+  AND pb.bet_type IN ('points','assists','rebounds','threes_made','pra')
+GROUP BY pb.player_name, pb.bet_type, pb.line_value
+ORDER BY pb.team, pb.player_name, pb.bet_type;</pre>
+        <p style="font-size:.84rem;color:var(--muted)">If no current line returned for a player/market → <strong>do not make a play on it</strong>.</p>
+      </div>
+    </div>
+
+    <!-- Layer 1 -->
+    <div class="layer-card" id="layer-l1">
+      <div class="layer-header" onclick="toggleLayer(this)">
+        <div class="layer-icon" style="background:var(--red)">L1</div>
+        <div class="layer-meta"><h3>Team Suppression Profile</h3><p>Defense/environment layer. Compare each team's opponent under rates to league baselines.</p></div>
+        <svg class="layer-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+      </div>
+      <div class="layer-body">
+        <div class="layer-divider"></div>
+        <p style="font-size:.84rem;margin-bottom:12px"><strong>Key:</strong> Uses <code>opponent</code> as the team being profiled (defense layer). Min 50 props per market.</p>
+        <p class="sql-label">Output Format</p>
+        <pre class="sql">[TEAM] suppresses [market] at [under_pct]% (+[delta] vs league)
+[TEAM] boosts [market] at [under_pct]% ([delta] vs league)</pre>
+      </div>
+    </div>
+
+    <!-- Layer 2 -->
+    <div class="layer-card" id="layer-l2">
+      <div class="layer-header" onclick="toggleLayer(this)">
+        <div class="layer-icon" style="background:var(--orange)">L2</div>
+        <div class="layer-meta"><h3>Defender Fingerprint</h3><p>Elite defenders: starter ≥ 50%, avg min ≥ 20, avg (blocks+steals) ≥ 1.5, games ≥ 15.</p></div>
+        <svg class="layer-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+      </div>
+      <div class="layer-body">
+        <div class="layer-divider"></div>
+        <p style="font-size:.84rem;margin-bottom:16px">Qualifiers from <code>player_game_stats</code> + <code>espn_athletes</code> join. Season = <code>2025-10-01+</code>.</p>
+        <table class="data-table" style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+          <thead><tr><th>Sub-Layer</th><th>What</th><th>Min Sample</th></tr></thead>
+          <tbody>
+            <tr><td><strong style="color:var(--orange)">2A</strong> — Tier Effect</td><td>Opp points under % by scorer tier (low &lt;15 / mid 15-21 / high 22+)</td><td class="mono">10 props</td></tr>
+            <tr><td><strong style="color:var(--orange)">2B</strong> — Opp Environment</td><td>Tomorrow's opp player prop perf when defender is active</td><td class="mono">3 props</td></tr>
+          </tbody>
+        </table>
+        <p class="sql-label" style="margin-top:16px">Classification</p>
+        <pre class="sql">erase tier     = under_pct >= 60%
+neutral        = 45% to 59%
+suppression-proof = under_pct &lt; 40%</pre>
+      </div>
+    </div>
+
+    <!-- Layer 2A -->
+    <div class="layer-card" id="layer-l2a">
+      <div class="layer-header" onclick="toggleLayer(this)">
+        <div class="layer-icon" style="background:var(--orange)">2A</div>
+        <div class="layer-meta"><h3>Generic Defender Tier Effect</h3><p>Opponent points under performance when defender starts + plays 15+ min. Bucketed by scorer tier.</p></div>
+        <svg class="layer-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+      </div>
+      <div class="layer-body">
+        <div class="layer-divider"></div>
+        <p class="sql-label">Tier Buckets</p>
+        <pre class="sql">low  = line &lt; 15
+mid  = line >= 15 AND &lt; 22
+high = line >= 22</pre>
+        <p style="font-size:.84rem;color:var(--muted);margin-top:8px">Join: <code>player_prop_outcomes</code> × <code>player_game_stats</code> on match_id where defender is starter with 15+ min.</p>
+      </div>
+    </div>
+
+    <!-- Layer 2B -->
+    <div class="layer-card" id="layer-l2b">
+      <div class="layer-header" onclick="toggleLayer(this)">
+        <div class="layer-icon" style="background:var(--orange)">2B</div>
+        <div class="layer-meta"><h3>Defender-Driven Opponent Environment</h3><p>Tomorrow's opponent player props when this defender is in-game. Min 3 props.</p></div>
+        <svg class="layer-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+      </div>
+      <div class="layer-body">
+        <div class="layer-divider"></div>
+        <p style="font-size:.84rem;color:var(--muted)">If no rows clear sample threshold → <code>No validated defender-driven opponent environment effect found (sample &lt; 3).</code></p>
+      </div>
+    </div>
+
+    <!-- Layer 3 -->
+    <div class="layer-card" id="layer-l3">
+      <div class="layer-header" onclick="toggleLayer(this)">
+        <div class="layer-icon" style="background:var(--purple)">L3</div>
+        <div class="layer-meta"><h3>Ref Profile</h3><p>Primary official tendency: under, neutral, or over ref. Amplifies or cancels defender effect.</p></div>
+        <svg class="layer-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+      </div>
+      <div class="layer-body">
+        <div class="layer-divider"></div>
+        <table class="data-table" style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+          <thead><tr><th>Classification</th><th>Under Rate</th><th>Effect</th></tr></thead>
+          <tbody>
+            <tr><td>Under Ref</td><td class="mono">≥ 55%</td><td style="color:var(--green);font-weight:600">Amplifies defender effect</td></tr>
+            <tr><td>Neutral</td><td class="mono">51–54.9%</td><td>No modifier</td></tr>
+            <tr><td>Over Ref</td><td class="mono">≤ 50%</td><td style="color:var(--red);font-weight:600">Cancels defender effect</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:.84rem;color:var(--muted);margin-top:12px">Source: <code>game_officials</code> → <code>official_tendencies</code>. Use <code>official_order = 1</code> (crew chief).</p>
+      </div>
+    </div>
+
+    <!-- Layer 4 -->
+    <div class="layer-card" id="layer-l4">
+      <div class="layer-header" onclick="toggleLayer(this)">
+        <div class="layer-icon" style="background:var(--green)">L4</div>
+        <div class="layer-meta"><h3>Team Structural Profile / Venue</h3><p>Team over rate vs closing totals. Judges whether the book is inflating or suppressing scorer lines.</p></div>
+        <svg class="layer-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+      </div>
+      <div class="layer-body">
+        <div class="layer-divider"></div>
+        <table class="data-table" style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+          <thead><tr><th>Classification</th><th>Over Rate</th></tr></thead>
+          <tbody>
+            <tr><td>Over Team</td><td class="mono">≥ 55%</td></tr>
+            <tr><td>Neutral</td><td class="mono">46–54%</td></tr>
+            <tr><td>Under Team</td><td class="mono">≤ 45%</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:.84rem;color:var(--muted);margin-top:12px">Source: <code>game_context</code> × <code>matches</code>. Uses closing_total for accuracy.</p>
+      </div>
+    </div>
+
+    <!-- Layer 5 -->
+    <div class="layer-card" id="layer-l5">
+      <div class="layer-header" onclick="toggleLayer(this)">
+        <div class="layer-icon" style="background:var(--yellow);color:var(--text)">L5</div>
+        <div class="layer-meta"><h3>Blowout State</h3><p>Only if spread ≥ 8. Favorite starter minute splits + underdog prop blowout sensitivity.</p></div>
+        <svg class="layer-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+      </div>
+      <div class="layer-body">
+        <div class="layer-divider"></div>
+        <p style="font-size:.84rem;margin-bottom:12px"><strong>Gate:</strong> Only activate when projected spread is <code>8+</code> points. Blowout = margin ≥ 15.</p>
+        <table class="data-table" style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+          <thead><tr><th>Classification</th><th>Condition</th></tr></thead>
+          <tbody>
+            <tr><td>Blowout-Sensitive</td><td>Under rate swings by <code>15+</code> points between states</td></tr>
+            <tr><td>Blowout-Proof</td><td>Swing &lt; <code>10</code> points</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Layer 6 -->
+    <div class="layer-card" id="layer-l6">
+      <div class="layer-header" onclick="toggleLayer(this)">
+        <div class="layer-icon" style="background:var(--cyan)">L6</div>
+        <div class="layer-meta"><h3>Star Behavioral State</h3><p>Back-to-back, injury returns, usage disruption. Direct evidence only — no inference.</p></div>
+        <svg class="layer-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+      </div>
+      <div class="layer-body">
+        <div class="layer-divider"></div>
+        <p class="sql-label">Valid Flags (direct evidence only)</p>
+        <pre class="sql">back-to-back    → team appears in prior local date query
+injury return   → injury rows reference the player being analyzed
+usage disruption→ injury rows show non-active teammate whose absence changes role</pre>
+        <p style="font-size:.84rem;color:var(--muted);margin-top:8px">If evidence is indirect or not returned by query: <code>No validated behavioral-state flag found.</code></p>
+      </div>
+    </div>
+
+    <!-- Step 7 -->
+    <div class="layer-card" id="layer-7">
+      <div class="layer-header" onclick="toggleLayer(this)">
+        <div class="layer-icon" style="background:var(--text)">7</div>
+        <div class="layer-meta"><h3>Candidate Prop Screen</h3><p>Final screen: exact-line sample, opponent sample, avg miss vs line, current price, under/over direction.</p></div>
+        <svg class="layer-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+      </div>
+      <div class="layer-body">
+        <div class="layer-divider"></div>
+        <p style="font-size:.84rem;margin-bottom:8px">Joins <code>player_prop_bets</code> (board) × <code>player_prop_outcomes</code> (exact-line history + opponent history).</p>
+        <p style="font-size:.84rem;color:var(--muted)"><strong>Over lean requirements:</strong> under_pct &lt; 50% <strong>AND</strong> positive avg_actual − line <strong>AND</strong> at least one supporting team/structural/blowout layer.</p>
+      </div>
+    </div>
+
+    <!-- Canary -->
+    <div class="layer-card" id="layer-canary">
+      <div class="layer-header" onclick="toggleLayer(this)">
+        <div class="layer-icon" style="background:var(--dim)">C</div>
+        <div class="layer-meta"><h3>Live Canary</h3><p>In-game suppression health check. Role player, not star-dependent noise.</p></div>
+        <svg class="layer-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+      </div>
+      <div class="layer-body">
+        <div class="layer-divider"></div>
+        <pre class="sql">cold at half     → suppression holding   → stay
+hot at half      → suppression failing   → hedge / exit
+1-7 pts above pace → system break
+8+ above pace    → individual heater; lower confidence</pre>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Output Template -->
+<section class="output-section">
+  <div class="container">
+    <div class="section-label">Final Output Format</div>
+    <div class="output-block">
+<span class="label">GAME:</span> [AWAY] @ [HOME]
+<span class="label">Spread:</span> [X] | <span class="label">Total:</span> [X] | <span class="label">Win Prob:</span> [X]%
+
+<span class="label">Team Profiles:</span>
+  <span class="hl">• [TEAM A] suppresses [market] at [X]% (+[delta])</span>
+  <span class="hl">• [TEAM B] suppresses [market] at [X]% (+[delta])</span>
+  <span class="warn">• [TEAM A] boosts [market] at [X]% ([delta])</span>
+
+<span class="label">Defender Fingerprints:</span>
+  • [DEFENDER]: Tier effect — [erase/neutral/proof], avg line [Y], avg actual [Z]
+  • [DEFENDER]: Opp env — [PLAYER] [market] [under%] in [N] props
+
+<span class="label">Top Plays:</span>
+  <span class="hl">1. [PLAYER] [market] under — [2-3 stacked layers]</span>
+  <span class="hl">2. ...</span>
+  <span class="hl">3. ...</span>
+
+<span class="label">Canary:</span>
+  • [NAME] — cold at half → [action] | hot at half → [action]
+
+<span class="label">Skip:</span>
+  <span class="skip">• [PLAYER] — [reason]</span>
+  <span class="skip">• [PLAYER] — [reason]</span>
+
+<span class="label">Game Total:</span> [lean] — [rationale from both teams + blowout state]
+<span class="label">Behavior:</span> [flag or "No validated behavioral-state flag found."]
+<span class="label">Ref:</span> [NAME] — [under/neutral/over] — [effect on reads]
+    </div>
+  </div>
+</section>
+
+<!-- Over Lean Protocol -->
+<section class="protocol-section">
+  <div class="container">
+    <div class="rules-header"><h2>Over Lean Protocol</h2></div>
+    <div class="protocol-grid">
+      <div class="protocol-card"><div class="tag">Gate 1</div><p><code>under_pct &lt; 50%</code> on historical under-side query</p></div>
+      <div class="protocol-card"><div class="tag">Gate 2</div><p>Positive <code>avg_actual − line</code></p></div>
+      <div class="protocol-card"><div class="tag">Gate 3</div><p>At least one supporting team / structural / blowout layer</p></div>
+    </div>
+    <p style="font-size:.84rem;color:var(--muted);margin-top:16px">All three gates must clear for an over lean. If no validated play clears the evidence bar — <strong>say so explicitly</strong>.</p>
+  </div>
+</section>
+
+<!-- Output Limits -->
+<section class="protocol-section">
+  <div class="container">
+    <div class="rules-header"><h2>Output Limits</h2></div>
+    <div class="protocol-grid">
+      <div class="protocol-card"><div class="tag">Top Plays</div><p>Maximum <code>3</code> conviction plays</p></div>
+      <div class="protocol-card"><div class="tag">Skip Players</div><p>Maximum <code>2</code> skip players with reason</p></div>
+      <div class="protocol-card"><div class="tag">No Play</div><p>If nothing clears the evidence bar, state explicitly</p></div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <p>SportsSync Evidence · NBA Pregame Script v1.0 · <a href="/props">Props Directory</a> · <a href="/trends">Trends</a></p>
+  </div>
+</footer>
+
+<script>
+function toggleLayer(header){
+  const card = header.closest('.layer-card');
+  card.classList.toggle('open');
+}
+// Pipeline step click → open matching layer + scroll
+document.querySelectorAll('.step-chip').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    const id=chip.dataset.target;
+    const card=document.getElementById(id);
+    if(!card)return;
+    card.classList.add('open');
+    card.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+});
+</script>
+</body>
+</html>
