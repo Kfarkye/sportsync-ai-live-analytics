@@ -219,18 +219,23 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
   const blowouts = homeGames.filter(g => Math.abs((g.home_score || 0) - (g.away_score || 0)) >= 15);
   home.blowoutRate = homeGames.length ? +(blowouts.length / homeGames.length * 100).toFixed(1) : 0;
 
-  // ── Rest splits (home) ─────────────────────────────────────────────────────
-  const buckets = { 'Back-to-back': [], '1 day rest': [], '2 days rest': [], '3+ days rest': [] };
-  for (const g of homeGames) {
-    const d = restMap.get(g.id) || 99;
-    if (d <= 1)      buckets['Back-to-back'].push(g);
-    else if (d === 2) buckets['1 day rest'].push(g);
-    else if (d === 3) buckets['2 days rest'].push(g);
-    else              buckets['3+ days rest'].push(g);
-  }
-  const restSplits = Object.entries(buckets)
-    .map(([label, gs]) => ({ label, ...computeLocationStats(gs, true) }))
-    .filter(s => s.games > 0);
+  // ── Rest splits (home + away) ──────────────────────────────────────────────
+  const buildRestSplits = (games, isHome) => {
+    const buckets = { 'Back-to-back': [], '1 day rest': [], '2 days rest': [], '3+ days rest': [] };
+    for (const g of games) {
+      const d = restMap.get(g.id) || 99;
+      if (d <= 1) buckets['Back-to-back'].push(g);
+      else if (d === 2) buckets['1 day rest'].push(g);
+      else if (d === 3) buckets['2 days rest'].push(g);
+      else buckets['3+ days rest'].push(g);
+    }
+    return Object.entries(buckets)
+      .map(([label, gs]) => ({ label, ...computeLocationStats(gs, isHome) }))
+      .filter(s => s.games > 0);
+  };
+  const restSplitsHome = buildRestSplits(homeGames, true);
+  const restSplitsAway = buildRestSplits(awayGames, false);
+  const restSplits = restSplitsHome;
 
   // ── Biggest overs (home) ───────────────────────────────────────────────────
   const biggestOvers = [];
@@ -330,7 +335,7 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
     });
   }
 
-  const bestRest = restSplits.filter(s => s.gamesWithLine >= 3).sort((a, b) => b.overPct - a.overPct)[0];
+  const bestRest = restSplitsHome.filter(s => s.gamesWithLine >= 3).sort((a, b) => b.overPct - a.overPct)[0];
   if (bestRest && bestRest.overPct >= 60) {
     strongestPlays.push({
       desc: `Over at home, ${bestRest.label.toLowerCase()}`, pct: bestRest.overPct,
@@ -338,7 +343,7 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
     });
   }
 
-  const bestCover = restSplits.filter(s => s.gamesWithSpread >= 3).sort((a, b) => b.coverPct - a.coverPct)[0];
+  const bestCover = restSplitsHome.filter(s => s.gamesWithSpread >= 3).sort((a, b) => b.coverPct - a.coverPct)[0];
   if (bestCover && bestCover.coverPct >= 60) {
     strongestPlays.push({
       desc: `Home cover on ${bestCover.label.toLowerCase()}`, pct: bestCover.coverPct,
@@ -427,6 +432,8 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
     home,
     away,
     afterLoss,
+    restSplitsHome,
+    restSplitsAway,
     restSplits,
     biggestOvers: biggestOvers.slice(0, 5),
     recentGames,

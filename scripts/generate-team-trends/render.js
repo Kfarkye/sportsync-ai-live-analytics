@@ -47,10 +47,49 @@ function metaDescription(team, stats) {
     `${home.overPct}% over rate at home, rest splits, opponent matchups, and upcoming games to watch.`;
 }
 
+function renderRestSplitsTable(title, id, splits) {
+  if (!splits || splits.length === 0) return '';
+  return `
+      <h2 class="section-title" id="${id}">Rest Splits (${title})</h2>
+      <div class="table-container" tabindex="0">
+        <table>
+          <thead>
+            <tr><th class="align-left">Rest</th><th class="align-right">Games</th><th class="align-right">Over %</th><th class="align-right">vs Close</th><th class="align-right">Cover %</th></tr>
+          </thead>
+          <tbody>
+${splits.map(s => {
+  const best = s.overPct >= 65 || s.coverPct >= 65;
+  return `            <tr${best ? ' class="row-highlight"' : ''}>
+              <th scope="row" class="text-cell">${s.label}</th>
+              <td class="align-right">${s.games}</td>
+              <td class="align-right ${s.overPct >= 60 ? 'color-green' : ''}">${s.overPct}%</td>
+              <td class="align-right ${s.avgVsClose >= 0 ? 'color-green' : 'color-red'}">${fmt(s.avgVsClose)}</td>
+              <td class="align-right ${s.coverPct >= 60 ? 'color-green' : ''}">${s.coverPct}%</td>
+            </tr>`;
+}).join('\n')}
+          </tbody>
+        </table>
+      </div>`;
+}
+
 // ── Template ─────────────────────────────────────────────────────────────────
 
 export function renderTeamPage(team, stats) {
-  const { home, away, afterLoss, restSplits, biggestOvers, recentGames, lineMovements, upcomingGames, strongestPlays } = stats;
+  const {
+    home,
+    away,
+    afterLoss,
+    restSplitsHome: rawRestSplitsHome,
+    restSplitsAway: rawRestSplitsAway,
+    restSplits,
+    biggestOvers,
+    recentGames,
+    lineMovements,
+    upcomingGames,
+    strongestPlays,
+  } = stats;
+  const restSplitsHome = rawRestSplitsHome || restSplits || [];
+  const restSplitsAway = rawRestSplitsAway || [];
 
   // ── Dynamic accent color ─────────────────────────────────────────────────
   const accent = team.accent || '#2d5da1';
@@ -216,28 +255,10 @@ ${home.overPct - away.overPct > 10 ? `
       </div>` : ''}
     </section>
 
-${restSplits.length > 0 ? `
-    <section class="section-block" aria-labelledby="rest-title">
-      <h2 class="section-title" id="rest-title">Rest Splits (Home)</h2>
-      <div class="table-container" tabindex="0">
-        <table>
-          <thead>
-            <tr><th class="align-left">Rest</th><th class="align-right">Games</th><th class="align-right">Over %</th><th class="align-right">vs Close</th><th class="align-right">Cover %</th></tr>
-          </thead>
-          <tbody>
-${restSplits.map(s => {
-  const best = s.overPct >= 65 || s.coverPct >= 65;
-  return `            <tr${best ? ' class="row-highlight"' : ''}>
-              <th scope="row" class="text-cell">${s.label}</th>
-              <td class="align-right">${s.games}</td>
-              <td class="align-right ${s.overPct >= 60 ? 'color-green' : ''}">${s.overPct}%</td>
-              <td class="align-right ${s.avgVsClose >= 0 ? 'color-green' : 'color-red'}">${fmt(s.avgVsClose)}</td>
-              <td class="align-right ${s.coverPct >= 60 ? 'color-green' : ''}">${s.coverPct}%</td>
-            </tr>`;
-}).join('\n')}
-          </tbody>
-        </table>
-      </div>
+${restSplitsHome.length > 0 || restSplitsAway.length > 0 ? `
+    <section class="section-block" aria-labelledby="rest-home-title">
+${renderRestSplitsTable('Home', 'rest-home-title', restSplitsHome)}
+${renderRestSplitsTable('Away', 'rest-away-title', restSplitsAway)}
     </section>
 ` : ''}
 
