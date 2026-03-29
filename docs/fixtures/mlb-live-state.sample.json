@@ -1,0 +1,44 @@
+{
+  "game_id": "401696999_mlb",
+  "status": "STATUS_IN_PROGRESS",
+  "live_state": {
+    "inning": 5,
+    "half": "top",
+    "outs": 1,
+    "balls": 2,
+    "strikes": 1,
+    "runners": {
+      "on_first": true,
+      "on_second": false,
+      "on_third": false
+    },
+    "current_pitcher": {
+      "name": "L. Castillo",
+      "espn_player_id": "33192",
+      "hand": "R",
+      "pitch_count": 83
+    },
+    "due_up": [
+      { "player_name": "A. Giménez", "bats": "L" },
+      { "player_name": "J. Naylor", "bats": "L" }
+    ],
+    "recent_pitch_sequence": [
+      { "sequence": 1, "result": "called_strike", "pitch_type": "Cutter", "mph": 92, "is_first_pitch": true, "text": "Called strike at the knees" },
+      { "sequence": 2, "result": "ball", "pitch_type": "Changeup", "mph": 86, "is_first_pitch": false, "text": "Ball down and away" }
+    ],
+    "recent_control_state": {
+      "sample_size": 15,
+      "ball_rate_last_15": 46.7,
+      "first_strike_rate_last_15": 44.4
+    },
+    "current_market_snapshot": {
+      "total": 8,
+      "home_moneyline": -145,
+      "away_moneyline": 120,
+      "home_run_line": -1.5,
+      "away_run_line": 1.5,
+      "source": "live",
+      "captured_at": "2026-03-29T21:43:02Z"
+    }
+  }
+}

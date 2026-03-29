@@ -17,6 +17,7 @@ import { AppLoadingScreen } from './components/system/AppLoadingScreen';
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const TrendsPage = lazy(() => import('./pages/TrendsPage'));
 const PostgameRouter = lazy(() => import('./pages/postgame/PostgameRouter'));
+const MlbGameUrlPage = lazy(() => import('./pages/MlbGameUrlPage'));
 
 const App: FC = () => {
   useEffect(() => {
@@ -57,6 +58,7 @@ const App: FC = () => {
                 <Route path="/edge" element={<ReportsPage />} />
                 <Route path="/reports" element={<Navigate to="/edge" replace />} />
                 <Route path="/trends" element={<TrendsPage />} />
+                <Route path="/mlb/game/:gameId" element={<MlbGameUrlPage />} />
                 <Route path="*" element={<AppShell />} />
               </Routes>
             </Suspense>

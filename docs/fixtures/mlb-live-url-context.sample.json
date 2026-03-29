@@ -1,0 +1,180 @@
+{
+  "game_id": "401696999_mlb",
+  "game_url": "https://sportsync-evidence.web.app/mlb/game/401696999_mlb",
+  "start_time_utc": "2026-03-29T20:10:00Z",
+  "status": "STATUS_IN_PROGRESS",
+  "teams": {
+    "home": {
+      "name": "Seattle Mariners",
+      "abbreviation": "SEA",
+      "score": 3
+    },
+    "away": {
+      "name": "Cleveland Guardians",
+      "abbreviation": "CLE",
+      "score": 2
+    }
+  },
+  "market": {
+    "opening": {
+      "total": 7.5,
+      "home_moneyline": -156,
+      "away_moneyline": 129,
+      "home_run_line": -1.5,
+      "away_run_line": 1.5,
+      "source": "opening",
+      "captured_at": "2026-03-29T12:02:10Z"
+    },
+    "current": {
+      "total": 8,
+      "home_moneyline": -145,
+      "away_moneyline": 120,
+      "home_run_line": -1.5,
+      "away_run_line": 1.5,
+      "source": "live",
+      "captured_at": "2026-03-29T21:43:02Z"
+    }
+  },
+  "environment": {
+    "pregame": {
+      "weather_summary": "58F, wind out to left at 9 mph",
+      "temperature_f": 58,
+      "wind_mph": 9,
+      "wind_direction": "Out to Left",
+      "roof_state": "open",
+      "park_name": "T-Mobile Park",
+      "run_environment_index": 1.002
+    },
+    "live": {
+      "weather_summary": "61F, wind out to left at 14 mph",
+      "temperature_f": 61,
+      "wind_mph": 14,
+      "wind_direction": "Out to Left",
+      "roof_state": "open",
+      "park_name": "T-Mobile Park",
+      "run_environment_index": 1.181
+    },
+    "delta_run_environment": 0.179
+  },
+  "lineups": {
+    "home": {
+      "team": "Seattle Mariners",
+      "confirmed": true,
+      "confidence_score": 0.93,
+      "source": "espn_summary",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=401696999",
+      "captured_at": "2026-03-29T19:52:22Z",
+      "batting_order": [
+        { "order": 1, "player_id": "123", "player_name": "J. Crawford", "position": "SS", "bats": "L", "starter": true },
+        { "order": 2, "player_id": "124", "player_name": "J. Rodríguez", "position": "CF", "bats": "R", "starter": true }
+      ]
+    },
+    "away": {
+      "team": "Cleveland Guardians",
+      "confirmed": true,
+      "confidence_score": 0.9,
+      "source": "espn_summary",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=401696999",
+      "captured_at": "2026-03-29T19:52:22Z",
+      "batting_order": [
+        { "order": 1, "player_id": "200", "player_name": "S. Kwan", "position": "LF", "bats": "L", "starter": true },
+        { "order": 2, "player_id": "201", "player_name": "A. Giménez", "position": "2B", "bats": "L", "starter": true }
+      ]
+    }
+  },
+  "starters": {
+    "home": {
+      "name": "L. Castillo",
+      "espn_player_id": "33192",
+      "hand": "R",
+      "era": 3.44,
+      "whip": 1.12,
+      "pitch_count": null
+    },
+    "away": {
+      "name": "T. Bibee",
+      "espn_player_id": "39452",
+      "hand": "R",
+      "era": 3.78,
+      "whip": 1.2,
+      "pitch_count": null
+    }
+  },
+  "bullpens": {
+    "home": {
+      "team": "Seattle Mariners",
+      "fatigue_score": 74,
+      "avg_pitches_last_3": 43.7,
+      "avg_pitchers_used_last_3": 3.6,
+      "sample_games": 3
+    },
+    "away": {
+      "team": "Cleveland Guardians",
+      "fatigue_score": 63,
+      "avg_pitches_last_3": 35.4,
+      "avg_pitchers_used_last_3": 2.8,
+      "sample_games": 3
+    }
+  },
+  "pregame_edges": [
+    {
+      "edge_key": "total_move",
+      "title": "Total Movement",
+      "detail": "7.5 → 8.0 (+0.5)",
+      "market_relevance": "medium"
+    },
+    {
+      "edge_key": "lineup_confidence",
+      "title": "Lineup Certainty",
+      "detail": "Avg lineup confidence 92%",
+      "market_relevance": "medium"
+    }
+  ],
+  "live_state": {
+    "inning": 5,
+    "half": "top",
+    "outs": 1,
+    "balls": 2,
+    "strikes": 1,
+    "runners": {
+      "on_first": true,
+      "on_second": false,
+      "on_third": false
+    },
+    "current_pitcher": {
+      "name": "L. Castillo",
+      "espn_player_id": "33192",
+      "hand": "R",
+      "pitch_count": 83
+    },
+    "due_up": [
+      { "player_name": "A. Giménez", "bats": "L" },
+      { "player_name": "J. Naylor", "bats": "L" }
+    ],
+    "recent_pitch_sequence": [
+      {
+        "sequence": 1,
+        "result": "ball",
+        "pitch_type": "Fastball",
+        "mph": 95,
+        "is_first_pitch": true,
+        "text": "Ball low"
+      }
+    ],
+    "recent_control_state": {
+      "sample_size": 15,
+      "ball_rate_last_15": 46.7,
+      "first_strike_rate_last_15": 44.4
+    },
+    "current_market_snapshot": {
+      "total": 8,
+      "home_moneyline": -145,
+      "away_moneyline": 120,
+      "home_run_line": -1.5,
+      "away_run_line": 1.5,
+      "source": "live",
+      "captured_at": "2026-03-29T21:43:02Z"
+    }
+  },
+  "data_gaps": []
+}

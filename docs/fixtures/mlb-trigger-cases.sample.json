@@ -1,0 +1,27 @@
+{
+  "fired_case": {
+    "trigger_name": "pitch_count_stress",
+    "fired": true,
+    "implemented": true,
+    "severity": "high",
+    "supporting_facts": {
+      "pitch_count": 101,
+      "inning": 5
+    }
+  },
+  "not_fired_case": {
+    "trigger_name": "run_environment_boost_live",
+    "fired": false,
+    "implemented": true,
+    "severity": "low",
+    "supporting_facts": {
+      "delta_run_environment": 0.04
+    }
+  },
+  "partial_case": {
+    "trigger_name": "platoon_pressure_window",
+    "fired": false,
+    "implemented": false,
+    "partial_reason": "Need current pitcher hand and at least 3 upcoming hitters with batting-hand data."
+  }
+}
