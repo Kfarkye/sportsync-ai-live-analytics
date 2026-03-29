@@ -28,7 +28,7 @@ const LEAGUE_MAP: Record<string, { espn: string; suffix: string; display: string
 const MAX_CONCURRENT   = 3;
 const INTER_BATCH_MS   = 400;
 const FETCH_TIMEOUT_MS = 15_000;
-const DRAIN_VERSION    = 'v6.2';
+const DRAIN_VERSION    = 'v6.4';
 
 async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
   const ctrl = new AbortController();
@@ -316,6 +316,7 @@ Deno.serve(async (req: Request) => {
   const requestedLeagues = leagueParam.split(',').map(l => l.trim().toLowerCase());
   const errors: string[] = [];
   let totalFound = 0, totalDrained = 0, totalPlayerOdds = 0, totalBet365Team = 0, totalSnapshots = 0;
+  let totalPostgameWrites = 0, totalBet365Writes = 0;
   const leagueStats: any[] = []; const sampleData: any[] = [];
 
   for (const leagueKey of requestedLeagues) {
@@ -351,7 +352,12 @@ Deno.serve(async (req: Request) => {
       });
       const valid = drainResults.filter(Boolean) as any[];
       const postgameRows = valid.map(v => v.postgame);
-      for (let i = 0; i < postgameRows.length; i += 20) { const batch = postgameRows.slice(i, i + 20); const { error: e } = await supabase.from('soccer_postgame').upsert(batch, { onConflict: 'id' }); if (e) errors.push(`${leagueKey}: postgame upsert: ${e.message}`); }
+      for (let i = 0; i < postgameRows.length; i += 20) {
+        const batch = postgameRows.slice(i, i + 20);
+        const { error: e } = await supabase.from('soccer_postgame').upsert(batch, { onConflict: 'id' });
+        if (e) errors.push(`${leagueKey}: postgame upsert: ${e.message}`);
+        else totalPostgameWrites += batch.length;
+      }
       // v6.1: Dedup player odds before upsert
       const allPlayerRowsRaw = valid.flatMap(v => v.playerOddsRows || []);
       const playerDedup = new Map<string, any>(); for (const row of allPlayerRowsRaw) playerDedup.set(row.id, row);
@@ -360,7 +366,15 @@ Deno.serve(async (req: Request) => {
       const bet365RowsRaw = valid.map(v => v.bet365TeamOdds).filter(Boolean);
       const bet365Dedup = new Map<string, any>(); for (const row of bet365RowsRaw) bet365Dedup.set(row.id, row);
       const bet365Rows = Array.from(bet365Dedup.values());
-      if (bet365Rows.length > 0) { for (let i = 0; i < bet365Rows.length; i += 20) { const batch = bet365Rows.slice(i, i + 20); const { error: e } = await supabase.from('soccer_bet365_team_odds').upsert(batch, { onConflict: 'id' }); if (e) errors.push(`${leagueKey}: bet365_team upsert: ${e.message}`); } leagueBet365Team = bet365Rows.length; }
+      if (bet365Rows.length > 0) {
+        for (let i = 0; i < bet365Rows.length; i += 20) {
+          const batch = bet365Rows.slice(i, i + 20);
+          const { error: e } = await supabase.from('soccer_bet365_team_odds').upsert(batch, { onConflict: 'id' });
+          if (e) errors.push(`${leagueKey}: bet365_team upsert: ${e.message}`);
+          else totalBet365Writes += batch.length;
+        }
+        leagueBet365Team = bet365Rows.length;
+      }
       if (!skipSnapshot) { const snapshotsRaw = valid.map(v => v.snapshot).filter(Boolean); const snapDedup = new Map<string, any>(); for (const row of snapshotsRaw) snapDedup.set(row.id, row); const snapshots = Array.from(snapDedup.values()); if (snapshots.length > 0) { for (let i = 0; i < snapshots.length; i += 10) { const batch = snapshots.slice(i, i + 10); const { error: e } = await supabase.from('espn_summary_snapshots').upsert(batch, { onConflict: 'id' }); if (e) errors.push(`${leagueKey}: snapshot upsert: ${e.message}`); } leagueSnapshots = snapshots.length; } }
       totalDrained += postgameRows.length; totalPlayerOdds += leaguePlayerOdds; totalBet365Team += leagueBet365Team; totalSnapshots += leagueSnapshots;
       leagueStats.push({ league: leagueKey, found: matchRows.length, drained: postgameRows.length, skipped, odds_coverage: `${postgameRows.filter((v: any) => v.dk_home_ml !== null).length}/${postgameRows.length}`, draw_ml_coverage: `${postgameRows.filter((v: any) => v.dk_draw_ml !== null).length}/${postgameRows.length}`, game_flow_coverage: `${postgameRows.filter((v: any) => v.ht_ft_result !== null).length}/${postgameRows.length}`, player_odds_rows: leaguePlayerOdds, bet365_team_rows: leagueBet365Team, snapshots_stored: leagueSnapshots });
@@ -368,5 +382,82 @@ Deno.serve(async (req: Request) => {
     } catch (e: any) { errors.push(`${leagueKey}: ${e.message}`); }
   }
 
-  return new Response(JSON.stringify({ success: errors.length === 0, version: DRAIN_VERSION, changes: ['v6.2: Unicode normalization for name matching', 'v6.2: Multi-key lookup (hyphenated names, middle names, abbreviations)', 'v6.1: Deduplicate rows before upsert', 'v6: Raw ESPN snapshots + Bet365 player/team odds + resolution'], dryRun: dry, leagues: requestedLeagues, totalFound, totalDrained, totalPlayerOdds, totalBet365Team, totalSnapshots, leagueStats, sample: sampleData, errorsCount: errors.length, errors: errors.slice(0, 20) }, null, 2), { headers: { ...CORS, 'Content-Type': 'application/json' } });
+  let trendRefresh: any = { triggered: false, reason: 'no_settled_writes' };
+  if (dry) trendRefresh = { triggered: false, reason: 'dry_run' };
+
+  if (!dry && (totalPostgameWrites > 0 || totalBet365Writes > 0)) {
+    const refreshUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/refresh-soccer-team-total-trends`;
+    const inboundAuth = req.headers.get('authorization') || req.headers.get('Authorization');
+    const inboundApiKey = req.headers.get('apikey');
+    const anonJwt = Deno.env.get('SUPABASE_ANON_KEY');
+    const fallbackToken = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const authToken = inboundAuth ? null : (anonJwt || fallbackToken);
+    try {
+      if (!inboundAuth && !authToken) throw new Error('Missing auth token for refresh-soccer-team-total-trends');
+      const refreshRes = await fetch(refreshUrl, {
+        method: 'POST',
+        headers: {
+          ...(inboundAuth ? { 'Authorization': inboundAuth } : { 'Authorization': `Bearer ${authToken}` }),
+          ...(inboundApiKey ? { 'apikey': inboundApiKey } : (anonJwt ? { 'apikey': anonJwt } : {})),
+          'Content-Type': 'application/json',
+        },
+      });
+
+      let refreshBody: any = null;
+      try { refreshBody = await refreshRes.json(); } catch { /* no-op */ }
+
+      if (refreshRes.ok) {
+        trendRefresh = {
+          triggered: true,
+          status: 'ok',
+          duration_ms: refreshBody?.duration_ms ?? null,
+          mv_soccer_team_total_venue_games: refreshBody?.mv_soccer_team_total_venue_games ?? null,
+          mv_soccer_team_total_venue_trends: refreshBody?.mv_soccer_team_total_venue_trends ?? null,
+        };
+      } else {
+        trendRefresh = {
+          triggered: true,
+          status: 'error',
+          http_status: refreshRes.status,
+          error: refreshBody?.error ?? 'refresh-soccer-team-total-trends failed',
+        };
+        errors.push(`trend refresh failed: HTTP ${refreshRes.status} ${refreshBody?.error || ''}`.trim());
+      }
+    } catch (e: any) {
+      trendRefresh = {
+        triggered: true,
+        status: 'error',
+        error: e?.message || 'unknown refresh trigger error',
+      };
+      errors.push(`trend refresh exception: ${e?.message || 'unknown error'}`);
+    }
+  }
+
+  return new Response(JSON.stringify({
+    success: errors.length === 0,
+    version: DRAIN_VERSION,
+    changes: [
+      'v6.4: Trigger refresh-soccer-team-total-trends once per run when settled soccer rows are written (auth-safe forward headers)',
+      'v6.2: Unicode normalization for name matching',
+      'v6.2: Multi-key lookup (hyphenated names, middle names, abbreviations)',
+      'v6.1: Deduplicate rows before upsert',
+      'v6: Raw ESPN snapshots + Bet365 player/team odds + resolution',
+    ],
+    dryRun: dry,
+    leagues: requestedLeagues,
+    totalFound,
+    totalDrained,
+    totalPlayerOdds,
+    totalBet365Team,
+    totalSnapshots,
+    settledWrites: {
+      soccer_postgame: totalPostgameWrites,
+      soccer_bet365_team_odds: totalBet365Writes,
+    },
+    trendRefresh,
+    leagueStats,
+    sample: sampleData,
+    errorsCount: errors.length,
+    errors: errors.slice(0, 20),
+  }, null, 2), { headers: { ...CORS, 'Content-Type': 'application/json' } });
 });
