@@ -238,19 +238,28 @@ Deno.serve(async (req: Request) => {
                 if (nbaFinalized > 0) {
                     const propSinceDate = nbaSinceDate
                         ?? new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-                    trace.push(`[props] Triggering run_player_prop_pipeline from ${propSinceDate} for ${nbaFinalized} finalized NBA games...`);
+                    trace.push(`[props] Triggering NBA prop outcomes/cache refresh from ${propSinceDate} for ${nbaFinalized} finalized NBA games...`);
                     try {
-                        const { data: propPipelineResult, error: propPipelineErr } = await supabase.rpc("run_player_prop_pipeline", {
+                        const { data: propOutcomesResult, error: propOutcomesErr } = await supabase.rpc("refresh_player_prop_outcomes", {
                             p_since_date: propSinceDate,
+                            p_league: "nba",
                         });
-                        if (propPipelineErr) {
-                            trace.push(`[props] Error running prop pipeline: ${propPipelineErr.message}`);
+                        if (propOutcomesErr) {
+                            trace.push(`[props] Error refreshing player_prop_outcomes: ${propOutcomesErr.message}`);
                         } else {
-                            trace.push(`[props] Prop pipeline complete from ${propSinceDate}.`);
-                            trace.push(`[props] Result: ${JSON.stringify(propPipelineResult)}`);
+                            const { data: propCacheResult, error: propCacheErr } = await supabase.rpc("refresh_prop_hit_rate_cache_by_league", {
+                                p_league: "nba",
+                                p_since_date: propSinceDate,
+                            });
+                            if (propCacheErr) {
+                                trace.push(`[props] Error refreshing prop_hit_rate_cache_by_league: ${propCacheErr.message}`);
+                            } else {
+                                trace.push(`[props] NBA prop refresh complete from ${propSinceDate}.`);
+                                trace.push(`[props] outcomes_upserts=${JSON.stringify(propOutcomesResult)}, cache_rows=${JSON.stringify(propCacheResult)}`);
+                            }
                         }
                     } catch (propErr: any) {
-                        trace.push(`[props] Exception running prop pipeline: ${propErr?.message ?? String(propErr)}`);
+                        trace.push(`[props] Exception running NBA prop refresh: ${propErr?.message ?? String(propErr)}`);
                     }
                 }
             }

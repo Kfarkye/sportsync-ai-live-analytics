@@ -923,21 +923,37 @@ Deno.serve(async (req: Request) => {
                 nba_props_upserted: nbaPropsUpserted,
             });
             try {
-                const { data: pipelineResult, error: pipelineErr } = await supabase.rpc("run_player_prop_pipeline", {
+                const { data: outcomesUpserts, error: outcomesErr } = await supabase.rpc("refresh_player_prop_outcomes", {
                     p_since_date: sinceDate,
+                    p_league: "nba",
                 });
-                if (pipelineErr) {
+                if (outcomesErr) {
                     logs.push({
                         event: "nba_prop_pipeline_error",
+                        stage: "refresh_player_prop_outcomes",
                         since_date: sinceDate,
-                        error: pipelineErr.message,
+                        error: outcomesErr.message,
                     });
                 } else {
-                    logs.push({
-                        event: "nba_prop_pipeline_complete",
-                        since_date: sinceDate,
-                        result: pipelineResult ?? null,
+                    const { data: cacheRows, error: cacheErr } = await supabase.rpc("refresh_prop_hit_rate_cache_by_league", {
+                        p_league: "nba",
+                        p_since_date: sinceDate,
                     });
+                    if (cacheErr) {
+                        logs.push({
+                            event: "nba_prop_pipeline_error",
+                            stage: "refresh_prop_hit_rate_cache_by_league",
+                            since_date: sinceDate,
+                            error: cacheErr.message,
+                        });
+                    } else {
+                        logs.push({
+                            event: "nba_prop_pipeline_complete",
+                            since_date: sinceDate,
+                            outcomes_upserts: outcomesUpserts ?? null,
+                            cache_rows: cacheRows ?? null,
+                        });
+                    }
                 }
             } catch (pipelineErr: any) {
                 logs.push({
