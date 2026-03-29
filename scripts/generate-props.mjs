@@ -98,6 +98,93 @@ function buildPlayerSummary(player) {
   return `No strong signal — Top market by sample: ${MARKET_LABEL[topBySample.market] || topBySample.market} ${Number(topBySample.baseline.rate).toFixed(1)}% (${topBySample.baseline.gp} GP)`;
 }
 
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function replaceMarkerBlock(html, startMarker, endMarker, content) {
+  const pattern = new RegExp(`(${escapeRegExp(startMarker)})([\\s\\S]*?)(${escapeRegExp(endMarker)})`);
+  if (!pattern.test(html)) {
+    throw new Error(`Marker block missing: ${startMarker} ... ${endMarker}`);
+  }
+  return html.replace(pattern, `$1${content}$3`);
+}
+
+function formatGeneratedAt(value) {
+  if (!value) return 'Unknown';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZoneName: 'short',
+  });
+}
+
+function renderIndexCards(entries) {
+  return entries.map((p, i) => {
+    const byMarket = {};
+    for (const c of p.cards) {
+      if (!byMarket[c.market]) byMarket[c.market] = c;
+    }
+
+    const chipHtml = Object.values(byMarket).map(c => {
+      const rc = rateClass(c.baseline.rate);
+      const lineValue = Number(c?.current_line?.line ?? c?.line);
+      const lineText = Number.isFinite(lineValue) ? lineValue.toFixed(1) : '—';
+      return `
+        <div class="pc-market-chip">
+          <div class="pc-market-name">${esc(MARKET_LABEL[c.market] || c.market)}</div>
+          <div class="pc-market-rate ${rc}">${Number(c.baseline.rate).toFixed(1)}% Over Rate</div>
+          <div class="pc-market-gp">${c.baseline.gp} GP · O/U ${lineText}</div>
+        </div>
+      `;
+    }).join('');
+
+    const tierTag = p.maxTier === 'feature'
+      ? '<span class="pc-tag hero-tag">Feature</span>'
+      : p.maxTier === 'edge'
+        ? '<span class="pc-tag edge-tag">Edge</span>'
+        : '<span class="pc-tag display-tag">Display</span>';
+
+    const heroTag = p.heroCount > 0
+      ? `<span class="pc-tag hero-tag">${p.heroCount} strong signal${p.heroCount > 1 ? 's' : ''}</span>`
+      : '';
+
+    return `
+      <a class="player-card ${p.heroCount > 0 ? 'has-hero' : ''}" href="/props/${p.slug}" style="animation-delay: ${Math.min(i * 40, 600)}ms">
+        <div class="pc-top">
+          <div class="pc-name">${esc(p.name)}</div>
+          <svg class="pc-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="pc-markets">${chipHtml}</div>
+        <div class="pc-meta">
+          ${tierTag}${heroTag}
+          <span class="pc-card-count">${p.cards.length} card${p.cards.length > 1 ? 's' : ''}</span>
+        </div>
+      </a>
+    `;
+  }).join('');
+}
+
+function buildPropsShell(templateHtml, packForShell, entries) {
+  const freshness = `Pack ${packForShell.version || 'unknown'} · Generated ${formatGeneratedAt(packForShell.generated_at)}`;
+  const resultCount = `${entries.length} player${entries.length !== 1 ? 's' : ''}`;
+  const gridHtml = renderIndexCards(entries);
+  const preloadedPack = JSON.stringify(packForShell);
+
+  let html = templateHtml;
+  html = replaceMarkerBlock(html, '<!-- PRELOADED_INDEX_FRESHNESS_START -->', '<!-- PRELOADED_INDEX_FRESHNESS_END -->', freshness);
+  html = replaceMarkerBlock(html, '<!-- PRELOADED_RESULT_COUNT_START -->', '<!-- PRELOADED_RESULT_COUNT_END -->', resultCount);
+  html = replaceMarkerBlock(html, '<!-- PRELOADED_PLAYER_GRID_START -->', '<!-- PRELOADED_PLAYER_GRID_END -->', gridHtml);
+  html = replaceMarkerBlock(html, '<!-- PRELOADED_PACK_JSON_START -->', '<!-- PRELOADED_PACK_JSON_END -->', preloadedPack);
+  return html;
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // CSS — Profile-specific styles (inline, same pattern as trends/)
 // ══════════════════════════════════════════════════════════════════════════════
@@ -609,15 +696,22 @@ async function main() {
   const sorted = sortPlayers(players);
   const generatedAt = pack.generated_at || new Date().toISOString();
   const selected = sorted.slice(0, limit);
+  const selectedSlugs = new Set(selected.map(p => p.slug));
+  const packForShell = {
+    ...pack,
+    cards: (pack.cards || []).filter(c => selectedSlugs.has(slugify(c.player_name))),
+  };
 
   console.log('[generate-props] Generating %d of %d player pages', selected.length, sorted.length);
 
   // Ensure output directory exists
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  // Keep /props/ itself on the live runtime surface by mirroring the app shell.
-  const livePropsShell = readFileSync(resolve(OUTPUT_DIR, '../props.html'), 'utf-8');
-  writeFileSync(join(OUTPUT_DIR, 'index.html'), livePropsShell, 'utf-8');
+  // Render /props and /props/ with static first-load player rows from the same pack version.
+  const livePropsTemplate = readFileSync(resolve(OUTPUT_DIR, '../props.html'), 'utf-8');
+  const renderedPropsShell = buildPropsShell(livePropsTemplate, packForShell, selected);
+  writeFileSync(resolve(OUTPUT_DIR, '../props.html'), renderedPropsShell, 'utf-8');
+  writeFileSync(join(OUTPUT_DIR, 'index.html'), renderedPropsShell, 'utf-8');
 
   let count = 0;
   for (const player of selected) {
