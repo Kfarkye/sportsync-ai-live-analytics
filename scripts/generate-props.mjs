@@ -393,7 +393,7 @@ function buildPayloadJson(player, generatedAt) {
     object_type: 'player_prop_profile_pointer',
     slug: player.slug,
     url: `${BASE_URL}/props/${player.slug}`,
-    live_profile_url: `${BASE_URL}/props.html#/player/${player.slug}`,
+    live_profile_url: `${BASE_URL}/props#/player/${player.slug}`,
     live_pack_url: PACK_URL,
     player_name: player.name,
     summary: `${player.name} — Live evidence profile sourced from shared pack.`,
@@ -409,7 +409,7 @@ function buildPayloadJson(player, generatedAt) {
 function playerPage(player, generatedAt) {
   const summary = buildPlayerSummary(player);
   const dateStr = generatedAt.split('T')[0];
-  const liveHashUrl = `/props.html#/player/${player.slug}`;
+  const liveHashUrl = `/props#/player/${player.slug}`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -468,21 +468,9 @@ async function main() {
   // Ensure output directory exists
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  // Keep /props/ itself on the live runtime surface.
-  const propsIndex = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>NBA Player Props — Live Evidence | SportsSync</title>
-  <meta http-equiv="refresh" content="0;url=/props.html" />
-  <script>window.location.replace('/props.html');</script>
-</head>
-<body>
-  <p><a href="/props.html">Open live props index</a></p>
-</body>
-</html>`;
-  writeFileSync(join(OUTPUT_DIR, 'index.html'), propsIndex, 'utf-8');
+  // Keep /props/ itself on the live runtime surface by mirroring the app shell.
+  const livePropsShell = readFileSync(resolve(OUTPUT_DIR, '../props.html'), 'utf-8');
+  writeFileSync(join(OUTPUT_DIR, 'index.html'), livePropsShell, 'utf-8');
 
   let count = 0;
   for (const player of selected) {
