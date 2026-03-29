@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>NBA Player Props — Contextual Hit Rates | SportsSync</title>
-  <meta name="description" content="Evidence-backed NBA player prop hit rates. Each player profile shows baseline rates, venue splits, pace tiers, rest days, and season phase — with strict sample gates." />
+  <title>NBA Player Props | SportsSync</title>
+  <meta name="description" content="NBA player prop odds, over/under trends, and projections for today's board." />
   <!-- Machine contract: linked full JSON payload (static URL — works without JS) -->
   <link rel="alternate" type="application/json" href="https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app" />
   <!-- Machine contract: JSON-LD identity/summary (static base, enriched at runtime) -->
@@ -534,10 +534,10 @@
     <div class="nav-inner">
       <a class="nav-brand" href="/">Today's Board</a>
       <div class="nav-tabs">
-        <a class="nav-tab active" href="/props">Player Props</a>
-        <a class="nav-tab" href="/trends/">ATS &amp; O/U</a>
-        <a class="nav-tab" href="/pregame">Matchups</a>
-        <a class="nav-tab" href="https://ref-tendencies.web.app/">Referees</a>
+        <button class="nav-tab active">NBA Player Props</button>
+        <a class="nav-tab" href="https://sportsync-evidence.web.app/trends/">ATS &amp; O/U Trends</a>
+        <a class="nav-tab" href="https://sportsync-evidence.web.app/pregame">Game Matchups</a>
+        <a class="nav-tab" href="https://ref-tendencies.web.app/">NBA Referees</a>
       </div>
     </div>
   </nav>
@@ -552,9 +552,9 @@
   <div id="indexPage" class="page">
     <div class="shell">
       <div class="hero">
-        <div class="hero-kicker">Player Prop Intelligence</div>
-        <h1>Player Prop Profiles</h1>
-        <p class="hero-sub">Evidence-backed hit rates by player. Baseline first, supporting context second. Strict sample gates — 10 GP display floor, 15 GP feature tier.</p>
+        <div class="hero-kicker">Today's Board</div>
+        <h1>NBA Player Props</h1>
+        <p class="hero-sub">Prop odds, over/under trends, and projections for today's board.</p>
         <div class="hero-freshness" id="indexFreshness"><!-- PRELOADED_INDEX_FRESHNESS_START -->Pack v2 · Generated Mar 28, 2026, 18:26 PDT<!-- PRELOADED_INDEX_FRESHNESS_END --></div>
       </div>
 
@@ -13206,7 +13206,7 @@
 
   <!-- Footer -->
   <div class="footer" id="footer" style="display:none">
-    <span>Display floor: 10 GP · Feature: 30+ GP · Markets: points, threes, rebounds, assists, PRA · Data: book-normalized · SportsSync Intelligence</span>
+    <span>Display floor: 10 GP · Feature: 30+ GP · Markets: points, threes, rebounds, assists, PRA · Data: book-normalized · SportsSync</span>
     <span style="float:right">
       <a id="payloadLink" href="https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app" target="_blank" style="color:var(--ink-quaternary);text-decoration:underline;text-underline-offset:2px">View data payload</a>
     </span>
@@ -13232,7 +13232,7 @@ let pack = null;
 let players = {};        // slug → { name, slug, cards[], heroCount, maxTier }
 let activeMarket = 'all';
 let searchQuery = '';
-const DEFAULT_META_DESCRIPTION = 'Evidence-backed NBA player prop hit rates. Each player profile shows baseline rates, venue splits, pace tiers, rest days, and season phase — with strict sample gates.';
+const DEFAULT_META_DESCRIPTION = 'NBA player prop odds, over/under trends, and projections for today\'s board.';
 
 const $ = id => document.getElementById(id);
 
@@ -13696,7 +13696,7 @@ function route() {
   } else {
     $('indexPage').classList.add('active');
     renderIndex();
-    document.title = 'NBA Player Props — Contextual Hit Rates | SportsSync';
+    document.title = 'NBA Player Props | SportsSync';
     const description = document.querySelector('meta[name="description"]');
     if (description) description.setAttribute('content', DEFAULT_META_DESCRIPTION);
   }
