@@ -574,7 +574,7 @@ function playerPage(player, generatedAt) {
     dateModified: dateStr,
     datePublished: dateStr,
     description: `${player.name} player prop odds, over/under trends, and projections for today’s board. ${headline}. ${subParts.join(', ')}.`,
-    publisher: { '@type': 'Organization', name: 'SportsSync Intelligence' },
+    publisher: { '@type': 'Organization', name: 'SportsSync' },
     mainEntityOfPage: { '@type': 'WebPage', '@id': `${BASE_URL}/props/${player.slug}` },
   });
 
@@ -613,7 +613,7 @@ function playerPage(player, generatedAt) {
 
   <nav class="nav">
     <div class="nav-inner">
-      <a class="nav-brand" href="/props">SportsSync Intelligence</a>
+      <a class="nav-brand" href="/">Today's Board</a>
       <div class="nav-tabs">
         <a class="nav-tab" href="https://ref-tendencies.web.app/">Ref Tendencies</a>
         <a class="nav-tab" href="/trends/">Team Trends</a>
