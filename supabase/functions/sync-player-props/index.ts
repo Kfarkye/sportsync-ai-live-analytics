@@ -51,6 +51,15 @@ interface HistoricalEventsResponse {
     data?: HistoricalEvent[];
 }
 
+interface PlayerPropIdentityAliasRow {
+    league_id: string | null;
+    espn_player_id: string | null;
+    canonical_player_name: string | null;
+    alias_key: string | null;
+    team_key: string | null;
+    team_name: string | null;
+}
+
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -253,6 +262,11 @@ interface MatchIdentityIndex {
     initialLastCollisions: Set<string>;
 }
 
+interface AliasCandidate {
+    athlete: Athlete;
+    teamKey: string;
+}
+
 function ensureMatchIdentityIndex(
     matchIdentityMap: Map<string, MatchIdentityIndex>,
     matchId: string,
@@ -311,6 +325,77 @@ async function loadMatchIdentityFromPlayerStats(
     }
 
     return out;
+}
+
+async function loadPlayerIdentityAliases(
+    supabase: ReturnType<typeof createClient>,
+    leagues: string[],
+): Promise<Map<string, AliasCandidate[]>> {
+    const out = new Map<string, AliasCandidate[]>();
+    if (leagues.length === 0) return out;
+
+    const uniqueLeagues = Array.from(new Set(leagues.map((l) => (l || '').trim().toLowerCase()).filter(Boolean)));
+    if (uniqueLeagues.length === 0) return out;
+
+    const { data, error } = await supabase
+        .from('player_prop_identity_aliases')
+        .select('league_id, espn_player_id, canonical_player_name, alias_key, team_key, team_name')
+        .in('league_id', uniqueLeagues);
+
+    if (error) {
+        throw new Error(`player_prop_identity_aliases lookup failed: ${error.message}`);
+    }
+
+    for (const row of (data ?? []) as PlayerPropIdentityAliasRow[]) {
+        const leagueId = String(row.league_id ?? '').trim().toLowerCase();
+        const athleteId = String(row.espn_player_id ?? '').trim();
+        const canonicalName = String(row.canonical_player_name ?? '').trim();
+        const aliasKey = String(row.alias_key ?? '').trim();
+        const teamKey = String(row.team_key ?? '').trim();
+
+        if (!leagueId || !athleteId || !canonicalName || !aliasKey) continue;
+
+        const athlete: Athlete = {
+            id: athleteId,
+            displayName: canonicalName,
+            team: row.team_name ?? undefined,
+            headshot: buildHeadshotUrl(leagueId, athleteId),
+        };
+        const key = `${leagueId}|${aliasKey}`;
+        const list = out.get(key) ?? [];
+        list.push({ athlete, teamKey });
+        out.set(key, list);
+    }
+
+    return out;
+}
+
+function resolveAthleteFromAlias(
+    match: PropMatch,
+    playerName: string,
+    aliasLookup: Map<string, AliasCandidate[]>,
+): Athlete | undefined {
+    const leagueId = String(match.league_id ?? '').trim().toLowerCase();
+    const aliasKey = normalizePlayerToken(playerName);
+    if (!leagueId || !aliasKey) return undefined;
+
+    const candidates = aliasLookup.get(`${leagueId}|${aliasKey}`) ?? [];
+    if (candidates.length === 0) return undefined;
+
+    const matchTeamKeys = new Set([
+        normalizePlayerToken(match.home_team),
+        normalizePlayerToken(match.away_team),
+        normalizeTeamToken(match.home_team),
+        normalizeTeamToken(match.away_team),
+    ]);
+
+    const teamScoped = candidates.filter((candidate) => candidate.teamKey && matchTeamKeys.has(candidate.teamKey));
+    if (teamScoped.length === 1) return teamScoped[0].athlete;
+    if (teamScoped.length > 1) return undefined;
+
+    const global = candidates.filter((candidate) => !candidate.teamKey);
+    if (global.length === 1) return global[0].athlete;
+    return undefined;
 }
 
 function buildDateTeamKey(date: string, homeTeam: string, awayTeam: string): string {
@@ -449,6 +534,23 @@ Deno.serve(async (req: Request) => {
             end_date: endDate,
         });
 
+        let aliasLookup = new Map<string, AliasCandidate[]>();
+        try {
+            aliasLookup = await loadPlayerIdentityAliases(
+                supabase,
+                (matches as PropMatch[]).map((m) => m.league_id),
+            );
+            logs.push({
+                event: 'player_identity_alias_loaded',
+                alias_keys: aliasLookup.size,
+            });
+        } catch (aliasErr: any) {
+            logs.push({
+                event: 'player_identity_alias_load_failed',
+                error: aliasErr?.message ?? String(aliasErr),
+            });
+        }
+
         if (useHistoricalWindow) {
             const identityMap = await loadMatchIdentityFromPlayerStats(supabase, matches as PropMatch[]);
             identityMap.forEach((value, key) => historicalIdentityFallbackByMatch.set(key, value));
@@ -483,11 +585,12 @@ Deno.serve(async (req: Request) => {
                 const athleteInitialLastCollisions = new Set<string>();
                 const historicalIdentity = historicalIdentityFallbackByMatch.get(match.id);
                 let historicalIdentityHits = 0;
+                let aliasIdentityHits = 0;
                 const sportPath = match.league_id === 'nfl' ? 'football/nfl' :
                     match.league_id === 'nba' ? 'basketball/nba' :
                         match.league_id === 'mlb' ? 'baseball/mlb' :
-                        match.league_id === 'nhl' ? 'hockey/nhl' :
-                            match.league_id === 'college-football' ? 'football/college-football' :
+                            match.league_id === 'nhl' ? 'hockey/nhl' :
+                                match.league_id === 'college-football' ? 'football/college-football' :
                                 match.league_id === 'mens-college-basketball' ? 'basketball/mens-college-basketball' :
                                     `${match.league_id}`;
 
@@ -684,7 +787,11 @@ Deno.serve(async (req: Request) => {
                             athlete = resolveAthlete(playerName, historicalIdentity.exactMap, historicalIdentity.initialLastMap);
                             if (athlete) historicalIdentityHits += 1;
                         }
-                        const canonicalPlayerName = (athlete?.displayName || playerName).trim();
+                        if (!athlete) {
+                            athlete = resolveAthleteFromAlias(match, playerName, aliasLookup);
+                            if (athlete) aliasIdentityHits += 1;
+                        }
+                        const canonicalPlayerName = playerName.trim();
 
                         if (!athlete) {
                             console.warn(`[Props: ${match.id}] ⚠️ Player mismatch: "${playerName}" not found in ESPN roster.`);
@@ -727,6 +834,7 @@ Deno.serve(async (req: Request) => {
                             matchId: match.id,
                             count: propUpserts.length,
                             historical_identity_hits: historicalIdentityHits,
+                            alias_identity_hits: aliasIdentityHits,
                         });
                         const overs = propUpserts.filter(p => p.side === 'over').length;
                         const unders = propUpserts.filter(p => p.side === 'under').length;
