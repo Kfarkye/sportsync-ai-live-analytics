@@ -1,11 +1,162 @@
 {
-  "object_type": "player_prop_profile_pointer",
+  "object_type": "player_prop_profile",
+  "version": "v2",
   "slug": "adem-bona",
   "url": "https://sportsync-evidence.web.app/props/adem-bona",
-  "live_profile_url": "https://sportsync-evidence.web.app/props#/player/adem-bona",
-  "live_pack_url": "https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app",
+  "league": "NBA",
+  "season": "2025-26",
   "player_name": "Adem Bona",
-  "summary": "Adem Bona — Live evidence profile sourced from shared pack.",
-  "generated_at": "2026-03-29T00:34:33.295765+00:00",
-  "note": "This file is a route companion. Rendered stats come from the live pack so index/detail stay source-consistent."
+  "summary": "Adem Bona — No strong signal — Top market by sample: Rebounds 36.1% (36 GP)",
+  "generated_at": "2026-03-29T00:48:04.146459+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "rebounds",
+      "market_label": "Rebounds",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 36.1,
+      "record": "13-23",
+      "gp": 36
+    },
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 40.6,
+      "record": "13-19",
+      "gp": 32
+    }
+  ],
+  "markets": {
+    "rebounds": {
+      "baseline": {
+        "rate": 36.1,
+        "record": "13-23",
+        "avg": 5.2,
+        "median": 5,
+        "gp": 36,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 5.5,
+        "rate": 18.8,
+        "record": "3-13",
+        "avg": 5,
+        "gp": 16
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 5.5,
+          "rate": 21.4,
+          "gp": 14
+        },
+        {
+          "book": "DraftKings",
+          "line": 4.5,
+          "rate": 50,
+          "gp": 10
+        },
+        {
+          "book": "DraftKings",
+          "line": 6.5,
+          "rate": 50,
+          "gp": 4
+        },
+        {
+          "book": "DraftKings",
+          "line": 3.5,
+          "rate": 66.7,
+          "gp": 3
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "AWAY",
+          "rate": 30,
+          "record": null,
+          "gp": 10
+        },
+        {
+          "label": "HOME",
+          "rate": 0,
+          "record": null,
+          "gp": 6
+        },
+        {
+          "label": "vs FAST pace",
+          "rate": 33.3,
+          "record": null,
+          "gp": 6
+        }
+      ]
+    },
+    "points": {
+      "baseline": {
+        "rate": 40.6,
+        "record": "13-19",
+        "avg": 6.4,
+        "median": 6,
+        "gp": 32,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 6.5,
+        "rate": 33.3,
+        "record": "4-8",
+        "avg": 6.3,
+        "gp": 12
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 6.5,
+          "rate": 36.4,
+          "gp": 11
+        },
+        {
+          "book": "DraftKings",
+          "line": 5.5,
+          "rate": 62.5,
+          "gp": 8
+        },
+        {
+          "book": "DraftKings",
+          "line": 4.5,
+          "rate": 40,
+          "gp": 5
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "AWAY",
+          "rate": 44.4,
+          "record": null,
+          "gp": 9
+        },
+        {
+          "label": "vs FAST pace",
+          "rate": 20,
+          "record": null,
+          "gp": 5
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
 }

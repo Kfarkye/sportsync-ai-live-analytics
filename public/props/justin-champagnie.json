@@ -1,11 +1,231 @@
 {
-  "object_type": "player_prop_profile_pointer",
+  "object_type": "player_prop_profile",
+  "version": "v2",
   "slug": "justin-champagnie",
   "url": "https://sportsync-evidence.web.app/props/justin-champagnie",
-  "live_profile_url": "https://sportsync-evidence.web.app/props#/player/justin-champagnie",
-  "live_pack_url": "https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app",
+  "league": "NBA",
+  "season": "2025-26",
   "player_name": "Justin Champagnie",
-  "summary": "Justin Champagnie — Live evidence profile sourced from shared pack.",
-  "generated_at": "2026-03-29T00:34:33.295765+00:00",
-  "note": "This file is a route companion. Rendered stats come from the live pack so index/detail stay source-consistent."
+  "summary": "Justin Champagnie — No strong signal — Top market by sample: Points 54.8% (42 GP)",
+  "generated_at": "2026-03-29T00:48:04.146459+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 54.8,
+      "record": "23-19",
+      "gp": 42
+    },
+    {
+      "market": "rebounds",
+      "market_label": "Rebounds",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 50,
+      "record": "20-20",
+      "gp": 40
+    },
+    {
+      "market": "threes_made",
+      "market_label": "Threes Made",
+      "direction": "none",
+      "tier": "edge",
+      "is_hero": false,
+      "rate": 37.5,
+      "record": "6-10",
+      "gp": 16
+    }
+  ],
+  "markets": {
+    "points": {
+      "baseline": {
+        "rate": 54.8,
+        "record": "23-19",
+        "avg": 9.3,
+        "median": 10.5,
+        "gp": 42,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 10.5,
+        "rate": 62.5,
+        "record": "5-3",
+        "avg": 9.5,
+        "gp": 8
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 10.5,
+          "rate": 66.7,
+          "gp": 6
+        },
+        {
+          "book": "DraftKings",
+          "line": 7.5,
+          "rate": 66.7,
+          "gp": 6
+        },
+        {
+          "book": "DraftKings",
+          "line": 8.5,
+          "rate": 20,
+          "gp": 5
+        },
+        {
+          "book": "DraftKings",
+          "line": 5.5,
+          "rate": 75,
+          "gp": 4
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "vs MID pace",
+          "rate": 80,
+          "record": null,
+          "gp": 5
+        },
+        {
+          "label": "Rest: 0",
+          "rate": 60,
+          "record": null,
+          "gp": 5
+        }
+      ]
+    },
+    "rebounds": {
+      "baseline": {
+        "rate": 50,
+        "record": "20-20",
+        "avg": 5.9,
+        "median": 6,
+        "gp": 40,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 6.5,
+        "rate": 50,
+        "record": "6-6",
+        "avg": 6.8,
+        "gp": 12
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 5.5,
+          "rate": 36.4,
+          "gp": 11
+        },
+        {
+          "book": "DraftKings",
+          "line": 4.5,
+          "rate": 62.5,
+          "gp": 8
+        },
+        {
+          "book": "DraftKings",
+          "line": 6.5,
+          "rate": 75,
+          "gp": 8
+        },
+        {
+          "book": "FanDuel",
+          "line": 6.5,
+          "rate": 0,
+          "gp": 4
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "MID season",
+          "rate": 40,
+          "record": null,
+          "gp": 10
+        },
+        {
+          "label": "HOME",
+          "rate": 37.5,
+          "record": null,
+          "gp": 8
+        },
+        {
+          "label": "vs MID pace",
+          "rate": 42.9,
+          "record": null,
+          "gp": 7
+        }
+      ]
+    },
+    "threes_made": {
+      "baseline": {
+        "rate": 37.5,
+        "record": "6-10",
+        "avg": 0.8,
+        "median": 0,
+        "gp": 16,
+        "direction": "none",
+        "tier": "edge",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 0.5,
+        "rate": 40,
+        "record": "6-9",
+        "avg": 0.6,
+        "gp": 15
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 0.5,
+          "rate": 50,
+          "gp": 12
+        },
+        {
+          "book": "FanDuel",
+          "line": 0.5,
+          "rate": 0,
+          "gp": 3
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "MID season",
+          "rate": 36.4,
+          "record": null,
+          "gp": 11
+        },
+        {
+          "label": "vs MID pace",
+          "rate": 11.1,
+          "record": null,
+          "gp": 9
+        },
+        {
+          "label": "AWAY",
+          "rate": 37.5,
+          "record": null,
+          "gp": 8
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
 }

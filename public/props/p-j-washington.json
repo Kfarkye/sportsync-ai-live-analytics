@@ -1,11 +1,362 @@
 {
-  "object_type": "player_prop_profile_pointer",
+  "object_type": "player_prop_profile",
+  "version": "v2",
   "slug": "p-j-washington",
   "url": "https://sportsync-evidence.web.app/props/p-j-washington",
-  "live_profile_url": "https://sportsync-evidence.web.app/props#/player/p-j-washington",
-  "live_pack_url": "https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app",
+  "league": "NBA",
+  "season": "2025-26",
   "player_name": "P.J. Washington",
-  "summary": "P.J. Washington — Live evidence profile sourced from shared pack.",
-  "generated_at": "2026-03-29T00:34:33.295765+00:00",
-  "note": "This file is a route companion. Rendered stats come from the live pack so index/detail stay source-consistent."
+  "summary": "P.J. Washington — Threes Made 34.5% Under (55 GP)",
+  "generated_at": "2026-03-29T00:48:04.146459+00:00",
+  "hero_count": 1,
+  "market_cards": [
+    {
+      "market": "threes_made",
+      "market_label": "Threes Made",
+      "direction": "under",
+      "tier": "feature",
+      "is_hero": true,
+      "rate": 34.5,
+      "record": "19-36",
+      "gp": 55
+    },
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 45.6,
+      "record": "26-31",
+      "gp": 57
+    },
+    {
+      "market": "rebounds",
+      "market_label": "Rebounds",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 51.8,
+      "record": "29-27",
+      "gp": 56
+    },
+    {
+      "market": "pra",
+      "market_label": "Pts+Reb+Ast",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 51,
+      "record": "25-24",
+      "gp": 49
+    },
+    {
+      "market": "assists",
+      "market_label": "Assists",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 44.2,
+      "record": "19-24",
+      "gp": 43
+    }
+  ],
+  "markets": {
+    "threes_made": {
+      "baseline": {
+        "rate": 34.5,
+        "record": "19-36",
+        "avg": 1.3,
+        "median": 1,
+        "gp": 55,
+        "direction": "under",
+        "tier": "feature",
+        "is_hero": true
+      },
+      "current_line": {
+        "line": 1.5,
+        "rate": 36.7,
+        "record": "18-31",
+        "avg": 1.4,
+        "gp": 49
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 1.5,
+          "rate": 39.5,
+          "gp": 43
+        },
+        {
+          "book": "FanDuel",
+          "line": 1.5,
+          "rate": 16.7,
+          "gp": 6
+        },
+        {
+          "book": "DraftKings",
+          "line": 0.5,
+          "rate": 0,
+          "gp": 5
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "vs FAST pace",
+          "rate": 31,
+          "record": null,
+          "gp": 29
+        },
+        {
+          "label": "AWAY",
+          "rate": 32.1,
+          "record": null,
+          "gp": 28
+        },
+        {
+          "label": "Rest: 1",
+          "rate": 29.6,
+          "record": null,
+          "gp": 27
+        }
+      ]
+    },
+    "points": {
+      "baseline": {
+        "rate": 45.6,
+        "record": "26-31",
+        "avg": 14.4,
+        "median": 14,
+        "gp": 57,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 13.5,
+        "rate": 69.2,
+        "record": "9-4",
+        "avg": 15.7,
+        "gp": 13
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 13.5,
+          "rate": 72.7,
+          "gp": 11
+        },
+        {
+          "book": "DraftKings",
+          "line": 14.5,
+          "rate": 66.7,
+          "gp": 9
+        },
+        {
+          "book": "DraftKings",
+          "line": 16.5,
+          "rate": 22.2,
+          "gp": 9
+        },
+        {
+          "book": "DraftKings",
+          "line": 15.5,
+          "rate": 50,
+          "gp": 8
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "vs FAST pace",
+          "rate": 62.5,
+          "record": null,
+          "gp": 8
+        },
+        {
+          "label": "Rest: 1",
+          "rate": 57.1,
+          "record": null,
+          "gp": 7
+        },
+        {
+          "label": "AWAY",
+          "rate": 57.1,
+          "record": null,
+          "gp": 7
+        }
+      ]
+    },
+    "rebounds": {
+      "baseline": {
+        "rate": 51.8,
+        "record": "29-27",
+        "avg": 7.1,
+        "median": 7,
+        "gp": 56,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 6.5,
+        "rate": 66.7,
+        "record": "14-7",
+        "avg": 7.8,
+        "gp": 21
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 6.5,
+          "rate": 66.7,
+          "gp": 21
+        },
+        {
+          "book": "DraftKings",
+          "line": 7.5,
+          "rate": 56.3,
+          "gp": 16
+        },
+        {
+          "book": "DraftKings",
+          "line": 5.5,
+          "rate": 57.1,
+          "gp": 7
+        },
+        {
+          "book": "FanDuel",
+          "line": 5.5,
+          "rate": 0,
+          "gp": 5
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "HOME",
+          "rate": 66.7,
+          "record": null,
+          "gp": 12
+        },
+        {
+          "label": "vs FAST pace",
+          "rate": 63.6,
+          "record": null,
+          "gp": 11
+        },
+        {
+          "label": "AWAY",
+          "rate": 66.7,
+          "record": null,
+          "gp": 9
+        }
+      ]
+    },
+    "pra": {
+      "baseline": {
+        "rate": 51,
+        "record": "25-24",
+        "avg": 23.7,
+        "median": 24,
+        "gp": 49,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 22.5,
+        "rate": 85.7,
+        "record": "6-1",
+        "avg": 27.4,
+        "gp": 7
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 22.5,
+          "rate": 85.7,
+          "gp": 7
+        },
+        {
+          "book": "DraftKings",
+          "line": 24.5,
+          "rate": 42.9,
+          "gp": 7
+        },
+        {
+          "book": "DraftKings",
+          "line": 26.5,
+          "rate": 42.9,
+          "gp": 7
+        },
+        {
+          "book": "DraftKings",
+          "line": 21.5,
+          "rate": 83.3,
+          "gp": 6
+        }
+      ],
+      "supporting_context": []
+    },
+    "assists": {
+      "baseline": {
+        "rate": 44.2,
+        "record": "19-24",
+        "avg": 1.9,
+        "median": 2,
+        "gp": 43,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 2.5,
+        "rate": 33.3,
+        "record": "8-16",
+        "avg": 1.9,
+        "gp": 24
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 2.5,
+          "rate": 33.3,
+          "gp": 24
+        },
+        {
+          "book": "DraftKings",
+          "line": 1.5,
+          "rate": 58.8,
+          "gp": 17
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "vs FAST pace",
+          "rate": 29.4,
+          "record": null,
+          "gp": 17
+        },
+        {
+          "label": "EARLY season",
+          "rate": 35.3,
+          "record": null,
+          "gp": 17
+        },
+        {
+          "label": "Rest: 1",
+          "rate": 20,
+          "record": null,
+          "gp": 15
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
 }

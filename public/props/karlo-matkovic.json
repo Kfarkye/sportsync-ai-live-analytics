@@ -1,11 +1,68 @@
 {
-  "object_type": "player_prop_profile_pointer",
+  "object_type": "player_prop_profile",
+  "version": "v2",
   "slug": "karlo-matkovic",
   "url": "https://sportsync-evidence.web.app/props/karlo-matkovic",
-  "live_profile_url": "https://sportsync-evidence.web.app/props#/player/karlo-matkovic",
-  "live_pack_url": "https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app",
+  "league": "NBA",
+  "season": "2025-26",
   "player_name": "Karlo Matkovic",
-  "summary": "Karlo Matkovic — Live evidence profile sourced from shared pack.",
-  "generated_at": "2026-03-29T00:34:33.295765+00:00",
-  "note": "This file is a route companion. Rendered stats come from the live pack so index/detail stay source-consistent."
+  "summary": "Karlo Matkovic — No strong signal — Top market by sample: Points 40.0% (10 GP)",
+  "generated_at": "2026-03-29T00:48:04.146459+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "display",
+      "is_hero": false,
+      "rate": 40,
+      "record": "4-6",
+      "gp": 10
+    }
+  ],
+  "markets": {
+    "points": {
+      "baseline": {
+        "rate": 40,
+        "record": "4-6",
+        "avg": 5.6,
+        "median": 4.5,
+        "gp": 10,
+        "direction": "none",
+        "tier": "display",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 5.5,
+        "rate": 20,
+        "record": "1-4",
+        "avg": 4.4,
+        "gp": 5
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 5.5,
+          "rate": 20,
+          "gp": 5
+        },
+        {
+          "book": "DraftKings",
+          "line": 6.5,
+          "rate": 66.7,
+          "gp": 3
+        }
+      ],
+      "supporting_context": []
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
 }

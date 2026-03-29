@@ -1,11 +1,176 @@
 {
-  "object_type": "player_prop_profile_pointer",
+  "object_type": "player_prop_profile",
+  "version": "v2",
   "slug": "julian-strawther",
   "url": "https://sportsync-evidence.web.app/props/julian-strawther",
-  "live_profile_url": "https://sportsync-evidence.web.app/props#/player/julian-strawther",
-  "live_pack_url": "https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app",
+  "league": "NBA",
+  "season": "2025-26",
   "player_name": "Julian Strawther",
-  "summary": "Julian Strawther — Live evidence profile sourced from shared pack.",
-  "generated_at": "2026-03-29T00:34:33.295765+00:00",
-  "note": "This file is a route companion. Rendered stats come from the live pack so index/detail stay source-consistent."
+  "summary": "Julian Strawther — No strong signal — Top market by sample: Points 63.2% (19 GP)",
+  "generated_at": "2026-03-29T00:48:04.146459+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "edge",
+      "is_hero": false,
+      "rate": 63.2,
+      "record": "12-7",
+      "gp": 19
+    },
+    {
+      "market": "threes_made",
+      "market_label": "Threes Made",
+      "direction": "none",
+      "tier": "display",
+      "is_hero": false,
+      "rate": 35.7,
+      "record": "5-9",
+      "gp": 14
+    },
+    {
+      "market": "rebounds",
+      "market_label": "Rebounds",
+      "direction": "none",
+      "tier": "display",
+      "is_hero": false,
+      "rate": 46.2,
+      "record": "6-7",
+      "gp": 13
+    }
+  ],
+  "markets": {
+    "points": {
+      "baseline": {
+        "rate": 63.2,
+        "record": "12-7",
+        "avg": 11.8,
+        "median": 12,
+        "gp": 19,
+        "direction": "none",
+        "tier": "edge",
+        "is_hero": false
+      },
+      "current_line": null,
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 9.5,
+          "rate": 100,
+          "gp": 3
+        }
+      ],
+      "supporting_context": []
+    },
+    "threes_made": {
+      "baseline": {
+        "rate": 35.7,
+        "record": "5-9",
+        "avg": 1.5,
+        "median": 1,
+        "gp": 14,
+        "direction": "none",
+        "tier": "display",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 1.5,
+        "rate": 50,
+        "record": "5-5",
+        "avg": 1.8,
+        "gp": 10
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 1.5,
+          "rate": 55.6,
+          "gp": 9
+        },
+        {
+          "book": "DraftKings",
+          "line": 0.5,
+          "rate": 0,
+          "gp": 3
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "LATE season",
+          "rate": 57.1,
+          "record": null,
+          "gp": 7
+        },
+        {
+          "label": "HOME",
+          "rate": 50,
+          "record": null,
+          "gp": 6
+        },
+        {
+          "label": "vs FAST pace",
+          "rate": 50,
+          "record": null,
+          "gp": 6
+        }
+      ]
+    },
+    "rebounds": {
+      "baseline": {
+        "rate": 46.2,
+        "record": "6-7",
+        "avg": 3.1,
+        "median": 3,
+        "gp": 13,
+        "direction": "none",
+        "tier": "display",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 2.5,
+        "rate": 37.5,
+        "record": "3-5",
+        "avg": 2.3,
+        "gp": 8
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 2.5,
+          "rate": 42.9,
+          "gp": 7
+        },
+        {
+          "book": "DraftKings",
+          "line": 3.5,
+          "rate": 33.3,
+          "gp": 3
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "AWAY",
+          "rate": 60,
+          "record": null,
+          "gp": 5
+        },
+        {
+          "label": "vs MID pace",
+          "rate": 40,
+          "record": null,
+          "gp": 5
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
 }
