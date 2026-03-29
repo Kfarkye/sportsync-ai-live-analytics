@@ -387,28 +387,34 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
 
   // ── Determine headline signal ─────────────────────────────────────────────
   let headlineType, headlinePct, headlineAvgVs, headlineExtra;
+  const afterLossOverSignal = afterLoss.overPct >= 55 && afterLoss.gamesWithLine >= 8;
+  const afterLossCoverSignal = afterLoss.coverPct >= 55 && afterLoss.gamesWithSpread >= 8;
+  let afterLossExtra = '';
+  if (afterLossOverSignal) {
+    afterLossExtra = `After a loss, totals go over <strong>${afterLoss.overPct}%</strong> (${afterLoss.overs}-${afterLoss.unders}).`;
+  } else if (afterLossCoverSignal) {
+    afterLossExtra = `After a loss, ${teamName} cover <strong>${afterLoss.coverPct}%</strong> (${afterLoss.covers}-${afterLoss.nonCovers}).`;
+  }
   if (home.overPct >= 55 && home.overPct > home.coverPct) {
     headlineType = 'over';
     headlinePct  = home.overPct;
     headlineAvgVs = home.avgVsClose;
-    headlineExtra = home.closeGameOverPct >= 60
-      ? `In close games, the rate climbs to <strong>${home.closeGameOverPct}%</strong>.`
-      : '';
+    headlineExtra = afterLossExtra;
   } else if (home.coverPct >= 55) {
     headlineType = 'cover';
     headlinePct  = home.coverPct;
     headlineAvgVs = 0;
-    headlineExtra = '';
+    headlineExtra = afterLossExtra;
   } else if (away.overPct >= 55) {
     headlineType = 'away-over';
     headlinePct  = away.overPct;
     headlineAvgVs = away.avgVsClose;
-    headlineExtra = '';
+    headlineExtra = afterLossExtra;
   } else {
     headlineType = 'neutral';
     headlinePct  = Math.max(home.overPct, away.overPct);
     headlineAvgVs = home.avgVsClose;
-    headlineExtra = '';
+    headlineExtra = afterLossExtra;
   }
 
   const today = new Date().toISOString().slice(0, 10);
