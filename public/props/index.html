@@ -3,11 +3,1212 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>NBA Player Props — Live Evidence | SportsSync</title>
-  <meta http-equiv="refresh" content="0;url=/props.html" />
-  <script>window.location.replace('/props.html');</script>
+  <title>NBA Player Props — Contextual Hit Rates | SportsSync</title>
+  <meta name="description" content="Evidence-backed NBA player prop hit rates. Each player profile shows baseline rates, venue splits, pace tiers, rest days, and season phase — with strict sample gates." />
+  <!-- Machine contract: linked full JSON payload (static URL — works without JS) -->
+  <link rel="alternate" type="application/json" href="https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app" />
+  <!-- Machine contract: JSON-LD identity/summary (static base, enriched at runtime) -->
+  <script type="application/ld+json" id="jsonLdBlock">
+  {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    "name": "NBA Player Prop Evidence Pack — 2025-26",
+    "description": "Evidence-backed NBA player prop hit rates with 3-layer model: market baseline, book-normalized line history, and supporting context splits.",
+    "about": {
+      "@type": "SportsOrganization",
+      "name": "NBA",
+      "sport": "Basketball"
+    },
+    "temporalCoverage": "2025-10/2026-03",
+    "distribution": {
+      "@type": "DataDownload",
+      "contentUrl": "https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app",
+      "encodingFormat": "application/json"
+    },
+    "variableMeasured": [
+      { "@type": "PropertyValue", "name": "model", "value": "3-layer: market_baseline + book_normalized + supporting_context" },
+      { "@type": "PropertyValue", "name": "baseline_min_gp", "value": 10 },
+      { "@type": "PropertyValue", "name": "feature_min_gp", "value": 30 },
+      { "@type": "PropertyValue", "name": "markets", "value": "points, threes_made, rebounds, assists, pra" }
+    ]
+  }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;450;500;550;600;700&family=JetBrains+Mono:wght@400;450;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ══════════════════════════════════════════════════════════════════════════
+       SSOT DESIGN SYSTEM — Matches ref-tendencies, team-trends, state-licensing
+       ══════════════════════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #FAFAF8;
+      --surface: #ffffff;
+      --surface-raised: #ffffff;
+      --border: #E8E6DF;
+      --border-subtle: #F5F4F0;
+      --ink: #1A1917;
+      --ink-secondary: #3D3A35;
+      --ink-tertiary: #7D786C;
+      --ink-quaternary: #A8A396;
+      --accent: #B85C38;
+      --accent-secondary: #4B9CD3;
+
+      --shell: 1120px;
+      --shell-wide: 1440px;
+      --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+      --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.03);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
+      --radius: 14px;
+      --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html { background: var(--bg); color: var(--ink); font-size: 15px; overflow-x: clip; }
+    body {
+      font-family: var(--sans); line-height: 1.6;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+      overflow-x: clip;
+      background-image: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(75,156,211,0.04) 0%, transparent 60%);
+      background-repeat: no-repeat;
+    }
+
+    /* ── Nav ── */
+    .nav {
+      position: sticky; top: 0; z-index: 100; height: 48px;
+      background: rgba(250,250,248,0.72);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid rgba(232,230,223,0.6);
+    }
+    .nav-inner {
+      max-width: var(--shell-wide); margin: 0 auto; height: 48px;
+      padding: 0 32px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-brand {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--ink-tertiary);
+      text-decoration: none; cursor: pointer;
+    }
+    .nav-tabs { display: flex; gap: 6px; align-items: center; }
+    .nav-tab {
+      padding: 6px 16px; border: none; background: transparent;
+      font-family: var(--sans); font-size: 13px; font-weight: 500;
+      color: var(--ink-tertiary); cursor: pointer;
+      border-radius: 8px; text-decoration: none;
+      transition: color var(--transition), background var(--transition);
+    }
+    .nav-tab.active {
+      background: linear-gradient(135deg, var(--accent), #A34F2E);
+      color: #fff;
+      box-shadow: 0 1px 4px rgba(184,92,56,0.25), inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+    .nav-tab:hover:not(.active) { color: var(--ink); background: rgba(245,244,240,0.8); }
+
+    /* ── Shell ── */
+    .shell { max-width: var(--shell-wide); margin: 0 auto; padding: 0 32px; }
+
+    /* ── Hero ── */
+    .hero { padding: 40px 0 20px; }
+    .hero-kicker {
+      font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--ink-quaternary); margin-bottom: 8px;
+    }
+    .hero h1 {
+      font-family: var(--serif); font-size: clamp(28px, 3.8vw, 38px);
+      font-weight: 600; letter-spacing: -0.03em; line-height: 1.15;
+      color: var(--ink);
+    }
+    .hero-sub {
+      margin-top: 10px; color: var(--ink-tertiary); font-size: 14.5px;
+      max-width: 62ch; line-height: 1.6; font-weight: 400;
+    }
+    .hero-freshness {
+      margin-top: 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-quaternary);
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Back link ── */
+    .back-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 500; color: var(--ink-tertiary);
+      text-decoration: none; padding: 8px 0; cursor: pointer;
+      transition: color var(--transition);
+    }
+    .back-link:hover { color: var(--accent); }
+    .back-link svg { width: 14px; height: 14px; }
+
+    /* ── Controls ── */
+    .controls {
+      padding: 0 0 16px;
+      display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    }
+    .search-wrap { flex: 1; min-width: 200px; position: relative; }
+    .search-icon {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      width: 16px; height: 16px; color: var(--ink-quaternary); pointer-events: none;
+    }
+    .search-input {
+      width: 100%; padding: 10px 14px 10px 38px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--ink);
+      font-family: var(--sans); font-size: 14px; font-weight: 450;
+      outline: none; transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .search-input::placeholder { color: var(--ink-quaternary); font-weight: 400; }
+    .search-input:focus {
+      border-color: rgba(75,156,211,0.5);
+      box-shadow: 0 0 0 3px rgba(75,156,211,0.08);
+    }
+    .venue-group {
+      display: flex; gap: 1px; background: var(--border); border-radius: 10px;
+      overflow: hidden; box-shadow: var(--shadow-sm);
+    }
+    .venue-btn {
+      padding: 8px 18px; border: none; background: var(--surface);
+      font-family: var(--sans); font-size: 13px; font-weight: 600;
+      color: var(--ink-tertiary); cursor: pointer;
+      transition: all var(--transition); letter-spacing: 0.01em;
+    }
+    .venue-btn:first-child { border-radius: 10px 0 0 10px; }
+    .venue-btn:last-child { border-radius: 0 10px 10px 0; }
+    .venue-btn.active { background: var(--accent); color: #fff; }
+    .venue-btn:hover:not(.active) { color: var(--ink); background: #F5F4F0; }
+    .controls-right { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+    .result-count { font-family: var(--mono); font-size: 11.5px; color: var(--ink-quaternary); white-space: nowrap; }
+
+    /* ══════════════════════════════════════════════════════════════════════════
+       INDEX PAGE — Player Directory
+       ══════════════════════════════════════════════════════════════════════════ */
+    .player-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 12px; padding-bottom: 48px;
+    }
+    @keyframes card-enter {
+      from { opacity: 0; transform: translateY(8px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .player-card {
+      background: var(--surface); border: 1px solid rgba(232,230,223,0.6);
+      border-radius: 12px; padding: 18px 20px;
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: box-shadow 200ms ease, transform 200ms ease;
+      animation: card-enter 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      text-decoration: none; color: inherit; display: block;
+    }
+    .player-card:hover {
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.03);
+      transform: translateY(-2px);
+    }
+    .player-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3.5px;
+    }
+    .player-card.has-hero::before {
+      background: linear-gradient(180deg, var(--accent), #C96830);
+    }
+    .player-card:not(.has-hero)::before {
+      background: linear-gradient(180deg, var(--accent-secondary), #3A87BE);
+    }
+    .pc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .pc-name {
+      font-size: 16px; font-weight: 650; color: var(--ink); letter-spacing: -0.015em; line-height: 1.2;
+    }
+    .pc-arrow {
+      width: 18px; height: 18px; color: var(--ink-quaternary);
+      transition: transform var(--transition), color var(--transition);
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .player-card:hover .pc-arrow { transform: translateX(3px); color: var(--accent); }
+
+    .pc-markets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .pc-market-chip {
+      display: flex; flex-direction: column; gap: 1px;
+      padding: 6px 10px; border-radius: 8px;
+      background: rgba(0,0,0,0.02); border: 1px solid var(--border-subtle);
+    }
+    .pc-market-name {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--ink-quaternary);
+    }
+    .pc-market-rate {
+      font-family: var(--mono); font-size: 13px; font-weight: 600;
+    }
+    .pc-market-rate.over { color: var(--accent); }
+    .pc-market-rate.under { color: #2B6E9C; }
+    .pc-market-rate.neutral { color: var(--ink-secondary); }
+    .pc-market-gp { font-family: var(--mono); font-size: 9px; color: var(--ink-quaternary); }
+
+    .pc-meta {
+      display: flex; gap: 10px; align-items: center;
+      padding-top: 8px; border-top: 1px solid var(--border-subtle);
+    }
+    .pc-tag {
+      font-family: var(--mono); font-size: 9.5px; font-weight: 600;
+      padding: 2px 8px; border-radius: 6px; letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .pc-tag.hero-tag { background: rgba(184,92,56,0.08); color: var(--accent); }
+    .pc-tag.edge-tag { background: rgba(75,156,211,0.08); color: #2B6E9C; }
+    .pc-tag.display-tag { background: rgba(168,163,150,0.08); color: var(--ink-tertiary); }
+    .pc-card-count {
+      font-family: var(--mono); font-size: 10px; color: var(--ink-quaternary); margin-left: auto;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════════
+       PROFILE PAGE — Single Player (3-Layer Model)
+       ══════════════════════════════════════════════════════════════════════════ */
+    .profile { padding-bottom: 48px; }
+
+    .profile-header { margin-bottom: 28px; }
+    .profile-name {
+      font-family: var(--serif); font-size: clamp(26px, 3.4vw, 36px);
+      font-weight: 600; letter-spacing: -0.03em; line-height: 1.15;
+      color: var(--ink); margin-bottom: 4px;
+    }
+    .profile-sub {
+      font-size: 14px; color: var(--ink-tertiary); font-weight: 450;
+    }
+    .profile-freshness {
+      margin-top: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-quaternary);
+      letter-spacing: 0.02em;
+    }
+
+    /* Market section */
+    .market-section { margin-bottom: 32px; }
+    .market-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--ink-tertiary);
+      padding-bottom: 12px; border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .market-line-label {
+      font-family: var(--mono); font-size: 10.5px; font-weight: 500;
+      color: var(--ink-quaternary);
+    }
+
+    /* Baseline block — LAYER 1: Market Baseline */
+    .baseline-card {
+      background: rgba(255,255,255,0.6);
+      backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border: 1px solid rgba(232,230,223,0.4);
+      border-radius: 16px; padding: 22px 24px; margin-bottom: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.02);
+      position: relative; overflow: hidden;
+    }
+    .baseline-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3.5px;
+    }
+    .baseline-card.dir-over::before { background: linear-gradient(180deg, var(--accent), #C96830); }
+    .baseline-card.dir-under::before { background: linear-gradient(180deg, var(--accent-secondary), #3A87BE); }
+    .baseline-card.dir-none::before { background: linear-gradient(180deg, var(--ink-quaternary), var(--ink-tertiary)); }
+
+    .bl-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+    }
+    .bl-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--ink-quaternary);
+    }
+    .bl-signal {
+      font-family: var(--mono); font-size: 10px; font-weight: 700;
+      padding: 4px 12px; border-radius: 8px; white-space: nowrap;
+      letter-spacing: 0.02em;
+    }
+    .bl-signal.dir-over {
+      background: linear-gradient(135deg, var(--accent), #A34F2E); color: #fff;
+      box-shadow: 0 2px 6px rgba(184,92,56,0.3);
+    }
+    .bl-signal.dir-under {
+      background: rgba(75,156,211,0.12); color: #2B6E9C;
+      border: 1px solid rgba(75,156,211,0.2);
+    }
+    .bl-signal.dir-none {
+      background: rgba(168,163,150,0.1); color: var(--ink-tertiary);
+      border: 1px solid rgba(168,163,150,0.15);
+    }
+    .bl-tier {
+      font-family: var(--mono); font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; padding: 2px 8px; border-radius: 6px; margin-left: 6px;
+    }
+    .bl-tier.feature { background: rgba(184,92,56,0.08); color: var(--accent); }
+    .bl-tier.edge { background: rgba(75,156,211,0.08); color: #2B6E9C; }
+
+    .bl-stats {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 16px;
+    }
+    .bl-stat { display: flex; flex-direction: column; gap: 2px; }
+    .bl-stat-label {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--ink-quaternary);
+    }
+    .bl-stat-value {
+      font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--ink);
+      letter-spacing: -0.02em;
+    }
+    .bl-stat-value.rate-high { color: var(--accent); }
+    .bl-stat-value.rate-low { color: #2B6E9C; }
+    .bl-stat-value.small { font-size: 15px; }
+
+    /* Pct bar inside baseline */
+    .bl-pct-track {
+      width: 100%; height: 6px; border-radius: 4px;
+      background: rgba(0,0,0,0.04); overflow: hidden; margin-top: 4px;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .bl-pct-fill { height: 100%; border-radius: 4px; transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1); }
+    .bl-pct-fill.over { background: linear-gradient(90deg, var(--accent), #C96830); }
+    .bl-pct-fill.under { background: linear-gradient(90deg, var(--accent-secondary), #3A87BE); }
+    .bl-pct-fill.neutral { background: rgba(168,163,150,0.4); }
+
+    /* LAYER 2: Current Line card */
+    .current-line-card {
+      background: rgba(255,255,255,0.5);
+      border: 1px solid rgba(232,230,223,0.45);
+      border-radius: 12px; padding: 16px 20px; margin-bottom: 12px;
+    }
+    .cl-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+    }
+    .cl-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--ink-quaternary);
+    }
+    .cl-line-badge {
+      font-family: var(--mono); font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 7px;
+      background: rgba(0,0,0,0.04); color: var(--ink-secondary);
+      border: 1px solid var(--border-subtle);
+    }
+    .cl-stats {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+      gap: 12px;
+    }
+
+    /* LAYER 2B: Book Context table */
+    .book-section { margin-top: 12px; }
+    .book-title {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--ink-quaternary);
+      margin-bottom: 8px;
+    }
+    .book-chips {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .book-chip {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: 8px 12px; border-radius: 10px;
+      background: rgba(0,0,0,0.015); border: 1px solid var(--border-subtle);
+      min-width: 100px;
+    }
+    .book-chip-name {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--ink-quaternary);
+    }
+    .book-chip-line {
+      font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--ink-secondary);
+    }
+    .book-chip-meta {
+      font-family: var(--mono); font-size: 9.5px; color: var(--ink-quaternary);
+    }
+
+    /* Context table */
+    .ctx-section { margin-top: 16px; }
+    .ctx-title {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--ink-quaternary);
+      margin-bottom: 8px;
+    }
+    .ctx-table {
+      width: 100%; border-collapse: separate; border-spacing: 0;
+      background: var(--surface); border: 1px solid rgba(232,230,223,0.5);
+      border-radius: 10px; overflow: hidden;
+    }
+    .ctx-table th {
+      padding: 9px 14px; text-align: left;
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--ink-quaternary);
+      background: rgba(250,250,248,0.8); border-bottom: 1px solid var(--border);
+    }
+    .ctx-table th:not(:first-child) { text-align: center; }
+    .ctx-table td {
+      padding: 10px 14px; font-size: 13px; border-bottom: 1px solid rgba(232,230,223,0.35);
+      vertical-align: middle;
+    }
+    .ctx-table td:not(:first-child) { text-align: center; font-family: var(--mono); font-size: 12.5px; font-weight: 500; }
+    .ctx-table tr:last-child td { border-bottom: none; }
+    .ctx-table tr:hover { background: rgba(0,0,0,0.015); }
+    .ctx-label { font-weight: 550; color: var(--ink); }
+    .ctx-rate { font-weight: 600; }
+    .ctx-rate.over { color: var(--accent); }
+    .ctx-rate.under { color: #2B6E9C; }
+    .ctx-rate.neutral { color: var(--ink-secondary); }
+    .ctx-gp { color: var(--ink-quaternary); }
+
+    /* ── Loading ── */
+    @keyframes shimmer {
+      0% { background-position: -200px 0; }
+      100% { background-position: calc(200px + 100%) 0; }
+    }
+    .loading {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 100px 0; gap: 12px;
+    }
+    .loading-bar {
+      width: 120px; height: 4px; border-radius: 4px; overflow: hidden;
+      background: var(--border-subtle);
+    }
+    .loading-bar-fill {
+      width: 40%; height: 100%; border-radius: 4px;
+      background: linear-gradient(90deg, var(--border-subtle), var(--ink-quaternary), var(--border-subtle));
+      background-size: 200px 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    .loading-text { font-size: 12px; color: var(--ink-quaternary); font-weight: 450; }
+
+    .empty-state { padding: 60px 24px; text-align: center; }
+    .empty-state p { color: var(--ink-tertiary); font-size: 14px; }
+    .empty-state p + p { margin-top: 6px; font-size: 13px; color: var(--ink-quaternary); }
+
+    /* ── Footer ── */
+    .footer {
+      max-width: var(--shell-wide); margin: 0 auto;
+      padding: 24px 32px; border-top: 1px solid var(--border);
+      font-size: 11.5px; color: var(--ink-quaternary); letter-spacing: 0.02em;
+      font-weight: 400;
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 768px) {
+      .shell { padding: 0 20px; }
+      .hero { padding: 20px 0 14px; }
+      .hero h1 { font-size: 22px; }
+      .hero-sub { font-size: 12.5px; }
+      .controls {
+        position: sticky; top: 48px; z-index: 90;
+        background: rgba(250,250,249,0.92);
+        backdrop-filter: saturate(180%) blur(16px);
+        -webkit-backdrop-filter: saturate(180%) blur(16px);
+        flex-wrap: nowrap; gap: 8px; padding: 0 0 10px;
+      }
+      .search-wrap { min-width: 120px; }
+      .search-input { padding: 8px 12px 8px 34px; font-size: 13px; }
+      .venue-btn { padding: 6px 12px; font-size: 12px; }
+      .result-count { display: none; }
+      .controls-right { margin-left: 0; }
+      .player-grid { grid-template-columns: 1fr; }
+      .nav-inner { padding: 0 16px; }
+      .nav-tab { padding: 5px 10px; font-size: 11.5px; }
+      .footer { padding: 16px 20px; }
+      .bl-stats { grid-template-columns: repeat(2, 1fr); }
+      .cl-stats { grid-template-columns: repeat(2, 1fr); }
+      .profile-name { font-size: 24px; }
+      .book-chips { gap: 4px; }
+      .book-chip { min-width: 80px; padding: 6px 10px; }
+    }
+
+    /* Page transitions */
+    .page { display: none; }
+    .page.active { display: block; animation: page-in 350ms cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes page-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
 <body>
-  <p><a href="/props.html">Open live props index</a></p>
+
+  <!-- Nav -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="nav-brand" onclick="navigateTo('')">SportsSync Intelligence</a>
+      <div class="nav-tabs">
+        <a class="nav-tab" href="https://ref-tendencies.web.app/">Ref Tendencies</a>
+        <a class="nav-tab" href="https://sportsync-evidence.web.app/trends/">Team Trends</a>
+        <button class="nav-tab active">Props</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Loading -->
+  <div id="loading" class="loading">
+    <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+    <div class="loading-text">Loading evidence pack…</div>
+  </div>
+
+  <!-- ═══════════  INDEX PAGE  ═══════════ -->
+  <div id="indexPage" class="page">
+    <div class="shell">
+      <div class="hero">
+        <div class="hero-kicker">Player Prop Intelligence</div>
+        <h1>Player Prop Profiles</h1>
+        <p class="hero-sub">Evidence-backed hit rates by player. Baseline first, supporting context second. Strict sample gates — 10 GP display floor, 15 GP feature tier.</p>
+        <div class="hero-freshness" id="indexFreshness"></div>
+      </div>
+
+      <div class="controls">
+        <div class="search-wrap">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="search-input" type="text" id="searchInput" placeholder="Search player…" />
+        </div>
+        <div class="venue-group" id="marketTabs">
+          <button class="venue-btn active" data-market="all">All</button>
+          <button class="venue-btn" data-market="points">Points</button>
+          <button class="venue-btn" data-market="threes_made">Threes</button>
+          <button class="venue-btn" data-market="rebounds">Rebounds</button>
+          <button class="venue-btn" data-market="assists">Assists</button>
+          <button class="venue-btn" data-market="pra">PRA</button>
+        </div>
+        <div class="controls-right">
+          <span class="result-count" id="resultCount"></span>
+        </div>
+      </div>
+
+      <div id="playerGrid" class="player-grid"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════  PROFILE PAGE  ═══════════ -->
+  <div id="profilePage" class="page">
+    <div class="shell">
+      <div class="hero">
+        <a class="back-link" onclick="navigateTo('')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          All Players
+        </a>
+        <div class="profile-header">
+          <div class="profile-name" id="profileName"></div>
+          <div class="profile-sub" id="profileSub"></div>
+          <div class="profile-freshness" id="profileFreshness"></div>
+        </div>
+      </div>
+      <div class="profile" id="profileBody"></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer" id="footer" style="display:none">
+    <span>Display floor: 10 GP · Feature: 30+ GP · Markets: points, threes, rebounds, assists, PRA · Data: book-normalized · SportsSync Intelligence</span>
+    <span style="float:right">
+      <a id="payloadLink" href="https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app" target="_blank" style="color:var(--ink-quaternary);text-decoration:underline;text-underline-offset:2px">View data payload</a>
+    </span>
+  </div>
+  <p class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Structured data and full JSON payload available for this evidence pack. JSON endpoint: https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app</p>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// SSOT — Config & State
+// ══════════════════════════════════════════════════════════════════════════════
+const PACK_URL = 'https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app';
+const FALLBACK_URL = 'https://qffzvrnbzabcokqqrwbv.supabase.co/rest/v1/rpc/generate_prop_evidence_pack';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZnp2cm5iemFiY29rcXFyd2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTc2NjgsImV4cCI6MjA3MDkzMzY2OH0.PCSnC5E7sG7FvasHy_9DdwiN61xW0GzFROLzZ0bTVnc';
+
+const MARKET_LABEL = { threes_made: 'Threes Made', rebounds: 'Rebounds', assists: 'Assists', points: 'Points', pra: 'Pts+Reb+Ast' };
+const CONTEXT_LABEL = {
+  venue: 'Venue', opp_pace_tier: 'Opp Pace', rest_days: 'Rest Days', season_phase: 'Season Phase',
+  all: 'Baseline', teammate_out: 'Teammate Out', crew_chief: 'Crew Chief', travel_pattern: 'Travel'
+};
+
+let pack = null;
+let players = {};        // slug → { name, slug, cards[], heroCount, maxTier }
+let activeMarket = 'all';
+let searchQuery = '';
+const DEFAULT_META_DESCRIPTION = 'Evidence-backed NBA player prop hit rates. Each player profile shows baseline rates, venue splits, pace tiers, rest days, and season phase — with strict sample gates.';
+
+const $ = id => document.getElementById(id);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Slug helper
+// ══════════════════════════════════════════════════════════════════════════════
+function slugify(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function marketLabel(market) {
+  return MARKET_LABEL[market] || market;
+}
+
+function getTopMarketBySample(cards) {
+  if (!cards || cards.length === 0) return null;
+  return [...cards].sort((a, b) => Number(b?.baseline?.gp || 0) - Number(a?.baseline?.gp || 0))[0];
+}
+
+function buildPlayerSummary(player) {
+  const hero = player.cards.find(c => c?.baseline?.is_hero && (c.direction === 'over' || c.direction === 'under'));
+  if (hero) {
+    const dir = hero.direction === 'over' ? 'Over' : 'Under';
+    return `${marketLabel(hero.market)} ${Number(hero.baseline.rate).toFixed(1)}% ${dir} (${hero.baseline.gp} GP)`;
+  }
+  const topBySample = getTopMarketBySample(player.cards);
+  if (!topBySample) return 'No strong signal — no qualified cards';
+  return `No strong signal — Top market by sample: ${marketLabel(topBySample.market)} ${Number(topBySample.baseline.rate).toFixed(1)}% (${topBySample.baseline.gp} GP)`;
+}
+
+function formatGeneratedAt(value) {
+  if (!value) return 'Unknown';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZoneName: 'short',
+  });
+}
+
+function freshnessLabel() {
+  const version = pack?.version || 'unknown';
+  const generatedAt = formatGeneratedAt(pack?.generated_at);
+  return `Pack ${version} · Generated ${generatedAt}`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Fetch
+// ══════════════════════════════════════════════════════════════════════════════
+async function fetchPack() {
+  try {
+    const r = await fetch(PACK_URL);
+    if (!r.ok) throw new Error(`CF ${r.status}`);
+    return r.json();
+  } catch (e) {
+    console.warn('CF unavailable, fallback:', e.message);
+    const r = await fetch(FALLBACK_URL, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+    });
+    if (!r.ok) throw new Error(`RPC ${r.status}`);
+    return r.json();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Data Processing — Group cards by player
+// ══════════════════════════════════════════════════════════════════════════════
+function buildPlayerIndex(cards) {
+  const map = {};
+  for (const c of cards) {
+    const slug = slugify(c.player_name);
+    if (!map[slug]) {
+      map[slug] = { name: c.player_name, slug, cards: [], heroCount: 0, maxTier: 'display' };
+    }
+    map[slug].cards.push(c);
+    if (c.baseline.is_hero) map[slug].heroCount++;
+    if (c.baseline.tier === 'feature') map[slug].maxTier = 'feature';
+    else if (c.baseline.tier === 'edge' && map[slug].maxTier !== 'feature') map[slug].maxTier = 'edge';
+  }
+  return map;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Render helpers
+// ══════════════════════════════════════════════════════════════════════════════
+function rateClass(rate) {
+  const r = Number(rate);
+  if (r >= 60) return 'over';
+  if (r <= 40) return 'under';
+  return 'neutral';
+}
+
+function rateLabel(rate) {
+  const r = Number(rate);
+  if (r >= 60) return 'rate-high';
+  if (r <= 40) return 'rate-low';
+  return '';
+}
+
+function dirClass(dir) {
+  if (dir === 'over') return 'dir-over';
+  if (dir === 'under') return 'dir-under';
+  return 'dir-none';
+}
+
+function dirLabel(dir) {
+  if (dir === 'over') return 'OVER LEAN';
+  if (dir === 'under') return 'UNDER LEAN';
+  return 'MIXED';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INDEX — Render player directory
+// ══════════════════════════════════════════════════════════════════════════════
+function renderIndex() {
+  let entries = Object.values(players);
+  $('indexFreshness').textContent = freshnessLabel();
+
+  // Filter by market
+  if (activeMarket !== 'all') {
+    entries = entries.filter(p => p.cards.some(c => c.market === activeMarket));
+  }
+
+  // Filter by search
+  if (searchQuery) {
+    entries = entries.filter(p => p.name.toLowerCase().includes(searchQuery));
+  }
+
+  // Sort: hero count DESC, then feature > edge > display, then alphabetical
+  const tierRank = { feature: 3, edge: 2, display: 1 };
+  entries.sort((a, b) => {
+    if (b.heroCount !== a.heroCount) return b.heroCount - a.heroCount;
+    if (tierRank[b.maxTier] !== tierRank[a.maxTier]) return tierRank[b.maxTier] - tierRank[a.maxTier];
+    return a.name.localeCompare(b.name);
+  });
+
+  $('resultCount').textContent = `${entries.length} player${entries.length !== 1 ? 's' : ''}`;
+
+  if (entries.length === 0) {
+    $('playerGrid').innerHTML = `<div class="empty-state"><p>No players match your filters.</p><p>Try a different market or clear your search.</p></div>`;
+    return;
+  }
+
+  $('playerGrid').innerHTML = entries.map((p, i) => {
+    // Get market summaries for this player
+    const marketCards = activeMarket !== 'all'
+      ? p.cards.filter(c => c.market === activeMarket)
+      : p.cards;
+
+    // Group by market for chips
+    const byMarket = {};
+    for (const c of marketCards) {
+      if (!byMarket[c.market]) byMarket[c.market] = c;
+    }
+
+    const chipHtml = Object.values(byMarket).map(c => {
+      const rc = rateClass(c.baseline.rate);
+      return `
+        <div class="pc-market-chip">
+          <div class="pc-market-name">${marketLabel(c.market)}</div>
+          <div class="pc-market-rate ${rc}">${Number(c.baseline.rate).toFixed(1)}% Over Rate</div>
+          <div class="pc-market-gp">${c.baseline.gp} GP · O/U ${Number(c.line).toFixed(1)}</div>
+        </div>
+      `;
+    }).join('');
+
+    const tierTag = p.maxTier === 'feature'
+      ? '<span class="pc-tag hero-tag">Feature</span>'
+      : p.maxTier === 'edge'
+        ? '<span class="pc-tag edge-tag">Edge</span>'
+        : '<span class="pc-tag display-tag">Display</span>';
+
+    const heroTag = p.heroCount > 0
+      ? `<span class="pc-tag hero-tag">${p.heroCount} strong signal${p.heroCount > 1 ? 's' : ''}</span>`
+      : '';
+
+    return `
+      <a class="player-card ${p.heroCount > 0 ? 'has-hero' : ''}" href="/props/${p.slug}" style="animation-delay: ${Math.min(i * 40, 600)}ms">
+        <div class="pc-top">
+          <div class="pc-name">${p.name}</div>
+          <svg class="pc-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="pc-markets">${chipHtml}</div>
+        <div class="pc-meta">
+          ${tierTag}${heroTag}
+          <span class="pc-card-count">${marketCards.length} card${marketCards.length > 1 ? 's' : ''}</span>
+        </div>
+      </a>
+    `;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PROFILE — Render single player page
+// ══════════════════════════════════════════════════════════════════════════════
+function renderProfile(slug) {
+  const player = players[slug];
+  if (!player) {
+    $('profileName').textContent = 'Player Not Found';
+    $('profileSub').textContent = '';
+    $('profileFreshness').textContent = '';
+    $('profileBody').innerHTML = '<div class="empty-state"><p>No data for this player.</p></div>';
+    return;
+  }
+
+  $('profileName').textContent = player.name;
+
+  const cardCount = player.cards.length;
+  const heroCount = player.heroCount;
+  const summary = buildPlayerSummary(player);
+  const subParts = [`${cardCount} qualified card${cardCount > 1 ? 's' : ''}`];
+  if (heroCount > 0) subParts.push(`${heroCount} strong signal${heroCount > 1 ? 's' : ''}`);
+  subParts.push(summary);
+  $('profileSub').textContent = subParts.join(' · ');
+  $('profileFreshness').textContent = freshnessLabel();
+
+  // Group cards by market
+  const byMarket = {};
+  for (const c of player.cards) {
+    if (!byMarket[c.market]) byMarket[c.market] = [];
+    byMarket[c.market].push(c);
+  }
+
+  // Render each market section with 3-layer model
+  let html = '';
+  for (const [market, cards] of Object.entries(byMarket)) {
+    const card = cards[0];
+    const b = card.baseline;
+    const cl = card.current_line;
+    const bc = card.book_context || [];
+    const dc = dirClass(card.direction);
+
+    // ── Market header ──
+    const linePart = cl ? `Most Common Historical Line: O/U ${Number(cl.line).toFixed(1)}` : '';
+    html += `
+      <div class="market-section">
+        <div class="market-title">
+          <span>${marketLabel(market)}</span>
+          <span class="market-line-label">${linePart}</span>
+        </div>
+    `;
+
+    // ── LAYER 1: Market Baseline (all lines, all books) ──
+    html += `
+        <div class="baseline-card ${dc}">
+          <div class="bl-header">
+            <div class="bl-label">Baseline — All Games</div>
+            <div>
+              <span class="bl-signal ${dc}">${dirLabel(card.direction)}</span>
+              <span class="bl-tier ${b.tier}">${b.tier}</span>
+            </div>
+          </div>
+          <div class="bl-stats">
+            <div class="bl-stat">
+              <div class="bl-stat-label">Over Rate</div>
+              <div class="bl-stat-value ${rateLabel(b.rate)}">${Number(b.rate).toFixed(1)}%</div>
+              <div class="bl-pct-track">
+                <div class="bl-pct-fill ${rateClass(b.rate)}" style="width: ${b.rate}%"></div>
+              </div>
+            </div>
+            <div class="bl-stat">
+              <div class="bl-stat-label">Record</div>
+              <div class="bl-stat-value small">${b.record}</div>
+            </div>
+            <div class="bl-stat">
+              <div class="bl-stat-label">Average</div>
+              <div class="bl-stat-value small">${Number(b.avg).toFixed(1)}</div>
+            </div>
+            <div class="bl-stat">
+              <div class="bl-stat-label">Median</div>
+              <div class="bl-stat-value small">${Number(b.median).toFixed(1)}</div>
+            </div>
+            <div class="bl-stat">
+              <div class="bl-stat-label">Games Played</div>
+              <div class="bl-stat-value small">${b.gp}</div>
+            </div>
+          </div>
+        </div>
+    `;
+
+    // ── LAYER 2: Current Line (most common line) ──
+    if (cl) {
+      html += `
+        <div class="current-line-card">
+          <div class="cl-header">
+            <div class="cl-label">Most Common Historical Line</div>
+            <div class="cl-line-badge">O/U ${Number(cl.line).toFixed(1)}</div>
+          </div>
+          <div class="cl-stats">
+            <div class="bl-stat">
+              <div class="bl-stat-label">Over Rate</div>
+              <div class="bl-stat-value ${rateLabel(cl.rate)}">${Number(cl.rate).toFixed(1)}%</div>
+              <div class="bl-pct-track">
+                <div class="bl-pct-fill ${rateClass(cl.rate)}" style="width: ${cl.rate}%"></div>
+              </div>
+            </div>
+            <div class="bl-stat">
+              <div class="bl-stat-label">Record</div>
+              <div class="bl-stat-value small">${cl.record}</div>
+            </div>
+            <div class="bl-stat">
+              <div class="bl-stat-label">Average</div>
+              <div class="bl-stat-value small">${Number(cl.avg).toFixed(1)}</div>
+            </div>
+            <div class="bl-stat">
+              <div class="bl-stat-label">GP at Line</div>
+              <div class="bl-stat-value small">${cl.gp}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── LAYER 2B: Book Context ──
+    if (bc.length > 0) {
+      html += `
+        <div class="book-section">
+          <div class="book-title">Book Pricing History</div>
+          <div class="book-chips">
+      `;
+      for (const bk of bc) {
+        html += `
+            <div class="book-chip">
+              <div class="book-chip-name">${bk.book}</div>
+              <div class="book-chip-line">O/U ${Number(bk.line).toFixed(1)}</div>
+              <div class="book-chip-meta">${bk.gp} GP · ${Number(bk.rate).toFixed(0)}% over</div>
+            </div>
+        `;
+      }
+      html += '</div></div>';
+    }
+
+    // ── Supporting contexts table ──
+    const contexts = card.supporting_contexts;
+    if (contexts && contexts.length > 0) {
+      html += `
+        <div class="ctx-section">
+          <div class="ctx-title">Supporting Context</div>
+          <table class="ctx-table">
+            <thead>
+              <tr>
+                <th>Context</th>
+                <th>Over Rate</th>
+                <th>Record</th>
+                <th>GP</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      for (const ctx of contexts) {
+        html += `
+          <tr>
+            <td><span class="ctx-label">${ctx.label}</span></td>
+            <td><span class="ctx-rate ${rateClass(ctx.rate)}">${Number(ctx.rate).toFixed(1)}%</span></td>
+            <td>${ctx.record || '—'}</td>
+            <td><span class="ctx-gp">${ctx.gp}</span></td>
+          </tr>
+        `;
+      }
+      html += '</tbody></table></div>';
+    }
+
+    html += '</div>'; // close market-section
+  }
+
+  $('profileBody').innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Router
+// ══════════════════════════════════════════════════════════════════════════════
+function navigateTo(path) {
+  window.location.hash = path ? '#/' + path : '#/';
+}
+
+function detailSlugFromLocation(hashValue) {
+  const hash = hashValue || '';
+  if (hash.startsWith('player/')) {
+    return hash.replace('player/', '');
+  }
+  const pathname = (window.location.pathname || '').replace(/\/+$/, '');
+  const match = pathname.match(/^\/props\/([a-z0-9-]+)$/i);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+function route() {
+  const hash = (window.location.hash || '#/').replace('#/', '');
+  const slug = detailSlugFromLocation(hash);
+
+  // Hide all pages
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+  if (slug) {
+    $('profilePage').classList.add('active');
+    renderProfile(slug);
+    const player = players[slug];
+    const summary = player ? buildPlayerSummary(player) : 'Prop profile';
+    document.title = `${player?.name || 'Player'} — ${summary} | SportsSync`;
+    const description = document.querySelector('meta[name="description"]');
+    if (description) {
+      description.setAttribute('content', player
+        ? `${player.name} prop evidence profile. ${summary}. ${freshnessLabel()}.`
+        : DEFAULT_META_DESCRIPTION);
+    }
+    window.scrollTo(0, 0);
+  } else {
+    $('indexPage').classList.add('active');
+    renderIndex();
+    document.title = 'NBA Player Props — Contextual Hit Rates | SportsSync';
+    const description = document.querySelector('meta[name="description"]');
+    if (description) description.setAttribute('content', DEFAULT_META_DESCRIPTION);
+  }
+
+  $('footer').style.display = '';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Events
+// ══════════════════════════════════════════════════════════════════════════════
+function bindEvents() {
+  window.addEventListener('hashchange', route);
+
+  $('marketTabs').addEventListener('click', e => {
+    const btn = e.target.closest('.venue-btn');
+    if (!btn) return;
+    $('marketTabs').querySelectorAll('.venue-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeMarket = btn.dataset.market;
+    renderIndex();
+  });
+
+  let debounce;
+  $('searchInput').addEventListener('input', e => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      searchQuery = e.target.value.toLowerCase().trim();
+      renderIndex();
+    }, 150);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// Machine Contract Layer — JSON-LD + Full Payload
+// One source object → two render targets (human page + machine contract)
+// ══════════════════════════════════════════════════════════════════════════════
+function injectMachineContract(pack, players) {
+  // ── 1. Build summary for JSON-LD ──
+  const heroCards = pack.cards.filter(c => c.baseline.is_hero);
+  const totalPlayers = Object.keys(players).length;
+  const totalCards = pack.cards.length;
+  const markets = [...new Set(pack.cards.map(c => c.market))];
+  const generatedAt = pack.generated_at || new Date().toISOString();
+
+  // Top 3 hero signals for the summary description
+  const topSignals = heroCards.slice(0, 3).map(c => {
+    const dir = c.direction === 'over' ? 'OVER' : c.direction === 'under' ? 'UNDER' : 'MIXED';
+    return `${c.player_name} ${MARKET_LABEL[c.market] || c.market} ${dir} ${Number(c.baseline.rate).toFixed(0)}% (${c.baseline.gp} GP)`;
+  });
+  const summaryDesc = topSignals.length > 0
+    ? `Strongest signals: ${topSignals.join('; ')}.`
+    : `${totalCards} qualified prop cards across ${totalPlayers} players.`;
+
+  // JSON-LD: identity + summary layer
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    'name': 'NBA Player Prop Evidence Pack — 2025-26',
+    'description': summaryDesc,
+    'about': {
+      '@type': 'SportsOrganization',
+      'name': 'NBA',
+      'sport': 'Basketball'
+    },
+    'temporalCoverage': '2025-10/2026-03',
+    'dateModified': generatedAt.split('T')[0],
+    'variableMeasured': [
+      { '@type': 'PropertyValue', 'name': 'total_players', 'value': totalPlayers },
+      { '@type': 'PropertyValue', 'name': 'total_cards', 'value': totalCards },
+      { '@type': 'PropertyValue', 'name': 'hero_cards', 'value': heroCards.length },
+      { '@type': 'PropertyValue', 'name': 'markets', 'value': markets.join(', ') },
+      { '@type': 'PropertyValue', 'name': 'model', 'value': pack.model || '3-layer' },
+      { '@type': 'PropertyValue', 'name': 'baseline_min_gp', 'value': pack.gates?.baseline_min_gp || 10 },
+      { '@type': 'PropertyValue', 'name': 'feature_min_gp', 'value': pack.gates?.feature_min_gp || 30 }
+    ]
+  };
+
+  document.getElementById('jsonLdBlock').textContent = JSON.stringify(jsonLd);
+
+  // ── 2. Build full JSON payload ──
+  const fullPayload = {
+    object_type: 'nba_prop_evidence_pack',
+    version: pack.version || 'v2',
+    model: pack.model || '3-layer: market_baseline + book_normalized + supporting_context',
+    generated_at: generatedAt,
+    summary: summaryDesc,
+    coverage: {
+      total_players: totalPlayers,
+      total_cards: totalCards,
+      hero_cards: heroCards.length,
+      markets: markets
+    },
+    gates: pack.gates || {},
+    players: Object.fromEntries(
+      Object.entries(players).map(([slug, p]) => [
+        slug,
+        {
+          name: p.name,
+          slug: p.slug,
+          hero_count: p.heroCount,
+          max_tier: p.maxTier,
+          markets: Object.fromEntries(
+            Object.entries(
+              p.cards.reduce((acc, c) => {
+                if (!acc[c.market]) acc[c.market] = [];
+                acc[c.market].push(c);
+                return acc;
+              }, {})
+            ).map(([market, cards]) => {
+              const card = cards[0];
+              return [market, {
+                baseline: card.baseline,
+                direction: card.direction,
+                current_line: card.current_line || null,
+                book_context: card.book_context || [],
+                supporting_contexts: card.supporting_contexts || []
+              }];
+            })
+          )
+        }
+      ])
+    ),
+    methodology: {
+      notes: [
+        'Baseline = all games for player × market, across all books and lines',
+        'Most common historical line = highest-GP line across all books',
+        'Book context = hit rate per sportsbook × line combination',
+        'Supporting context = venue, pace tier, rest days, season phase splits at the most common historical line',
+        'Over rate = overs / (overs + unders), pushes excluded',
+        'Display floor = 10 GP minimum, Feature tier = 30+ GP, Hero = 65%+ or 35%- over rate'
+      ]
+    }
+  };
+
+  // Store on window for in-browser programmatic access
+  window.__PROP_EVIDENCE_PACK = fullPayload;
+
+  // Log contract status — endpoint is static in HTML, no blob needed
+  console.log('[contract] JSON-LD enriched with live data (%d players, %d cards)', totalPlayers, totalCards);
+  console.log('[contract] Static endpoint: %s', PACK_URL);
+  console.log('[contract] Access via window.__PROP_EVIDENCE_PACK');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════════════════════════════════════════
+(async function init() {
+  bindEvents();
+  try {
+    pack = await fetchPack();
+    players = buildPlayerIndex(pack.cards);
+
+    // Inject machine contract layer (same source object → two surfaces)
+    injectMachineContract(pack, players);
+
+    $('loading').style.display = 'none';
+    route();
+  } catch (err) {
+    $('loading').innerHTML = `<div class="empty-state"><p>Failed to load evidence pack.</p><p>${err.message}</p></div>`;
+  }
+})();
+</script>
 </body>
 </html>
