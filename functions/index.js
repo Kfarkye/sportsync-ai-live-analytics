@@ -116,6 +116,34 @@ class SupabaseClient {
     };
   }
 
+  static normalizePropEvidencePack(rawPack) {
+    const source = rawPack && typeof rawPack === 'object' ? rawPack : {};
+    const cards = Array.isArray(source.cards) ? source.cards : [];
+    const derivedMarkets = [...new Set(cards.map(card => card?.market).filter(Boolean))];
+    const markets = Array.isArray(source.markets) && source.markets.length > 0 ? source.markets : derivedMarkets;
+    const heroCards = cards.filter(card => Boolean(card?.baseline?.is_hero)).length;
+
+    return {
+      ...source,
+      cards,
+      markets,
+      total_cards: Number.isFinite(Number(source.total_cards)) ? Number(source.total_cards) : cards.length,
+      hero_cards: Number.isFinite(Number(source.hero_cards)) ? Number(source.hero_cards) : heroCards,
+      generated_at: source.generated_at || new Date().toISOString(),
+      version: source.version || 'v2',
+      model: source.model || '3-layer: market_baseline + book_normalized + supporting_context',
+      gates: source.gates || {
+        book_min_gp: 3,
+        edge_min_gp: 15,
+        feature_min_gp: 30,
+        support_min_gp: 5,
+        baseline_min_gp: 10,
+        max_support_chips: 3,
+        hero_rate_threshold: 65,
+      },
+    };
+  }
+
   async refreshMasterViews() {
     logger.info('⏳ Refreshing NBA master materialized views...');
     const nbaUrl = `${this.config.supabaseUrl}/rest/v1/rpc/refresh_nba_master_views`;
@@ -135,6 +163,28 @@ class SupabaseClient {
       logger.info('✅ Ref tendencies refreshed');
     } catch (error) {
       logger.warn('⚠️ Master/ref refresh error (non-fatal):', { error: error.message });
+    }
+  }
+
+  async generatePropEvidencePack() {
+    logger.info('⏳ Generating prop evidence pack...');
+    const url = `${this.config.supabaseUrl}/rest/v1/rpc/generate_prop_evidence_pack`;
+    try {
+      const res = await NetworkUtils.fetchWithRetry(
+        url,
+        { method: 'POST', headers: this.headers, body: '{}' },
+        1,
+        30000
+      );
+      const pack = SupabaseClient.normalizePropEvidencePack(await res.json());
+      logger.info('✅ Prop evidence pack generated', {
+        total_cards: pack?.total_cards,
+        hero_cards: pack?.hero_cards,
+      });
+      return pack;
+    } catch (error) {
+      logger.error('❌ Prop evidence pack generation failed:', { error: error.message });
+      throw error;
     }
   }
 
@@ -718,6 +768,36 @@ export const apiKeys = onRequest(
     } catch (err) {
       console.error(`apiKeys error: ${err.message}`);
       res.status(500).json({ error: 'request_failed', message: err.message });
+    }
+  }
+);
+
+// ── Prop Evidence Pack Endpoint ──────────────────────────────────────────────
+export const refreshPropEvidencePack = onRequest(
+  {
+    region: 'us-central1',
+    timeoutSeconds: 60,
+    memory: '256MiB',
+    secrets: ['SUPABASE_SERVICE_KEY'],
+    cors: true,
+  },
+  async (req, res) => {
+    try {
+      const config = {
+        supabaseUrl: process.env.SUPABASE_URL || 'https://qffzvrnbzabcokqqrwbv.supabase.co',
+        supabaseKey: process.env.SUPABASE_SERVICE_KEY,
+      };
+      if (!config.supabaseKey) {
+        res.status(500).json({ error: 'missing_config', message: 'SUPABASE_SERVICE_KEY not set' });
+        return;
+      }
+      const client = new SupabaseClient(config);
+      const pack = await client.generatePropEvidencePack();
+      res.set('Cache-Control', 'public, max-age=300, s-maxage=600');
+      res.json(pack);
+    } catch (err) {
+      logger.error(`refreshPropEvidencePack error: ${err.message}`);
+      res.status(500).json({ error: 'generation_failed', message: err.message });
     }
   }
 );

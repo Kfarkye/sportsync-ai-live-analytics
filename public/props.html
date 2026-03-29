@@ -13283,6 +13283,34 @@ function freshnessLabel() {
   return `Pack ${version} · Generated ${generatedAt}`;
 }
 
+function normalizePackContract(rawPack) {
+  const source = rawPack && typeof rawPack === 'object' ? rawPack : {};
+  const cards = Array.isArray(source.cards) ? source.cards : [];
+  const derivedMarkets = [...new Set(cards.map(card => card?.market).filter(Boolean))];
+  const markets = Array.isArray(source.markets) && source.markets.length > 0 ? source.markets : derivedMarkets;
+  const heroCards = cards.filter(card => Boolean(card?.baseline?.is_hero)).length;
+
+  return {
+    ...source,
+    cards,
+    markets,
+    total_cards: Number.isFinite(Number(source.total_cards)) ? Number(source.total_cards) : cards.length,
+    hero_cards: Number.isFinite(Number(source.hero_cards)) ? Number(source.hero_cards) : heroCards,
+    generated_at: source.generated_at || new Date().toISOString(),
+    version: source.version || 'v2',
+    model: source.model || '3-layer: market_baseline + book_normalized + supporting_context',
+    gates: source.gates || {
+      book_min_gp: 3,
+      edge_min_gp: 15,
+      feature_min_gp: 30,
+      support_min_gp: 5,
+      baseline_min_gp: 10,
+      max_support_chips: 3,
+      hero_rate_threshold: 65,
+    },
+  };
+}
+
 function getPreloadedPack() {
   const el = document.getElementById('preloadedPack');
   if (!el) return null;
@@ -13290,8 +13318,8 @@ function getPreloadedPack() {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.cards)) return null;
-    return parsed;
+    const normalized = normalizePackContract(parsed);
+    return normalized.cards.length > 0 ? normalized : null;
   } catch {
     return null;
   }
@@ -13304,7 +13332,7 @@ async function fetchPack() {
   try {
     const r = await fetch(PACK_URL);
     if (!r.ok) throw new Error(`CF ${r.status}`);
-    return r.json();
+    return normalizePackContract(await r.json());
   } catch (e) {
     console.warn('CF unavailable, fallback:', e.message);
     const r = await fetch(FALLBACK_URL, {
@@ -13317,7 +13345,7 @@ async function fetchPack() {
       body: '{}',
     });
     if (!r.ok) throw new Error(`RPC ${r.status}`);
-    return r.json();
+    return normalizePackContract(await r.json());
   }
 }
 
@@ -13829,7 +13857,10 @@ function injectMachineContract(pack, players) {
   }
   $('loading').style.display = '';
   try {
-    pack = await fetchPack();
+    const livePack = await fetchPack();
+    pack = livePack.cards.length > 0
+      ? livePack
+      : (preloaded && preloaded.cards.length > 0 ? preloaded : livePack);
     players = buildPlayerIndex(pack.cards);
 
     // Inject machine contract layer (same source object → two surfaces)
