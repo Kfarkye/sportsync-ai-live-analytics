@@ -94,7 +94,7 @@ function buildPlayerSummary(player) {
     return `${MARKET_LABEL[hero.market] || hero.market} ${Number(hero.baseline.rate).toFixed(1)}% ${dir} (${hero.baseline.gp} GP)`;
   }
   const topBySample = getTopMarketBySample(player.cards);
-  if (!topBySample) return 'No strong signal — no qualified cards';
+  if (!topBySample) return 'No strong signal';
   return `No strong signal — Top market by sample: ${MARKET_LABEL[topBySample.market] || topBySample.market} ${Number(topBySample.baseline.rate).toFixed(1)}% (${topBySample.baseline.gp} GP)`;
 }
 
@@ -562,18 +562,18 @@ function playerPage(player, generatedAt) {
   const dateStr = generatedAt.split('T')[0];
   const cardCount = player.cards.length;
   const heroCount = player.heroCount;
-  const subParts = [`${cardCount} qualified card${cardCount > 1 ? 's' : ''}`];
+  const subParts = [`${cardCount} markets analyzed`];
   if (heroCount > 0) subParts.push(`${heroCount} strong signal${heroCount > 1 ? 's' : ''}`);
   else subParts.push('No strong signal');
 
   const jsonLd = JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: `${player.name} — Player Prop Profile | 2025-26 Season`,
+    headline: `${player.name} — NBA Player Props | 2025-26 Season`,
     inLanguage: 'en',
     dateModified: dateStr,
     datePublished: dateStr,
-    description: `${player.name} prop hit rates for the 2025-26 NBA season. ${headline}. ${subParts.join(', ')}.`,
+    description: `${player.name} player prop odds, over/under trends, and projections for today’s board. ${headline}. ${subParts.join(', ')}.`,
     publisher: { '@type': 'Organization', name: 'SportsSync Intelligence' },
     mainEntityOfPage: { '@type': 'WebPage', '@id': `${BASE_URL}/props/${player.slug}` },
   });
@@ -583,19 +583,19 @@ function playerPage(player, generatedAt) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>${esc(player.name)} — Player Prop Profile | SportsSync</title>
-  <meta name="description" content="${esc(player.name)} prop hit rates for the 2025-26 NBA season. ${esc(headline)}. ${esc(subParts.join(', '))}." />
+  <title>${esc(player.name)} — NBA Player Props | SportsSync</title>
+  <meta name="description" content="${esc(player.name)} player prop odds, over/under trends, and projections for today’s board. ${esc(headline)}. ${esc(subParts.join(', '))}." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="${BASE_URL}/props/${player.slug}" />
 
   <meta property="og:title" content="${esc(player.name)} — ${esc(headline)} | SportsSync" />
-  <meta property="og:description" content="${esc(player.name)} prop hit rates for the 2025-26 NBA season. ${esc(headline)}." />
+  <meta property="og:description" content="${esc(player.name)} player prop odds, over/under trends, and projections for today’s board. ${esc(headline)}." />
   <meta property="og:type" content="article" />
   <meta property="og:url" content="${BASE_URL}/props/${player.slug}" />
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${esc(player.name)} — ${esc(headline)}" />
-  <meta name="twitter:description" content="${esc(player.name)} prop hit rates for the 2025-26 NBA season. ${esc(headline)}." />
+  <meta name="twitter:description" content="${esc(player.name)} player prop odds, over/under trends, and projections for today’s board. ${esc(headline)}." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -638,8 +638,8 @@ function playerPage(player, generatedAt) {
     </section>
 
     <section class="section-block" aria-labelledby="detail-title">
-      <h2 class="section-title" id="detail-title">Market Detail</h2>
-      <p class="section-note">3-layer model: market baseline → most common historical line → supporting context splits.</p>
+      <h2 class="section-title" id="detail-title">Player Prop Odds and Historical Trends</h2>
+      <p class="section-note">Player prop odds and historical trends by market.</p>
       ${renderMarketSections(player)}
     </section>
 
@@ -655,7 +655,7 @@ function playerPage(player, generatedAt) {
       </ul>
       <p class="section-note">
         <a href="/props/${player.slug}.json" target="_blank" rel="noopener noreferrer">View data payload</a> ·
-        <a href="${PACK_URL}" target="_blank" rel="noopener noreferrer">Full evidence pack</a>
+        <a href="${PACK_URL}" target="_blank" rel="noopener noreferrer">Full props data pack</a>
       </p>
     </section>
 
