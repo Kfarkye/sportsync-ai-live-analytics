@@ -1,11 +1,68 @@
 {
-  "object_type": "player_prop_profile_pointer",
+  "object_type": "player_prop_profile",
+  "version": "v2",
   "slug": "rob-dillingham",
   "url": "https://sportsync-evidence.web.app/props/rob-dillingham",
-  "live_profile_url": "https://sportsync-evidence.web.app/props#/player/rob-dillingham",
-  "live_pack_url": "https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app",
+  "league": "NBA",
+  "season": "2025-26",
   "player_name": "Rob Dillingham",
-  "summary": "Rob Dillingham — Live evidence profile sourced from shared pack.",
-  "generated_at": "2026-03-29T00:34:33.295765+00:00",
-  "note": "This file is a route companion. Rendered stats come from the live pack so index/detail stay source-consistent."
+  "summary": "Rob Dillingham — No strong signal — Top market by sample: Points 53.3% (15 GP)",
+  "generated_at": "2026-03-29T00:48:04.146459+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "edge",
+      "is_hero": false,
+      "rate": 53.3,
+      "record": "8-7",
+      "gp": 15
+    }
+  ],
+  "markets": {
+    "points": {
+      "baseline": {
+        "rate": 53.3,
+        "record": "8-7",
+        "avg": 7.8,
+        "median": 8,
+        "gp": 15,
+        "direction": "none",
+        "tier": "edge",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 4.5,
+        "rate": 60,
+        "record": "3-2",
+        "avg": 4.4,
+        "gp": 5
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 4.5,
+          "rate": 60,
+          "gp": 5
+        },
+        {
+          "book": "DraftKings",
+          "line": 7.5,
+          "rate": 33.3,
+          "gp": 3
+        }
+      ],
+      "supporting_context": []
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
 }

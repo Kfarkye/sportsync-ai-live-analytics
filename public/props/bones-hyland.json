@@ -1,11 +1,56 @@
 {
-  "object_type": "player_prop_profile_pointer",
+  "object_type": "player_prop_profile",
+  "version": "v2",
   "slug": "bones-hyland",
   "url": "https://sportsync-evidence.web.app/props/bones-hyland",
-  "live_profile_url": "https://sportsync-evidence.web.app/props#/player/bones-hyland",
-  "live_pack_url": "https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app",
+  "league": "NBA",
+  "season": "2025-26",
   "player_name": "Bones Hyland",
-  "summary": "Bones Hyland — Live evidence profile sourced from shared pack.",
-  "generated_at": "2026-03-29T00:34:33.295765+00:00",
-  "note": "This file is a route companion. Rendered stats come from the live pack so index/detail stay source-consistent."
+  "summary": "Bones Hyland — No strong signal — Top market by sample: Points 61.5% (13 GP)",
+  "generated_at": "2026-03-29T00:48:04.146459+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "display",
+      "is_hero": false,
+      "rate": 61.5,
+      "record": "8-5",
+      "gp": 13
+    }
+  ],
+  "markets": {
+    "points": {
+      "baseline": {
+        "rate": 61.5,
+        "record": "8-5",
+        "avg": 13.5,
+        "median": 17,
+        "gp": 13,
+        "direction": "none",
+        "tier": "display",
+        "is_hero": false
+      },
+      "current_line": null,
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 10.5,
+          "rate": 50,
+          "gp": 4
+        }
+      ],
+      "supporting_context": []
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
 }

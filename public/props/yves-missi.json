@@ -1,11 +1,174 @@
 {
-  "object_type": "player_prop_profile_pointer",
+  "object_type": "player_prop_profile",
+  "version": "v2",
   "slug": "yves-missi",
   "url": "https://sportsync-evidence.web.app/props/yves-missi",
-  "live_profile_url": "https://sportsync-evidence.web.app/props#/player/yves-missi",
-  "live_pack_url": "https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app",
+  "league": "NBA",
+  "season": "2025-26",
   "player_name": "Yves Missi",
-  "summary": "Yves Missi — Live evidence profile sourced from shared pack.",
-  "generated_at": "2026-03-29T00:34:33.295765+00:00",
-  "note": "This file is a route companion. Rendered stats come from the live pack so index/detail stay source-consistent."
+  "summary": "Yves Missi — No strong signal — Top market by sample: Rebounds 40.0% (40 GP)",
+  "generated_at": "2026-03-29T00:48:04.146459+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "rebounds",
+      "market_label": "Rebounds",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 40,
+      "record": "16-24",
+      "gp": 40
+    },
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 40,
+      "record": "16-24",
+      "gp": 40
+    }
+  ],
+  "markets": {
+    "rebounds": {
+      "baseline": {
+        "rate": 40,
+        "record": "16-24",
+        "avg": 5.9,
+        "median": 6,
+        "gp": 40,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 5.5,
+        "rate": 43.8,
+        "record": "7-9",
+        "avg": 4.8,
+        "gp": 16
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 5.5,
+          "rate": 50,
+          "gp": 12
+        },
+        {
+          "book": "DraftKings",
+          "line": 6.5,
+          "rate": 33.3,
+          "gp": 9
+        },
+        {
+          "book": "DraftKings",
+          "line": 4.5,
+          "rate": 42.9,
+          "gp": 7
+        },
+        {
+          "book": "FanDuel",
+          "line": 5.5,
+          "rate": 25,
+          "gp": 4
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "Rest: 1",
+          "rate": 54.5,
+          "record": null,
+          "gp": 11
+        },
+        {
+          "label": "AWAY",
+          "rate": 44.4,
+          "record": null,
+          "gp": 9
+        },
+        {
+          "label": "vs FAST pace",
+          "rate": 37.5,
+          "record": null,
+          "gp": 8
+        }
+      ]
+    },
+    "points": {
+      "baseline": {
+        "rate": 40,
+        "record": "16-24",
+        "avg": 5.8,
+        "median": 5,
+        "gp": 40,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 5.5,
+        "rate": 42.9,
+        "record": "6-8",
+        "avg": 5.2,
+        "gp": 14
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 6.5,
+          "rate": 50,
+          "gp": 12
+        },
+        {
+          "book": "DraftKings",
+          "line": 5.5,
+          "rate": 44.4,
+          "gp": 9
+        },
+        {
+          "book": "FanDuel",
+          "line": 5.5,
+          "rate": 40,
+          "gp": 5
+        },
+        {
+          "book": "DraftKings",
+          "line": 4.5,
+          "rate": 25,
+          "gp": 4
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "vs FAST pace",
+          "rate": 44.4,
+          "record": null,
+          "gp": 9
+        },
+        {
+          "label": "AWAY",
+          "rate": 44.4,
+          "record": null,
+          "gp": 9
+        },
+        {
+          "label": "Rest: 1",
+          "rate": 50,
+          "record": null,
+          "gp": 8
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
 }

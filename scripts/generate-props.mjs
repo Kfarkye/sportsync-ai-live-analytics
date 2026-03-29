@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 // ══════════════════════════════════════════════════════════════════════════════
-// generate-props.mjs — Props Detail Route Wrapper Generator
+// generate-props.mjs — Static Prop Profile Generator
 //
-// Fetches the live evidence pack from Cloud Run, then writes one lightweight
-// HTML wrapper per player to public/props/{slug}.html that routes into the
-// live `/props.html#/player/{slug}` surface. This keeps index/detail on one
-// runtime source of truth (the live evidence pack).
+// Fetches the live evidence pack from Cloud Run, then writes one static HTML
+// file per player to public/props/{slug}.html so each detail route is a
+// durable first-load player object page.
 //
 // Usage:
 //   node scripts/generate-props.mjs              # full build (all players)
@@ -269,7 +268,7 @@ function renderMarketSections(player) {
     const cl = card.current_line;
     const bc = card.book_context || [];
     const dc = dirClass(card.direction);
-    const linePart = cl ? `Most Common Line: O/U ${Number(cl.line).toFixed(1)}` : '';
+    const linePart = cl ? `Most Common Historical Line: O/U ${Number(cl.line).toFixed(1)}` : '';
 
     html += `
     <section class="market-section" aria-labelledby="market-${esc(market)}">
@@ -389,16 +388,81 @@ function renderMarketSections(player) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function buildPayloadJson(player, generatedAt) {
+  const headline = buildPlayerSummary(player);
+  const byMarket = {};
+  for (const c of player.cards) {
+    if (!byMarket[c.market]) byMarket[c.market] = [];
+    byMarket[c.market].push(c);
+  }
+
+  const marketCards = player.cards.slice(0, 5).map(c => ({
+    market: c.market,
+    market_label: MARKET_LABEL[c.market] || c.market,
+    direction: c.direction,
+    tier: c.baseline.tier,
+    is_hero: c.baseline.is_hero,
+    rate: Number(c.baseline.rate),
+    record: c.baseline.record,
+    gp: c.baseline.gp,
+  }));
+
+  const markets = {};
+  for (const [market, cards] of Object.entries(byMarket)) {
+    const card = cards[0];
+    markets[market] = {
+      baseline: {
+        rate: Number(card.baseline.rate),
+        record: card.baseline.record,
+        avg: Number(card.baseline.avg),
+        median: Number(card.baseline.median),
+        gp: card.baseline.gp,
+        direction: card.direction,
+        tier: card.baseline.tier,
+        is_hero: card.baseline.is_hero,
+      },
+      current_line: card.current_line ? {
+        line: Number(card.current_line.line),
+        rate: Number(card.current_line.rate),
+        record: card.current_line.record,
+        avg: Number(card.current_line.avg),
+        gp: card.current_line.gp,
+      } : null,
+      book_pricing_history: (card.book_context || []).map(bk => ({
+        book: bk.book,
+        line: Number(bk.line),
+        rate: Number(bk.rate),
+        gp: bk.gp,
+      })),
+      supporting_context: (card.supporting_contexts || []).map(ctx => ({
+        label: ctx.label,
+        rate: Number(ctx.rate),
+        record: ctx.record || null,
+        gp: ctx.gp,
+      })),
+    };
+  }
+
   return JSON.stringify({
-    object_type: 'player_prop_profile_pointer',
+    object_type: 'player_prop_profile',
+    version: 'v2',
     slug: player.slug,
     url: `${BASE_URL}/props/${player.slug}`,
-    live_profile_url: `${BASE_URL}/props#/player/${player.slug}`,
-    live_pack_url: PACK_URL,
+    league: 'NBA',
+    season: '2025-26',
     player_name: player.name,
-    summary: `${player.name} — Live evidence profile sourced from shared pack.`,
+    summary: `${player.name} — ${headline}`,
     generated_at: generatedAt,
-    note: 'This file is a route companion. Rendered stats come from the live pack so index/detail stay source-consistent.'
+    hero_count: player.heroCount,
+    market_cards: marketCards,
+    markets,
+    methodology: {
+      baseline: 'All games for this player × market, across all books and lines.',
+      current_line: 'Most common historical line (highest GP) across all sportsbooks.',
+      book_context: 'Hit rate per sportsbook × line combination.',
+      supporting_context: 'Venue, pace tier, rest days, season phase splits at the most common historical line.',
+      over_rate: 'Overs / (overs + unders), pushes excluded.',
+      display_floor: '10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate.',
+    },
   }, null, 2);
 }
 
@@ -407,28 +471,111 @@ function buildPayloadJson(player, generatedAt) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function playerPage(player, generatedAt) {
-  const summary = buildPlayerSummary(player);
+  const headline = buildPlayerSummary(player);
   const dateStr = generatedAt.split('T')[0];
-  const liveHashUrl = `/props#/player/${player.slug}`;
+  const cardCount = player.cards.length;
+  const heroCount = player.heroCount;
+  const subParts = [`${cardCount} qualified card${cardCount > 1 ? 's' : ''}`];
+  if (heroCount > 0) subParts.push(`${heroCount} strong signal${heroCount > 1 ? 's' : ''}`);
+  else subParts.push('No strong signal');
+
+  const jsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: `${player.name} — Player Prop Profile | 2025-26 Season`,
+    inLanguage: 'en',
+    dateModified: dateStr,
+    datePublished: dateStr,
+    description: `${player.name} prop hit rates for the 2025-26 NBA season. ${headline}. ${subParts.join(', ')}.`,
+    publisher: { '@type': 'Organization', name: 'SportsSync Intelligence' },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': `${BASE_URL}/props/${player.slug}` },
+  });
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>${esc(player.name)} — Live Prop Profile | SportsSync</title>
-  <meta name="description" content="${esc(player.name)} live prop evidence profile. ${esc(summary)}." />
+  <title>${esc(player.name)} — Player Prop Profile | SportsSync</title>
+  <meta name="description" content="${esc(player.name)} prop hit rates for the 2025-26 NBA season. ${esc(headline)}. ${esc(subParts.join(', '))}." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="${BASE_URL}/props/${player.slug}" />
-  <meta http-equiv="refresh" content="0;url=${liveHashUrl}" />
-  <script>
-    window.location.replace(${JSON.stringify(liveHashUrl)});
+
+  <meta property="og:title" content="${esc(player.name)} — ${esc(headline)} | SportsSync" />
+  <meta property="og:description" content="${esc(player.name)} prop hit rates for the 2025-26 NBA season. ${esc(headline)}." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="${BASE_URL}/props/${player.slug}" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${esc(player.name)} — ${esc(headline)}" />
+  <meta name="twitter:description" content="${esc(player.name)} prop hit rates for the 2025-26 NBA season. ${esc(headline)}." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;450;500;550;600;700&family=JetBrains+Mono:wght@400;450;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="alternate" type="application/json" href="${BASE_URL}/props/${player.slug}.json" title="${esc(player.name)} — Prop Data Payload" />
+
+  <script type="application/ld+json">
+  ${jsonLd}
   </script>
+  <style>${CSS}</style>
 </head>
 <body>
-  <main style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:24px;line-height:1.5">
-    <p>Redirecting to live profile…</p>
-    <p><a href="${liveHashUrl}">Open ${esc(player.name)} live profile</a></p>
-    <p style="color:#666;font-size:12px">Last wrapper sync: ${esc(dateStr)}. Source: live evidence pack.</p>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="nav-brand" href="/props">SportsSync Intelligence</a>
+      <div class="nav-tabs">
+        <a class="nav-tab" href="https://ref-tendencies.web.app/">Ref Tendencies</a>
+        <a class="nav-tab" href="/trends/">Team Trends</a>
+        <a class="nav-tab active" href="/props">Props</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page" id="main-content">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/props">All Players</a> <span aria-hidden="true">›</span> <span>${esc(player.name)}</span>
+    </nav>
+
+    <header class="player-header">
+      <div class="league-tag">NBA 2025–26 · Pack generated ${dateStr}</div>
+      <h1 class="player-name">${esc(player.name)}</h1>
+      <p class="headline-stat"><strong>${esc(headline)}</strong> · ${esc(subParts.join(' · '))}</p>
+    </header>
+
+    <section class="summary-grid" aria-label="Market summary">
+      ${renderMarketSummaryCards(player)}
+    </section>
+
+    <section class="section-block" aria-labelledby="detail-title">
+      <h2 class="section-title" id="detail-title">Market Detail</h2>
+      <p class="section-note">3-layer model: market baseline → most common historical line → supporting context splits.</p>
+      ${renderMarketSections(player)}
+    </section>
+
+    <section class="section-block" aria-labelledby="method-title">
+      <h2 class="section-title" id="method-title">Methodology</h2>
+      <ul class="methodology-list">
+        <li><strong>Baseline:</strong> all games for this player × market, across all books and lines.</li>
+        <li><strong>Most common historical line:</strong> highest-GP line across all sportsbooks.</li>
+        <li><strong>Book context:</strong> hit rate per sportsbook × line combination.</li>
+        <li><strong>Supporting context:</strong> venue, pace tier, rest days, season phase splits at the most common historical line.</li>
+        <li><strong>Over rate:</strong> overs / (overs + unders), pushes excluded.</li>
+        <li><strong>Display floor:</strong> 10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate.</li>
+      </ul>
+      <p class="section-note">
+        <a href="/props/${player.slug}.json" target="_blank" rel="noopener noreferrer">View data payload</a> ·
+        <a href="${PACK_URL}" target="_blank" rel="noopener noreferrer">Full evidence pack</a>
+      </p>
+    </section>
+
+    <footer class="page-footer">
+      <div>Auto-generated ${dateStr}. ${esc(subParts.join(' · '))}.</div>
+      <div style="margin-top:8px;"><a href="/props">← All player profiles</a></div>
+    </footer>
   </main>
 </body>
 </html>`;

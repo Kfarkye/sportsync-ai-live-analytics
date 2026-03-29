@@ -1,11 +1,162 @@
 {
-  "object_type": "player_prop_profile_pointer",
+  "object_type": "player_prop_profile",
+  "version": "v2",
   "slug": "clint-capela",
   "url": "https://sportsync-evidence.web.app/props/clint-capela",
-  "live_profile_url": "https://sportsync-evidence.web.app/props#/player/clint-capela",
-  "live_pack_url": "https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app",
+  "league": "NBA",
+  "season": "2025-26",
   "player_name": "Clint Capela",
-  "summary": "Clint Capela — Live evidence profile sourced from shared pack.",
-  "generated_at": "2026-03-29T00:34:33.295765+00:00",
-  "note": "This file is a route companion. Rendered stats come from the live pack so index/detail stay source-consistent."
+  "summary": "Clint Capela — No strong signal — Top market by sample: Rebounds 43.8% (32 GP)",
+  "generated_at": "2026-03-29T00:48:04.146459+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "rebounds",
+      "market_label": "Rebounds",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 43.8,
+      "record": "14-18",
+      "gp": 32
+    },
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "edge",
+      "is_hero": false,
+      "rate": 44.8,
+      "record": "13-16",
+      "gp": 29
+    }
+  ],
+  "markets": {
+    "rebounds": {
+      "baseline": {
+        "rate": 43.8,
+        "record": "14-18",
+        "avg": 5.3,
+        "median": 5,
+        "gp": 32,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 4.5,
+        "rate": 35.3,
+        "record": "6-11",
+        "avg": 3.9,
+        "gp": 17
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 4.5,
+          "rate": 33.3,
+          "gp": 15
+        },
+        {
+          "book": "DraftKings",
+          "line": 5.5,
+          "rate": 80,
+          "gp": 5
+        },
+        {
+          "book": "DraftKings",
+          "line": 6.5,
+          "rate": 50,
+          "gp": 4
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "HOME",
+          "rate": 30,
+          "record": null,
+          "gp": 10
+        },
+        {
+          "label": "vs FAST pace",
+          "rate": 30,
+          "record": null,
+          "gp": 10
+        },
+        {
+          "label": "Rest: 1",
+          "rate": 30,
+          "record": null,
+          "gp": 10
+        }
+      ]
+    },
+    "points": {
+      "baseline": {
+        "rate": 44.8,
+        "record": "13-16",
+        "avg": 4.5,
+        "median": 4,
+        "gp": 29,
+        "direction": "none",
+        "tier": "edge",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 3.5,
+        "rate": 60,
+        "record": "6-4",
+        "avg": 4,
+        "gp": 10
+      },
+      "book_pricing_history": [
+        {
+          "book": "DraftKings",
+          "line": 3.5,
+          "rate": 60,
+          "gp": 10
+        },
+        {
+          "book": "DraftKings",
+          "line": 4.5,
+          "rate": 25,
+          "gp": 4
+        },
+        {
+          "book": "DraftKings",
+          "line": 5.5,
+          "rate": 33.3,
+          "gp": 3
+        }
+      ],
+      "supporting_context": [
+        {
+          "label": "HOME",
+          "rate": 66.7,
+          "record": null,
+          "gp": 6
+        },
+        {
+          "label": "Rest: 1",
+          "rate": 50,
+          "record": null,
+          "gp": 6
+        },
+        {
+          "label": "vs FAST pace",
+          "rate": 60,
+          "record": null,
+          "gp": 5
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
 }
