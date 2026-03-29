@@ -24,7 +24,7 @@ interface MatchRowProps extends BaseMatchRowProps {
 }
 
 const PHYSICS_MOTION = { type: 'spring' as const, stiffness: 420, damping: 30 };
-const ROW_HOVER_MOTION = { y: -2, scale: 1.003 };
+const ROW_HOVER_MOTION = { y: 0, scale: 1 };
 const ROW_TAP_MOTION = { scale: 0.992 };
 const LOGO_W = 28;
 
@@ -32,7 +32,7 @@ const ScoreCell = memo(({ score, isWinner, isLoser }: { score: string | number |
   <span
     className={cn(
       'inline-flex items-center justify-center font-mono tabular-nums font-semibold select-none w-[34px] h-[24px] max-[390px]:w-[30px] max-[390px]:h-[22px] rounded-[7px] text-[15px] max-[390px]:text-[13px] shrink-0 border',
-      isLoser ? 'text-[#8B93A5] border-[#DCE4F2] bg-[#F8FAFF]' : 'text-[#10223A] border-[#BFD0EA] bg-white',
+      isLoser ? 'text-[#9B9B91] border-[#E8E7E3] bg-[#FAFAF8]' : 'text-[#1A1A18] border-[#E8E7E3] bg-white',
       isWinner ? 'font-bold' : 'font-semibold'
     )}
   >
@@ -146,7 +146,7 @@ const ProbabilityPill = memo(({
 }) => {
   if (value === undefined) {
     return (
-      <span className="inline-flex items-center justify-center h-[36px] min-w-[86px] max-[390px]:min-w-[78px] rounded-full border border-[#E1E8F4] bg-white text-slate-300 px-3 font-mono font-semibold text-[12px] tabular-nums">
+      <span className="inline-flex items-center justify-center h-[36px] min-w-[86px] max-[390px]:min-w-[78px] rounded-full border border-[#E8E7E3] bg-white text-[#9B9B91] px-3 font-mono font-semibold text-[12px] tabular-nums">
         —
       </span>
     );
@@ -157,8 +157,8 @@ const ProbabilityPill = memo(({
       className={cn(
         'inline-flex items-center justify-center h-[36px] min-w-[86px] max-[390px]:min-w-[78px] rounded-full border px-3.5 max-[390px]:px-3 tabular-nums font-mono font-semibold text-[13px] max-[390px]:text-[12px] tracking-tight transition-all duration-300',
         isFavorite
-          ? 'border-[#49BA95] text-[#084F3D] bg-[linear-gradient(180deg,#F2FFF9_0%,#E7FAF2_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-14px_rgba(29,158,117,0.55)]'
-          : 'border-[#C6D3E7] text-slate-700 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]'
+          ? 'border-[#2D8F5C]/30 text-[#2D8F5C] bg-[#2D8F5C]/8'
+          : 'border-[#E8E7E3] text-[#6B6B63] bg-white'
       )}
     >
       {formatProbabilityValue(value, oddsLens)}
@@ -170,7 +170,7 @@ ProbabilityPill.displayName = 'ProbabilityPill';
 const GapPill = memo(({ value }: { value: number | undefined }) => {
   if (value === undefined || !Number.isFinite(value)) {
     return (
-      <span className="inline-flex items-center justify-center h-[36px] min-w-[86px] max-[390px]:min-w-[78px] rounded-full border border-[#E1E8F4] bg-white text-slate-300 px-3 font-mono font-semibold text-[12px] tabular-nums">
+      <span className="inline-flex items-center justify-center h-[36px] min-w-[86px] max-[390px]:min-w-[78px] rounded-full border border-[#E8E7E3] bg-white text-[#9B9B91] px-3 font-mono font-semibold text-[12px] tabular-nums">
         —
       </span>
     );
@@ -179,10 +179,10 @@ const GapPill = memo(({ value }: { value: number | undefined }) => {
   const abs = Math.abs(value);
   const tone =
     abs < 0.2
-      ? 'border-[#C6D3E7] text-slate-700 bg-white'
+      ? 'border-[#E8E7E3] text-[#6B6B63] bg-white'
       : value > 0
-        ? 'border-[#49BA95] text-[#084F3D] bg-[linear-gradient(180deg,#F2FFF9_0%,#E7FAF2_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-14px_rgba(29,158,117,0.55)]'
-        : 'border-[#F4B3B3] text-[#8A1E1E] bg-[linear-gradient(180deg,#FFF6F6_0%,#FFECEC_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-14px_rgba(185,59,59,0.45)]';
+        ? 'border-[#2D8F5C]/30 text-[#2D8F5C] bg-[#2D8F5C]/8'
+        : 'border-[#C85A3A]/30 text-[#C85A3A] bg-[#C85A3A]/8';
 
   return (
     <span
@@ -203,15 +203,15 @@ const OddsChip = memo(({ label, display, mobileHidden }: MatchRowOddPayload) => 
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 select-none rounded-full border border-[#D5DFEE] bg-white/90 px-2 py-1',
+        'inline-flex items-center gap-1.5 select-none rounded-[6px] border border-[#E8E7E3] bg-transparent px-2 py-1',
         mobileHidden ? 'max-[390px]:hidden' : undefined
       )}
       aria-label={`${label} ${display}`}
     >
-      <span className="font-semibold uppercase text-[8px] tracking-[0.14em] text-slate-400" aria-hidden="true">
+      <span className="font-semibold uppercase text-[8px] tracking-[0.14em] text-[#9B9B91]" aria-hidden="true">
         {label}
       </span>
-      <span className="font-mono font-semibold tabular-nums text-[10px] text-slate-700">
+      <span className="font-mono font-semibold tabular-nums text-[11px] text-[#6B6B63]">
         {display}
       </span>
     </span>
@@ -233,7 +233,7 @@ const PinButton = memo(({ isPinned, onToggle }: { isPinned: boolean; onToggle?: 
     aria-label={isPinned ? 'Unpin game' : 'Pin game'}
     title={isPinned ? 'Unpin game' : 'Pin game'}
   >
-    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className={cn('shrink-0 transition-colors', isPinned ? 'text-amber-500' : 'text-slate-400')}>
+    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className={cn('shrink-0 transition-colors', isPinned ? 'text-[#C85A3A]' : 'text-[#9B9B91]')}>
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </svg>
   </button>
@@ -242,7 +242,7 @@ PinButton.displayName = 'PinButton';
 
 // Tennis Set Scores
 const TennisSetScores: React.FC<{ linescores?: Linescore[] | undefined }> = memo(({ linescores }) => {
-  if (!linescores || linescores.length === 0) return <span className="text-[11px] text-slate-400 font-mono tracking-widest">-</span>;
+  if (!linescores || linescores.length === 0) return <span className="text-[11px] text-[#9B9B91] font-mono tracking-widest">-</span>;
 
   return (
     <div className="flex items-center gap-[6px] font-mono text-[11px] tabular-nums leading-none">
@@ -252,13 +252,13 @@ const TennisSetScores: React.FC<{ linescores?: Linescore[] | undefined }> = memo
           className={cn(
             'relative flex items-center justify-center w-5 h-5 rounded-[2px] transition-colors duration-300 select-none',
             ls.winner
-              ? 'bg-slate-100 text-slate-900 font-bold border border-slate-200'
-              : 'text-slate-400 bg-transparent'
+              ? 'bg-[#FAFAF8] text-[#1A1A18] font-bold border border-[#E8E7E3]'
+              : 'text-[#9B9B91] bg-transparent'
           )}
         >
           {ls.value ?? '-'}
           {ls.tiebreak && (
-            <span className="absolute -top-[3px] -right-[4px] text-[8px] font-medium text-slate-400 scale-75 origin-top-right">
+            <span className="absolute -top-[3px] -right-[4px] text-[8px] font-medium text-[#9B9B91] scale-75 origin-top-right">
               {ls.tiebreak}
             </span>
           )}
@@ -343,7 +343,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
   const liveClock = match.displayClock || match.minute || 'LIVE';
   const liveMeta = isTennis && roundStr ? roundStr : getPeriodDisplay(match);
-  const topAccentColor = isLive ? '#E11D48' : isFinal ? '#7C879A' : '#1D9E75';
+  const topAccentColor = isLive ? '#C85A3A' : isFinal ? '#9B9B91' : '#9B9B91';
   const handleSelect = () => onSelect?.(match);
   const railPrimaryLabel = isLive ? liveClock : isFinal ? dateStr : startTimeStr;
   const railSecondaryLabel = isLive ? (liveMeta || 'In Play') : isFinal ? '' : dateStr;
@@ -364,15 +364,14 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       className={cn(
         'group relative overflow-hidden px-3 py-3 sm:px-4 sm:py-4 max-[390px]:px-2.5 max-[390px]:py-2.5 cursor-pointer transform-gpu [-webkit-tap-highlight-color:transparent]',
         'focus-visible:ring-2 focus-visible:ring-[#BFDBFE] focus-visible:outline-none focus-visible:ring-inset',
-        'transition-all duration-300 active:scale-[0.992]',
-        'border border-[#D4DEEF] bg-[linear-gradient(180deg,#FFFFFF_0%,#F6F9FF_100%)] shadow-[0_16px_30px_-24px_rgba(16,34,58,0.38),inset_0_1px_0_rgba(255,255,255,0.95)] rounded-2xl',
+        'transition-colors duration-200 active:scale-[0.992]',
+        'border border-[#E8E7E3] bg-white rounded-[8px] shadow-none',
         isSelected
-          ? 'border-[#9ED8C5] bg-[linear-gradient(180deg,#F8FFFB_0%,#F1F9FF_100%)] shadow-[0_18px_34px_-24px_rgba(29,158,117,0.36),inset_0_1px_0_rgba(255,255,255,0.95)]'
-          : 'hover:border-[#B7C8E4] hover:bg-[linear-gradient(180deg,#FFFFFF_0%,#F3F8FF_100%)] hover:shadow-[0_24px_42px_-30px_rgba(16,34,58,0.55),inset_0_1px_0_rgba(255,255,255,0.95)]'
+          ? 'border-[#D4D3CD] bg-[#FDFCFA]'
+          : 'hover:border-[#E8E7E3] hover:bg-[#FDFCFA]'
       )}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${topAccentColor}, transparent)` }} />
-      <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(11,99,246,0.12)_0%,rgba(11,99,246,0)_72%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px]" style={{ background: `linear-gradient(90deg, transparent, ${topAccentColor}, transparent)` }} />
 
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between gap-2 pb-2.5">
@@ -381,44 +380,44 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
             <>
               <span className="relative inline-flex h-2.5 w-2.5 items-center justify-center shrink-0">
                 <motion.span
-                  className="absolute inline-flex h-2.5 w-2.5 rounded-full bg-rose-500/35"
+                  className="absolute inline-flex h-2.5 w-2.5 rounded-full bg-[#C85A3A]/35"
                   animate={prefersReducedMotion ? { opacity: 1, scale: 1 } : { opacity: [1, 0.25, 1], scale: [1, 1.22, 1] }}
                   transition={prefersReducedMotion ? { duration: 0 } : { duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
                 />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-600" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#C85A3A]" />
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] font-bold text-rose-600">Live</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] font-bold text-[#C85A3A]">Live</span>
             </>
           ) : isFinal ? (
-            <span className="inline-flex items-center rounded-md border border-slate-300/90 bg-slate-100/85 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">
+            <span className="inline-flex items-center rounded-md border border-[#E8E7E3] bg-white px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[#9B9B91]">
               Final
             </span>
           ) : (
             <>
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] font-bold text-[#1D9E75]">Scheduled</span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.06em] font-medium text-[#9B9B91]">Scheduled</span>
             </>
           )}
 
-          <span className="sm:hidden text-[9px] font-medium uppercase tracking-[0.08em] text-slate-500 truncate max-w-[140px]">
+          <span className="sm:hidden text-[9px] font-medium uppercase tracking-[0.08em] text-[#9B9B91] truncate max-w-[140px]">
             {leagueDisplayName}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
           <PinButton isPinned={isPinned} onToggle={onTogglePin} />
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#D8E2F2] bg-white text-slate-400 group-hover:text-[#10223A] group-hover:border-[#BFD0EA] transition-colors">
-            <ChevronRight size={13} />
-          </span>
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#E8E7E3] bg-white text-[#9B9B91] group-hover:text-[#1A1A18] group-hover:border-[#D4D3CD] transition-colors">
+              <ChevronRight size={13} />
+            </span>
         </div>
       </div>
 
       {/* Mobile sub-meta */}
       <div className="relative z-10 sm:hidden mb-2.5 flex items-center gap-1.5 text-[10px]">
-        <span className="font-mono font-semibold tabular-nums text-[#10223A]" suppressHydrationWarning>{railPrimaryLabel}</span>
+        <span className="font-mono font-semibold tabular-nums text-[#1A1A18]" suppressHydrationWarning>{railPrimaryLabel}</span>
         {railSecondaryLabel ? (
           <>
-            <span className="text-slate-300">·</span>
-            <span className="font-medium text-slate-500 uppercase tracking-[0.07em] truncate">
+            <span className="text-[#9B9B91]">·</span>
+            <span className="font-medium text-[#6B6B63] uppercase tracking-[0.07em] truncate">
               {railSecondaryLabel}
             </span>
           </>
@@ -430,7 +429,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         <div className="flex flex-col gap-2.5">
           <div className="hidden sm:flex items-center justify-end -mb-1">
             {shouldShowProbabilities && (
-              <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#9B9B91]">
                 {probabilityRailLabel}
               </span>
             )}
@@ -455,16 +454,16 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
             const edge = isHome ? homeEdge : awayEdge;
             const hasProbability = typeof prob === 'number' && prob > 0 && prob <= 100;
             const trackWidth = hasProbability ? `${Math.max(8, Math.min(100, Math.round(prob)))}%` : '0%';
-            const railColor = isFav ? '#1D9E75' : '#98A4B8';
+            const railColor = isFav ? '#2D8F5C' : '#C85A3A';
             const displayEdge = typeof edge === 'number' ? `${edge > 0 ? '+' : ''}${edge.toFixed(1)}%` : null;
-            const teamRing = team.color ? `#${String(team.color).replace(/^#/, '')}` : '#D8E2F2';
+            const teamRing = team.color ? `#${String(team.color).replace(/^#/, '')}` : '#E8E7E3';
 
             return (
               <div key={team.id || idx} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3 max-[390px]:gap-2">
                     <div
-                      className="shrink-0 flex items-center justify-center rounded-full bg-white border shadow-[0_5px_12px_-10px_rgba(16,34,58,0.45)]"
+                      className="shrink-0 flex items-center justify-center rounded-full bg-white border shadow-none"
                       style={{
                         width: LOGO_W + 8,
                         height: LOGO_W + 8,
@@ -490,19 +489,19 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                     <div className="min-w-0 flex items-baseline gap-2">
                       <span className={cn(
                         'text-[15px] max-[390px]:text-[14px] leading-[1.15] tracking-tight truncate transition-colors duration-300 select-none',
-                        isLoser ? 'text-[#7B869B] font-medium' : 'text-[#10223A] font-semibold'
+                        isLoser ? 'text-[#9B9B91] font-medium' : 'text-[#1A1A18] font-semibold'
                       )}>
                         {team.name}
                       </span>
                       {team.record && !isLive && (
-                        <span className="text-[10px] font-mono font-medium text-slate-400 tabular-nums shrink-0 hidden sm:inline">
+                        <span className="text-[10px] font-mono font-medium text-[#9B9B91] tabular-nums shrink-0 hidden sm:inline">
                           {team.record}
                         </span>
                       )}
                       {displayEdge && !shouldShowGapRail && (
                         <span className={cn(
                           'hidden sm:inline-flex items-center rounded-full px-1.5 py-[1px] text-[9px] font-mono font-semibold tabular-nums',
-                          typeof edge === 'number' && edge >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                          typeof edge === 'number' && edge >= 0 ? 'bg-[#2D8F5C]/8 text-[#2D8F5C] border border-[#2D8F5C]/25' : 'bg-[#C85A3A]/8 text-[#C85A3A] border border-[#C85A3A]/25'
                         )}>
                           Edge {displayEdge}
                         </span>
@@ -512,7 +511,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
                   {hasProbability && (
                     <div className="pl-[44px] pt-1.5 pr-1.5 max-[390px]:pl-[40px]">
-                      <div className="h-[3px] rounded-full bg-[#E3E9F4] overflow-hidden">
+                      <div className="h-[3px] rounded-full bg-[#E8E7E3] overflow-hidden">
                         <span className="block h-full rounded-full transition-all duration-500" style={{ width: trackWidth, backgroundColor: railColor }} />
                       </div>
                     </div>
@@ -549,7 +548,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
               <div className="min-w-0">
                 <div className="flex items-center gap-3 max-[390px]:gap-2">
                   <span
-                    className="shrink-0 inline-flex items-center justify-center rounded-full bg-white border border-[#D8E2F2] shadow-[0_5px_12px_-10px_rgba(16,34,58,0.45)]"
+                    className="shrink-0 inline-flex items-center justify-center rounded-full bg-white border border-[#E8E7E3] shadow-none"
                     style={{ width: LOGO_W + 8, height: LOGO_W + 8 }}
                     aria-hidden="true"
                   >
@@ -557,7 +556,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                   </span>
 
                   <div className="min-w-0 flex items-baseline gap-2">
-                    <span className="text-[15px] max-[390px]:text-[14px] leading-[1.15] tracking-tight truncate font-semibold text-[#10223A]">
+                    <span className="text-[15px] max-[390px]:text-[14px] leading-[1.15] tracking-tight truncate font-semibold text-[#1A1A18]">
                       Tie
                     </span>
                   </div>
@@ -565,8 +564,8 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
                 {typeof drawProb === 'number' && !shouldShowGapRail && (
                   <div className="pl-[44px] pt-1.5 pr-1.5 max-[390px]:pl-[40px]">
-                    <div className="h-[3px] rounded-full bg-[#E3E9F4] overflow-hidden">
-                      <span className="block h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(8, Math.min(100, Math.round(drawProb)))}%`, backgroundColor: '#98A4B8' }} />
+                    <div className="h-[3px] rounded-full bg-[#E8E7E3] overflow-hidden">
+                      <span className="block h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(8, Math.min(100, Math.round(drawProb)))}%`, backgroundColor: '#9B9B91' }} />
                     </div>
                   </div>
                 )}
@@ -587,20 +586,20 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           )}
 
           {!isFinal && !isLive && trendPreview ? (
-            <div className="mt-2 pt-2 border-t border-[#EAF0F9] flex items-center gap-2 min-w-0">
-              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#0F5B45] border border-[#BEE3D4] bg-[#F1FAF6] shrink-0">
+            <div className="mt-2 pt-2 border-t border-[#E8E7E3] flex items-center gap-2 min-w-0">
+              <span className="inline-flex items-center rounded-[6px] px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#6B6B63] border border-[#E8E7E3] bg-transparent shrink-0">
                 Trend
               </span>
-              <span className="text-[11px] text-slate-600 leading-tight truncate">
+              <span className="text-[11px] text-[#6B6B63] leading-tight truncate">
                 {trendPreview}
               </span>
             </div>
           ) : null}
 
           {(hasOdds && !isFinal && !isLive) || hasEdgeInsights ? (
-            <div className="mt-3 pt-2.5 border-t border-[#E4EAF5] flex items-center justify-between gap-3">
+            <div className="mt-3 pt-2.5 border-t border-[#E8E7E3] flex items-center justify-between gap-3">
               <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1.5 min-w-0">
-                <span className="inline-flex items-center rounded-full px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.14em] text-slate-500 border border-[#D5DFEE] bg-[#F5F8FE]">
+                <span className="inline-flex items-center rounded-[6px] px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#9B9B91] border border-[#E8E7E3] bg-transparent">
                   Markets
                 </span>
                 {hasOdds && !isFinal && !isLive ? oddsPayload.map((item) => (
@@ -614,7 +613,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                 {typeof homeEdge === 'number' && !shouldShowGapRail && (
                   <span className={cn(
                     'inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold tabular-nums',
-                    homeEdge >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    homeEdge >= 0 ? 'bg-[#2D8F5C]/8 text-[#2D8F5C] border border-[#2D8F5C]/25' : 'bg-[#C85A3A]/8 text-[#C85A3A] border border-[#C85A3A]/25'
                   )}>
                     {match.homeTeam?.shortName || 'Home'} {homeEdge > 0 ? '+' : ''}{homeEdge.toFixed(1)}%
                   </span>
@@ -622,14 +621,14 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                 {typeof awayEdge === 'number' && !shouldShowGapRail && (
                   <span className={cn(
                     'inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold tabular-nums',
-                    awayEdge >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    awayEdge >= 0 ? 'bg-[#2D8F5C]/8 text-[#2D8F5C] border border-[#2D8F5C]/25' : 'bg-[#C85A3A]/8 text-[#C85A3A] border border-[#C85A3A]/25'
                   )}>
                     {match.awayTeam?.shortName || 'Away'} {awayEdge > 0 ? '+' : ''}{awayEdge.toFixed(1)}%
                   </span>
                 )}
               </div>
 
-              <span className="inline-flex sm:hidden items-center gap-1 font-mono text-[9px] uppercase tracking-[0.11em] text-slate-500 shrink-0">
+              <span className="inline-flex sm:hidden items-center gap-1 font-mono text-[9px] uppercase tracking-[0.11em] text-[#9B9B91] shrink-0">
                 Open
                 <ChevronRight size={10} />
               </span>
@@ -638,22 +637,22 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         </div>
 
         {/* Right meta rail */}
-        <aside className="hidden sm:flex flex-col items-end justify-center gap-1 pl-3 border-l border-[#E4EAF5] min-w-[90px]">
+        <aside className="hidden sm:flex flex-col items-end justify-center gap-1 pl-3 border-l border-[#E8E7E3] min-w-[90px]">
           <span
             className={cn(
               'font-mono tabular-nums font-semibold text-[12px]',
-              isLive ? 'text-rose-600' : isFinal ? 'text-slate-600' : 'text-[#10223A]'
+              isLive ? 'text-[#C85A3A]' : isFinal ? 'text-[#9B9B91]' : 'text-[#1A1A18]'
             )}
             suppressHydrationWarning
           >
             {railPrimaryLabel}
           </span>
           {railSecondaryLabel ? (
-            <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 text-right">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#6B6B63] text-right">
               {railSecondaryLabel}
             </span>
           ) : null}
-          <span className="text-[9px] font-medium uppercase tracking-[0.08em] text-slate-400 text-right max-w-[86px] truncate">
+          <span className="text-[9px] font-medium uppercase tracking-[0.08em] text-[#9B9B91] text-right max-w-[86px] truncate">
             {leagueDisplayName}
           </span>
         </aside>

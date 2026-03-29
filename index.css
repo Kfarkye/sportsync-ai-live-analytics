@@ -11,7 +11,7 @@
      - Aligned :root variables with ESSENCE design system
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Source+Serif+4:wght@500;600;700&display=swap') layer(base);
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&family=Source+Serif+4:wght@400;600;700&display=swap') layer(base);
 
 @import 'tailwindcss';
 
@@ -20,17 +20,18 @@
    ========================================================================== */
 
 :root {
-  /* Palette — Yahoo Sports inspired light */
-  --color-background: #F4F6FF;
+  /* SportsSync system palette */
+  --color-background: #FAFAF8;
   --color-surface: #FFFFFF;
-  --color-text-primary: #111827;
-  --color-text-secondary: #5B6478;
-  --color-border: #DDE3F0;
-  --color-accent: #0B63F6;
-  --color-accent-soft: #F2E9FF;
-  --color-kalshi-yes: #1D9E75;
-  --color-kalshi-no: #E24B4A;
-  --color-kalshi-ink: #10223A;
+  --color-text-primary: #1A1A18;
+  --color-text-secondary: #6B6B63;
+  --color-text-tertiary: #9B9B91;
+  --color-border: #E8E7E3;
+  --color-accent: #C85A3A;
+  --color-accent-soft: #F8ECE7;
+  --color-kalshi-yes: #2D8F5C;
+  --color-kalshi-no: #C85A3A;
+  --color-kalshi-ink: #1A1A18;
 
   /* Motion */
   --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -53,15 +54,15 @@ html {
   -webkit-overflow-scrolling: touch;
   -webkit-text-size-adjust: 100%;
   color-scheme: light;
-  background: radial-gradient(circle at top, #eef1ff 0%, var(--color-background) 45%);
+  background: var(--color-background);
 }
 
 body {
   min-height: 100%;
   margin: 0;
-  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-variant-numeric: tabular-nums;
-  background: radial-gradient(circle at top, #eef1ff 0%, var(--color-background) 45%);
+  background: var(--color-background);
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -90,19 +91,12 @@ body {
    §2.1  KALSHI POLISH LAYER — subtle exchange-style depth
    ========================================================================== */
 
-.kalshi-shell {
-  background:
-    radial-gradient(1200px 360px at 8% -10%, rgba(29, 158, 117, 0.09) 0%, transparent 64%),
-    radial-gradient(980px 320px at 92% -12%, rgba(11, 99, 246, 0.085) 0%, transparent 64%),
-    linear-gradient(180deg, #f6f8ff 0%, #f4f6ff 42%, #f8f9fc 100%);
-}
+.kalshi-shell { background: var(--color-background); }
 
 .kalshi-panel {
   background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #dbe3f2;
-  box-shadow:
-    0 14px 32px -26px rgba(16, 34, 58, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
 }
 
 .kalshi-tab-btn {
@@ -123,10 +117,10 @@ body {
 }
 
 .kalshi-live-btn-active {
-  border-color: #106856;
-  background: linear-gradient(180deg, #1d9e75 0%, #177f60 100%);
-  color: #ffffff;
-  box-shadow: 0 10px 24px -14px rgba(29, 158, 117, 0.65);
+  border-color: var(--color-border);
+  background: transparent;
+  color: var(--color-text-primary);
+  box-shadow: none;
 }
 
 .kalshi-fab {

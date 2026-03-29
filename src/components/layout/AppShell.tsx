@@ -136,14 +136,14 @@ const AppShell: FC = () => {
   if (shouldShowLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
 
   return (
-    <div
+        <div
       className={cn(
         // Layout
         'min-h-screen h-(--vvh,100vh) relative flex flex-col antialiased',
-        // Yahoo-inspired shell surface
-        'bg-[#F4F6FF] text-slate-900 font-sans kalshi-shell',
+        // SportsSync system shell surface
+        'bg-[#FAFAF8] text-[#1A1A18] font-sans kalshi-shell',
         // selection rule
-        'selection:bg-blue-300/30'
+        'selection:bg-[#C85A3A]/20'
       )}
     >
       <UnifiedHeader />
@@ -162,11 +162,11 @@ const AppShell: FC = () => {
                 {/* LOADING STATE */}
                 {isLoading && filteredMatches.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 opacity-80">
-                    <div className="w-6 h-6 border-2 border-blue-200 border-t-[#0B63F6] rounded-full animate-spin mb-4" />
-                    <p className={cn(ESSENCE.tier.t2Header, 'text-slate-500')}>Refreshing board</p>
+                    <div className="w-6 h-6 border-2 border-[#E8E7E3] border-t-[#C85A3A] rounded-full animate-spin mb-4" />
+                    <p className={cn(ESSENCE.tier.t2Header, 'text-[#6B6B63]')}>Refreshing board</p>
                     <button
                       onClick={() => window.location.reload()}
-                      className={cn('mt-6 px-4 py-1.5 rounded-full border border-blue-200 bg-white text-[10px] font-medium text-blue-700 hover:bg-blue-50 active:scale-95')}
+                      className={cn('mt-6 px-4 py-1.5 rounded-[6px] border border-[#E8E7E3] bg-white text-[10px] font-medium text-[#6B6B63] hover:bg-[#FDFCFA] active:scale-95')}
                     >
                       Force Refresh
                     </button>
@@ -177,14 +177,14 @@ const AppShell: FC = () => {
                 {!isLoading && filteredMatches.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
                     <div className={cn('w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5', ESSENCE.tw.surface.subtle, ESSENCE.tw.border.default, 'shadow-sm')}>
-                      <span className="text-2xl text-slate-400">📅</span>
+                      <span className="text-2xl text-[#9B9B91]">📅</span>
                     </div>
 
-                    <h3 className="text-xl font-bold text-slate-900 tracking-tight">
+                    <h3 className="text-xl font-bold text-[#1A1A18] tracking-tight">
                       {new Date(selectedDate).toDateString() === new Date().toDateString() ? 'No live board right now' : 'No games on this date'}
                     </h3>
 
-                    <p className="text-slate-600 text-[13px] mt-2 max-w-[280px] leading-relaxed">
+                    <p className="text-[#6B6B63] text-[13px] mt-2 max-w-[280px] leading-relaxed">
                       Switch the date, then check Trends for pregame setups while you wait for tip-off.
                     </p>
 
@@ -195,9 +195,9 @@ const AppShell: FC = () => {
                         className={cn(
                           ESSENCE.nav.pill,
                           'h-11 px-4',
-                          'text-[10px] font-bold uppercase tracking-widest text-slate-600',
-                          'hover:text-slate-900 hover:border-slate-300',
-                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50',
+                          'text-[10px] font-bold uppercase tracking-widest text-[#6B6B63]',
+                          'hover:text-[#1A1A18] hover:border-[#D4D3CD]',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4D3CD] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FAFAF8]',
                           'transition-all'
                         )}
                       >
@@ -208,8 +208,8 @@ const AppShell: FC = () => {
                         className={cn(
                           ESSENCE.nav.pill,
                           'h-11 px-4 inline-flex items-center',
-                          'text-[10px] font-bold uppercase tracking-widest text-slate-600',
-                          'hover:text-slate-900 hover:border-slate-300'
+                          'text-[10px] font-bold uppercase tracking-widest text-[#6B6B63]',
+                          'hover:text-[#1A1A18] hover:border-[#D4D3CD]'
                         )}
                       >
                         Open Trends
@@ -265,7 +265,7 @@ const AppShell: FC = () => {
                 <Suspense
                   fallback={
                     <div className="flex items-center justify-center py-24">
-                      <div className="w-6 h-6 border-2 border-blue-200 border-t-[#0B63F6] rounded-full animate-spin" />
+                      <div className="w-6 h-6 border-2 border-[#E8E7E3] border-t-[#C85A3A] rounded-full animate-spin" />
                     </div>
                   }
                 >
@@ -276,17 +276,15 @@ const AppShell: FC = () => {
           </AnimatePresence>
         </div>
 
-        {/* Global Legal & Responsibility Footer (inside scroll context) */}
-        <footer className={cn('w-full border-t border-slate-200/80 bg-linear-to-b from-transparent to-[#EFF6FF]/80')}>
+        {/* Global footer */}
+        <footer className={cn('w-full border-t border-[#E8E7E3] bg-[#FAFAF8]')}>
           <div className="max-w-7xl mx-auto px-7 py-9 md:py-10">
-            <div className="flex flex-col items-center text-center gap-3 opacity-80">
-              <span className="text-[11px] text-slate-600 max-w-2xl">
-                Quantitative decision-support for entertainment only. Not financial advice.
-              </span>
-              <div className="flex items-center gap-3.5">
-                <span className="font-mono text-[9.5px] text-slate-600 tracking-[0.04em]">21+</span>
-                <span className="text-slate-300">·</span>
-                <span className="font-mono text-[9.5px] text-slate-600 tracking-[0.04em]">1-800-GAMBLER</span>
+            <div className="flex w-full items-center justify-between gap-4 flex-wrap">
+              <span className="font-mono text-[15px] font-medium tracking-[-0.02em] text-[#1A1A18]">The Drip</span>
+              <div className="flex items-center gap-6">
+                <a href="/trends" className="text-[13px] text-[#6B6B63] hover:text-[#1A1A18]">Trends</a>
+                <a href="/sportsync/docs" className="text-[13px] text-[#6B6B63] hover:text-[#1A1A18]">API Docs</a>
+                <a href="mailto:api@sportsync.io" className="text-[13px] text-[#6B6B63] hover:text-[#1A1A18]">Contact</a>
               </div>
             </div>
           </div>
@@ -307,7 +305,7 @@ const AppShell: FC = () => {
             )}
           >
             {/* Sheet Handle for Mobile */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-[70] md:hidden" />
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-[#D4D3CD] rounded-full z-[70] md:hidden" />
             <MatchDetails match={selectedMatch} matches={filteredMatches} onSelectMatch={setSelectedMatch} onBack={() => setSelectedMatch(null)} />
           </MotionDiv>
         )}
@@ -319,9 +317,9 @@ const AppShell: FC = () => {
           type="button"
           onClick={() => toggleGlobalChat(true)}
           aria-label="Open chat"
-          className="fixed right-3 md:right-8 bottom-[calc(env(safe-area-inset-bottom,0px)+10px)] md:bottom-8 z-[65] md:z-[9999] inline-flex items-center justify-center gap-2 h-10 md:h-auto w-10 md:w-auto md:px-4 md:py-2.5 rounded-full kalshi-fab text-slate-800 opacity-90 hover:opacity-100 transition-opacity"
+          className="fixed right-3 md:right-8 bottom-[calc(env(safe-area-inset-bottom,0px)+10px)] md:bottom-8 z-[65] md:z-[9999] inline-flex items-center justify-center gap-2 h-10 md:h-auto w-10 md:w-auto md:px-4 md:py-2.5 rounded-full kalshi-fab text-[#1A1A18] opacity-90 hover:opacity-100 transition-opacity"
         >
-          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+          <span className="inline-flex h-2 w-2 rounded-full bg-[#2D8F5C]" aria-hidden="true" />
           <span className="hidden md:inline text-[11px] font-semibold tracking-[0.05em] uppercase" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
             Chat
           </span>
