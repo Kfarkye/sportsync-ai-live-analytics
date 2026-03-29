@@ -2,296 +2,466 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NBA Team Betting Profiles — 2025-26 Season | SportsSync</title>
-  <meta name="description" content="Over/under and ATS trends for all 30 NBA teams. Home vs away splits, rest patterns, and strongest plays for the 2025-26 season." />
-  <meta name="robots" content="index, follow" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NBA Betting Profiles | SportsSync</title>
+  <meta name="description" content="Over/under and ATS trends for all 30 NBA teams. Sorted by home over rate." />
   <link rel="canonical" href="https://sportsync-evidence.web.app/trends/" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root{--bg-canvas:#fdfbf7;--bg-surface:#fff;--bg-surface-hover:#faf9f6;--bg-subtle:#f5f2ed;--text-primary:#1a1a1a;--text-secondary:#454545;--text-tertiary:#666;--border-subtle:#ece6de;--border-strong:#e2ddd5;--color-accent:#2d5da1;--color-success:#1f6b2e;--color-danger:#8f281f;--radius-lg:14px;--shadow-sm:0 1px 3px rgba(0,0,0,.04),0 1px 2px rgba(0,0,0,.02);--font-sans:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;--font-serif:"Source Serif 4",Georgia,serif;--font-mono:"SF Mono","Menlo",monospace}
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:var(--font-sans);background:var(--bg-canvas);color:var(--text-primary);line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
-    a{color:var(--color-accent);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}
-    .page{max-width:960px;margin:0 auto;padding:56px 24px}
-    .page-title{font-family:var(--font-serif);font-size:42px;font-weight:700;letter-spacing:-.01em;line-height:1.1;margin-bottom:12px}
-    .page-subtitle{font-size:18px;color:var(--text-secondary);margin-bottom:48px;max-width:640px}
-    .table-container{overflow-x:auto;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
-    table{width:100%;border-collapse:collapse;text-align:left;font-size:14px;white-space:nowrap}
-    thead th{padding:14px 20px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);border-bottom:1px solid var(--border-strong)}
-    tbody td{padding:14px 20px;border-bottom:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:13px;color:var(--text-secondary);vertical-align:middle}
-    tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--bg-surface-hover)}
-    .text-cell{font-family:var(--font-sans);font-size:14px}.fw-600{font-weight:600;color:var(--text-primary)}
-    .align-right{text-align:right}.color-green{color:var(--color-success)!important;font-weight:600}.color-red{color:var(--color-danger)!important;font-weight:600}
-    .page-footer{padding-top:40px;font-size:14px;color:var(--text-secondary)}
-    @media(max-width:768px){.page-title{font-size:32px}}
+    :root {
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --text-primary: #1A1A18;
+      --text-secondary: #6B6B63;
+      --text-tertiary: #9B9B91;
+      --accent: #C85A3A;
+      --border: #E8E7E3;
+      --green: #2D8F5C;
+      --mono: 'JetBrains Mono', monospace;
+      --serif: 'Source Serif 4', serif;
+      --sans: 'DM Sans', sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+      font-variant-numeric: tabular-nums;
+    }
+    nav {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nav-brand {
+      font-family: var(--mono);
+      font-weight: 500;
+      font-size: 15px;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 14px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .nav-links a:hover { color: var(--text-primary); }
+    .nav-links a.active { color: var(--text-primary); font-weight: 600; }
+    .hero {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 48px 24px 32px;
+    }
+    .hero h1 {
+      font-family: var(--serif);
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.025em;
+      margin-bottom: 12px;
+    }
+    .hero-sub {
+      font-size: 15px;
+      color: var(--text-secondary);
+      max-width: 520px;
+      line-height: 1.6;
+    }
+    .table-section {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      text-align: left;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    thead th:not(:first-child) { text-align: center; }
+    tbody tr { transition: background 0.1s; }
+    tbody tr:hover { background: #FDFCFA; }
+    tbody td {
+      padding: 12px 16px;
+      font-size: 14px;
+      border-bottom: 1px solid rgba(232,231,227,0.5);
+      vertical-align: middle;
+    }
+    tbody td:not(:first-child) { text-align: center; }
+    tbody tr:last-child td { border-bottom: none; }
+    .team-cell { font-weight: 600; color: var(--text-primary); }
+    .team-cell a { color: inherit; text-decoration: none; }
+    .team-cell a:hover { text-decoration: underline; }
+    .gp-cell {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-tertiary);
+    }
+    .record-cell {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .record-cell.hot {
+      color: var(--green);
+      font-weight: 600;
+    }
+    .record-cell.cold { color: var(--text-tertiary); }
+    .record-pct {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-left: 2px;
+    }
+    .record-cell.hot .record-pct { color: var(--green); }
+    .vs-cell {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .vs-cell.pos { color: var(--green); }
+    .vs-cell.neg { color: var(--accent); }
+    footer {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    footer span {
+      font-size: 13px;
+      color: var(--text-tertiary);
+    }
+    footer a {
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+    .footer-links { display: flex; gap: 24px; }
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hero { padding: 32px 20px 24px; }
+      .table-section { padding: 0 12px 48px; }
+      .table-wrap { overflow-x: auto; }
+      table { min-width: 700px; }
+      thead th, tbody td { padding: 10px 12px; }
+    }
   </style>
 </head>
 <body>
-  <main class="page">
-    <h1 class="page-title">NBA Betting Profiles</h1>
-    <p class="page-subtitle">Over/under and ATS trends for all 30 NBA teams. Sorted by home over rate. Updated 2026-03-29.</p>
-    <div class="table-container" tabindex="0">
-      <table>
-        <thead>
-          <tr>
-            <th class="align-left">Team</th>
-            <th class="align-right">GP</th>
-            <th class="align-right">Home O/U</th>
-            <th class="align-right">vs Close</th>
-            <th class="align-right">Home ATS</th>
-            <th class="align-right">Away O/U</th>
-          </tr>
-        </thead>
-        <tbody>
+<nav>
+  <a class="nav-brand" href="/">SportsSync</a>
+  <ul class="nav-links">
+    <li><a href="/props">Props</a></li>
+    <li><a href="/trends/" class="active">Trends</a></li>
+    <li><a href="/pregame">Matchups</a></li>
+    <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
+  </ul>
+</nav>
+
+<section class="hero">
+  <h1>NBA Betting Profiles</h1>
+  <p class="hero-sub">Over/under and ATS trends for all 30 NBA teams. Sorted by home over rate.</p>
+</section>
+
+<section class="table-section">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Team</th>
+          <th>GP</th>
+          <th>Home O/U</th>
+          <th>vs Close</th>
+          <th>Home ATS</th>
+          <th>Away O/U</th>
+        </tr>
+      </thead>
+      <tbody>
             <tr>
-              <td class="text-cell"><a href="/trends/utah-jazz" class="fw-600">Utah Jazz</a></td>
-              <td class="align-right">78</td>
-              <td class="align-right color-green">28-12 (70%)</td>
-              <td class="align-right color-green">+10.3</td>
-              <td class="align-right ">20-19 (51.3%)</td>
-              <td class="align-right ">18-19 (48.6%)</td>
+              <td class="team-cell"><a href="/trends/utah-jazz">Utah Jazz</a></td>
+              <td class="gp-cell">79</td>
+              <td class="record-cell hot">25-11 <span class="record-pct">(69.4%)</span></td>
+              <td class="vs-cell pos">+10.1</td>
+              <td class="record-cell ">19-17 <span class="record-pct">(52.8%)</span></td>
+              <td class="record-cell ">17-18 <span class="record-pct">(48.6%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/portland-trail-blazers" class="fw-600">Portland Trail Blazers</a></td>
-              <td class="align-right">79</td>
-              <td class="align-right color-green">25-14 (64.1%)</td>
-              <td class="align-right color-green">+2.8</td>
-              <td class="align-right color-green">21-16 (56.8%)</td>
-              <td class="align-right ">18-22 (45%)</td>
+              <td class="team-cell"><a href="/trends/golden-state-warriors">Golden State Warriors</a></td>
+              <td class="gp-cell">79</td>
+              <td class="record-cell hot">23-14 <span class="record-pct">(62.2%)</span></td>
+              <td class="vs-cell pos">+5</td>
+              <td class="record-cell cold">15-21 <span class="record-pct">(41.7%)</span></td>
+              <td class="record-cell ">19-16 <span class="record-pct">(54.3%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/golden-state-warriors" class="fw-600">Golden State Warriors</a></td>
-              <td class="align-right">79</td>
-              <td class="align-right color-green">24-15 (61.5%)</td>
-              <td class="align-right color-green">+5.4</td>
-              <td class="align-right ">15-22 (40.5%)</td>
-              <td class="align-right color-green">22-18 (55%)</td>
+              <td class="team-cell"><a href="/trends/portland-trail-blazers">Portland Trail Blazers</a></td>
+              <td class="gp-cell">79</td>
+              <td class="record-cell hot">21-13 <span class="record-pct">(61.8%)</span></td>
+              <td class="vs-cell pos">+3.5</td>
+              <td class="record-cell hot">19-15 <span class="record-pct">(55.9%)</span></td>
+              <td class="record-cell ">17-18 <span class="record-pct">(48.6%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/los-angeles-lakers" class="fw-600">Los Angeles Lakers</a></td>
-              <td class="align-right">78</td>
-              <td class="align-right color-green">23-16 (59%)</td>
-              <td class="align-right color-green">+1.5</td>
-              <td class="align-right ">20-18 (52.6%)</td>
-              <td class="align-right ">17-22 (43.6%)</td>
+              <td class="team-cell"><a href="/trends/los-angeles-lakers">Los Angeles Lakers</a></td>
+              <td class="gp-cell">78</td>
+              <td class="record-cell hot">22-15 <span class="record-pct">(59.5%)</span></td>
+              <td class="vs-cell pos">+1.7</td>
+              <td class="record-cell ">19-18 <span class="record-pct">(51.4%)</span></td>
+              <td class="record-cell cold">14-19 <span class="record-pct">(42.4%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/philadelphia-76ers" class="fw-600">Philadelphia 76ers</a></td>
-              <td class="align-right">77</td>
-              <td class="align-right color-green">23-17 (57.5%)</td>
-              <td class="align-right color-green">+3.2</td>
-              <td class="align-right ">18-21 (46.2%)</td>
-              <td class="align-right ">19-18 (51.4%)</td>
+              <td class="team-cell"><a href="/trends/orlando-magic">Orlando Magic</a></td>
+              <td class="gp-cell">77</td>
+              <td class="record-cell hot">21-15 <span class="record-pct">(58.3%)</span></td>
+              <td class="vs-cell pos">+3.1</td>
+              <td class="record-cell ">17-19 <span class="record-pct">(47.2%)</span></td>
+              <td class="record-cell ">17-16 <span class="record-pct">(51.5%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/orlando-magic" class="fw-600">Orlando Magic</a></td>
-              <td class="align-right">77</td>
-              <td class="align-right color-green">22-17 (56.4%)</td>
-              <td class="align-right color-green">+2.7</td>
-              <td class="align-right ">19-19 (50%)</td>
-              <td class="align-right color-green">21-16 (56.8%)</td>
+              <td class="team-cell"><a href="/trends/philadelphia-76ers">Philadelphia 76ers</a></td>
+              <td class="gp-cell">77</td>
+              <td class="record-cell hot">21-15 <span class="record-pct">(58.3%)</span></td>
+              <td class="vs-cell pos">+2.9</td>
+              <td class="record-cell cold">16-20 <span class="record-pct">(44.4%)</span></td>
+              <td class="record-cell ">18-16 <span class="record-pct">(52.9%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/miami-heat" class="fw-600">Miami Heat</a></td>
-              <td class="align-right">80</td>
-              <td class="align-right color-green">23-18 (56.1%)</td>
-              <td class="align-right color-green">+3.9</td>
-              <td class="align-right ">21-19 (52.5%)</td>
-              <td class="align-right ">20-18 (52.6%)</td>
+              <td class="team-cell"><a href="/trends/brooklyn-nets">Brooklyn Nets</a></td>
+              <td class="gp-cell">77</td>
+              <td class="record-cell hot">19-14 <span class="record-pct">(57.6%)</span></td>
+              <td class="vs-cell pos">+3.4</td>
+              <td class="record-cell ">15-17 <span class="record-pct">(46.9%)</span></td>
+              <td class="record-cell cold">14-22 <span class="record-pct">(38.9%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/milwaukee-bucks" class="fw-600">Milwaukee Bucks</a></td>
-              <td class="align-right">76</td>
-              <td class="align-right color-green">21-17 (55.3%)</td>
-              <td class="align-right color-green">+5.6</td>
-              <td class="align-right ">18-19 (48.6%)</td>
-              <td class="align-right ">13-25 (34.2%)</td>
+              <td class="team-cell"><a href="/trends/milwaukee-bucks">Milwaukee Bucks</a></td>
+              <td class="gp-cell">76</td>
+              <td class="record-cell hot">19-14 <span class="record-pct">(57.6%)</span></td>
+              <td class="vs-cell pos">+6.3</td>
+              <td class="record-cell cold">15-19 <span class="record-pct">(44.1%)</span></td>
+              <td class="record-cell cold">11-22 <span class="record-pct">(33.3%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/washington-wizards" class="fw-600">Washington Wizards</a></td>
-              <td class="align-right">76</td>
-              <td class="align-right color-green">21-17 (55.3%)</td>
-              <td class="align-right color-green">+3.5</td>
-              <td class="align-right ">19-19 (50%)</td>
-              <td class="align-right color-green">22-16 (57.9%)</td>
+              <td class="team-cell"><a href="/trends/memphis-grizzlies">Memphis Grizzlies</a></td>
+              <td class="gp-cell">78</td>
+              <td class="record-cell hot">20-16 <span class="record-pct">(55.6%)</span></td>
+              <td class="vs-cell neg">-1.2</td>
+              <td class="record-cell cold">15-20 <span class="record-pct">(42.9%)</span></td>
+              <td class="record-cell ">15-18 <span class="record-pct">(45.5%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/brooklyn-nets" class="fw-600">Brooklyn Nets</a></td>
-              <td class="align-right">77</td>
-              <td class="align-right ">19-16 (54.3%)</td>
-              <td class="align-right color-green">+2.7</td>
-              <td class="align-right ">16-19 (45.7%)</td>
-              <td class="align-right ">16-25 (39%)</td>
+              <td class="team-cell"><a href="/trends/new-orleans-pelicans">New Orleans Pelicans</a></td>
+              <td class="gp-cell">79</td>
+              <td class="record-cell hot">20-16 <span class="record-pct">(55.6%)</span></td>
+              <td class="vs-cell pos">+3.5</td>
+              <td class="record-cell hot">21-15 <span class="record-pct">(58.3%)</span></td>
+              <td class="record-cell ">17-17 <span class="record-pct">(50%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/memphis-grizzlies" class="fw-600">Memphis Grizzlies</a></td>
-              <td class="align-right">77</td>
-              <td class="align-right ">20-18 (52.6%)</td>
-              <td class="align-right color-red">-1.6</td>
-              <td class="align-right ">17-21 (44.7%)</td>
-              <td class="align-right ">19-19 (50%)</td>
+              <td class="team-cell"><a href="/trends/washington-wizards">Washington Wizards</a></td>
+              <td class="gp-cell">76</td>
+              <td class="record-cell ">18-16 <span class="record-pct">(52.9%)</span></td>
+              <td class="vs-cell pos">+3.5</td>
+              <td class="record-cell ">17-17 <span class="record-pct">(50%)</span></td>
+              <td class="record-cell hot">19-15 <span class="record-pct">(55.9%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/sacramento-kings" class="fw-600">Sacramento Kings</a></td>
-              <td class="align-right">77</td>
-              <td class="align-right ">20-19 (51.3%)</td>
-              <td class="align-right color-green">+1</td>
-              <td class="align-right ">16-22 (42.1%)</td>
-              <td class="align-right ">19-18 (51.4%)</td>
+              <td class="team-cell"><a href="/trends/miami-heat">Miami Heat</a></td>
+              <td class="gp-cell">80</td>
+              <td class="record-cell ">20-18 <span class="record-pct">(52.6%)</span></td>
+              <td class="vs-cell pos">+3.6</td>
+              <td class="record-cell hot">21-17 <span class="record-pct">(55.3%)</span></td>
+              <td class="record-cell hot">19-15 <span class="record-pct">(55.9%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/new-york-knicks" class="fw-600">New York Knicks</a></td>
-              <td class="align-right">80</td>
-              <td class="align-right ">21-20 (51.2%)</td>
-              <td class="align-right color-red">-1.7</td>
-              <td class="align-right color-green">25-15 (62.5%)</td>
-              <td class="align-right ">18-20 (47.4%)</td>
+              <td class="team-cell"><a href="/trends/la-clippers">LA Clippers</a></td>
+              <td class="gp-cell">78</td>
+              <td class="record-cell ">17-16 <span class="record-pct">(51.5%)</span></td>
+              <td class="vs-cell pos">+2.2</td>
+              <td class="record-cell ">17-16 <span class="record-pct">(51.5%)</span></td>
+              <td class="record-cell ">19-17 <span class="record-pct">(52.8%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/new-orleans-pelicans" class="fw-600">New Orleans Pelicans</a></td>
-              <td class="align-right">79</td>
-              <td class="align-right ">20-20 (50%)</td>
-              <td class="align-right color-green">+2</td>
-              <td class="align-right color-green">25-15 (62.5%)</td>
-              <td class="align-right ">18-18 (50%)</td>
+              <td class="team-cell"><a href="/trends/denver-nuggets">Denver Nuggets</a></td>
+              <td class="gp-cell">80</td>
+              <td class="record-cell ">17-17 <span class="record-pct">(50%)</span></td>
+              <td class="vs-cell pos">+0.2</td>
+              <td class="record-cell ">16-17 <span class="record-pct">(48.5%)</span></td>
+              <td class="record-cell hot">26-13 <span class="record-pct">(66.7%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/dallas-mavericks" class="fw-600">Dallas Mavericks</a></td>
-              <td class="align-right">78</td>
-              <td class="align-right ">19-20 (48.7%)</td>
-              <td class="align-right color-red">-3.2</td>
-              <td class="align-right ">19-19 (50%)</td>
-              <td class="align-right ">14-25 (35.9%)</td>
+              <td class="team-cell"><a href="/trends/sacramento-kings">Sacramento Kings</a></td>
+              <td class="gp-cell">78</td>
+              <td class="record-cell ">18-18 <span class="record-pct">(50%)</span></td>
+              <td class="vs-cell pos">+0.3</td>
+              <td class="record-cell cold">15-20 <span class="record-pct">(42.9%)</span></td>
+              <td class="record-cell ">19-16 <span class="record-pct">(54.3%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/denver-nuggets" class="fw-600">Denver Nuggets</a></td>
-              <td class="align-right">80</td>
-              <td class="align-right ">18-19 (48.6%)</td>
-              <td class="align-right color-green">+0.6</td>
-              <td class="align-right ">17-19 (47.2%)</td>
-              <td class="align-right color-green">28-14 (66.7%)</td>
+              <td class="team-cell"><a href="/trends/san-antonio-spurs">San Antonio Spurs</a></td>
+              <td class="gp-cell">80</td>
+              <td class="record-cell ">17-17 <span class="record-pct">(50%)</span></td>
+              <td class="vs-cell pos">+1.6</td>
+              <td class="record-cell hot">20-14 <span class="record-pct">(58.8%)</span></td>
+              <td class="record-cell cold">14-23 <span class="record-pct">(37.8%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/la-clippers" class="fw-600">LA Clippers</a></td>
-              <td class="align-right">78</td>
-              <td class="align-right ">18-19 (48.6%)</td>
-              <td class="align-right color-green">+1.6</td>
-              <td class="align-right ">20-17 (54.1%)</td>
-              <td class="align-right ">20-19 (51.3%)</td>
+              <td class="team-cell"><a href="/trends/new-york-knicks">New York Knicks</a></td>
+              <td class="gp-cell">80</td>
+              <td class="record-cell ">18-19 <span class="record-pct">(48.6%)</span></td>
+              <td class="vs-cell neg">-3.6</td>
+              <td class="record-cell hot">24-13 <span class="record-pct">(64.9%)</span></td>
+              <td class="record-cell ">18-19 <span class="record-pct">(48.6%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/san-antonio-spurs" class="fw-600">San Antonio Spurs</a></td>
-              <td class="align-right">80</td>
-              <td class="align-right ">18-19 (48.6%)</td>
-              <td class="align-right color-green">+0.9</td>
-              <td class="align-right color-green">21-16 (56.8%)</td>
-              <td class="align-right ">16-26 (38.1%)</td>
+              <td class="team-cell"><a href="/trends/oklahoma-city-thunder">Oklahoma City Thunder</a></td>
+              <td class="gp-cell">80</td>
+              <td class="record-cell ">18-19 <span class="record-pct">(48.6%)</span></td>
+              <td class="vs-cell neg">-3.8</td>
+              <td class="record-cell cold">15-22 <span class="record-pct">(40.5%)</span></td>
+              <td class="record-cell ">19-17 <span class="record-pct">(52.8%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/indiana-pacers" class="fw-600">Indiana Pacers</a></td>
-              <td class="align-right">78</td>
-              <td class="align-right ">18-20 (47.4%)</td>
-              <td class="align-right color-red">-0.4</td>
-              <td class="align-right color-green">21-17 (55.3%)</td>
-              <td class="align-right ">20-19 (51.3%)</td>
+              <td class="team-cell"><a href="/trends/detroit-pistons">Detroit Pistons</a></td>
+              <td class="gp-cell">78</td>
+              <td class="record-cell ">16-19 <span class="record-pct">(45.7%)</span></td>
+              <td class="vs-cell neg">-2</td>
+              <td class="record-cell ">16-18 <span class="record-pct">(47.1%)</span></td>
+              <td class="record-cell cold">14-21 <span class="record-pct">(40%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/oklahoma-city-thunder" class="fw-600">Oklahoma City Thunder</a></td>
-              <td class="align-right">80</td>
-              <td class="align-right ">18-20 (47.4%)</td>
-              <td class="align-right color-red">-3.9</td>
-              <td class="align-right ">16-22 (42.1%)</td>
-              <td class="align-right ">22-19 (53.7%)</td>
+              <td class="team-cell"><a href="/trends/dallas-mavericks">Dallas Mavericks</a></td>
+              <td class="gp-cell">78</td>
+              <td class="record-cell cold">16-20 <span class="record-pct">(44.4%)</span></td>
+              <td class="vs-cell neg">-5.9</td>
+              <td class="record-cell ">18-18 <span class="record-pct">(50%)</span></td>
+              <td class="record-cell cold">12-23 <span class="record-pct">(34.3%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/detroit-pistons" class="fw-600">Detroit Pistons</a></td>
-              <td class="align-right">78</td>
-              <td class="align-right ">17-21 (44.7%)</td>
-              <td class="align-right color-red">-1.8</td>
-              <td class="align-right ">17-20 (45.9%)</td>
-              <td class="align-right ">16-23 (41%)</td>
+              <td class="team-cell"><a href="/trends/indiana-pacers">Indiana Pacers</a></td>
+              <td class="gp-cell">78</td>
+              <td class="record-cell cold">16-20 <span class="record-pct">(44.4%)</span></td>
+              <td class="vs-cell neg">-1.4</td>
+              <td class="record-cell ">19-17 <span class="record-pct">(52.8%)</span></td>
+              <td class="record-cell ">16-18 <span class="record-pct">(47.1%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/atlanta-hawks" class="fw-600">Atlanta Hawks</a></td>
-              <td class="align-right">78</td>
-              <td class="align-right ">17-22 (43.6%)</td>
-              <td class="align-right color-red">-2.3</td>
-              <td class="align-right ">18-20 (47.4%)</td>
-              <td class="align-right color-green">23-15 (60.5%)</td>
+              <td class="team-cell"><a href="/trends/atlanta-hawks">Atlanta Hawks</a></td>
+              <td class="gp-cell">79</td>
+              <td class="record-cell cold">15-20 <span class="record-pct">(42.9%)</span></td>
+              <td class="vs-cell neg">-2.7</td>
+              <td class="record-cell ">16-19 <span class="record-pct">(45.7%)</span></td>
+              <td class="record-cell hot">21-15 <span class="record-pct">(58.3%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/toronto-raptors" class="fw-600">Toronto Raptors</a></td>
-              <td class="align-right">79</td>
-              <td class="align-right ">16-22 (42.1%)</td>
-              <td class="align-right color-red">-3.2</td>
-              <td class="align-right ">17-21 (44.7%)</td>
-              <td class="align-right ">14-26 (35%)</td>
+              <td class="team-cell"><a href="/trends/toronto-raptors">Toronto Raptors</a></td>
+              <td class="gp-cell">79</td>
+              <td class="record-cell cold">15-22 <span class="record-pct">(40.5%)</span></td>
+              <td class="vs-cell neg">-3.4</td>
+              <td class="record-cell cold">16-21 <span class="record-pct">(43.2%)</span></td>
+              <td class="record-cell cold">12-24 <span class="record-pct">(33.3%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/boston-celtics" class="fw-600">Boston Celtics</a></td>
-              <td class="align-right">77</td>
-              <td class="align-right ">15-23 (39.5%)</td>
-              <td class="align-right color-red">-3.9</td>
-              <td class="align-right ">19-18 (51.4%)</td>
-              <td class="align-right ">12-26 (31.6%)</td>
+              <td class="team-cell"><a href="/trends/chicago-bulls">Chicago Bulls</a></td>
+              <td class="gp-cell">78</td>
+              <td class="record-cell cold">14-23 <span class="record-pct">(37.8%)</span></td>
+              <td class="vs-cell neg">-4.3</td>
+              <td class="record-cell ">18-19 <span class="record-pct">(48.6%)</span></td>
+              <td class="record-cell hot">20-14 <span class="record-pct">(58.8%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/charlotte-hornets" class="fw-600">Charlotte Hornets</a></td>
-              <td class="align-right">79</td>
-              <td class="align-right ">15-23 (39.5%)</td>
-              <td class="align-right color-red">-3.5</td>
-              <td class="align-right color-green">23-14 (62.2%)</td>
-              <td class="align-right ">18-22 (45%)</td>
+              <td class="team-cell"><a href="/trends/boston-celtics">Boston Celtics</a></td>
+              <td class="gp-cell">77</td>
+              <td class="record-cell cold">12-20 <span class="record-pct">(37.5%)</span></td>
+              <td class="vs-cell neg">-2.8</td>
+              <td class="record-cell ">17-15 <span class="record-pct">(53.1%)</span></td>
+              <td class="record-cell cold">12-26 <span class="record-pct">(31.6%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/chicago-bulls" class="fw-600">Chicago Bulls</a></td>
-              <td class="align-right">77</td>
-              <td class="align-right ">16-25 (39%)</td>
-              <td class="align-right color-red">-3.4</td>
-              <td class="align-right ">20-20 (50%)</td>
-              <td class="align-right color-green">21-14 (60%)</td>
+              <td class="team-cell"><a href="/trends/charlotte-hornets">Charlotte Hornets</a></td>
+              <td class="gp-cell">79</td>
+              <td class="record-cell cold">12-21 <span class="record-pct">(36.4%)</span></td>
+              <td class="vs-cell neg">-4.5</td>
+              <td class="record-cell hot">20-13 <span class="record-pct">(60.6%)</span></td>
+              <td class="record-cell ">18-21 <span class="record-pct">(46.2%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/cleveland-cavaliers" class="fw-600">Cleveland Cavaliers</a></td>
-              <td class="align-right">78</td>
-              <td class="align-right ">15-24 (38.5%)</td>
-              <td class="align-right color-red">-3.2</td>
-              <td class="align-right ">14-25 (35.9%)</td>
-              <td class="align-right color-green">22-16 (57.9%)</td>
+              <td class="team-cell"><a href="/trends/cleveland-cavaliers">Cleveland Cavaliers</a></td>
+              <td class="gp-cell">78</td>
+              <td class="record-cell cold">13-23 <span class="record-pct">(36.1%)</span></td>
+              <td class="vs-cell neg">-4.4</td>
+              <td class="record-cell cold">14-22 <span class="record-pct">(38.9%)</span></td>
+              <td class="record-cell hot">21-14 <span class="record-pct">(60%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/houston-rockets" class="fw-600">Houston Rockets</a></td>
-              <td class="align-right">77</td>
-              <td class="align-right ">13-24 (35.1%)</td>
-              <td class="align-right color-red">-2.8</td>
-              <td class="align-right ">15-22 (40.5%)</td>
-              <td class="align-right ">20-19 (51.3%)</td>
+              <td class="team-cell"><a href="/trends/houston-rockets">Houston Rockets</a></td>
+              <td class="gp-cell">77</td>
+              <td class="record-cell cold">12-22 <span class="record-pct">(35.3%)</span></td>
+              <td class="vs-cell neg">-2.6</td>
+              <td class="record-cell cold">14-19 <span class="record-pct">(42.4%)</span></td>
+              <td class="record-cell ">19-18 <span class="record-pct">(51.4%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/minnesota-timberwolves" class="fw-600">Minnesota Timberwolves</a></td>
-              <td class="align-right">80</td>
-              <td class="align-right ">13-27 (32.5%)</td>
-              <td class="align-right color-red">-5.4</td>
-              <td class="align-right ">17-22 (43.6%)</td>
-              <td class="align-right color-green">24-15 (61.5%)</td>
+              <td class="team-cell"><a href="/trends/minnesota-timberwolves">Minnesota Timberwolves</a></td>
+              <td class="gp-cell">80</td>
+              <td class="record-cell cold">12-23 <span class="record-pct">(34.3%)</span></td>
+              <td class="vs-cell neg">-5.9</td>
+              <td class="record-cell cold">14-20 <span class="record-pct">(41.2%)</span></td>
+              <td class="record-cell hot">24-13 <span class="record-pct">(64.9%)</span></td>
             </tr>
             <tr>
-              <td class="text-cell"><a href="/trends/phoenix-suns" class="fw-600">Phoenix Suns</a></td>
-              <td class="align-right">77</td>
-              <td class="align-right ">13-27 (32.5%)</td>
-              <td class="align-right color-red">-5.4</td>
-              <td class="align-right color-green">22-17 (56.4%)</td>
-              <td class="align-right ">19-18 (51.4%)</td>
+              <td class="team-cell"><a href="/trends/phoenix-suns">Phoenix Suns</a></td>
+              <td class="gp-cell">78</td>
+              <td class="record-cell cold">12-25 <span class="record-pct">(32.4%)</span></td>
+              <td class="vs-cell neg">-6</td>
+              <td class="record-cell hot">21-16 <span class="record-pct">(56.8%)</span></td>
+              <td class="record-cell ">18-16 <span class="record-pct">(52.9%)</span></td>
             </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="page-footer">
-      <p>Auto-generated 2026-03-29. For live intelligence, visit <a href="https://ref-tendencies.web.app/">Ref Tendencies</a>.</p>
-    </div>
-  </main>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <span>&copy; 2026 SportsSync</span>
+  <div class="footer-links">
+    <a href="/props">Props</a>
+    <a href="/pregame">Matchups</a>
+    <a href="mailto:api@sportsync.io">Contact</a>
+  </div>
+</footer>
 </body>
 </html>

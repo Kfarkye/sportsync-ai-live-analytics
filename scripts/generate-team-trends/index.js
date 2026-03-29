@@ -66,6 +66,12 @@ async function fetchGames(status) {
 // ── Index Page Generator ─────────────────────────────────────────────────────
 
 function renderIndexPage(teamSummaries) {
+  const pctClass = (pct) => {
+    if (pct >= 55) return 'hot';
+    if (pct <= 45) return 'cold';
+    return '';
+  };
+
   const rows = teamSummaries
     .sort((a, b) => b.home.overPct - a.home.overPct)
     .map(s => {
@@ -73,76 +79,247 @@ function renderIndexPage(teamSummaries) {
       if (!team) return '';
       const homeOvUn = `${s.home.overs}-${s.home.unders}`;
       const awayOvUn = `${s.away.overs}-${s.away.unders}`;
+      const homeOverClass = pctClass(s.home.overPct);
+      const homeAtsClass = pctClass(s.home.coverPct);
+      const awayOverClass = pctClass(s.away.overPct);
       return `            <tr>
-              <td class="text-cell"><a href="/trends/${team.slug}" class="fw-600">${team.name}</a></td>
-              <td class="align-right">${s.totalGames}</td>
-              <td class="align-right ${s.home.overPct >= 55 ? 'color-green' : ''}">${homeOvUn} (${s.home.overPct}%)</td>
-              <td class="align-right ${s.home.avgVsClose >= 0 ? 'color-green' : 'color-red'}">${s.home.avgVsClose >= 0 ? '+' : ''}${s.home.avgVsClose}</td>
-              <td class="align-right ${s.home.coverPct >= 55 ? 'color-green' : ''}">${s.home.covers}-${s.home.nonCovers} (${s.home.coverPct}%)</td>
-              <td class="align-right ${s.away.overPct >= 55 ? 'color-green' : ''}">${awayOvUn} (${s.away.overPct}%)</td>
+              <td class="team-cell"><a href="/trends/${team.slug}">${team.name}</a></td>
+              <td class="gp-cell">${s.totalGames}</td>
+              <td class="record-cell ${homeOverClass}">${homeOvUn} <span class="record-pct">(${s.home.overPct}%)</span></td>
+              <td class="vs-cell ${s.home.avgVsClose >= 0 ? 'pos' : 'neg'}">${s.home.avgVsClose >= 0 ? '+' : ''}${s.home.avgVsClose}</td>
+              <td class="record-cell ${homeAtsClass}">${s.home.covers}-${s.home.nonCovers} <span class="record-pct">(${s.home.coverPct}%)</span></td>
+              <td class="record-cell ${awayOverClass}">${awayOvUn} <span class="record-pct">(${s.away.overPct}%)</span></td>
             </tr>`;
     })
     .filter(Boolean)
     .join('\n');
 
-  const today = new Date().toISOString().slice(0, 10);
-
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NBA Team Betting Profiles — 2025-26 Season | SportsSync</title>
-  <meta name="description" content="Over/under and ATS trends for all 30 NBA teams. Home vs away splits, rest patterns, and strongest plays for the 2025-26 season." />
-  <meta name="robots" content="index, follow" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NBA Betting Profiles | SportsSync</title>
+  <meta name="description" content="Over/under and ATS trends for all 30 NBA teams. Sorted by home over rate." />
   <link rel="canonical" href="https://sportsync-evidence.web.app/trends/" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root{--bg-canvas:#fdfbf7;--bg-surface:#fff;--bg-surface-hover:#faf9f6;--bg-subtle:#f5f2ed;--text-primary:#1a1a1a;--text-secondary:#454545;--text-tertiary:#666;--border-subtle:#ece6de;--border-strong:#e2ddd5;--color-accent:#2d5da1;--color-success:#1f6b2e;--color-danger:#8f281f;--radius-lg:14px;--shadow-sm:0 1px 3px rgba(0,0,0,.04),0 1px 2px rgba(0,0,0,.02);--font-sans:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;--font-serif:"Source Serif 4",Georgia,serif;--font-mono:"SF Mono","Menlo",monospace}
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:var(--font-sans);background:var(--bg-canvas);color:var(--text-primary);line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
-    a{color:var(--color-accent);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}
-    .page{max-width:960px;margin:0 auto;padding:56px 24px}
-    .page-title{font-family:var(--font-serif);font-size:42px;font-weight:700;letter-spacing:-.01em;line-height:1.1;margin-bottom:12px}
-    .page-subtitle{font-size:18px;color:var(--text-secondary);margin-bottom:48px;max-width:640px}
-    .table-container{overflow-x:auto;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
-    table{width:100%;border-collapse:collapse;text-align:left;font-size:14px;white-space:nowrap}
-    thead th{padding:14px 20px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);border-bottom:1px solid var(--border-strong)}
-    tbody td{padding:14px 20px;border-bottom:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:13px;color:var(--text-secondary);vertical-align:middle}
-    tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--bg-surface-hover)}
-    .text-cell{font-family:var(--font-sans);font-size:14px}.fw-600{font-weight:600;color:var(--text-primary)}
-    .align-right{text-align:right}.color-green{color:var(--color-success)!important;font-weight:600}.color-red{color:var(--color-danger)!important;font-weight:600}
-    .page-footer{padding-top:40px;font-size:14px;color:var(--text-secondary)}
-    @media(max-width:768px){.page-title{font-size:32px}}
+    :root {
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --text-primary: #1A1A18;
+      --text-secondary: #6B6B63;
+      --text-tertiary: #9B9B91;
+      --accent: #C85A3A;
+      --border: #E8E7E3;
+      --green: #2D8F5C;
+      --mono: 'JetBrains Mono', monospace;
+      --serif: 'Source Serif 4', serif;
+      --sans: 'DM Sans', sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+      font-variant-numeric: tabular-nums;
+    }
+    nav {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nav-brand {
+      font-family: var(--mono);
+      font-weight: 500;
+      font-size: 15px;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 14px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .nav-links a:hover { color: var(--text-primary); }
+    .nav-links a.active { color: var(--text-primary); font-weight: 600; }
+    .hero {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 48px 24px 32px;
+    }
+    .hero h1 {
+      font-family: var(--serif);
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.025em;
+      margin-bottom: 12px;
+    }
+    .hero-sub {
+      font-size: 15px;
+      color: var(--text-secondary);
+      max-width: 520px;
+      line-height: 1.6;
+    }
+    .table-section {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      text-align: left;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    thead th:not(:first-child) { text-align: center; }
+    tbody tr { transition: background 0.1s; }
+    tbody tr:hover { background: #FDFCFA; }
+    tbody td {
+      padding: 12px 16px;
+      font-size: 14px;
+      border-bottom: 1px solid rgba(232,231,227,0.5);
+      vertical-align: middle;
+    }
+    tbody td:not(:first-child) { text-align: center; }
+    tbody tr:last-child td { border-bottom: none; }
+    .team-cell { font-weight: 600; color: var(--text-primary); }
+    .team-cell a { color: inherit; text-decoration: none; }
+    .team-cell a:hover { text-decoration: underline; }
+    .gp-cell {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-tertiary);
+    }
+    .record-cell {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .record-cell.hot {
+      color: var(--green);
+      font-weight: 600;
+    }
+    .record-cell.cold { color: var(--text-tertiary); }
+    .record-pct {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-left: 2px;
+    }
+    .record-cell.hot .record-pct { color: var(--green); }
+    .vs-cell {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .vs-cell.pos { color: var(--green); }
+    .vs-cell.neg { color: var(--accent); }
+    footer {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    footer span {
+      font-size: 13px;
+      color: var(--text-tertiary);
+    }
+    footer a {
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+    .footer-links { display: flex; gap: 24px; }
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hero { padding: 32px 20px 24px; }
+      .table-section { padding: 0 12px 48px; }
+      .table-wrap { overflow-x: auto; }
+      table { min-width: 700px; }
+      thead th, tbody td { padding: 10px 12px; }
+    }
   </style>
 </head>
 <body>
-  <main class="page">
-    <h1 class="page-title">NBA Betting Profiles</h1>
-    <p class="page-subtitle">Over/under and ATS trends for all 30 NBA teams. Sorted by home over rate. Updated ${today}.</p>
-    <div class="table-container" tabindex="0">
-      <table>
-        <thead>
-          <tr>
-            <th class="align-left">Team</th>
-            <th class="align-right">GP</th>
-            <th class="align-right">Home O/U</th>
-            <th class="align-right">vs Close</th>
-            <th class="align-right">Home ATS</th>
-            <th class="align-right">Away O/U</th>
-          </tr>
-        </thead>
-        <tbody>
+<nav>
+  <a class="nav-brand" href="/">SportsSync</a>
+  <ul class="nav-links">
+    <li><a href="/props">Props</a></li>
+    <li><a href="/trends/" class="active">Trends</a></li>
+    <li><a href="/pregame">Matchups</a></li>
+    <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
+  </ul>
+</nav>
+
+<section class="hero">
+  <h1>NBA Betting Profiles</h1>
+  <p class="hero-sub">Over/under and ATS trends for all 30 NBA teams. Sorted by home over rate.</p>
+</section>
+
+<section class="table-section">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Team</th>
+          <th>GP</th>
+          <th>Home O/U</th>
+          <th>vs Close</th>
+          <th>Home ATS</th>
+          <th>Away O/U</th>
+        </tr>
+      </thead>
+      <tbody>
 ${rows}
-        </tbody>
-      </table>
-    </div>
-    <div class="page-footer">
-      <p>Auto-generated ${today}. For live intelligence, visit <a href="https://ref-tendencies.web.app/">Ref Tendencies</a>.</p>
-    </div>
-  </main>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <span>&copy; 2026 SportsSync</span>
+  <div class="footer-links">
+    <a href="/props">Props</a>
+    <a href="/pregame">Matchups</a>
+    <a href="mailto:api@sportsync.io">Contact</a>
+  </div>
+</footer>
 </body>
 </html>`;
 }
