@@ -370,7 +370,7 @@ ${recentGames.map(g => `            <tr${g.result === 'OVER' ? ' class="row-high
         <li>O/U computed on ${home.gamesWithLine} of ${home.games} home games and ${away.gamesWithLine} of ${away.games} away games with verified lines.</li>
       </ul>
       <p class="section-note">
-        For live intelligence, visit <a href="https://ref-tendencies.web.app/" target="_blank" rel="noopener noreferrer">Ref Tendencies</a>.
+        For live intelligence, visit <a href="/referees/" rel="noopener noreferrer">Ref Tendencies</a>.
       </p>
     </section>
 

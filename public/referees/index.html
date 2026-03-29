@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ref Tendencies x Team | SportsSync</title>
+  <meta name="description" content="NBA referee tendencies by team: ATS records, over/under trends, and today's ref assignments." />
+  <link rel="canonical" href="https://sportsync-evidence.web.app/referees/" />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --text-primary: #1A1A18;
+      --text-secondary: #6B6B63;
+      --text-tertiary: #9B9B91;
+      --accent: #C85A3A;
+      --accent-dim: rgba(200,90,58,0.08);
+      --border: #E8E7E3;
+      --green: #2D8F5C;
+      --green-dim: rgba(45,143,92,0.08);
+      --blue: #3A7BC8;
+      --blue-dim: rgba(58,123,200,0.08);
+      --mono: 'JetBrains Mono', monospace;
+      --serif: 'Source Serif 4', serif;
+      --sans: 'DM Sans', sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+    }
+
+    nav {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nav-brand {
+      font-family: var(--mono);
+      font-weight: 500;
+      font-size: 15px;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+    .nav-tabs a {
+      font-size: 14px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .nav-tabs a:hover { color: var(--text-primary); }
+    .nav-tabs a.active { color: var(--text-primary); font-weight: 600; }
+
+    .hero {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 12px 24px 16px;
+    }
+    .hero-kicker {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .hero h1 {
+      font-family: var(--serif);
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.025em;
+      margin-bottom: 12px;
+    }
+    .hero h1 em {
+      font-style: italic;
+      font-weight: 400;
+      color: var(--text-secondary);
+    }
+    .hero-sub {
+      font-size: 15px;
+      color: var(--text-secondary);
+      max-width: 560px;
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+    .proof-strip {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-tertiary);
+      letter-spacing: 0.01em;
+    }
+
+    .edge-section {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px 22px;
+    }
+    .edge-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .edge-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .edge-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+    }
+    .edge-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+    }
+    .edge-item {
+      background: var(--surface);
+      padding: 20px;
+    }
+    .edge-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+      gap: 8px;
+    }
+    .edge-ref-name { font-size: 16px; font-weight: 600; }
+    .edge-tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 3px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+    .edge-tag.cover { background: var(--green-dim); color: var(--green); }
+    .edge-tag.over { background: var(--accent-dim); color: var(--accent); }
+    .edge-tag.under { background: var(--blue-dim); color: var(--blue); }
+    .edge-matchup {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      line-height: 1.45;
+    }
+    .edge-stats {
+      display: flex;
+      gap: 16px;
+      align-items: baseline;
+    }
+    .edge-stat-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+    }
+    .edge-stat-value {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .edge-gp {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-left: auto;
+    }
+    .analysis-bar {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .analysis-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      white-space: nowrap;
+      padding-top: 2px;
+    }
+    .analysis-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    .controls {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .search-wrap {
+      flex: 1;
+      min-width: 220px;
+      position: relative;
+    }
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      color: var(--text-tertiary);
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      padding: 10px 14px 10px 38px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 400;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-input::placeholder { color: var(--text-tertiary); }
+    .search-input:focus { border-color: var(--text-secondary); }
+
+    .filter-group, .min-group {
+      display: flex;
+      gap: 2px;
+      align-items: center;
+    }
+    .filter-btn {
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      padding: 7px 16px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .filter-btn:hover { color: var(--text-secondary); }
+    .filter-btn.active {
+      color: var(--text-primary);
+      font-weight: 600;
+      background: transparent;
+    }
+    .min-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      margin-right: 4px;
+    }
+    .min-btn {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      padding: 5px 10px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+    .min-btn:hover { color: var(--text-secondary); }
+    .min-btn.active {
+      color: var(--text-primary);
+      font-weight: 700;
+      border-bottom: 2px solid var(--text-primary);
+      border-radius: 0;
+    }
+    .result-count {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
+    .table-section {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px 26px;
+    }
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .table-scroll { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 920px;
+    }
+    thead th {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      text-align: left;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    thead th:hover { color: var(--text-secondary); }
+    thead th.sorted { color: var(--text-primary); }
+    .sort-arrow {
+      display: inline-block;
+      margin-left: 3px;
+      font-size: 9px;
+      opacity: 0.5;
+    }
+    thead th.sorted .sort-arrow { opacity: 1; }
+    tbody tr:hover { background: #FDFCFA; }
+    tbody td {
+      padding: 11px 16px;
+      font-size: 14px;
+      border-bottom: 1px solid rgba(232,231,227,0.4);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .cell-ref { font-weight: 600; color: var(--text-primary); }
+    .cell-team { color: var(--text-secondary); font-weight: 400; }
+    .cell-num {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+    .cell-record {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+    .cell-rate {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .rate-bar {
+      width: 48px;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .rate-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--green);
+    }
+    .rate-value.hot { color: var(--green); }
+    .rate-value.warm { color: var(--text-secondary); }
+    .rate-value.cold { color: var(--text-tertiary); }
+    .cell-avg {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+    .cell-edge {
+      display: flex;
+      gap: 4px;
+      justify-content: flex-end;
+    }
+    .edge-chip {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 3px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+    .edge-chip.cover { background: var(--green-dim); color: var(--green); }
+    .edge-chip.over { background: var(--accent-dim); color: var(--accent); }
+    .edge-chip.under { background: var(--blue-dim); color: var(--blue); }
+    .edge-chip.none { background: rgba(0,0,0,0.04); color: var(--text-tertiary); }
+
+    .games-section {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+    .games-date-header {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      padding: 16px 0 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .game-group { border-bottom: 1px solid var(--border); }
+    .game-group-header {
+      padding: 14px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .game-group-chevron {
+      width: 16px;
+      height: 16px;
+      color: var(--text-tertiary);
+      transition: transform 0.15s;
+    }
+    .game-group.collapsed .game-group-chevron { transform: rotate(-90deg); }
+    .game-group-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .game-group-time {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-left: 4px;
+    }
+    .game-group.collapsed .ref-list { display: none; }
+    .ref-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0 10px 24px;
+      border-top: 1px solid rgba(232,231,227,0.4);
+    }
+    .ref-row:hover {
+      background: #FDFCFA;
+      margin: 0 -24px;
+      padding: 10px 24px 10px 48px;
+    }
+    .ref-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .ref-role {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-left: 6px;
+    }
+    .ref-records {
+      display: flex;
+      gap: 12px;
+    }
+    .ref-record {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .ref-record .rec-label {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-right: 2px;
+    }
+
+    footer {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    footer span { font-size: 13px; color: var(--text-tertiary); }
+    footer a { font-size: 13px; color: var(--text-secondary); text-decoration: none; }
+    .footer-links { display: flex; gap: 24px; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 768px) {
+      .nav-tabs { display: none; }
+      .edge-grid { grid-template-columns: 1fr; }
+      .controls { padding: 0 16px 16px; }
+      .search-wrap { min-width: 160px; }
+      .table-section { padding: 0 12px 24px; }
+      .games-section { padding: 0 20px 48px; }
+      .filter-btn { padding: 6px 10px; font-size: 12px; }
+      .min-btn { padding: 4px 8px; font-size: 11px; }
+      .result-count { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-brand" href="/">SportsSync</a>
+    <ul class="nav-tabs">
+      <li><a href="/props">Props</a></li>
+      <li><a href="/trends/">Trends</a></li>
+      <li><a href="/pregame">Matchups</a></li>
+      <li><a href="/referees/" class="active">Referees</a></li>
+    </ul>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-kicker">NBA 2024-26</div>
+    <h1>Ref Tendencies <em>x Team</em></h1>
+    <p class="hero-sub">ATS and O/U records for ref x team combinations. Filter by venue and minimum games, then scan today's assignment edges.</p>
+    <div class="proof-strip" id="proof-strip">Live table · Loading…</div>
+  </section>
+
+  <section class="edge-section">
+    <div class="edge-card">
+      <div class="edge-header">
+        <div class="edge-label">Edge of the Day</div>
+      </div>
+      <div class="edge-grid" id="edge-grid">
+        <div class="edge-item">
+          <div class="edge-ref-name">Loading ref edges…</div>
+        </div>
+      </div>
+      <div class="analysis-bar">
+        <div class="analysis-label">Analysis</div>
+        <p class="analysis-text" id="analysis-text">Checking today's assignments and ref x team history.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="controls">
+    <div class="search-wrap">
+      <svg class="search-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6"/><path d="M14.5 14.5L18 18"/></svg>
+      <input id="search-input" class="search-input" type="text" placeholder="Search referee or team..." />
+    </div>
+
+    <div class="filter-group">
+      <button class="filter-btn active" data-venue="all">All</button>
+      <button class="filter-btn" data-venue="home">Home</button>
+      <button class="filter-btn" data-venue="away">Away</button>
+    </div>
+
+    <div class="min-group">
+      <span class="min-label">Min:</span>
+      <button class="min-btn active" data-min="3">3+</button>
+      <button class="min-btn" data-min="5">5+</button>
+      <button class="min-btn" data-min="8">8+</button>
+      <button class="min-btn" data-min="10">10+</button>
+    </div>
+
+    <span class="result-count" id="result-count">0 results</span>
+  </div>
+
+  <section class="table-section">
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th data-sort="ref_name">Referee <span class="sort-arrow">↕</span></th>
+              <th data-sort="team">Team <span class="sort-arrow">↕</span></th>
+              <th data-sort="games" style="text-align:center">Games <span class="sort-arrow">↕</span></th>
+              <th data-sort="ats_cover_pct" style="text-align:center">Cover % <span class="sort-arrow">↕</span></th>
+              <th data-sort="ats_covers" style="text-align:center">ATS <span class="sort-arrow">↕</span></th>
+              <th data-sort="over_pct" style="text-align:center">Over % <span class="sort-arrow">↕</span></th>
+              <th data-sort="overs" style="text-align:center">O/U <span class="sort-arrow">↕</span></th>
+              <th data-sort="avg_total" style="text-align:center">Avg Total <span class="sort-arrow">↕</span></th>
+              <th style="text-align:right">Edge</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="games-section">
+    <div class="games-date-header">
+      <span id="games-date-label">Today</span>
+      <span id="games-total-label">Loading assignments…</span>
+    </div>
+    <div id="games-list"></div>
+  </section>
+
+  <footer>
+    <span>© 2026 SportsSync</span>
+    <div class="footer-links">
+      <a href="/props">Props</a>
+      <a href="/trends/">Trends</a>
+      <a href="mailto:api@sportsync.io">Contact</a>
+    </div>
+  </footer>
+
+  <script>
+    const SB = 'https://qffzvrnbzabcokqqrwbv.supabase.co';
+    const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZnp2cm5iemFiY29rcXFyd2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTc2NjgsImV4cCI6MjA3MDkzMzY2OH0.PCSnC5E7sG7FvasHy_9DdwiN61xW0GzFROLzZ0bTVnc';
+    const headers = { apikey: KEY, Authorization: `Bearer ${KEY}` };
+
+    let rowsAll = [];
+    let rowsFiltered = [];
+    let venue = 'all';
+    let minGames = 3;
+    let query = '';
+    let sort = { field: 'ats_cover_pct', dir: 'desc' };
+
+    const $ = (id) => document.getElementById(id);
+
+    function toNum(v, fallback = 0) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function fmtPct(v) {
+      return `${toNum(v).toFixed(1)}%`;
+    }
+
+    function fmtRecord(a, b, p) {
+      const pushes = toNum(p);
+      return pushes > 0 ? `${toNum(a)}-${toNum(b)}-${pushes}` : `${toNum(a)}-${toNum(b)}`;
+    }
+
+    function signalClass(pct) {
+      if (pct >= 60 || pct <= 40) return 'hot';
+      if (pct >= 50 || pct <= 50) return 'warm';
+      return 'cold';
+    }
+
+    function edgeTags(r) {
+      const tags = [];
+      const cover = toNum(r.ats_cover_pct);
+      const over = toNum(r.over_pct);
+      if (cover >= 60) tags.push({ cls: 'cover', label: 'Cover' });
+      if (over >= 60) tags.push({ cls: 'over', label: 'Over' });
+      if (over <= 40) tags.push({ cls: 'under', label: 'Under' });
+      if (!tags.length) tags.push({ cls: 'none', label: 'Neutral' });
+      return tags.slice(0, 2);
+    }
+
+    function applyFilters() {
+      const q = query.trim().toLowerCase();
+      rowsFiltered = rowsAll.filter((r) => {
+        const gamesOk = toNum(r.games) >= minGames;
+        const venueOk = venue === 'all' ? (r.venue === 'all' || !r.venue) : r.venue === venue;
+        const textOk = !q || (r.ref_name || '').toLowerCase().includes(q) || (r.team || '').toLowerCase().includes(q);
+        return gamesOk && venueOk && textOk;
+      });
+    }
+
+    function sortRows(rows) {
+      const dir = sort.dir === 'asc' ? 1 : -1;
+      return [...rows].sort((a, b) => {
+        const fa = a[sort.field];
+        const fb = b[sort.field];
+        if (typeof fa === 'string' || typeof fb === 'string') {
+          return String(fa || '').localeCompare(String(fb || '')) * dir;
+        }
+        return (toNum(fa) - toNum(fb)) * dir;
+      });
+    }
+
+    function renderTable() {
+      applyFilters();
+      const rows = sortRows(rowsFiltered);
+      $('result-count').textContent = `${rows.length} results`;
+
+      const html = rows.map((r) => {
+        const cover = toNum(r.ats_cover_pct);
+        const over = toNum(r.over_pct);
+        const coverClass = signalClass(cover);
+        const overClass = signalClass(over);
+        const tags = edgeTags(r).map((t) => `<span class="edge-chip ${t.cls}">${t.label}</span>`).join('');
+        return `
+          <tr>
+            <td class="cell-ref">${r.ref_name || '-'}</td>
+            <td class="cell-team">${r.team || '-'}</td>
+            <td class="cell-num">${toNum(r.games)}</td>
+            <td>
+              <div class="cell-rate">
+                <div class="rate-bar"><div class="rate-bar-fill" style="width:${Math.max(0, Math.min(100, cover))}%"></div></div>
+                <span class="rate-value ${coverClass}">${fmtPct(cover)}</span>
+              </div>
+            </td>
+            <td class="cell-record">${fmtRecord(r.ats_covers, r.ats_fails, r.ats_pushes)}</td>
+            <td>
+              <div class="cell-rate">
+                <div class="rate-bar"><div class="rate-bar-fill" style="width:${Math.max(0, Math.min(100, over))}%"></div></div>
+                <span class="rate-value ${overClass}">${fmtPct(over)}</span>
+              </div>
+            </td>
+            <td class="cell-record">${fmtRecord(r.overs, r.unders, r.ou_pushes)}</td>
+            <td class="cell-avg">${toNum(r.avg_total).toFixed(1)}</td>
+            <td class="cell-edge">${tags}</td>
+          </tr>`;
+      }).join('');
+
+      $('table-body').innerHTML = html || `
+        <tr><td colspan="9" style="padding:20px;color:var(--text-tertiary);font-size:13px;">No rows match the current filters.</td></tr>
+      `;
+    }
+
+    function setSortUI() {
+      document.querySelectorAll('thead th').forEach((th) => {
+        th.classList.remove('sorted');
+        if (th.dataset.sort === sort.field) th.classList.add('sorted');
+      });
+    }
+
+    function getEtWindow() {
+      const now = new Date();
+      const etDateStr = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+      const etHour = parseInt(now.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }), 10);
+      const etOffset = now.toLocaleString('en-US', { timeZone: 'America/New_York', timeZoneName: 'short' }).includes('EDT') ? '-04:00' : '-05:00';
+      const baseDate = new Date(`${etDateStr}T04:00:00${etOffset}`);
+      if (etHour < 4) baseDate.setDate(baseDate.getDate() - 1);
+      const start = baseDate.toISOString();
+      const end = new Date(baseDate.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      const label = baseDate.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'short', day: 'numeric' });
+      return { start, end, label };
+    }
+
+    function pickBestTeamEdge(refName, homeTeam, awayTeam) {
+      const candidates = rowsAll.filter((r) =>
+        r.ref_name === refName &&
+        (r.venue === 'all' || !r.venue) &&
+        (r.team === homeTeam || r.team === awayTeam) &&
+        toNum(r.games) >= 3
+      );
+      if (!candidates.length) return null;
+      return candidates.sort((a, b) => {
+        const aDev = Math.max(Math.abs(toNum(a.ats_cover_pct) - 50), Math.abs(toNum(a.over_pct) - 50));
+        const bDev = Math.max(Math.abs(toNum(b.ats_cover_pct) - 50), Math.abs(toNum(b.over_pct) - 50));
+        if (bDev !== aDev) return bDev - aDev;
+        return toNum(b.games) - toNum(a.games);
+      })[0];
+    }
+
+    function renderEdgeCards(cards) {
+      if (!cards.length) {
+        $('edge-grid').innerHTML = `
+          <div class="edge-item"><div class="edge-ref-name">No strong ref edges today.</div></div>
+          <div class="edge-item"><div class="edge-ref-name">Assignments refresh when NBA posts crews.</div></div>
+          <div class="edge-item"><div class="edge-ref-name">Use the table below for full ref x team lookup.</div></div>`;
+        $('analysis-text').textContent = 'No high-conviction overlap in today’s posted assignments yet.';
+        return;
+      }
+
+      $('edge-grid').innerHTML = cards.map((c) => `
+        <div class="edge-item">
+          <div class="edge-top">
+            <div class="edge-ref-name">${c.ref}</div>
+            <span class="edge-tag ${c.tagCls}">${c.tag}</span>
+          </div>
+          <div class="edge-matchup">${c.matchup} · ${c.time}</div>
+          <div class="edge-stats">
+            <div>
+              <div class="edge-stat-label">${c.market}</div>
+              <div class="edge-stat-value">${c.record}</div>
+            </div>
+            <div>
+              <div class="edge-stat-label">vs</div>
+              <div class="edge-stat-value">${c.vs}</div>
+            </div>
+            <div class="edge-gp">${c.games} GP</div>
+          </div>
+        </div>
+      `).join('');
+
+      const lead = cards[0];
+      $('analysis-text').textContent = `${lead.ref} shows a ${lead.tag.toLowerCase()} lean in ${lead.matchup} (${lead.record}, ${lead.games} GP vs ${lead.vs}). Use this as the top assignment check before lock.`;
+    }
+
+    function renderGames(groups, dateLabel) {
+      $('games-date-label').textContent = dateLabel;
+      $('games-total-label').textContent = `${groups.length} games`;
+      if (!groups.length) {
+        $('games-list').innerHTML = `<div style="padding:14px 0;color:var(--text-tertiary);font-size:13px;">No NBA assignments posted in this window.</div>`;
+        return;
+      }
+
+      $('games-list').innerHTML = groups.map((g) => {
+        const refs = g.refs.map((off) => {
+          const best = pickBestTeamEdge(off.official_name, g.home_team, g.away_team);
+          const atsRecord = best ? fmtRecord(best.ats_covers, best.ats_fails, best.ats_pushes) : '< 3 GP';
+          const ouRecord = best ? fmtRecord(best.overs, best.unders, best.ou_pushes) : '< 3 GP';
+          return `
+            <div class="ref-row">
+              <div><span class="ref-name">${off.official_name || 'Unknown official'}</span>${off.official_position ? `<span class="ref-role">${off.official_position}</span>` : ''}</div>
+              <div class="ref-records">
+                <span class="ref-record"><span class="rec-label">ATS</span>${atsRecord}</span>
+                <span class="ref-record"><span class="rec-label">O/U</span>${ouRecord}</span>
+              </div>
+            </div>`;
+        }).join('');
+
+        return `
+          <div class="game-group">
+            <div class="game-group-header">
+              <svg class="game-group-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 8l4 4 4-4"/></svg>
+              <span class="game-group-title">${g.away_team} @ ${g.home_team}</span>
+              <span class="game-group-time">${g.local_time}</span>
+            </div>
+            <div class="ref-list">${refs}</div>
+          </div>`;
+      }).join('');
+
+      document.querySelectorAll('.game-group-header').forEach((h) => {
+        h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+      });
+    }
+
+    async function fetchPaged(table, query, pageSize = 1000) {
+      let out = [];
+      let page = 0;
+      for (;;) {
+        const start = page * pageSize;
+        const end = start + pageSize - 1;
+        const url = `${SB}/rest/v1/${table}?${query}`;
+        const res = await fetch(url, {
+          headers: {
+            ...headers,
+            'Range-Unit': 'items',
+            Range: `${start}-${end}`,
+          },
+        });
+        if (!res.ok) throw new Error(`${table} fetch failed: ${res.status}`);
+        const rows = await res.json();
+        out = out.concat(rows);
+        if (rows.length < pageSize) break;
+        page += 1;
+      }
+      return out;
+    }
+
+    async function fetchTodayAssignments() {
+      const { start, end, label } = getEtWindow();
+      const matchQuery = `sport=eq.basketball&league_id=eq.nba&start_time=gte.${encodeURIComponent(start)}&start_time=lt.${encodeURIComponent(end)}&select=id,home_team,away_team,start_time&order=start_time.asc&limit=20`;
+      const matchesRes = await fetch(`${SB}/rest/v1/matches?${matchQuery}`, { headers });
+      if (!matchesRes.ok) throw new Error(`matches fetch failed: ${matchesRes.status}`);
+      const matches = await matchesRes.json();
+      if (!Array.isArray(matches) || !matches.length) return { cards: [], groups: [], label };
+
+      const ids = matches.map((m) => `"${m.id}"`).join(',');
+      const officialsRes = await fetch(`${SB}/rest/v1/game_officials?match_id=in.(${ids})&sport=eq.basketball&select=official_name,official_position,official_order,match_id&order=match_id.asc,official_order.asc`, { headers });
+      if (!officialsRes.ok) throw new Error(`game_officials fetch failed: ${officialsRes.status}`);
+      const officials = await officialsRes.json();
+
+      const byMatch = new Map();
+      officials.forEach((off) => {
+        if (!byMatch.has(off.match_id)) byMatch.set(off.match_id, []);
+        byMatch.get(off.match_id).push(off);
+      });
+
+      const groups = matches.map((m) => ({
+        ...m,
+        refs: byMatch.get(m.id) || [],
+        local_time: new Date(m.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+      }));
+
+      const candidates = [];
+      groups.forEach((g) => {
+        g.refs.forEach((off) => {
+          [g.home_team, g.away_team].forEach((team) => {
+            const rec = rowsAll.find((r) => r.ref_name === off.official_name && r.team === team && (r.venue === 'all' || !r.venue) && toNum(r.games) >= 3);
+            if (!rec) return;
+            const cover = toNum(rec.ats_cover_pct);
+            const over = toNum(rec.over_pct);
+            const coverDev = Math.abs(cover - 50);
+            const ouDev = Math.abs(over - 50);
+            if (coverDev >= 10) {
+              candidates.push({
+                score: coverDev * Math.sqrt(toNum(rec.games)),
+                ref: off.official_name,
+                matchup: `${g.away_team} @ ${g.home_team}`,
+                time: g.local_time,
+                tag: cover >= 60 ? 'Cover' : 'Fade',
+                tagCls: 'cover',
+                market: 'ATS',
+                record: fmtRecord(rec.ats_covers, rec.ats_fails, rec.ats_pushes),
+                games: toNum(rec.games),
+                vs: team,
+              });
+            }
+            if (ouDev >= 10) {
+              candidates.push({
+                score: ouDev * Math.sqrt(toNum(rec.games)),
+                ref: off.official_name,
+                matchup: `${g.away_team} @ ${g.home_team}`,
+                time: g.local_time,
+                tag: over >= 60 ? 'Over' : 'Under',
+                tagCls: over >= 60 ? 'over' : 'under',
+                market: 'O/U',
+                record: fmtRecord(rec.overs, rec.unders, rec.ou_pushes),
+                games: toNum(rec.games),
+                vs: team,
+              });
+            }
+          });
+        });
+      });
+
+      const seen = new Set();
+      const cards = candidates
+        .sort((a, b) => b.score - a.score)
+        .filter((c) => {
+          const key = `${c.ref}|${c.vs}|${c.market}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .slice(0, 3);
+
+      return { cards, groups, label };
+    }
+
+    function bindEvents() {
+      $('search-input').addEventListener('input', (e) => {
+        query = e.target.value || '';
+        renderTable();
+      });
+
+      document.querySelectorAll('.filter-btn[data-venue]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.filter-btn[data-venue]').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          venue = btn.dataset.venue;
+          renderTable();
+        });
+      });
+
+      document.querySelectorAll('.min-btn[data-min]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.min-btn[data-min]').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          minGames = toNum(btn.dataset.min, 3);
+          renderTable();
+        });
+      });
+
+      document.querySelectorAll('thead th[data-sort]').forEach((th) => {
+        th.addEventListener('click', () => {
+          const field = th.dataset.sort;
+          sort = {
+            field,
+            dir: sort.field === field && sort.dir === 'desc' ? 'asc' : 'desc',
+          };
+          setSortUI();
+          renderTable();
+        });
+      });
+    }
+
+    async function init() {
+      bindEvents();
+      setSortUI();
+      $('table-body').innerHTML = `<tr><td colspan="9" style="padding:20px;color:var(--text-tertiary);font-size:13px;">Loading ref x team records...</td></tr>`;
+
+      try {
+        rowsAll = await fetchPaged('ref_team_records', 'sport=eq.basketball&select=ref_name,team,games,ats_covers,ats_fails,ats_pushes,overs,unders,ou_pushes,ats_cover_pct,over_pct,avg_total,venue,updated_at&order=ats_cover_pct.desc');
+        renderTable();
+
+        const latestUpdated = rowsAll
+          .map((r) => r.updated_at)
+          .filter(Boolean)
+          .sort()
+          .pop();
+        const updatedLabel = latestUpdated ? new Date(latestUpdated).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'n/a';
+        $('proof-strip').textContent = `Live table · Updated ${updatedLabel} · ${rowsAll.length} rows`;
+
+        const today = await fetchTodayAssignments();
+        renderEdgeCards(today.cards);
+        renderGames(today.groups, today.label);
+      } catch (err) {
+        console.error('[referees] init failed', err);
+        $('proof-strip').textContent = 'Live table · Load error';
+        $('table-body').innerHTML = `<tr><td colspan="9" style="padding:20px;color:var(--accent);font-size:13px;">Could not load referee data right now.</td></tr>`;
+        $('edge-grid').innerHTML = `<div class="edge-item"><div class="edge-ref-name">Could not load edge cards.</div></div>`;
+        $('analysis-text').textContent = 'Data request failed. Try refreshing in a moment.';
+        $('games-total-label').textContent = 'Load error';
+        $('games-list').innerHTML = `<div style="padding:14px 0;color:var(--accent);font-size:13px;">Could not load assignments right now.</div>`;
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

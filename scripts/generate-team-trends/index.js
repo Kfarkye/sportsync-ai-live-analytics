@@ -283,7 +283,7 @@ function renderIndexPage(teamSummaries) {
     <li><a href="/props">Props</a></li>
     <li><a href="/trends/" class="active">Trends</a></li>
     <li><a href="/pregame">Matchups</a></li>
-    <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
+    <li><a href="/referees/">Referees</a></li>
   </ul>
 </nav>
 

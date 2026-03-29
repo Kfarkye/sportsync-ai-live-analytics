@@ -702,7 +702,7 @@ function playerPage(player, generatedAt) {
         <a class="nav-tab active" href="/props">Player Props</a>
         <a class="nav-tab" href="/trends/">ATS &amp; O/U</a>
         <a class="nav-tab" href="/pregame">Matchups</a>
-        <a class="nav-tab" href="https://ref-tendencies.web.app/">Referees</a>
+        <a class="nav-tab" href="/referees/">Referees</a>
       </div>
     </div>
   </nav>
