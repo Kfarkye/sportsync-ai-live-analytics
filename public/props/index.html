@@ -14391,8 +14391,18 @@ function getPreloadedPack() {
   if (!el) return null;
   const raw = (el.textContent || '').trim();
   if (!raw) return null;
+  const cleaned = raw
+    .replace(/<!--\s*PRELOADED_PACK_JSON_START\s*-->/g, '')
+    .replace(/<!--\s*PRELOADED_PACK_JSON_END\s*-->/g, '')
+    .trim();
+  if (!cleaned) return null;
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  const jsonText = (firstBrace >= 0 && lastBrace > firstBrace)
+    ? cleaned.slice(firstBrace, lastBrace + 1)
+    : cleaned;
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(jsonText);
     const normalized = normalizePackContract(parsed);
     return normalized.cards.length > 0 ? normalized : null;
   } catch {
