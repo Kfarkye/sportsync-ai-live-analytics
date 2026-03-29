@@ -12,6 +12,8 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 const PACK_URL = 'https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app';
+const TEAM_ALIAS_URL = 'https://qffzvrnbzabcokqqrwbv.supabase.co/rest/v1/player_prop_identity_aliases?select=canonical_player_name,team_name,sample_count&league_id=eq.nba&team_name=not.is.null&order=sample_count.desc&limit=2000';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZnp2cm5iemFiY29rcXFyd2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTc2NjgsImV4cCI6MjA3MDkzMzY2OH0.PCSnC5E7sG7FvasHy_9DdwiN61xW0GzFROLzZ0bTVnc';
 const BASE_URL = 'https://sportsync-evidence.web.app';
 const OUTPUT_DIR = new URL('../public/props', import.meta.url).pathname;
 
@@ -55,13 +57,74 @@ function esc(s) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function pickTeamName(card) {
+  if (!card || typeof card !== 'object') return '';
+  const candidates = [card.team_name, card.team, card.team_abbr];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return '';
+}
+
+function normNameKey(name) {
+  return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function buildTeamLookup(rows) {
+  const lookup = new Map();
+  for (const row of rows || []) {
+    const key = normNameKey(row?.canonical_player_name);
+    const teamName = String(row?.team_name || '').trim();
+    if (!key || !teamName) continue;
+    const sampleCount = Number(row?.sample_count || 0);
+    const existing = lookup.get(key);
+    if (!existing || sampleCount > existing.sampleCount || (sampleCount === existing.sampleCount && teamName.length > existing.teamName.length)) {
+      lookup.set(key, { teamName, sampleCount });
+    }
+  }
+  return lookup;
+}
+
+async function enrichCardTeamsFromAliasMap(cards) {
+  if (!Array.isArray(cards) || cards.length === 0) return;
+  const missingTeam = cards.some(card => !pickTeamName(card));
+  if (!missingTeam) return;
+
+  try {
+    const response = await fetch(TEAM_ALIAS_URL, {
+      headers: {
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+      },
+    });
+    if (!response.ok) throw new Error(`team-alias ${response.status}`);
+    const rows = await response.json();
+    const teamLookup = buildTeamLookup(rows);
+    for (const card of cards) {
+      if (pickTeamName(card)) continue;
+      const fallbackTeam = teamLookup.get(normNameKey(card?.player_name))?.teamName;
+      if (fallbackTeam) {
+        card.team_name = fallbackTeam;
+      }
+    }
+  } catch (err) {
+    console.warn('[generate-props] Team alias fallback unavailable:', err.message);
+  }
+}
+
 // ── Data processing (ported from props.html buildPlayerIndex) ────────────────
 function buildPlayerIndex(cards) {
   const map = {};
   for (const c of cards) {
     const slug = slugify(c.player_name);
+    const teamName = pickTeamName(c);
     if (!map[slug]) {
-      map[slug] = { name: c.player_name, slug, cards: [], heroCount: 0, maxTier: 'display' };
+      map[slug] = { name: c.player_name, team: teamName, slug, cards: [], heroCount: 0, maxTier: 'display' };
+    }
+    if (teamName && (!map[slug].team || teamName.length > map[slug].team.length)) {
+      map[slug].team = teamName;
     }
     map[slug].cards.push(c);
     if (c.baseline.is_hero) map[slug].heroCount++;
@@ -125,6 +188,34 @@ function formatGeneratedAt(value) {
   });
 }
 
+function normalizePackContract(rawPack) {
+  const source = rawPack && typeof rawPack === 'object' ? rawPack : {};
+  const cards = Array.isArray(source.cards) ? source.cards : [];
+  const derivedMarkets = [...new Set(cards.map(card => card?.market).filter(Boolean))];
+  const markets = Array.isArray(source.markets) && source.markets.length > 0 ? source.markets : derivedMarkets;
+  const heroCards = cards.filter(card => Boolean(card?.baseline?.is_hero)).length;
+
+  return {
+    ...source,
+    cards,
+    markets,
+    total_cards: Number.isFinite(Number(source.total_cards)) ? Number(source.total_cards) : cards.length,
+    hero_cards: Number.isFinite(Number(source.hero_cards)) ? Number(source.hero_cards) : heroCards,
+    generated_at: source.generated_at || new Date().toISOString(),
+    version: source.version || 'v2',
+    model: source.model || '3-layer: market_baseline + book_normalized + supporting_context',
+    gates: source.gates || {
+      book_min_gp: 3,
+      edge_min_gp: 15,
+      feature_min_gp: 30,
+      support_min_gp: 5,
+      baseline_min_gp: 10,
+      max_support_chips: 3,
+      hero_rate_threshold: 65,
+    },
+  };
+}
+
 function renderIndexCards(entries) {
   return entries.map((p, i) => {
     const byMarket = {};
@@ -139,31 +230,24 @@ function renderIndexCards(entries) {
       return `
         <div class="pc-market-chip">
           <div class="pc-market-name">${esc(MARKET_LABEL[c.market] || c.market)}</div>
-          <div class="pc-market-rate ${rc}">${Number(c.baseline.rate).toFixed(1)}% Over Rate</div>
-          <div class="pc-market-gp">${c.baseline.gp} GP · O/U ${lineText}</div>
+          <div class="pc-market-rate ${rc}">${Number(c.baseline.rate).toFixed(1)}%</div>
+          <div class="pc-market-gp">${c.baseline.record} · ${c.baseline.gp} GP · O/U ${lineText}</div>
         </div>
       `;
     }).join('');
 
-    const tierTag = p.maxTier === 'feature'
-      ? '<span class="pc-tag hero-tag">Feature</span>'
-      : p.maxTier === 'edge'
-        ? '<span class="pc-tag edge-tag">Edge</span>'
-        : '<span class="pc-tag display-tag">Display</span>';
-
-    const heroTag = p.heroCount > 0
-      ? `<span class="pc-tag hero-tag">${p.heroCount} strong signal${p.heroCount > 1 ? 's' : ''}</span>`
-      : '';
-
     return `
       <a class="player-card ${p.heroCount > 0 ? 'has-hero' : ''}" href="/props/${p.slug}" style="animation-delay: ${Math.min(i * 40, 600)}ms">
         <div class="pc-top">
-          <div class="pc-name">${esc(p.name)}</div>
+          <div class="pc-head">
+            <div class="pc-name">${esc(p.name)}</div>
+            ${p.team ? `<div class="pc-team">${esc(p.team)}</div>` : ''}
+          </div>
           <svg class="pc-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <div class="pc-markets">${chipHtml}</div>
         <div class="pc-meta">
-          ${tierTag}${heroTag}
+          <span class="pc-meta-label">Markets</span>
           <span class="pc-card-count">${p.cards.length} card${p.cards.length > 1 ? 's' : ''}</span>
         </div>
       </a>
@@ -227,6 +311,7 @@ a{color:var(--accent);text-decoration:none;font-weight:500;text-underline-offset
 .player-header{margin-bottom:32px}
 .league-tag{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-secondary);margin-bottom:16px}
 .player-name{font-family:var(--serif);font-size:48px;font-weight:700;letter-spacing:-.01em;line-height:1.1;margin-bottom:16px}
+.player-team{font-size:16px;font-weight:500;color:var(--ink-tertiary);margin-bottom:12px}
 .headline-stat{font-family:var(--serif);font-size:22px;line-height:1.5;max-width:800px;text-wrap:balance}
 .headline-stat strong{color:var(--accent);font-weight:600}
 
@@ -313,6 +398,7 @@ a{color:var(--accent);text-decoration:none;font-weight:500;text-underline-offset
 /* Mobile */
 @media(max-width:768px){
   .player-name{font-size:32px}.headline-stat{font-size:18px}
+  .player-team{font-size:14px}
   .page{padding:32px 20px}.summary-grid{grid-template-columns:repeat(2,1fr)}
   .bl-stats{grid-template-columns:repeat(2,1fr)}.cl-stats{grid-template-columns:repeat(2,1fr)}
   .nav-inner{padding:0 16px}.nav-tab{padding:5px 10px;font-size:11.5px}
@@ -537,6 +623,7 @@ function buildPayloadJson(player, generatedAt) {
     league: 'NBA',
     season: '2025-26',
     player_name: player.name,
+    team_name: player.team || null,
     summary: `${player.name} — ${headline}`,
     generated_at: generatedAt,
     hero_count: player.heroCount,
@@ -574,7 +661,7 @@ function playerPage(player, generatedAt) {
     dateModified: dateStr,
     datePublished: dateStr,
     description: `${player.name} prop hit rates for the 2025-26 NBA season. ${headline}. ${subParts.join(', ')}.`,
-    publisher: { '@type': 'Organization', name: 'SportsSync Intelligence' },
+    publisher: { '@type': 'Organization', name: 'SportsSync' },
     mainEntityOfPage: { '@type': 'WebPage', '@id': `${BASE_URL}/props/${player.slug}` },
   });
 
@@ -613,11 +700,12 @@ function playerPage(player, generatedAt) {
 
   <nav class="nav">
     <div class="nav-inner">
-      <a class="nav-brand" href="/props">SportsSync Intelligence</a>
+      <a class="nav-brand" href="/">Today's Board</a>
       <div class="nav-tabs">
-        <a class="nav-tab" href="https://ref-tendencies.web.app/">Ref Tendencies</a>
-        <a class="nav-tab" href="/trends/">Team Trends</a>
-        <a class="nav-tab active" href="/props">Props</a>
+        <a class="nav-tab active" href="/props">Player Props</a>
+        <a class="nav-tab" href="/trends/">ATS &amp; O/U</a>
+        <a class="nav-tab" href="/pregame">Matchups</a>
+        <a class="nav-tab" href="https://ref-tendencies.web.app/">Referees</a>
       </div>
     </div>
   </nav>
@@ -630,6 +718,7 @@ function playerPage(player, generatedAt) {
     <header class="player-header">
       <div class="league-tag">NBA 2025–26 · Pack generated ${dateStr}</div>
       <h1 class="player-name">${esc(player.name)}</h1>
+      ${player.team ? `<div class="player-team">${esc(player.team)}</div>` : ''}
       <p class="headline-stat"><strong>${esc(headline)}</strong> · ${esc(subParts.join(' · '))}</p>
     </header>
 
@@ -683,14 +772,18 @@ async function main() {
   if (localFile) {
     console.log('[generate-props] Reading evidence pack from local file: %s', localFile);
     const raw = readFileSync(localFile, 'utf-8');
-    pack = JSON.parse(raw);
+    pack = normalizePackContract(JSON.parse(raw));
   } else {
     console.log('[generate-props] Fetching evidence pack from %s', PACK_URL);
     const res = await fetch(PACK_URL);
     if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
-    pack = await res.json();
+    pack = normalizePackContract(await res.json());
   }
   console.log('[generate-props] Received %d cards', pack.cards.length);
+  if (pack.cards.length === 0) {
+    throw new Error('[generate-props] Evidence pack returned zero cards; refusing to publish an empty props surface.');
+  }
+  await enrichCardTeamsFromAliasMap(pack.cards);
 
   const players = buildPlayerIndex(pack.cards);
   const sorted = sortPlayers(players);
