@@ -161,6 +161,109 @@ function buildPlayerSummary(player) {
   return `No strong signal — Top market by sample: ${MARKET_LABEL[topBySample.market] || topBySample.market} ${Number(topBySample.baseline.rate).toFixed(1)}% (${topBySample.baseline.gp} GP)`;
 }
 
+function parseRecord(record) {
+  const parts = String(record || '')
+    .split('-')
+    .map(v => parseInt(v.trim(), 10))
+    .map(v => (Number.isFinite(v) ? v : 0));
+  const over = parts[0] || 0;
+  const under = parts[1] || 0;
+  const push = parts[2] || 0;
+  return { over, under, push, total: over + under + push };
+}
+
+function signalFromRate(rate) {
+  const r = Number(rate);
+  if (!Number.isFinite(r)) {
+    return { cls: 'flat', direction: 'none', text: 'No Lean' };
+  }
+  if (r >= 60) {
+    return { cls: 'over', direction: 'over', text: `Over ${r.toFixed(1)}%` };
+  }
+  if (r <= 40) {
+    return { cls: 'under', direction: 'under', text: `Under ${(100 - r).toFixed(1)}%` };
+  }
+  return { cls: 'flat', direction: 'none', text: `${r.toFixed(1)}%` };
+}
+
+function contextSignalClass(rate) {
+  const r = Number(rate);
+  if (!Number.isFinite(r)) return 'neutral';
+  if (r >= 55) return 'over';
+  if (r <= 45) return 'under';
+  return 'neutral';
+}
+
+function humanizeContextLabel(label) {
+  const raw = String(label || '').trim();
+  if (!raw) return 'Context';
+  const norm = raw.toUpperCase();
+  if (norm === 'HOME') return 'At home';
+  if (norm === 'AWAY') return 'On the road';
+  if (norm === 'B2B') return 'Back-to-back';
+  if (norm === 'REST_1' || norm === 'REST 1') return 'On one day rest';
+  if (norm === 'REST_2' || norm === 'REST 2') return 'On two days rest';
+  if (norm.startsWith('PACE_')) {
+    return `Against ${norm.replace('PACE_', '').toLowerCase()}-pace teams`;
+  }
+  return raw
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function getPrimaryCard(player) {
+  return [...(player.cards || [])].sort((a, b) => {
+    const ah = Boolean(a?.baseline?.is_hero) ? 1 : 0;
+    const bh = Boolean(b?.baseline?.is_hero) ? 1 : 0;
+    if (bh !== ah) return bh - ah;
+    const aDev = Math.abs(Number(a?.baseline?.rate || 50) - 50);
+    const bDev = Math.abs(Number(b?.baseline?.rate || 50) - 50);
+    if (bDev !== aDev) return bDev - aDev;
+    return Number(b?.baseline?.gp || 0) - Number(a?.baseline?.gp || 0);
+  })[0] || null;
+}
+
+function buildLeadCopy(player) {
+  const focus = getPrimaryCard(player);
+  if (!focus) {
+    return `${player.name} has no qualified markets yet.`;
+  }
+
+  const marketLabel = (MARKET_LABEL[focus.market] || focus.market).toLowerCase();
+  const cl = focus.current_line;
+
+  if (cl && Number(cl.gp) >= 3) {
+    const lineValue = Number(cl.line);
+    const lineText = Number.isFinite(lineValue) ? lineValue.toFixed(1) : '—';
+    const record = parseRecord(cl.record);
+    const rate = Number(cl.rate);
+    if (rate <= 40) {
+      if (record.over === 0 && record.total > 0) {
+        return `DraftKings has posted ${player.name}'s ${marketLabel} at ${lineText} ${record.total} times this season. ${player.name} has gone under all ${record.total}.`;
+      }
+      return `DraftKings has posted ${player.name}'s ${marketLabel} at ${lineText} ${record.total} times this season. ${player.name} trends under at that number (${cl.record}).`;
+    }
+    if (rate >= 60) {
+      if (record.under === 0 && record.total > 0) {
+        return `DraftKings has posted ${player.name}'s ${marketLabel} at ${lineText} ${record.total} times this season. ${player.name} has gone over all ${record.total}.`;
+      }
+      return `DraftKings has posted ${player.name}'s ${marketLabel} at ${lineText} ${record.total} times this season. ${player.name} trends over at that number (${cl.record}).`;
+    }
+    return `DraftKings has posted ${player.name}'s ${marketLabel} at ${lineText} ${record.total} times this season. Results are mixed at that line (${cl.record}).`;
+  }
+
+  const b = focus.baseline || {};
+  const rate = Number(b.rate);
+  if (Number.isFinite(rate) && rate <= 40) {
+    return `${player.name} has stayed under in ${(100 - rate).toFixed(1)}% of ${b.gp} ${marketLabel} games this season (${b.record}).`;
+  }
+  if (Number.isFinite(rate) && rate >= 60) {
+    return `${player.name} has gone over in ${rate.toFixed(1)}% of ${b.gp} ${marketLabel} games this season (${b.record}).`;
+  }
+  return `${player.name}'s ${marketLabel} profile is mixed this season (${b.record}, ${b.gp} GP).`;
+}
+
 function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -274,132 +377,272 @@ function buildPropsShell(templateHtml, packForShell, entries) {
 // ══════════════════════════════════════════════════════════════════════════════
 const CSS = `
 :root {
-  --bg: #FAFAF8; --surface: #ffffff;
-  --border: #E8E6DF; --border-subtle: #F5F4F0;
-  --ink: #1A1917; --ink-secondary: #3D3A35;
-  --ink-tertiary: #7D786C; --ink-quaternary: #A8A396;
-  --accent: #C85A3A; --accent-secondary: #4B9CD3;
-  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  --serif: 'Source Serif 4', Georgia, serif;
-  --sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.03);
-  --radius: 8px;
-  --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  --bg: #FAFAF8;
+  --surface: #FFFFFF;
+  --text-primary: #1A1A18;
+  --text-secondary: #6B6B63;
+  --text-tertiary: #9B9B91;
+  --accent: #C85A3A;
+  --accent-dim: rgba(200,90,58,0.08);
+  --border: #E8E7E3;
+  --green: #2D8F5C;
+  --blue: #3A7BC8;
+  --blue-dim: rgba(58,123,200,0.08);
+  --mono: 'JetBrains Mono', monospace;
+  --serif: 'Source Serif 4', serif;
+  --sans: 'DM Sans', sans-serif;
 }
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{background:var(--bg);color:var(--ink);font-size:15px}
-body{font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased;
-  background-image:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(75,156,211,0.04) 0%,transparent 60%);background-repeat:no-repeat}
-a{color:var(--accent);text-decoration:none;font-weight:500;text-underline-offset:2px}a:hover{text-decoration:underline}
-.skip-link{position:absolute;left:-9999px;top:0;background:var(--ink);color:var(--surface);padding:12px 16px;border-radius:6px;z-index:1000;font-weight:500;font-size:14px}.skip-link:focus{left:16px;top:16px}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.skip-link { position: absolute; left: -9999px; top: 0; background: #111; color: #fff; padding: 8px 12px; border-radius: 6px; z-index: 999; }
+.skip-link:focus { left: 12px; top: 12px; }
 
-/* Nav */
-.nav{position:sticky;top:0;z-index:100;height:48px;background:rgba(250,250,248,0.72);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid rgba(232,230,223,0.6)}
-.nav-inner{max-width:1440px;margin:0 auto;height:48px;padding:0 32px;display:flex;align-items:center;justify-content:space-between}
-.nav-brand{font-family:var(--mono);font-size:15px;font-weight:500;letter-spacing:-0.02em;text-transform:none;color:var(--ink);text-decoration:none}
-.nav-tabs{display:flex;gap:6px;align-items:center}
-.nav-tab{padding:6px 16px;border:none;background:transparent;font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink-tertiary);cursor:pointer;border-radius:8px;text-decoration:none;transition:color var(--transition),background var(--transition)}
-.nav-tab.active{color:var(--ink);font-weight:600;background:transparent}
-.nav-tab:hover:not(.active){color:var(--ink);background:rgba(245,244,240,0.8)}
+nav {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.nav-brand {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+.nav-links { display: flex; gap: 24px; list-style: none; }
+.nav-links a { font-size: 14px; color: var(--text-secondary); text-decoration: none; font-weight: 500; }
+.nav-links a:hover { color: var(--text-primary); text-decoration: none; }
+.nav-links a.active { color: var(--text-primary); font-weight: 600; }
 
-/* Page shell */
-.page{max-width:920px;margin:0 auto;padding:56px 24px}
-.breadcrumb{font-size:13px;color:var(--ink-tertiary);margin-bottom:24px}.breadcrumb a{font-weight:400;color:var(--ink-tertiary)}.breadcrumb a:hover{color:var(--accent)}
+.page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+}
+.breadcrumb {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-bottom: 32px;
+}
+.breadcrumb a { color: var(--text-tertiary); text-decoration: none; }
+.breadcrumb a:hover { color: var(--accent); }
 
-/* Header */
-.player-header{margin-bottom:32px}
-.league-tag{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-secondary);margin-bottom:16px}
-.player-name{font-family:var(--serif);font-size:48px;font-weight:700;letter-spacing:-.01em;line-height:1.1;margin-bottom:16px}
-.player-team{font-size:16px;font-weight:500;color:var(--ink-tertiary);margin-bottom:12px}
-.headline-stat{font-family:var(--serif);font-size:22px;line-height:1.5;max-width:800px;text-wrap:balance}
-.headline-stat strong{color:var(--accent);font-weight:600}
+.player-name {
+  font-family: var(--serif);
+  font-size: clamp(32px, 4.5vw, 44px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+.player-team {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
 
-/* Summary grid */
-.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-bottom:48px}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px;box-shadow:var(--shadow-sm);transition:transform .2s ease,box-shadow .2s ease}
-.stat-card:hover{transform:none;box-shadow:var(--shadow-sm);background:#FDFCFA}
-.stat-card .label{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-secondary);margin-bottom:12px}
-.stat-card .value{font-family:var(--mono);font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1;margin-bottom:8px}
-.stat-card .context{font-size:13px;color:var(--ink-secondary)}.stat-card .context span{font-family:var(--mono);font-weight:600;color:var(--ink)}
-.value.rate-high{color:var(--accent)}.value.rate-low{color:#2B6E9C}
+.the-lead {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-primary);
+  max-width: 620px;
+  margin-bottom: 36px;
+}
+.the-lead strong { font-weight: 600; }
 
-/* Market sections */
-.section-block{margin-bottom:56px}
-.section-title{font-family:var(--serif);font-size:26px;font-weight:600;letter-spacing:-.01em;margin-bottom:12px}
-.section-note{font-size:15px;color:var(--ink-secondary);margin-bottom:24px}
+.market-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 56px;
+}
+.ms-card {
+  background: var(--surface);
+  padding: 18px 16px;
+}
+.ms-market {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+.ms-direction {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.ms-direction.under { color: var(--blue); }
+.ms-direction.over { color: var(--accent); }
+.ms-direction.flat { color: var(--text-tertiary); }
+.ms-record {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.ms-tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 8px;
+}
+.ms-tag.edge { background: var(--blue-dim); color: var(--blue); }
+.ms-tag.watch { background: rgba(0,0,0,0.04); color: var(--text-tertiary); }
 
-.market-section{margin-bottom:32px}
-.market-title{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-tertiary);padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
-.market-line-label{font-family:var(--mono);font-size:10.5px;font-weight:500;color:var(--ink-quaternary)}
+.market-detail { margin-bottom: 44px; }
+.md-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.layer { margin-bottom: 20px; }
+.layer-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.layer-stats {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+.layer-stats .num {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.layer-stats .num.cold { color: var(--blue); }
 
-/* Baseline card */
-.baseline-card{background:rgba(255,255,255,0.6);border:1px solid rgba(232,230,223,0.4);border-radius:8px;padding:22px 24px;margin-bottom:12px;box-shadow:0 2px 12px rgba(0,0,0,0.03),0 1px 3px rgba(0,0,0,0.02);position:relative;overflow:hidden}
-.baseline-card::before{display:none}
-.bl-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.bl-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-quaternary)}
-.bl-signal{font-family:var(--mono);font-size:10px;font-weight:700;padding:4px 12px;border-radius:8px;white-space:nowrap;letter-spacing:0.02em}
-.bl-signal.dir-over{background:rgba(200,90,58,0.1);color:var(--accent);border:1px solid rgba(200,90,58,0.2)}
-.bl-signal.dir-under{background:rgba(75,156,211,0.12);color:#2B6E9C;border:1px solid rgba(75,156,211,0.2)}
-.bl-signal.dir-none{background:rgba(168,163,150,0.1);color:var(--ink-tertiary);border:1px solid rgba(168,163,150,0.15)}
-.bl-tier{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:2px 8px;border-radius:6px;margin-left:6px}
-.bl-tier.feature{background:rgba(184,92,56,0.08);color:var(--accent)}.bl-tier.edge{background:rgba(75,156,211,0.08);color:#2B6E9C}
-.bl-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:16px}
-.bl-stat{display:flex;flex-direction:column;gap:2px}
-.bl-stat-label{font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-quaternary)}
-.bl-stat-value{font-family:var(--mono);font-size:20px;font-weight:600;color:var(--ink);letter-spacing:-0.02em}
-.bl-stat-value.rate-high{color:var(--accent)}.bl-stat-value.rate-low{color:#2B6E9C}
-.bl-stat-value.small{font-size:15px}
-.bl-pct-track{width:100%;height:6px;border-radius:4px;background:rgba(0,0,0,0.04);overflow:hidden;margin-top:4px;box-shadow:inset 0 1px 2px rgba(0,0,0,0.06)}
-.bl-pct-fill{height:100%;border-radius:4px}
-.bl-pct-fill.over{background:linear-gradient(90deg,var(--accent),#C96830)}
-.bl-pct-fill.under{background:linear-gradient(90deg,var(--accent-secondary),#3A87BE)}
-.bl-pct-fill.neutral{background:rgba(168,163,150,0.4)}
+.callout {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.callout-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.callout-text .highlight {
+  color: var(--blue);
+  font-weight: 600;
+}
 
-/* Current line card */
-.current-line-card{background:rgba(255,255,255,0.5);border:1px solid rgba(232,230,223,0.45);border-radius:8px;padding:16px 20px;margin-bottom:12px}
-.cl-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.cl-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-quaternary)}
-.cl-line-badge{font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 10px;border-radius:7px;background:rgba(0,0,0,0.04);color:var(--ink-secondary);border:1px solid var(--border-subtle)}
-.cl-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:12px}
+.book-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.book-chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 110px;
+}
+.book-chip-line {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.book-chip-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.book-chip.cold .book-chip-line { color: var(--blue); }
 
-/* Book context */
-.book-section{margin-top:12px}
-.book-title{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-quaternary);margin-bottom:8px}
-.book-chips{display:flex;gap:6px;flex-wrap:wrap}
-.book-chip{display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,0.015);border:1px solid var(--border-subtle);min-width:100px}
-.book-chip-name{font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-quaternary)}
-.book-chip-line{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink-secondary)}
-.book-chip-meta{font-family:var(--mono);font-size:9.5px;color:var(--ink-quaternary)}
+.context-grid { display: flex; flex-direction: column; gap: 0; }
+.context-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(232,231,227,0.4);
+}
+.context-row:last-child { border-bottom: none; }
+.context-label {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.context-value {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+.context-value.over { color: var(--accent); }
+.context-value.under { color: var(--blue); }
+.context-value.neutral { color: var(--text-tertiary); }
 
-/* Context table */
-.ctx-section{margin-top:16px}
-.ctx-title{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-quaternary);margin-bottom:8px}
-.ctx-table{width:100%;border-collapse:separate;border-spacing:0;background:var(--surface);border:1px solid rgba(232,230,223,0.5);border-radius:10px;overflow:hidden}
-.ctx-table th{padding:9px 14px;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-quaternary);background:rgba(250,250,248,0.8);border-bottom:1px solid var(--border)}
-.ctx-table th:not(:first-child){text-align:center}
-.ctx-table td{padding:10px 14px;font-size:13px;border-bottom:1px solid rgba(232,230,223,0.35);vertical-align:middle}
-.ctx-table td:not(:first-child){text-align:center;font-family:var(--mono);font-size:12.5px;font-weight:500}
-.ctx-table tr:last-child td{border-bottom:none}
-.ctx-table tr:hover{background:rgba(0,0,0,0.015)}
-.ctx-label{font-weight:550;color:var(--ink)}.ctx-rate{font-weight:600}
-.ctx-rate.over{color:var(--accent)}.ctx-rate.under{color:#2B6E9C}.ctx-rate.neutral{color:var(--ink-secondary)}
-.ctx-gp{color:var(--ink-quaternary)}
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 48px 0;
+}
+.method {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  line-height: 1.7;
+  max-width: 560px;
+  margin-bottom: 24px;
+}
+.method a { color: var(--accent); text-decoration: none; font-weight: 500; }
 
-/* Methodology */
-.methodology-list{padding-left:20px;margin-bottom:16px}.methodology-list li{margin-bottom:8px;font-size:14px;color:var(--ink-secondary);line-height:1.6}.methodology-list strong{color:var(--ink);font-weight:500}
+.page-footer {
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-tertiary);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.page-footer a { color: var(--text-secondary); text-decoration: none; }
+.page-footer a:hover { color: var(--text-primary); }
 
-/* Footer */
-.page-footer{padding-top:40px;padding-bottom:64px;font-size:14px;color:var(--ink-secondary);line-height:1.6}
-
-/* Mobile */
-@media(max-width:768px){
-  .player-name{font-size:32px}.headline-stat{font-size:18px}
-  .player-team{font-size:14px}
-  .page{padding:32px 20px}.summary-grid{grid-template-columns:repeat(2,1fr)}
-  .bl-stats{grid-template-columns:repeat(2,1fr)}.cl-stats{grid-template-columns:repeat(2,1fr)}
-  .nav-inner{padding:0 16px}.nav-tab{padding:5px 10px;font-size:11.5px}
-  .book-chips{gap:4px}.book-chip{min-width:80px;padding:6px 10px}
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .page { padding: 0 20px 48px; }
+  .player-name { font-size: 28px; }
+  .the-lead { font-size: 17px; }
+  .market-summary { grid-template-columns: repeat(2, 1fr); }
 }
 `;
 
@@ -412,16 +655,27 @@ function renderMarketSummaryCards(player) {
   for (const c of player.cards) {
     if (!byMarket[c.market]) byMarket[c.market] = c;
   }
-  return Object.values(byMarket).map(c => {
-    const rc = rateClass(c.baseline.rate);
-    const rl = rateLabel(c.baseline.rate);
-    return `
-      <article class="stat-card">
-        <div class="label">${esc(MARKET_LABEL[c.market] || c.market)}</div>
-        <div class="value ${rl}">${Number(c.baseline.rate).toFixed(1)}%</div>
-        <div class="context"><span>${c.baseline.record}</span> · ${c.baseline.gp} GP</div>
-      </article>`;
-  }).join('');
+
+  return Object.values(byMarket)
+    .sort((a, b) => Number(b?.baseline?.gp || 0) - Number(a?.baseline?.gp || 0))
+    .map((c) => {
+      const signal = signalFromRate(c.baseline.rate);
+      let tag = '';
+      if (c.baseline.is_hero) {
+        tag = '<div class="ms-tag edge">Edge</div>';
+      } else if (c.baseline.tier === 'feature' || c.baseline.tier === 'edge') {
+        tag = '<div class="ms-tag watch">Watch</div>';
+      }
+
+      return `
+      <div class="ms-card">
+        <div class="ms-market">${esc(MARKET_LABEL[c.market] || c.market)}</div>
+        <div class="ms-direction ${signal.cls}">${esc(signal.text)}</div>
+        <div class="ms-record">${esc(c.baseline.record)} · ${c.baseline.gp} GP</div>
+        ${tag}
+      </div>`;
+    })
+    .join('');
 }
 
 function renderMarketSections(player) {
@@ -431,125 +685,104 @@ function renderMarketSections(player) {
     byMarket[c.market].push(c);
   }
 
+  const markets = Object.entries(byMarket)
+    .map(([market, cards]) => ({ market, card: cards[0] }))
+    .sort((a, b) => {
+      const ah = a.card?.baseline?.is_hero ? 1 : 0;
+      const bh = b.card?.baseline?.is_hero ? 1 : 0;
+      if (bh !== ah) return bh - ah;
+      return Number(b.card?.baseline?.gp || 0) - Number(a.card?.baseline?.gp || 0);
+    });
+
   let html = '';
-  for (const [market, cards] of Object.entries(byMarket)) {
-    const card = cards[0];
+  for (const { market, card } of markets) {
     const b = card.baseline;
     const cl = card.current_line;
     const bc = card.book_context || [];
-    const dc = dirClass(card.direction);
-    const linePart = cl ? `Most Common Historical Line: O/U ${Number(cl.line).toFixed(1)}` : '';
+    const contexts = card.supporting_contexts || [];
+    const baseSig = signalFromRate(b.rate);
 
     html += `
-    <section class="market-section" aria-labelledby="market-${esc(market)}">
-      <div class="market-title">
-        <span id="market-${esc(market)}">${esc(MARKET_LABEL[market] || market)}</span>
-        <span class="market-line-label">${linePart}</span>
-      </div>
+    <div class="market-detail">
+      <div class="md-title">${esc(MARKET_LABEL[market] || market)}</div>
 
-      <div class="baseline-card ${dc}">
-        <div class="bl-header">
-          <div class="bl-label">Baseline — All Games</div>
-          <div>
-            <span class="bl-signal ${dc}">${dirLabel(card.direction)}</span>
-            <span class="bl-tier ${b.tier}">${b.tier}</span>
-          </div>
-        </div>
-        <div class="bl-stats">
-          <div class="bl-stat">
-            <div class="bl-stat-label">Over Rate</div>
-            <div class="bl-stat-value ${rateLabel(b.rate)}">${Number(b.rate).toFixed(1)}%</div>
-            <div class="bl-pct-track"><div class="bl-pct-fill ${rateClass(b.rate)}" style="width:${b.rate}%"></div></div>
-          </div>
-          <div class="bl-stat">
-            <div class="bl-stat-label">Record</div>
-            <div class="bl-stat-value small">${esc(b.record)}</div>
-          </div>
-          <div class="bl-stat">
-            <div class="bl-stat-label">Average</div>
-            <div class="bl-stat-value small">${Number(b.avg).toFixed(1)}</div>
-          </div>
-          <div class="bl-stat">
-            <div class="bl-stat-label">Median</div>
-            <div class="bl-stat-value small">${Number(b.median).toFixed(1)}</div>
-          </div>
-          <div class="bl-stat">
-            <div class="bl-stat-label">Games Played</div>
-            <div class="bl-stat-value small">${b.gp}</div>
-          </div>
+      <div class="layer">
+        <div class="layer-label">All games</div>
+        <div class="layer-stats">
+          <span class="num ${baseSig.direction === 'under' ? 'cold' : ''}">${esc(b.record)}</span> over · avg <span class="num">${Number(b.avg).toFixed(1)}</span> · median <span class="num">${Number(b.median).toFixed(1)}</span> · ${b.gp} games
         </div>
       </div>`;
 
-    // Current line
     if (cl) {
+      const lineSig = signalFromRate(cl.rate);
+      const record = parseRecord(cl.record);
+      const lineValue = Number(cl.line);
+      const lineText = Number.isFinite(lineValue) ? lineValue.toFixed(1) : '—';
       html += `
-      <div class="current-line-card">
-        <div class="cl-header">
-          <div class="cl-label">Most Common Historical Line</div>
-          <div class="cl-line-badge">O/U ${Number(cl.line).toFixed(1)}</div>
-        </div>
-        <div class="cl-stats">
-          <div class="bl-stat">
-            <div class="bl-stat-label">Over Rate</div>
-            <div class="bl-stat-value ${rateLabel(cl.rate)}">${Number(cl.rate).toFixed(1)}%</div>
-            <div class="bl-pct-track"><div class="bl-pct-fill ${rateClass(cl.rate)}" style="width:${cl.rate}%"></div></div>
-          </div>
-          <div class="bl-stat">
-            <div class="bl-stat-label">Record</div>
-            <div class="bl-stat-value small">${esc(cl.record)}</div>
-          </div>
-          <div class="bl-stat">
-            <div class="bl-stat-label">Average</div>
-            <div class="bl-stat-value small">${Number(cl.avg).toFixed(1)}</div>
-          </div>
-          <div class="bl-stat">
-            <div class="bl-stat-label">GP at Line</div>
-            <div class="bl-stat-value small">${cl.gp}</div>
-          </div>
+      <div class="layer">
+        <div class="layer-label">At ${lineText}</div>
+        <div class="layer-stats">
+          <span class="num ${lineSig.direction === 'under' ? 'cold' : ''}">${esc(cl.record)}</span> over · avg <span class="num">${Number(cl.avg).toFixed(1)}</span> · ${cl.gp} games at this line
         </div>
       </div>`;
+
+      if (Number(cl.gp) >= 3 && (lineSig.direction === 'under' || lineSig.direction === 'over')) {
+        const phrase = lineSig.direction === 'under'
+          ? `${record.under} under in ${record.total}`
+          : `${record.over} over in ${record.total}`;
+        const highlight = lineSig.direction === 'under'
+          ? `${record.under} of ${record.total} under`
+          : `${record.over} of ${record.total} over`;
+        html += `
+      <div class="callout">
+        <div class="callout-text">Most common historical line ${lineText}: ${esc(phrase)}. <span class="highlight">${esc(highlight)}.</span></div>
+      </div>`;
+      }
     }
 
-    // Book context
     if (bc.length > 0) {
       html += `
-      <div class="book-section">
-        <div class="book-title">Book Pricing History</div>
-        <div class="book-chips">`;
+      <div class="layer">
+        <div class="layer-label">Where the line has been set</div>
+      </div>
+      <div class="book-row">`;
       for (const bk of bc) {
+        const sig = signalFromRate(bk.rate);
         html += `
-          <div class="book-chip">
-            <div class="book-chip-name">${esc(bk.book)}</div>
-            <div class="book-chip-line">O/U ${Number(bk.line).toFixed(1)}</div>
-            <div class="book-chip-meta">${bk.gp} GP · ${Number(bk.rate).toFixed(0)}% over</div>
-          </div>`;
+        <div class="book-chip ${sig.direction === 'under' ? 'cold' : ''}">
+          <div class="book-chip-line">O/U ${Number(bk.line).toFixed(1)}</div>
+          <div class="book-chip-meta">${bk.gp} GP · ${Number(bk.rate).toFixed(1)}% over</div>
+        </div>`;
       }
-      html += '</div></div>';
+      html += '</div>';
     }
 
-    // Supporting contexts
-    const contexts = card.supporting_contexts;
-    if (contexts && contexts.length > 0) {
-      html += `
-      <div class="ctx-section">
-        <div class="ctx-title">Supporting Context</div>
-        <table class="ctx-table">
-          <thead><tr><th>Context</th><th>Over Rate</th><th>Record</th><th>GP</th></tr></thead>
-          <tbody>`;
+    html += `
+      <div class="layer">
+        <div class="layer-label">Does it hold?</div>
+      </div>`;
+
+    if (contexts.length > 0) {
+      html += '<div class="context-grid">';
       for (const ctx of contexts) {
+        const cClass = contextSignalClass(ctx.rate);
         html += `
-            <tr>
-              <td><span class="ctx-label">${esc(ctx.label)}</span></td>
-              <td><span class="ctx-rate ${rateClass(ctx.rate)}">${Number(ctx.rate).toFixed(1)}%</span></td>
-              <td>${esc(ctx.record || '—')}</td>
-              <td><span class="ctx-gp">${ctx.gp}</span></td>
-            </tr>`;
+        <div class="context-row">
+          <span class="context-label">${esc(humanizeContextLabel(ctx.label))}</span>
+          <span class="context-value ${cClass}">${Number(ctx.rate).toFixed(1)}% over · ${ctx.gp} GP</span>
+        </div>`;
       }
-      html += '</tbody></table></div>';
+      html += '</div>';
+    } else {
+      html += `
+      <div class="layer-stats" style="color: var(--text-tertiary); font-family: var(--sans); font-size: 14px;">
+        Small sample. No supporting context yet.
+      </div>`;
     }
 
-    html += '</section>';
+    html += '</div>';
   }
+
   return html;
 }
 
@@ -643,21 +876,21 @@ function buildPayloadJson(player, generatedAt) {
 
 function playerPage(player, generatedAt) {
   const headline = buildPlayerSummary(player);
+  const leadCopy = buildLeadCopy(player);
   const dateStr = generatedAt.split('T')[0];
   const cardCount = player.cards.length;
   const heroCount = player.heroCount;
-  const subParts = [`${cardCount} qualified card${cardCount > 1 ? 's' : ''}`];
+  const subParts = [`${cardCount} market${cardCount > 1 ? 's' : ''} analyzed`];
   if (heroCount > 0) subParts.push(`${heroCount} strong signal${heroCount > 1 ? 's' : ''}`);
-  else subParts.push('No strong signal');
 
   const jsonLd = JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: `${player.name} — Player Prop Profile | 2025-26 Season`,
+    headline: `${player.name} — Props | 2025-26 Season`,
     inLanguage: 'en',
     dateModified: dateStr,
     datePublished: dateStr,
-    description: `${player.name} prop hit rates for the 2025-26 NBA season. ${headline}. ${subParts.join(', ')}.`,
+    description: `${player.name} prop odds and historical trends for the 2025-26 NBA season. ${headline}.`,
     publisher: { '@type': 'Organization', name: 'SportsSync' },
     mainEntityOfPage: { '@type': 'WebPage', '@id': `${BASE_URL}/props/${player.slug}` },
   });
@@ -667,23 +900,23 @@ function playerPage(player, generatedAt) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>${esc(player.name)} — Player Prop Profile | SportsSync</title>
-  <meta name="description" content="${esc(player.name)} prop hit rates for the 2025-26 NBA season. ${esc(headline)}. ${esc(subParts.join(', '))}." />
+  <title>${esc(player.name)} — Props | SportsSync</title>
+  <meta name="description" content="${esc(player.name)} prop odds and historical trends. ${esc(headline)}." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="${BASE_URL}/props/${player.slug}" />
 
-  <meta property="og:title" content="${esc(player.name)} — ${esc(headline)} | SportsSync" />
-  <meta property="og:description" content="${esc(player.name)} prop hit rates for the 2025-26 NBA season. ${esc(headline)}." />
+  <meta property="og:title" content="${esc(player.name)} — Props | SportsSync" />
+  <meta property="og:description" content="${esc(player.name)} prop odds and historical trends. ${esc(headline)}." />
   <meta property="og:type" content="article" />
   <meta property="og:url" content="${BASE_URL}/props/${player.slug}" />
 
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="${esc(player.name)} — ${esc(headline)}" />
-  <meta name="twitter:description" content="${esc(player.name)} prop hit rates for the 2025-26 NBA season. ${esc(headline)}." />
+  <meta name="twitter:title" content="${esc(player.name)} — Props | SportsSync" />
+  <meta name="twitter:description" content="${esc(player.name)} prop odds and historical trends. ${esc(headline)}." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;450;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
   <link rel="alternate" type="application/json" href="${BASE_URL}/props/${player.slug}.json" title="${esc(player.name)} — Prop Data Payload" />
 
@@ -695,59 +928,43 @@ function playerPage(player, generatedAt) {
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
-  <nav class="nav">
-    <div class="nav-inner">
-      <a class="nav-brand" href="/">SportsSync</a>
-      <div class="nav-tabs">
-        <a class="nav-tab active" href="/props">Player Props</a>
-        <a class="nav-tab" href="/trends/">ATS &amp; O/U</a>
-        <a class="nav-tab" href="/pregame">Matchups</a>
-        <a class="nav-tab" href="/referees/">Referees</a>
-      </div>
-    </div>
+  <nav>
+    <a class="nav-brand" href="/">SportsSync</a>
+    <ul class="nav-links">
+      <li><a href="/props" class="active">Props</a></li>
+      <li><a href="/trends/">Trends</a></li>
+      <li><a href="/pregame">Matchups</a></li>
+      <li><a href="/referees/">Referees</a></li>
+    </ul>
   </nav>
 
   <main class="page" id="main-content">
-    <nav class="breadcrumb" aria-label="Breadcrumb">
+    <div class="breadcrumb" aria-label="Breadcrumb">
       <a href="/props">All Players</a> <span aria-hidden="true">›</span> <span>${esc(player.name)}</span>
-    </nav>
+    </div>
 
-    <header class="player-header">
-      <div class="league-tag">NBA 2025–26</div>
-      <h1 class="player-name">${esc(player.name)}</h1>
-      ${player.team ? `<div class="player-team">${esc(player.team)}</div>` : ''}
-      <p class="headline-stat"><strong>${esc(headline)}</strong> · ${esc(subParts.join(' · '))}</p>
-    </header>
+    <h1 class="player-name">${esc(player.name)}</h1>
+    ${player.team ? `<div class="player-team">${esc(player.team)}</div>` : ''}
 
-    <section class="summary-grid" aria-label="Market summary">
+    <p class="the-lead">${esc(leadCopy)}</p>
+
+    <div class="market-summary" aria-label="Market summary">
       ${renderMarketSummaryCards(player)}
-    </section>
+    </div>
 
-    <section class="section-block" aria-labelledby="detail-title">
-      <h2 class="section-title" id="detail-title">Market Detail</h2>
-      <p class="section-note">3-layer model: market baseline → most common historical line → supporting context splits.</p>
-      ${renderMarketSections(player)}
-    </section>
+    ${renderMarketSections(player)}
 
-    <section class="section-block" aria-labelledby="method-title">
-      <h2 class="section-title" id="method-title">Methodology</h2>
-      <ul class="methodology-list">
-        <li><strong>Baseline:</strong> all games for this player × market, across all books and lines.</li>
-        <li><strong>Most common historical line:</strong> highest-GP line across all sportsbooks.</li>
-        <li><strong>Book context:</strong> hit rate per sportsbook × line combination.</li>
-        <li><strong>Supporting context:</strong> venue, pace tier, rest days, season phase splits at the most common historical line.</li>
-        <li><strong>Over rate:</strong> overs / (overs + unders), pushes excluded.</li>
-        <li><strong>Display floor:</strong> 10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate.</li>
-      </ul>
-      <p class="section-note">
-        <a href="/props/${player.slug}.json" target="_blank" rel="noopener noreferrer">View data payload</a> ·
-        <a href="${PACK_URL}" target="_blank" rel="noopener noreferrer">Full evidence pack</a>
-      </p>
-    </section>
+    <hr class="section-divider">
+
+    <p class="method">
+      Over rate = overs ÷ (overs + unders), pushes excluded. Display minimum is 10 games. Edge signals require larger stable samples and strong directional rates.
+      <br><br>
+      <a href="/props/${player.slug}.json" target="_blank" rel="noopener noreferrer">View raw data</a> · <a href="${PACK_URL}" target="_blank" rel="noopener noreferrer">Full evidence pack</a>
+    </p>
 
     <footer class="page-footer">
-      <div>Auto-generated ${dateStr}. ${esc(subParts.join(' · '))}.</div>
-      <div style="margin-top:8px;"><a href="/props">← All player profiles</a></div>
+      <span>Auto-generated ${dateStr} · ${esc(subParts.join(' · '))}</span>
+      <a href="/props">← All players</a>
     </footer>
   </main>
 </body>
