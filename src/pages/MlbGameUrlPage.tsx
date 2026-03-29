@@ -1,6 +1,5 @@
-import React, { FC, useEffect, useMemo, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import SEOHead from "@/components/seo/SEOHead";
 import { fetchMlbLiveUrlContext } from "@/services/mlbLiveUrlContextService";
 import type { MlbLiveUrlContextResponse } from "@/types/mlbLiveUrlContext";
 
@@ -77,18 +76,8 @@ export const MlbGameUrlPage: FC = () => {
   }, [gameId]);
 
   const game = payload?.canonical_game ?? null;
-  const title = useMemo(() => {
-    if (!game) return "MLB Game Context";
-    return `${game.teams.away.name ?? "Away"} at ${game.teams.home.name ?? "Home"} | MLB Game Context`;
-  }, [game]);
-
   return (
     <>
-      <SEOHead
-        title={title}
-        description="MLB pregame and live context with lines, lineups, run environment, starters, bullpen context, and pregame edges."
-        canonicalPath={`/mlb/game/${encodeURIComponent(gameId)}`}
-      />
       <main style={containerStyle}>
         <div style={{ marginBottom: 18, color: "#6B6B63", fontSize: 13 }}>
           <span>MLB Game URL</span>
