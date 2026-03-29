@@ -415,24 +415,29 @@ const ToggleSwitch = memo(({ expanded }: { expanded: boolean }) => (
 ));
 
 const BackArrow = memo(() => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-zinc-800 opacity-60 group-hover:opacity-100 transition-opacity">
-    <path d="M15 19L8 12L15 5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-[#6B6B63] group-hover:text-[#1A1A18] transition-colors">
+    <path d="M13 4L7 10L13 16" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 ));
 
 const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'connecting' }) => {
   const isConnected = status === 'connected';
   const isConnecting = status === 'connecting';
+  const tone = isConnected ? 'text-[#2D8F5C]' : isConnecting ? 'text-[#9B9B91]' : 'text-[#C85A3A]';
+
   return (
-    <div className="flex items-center gap-2.5 bg-[linear-gradient(180deg,#FFFFFF_0%,#F6FAFF_100%)] px-3 py-1.5 rounded-full border border-[#D4DEEF] shadow-[0_10px_22px_-18px_rgba(16,34,58,0.48),inset_0_1px_0_rgba(255,255,255,0.95)] backdrop-blur-md">
-      <div className="relative flex items-center justify-center w-[12px] h-[12px]">
+    <div className={cn("inline-flex items-center gap-2 font-mono text-[11px] font-medium tracking-[0.02em]", tone)}>
+      <div className="relative flex items-center justify-center h-[10px] w-[10px]">
         {isConnected && (
-          <><span className="absolute w-full h-full rounded-full bg-emerald-500/30 animate-ping" /><span className="relative w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" /></>
+          <>
+            <span className="absolute h-full w-full rounded-full bg-[#2D8F5C]/30 animate-ping" />
+            <span className="relative h-[6px] w-[6px] rounded-full bg-[#2D8F5C]" />
+          </>
         )}
-        {isConnecting && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.6)]" />}
-        {!isConnected && !isConnecting && <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.6)]" />}
+        {isConnecting && <span className="h-[6px] w-[6px] rounded-full bg-[#9B9B91] animate-pulse" />}
+        {!isConnected && !isConnecting && <span className="h-[6px] w-[6px] rounded-full bg-[#C85A3A]" />}
       </div>
-      <span className="text-[10px] font-sans font-bold text-zinc-700 tracking-wider uppercase mt-px hidden sm:block">
+      <span className="hidden sm:block">
         {isConnected ? 'Live Sync' : isConnecting ? 'Syncing' : 'Offline'}
       </span>
     </div>
@@ -459,9 +464,9 @@ const StatsGridSkeleton = memo(() => (
 ));
 
 const statusTone: Record<AvailabilityState, string> = {
-  active: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  limited: 'text-amber-700 bg-amber-50 border-amber-200',
-  out: 'text-rose-700 bg-rose-50 border-rose-200',
+  active: 'text-[#2D8F5C] bg-[#2D8F5C]/8 border-[#2D8F5C]/25',
+  limited: 'text-[#6B6B63] bg-white border-[#E8E7E3]',
+  out: 'text-[#C85A3A] bg-[#C85A3A]/8 border-[#C85A3A]/25',
 };
 
 const TeamAvailabilityPanel = memo(({
@@ -557,71 +562,69 @@ const TeamAvailabilityPanel = memo(({
         return (
           <div
             key={key}
-            className="rounded-[16px] border border-[#D8E2F2] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] p-4 shadow-[0_10px_20px_-18px_rgba(16,34,58,0.45)]"
+            className="rounded-[8px] border border-[#E8E7E3] bg-[#FAFAF8] p-4"
           >
             <div className="flex items-center justify-between gap-3">
-              <h4 className="text-[13px] font-semibold tracking-tight text-[#10223A] truncate">
+              <h4 className="text-[14px] font-semibold tracking-tight text-[#1A1A18] truncate">
                 {teamName}
               </h4>
               {snapshot?.updatedAt ? (
-                <span className="text-[10px] font-mono text-black/45">Updated {formatAvailabilityDate(snapshot.updatedAt)}</span>
+                <span className="text-[10px] font-mono text-[#9B9B91]">Updated {formatAvailabilityDate(snapshot.updatedAt)}</span>
               ) : null}
             </div>
 
             {!snapshot || snapshot.totalPlayers === 0 ? (
-              <p className="mt-3 text-[12px] text-black/55 leading-relaxed">
+              <p className="mt-2 text-[13px] text-[#9B9B91] leading-relaxed">
                 No confirmed availability update yet.
               </p>
             ) : (
               <div className="mt-3 space-y-3">
-                <div className="rounded-lg border border-[#DBE5F5] bg-white px-3 py-2.5 space-y-2">
+                <div className="rounded-[8px] border border-[#E8E7E3] bg-white px-3 py-2.5 space-y-2">
                   <div className="flex items-center justify-between gap-2 text-[11px]">
-                    <span className="uppercase tracking-[0.14em] font-semibold text-rose-700">Important Absence</span>
-                    <span className="text-[#10223A] font-semibold text-right">{formatPlayerNames(coreOutPlayers)}</span>
+                    <span className="uppercase tracking-[0.14em] font-semibold text-[#C85A3A]">Important Absence</span>
+                    <span className="text-[#1A1A18] font-semibold text-right">{formatPlayerNames(coreOutPlayers)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2 text-[11px]">
-                    <span className="uppercase tracking-[0.14em] font-semibold text-amber-700">Rotation Watch</span>
-                    <span className="text-[#10223A] font-semibold text-right">{formatPlayerNames(coreWatchPlayers)}</span>
+                    <span className="uppercase tracking-[0.14em] font-semibold text-[#6B6B63]">Rotation Watch</span>
+                    <span className="text-[#1A1A18] font-semibold text-right">{formatPlayerNames(coreWatchPlayers)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2 text-[11px]">
-                    <span className="uppercase tracking-[0.14em] font-semibold text-[#3A4F71]">Depth Flags</span>
-                    <span className="text-[#10223A] font-semibold">{depthFlagCount}</span>
+                    <span className="uppercase tracking-[0.14em] font-semibold text-[#6B6B63]">Depth Flags</span>
+                    <span className="text-[#1A1A18] font-semibold">{depthFlagCount}</span>
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-[#DBE5F5] bg-white px-3 py-2 text-[12px] leading-relaxed text-[#10223A]/80 space-y-1">
+                <div className="rounded-[8px] border border-[#E8E7E3] bg-white px-3 py-2 text-[12px] leading-relaxed text-[#6B6B63] space-y-1">
                   <div>
-                    <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-black/55 mr-2">What changed</span>
+                    <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-[#9B9B91] mr-2">What changed</span>
                     {summary}
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-black/55 mr-2">Market impact</span>
+                    <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-[#9B9B91] mr-2">Market impact</span>
                     {lineRead}
                   </div>
                   {typeof snapshot.injuryImpact === 'number' ? (
-                    <span className="ml-2 text-[10px] font-mono text-black/55">impact {snapshot.injuryImpact.toFixed(1)}/10</span>
+                    <span className="ml-2 text-[10px] font-mono text-[#9B9B91]">impact {snapshot.injuryImpact.toFixed(1)}/10</span>
                   ) : null}
                 </div>
 
                 {flaggedPlayers.length > 0 ? (
                   <div>
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-black/55 font-semibold mb-1.5">Player Watch</div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-[#9B9B91] font-semibold mb-1.5">Player Watch</div>
                     <div className="space-y-1.5">
                       {flaggedPlayers.slice(0, 5).map((player) => (
                         <div key={`${teamName}-watch-${player.playerName}`} className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <div className="text-[12px] font-semibold text-[#10223A] truncate">{player.playerName}</div>
+                              <div className="text-[12px] font-semibold text-[#1A1A18] truncate">{player.playerName}</div>
                               <span className={cn(
                                 'shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.12em]',
-                                player.isCore ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-[#D8E2F2] bg-[#F6FAFF] text-[#3A4F71]'
+                                player.isCore ? 'border-[#C85A3A]/30 bg-[#C85A3A]/8 text-[#C85A3A]' : 'border-[#E8E7E3] bg-white text-[#6B6B63]'
                               )}>
                                 {player.isCore ? 'Core' : 'Depth'}
                               </span>
                             </div>
-                            {player.injuryNote ? (
-                              <div className="text-[11px] text-black/55 leading-snug line-clamp-2">{player.injuryNote}</div>
-                            ) : null}
+                            {player.injuryNote ? <div className="text-[11px] text-[#9B9B91] leading-snug line-clamp-2">{player.injuryNote}</div> : null}
                           </div>
                           <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em]', statusTone[player.state])}>
                             {player.statusLabel}
@@ -913,6 +916,77 @@ const SpecSheetRow = ({ label, children, defaultOpen = false, collapsible = true
   );
 };
 
+interface DetailsSectionCardProps {
+  sectionNumber: string;
+  label: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+  collapsible?: boolean;
+  actionLabel?: string;
+  onAction?: () => void;
+}
+
+const DetailsSectionCard = ({
+  sectionNumber,
+  label,
+  children,
+  defaultOpen = true,
+  collapsible = true,
+  actionLabel,
+  onAction,
+}: DetailsSectionCardProps) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const open = collapsible ? isOpen : true;
+
+  useEffect(() => {
+    setIsOpen(defaultOpen);
+  }, [defaultOpen]);
+
+  return (
+    <section className="rounded-[8px] border border-[#E8E7E3] bg-white overflow-hidden">
+      <header
+        className={cn(
+          "px-5 py-4 flex items-center justify-between gap-3",
+          open ? "border-b border-[#E8E7E3]" : "border-b-0"
+        )}
+      >
+        <div className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-[#6B6B63]">
+          <span className="text-[10px] font-medium text-[#9B9B91]">{sectionNumber}</span>
+          <span>{label}</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {actionLabel && onAction ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onAction();
+              }}
+              className="rounded-[6px] border border-[#E8E7E3] px-3 py-1.5 font-mono text-[11px] font-medium text-[#9B9B91] transition-colors hover:border-[#6B6B63] hover:text-[#6B6B63]"
+            >
+              {actionLabel}
+            </button>
+          ) : null}
+
+          {collapsible ? (
+            <button
+              type="button"
+              aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
+              onClick={() => setIsOpen((value) => !value)}
+              className="h-6 w-6 inline-flex items-center justify-center rounded-[6px] text-[#9B9B91] hover:bg-[#FAFAF8] hover:text-[#6B6B63]"
+            >
+              {open ? '−' : '+'}
+            </button>
+          ) : null}
+        </div>
+      </header>
+
+      {open ? <div className="p-5">{children}</div> : null}
+    </section>
+  );
+};
+
 const NbaContextPanel = memo(({ match, liveState }: { match: Match; liveState: LiveState | null }) => {
   const contextInput = useMemo(() => {
     const matchWithExtras = match as Match & {
@@ -1021,7 +1095,7 @@ const NbaContextPanel = memo(({ match, liveState }: { match: Match; liveState: L
 const SwipeableHeader = memo(({ match, isScheduled, onSwipe }: { match: ExtendedMatch; isScheduled: boolean; onSwipe: (dir: number) => void }) => {
   const x = useMotionValue(0);
   return (
-    <motion.div style={{ x }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={(_e, i) => { if (i.offset.x > 100) onSwipe(-1); else if (i.offset.x < -100) onSwipe(1); }} className="mx-auto w-full max-w-[1280px] cursor-grab px-4 pb-4 pt-2 sm:px-6 md:px-8 active:cursor-grabbing">
+    <motion.div style={{ x }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={(_e, i) => { if (i.offset.x > 100) onSwipe(-1); else if (i.offset.x < -100) onSwipe(1); }} className="w-full cursor-grab active:cursor-grabbing">
       <AnimatePresence mode="wait">
         <motion.div key={match.id} initial={{ opacity: 0, scale: 0.98, filter: 'blur(4px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 1.02, filter: 'blur(4px)' }} transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}>
           {isScheduled ? <MatchupHeader matchId={match.id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} startTime={match.startTime} sport={match.sport} currentOdds={match.current_odds || undefined} /> : <ScoreHeader match={match} variant="embedded" />}
@@ -2098,39 +2172,35 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   }
 
   return (
-    <div className="min-h-dvh text-black relative overflow-y-auto overflow-x-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white pb-[calc(env(safe-area-inset-bottom)+8rem)]">
-      {/* SOTA Dynamic Mix-Blend Radiance (Hardware Accelerated) */}
-      <div className="absolute top-0 left-0 w-full h-[40vh] opacity-[0.06] pointer-events-none z-0 mix-blend-multiply transform-gpu" style={{
-        background: `radial-gradient(circle at 20% 0%, ${homeColor} 0%, transparent 60%), radial-gradient(circle at 80% 0%, ${awayColor} 0%, transparent 60%)`
-      }} />
+    <div className="min-h-dvh relative overflow-y-auto overflow-x-hidden font-sans bg-[#FAFAF8] text-[#1A1A18] selection:bg-[#C85A3A]/20 pb-[calc(env(safe-area-inset-bottom)+8rem)]">
 
       <LiveSweatProvider latestPlayByPlayText={playByPlayText} aiTriggers={sweatTriggers}>
-        <header className="sticky top-0 z-50 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(249,252,255,0.92)_100%)] pt-safe backdrop-blur-2xl transition-colors duration-500 shadow-[0_1px_0_rgba(16,34,58,0.08),0_18px_32px_-28px_rgba(16,34,58,0.65)] border-b border-[#DAE3F1]/70 transform-gpu">
-          <div className="flex items-center justify-between px-4 sm:px-6 py-3">
-            <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-black/[0.04] rounded-full transition-colors duration-200 transform-gpu">
+        <header className="sticky top-0 z-50 bg-[#FAFAF8]/95 pt-safe backdrop-blur-md border-b border-[#E8E7E3]">
+          <div className="mx-auto flex max-w-[1080px] items-center justify-between px-4 py-4 sm:px-6">
+            <button onClick={onBack} className="group inline-flex items-center gap-1.5 text-[14px] font-medium text-[#6B6B63] hover:text-[#1A1A18] transition-colors">
               <BackArrow />
+              <span>Back</span>
             </button>
             <ConnectionBadge status={connectionStatus} />
           </div>
 
           {error && (
-            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-6 pb-2 overflow-hidden will-change-transform">
-              <div className="bg-red-50/90 backdrop-blur-md border border-red-200 text-red-600 text-[10px] uppercase tracking-[0.2em] font-mono py-1.5 px-3 text-center rounded-[8px] shadow-[0_4px_12px_rgba(239,68,68,0.1)]">
+            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="mx-auto max-w-[1080px] px-4 pb-3 sm:px-6 overflow-hidden will-change-transform">
+              <div className="rounded-[8px] border border-[#C85A3A]/30 bg-[#C85A3A]/6 px-3 py-2 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-[#C85A3A]">
                 Live feed delayed
               </div>
             </motion.div>
           )}
 
-          <div className="px-3 sm:px-4">
-            <div className="rounded-[22px] border border-[#DAE3F1]/85 bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] shadow-[0_16px_32px_-28px_rgba(16,34,58,0.52)]">
+          <div className="mx-auto max-w-[1080px] px-4 pb-3 sm:px-6">
+            <div className="rounded-[8px]">
               <SwipeableHeader match={match} isScheduled={isSched} onSwipe={handleSwipe} />
             </div>
           </div>
 
-          {/* SOTA Concurrent Nav Segment */}
-          <div className="relative mt-3 w-full pb-3 px-4 sm:px-6">
+          <div className="relative w-full pb-4 px-4 sm:px-6">
             <nav className={cn(
-              "relative flex p-1.5 bg-[linear-gradient(180deg,#FFFFFF_0%,#F6FAFF_100%)] rounded-[16px] max-w-full overflow-x-auto no-scrollbar mx-auto border border-[#D4DEEF] shadow-[0_12px_24px_-20px_rgba(16,34,58,0.5),inset_0_1px_0_rgba(255,255,255,0.95)] w-fit transform-gpu transition-opacity duration-200",
+              "relative flex gap-px rounded-[8px] max-w-full overflow-x-auto no-scrollbar mx-auto border border-[#E8E7E3] bg-[#E8E7E3] w-fit transition-opacity duration-200",
               isPendingTab && "opacity-80 pointer-events-none"
             )}>
               {TABS.map((tab) => {
@@ -2140,17 +2210,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                     key={tab.id}
                     onClick={() => handleTabChange(tab.id)}
                     className={cn(
-                      "relative h-8 px-5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors duration-200 whitespace-nowrap outline-none flex items-center justify-center flex-1 min-w-[100px] font-mono",
-                      isActive ? "text-[#10223A]" : "text-black/60 hover:text-black/85"
+                      "relative h-9 px-6 text-[11px] font-semibold uppercase tracking-[0.04em] transition-colors whitespace-nowrap outline-none flex items-center justify-center flex-1 min-w-[100px] font-mono bg-white",
+                      isActive ? "text-[#1A1A18]" : "text-[#9B9B91] hover:text-[#6B6B63]"
                     )}
                   >
-                    {isActive && (
-                      <motion.div
-                        layoutId="activePill"
-                        className="absolute inset-0 bg-[linear-gradient(180deg,#FFFFFF_0%,#EEF5FF_100%)] rounded-[10px] shadow-[0_8px_18px_-14px_rgba(16,34,58,0.6)] border border-[#C8D7EE] will-change-transform"
-                        transition={PHYSICS.SPRING}
-                      />
-                    )}
                     <span className="relative z-10">{tab.label}</span>
                   </button>
                 );
@@ -2159,7 +2222,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           </div>
         </header>
 
-        <main className="relative z-10 mx-auto max-w-[1200px] px-4 pt-8 sm:px-6 lg:pt-10">
+        <main className="relative z-10 mx-auto max-w-[1080px] px-4 pt-6 sm:px-6 lg:pt-8">
           <LayoutGroup>
             <AnimatePresence mode="wait">
               {/* Tab panel */}
@@ -2182,26 +2245,20 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
                 {currentTab === 'DETAILS' && (
                   <div className="space-y-4">
-                    {String(match.sport || '').toUpperCase() === 'NBA' && (
-                      <NbaContextPanel match={match as Match} liveState={liveState} />
-                    )}
-                    <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <div className="space-y-4">
-                        <SpecSheetRow label="03 // MARKETS" defaultOpen={true}>
+                        <DetailsSectionCard
+                          sectionNumber="03"
+                          label="Markets"
+                          collapsible={false}
+                          actionLabel={marketsTab === 'TRENDS' ? 'Show Depth' : 'Back To Lines'}
+                          onAction={() => setMarketsTab(marketsTab === 'TRENDS' ? 'ODDS' : 'TRENDS')}
+                        >
                           <div className="space-y-3">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#10223A]">
-                                {marketsTab === 'TRENDS' ? 'Lines' : 'Depth'}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setMarketsTab(marketsTab === 'TRENDS' ? 'ODDS' : 'TRENDS')}
-                                className="inline-flex items-center rounded-full border border-[#D4DEEF] bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#10223A] transition-colors hover:bg-[#F6FAFF]"
-                              >
-                                {marketsTab === 'TRENDS' ? 'Show Depth' : 'Back To Lines'}
-                              </button>
+                            <div className="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[#9B9B91]">
+                              <span className="h-[5px] w-[5px] rounded-full bg-[#C85A3A]" />
+                              <span>{marketsTab === 'TRENDS' ? 'Opening Lines' : 'Market Depth'}</span>
                             </div>
-
                             {marketsTab === 'TRENDS' ? (
                               isInitialLoad ? <OddsCardSkeleton /> : <OddsCard match={match} />
                             ) : (
@@ -2223,10 +2280,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                               />
                             )}
                           </div>
-                        </SpecSheetRow>
-                        <SpecSheetRow label="05 // TRAJECTORY" defaultOpen={hasRecentForm}>
+                        </DetailsSectionCard>
+
+                        <DetailsSectionCard sectionNumber="05" label="Trajectory" defaultOpen={false}>
                           {availabilityLoading && !hasRecentForm ? (
-                            <div className="text-[12px] text-black/55">Building recent form…</div>
+                            <div className="text-[14px] text-[#9B9B91]">Building recent form…</div>
                           ) : (
                             <RecentForm
                               homeTeam={{ last5: homeRecentGames }}
@@ -2237,19 +2295,21 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                               awayColor={awayColor}
                             />
                           )}
-                        </SpecSheetRow>
+                        </DetailsSectionCard>
                       </div>
+
                       <div className="space-y-4">
-                        <SpecSheetRow label="04 // MATCHUP" defaultOpen={true}>
+                        <DetailsSectionCard sectionNumber="04" label="Matchup" defaultOpen={true}>
                           {isInitialLoad ? (
                             <StatsGridSkeleton />
                           ) : detailMatchupStats.length > 0 ? (
                             <TeamStatsGrid stats={detailMatchupStats} match={match} colors={{ home: homeColor, away: awayColor }} />
                           ) : (
-                            <div className="text-[12px] text-black/55">No matchup stats posted yet.</div>
+                            <p className="text-[14px] text-[#9B9B91]">No matchup stats posted yet.</p>
                           )}
-                        </SpecSheetRow>
-                        <SpecSheetRow label="06 // AVAILABILITY" defaultOpen={true}>
+                        </DetailsSectionCard>
+
+                        <DetailsSectionCard sectionNumber="06" label="Availability" defaultOpen={true}>
                           <TeamAvailabilityPanel
                             homeTeamName={match.homeTeam.name}
                             awayTeamName={match.awayTeam.name}
@@ -2259,12 +2319,15 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
                             awaySnapshot={availabilitySnapshot.away}
                             isLoading={availabilityLoading}
                           />
-                        </SpecSheetRow>
-                        <SpecSheetRow label="07 // CONTEXT" defaultOpen={hasContextData}>
-                          {hasContextData
-                            ? <MatchupContextPills {...match.context} sport={match.sport} />
-                            : <div className="text-black/50 text-[12px] font-medium">Venue, weather, and broadcast context appears as feeds lock in.</div>}
-                        </SpecSheetRow>
+                        </DetailsSectionCard>
+
+                        <DetailsSectionCard sectionNumber="07" label="Context" defaultOpen={false}>
+                          {hasContextData ? (
+                            <MatchupContextPills {...match.context} sport={match.sport} />
+                          ) : (
+                            <p className="text-[14px] text-[#9B9B91]">No context snapshot posted yet.</p>
+                          )}
+                        </DetailsSectionCard>
                       </div>
                     </div>
                   </div>
