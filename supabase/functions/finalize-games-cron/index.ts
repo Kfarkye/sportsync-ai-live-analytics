@@ -21,6 +21,7 @@ const CORS_HEADERS = {
 interface PendingMatch {
     match_id: string;
     league_id: string;
+    game_date: string | null;
 }
 
 // Map league_id to ESPN endpoint
@@ -94,6 +95,8 @@ Deno.serve(async (req: Request) => {
     const batchId = `finalize_${Date.now()}`;
     const trace: string[] = [];
     let finalized = 0;
+    let nbaFinalized = 0;
+    let nbaSinceDate: string | null = null;
     let graded = 0;
 
     try {
@@ -104,7 +107,7 @@ Deno.serve(async (req: Request) => {
 
         const { data: pendingPicks, error: pickErr } = await supabase
             .from("pregame_intel")
-            .select("match_id, league_id")
+            .select("match_id, league_id, game_date")
             .eq("pick_result", "PENDING")
             .lte("game_date", yesterday)
             .limit(100);
@@ -157,6 +160,12 @@ Deno.serve(async (req: Request) => {
 
             trace.push(`[finalized] ${match.match_id}: ${result.awayScore}-${result.homeScore} (${result.status})`);
             finalized++;
+            if (match.league_id === "nba") {
+                nbaFinalized++;
+                if (match.game_date && (!nbaSinceDate || match.game_date < nbaSinceDate)) {
+                    nbaSinceDate = match.game_date;
+                }
+            }
         }
 
         // 4. Trigger grading cron if we finalized any games
@@ -224,6 +233,25 @@ Deno.serve(async (req: Request) => {
                     trace.push(`[ref-tendencies] Refreshed: team=${refData.team_rows ?? '?'}, coach=${refData.coach_rows ?? '?'}, player=${refData.player_rows ?? '?'} rows (${refData.duration_ms ?? '?'}ms)`);
                 } else {
                     trace.push(`[ref-tendencies] Error refreshing ref tendencies: ${refRes.status}`);
+                }
+
+                if (nbaFinalized > 0) {
+                    const propSinceDate = nbaSinceDate
+                        ?? new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+                    trace.push(`[props] Triggering run_player_prop_pipeline from ${propSinceDate} for ${nbaFinalized} finalized NBA games...`);
+                    try {
+                        const { data: propPipelineResult, error: propPipelineErr } = await supabase.rpc("run_player_prop_pipeline", {
+                            p_since_date: propSinceDate,
+                        });
+                        if (propPipelineErr) {
+                            trace.push(`[props] Error running prop pipeline: ${propPipelineErr.message}`);
+                        } else {
+                            trace.push(`[props] Prop pipeline complete from ${propSinceDate}.`);
+                            trace.push(`[props] Result: ${JSON.stringify(propPipelineResult)}`);
+                        }
+                    } catch (propErr: any) {
+                        trace.push(`[props] Exception running prop pipeline: ${propErr?.message ?? String(propErr)}`);
+                    }
                 }
             }
         }

@@ -436,14 +436,62 @@ function resolveBookPreference(sportKey: string): string[] {
     return BOOK_PREFERENCE_BY_SPORT[sportKey] ?? DEFAULT_BOOK_PREFERENCE;
 }
 
-function pickBookmaker(bookmakers: any[], sportKey: string): any | null {
-    if (!Array.isArray(bookmakers) || bookmakers.length === 0) return null;
+function selectBookmakers(bookmakers: any[], sportKey: string): any[] {
+    if (!Array.isArray(bookmakers) || bookmakers.length === 0) return [];
     const preferred = resolveBookPreference(sportKey);
-    return [...bookmakers].sort((a: any, b: any) => {
-        const ia = preferred.indexOf(String(a?.key || '').toLowerCase());
-        const ib = preferred.indexOf(String(b?.key || '').toLowerCase());
-        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-    })[0] ?? null;
+    const scored = bookmakers
+        .filter((book) => book?.key && Array.isArray(book?.markets) && book.markets.length > 0)
+        .map((book: any) => {
+            const key = String(book?.key || '').toLowerCase();
+            const preferredRank = preferred.indexOf(key);
+            return {
+                book,
+                rank: preferredRank === -1 ? 999 : preferredRank,
+                key,
+            };
+        })
+        .sort((a, b) => {
+            if (a.rank !== b.rank) return a.rank - b.rank;
+            return a.key.localeCompare(b.key);
+        });
+
+    const deduped: any[] = [];
+    const seen = new Set<string>();
+    for (const row of scored) {
+        const key = String(row.book?.key || '').toLowerCase();
+        if (!key || seen.has(key)) continue;
+        deduped.push(row.book);
+        seen.add(key);
+    }
+    return deduped;
+}
+
+function shouldReplacePropCandidate(existing: any, candidate: any): boolean {
+    const existingLine = Number(existing?.line_value ?? Number.NaN);
+    const candidateLine = Number(candidate?.line_value ?? Number.NaN);
+    const existingLineValid = Number.isFinite(existingLine);
+    const candidateLineValid = Number.isFinite(candidateLine);
+
+    if (!existingLineValid && candidateLineValid) return true;
+    if (existingLineValid && !candidateLineValid) return false;
+    if (existingLineValid && candidateLineValid && existingLine !== candidateLine) {
+        return candidateLine < existingLine;
+    }
+
+    const existingOdds = Number(existing?.odds_american ?? Number.NaN);
+    const candidateOdds = Number(candidate?.odds_american ?? Number.NaN);
+    const existingOddsValid = Number.isFinite(existingOdds);
+    const candidateOddsValid = Number.isFinite(candidateOdds);
+
+    if (!existingOddsValid && candidateOddsValid) return true;
+    if (existingOddsValid && !candidateOddsValid) return false;
+    if (existingOddsValid && candidateOddsValid) {
+        const existingDistance = Math.abs(Math.abs(existingOdds) - 110);
+        const candidateDistance = Math.abs(Math.abs(candidateOdds) - 110);
+        if (candidateDistance !== existingDistance) return candidateDistance < existingDistance;
+    }
+
+    return false;
 }
 
 Deno.serve(async (req: Request) => {
@@ -466,6 +514,9 @@ Deno.serve(async (req: Request) => {
     const useHistoricalWindow = Boolean(startDate && endDate);
     const historicalEventsCache = new Map<string, HistoricalEvent[]>();
     const historicalIdentityFallbackByMatch = new Map<string, MatchIdentityIndex>();
+    let totalPropsUpserted = 0;
+    let nbaPropsUpserted = 0;
+    let nbaMinEventDate: string | null = null;
 
     try {
         if ((startDate && !endDate) || (!startDate && endDate)) {
@@ -551,14 +602,12 @@ Deno.serve(async (req: Request) => {
             });
         }
 
-        if (useHistoricalWindow) {
-            const identityMap = await loadMatchIdentityFromPlayerStats(supabase, matches as PropMatch[]);
-            identityMap.forEach((value, key) => historicalIdentityFallbackByMatch.set(key, value));
-            logs.push({
-                event: 'historical_identity_loaded',
-                matches_with_identity: historicalIdentityFallbackByMatch.size,
-            });
-        }
+        const identityMap = await loadMatchIdentityFromPlayerStats(supabase, matches as PropMatch[]);
+        identityMap.forEach((value, key) => historicalIdentityFallbackByMatch.set(key, value));
+        logs.push({
+            event: useHistoricalWindow ? 'historical_identity_loaded' : 'match_identity_loaded',
+            matches_with_identity: historicalIdentityFallbackByMatch.size,
+        });
 
         // 2. Process each match
         for (const match of (matches as PropMatch[])) {
@@ -762,62 +811,74 @@ Deno.serve(async (req: Request) => {
                     : (data?.bookmakers || []);
                 console.log(`[Props] API returned ${bookmakers.length} bookmakers for ${match.home_team}`);
 
-                const book = pickBookmaker(bookmakers, sportKey);
-
-                if (!book) {
+                const selectedBooks = selectBookmakers(bookmakers, sportKey);
+                if (selectedBooks.length === 0) {
                     logs.push({ event: "no_prop_books", matchId: match.id });
                     continue;
                 }
 
-                const propUpserts: any[] = [];
                 const eventDate = match.start_time.split('T')[0];
+                const dedupedRows = new Map<string, any>();
 
-                for (const market of book.markets) {
-                    const betType = MARKET_TO_ENUM[market.key];
-                    if (!betType) continue;
+                for (const book of selectedBooks) {
+                    for (const market of (book.markets ?? [])) {
+                        const betType = MARKET_TO_ENUM[market.key];
+                        if (!betType) continue;
 
-                    for (const outcome of market.outcomes) {
-                        // Outcome usually has: name (Over/Under/Yes/No), description (Player Name), price, point
-                        const playerName = outcome.description || outcome.name;
-                        const side = (outcome.name === 'Over' || outcome.name === 'Under') ? outcome.name.toLowerCase() : 'yes';
+                        for (const outcome of (market.outcomes ?? [])) {
+                            // Outcome usually has: name (Over/Under/Yes/No), description (Player Name), price, point
+                            const playerName = String(outcome.description || outcome.name || '').trim();
+                            if (!playerName) continue;
+                            const side = (outcome.name === 'Over' || outcome.name === 'Under') ? outcome.name.toLowerCase() : 'yes';
 
-                        // Link Athlete Data
-                        let athlete = resolveAthlete(playerName, athleteMap, athleteInitialLastMap);
-                        if (!athlete && historicalIdentity) {
-                            athlete = resolveAthlete(playerName, historicalIdentity.exactMap, historicalIdentity.initialLastMap);
-                            if (athlete) historicalIdentityHits += 1;
+                            // Link Athlete Data
+                            let athlete = resolveAthlete(playerName, athleteMap, athleteInitialLastMap);
+                            if (!athlete && historicalIdentity) {
+                                athlete = resolveAthlete(playerName, historicalIdentity.exactMap, historicalIdentity.initialLastMap);
+                                if (athlete) historicalIdentityHits += 1;
+                            }
+                            if (!athlete) {
+                                athlete = resolveAthleteFromAlias(match, playerName, aliasLookup);
+                                if (athlete) aliasIdentityHits += 1;
+                            }
+                            const canonicalPlayerName = String(athlete?.displayName || playerName).trim();
+                            if (!canonicalPlayerName) continue;
+
+                            if (!athlete) {
+                                console.warn(`[Props: ${match.id}] ⚠️ Player mismatch: "${playerName}" not found in ESPN roster.`);
+                            }
+
+                            const candidateRow = {
+                                match_id: match.id,
+                                player_id: athlete?.id ?? null,
+                                espn_player_id: athlete?.id ?? null,
+                                player_name: canonicalPlayerName,
+                                headshot_url: athlete?.headshot ?? null,
+                                team: athlete?.team ?? null,
+                                bet_type: betType,
+                                market_label: `${market.key.replace(/_/g, ' ').toUpperCase()} ${outcome.point || ''}`,
+                                line_value: outcome.point || 1, // Anytime TD might not have point
+                                odds_american: outcome.price,
+                                side: side,
+                                provider: book.key,
+                                sportsbook: book.title,
+                                event_date: eventDate,
+                                league: match.league_id
+                            };
+
+                            const identityKey = athlete?.id
+                                ? `id:${String(athlete.id)}`
+                                : `name:${normalizePlayerToken(canonicalPlayerName)}`;
+                            const dedupeKey = `${String(book.key || '').toLowerCase()}|${identityKey}|${betType}|${side}`;
+                            const existing = dedupedRows.get(dedupeKey);
+                            if (!existing || shouldReplacePropCandidate(existing, candidateRow)) {
+                                dedupedRows.set(dedupeKey, candidateRow);
+                            }
                         }
-                        if (!athlete) {
-                            athlete = resolveAthleteFromAlias(match, playerName, aliasLookup);
-                            if (athlete) aliasIdentityHits += 1;
-                        }
-                        const canonicalPlayerName = playerName.trim();
-
-                        if (!athlete) {
-                            console.warn(`[Props: ${match.id}] ⚠️ Player mismatch: "${playerName}" not found in ESPN roster.`);
-                        }
-
-                        // Format for player_prop_bets schema
-                        propUpserts.push({
-                            match_id: match.id,
-                            player_id: athlete?.id,
-                            espn_player_id: athlete?.id,
-                            player_name: canonicalPlayerName,
-                            headshot_url: athlete?.headshot,
-                            team: athlete?.team || (outcome.name?.includes('(') ? outcome.name.split('(')[1].replace(')', '') : null),
-                            bet_type: betType,
-                            market_label: `${market.key.replace(/_/g, ' ').toUpperCase()} ${outcome.point || ''}`,
-                            line_value: outcome.point || 1, // Anytime TD might not have point
-                            odds_american: outcome.price,
-                            side: side,
-                            provider: book.key,
-                            sportsbook: book.title,
-                            event_date: eventDate,
-                            league: match.league_id
-                        });
                     }
                 }
 
+                const propUpserts = Array.from(dedupedRows.values());
                 if (propUpserts.length > 0) {
                     const { error: upsertError } = await supabase
                         .from('player_prop_bets')
@@ -829,10 +890,16 @@ Deno.serve(async (req: Request) => {
                         logs.push({ event: "upsert_error", matchId: match.id, error: upsertError.message });
                         console.error(`[Props: ${match.id}] ❌ Upsert failed: ${upsertError.message}`);
                     } else {
+                        totalPropsUpserted += propUpserts.length;
+                        if (match.league_id === 'nba') {
+                            nbaPropsUpserted += propUpserts.length;
+                            if (!nbaMinEventDate || eventDate < nbaMinEventDate) nbaMinEventDate = eventDate;
+                        }
                         logs.push({
                             event: "props_synced",
                             matchId: match.id,
                             count: propUpserts.length,
+                            books_used: selectedBooks.length,
                             historical_identity_hits: historicalIdentityHits,
                             alias_identity_hits: aliasIdentityHits,
                         });
@@ -847,7 +914,47 @@ Deno.serve(async (req: Request) => {
             }
         }
 
-        return new Response(JSON.stringify({ success: true, logs }), {
+        if (nbaPropsUpserted > 0) {
+            const sinceDate = nbaMinEventDate
+                ?? new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            logs.push({
+                event: "nba_prop_pipeline_triggered",
+                since_date: sinceDate,
+                nba_props_upserted: nbaPropsUpserted,
+            });
+            try {
+                const { data: pipelineResult, error: pipelineErr } = await supabase.rpc("run_player_prop_pipeline", {
+                    p_since_date: sinceDate,
+                });
+                if (pipelineErr) {
+                    logs.push({
+                        event: "nba_prop_pipeline_error",
+                        since_date: sinceDate,
+                        error: pipelineErr.message,
+                    });
+                } else {
+                    logs.push({
+                        event: "nba_prop_pipeline_complete",
+                        since_date: sinceDate,
+                        result: pipelineResult ?? null,
+                    });
+                }
+            } catch (pipelineErr: any) {
+                logs.push({
+                    event: "nba_prop_pipeline_exception",
+                    since_date: sinceDate,
+                    error: pipelineErr?.message ?? String(pipelineErr),
+                });
+            }
+        }
+
+        return new Response(JSON.stringify({
+            success: true,
+            total_props_upserted: totalPropsUpserted,
+            nba_props_upserted: nbaPropsUpserted,
+            nba_since_date: nbaMinEventDate,
+            logs,
+        }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
 
