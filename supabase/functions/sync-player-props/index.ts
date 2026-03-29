@@ -32,6 +32,14 @@ interface Athlete {
     displayName?: string;
 }
 
+interface PlayerGameIdentityRow {
+    match_id: string;
+    league_id: string | null;
+    espn_player_id: string | null;
+    player_name: string | null;
+    team: string | null;
+}
+
 interface HistoricalEvent {
     id: string;
     commence_time: string;
@@ -101,6 +109,12 @@ const BOOK_PREFERENCE_BY_SPORT: Record<string, string[]> = {
     // Phase 1 lock: MLB priority draftkings > fanduel > bovada > betmgm.
     'baseball_mlb': ['draftkings', 'fanduel', 'bovada', 'betmgm'],
 };
+
+const MATCH_QUERY_BATCH_SIZE = 250;
+
+function buildHeadshotUrl(leagueId: string, athleteId: string | number): string {
+    return `https://a.espncdn.com/combiner/i?img=/i/headshots/${leagueId}/players/full/${athleteId}.png&w=96&h=96`;
+}
 
 function normalizeLeagueFilter(raw: string | null): string[] {
     if (!raw) return [];
@@ -233,6 +247,72 @@ function resolveAthlete(
     return undefined;
 }
 
+interface MatchIdentityIndex {
+    exactMap: Map<string, Athlete>;
+    initialLastMap: Map<string, Athlete>;
+    initialLastCollisions: Set<string>;
+}
+
+function ensureMatchIdentityIndex(
+    matchIdentityMap: Map<string, MatchIdentityIndex>,
+    matchId: string,
+): MatchIdentityIndex {
+    const existing = matchIdentityMap.get(matchId);
+    if (existing) return existing;
+    const created: MatchIdentityIndex = {
+        exactMap: new Map<string, Athlete>(),
+        initialLastMap: new Map<string, Athlete>(),
+        initialLastCollisions: new Set<string>(),
+    };
+    matchIdentityMap.set(matchId, created);
+    return created;
+}
+
+async function loadMatchIdentityFromPlayerStats(
+    supabase: ReturnType<typeof createClient>,
+    matches: PropMatch[],
+): Promise<Map<string, MatchIdentityIndex>> {
+    const out = new Map<string, MatchIdentityIndex>();
+    const matchIds = matches.map((m) => m.id).filter(Boolean);
+    if (matchIds.length === 0) return out;
+
+    for (let i = 0; i < matchIds.length; i += MATCH_QUERY_BATCH_SIZE) {
+        const batch = matchIds.slice(i, i + MATCH_QUERY_BATCH_SIZE);
+        const { data, error } = await supabase
+            .from('player_game_stats')
+            .select('match_id, league_id, espn_player_id, player_name, team')
+            .in('match_id', batch);
+
+        if (error) {
+            throw new Error(`player_game_stats identity lookup failed: ${error.message}`);
+        }
+
+        for (const row of (data ?? []) as PlayerGameIdentityRow[]) {
+            const athleteId = String(row.espn_player_id ?? '').trim();
+            const displayName = String(row.player_name ?? '').trim();
+            if (!row.match_id || !athleteId || !displayName) continue;
+
+            const index = ensureMatchIdentityIndex(out, row.match_id);
+            const athlete: Athlete = {
+                id: athleteId,
+                displayName,
+                team: row.team ?? undefined,
+                headshot: buildHeadshotUrl(row.league_id ?? 'nba', athleteId),
+            };
+
+            indexAthlete(
+                index.exactMap,
+                index.initialLastMap,
+                index.initialLastCollisions,
+                athlete,
+                [row.player_name],
+            );
+        }
+    }
+
+    return out;
+}
+
 function buildDateTeamKey(date: string, homeTeam: string, awayTeam: string): string {
     return `${date}|${normalizeTeamToken(homeTeam)}|${normalizeTeamToken(awayTeam)}`;
 }
@@ -300,6 +380,7 @@ Deno.serve(async (req: Request) => {
     const endDate = parseDateParam(requestUrl.searchParams.get('end_date'));
     const useHistoricalWindow = Boolean(startDate && endDate);
     const historicalEventsCache = new Map<string, HistoricalEvent[]>();
+    const historicalIdentityFallbackByMatch = new Map<string, MatchIdentityIndex>();
 
     try {
         if ((startDate && !endDate) || (!startDate && endDate)) {
@@ -368,6 +449,15 @@ Deno.serve(async (req: Request) => {
             end_date: endDate,
         });
 
+        if (useHistoricalWindow) {
+            const identityMap = await loadMatchIdentityFromPlayerStats(supabase, matches as PropMatch[]);
+            identityMap.forEach((value, key) => historicalIdentityFallbackByMatch.set(key, value));
+            logs.push({
+                event: 'historical_identity_loaded',
+                matches_with_identity: historicalIdentityFallbackByMatch.size,
+            });
+        }
+
         // 2. Process each match
         for (const match of (matches as PropMatch[])) {
             const sportKey = LEAGUE_MAP[match.league_id];
@@ -391,6 +481,8 @@ Deno.serve(async (req: Request) => {
                 const athleteMap = new Map<string, Athlete>();
                 const athleteInitialLastMap = new Map<string, Athlete>();
                 const athleteInitialLastCollisions = new Set<string>();
+                const historicalIdentity = historicalIdentityFallbackByMatch.get(match.id);
+                let historicalIdentityHits = 0;
                 const sportPath = match.league_id === 'nfl' ? 'football/nfl' :
                     match.league_id === 'nba' ? 'basketball/nba' :
                         match.league_id === 'mlb' ? 'baseball/mlb' :
@@ -415,7 +507,7 @@ Deno.serve(async (req: Request) => {
                     liveMembers.forEach(a => {
                         const displayName = (a.displayName || a.fullName || a.shortName || '').trim();
                         const headshot = a.headshot?.href || (a.id
-                            ? `https://a.espncdn.com/combiner/i?img=/i/headshots/${match.league_id}/players/full/${a.id}.png&w=96&h=96`
+                            ? buildHeadshotUrl(match.league_id, a.id)
                             : null);
                         if (!displayName || !headshot || !a.id) return;
 
@@ -439,43 +531,39 @@ Deno.serve(async (req: Request) => {
                         );
                     });
 
-                    // If no athletes found (pre-game), fetch full rosters
-                    if (athleteMap.size === 0) {
-                        const competitors = summaryData?.header?.competitions?.[0]?.competitors || [];
-                        for (const comp of competitors) {
-                            const teamId = comp.id;
-                            if (!teamId) continue;
+                    // Always merge full team rosters. Summary/leader payloads are often partial.
+                    const competitors = summaryData?.header?.competitions?.[0]?.competitors || [];
+                    for (const comp of competitors) {
+                        const teamId = comp.id;
+                        if (!teamId) continue;
 
-                            try {
-                                const rosterUrl = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamId}/roster`;
-                                const rosterRes = await fetch(rosterUrl);
-                                if (rosterRes.ok) {
-                                    const rosterData = await rosterRes.json();
-                                    const athletes = rosterData.athletes || rosterData.groups?.flatMap((g: any) => g.athletes) || [];
-                                    athletes.forEach((a: any) => {
-                                        const displayName = (a.displayName || a.fullName || a.shortName || '').trim();
-                                        if (!displayName || !a.id) return;
-                                        const headshot =
-                                            a.headshot?.href ||
-                                            `https://a.espncdn.com/combiner/i?img=/i/headshots/${match.league_id}/players/full/${a.id}.png&w=96&h=96`;
-                                        const athlete: Athlete = {
-                                            id: String(a.id),
-                                            headshot,
-                                            team: comp.team?.displayName,
-                                            displayName,
-                                        };
-                                        indexAthlete(
-                                            athleteMap,
-                                            athleteInitialLastMap,
-                                            athleteInitialLastCollisions,
-                                            athlete,
-                                            [a.displayName, a.fullName, a.shortName],
-                                        );
-                                    });
-                                }
-                            } catch (rosterErr) {
-                                // Skip roster fetch errors silently
+                        try {
+                            const rosterUrl = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamId}/roster`;
+                            const rosterRes = await fetch(rosterUrl);
+                            if (rosterRes.ok) {
+                                const rosterData = await rosterRes.json();
+                                const athletes = rosterData.athletes || rosterData.groups?.flatMap((g: any) => g.athletes) || [];
+                                athletes.forEach((a: any) => {
+                                    const displayName = (a.displayName || a.fullName || a.shortName || '').trim();
+                                    if (!displayName || !a.id) return;
+                                    const headshot = a.headshot?.href || buildHeadshotUrl(match.league_id, a.id);
+                                    const athlete: Athlete = {
+                                        id: String(a.id),
+                                        headshot,
+                                        team: comp.team?.displayName,
+                                        displayName,
+                                    };
+                                    indexAthlete(
+                                        athleteMap,
+                                        athleteInitialLastMap,
+                                        athleteInitialLastCollisions,
+                                        athlete,
+                                        [a.displayName, a.fullName, a.shortName],
+                                    );
+                                });
                             }
+                        } catch (rosterErr) {
+                            // Skip roster fetch errors silently
                         }
                     }
                 }
@@ -591,7 +679,11 @@ Deno.serve(async (req: Request) => {
                         const side = (outcome.name === 'Over' || outcome.name === 'Under') ? outcome.name.toLowerCase() : 'yes';
 
                         // Link Athlete Data
-                        const athlete = resolveAthlete(playerName, athleteMap, athleteInitialLastMap);
+                        let athlete = resolveAthlete(playerName, athleteMap, athleteInitialLastMap);
+                        if (!athlete && historicalIdentity) {
+                            athlete = resolveAthlete(playerName, historicalIdentity.exactMap, historicalIdentity.initialLastMap);
+                            if (athlete) historicalIdentityHits += 1;
+                        }
                         const canonicalPlayerName = (athlete?.displayName || playerName).trim();
 
                         if (!athlete) {
@@ -630,7 +722,12 @@ Deno.serve(async (req: Request) => {
                         logs.push({ event: "upsert_error", matchId: match.id, error: upsertError.message });
                         console.error(`[Props: ${match.id}] ❌ Upsert failed: ${upsertError.message}`);
                     } else {
-                        logs.push({ event: "props_synced", matchId: match.id, count: propUpserts.length });
+                        logs.push({
+                            event: "props_synced",
+                            matchId: match.id,
+                            count: propUpserts.length,
+                            historical_identity_hits: historicalIdentityHits,
+                        });
                         const overs = propUpserts.filter(p => p.side === 'over').length;
                         const unders = propUpserts.filter(p => p.side === 'under').length;
                         console.log(`[Props: ${match.id}] ✅ Synced ${propUpserts.length} props (${overs} Over, ${unders} Under).`);
