@@ -13318,7 +13318,11 @@ function getPreloadedPack() {
   const raw = (el.textContent || '').trim();
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw);
+    const cleaned = raw
+      .replace(/<!--\s*PRELOADED_PACK_JSON_START\s*-->/g, '')
+      .replace(/<!--\s*PRELOADED_PACK_JSON_END\s*-->/g, '')
+      .trim();
+    const parsed = JSON.parse(cleaned);
     const normalized = normalizePackContract(parsed);
     return normalized.cards.length > 0 ? normalized : null;
   } catch {
