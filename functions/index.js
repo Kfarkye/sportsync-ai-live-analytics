@@ -174,7 +174,7 @@ class SupabaseClient {
         url,
         { method: 'POST', headers: this.headers, body: '{}' },
         1,
-        30000
+        120000
       );
       const pack = SupabaseClient.normalizePropEvidencePack(await res.json());
       logger.info('✅ Prop evidence pack generated', {
@@ -776,7 +776,7 @@ export const apiKeys = onRequest(
 export const refreshPropEvidencePack = onRequest(
   {
     region: 'us-central1',
-    timeoutSeconds: 60,
+    timeoutSeconds: 180,
     memory: '256MiB',
     secrets: ['SUPABASE_SERVICE_KEY'],
     cors: true,
