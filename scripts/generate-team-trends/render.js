@@ -10,6 +10,20 @@ const fmt = (n) => n != null ? (n >= 0 ? `+${n}` : `${n}`) : '—';
 const pct = (n) => n != null ? `${n}%` : '—';
 const tagClass = (result) => result === 'OVER' ? 'over' : result === 'UNDER' ? 'under' : 'split';
 
+function cardSubtitle(teamName, loc) {
+  const absAvg = Math.abs(loc.avgVsClose);
+  const dir = loc.avgVsClose >= 0 ? 'over' : 'under';
+  if (loc.overPct >= 55 && loc.overPct > loc.coverPct) {
+    return absAvg >= 3
+      ? `${loc.overPct}% over the closing total \u00B7 ${teamName} and their opponents average ${absAvg} points ${dir} the closing total`
+      : `${loc.overPct}% over the closing total`;
+  }
+  if (loc.coverPct >= 55) {
+    return `${loc.coverPct}% against the spread`;
+  }
+  return `${loc.overPct}% over the closing total`;
+}
+
 function headlineText(team, stats) {
   const { headline, home, away } = stats;
   if (headline.type === 'over') {
@@ -36,7 +50,7 @@ function metaDescription(team, stats) {
 // ── Template ─────────────────────────────────────────────────────────────────
 
 export function renderTeamPage(team, stats) {
-  const { home, away, restSplits, biggestOvers, recentGames, lineMovements, upcomingGames, strongestPlays } = stats;
+  const { home, away, afterLoss, restSplits, biggestOvers, recentGames, lineMovements, upcomingGames, strongestPlays } = stats;
 
   // ── Dynamic accent color ─────────────────────────────────────────────────
   const accent = team.accent || '#2d5da1';
@@ -97,25 +111,64 @@ export function renderTeamPage(team, stats) {
     </header>
 
     <section class="season-grid" aria-label="Season summary">
-      <article class="stat-card">
-        <div class="label">Over / Under (Home)</div>
-        <div class="value ${home.overPct >= 55 ? 'color-green' : ''}">${home.overs}-${home.unders}</div>
-        <div class="context"><span>${home.overPct}%</span> over · avg ${fmt(home.avgVsClose)} vs close</div>
+      ${(() => {
+        const tg = home.games + away.games;
+        const tc = home.covers + away.covers;
+        const tn = home.nonCovers + away.nonCovers;
+        const to = home.overs + away.overs;
+        const tu = home.unders + away.unders;
+        const tgl = home.gamesWithLine + away.gamesWithLine;
+        const tgs = home.gamesWithSpread + away.gamesWithSpread;
+        const fop = tgl ? +((to / tgl) * 100).toFixed(1) : 0;
+        const fcp = tgs ? +((tc / tgs) * 100).toFixed(1) : 0;
+        const fav = tgl ? +((home.avgVsClose * home.gamesWithLine + away.avgVsClose * away.gamesWithLine) / tgl).toFixed(1) : 0;
+        const fl = { overPct: fop, coverPct: fcp, avgVsClose: fav, games: tg };
+        return `<article class="stat-card summary-card">
+        <div class="card-team">${team.name}</div>
+        <div class="card-games">${tg} games</div>
+        <div class="card-stats">
+          <div class="card-stat-row"><span class="stat-market">ATS</span><span class="stat-record ${fcp >= 55 ? 'color-green' : ''}">${tc}–${tn}</span></div>
+          <div class="card-stat-row"><span class="stat-market">O/U</span><span class="stat-record ${fop >= 55 ? 'color-green' : ''}">${to}–${tu}</span></div>
+        </div>
+        <div class="card-subtitle">${cardSubtitle(team.name, fl)}</div>
+      </article>`;
+      })()}
+      <article class="stat-card summary-card">
+        <div class="card-team">After a Loss</div>
+        <div class="card-games">${afterLoss.games} games</div>
+        <div class="card-stats">
+          <div class="card-stat-row"><span class="stat-market">ATS</span><span class="stat-record ${afterLoss.coverPct >= 55 ? 'color-green' : ''}">${afterLoss.covers}–${afterLoss.nonCovers}</span></div>
+          <div class="card-stat-row"><span class="stat-market">O/U</span><span class="stat-record ${afterLoss.overPct >= 55 ? 'color-green' : ''}">${afterLoss.overs}–${afterLoss.unders}</span></div>
+        </div>
+        <div class="card-subtitle">${afterLoss.overPct >= 55 && afterLoss.gamesWithLine >= 8
+          ? `${team.name} games go over ${afterLoss.overPct}% of the time after a loss`
+          : afterLoss.coverPct >= 55 && afterLoss.gamesWithSpread >= 8
+          ? `${team.name} cover ${afterLoss.coverPct}% of the time after a loss`
+          : `${afterLoss.games} games after a straight-up loss this season`}</div>
       </article>
-      <article class="stat-card">
-        <div class="label">Over / Under (Away)</div>
-        <div class="value ${away.overPct >= 55 ? 'color-green' : ''}">${away.overs}-${away.unders}</div>
-        <div class="context"><span>${away.overPct}%</span> over · avg ${fmt(away.avgVsClose)} vs close</div>
+      <article class="stat-card detail-card">
+        <div class="label">ATS · Home</div>
+        <div class="value ${home.coverPct >= 55 ? 'color-green' : ''}">${home.covers}\u2013${home.nonCovers}</div>
+        <div class="context"><span>${home.coverPct}%</span> against the spread</div>
+        <div class="card-gp">${home.games} games</div>
       </article>
-      <article class="stat-card">
-        <div class="label">ATS Record (Home)</div>
-        <div class="value ${home.coverPct >= 55 ? 'color-green' : ''}">${home.covers}-${home.nonCovers}</div>
-        <div class="context"><span>${home.coverPct}%</span> cover</div>
+      <article class="stat-card detail-card">
+        <div class="label">ATS · Away</div>
+        <div class="value ${away.coverPct >= 55 ? 'color-green' : ''}">${away.covers}\u2013${away.nonCovers}</div>
+        <div class="context"><span>${away.coverPct}%</span> against the spread</div>
+        <div class="card-gp">${away.games} games</div>
       </article>
-      <article class="stat-card">
-        <div class="label">ATS Record (Away)</div>
-        <div class="value ${away.coverPct >= 55 ? 'color-green' : ''}">${away.covers}-${away.nonCovers}</div>
-        <div class="context"><span>${away.coverPct}%</span> cover</div>
+      <article class="stat-card detail-card">
+        <div class="label">O/U · Home</div>
+        <div class="value ${home.overPct >= 55 ? 'color-green' : ''}">${home.overs}\u2013${home.unders}</div>
+        <div class="context"><span>${home.overPct}%</span> over the closing total</div>
+        <div class="card-gp">${home.games} games · avg ${fmt(home.avgVsClose)} pts</div>
+      </article>
+      <article class="stat-card detail-card">
+        <div class="label">O/U · Away</div>
+        <div class="value ${away.overPct >= 55 ? 'color-green' : ''}">${away.overs}\u2013${away.unders}</div>
+        <div class="context"><span>${away.overPct}%</span> over the closing total</div>
+        <div class="card-gp">${away.games} games · avg ${fmt(away.avgVsClose)} pts</div>
       </article>
     </section>
 
@@ -339,12 +392,22 @@ function CSS_BLOCK(accent) {
     .section-block{margin-bottom:56px}
     .section-title{font-family:var(--font-serif);font-size:26px;font-weight:600;letter-spacing:-.01em;margin-bottom:12px}
     .section-note{font-size:15px;color:var(--text-secondary);margin-bottom:24px}
-    .season-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:48px}
-    .stat-card{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-sm);transition:transform .2s ease,box-shadow .2s ease}
+    .season-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px;margin-bottom:48px}
+    .stat-card{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);transition:transform .2s ease,box-shadow .2s ease}
     .stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
-    .stat-card .label{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:12px}
-    .stat-card .value{font-family:var(--font-mono);font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1;margin-bottom:8px}
-    .stat-card .context{font-size:13px;color:var(--text-secondary)}.stat-card .context span{font-family:var(--font-mono);font-weight:600;color:var(--text-primary)}
+    .summary-card{padding:28px 32px;grid-column:span 1}
+    .detail-card{padding:24px}
+    .detail-card .label{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:12px}
+    .detail-card .value{font-family:var(--font-mono);font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1;margin-bottom:8px}
+    .detail-card .context{font-size:13px;color:var(--text-secondary)}.detail-card .context span{font-family:var(--font-mono);font-weight:600;color:var(--text-primary)}
+    .card-gp{font-size:12px;color:var(--text-secondary);margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle)}
+    .card-team{font-family:var(--font-serif);font-size:22px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px}
+    .card-games{font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border-subtle)}
+    .card-stats{display:flex;flex-direction:column;gap:12px;margin-bottom:20px}
+    .card-stat-row{display:flex;align-items:baseline;gap:12px}
+    .stat-market{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);width:32px;flex-shrink:0}
+    .stat-record{font-family:var(--font-mono);font-size:32px;font-weight:600;letter-spacing:-.02em;line-height:1}
+    .card-subtitle{font-size:14px;color:var(--text-secondary);line-height:1.5;padding-top:16px;border-top:1px solid var(--border-subtle)}
     .plays-container{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden}
     .bet-row{display:flex;align-items:center;gap:16px;padding:16px 24px;border-bottom:1px solid var(--border-subtle)}.bet-row:last-child{border-bottom:none}
     .bet-rank{display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--bg-subtle);color:var(--color-accent);font-family:var(--font-mono);border-radius:var(--radius-pill);font-size:13px;font-weight:600;flex-shrink:0}
@@ -374,6 +437,6 @@ function CSS_BLOCK(accent) {
     .fw-500{font-weight:500;color:var(--text-primary)}.fw-600{font-weight:600;color:var(--text-primary)}.text-muted{color:var(--text-secondary)}
     .methodology-list{padding-left:20px;margin-bottom:16px}.methodology-list li{margin-bottom:8px;font-size:14px;color:var(--text-secondary);line-height:1.6}.methodology-list strong{color:var(--text-primary);font-weight:500}
     .page-footer{padding-top:40px;padding-bottom:64px;font-size:14px;color:var(--text-secondary);line-height:1.6}
-    @media(max-width:768px){.team-name{font-size:40px}.season-grid{grid-template-columns:repeat(2,1fr)}.splits-grid{grid-template-columns:1fr}.bet-row{flex-wrap:wrap;padding:16px}.bet-desc{min-width:100%;order:-1;margin-bottom:8px}.bet-sample{text-align:left;margin-right:auto;width:auto}}
+    @media(max-width:768px){.team-name{font-size:40px}.season-grid{grid-template-columns:1fr}.splits-grid{grid-template-columns:1fr}.bet-row{flex-wrap:wrap;padding:16px}.bet-desc{min-width:100%;order:-1;margin-bottom:8px}.bet-sample{text-align:left;margin-right:auto;width:auto}}
   </style>`;
 }

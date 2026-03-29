@@ -15,18 +15,30 @@ function bayesianPct(wins, losses) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function getClosingTotal(odds) {
-  if (!odds || typeof odds !== 'object') return null;
-  for (const k of ['total', 'overUnder']) {
-    if (k in odds) { const v = parseFloat(odds[k]); if (!isNaN(v)) return v; }
+function getClosingTotal(odds, game) {
+  if (odds && typeof odds === 'object') {
+    for (const k of ['total', 'overUnder']) {
+      if (k in odds) { const v = parseFloat(odds[k]); if (!isNaN(v)) return v; }
+    }
+  }
+  // Fallback: odds_total_safe column (populated by ESPN core odds backfill)
+  if (game && game.odds_total_safe != null) {
+    const v = parseFloat(game.odds_total_safe);
+    if (!isNaN(v)) return v;
   }
   return null;
 }
 
-function getHomeSpread(odds) {
-  if (!odds || typeof odds !== 'object') return null;
-  for (const k of ['homeSpread', 'home_spread', 'spread']) {
-    if (k in odds) { const v = parseFloat(odds[k]); if (!isNaN(v)) return v; }
+function getHomeSpread(odds, game) {
+  if (odds && typeof odds === 'object') {
+    for (const k of ['homeSpread', 'home_spread', 'spread']) {
+      if (k in odds) { const v = parseFloat(odds[k]); if (!isNaN(v)) return v; }
+    }
+  }
+  // Fallback: odds_home_spread_safe column
+  if (game && game.odds_home_spread_safe != null) {
+    const v = parseFloat(game.odds_home_spread_safe);
+    if (!isNaN(v)) return v;
   }
   return null;
 }
@@ -70,7 +82,7 @@ function computeLocationStats(games, isHome) {
     oppPpgSum += oppScore;
 
     const total = (g.home_score || 0) + (g.away_score || 0);
-    const line  = getClosingTotal(g.closing_odds);
+    const line  = getClosingTotal(g.closing_odds, g);
     if (line) {
       gamesWithLine++;
       const diff = total - line;
@@ -78,7 +90,7 @@ function computeLocationStats(games, isHome) {
       if (diff > 0) overs++; else unders++;
     }
 
-    const spread = getHomeSpread(g.closing_odds);
+    const spread = getHomeSpread(g.closing_odds, g);
     if (spread !== null) {
       gamesWithSpread++;
       const margin = (g.home_score || 0) - (g.away_score || 0);
@@ -102,6 +114,55 @@ function computeLocationStats(games, isHome) {
     coverBayes: +bayesianPct(covers, nonCovers).toFixed(1), // Bayesian-smoothed cover %
     ppg:      +(ppgSum / n).toFixed(1),
     oppPpg:   +(oppPpgSum / n).toFixed(1),
+    avgTotal: +((ppgSum + oppPpgSum) / n).toFixed(1),
+  };
+}
+
+function computeMixedLocationStats(games, teamName) {
+  let overs = 0, unders = 0, gamesWithLine = 0, vsCloseSum = 0;
+  let covers = 0, nonCovers = 0, gamesWithSpread = 0;
+  let ppgSum = 0, oppPpgSum = 0;
+
+  for (const g of games) {
+    const isHome = g.home_team === teamName;
+    const teamScore = isHome ? (g.home_score || 0) : (g.away_score || 0);
+    const oppScore = isHome ? (g.away_score || 0) : (g.home_score || 0);
+    ppgSum += teamScore;
+    oppPpgSum += oppScore;
+
+    const total = (g.home_score || 0) + (g.away_score || 0);
+    const line = getClosingTotal(g.closing_odds, g);
+    if (line) {
+      gamesWithLine++;
+      const diff = total - line;
+      vsCloseSum += diff;
+      if (diff > 0) overs++; else unders++;
+    }
+
+    const spread = getHomeSpread(g.closing_odds, g);
+    if (spread !== null) {
+      gamesWithSpread++;
+      const margin = (g.home_score || 0) - (g.away_score || 0);
+      const coverMargin = isHome ? margin + spread : -(margin + spread);
+      if (coverMargin > 0) covers++; else nonCovers++;
+    }
+  }
+
+  const n = games.length || 1;
+  const rawOverPct = gamesWithLine ? +(overs / gamesWithLine * 100).toFixed(1) : 0;
+  const rawCoverPct = gamesWithSpread ? +(covers / gamesWithSpread * 100).toFixed(1) : 0;
+  return {
+    games: games.length,
+    gamesWithLine,
+    overs, unders,
+    overPct: rawOverPct,
+    overBayes: +bayesianPct(overs, unders).toFixed(1),
+    avgVsClose: gamesWithLine ? +(vsCloseSum / gamesWithLine).toFixed(1) : 0,
+    covers, nonCovers, gamesWithSpread,
+    coverPct: rawCoverPct,
+    coverBayes: +bayesianPct(covers, nonCovers).toFixed(1),
+    ppg: +(ppgSum / n).toFixed(1),
+    oppPpg: +(oppPpgSum / n).toFixed(1),
     avgTotal: +((ppgSum + oppPpgSum) / n).toFixed(1),
   };
 }
@@ -131,11 +192,24 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
   const home = computeLocationStats(homeGames, true);
   const away = computeLocationStats(awayGames, false);
 
+  // ── After a Loss split ──────────────────────────────────────────────────────
+  const afterLossGames = [];
+  for (let i = 1; i < allTeamGames.length; i++) {
+    const prev = allTeamGames[i - 1];
+    const prevIsHome = prev.home_team === teamName;
+    const prevTeamScore = prevIsHome ? (prev.home_score || 0) : (prev.away_score || 0);
+    const prevOppScore = prevIsHome ? (prev.away_score || 0) : (prev.home_score || 0);
+    if (prevTeamScore < prevOppScore) {
+      afterLossGames.push(allTeamGames[i]);
+    }
+  }
+  const afterLoss = computeMixedLocationStats(afterLossGames, teamName);
+
   // ── Close-game over % (home, margin ≤ 10) ─────────────────────────────────
   const closeHome = homeGames.filter(g => Math.abs((g.home_score || 0) - (g.away_score || 0)) <= 10);
   let closeOvers = 0, closeWithLine = 0;
   for (const g of closeHome) {
-    const line = getClosingTotal(g.closing_odds);
+    const line = getClosingTotal(g.closing_odds, g);
     if (line) { closeWithLine++; if ((g.home_score || 0) + (g.away_score || 0) > line) closeOvers++; }
   }
   home.closeGameOverPct = closeWithLine ? +(closeOvers / closeWithLine * 100).toFixed(1) : 0;
@@ -161,7 +235,7 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
   // ── Biggest overs (home) ───────────────────────────────────────────────────
   const biggestOvers = [];
   for (const g of homeGames) {
-    const line = getClosingTotal(g.closing_odds);
+    const line = getClosingTotal(g.closing_odds, g);
     if (!line) continue;
     const total = (g.home_score || 0) + (g.away_score || 0);
     const diff = total - line;
@@ -178,7 +252,7 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
   const recentGames = allTeamGames.slice(-15).reverse().map(g => {
     const isHome = g.home_team === teamName;
     const total  = (g.home_score || 0) + (g.away_score || 0);
-    const line   = getClosingTotal(g.closing_odds);
+    const line   = getClosingTotal(g.closing_odds, g);
     const diff   = line ? total - line : null;
     return {
       date: formatDate(g.start_time),
@@ -192,8 +266,8 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
   // ── Line movements (home, with open+close) ────────────────────────────────
   const lineMovements = [];
   for (const g of homeGames) {
-    const open  = getClosingTotal(g.opening_odds);
-    const close = getClosingTotal(g.closing_odds);
+    const open  = getClosingTotal(g.opening_odds, g);
+    const close = getClosingTotal(g.closing_odds, g);
     if (!open || !close) continue;
     const total = (g.home_score || 0) + (g.away_score || 0);
     lineMovements.push({
@@ -286,6 +360,20 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
     });
   }
 
+  if (afterLoss.overPct >= 55 && afterLoss.gamesWithLine >= 8) {
+    strongestPlays.push({
+      desc: 'Over after a loss', pct: afterLoss.overPct, bayesPct: afterLoss.overBayes,
+      sample: `${afterLoss.games} games`, detail: `${afterLoss.avgVsClose >= 0 ? '+' : ''}${afterLoss.avgVsClose} vs close`,
+    });
+  }
+
+  if (afterLoss.coverPct >= 55 && afterLoss.gamesWithSpread >= 8) {
+    strongestPlays.push({
+      desc: 'Cover after a loss', pct: afterLoss.coverPct, bayesPct: afterLoss.coverBayes,
+      sample: `${afterLoss.games} games`, detail: '',
+    });
+  }
+
   // Dedupe and sort
   const seen = new Set();
   const uniquePlays = strongestPlays.filter(p => {
@@ -332,6 +420,7 @@ export function computeTeamStats(teamName, completedGames, upcomingGames) {
     generatedDate: today,
     home,
     away,
+    afterLoss,
     restSplits,
     biggestOvers: biggestOvers.slice(0, 5),
     recentGames,
