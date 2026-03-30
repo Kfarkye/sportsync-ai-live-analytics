@@ -344,7 +344,12 @@ interface Message {
   responseClass?: ResponseClass;
 }
 
-interface Attachment { file: File; base64: string; mimeType: string }
+interface Attachment {
+  file: File;
+  base64: string;
+  mimeType: string;
+  isOcrIntent?: boolean;
+}
 
 interface GameContext {
   match_id?: string;
@@ -1538,9 +1543,9 @@ function useAutoResizeTextArea(ref: RefObject<HTMLTextAreaElement | null>, value
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    // Replaced scrollHeight measuring with efficient CSS field-sizing: content
-    if (el.style.fieldSizing !== "content") {
-      el.style.fieldSizing = "content";
+    // Use CSS custom property APIs so TS lib versions without `fieldSizing` still typecheck.
+    if (el.style.getPropertyValue("field-sizing") !== "content") {
+      el.style.setProperty("field-sizing", "content");
     }
   }, [value, ref]);
 }
@@ -1667,6 +1672,20 @@ const ScrollAnchor: FC<{ visible: boolean; onClick: () => void }> = memo(({ visi
   </AnimatePresence>
 ));
 ScrollAnchor.displayName = "ScrollAnchor";
+
+type VerdictContextValue = {
+  verdictOutcomes: Record<string, VerdictOutcome>;
+  onTrackVerdict: (trackingKey: string, outcome: VerdictOutcome) => void;
+};
+
+const VerdictContext = createContext<VerdictContextValue>({
+  verdictOutcomes: {},
+  onTrackVerdict: () => { /* no-op default */ },
+});
+
+function useVerdict() {
+  return useContext(VerdictContext);
+}
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1956,7 +1975,7 @@ const EdgeVerdictCard: FC<{
       // (e.g. "Rhode Island Rams" instead of "+2.5 Rhode Island")
       handleDeepLink(preferredBook, teamDisplay);
     }
-  }, [cardIndex, onTrack, outcome, trackingKey, handleDeepLink, teamDisplay]);
+  }, [cardIndex, outcome, trackingKey, handleDeepLink, teamDisplay]);
 
   const handleShare = useCallback(() => {
     if (shareState !== "idle") return;
@@ -2104,43 +2123,41 @@ const EdgeVerdictCard: FC<{
             transition: `opacity 0.2s ${OW.ease}`,
             pointerEvents: isCaptureMode ? "none" : "auto",
           }}>
-            {onTrack && (
-              <>
-                {(["Tail", "Fade"] as const).map(label => {
-                  const isTail = label === "Tail";
-                  const isActive = outcome === label.toLowerCase();
-                  return (
-                    <button key={label}
-                      onClick={() => handleToggle(label.toLowerCase() as "tail" | "fade")}
-                      onMouseEnter={e => {
-                        if (isActive) return;
-                        const el = e.currentTarget;
-                        el.style.borderColor = "transparent";
-                        el.style.color = OW.t1;
-                        el.style.background = "rgba(255,255,255,0.10)";
-                      }}
-                      onMouseLeave={e => {
-                        if (isActive) return;
-                        const el = e.currentTarget;
-                        el.style.borderColor = "transparent";
-                        el.style.color = OW.t1;
-                        el.style.background = "rgba(255,255,255,0.06)";
-                      }}
-                      style={{
-                        flex: 1, minHeight: 44, borderRadius: 10, // M-22: 44px touch target, M-23: 10px button radius
-                        border: isActive ? `1px solid ${isTail ? OW.mintEdge : "rgba(239,68,68,0.15)"}` : "1px solid transparent",
-                        background: isActive ? (isTail ? OW.mintDim : "rgba(239,68,68,0.04)") : "rgba(255,255,255,0.06)", // M-11: Filled bg
-                        color: isActive ? (isTail ? OW.mint : OW.red) : OW.t1,
-                        fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
-                        letterSpacing: "0.08em", textTransform: "uppercase",
-                        cursor: "pointer", transition: `all 0.15s ${OW.ease}`,
-                      }}>
-                      {label}
-                    </button>
-                  );
-                })}
-              </>
-            )}
+            <>
+              {(["Tail", "Fade"] as const).map(label => {
+                const isTail = label === "Tail";
+                const isActive = outcome === label.toLowerCase();
+                return (
+                  <button key={label}
+                    onClick={() => handleToggle(label.toLowerCase() as "tail" | "fade")}
+                    onMouseEnter={e => {
+                      if (isActive) return;
+                      const el = e.currentTarget;
+                      el.style.borderColor = "transparent";
+                      el.style.color = OW.t1;
+                      el.style.background = "rgba(255,255,255,0.10)";
+                    }}
+                    onMouseLeave={e => {
+                      if (isActive) return;
+                      const el = e.currentTarget;
+                      el.style.borderColor = "transparent";
+                      el.style.color = OW.t1;
+                      el.style.background = "rgba(255,255,255,0.06)";
+                    }}
+                    style={{
+                      flex: 1, minHeight: 44, borderRadius: 10, // M-22: 44px touch target, M-23: 10px button radius
+                      border: isActive ? `1px solid ${isTail ? OW.mintEdge : "rgba(239,68,68,0.15)"}` : "1px solid transparent",
+                      background: isActive ? (isTail ? OW.mintDim : "rgba(239,68,68,0.04)") : "rgba(255,255,255,0.06)", // M-11: Filled bg
+                      color: isActive ? (isTail ? OW.mint : OW.red) : OW.t1,
+                      fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+                      letterSpacing: "0.08em", textTransform: "uppercase",
+                      cursor: "pointer", transition: `all 0.15s ${OW.ease}`,
+                    }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </>
             {/* Share button — M-11: Ghost style, narrower (content-width) */}
             <button onClick={handleShare} style={{
               display: "inline-flex", alignItems: "center", justifyContent: "center",
