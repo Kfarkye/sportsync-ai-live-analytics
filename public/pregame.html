@@ -34,6 +34,11 @@ code{background:rgba(0,0,0,.04);padding:2px 6px;border-radius:4px;font-size:.82e
 .topbar-nav a{font-size:14px;font-weight:500;color:var(--muted);text-decoration:none;transition:color .2s}
 .topbar-nav a:hover{color:var(--text)}
 .topbar-nav a.active{color:var(--text);font-weight:600}
+.matchups-switch-wrap{padding:18px 0 8px}
+.matchups-switch{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow-sm)}
+.matchups-switch a{padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-decoration:none;border-right:1px solid var(--border)}
+.matchups-switch a:last-child{border-right:none}
+.matchups-switch a.active{color:var(--text);font-weight:600;background:rgba(196,90,45,.08)}
 
 /* ─── Container ─── */
 .container{max-width:960px;margin:0 auto;padding:0 24px}
@@ -136,6 +141,8 @@ pre.sql .var{color:var(--yellow)}
   .output-block{padding:16px;font-size:.72rem}
   .topbar{padding:0 16px}
   .topbar-nav{display:none}
+  .matchups-switch-wrap{padding:14px 0 2px}
+  .matchups-switch a{padding:7px 10px;font-size:.64rem}
   .steps-track{gap:0}
 }
 </style>
@@ -190,6 +197,13 @@ pre.sql .var{color:var(--yellow)}
     <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
   </ul>
 </nav>
+
+<div class="container matchups-switch-wrap">
+  <div class="matchups-switch">
+    <a href="/pregame" class="active">Pregame Script</a>
+    <a href="/pregame-band-intelligence">Band Intelligence</a>
+  </div>
+</div>
 
 <!-- Hero -->
 <section class="hero">
