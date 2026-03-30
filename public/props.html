@@ -35,7 +35,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;450;500;550;600;700&family=JetBrains+Mono:wght@400;450;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     /* ══════════════════════════════════════════════════════════════════════════
        SSOT DESIGN SYSTEM — Matches ref-tendencies, team-trends, state-licensing
@@ -44,22 +44,22 @@
 
     :root {
       --bg: #FAFAF8;
-      --surface: #ffffff;
-      --surface-raised: #ffffff;
-      --border: #E8E6DF;
+      --surface: #FFFFFF;
+      --surface-raised: #FFFFFF;
+      --border: #E8E7E3;
       --border-subtle: #F5F4F0;
-      --ink: #1A1917;
+      --ink: #1A1A18;
       --ink-secondary: #3D3A35;
-      --ink-tertiary: #7D786C;
-      --ink-quaternary: #A8A396;
-      --accent: #B85C38;
-      --accent-secondary: #4B9CD3;
+      --ink-tertiary: #6B6B63;
+      --ink-quaternary: #9B9B91;
+      --accent: #C85A3A;
+      --accent-secondary: #C85A3A;
 
       --shell: 1120px;
       --shell-wide: 1440px;
       --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
       --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
-      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
       --shadow-md: 0 4px 12px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.03);
       --shadow-lg: 0 12px 40px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
@@ -72,8 +72,6 @@
       font-family: var(--sans); line-height: 1.6;
       -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
       overflow-x: clip;
-      background-image: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(75,156,211,0.04) 0%, transparent 60%);
-      background-repeat: no-repeat;
     }
 
     /* ── Nav ── */
@@ -105,7 +103,7 @@
     }
     .nav-links {
       display: flex;
-      gap: 32px;
+      gap: 24px;
       list-style: none;
       align-items: center;
     }
@@ -175,8 +173,8 @@
     }
     .search-input::placeholder { color: var(--ink-quaternary); font-weight: 400; }
     .search-input:focus {
-      border-color: rgba(75,156,211,0.5);
-      box-shadow: 0 0 0 3px rgba(75,156,211,0.08);
+      border-color: rgba(200,90,58,0.5);
+      box-shadow: 0 0 0 3px rgba(200,90,58,0.08);
     }
     .venue-group {
       display: flex; gap: 1px; background: var(--border); border-radius: 10px;
@@ -218,18 +216,16 @@
       box-shadow: 0 8px 24px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.03);
       transform: translateY(-2px);
     }
-    .player-card::before {
-      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3.5px;
-    }
-    .player-card.has-hero::before {
-      background: linear-gradient(180deg, var(--accent), #C96830);
-    }
-    .player-card:not(.has-hero)::before {
-      background: linear-gradient(180deg, var(--accent-secondary), #3A87BE);
-    }
     .pc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .pc-heading { display: flex; flex-direction: column; gap: 3px; }
     .pc-name {
       font-size: 16px; font-weight: 650; color: var(--ink); letter-spacing: -0.015em; line-height: 1.2;
+    }
+    .pc-team {
+      font-size: 12px;
+      color: var(--ink-tertiary);
+      font-weight: 500;
+      line-height: 1.2;
     }
     .pc-arrow {
       width: 18px; height: 18px; color: var(--ink-quaternary);
@@ -294,19 +290,12 @@
 
     /* Baseline block — LAYER 1: Market Baseline */
     .baseline-card {
-      background: rgba(255,255,255,0.6);
-      backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
-      border: 1px solid rgba(232,230,223,0.4);
-      border-radius: 16px; padding: 22px 24px; margin-bottom: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.02);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
       position: relative; overflow: hidden;
     }
-    .baseline-card::before {
-      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3.5px;
-    }
-    .baseline-card.dir-over::before { background: linear-gradient(180deg, var(--accent), #C96830); }
-    .baseline-card.dir-under::before { background: linear-gradient(180deg, var(--accent-secondary), #3A87BE); }
-    .baseline-card.dir-none::before { background: linear-gradient(180deg, var(--ink-quaternary), var(--ink-tertiary)); }
 
     .bl-header {
       display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
@@ -321,8 +310,8 @@
       letter-spacing: 0.02em;
     }
     .bl-signal.dir-over {
-      background: linear-gradient(135deg, var(--accent), #A34F2E); color: #fff;
-      box-shadow: 0 2px 6px rgba(184,92,56,0.3);
+      background: rgba(200,90,58,0.1); color: var(--accent);
+      border: 1px solid rgba(200,90,58,0.2);
     }
     .bl-signal.dir-under {
       background: rgba(75,156,211,0.12); color: #2B6E9C;
@@ -332,13 +321,6 @@
       background: rgba(168,163,150,0.1); color: var(--ink-tertiary);
       border: 1px solid rgba(168,163,150,0.15);
     }
-    .bl-tier {
-      font-family: var(--mono); font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em;
-      text-transform: uppercase; padding: 2px 8px; border-radius: 6px; margin-left: 6px;
-    }
-    .bl-tier.feature { background: rgba(184,92,56,0.08); color: var(--accent); }
-    .bl-tier.edge { background: rgba(75,156,211,0.08); color: #2B6E9C; }
-
     .bl-stats {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
       gap: 16px;
@@ -653,8 +635,8 @@ function buildPlayerSummary(player) {
     return `${marketLabel(hero.market)} ${Number(hero.baseline.rate).toFixed(1)}% ${dir} (${hero.baseline.gp} GP)`;
   }
   const topBySample = getTopMarketBySample(player.cards);
-  if (!topBySample) return 'No strong signal';
-  return `No strong signal — Top market by sample: ${marketLabel(topBySample.market)} ${Number(topBySample.baseline.rate).toFixed(1)}% (${topBySample.baseline.gp} GP)`;
+  if (!topBySample) return 'No clear market signal yet';
+  return `Top market by sample: ${marketLabel(topBySample.market)} ${Number(topBySample.baseline.rate).toFixed(1)}% (${topBySample.baseline.gp} GP)`;
 }
 
 function formatGeneratedAt(value) {
@@ -869,9 +851,19 @@ function buildPlayerIndex(cards) {
   for (const c of cards) {
     const slug = slugify(c.player_name);
     if (!map[slug]) {
-      map[slug] = { name: c.player_name, slug, cards: [], heroCount: 0, maxTier: 'display' };
+      map[slug] = {
+        name: c.player_name,
+        team: c.team_abbr || c.team || c.team_name || '',
+        slug,
+        cards: [],
+        heroCount: 0,
+        maxTier: 'display'
+      };
     }
     map[slug].cards.push(c);
+    if (!map[slug].team) {
+      map[slug].team = c.team_abbr || c.team || c.team_name || '';
+    }
     if (c.baseline.is_hero) map[slug].heroCount++;
     if (c.baseline.tier === 'feature') map[slug].maxTier = 'feature';
     else if (c.baseline.tier === 'edge' && map[slug].maxTier !== 'feature') map[slug].maxTier = 'edge';
@@ -968,7 +960,10 @@ function renderIndex() {
     return `
       <a class="player-card ${p.heroCount > 0 ? 'has-hero' : ''}" href="/props/${p.slug}" style="animation-delay: ${Math.min(i * 40, 600)}ms">
         <div class="pc-top">
-          <div class="pc-name">${p.name}</div>
+          <div class="pc-heading">
+            <div class="pc-name">${p.name}</div>
+            ${p.team ? `<div class="pc-team">${p.team}</div>` : ''}
+          </div>
           <svg class="pc-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <div class="pc-markets">${chipHtml}</div>
@@ -992,13 +987,9 @@ function renderProfile(slug) {
 
   $('profileName').textContent = player.name;
 
-  const cardCount = player.cards.length;
-  const heroCount = player.heroCount;
   const summary = buildPlayerSummary(player);
-  const subParts = [`${cardCount} qualified card${cardCount > 1 ? 's' : ''}`];
-  if (heroCount > 0) subParts.push(`${heroCount} strong signal${heroCount > 1 ? 's' : ''}`);
-  subParts.push(summary);
-  $('profileSub').textContent = subParts.join(' · ');
+  const teamLead = player.team ? `${player.team} · ` : '';
+  $('profileSub').textContent = `${teamLead}${summary}`;
   $('profileFreshness').textContent = freshnessLabel();
 
   // Group cards by market
@@ -1034,12 +1025,11 @@ function renderProfile(slug) {
             <div class="bl-label">Baseline — All Games</div>
             <div>
               <span class="bl-signal ${dc}">${dirLabel(card.direction)}</span>
-              <span class="bl-tier ${b.tier}">${b.tier}</span>
             </div>
           </div>
           <div class="bl-stats">
             <div class="bl-stat">
-              <div class="bl-stat-label">Over Rate</div>
+              <div class="bl-stat-label">Hit Rate</div>
               <div class="bl-stat-value ${rateLabel(b.rate)}">${Number(b.rate).toFixed(1)}%</div>
               <div class="bl-pct-track">
                 <div class="bl-pct-fill ${rateClass(b.rate)}" style="width: ${b.rate}%"></div>
@@ -1075,7 +1065,7 @@ function renderProfile(slug) {
           </div>
           <div class="cl-stats">
             <div class="bl-stat">
-              <div class="bl-stat-label">Over Rate</div>
+              <div class="bl-stat-label">Hit Rate</div>
               <div class="bl-stat-value ${rateLabel(cl.rate)}">${Number(cl.rate).toFixed(1)}%</div>
               <div class="bl-pct-track">
                 <div class="bl-pct-fill ${rateClass(cl.rate)}" style="width: ${cl.rate}%"></div>

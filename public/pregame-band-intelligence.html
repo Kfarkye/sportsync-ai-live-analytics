@@ -62,7 +62,7 @@
   }
 
   .hero {
-    padding: 48px 0 16px;
+    padding: 40px 0 10px;
   }
 
   .hero h1 {
@@ -86,7 +86,7 @@
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
-    padding: 20px 0 28px;
+    padding: 16px 0 22px;
   }
 
   .filter-group {
@@ -119,6 +119,9 @@
   .filter-btn.active {
     color: var(--text-primary);
     font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-color: rgba(26, 26, 24, 0.35);
   }
 
   .filter-count {
@@ -133,7 +136,7 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 20px 24px;
-    margin-bottom: 40px;
+    margin-bottom: 30px;
   }
 
   .lead-text {
@@ -155,12 +158,12 @@
     background: var(--border);
     border-radius: 8px;
     overflow: hidden;
-    margin-bottom: 40px;
+    margin-bottom: 30px;
   }
 
   .summary-card {
     background: var(--surface);
-    padding: 20px;
+    padding: 18px 20px;
   }
 
   .sc-label {
@@ -175,17 +178,19 @@
 
   .sc-value {
     font-family: var(--mono);
-    font-size: 18px;
+    font-size: 21px;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 4px;
+    margin-bottom: 3px;
     letter-spacing: -0.02em;
+    line-height: 1.15;
   }
 
   .sc-meta {
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-tertiary);
+    line-height: 1.45;
   }
 
   .sc-roi.pos { color: var(--green); }
@@ -202,7 +207,7 @@
   .section-sub {
     font-size: 14px;
     color: var(--text-secondary);
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
 
   .table-card {
@@ -281,25 +286,6 @@
     color: var(--accent);
     background: var(--red-dim);
   }
-
-  .row-best td:first-child,
-  .row-worst td:first-child {
-    position: relative;
-  }
-
-  .row-best td:first-child::before,
-  .row-worst td:first-child::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 8px;
-    bottom: 8px;
-    width: 3px;
-    border-radius: 2px;
-  }
-
-  .row-best td:first-child::before { background: var(--green); }
-  .row-worst td:first-child::before { background: var(--accent); }
 
   .cp-vs {
     font-size: 13px;
@@ -548,7 +534,7 @@
 
   function normalizeDogBand(band) {
     if (!band) return 'Unknown';
-    if (band === 'other') return 'Other';
+    if (band === 'other') return 'Unlisted range';
     return band;
   }
 
@@ -966,7 +952,8 @@
     const dogRanked = summarizeDogBands(state.data.counterpart)
       .filter((row) => Number(row.sample_size) >= 10 && row.dog_roi_pct !== null && row.dog_roi_pct !== undefined)
       .sort((a, b) => Number(b.dog_roi_pct) - Number(a.dog_roi_pct));
-    const bestDog = dogRanked[0] || null;
+    const cleanDogRanked = dogRanked.filter((row) => !/unlisted|other|unknown/i.test(String(row.dog_ml_band)));
+    const bestDog = cleanDogRanked[0] || null;
 
     els.summaryStrongBand.textContent = strongest ? strongest.band : '—';
     els.summaryStrongMeta.innerHTML = strongest
@@ -984,7 +971,7 @@
       : 'No qualified dog range yet.';
 
     if (strongest && weakest) {
-      els.leadText.innerHTML = `${strongest.band} favorites have been strongest at <span class="green">${formatRoi(strongest.roi_pct)} ROI</span> across <strong>${strongest.sample_size}</strong> games. ${weakest.band} has been weakest at <span class="red">${formatRoi(weakest.roi_pct)} ROI</span>.`;
+      els.leadText.innerHTML = `The strongest favorite range has been <strong>${strongest.band}</strong>. The weakest has been <strong>${weakest.band}</strong>.`;
     } else {
       els.leadText.textContent = 'Not enough completed games for a clean range signal yet.';
     }
@@ -994,10 +981,6 @@
     const rows = (state.study === 'pregame' ? state.data.pregame : state.data.live)
       .sort((a, b) => Number(b.roi_pct || -9999) - Number(a.roi_pct || -9999));
 
-    const ranked = rankRows(rows);
-    const bestBand = ranked[0]?.band || null;
-    const worstBand = ranked[ranked.length - 1]?.band || null;
-
     if (!rows.length) {
       els.favoritesBody.innerHTML = '<tr><td class="empty" colspan="7">No range data for this filter.</td></tr>';
       return;
@@ -1005,10 +988,9 @@
 
     els.favoritesBody.innerHTML = rows.map((row) => {
       const roiClass = Number(row.roi_pct) >= 0 ? 'pos' : 'neg';
-      const trClass = row.band === bestBand ? 'row-best' : (row.band === worstBand ? 'row-worst' : '');
       const showAts = state.study === 'pregame';
       return `
-        <tr class="${trClass}">
+        <tr>
           <td class="cell-range">${row.band}</td>
           <td class="cell-record">${row.sample_size}</td>
           <td class="cell-record">${formatRecord(row.wins, row.losses, row.pushes)}</td>

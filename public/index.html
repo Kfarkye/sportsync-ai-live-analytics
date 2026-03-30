@@ -28,12 +28,18 @@
     }
 
     nav {
+      position: sticky;
+      top: 0;
+      z-index: 40;
       max-width: 1080px;
       margin: 0 auto;
-      padding: 24px;
+      padding: 18px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      background: rgba(250, 250, 248, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
 
     .nav-brand {
