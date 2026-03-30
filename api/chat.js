@@ -149,6 +149,12 @@ const getMarketPhase = (match) => {
     return "🔭 OPENING_MARKET";
 };
 
+const isMlbContext = (context) => {
+    const sport = String(context?.sport || "").toLowerCase();
+    const league = String(context?.league || context?.league_id || "").toLowerCase();
+    return sport === "mlb" || sport === "baseball" || league === "mlb";
+};
+
 const isContextStale = (context) => {
     if (!context?.start_time) return false;
     const gameStart = new Date(context.start_time);
@@ -304,7 +310,18 @@ Role: Field Reporter. Direct, factual, concise.
 `}
 `.trim();
 
-const buildDynamicInstruction = ({ marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel, staleWarning }) => {
+const buildDynamicInstruction = ({
+    marketPhase,
+    MODE,
+    activeContext,
+    isLive,
+    liveDataUrls,
+    primaryLiveUrl,
+    preferCanonicalMlb,
+    evidence,
+    lineMovementIntel,
+    staleWarning
+}) => {
     const now = new Date();
     return `
 <temporal>
@@ -318,7 +335,9 @@ MODE: ${MODE}
 ${[
             `MATCHUP: ${activeContext?.away_team || "TBD"} @ ${activeContext?.home_team || "TBD"}`,
             isLive ? `🔴 LIVE: ${activeContext?.away_score || 0}-${activeContext?.home_score || 0} | ${activeContext?.clock || ""}` : "",
+            primaryLiveUrl ? `PRIMARY_CONTEXT_URL: ${primaryLiveUrl}` : "",
             ...(liveDataUrls.length > 0 ? [`LIVE_DATA_URLS: ${liveDataUrls.join(", ")}`, "(Fetch these endpoints via URL Context for authoritative real-time data)"] : []),
+            preferCanonicalMlb ? "(For MLB, fetch PRIMARY_CONTEXT_URL first. Use additional LIVE_DATA_URLS only as fallback.)" : "",
             `ODDS: ${safeJsonStringify(activeContext?.current_odds, 600)}`,
             lineMovementIntel ? `LINE_MOVEMENT: ${lineMovementIntel}` : "",
             `INJURIES_HOME: ${safeJsonStringify(evidence.injuries.home, 400)}`,
@@ -659,15 +678,30 @@ export async function POST(req) {
         : "";
 
     const liveDataUrls = [];
+    let primaryLiveUrl = null;
+    let preferCanonicalMlb = false;
     if (activeContext?.match_id) {
         const origin = getPublicOrigin();
         const gid = encodeURIComponent(String(activeContext.match_id));
         const [scores, odds, pbp] = ["scores", "odds", "pbp"].map(t => generateSatelliteSlug(String(activeContext.match_id), t));
-        liveDataUrls.push(
+        const satelliteUrls = [
             `${origin}/api/live/scores/${scores.slug}?g=${gid}&n=${scores.nonce}`,
             `${origin}/api/live/odds/${odds.slug}?g=${gid}&n=${odds.nonce}`,
             `${origin}/api/live/pbp/${pbp.slug}?g=${gid}&n=${pbp.nonce}`
-        );
+        ];
+        const canonicalFromContext = typeof activeContext?.canonical_game_url === "string"
+            ? activeContext.canonical_game_url.trim()
+            : "";
+        const canonicalMlbUrl = canonicalFromContext || `${origin}/mlb/game/${gid}`;
+
+        if (isMlbContext(activeContext)) {
+            primaryLiveUrl = canonicalMlbUrl;
+            preferCanonicalMlb = true;
+            // Canonical MLB URL is the primary context surface. Satellites remain fallback.
+            liveDataUrls.push(canonicalMlbUrl, ...satelliteUrls);
+        } else {
+            liveDataUrls.push(...satelliteUrls);
+        }
     }
 
     const geminiHistory = normalizeGeminiHistory(messages, liveDataUrls);
@@ -702,7 +736,7 @@ export async function POST(req) {
 
             try {
                 const systemPrompt = `${buildStaticInstruction(MODE)}\n\n${buildDynamicInstruction({
-                    marketPhase, MODE, activeContext, isLive, liveDataUrls, evidence, lineMovementIntel,
+                    marketPhase, MODE, activeContext, isLive, liveDataUrls, primaryLiveUrl, preferCanonicalMlb, evidence, lineMovementIntel,
                     staleWarning: isContextStale(activeContext) ? "\n⚠️ DATA WARNING: Context may be stale." : ""
                 })}`;
 

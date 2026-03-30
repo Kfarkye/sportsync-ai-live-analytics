@@ -441,7 +441,7 @@ export async function buildCanonicalMlbGameObject(
   const { data: match, error: matchError } = await supabase
     .from("matches")
     .select(
-      "id, league_id, sport, start_time, status, home_team, away_team, home_score, away_score, current_odds, opening_odds, venue, weather, extra_data, last_updated",
+      "id, league_id, sport, start_time, status, home_team, away_team, home_score, away_score, current_odds, opening_odds, extra_data, last_updated",
     )
     .eq("id", gameId)
     .maybeSingle();

@@ -22,6 +22,7 @@ interface MatchContext {
     away_team_id?: string;  // ESPN team ID for injury lookups
     league: string;
     sport?: string;
+    canonical_game_url?: string;
     start_time?: string;
     status?: string;
     // Live Telemetry
@@ -135,6 +136,19 @@ type MatchLike = Omit<Partial<Match>, 'sport'> & {
     display_clock?: string;
 };
 
+function isMlbMatchContext(match: MatchLike): boolean {
+    const sport = String(match.sport || "").toLowerCase();
+    const league = String(match.leagueId || match.league_id || match.league || "").toLowerCase();
+    return sport === "mlb" || sport === "baseball" || league === "mlb";
+}
+
+function buildCanonicalGameUrl(matchId: string): string {
+    if (typeof window !== "undefined" && window.location?.origin) {
+        return `${window.location.origin}/mlb/game/${encodeURIComponent(matchId)}`;
+    }
+    return `/mlb/game/${encodeURIComponent(matchId)}`;
+}
+
 interface ChatContextResponse {
     conversation_id?: string;
 }
@@ -149,6 +163,8 @@ export function useChatContext(options: UseChatContextOptions = {}) {
     // ─────────────────────────────────────────────────────────────────────
     useEffect(() => {
     if (match?.id) {
+            const isMlb = isMlbMatchContext(match);
+            const canonicalGameUrl = isMlb ? buildCanonicalGameUrl(match.id) : undefined;
             // Map properties correctly from UI Match object to context payload
             // Including fallbacks for DB-format objects
             const matchContext: MatchContext = {
@@ -157,6 +173,7 @@ export function useChatContext(options: UseChatContextOptions = {}) {
                 away_team: match.awayTeam?.name || match.away_team_name || match.away_team || 'Away Team',
                 league: match.leagueId || match.league_id || match.league || 'Unknown',
                 sport: match.sport,
+                canonical_game_url: canonicalGameUrl,
                 start_time: typeof match.startTime === 'string' ? match.startTime :
                     match.startTime?.toISOString?.() || match.start_time,
                 status: match.status,
