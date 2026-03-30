@@ -104,6 +104,13 @@ function renderIndexPage(teamSummaries) {
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:var(--font-sans);background:var(--bg-canvas);color:var(--text-primary);line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
     a{color:var(--color-accent);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}
+    .top-nav{position:sticky;top:0;z-index:100;background:rgba(250,250,248,.92);backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid rgba(232,230,223,.8)}
+    .top-nav-inner{max-width:1080px;margin:0 auto;min-height:56px;padding:0 24px;display:flex;align-items:center;justify-content:space-between}
+    .top-nav-brand{font-family:'JetBrains Mono',monospace;font-weight:500;font-size:15px;letter-spacing:-.02em;color:var(--text-primary);text-decoration:none}
+    .top-nav-links{display:flex;gap:32px;list-style:none;align-items:center}
+    .top-nav-links a{font-size:14px;color:var(--text-tertiary);text-decoration:none;font-weight:500}
+    .top-nav-links a:hover{color:var(--text-primary)}
+    .top-nav-links a.active{color:var(--text-primary);font-weight:600}
     .page{max-width:960px;margin:0 auto;padding:56px 24px}
     .page-title{font-family:var(--font-serif);font-size:42px;font-weight:700;letter-spacing:-.01em;line-height:1.1;margin-bottom:12px}
     .page-subtitle{font-size:18px;color:var(--text-secondary);margin-bottom:48px;max-width:640px}
@@ -115,10 +122,21 @@ function renderIndexPage(teamSummaries) {
     .text-cell{font-family:var(--font-sans);font-size:14px}.fw-600{font-weight:600;color:var(--text-primary)}
     .align-right{text-align:right}.color-green{color:var(--color-success)!important;font-weight:600}.color-red{color:var(--color-danger)!important;font-weight:600}
     .page-footer{padding-top:40px;font-size:14px;color:var(--text-secondary)}
-    @media(max-width:768px){.page-title{font-size:32px}}
+    @media(max-width:768px){.top-nav-inner{padding:0 16px}.top-nav-links{display:none}.page-title{font-size:32px}}
   </style>
 </head>
 <body>
+  <nav class="top-nav">
+    <div class="top-nav-inner">
+      <a class="top-nav-brand" href="/">SportsSync</a>
+      <ul class="top-nav-links">
+        <li><a href="/props">Props</a></li>
+        <li><a href="/trends/" class="active">Trends</a></li>
+        <li><a href="/pregame">Matchups</a></li>
+        <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
+      </ul>
+    </div>
+  </nav>
   <main class="page">
     <h1 class="page-title">NBA Betting Profiles</h1>
     <p class="page-subtitle">Over/under and ATS trends for all 30 NBA teams. Sorted by home over rate. Updated ${today}.</p>

@@ -248,13 +248,13 @@ a{color:var(--accent);text-decoration:none;font-weight:500;text-underline-offset
 .skip-link{position:absolute;left:-9999px;top:0;background:var(--ink);color:var(--surface);padding:12px 16px;border-radius:6px;z-index:1000;font-weight:500;font-size:14px}.skip-link:focus{left:16px;top:16px}
 
 /* Nav */
-.nav{position:sticky;top:0;z-index:100;height:48px;background:rgba(250,250,248,0.72);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid rgba(232,230,223,0.6)}
-.nav-inner{max-width:1440px;margin:0 auto;height:48px;padding:0 32px;display:flex;align-items:center;justify-content:space-between}
-.nav-brand{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-tertiary);text-decoration:none}
-.nav-tabs{display:flex;gap:6px;align-items:center}
-.nav-tab{padding:6px 16px;border:none;background:transparent;font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink-tertiary);cursor:pointer;border-radius:8px;text-decoration:none;transition:color var(--transition),background var(--transition)}
-.nav-tab.active{background:linear-gradient(135deg,var(--accent),#A34F2E);color:#fff;box-shadow:0 1px 4px rgba(184,92,56,0.25),inset 0 1px 0 rgba(255,255,255,0.12)}
-.nav-tab:hover:not(.active){color:var(--ink);background:rgba(245,244,240,0.8)}
+.nav{position:sticky;top:0;z-index:100;background:rgba(250,250,248,0.92);backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid rgba(232,230,223,0.8)}
+.nav-inner{max-width:1080px;margin:0 auto;min-height:56px;padding:0 24px;display:flex;align-items:center;justify-content:space-between}
+.nav-brand{font-family:var(--mono);font-size:15px;font-weight:500;letter-spacing:-0.02em;color:var(--ink);text-decoration:none}
+.nav-links{display:flex;gap:32px;list-style:none;align-items:center}
+.nav-links a{font-family:var(--sans);font-size:14px;font-weight:500;color:var(--ink-tertiary);text-decoration:none;transition:color var(--transition)}
+.nav-links a:hover{color:var(--ink)}
+.nav-links a.active{color:var(--ink);font-weight:600}
 
 /* Page shell */
 .page{max-width:920px;margin:0 auto;padding:56px 24px}
@@ -352,7 +352,7 @@ a{color:var(--accent);text-decoration:none;font-weight:500;text-underline-offset
   .player-name{font-size:32px}.headline-stat{font-size:18px}
   .page{padding:32px 20px}.summary-grid{grid-template-columns:repeat(2,1fr)}
   .bl-stats{grid-template-columns:repeat(2,1fr)}.cl-stats{grid-template-columns:repeat(2,1fr)}
-  .nav-inner{padding:0 16px}.nav-tab{padding:5px 10px;font-size:11.5px}
+  .nav-inner{padding:0 16px}.nav-links{display:none}
   .book-chips{gap:4px}.book-chip{min-width:80px;padding:6px 10px}
 }
 `;
@@ -650,13 +650,13 @@ function playerPage(player, generatedAt) {
 
   <nav class="nav">
     <div class="nav-inner">
-      <a class="nav-brand" href="/">Today's Board</a>
-      <div class="nav-tabs">
-        <a class="nav-tab active" href="/props">Player Props</a>
-        <a class="nav-tab" href="/trends/">ATS &amp; O/U</a>
-        <a class="nav-tab" href="/pregame">Matchups</a>
-        <a class="nav-tab" href="https://ref-tendencies.web.app/">Referees</a>
-      </div>
+      <a class="nav-brand" href="/">SportsSync</a>
+      <ul class="nav-links">
+        <li><a class="active" href="/props">Props</a></li>
+        <li><a href="/trends/">Trends</a></li>
+        <li><a href="/pregame">Matchups</a></li>
+        <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
+      </ul>
     </div>
   </nav>
 

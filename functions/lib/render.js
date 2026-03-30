@@ -137,6 +137,18 @@ export function renderTeamPage(team, stats) {
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
+  <nav class="top-nav">
+    <div class="top-nav-inner">
+      <a class="top-nav-brand" href="/">SportsSync</a>
+      <ul class="top-nav-links">
+        <li><a href="/props">Props</a></li>
+        <li><a class="active" href="/trends/">Trends</a></li>
+        <li><a href="/pregame">Matchups</a></li>
+        <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
+      </ul>
+    </div>
+  </nav>
+
   <main class="page" id="main-content">
 
     <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -404,6 +416,13 @@ function CSS_BLOCK(accent) {
     body{font-family:var(--font-sans);background:var(--bg-canvas);color:var(--text-primary);line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
     a{color:var(--color-accent);text-decoration:none;font-weight:500;text-underline-offset:2px}a:hover{text-decoration:underline}
     .skip-link{position:absolute;left:-9999px;top:0;background:var(--text-primary);color:var(--bg-surface);padding:12px 16px;border-radius:var(--radius-sm);z-index:1000;font-weight:500;font-size:14px}.skip-link:focus{left:16px;top:16px}
+    .top-nav{position:sticky;top:0;z-index:100;background:rgba(250,250,248,.92);backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid rgba(232,230,223,.8)}
+    .top-nav-inner{max-width:1080px;margin:0 auto;min-height:56px;padding:0 24px;display:flex;align-items:center;justify-content:space-between}
+    .top-nav-brand{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:15px;letter-spacing:-.02em;color:var(--text-primary);text-decoration:none}
+    .top-nav-links{display:flex;gap:32px;list-style:none;align-items:center}
+    .top-nav-links a{font-size:14px;color:var(--text-tertiary);text-decoration:none;font-weight:500}
+    .top-nav-links a:hover{color:var(--text-primary);text-decoration:none}
+    .top-nav-links a.active{color:var(--text-primary);font-weight:600}
     .page{max-width:920px;margin:0 auto;padding:56px 24px}
     .breadcrumb{font-size:13px;color:var(--text-tertiary);margin-bottom:24px}.breadcrumb a{font-weight:400;color:var(--text-tertiary)}.breadcrumb a:hover{color:var(--color-accent)}
     .team-header{margin-bottom:48px}
@@ -458,6 +477,6 @@ function CSS_BLOCK(accent) {
     .fw-500{font-weight:500;color:var(--text-primary)}.fw-600{font-weight:600;color:var(--text-primary)}.text-muted{color:var(--text-secondary)}
     .methodology-list{padding-left:20px;margin-bottom:16px}.methodology-list li{margin-bottom:8px;font-size:14px;color:var(--text-secondary);line-height:1.6}.methodology-list strong{color:var(--text-primary);font-weight:500}
     .page-footer{padding-top:40px;padding-bottom:64px;font-size:14px;color:var(--text-secondary);line-height:1.6}
-    @media(max-width:768px){.team-name{font-size:40px}.season-grid{grid-template-columns:1fr}.splits-grid{grid-template-columns:1fr}.bet-row{flex-wrap:wrap;padding:16px}.bet-desc{min-width:100%;order:-1;margin-bottom:8px}.bet-sample{text-align:left;margin-right:auto;width:auto}}
+    @media(max-width:768px){.top-nav-inner{padding:0 16px}.top-nav-links{display:none}.team-name{font-size:40px}.season-grid{grid-template-columns:1fr}.splits-grid{grid-template-columns:1fr}.bet-row{flex-wrap:wrap;padding:16px}.bet-desc{min-width:100%;order:-1;margin-bottom:8px}.bet-sample{text-align:left;margin-right:auto;width:auto}}
   </style>`;
 }
