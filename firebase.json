@@ -11,19 +11,25 @@
       {
         "source": "/props",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=60, must-revalidate" }
+          { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
         ]
       },
       {
         "source": "/props.html",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=60, must-revalidate" }
+          { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
         ]
       },
       {
         "source": "/props/**",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=60, must-revalidate" }
+          { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
+        ]
+      },
+      {
+        "source": "/props/evidence-pack-fallback.json",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=60" }
         ]
       },
       {
