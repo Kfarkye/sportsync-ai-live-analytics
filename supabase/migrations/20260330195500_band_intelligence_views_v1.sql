@@ -22,51 +22,51 @@ AS $$
   END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.classify_favorite_ml_band(odds numeric)
+CREATE OR REPLACE FUNCTION public.classify_favorite_ml_band(ml numeric)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE
 AS $$
   SELECT CASE
-    WHEN odds IS NULL THEN 'Unknown'
-    WHEN odds BETWEEN -130 AND -101 THEN '-101 to -130'
-    WHEN odds BETWEEN -159 AND -131 THEN '-131 to -159'
-    WHEN odds BETWEEN -199 AND -160 THEN '-160 to -199'
-    WHEN odds BETWEEN -249 AND -200 THEN '-200 to -249'
-    WHEN odds <= -250 THEN '-250+'
+    WHEN ml IS NULL THEN 'Unknown'
+    WHEN ml BETWEEN -130 AND -101 THEN '-101 to -130'
+    WHEN ml BETWEEN -159 AND -131 THEN '-131 to -159'
+    WHEN ml BETWEEN -199 AND -160 THEN '-160 to -199'
+    WHEN ml BETWEEN -249 AND -200 THEN '-200 to -249'
+    WHEN ml <= -250 THEN '-250+'
     ELSE 'Other favorite'
   END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.classify_dog_ml_band(odds numeric)
+CREATE OR REPLACE FUNCTION public.classify_dog_ml_band(ml numeric)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE
 AS $$
   SELECT CASE
-    WHEN odds IS NULL THEN 'Unknown'
-    WHEN odds BETWEEN 100 AND 129 THEN '+100 to +129'
-    WHEN odds BETWEEN 130 AND 159 THEN '+130 to +159'
-    WHEN odds BETWEEN 160 AND 199 THEN '+160 to +199'
-    WHEN odds >= 200 THEN '+200+'
+    WHEN ml IS NULL THEN 'Unknown'
+    WHEN ml BETWEEN 100 AND 129 THEN '+100 to +129'
+    WHEN ml BETWEEN 130 AND 159 THEN '+130 to +159'
+    WHEN ml BETWEEN 160 AND 199 THEN '+160 to +199'
+    WHEN ml >= 200 THEN '+200+'
     ELSE 'Other dog'
   END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.classify_spread_band(spread_abs numeric)
+CREATE OR REPLACE FUNCTION public.classify_spread_band(abs_spread numeric)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE
 AS $$
   SELECT CASE
-    WHEN spread_abs IS NULL THEN 'Unknown'
-    WHEN ABS(spread_abs - 1.5) < 0.001 THEN '1.5'
-    WHEN ABS(spread_abs - 2.5) < 0.001 THEN '2.5'
-    WHEN ABS(spread_abs - 3.5) < 0.001 THEN '3.5'
-    WHEN spread_abs BETWEEN 4.5 AND 5.5 THEN '4.5-5.5'
-    WHEN spread_abs BETWEEN 6.5 AND 7.5 THEN '6.5-7.5'
-    WHEN spread_abs BETWEEN 8.5 AND 10.5 THEN '8.5-10.5'
-    WHEN spread_abs >= 11 THEN '11+'
+    WHEN abs_spread IS NULL THEN 'Unknown'
+    WHEN ABS(abs_spread - 1.5) < 0.001 THEN '1.5'
+    WHEN ABS(abs_spread - 2.5) < 0.001 THEN '2.5'
+    WHEN ABS(abs_spread - 3.5) < 0.001 THEN '3.5'
+    WHEN abs_spread BETWEEN 4.5 AND 5.5 THEN '4.5-5.5'
+    WHEN abs_spread BETWEEN 6.5 AND 7.5 THEN '6.5-7.5'
+    WHEN abs_spread BETWEEN 8.5 AND 10.5 THEN '8.5-10.5'
+    WHEN abs_spread >= 11 THEN '11+'
     ELSE 'Other'
   END;
 $$;
