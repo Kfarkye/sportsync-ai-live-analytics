@@ -801,3 +801,84 @@ export const refreshPropEvidencePack = onRequest(
     }
   }
 );
+
+// ── API Proxy (Firebase Hosting -> Vercel API) ─────────────────────────────
+//
+// Makes Firebase the single web host while preserving existing /api endpoints.
+// Allowed paths are explicitly whitelisted to avoid open-proxy behavior.
+export const apiProxy = onRequest(
+  {
+    region: 'us-central1',
+    timeoutSeconds: 60,
+    memory: '256MiB',
+    cors: true,
+  },
+  async (req, res) => {
+    corsHeaders(res);
+
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+
+    const allowedPrefixes = [
+      '/api/chat',
+      '/api/extract-slip',
+      '/api/espn-proxy',
+      '/api/baseball-live',
+      '/api/live/',
+      '/api/cron/',
+    ];
+
+    const incomingPath = req.originalUrl || req.url || req.path || '';
+    if (!allowedPrefixes.some(prefix => incomingPath.startsWith(prefix))) {
+      res.status(404).json({ error: 'not_found', message: `Unsupported API path: ${incomingPath}` });
+      return;
+    }
+
+    const upstreamOrigin = (process.env.VERCEL_API_ORIGIN || 'https://sportsync-ai-live-analytics.vercel.app').replace(/\/+$/, '');
+    const targetUrl = `${upstreamOrigin}${incomingPath}`;
+
+    try {
+      const forwardHeaders = {};
+      for (const [rawKey, rawValue] of Object.entries(req.headers || {})) {
+        if (!rawKey) continue;
+        const key = rawKey.toLowerCase();
+        if (key === 'host' || key === 'content-length' || key === 'connection') continue;
+        if (Array.isArray(rawValue)) forwardHeaders[key] = rawValue.join(', ');
+        else if (typeof rawValue === 'string') forwardHeaders[key] = rawValue;
+      }
+      forwardHeaders['x-forwarded-host'] = req.get('host') || '';
+      forwardHeaders['x-proxied-by'] = 'firebase-api-proxy';
+
+      const method = (req.method || 'GET').toUpperCase();
+      const hasBody = method !== 'GET' && method !== 'HEAD';
+      const fetchOptions = {
+        method,
+        headers: forwardHeaders,
+        redirect: 'manual',
+      };
+
+      if (hasBody && req.rawBody && req.rawBody.length > 0) {
+        fetchOptions.body = req.rawBody;
+      }
+
+      const upstream = await fetch(targetUrl, fetchOptions);
+      const buffer = Buffer.from(await upstream.arrayBuffer());
+
+      upstream.headers.forEach((value, key) => {
+        const header = key.toLowerCase();
+        if (header === 'content-length' || header === 'transfer-encoding' || header === 'connection') return;
+        res.setHeader(key, value);
+      });
+
+      res.status(upstream.status).send(buffer);
+    } catch (error) {
+      logger.error('apiProxy upstream error', { targetUrl, message: error?.message || String(error) });
+      res.status(502).json({
+        error: 'upstream_unavailable',
+        message: 'API upstream unavailable',
+      });
+    }
+  }
+);
