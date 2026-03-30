@@ -954,7 +954,7 @@ function renderIndex() {
     }).join('');
 
     return `
-      <a class="player-card ${p.heroCount > 0 ? 'has-hero' : ''}" href="/props#/player/${p.slug}" style="animation-delay: ${Math.min(i * 40, 600)}ms">
+      <a class="player-card ${p.heroCount > 0 ? 'has-hero' : ''}" href="/props/${p.slug}" style="animation-delay: ${Math.min(i * 40, 600)}ms">
         <div class="pc-top">
           <div class="pc-name">${p.name}</div>
           <svg class="pc-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -1145,22 +1145,32 @@ function renderProfile(slug) {
 // Router
 // ══════════════════════════════════════════════════════════════════════════════
 function navigateTo(path) {
-  window.location.hash = path ? '#/' + path : '#/';
+  const normalized = (path || '').replace(/^player\//, '').trim();
+  const target = normalized ? `/props/${encodeURIComponent(normalized)}` : '/props';
+  if (window.location.pathname !== target || window.location.hash) {
+    window.history.pushState({}, '', target);
+  }
+  route();
 }
 
-function detailSlugFromLocation(hashValue) {
-  const hash = hashValue || '';
-  if (hash.startsWith('player/')) {
-    return hash.replace('player/', '');
-  }
+function detailSlugFromLocation() {
   const pathname = (window.location.pathname || '').replace(/\/+$/, '');
-  const match = pathname.match(/^\/props\/([a-z0-9-]+)$/i);
-  return match ? decodeURIComponent(match[1]) : '';
+  const pathMatch = pathname.match(/^\/props\/([a-z0-9-]+)$/i);
+  if (pathMatch) return decodeURIComponent(pathMatch[1]);
+
+  const hash = (window.location.hash || '').replace(/^#\/?/, '');
+  if (hash.startsWith('player/')) return hash.replace('player/', '');
+  return '';
 }
 
 function route() {
-  const hash = (window.location.hash || '#/').replace('#/', '');
-  const slug = detailSlugFromLocation(hash);
+  const hash = (window.location.hash || '').replace(/^#\/?/, '');
+  const hashSlug = hash.startsWith('player/') ? hash.replace('player/', '') : '';
+  if (hashSlug && !/^\/props\/[a-z0-9-]+$/i.test(window.location.pathname || '')) {
+    window.history.replaceState({}, '', `/props/${encodeURIComponent(hashSlug)}`);
+  }
+
+  const slug = detailSlugFromLocation();
 
   // Hide all pages
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1194,6 +1204,7 @@ function route() {
 // ══════════════════════════════════════════════════════════════════════════════
 function bindEvents() {
   window.addEventListener('hashchange', route);
+  window.addEventListener('popstate', route);
 
   $('marketTabs').addEventListener('click', e => {
     const btn = e.target.closest('.venue-btn');

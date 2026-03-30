@@ -42,6 +42,10 @@
     ],
     "rewrites": [
       {
+        "source": "/props/**",
+        "destination": "/props/index.html"
+      },
+      {
         "source": "/api{,/**}",
         "function": "apiProxy"
       }

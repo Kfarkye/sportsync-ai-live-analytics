@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 // ══════════════════════════════════════════════════════════════════════════════
-// generate-props.mjs — Static Prop Profile Generator
+// generate-props.mjs — Props Shell + Payload Generator
 //
-// Fetches the live evidence pack from Cloud Run, then writes one static HTML
-// file per player to public/props/{slug}.html so each detail route is a
-// durable first-load player object page.
+// Fetches the live evidence pack from Cloud Run, then writes:
+// - /public/props.html and /public/props/index.html (live shell)
+// - /public/props/{slug}.json (player payloads)
+//
+// Player detail routes resolve through the live shell (/props/{slug}) so we
+// intentionally do not emit per-player static HTML files.
 //
 // Usage:
 //   node scripts/generate-props.mjs              # full build (all players)
@@ -15,7 +18,7 @@ const PACK_URL = 'https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app';
 const BASE_URL = 'https://sportsync-evidence.web.app';
 const OUTPUT_DIR = new URL('../public/props', import.meta.url).pathname;
 
-import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -702,7 +705,7 @@ async function main() {
     cards: (pack.cards || []).filter(c => selectedSlugs.has(slugify(c.player_name))),
   };
 
-  console.log('[generate-props] Generating %d of %d player pages', selected.length, sorted.length);
+  console.log('[generate-props] Generating %d of %d player payloads', selected.length, sorted.length);
 
   // Ensure output directory exists
   mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -713,13 +716,16 @@ async function main() {
   writeFileSync(resolve(OUTPUT_DIR, '../props.html'), renderedPropsShell, 'utf-8');
   writeFileSync(join(OUTPUT_DIR, 'index.html'), renderedPropsShell, 'utf-8');
 
+  // Remove stale legacy player HTML files to prevent route drift on hosting.
+  for (const entry of readdirSync(OUTPUT_DIR)) {
+    if (entry.endsWith('.html') && entry !== 'index.html') {
+      unlinkSync(join(OUTPUT_DIR, entry));
+    }
+  }
+
   let count = 0;
   for (const player of selected) {
-    const html = playerPage(player, generatedAt);
-    const outPath = join(OUTPUT_DIR, `${player.slug}.html`);
-    writeFileSync(outPath, html, 'utf-8');
-
-    // Per-player JSON payload (same source object as HTML + JSON-LD)
+    // Per-player JSON payload (same source object as live shell cards)
     const json = buildPayloadJson(player, generatedAt);
     const jsonPath = join(OUTPUT_DIR, `${player.slug}.json`);
     writeFileSync(jsonPath, json, 'utf-8');
@@ -728,7 +734,7 @@ async function main() {
     if (count % 50 === 0) console.log('[generate-props] ... %d / %d', count, selected.length);
   }
 
-  console.log('[generate-props] ✓ Wrote %d player pages to %s', count, OUTPUT_DIR);
+  console.log('[generate-props] ✓ Wrote %d player payload JSON files to %s', count, OUTPUT_DIR);
 
   // ── Update sitemap ──
   const sitemapPath = resolve(OUTPUT_DIR, '../sitemap.xml');
