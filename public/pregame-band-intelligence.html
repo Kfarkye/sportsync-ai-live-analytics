@@ -3,41 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Band Intelligence — Market Structure | SportsSync</title>
-  <meta name="description" content="Pregame and live band structure for NBA and NHL. Side-by-side counterpart mapping, record, ROI, and sample coverage." />
+  <title>By Price Range | SportsSync</title>
+  <meta name="description" content="Moneyline range research for NBA and NHL, including record, ROI, and underdog counterpart performance." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://sportsync-evidence.web.app/pregame-band-intelligence" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,500;0,8..60,600;0,8..60,700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg-canvas: #0f1115;
-      --bg-surface: #161a21;
-      --bg-surface-hover: #1b212a;
-      --bg-subtle: #12161d;
-      --text-primary: #edf1f7;
-      --text-secondary: #c2cada;
-      --text-tertiary: #8d98ae;
-      --border-subtle: #262d3a;
-      --border-strong: #394355;
-      --color-accent-nba: #d57a4d;
-      --color-accent-nhl: #67a8ff;
-      --color-success: #5ec68e;
-      --color-danger: #f28a84;
-      --color-warning: #ffcd70;
-      --shadow-sm: 0 1px 2px rgba(0,0,0,.25);
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --accent: #C85A3A;
+      --text-primary: #1A1A18;
+      --text-secondary: #6B6B63;
+      --text-tertiary: #9B9B91;
+      --border: #E8E7E3;
+      --roi-pos: #2D8F5C;
+      --roi-neg: #C85A3A;
       --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       --font-serif: "Source Serif 4", Georgia, serif;
       --font-mono: "JetBrains Mono", SFMono-Regular, Menlo, monospace;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: var(--font-sans);
-      background: radial-gradient(1200px 600px at 50% -80px, #1a202a 0%, var(--bg-canvas) 56%);
+      background: var(--bg);
       color: var(--text-primary);
-      line-height: 1.55;
-      font-size: 14px;
+      font-family: var(--font-sans);
+      line-height: 1.5;
       -webkit-font-smoothing: antialiased;
       font-variant-numeric: tabular-nums;
       min-height: 100vh;
@@ -46,14 +45,15 @@
     .top-nav {
       position: sticky;
       top: 0;
-      z-index: 100;
-      background: rgba(15,17,21,.86);
-      backdrop-filter: saturate(180%) blur(16px);
-      -webkit-backdrop-filter: saturate(180%) blur(16px);
-      border-bottom: 1px solid rgba(57,67,85,.6);
+      z-index: 50;
+      border-bottom: 1px solid var(--border);
+      background: rgba(250, 250, 248, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
+
     .top-nav-inner {
-      max-width: 1200px;
+      max-width: 1080px;
       margin: 0 auto;
       min-height: 58px;
       padding: 0 24px;
@@ -61,341 +61,340 @@
       align-items: center;
       justify-content: space-between;
     }
+
     .top-nav-brand {
       font-family: var(--font-mono);
-      font-weight: 500;
       font-size: 15px;
+      font-weight: 500;
       letter-spacing: -0.02em;
       color: var(--text-primary);
       text-decoration: none;
     }
-    .top-nav-links { display: flex; gap: 32px; align-items: center; list-style: none; }
+
+    .top-nav-links {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+
     .top-nav-links a {
-      font-size: 14px;
       color: var(--text-tertiary);
       text-decoration: none;
+      font-size: 14px;
       font-weight: 500;
     }
-    .top-nav-links a:hover { color: var(--text-primary); }
-    .top-nav-links a.active { color: var(--text-primary); font-weight: 600; }
 
-    .page {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 26px 24px 56px;
+    .top-nav-links a:hover {
+      color: var(--text-primary);
     }
 
-    .matchups-tabs {
-      display: inline-flex;
-      align-items: center;
-      border: 1px solid var(--border-subtle);
-      background: var(--bg-subtle);
-      border-radius: 8px;
-      overflow: hidden;
-      margin-bottom: 22px;
-    }
-    .matchups-tab {
-      padding: 8px 14px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: var(--text-tertiary);
-      text-decoration: none;
-      border-right: 1px solid var(--border-subtle);
-      background: transparent;
-    }
-    .matchups-tab:last-child { border-right: none; }
-    .matchups-tab.active {
+    .top-nav-links a.active {
       color: var(--text-primary);
       font-weight: 600;
-      background: rgba(255,255,255,.03);
     }
 
-    .hero { margin-bottom: 18px; }
+    .page {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px 24px 56px;
+    }
+
+    .matchups-switch {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--surface);
+      margin-bottom: 26px;
+    }
+
+    .matchups-switch a {
+      padding: 8px 14px;
+      border-right: 1px solid var(--border);
+      color: var(--text-tertiary);
+      text-decoration: none;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .matchups-switch a:last-child {
+      border-right: none;
+    }
+
+    .matchups-switch a.active {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
     .hero h1 {
       font-family: var(--font-serif);
-      font-size: clamp(30px, 4vw, 42px);
-      line-height: 1.08;
-      letter-spacing: -0.015em;
-      margin-bottom: 9px;
+      font-size: clamp(34px, 4.8vw, 46px);
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
     }
+
     .hero p {
-      color: var(--text-secondary);
-      max-width: 760px;
-      margin-bottom: 12px;
       font-size: 15px;
+      color: var(--text-secondary);
+      max-width: 720px;
+      margin-bottom: 10px;
     }
-    .hero-meta {
+
+    .hero-updated {
       font-family: var(--font-mono);
       font-size: 11px;
       color: var(--text-tertiary);
+      margin-bottom: 20px;
+    }
+
+    .filters {
       display: flex;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 18px 24px;
+      margin-bottom: 18px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
       gap: 10px;
       flex-wrap: wrap;
     }
 
-    .controls {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, max-content)) 1fr;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-    .seg {
-      display: inline-flex;
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      overflow: hidden;
-      background: var(--bg-subtle);
-    }
-    .seg button {
-      border: 0;
-      background: transparent;
-      color: var(--text-tertiary);
-      padding: 8px 12px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      cursor: pointer;
-      border-right: 1px solid var(--border-subtle);
-    }
-    .seg button:last-child { border-right: 0; }
-    .seg button.active {
-      color: var(--text-primary);
-      font-weight: 600;
-      background: rgba(255,255,255,.05);
-    }
-    .controls .right {
-      justify-self: end;
-      color: var(--text-tertiary);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .kpi-strip {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    .kpi {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: 10px;
-      padding: 12px;
-      box-shadow: var(--shadow-sm);
-    }
-    .kpi .label {
+    .filter-label,
+    .sort-label {
       font-family: var(--font-mono);
       font-size: 10px;
-      letter-spacing: 0.05em;
       text-transform: uppercase;
+      letter-spacing: 0.06em;
       color: var(--text-tertiary);
-      margin-bottom: 8px;
-    }
-    .kpi .value {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 5px;
-    }
-    .kpi .sub {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-secondary);
     }
 
-    .panel-grid {
+    .filter-link,
+    .sort-link {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      margin: 0;
+      color: var(--text-tertiary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: var(--font-sans);
+    }
+
+    .filter-link:hover,
+    .sort-link:hover {
+      color: var(--accent);
+    }
+
+    .filter-link.active,
+    .sort-link.active {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .summary-grid {
       display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 12px;
-    }
-    .panel {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: 12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      border-radius: 8px;
       overflow: hidden;
-      box-shadow: var(--shadow-sm);
+      background: var(--border);
+      margin-bottom: 28px;
     }
-    .panel-header {
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--border-subtle);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
+
+    .summary-card {
+      background: var(--surface);
+      padding: 16px 18px;
+      min-height: 86px;
     }
-    .panel-title {
+
+    .summary-label {
       font-family: var(--font-mono);
-      font-size: 11px;
-      letter-spacing: 0.06em;
+      font-size: 10px;
+      color: var(--text-tertiary);
       text-transform: uppercase;
-      color: var(--text-secondary);
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
     }
-    .panel-title .accent-nba { color: var(--color-accent-nba); }
-    .panel-title .accent-nhl { color: var(--color-accent-nhl); }
-    .panel-body { padding: 0; }
+
+    .summary-value {
+      font-family: var(--font-sans);
+      font-size: 15px;
+      color: var(--text-primary);
+      line-height: 1.45;
+    }
+
+    .section {
+      margin-bottom: 26px;
+    }
+
+    .section h2 {
+      font-family: var(--font-serif);
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+
+    .table-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 13px;
-      table-layout: fixed;
     }
+
     thead th {
       font-family: var(--font-mono);
       font-size: 10px;
-      font-weight: 600;
-      color: var(--text-tertiary);
       text-transform: uppercase;
       letter-spacing: 0.06em;
+      color: var(--text-tertiary);
       text-align: left;
+      font-weight: 600;
       padding: 10px 12px;
-      border-bottom: 1px solid var(--border-subtle);
-      background: rgba(255,255,255,.02);
-    }
-    tbody td {
-      padding: 10px 12px;
-      border-bottom: 1px solid rgba(57,67,85,.45);
-      color: var(--text-secondary);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      vertical-align: middle;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
       white-space: nowrap;
     }
-    tbody tr:last-child td { border-bottom: none; }
-    tbody tr:hover td { background: var(--bg-surface-hover); }
 
-    .txt { font-family: var(--font-sans); color: var(--text-primary); }
-    .good { color: var(--color-success); font-weight: 600; }
-    .bad { color: var(--color-danger); font-weight: 600; }
-    .muted { color: var(--text-tertiary); }
-
-    .counterpart-group {
-      border-top: 1px solid var(--border-subtle);
-    }
-    .counterpart-row {
-      display: grid;
-      grid-template-columns: 130px 1fr 84px 84px 92px;
-      gap: 10px;
-      align-items: center;
-      padding: 10px 12px;
+    tbody td {
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 13px;
       color: var(--text-secondary);
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover td {
+      background: #FDFCFA;
+    }
+
+    .td-text {
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .roi-pos {
+      color: var(--roi-pos);
+      font-weight: 600;
+    }
+
+    .roi-neg {
+      color: var(--roi-neg);
+      font-weight: 600;
+    }
+
+    .expand-link {
+      border: 0;
+      background: transparent;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      font-family: var(--font-sans);
       cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 2px;
     }
-    .counterpart-row:hover { background: var(--bg-surface-hover); }
-    .counterpart-row .dog { color: var(--text-primary); font-weight: 600; }
-    .counterpart-row .mix { color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .counterpart-row .spread { text-align: right; }
-    .counterpart-detail {
-      display: none;
-      border-top: 1px solid var(--border-subtle);
-      padding: 8px 10px 10px;
+
+    .expand-link:hover {
+      color: var(--accent);
     }
-    .counterpart-group.open .counterpart-detail { display: block; }
+
+    .detail-row td {
+      background: #FDFCFA;
+      border-top: 1px solid var(--border);
+    }
 
     .detail-grid {
       width: 100%;
       border-collapse: collapse;
-      font-size: 11px;
     }
-    .detail-grid th, .detail-grid td {
+
+    .detail-grid th,
+    .detail-grid td {
       padding: 7px 8px;
-      border-bottom: 1px solid rgba(57,67,85,.45);
+      border-bottom: 1px solid var(--border);
       text-align: right;
       font-family: var(--font-mono);
-      color: var(--text-secondary);
-    }
-    .detail-grid th:first-child, .detail-grid td:first-child { text-align: left; }
-
-    .section-stack { display: grid; gap: 12px; }
-
-    .coverage-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 10px;
-    }
-    .coverage-card {
-      background: var(--bg-subtle);
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      padding: 10px;
-    }
-    .coverage-card h4 {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-primary);
-      margin-bottom: 7px;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .coverage-card p {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-secondary);
-      margin-bottom: 4px;
-    }
-    .note {
-      font-family: var(--font-sans);
       font-size: 12px;
-      color: var(--text-tertiary);
-      line-height: 1.45;
-      margin-top: 8px;
-      white-space: normal;
+      color: var(--text-secondary);
     }
 
-    .empty {
-      padding: 18px 12px;
+    .detail-grid th {
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
       color: var(--text-tertiary);
-      font-family: var(--font-sans);
-      font-size: 13px;
+      background: transparent;
     }
+
+    .detail-grid th:first-child,
+    .detail-grid td:first-child {
+      text-align: left;
+    }
+
+    .empty,
     .error {
       padding: 14px 12px;
-      border-top: 1px solid var(--border-subtle);
-      color: var(--color-danger);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      white-space: pre-wrap;
-      line-height: 1.5;
-    }
-
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
+      font-size: 14px;
       color: var(--text-tertiary);
-      font-family: var(--font-mono);
-      font-size: 10px;
-      margin-left: auto;
+      font-family: var(--font-sans);
     }
 
-    @media (max-width: 1024px) {
-      .panel-grid { grid-template-columns: 1fr; }
-      .kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .controls { grid-template-columns: repeat(2, minmax(0, max-content)) 1fr; }
+    .error {
+      color: var(--roi-neg);
+      border-top: 1px solid var(--border);
     }
+
+    @media (max-width: 900px) {
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media (max-width: 760px) {
-      .top-nav-inner { padding: 0 14px; }
-      .top-nav-links { display: none; }
-      .page { padding: 20px 14px 44px; }
-      .controls { grid-template-columns: 1fr; }
-      .controls .right { justify-self: start; }
-      .kpi-strip { grid-template-columns: 1fr; }
-      .counterpart-row { grid-template-columns: 110px 1fr 66px 66px 72px; gap: 6px; font-size: 11px; }
-      .coverage-grid { grid-template-columns: 1fr; }
-      table { table-layout: auto; }
-      thead th, tbody td { padding: 8px 9px; font-size: 11px; }
+      .top-nav-inner {
+        padding: 0 14px;
+      }
+
+      .top-nav-links {
+        display: none;
+      }
+
+      .page {
+        padding: 20px 14px 44px;
+      }
+
+      .filters {
+        gap: 14px 18px;
+      }
     }
   </style>
 </head>
@@ -413,1321 +412,813 @@
   </nav>
 
   <main class="page">
-    <div class="matchups-tabs">
-      <a class="matchups-tab" href="/pregame">Pregame Script</a>
-      <a class="matchups-tab active" href="/pregame-band-intelligence">Band Intelligence</a>
+    <div class="matchups-switch">
+      <a href="/pregame">Pregame Script</a>
+      <a href="/pregame-band-intelligence" class="active">By Price Range</a>
     </div>
 
     <section class="hero">
-      <h1>Band Intelligence</h1>
-      <p>Market-structure map by sport. Compare pregame and live entry bands, inspect side-vs-side counterpart bands, and track record, ROI, and sample coverage from live DB views.</p>
-      <div class="hero-meta">
-        <span id="heroUpdated">Last updated: loading...</span>
-        <span id="heroCoverage">Coverage: loading...</span>
+      <h1>By Price Range</h1>
+      <p>See how moneyline ranges have actually performed, where favorites hold up, and where underdogs have offered value.</p>
+      <div class="hero-updated" id="lastUpdated">Updated: —</div>
+    </section>
+
+    <section class="filters">
+      <div class="filter-group">
+        <span class="filter-label">Sport</span>
+        <button class="filter-link active" data-sport="nba">NBA</button>
+        <button class="filter-link" data-sport="nhl">NHL</button>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">Game State</span>
+        <button class="filter-link active" data-study="pregame">Pregame</button>
+        <button class="filter-link" data-study="live">Live</button>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">Venue</span>
+        <button class="filter-link active" data-scope="all">All</button>
+        <button class="filter-link" data-scope="home">Home</button>
+        <button class="filter-link" data-scope="road">Road</button>
+      </div>
+
+      <div class="filter-group">
+        <span class="sort-label">Sort</span>
+        <button class="sort-link active" data-sort="roi_desc">ROI</button>
+        <button class="sort-link" data-sort="sample_desc">Sample</button>
       </div>
     </section>
 
-    <section class="controls">
-      <div class="seg" role="tablist" aria-label="sport selector">
-        <button data-sport="nba" class="active">NBA</button>
-        <button data-sport="nhl">NHL</button>
-      </div>
+    <section class="summary-grid">
+      <article class="summary-card">
+        <div class="summary-label">Strongest range</div>
+        <div class="summary-value" id="summaryStrongest">—</div>
+      </article>
+      <article class="summary-card">
+        <div class="summary-label">Weakest range</div>
+        <div class="summary-value" id="summaryWeakest">—</div>
+      </article>
+      <article class="summary-card">
+        <div class="summary-label">Best dog play</div>
+        <div class="summary-value" id="summaryDog">—</div>
+      </article>
+    </section>
 
-      <div class="seg" role="tablist" aria-label="study selector">
-        <button data-study="pregame" class="active">Pregame</button>
-        <button data-study="live">Live</button>
-      </div>
-
-      <div class="seg" role="tablist" aria-label="favorite location selector">
-        <button data-scope="all" class="active">All</button>
-        <button data-scope="home">Home Favs</button>
-        <button data-scope="road">Road Favs</button>
-      </div>
-
-      <div class="seg" role="tablist" aria-label="sort selector">
-        <button data-sort="roi_desc" class="active">Sort ROI</button>
-        <button data-sort="sample_desc">Sort Sample</button>
-      </div>
-
-      <div class="right">
-        <span id="pollState">Auto refresh: 60s</span>
+    <section class="section">
+      <h2>Where favorites are covering</h2>
+      <div class="table-card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Range</th>
+                <th>Sample</th>
+                <th>Record</th>
+                <th>Win %</th>
+                <th>ROI %</th>
+                <th>ATS</th>
+                <th>ATS %</th>
+                <th>ATS ROI</th>
+              </tr>
+            </thead>
+            <tbody id="favoritesBody"></tbody>
+          </table>
+        </div>
+        <div id="favoritesError" class="error" style="display:none"></div>
       </div>
     </section>
 
-    <section class="kpi-strip" id="kpiStrip"></section>
-
-    <section class="panel-grid">
-      <div class="section-stack">
-        <article class="panel">
-          <div class="panel-header">
-            <div class="panel-title" id="bandTableTitle">Band Map</div>
-            <div class="legend" id="bandLegend"></div>
-          </div>
-          <div class="panel-body">
-            <div style="overflow-x:auto;">
-              <table>
-                <thead>
-                  <tr>
-                    <th style="width:124px">Band</th>
-                    <th style="width:72px">Sample</th>
-                    <th style="width:98px">Record</th>
-                    <th style="width:82px">Win %</th>
-                    <th style="width:82px">ROI %</th>
-                    <th style="width:104px">ATS</th>
-                    <th style="width:84px">ATS %</th>
-                    <th style="width:84px">ATS ROI</th>
-                  </tr>
-                </thead>
-                <tbody id="bandTableBody"></tbody>
-              </table>
-            </div>
-            <div id="bandError" class="error" style="display:none"></div>
-          </div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-header">
-            <div class="panel-title" id="counterpartTitle">Counterpart Map (Dog vs Favorite Band)</div>
-          </div>
-          <div class="panel-body" id="counterpartBody"></div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-header">
-            <div class="panel-title" id="spreadTitle">ML Band → Spread Band Distribution</div>
-          </div>
-          <div class="panel-body">
-            <div style="overflow-x:auto;">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ML Band</th>
-                    <th>Spread Band</th>
-                    <th>Share %</th>
-                    <th>Sample</th>
-                    <th>Record</th>
-                    <th>ROI %</th>
-                  </tr>
-                </thead>
-                <tbody id="spreadBody"></tbody>
-              </table>
-            </div>
-          </div>
-        </article>
-      </div>
-
-      <div class="section-stack">
-        <article class="panel">
-          <div class="panel-header">
-            <div class="panel-title">Coverage Status</div>
-          </div>
-          <div class="panel-body" style="padding:10px;">
-            <div class="coverage-grid" id="coverageGrid"></div>
-            <div id="coverageError" class="error" style="display:none"></div>
-          </div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-header">
-            <div class="panel-title">NBA Seed Bands</div>
-          </div>
-          <div class="panel-body">
-            <div style="overflow-x:auto;">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Band</th>
-                    <th>Sample</th>
-                    <th>SU</th>
-                    <th>SU ROI</th>
-                    <th>ATS</th>
-                  </tr>
-                </thead>
-                <tbody id="nbaSeedBody"></tbody>
-              </table>
-            </div>
-          </div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-header">
-            <div class="panel-title">NHL Totals Core (4.5 / 5.5 / 6.5)</div>
-          </div>
-          <div class="panel-body">
-            <div style="overflow-x:auto;">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Total</th>
-                    <th>Sample</th>
-                    <th>Over</th>
-                    <th>Over ROI</th>
-                    <th>Under</th>
-                    <th>Under ROI</th>
-                  </tr>
-                </thead>
-                <tbody id="nhlTotalsBody"></tbody>
-              </table>
-            </div>
-            <div id="nhlTotalsError" class="error" style="display:none"></div>
-          </div>
-        </article>
+    <section class="section">
+      <h2>How underdogs perform against them</h2>
+      <div class="table-card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Dog Range</th>
+                <th>Favorite Mix</th>
+                <th>Dog Record</th>
+                <th>Dog ROI</th>
+                <th>Favorite ROI</th>
+                <th>Sample</th>
+                <th>Expand</th>
+              </tr>
+            </thead>
+            <tbody id="counterpartBody"></tbody>
+          </table>
+        </div>
+        <div id="counterpartError" class="error" style="display:none"></div>
       </div>
     </section>
   </main>
 
-<script>
-  const SUPABASE_URL = 'https://qffzvrnbzabcokqqrwbv.supabase.co';
-  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZnp2cm5iemFiY29rcXFyd2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTc2NjgsImV4cCI6MjA3MDkzMzY2OH0.PCSnC5E7sG7FvasHy_9DdwiN61xW0GzFROLzZ0bTVnc';
-  const POLL_MS = 60_000;
-  const FETCH_LIMIT = 1000;
+  <script>
+    const SUPABASE_URL = 'https://qffzvrnbzabcokqqrwbv.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZnp2cm5iemFiY29rcXFyd2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTc2NjgsImV4cCI6MjA3MDkzMzY2OH0.PCSnC5E7sG7FvasHy_9DdwiN61xW0GzFROLzZ0bTVnc';
+    const POLL_MS = 60_000;
+    const FETCH_LIMIT = 1000;
 
-  const FAVORITE_BAND_ORDER = ['-101 to -130', '-131 to -159', '-160 to -199', '-200 to -249', '-250+', 'Other favorite', 'Unknown'];
-  const SPREAD_BAND_ORDER = ['1.5', '2.5', '3.5', '4.5-5.5', '6.5-7.5', '8.5-10.5', '11+', 'Other', 'Unknown'];
+    const FAVORITE_BAND_ORDER = ['-101 to -130', '-131 to -159', '-160 to -199', '-200 to -249', '-250+', 'Other favorite', 'other', 'Unknown'];
 
-  const SPORT_CONFIG = {
-    nba: { table: 'nba_postgame', suffix: 'nba', accentClass: 'accent-nba' },
-    nhl: { table: 'nhl_postgame', suffix: 'nhl', accentClass: 'accent-nhl' },
-    mlb: { table: 'mlb_postgame', suffix: 'mlb', accentClass: '' }
-  };
+    const SPORT_CONFIG = {
+      nba: { table: 'nba_postgame', suffix: 'nba' },
+      nhl: { table: 'nhl_postgame', suffix: 'nhl' }
+    };
 
-  const state = {
-    sport: 'nba',
-    study: 'pregame',
-    locationScope: 'all',
-    sort: 'roi_desc',
-    openCounterpartDogBand: null,
-    data: {
-      pregame: [],
-      live: [],
-      counterpart: [],
-      spread: [],
-      coverage: [],
-      nbaSeed: [],
-      nhlTotals: []
-    },
-    errors: {},
-    cache: {
-      pregameRowsBySport: {},
-      liveEntriesBySport: {},
-      coverage: null,
-      nhlTotals: null
-    }
-  };
-
-  const els = {
-    kpiStrip: document.getElementById('kpiStrip'),
-    heroUpdated: document.getElementById('heroUpdated'),
-    heroCoverage: document.getElementById('heroCoverage'),
-    bandTableTitle: document.getElementById('bandTableTitle'),
-    bandLegend: document.getElementById('bandLegend'),
-    bandTableBody: document.getElementById('bandTableBody'),
-    bandError: document.getElementById('bandError'),
-    counterpartBody: document.getElementById('counterpartBody'),
-    spreadBody: document.getElementById('spreadBody'),
-    coverageGrid: document.getElementById('coverageGrid'),
-    coverageError: document.getElementById('coverageError'),
-    nbaSeedBody: document.getElementById('nbaSeedBody'),
-    nhlTotalsBody: document.getElementById('nhlTotalsBody'),
-    nhlTotalsError: document.getElementById('nhlTotalsError')
-  };
-
-  function formatPct(value, precision = 1) {
-    if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-    return `${Number(value).toFixed(precision)}%`;
-  }
-
-  function formatRoi(value) {
-    if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-    const n = Number(value);
-    const sign = n > 0 ? '+' : '';
-    return `${sign}${n.toFixed(2)}%`;
-  }
-
-  function formatRecord(wins, losses, pushes = 0) {
-    if (wins === null || wins === undefined || losses === null || losses === undefined) return '—';
-    if (pushes && Number(pushes) > 0) return `${wins}-${losses}-${pushes}`;
-    return `${wins}-${losses}`;
-  }
-
-  function formatTs(ts) {
-    if (!ts) return '—';
-    const date = new Date(ts);
-    if (Number.isNaN(date.getTime())) return '—';
-    return date.toLocaleString(undefined, {
-      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
-    });
-  }
-
-  function toNumber(value) {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : null;
-  }
-
-  function bandProfitUnits(odds, won) {
-    const n = toNumber(odds);
-    if (n === null || n === 0) return null;
-    if (won) {
-      if (n > 0) return n / 100;
-      return 100 / Math.abs(n);
-    }
-    return -1;
-  }
-
-  function classifyFavoriteMlBand(odds) {
-    const n = toNumber(odds);
-    if (n === null) return 'Unknown';
-    if (n >= -130 && n <= -101) return '-101 to -130';
-    if (n >= -159 && n <= -131) return '-131 to -159';
-    if (n >= -199 && n <= -160) return '-160 to -199';
-    if (n >= -249 && n <= -200) return '-200 to -249';
-    if (n <= -250) return '-250+';
-    return 'Other favorite';
-  }
-
-  function classifySpreadBand(spread) {
-    const n = Math.abs(toNumber(spread) ?? Number.NaN);
-    if (!Number.isFinite(n)) return 'Unknown';
-    if (Math.abs(n - 1.5) < 0.001) return '1.5';
-    if (Math.abs(n - 2.5) < 0.001) return '2.5';
-    if (Math.abs(n - 3.5) < 0.001) return '3.5';
-    if (n >= 4.5 && n <= 5.5) return '4.5-5.5';
-    if (n >= 6.5 && n <= 7.5) return '6.5-7.5';
-    if (n >= 8.5 && n <= 10.5) return '8.5-10.5';
-    if (n >= 11) return '11+';
-    return 'Other';
-  }
-
-  function sortFavoriteBand(a, b) {
-    return FAVORITE_BAND_ORDER.indexOf(a) - FAVORITE_BAND_ORDER.indexOf(b);
-  }
-
-  function sortSpreadBand(a, b) {
-    return SPREAD_BAND_ORDER.indexOf(a) - SPREAD_BAND_ORDER.indexOf(b);
-  }
-
-  async function fetchJson(path) {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-      method: 'GET',
-      cache: 'no-store',
-      headers: {
-        apikey: SUPABASE_ANON,
-        Authorization: `Bearer ${SUPABASE_ANON}`,
-        Accept: 'application/json'
+    const state = {
+      sport: 'nba',
+      study: 'pregame',
+      locationScope: 'all',
+      sort: 'roi_desc',
+      openDogBand: null,
+      updatedAt: null,
+      data: {
+        pregame: [],
+        live: [],
+        counterpart: []
+      },
+      errors: {
+        favorites: null,
+        counterpart: null
+      },
+      cache: {
+        pregameRowsBySport: {},
+        liveEntriesBySport: {}
       }
-    });
+    };
 
-    if (!response.ok) {
-      let body = '';
-      try { body = await response.text(); } catch (_) {}
-      throw new Error(`${response.status} ${response.statusText}${body ? `\n${body}` : ''}`);
+    const els = {
+      lastUpdated: document.getElementById('lastUpdated'),
+      summaryStrongest: document.getElementById('summaryStrongest'),
+      summaryWeakest: document.getElementById('summaryWeakest'),
+      summaryDog: document.getElementById('summaryDog'),
+      favoritesBody: document.getElementById('favoritesBody'),
+      favoritesError: document.getElementById('favoritesError'),
+      counterpartBody: document.getElementById('counterpartBody'),
+      counterpartError: document.getElementById('counterpartError')
+    };
+
+    function toNumber(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
     }
 
-    return response.json();
-  }
-
-  async function fetchAllRows(pathBase) {
-    const rows = [];
-    let offset = 0;
-
-    while (true) {
-      const connector = pathBase.includes('?') ? '&' : '?';
-      const batchPath = `${pathBase}${connector}limit=${FETCH_LIMIT}&offset=${offset}`;
-      const batch = await fetchJson(batchPath);
-
-      if (!Array.isArray(batch) || batch.length === 0) break;
-      rows.push(...batch);
-      if (batch.length < FETCH_LIMIT) break;
-      offset += FETCH_LIMIT;
+    function normalizeFavoriteBand(band) {
+      if (!band) return 'Unknown';
+      if (band === 'other') return 'Other favorite';
+      return band;
     }
 
-    return rows;
-  }
+    function normalizeDogBand(band) {
+      if (!band) return 'Unknown';
+      if (band === 'other') return 'Other dog';
+      return band;
+    }
 
-  async function fetchCount(pathWithFilters) {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/${pathWithFilters}`, {
-      method: 'GET',
-      cache: 'no-store',
-      headers: {
-        apikey: SUPABASE_ANON,
-        Authorization: `Bearer ${SUPABASE_ANON}`,
-        Accept: 'application/json',
-        Prefer: 'count=exact'
+    function formatPct(value, precision = 1) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+      return `${Number(value).toFixed(precision)}%`;
+    }
+
+    function formatRoi(value, precision = 1) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+      const n = Number(value);
+      const sign = n > 0 ? '+' : '';
+      return `${sign}${n.toFixed(precision)}%`;
+    }
+
+    function formatRecord(wins, losses, pushes = 0) {
+      if (wins === null || wins === undefined || losses === null || losses === undefined) return '—';
+      if (pushes && Number(pushes) > 0) return `${wins}-${losses}-${pushes}`;
+      return `${wins}-${losses}`;
+    }
+
+    function sortFavoriteBand(a, b) {
+      return FAVORITE_BAND_ORDER.indexOf(a) - FAVORITE_BAND_ORDER.indexOf(b);
+    }
+
+    function bandProfitUnits(odds, won) {
+      const n = toNumber(odds);
+      if (n === null || n === 0) return null;
+      if (won) {
+        if (n > 0) return n / 100;
+        return 100 / Math.abs(n);
       }
-    });
-
-    if (!response.ok) {
-      let body = '';
-      try { body = await response.text(); } catch (_) {}
-      throw new Error(`${response.status} ${response.statusText}${body ? `\n${body}` : ''}`);
+      return -1;
     }
 
-    const contentRange = response.headers.get('content-range');
-    if (!contentRange) return 0;
-    const total = Number(contentRange.split('/')[1]);
-    return Number.isFinite(total) ? total : 0;
-  }
+    function classifyFavoriteMlBand(odds) {
+      const n = toNumber(odds);
+      if (n === null) return 'Unknown';
+      if (n >= -130 && n <= -101) return '-101 to -130';
+      if (n >= -159 && n <= -131) return '-131 to -159';
+      if (n >= -199 && n <= -160) return '-160 to -199';
+      if (n >= -249 && n <= -200) return '-200 to -249';
+      if (n <= -250) return '-250+';
+      return 'Other favorite';
+    }
 
-  function scopeRows(rows, scope) {
-    if (scope === 'home') return rows.filter((row) => row.favorite_location === 'home');
-    if (scope === 'road') return rows.filter((row) => row.favorite_location === 'road');
-    return rows;
-  }
+    async function fetchJson(path) {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          apikey: SUPABASE_ANON,
+          Authorization: `Bearer ${SUPABASE_ANON}`,
+          Accept: 'application/json'
+        }
+      });
 
-  function aggregatePregame(rows, scope) {
-    const filtered = scopeRows(rows, scope);
-    const groups = new Map();
-
-    for (const row of filtered) {
-      const band = row.favorite_ml_band || 'Unknown';
-      if (!groups.has(band)) {
-        groups.set(band, {
-          sport: row.sport,
-          location_scope: scope,
-          study_type: 'pregame',
-          band,
-          sample_size: 0,
-          wins: 0,
-          losses: 0,
-          pushes: 0,
-          su_units: 0,
-          ats_wins: 0,
-          ats_losses: 0,
-          ats_pushes: 0,
-          ats_sample: 0,
-          ats_priced_sample: 0,
-          ats_units: 0,
-          home_sample: 0,
-          home_wins: 0,
-          home_losses: 0,
-          home_units: 0,
-          road_sample: 0,
-          road_wins: 0,
-          road_losses: 0,
-          road_units: 0,
-          first_game_at: row.start_time,
-          last_game_at: row.start_time
-        });
+      if (!response.ok) {
+        let body = '';
+        try { body = await response.text(); } catch (_) {}
+        throw new Error(`${response.status} ${response.statusText}${body ? `\n${body}` : ''}`);
       }
 
-      const g = groups.get(band);
-      const won = !!row.favorite_won_su;
-      const mlUnits = toNumber(row.favorite_ml_unit_pl) ?? 0;
-      const atsWon = row.favorite_covered_ats === true;
-      const atsPush = row.favorite_ats_push === true;
-      const atsKnown = row.favorite_covered_ats !== null || row.favorite_ats_push !== null;
-      const atsUnits = toNumber(row.favorite_ats_unit_pl);
+      return response.json();
+    }
 
-      g.sample_size += 1;
-      g.wins += won ? 1 : 0;
-      g.losses += won ? 0 : 1;
-      g.su_units += mlUnits;
+    async function fetchAllRows(pathBase) {
+      const rows = [];
+      let offset = 0;
 
-      if (atsKnown) {
-        g.ats_sample += 1;
-        if (atsPush) g.ats_pushes += 1;
-        else if (atsWon) g.ats_wins += 1;
-        else g.ats_losses += 1;
-      }
-      if (atsUnits !== null) {
-        g.ats_priced_sample += 1;
-        g.ats_units += atsUnits;
+      while (true) {
+        const connector = pathBase.includes('?') ? '&' : '?';
+        const batch = await fetchJson(`${pathBase}${connector}limit=${FETCH_LIMIT}&offset=${offset}`);
+        if (!Array.isArray(batch) || batch.length === 0) break;
+        rows.push(...batch);
+        if (batch.length < FETCH_LIMIT) break;
+        offset += FETCH_LIMIT;
       }
 
-      const location = row.favorite_location;
-      if (location === 'home') {
-        g.home_sample += 1;
-        g.home_wins += won ? 1 : 0;
-        g.home_losses += won ? 0 : 1;
-        g.home_units += mlUnits;
-      } else if (location === 'road') {
-        g.road_sample += 1;
-        g.road_wins += won ? 1 : 0;
-        g.road_losses += won ? 0 : 1;
-        g.road_units += mlUnits;
-      }
-
-      if (new Date(row.start_time) < new Date(g.first_game_at)) g.first_game_at = row.start_time;
-      if (new Date(row.start_time) > new Date(g.last_game_at)) g.last_game_at = row.start_time;
-    }
-
-    return [...groups.values()]
-      .map((g) => ({
-        ...g,
-        win_rate_pct: g.sample_size ? (100 * g.wins) / g.sample_size : null,
-        roi_pct: g.sample_size ? (100 * g.su_units) / g.sample_size : null,
-        ats_win_pct: (g.ats_wins + g.ats_losses) ? (100 * g.ats_wins) / (g.ats_wins + g.ats_losses) : null,
-        ats_roi_pct: g.ats_priced_sample ? (100 * g.ats_units) / g.ats_priced_sample : null,
-        home_roi_pct: g.home_sample ? (100 * g.home_units) / g.home_sample : null,
-        road_roi_pct: g.road_sample ? (100 * g.road_units) / g.road_sample : null,
-        data_quality_flag: g.ats_sample > g.ats_priced_sample ? 'partial_ats_price_coverage' : null
-      }))
-      .sort((a, b) => sortFavoriteBand(a.band, b.band));
-  }
-
-  function aggregateCounterpart(rows, scope) {
-    const filtered = scopeRows(rows, scope);
-    const groups = new Map();
-
-    for (const row of filtered) {
-      const dogBand = row.dog_ml_band || 'Unknown';
-      const counterpartBand = row.favorite_ml_band || 'Unknown';
-      const key = `${dogBand}__${counterpartBand}`;
-      if (!groups.has(key)) {
-        groups.set(key, {
-          sport: row.sport,
-          study_type: 'pregame',
-          location_scope: scope,
-          dog_ml_band: dogBand,
-          counterpart_band: counterpartBand,
-          sample_size: 0,
-          dog_wins: 0,
-          dog_losses: 0,
-          dog_units: 0,
-          favorite_wins: 0,
-          favorite_losses: 0,
-          favorite_units: 0
-        });
-      }
-
-      const g = groups.get(key);
-      const favoriteWon = !!row.favorite_won_su;
-      const dogWon = !favoriteWon;
-      const dogProfit = bandProfitUnits(row.underdog_ml, dogWon) ?? 0;
-      const favoriteProfit = toNumber(row.favorite_ml_unit_pl) ?? 0;
-
-      g.sample_size += 1;
-      g.favorite_wins += favoriteWon ? 1 : 0;
-      g.favorite_losses += favoriteWon ? 0 : 1;
-      g.favorite_units += favoriteProfit;
-      g.dog_wins += dogWon ? 1 : 0;
-      g.dog_losses += dogWon ? 0 : 1;
-      g.dog_units += dogProfit;
-    }
-
-    const rowsOut = [...groups.values()].map((g) => ({
-      ...g,
-      dog_win_pct: g.sample_size ? (100 * g.dog_wins) / g.sample_size : null,
-      dog_roi_pct: g.sample_size ? (100 * g.dog_units) / g.sample_size : null,
-      favorite_win_pct: g.sample_size ? (100 * g.favorite_wins) / g.sample_size : null,
-      favorite_roi_pct: g.sample_size ? (100 * g.favorite_units) / g.sample_size : null,
-      counterpart_share_pct: 0
-    }));
-
-    const totalsByDogBand = rowsOut.reduce((acc, row) => {
-      acc[row.dog_ml_band] = (acc[row.dog_ml_band] || 0) + row.sample_size;
-      return acc;
-    }, {});
-
-    for (const row of rowsOut) {
-      const total = totalsByDogBand[row.dog_ml_band] || 0;
-      row.counterpart_share_pct = total ? (100 * row.sample_size) / total : null;
-    }
-
-    return rowsOut.sort((a, b) => {
-      const dogCompare = sortFavoriteBand(a.dog_ml_band.replace('+', '-').replace('dog', 'favorite'), b.dog_ml_band.replace('+', '-').replace('dog', 'favorite'));
-      if (dogCompare !== 0) return dogCompare;
-      return (b.counterpart_share_pct || 0) - (a.counterpart_share_pct || 0);
-    });
-  }
-
-  function aggregateSpread(rows, scope) {
-    const filtered = scopeRows(rows, scope);
-    const groups = new Map();
-
-    for (const row of filtered) {
-      const favoriteBand = row.favorite_ml_band || 'Unknown';
-      const spreadBand = row.favorite_spread_band || classifySpreadBand(row.favorite_spread);
-      const key = `${favoriteBand}__${spreadBand}`;
-      if (!groups.has(key)) {
-        groups.set(key, {
-          sport: row.sport,
-          location_scope: scope,
-          favorite_ml_band: favoriteBand,
-          favorite_spread_band: spreadBand,
-          sample_size: 0,
-          wins: 0,
-          losses: 0,
-          su_units: 0,
-          spread_share_pct: 0
-        });
-      }
-
-      const g = groups.get(key);
-      const won = !!row.favorite_won_su;
-      g.sample_size += 1;
-      g.wins += won ? 1 : 0;
-      g.losses += won ? 0 : 1;
-      g.su_units += toNumber(row.favorite_ml_unit_pl) ?? 0;
-    }
-
-    const out = [...groups.values()].map((g) => ({
-      ...g,
-      roi_pct: g.sample_size ? (100 * g.su_units) / g.sample_size : null
-    }));
-
-    const totalsByBand = out.reduce((acc, row) => {
-      acc[row.favorite_ml_band] = (acc[row.favorite_ml_band] || 0) + row.sample_size;
-      return acc;
-    }, {});
-
-    for (const row of out) {
-      const total = totalsByBand[row.favorite_ml_band] || 0;
-      row.spread_share_pct = total ? (100 * row.sample_size) / total : null;
-    }
-
-    return out.sort((a, b) => {
-      const bandOrder = sortFavoriteBand(a.favorite_ml_band, b.favorite_ml_band);
-      if (bandOrder !== 0) return bandOrder;
-      const spreadOrder = sortSpreadBand(a.favorite_spread_band, b.favorite_spread_band);
-      if (spreadOrder !== 0) return spreadOrder;
-      return (b.sample_size || 0) - (a.sample_size || 0);
-    });
-  }
-
-  async function getPregameRows(sport) {
-    const cached = state.cache.pregameRowsBySport[sport];
-    if (cached && (Date.now() - cached.fetchedAt) < POLL_MS) {
-      return cached.rows;
-    }
-
-    const viewName = sport === 'nba' ? 'vw_nba_pregame_band_study' : 'vw_nhl_pregame_band_study';
-    const rows = await fetchAllRows(`${viewName}?select=sport,match_id,start_time,home_team,away_team,home_ml,away_ml,spread,total,favorite_side,favorite_ml,underdog_ml,favorite_ml_band,dog_ml_band,favorite_spread,favorite_spread_band,favorite_location,dog_location,final_margin,favorite_won_su,favorite_covered_ats,favorite_ats_push,favorite_ml_unit_pl,favorite_ats_price,favorite_ats_unit_pl&order=start_time.asc`);
-
-    state.cache.pregameRowsBySport[sport] = { rows, fetchedAt: Date.now() };
-    return rows;
-  }
-
-  async function getNhlTotalsCore() {
-    const cached = state.cache.nhlTotals;
-    if (cached && (Date.now() - cached.fetchedAt) < POLL_MS) {
-      return cached.rows;
-    }
-
-    try {
-      const rows = await fetchJson('vw_nhl_total_core_map?select=total_line,sample_size,over_wins,over_losses,over_pushes,over_roi_pct,under_wins,under_losses,under_pushes,under_roi_pct&order=total_line.asc');
-      state.cache.nhlTotals = { rows, fetchedAt: Date.now() };
       return rows;
-    } catch (_) {
-      // Fallback to direct aggregation from postgame rows.
     }
 
-    const postgameRows = await fetchAllRows('nhl_postgame?select=id,dk_total,dk_over_price,dk_under_price,home_score,away_score,start_time&and=(id.like.%25_nhl,home_score.not.is.null,away_score.not.is.null,dk_total.not.is.null)&order=start_time.asc');
-
-    const groups = new Map();
-    for (const row of postgameRows) {
-      const line = toNumber(row.dk_total);
-      if (line === null || ![4.5, 5.5, 6.5].includes(line)) continue;
-
-      const key = String(line);
-      if (!groups.has(key)) {
-        groups.set(key, {
-          total_line: line,
-          sample_size: 0,
-          over_wins: 0,
-          over_losses: 0,
-          over_pushes: 0,
-          over_units: 0,
-          under_wins: 0,
-          under_losses: 0,
-          under_pushes: 0,
-          under_units: 0
-        });
-      }
-
-      const g = groups.get(key);
-      const home = toNumber(row.home_score) ?? 0;
-      const away = toNumber(row.away_score) ?? 0;
-      const finalTotal = home + away;
-      const overPrice = toNumber(row.dk_over_price);
-      const underPrice = toNumber(row.dk_under_price);
-
-      g.sample_size += 1;
-      if (finalTotal > line) {
-        g.over_wins += 1;
-        g.under_losses += 1;
-        g.over_units += bandProfitUnits(overPrice, true) ?? 0;
-        g.under_units += bandProfitUnits(underPrice, false) ?? 0;
-      } else if (finalTotal < line) {
-        g.over_losses += 1;
-        g.under_wins += 1;
-        g.over_units += bandProfitUnits(overPrice, false) ?? 0;
-        g.under_units += bandProfitUnits(underPrice, true) ?? 0;
-      } else {
-        g.over_pushes += 1;
-        g.under_pushes += 1;
-      }
+    function scopeRows(rows, scope) {
+      if (scope === 'home') return rows.filter((row) => row.favorite_location === 'home');
+      if (scope === 'road') return rows.filter((row) => row.favorite_location === 'road');
+      return rows;
     }
 
-    const rows = [...groups.values()]
-      .sort((a, b) => a.total_line - b.total_line)
-      .map((g) => ({
-        total_line: g.total_line,
-        sample_size: g.sample_size,
-        over_wins: g.over_wins,
-        over_losses: g.over_losses,
-        over_pushes: g.over_pushes,
-        over_win_pct: (g.over_wins + g.over_losses) ? (100 * g.over_wins) / (g.over_wins + g.over_losses) : null,
-        over_roi_pct: g.sample_size ? (100 * g.over_units) / g.sample_size : null,
-        under_wins: g.under_wins,
-        under_losses: g.under_losses,
-        under_pushes: g.under_pushes,
-        under_win_pct: (g.under_wins + g.under_losses) ? (100 * g.under_wins) / (g.under_wins + g.under_losses) : null,
-        under_roi_pct: g.sample_size ? (100 * g.under_units) / g.sample_size : null
+    function aggregatePregame(rows, scope) {
+      const filtered = scopeRows(rows, scope);
+      const groups = new Map();
+
+      for (const row of filtered) {
+        const band = normalizeFavoriteBand(row.favorite_ml_band);
+        if (!groups.has(band)) {
+          groups.set(band, {
+            band,
+            sample_size: 0,
+            wins: 0,
+            losses: 0,
+            pushes: 0,
+            su_units: 0,
+            ats_wins: 0,
+            ats_losses: 0,
+            ats_pushes: 0,
+            ats_sample: 0,
+            ats_priced_sample: 0,
+            ats_units: 0
+          });
+        }
+
+        const g = groups.get(band);
+        const won = !!row.favorite_won_su;
+        const mlUnits = toNumber(row.favorite_ml_unit_pl) ?? 0;
+        const atsWon = row.favorite_covered_ats === true;
+        const atsPush = row.favorite_ats_push === true;
+        const atsKnown = row.favorite_covered_ats !== null || row.favorite_ats_push !== null;
+        const atsUnits = toNumber(row.favorite_ats_unit_pl);
+
+        g.sample_size += 1;
+        g.wins += won ? 1 : 0;
+        g.losses += won ? 0 : 1;
+        g.su_units += mlUnits;
+
+        if (atsKnown) {
+          g.ats_sample += 1;
+          if (atsPush) g.ats_pushes += 1;
+          else if (atsWon) g.ats_wins += 1;
+          else g.ats_losses += 1;
+        }
+
+        if (atsUnits !== null) {
+          g.ats_priced_sample += 1;
+          g.ats_units += atsUnits;
+        }
+      }
+
+      return [...groups.values()]
+        .map((g) => ({
+          ...g,
+          win_rate_pct: g.sample_size ? (100 * g.wins) / g.sample_size : null,
+          roi_pct: g.sample_size ? (100 * g.su_units) / g.sample_size : null,
+          ats_win_pct: (g.ats_wins + g.ats_losses) ? (100 * g.ats_wins) / (g.ats_wins + g.ats_losses) : null,
+          ats_roi_pct: g.ats_priced_sample ? (100 * g.ats_units) / g.ats_priced_sample : null
+        }))
+        .sort((a, b) => sortFavoriteBand(a.band, b.band));
+    }
+
+    function aggregateCounterpart(rows, scope) {
+      const filtered = scopeRows(rows, scope);
+      const groups = new Map();
+
+      for (const row of filtered) {
+        const dogBand = normalizeDogBand(row.dog_ml_band);
+        const counterpartBand = normalizeFavoriteBand(row.favorite_ml_band);
+        const key = `${dogBand}__${counterpartBand}`;
+        if (!groups.has(key)) {
+          groups.set(key, {
+            dog_ml_band: dogBand,
+            counterpart_band: counterpartBand,
+            sample_size: 0,
+            dog_wins: 0,
+            dog_losses: 0,
+            dog_units: 0,
+            favorite_wins: 0,
+            favorite_losses: 0,
+            favorite_units: 0
+          });
+        }
+
+        const g = groups.get(key);
+        const favoriteWon = !!row.favorite_won_su;
+        const dogWon = !favoriteWon;
+
+        g.sample_size += 1;
+        g.favorite_wins += favoriteWon ? 1 : 0;
+        g.favorite_losses += favoriteWon ? 0 : 1;
+        g.favorite_units += toNumber(row.favorite_ml_unit_pl) ?? 0;
+        g.dog_wins += dogWon ? 1 : 0;
+        g.dog_losses += dogWon ? 0 : 1;
+        g.dog_units += bandProfitUnits(row.underdog_ml, dogWon) ?? 0;
+      }
+
+      const out = [...groups.values()].map((g) => ({
+        ...g,
+        dog_roi_pct: g.sample_size ? (100 * g.dog_units) / g.sample_size : null,
+        favorite_roi_pct: g.sample_size ? (100 * g.favorite_units) / g.sample_size : null
       }));
 
-    state.cache.nhlTotals = { rows, fetchedAt: Date.now() };
-    return rows;
-  }
+      const totalsByDog = out.reduce((acc, row) => {
+        acc[row.dog_ml_band] = (acc[row.dog_ml_band] || 0) + row.sample_size;
+        return acc;
+      }, {});
 
-  function filterIds(ids) {
-    return ids.filter(Boolean).filter((id, idx, arr) => arr.indexOf(id) === idx);
-  }
+      for (const row of out) {
+        const total = totalsByDog[row.dog_ml_band] || 0;
+        row.counterpart_share_pct = total ? (100 * row.sample_size) / total : null;
+      }
 
-  async function fetchRowsByIds(table, ids, selectClause, extraFilters = '') {
-    const cleanIds = filterIds(ids);
-    if (!cleanIds.length) return [];
-
-    const chunks = [];
-    const chunkSize = 40;
-    for (let i = 0; i < cleanIds.length; i += chunkSize) {
-      chunks.push(cleanIds.slice(i, i + chunkSize));
+      return out.sort((a, b) => {
+        if (a.dog_ml_band === b.dog_ml_band) {
+          return (b.counterpart_share_pct || 0) - (a.counterpart_share_pct || 0);
+        }
+        return String(a.dog_ml_band).localeCompare(String(b.dog_ml_band));
+      });
     }
 
-    const out = [];
-    for (const chunk of chunks) {
-      const inFilter = `id=in.(${chunk.join(',')})`;
-      const base = `${table}?select=${selectClause}&${inFilter}${extraFilters ? `&${extraFilters}` : ''}`;
-      const rows = await fetchAllRows(base);
-      out.push(...rows);
-    }
-    return out;
-  }
+    async function getPregameRows(sport) {
+      const cached = state.cache.pregameRowsBySport[sport];
+      if (cached && (Date.now() - cached.fetchedAt) < POLL_MS) {
+        return cached.rows;
+      }
 
-  async function fetchSnapshotsByMatchIds(ids, sport) {
-    const cleanIds = filterIds(ids);
-    if (!cleanIds.length) return [];
-
-    const chunks = [];
-    const chunkSize = 25;
-    for (let i = 0; i < cleanIds.length; i += chunkSize) {
-      chunks.push(cleanIds.slice(i, i + chunkSize));
+      const viewName = sport === 'nba' ? 'vw_nba_pregame_band_study' : 'vw_nhl_pregame_band_study';
+      const rows = await fetchAllRows(`${viewName}?select=sport,match_id,start_time,home_team,away_team,favorite_ml_band,dog_ml_band,favorite_location,favorite_won_su,favorite_ml_unit_pl,favorite_covered_ats,favorite_ats_push,favorite_ats_unit_pl,underdog_ml&order=start_time.asc`);
+      state.cache.pregameRowsBySport[sport] = { rows, fetchedAt: Date.now() };
+      return rows;
     }
 
-    const out = [];
-    for (const chunk of chunks) {
-      const filter = `match_id=in.(${chunk.join(',')})`;
-      const base = `live_odds_snapshots?select=match_id,captured_at,home_ml,away_ml,spread_home,total,period,clock&league_id=eq.${sport}&is_live=eq.true&home_ml=not.is.null&away_ml=not.is.null&${filter}&order=match_id.asc,captured_at.asc`;
-      const rows = await fetchAllRows(base);
-      out.push(...rows);
+    function filterIds(ids) {
+      return ids.filter(Boolean).filter((id, idx, arr) => arr.indexOf(id) === idx);
     }
-    return out;
-  }
 
-  function aggregateLive(entries, scope, sport) {
-    const filtered = scopeRows(entries, scope);
-    const groups = new Map();
+    async function fetchRowsByIds(table, ids, selectClause, extraFilters = '') {
+      const cleanIds = filterIds(ids);
+      if (!cleanIds.length) return [];
 
-    for (const row of filtered) {
-      const band = row.band;
-      if (!groups.has(band)) {
-        groups.set(band, {
-          sport,
-          study_type: 'live',
-          location_scope: scope,
-          band,
-          sample_size: 0,
-          wins: 0,
-          losses: 0,
-          pushes: 0,
-          units: 0,
-          first_entry_at: row.live_entry_at,
-          last_entry_at: row.live_entry_at,
-          trigger_description: 'first_live_snapshot_after_start'
+      const chunks = [];
+      const chunkSize = 40;
+      for (let i = 0; i < cleanIds.length; i += chunkSize) {
+        chunks.push(cleanIds.slice(i, i + chunkSize));
+      }
+
+      const out = [];
+      for (const chunk of chunks) {
+        const inFilter = `id=in.(${chunk.join(',')})`;
+        const path = `${table}?select=${selectClause}&${inFilter}${extraFilters ? `&${extraFilters}` : ''}`;
+        const rows = await fetchAllRows(path);
+        out.push(...rows);
+      }
+
+      return out;
+    }
+
+    async function fetchSnapshotsByMatchIds(ids, sport) {
+      const cleanIds = filterIds(ids);
+      if (!cleanIds.length) return [];
+
+      const chunks = [];
+      const chunkSize = 25;
+      for (let i = 0; i < cleanIds.length; i += chunkSize) {
+        chunks.push(cleanIds.slice(i, i + chunkSize));
+      }
+
+      const out = [];
+      for (const chunk of chunks) {
+        const filter = `match_id=in.(${chunk.join(',')})`;
+        const base = `live_odds_snapshots?select=match_id,captured_at,home_ml,away_ml&period,clock&league_id=eq.${sport}&is_live=eq.true&home_ml=not.is.null&away_ml=not.is.null&${filter}&order=match_id.asc,captured_at.asc`;
+        const rows = await fetchAllRows(base);
+        out.push(...rows);
+      }
+      return out;
+    }
+
+    function aggregateLive(entries, scope) {
+      const filtered = scopeRows(entries, scope);
+      const groups = new Map();
+
+      for (const row of filtered) {
+        const band = normalizeFavoriteBand(row.band);
+        if (!groups.has(band)) {
+          groups.set(band, {
+            band,
+            sample_size: 0,
+            wins: 0,
+            losses: 0,
+            pushes: 0,
+            units: 0
+          });
+        }
+
+        const g = groups.get(band);
+        g.sample_size += 1;
+        g.wins += row.favorite_won_su ? 1 : 0;
+        g.losses += row.favorite_won_su ? 0 : 1;
+        g.units += row.favorite_profit ?? 0;
+      }
+
+      return [...groups.values()]
+        .map((g) => ({
+          ...g,
+          win_rate_pct: g.sample_size ? (100 * g.wins) / g.sample_size : null,
+          roi_pct: g.sample_size ? (100 * g.units) / g.sample_size : null
+        }))
+        .sort((a, b) => sortFavoriteBand(a.band, b.band));
+    }
+
+    async function getLiveAggregates(sport, scope) {
+      const cached = state.cache.liveEntriesBySport[sport];
+      if (cached && (Date.now() - cached.fetchedAt) < POLL_MS) {
+        return aggregateLive(cached.entries, scope);
+      }
+
+      const coverageRows = await fetchAllRows(`vw_live_pipeline_coverage?select=match_id,league_id,final,has_live_odds_snapshot&league_id=eq.${sport}&final=is.true&has_live_odds_snapshot=is.true`);
+      const matchIds = filterIds(coverageRows.map((row) => row.match_id));
+      if (!matchIds.length) {
+        state.cache.liveEntriesBySport[sport] = { entries: [], fetchedAt: Date.now() };
+        return [];
+      }
+
+      const sportConfig = SPORT_CONFIG[sport];
+      const postgameRows = await fetchRowsByIds(
+        sportConfig.table,
+        matchIds,
+        'id,start_time,home_score,away_score',
+        `and=(id.like.%25_${sportConfig.suffix},home_score.not.is.null,away_score.not.is.null)`
+      );
+      const snapshots = await fetchSnapshotsByMatchIds(matchIds, sport);
+      const postgameById = new Map(postgameRows.map((row) => [row.id, row]));
+      const firstByMatch = new Map();
+
+      for (const snap of snapshots) {
+        if (firstByMatch.has(snap.match_id)) continue;
+        const game = postgameById.get(snap.match_id);
+        if (!game) continue;
+
+        const captured = new Date(snap.captured_at).getTime();
+        const start = new Date(game.start_time).getTime();
+        if (!Number.isFinite(captured) || !Number.isFinite(start) || captured < start) continue;
+        firstByMatch.set(snap.match_id, snap);
+      }
+
+      const entries = [];
+      for (const [matchId, snap] of firstByMatch.entries()) {
+        const game = postgameById.get(matchId);
+        if (!game) continue;
+
+        const homeMl = toNumber(snap.home_ml);
+        const awayMl = toNumber(snap.away_ml);
+        const homeScore = toNumber(game.home_score);
+        const awayScore = toNumber(game.away_score);
+        if (homeMl === null || awayMl === null || homeScore === null || awayScore === null) continue;
+
+        const favoriteIsHome = homeMl <= awayMl;
+        const favoriteMl = favoriteIsHome ? homeMl : awayMl;
+        const favoriteWonSu = favoriteIsHome ? homeScore > awayScore : awayScore > homeScore;
+
+        entries.push({
+          match_id: matchId,
+          favorite_location: favoriteIsHome ? 'home' : 'road',
+          band: classifyFavoriteMlBand(favoriteMl),
+          favorite_won_su: favoriteWonSu,
+          favorite_profit: bandProfitUnits(favoriteMl, favoriteWonSu)
         });
       }
 
-      const g = groups.get(band);
-      g.sample_size += 1;
-      g.wins += row.favorite_won_su ? 1 : 0;
-      g.losses += row.favorite_won_su ? 0 : 1;
-      g.units += row.favorite_profit ?? 0;
-      if (new Date(row.live_entry_at) < new Date(g.first_entry_at)) g.first_entry_at = row.live_entry_at;
-      if (new Date(row.live_entry_at) > new Date(g.last_entry_at)) g.last_entry_at = row.live_entry_at;
+      state.cache.liveEntriesBySport[sport] = { entries, fetchedAt: Date.now() };
+      return aggregateLive(entries, scope);
     }
 
-    return [...groups.values()]
-      .map((g) => ({
-        ...g,
-        win_rate_pct: g.sample_size ? (100 * g.wins) / g.sample_size : null,
-        roi_pct: g.sample_size ? (100 * g.units) / g.sample_size : null
-      }))
-      .sort((a, b) => sortFavoriteBand(a.band, b.band));
-  }
+    function sortRows(rows) {
+      const sorted = [...rows];
+      if (state.sort === 'sample_desc') {
+        sorted.sort((a, b) => (Number(b.sample_size) || 0) - (Number(a.sample_size) || 0));
+        return sorted;
+      }
 
-  async function getLiveAggregates(sport, scope) {
-    const cached = state.cache.liveEntriesBySport[sport];
-    if (cached && (Date.now() - cached.fetchedAt) < POLL_MS) {
-      return aggregateLive(cached.entries, scope, sport);
-    }
-
-    const coverageRows = await fetchAllRows(`vw_live_pipeline_coverage?select=match_id,league_id,start_time,final,has_live_odds_snapshot&league_id=eq.${sport}&final=is.true&has_live_odds_snapshot=is.true&order=start_time.asc`);
-    const matchIds = filterIds(coverageRows.map((row) => row.match_id));
-
-    if (!matchIds.length) {
-      state.cache.liveEntriesBySport[sport] = { entries: [], fetchedAt: Date.now() };
-      return [];
-    }
-
-    const sportConfig = SPORT_CONFIG[sport];
-    const postgameRows = await fetchRowsByIds(
-      sportConfig.table,
-      matchIds,
-      'id,start_time,home_team,away_team,home_score,away_score',
-      `and=(id.like.%25_${sportConfig.suffix},home_score.not.is.null,away_score.not.is.null)`
-    );
-    const snapshots = await fetchSnapshotsByMatchIds(matchIds, sport);
-
-    const postgameById = new Map(postgameRows.map((row) => [row.id, row]));
-    const firstSnapshotByMatch = new Map();
-
-    for (const snap of snapshots) {
-      if (firstSnapshotByMatch.has(snap.match_id)) continue;
-      const game = postgameById.get(snap.match_id);
-      if (!game) continue;
-
-      const captured = new Date(snap.captured_at).getTime();
-      const start = new Date(game.start_time).getTime();
-      if (!Number.isFinite(captured) || !Number.isFinite(start) || captured < start) continue;
-
-      firstSnapshotByMatch.set(snap.match_id, snap);
-    }
-
-    const entries = [];
-    for (const [matchId, snap] of firstSnapshotByMatch.entries()) {
-      const game = postgameById.get(matchId);
-      if (!game) continue;
-
-      const homeMl = toNumber(snap.home_ml);
-      const awayMl = toNumber(snap.away_ml);
-      const homeScore = toNumber(game.home_score);
-      const awayScore = toNumber(game.away_score);
-      if (homeMl === null || awayMl === null || homeScore === null || awayScore === null) continue;
-
-      const favoriteIsHome = homeMl <= awayMl;
-      const favoriteMl = favoriteIsHome ? homeMl : awayMl;
-      const favoriteWonSu = favoriteIsHome ? homeScore > awayScore : awayScore > homeScore;
-      const favoriteLocation = favoriteIsHome ? 'home' : 'road';
-
-      entries.push({
-        sport,
-        match_id: matchId,
-        live_entry_at: snap.captured_at,
-        favorite_location: favoriteLocation,
-        band: classifyFavoriteMlBand(favoriteMl),
-        favorite_won_su: favoriteWonSu,
-        favorite_profit: bandProfitUnits(favoriteMl, favoriteWonSu),
-        period: snap.period,
-        clock: snap.clock,
-        spread: snap.spread_home,
-        total: snap.total
-      });
-    }
-
-    state.cache.liveEntriesBySport[sport] = { entries, fetchedAt: Date.now() };
-    return aggregateLive(entries, scope, sport);
-  }
-
-  async function getCoverageStatus() {
-    const cached = state.cache.coverage;
-    if (cached && (Date.now() - cached.fetchedAt) < POLL_MS) {
-      return cached.rows;
-    }
-
-    const sports = ['nba', 'nhl', 'mlb'];
-    const rows = [];
-
-    const pregameStudyCounts = {};
-    for (const sport of sports) {
-      pregameStudyCounts[sport] = await fetchCount(`vw_pregame_band_study_all?select=match_id&sport=eq.${sport}&limit=1`);
-    }
-
-    for (const sport of sports) {
-      const cfg = SPORT_CONFIG[sport];
-      const baseFinal = `and=(id.like.%25_${cfg.suffix},home_score.not.is.null,away_score.not.is.null)`;
-      const withMl = `and=(id.like.%25_${cfg.suffix},home_score.not.is.null,away_score.not.is.null,dk_home_ml.not.is.null,dk_away_ml.not.is.null)`;
-      const withSpread = `${withMl.slice(0, -1)},dk_spread.not.is.null)`;
-      const withTotal = `${withSpread.slice(0, -1)},dk_total.not.is.null)`;
-
-      const totalFinal = await fetchCount(`${cfg.table}?select=id&${baseFinal}&limit=1`);
-      const usableMl = await fetchCount(`${cfg.table}?select=id&${withMl}&limit=1`);
-      const usableSpread = await fetchCount(`${cfg.table}?select=id&${withSpread}&limit=1`);
-      const usableTotal = await fetchCount(`${cfg.table}?select=id&${withTotal}&limit=1`);
-      const liveSnapshotGames = await fetchCount(`vw_live_pipeline_coverage?select=match_id&league_id=eq.${sport}&final=is.true&has_live_odds_snapshot=is.true&limit=1`);
-
-      rows.push({
-        sport,
-        total_final_games: totalFinal,
-        games_with_usable_ml: usableMl,
-        games_with_usable_ml_spread: usableSpread,
-        games_with_usable_ml_spread_total: usableTotal,
-        pregame_study_games: pregameStudyCounts[sport] ?? 0,
-        live_entry_games: liveSnapshotGames,
-        live_snapshot_games: liveSnapshotGames,
-        first_game_at: null,
-        last_game_at: null,
-        latest_live_snapshot_at: null,
-        study_support: (sport === 'nba' || sport === 'nhl') && liveSnapshotGames > 0 ? 'pregame+live' : 'pregame-only',
-        data_quality_note: [
-          totalFinal > usableMl ? 'missing pregame moneyline rows' : null,
-          usableMl > usableSpread ? 'missing spread coverage in usable ML sample' : null,
-          usableSpread > usableTotal ? 'missing total coverage in ML+spread sample' : null,
-          (sport === 'nba' || sport === 'nhl') && liveSnapshotGames === 0 ? 'live-entry sample not available yet' : null,
-          sport === 'mlb' ? 'mlb shown as pregame-only in v1' : null
-        ].filter(Boolean).join('; '),
-        view_refreshed_at: new Date().toISOString()
-      });
-    }
-
-    state.cache.coverage = { rows, fetchedAt: Date.now() };
-    return rows;
-  }
-
-  function applyButtonStates() {
-    document.querySelectorAll('[data-sport]').forEach((btn) => btn.classList.toggle('active', btn.dataset.sport === state.sport));
-    document.querySelectorAll('[data-study]').forEach((btn) => btn.classList.toggle('active', btn.dataset.study === state.study));
-    document.querySelectorAll('[data-scope]').forEach((btn) => btn.classList.toggle('active', btn.dataset.scope === state.locationScope));
-    document.querySelectorAll('[data-sort]').forEach((btn) => btn.classList.toggle('active', btn.dataset.sort === state.sort));
-  }
-
-  function sortRows(rows) {
-    const copy = [...rows];
-    if (state.sort === 'sample_desc') {
-      copy.sort((a, b) => (Number(b.sample_size) || 0) - (Number(a.sample_size) || 0));
-    } else {
-      copy.sort((a, b) => {
+      sorted.sort((a, b) => {
         const br = Number(b.roi_pct);
         const ar = Number(a.roi_pct);
         if (!Number.isNaN(br) && !Number.isNaN(ar) && br !== ar) return br - ar;
         return (Number(b.sample_size) || 0) - (Number(a.sample_size) || 0);
       });
-    }
-    return copy;
-  }
-
-  function computeKpis(activeRows, counterpartRows, coverageRow) {
-    const qualified = activeRows.filter((row) => Number(row.sample_size) >= 10 && row.roi_pct !== null && row.roi_pct !== undefined);
-    const strongest = [...qualified].sort((a, b) => Number(b.roi_pct) - Number(a.roi_pct))[0] || null;
-    const weakest = [...qualified].sort((a, b) => Number(a.roi_pct) - Number(b.roi_pct))[0] || null;
-
-    const mismatch = [...counterpartRows]
-      .filter((row) => Number(row.sample_size) >= 8)
-      .map((row) => ({ ...row, diff: Math.abs(Number(row.dog_roi_pct || 0) - Number(row.favorite_roi_pct || 0)) }))
-      .sort((a, b) => b.diff - a.diff)[0] || null;
-
-    const coverageText = coverageRow ? `${coverageRow.games_with_usable_ml}/${coverageRow.total_final_games} ML-covered finals` : '—';
-    return { strongest, weakest, mismatch, coverageText };
-  }
-
-  function renderKpiStrip() {
-    const activeRows = state.study === 'pregame' ? state.data.pregame : state.data.live;
-    const coverageRow = state.data.coverage.find((row) => row.sport === state.sport) || null;
-    const kpis = computeKpis(activeRows, state.data.counterpart, coverageRow);
-
-    const strongestValue = kpis.strongest ? `${kpis.strongest.band} · ${formatRoi(kpis.strongest.roi_pct)}` : 'No qualified band';
-    const strongestSub = kpis.strongest ? `${formatRecord(kpis.strongest.wins, kpis.strongest.losses, kpis.strongest.pushes)} · ${kpis.strongest.sample_size} games` : 'Sample < 10';
-
-    const weakestValue = kpis.weakest ? `${kpis.weakest.band} · ${formatRoi(kpis.weakest.roi_pct)}` : 'No qualified band';
-    const weakestSub = kpis.weakest ? `${formatRecord(kpis.weakest.wins, kpis.weakest.losses, kpis.weakest.pushes)} · ${kpis.weakest.sample_size} games` : 'Sample < 10';
-
-    const mismatchValue = kpis.mismatch ? `${kpis.mismatch.dog_ml_band} vs ${kpis.mismatch.counterpart_band}` : 'No mismatch candidate';
-    const mismatchSub = kpis.mismatch ? `Dog ${formatRoi(kpis.mismatch.dog_roi_pct)} · Fav ${formatRoi(kpis.mismatch.favorite_roi_pct)} · ${kpis.mismatch.sample_size} games` : 'Need sample >= 8';
-
-    const coverageValue = coverageRow ? coverageRow.study_support : 'Coverage unavailable';
-
-    els.kpiStrip.innerHTML = `
-      <div class="kpi">
-        <div class="label">Strongest Band</div>
-        <div class="value">${strongestValue}</div>
-        <div class="sub">${strongestSub}</div>
-      </div>
-      <div class="kpi">
-        <div class="label">Weakest Band</div>
-        <div class="value">${weakestValue}</div>
-        <div class="sub">${weakestSub}</div>
-      </div>
-      <div class="kpi">
-        <div class="label">Best Counterpart Mismatch</div>
-        <div class="value">${mismatchValue}</div>
-        <div class="sub">${mismatchSub}</div>
-      </div>
-      <div class="kpi">
-        <div class="label">Sample Coverage</div>
-        <div class="value">${coverageValue}</div>
-        <div class="sub">${kpis.coverageText}</div>
-      </div>
-    `;
-  }
-
-  function renderBandTable() {
-    const rows = sortRows(state.study === 'pregame' ? state.data.pregame : state.data.live);
-    const accentClass = SPORT_CONFIG[state.sport]?.accentClass || '';
-    const studyLabel = state.study === 'pregame' ? 'Pregame Band Map' : 'Live Band Map';
-    els.bandTableTitle.innerHTML = `${studyLabel} · <span class="${accentClass}">${state.sport.toUpperCase()}</span>`;
-    els.bandLegend.textContent = `${state.locationScope.toUpperCase()} Favs`;
-
-    if (!rows.length) {
-      const msg = state.study === 'live' ? 'Live study rows unavailable. This appears when live-entry support is partial.' : 'No rows found for this filter.';
-      els.bandTableBody.innerHTML = `<tr><td class="empty" colspan="8">${msg}</td></tr>`;
-      return;
+      return sorted;
     }
 
-    els.bandTableBody.innerHTML = rows.map((row) => {
-      const roi = Number(row.roi_pct);
-      const atsRoi = Number(row.ats_roi_pct);
-      const roiClass = Number.isNaN(roi) ? 'muted' : roi >= 0 ? 'good' : 'bad';
-      const atsRoiClass = Number.isNaN(atsRoi) ? 'muted' : atsRoi >= 0 ? 'good' : 'bad';
-      const atsRecord = row.ats_sample ? formatRecord(row.ats_wins, row.ats_losses, row.ats_pushes) : '—';
+    function dogBandSummary(counterpartRows) {
+      const grouped = {};
+      for (const row of counterpartRows) {
+        if (!grouped[row.dog_ml_band]) {
+          grouped[row.dog_ml_band] = {
+            dog_ml_band: row.dog_ml_band,
+            sample_size: 0,
+            weighted_dog_roi: 0,
+            weighted_favorite_roi: 0
+          };
+        }
+        const g = grouped[row.dog_ml_band];
+        const sample = Number(row.sample_size) || 0;
+        g.sample_size += sample;
+        g.weighted_dog_roi += (Number(row.dog_roi_pct) || 0) * sample;
+        g.weighted_favorite_roi += (Number(row.favorite_roi_pct) || 0) * sample;
+      }
 
-      return `
-        <tr>
-          <td class="txt">${row.band}</td>
-          <td>${row.sample_size}</td>
-          <td>${formatRecord(row.wins, row.losses, row.pushes)}</td>
-          <td>${formatPct(row.win_rate_pct)}</td>
-          <td class="${roiClass}">${formatRoi(row.roi_pct)}</td>
-          <td>${state.study === 'pregame' ? atsRecord : '—'}</td>
-          <td>${state.study === 'pregame' ? formatPct(row.ats_win_pct) : '—'}</td>
-          <td class="${state.study === 'pregame' ? atsRoiClass : 'muted'}">${state.study === 'pregame' ? formatRoi(row.ats_roi_pct) : '—'}</td>
-        </tr>
-      `;
-    }).join('');
-  }
-
-  function renderCounterpartMap() {
-    const rows = [...state.data.counterpart].sort((a, b) => {
-      if (a.dog_ml_band === b.dog_ml_band) return Number(b.counterpart_share_pct || 0) - Number(a.counterpart_share_pct || 0);
-      return String(a.dog_ml_band).localeCompare(String(b.dog_ml_band));
-    });
-
-    if (!rows.length) {
-      els.counterpartBody.innerHTML = `<div class="empty">No counterpart rows for this sport and location scope.</div>`;
-      return;
+      return Object.values(grouped).map((g) => ({
+        dog_ml_band: g.dog_ml_band,
+        sample_size: g.sample_size,
+        dog_roi_pct: g.sample_size ? g.weighted_dog_roi / g.sample_size : null,
+        favorite_roi_pct: g.sample_size ? g.weighted_favorite_roi / g.sample_size : null
+      }));
     }
 
-    const groups = rows.reduce((acc, row) => {
-      if (!acc[row.dog_ml_band]) acc[row.dog_ml_band] = [];
-      acc[row.dog_ml_band].push(row);
-      return acc;
-    }, {});
+    function renderSummary() {
+      const activeRows = state.study === 'pregame' ? state.data.pregame : state.data.live;
+      const qualified = activeRows.filter((row) => Number(row.sample_size) >= 10 && row.roi_pct !== null && row.roi_pct !== undefined);
+      const strongest = [...qualified].sort((a, b) => Number(b.roi_pct) - Number(a.roi_pct))[0] || null;
+      const weakest = [...qualified].sort((a, b) => Number(a.roi_pct) - Number(b.roi_pct))[0] || null;
 
-    const html = Object.entries(groups).map(([dogBand, items]) => {
-      const sample = items.reduce((sum, item) => sum + Number(item.sample_size || 0), 0);
-      const top = items[0];
-      const weightedDogRoi = items.reduce((sum, item) => sum + Number(item.dog_roi_pct || 0) * Number(item.sample_size || 0), 0) / (sample || 1);
-      const weightedFavRoi = items.reduce((sum, item) => sum + Number(item.favorite_roi_pct || 0) * Number(item.sample_size || 0), 0) / (sample || 1);
-      const roiDelta = weightedDogRoi - weightedFavRoi;
+      const dogRows = dogBandSummary(state.data.counterpart)
+        .filter((row) => Number(row.sample_size) >= 10 && row.dog_roi_pct !== null && row.dog_roi_pct !== undefined)
+        .sort((a, b) => Number(b.dog_roi_pct) - Number(a.dog_roi_pct));
+      const bestDog = dogRows[0] || null;
 
-      const detailRows = items.map((item) => {
-        const dogRoiClass = Number(item.dog_roi_pct) >= 0 ? 'good' : 'bad';
-        const favRoiClass = Number(item.favorite_roi_pct) >= 0 ? 'good' : 'bad';
+      els.summaryStrongest.textContent = strongest
+        ? `${strongest.band} · ${formatRecord(strongest.wins, strongest.losses, strongest.pushes)} · ${formatRoi(strongest.roi_pct)} ROI`
+        : 'No range with a usable sample yet.';
+
+      els.summaryWeakest.textContent = weakest
+        ? `${weakest.band} · ${formatRecord(weakest.wins, weakest.losses, weakest.pushes)} · ${formatRoi(weakest.roi_pct)} ROI`
+        : 'No range with a usable sample yet.';
+
+      els.summaryDog.textContent = bestDog
+        ? `${bestDog.dog_ml_band} · ${formatRoi(bestDog.dog_roi_pct)} ROI`
+        : 'No dog range with a usable sample yet.';
+    }
+
+    function renderFavoritesTable() {
+      const rows = sortRows(state.study === 'pregame' ? state.data.pregame : state.data.live);
+      if (!rows.length) {
+        els.favoritesBody.innerHTML = '<tr><td class="empty" colspan="8">No data for this filter.</td></tr>';
+        return;
+      }
+
+      els.favoritesBody.innerHTML = rows.map((row) => {
+        const roiClass = Number(row.roi_pct) >= 0 ? 'roi-pos' : 'roi-neg';
+        const atsRoiClass = Number(row.ats_roi_pct) >= 0 ? 'roi-pos' : 'roi-neg';
+        const showAts = state.study === 'pregame';
         return `
+          <tr>
+            <td class="td-text">${row.band}</td>
+            <td>${row.sample_size}</td>
+            <td>${formatRecord(row.wins, row.losses, row.pushes)}</td>
+            <td>${formatPct(row.win_rate_pct)}</td>
+            <td class="${roiClass}">${formatRoi(row.roi_pct)}</td>
+            <td>${showAts ? formatRecord(row.ats_wins, row.ats_losses, row.ats_pushes) : '—'}</td>
+            <td>${showAts ? formatPct(row.ats_win_pct) : '—'}</td>
+            <td class="${showAts ? atsRoiClass : ''}">${showAts ? formatRoi(row.ats_roi_pct) : '—'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderCounterpartTable() {
+      if (!state.data.counterpart.length) {
+        els.counterpartBody.innerHTML = '<tr><td class="empty" colspan="7">No counterpart data for this filter.</td></tr>';
+        return;
+      }
+
+      const grouped = {};
+      for (const row of state.data.counterpart) {
+        if (!grouped[row.dog_ml_band]) grouped[row.dog_ml_band] = [];
+        grouped[row.dog_ml_band].push(row);
+      }
+
+      const groupRows = Object.entries(grouped).map(([dogBand, items]) => {
+        const sample = items.reduce((sum, item) => sum + Number(item.sample_size || 0), 0);
+        const dogWins = items.reduce((sum, item) => sum + Number(item.dog_wins || 0), 0);
+        const dogLosses = items.reduce((sum, item) => sum + Number(item.dog_losses || 0), 0);
+        const dogRoi = items.reduce((sum, item) => sum + Number(item.dog_roi_pct || 0) * Number(item.sample_size || 0), 0) / (sample || 1);
+        const favRoi = items.reduce((sum, item) => sum + Number(item.favorite_roi_pct || 0) * Number(item.sample_size || 0), 0) / (sample || 1);
+        const top = [...items].sort((a, b) => Number(b.counterpart_share_pct || 0) - Number(a.counterpart_share_pct || 0))[0];
+
+        return {
+          dogBand,
+          sample,
+          dogWins,
+          dogLosses,
+          dogRoi,
+          favRoi,
+          top,
+          items
+        };
+      }).sort((a, b) => b.sample - a.sample);
+
+      const html = groupRows.map((g) => {
+        const open = state.openDogBand === g.dogBand;
+        const detailRows = g.items.map((item) => `
           <tr>
             <td>${item.counterpart_band}</td>
             <td>${formatPct(item.counterpart_share_pct, 2)}</td>
             <td>${item.sample_size}</td>
             <td>${formatRecord(item.dog_wins, item.dog_losses)}</td>
-            <td class="${dogRoiClass}">${formatRoi(item.dog_roi_pct)}</td>
+            <td class="${Number(item.dog_roi_pct) >= 0 ? 'roi-pos' : 'roi-neg'}">${formatRoi(item.dog_roi_pct)}</td>
             <td>${formatRecord(item.favorite_wins, item.favorite_losses)}</td>
-            <td class="${favRoiClass}">${formatRoi(item.favorite_roi_pct)}</td>
+            <td class="${Number(item.favorite_roi_pct) >= 0 ? 'roi-pos' : 'roi-neg'}">${formatRoi(item.favorite_roi_pct)}</td>
           </tr>
+        `).join('');
+
+        return `
+          <tr data-dog-band="${g.dogBand}">
+            <td class="td-text">${g.dogBand}</td>
+            <td>${g.top.counterpart_band} (${formatPct(g.top.counterpart_share_pct, 1)})</td>
+            <td>${formatRecord(g.dogWins, g.dogLosses)}</td>
+            <td class="${g.dogRoi >= 0 ? 'roi-pos' : 'roi-neg'}">${formatRoi(g.dogRoi)}</td>
+            <td class="${g.favRoi >= 0 ? 'roi-pos' : 'roi-neg'}">${formatRoi(g.favRoi)}</td>
+            <td>${g.sample}</td>
+            <td><button class="expand-link" data-expand="${g.dogBand}">${open ? 'Hide' : 'Expand'}</button></td>
+          </tr>
+          ${open ? `
+            <tr class="detail-row">
+              <td colspan="7">
+                <table class="detail-grid">
+                  <thead>
+                    <tr>
+                      <th>Favorite Band</th>
+                      <th>Mix</th>
+                      <th>Sample</th>
+                      <th>Dog SU</th>
+                      <th>Dog ROI</th>
+                      <th>Favorite SU</th>
+                      <th>Favorite ROI</th>
+                    </tr>
+                  </thead>
+                  <tbody>${detailRows}</tbody>
+                </table>
+              </td>
+            </tr>
+          ` : ''}
         `;
       }).join('');
 
-      const openClass = state.openCounterpartDogBand === dogBand ? 'open' : '';
-      return `
-        <div class="counterpart-group ${openClass}" data-dog-band="${dogBand}">
-          <div class="counterpart-row" role="button" tabindex="0">
-            <div class="dog">${dogBand}</div>
-            <div class="mix">Top: ${top.counterpart_band} (${formatPct(top.counterpart_share_pct, 2)})</div>
-            <div class="spread">${sample}</div>
-            <div class="spread ${roiDelta >= 0 ? 'good' : 'bad'}">${formatRoi(roiDelta)}</div>
-            <div class="spread muted">${state.openCounterpartDogBand === dogBand ? 'Hide' : 'Expand'}</div>
-          </div>
-          <div class="counterpart-detail">
-            <table class="detail-grid">
-              <thead>
-                <tr>
-                  <th>Counterpart</th>
-                  <th>Mix</th>
-                  <th>Sample</th>
-                  <th>Dog SU</th>
-                  <th>Dog ROI</th>
-                  <th>Fav SU</th>
-                  <th>Fav ROI</th>
-                </tr>
-              </thead>
-              <tbody>${detailRows}</tbody>
-            </table>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    els.counterpartBody.innerHTML = html;
-
-    els.counterpartBody.querySelectorAll('.counterpart-group .counterpart-row').forEach((rowEl) => {
-      const dogBand = rowEl.parentElement.getAttribute('data-dog-band');
-      const toggle = () => {
-        state.openCounterpartDogBand = state.openCounterpartDogBand === dogBand ? null : dogBand;
-        renderCounterpartMap();
-      };
-      rowEl.addEventListener('click', toggle);
-      rowEl.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          toggle();
-        }
+      els.counterpartBody.innerHTML = html;
+      els.counterpartBody.querySelectorAll('[data-expand]').forEach((el) => {
+        el.addEventListener('click', () => {
+          const band = el.getAttribute('data-expand');
+          state.openDogBand = state.openDogBand === band ? null : band;
+          renderCounterpartTable();
+        });
       });
-    });
-  }
-
-  function renderSpreadDistribution() {
-    const rows = state.data.spread;
-    if (!rows.length) {
-      els.spreadBody.innerHTML = `<tr><td class="empty" colspan="6">Spread distribution unavailable for this filter.</td></tr>`;
-      return;
     }
 
-    els.spreadBody.innerHTML = rows.map((row) => {
-      const roiClass = Number(row.roi_pct) >= 0 ? 'good' : 'bad';
-      return `
-        <tr>
-          <td class="txt">${row.favorite_ml_band}</td>
-          <td>${row.favorite_spread_band}</td>
-          <td>${formatPct(row.spread_share_pct, 2)}</td>
-          <td>${row.sample_size}</td>
-          <td>${formatRecord(row.wins, row.losses)}</td>
-          <td class="${roiClass}">${formatRoi(row.roi_pct)}</td>
-        </tr>
-      `;
-    }).join('');
-  }
+    function renderErrors() {
+      if (state.errors.favorites) {
+        els.favoritesError.style.display = 'block';
+        els.favoritesError.textContent = 'Could not load price-range data right now.';
+      } else {
+        els.favoritesError.style.display = 'none';
+        els.favoritesError.textContent = '';
+      }
 
-  function renderCoverage() {
-    if (!state.data.coverage.length) {
-      els.coverageGrid.innerHTML = '';
-      return;
-    }
-
-    els.coverageGrid.innerHTML = state.data.coverage
-      .sort((a, b) => a.sport.localeCompare(b.sport))
-      .map((row) => `
-        <div class="coverage-card">
-          <h4>${row.sport.toUpperCase()}</h4>
-          <p>Final games: ${row.total_final_games}</p>
-          <p>Usable ML: ${row.games_with_usable_ml}</p>
-          <p>ML + spread: ${row.games_with_usable_ml_spread}</p>
-          <p>ML + spread + total: ${row.games_with_usable_ml_spread_total}</p>
-          <p>Study support: ${row.study_support}</p>
-          <p>Pregame sample: ${row.pregame_study_games}</p>
-          <p>Live sample: ${row.live_entry_games}</p>
-          ${row.data_quality_note ? `<div class="note">${row.data_quality_note}</div>` : ''}
-        </div>
-      `).join('');
-
-    const current = state.data.coverage.find((row) => row.sport === state.sport);
-    els.heroCoverage.textContent = current
-      ? `Coverage: ${current.games_with_usable_ml}/${current.total_final_games} ML-ready finals (${current.study_support})`
-      : 'Coverage: unavailable';
-    const refreshed = current?.view_refreshed_at || new Date().toISOString();
-    els.heroUpdated.textContent = `Last updated: ${formatTs(refreshed)}`;
-  }
-
-  function renderSeedCards() {
-    const targets = ['-101 to -130', '-131 to -159'];
-    const rows = targets.map((band) => state.data.nbaSeed.find((row) => row.band === band)).filter(Boolean);
-
-    if (!rows.length) {
-      els.nbaSeedBody.innerHTML = `<tr><td class="empty" colspan="5">NBA benchmark bands unavailable.</td></tr>`;
-    } else {
-      els.nbaSeedBody.innerHTML = rows.map((row) => `
-        <tr>
-          <td class="txt">${row.band}</td>
-          <td>${row.sample_size}</td>
-          <td>${formatRecord(row.wins, row.losses)}</td>
-          <td class="${Number(row.roi_pct) >= 0 ? 'good' : 'bad'}">${formatRoi(row.roi_pct)}</td>
-          <td>${formatRecord(row.ats_wins, row.ats_losses, row.ats_pushes)}</td>
-        </tr>
-      `).join('');
-    }
-
-    if (!state.data.nhlTotals.length) {
-      els.nhlTotalsBody.innerHTML = `<tr><td class="empty" colspan="6">NHL totals core map unavailable.</td></tr>`;
-    } else {
-      els.nhlTotalsBody.innerHTML = state.data.nhlTotals.map((row) => `
-        <tr>
-          <td class="txt">${row.total_line}</td>
-          <td>${row.sample_size}</td>
-          <td>${formatRecord(row.over_wins, row.over_losses, row.over_pushes)}</td>
-          <td class="${Number(row.over_roi_pct) >= 0 ? 'good' : 'bad'}">${formatRoi(row.over_roi_pct)}</td>
-          <td>${formatRecord(row.under_wins, row.under_losses, row.under_pushes)}</td>
-          <td class="${Number(row.under_roi_pct) >= 0 ? 'good' : 'bad'}">${formatRoi(row.under_roi_pct)}</td>
-        </tr>
-      `).join('');
-    }
-
-    const existingHint = document.getElementById('nbaLiveFlipHint');
-    if (existingHint) existingHint.remove();
-
-    if (state.sport === 'nba' && state.data.live.length) {
-      const heavy = state.data.live.filter((row) => row.band === '-200 to -249' || row.band === '-250+');
-      if (heavy.length) {
-        const sample = heavy.reduce((sum, row) => sum + Number(row.sample_size || 0), 0);
-        const wins = heavy.reduce((sum, row) => sum + Number(row.wins || 0), 0);
-        const losses = heavy.reduce((sum, row) => sum + Number(row.losses || 0), 0);
-        const roi = heavy.reduce((sum, row) => sum + Number(row.roi_pct || 0) * Number(row.sample_size || 0), 0) / (sample || 1);
-
-        const hint = document.createElement('div');
-        hint.id = 'nbaLiveFlipHint';
-        hint.className = 'error';
-        hint.style.display = 'block';
-        hint.style.color = 'var(--text-secondary)';
-        hint.textContent = `Live -200+ check: ${wins}-${losses} (${sample} games) · ROI ${formatRoi(roi)} · first-live snapshot method.`;
-        els.nbaSeedBody.closest('.panel-body').appendChild(hint);
+      if (state.errors.counterpart) {
+        els.counterpartError.style.display = 'block';
+        els.counterpartError.textContent = 'Could not load underdog counterpart data right now.';
+      } else {
+        els.counterpartError.style.display = 'none';
+        els.counterpartError.textContent = '';
       }
     }
-  }
 
-  function renderErrors() {
-    const bandErr = state.errors.pregame || state.errors.live || null;
-    if (bandErr) {
-      els.bandError.style.display = 'block';
-      els.bandError.textContent = `Band fetch issue:\n${bandErr}`;
-    } else {
-      els.bandError.style.display = 'none';
-      els.bandError.textContent = '';
+    function render() {
+      document.querySelectorAll('[data-sport]').forEach((el) => el.classList.toggle('active', el.dataset.sport === state.sport));
+      document.querySelectorAll('[data-study]').forEach((el) => el.classList.toggle('active', el.dataset.study === state.study));
+      document.querySelectorAll('[data-scope]').forEach((el) => el.classList.toggle('active', el.dataset.scope === state.locationScope));
+      document.querySelectorAll('[data-sort]').forEach((el) => el.classList.toggle('active', el.dataset.sort === state.sort));
+
+      els.lastUpdated.textContent = state.updatedAt
+        ? `Updated: ${new Date(state.updatedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+        : 'Updated: —';
+
+      renderSummary();
+      renderFavoritesTable();
+      renderCounterpartTable();
+      renderErrors();
     }
 
-    const coverageErr = state.errors.coverage || null;
-    if (coverageErr) {
-      els.coverageError.style.display = 'block';
-      els.coverageError.textContent = `Coverage fetch issue:\n${coverageErr}`;
-    } else {
-      els.coverageError.style.display = 'none';
-      els.coverageError.textContent = '';
-    }
+    async function loadData() {
+      state.errors.favorites = null;
+      state.errors.counterpart = null;
+      state.openDogBand = null;
 
-    const nhlErr = state.errors.nhlTotals || null;
-    if (nhlErr) {
-      els.nhlTotalsError.style.display = 'block';
-      els.nhlTotalsError.textContent = `NHL totals issue:\n${nhlErr}`;
-    } else {
-      els.nhlTotalsError.style.display = 'none';
-      els.nhlTotalsError.textContent = '';
-    }
-  }
-
-  function render() {
-    applyButtonStates();
-    renderKpiStrip();
-    renderBandTable();
-    renderCounterpartMap();
-    renderSpreadDistribution();
-    renderCoverage();
-    renderSeedCards();
-    renderErrors();
-  }
-
-  async function loadData() {
-    state.errors = {};
-
-    try {
-      const pregameRows = await getPregameRows(state.sport);
-      state.data.pregame = aggregatePregame(pregameRows, state.locationScope);
-      state.data.counterpart = aggregateCounterpart(pregameRows, state.locationScope);
-      state.data.spread = aggregateSpread(pregameRows, state.locationScope);
-
-      const nbaRows = await getPregameRows('nba');
-      state.data.nbaSeed = aggregatePregame(nbaRows, 'all').filter((row) => row.band === '-101 to -130' || row.band === '-131 to -159');
-    } catch (error) {
-      state.errors.pregame = error instanceof Error ? error.message : String(error);
-      state.data.pregame = [];
-      state.data.counterpart = [];
-      state.data.spread = [];
-      state.data.nbaSeed = [];
-    }
-
-    if (state.study === 'live') {
       try {
-        state.data.live = await getLiveAggregates(state.sport, state.locationScope);
+        const rows = await getPregameRows(state.sport);
+        state.data.pregame = aggregatePregame(rows, state.locationScope);
+        state.data.counterpart = aggregateCounterpart(rows, state.locationScope);
       } catch (error) {
-        state.errors.live = error instanceof Error ? error.message : String(error);
+        state.errors.favorites = error;
+        state.errors.counterpart = error;
+        state.data.pregame = [];
+        state.data.counterpart = [];
+      }
+
+      if (state.study === 'live') {
+        try {
+          state.data.live = await getLiveAggregates(state.sport, state.locationScope);
+        } catch (error) {
+          state.errors.favorites = error;
+          state.data.live = [];
+        }
+      } else {
         state.data.live = [];
       }
-    } else {
-      state.data.live = [];
+
+      state.updatedAt = new Date().toISOString();
+      render();
     }
 
-    try {
-      state.data.nhlTotals = await getNhlTotalsCore();
-    } catch (error) {
-      state.errors.nhlTotals = error instanceof Error ? error.message : String(error);
-      state.data.nhlTotals = [];
+    function bindControls() {
+      document.querySelectorAll('[data-sport]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          state.sport = button.dataset.sport;
+          await loadData();
+        });
+      });
+
+      document.querySelectorAll('[data-study]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          state.study = button.dataset.study;
+          await loadData();
+        });
+      });
+
+      document.querySelectorAll('[data-scope]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          state.locationScope = button.dataset.scope;
+          await loadData();
+        });
+      });
+
+      document.querySelectorAll('[data-sort]').forEach((button) => {
+        button.addEventListener('click', () => {
+          state.sort = button.dataset.sort;
+          render();
+        });
+      });
     }
 
-    try {
-      state.data.coverage = await getCoverageStatus();
-    } catch (error) {
-      state.errors.coverage = error instanceof Error ? error.message : String(error);
-      state.data.coverage = [];
+    async function init() {
+      bindControls();
+      await loadData();
+      setInterval(loadData, POLL_MS);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') loadData();
+      });
     }
 
-    render();
-  }
-
-  function bindControls() {
-    document.querySelectorAll('[data-sport]').forEach((button) => {
-      button.addEventListener('click', async () => {
-        state.sport = button.dataset.sport;
-        state.openCounterpartDogBand = null;
-        await loadData();
-      });
-    });
-
-    document.querySelectorAll('[data-study]').forEach((button) => {
-      button.addEventListener('click', async () => {
-        state.study = button.dataset.study;
-        await loadData();
-      });
-    });
-
-    document.querySelectorAll('[data-scope]').forEach((button) => {
-      button.addEventListener('click', async () => {
-        state.locationScope = button.dataset.scope;
-        state.openCounterpartDogBand = null;
-        await loadData();
-      });
-    });
-
-    document.querySelectorAll('[data-sort]').forEach((button) => {
-      button.addEventListener('click', () => {
-        state.sort = button.dataset.sort;
-        render();
-      });
-    });
-  }
-
-  async function init() {
-    bindControls();
-    await loadData();
-    setInterval(loadData, POLL_MS);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') loadData();
-    });
-  }
-
-  init();
-</script>
+    init();
+  </script>
 </body>
 </html>
