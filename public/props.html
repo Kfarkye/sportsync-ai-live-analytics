@@ -618,6 +618,7 @@ const STATIC_FALLBACK_URL = '/props/evidence-pack-fallback.json';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZnp2cm5iemFiY29rcXFyd2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTc2NjgsImV4cCI6MjA3MDkzMzY2OH0.PCSnC5E7sG7FvasHy_9DdwiN61xW0GzFROLzZ0bTVnc';
 const LOCAL_PACK_CACHE_KEY = 'sportsync-props-pack-v2';
 const RECOVERY_KEY = 'sportsync-props-load-recovery';
+const CACHE_BUST_PARAM = 'props-cb';
 
 const MARKET_LABEL = { threes_made: 'Threes Made', rebounds: 'Rebounds', assists: 'Assists', points: 'Points', pra: 'Pts+Reb+Ast' };
 const CONTEXT_LABEL = {
@@ -765,13 +766,36 @@ function tryOneShotRecovery() {
   return true;
 }
 
+async function applyDisableServiceWorkerRecovery() {
+  if (!('serviceWorker' in navigator)) return;
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('disable-sw') !== '1') return;
+
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map((reg) => reg.unregister()));
+  } catch {
+    // Best effort.
+  }
+
+  if (!('caches' in window)) return;
+  try {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((key) => caches.delete(key)));
+  } catch {
+    // Best effort.
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Fetch
 // ══════════════════════════════════════════════════════════════════════════════
 async function fetchPack() {
   const failures = [];
   try {
-    const r = await fetch(PACK_URL);
+    const packUrl = new URL(PACK_URL);
+    packUrl.searchParams.set(CACHE_BUST_PARAM, Date.now().toString());
+    const r = await fetch(packUrl.toString(), { cache: 'no-store' });
     if (!r.ok) throw new Error(`CF ${r.status}`);
     const normalized = normalizePackContract(await r.json());
     if (normalized.cards.length > 0) {
@@ -786,6 +810,7 @@ async function fetchPack() {
   try {
     const r = await fetch(FALLBACK_URL, {
       method: 'POST',
+      cache: 'no-store',
       headers: {
         'apikey': SUPABASE_ANON,
         'Authorization': `Bearer ${SUPABASE_ANON}`,
@@ -805,7 +830,9 @@ async function fetchPack() {
   }
 
   try {
-    const r = await fetch(`${STATIC_FALLBACK_URL}?v=20260330a`, { cache: 'no-store' });
+    const staticFallbackUrl = new URL(STATIC_FALLBACK_URL, window.location.origin);
+    staticFallbackUrl.searchParams.set(CACHE_BUST_PARAM, Date.now().toString());
+    const r = await fetch(staticFallbackUrl.toString(), { cache: 'no-store' });
     if (!r.ok) throw new Error(`STATIC ${r.status}`);
     const normalized = normalizePackContract(await r.json());
     if (normalized.cards.length > 0) {
@@ -1335,6 +1362,7 @@ function injectMachineContract(pack, players) {
 // Init
 // ══════════════════════════════════════════════════════════════════════════════
 (async function init() {
+  await applyDisableServiceWorkerRecovery();
   bindEvents();
   const preloaded = getPreloadedPack();
   if (preloaded && preloaded.cards.length > 0) {
