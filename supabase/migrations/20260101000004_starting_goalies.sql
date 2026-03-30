@@ -32,21 +32,16 @@ CREATE TABLE IF NOT EXISTS starting_goalies (
     
     CONSTRAINT unique_match_goalie UNIQUE (match_id, game_date)
 );
-
 -- Index for fast lookups
 CREATE INDEX IF NOT EXISTS idx_goalies_match_id ON starting_goalies(match_id);
 CREATE INDEX IF NOT EXISTS idx_goalies_game_date ON starting_goalies(game_date);
-
 -- Enable RLS
 ALTER TABLE starting_goalies ENABLE ROW LEVEL SECURITY;
-
 -- Public read access
 CREATE POLICY "Public read starting_goalies" ON starting_goalies
     FOR SELECT USING (true);
-
 -- Service role can insert/update
 CREATE POLICY "Service insert starting_goalies" ON starting_goalies
     FOR INSERT WITH CHECK (true);
-
 CREATE POLICY "Service update starting_goalies" ON starting_goalies
     FOR UPDATE USING (true);

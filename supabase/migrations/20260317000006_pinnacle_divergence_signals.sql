@@ -1,5 +1,4 @@
 BEGIN;
-
 CREATE TABLE IF NOT EXISTS public.pinnacle_divergence_signals (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   match_id text NOT NULL REFERENCES public.matches(id),
@@ -25,13 +24,10 @@ CREATE TABLE IF NOT EXISTS public.pinnacle_divergence_signals (
   CONSTRAINT pinnacle_divergence_signals_match_id_key UNIQUE (match_id),
   CONSTRAINT pinnacle_divergence_signals_dk_result_check CHECK (dk_result IN ('OVER', 'UNDER'))
 );
-
 CREATE INDEX IF NOT EXISTS idx_pin_div_sport
   ON public.pinnacle_divergence_signals (sport, gap_direction);
-
 CREATE INDEX IF NOT EXISTS idx_pin_div_graded
   ON public.pinnacle_divergence_signals (pinnacle_was_right, sport);
-
 CREATE OR REPLACE FUNCTION public.get_pinnacle_divergence_accuracy(
   p_sport text,
   p_gap_direction text DEFAULT NULL,
@@ -57,7 +53,6 @@ AS $$
     AND (p_gap_direction IS NULL OR gap_direction = p_gap_direction)
     AND ABS(COALESCE(pregame_gap, 0)) >= COALESCE(p_min_abs_gap, 0);
 $$;
-
 CREATE OR REPLACE FUNCTION public.record_pinnacle_divergence_signal(p_match_id text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -181,7 +176,6 @@ BEGIN
   );
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.get_pinnacle_divergence_context(
   p_match_id text,
   p_sport text DEFAULT NULL,
@@ -301,7 +295,6 @@ BEGIN
   );
 END;
 $$;
-
 INSERT INTO public.pinnacle_divergence_signals (
   match_id,
   sport,
@@ -362,5 +355,4 @@ SET
   dk_miss = EXCLUDED.dk_miss,
   pin_miss = EXCLUDED.pin_miss,
   graded_at = EXCLUDED.graded_at;
-
 COMMIT;

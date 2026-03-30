@@ -16,7 +16,6 @@ CREATE POLICY "Public read nba_games" ON nba_games
 CREATE POLICY "Service write nba_games" ON nba_games
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- nba_ticks
 DROP POLICY IF EXISTS "Service role full access" ON nba_ticks;
 CREATE POLICY "Public read nba_ticks" ON nba_ticks
@@ -24,7 +23,6 @@ CREATE POLICY "Public read nba_ticks" ON nba_ticks
 CREATE POLICY "Service write nba_ticks" ON nba_ticks
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- nba_snapshots
 DROP POLICY IF EXISTS "Service role full access" ON nba_snapshots;
 CREATE POLICY "Public read nba_snapshots" ON nba_snapshots
@@ -32,7 +30,6 @@ CREATE POLICY "Public read nba_snapshots" ON nba_snapshots
 CREATE POLICY "Service write nba_snapshots" ON nba_snapshots
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- nba_decisions
 DROP POLICY IF EXISTS "Service role full access" ON nba_decisions;
 CREATE POLICY "Public read nba_decisions" ON nba_decisions
@@ -40,7 +37,6 @@ CREATE POLICY "Public read nba_decisions" ON nba_decisions
 CREATE POLICY "Service write nba_decisions" ON nba_decisions
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- nba_team_priors
 DROP POLICY IF EXISTS "Service role full access" ON nba_team_priors;
 CREATE POLICY "Public read nba_team_priors" ON nba_team_priors
@@ -48,7 +44,6 @@ CREATE POLICY "Public read nba_team_priors" ON nba_team_priors
 CREATE POLICY "Service write nba_team_priors" ON nba_team_priors
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- nba_player_epm
 DROP POLICY IF EXISTS "Service role full access" ON nba_player_epm;
 CREATE POLICY "Public read nba_player_epm" ON nba_player_epm
@@ -56,7 +51,6 @@ CREATE POLICY "Public read nba_player_epm" ON nba_player_epm
 CREATE POLICY "Service write nba_player_epm" ON nba_player_epm
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- nba_calibration_runs
 DROP POLICY IF EXISTS "Service role full access" ON nba_calibration_runs;
 CREATE POLICY "Public read nba_calibration_runs" ON nba_calibration_runs
@@ -64,7 +58,6 @@ CREATE POLICY "Public read nba_calibration_runs" ON nba_calibration_runs
 CREATE POLICY "Service write nba_calibration_runs" ON nba_calibration_runs
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- ───────────────────────────────────────────────────────────────────────────
 -- 2. Telemetry Tables (from 20260109000009_telemetry_schema.sql)
 --    Previous: FOR ALL USING (true) WITH CHECK (true)
@@ -78,7 +71,6 @@ CREATE POLICY "Public read raw_odds_log" ON raw_odds_log
 CREATE POLICY "Service write raw_odds_log" ON raw_odds_log
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- live_market_state
 DROP POLICY IF EXISTS "Enable all access" ON live_market_state;
 CREATE POLICY "Public read live_market_state" ON live_market_state
@@ -86,7 +78,6 @@ CREATE POLICY "Public read live_market_state" ON live_market_state
 CREATE POLICY "Service write live_market_state" ON live_market_state
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- derived_consensus_log
 DROP POLICY IF EXISTS "Enable all access" ON derived_consensus_log;
 CREATE POLICY "Public read derived_consensus_log" ON derived_consensus_log
@@ -94,7 +85,6 @@ CREATE POLICY "Public read derived_consensus_log" ON derived_consensus_log
 CREATE POLICY "Service write derived_consensus_log" ON derived_consensus_log
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- derived_lag_metrics
 DROP POLICY IF EXISTS "Enable all access" ON derived_lag_metrics;
 CREATE POLICY "Public read derived_lag_metrics" ON derived_lag_metrics
@@ -102,7 +92,6 @@ CREATE POLICY "Public read derived_lag_metrics" ON derived_lag_metrics
 CREATE POLICY "Service write derived_lag_metrics" ON derived_lag_metrics
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- ───────────────────────────────────────────────────────────────────────────
 -- 3. Sharp Movements (from 20260109000008_grading_schema_rls.sql)
 --    Previous: FOR ALL USING (true) WITH CHECK (true) — marked "TEMPORARY"
@@ -115,7 +104,6 @@ CREATE POLICY "Public read sharp_movements" ON sharp_movements
 CREATE POLICY "Service write sharp_movements" ON sharp_movements
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- ───────────────────────────────────────────────────────────────────────────
 -- 4. Starting Goalies (from 20260101000004_starting_goalies.sql)
 --    Previous: INSERT WITH CHECK (true), UPDATE USING (true) — anon writes
@@ -127,7 +115,6 @@ DROP POLICY IF EXISTS "Service update starting_goalies" ON starting_goalies;
 CREATE POLICY "Service write starting_goalies" ON starting_goalies
   FOR ALL USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
-
 -- ───────────────────────────────────────────────────────────────────────────
 -- 5. AI Chat Picks (from 20260116000002_fix_conversation_persistence.sql)
 --    Previous: INSERT WITH CHECK (true) — anon can insert picks
@@ -135,4 +122,4 @@ CREATE POLICY "Service write starting_goalies" ON starting_goalies
 -- ───────────────────────────────────────────────────────────────────────────
 
 DROP POLICY IF EXISTS "Anon can insert picks" ON ai_chat_picks;
--- The "Service role full access" policy already exists and is correct
+-- The "Service role full access" policy already exists and is correct;

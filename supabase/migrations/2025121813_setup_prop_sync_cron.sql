@@ -1,10 +1,8 @@
-
 -- sync-player-props-hourly Cron Job Setup
 -- This script enables automated player prop ingestion for the specific project instance.
 
 -- 1. Ensure the pg_net extension is enabled for making HTTP requests
 CREATE EXTENSION IF NOT EXISTS pg_net;
-
 -- 2. Schedule the hourly sync job
 -- This will run at the start of every hour (0 * * * *)
 SELECT cron.schedule(

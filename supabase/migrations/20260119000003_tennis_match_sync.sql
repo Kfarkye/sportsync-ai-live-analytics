@@ -9,17 +9,14 @@
 CREATE INDEX IF NOT EXISTS idx_market_feeds_tennis 
 ON market_feeds (sport_key) 
 WHERE sport_key LIKE 'tennis_%';
-
 -- Index for matches tennis lookup
 CREATE INDEX IF NOT EXISTS idx_matches_tennis 
 ON matches (league_id) 
 WHERE league_id IN ('atp', 'wta');
-
 -- Index for pregame_intel tennis with null spread (targets the UPDATE)
 CREATE INDEX IF NOT EXISTS idx_pregame_intel_tennis_no_spread 
 ON pregame_intel (sport, home_team, away_team) 
 WHERE sport = 'tennis' AND analyzed_spread IS NULL;
-
 -- =============================================================================
 -- UPSERT: Sync tennis matches from market_feeds
 -- =============================================================================
@@ -74,7 +71,6 @@ ON CONFLICT (id) DO UPDATE SET
     last_odds_update = EXCLUDED.last_odds_update
 WHERE matches.last_odds_update IS NULL 
    OR matches.last_odds_update < EXCLUDED.last_odds_update;
-
 -- =============================================================================
 -- UPDATE: Enrich pregame_intel with odds (using exact match first, fuzzy fallback)
 -- =============================================================================
@@ -91,7 +87,6 @@ WHERE pi.sport = 'tennis'
   AND m.league_id IN ('atp', 'wta')
   AND LOWER(pi.home_team) = LOWER(m.home_team)
   AND LOWER(pi.away_team) = LOWER(m.away_team);
-
 -- Second: Fuzzy match on last names (for cases like "N. Djokovic" vs "Novak Djokovic")
 UPDATE pregame_intel pi
 SET 
@@ -111,7 +106,6 @@ WHERE pi.sport = 'tennis'
     LOWER(split_part(pi.away_team, ' ', array_length(string_to_array(pi.away_team, ' '), 1))) = 
     LOWER(split_part(m.away_team, ' ', array_length(string_to_array(m.away_team, ' '), 1)))
   );
-
 -- =============================================================================
 -- VERIFY: Audit the sync results
 -- =============================================================================

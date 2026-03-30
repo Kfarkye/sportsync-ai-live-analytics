@@ -1,4 +1,3 @@
-
 -- ============================================================================
 -- INTEL INFRASTRUCTURE - EXPANDED
 -- Ensures all intelligence tables for News, Thesis, Narratives, and Stats comparison exist.
@@ -17,7 +16,6 @@ CREATE TABLE IF NOT EXISTS stadiums (
     image_url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- Ensure all columns and constraints exist even if table was created previously
 DO $$ 
 BEGIN
@@ -47,7 +45,6 @@ BEGIN
         ALTER TABLE stadiums ADD COLUMN image_url TEXT;
     END IF;
 END $$;
-
 -- 2. VENUE INTEL (Match-specific venue cache)
 CREATE TABLE IF NOT EXISTS venue_intel (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -55,7 +52,6 @@ CREATE TABLE IF NOT EXISTS venue_intel (
     content JSONB NOT NULL,          -- Flexible venue notes / weather
     fetched_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 3. MATCH NEWS (Deep AI reports)
 -- Stores the JSON structure used by NewsIntelCard.tsx
 CREATE TABLE IF NOT EXISTS match_news (
@@ -74,7 +70,6 @@ CREATE TABLE IF NOT EXISTS match_news (
     expires_at TIMESTAMPTZ,
     UNIQUE(match_id)
 );
-
 -- 4. MATCH THESIS (Gemini's analytical model)
 CREATE TABLE IF NOT EXISTS match_thesis (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -82,7 +77,6 @@ CREATE TABLE IF NOT EXISTS match_thesis (
     content JSONB NOT NULL,          -- Structured MatchThesis type
     fetched_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 5. NARRATIVE INTEL
 CREATE TABLE IF NOT EXISTS narrative_intel (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -90,7 +84,6 @@ CREATE TABLE IF NOT EXISTS narrative_intel (
     content JSONB NOT NULL,
     fetched_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 6. EDGE ANALYSIS
 CREATE TABLE IF NOT EXISTS edge_analysis (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -98,7 +91,6 @@ CREATE TABLE IF NOT EXISTS edge_analysis (
     content JSONB NOT NULL,
     fetched_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 7. BOX SCORES (Live stats cache)
 CREATE TABLE IF NOT EXISTS box_scores (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -106,7 +98,6 @@ CREATE TABLE IF NOT EXISTS box_scores (
     content JSONB NOT NULL,
     fetched_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 8. PLAYER PROP BETS
 CREATE TABLE IF NOT EXISTS player_prop_bets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -123,7 +114,6 @@ CREATE TABLE IF NOT EXISTS player_prop_bets (
     
     UNIQUE(match_id, player_name, bet_type, side, provider)
 );
-
 -- Ensure all columns and constraints exist for player_prop_bets
 DO $$ 
 BEGIN
@@ -177,7 +167,6 @@ BEGIN
         ALTER TABLE player_prop_bets ADD CONSTRAINT player_prop_bets_match_player_type_side_provider_key UNIQUE (match_id, player_name, bet_type, side, provider);
     END IF;
 END $$;
-
 -- 10. OFFICIALS PROTECTION
 DO $$ 
 BEGIN
@@ -216,7 +205,6 @@ BEGIN
         ALTER TABLE official_profiles ADD CONSTRAINT official_profiles_name_sport_key UNIQUE (name, sport);
     END IF;
 END $$;
-
 -- 11. INDICES
 CREATE INDEX IF NOT EXISTS idx_stadiums_espn_id ON stadiums(espn_id);
 CREATE INDEX IF NOT EXISTS idx_match_news_match_id ON match_news(match_id);

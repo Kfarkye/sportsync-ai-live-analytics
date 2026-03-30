@@ -18,7 +18,6 @@ DROP VIEW IF EXISTS vw_underdog_by_league_v2 CASCADE;
 DROP VIEW IF EXISTS vw_underdog_home_away_split CASCADE;
 DROP VIEW IF EXISTS vw_underdog_executive_summary CASCADE;
 DROP VIEW IF EXISTS vw_pick_master CASCADE;
-
 -- ============================================================
 -- STEP 2: VALIDATE SCHEMA (Ensure columns exist)
 -- ============================================================
@@ -43,8 +42,6 @@ BEGIN
     
     RAISE NOTICE 'Schema validation passed ✓';
 END $$;
-
-
 -- ============================================================
 -- STEP 3: CREATE BASE VIEW (vw_pick_master)
 -- ============================================================
@@ -103,8 +100,6 @@ SELECT
 FROM pregame_intel pi
 WHERE (pi.grading_metadata->>'type') = 'SPREAD'
   AND pi.analyzed_spread IS NOT NULL;
-
-
 -- ============================================================
 -- STEP 4: EXECUTIVE SUMMARY (Dashboard Card)
 -- ============================================================
@@ -167,8 +162,6 @@ SELECT
         END
     ) AS dashboard_data
 FROM vw_pick_master;
-
-
 -- ============================================================
 -- STEP 5: HOME vs AWAY SPLIT
 -- ============================================================
@@ -198,8 +191,6 @@ FROM vw_pick_master
 WHERE pick_classification != 'NO_LINE'
 GROUP BY pick_classification, pick_side, is_underdog_pick
 ORDER BY is_underdog_pick DESC, pick_side, total_picks DESC;
-
-
 -- ============================================================
 -- STEP 6: BUCKET DISTRIBUTION (The Key View You Need)
 -- ============================================================
@@ -253,8 +244,6 @@ ORDER BY
         WHEN 'BLOWOUT (10+)' THEN 4
     END,
     b.is_underdog_pick DESC;
-
-
 -- ============================================================
 -- STEP 7: DISTRIBUTION HEATMAP (Classification x Bucket)
 -- ============================================================
@@ -286,8 +275,6 @@ ORDER BY
         WHEN 'ROAD_FAVORITE' THEN 4
         WHEN 'PICK_EM' THEN 5
     END;
-
-
 -- ============================================================
 -- STEP 8: LEAGUE BREAKDOWN (JSON)
 -- ============================================================
@@ -338,8 +325,6 @@ SELECT
 FROM vw_pick_master
 GROUP BY league_id
 ORDER BY COUNT(*) DESC;
-
-
 -- ============================================================
 -- STEP 9: 30-DAY TREND
 -- ============================================================
@@ -362,8 +347,6 @@ WHERE pick_result IN ('WIN', 'LOSS', 'PUSH')
 GROUP BY game_date
 ORDER BY game_date DESC
 LIMIT 30;
-
-
 -- ============================================================
 -- DONE! Now query these views:
 -- ============================================================

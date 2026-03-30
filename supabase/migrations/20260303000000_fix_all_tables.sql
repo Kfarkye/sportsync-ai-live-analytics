@@ -7,7 +7,6 @@
 -- Omitted CREATE EXTENSION pg_cron to bypass 2BP01 privilege errors.
 -- Manage via dashboard.
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- 2. ENSURE TABLES EXIST (Safe creation)
 -- ----------------------------------------------------------------------------
 
@@ -40,7 +39,6 @@ CREATE TABLE IF NOT EXISTS public.matches (
     last_updated TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 🚨 MASTER ENTITY TABLES RESTORED 🚨
 CREATE TABLE IF NOT EXISTS public.canonical_games (
     id TEXT PRIMARY KEY,
@@ -53,7 +51,6 @@ CREATE TABLE IF NOT EXISTS public.canonical_games (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS public.entity_mappings (
     id BIGSERIAL PRIMARY KEY,
     external_id TEXT NOT NULL,
@@ -63,7 +60,6 @@ CREATE TABLE IF NOT EXISTS public.entity_mappings (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(provider, external_id)
 );
-
 CREATE TABLE IF NOT EXISTS public.canonical_venues (
     id TEXT PRIMARY KEY,
     name TEXT,
@@ -71,14 +67,12 @@ CREATE TABLE IF NOT EXISTS public.canonical_venues (
     state TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS public.canonical_officials (
     id TEXT PRIMARY KEY,
     name TEXT,
     sport TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS public.pregame_intel (
     intel_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     match_id TEXT NOT NULL,
@@ -97,7 +91,6 @@ CREATE TABLE IF NOT EXISTS public.pregame_intel (
     expires_at TIMESTAMPTZ,
     UNIQUE(match_id, game_date)
 );
-
 CREATE TABLE IF NOT EXISTS public.player_prop_bets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     match_id TEXT NOT NULL,
@@ -118,7 +111,6 @@ CREATE TABLE IF NOT EXISTS public.player_prop_bets (
     last_updated TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(match_id, player_name, bet_type, side, provider)
 );
-
 CREATE TABLE IF NOT EXISTS public.market_feeds (
     id BIGSERIAL PRIMARY KEY,
     external_id TEXT UNIQUE NOT NULL,
@@ -137,7 +129,6 @@ CREATE TABLE IF NOT EXISTS public.market_feeds (
     best_total_h2 JSONB,
     is_live BOOLEAN DEFAULT FALSE
 );
-
 CREATE TABLE IF NOT EXISTS public.teams (
     id TEXT PRIMARY KEY,
     league_id TEXT,
@@ -151,7 +142,6 @@ CREATE TABLE IF NOT EXISTS public.teams (
     last_updated TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS public.match_insights (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     match_id TEXT NOT NULL,
@@ -160,7 +150,6 @@ CREATE TABLE IF NOT EXISTS public.match_insights (
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS public.team_metrics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     team_name TEXT UNIQUE NOT NULL,
@@ -169,14 +158,12 @@ CREATE TABLE IF NOT EXISTS public.team_metrics (
     pace NUMERIC,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS public.ref_intel (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     match_id TEXT UNIQUE NOT NULL,
     content JSONB NOT NULL,
     fetched_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS public.stadiums (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     espn_id INTEGER UNIQUE,
@@ -189,7 +176,6 @@ CREATE TABLE IF NOT EXISTS public.stadiums (
     image_url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS public.opening_lines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     match_id TEXT UNIQUE NOT NULL,
@@ -201,7 +187,6 @@ CREATE TABLE IF NOT EXISTS public.opening_lines (
     provider TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS public.closing_lines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     match_id TEXT UNIQUE NOT NULL,
@@ -213,7 +198,6 @@ CREATE TABLE IF NOT EXISTS public.closing_lines (
     league_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 🚨 LIVE GAME STATE WITH RESTORED DATA MOAT SCHEMA
 CREATE TABLE IF NOT EXISTS public.live_game_state (
     id TEXT PRIMARY KEY,
@@ -240,7 +224,6 @@ CREATE TABLE IF NOT EXISTS public.live_game_state (
     odds JSONB,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS public.coaches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     team_id TEXT NOT NULL,
@@ -253,7 +236,6 @@ CREATE TABLE IF NOT EXISTS public.coaches (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(team_id, sport)
 );
-
 -- 3. ENSURE COLUMNS (Recovery for existing tables)
 -- ----------------------------------------------------------------------------
 DO $$ 
@@ -296,8 +278,6 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='live_game_state' AND column_name='match_context') THEN ALTER TABLE live_game_state ADD COLUMN match_context JSONB; END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='live_game_state' AND column_name='predictor') THEN ALTER TABLE live_game_state ADD COLUMN predictor JSONB; END IF;
 END $$;
-
-
 -- 4. PUBLIC ACCESS PERMISSIONS (🚨 GUARANTEED COMPREHENSIVE RECOVERY)
 -- ----------------------------------------------------------------------------
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
@@ -317,59 +297,40 @@ ALTER TABLE public.canonical_games ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.entity_mappings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.canonical_venues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.canonical_officials ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Public read matches" ON matches;
 CREATE POLICY "Public read matches" ON matches FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read pregame_intel" ON pregame_intel;
 CREATE POLICY "Public read pregame_intel" ON pregame_intel FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read player_prop_bets" ON player_prop_bets;
 CREATE POLICY "Public read player_prop_bets" ON player_prop_bets FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read market_feeds" ON market_feeds;
 CREATE POLICY "Public read market_feeds" ON market_feeds FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read match_insights" ON match_insights;
 CREATE POLICY "Public read match_insights" ON match_insights FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read team_metrics" ON team_metrics;
 CREATE POLICY "Public read team_metrics" ON team_metrics FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read ref_intel" ON ref_intel;
 CREATE POLICY "Public read ref_intel" ON ref_intel FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read stadiums" ON stadiums;
 CREATE POLICY "Public read stadiums" ON stadiums FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read opening_lines" ON opening_lines;
 CREATE POLICY "Public read opening_lines" ON opening_lines FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read closing_lines" ON closing_lines;
 CREATE POLICY "Public read closing_lines" ON closing_lines FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read live_game_state" ON live_game_state;
 CREATE POLICY "Public read live_game_state" ON live_game_state FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read coaches" ON coaches;
 CREATE POLICY "Public read coaches" ON coaches FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read teams" ON teams;
 CREATE POLICY "Public read teams" ON teams FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read canonical_games" ON canonical_games;
 CREATE POLICY "Public read canonical_games" ON canonical_games FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read entity_mappings" ON entity_mappings;
 CREATE POLICY "Public read entity_mappings" ON entity_mappings FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read canonical_venues" ON canonical_venues;
 CREATE POLICY "Public read canonical_venues" ON canonical_venues FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "Public read canonical_officials" ON canonical_officials;
 CREATE POLICY "Public read canonical_officials" ON canonical_officials FOR SELECT TO anon, authenticated USING (true);
-
-
 -- 5. CRON INFRASTRUCTURE 
 -- ----------------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.invoke_pregame_intel_cron();
@@ -387,7 +348,6 @@ BEGIN
   ) INTO request_id;
   RETURN request_id;
 END; $$;
-
 DROP FUNCTION IF EXISTS public.invoke_ingest_live_games();
 CREATE OR REPLACE FUNCTION public.invoke_ingest_live_games()
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -403,7 +363,6 @@ BEGIN
   ) INTO request_id;
   RETURN request_id;
 END; $$;
-
 DROP FUNCTION IF EXISTS public.invoke_ingest_odds();
 CREATE OR REPLACE FUNCTION public.invoke_ingest_odds()
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -419,7 +378,6 @@ BEGIN
   ) INTO request_id;
   RETURN request_id;
 END; $$;
-
 DROP FUNCTION IF EXISTS public.invoke_live_odds_tracker();
 CREATE OR REPLACE FUNCTION public.invoke_live_odds_tracker()
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -435,7 +393,6 @@ BEGIN
   ) INTO request_id;
   RETURN request_id;
 END; $$;
-
 DROP FUNCTION IF EXISTS public.invoke_sync_player_props();
 CREATE OR REPLACE FUNCTION public.invoke_sync_player_props()
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -451,7 +408,6 @@ BEGIN
   ) INTO request_id;
   RETURN request_id;
 END; $$;
-
 DROP FUNCTION IF EXISTS public.invoke_espn_sync();
 CREATE OR REPLACE FUNCTION public.invoke_espn_sync()
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -467,7 +423,6 @@ BEGIN
   ) INTO request_id;
   RETURN request_id;
 END; $$;
-
 DROP FUNCTION IF EXISTS public.invoke_capture_opening_lines();
 CREATE OR REPLACE FUNCTION public.invoke_capture_opening_lines()
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -483,7 +438,6 @@ BEGIN
   ) INTO request_id;
   RETURN request_id;
 END; $$;
-
 -- 6. SCHEDULE JOBS
 DO $$
 BEGIN
@@ -496,7 +450,6 @@ BEGIN
     PERFORM cron.unschedule('sync-player-props-hourly');
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
-
 SELECT cron.schedule('espn-sync-daily', '0 */12 * * *', 'SELECT invoke_espn_sync()');
 SELECT cron.schedule('pregame-intel-research-cron', '0 * * * *', 'SELECT invoke_pregame_intel_cron()');
 SELECT cron.schedule('high-frequency-live-ingest', '* * * * *', 'SELECT invoke_ingest_live_games()');
@@ -504,6 +457,5 @@ SELECT cron.schedule('ingest-odds-every-minute', '* * * * *', 'SELECT invoke_ing
 SELECT cron.schedule('live-odds-tracker-every-2-min', '*/2 * * * *', 'SELECT invoke_live_odds_tracker()');
 SELECT cron.schedule('sync-player-props-hourly', '30 * * * *', 'SELECT invoke_sync_player_props()');
 SELECT cron.schedule('capture-opening-lines-every-6-hours', '0 */6 * * *', 'SELECT invoke_capture_opening_lines()');
-
 NOTIFY pgrst, 'reload schema';
 SELECT 'DATABASE STRUCTURE RECOVERY COMPLETED' as status;

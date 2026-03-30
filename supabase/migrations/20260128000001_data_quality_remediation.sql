@@ -6,7 +6,6 @@
 -- STEP 1: Add data_quality_status column
 ALTER TABLE pregame_intel 
 ADD COLUMN IF NOT EXISTS data_quality_status VARCHAR(20) DEFAULT 'VALID';
-
 -- STEP 2: Quarantine polluted picks
 UPDATE pregame_intel 
 SET data_quality_status = 'QUARANTINED'
@@ -24,13 +23,11 @@ WHERE data_quality_status != 'QUARANTINED' AND (
     -- Odds in text (e.g. (+125), (-110))
     OR recommended_pick ~ '\([+-][1-9][0-9][0-9]\)'
 );
-
 -- STEP 3: Create clean_picks view for analytics
 CREATE OR REPLACE VIEW clean_picks AS
 SELECT * FROM pregame_intel
 WHERE data_quality_status = 'VALID'
   AND pick_result IN ('WIN', 'LOSS', 'PUSH');
-
 -- STEP 4: Verify results
 SELECT 
     data_quality_status, 

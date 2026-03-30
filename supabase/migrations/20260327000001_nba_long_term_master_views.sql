@@ -10,7 +10,6 @@
 DROP MATERIALIZED VIEW IF EXISTS public.mv_nba_team_game_master;
 DROP MATERIALIZED VIEW IF EXISTS public.mv_nba_game_master;
 DROP FUNCTION IF EXISTS public.refresh_nba_master_views();
-
 CREATE OR REPLACE FUNCTION public.jsonb_numeric_any(p_payload jsonb, p_keys text[])
 RETURNS numeric
 LANGUAGE sql
@@ -31,7 +30,6 @@ AS $$
     LIMIT 1
   );
 $$;
-
 CREATE MATERIALIZED VIEW public.mv_nba_game_master AS
 WITH nba_events AS (
   SELECT
@@ -330,22 +328,16 @@ SELECT
     ELSE 'D'
   END AS data_quality_tier
 FROM normalized n;
-
 CREATE UNIQUE INDEX mv_nba_game_master_match_uidx
   ON public.mv_nba_game_master (match_id);
-
 CREATE INDEX mv_nba_game_master_start_idx
   ON public.mv_nba_game_master (start_time DESC);
-
 CREATE INDEX mv_nba_game_master_quality_idx
   ON public.mv_nba_game_master (data_quality_tier, is_final);
-
 CREATE INDEX mv_nba_game_master_home_idx
   ON public.mv_nba_game_master (home_team);
-
 CREATE INDEX mv_nba_game_master_away_idx
   ON public.mv_nba_game_master (away_team);
-
 CREATE MATERIALIZED VIEW public.mv_nba_team_game_master AS
 SELECT
   g.match_id,
@@ -507,19 +499,14 @@ FROM (
     mgm.has_event_close
   FROM public.mv_nba_game_master mgm
 ) g;
-
 CREATE UNIQUE INDEX mv_nba_team_game_master_uidx
   ON public.mv_nba_team_game_master (match_id, team_name);
-
 CREATE INDEX mv_nba_team_game_master_team_start_idx
   ON public.mv_nba_team_game_master (team_name, start_time DESC);
-
 CREATE INDEX mv_nba_team_game_master_opponent_start_idx
   ON public.mv_nba_team_game_master (opponent_name, start_time DESC);
-
 CREATE INDEX mv_nba_team_game_master_quality_idx
   ON public.mv_nba_team_game_master (data_quality_tier, is_final, team_name);
-
 CREATE OR REPLACE FUNCTION public.refresh_nba_master_views()
 RETURNS void
 LANGUAGE plpgsql
@@ -531,16 +518,12 @@ BEGIN
   REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_nba_team_game_master;
 END;
 $$;
-
 GRANT SELECT ON public.mv_nba_game_master TO anon, authenticated, service_role;
 GRANT SELECT ON public.mv_nba_team_game_master TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.refresh_nba_master_views() TO service_role;
-
 COMMENT ON MATERIALIZED VIEW public.mv_nba_game_master IS
 'Canonical NBA game-level master view: one row per game with normalized opening/live/closing market fields, results, and quality tiers.';
-
 COMMENT ON MATERIALIZED VIEW public.mv_nba_team_game_master IS
 'Canonical NBA team-level master view: two rows per game (home + away perspective) derived from mv_nba_game_master.';
-
 COMMENT ON FUNCTION public.refresh_nba_master_views() IS
 'Refreshes mv_nba_game_master and mv_nba_team_game_master concurrently.';

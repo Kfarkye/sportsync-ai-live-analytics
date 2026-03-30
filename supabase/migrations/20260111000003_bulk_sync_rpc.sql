@@ -9,15 +9,14 @@ as $$
 begin
   update matches as m
   set
-    current_odds = (item->'current_odds')::jsonb,
-    opening_odds = coalesce(m.opening_odds, (item->'opening_odds')::jsonb), -- Only set if currently null
+    current_odds = (item->>'current_odds')::jsonb,
+    opening_odds = coalesce(m.opening_odds, (item->>'opening_odds')::jsonb), -- Only set if currently null
     is_opening_locked = coalesce((item->>'is_opening_locked')::boolean, m.is_opening_locked),
     last_odds_update = (item->>'last_odds_update')::timestamptz,
     status = coalesce(item->>'status', m.status), -- Only update status if explicitly provided
     odds_api_event_id = (item->>'odds_api_event_id')::text
   from jsonb_array_elements(payload) as item
-  where m.id = (item->>'id')::text;
+  where m.id = (item->>'id')::uuid;
 end;
 $$;
-
 SELECT 'Bulk Sync RPC Created: Ready for high-volume orchestration' as status;

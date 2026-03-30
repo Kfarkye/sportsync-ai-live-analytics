@@ -1,4 +1,3 @@
-
 -- NBA BRIDGE CRON JOB
 -- Automates live data synchronization for NBA Totals every minute
 
@@ -40,7 +39,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- Schedule the cron job to run every minute
 SELECT cron.schedule(
   'nba-bridge-live-sync',

@@ -11,21 +11,17 @@ CREATE TABLE IF NOT EXISTS public.institutional_team_profiles (
     last_audited_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
 -- Enable RLS
 ALTER TABLE public.institutional_team_profiles ENABLE ROW LEVEL SECURITY;
-
 -- Allow public read access (for edge functions and frontend)
 -- Allow public read access (for edge functions and frontend)
 DROP POLICY IF EXISTS "Allow public read access" ON public.institutional_team_profiles;
 CREATE POLICY "Allow public read access" ON public.institutional_team_profiles
     FOR SELECT USING (true);
-
 -- Allow service role full access
 DROP POLICY IF EXISTS "Allow service role full access" ON public.institutional_team_profiles;
 CREATE POLICY "Allow service role full access" ON public.institutional_team_profiles
     USING (true) WITH CHECK (true);
-
 -- INITIAL SEEDING FOR MIA AND NOP
 INSERT INTO public.institutional_team_profiles 
 (team_id, league_id, q4_pace_delta, q4_efficiency_delta, q4_defensive_delta, meta_notes)

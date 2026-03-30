@@ -31,3 +31,20 @@ jobs:
 
       - name: Validate migration naming and version uniqueness
         run: npm run check:migrations
+
+      - name: NBA Structural Baseline Assertion
+        id: nba_structural_assertion
+        if: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run check:nba-structural-baseline
+
+      - name: NBA Structural Baseline Summary
+        if: ${{ always() }}
+        run: |
+          if [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "NBA Structural Baseline Assertion: skipped (missing SUPABASE_SERVICE_ROLE_KEY)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "NBA Structural Baseline Assertion: ${{ steps.nba_structural_assertion.conclusion }}" >> "$GITHUB_STEP_SUMMARY"
+          fi

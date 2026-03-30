@@ -2,10 +2,8 @@
 -- Source table: public.matches
 
 -- 1) League structural profiles
--- Idempotent: avoid DROP here because downstream MVs can depend on this object in
--- long-lived environments.
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS public.mv_league_structural_profiles AS
+DROP MATERIALIZED VIEW IF EXISTS public.mv_league_structural_profiles;
+CREATE MATERIALIZED VIEW public.mv_league_structural_profiles AS
 WITH completed AS (
   SELECT
     league_id,
@@ -34,15 +32,11 @@ SELECT
   NOW() AS updated_at
 FROM completed
 GROUP BY league_id;
-
 CREATE UNIQUE INDEX IF NOT EXISTS mv_league_structural_profiles_league_id_uidx
   ON public.mv_league_structural_profiles (league_id);
-
-
 -- 2) Team rolling form (last 10 matches, home+away perspective)
--- Idempotent: do not drop existing MV definitions in drifted environments.
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS public.mv_team_rolling_form AS
+DROP MATERIALIZED VIEW IF EXISTS public.mv_team_rolling_form;
+CREATE MATERIALIZED VIEW public.mv_team_rolling_form AS
 WITH completed AS (
   SELECT
     id,
@@ -132,15 +126,11 @@ SELECT
   MAX(l10.start_time) AS last_match_date
 FROM last10 l10
 GROUP BY l10.team_name, l10.league_id;
-
 CREATE UNIQUE INDEX IF NOT EXISTS mv_team_rolling_form_team_league_uidx
   ON public.mv_team_rolling_form (team_name, league_id);
-
-
 -- 3) H2H summary (canonical alphabetical pair)
--- Idempotent: do not drop existing MV definitions in drifted environments.
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS public.mv_h2h_summary AS
+DROP MATERIALIZED VIEW IF EXISTS public.mv_h2h_summary;
+CREATE MATERIALIZED VIEW public.mv_h2h_summary AS
 WITH completed AS (
   SELECT
     id,
@@ -192,11 +182,8 @@ SELECT
   MAX(CASE WHEN r.rn = 1 THEN CONCAT(r.team_a_goals, '-', r.team_b_goals) END) AS last_score
 FROM ranked r
 GROUP BY r.team_a, r.team_b, r.league_id;
-
 CREATE UNIQUE INDEX IF NOT EXISTS mv_h2h_summary_pair_league_uidx
   ON public.mv_h2h_summary (team_a, team_b, league_id);
-
-
 -- Refresh helper
 CREATE OR REPLACE FUNCTION public.refresh_ai_views()
 RETURNS void
@@ -208,7 +195,6 @@ BEGIN
   REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_h2h_summary;
 END;
 $$;
-
 -- Optional automation: refresh every 30 minutes
 DO $$
 DECLARE

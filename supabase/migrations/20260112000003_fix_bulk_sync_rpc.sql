@@ -21,5 +21,4 @@ begin
   where m.id = item->>'id';
 end;
 $$;
-
 SELECT 'Bulk Sync RPC Fixed: status_state and type casting corrected' as status;

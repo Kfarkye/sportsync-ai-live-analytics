@@ -3,13 +3,11 @@
 DROP FUNCTION IF EXISTS release_originator_lock(text);
 DROP FUNCTION IF EXISTS acquire_originator_lock(text);
 DROP FUNCTION IF EXISTS acquire_originator_lock(text, int);
-
 -- 2. CREATE TABLE (If not exists)
 CREATE TABLE IF NOT EXISTS originator_locks (
   key TEXT PRIMARY KEY,
   expires_at TIMESTAMPTZ NOT NULL
 );
-
 -- 3. CREATE ACQUIRE FUNCTION (With TTL support)
 -- Returns TRUE if lock acquired, FALSE if busy
 CREATE OR REPLACE FUNCTION acquire_originator_lock(lock_key text, ttl_seconds int default 60)
@@ -27,7 +25,6 @@ BEGIN
   RETURN FOUND;
 END;
 $$;
-
 -- 4. CREATE RELEASE FUNCTION
 -- Returns void (fire and forget)
 CREATE OR REPLACE FUNCTION release_originator_lock(lock_key text)

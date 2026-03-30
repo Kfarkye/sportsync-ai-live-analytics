@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS nba_games (
   pace_pre48 NUMERIC,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 2. Tick ledger (canonical raw data per update)
 CREATE TABLE IF NOT EXISTS nba_ticks (
   tick_id BIGSERIAL PRIMARY KEY,
@@ -58,9 +57,7 @@ CREATE TABLE IF NOT EXISTS nba_ticks (
   -- Idempotency: unique key per feed tick
   UNIQUE (game_id, ts, pts_home, pts_away, elapsed_min)
 );
-
 CREATE INDEX IF NOT EXISTS nba_ticks_game_ts ON nba_ticks(game_id, ts);
-
 -- 3. Snapshot ledger (v3.0 model outputs per tick)
 CREATE TABLE IF NOT EXISTS nba_snapshots (
   snapshot_id BIGSERIAL PRIMARY KEY,
@@ -97,9 +94,7 @@ CREATE TABLE IF NOT EXISTS nba_snapshots (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (game_id, tick_id)
 );
-
 CREATE INDEX IF NOT EXISTS nba_snapshots_game_ts ON nba_snapshots(game_id, ts);
-
 -- 4. Decision ledger (when/why we fired)
 CREATE TABLE IF NOT EXISTS nba_decisions (
   decision_id BIGSERIAL PRIMARY KEY,
@@ -113,9 +108,7 @@ CREATE TABLE IF NOT EXISTS nba_decisions (
   snapshot_id BIGINT REFERENCES nba_snapshots(snapshot_id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE INDEX IF NOT EXISTS nba_decisions_game_ts ON nba_decisions(game_id, ts);
-
 -- 5. Team priors (pregame expectations, updated daily)
 CREATE TABLE IF NOT EXISTS nba_team_priors (
   season TEXT NOT NULL,
@@ -130,7 +123,6 @@ CREATE TABLE IF NOT EXISTS nba_team_priors (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (season, team)
 );
-
 -- 6. Player EPM (per 100 possessions)
 CREATE TABLE IF NOT EXISTS nba_player_epm (
   season TEXT NOT NULL,
@@ -140,7 +132,6 @@ CREATE TABLE IF NOT EXISTS nba_player_epm (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (season, player_id)
 );
-
 -- 7. Calibration runs (weekly residual analysis + adjustments)
 CREATE TABLE IF NOT EXISTS nba_calibration_runs (
   run_id BIGSERIAL PRIMARY KEY,
@@ -152,7 +143,6 @@ CREATE TABLE IF NOT EXISTS nba_calibration_runs (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (season, week_start, week_end)
 );
-
 -- RLS Policies (optional, for edge function access)
 ALTER TABLE nba_games ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nba_ticks ENABLE ROW LEVEL SECURITY;
@@ -161,7 +151,6 @@ ALTER TABLE nba_decisions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nba_team_priors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nba_player_epm ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nba_calibration_runs ENABLE ROW LEVEL SECURITY;
-
 -- Allow service role full access
 CREATE POLICY "Service role full access" ON nba_games FOR ALL USING (true);
 CREATE POLICY "Service role full access" ON nba_ticks FOR ALL USING (true);

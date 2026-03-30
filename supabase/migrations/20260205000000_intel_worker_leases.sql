@@ -7,10 +7,8 @@ create table if not exists public.intel_worker_leases (
   acquired_at timestamptz not null default now(),
   expires_at timestamptz not null
 );
-
 create index if not exists idx_intel_worker_leases_expires
   on public.intel_worker_leases (expires_at);
-
 -- Acquire a lease with a hard concurrency cap (transactional)
 create or replace function public.acquire_intel_lease(
   p_request_id text,
@@ -42,7 +40,6 @@ begin
   return lease_id;
 end;
 $$;
-
 create or replace function public.release_intel_lease(
   p_lease_id uuid
 ) returns void

@@ -30,16 +30,13 @@ CREATE TABLE IF NOT EXISTS llm_model_picks (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     metadata JSONB DEFAULT '{}'      -- For any extra model-specific info (latency, tokens, etc.)
 );
-
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_llm_model_picks_model ON llm_model_picks(model_id);
 CREATE INDEX IF NOT EXISTS idx_llm_model_picks_match_id ON llm_model_picks(match_id);
 CREATE INDEX IF NOT EXISTS idx_llm_model_picks_result ON llm_model_picks(pick_result);
 CREATE INDEX IF NOT EXISTS idx_llm_model_picks_created_at ON llm_model_picks(created_at);
-
 -- RLS (Row Level Security) - Enable service role access
 ALTER TABLE llm_model_picks ENABLE ROW LEVEL SECURITY;
-
 -- Allow service role full access
 CREATE POLICY "Service role full access on llm_model_picks" 
 ON llm_model_picks 
@@ -47,12 +44,10 @@ FOR ALL
 TO service_role 
 USING (true) 
 WITH CHECK (true);
-
 -- Allow authenticated users to view picks (optional, for dashboard)
 CREATE POLICY "Authenticated users can view llm_model_picks" 
 ON llm_model_picks 
 FOR SELECT 
 TO authenticated 
 USING (true);
-
 COMMENT ON TABLE llm_model_picks IS 'Stores betting recommendations from different LLM models for multi-model performance tracking and auto-failover verification.';

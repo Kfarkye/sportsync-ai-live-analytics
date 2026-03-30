@@ -14,16 +14,13 @@ CREATE TABLE IF NOT EXISTS nba_team_priors (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT unique_team_season UNIQUE (season, team)
 );
-
 -- Enable RLS
 ALTER TABLE nba_team_priors ENABLE ROW LEVEL SECURITY;
-
 -- Allow read access
 -- Allow read access
 DROP POLICY IF EXISTS "Allow read access to nba_team_priors" ON nba_team_priors;
 CREATE POLICY "Allow read access to nba_team_priors"
     ON nba_team_priors FOR SELECT USING (true);
-
 -- Seed with 2024-25 NBA team priors (league averages as baseline, adjusted per team)
 -- INSERT INTO nba_team_priors (season, team, exp_3p_pct, exp_2p_pct, pace, o_rating, d_rating) VALUES
 -- -- Eastern Conference
@@ -38,4 +35,4 @@ CREATE POLICY "Allow read access to nba_team_priors"
 -- ON CONFLICT (season, team) DO NOTHING;
 --
 -- -- Verify
--- -- SELECT COUNT(*) as total_priors FROM nba_team_priors;
+-- -- SELECT COUNT(*) as total_priors FROM nba_team_priors;;

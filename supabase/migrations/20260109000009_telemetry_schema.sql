@@ -1,4 +1,3 @@
-
 -- Sports Telemetry Engine v2.0
 -- Parallel Architecture: Event Sourcing & Lag Analytics
 
@@ -18,12 +17,9 @@ CREATE TABLE IF NOT EXISTS public.raw_odds_log (
     -- Idempotency / Deduplication Key
     CONSTRAINT raw_odds_log_unique_event UNIQUE (game_id, market, side, book, ts)
 );
-
 -- Index for temporal queries (Lag Analysis)
 CREATE INDEX IF NOT EXISTS idx_raw_odds_log_lookup 
 ON public.raw_odds_log(game_id, market, side, book, ts DESC);
-
-
 -- 2. Live Market State (The Mutable "Now")
 -- Optimized for O(1) Reads during Ingestion
 CREATE TABLE IF NOT EXISTS public.live_market_state (
@@ -38,12 +34,9 @@ CREATE TABLE IF NOT EXISTS public.live_market_state (
     
     PRIMARY KEY (game_id, market, side, book)
 );
-
 -- Index for retrieving all books for a specific market (Consensus Calculation)
 CREATE INDEX IF NOT EXISTS idx_live_market_state_consensus 
 ON public.live_market_state(game_id, market, side);
-
-
 -- 3. Derived Consensus Log (The "Tape")
 -- Records when the "True Price" changes
 CREATE TABLE IF NOT EXISTS public.derived_consensus_log (
@@ -59,11 +52,8 @@ CREATE TABLE IF NOT EXISTS public.derived_consensus_log (
     ts TIMESTAMPTZ NOT NULL, -- The moment consensus shifted
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE INDEX IF NOT EXISTS idx_derived_consensus_log_stream 
 ON public.derived_consensus_log(game_id, ts ASC);
-
-
 -- 4. Derived Lag Metrics (Analytical Store)
 -- Who moves first? Who follows?
 CREATE TABLE IF NOT EXISTS public.derived_lag_metrics (
@@ -78,16 +68,12 @@ CREATE TABLE IF NOT EXISTS public.derived_lag_metrics (
     
     PRIMARY KEY (game_id, book, event_ts, ruleset_version)
 );
-
 -- RLS: Enable Read/Write for everyone (Internal Tool Focus first, refine later if needed)
 ALTER TABLE public.raw_odds_log ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable all access" ON public.raw_odds_log FOR ALL USING (true) WITH CHECK (true);
-
 ALTER TABLE public.live_market_state ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable all access" ON public.live_market_state FOR ALL USING (true) WITH CHECK (true);
-
 ALTER TABLE public.derived_consensus_log ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable all access" ON public.derived_consensus_log FOR ALL USING (true) WITH CHECK (true);
-
 ALTER TABLE public.derived_lag_metrics ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable all access" ON public.derived_lag_metrics FOR ALL USING (true) WITH CHECK (true);

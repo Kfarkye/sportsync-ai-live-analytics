@@ -23,8 +23,10 @@
     "seed:fatigue": "export $(grep SUPABASE_SERVICE_ROLE_KEY .env | xargs) && npx tsx scripts/seed_master_schedule.ts",
     "seed:roster": "export $(grep SUPABASE_SERVICE_ROLE_KEY .env | xargs) && npx tsx scripts/seed_roster.ts",
     "seed:injuries": "export $(grep SUPABASE_SERVICE_ROLE_KEY .env | xargs) && npx tsx scripts/seed_injury_report.ts",
+    "backfill:historical-props": "npx tsx scripts/backfill/backfill_historical_props.ts",
     "sync:shared": "node scripts/sync_shared.js",
-    "verify:ssot": "node scripts/verify_ssot.js"
+    "verify:ssot": "node scripts/verify_ssot.js",
+    "check:nba-structural-baseline": "node scripts/audit/check_nba_structural_baseline.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.13",

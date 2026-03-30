@@ -1,5 +1,4 @@
 BEGIN;
-
 CREATE TABLE IF NOT EXISTS public.kalshi_orderbook_snapshots (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   market_ticker text NOT NULL,
@@ -33,13 +32,10 @@ CREATE TABLE IF NOT EXISTS public.kalshi_orderbook_snapshots (
   captured_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_kalshi_ob_ticker
   ON public.kalshi_orderbook_snapshots (market_ticker, captured_at DESC);
-
 CREATE INDEX IF NOT EXISTS idx_kalshi_ob_event
   ON public.kalshi_orderbook_snapshots (event_ticker, captured_at DESC);
-
 DO $$
 DECLARE
   v_job_id bigint;
@@ -71,5 +67,4 @@ BEGIN
   END IF;
 END;
 $$;
-
 COMMIT;

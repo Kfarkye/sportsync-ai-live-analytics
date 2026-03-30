@@ -5,9 +5,7 @@
 --   - All other sports: require SOME spread + SOME total (flexible key names)
 
 begin;
-
 drop view if exists public.v_ready_for_intel;
-
 create view public.v_ready_for_intel as
 select
   m.id,
@@ -65,5 +63,4 @@ where
       )
     )
   );
-
 commit;

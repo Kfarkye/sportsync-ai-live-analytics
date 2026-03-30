@@ -1,4 +1,3 @@
-
 -- 1. Historical Results Table (The Source of Truth)
 CREATE TABLE IF NOT EXISTS game_results (
     id TEXT PRIMARY KEY, -- Match ID from ESPN/Provider
@@ -24,10 +23,8 @@ CREATE TABLE IF NOT EXISTS game_results (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
 -- Ensure sport column exists if table was already created
 ALTER TABLE game_results ADD COLUMN IF NOT EXISTS sport TEXT NOT NULL DEFAULT 'NFL';
-
 -- 2. Team Trends Table (The Fast Cache)
 -- Stores calculated summaries so we don't have to scan history every time
 CREATE TABLE IF NOT EXISTS team_trends (
@@ -55,7 +52,6 @@ CREATE TABLE IF NOT EXISTS team_trends (
     last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(team_id, sport, context)
 );
-
 -- Ensure all statistical columns exist even if table was already created
 DO $$ 
 BEGIN
@@ -81,10 +77,8 @@ BEGIN
         ALTER TABLE team_trends ADD COLUMN ou_unders INT DEFAULT 0;
     END IF;
 END $$;
-
 -- Ensure sport column exists if table was already created
 ALTER TABLE team_trends ADD COLUMN IF NOT EXISTS sport TEXT NOT NULL DEFAULT 'NFL';
-
 -- Ensure the correct UNIQUE constraint exists for UPSERT operations
 -- We use a DO block to handle conditional constraint creation
 DO $$ 
@@ -110,7 +104,6 @@ BEGIN
         ALTER TABLE team_trends ADD CONSTRAINT team_trends_team_sport_context_key UNIQUE (team_id, sport, context);
     END IF;
 END $$;
-
 -- 3. Situational Insights (The Discovery Layer)
 -- Stores the actual strings/pills to show the user
 CREATE TABLE IF NOT EXISTS match_insights (
@@ -128,7 +121,6 @@ CREATE TABLE IF NOT EXISTS match_insights (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     expires_at TIMESTAMP WITH TIME ZONE -- Optional expiration for transient trends
 );
-
 -- Ensure all columns required for seeding exist if table was already created
 DO $$ 
 BEGIN
@@ -190,7 +182,6 @@ BEGIN
         ALTER TABLE match_insights ADD CONSTRAINT match_insights_match_summary_key UNIQUE (match_id, summary);
     END IF;
 END $$;
-
 -- Indices for performance
 CREATE INDEX IF NOT EXISTS idx_game_results_teams ON game_results (home_team_id, away_team_id);
 CREATE INDEX IF NOT EXISTS idx_game_results_date ON game_results (game_date);

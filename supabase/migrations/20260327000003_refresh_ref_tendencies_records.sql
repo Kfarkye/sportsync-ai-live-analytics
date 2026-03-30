@@ -3,7 +3,6 @@
 -- Rebuilds ref_team_records / ref_coach_records / ref_player_records from finalized NBA data.
 
 DROP FUNCTION IF EXISTS public.refresh_ref_tendencies_records(text);
-
 CREATE OR REPLACE FUNCTION public.refresh_ref_tendencies_records(p_sport text DEFAULT 'basketball')
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -323,8 +322,6 @@ BEGIN
   );
 END;
 $$;
-
 GRANT EXECUTE ON FUNCTION public.refresh_ref_tendencies_records(text) TO service_role;
-
 COMMENT ON FUNCTION public.refresh_ref_tendencies_records(text) IS
 'Rebuilds APP_REF_TENDENCIES_CURRENT tables from finalized NBA game/team master data and official assignments.';

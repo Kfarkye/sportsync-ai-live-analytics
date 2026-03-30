@@ -39,7 +39,7 @@ async function fetchGames(status) {
     : 'status=neq.STATUS_FINAL';
 
   const baseUrl = `${SUPABASE_URL}/rest/v1/matches?league_id=eq.nba&${filter}` +
-    `&select=id,start_time,home_team,away_team,home_score,away_score,status,closing_odds,opening_odds` +
+    `&select=id,start_time,home_team,away_team,home_score,away_score,status,closing_odds,opening_odds,odds_total_safe,odds_home_spread_safe,odds_home_ml_safe,odds_away_ml_safe` +
     `&order=start_time.desc`;
 
   const PAGE_SIZE = 1000;

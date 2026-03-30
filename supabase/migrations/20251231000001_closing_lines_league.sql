@@ -5,10 +5,8 @@
 -- Add the new column
 ALTER TABLE closing_lines 
 ADD COLUMN IF NOT EXISTS league_id TEXT;
-
 -- Create index for filtering
 CREATE INDEX IF NOT EXISTS idx_closing_lines_league ON closing_lines(league_id);
-
 -- Backfill existing data based on total range (heuristic)
 UPDATE closing_lines SET league_id = CASE
     WHEN total::NUMERIC >= 180 AND total::NUMERIC <= 280 THEN 'nba'
@@ -21,6 +19,5 @@ UPDATE closing_lines SET league_id = CASE
     ELSE 'unknown'
 END
 WHERE league_id IS NULL AND total IS NOT NULL;
-
 -- Verify
 SELECT league_id, COUNT(*) as rows FROM closing_lines GROUP BY league_id ORDER BY rows DESC;

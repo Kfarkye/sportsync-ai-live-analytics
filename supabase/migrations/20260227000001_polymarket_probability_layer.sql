@@ -25,10 +25,8 @@ create table if not exists public.poly_league_map (
   active         boolean default true,
   created_at     timestamptz default now()
 );
-
 comment on table public.poly_league_map is 
   'Maps Polymarket series_ids to local LEAGUES constant IDs';
-
 -- Seed known mappings (series_ids from gamma-api.polymarket.com/sports)
 -- NOTE: series_ids must be verified against live API before first deploy.
 -- Run: curl "https://gamma-api.polymarket.com/sports" to get current IDs.
@@ -60,8 +58,6 @@ insert into public.poly_league_map (poly_series_id, local_league_id, sport, disp
   -- MLS
   ('10357', 'usa.1', 'soccer', 'MLS')
 on conflict (poly_series_id) do nothing;
-
-
 -- 2. Game-level probability data from Polymarket
 create table if not exists public.poly_odds (
   id                uuid primary key default gen_random_uuid(),
@@ -102,17 +98,13 @@ create table if not exists public.poly_odds (
   created_at        timestamptz default now(),
   updated_at        timestamptz default now()
 );
-
 -- Indexes for fast lookups
 create index if not exists idx_poly_odds_game_id on public.poly_odds(game_id);
 create index if not exists idx_poly_odds_league on public.poly_odds(local_league_id);
 create index if not exists idx_poly_odds_active on public.poly_odds(market_active) where market_active = true;
 create index if not exists idx_poly_odds_start_time on public.poly_odds(game_start_time);
-
 comment on table public.poly_odds is 
   'Polymarket game-level probabilities. Share price = probability. No vig.';
-
-
 -- 3. Ingestion telemetry
 create table if not exists public.poly_ingest_log (
   id            uuid primary key default gen_random_uuid(),
@@ -125,11 +117,8 @@ create table if not exists public.poly_ingest_log (
   duration_ms     int,
   status          text check (status in ('success', 'partial', 'failure'))
 );
-
 comment on table public.poly_ingest_log is 
   'Observability log for Polymarket ingestion pipeline runs';
-
-
 -- 4. Auto-update timestamp trigger
 create or replace function update_poly_odds_timestamp()
 returns trigger as $$
@@ -138,34 +127,24 @@ begin
   return new;
 end;
 $$ language plpgsql;
-
 drop trigger if exists trg_poly_odds_updated on public.poly_odds;
 create trigger trg_poly_odds_updated
   before update on public.poly_odds
   for each row execute function update_poly_odds_timestamp();
-
-
 -- 5. RLS policies — public read, service-role write
 alter table public.poly_odds enable row level security;
 alter table public.poly_league_map enable row level security;
 alter table public.poly_ingest_log enable row level security;
-
 create policy "poly_odds_public_read" on public.poly_odds
   for select using (true);
-
 create policy "poly_odds_service_write" on public.poly_odds
   for all using (auth.role() = 'service_role');
-
 create policy "poly_league_map_public_read" on public.poly_league_map
   for select using (true);
-
 create policy "poly_league_map_service_write" on public.poly_league_map
   for all using (auth.role() = 'service_role');
-
 create policy "poly_ingest_log_service_only" on public.poly_ingest_log
   for all using (auth.role() = 'service_role');
-
-
 -- 6. View: Active probabilities joined with matches for frontend consumption
 create or replace view public.v_poly_live as
 select 
@@ -185,6 +164,5 @@ from public.poly_odds po
 where po.market_active = true
   and po.market_closed = false
 order by po.game_start_time asc;
-
 comment on view public.v_poly_live is 
   'Live Polymarket probabilities for active games — ready for frontend';

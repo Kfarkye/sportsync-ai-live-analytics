@@ -58,5 +58,4 @@ begin
   where m.id = item->>'id';
 end;
 $$;
-
 SELECT 'RPC Fixed: Synchronizing flattened safe columns for AI and UI' as status;

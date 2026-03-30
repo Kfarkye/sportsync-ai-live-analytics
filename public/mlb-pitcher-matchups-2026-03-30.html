@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>MLB Pitcher Matchup Board — March 30, 2026 | SportsSync</title>
+  <meta name="description" content="Machine-readable and human-readable MLB pitcher matchup board for March 30, 2026. Probable starters, opponent strikeout tendency, contact profile, and pitcher context in one page." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://sportsync-evidence.web.app/mlb-pitcher-matchups-2026-03-30" />
+  <link rel="alternate" type="application/json" href="/data/mlb-pitcher-matchups-2026-03-30.json" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    "name": "MLB Pitcher Matchup Board — March 30, 2026",
+    "description": "Probable MLB starters for March 30, 2026 paired with opponent strikeout and contact profiles from historical batting logs.",
+    "distribution": {
+      "@type": "DataDownload",
+      "contentUrl": "https://sportsync-evidence.web.app/data/mlb-pitcher-matchups-2026-03-30.json",
+      "encodingFormat": "application/json"
+    }
+  }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #faf8f3;
+      --surface: #ffffff;
+      --surface-soft: #fdfcfa;
+      --border: #e7e2d8;
+      --ink: #1c1b18;
+      --ink-secondary: #5d584f;
+      --ink-tertiary: #8a8479;
+      --accent: #c85a3a;
+      --accent-secondary: #4b9cd3;
+      --good: #17795d;
+      --warn: #9b6323;
+      --bad: #a63d4d;
+      --mono: 'JetBrains Mono', ui-monospace, monospace;
+      --sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --serif: 'Source Serif 4', Georgia, serif;
+    }
+    html {
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 15px;
+      overflow-x: clip;
+    }
+    body {
+      background:
+        radial-gradient(900px 320px at 0% 0%, rgba(200,90,58,0.08), transparent 56%),
+        radial-gradient(900px 320px at 100% 0%, rgba(75,156,211,0.08), transparent 56%),
+        var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    a { color: inherit; }
+    .shell {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 28px 56px;
+    }
+    .nav {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+    }
+    .nav-brand {
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+      color: var(--ink);
+    }
+    .nav-links {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      font-size: 13px;
+      color: var(--ink-tertiary);
+    }
+    .nav-tab {
+      text-decoration: none;
+      color: var(--ink-tertiary);
+      padding: 10px 0;
+    }
+    .nav-tab.active {
+      color: var(--ink);
+      font-weight: 600;
+      background: transparent;
+    }
+    .nav-tab.machine {
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .hero {
+      display: grid;
+      gap: 14px;
+      padding: 6px 0 12px;
+    }
+    .hero-kicker { display: none; }
+    h1 {
+      font-family: var(--serif);
+      font-size: clamp(34px, 5vw, 56px);
+      line-height: 0.98;
+      letter-spacing: -0.045em;
+      max-width: 12ch;
+    }
+    .hero-sub {
+      max-width: 70ch;
+      color: var(--ink-secondary);
+      font-size: 16px;
+      line-height: 1.65;
+    }
+    .status-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 8px 0 18px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .status-pill {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: transparent;
+      font-size: 13px;
+    }
+    .status-pill .label {
+      color: var(--ink-tertiary);
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .status-pill .value {
+      font-weight: 700;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+    .summary-card, .section-card, .matchup-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .summary-card {
+      padding: 18px;
+    }
+    .summary-card .eyebrow {
+      color: var(--ink-tertiary);
+      font-size: 11px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .summary-card .big {
+      margin-top: 10px;
+      font-size: 28px;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      font-weight: 700;
+    }
+    .summary-card .detail {
+      margin-top: 10px;
+      color: var(--ink-secondary);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .sections {
+      display: grid;
+      gap: 16px;
+    }
+    .section-card {
+      padding: 20px;
+    }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 24px;
+      letter-spacing: -0.03em;
+    }
+    .section-sub {
+      margin-top: 4px;
+      color: var(--ink-secondary);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 12px;
+    }
+    .matchup-card {
+      padding: 18px;
+      background: var(--surface);
+    }
+    .matchup-card:hover {
+      box-shadow: none;
+      transform: none;
+      background: var(--surface-soft);
+    }
+    .matchup-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 12px;
+    }
+    .matchup-game {
+      color: var(--ink-tertiary);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .pitcher-name {
+      margin-top: 8px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+    .pitcher-team {
+      margin-top: 2px;
+      color: var(--ink-secondary);
+      font-size: 14px;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 11px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+    .tag.heavy_strikeout { color: var(--good); }
+    .tag.good_contact { color: var(--bad); }
+    .tag.neutral { color: var(--warn); }
+    .opponent-line {
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .stat-box {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+    }
+    .stat-box .label, .pitcher-metric .label {
+      color: var(--ink-tertiary);
+      font-size: 10px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .stat-box .value {
+      margin-top: 6px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+    .stat-box .meta {
+      margin-top: 4px;
+      color: var(--ink-secondary);
+      font-size: 12px;
+    }
+    .pitcher-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .pitcher-metric { display: grid; gap: 4px; }
+    .pitcher-metric .value {
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.45;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    table {
+      width: 100%;
+      min-width: 980px;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 14px;
+      vertical-align: top;
+    }
+    th {
+      color: var(--ink-tertiary);
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: var(--surface);
+    }
+    tr:last-child td { border-bottom: none; }
+    .mono { font-family: var(--mono); }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      border-top: 1px solid var(--border);
+      margin-top: 22px;
+      padding-top: 14px;
+      color: var(--ink-secondary);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .footer a { color: var(--accent); text-underline-offset: 2px; }
+    .generated-hidden { display: none; }
+    .loading, .error {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink-secondary);
+    }
+    @media (max-width: 940px) {
+      .summary-grid { grid-template-columns: 1fr; }
+      .pitcher-strip { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+      .shell { padding: 0 16px 42px; }
+      .nav { height: auto; padding: 14px 0; flex-direction: column; align-items: flex-start; }
+      .nav-links { flex-wrap: wrap; gap: 12px; }
+      .stats-grid, .pitcher-strip { grid-template-columns: 1fr; }
+      .footer { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav" aria-label="Page">
+      <a class="nav-brand" href="/">SportsSync</a>
+      <div class="nav-links">
+        <a class="nav-tab active" href="/mlb-pitcher-matchups-2026-03-30">Pitcher Matchups</a>
+        <a class="nav-tab machine" href="/data/mlb-pitcher-matchups-2026-03-30.json">JSON</a>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-kicker">MLB pitcher board</div>
+      <h1>March 30 pitcher board.</h1>
+      <p class="hero-sub">
+        One page for the whole slate. Probable starters on one side, opponent strikeout tendency on the other,
+        with enough pitcher context to know whether a high-K environment is actually worth chasing.
+      </p>
+    </section>
+
+    <div class="status-row" id="statusRow"></div>
+
+    <section class="summary-grid" id="summaryGrid"></section>
+
+    <div class="sections">
+      <section class="section-card">
+        <div class="section-head">
+          <div>
+            <h2 class="section-title">Strikeout-friendly</h2>
+            <p class="section-sub">Pitchers facing lineups at least 1.0 percentage point above the league strikeout baseline by at-bat.</p>
+          </div>
+        </div>
+        <div class="cards" id="kFriendlyCards"><div class="loading">Loading matchup cards…</div></div>
+      </section>
+
+      <section class="section-card">
+        <div class="section-head">
+          <div>
+            <h2 class="section-title">Contact-heavy</h2>
+            <p class="section-sub">Pitchers running into lower-whiff lineups where raw strikeout upside gets compressed.</p>
+          </div>
+        </div>
+        <div class="cards" id="contactCards"></div>
+      </section>
+
+      <section class="section-card">
+        <div class="section-head">
+          <div>
+            <h2 class="section-title">Full board</h2>
+            <p class="section-sub">Machine-readable rows presented in a cleaner human scan.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Game</th>
+                <th>Pitcher</th>
+                <th>Opponent</th>
+                <th>Tag</th>
+                <th>K/Game</th>
+                <th>K/AB</th>
+                <th>vs Lg</th>
+                <th>2025 Avg K</th>
+                <th>2026 Last 3 Avg K</th>
+                <th>Latest Start</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <footer class="footer">
+      <div id="footerNote">Loading methodology…</div>
+      <div>
+        <a href="/data/mlb-pitcher-matchups-2026-03-30.json">Machine-readable JSON</a>
+        <span class="generated-hidden" id="generatedAt"></span>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const DATA_URL = '/data/mlb-pitcher-matchups-2026-03-30.json';
+
+    function fmtNumber(value, digits = 1) {
+      if (value === null || value === undefined || Number.isNaN(value)) return '—';
+      return Number(value).toFixed(digits);
+    }
+
+    function fmtSigned(value, digits = 1, suffix = '') {
+      if (value === null || value === undefined || Number.isNaN(value)) return '—';
+      const rounded = Number(value).toFixed(digits);
+      const sign = Number(value) > 0 ? '+' : '';
+      return sign + rounded + suffix;
+    }
+
+    function summaryCard(title, big, detail) {
+      return '<article class="summary-card">'
+        + '<div class="eyebrow">' + title + '</div>'
+        + '<div class="big">' + big + '</div>'
+        + '<div class="detail">' + detail + '</div>'
+        + '</article>';
+    }
+
+    function statusPill(label, value) {
+      return '<div class="status-pill"><span class="label">' + label + '</span><span class="value">' + value + '</span></div>';
+    }
+
+    function matchupCard(card) {
+      const latest = card.pitcher_profile.latest_start;
+      const latestText = latest
+        ? latest.strikeouts + ' K in ' + fmtNumber(latest.innings_pitched, 1) + ' IP vs ' + latest.opponent_team
+        : 'No 2026 starter row yet';
+      return '<article class="matchup-card">'
+        + '<div class="matchup-top">'
+        + '  <div>'
+        + '    <div class="matchup-game">' + card.short_name + '</div>'
+        + '    <div class="pitcher-name">' + card.pitcher + '</div>'
+        + '    <div class="pitcher-team">' + card.pitcher_team + ' vs ' + card.opponent_team + '</div>'
+        + '  </div>'
+        + '  <div class="tag ' + card.matchup_tag + '">' + card.matchup_tag_label + '</div>'
+        + '</div>'
+        + '<div class="opponent-line">Opponent profile: <strong>' + fmtNumber(card.opponent_profile.k_per_ab_pct, 1) + '% K/AB</strong> and <strong>' + fmtNumber(card.opponent_profile.k_per_game, 2) + ' K/game</strong>.</div>'
+        + '<div class="stats-grid">'
+        + '  <div class="stat-box"><div class="label">K per AB</div><div class="value">' + fmtNumber(card.opponent_profile.k_per_ab_pct, 1) + '%</div><div class="meta">vs league ' + fmtSigned(card.opponent_profile.delta_vs_league_k_per_ab_pct, 1, ' pts') + '</div></div>'
+        + '  <div class="stat-box"><div class="label">K per game</div><div class="value">' + fmtNumber(card.opponent_profile.k_per_game, 2) + '</div><div class="meta">vs league ' + fmtSigned(card.opponent_profile.delta_vs_league_k_per_game, 2) + '</div></div>'
+        + '</div>'
+        + '<div class="pitcher-strip">'
+        + '  <div class="pitcher-metric"><div class="label">2025 Avg K</div><div class="value">' + fmtNumber(card.pitcher_profile.avg_k_2025, 2) + '</div></div>'
+        + '  <div class="pitcher-metric"><div class="label">2026 Last 3 Avg K</div><div class="value">' + fmtNumber(card.pitcher_profile.avg_k_2026_last3, 2) + '</div></div>'
+        + '  <div class="pitcher-metric"><div class="label">Latest Start</div><div class="value">' + latestText + '</div></div>'
+        + '</div>'
+        + '</article>';
+    }
+
+    async function boot() {
+      try {
+        const res = await fetch(DATA_URL, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Failed to load data');
+        const data = await res.json();
+
+        document.getElementById('statusRow').innerHTML = [
+          statusPill('Board', data.summary.board_status),
+          statusPill('League baseline', data.league_baseline.k_per_game + ' K/game · ' + data.league_baseline.k_per_ab_pct + '% K/AB'),
+          statusPill('K-friendly', data.summary.heavy_strikeout_count),
+          statusPill('Contact-heavy', data.summary.good_contact_count)
+        ].join('');
+
+        document.getElementById('summaryGrid').innerHTML = [
+          summaryCard('Best over-watch cluster', 'Leiter · Castillo · Soroka', 'These starters get the cleanest strikeout support from opponent profile alone.'),
+          summaryCard('Best under-watch cluster', 'Sugano · Roupp · Davis Martin', 'These are the cleanest contact-heavy matchups on the board.'),
+          summaryCard('What matters', 'Opponent K rate first', 'This board classifies using K per AB, then lets pitcher history tell you whether the matchup is actually actionable.')
+        ].join('');
+
+        const kFriendly = data.cards.filter(card => card.matchup_tag === 'heavy_strikeout');
+        const contactHeavy = data.cards.filter(card => card.matchup_tag === 'good_contact');
+        document.getElementById('kFriendlyCards').innerHTML = kFriendly.map(matchupCard).join('');
+        document.getElementById('contactCards').innerHTML = contactHeavy.map(matchupCard).join('');
+
+        document.getElementById('tableBody').innerHTML = data.cards.map(card => {
+          const latest = card.pitcher_profile.latest_start;
+          const latestText = latest
+            ? latest.strikeouts + ' K / ' + fmtNumber(latest.innings_pitched, 1) + ' IP'
+            : '—';
+          return '<tr>'
+            + '<td class="mono">' + card.short_name + '</td>'
+            + '<td><strong>' + card.pitcher + '</strong><br /><span style="color:var(--ink-secondary)">' + card.pitcher_team + '</span></td>'
+            + '<td>' + card.opponent_team + '</td>'
+            + '<td><span class="tag ' + card.matchup_tag + '">' + card.matchup_tag_label + '</span></td>'
+            + '<td class="mono">' + fmtNumber(card.opponent_profile.k_per_game, 2) + '</td>'
+            + '<td class="mono">' + fmtNumber(card.opponent_profile.k_per_ab_pct, 1) + '%</td>'
+            + '<td class="mono">' + fmtSigned(card.opponent_profile.delta_vs_league_k_per_ab_pct, 1, ' pts') + '</td>'
+            + '<td class="mono">' + fmtNumber(card.pitcher_profile.avg_k_2025, 2) + '</td>'
+            + '<td class="mono">' + fmtNumber(card.pitcher_profile.avg_k_2026_last3, 2) + '</td>'
+            + '<td class="mono">' + latestText + '</td>'
+            + '</tr>';
+        }).join('');
+
+        document.getElementById('generatedAt').textContent = data.generated_at;
+        document.getElementById('footerNote').textContent =
+          'Source window: opponent batting logs from ' + data.league_baseline.sample_window_start + ' through ' + data.league_baseline.sample_window_end
+          + '. Classification is based on opponent strikeout rate per at-bat. JSON contract version: ' + data.machine_contract_version + '.';
+      } catch (error) {
+        document.getElementById('kFriendlyCards').innerHTML = '<div class="error">Unable to load the matchup board right now.</div>';
+        document.getElementById('contactCards').innerHTML = '';
+        document.getElementById('tableBody').innerHTML = '';
+        document.getElementById('statusRow').innerHTML = '<div class="error">Load failed.</div>';
+        document.getElementById('footerNote').textContent = 'Unable to load methodology right now.';
+      }
+    }
+
+    boot();
+  </script>
+</body>
+</html>

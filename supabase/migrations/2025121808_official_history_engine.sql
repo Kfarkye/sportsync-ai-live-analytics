@@ -1,4 +1,3 @@
-
 -- 1. Official Profiles (Central Registry for Officials)
 CREATE TABLE IF NOT EXISTS official_profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -17,7 +16,6 @@ CREATE TABLE IF NOT EXISTS official_profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(name, sport)
 );
-
 -- 2. Official Game History (The Join Table)
 -- Links officials to the matches they have worked
 CREATE TABLE IF NOT EXISTS official_game_history (
@@ -34,12 +32,10 @@ CREATE TABLE IF NOT EXISTS official_game_history (
     
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
 -- Indices for performance
 CREATE INDEX IF NOT EXISTS idx_official_history_lookup ON official_game_history (match_id);
 CREATE INDEX IF NOT EXISTS idx_official_history_official_id ON official_game_history (official_id);
 CREATE INDEX IF NOT EXISTS idx_official_profiles_name ON official_profiles (name);
-
 -- 3. Auto-Slug Trigger for Official Profiles
 CREATE OR REPLACE FUNCTION generate_official_slug()
 RETURNS TRIGGER AS $$
@@ -48,7 +44,6 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 DROP TRIGGER IF EXISTS trg_official_slug ON official_profiles;
 CREATE TRIGGER trg_official_slug
     BEFORE INSERT ON official_profiles

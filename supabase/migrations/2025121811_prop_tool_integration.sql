@@ -1,4 +1,3 @@
-
 -- 1. Ensure Domain Types & Enums
 DO $$ 
 BEGIN
@@ -18,7 +17,6 @@ BEGIN
     --    WHEN duplicate_object THEN NULL;
     -- END;
 END $$;
-
 -- 2. HARDENING PLAYER PROPS SCHEMA
 DO $$ 
 BEGIN
@@ -87,7 +85,6 @@ BEGIN
     -- ALTER TABLE player_prop_bets ALTER COLUMN odds_decimal TYPE NUMERIC(8,3);
 
 END $$;
-
 -- 3. Trigger for Auto-Mapping Match IDs
 -- Allows the mini-app to send (Team, Date) instead of internal UUIDs.
 CREATE OR REPLACE FUNCTION sync_prop_to_match_id()
@@ -111,14 +108,12 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 DROP TRIGGER IF EXISTS trg_set_prop_match_id ON player_prop_bets;
 CREATE TRIGGER trg_set_prop_match_id
 BEFORE INSERT OR UPDATE OF team, opponent, event_date
 ON player_prop_bets
 FOR EACH ROW
 EXECUTE FUNCTION sync_prop_to_match_id();
-
 -- 4. Indices for Query Performance
 -- CREATE INDEX IF NOT EXISTS idx_player_props_expiry ON public.player_prop_bets (valid_to);
 CREATE INDEX IF NOT EXISTS idx_props_user ON public.player_prop_bets (user_id);

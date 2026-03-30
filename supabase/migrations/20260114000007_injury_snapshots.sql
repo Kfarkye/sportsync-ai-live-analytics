@@ -14,11 +14,9 @@ CREATE TABLE IF NOT EXISTS injury_snapshots (
     
     UNIQUE(player_name, team, sport, report_date)
 );
-
 -- Index for fast lookups by sport and date
 CREATE INDEX IF NOT EXISTS idx_injury_snapshots_sport_date 
 ON injury_snapshots(sport, report_date);
-
 -- Index for team lookups
 CREATE INDEX IF NOT EXISTS idx_injury_snapshots_team 
 ON injury_snapshots(team);

@@ -57,19 +57,16 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 -- 2. Attach the trigger to market_feeds
 DROP TRIGGER IF EXISTS tr_sync_tennis_matches ON market_feeds;
 CREATE TRIGGER tr_sync_tennis_matches
 AFTER INSERT OR UPDATE ON market_feeds
 FOR EACH ROW EXECUTE FUNCTION sync_tennis_matches_from_feeds();
-
 -- 3. Update Sport Normalization to include Tennis
 -- Run this to fix existing records and the view
 UPDATE pregame_intel 
 SET sport = 'tennis'
 WHERE league_id IN ('atp', 'wta') OR sport = 'tennis';
-
 CREATE OR REPLACE VIEW pick_record_by_sport AS
 SELECT 
     CASE 
@@ -91,13 +88,10 @@ FROM pregame_intel
 WHERE pick_result IN ('WIN', 'LOSS', 'PUSH')
 GROUP BY 1
 ORDER BY (COUNT(*) FILTER (WHERE pick_result = 'WIN') + COUNT(*) FILTER (WHERE pick_result = 'LOSS')) DESC;
-
 -- 4. PERFORMANCE TUNING: Add indices for the most used queries
 CREATE INDEX IF NOT EXISTS idx_pregame_intel_grading_lookup 
 ON pregame_intel (pick_result, sport, game_date);
-
 CREATE INDEX IF NOT EXISTS idx_matches_sport_start 
 ON matches (sport, start_time);
-
 -- 5. VERIFY
 SELECT sport, wins, losses, win_pct FROM pick_record_by_sport;

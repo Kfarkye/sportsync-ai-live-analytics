@@ -1,4 +1,3 @@
-
 -- ============================================================================
 -- INTEL EXPERT LAYER - STRUCTURAL UPGRADE
 -- Adds injury tracking, causal linking, market context, and temporal logic.
@@ -18,7 +17,6 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
-
 -- 1. INJURY + AVAILABILITY TRACKER
 CREATE TABLE IF NOT EXISTS injuries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,7 +33,6 @@ CREATE TABLE IF NOT EXISTS injuries (
     confidence_score DECIMAL(3,2) DEFAULT 1.0,
     last_updated TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 2. PROP ↔ INSIGHT LINKAGE
 -- Converts narrative insights into weighted signals for specific bets.
 CREATE TABLE IF NOT EXISTS prop_insight_links (
@@ -48,7 +45,6 @@ CREATE TABLE IF NOT EXISTS prop_insight_links (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(match_id, player_name, bet_type, insight_type)
 );
-
 -- 3. IMPORTANCE NORMALIZATION
 -- Prevents "NFL Playoffs" from being weighted the same as "NBA Regular Season".
 CREATE TABLE IF NOT EXISTS importance_context (
@@ -58,7 +54,6 @@ CREATE TABLE IF NOT EXISTS importance_context (
     base_weight DECIMAL(3,2) DEFAULT 1.0,
     UNIQUE(sport, insight_type)
 );
-
 -- 4. HARDENING EXISTING SCHEMA (MARKET & TEMPORAL FIELDS)
 DO $$ 
 BEGIN
@@ -97,7 +92,6 @@ BEGIN
     -- PERFORM add_temporal_columns('player_prop_bets');
     -- PERFORM add_temporal_columns('team_trends');
 END $$;
-
 -- 5. EXPERT SEED DATA (Importance Normalization)
 INSERT INTO importance_context (sport, insight_type, base_weight) VALUES
 ('NFL', 'ELIMINATION_GAME', 1.0),

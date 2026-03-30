@@ -70,6 +70,52 @@ const Logger = {
   error: (msg: string, error?: any) => console.error(JSON.stringify({ level: 'ERROR', msg, error: error?.message || error }))
 };
 
+function envInt(name: string, fallback: number, min = 1) {
+  const raw = Deno.env.get(name);
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < min) return fallback;
+  return Math.floor(n);
+}
+
+function envNonNegativeInt(name: string, fallback: number) {
+  const raw = Deno.env.get(name);
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.floor(n);
+}
+
+function envFloat(name: string, fallback: number, min = 0, max = 100) {
+  const raw = Deno.env.get(name);
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  if (n < min || n > max) return fallback;
+  return n;
+}
+
+const LIVE_RUNTIME = {
+  snapshotStaleSeconds: envInt('LIVE_SNAPSHOT_STALE_SECONDS', 90, 30),
+  pbpStaleSeconds: envInt('LIVE_PBP_STALE_SECONDS', 60, 30),
+  startGraceMinutes: envInt('LIVE_START_GRACE_MINUTES', 5, 1),
+  discoveryLookbackMinutes: envInt('LIVE_DISCOVERY_LOOKBACK_MINUTES', 360, 30),
+  preWindowMinutes: envInt('LIVE_PRE_WINDOW_MINUTES', 25, 5),
+  perLeagueMaxGames: envInt('LIVE_PER_LEAGUE_MAX_GAMES', 40, 1),
+  concurrency: envInt('LIVE_INGEST_CONCURRENCY', 4, 1),
+  maxRuntimeMs: envInt('LIVE_MAX_RUNTIME_MS', 50000, 5000),
+  dedupeSeconds: envInt('LIVE_SNAPSHOT_DEDUPE_SECONDS', 20, 5),
+  degradedRepeatSeconds: envInt('LIVE_DEGRADED_REPEAT_SECONDS', 120, 30),
+  sloWindowMinutes: envInt('LIVE_SLO_WINDOW_MINUTES', 240, 30),
+  sloMinSnapshotCoveragePct: envFloat('LIVE_SLO_MIN_SNAPSHOT_COVERAGE_PCT', 100),
+  sloMinStateCoveragePct: envFloat('LIVE_SLO_MIN_STATE_COVERAGE_PCT', 100),
+  sloMinPbpCoveragePct: envFloat('LIVE_SLO_MIN_PBP_COVERAGE_PCT', 100),
+  sloMaxMissingGames: envNonNegativeInt('LIVE_SLO_MAX_MISSING_GAMES', 0),
+  sloMaxStaleGames: envNonNegativeInt('LIVE_SLO_MAX_STALE_GAMES', 0),
+};
+
+const STATUS_KEYS = {
+  inProgress: ['IN_PROGRESS', 'STATUS_IN_PROGRESS', 'LIVE', 'HALFTIME', 'STATUS_HALFTIME'],
+  final: ['FINAL', 'STATUS_FINAL', 'POST', 'STATUS_FULL_TIME', 'FULL_TIME'],
+};
+
 const toAdapterSport = (espnSport: string): Sport => {
   switch ((espnSport || '').toLowerCase()) {
     case 'football': return Sport.NFL;
@@ -235,6 +281,645 @@ function parsePositiveInt(val: any): number | null {
   return Math.floor(n);
 }
 
+function statusIncludesAny(rawStatus: any, keys: string[]): boolean {
+  const status = String(rawStatus || '').toUpperCase();
+  return keys.some((key) => status.includes(key));
+}
+
+function isInProgressStatus(rawStatus: any): boolean {
+  return statusIncludesAny(rawStatus, STATUS_KEYS.inProgress);
+}
+
+function isFinalStatus(rawStatus: any): boolean {
+  return statusIncludesAny(rawStatus, STATUS_KEYS.final);
+}
+
+function parseEventStartMs(event: any): number | null {
+  const startMs = new Date(event?.date || 0).getTime();
+  return Number.isFinite(startMs) && startMs > 0 ? startMs : null;
+}
+
+function isLikelyStartedEvent(event: any): boolean {
+  const state = String(event?.status?.type?.state || '').toLowerCase();
+  if (state === 'in' || state === 'post') return true;
+  const rawStatus = event?.status?.type?.name ?? event?.status?.type?.description ?? '';
+  if (isInProgressStatus(rawStatus) || isFinalStatus(rawStatus)) return true;
+  const startMs = parseEventStartMs(event);
+  if (startMs === null) return false;
+  const minutesSinceStart = (Date.now() - startMs) / 60000;
+  return minutesSinceStart >= LIVE_RUNTIME.startGraceMinutes;
+}
+
+function isLikelyInProgressEvent(event: any): boolean {
+  const state = String(event?.status?.type?.state || '').toLowerCase();
+  if (state === 'in') return true;
+  const rawStatus = event?.status?.type?.name ?? event?.status?.type?.description ?? '';
+  return isInProgressStatus(rawStatus);
+}
+
+function extractEventIdFromMatchId(matchId: string): string {
+  const raw = String(matchId || '');
+  const idx = raw.indexOf('_');
+  if (idx <= 0) return raw;
+  return raw.slice(0, idx);
+}
+
+function pushLimited(list: any[], value: any, max = 50) {
+  if (list.length < max) list.push(value);
+}
+
+async function safeLogJobRunStart(supabase: any, input: {
+  triggerType: 'scheduled' | 'watchdog' | 'replay' | 'manual';
+  leagueFilter: string[];
+  scoreboardDates: string[];
+  dryRun: boolean;
+  targetCount: number;
+}) {
+  const runId = crypto.randomUUID();
+  try {
+    const { error } = await supabase.from('job_runs').insert({
+      id: runId,
+      job_id: 'ingest-live-games',
+      job_name: 'ingest-live-games',
+      target_object: 'HUB_GAMES_LIVE',
+      status: 'running',
+      started_at: new Date().toISOString(),
+      trigger_type: input.triggerType,
+      metadata: {
+        league_filter: input.leagueFilter,
+        scoreboard_dates: input.scoreboardDates,
+        dry_run: input.dryRun,
+        target_count: input.targetCount,
+        freshness_thresholds: {
+          snapshot_stale_seconds: LIVE_RUNTIME.snapshotStaleSeconds,
+          pbp_stale_seconds: LIVE_RUNTIME.pbpStaleSeconds,
+        },
+      }
+    });
+    if (error) throw error;
+    return runId;
+  } catch (e: any) {
+    Logger.warn('JOB_RUN_START_LOG_FAILED', { error: e?.message || String(e) });
+    return null;
+  }
+}
+
+async function safeLogJobRunEnd(supabase: any, runId: string | null, input: {
+  status: 'succeeded' | 'failed' | 'replayed';
+  rowsRead: number;
+  rowsWritten: number;
+  errorMessage?: string | null;
+  metadata: any;
+}) {
+  if (!runId) return;
+  try {
+    const { error } = await supabase.from('job_runs').update({
+      status: input.status,
+      finished_at: new Date().toISOString(),
+      rows_read: input.rowsRead,
+      rows_written: input.rowsWritten,
+      row_count: input.rowsWritten,
+      error_message: input.errorMessage ?? null,
+      metadata: input.metadata,
+    }).eq('id', runId);
+    if (error) throw error;
+  } catch (e: any) {
+    Logger.warn('JOB_RUN_END_LOG_FAILED', { run_id: runId, error: e?.message || String(e) });
+  }
+}
+
+async function safeInsertLiveReliabilityLog(supabase: any, payload: any) {
+  try {
+    const { error } = await supabase.from('live_pipeline_reliability_logs').insert(payload);
+    if (error) throw error;
+  } catch (e: any) {
+    Logger.warn('LIVE_RELIABILITY_LOG_FAILED', { error: e?.message || String(e) });
+  }
+}
+
+type CoverageProbe = {
+  hasLiveOddsSnapshot: boolean;
+  hasLiveState: boolean;
+  hasPbp: boolean;
+  latestSnapshotAt: string | null;
+  latestLiveStateAt: string | null;
+  latestPbpAt: string | null;
+  staleSecondsSnapshot: number | null;
+  staleSecondsPbp: number | null;
+  coverageStatus: 'OK' | 'MISSING_SNAPSHOT' | 'MISSING_PBP' | 'MISSING_BOTH' | 'STALE_SNAPSHOT' | 'STALE_PBP';
+};
+
+type LiveCapability = {
+  league_id: string;
+  sport: string;
+  live_odds_supported: boolean;
+  live_state_supported: boolean;
+  pbp_supported: boolean;
+  auto_recovery_enabled: boolean;
+  slo_enforced: boolean;
+};
+
+type CapabilityAdjustedProbe = CoverageProbe & {
+  liveOddsRequired: boolean;
+  liveStateRequired: boolean;
+  pbpRequired: boolean;
+  autoRecoveryEnabled: boolean;
+  sloEnforced: boolean;
+  effectiveCoverageStatus: CoverageProbe['coverageStatus'];
+};
+
+function defaultCapability(leagueId: string, sport: string): LiveCapability {
+  const s = String(sport || '').toLowerCase();
+  const l = String(leagueId || '').toLowerCase();
+  const pbpUnsupportedSports = new Set(['tennis', 'mma', 'golf', 'boxing', 'racing']);
+  const pbpUnsupportedLeagues = new Set(['atp', 'wta', 'ufc', 'pga']);
+  const pbpSupported = !pbpUnsupportedSports.has(s) && !pbpUnsupportedLeagues.has(l);
+  return {
+    league_id: leagueId,
+    sport,
+    live_odds_supported: true,
+    live_state_supported: true,
+    pbp_supported: pbpSupported,
+    auto_recovery_enabled: true,
+    slo_enforced: true,
+  };
+}
+
+async function loadCapabilitiesByLeague(supabase: any): Promise<Map<string, LiveCapability>> {
+  const map = new Map<string, LiveCapability>();
+  try {
+    const { data, error } = await supabase
+      .from('live_pipeline_capabilities')
+      .select('league_id,sport,live_odds_supported,live_state_supported,pbp_supported,auto_recovery_enabled,slo_enforced')
+      .eq('is_active', true);
+    if (error) throw error;
+    for (const row of (data || [])) {
+      const leagueId = String(row?.league_id || '').trim();
+      if (!leagueId) continue;
+      map.set(leagueId, {
+        league_id: leagueId,
+        sport: String(row?.sport || '').trim(),
+        live_odds_supported: row?.live_odds_supported !== false,
+        live_state_supported: row?.live_state_supported !== false,
+        pbp_supported: row?.pbp_supported !== false,
+        auto_recovery_enabled: row?.auto_recovery_enabled !== false,
+        slo_enforced: row?.slo_enforced !== false,
+      });
+    }
+  } catch (e: any) {
+    Logger.warn('LIVE_CAPABILITIES_LOAD_FAILED', { error: e?.message || String(e) });
+  }
+  return map;
+}
+
+function adjustProbeWithCapability(
+  probe: CoverageProbe,
+  capability: LiveCapability,
+  opts: { started: boolean; inProgress: boolean },
+): CapabilityAdjustedProbe {
+  const missingSnapshot = opts.started && capability.live_odds_supported && !probe.hasLiveOddsSnapshot;
+  const missingState = opts.started && capability.live_state_supported && !probe.hasLiveState;
+  const missingPbp = opts.started && capability.pbp_supported && !probe.hasPbp;
+  const staleSnapshot = opts.inProgress
+    && capability.live_odds_supported
+    && probe.staleSecondsSnapshot !== null
+    && probe.staleSecondsSnapshot > LIVE_RUNTIME.snapshotStaleSeconds;
+  const stalePbp = opts.inProgress
+    && capability.pbp_supported
+    && probe.staleSecondsPbp !== null
+    && probe.staleSecondsPbp > LIVE_RUNTIME.pbpStaleSeconds;
+
+  let effectiveCoverageStatus: CoverageProbe['coverageStatus'] = 'OK';
+  if (missingSnapshot && (missingState || missingPbp)) effectiveCoverageStatus = 'MISSING_BOTH';
+  else if (missingSnapshot) effectiveCoverageStatus = 'MISSING_SNAPSHOT';
+  else if (missingState || missingPbp) effectiveCoverageStatus = 'MISSING_PBP';
+  else if (staleSnapshot) effectiveCoverageStatus = 'STALE_SNAPSHOT';
+  else if (stalePbp) effectiveCoverageStatus = 'STALE_PBP';
+
+  return {
+    ...probe,
+    liveOddsRequired: capability.live_odds_supported,
+    liveStateRequired: capability.live_state_supported,
+    pbpRequired: capability.pbp_supported,
+    autoRecoveryEnabled: capability.auto_recovery_enabled,
+    sloEnforced: capability.slo_enforced,
+    effectiveCoverageStatus,
+  };
+}
+
+async function evaluateCurrentSlo(input: {
+  supabase: any;
+  leagueIds: string[];
+  capabilityByLeague: Map<string, LiveCapability>;
+}) {
+  const { supabase, capabilityByLeague } = input;
+  const leagueIds = [...new Set(input.leagueIds.filter(Boolean))];
+  const thresholds = {
+    windowMinutes: LIVE_RUNTIME.sloWindowMinutes,
+    minSnapshotCoveragePct: LIVE_RUNTIME.sloMinSnapshotCoveragePct,
+    minStateCoveragePct: LIVE_RUNTIME.sloMinStateCoveragePct,
+    minPbpCoveragePct: LIVE_RUNTIME.sloMinPbpCoveragePct,
+    maxMissingGames: LIVE_RUNTIME.sloMaxMissingGames,
+    maxStaleGames: LIVE_RUNTIME.sloMaxStaleGames,
+    snapshotStaleSeconds: LIVE_RUNTIME.snapshotStaleSeconds,
+    pbpStaleSeconds: LIVE_RUNTIME.pbpStaleSeconds,
+  };
+  try {
+    const { data: cfgRow, error: cfgErr } = await supabase
+      .from('live_pipeline_slo_config')
+      .select('window_minutes,min_snapshot_coverage_pct,min_state_coverage_pct,min_pbp_coverage_pct,max_missing_games,max_stale_games')
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!cfgErr && cfgRow) {
+      const num = (val: any, fallback: number) => {
+        const n = Number(val);
+        return Number.isFinite(n) ? n : fallback;
+      };
+      thresholds.windowMinutes = Math.max(30, Math.floor(num(cfgRow.window_minutes, thresholds.windowMinutes)));
+      thresholds.minSnapshotCoveragePct = Math.max(0, Math.min(100, num(cfgRow.min_snapshot_coverage_pct, thresholds.minSnapshotCoveragePct)));
+      thresholds.minStateCoveragePct = Math.max(0, Math.min(100, num(cfgRow.min_state_coverage_pct, thresholds.minStateCoveragePct)));
+      thresholds.minPbpCoveragePct = Math.max(0, Math.min(100, num(cfgRow.min_pbp_coverage_pct, thresholds.minPbpCoveragePct)));
+      thresholds.maxMissingGames = Math.max(0, Math.floor(num(cfgRow.max_missing_games, thresholds.maxMissingGames)));
+      thresholds.maxStaleGames = Math.max(0, Math.floor(num(cfgRow.max_stale_games, thresholds.maxStaleGames)));
+    }
+  } catch {
+    // Fallback to env-configured thresholds if table does not exist yet.
+  }
+  try {
+    const { data: freshRow, error: freshErr } = await supabase
+      .from('live_pipeline_config')
+      .select('snapshot_stale_seconds,pbp_stale_seconds')
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!freshErr && freshRow) {
+      const snap = Number(freshRow.snapshot_stale_seconds);
+      const pbp = Number(freshRow.pbp_stale_seconds);
+      if (Number.isFinite(snap) && snap > 0) thresholds.snapshotStaleSeconds = Math.floor(snap);
+      if (Number.isFinite(pbp) && pbp > 0) thresholds.pbpStaleSeconds = Math.floor(pbp);
+    }
+  } catch {
+    // Keep runtime defaults if config table lookup fails.
+  }
+  const windowStartIso = new Date(Date.now() - thresholds.windowMinutes * 60000).toISOString();
+
+  let query = supabase
+    .from('vw_live_pipeline_coverage')
+    .select('match_id,league_id,sport,start_time,started,game_phase,has_live_odds_snapshot,has_live_state,has_pbp,stale_seconds_snapshot,stale_seconds_pbp')
+    .gte('start_time', windowStartIso)
+    .eq('started', true);
+  if (leagueIds.length > 0) query = query.in('league_id', leagueIds);
+
+  const { data: rows, error } = await query;
+  if (error) throw error;
+
+  const summaryByLeague = new Map<string, any>();
+  const breachRows: any[] = [];
+  for (const row of (rows || [])) {
+    const leagueId = String(row?.league_id || '');
+    const sport = String(row?.sport || '');
+    const capability = capabilityByLeague.get(leagueId) || defaultCapability(leagueId, sport);
+    if (!capability.slo_enforced) continue;
+
+    const key = `${sport}__${leagueId}`;
+    const cur = summaryByLeague.get(key) || {
+      sport,
+      league_id: leagueId,
+      started_games: 0,
+      required_snapshot_games: 0,
+      covered_snapshot_games: 0,
+      required_state_games: 0,
+      covered_state_games: 0,
+      required_pbp_games: 0,
+      covered_pbp_games: 0,
+      missing_required_games: 0,
+      stale_required_games: 0,
+    };
+
+    cur.started_games++;
+    if (capability.live_odds_supported) {
+      cur.required_snapshot_games++;
+      if (row.has_live_odds_snapshot) cur.covered_snapshot_games++;
+    }
+    if (capability.live_state_supported) {
+      cur.required_state_games++;
+      if (row.has_live_state) cur.covered_state_games++;
+    }
+    if (capability.pbp_supported) {
+      cur.required_pbp_games++;
+      if (row.has_pbp) cur.covered_pbp_games++;
+    }
+
+    const missingRequired =
+      (capability.live_odds_supported && !row.has_live_odds_snapshot)
+      || (capability.live_state_supported && !row.has_live_state)
+      || (capability.pbp_supported && !row.has_pbp);
+    if (missingRequired) cur.missing_required_games++;
+
+    const staleRequired =
+      (String(row.game_phase || '').toUpperCase() === 'IN_PROGRESS')
+      && (
+        (capability.live_odds_supported && Number(row.stale_seconds_snapshot || 0) > thresholds.snapshotStaleSeconds)
+        || (capability.pbp_supported && Number(row.stale_seconds_pbp || 0) > thresholds.pbpStaleSeconds)
+      );
+    if (staleRequired) cur.stale_required_games++;
+
+    summaryByLeague.set(key, cur);
+  }
+
+  const summaryRows = Array.from(summaryByLeague.values()).map((r) => {
+    const snapshotCoveragePct = r.required_snapshot_games > 0
+      ? Number((100 * r.covered_snapshot_games / r.required_snapshot_games).toFixed(2))
+      : 100;
+    const stateCoveragePct = r.required_state_games > 0
+      ? Number((100 * r.covered_state_games / r.required_state_games).toFixed(2))
+      : 100;
+    const pbpCoveragePct = r.required_pbp_games > 0
+      ? Number((100 * r.covered_pbp_games / r.required_pbp_games).toFixed(2))
+      : 100;
+
+    const breachReasons: string[] = [];
+    if (snapshotCoveragePct < thresholds.minSnapshotCoveragePct) breachReasons.push('SNAPSHOT_COVERAGE');
+    if (stateCoveragePct < thresholds.minStateCoveragePct) breachReasons.push('STATE_COVERAGE');
+    if (pbpCoveragePct < thresholds.minPbpCoveragePct) breachReasons.push('PBP_COVERAGE');
+    if (r.missing_required_games > thresholds.maxMissingGames) breachReasons.push('MISSING_REQUIRED');
+    if (r.stale_required_games > thresholds.maxStaleGames) breachReasons.push('STALE_REQUIRED');
+
+    const out = {
+      ...r,
+      snapshot_coverage_pct: snapshotCoveragePct,
+      state_coverage_pct: stateCoveragePct,
+      pbp_coverage_pct: pbpCoveragePct,
+      breach_reasons: breachReasons,
+      slo_breach: breachReasons.length > 0,
+    };
+    if (out.slo_breach) breachRows.push(out);
+    return out;
+  });
+
+  return {
+    window_minutes: thresholds.windowMinutes,
+    min_snapshot_coverage_pct: thresholds.minSnapshotCoveragePct,
+    min_state_coverage_pct: thresholds.minStateCoveragePct,
+    min_pbp_coverage_pct: thresholds.minPbpCoveragePct,
+    max_missing_games: thresholds.maxMissingGames,
+    max_stale_games: thresholds.maxStaleGames,
+    snapshot_stale_seconds: thresholds.snapshotStaleSeconds,
+    pbp_stale_seconds: thresholds.pbpStaleSeconds,
+    rows: summaryRows,
+    breached: breachRows.length > 0,
+    breaches: breachRows.slice(0, 50),
+  };
+}
+
+async function probeCoverageForMatch(supabase: any, matchId: string, opts: { started: boolean; inProgress: boolean }): Promise<CoverageProbe> {
+  const [snapshotRes, stateRes, playRes] = await Promise.all([
+    supabase.from('live_odds_snapshots')
+      .select('captured_at')
+      .eq('match_id', matchId)
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from('live_game_state')
+      .select('updated_at,recent_plays')
+      .eq('id', matchId)
+      .maybeSingle(),
+    supabase.from('game_events')
+      .select('created_at')
+      .eq('match_id', matchId)
+      .eq('event_type', 'play')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const latestSnapshotAt = snapshotRes?.data?.captured_at ?? null;
+  const latestLiveStateAt = stateRes?.data?.updated_at ?? null;
+  const latestPlayAt = playRes?.data?.created_at ?? null;
+
+  const hasRecentPlaysInState = (() => {
+    const recent = stateRes?.data?.recent_plays;
+    if (!recent) return false;
+    if (Array.isArray(recent)) return recent.length > 0;
+    return true;
+  })();
+
+  const hasLiveOddsSnapshot = !!latestSnapshotAt;
+  const hasLiveState = !!latestLiveStateAt;
+  const hasPbp = !!latestPlayAt || hasRecentPlaysInState;
+  const latestPbpAt = latestPlayAt || (hasRecentPlaysInState ? latestLiveStateAt : null);
+
+  const staleSecondsSnapshot = (opts.inProgress && latestSnapshotAt)
+    ? Math.max(0, Math.floor((Date.now() - new Date(latestSnapshotAt).getTime()) / 1000))
+    : null;
+  const staleSecondsPbp = (opts.inProgress && (latestPbpAt || latestLiveStateAt))
+    ? Math.max(0, Math.floor((Date.now() - new Date(String(latestPbpAt || latestLiveStateAt)).getTime()) / 1000))
+    : null;
+
+  let coverageStatus: CoverageProbe['coverageStatus'] = 'OK';
+  if (opts.started && !hasLiveOddsSnapshot && !hasLiveState && !hasPbp) {
+    coverageStatus = 'MISSING_BOTH';
+  } else if (opts.started && !hasLiveOddsSnapshot) {
+    coverageStatus = 'MISSING_SNAPSHOT';
+  } else if (opts.started && !(hasLiveState || hasPbp)) {
+    coverageStatus = 'MISSING_PBP';
+  } else if (opts.inProgress && staleSecondsSnapshot !== null && staleSecondsSnapshot > LIVE_RUNTIME.snapshotStaleSeconds) {
+    coverageStatus = 'STALE_SNAPSHOT';
+  } else if (opts.inProgress && staleSecondsPbp !== null && staleSecondsPbp > LIVE_RUNTIME.pbpStaleSeconds) {
+    coverageStatus = 'STALE_PBP';
+  }
+
+  return {
+    hasLiveOddsSnapshot,
+    hasLiveState,
+    hasPbp,
+    latestSnapshotAt,
+    latestLiveStateAt,
+    latestPbpAt,
+    staleSecondsSnapshot,
+    staleSecondsPbp,
+    coverageStatus,
+  };
+}
+
+function extractSnapshotMarket(effectiveOdds: any, parsedOdds: ParsedProviderOdds, finalMarketOdds: any) {
+  const homeMl = parsePrice(
+    effectiveOdds?.main?.h2h?.home?.price
+    ?? effectiveOdds?.homeML
+    ?? effectiveOdds?.homeWin
+    ?? effectiveOdds?.home_ml
+    ?? parsedOdds?.odds_live?.home_ml
+    ?? parsedOdds?.odds_live?.homeWin
+    ?? finalMarketOdds?.homeWin
+  );
+  const awayMl = parsePrice(
+    effectiveOdds?.main?.h2h?.away?.price
+    ?? effectiveOdds?.awayML
+    ?? effectiveOdds?.awayWin
+    ?? effectiveOdds?.away_ml
+    ?? parsedOdds?.odds_live?.away_ml
+    ?? parsedOdds?.odds_live?.awayWin
+    ?? finalMarketOdds?.awayWin
+  );
+  const total = parsePoints(
+    effectiveOdds?.main?.total?.line
+    ?? effectiveOdds?.total
+    ?? effectiveOdds?.overUnder
+    ?? parsedOdds?.odds_live?.total
+    ?? finalMarketOdds?.total
+  );
+  const homeSpread = parsePoints(
+    effectiveOdds?.main?.spread?.home?.point
+    ?? effectiveOdds?.homeSpread
+    ?? effectiveOdds?.spread
+    ?? parsedOdds?.odds_live?.homeSpread
+    ?? finalMarketOdds?.homeSpread
+  );
+  const awaySpread = parsePoints(
+    effectiveOdds?.main?.spread?.away?.point
+    ?? effectiveOdds?.awaySpread
+    ?? parsedOdds?.odds_live?.awaySpread
+    ?? finalMarketOdds?.awaySpread
+    ?? (homeSpread !== null ? -homeSpread : null)
+  );
+  const overPrice = parsePrice(
+    effectiveOdds?.main?.total?.over?.price
+    ?? effectiveOdds?.overOdds
+    ?? parsedOdds?.odds_live?.overOdds
+    ?? finalMarketOdds?.overOdds
+  );
+  const underPrice = parsePrice(
+    effectiveOdds?.main?.total?.under?.price
+    ?? effectiveOdds?.underOdds
+    ?? parsedOdds?.odds_live?.underOdds
+    ?? finalMarketOdds?.underOdds
+  );
+  const provider = String(
+    effectiveOdds?.market_source_book
+    ?? effectiveOdds?.provider
+    ?? parsedOdds?.odds_live?.provider
+    ?? finalMarketOdds?.provider
+    ?? ''
+  ).trim();
+
+  const hasMarketData = [homeMl, awayMl, total, homeSpread, awaySpread, overPrice, underPrice].some((v) => v !== null && v !== undefined);
+
+  return {
+    homeMl,
+    awayMl,
+    total,
+    homeSpread,
+    awaySpread,
+    overPrice,
+    underPrice,
+    provider,
+    hasMarketData,
+  };
+}
+
+async function writeLiveOddsSnapshotWithGuard(input: {
+  supabase: any;
+  matchId: string;
+  leagueId: string;
+  sport: string;
+  status: string;
+  period: number | null;
+  clock: string | null;
+  homeScore: number;
+  awayScore: number;
+  homeTeam: string | null;
+  awayTeam: string | null;
+  effectiveOdds: any;
+  parsedOdds: ParsedProviderOdds;
+  finalMarketOdds: any;
+  isLiveGame: boolean;
+  source: string;
+  degradeReason?: string | null;
+}) {
+  const market = extractSnapshotMarket(input.effectiveOdds, input.parsedOdds, input.finalMarketOdds);
+  const provider = market.hasMarketData
+    ? (market.provider || 'UNKNOWN_PROVIDER')
+    : `DEGRADED_${String(input.degradeReason || 'NO_MARKET_DATA').toUpperCase()}`;
+  const degradeReason = market.hasMarketData ? null : (input.degradeReason || 'NO_MARKET_DATA');
+  const nowIso = new Date().toISOString();
+
+  const { data: latestRow } = await input.supabase
+    .from('live_odds_snapshots')
+    .select('captured_at,provider,status,period,clock,home_score,away_score,total,home_ml,away_ml,spread_home,spread_away')
+    .eq('match_id', input.matchId)
+    .order('captured_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestRow?.captured_at) {
+    const ageSec = Math.max(0, Math.floor((Date.now() - new Date(latestRow.captured_at).getTime()) / 1000));
+    const sameState = Number(latestRow?.home_score ?? -9999) === Number(input.homeScore)
+      && Number(latestRow?.away_score ?? -9999) === Number(input.awayScore)
+      && Number(latestRow?.period ?? -9999) === Number(input.period ?? -9999)
+      && String(latestRow?.clock ?? '') === String(input.clock ?? '')
+      && String(latestRow?.status ?? '') === String(input.status ?? '');
+
+    const sameMarket = Number(latestRow?.total ?? NaN) === Number(market.total ?? NaN)
+      && Number(latestRow?.home_ml ?? NaN) === Number(market.homeMl ?? NaN)
+      && Number(latestRow?.away_ml ?? NaN) === Number(market.awayMl ?? NaN)
+      && Number(latestRow?.spread_home ?? NaN) === Number(market.homeSpread ?? NaN)
+      && Number(latestRow?.spread_away ?? NaN) === Number(market.awaySpread ?? NaN)
+      && String(latestRow?.provider ?? '') === provider;
+
+    if (sameState && sameMarket && ageSec <= LIVE_RUNTIME.dedupeSeconds) {
+      return { inserted: false, degraded: !market.hasMarketData, providerFailure: !market.hasMarketData, skippedDuplicate: true };
+    }
+    if (!market.hasMarketData && sameState && String(latestRow?.provider || '').toUpperCase().includes('DEGRADED') && ageSec <= LIVE_RUNTIME.degradedRepeatSeconds) {
+      return { inserted: false, degraded: true, providerFailure: true, skippedDuplicate: true };
+    }
+  }
+
+  const payload: any = {
+    match_id: input.matchId,
+    league_id: input.leagueId,
+    sport: input.sport,
+    provider,
+    captured_at: nowIso,
+    status: input.status,
+    period: input.period,
+    clock: input.clock,
+    home_score: input.homeScore,
+    away_score: input.awayScore,
+    home_team: input.homeTeam,
+    away_team: input.awayTeam,
+    home_ml: market.homeMl,
+    away_ml: market.awayMl,
+    spread_home: market.homeSpread,
+    spread_away: market.awaySpread,
+    total: market.total,
+    over_price: market.overPrice,
+    under_price: market.underPrice,
+    is_live: input.isLiveGame,
+    market_type: market.hasMarketData ? 'live_ingest' : 'provider_degradation',
+    source: input.source,
+  };
+
+  const { error } = await input.supabase.from('live_odds_snapshots').insert(payload);
+  if (error) {
+    if (degradeReason) {
+      Logger.warn('LIVE_SNAPSHOT_INSERT_FAILED_DEGRADED', { match_id: input.matchId, error: error.message });
+    } else {
+      Logger.warn('LIVE_SNAPSHOT_INSERT_FAILED', { match_id: input.matchId, error: error.message });
+    }
+    return { inserted: false, degraded: !market.hasMarketData, providerFailure: !market.hasMarketData, skippedDuplicate: false, error: error.message };
+  }
+
+  return {
+    inserted: true,
+    degraded: !market.hasMarketData,
+    providerFailure: !market.hasMarketData,
+    skippedDuplicate: false,
+  };
+}
+
 function formatYmdInTz(date: Date, timeZone = 'America/New_York'): string {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -279,6 +964,19 @@ function parseDisplayClockToSeconds(clockRaw: string | null | undefined): number
   const mins = cleaned.match(/^(\d{1,3})(?:\+(\d{1,2}))?$/);
   if (mins) return Number(mins[1]) * 60 + Number(mins[2] ?? 0);
   return 0;
+}
+
+function deriveStablePlaySequence(play: any, index: number, salt = ''): number {
+  const rawSeq = parseInt(String(play?.sequenceNumber ?? ''), 10);
+  if (Number.isFinite(rawSeq) && rawSeq > 0 && rawSeq <= 2147483647) return rawSeq;
+
+  const idDigits = parseInt(String(play?.id || '').replace(/\D/g, '').slice(-9), 10);
+  if (Number.isFinite(idDigits) && idDigits > 0 && idDigits <= 2147483647) return idDigits;
+
+  const seed = `${salt}|${play?.id ?? ''}|${play?.clock?.displayValue ?? play?.clock ?? ''}|${play?.text ?? ''}|${play?.period?.number ?? play?.period ?? ''}|${index}`;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) % 2147483000;
+  return hash > 0 ? hash : (generateSequence() + index);
 }
 
 async function buildMarketPassthroughSignals(input: {
@@ -469,6 +1167,232 @@ async function upsertWithRetry(table: string, payload: any, retries = 3) {
   }
 }
 
+async function seedMissingStartedEventsFromMatches(supabase: any, league: any, mergedEvents: Map<string, any>, targetSet: Set<string>) {
+  const windowStartIso = new Date(Date.now() - (LIVE_RUNTIME.discoveryLookbackMinutes * 60000)).toISOString();
+  const windowEndIso = new Date(Date.now() + (30 * 60000)).toISOString();
+  const seeded: any[] = [];
+
+  try {
+    const { data: rows, error } = await supabase
+      .from('matches')
+      .select('id,start_time,status')
+      .eq('league_id', league.id)
+      .gte('start_time', windowStartIso)
+      .lte('start_time', windowEndIso)
+      .order('start_time', { ascending: true });
+
+    if (error || !rows) return seeded;
+
+    for (const row of rows) {
+      const dbMatchId = String(row?.id || '');
+      if (!dbMatchId) continue;
+      const eventId = extractEventIdFromMatchId(dbMatchId);
+      if (!eventId) continue;
+      if (mergedEvents.has(eventId)) continue;
+      if (targetSet.size > 0 && !targetSet.has(eventId) && !targetSet.has(dbMatchId)) continue;
+
+      const startMs = new Date(row.start_time).getTime();
+      const minutesToStart = Number.isFinite(startMs) ? ((startMs - Date.now()) / 60000) : null;
+      const startedByClock = minutesToStart !== null && minutesToStart <= -LIVE_RUNTIME.startGraceMinutes;
+      const likelyStarted = startedByClock || isInProgressStatus(row.status) || isFinalStatus(row.status);
+      if (!likelyStarted && (minutesToStart === null || minutesToStart > 30)) continue;
+
+      const syntheticEvent = {
+        id: eventId,
+        date: row.start_time,
+        status: {
+          type: {
+            state: startedByClock ? 'in' : 'pre',
+            name: row.status || (startedByClock ? 'STATUS_IN_PROGRESS' : 'STATUS_SCHEDULED'),
+          }
+        },
+        competitions: []
+      };
+      mergedEvents.set(eventId, syntheticEvent);
+      seeded.push({ match_id: dbMatchId, event_id: eventId, status: row.status, start_time: row.start_time });
+    }
+  } catch (e: any) {
+    Logger.warn('DB_DISCOVERY_SEED_FAILED', { league_id: league.id, error: e?.message || String(e) });
+  }
+
+  return seeded;
+}
+
+async function recoverCoverageForMatch(input: {
+  supabase: any;
+  event: any;
+  dbMatchId: string;
+  league: any;
+  reason: string;
+  stats: any;
+}) {
+  const { supabase, event, dbMatchId, league, reason, stats } = input;
+  const matchId = String(event?.id || extractEventIdFromMatchId(dbMatchId));
+
+  try {
+    let summaryData: any = null;
+    let comp: any = null;
+    try {
+      const { res } = await fetchSummaryWithFallback(league.endpoint, matchId);
+      summaryData = await res.json();
+      comp = summaryData?.header?.competitions?.[0] || null;
+    } catch (e: any) {
+      Logger.warn('RECOVERY_SUMMARY_FETCH_FAILED', { match_id: dbMatchId, reason, error: e?.message || String(e) });
+    }
+
+    const competition = comp || event?.competitions?.[0] || null;
+    const home = competition?.competitors?.find((c: any) => c.homeAway === 'home') || null;
+    const away = competition?.competitors?.find((c: any) => c.homeAway === 'away') || null;
+
+    const fallbackStatus = event?.status?.type?.name || event?.status?.name || (isLikelyStartedEvent(event) ? 'STATUS_IN_PROGRESS' : 'STATUS_SCHEDULED');
+    const statusName = String(competition?.status?.type?.name || fallbackStatus);
+    const isLiveGame = isInProgressStatus(statusName) || isLikelyInProgressEvent(event);
+    const period = parseInt(competition?.status?.period, 10) || 0;
+    const clock = competition?.status?.displayClock ?? event?.status?.displayClock ?? null;
+
+    const homeScore = Safe.score(home?.score) ?? (parseInt(String(event?.competitions?.[0]?.competitors?.find((c: any) => c.homeAway === 'home')?.score || '0'), 10) || 0);
+    const awayScore = Safe.score(away?.score) ?? (parseInt(String(event?.competitions?.[0]?.competitors?.find((c: any) => c.homeAway === 'away')?.score || '0'), 10) || 0);
+    const homeName = getCompetitorName(home);
+    const awayName = getCompetitorName(away);
+
+    const { data: existingMatch } = await supabase
+      .from('matches')
+      .select('current_odds,opening_odds')
+      .eq('id', dbMatchId)
+      .maybeSingle();
+
+    let parsedOdds: ParsedProviderOdds = { odds_open: null, odds_close: null, odds_live: null, bet365_live: null, dk_live_200: null, player_props: null };
+    if (summaryData && competition) {
+      try {
+        parsedOdds = parseMultiProviderOdds(summaryData, competition, league.db_sport === 'soccer');
+      } catch { }
+    }
+
+    const effectiveOdds = existingMatch?.current_odds ?? existingMatch?.opening_odds ?? parsedOdds?.odds_live ?? null;
+
+    const matchPayload: any = {
+      id: dbMatchId,
+      league_id: league.id,
+      sport: league.db_sport,
+      status: statusName,
+      period,
+      display_clock: clock,
+      home_score: homeScore,
+      away_score: awayScore,
+      last_updated: new Date().toISOString(),
+    };
+    if (homeName !== 'Unknown') matchPayload.home_team = homeName;
+    if (awayName !== 'Unknown') matchPayload.away_team = awayName;
+    if (effectiveOdds) matchPayload.current_odds = effectiveOdds;
+
+    await upsertWithRetry('matches', matchPayload);
+
+    const recentPlays = summaryData ? safeExtract('RecoveryRecentPlays', () => EspnAdapters.RecentPlays(summaryData, toAdapterSport(league.espn_sport))) : null;
+    const lastPlay = summaryData ? safeExtract('RecoveryLastPlay', () => EspnAdapters.LastPlay(summaryData)) : null;
+
+    const nowIso = new Date().toISOString();
+    await upsertWithRetry('live_game_state', {
+      id: dbMatchId,
+      league_id: league.id,
+      sport: league.db_sport,
+      game_status: statusName,
+      period,
+      clock,
+      home_score: homeScore,
+      away_score: awayScore,
+      recent_plays: recentPlays ?? null,
+      last_play: lastPlay ?? null,
+      odds: { current: effectiveOdds ?? null },
+      extra_data: {
+        capture_mode: 'repair',
+        capture_source: 'ingest-live-games-recovery',
+        capture_reason: reason,
+        repaired_at: nowIso,
+      },
+      updated_at: nowIso,
+    });
+
+    stats.reliability.live_state_writes++;
+    const recoveryPlayRows = Array.isArray(recentPlays)
+      ? recentPlays
+        .filter((p: any) => String(p?.text || '').trim().length > 0)
+        .map((p: any, index: number) => ({
+          match_id: dbMatchId,
+          league_id: league.id,
+          sport: league.db_sport,
+          event_type: 'play',
+          sequence: deriveStablePlaySequence(p, index, 'recovery'),
+          period: p?.period ?? period ?? null,
+          clock: p?.clock ?? clock ?? null,
+          home_score: parseInt((p?.home_score ?? p?.homeScore ?? homeScore)?.toString() || '0', 10) || 0,
+          away_score: parseInt((p?.away_score ?? p?.awayScore ?? awayScore)?.toString() || '0', 10) || 0,
+          play_data: {
+            id: p?.id ?? `recovery:${index}`,
+            text: String(p?.text || '').trim(),
+            type: p?.type ?? null,
+            scoringPlay: !!p?.scoringPlay,
+          },
+          source: 'recent_live_repair',
+        }))
+      : [];
+
+    if (recoveryPlayRows.length > 0) {
+      try {
+        for (let i = 0; i < recoveryPlayRows.length; i += 200) {
+          await supabase.from('game_events').upsert(recoveryPlayRows.slice(i, i + 200), { onConflict: 'match_id,event_type,sequence' });
+        }
+      } catch (playErr: any) {
+        Logger.warn('RECOVERY_PBP_UPSERT_FAILED', { match_id: dbMatchId, error: playErr?.message || String(playErr) });
+      }
+    }
+    const pbpWriteCount = recoveryPlayRows.length;
+    if (pbpWriteCount > 0) stats.reliability.pbp_writes += pbpWriteCount;
+
+    const snapshotWrite = await writeLiveOddsSnapshotWithGuard({
+      supabase,
+      matchId: dbMatchId,
+      leagueId: league.id,
+      sport: league.db_sport,
+      status: statusName,
+      period: Number.isFinite(period) ? period : null,
+      clock,
+      homeScore,
+      awayScore,
+      homeTeam: homeName !== 'Unknown' ? homeName : null,
+      awayTeam: awayName !== 'Unknown' ? awayName : null,
+      effectiveOdds,
+      parsedOdds,
+      finalMarketOdds: effectiveOdds,
+      isLiveGame,
+      source: 'ingest-live-games-recovery',
+      degradeReason: reason,
+    });
+
+    if (snapshotWrite.inserted) {
+      stats.snapshots++;
+      stats.reliability.snapshot_writes++;
+      if (snapshotWrite.degraded) stats.reliability.degraded_snapshot_writes++;
+    }
+    if (snapshotWrite.providerFailure) stats.reliability.provider_failures++;
+
+    return {
+      recovered: true,
+      snapshotInserted: !!snapshotWrite.inserted,
+      liveStateWritten: true,
+      pbpWritten: pbpWriteCount > 0,
+    };
+  } catch (e: any) {
+    Logger.warn('RECOVERY_ATTEMPT_FAILED', { match_id: dbMatchId, reason, error: e?.message || String(e) });
+    return {
+      recovered: false,
+      snapshotInserted: false,
+      liveStateWritten: false,
+      pbpWritten: false,
+      error: e?.message || String(e),
+    };
+  }
+}
+
 // ─── MAIN EXECUTION ───────────────────────────────────────────
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -483,18 +1407,67 @@ Deno.serve(async (req: Request) => {
   const scoreboardDates = resolveScoreboardDates(dates);
   const dryRun = parseBool(body?.dry ?? reqUrl.searchParams.get('dry'));
   const debug = parseBool(body?.debug ?? reqUrl.searchParams.get('debug'));
+  const forceRecovery = !parseBool(body?.disable_recovery ?? reqUrl.searchParams.get('disable_recovery'));
+  const skipCoverageAudit = parseBool(body?.skip_coverage_audit ?? reqUrl.searchParams.get('skip_coverage_audit'));
+  const disableSloGuard = parseBool(body?.disable_slo_guard ?? reqUrl.searchParams.get('disable_slo_guard'));
+  const allowSloBreach = parseBool(body?.allow_slo_breach ?? reqUrl.searchParams.get('allow_slo_breach'));
   const maxGamesGlobalParam = parsePositiveInt(body?.max_games ?? body?.max_games_total ?? reqUrl.searchParams.get('max_games') ?? reqUrl.searchParams.get('max_games_total'));
-  const maxGamesGlobal = maxGamesGlobalParam ? Math.min(maxGamesGlobalParam, 50) : null;
+  const perLeagueMaxGamesParam = parsePositiveInt(body?.per_league_max_games ?? reqUrl.searchParams.get('per_league_max_games'));
+  const concurrencyParam = parsePositiveInt(body?.concurrency ?? reqUrl.searchParams.get('concurrency'));
+  const preWindowMinutesParam = parsePositiveInt(body?.pre_window_minutes ?? reqUrl.searchParams.get('pre_window_minutes'));
+  const maxRuntimeMsParam = parsePositiveInt(body?.max_runtime_ms ?? reqUrl.searchParams.get('max_runtime_ms'));
+  const maxGamesGlobal = maxGamesGlobalParam ? Math.min(maxGamesGlobalParam, 300) : null;
+  const perLeagueMaxGames = Math.max(1, Math.min(perLeagueMaxGamesParam ?? LIVE_RUNTIME.perLeagueMaxGames, 200));
+  const concurrency = Math.max(1, Math.min(concurrencyParam ?? LIVE_RUNTIME.concurrency, 16));
+  const preWindowMinutes = Math.max(5, Math.min(preWindowMinutesParam ?? LIVE_RUNTIME.preWindowMinutes, 120));
+  const maxRuntimeMs = Math.max(5000, Math.min(maxRuntimeMsParam ?? LIVE_RUNTIME.maxRuntimeMs, 180000));
 
   const leagueParamRaw = body?.league ?? reqUrl.searchParams.get('league') ?? '';
   const leagueFilter = new Set(String(leagueParamRaw).split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
+  const triggerType = (parseBool(body?.is_watchdog ?? reqUrl.searchParams.get('is_watchdog')) ? 'watchdog' :
+    parseBool(body?.is_replay ?? reqUrl.searchParams.get('is_replay')) ? 'replay' :
+      (req.headers.get('x-cron-secret') ? 'scheduled' : 'manual')) as 'scheduled' | 'watchdog' | 'replay' | 'manual';
 
   const startedAt = Date.now();
-  const stats = {
+  const hardDeadlineMs = startedAt + maxRuntimeMs;
+  const stats: any = {
     attempted: 0, processed: 0, live: 0, failed: 0, errors: [] as string[],
     snapshots: 0, odds_snapshots_written: 0, bpi_snapshots: 0, context_snapshots: 0,
     degraded_transactions: 0, dry_run: dryRun, max_games_requested: maxGamesGlobal,
+    runtime_limit_ms: maxRuntimeMs,
+    pre_window_minutes: preWindowMinutes,
+    per_league_max_games: perLeagueMaxGames,
+    concurrency,
+    runtime_truncated: false,
+    disable_slo_guard: disableSloGuard,
+    allow_slo_breach: allowSloBreach,
     league_filter: [...leagueFilter], dry_samples: [] as any[],
+    trigger_type: triggerType,
+    freshness_thresholds: {
+      snapshot_stale_seconds: LIVE_RUNTIME.snapshotStaleSeconds,
+      pbp_stale_seconds: LIVE_RUNTIME.pbpStaleSeconds,
+    },
+    reliability: {
+      games_scanned: 0,
+      games_started: 0,
+      snapshot_writes: 0,
+      live_state_writes: 0,
+      pbp_writes: 0,
+      missing_games: 0,
+      stale_games: 0,
+      retries_attempted: 0,
+      retries_recovered: 0,
+      provider_failures: 0,
+      degraded_snapshot_writes: 0,
+      discovery_seeded_from_matches: 0,
+      db_lock_bypass: 0,
+      stale_matches_by_threshold: {
+        snapshot_stale_seconds: LIVE_RUNTIME.snapshotStaleSeconds,
+        pbp_stale_seconds: LIVE_RUNTIME.pbpStaleSeconds,
+      },
+      coverage_issues: [] as any[],
+      recovered_match_ids: [] as string[],
+    }
   };
 
   try { getSupabaseClient(); } catch (e: any) {
@@ -503,17 +1476,42 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabase = getSupabaseClient();
+  const runId = await safeLogJobRunStart(supabase, {
+    triggerType,
+    leagueFilter: [...leagueFilter],
+    scoreboardDates,
+    dryRun,
+    targetCount: targetSet.size,
+  });
+  const capabilityByLeague = await loadCapabilitiesByLeague(supabase);
+  stats.capabilities_loaded = capabilityByLeague.size;
+  stats.capability_defaults_used = 0;
+
+  const missingMatches = new Set<string>();
+  const staleMatches = new Set<string>();
+  const recoveredMatches = new Set<string>();
   let globalAttempted = 0;
 
   leagueLoop:
   for (const league of MONITOR_LEAGUES) {
+    if (Date.now() >= hardDeadlineMs) {
+      stats.runtime_truncated = true;
+      break;
+    }
     if (maxGamesGlobal && globalAttempted >= maxGamesGlobal) break;
     if (leagueFilter.size > 0 && !leagueFilter.has(league.id)) continue;
+    const leagueCapability = capabilityByLeague.get(league.id) || defaultCapability(league.id, league.db_sport);
+    if (!capabilityByLeague.has(league.id)) stats.capability_defaults_used++;
+    let leagueAttempted = 0;
 
     try {
       const mergedEvents = new Map<string, any>();
       for (const scoreboardDate of scoreboardDates) {
-        const dateQuery = `?dates=${scoreboardDate}`;
+        if (Date.now() >= hardDeadlineMs) {
+          stats.runtime_truncated = true;
+          break leagueLoop;
+        }
+        const dateQuery = `?limit=300&dates=${scoreboardDate}`;
         const groupsParam = league.groups ? `&groups=${league.groups}` : '';
         const res = await fetchWithRetry(`${SCOREBOARD_BASE}/${league.endpoint}/scoreboard${dateQuery}${groupsParam}`);
         const data = await res.json();
@@ -536,15 +1534,30 @@ Deno.serve(async (req: Request) => {
           }
         }
       }
+
+      if (!dryRun) {
+        const seeded = await seedMissingStartedEventsFromMatches(supabase, league, mergedEvents, targetSet);
+        if (seeded.length > 0) {
+          stats.reliability.discovery_seeded_from_matches += seeded.length;
+          pushLimited(stats.reliability.coverage_issues, {
+            league_id: league.id,
+            issue: 'DB_DISCOVERY_SEEDED',
+            count: seeded.length,
+          }, 20);
+        }
+      }
+
       let events = Array.from(mergedEvents.values());
 
       let processableEvents = [];
       for (const event of events) {
-        const state = event.status?.type?.state;
-        if (!['in', 'post'].includes(state)) {
-          const mins = (new Date(event.date).getTime() - Date.now()) / 60000;
-          if (state !== 'pre' || mins > 75 || mins < -20) continue;
-        }
+        const state = String(event?.status?.type?.state || '').toLowerCase();
+        const startMs = parseEventStartMs(event);
+        const minutesToStart = startMs === null ? null : ((startMs - Date.now()) / 60000);
+        const startedByClock = minutesToStart !== null && minutesToStart <= -LIVE_RUNTIME.startGraceMinutes;
+        const nearKickoffWindow = minutesToStart !== null && minutesToStart <= preWindowMinutes;
+        const shouldInclude = ['in', 'post'].includes(state) || startedByClock || (state === 'pre' && nearKickoffWindow);
+        if (!shouldInclude) continue;
         const dbMatchId = getCanonicalMatchId(event.id, league.id);
         if (targetSet.size > 0 && !targetSet.has(String(event.id)) && !targetSet.has(dbMatchId)) continue;
         processableEvents.push(event);
@@ -556,42 +1569,287 @@ Deno.serve(async (req: Request) => {
         const tb = new Date(b?.date || 0).getTime();
         return ta - tb;
       });
+      if (processableEvents.length > perLeagueMaxGames) {
+        pushLimited(stats.reliability.coverage_issues, {
+          league_id: league.id,
+          issue: 'PER_LEAGUE_CAP_APPLIED',
+          requested_games: processableEvents.length,
+          capped_to: perLeagueMaxGames,
+        }, 20);
+        processableEvents = processableEvents.slice(0, perLeagueMaxGames);
+      }
+      stats.reliability.games_scanned += processableEvents.length;
 
-      const CONCURRENCY = 5;
-      for (let i = 0; i < processableEvents.length; i += CONCURRENCY) {
+      for (let i = 0; i < processableEvents.length; i += concurrency) {
+        if (Date.now() >= hardDeadlineMs) {
+          stats.runtime_truncated = true;
+          break leagueLoop;
+        }
+        if (leagueAttempted >= perLeagueMaxGames) break;
         if (maxGamesGlobal && globalAttempted >= maxGamesGlobal) break leagueLoop;
-        const chunk = processableEvents.slice(i, i + CONCURRENCY);
+        const chunk = processableEvents.slice(i, i + concurrency);
         const executing = chunk.map(async (event) => {
+          if (Date.now() >= hardDeadlineMs) return;
           if (maxGamesGlobal && globalAttempted >= maxGamesGlobal) return;
+          if (leagueAttempted >= perLeagueMaxGames) return;
           const dbMatchId = getCanonicalMatchId(event.id, league.id);
           if (_localLocks.has(dbMatchId)) return;
           _localLocks.add(dbMatchId);
 
+          const startedGame = isLikelyStartedEvent(event);
+          const inProgressGame = isLikelyInProgressEvent(event);
           let hasDbLock = false;
           let dbLockUnavailable = false;
           try {
-            const { data, error } = await supabase.rpc('acquire_ingest_lock', { p_match_id: dbMatchId, p_ttl_seconds: 45 });
-            if (!error && data === true) { hasDbLock = true; }
-            else if (error) { const errStr = JSON.stringify(error).toLowerCase(); if (errStr.includes('42883') || errStr.includes('42p01') || errStr.includes('could not find function')) { dbLockUnavailable = true; } }
-          } catch { dbLockUnavailable = true; }
+            try {
+              const { data, error } = await supabase.rpc('acquire_ingest_lock', { p_match_id: dbMatchId, p_ttl_seconds: 45 });
+              if (!error && data === true) { hasDbLock = true; }
+              else if (error) {
+                const errStr = JSON.stringify(error).toLowerCase();
+                if (errStr.includes('42883') || errStr.includes('42p01') || errStr.includes('could not find function')) { dbLockUnavailable = true; }
+              }
+            } catch { dbLockUnavailable = true; }
 
-          if (!hasDbLock && !dbLockUnavailable && !dryRun) { _localLocks.delete(dbMatchId); return; }
+            let bypassDbLock = false;
+            if (!hasDbLock && !dbLockUnavailable && !dryRun) {
+              const manualOrTargeted = triggerType !== 'scheduled' || targetSet.size > 0;
+              if (startedGame && manualOrTargeted) {
+                bypassDbLock = true;
+              } else if (startedGame) {
+                const probe = await probeCoverageForMatch(supabase, dbMatchId, { started: true, inProgress: inProgressGame });
+                const adjustedProbe = adjustProbeWithCapability(probe, leagueCapability, { started: true, inProgress: inProgressGame });
+                if (adjustedProbe.effectiveCoverageStatus !== 'OK') bypassDbLock = true;
+              }
 
-          globalAttempted++;
-          stats.attempted++;
-          await processGame(supabase, event, dbMatchId, league, stats, { dryRun, debug }).finally(async () => {
+              if (!bypassDbLock) return;
+              stats.reliability.db_lock_bypass++;
+              Logger.warn('DB_LOCK_BYPASS', {
+                match_id: dbMatchId,
+                league_id: league.id,
+                trigger_type: triggerType,
+                started: startedGame,
+              });
+            }
+
+            globalAttempted++;
+            leagueAttempted++;
+            stats.attempted++;
+            if (startedGame) stats.reliability.games_started++;
+
+            await processGame(supabase, event, dbMatchId, league, stats, { dryRun, debug });
+
+            if (!dryRun && !skipCoverageAudit && startedGame) {
+              const probe = await probeCoverageForMatch(supabase, dbMatchId, { started: true, inProgress: inProgressGame });
+              const adjustedProbe = adjustProbeWithCapability(probe, leagueCapability, { started: true, inProgress: inProgressGame });
+              if (adjustedProbe.effectiveCoverageStatus !== 'OK') {
+                if (adjustedProbe.effectiveCoverageStatus.startsWith('MISSING')) missingMatches.add(dbMatchId);
+                if (adjustedProbe.effectiveCoverageStatus.startsWith('STALE')) staleMatches.add(dbMatchId);
+                pushLimited(stats.reliability.coverage_issues, {
+                  match_id: dbMatchId,
+                  league_id: league.id,
+                  raw_status: probe.coverageStatus,
+                  status: adjustedProbe.effectiveCoverageStatus,
+                  stale_seconds_snapshot: adjustedProbe.staleSecondsSnapshot,
+                  stale_seconds_pbp: adjustedProbe.staleSecondsPbp,
+                  latest_snapshot_at: adjustedProbe.latestSnapshotAt,
+                  latest_pbp_at: adjustedProbe.latestPbpAt,
+                  live_odds_required: adjustedProbe.liveOddsRequired,
+                  live_state_required: adjustedProbe.liveStateRequired,
+                  pbp_required: adjustedProbe.pbpRequired,
+                  auto_recovery_enabled: adjustedProbe.autoRecoveryEnabled,
+                });
+
+                if (forceRecovery && adjustedProbe.autoRecoveryEnabled) {
+                  stats.reliability.retries_attempted++;
+                  const recovery = await recoverCoverageForMatch({
+                    supabase,
+                    event,
+                    dbMatchId,
+                    league,
+                    reason: adjustedProbe.effectiveCoverageStatus,
+                    stats,
+                  });
+
+                  if (recovery.recovered) {
+                    recoveredMatches.add(dbMatchId);
+                  } else {
+                    pushLimited(stats.errors, `${league.id}/${dbMatchId}: recovery_failed:${adjustedProbe.effectiveCoverageStatus}`);
+                  }
+                } else if (!adjustedProbe.autoRecoveryEnabled) {
+                  pushLimited(stats.reliability.coverage_issues, {
+                    match_id: dbMatchId,
+                    league_id: league.id,
+                    status: adjustedProbe.effectiveCoverageStatus,
+                    issue: 'AUTO_RECOVERY_DISABLED_BY_CAPABILITY',
+                  });
+                }
+              }
+            }
+          } finally {
             _localLocks.delete(dbMatchId);
             if (hasDbLock) { try { await supabase.rpc('release_ingest_lock', { p_match_id: dbMatchId }); } catch { } }
-          });
+          }
         });
         await Promise.all(executing);
       }
     } catch (e: any) { stats.errors.push(`${league.id}: ${e.message}`); Logger.warn('LEAGUE_LOOP_FAILED', { league: league.id, error: e.message }); }
   }
 
-  (stats as any).elapsed_ms = Date.now() - startedAt;
+  stats.reliability.missing_games = missingMatches.size;
+  stats.reliability.stale_games = staleMatches.size;
+  stats.reliability.retries_recovered = recoveredMatches.size;
+  stats.reliability.recovered_match_ids = Array.from(recoveredMatches).slice(0, 50);
+
+  stats.elapsed_ms = Date.now() - startedAt;
   if (!debug && stats.dry_samples.length > 5) stats.dry_samples = stats.dry_samples.slice(0, 5);
-  return new Response(JSON.stringify(stats), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  if (!debug && stats.reliability.coverage_issues.length > 50) {
+    stats.reliability.coverage_issues = stats.reliability.coverage_issues.slice(0, 50);
+  }
+
+  if (!dryRun) {
+    try { await supabase.rpc('refresh_mv_live_pipeline_coverage_summary'); } catch { }
+  }
+
+  let sloGuard: any = null;
+  let sloBreached = false;
+  let sloGuardFailed = false;
+  if (!dryRun && !disableSloGuard) {
+    try {
+      sloGuard = await evaluateCurrentSlo({
+        supabase,
+        leagueIds: leagueFilter.size > 0 ? [...leagueFilter] : MONITOR_LEAGUES.map((l) => l.id),
+        capabilityByLeague,
+      });
+      sloBreached = !!sloGuard?.breached;
+
+      await safeInsertLiveReliabilityLog(supabase, {
+        run_id: runId,
+        function_name: 'live-slo-guard',
+        status: sloBreached ? 'failed' : 'succeeded',
+        trigger_type: triggerType,
+        scanned_games: Number(sloGuard?.rows?.reduce((acc: number, row: any) => acc + Number(row.started_games || 0), 0) || 0),
+        started_games: Number(sloGuard?.rows?.reduce((acc: number, row: any) => acc + Number(row.started_games || 0), 0) || 0),
+        snapshot_writes: 0,
+        live_state_writes: 0,
+        pbp_writes: 0,
+        missing_games: Number(sloGuard?.rows?.reduce((acc: number, row: any) => acc + Number(row.missing_required_games || 0), 0) || 0),
+        stale_games: Number(sloGuard?.rows?.reduce((acc: number, row: any) => acc + Number(row.stale_required_games || 0), 0) || 0),
+        retries_attempted: 0,
+        retries_recovered: 0,
+        provider_failures: 0,
+        degraded_snapshot_writes: 0,
+        metadata: {
+          window_minutes: sloGuard?.window_minutes ?? LIVE_RUNTIME.sloWindowMinutes,
+          thresholds: {
+            min_snapshot_coverage_pct: sloGuard?.min_snapshot_coverage_pct ?? LIVE_RUNTIME.sloMinSnapshotCoveragePct,
+            min_state_coverage_pct: sloGuard?.min_state_coverage_pct ?? LIVE_RUNTIME.sloMinStateCoveragePct,
+            min_pbp_coverage_pct: sloGuard?.min_pbp_coverage_pct ?? LIVE_RUNTIME.sloMinPbpCoveragePct,
+            max_missing_games: sloGuard?.max_missing_games ?? LIVE_RUNTIME.sloMaxMissingGames,
+            max_stale_games: sloGuard?.max_stale_games ?? LIVE_RUNTIME.sloMaxStaleGames,
+          },
+          breached: sloBreached,
+          breach_count: Array.isArray(sloGuard?.breaches) ? sloGuard.breaches.length : 0,
+          breaches: Array.isArray(sloGuard?.breaches) ? sloGuard.breaches : [],
+          rows: Array.isArray(sloGuard?.rows) ? sloGuard.rows : [],
+        },
+      });
+    } catch (sloErr: any) {
+      sloGuardFailed = true;
+      const errMsg = sloErr?.message || String(sloErr);
+      pushLimited(stats.errors, `slo_guard:${errMsg}`);
+      await safeInsertLiveReliabilityLog(supabase, {
+        run_id: runId,
+        function_name: 'live-slo-guard',
+        status: 'failed',
+        trigger_type: triggerType,
+        scanned_games: 0,
+        started_games: 0,
+        snapshot_writes: 0,
+        live_state_writes: 0,
+        pbp_writes: 0,
+        missing_games: 0,
+        stale_games: 0,
+        retries_attempted: 0,
+        retries_recovered: 0,
+        provider_failures: 1,
+        degraded_snapshot_writes: 0,
+        metadata: { error: errMsg },
+      });
+    }
+  }
+
+  stats.slo_guard = disableSloGuard
+    ? { enabled: false, reason: 'disabled_by_request' }
+    : dryRun
+      ? { enabled: false, reason: 'dry_run' }
+      : {
+        enabled: true,
+        breached: sloBreached,
+        guard_failed: sloGuardFailed,
+        window_minutes: sloGuard?.window_minutes ?? LIVE_RUNTIME.sloWindowMinutes,
+        rows: sloGuard?.rows ?? [],
+        breaches: sloGuard?.breaches ?? [],
+      };
+
+  let runStatus: 'succeeded' | 'failed' | 'replayed' = 'succeeded';
+  if (stats.failed > 0 && stats.processed === 0) runStatus = 'failed';
+  else if (sloGuardFailed) runStatus = 'failed';
+  else if (sloBreached && !allowSloBreach) runStatus = 'failed';
+  else if (stats.runtime_truncated) runStatus = 'replayed';
+  else if (stats.reliability.retries_attempted > 0 || sloBreached) runStatus = 'replayed';
+
+  const rowsRead = stats.reliability.games_scanned;
+  const rowsWritten = stats.reliability.snapshot_writes + stats.reliability.live_state_writes + stats.reliability.pbp_writes;
+  const runMetadata = {
+    ...stats.freshness_thresholds,
+    attempted: stats.attempted,
+    processed: stats.processed,
+    live: stats.live,
+    failed: stats.failed,
+    reliability: stats.reliability,
+    dry_run: stats.dry_run,
+    league_filter: stats.league_filter,
+    runtime_limit_ms: stats.runtime_limit_ms,
+    runtime_truncated: stats.runtime_truncated,
+    per_league_max_games: stats.per_league_max_games,
+    concurrency: stats.concurrency,
+    pre_window_minutes: stats.pre_window_minutes,
+    disable_slo_guard: stats.disable_slo_guard,
+    allow_slo_breach: stats.allow_slo_breach,
+    capabilities_loaded: stats.capabilities_loaded,
+    capability_defaults_used: stats.capability_defaults_used,
+    slo_guard: stats.slo_guard,
+    elapsed_ms: stats.elapsed_ms,
+  };
+
+  await safeLogJobRunEnd(supabase, runId, {
+    status: runStatus,
+    rowsRead,
+    rowsWritten,
+    errorMessage: runStatus === 'failed' ? (stats.errors[0] || 'ingest-live-games failed') : null,
+    metadata: runMetadata,
+  });
+
+  await safeInsertLiveReliabilityLog(supabase, {
+    run_id: runId,
+    function_name: 'ingest-live-games',
+    status: runStatus,
+    trigger_type: triggerType,
+    scanned_games: stats.reliability.games_scanned,
+    started_games: stats.reliability.games_started,
+    snapshot_writes: stats.reliability.snapshot_writes,
+    live_state_writes: stats.reliability.live_state_writes,
+    pbp_writes: stats.reliability.pbp_writes,
+    missing_games: stats.reliability.missing_games,
+    stale_games: stats.reliability.stale_games,
+    retries_attempted: stats.reliability.retries_attempted,
+    retries_recovered: stats.reliability.retries_recovered,
+    provider_failures: stats.reliability.provider_failures,
+    degraded_snapshot_writes: stats.reliability.degraded_snapshot_writes,
+    metadata: runMetadata,
+  });
+
+  return new Response(JSON.stringify({ ...stats, run_id: runId }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 });
 
 async function processGame(supabase: any, event: any, dbMatchId: string, league: any, stats: any, options: { dryRun?: boolean; debug?: boolean } = {}) {
@@ -1114,6 +2372,15 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
         lastUpdated: bpiPayloadData.lastUpdated
       } : null);
 
+    const stateCaptureSource = !isSoccer && coreBase ? 'espn_core' : 'espn_summary';
+    const stateExtraData = {
+      ...(Object.keys(finalExtraData).length > 0 ? finalExtraData : {}),
+      capture_mode: 'native',
+      capture_source: stateCaptureSource,
+      capture_reason: 'scheduled_ingest',
+      captured_at: new Date().toISOString(),
+    };
+
     const statePayload: any = {
       id: dbMatchId, league_id: league.id, sport: league.db_sport, game_status: matchPayload.status || 'SCHEDULED',
       canonical_id: canonicalIdForState, period: finalPeriod, clock: comp.status?.displayClock, home_score: homeScore, away_score: awayScore,
@@ -1122,7 +2389,7 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
       player_stats: extractedPlayerStats, leaders: extractedLeaders, momentum: extractedMomentum,
       advanced_metrics: Object.keys(finalAdvancedMetrics).length > 0 ? finalAdvancedMetrics : null,
       match_context: extractedContext, predictor: finalPredictor,
-      extra_data: Object.keys(finalExtraData).length > 0 ? finalExtraData : null,
+      extra_data: stateExtraData,
       deterministic_signals: aiSignals, odds: { current: effectiveOdds, t60_snapshot: t60_snapshot || null, t0_snapshot: t0_snapshot || null }, updated_at: new Date().toISOString()
     };
 
@@ -1136,6 +2403,7 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
       if (closingPayload) await upsertWithRetry('closing_lines', closingPayload);
       await upsertWithRetry('live_game_state', statePayload);
     }
+    stats.reliability.live_state_writes++;
 
     if (canonicalOddsPayload && finalOddsHasKeys) {
       await writeCurrentOdds({ supabase, matchId: dbMatchId, normalizedOdds: canonicalOddsPayload, rawOdds: finalMarketOdds, provider: finalMarketOdds.provider || 'ESPN', isLive: isLiveGame, updatedAt: new Date().toISOString() } as any).catch((e: any) => Logger.warn('WRITE_CURRENT_ODDS_ERROR', { match_id: dbMatchId, error: e.message }));
@@ -1177,6 +2445,38 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
       }
     }
 
+    const eventStartMs = parseEventStartMs(event);
+    const startedByClock = eventStartMs !== null && eventStartMs <= (Date.now() + 60000);
+    const shouldCaptureLiveSnapshot = isLiveGame || startedByClock || isFinalStatus(comp.status?.type?.name);
+    if (shouldCaptureLiveSnapshot) {
+      const snapshotWrite = await writeLiveOddsSnapshotWithGuard({
+        supabase,
+        matchId: dbMatchId,
+        leagueId: league.id,
+        sport: league.db_sport,
+        status: String(comp.status?.type?.name || matchPayload.status || 'STATUS_SCHEDULED'),
+        period: finalPeriod ?? null,
+        clock: comp.status?.displayClock ?? null,
+        homeScore,
+        awayScore,
+        homeTeam: homeNameStr !== 'Unknown' ? homeNameStr : null,
+        awayTeam: awayNameStr !== 'Unknown' ? awayNameStr : null,
+        effectiveOdds,
+        parsedOdds,
+        finalMarketOdds,
+        isLiveGame,
+        source: 'ingest-live-games',
+        degradeReason: 'NO_MARKET_DATA_PRIMARY_PASS',
+      });
+
+      if (snapshotWrite.inserted) {
+        stats.snapshots++;
+        stats.reliability.snapshot_writes++;
+        if (snapshotWrite.degraded) stats.reliability.degraded_snapshot_writes++;
+      }
+      if (snapshotWrite.providerFailure) stats.reliability.provider_failures++;
+    }
+
     const hasAnyOdds = !!(parsedOdds.odds_live || parsedOdds.odds_open || parsedOdds.odds_close || parsedOdds.bet365_live || parsedOdds.dk_live_200);
     if (hasAnyOdds) {
       const oddsSnapshotPayload: any = { match_id: dbMatchId, league_id: league.id, sport: league.db_sport, event_type: 'odds_snapshot', sequence: generateSequence(), period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null, home_score: homeScore, away_score: awayScore, odds_open: parsedOdds.odds_open, odds_close: parsedOdds.odds_close, odds_live: parsedOdds.odds_live, bet365_live: parsedOdds.bet365_live, dk_live_200: parsedOdds.dk_live_200, player_props: parsedOdds.player_props, match_state: { status: comp.status?.type?.name ?? null, home_team: homeNameStr, away_team: awayNameStr, score: `${homeScore}-${awayScore}`, period: finalPeriod ?? null, clock: comp.status?.displayClock ?? null }, source: 'espn_live_odds' };
@@ -1208,26 +2508,11 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
     }
 
     try {
-      const derivePlaySequence = (play: any, index: number): number => {
-        let seq = parseInt(play?.sequenceNumber, 10);
-        if (Number.isFinite(seq) && seq > 0 && seq <= 2147483647) return seq;
-
-        const fallbackFromId = parseInt(String(play?.id || '').replace(/\D/g, '').slice(-9), 10);
-        if (Number.isFinite(fallbackFromId) && fallbackFromId > 0 && fallbackFromId <= 2147483647) {
-          return fallbackFromId;
-        }
-
-        const seed = `${play?.id ?? ''}|${play?.clock?.displayValue ?? play?.clock ?? ''}|${play?.text ?? ''}|${play?.period?.number ?? play?.period ?? ''}|${index}`;
-        let hash = 0;
-        for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) % 2147483000;
-        return hash > 0 ? hash : (generateSequence() + index);
-      };
-
       const primaryPlayRows = Array.isArray(selectedPlays)
         ? selectedPlays
           .filter((p: any) => p?.id && p?.text)
           .map((p: any, index: number) => {
-            const seq = derivePlaySequence(p, index);
+            const seq = deriveStablePlaySequence(p, index, 'primary');
             return {
               match_id: dbMatchId,
               league_id: league.id,
@@ -1259,7 +2544,7 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
           .map((p: any, index: number) => {
             const text = String(p.text || '').trim();
             if (!text) return null;
-            const seq = derivePlaySequence(p, index + 5000);
+            const seq = deriveStablePlaySequence(p, index + 5000, 'recent');
             const inferredScoring = !!p.scoringPlay || /(goal|scores|makes|touchdown|penalty kick goal|own goal|free throw)/i.test(text);
             return {
               match_id: dbMatchId,
@@ -1294,6 +2579,7 @@ async function processGame(supabase: any, event: any, dbMatchId: string, league:
         for (let i = 0; i < playRows.length; i += 200) {
           await supabase.from('game_events').upsert(playRows.slice(i, i + 200), { onConflict: 'match_id,event_type,sequence' });
         }
+        stats.reliability.pbp_writes += playRows.length;
       }
     } catch { }
 

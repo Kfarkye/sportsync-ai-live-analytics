@@ -3,10 +3,8 @@
 -- ============================================================
 
 BEGIN;
-
 DROP VIEW IF EXISTS vw_titan_api_gateway CASCADE;
 DROP VIEW IF EXISTS vw_titan_trends CASCADE;
-
 -- TRENDS (Now with proper record, not misleading "units")
 CREATE VIEW vw_titan_trends AS
 WITH daily_stats AS (
@@ -33,7 +31,6 @@ SELECT
     ROUND((daily_wins::numeric / NULLIF(daily_wins + daily_losses, 0)) * 100, 1) as daily_win_rate
 FROM daily_stats
 ORDER BY game_date DESC;
-
 -- API GATEWAY (Rebuild with updated trends)
 CREATE VIEW vw_titan_api_gateway AS
 SELECT 
@@ -44,5 +41,4 @@ SELECT
         'heatmap', (SELECT json_agg(h) FROM vw_titan_heatmap h),
         'trends', (SELECT json_agg(t) FROM vw_titan_trends t)
     ) as payload;
-
 COMMIT;

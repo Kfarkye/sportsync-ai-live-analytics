@@ -1,5 +1,4 @@
 BEGIN;
-
 DO $$
 DECLARE
   v_job_id bigint;
@@ -40,5 +39,4 @@ BEGIN
   END IF;
 END;
 $$;
-
 COMMIT;

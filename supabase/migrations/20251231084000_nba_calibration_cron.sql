@@ -22,6 +22,5 @@ SELECT cron.schedule(
     );
   $$
 );
-
 -- Verify the job was created
 SELECT * FROM cron.job WHERE jobname = 'nba-weekly-calibration';

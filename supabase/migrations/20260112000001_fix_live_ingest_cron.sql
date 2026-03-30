@@ -22,21 +22,18 @@ BEGIN
   );
 END;
 $$;
-
 -- 2. Unschedule any existing broken cron (ignore if not exists)
 DO $$ BEGIN
   PERFORM cron.unschedule('live-game-ingest-1min');
 EXCEPTION WHEN OTHERS THEN
   NULL; -- Job doesn't exist, continue
 END $$;
-
 -- 3. Schedule the cron to run every minute
 SELECT cron.schedule(
   'live-game-ingest-1min',
   '* * * * *',
   $$SELECT invoke_ingest_live_games()$$
 );
-
 -- 4. Verification
 SELECT 
   'Live ingest cron fixed and scheduled (every 1 min)' as status,

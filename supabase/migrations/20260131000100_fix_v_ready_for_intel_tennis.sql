@@ -5,10 +5,8 @@
 --   - Tennis: require ANY usable market (ML or tennis-specific spread/total keys)
 
 begin;
-
 -- Drop and recreate to avoid "create or replace view" dependency surprises
 drop view if exists public.v_ready_for_intel;
-
 create view public.v_ready_for_intel as
 select
   m.id,
@@ -61,5 +59,4 @@ where
       AND (m.current_odds->>'total') is not null
     )
   );
-
 commit;

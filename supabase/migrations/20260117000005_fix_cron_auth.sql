@@ -5,7 +5,6 @@
 -- Step 1: Unschedule the broken jobs
 SELECT cron.unschedule('sync-player-props-cron');
 SELECT cron.unschedule('finalize-games-cron');
-
 -- Step 2: Re-create with fixed syntax using vault secret
 -- Note: You need to first store your service_role_key in the vault:
 -- SELECT vault.create_secret('your_service_role_key_here', 'service_role_key');
@@ -25,7 +24,6 @@ SELECT cron.schedule(
   );
   $$
 );
-
 -- 2. Finalize Games: 2x daily
 SELECT cron.schedule(
   'finalize-games-cron',
@@ -41,6 +39,5 @@ SELECT cron.schedule(
   );
   $$
 );
-
 -- Verify
 SELECT * FROM cron.job WHERE jobname IN ('sync-player-props-cron', 'finalize-games-cron');

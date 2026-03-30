@@ -333,9 +333,9 @@ export const UnifiedHeader: FC = () => {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="flex-1 flex items-center justify-between gap-4 max-[390px]:gap-2"
+                                className="flex-1 min-w-0 flex flex-col items-stretch gap-2 py-2 sm:py-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                             >
-                                <div className="flex items-center bg-slate-50 rounded-lg p-0.5 border border-slate-300">
+                                <div className="w-full sm:w-auto flex items-center bg-slate-50 rounded-lg p-0.5 border border-slate-300">
                                     {(['LIVE', 'NEXT', 'ENDED'] as const).map((tab) => {
                                         const labels = { LIVE: 'Live', NEXT: 'Upcoming', ENDED: 'Completed' };
                                         const isActive = liveTab === tab;
@@ -346,7 +346,7 @@ export const UnifiedHeader: FC = () => {
                                                 onClick={() => setLiveTab(tab)}
                                                 aria-label={`${labels[tab]} games`}
                                                 className={cn(
-                                                    "relative h-11 min-w-[72px] px-3 max-[390px]:px-2.5 rounded-md text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.02em] transition-colors",
+                                                    "relative h-10 sm:h-11 flex-1 sm:flex-none min-w-0 sm:min-w-[72px] px-2.5 sm:px-3 rounded-md text-[10px] sm:text-[11px] font-semibold tracking-[0.02em] transition-colors whitespace-nowrap",
                                                     isActive ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
                                                     focusRing
                                                 )}
@@ -357,18 +357,18 @@ export const UnifiedHeader: FC = () => {
                                         );
                                     })}
                                 </div>
-                                <div className="flex items-center gap-2 max-[390px]:gap-1.5">
-                                    <div className="relative">
+                                <div className="w-full sm:w-auto flex items-center gap-2">
+                                    <div className="relative flex-1 sm:flex-none">
                                         <input
                                             type="text"
                                             aria-label="Filter live matches"
-                                            placeholder="Filter..."
+                                            placeholder="Search..."
                                             value={liveFilter}
                                             onChange={(e) => setLiveFilter(e.target.value)}
-                                            className="w-32 max-[390px]:w-28 h-11 bg-white border border-slate-300 rounded-lg py-1.5 pl-2 pr-2 text-[11px] max-[390px]:text-[10px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#93C5FD] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                                            className="w-full sm:w-44 h-10 sm:h-11 bg-white border border-slate-300 rounded-lg py-1.5 pl-2.5 pr-2.5 text-[11px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#93C5FD] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                                         />
                                     </div>
-                                    <div className="flex bg-slate-50 rounded-lg p-0.5 border border-slate-300">
+                                    <div className="hidden sm:flex bg-slate-50 rounded-lg p-0.5 border border-slate-300">
                                         <button
                                             type="button"
                                             aria-label="List view"

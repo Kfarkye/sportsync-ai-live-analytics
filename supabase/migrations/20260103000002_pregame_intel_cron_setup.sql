@@ -2,7 +2,6 @@
 -- Schedules the pregame-intel-cron edge function to run every 1 hour
 -- This ensures upcoming games always have fresh research available
 DROP FUNCTION IF EXISTS invoke_pregame_intel_cron() CASCADE;
-
 CREATE OR REPLACE FUNCTION invoke_pregame_intel_cron()
 RETURNS void
 LANGUAGE plpgsql
@@ -46,7 +45,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- Schedule the cron job to run every hour
 -- 0 * * * * = "At minute 0 of every hour"
 SELECT cron.schedule(
@@ -54,7 +52,6 @@ SELECT cron.schedule(
   '0 * * * *',
   $$SELECT invoke_pregame_intel_cron()$$
 );
-
 -- Initial run to populate data immediately
 -- Note: This only works if pg_net and pg_cron are healthy
 -- SELECT invoke_pregame_intel_cron();

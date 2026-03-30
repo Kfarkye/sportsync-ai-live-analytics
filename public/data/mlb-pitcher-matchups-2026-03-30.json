@@ -1,0 +1,1057 @@
+{
+  "type": "mlb_pitcher_matchup_board",
+  "date": "2026-03-30",
+  "generated_at": "2026-03-29T08:51:14.441090+00:00",
+  "machine_contract_version": "v1",
+  "sources": {
+    "probables": "ESPN MLB scoreboard 2026-03-30",
+    "opponent_contact_profile": "public.mlb_batter_game_logs",
+    "pitcher_history": "public.mlb_pitcher_game_logs",
+    "market_status": "public.player_prop_bets"
+  },
+  "league_baseline": {
+    "sample_window_start": "2025-03-01",
+    "sample_window_end": "2026-03-29",
+    "k_per_game": 8.39,
+    "k_per_ab_pct": 24.9
+  },
+  "classification_rules": {
+    "heavy_strikeout": "opponent k_per_ab_pct >= league baseline + 1.0 percentage point",
+    "good_contact": "opponent k_per_ab_pct <= league baseline - 1.0 percentage point",
+    "neutral": "between those bounds"
+  },
+  "summary": {
+    "board_status": "No March 30 MLB props posted yet",
+    "heavy_strikeout_count": 7,
+    "neutral_count": 14,
+    "good_contact_count": 6
+  },
+  "cards": [
+    {
+      "event_id": "401814737",
+      "short_name": "COL @ TOR",
+      "game_date_utc": "2026-03-30T23:07Z",
+      "pitcher": "Cody Ponce",
+      "pitcher_team": "Toronto Blue Jays",
+      "opponent_team": "Colorado Rockies",
+      "matchup_tag": "heavy_strikeout",
+      "matchup_tag_label": "K-friendly",
+      "opponent_profile": {
+        "games": 163,
+        "k_per_game": 9.29,
+        "delta_vs_league_k_per_game": 0.9,
+        "k_per_ab_pct": 28.1,
+        "delta_vs_league_k_per_ab_pct": 3.2
+      },
+      "pitcher_profile": {
+        "games_2025": 0,
+        "avg_k_2025": null,
+        "avg_ip_2025": null,
+        "games_2026": 4,
+        "avg_k_2026_last3": 2.67,
+        "latest_start": {
+          "athlete_name": "Cody Ponce",
+          "game_date": "2026-03-19T00:00:00+00:00",
+          "strikeouts": 5,
+          "innings_pitched": 5.2,
+          "team": "Toronto Blue Jays",
+          "opponent_team": "New York Yankees",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814739",
+      "short_name": "TEX @ BAL",
+      "game_date_utc": "2026-03-30T22:35Z",
+      "pitcher": "Jack Leiter",
+      "pitcher_team": "Texas Rangers",
+      "opponent_team": "Baltimore Orioles",
+      "matchup_tag": "heavy_strikeout",
+      "matchup_tag_label": "K-friendly",
+      "opponent_profile": {
+        "games": 163,
+        "k_per_game": 9.14,
+        "delta_vs_league_k_per_game": 0.75,
+        "k_per_ab_pct": 27.0,
+        "delta_vs_league_k_per_ab_pct": 2.1
+      },
+      "pitcher_profile": {
+        "games_2025": 29,
+        "avg_k_2025": 5.1,
+        "avg_ip_2025": 5.07,
+        "games_2026": 4,
+        "avg_k_2026_last3": 3.67,
+        "latest_start": {
+          "athlete_name": "Jack Leiter",
+          "game_date": "2026-03-12T00:00:00+00:00",
+          "strikeouts": 6,
+          "innings_pitched": 5.0,
+          "team": "Texas Rangers",
+          "opponent_team": "Athletics",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814748",
+      "short_name": "NYY @ SEA",
+      "game_date_utc": "2026-03-31T01:40Z",
+      "pitcher": "Luis Castillo",
+      "pitcher_team": "Seattle Mariners",
+      "opponent_team": "New York Yankees",
+      "matchup_tag": "heavy_strikeout",
+      "matchup_tag_label": "K-friendly",
+      "opponent_profile": {
+        "games": 163,
+        "k_per_game": 9.15,
+        "delta_vs_league_k_per_game": 0.76,
+        "k_per_ab_pct": 26.8,
+        "delta_vs_league_k_per_ab_pct": 1.9
+      },
+      "pitcher_profile": {
+        "games_2025": 34,
+        "avg_k_2025": 4.88,
+        "avg_ip_2025": 5.46,
+        "games_2026": 4,
+        "avg_k_2026_last3": 2.0,
+        "latest_start": {
+          "athlete_name": "Luis Castillo",
+          "game_date": "2026-03-17T00:00:00+00:00",
+          "strikeouts": 1,
+          "innings_pitched": 4.0,
+          "team": "Seattle Mariners",
+          "opponent_team": "San Diego Padres",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814747",
+      "short_name": "DET @ ARI",
+      "game_date_utc": "2026-03-31T02:10Z",
+      "pitcher": "Michael Soroka",
+      "pitcher_team": "Arizona Diamondbacks",
+      "opponent_team": "Detroit Tigers",
+      "matchup_tag": "heavy_strikeout",
+      "matchup_tag_label": "K-friendly",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 8.93,
+        "delta_vs_league_k_per_game": 0.54,
+        "k_per_ab_pct": 26.7,
+        "delta_vs_league_k_per_ab_pct": 1.8
+      },
+      "pitcher_profile": {
+        "games_2025": 17,
+        "avg_k_2025": 5.29,
+        "avg_ip_2025": 4.81,
+        "games_2026": 3,
+        "avg_k_2026_last3": 4.0,
+        "latest_start": {
+          "athlete_name": "Michael Soroka",
+          "game_date": "2026-03-20T00:00:00+00:00",
+          "strikeouts": 8,
+          "innings_pitched": 5.0,
+          "team": "Arizona Diamondbacks",
+          "opponent_team": "Chicago White Sox",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814748",
+      "short_name": "NYY @ SEA",
+      "game_date_utc": "2026-03-31T01:40Z",
+      "pitcher": "Ryan Weathers",
+      "pitcher_team": "New York Yankees",
+      "opponent_team": "Seattle Mariners",
+      "matchup_tag": "heavy_strikeout",
+      "matchup_tag_label": "K-friendly",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 9.08,
+        "delta_vs_league_k_per_game": 0.69,
+        "k_per_ab_pct": 26.5,
+        "delta_vs_league_k_per_ab_pct": 1.6
+      },
+      "pitcher_profile": {
+        "games_2025": 8,
+        "avg_k_2025": 4.62,
+        "avg_ip_2025": 4.68,
+        "games_2026": 3,
+        "avg_k_2026_last3": 4.0,
+        "latest_start": {
+          "athlete_name": "Ryan Weathers",
+          "game_date": "2026-03-19T00:00:00+00:00",
+          "strikeouts": 5,
+          "innings_pitched": 3.0,
+          "team": "New York Yankees",
+          "opponent_team": "Toronto Blue Jays",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814738",
+      "short_name": "PIT @ CIN",
+      "game_date_utc": "2026-03-30T22:40Z",
+      "pitcher": "Chase Burns",
+      "pitcher_team": "Cincinnati Reds",
+      "opponent_team": "Pittsburgh Pirates",
+      "matchup_tag": "heavy_strikeout",
+      "matchup_tag_label": "K-friendly",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 8.69,
+        "delta_vs_league_k_per_game": 0.3,
+        "k_per_ab_pct": 26.3,
+        "delta_vs_league_k_per_ab_pct": 1.4
+      },
+      "pitcher_profile": {
+        "games_2025": 8,
+        "avg_k_2025": 7.12,
+        "avg_ip_2025": 4.09,
+        "games_2026": 5,
+        "avg_k_2026_last3": 2.67,
+        "latest_start": {
+          "athlete_name": "Chase Burns",
+          "game_date": "2026-03-18T00:00:00+00:00",
+          "strikeouts": 2,
+          "innings_pitched": 2.0,
+          "team": "Cincinnati Reds",
+          "opponent_team": "Los Angeles Angels",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814738",
+      "short_name": "PIT @ CIN",
+      "game_date_utc": "2026-03-30T22:40Z",
+      "pitcher": "Braxton Ashcraft",
+      "pitcher_team": "Pittsburgh Pirates",
+      "opponent_team": "Cincinnati Reds",
+      "matchup_tag": "heavy_strikeout",
+      "matchup_tag_label": "K-friendly",
+      "opponent_profile": {
+        "games": 163,
+        "k_per_game": 8.85,
+        "delta_vs_league_k_per_game": 0.46,
+        "k_per_ab_pct": 26.2,
+        "delta_vs_league_k_per_ab_pct": 1.3
+      },
+      "pitcher_profile": {
+        "games_2025": 8,
+        "avg_k_2025": 4.38,
+        "avg_ip_2025": 4.05,
+        "games_2026": 4,
+        "avg_k_2026_last3": 5.0,
+        "latest_start": {
+          "athlete_name": "Braxton Ashcraft",
+          "game_date": "2026-03-18T00:00:00+00:00",
+          "strikeouts": 8,
+          "innings_pitched": 5.1,
+          "team": "Pittsburgh Pirates",
+          "opponent_team": "Detroit Tigers",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814742",
+      "short_name": "BOS @ HOU",
+      "game_date_utc": "2026-03-31T00:10Z",
+      "pitcher": "Ranger Suarez",
+      "pitcher_team": "Boston Red Sox",
+      "opponent_team": "Houston Astros",
+      "matchup_tag": "good_contact",
+      "matchup_tag_label": "Contact-heavy",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 8.11,
+        "delta_vs_league_k_per_game": -0.28,
+        "k_per_ab_pct": 23.6,
+        "delta_vs_league_k_per_ab_pct": -1.3
+      },
+      "pitcher_profile": {
+        "games_2025": 26,
+        "avg_k_2025": 5.81,
+        "avg_ip_2025": 5.91,
+        "games_2026": 2,
+        "avg_k_2026_last3": 2.0,
+        "latest_start": {
+          "athlete_name": "Ranger Suarez",
+          "game_date": "2026-03-01T00:00:00+00:00",
+          "strikeouts": 2,
+          "innings_pitched": 3.0,
+          "team": "Boston Red Sox",
+          "opponent_team": "Baltimore Orioles",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814741",
+      "short_name": "LAA @ CHC",
+      "game_date_utc": "2026-03-30T23:40Z",
+      "pitcher": "Ryan Johnson",
+      "pitcher_team": "Los Angeles Angels",
+      "opponent_team": "Chicago Cubs",
+      "matchup_tag": "good_contact",
+      "matchup_tag_label": "Contact-heavy",
+      "opponent_profile": {
+        "games": 161,
+        "k_per_game": 7.93,
+        "delta_vs_league_k_per_game": -0.46,
+        "k_per_ab_pct": 23.1,
+        "delta_vs_league_k_per_ab_pct": -1.8
+      },
+      "pitcher_profile": {
+        "games_2025": 0,
+        "avg_k_2025": null,
+        "avg_ip_2025": null,
+        "games_2026": 2,
+        "avg_k_2026_last3": 4.0,
+        "latest_start": {
+          "athlete_name": "Ryan Johnson",
+          "game_date": "2026-03-18T00:00:00+00:00",
+          "strikeouts": 4,
+          "innings_pitched": 5.0,
+          "team": "Los Angeles Angels",
+          "opponent_team": "Milwaukee Brewers",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814745",
+      "short_name": "TB @ MIL",
+      "game_date_utc": "2026-03-30T23:40Z",
+      "pitcher": "Nick Martinez",
+      "pitcher_team": "Tampa Bay Rays",
+      "opponent_team": "Milwaukee Brewers",
+      "matchup_tag": "good_contact",
+      "matchup_tag_label": "Contact-heavy",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 7.88,
+        "delta_vs_league_k_per_game": -0.51,
+        "k_per_ab_pct": 23.0,
+        "delta_vs_league_k_per_ab_pct": -1.9
+      },
+      "pitcher_profile": {
+        "games_2025": 26,
+        "avg_k_2025": 4.12,
+        "avg_ip_2025": 5.42,
+        "games_2026": 3,
+        "avg_k_2026_last3": 2.33,
+        "latest_start": {
+          "athlete_name": "Nick Martinez",
+          "game_date": "2026-03-16T00:00:00+00:00",
+          "strikeouts": 1,
+          "innings_pitched": 4.0,
+          "team": "Tampa Bay Rays",
+          "opponent_team": "Atlanta Braves",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814736",
+      "short_name": "CHW @ MIA",
+      "game_date_utc": "2026-03-30T22:40Z",
+      "pitcher": "Davis Martin",
+      "pitcher_team": "Chicago White Sox",
+      "opponent_team": "Miami Marlins",
+      "matchup_tag": "good_contact",
+      "matchup_tag_label": "Contact-heavy",
+      "opponent_profile": {
+        "games": 163,
+        "k_per_game": 7.68,
+        "delta_vs_league_k_per_game": -0.71,
+        "k_per_ab_pct": 22.3,
+        "delta_vs_league_k_per_ab_pct": -2.6
+      },
+      "pitcher_profile": {
+        "games_2025": 25,
+        "avg_k_2025": 3.96,
+        "avg_ip_2025": 5.36,
+        "games_2026": 3,
+        "avg_k_2026_last3": 3.0,
+        "latest_start": {
+          "athlete_name": "Davis Martin",
+          "game_date": "2026-03-20T00:00:00+00:00",
+          "strikeouts": 3,
+          "innings_pitched": 4.2,
+          "team": "Chicago White Sox",
+          "opponent_team": "Arizona Diamondbacks",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814749",
+      "short_name": "SF @ SD",
+      "game_date_utc": "2026-03-31T01:40Z",
+      "pitcher": "Landen Roupp",
+      "pitcher_team": "San Francisco Giants",
+      "opponent_team": "San Diego Padres",
+      "matchup_tag": "good_contact",
+      "matchup_tag_label": "Contact-heavy",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 7.16,
+        "delta_vs_league_k_per_game": -1.23,
+        "k_per_ab_pct": 21.6,
+        "delta_vs_league_k_per_ab_pct": -3.3
+      },
+      "pitcher_profile": {
+        "games_2025": 22,
+        "avg_k_2025": 4.64,
+        "avg_ip_2025": 4.76,
+        "games_2026": 4,
+        "avg_k_2026_last3": 3.67,
+        "latest_start": {
+          "athlete_name": "Landen Roupp",
+          "game_date": "2026-03-18T00:00:00+00:00",
+          "strikeouts": 5,
+          "innings_pitched": 4.0,
+          "team": "San Francisco Giants",
+          "opponent_team": "Los Angeles Dodgers",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814737",
+      "short_name": "COL @ TOR",
+      "game_date_utc": "2026-03-30T23:07Z",
+      "pitcher": "Tomoyuki Sugano",
+      "pitcher_team": "Colorado Rockies",
+      "opponent_team": "Toronto Blue Jays",
+      "matchup_tag": "good_contact",
+      "matchup_tag_label": "Contact-heavy",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 6.66,
+        "delta_vs_league_k_per_game": -1.73,
+        "k_per_ab_pct": 19.9,
+        "delta_vs_league_k_per_ab_pct": -5.0
+      },
+      "pitcher_profile": {
+        "games_2025": 30,
+        "avg_k_2025": 3.53,
+        "avg_ip_2025": 5.09,
+        "games_2026": 1,
+        "avg_k_2026_last3": 1.0,
+        "latest_start": {
+          "athlete_name": "Tomoyuki Sugano",
+          "game_date": "2026-03-20T00:00:00+00:00",
+          "strikeouts": 1,
+          "innings_pitched": 3.0,
+          "team": "Colorado Rockies",
+          "opponent_team": "San Francisco Giants",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814749",
+      "short_name": "SF @ SD",
+      "game_date_utc": "2026-03-31T01:40Z",
+      "pitcher": "Walker Buehler",
+      "pitcher_team": "San Diego Padres",
+      "opponent_team": "San Francisco Giants",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 165,
+        "k_per_game": 8.45,
+        "delta_vs_league_k_per_game": 0.06,
+        "k_per_ab_pct": 25.8,
+        "delta_vs_league_k_per_ab_pct": 0.9
+      },
+      "pitcher_profile": {
+        "games_2025": 24,
+        "avg_k_2025": 3.62,
+        "avg_ip_2025": 4.91,
+        "games_2026": 3,
+        "avg_k_2026_last3": 4.33,
+        "latest_start": {
+          "athlete_name": "Walker Buehler",
+          "game_date": "2026-03-16T00:00:00+00:00",
+          "strikeouts": 7,
+          "innings_pitched": 5.0,
+          "team": "San Diego Padres",
+          "opponent_team": "San Francisco Giants",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814736",
+      "short_name": "CHW @ MIA",
+      "game_date_utc": "2026-03-30T22:40Z",
+      "pitcher": "Chris Paddack",
+      "pitcher_team": "Miami Marlins",
+      "opponent_team": "Chicago White Sox",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 163,
+        "k_per_game": 8.52,
+        "delta_vs_league_k_per_game": 0.13,
+        "k_per_ab_pct": 25.7,
+        "delta_vs_league_k_per_ab_pct": 0.8
+      },
+      "pitcher_profile": {
+        "games_2025": 28,
+        "avg_k_2025": 3.64,
+        "avg_ip_2025": 5.08,
+        "games_2026": 4,
+        "avg_k_2026_last3": 2.67,
+        "latest_start": {
+          "athlete_name": "Chris Paddack",
+          "game_date": "2026-03-13T00:00:00+00:00",
+          "strikeouts": 3,
+          "innings_pitched": 3.0,
+          "team": "Miami Marlins",
+          "opponent_team": "New York Mets",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814735",
+      "short_name": "ATH @ ATL",
+      "game_date_utc": "2026-03-30T23:15Z",
+      "pitcher": "Bryce Elder",
+      "pitcher_team": "Atlanta Braves",
+      "opponent_team": "Athletics",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 8.81,
+        "delta_vs_league_k_per_game": 0.42,
+        "k_per_ab_pct": 25.7,
+        "delta_vs_league_k_per_ab_pct": 0.8
+      },
+      "pitcher_profile": {
+        "games_2025": 28,
+        "avg_k_2025": 4.68,
+        "avg_ip_2025": 5.48,
+        "games_2026": 3,
+        "avg_k_2026_last3": 3.0,
+        "latest_start": {
+          "athlete_name": "Bryce Elder",
+          "game_date": "2026-03-14T00:00:00+00:00",
+          "strikeouts": 6,
+          "innings_pitched": 5.0,
+          "team": "Atlanta Braves",
+          "opponent_team": "Boston Red Sox",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814745",
+      "short_name": "TB @ MIL",
+      "game_date_utc": "2026-03-30T23:40Z",
+      "pitcher": "Kyle Harrison",
+      "pitcher_team": "Milwaukee Brewers",
+      "opponent_team": "Tampa Bay Rays",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 162,
+        "k_per_game": 8.59,
+        "delta_vs_league_k_per_game": 0.2,
+        "k_per_ab_pct": 25.5,
+        "delta_vs_league_k_per_ab_pct": 0.6
+      },
+      "pitcher_profile": {
+        "games_2025": 6,
+        "avg_k_2025": 4.83,
+        "avg_ip_2025": 4.52,
+        "games_2026": 3,
+        "avg_k_2026_last3": 5.0,
+        "latest_start": {
+          "athlete_name": "Kyle Harrison",
+          "game_date": "2026-03-18T00:00:00+00:00",
+          "strikeouts": 3,
+          "innings_pitched": 2.2,
+          "team": "Milwaukee Brewers",
+          "opponent_team": "Los Angeles Angels",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814742",
+      "short_name": "BOS @ HOU",
+      "game_date_utc": "2026-03-31T00:10Z",
+      "pitcher": "Lance McCullers Jr.",
+      "pitcher_team": "Houston Astros",
+      "opponent_team": "Boston Red Sox",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 163,
+        "k_per_game": 8.81,
+        "delta_vs_league_k_per_game": 0.42,
+        "k_per_ab_pct": 25.5,
+        "delta_vs_league_k_per_ab_pct": 0.6
+      },
+      "pitcher_profile": {
+        "games_2025": 13,
+        "avg_k_2025": 4.46,
+        "avg_ip_2025": 3.82,
+        "games_2026": 3,
+        "avg_k_2026_last3": 1.67,
+        "latest_start": {
+          "athlete_name": "Lance McCullers Jr.",
+          "game_date": "2026-03-17T00:00:00+00:00",
+          "strikeouts": 1,
+          "innings_pitched": 4.0,
+          "team": "Houston Astros",
+          "opponent_team": "Pittsburgh Pirates",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814746",
+      "short_name": "CLE @ LAD",
+      "game_date_utc": "2026-03-31T02:10Z",
+      "pitcher": "Roki Sasaki",
+      "pitcher_team": "Los Angeles Dodgers",
+      "opponent_team": "Cleveland Guardians",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 8.3,
+        "delta_vs_league_k_per_game": -0.09,
+        "k_per_ab_pct": 25.5,
+        "delta_vs_league_k_per_ab_pct": 0.6
+      },
+      "pitcher_profile": {
+        "games_2025": 8,
+        "avg_k_2025": 2.75,
+        "avg_ip_2025": 3.92,
+        "games_2026": 2,
+        "avg_k_2026_last3": 3.5,
+        "latest_start": {
+          "athlete_name": "Roki Sasaki",
+          "game_date": "2026-03-18T00:00:00+00:00",
+          "strikeouts": 5,
+          "innings_pitched": 3.1,
+          "team": "Los Angeles Dodgers",
+          "opponent_team": "Kansas City Royals",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814743",
+      "short_name": "MIN @ KC",
+      "game_date_utc": "2026-03-30T20:10Z",
+      "pitcher": "Kris Bubic",
+      "pitcher_team": "Kansas City Royals",
+      "opponent_team": "Minnesota Twins",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 163,
+        "k_per_game": 8.63,
+        "delta_vs_league_k_per_game": 0.24,
+        "k_per_ab_pct": 25.3,
+        "delta_vs_league_k_per_ab_pct": 0.4
+      },
+      "pitcher_profile": {
+        "games_2025": 20,
+        "avg_k_2025": 5.8,
+        "avg_ip_2025": 5.7,
+        "games_2026": 4,
+        "avg_k_2026_last3": 3.67,
+        "latest_start": {
+          "athlete_name": "Kris Bubic",
+          "game_date": "2026-03-20T00:00:00+00:00",
+          "strikeouts": 4,
+          "innings_pitched": 4.0,
+          "team": "Kansas City Royals",
+          "opponent_team": "Los Angeles Angels",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814740",
+      "short_name": "WSH @ PHI",
+      "game_date_utc": "2026-03-30T22:40Z",
+      "pitcher": "Taijuan Walker",
+      "pitcher_team": "Philadelphia Phillies",
+      "opponent_team": "Washington Nationals",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 8.38,
+        "delta_vs_league_k_per_game": -0.01,
+        "k_per_ab_pct": 25.0,
+        "delta_vs_league_k_per_ab_pct": 0.1
+      },
+      "pitcher_profile": {
+        "games_2025": 21,
+        "avg_k_2025": 3.1,
+        "avg_ip_2025": 4.85,
+        "games_2026": 2,
+        "avg_k_2026_last3": 2.0,
+        "latest_start": {
+          "athlete_name": "Taijuan Walker",
+          "game_date": "2026-03-15T00:00:00+00:00",
+          "strikeouts": 3,
+          "innings_pitched": 5.0,
+          "team": "Philadelphia Phillies",
+          "opponent_team": "Atlanta Braves",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814735",
+      "short_name": "ATH @ ATL",
+      "game_date_utc": "2026-03-30T23:15Z",
+      "pitcher": "Aaron Civale",
+      "pitcher_team": "Athletics",
+      "opponent_team": "Atlanta Braves",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 8.39,
+        "delta_vs_league_k_per_game": -0.0,
+        "k_per_ab_pct": 24.9,
+        "delta_vs_league_k_per_ab_pct": 0.0
+      },
+      "pitcher_profile": {
+        "games_2025": 18,
+        "avg_k_2025": 4.11,
+        "avg_ip_2025": 4.83,
+        "games_2026": 3,
+        "avg_k_2026_last3": 6.0,
+        "latest_start": {
+          "athlete_name": "Aaron Civale",
+          "game_date": "2026-03-20T00:00:00+00:00",
+          "strikeouts": 11,
+          "innings_pitched": 6.0,
+          "team": "Athletics",
+          "opponent_team": "Seattle Mariners",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814739",
+      "short_name": "TEX @ BAL",
+      "game_date_utc": "2026-03-30T22:35Z",
+      "pitcher": "Chris Bassitt",
+      "pitcher_team": "Baltimore Orioles",
+      "opponent_team": "Texas Rangers",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 163,
+        "k_per_game": 8.33,
+        "delta_vs_league_k_per_game": -0.06,
+        "k_per_ab_pct": 24.5,
+        "delta_vs_league_k_per_ab_pct": -0.4
+      },
+      "pitcher_profile": {
+        "games_2025": 31,
+        "avg_k_2025": 5.32,
+        "avg_ip_2025": 5.3,
+        "games_2026": 3,
+        "avg_k_2026_last3": 2.0,
+        "latest_start": {
+          "athlete_name": "Chris Bassitt",
+          "game_date": "2026-03-17T00:00:00+00:00",
+          "strikeouts": 4,
+          "innings_pitched": 5.1,
+          "team": "Baltimore Orioles",
+          "opponent_team": "Detroit Tigers",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814746",
+      "short_name": "CLE @ LAD",
+      "game_date_utc": "2026-03-31T02:10Z",
+      "pitcher": "Parker Messick",
+      "pitcher_team": "Cleveland Guardians",
+      "opponent_team": "Los Angeles Dodgers",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 160,
+        "k_per_game": 8.37,
+        "delta_vs_league_k_per_game": -0.02,
+        "k_per_ab_pct": 24.5,
+        "delta_vs_league_k_per_ab_pct": -0.4
+      },
+      "pitcher_profile": {
+        "games_2025": 7,
+        "avg_k_2025": 5.43,
+        "avg_ip_2025": 5.5,
+        "games_2026": 3,
+        "avg_k_2026_last3": 3.0,
+        "latest_start": {
+          "athlete_name": "Parker Messick",
+          "game_date": "2026-03-20T00:00:00+00:00",
+          "strikeouts": 4,
+          "innings_pitched": 5.2,
+          "team": "Cleveland Guardians",
+          "opponent_team": "Kansas City Royals",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814744",
+      "short_name": "NYM @ STL",
+      "game_date_utc": "2026-03-30T23:45Z",
+      "pitcher": "Kyle Leahy",
+      "pitcher_team": "St. Louis Cardinals",
+      "opponent_team": "New York Mets",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 8.07,
+        "delta_vs_league_k_per_game": -0.32,
+        "k_per_ab_pct": 24.4,
+        "delta_vs_league_k_per_ab_pct": -0.5
+      },
+      "pitcher_profile": {
+        "games_2025": 1,
+        "avg_k_2025": 1.0,
+        "avg_ip_2025": 3.0,
+        "games_2026": 5,
+        "avg_k_2026_last3": 5.33,
+        "latest_start": {
+          "athlete_name": "Kyle Leahy",
+          "game_date": "2026-03-18T00:00:00+00:00",
+          "strikeouts": 6,
+          "innings_pitched": 5.0,
+          "team": "St. Louis Cardinals",
+          "opponent_team": "Houston Astros",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814744",
+      "short_name": "NYM @ STL",
+      "game_date_utc": "2026-03-30T23:45Z",
+      "pitcher": "Clay Holmes",
+      "pitcher_team": "New York Mets",
+      "opponent_team": "St. Louis Cardinals",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 8.1,
+        "delta_vs_league_k_per_game": -0.29,
+        "k_per_ab_pct": 24.3,
+        "delta_vs_league_k_per_ab_pct": -0.6
+      },
+      "pitcher_profile": {
+        "games_2025": 31,
+        "avg_k_2025": 4.06,
+        "avg_ip_2025": 5.06,
+        "games_2026": 2,
+        "avg_k_2026_last3": 3.5,
+        "latest_start": {
+          "athlete_name": "Clay Holmes",
+          "game_date": "2026-03-01T00:00:00+00:00",
+          "strikeouts": 4,
+          "innings_pitched": 4.0,
+          "team": "New York Mets",
+          "opponent_team": "Houston Astros",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    },
+    {
+      "event_id": "401814747",
+      "short_name": "DET @ ARI",
+      "game_date_utc": "2026-03-31T02:10Z",
+      "pitcher": "Justin Verlander",
+      "pitcher_team": "Detroit Tigers",
+      "opponent_team": "Arizona Diamondbacks",
+      "matchup_tag": "neutral",
+      "matchup_tag_label": "Neutral",
+      "opponent_profile": {
+        "games": 164,
+        "k_per_game": 8.25,
+        "delta_vs_league_k_per_game": -0.14,
+        "k_per_ab_pct": 24.0,
+        "delta_vs_league_k_per_ab_pct": -0.9
+      },
+      "pitcher_profile": {
+        "games_2025": 29,
+        "avg_k_2025": 4.72,
+        "avg_ip_2025": 5.14,
+        "games_2026": 3,
+        "avg_k_2026_last3": 5.0,
+        "latest_start": {
+          "athlete_name": "Justin Verlander",
+          "game_date": "2026-03-17T00:00:00+00:00",
+          "strikeouts": 6,
+          "innings_pitched": 4.2,
+          "team": "Detroit Tigers",
+          "opponent_team": "Baltimore Orioles",
+          "is_starter": true
+        }
+      },
+      "market_status": {
+        "props_posted_for_date": 0,
+        "pitcher_strikeout_props_posted": false,
+        "note": "No MLB props were posted in player_prop_bets for 2026-03-30 at generation time."
+      }
+    }
+  ]
+}

@@ -17,11 +17,9 @@ CREATE TABLE IF NOT EXISTS coaches (
     
     UNIQUE(team_id, sport)
 );
-
 -- Index for fast lookups
 CREATE INDEX IF NOT EXISTS idx_coaches_team_sport ON coaches(team_id, sport);
 CREATE INDEX IF NOT EXISTS idx_coaches_league ON coaches(league_id);
-
 -- Coaches table is now empty and ready for real-time ingestion.
 
 -- ============================================================================
@@ -34,21 +32,17 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 DROP TRIGGER IF EXISTS coaches_updated_at ON coaches;
 CREATE TRIGGER coaches_updated_at
     BEFORE UPDATE ON coaches
     FOR EACH ROW
     EXECUTE FUNCTION update_coaches_timestamp();
-
 -- ============================================================================
 -- RLS POLICIES (Public Read Access)
 -- ============================================================================
 ALTER TABLE coaches ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Coaches are publicly readable" ON coaches;
 CREATE POLICY "Coaches are publicly readable" ON coaches
     FOR SELECT TO anon, authenticated
     USING (true);
-
 COMMENT ON TABLE coaches IS 'Ground truth coach data for 2025-26 season. Updated manually when coaching changes occur.';

@@ -14,7 +14,6 @@ SELECT
     ) as win_pct
 FROM pregame_intel
 WHERE pick_result IN ('WIN', 'LOSS', 'PUSH');
-
 -- 2. RECORD BY SPORT VIEW
 CREATE OR REPLACE VIEW pick_record_by_sport AS
 SELECT 
@@ -31,7 +30,6 @@ FROM pregame_intel
 WHERE pick_result IN ('WIN', 'LOSS', 'PUSH')
 GROUP BY COALESCE(sport, league_id, 'unknown')
 ORDER BY (COUNT(*) FILTER (WHERE pick_result = 'WIN') + COUNT(*) FILTER (WHERE pick_result = 'LOSS')) DESC;
-
 -- 3. DAILY RECORD VIEW (Last 30 Days, timezone aware)
 CREATE OR REPLACE VIEW pick_record_daily AS
 SELECT 
@@ -49,7 +47,6 @@ WHERE pick_result IN ('WIN', 'LOSS', 'PUSH')
   AND game_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date - INTERVAL '30 days'
 GROUP BY game_date
 ORDER BY game_date DESC;
-
 -- 4. TODAY'S PICKS DETAIL VIEW (Null-safe concatenation)
 CREATE OR REPLACE VIEW pick_today_detail AS
 SELECT 
@@ -64,7 +61,6 @@ FROM pregame_intel
 WHERE game_date = (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date
   AND pick_result IS NOT NULL
 ORDER BY pick_result DESC;
-
 -- 5. WEEKLY SUMMARY VIEW
 CREATE OR REPLACE VIEW pick_record_weekly AS
 SELECT 
@@ -81,11 +77,9 @@ FROM pregame_intel
 WHERE pick_result IN ('WIN', 'LOSS', 'PUSH')
 GROUP BY DATE_TRUNC('week', game_date)
 ORDER BY week_start DESC;
-
 -- PERFORMANCE OPTIMIZATION (Indexing)
 CREATE INDEX IF NOT EXISTS idx_pregame_intel_performance 
 ON pregame_intel (game_date, pick_result, sport);
-
 CREATE INDEX IF NOT EXISTS idx_pregame_intel_grading 
 ON pregame_intel (pick_result) 
 WHERE pick_result IS NOT NULL;

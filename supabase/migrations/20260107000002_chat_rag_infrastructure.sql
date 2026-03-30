@@ -5,7 +5,6 @@
 
 -- 1. Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
-
 -- 2. Chat Knowledge Base
 -- Stores analytical fragments, coaching notes, and historical intelligence
 CREATE TABLE IF NOT EXISTS public.chat_knowledge_base (
@@ -20,7 +19,6 @@ CREATE TABLE IF NOT EXISTS public.chat_knowledge_base (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(source_id, source_type)
 );
-
 -- 3. Match Knowledge Base RPC
 -- Professional multi-stage similarity search
 CREATE OR REPLACE FUNCTION public.match_chat_knowledge (
@@ -49,17 +47,14 @@ BEGIN
   LIMIT match_count;
 END;
 $$;
-
 -- 4. Indices
 CREATE INDEX IF NOT EXISTS idx_ckb_category ON public.chat_knowledge_base(category);
-
 -- 5. RLS
 ALTER TABLE public.chat_knowledge_base ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "ckb_public_read" ON public.chat_knowledge_base;
 CREATE POLICY "ckb_public_read" ON public.chat_knowledge_base FOR SELECT USING (true);
 DROP POLICY IF EXISTS "ckb_service_write" ON public.chat_knowledge_base;
 CREATE POLICY "ckb_service_write" ON public.chat_knowledge_base FOR ALL TO service_role USING (true);
-
 -- 6. Initial Seed: RAG-ify the Institutional Profiles
 -- (Embeddings will be populated by a future service call or manual script)
 INSERT INTO public.chat_knowledge_base (content, metadata, category)
@@ -75,5 +70,4 @@ VALUES
     'INSTITUTIONAL'
 )
 ON CONFLICT DO NOTHING;
-
 SELECT 'RAG Infrastructure Deployed' AS status;

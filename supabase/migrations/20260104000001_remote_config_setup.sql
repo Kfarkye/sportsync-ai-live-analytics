@@ -8,14 +8,11 @@ CREATE TABLE IF NOT EXISTS public.app_config (
     description TEXT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 -- 2. Enable Performance & Security
 ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Public read access for app_config" ON public.app_config;
 CREATE POLICY "Public read access for app_config" 
 ON public.app_config FOR SELECT TO public USING (true);
-
 -- 3. Enable Realtime
 DO $$
 BEGIN
@@ -28,7 +25,6 @@ BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.app_config;
     END IF;
 END $$;
-
 -- 4. Seed Default Gates (Mapping from SYSTEM_GATES in gates.ts)
 INSERT INTO public.app_config (key, value, description)
 VALUES 

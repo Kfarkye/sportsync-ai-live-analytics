@@ -1,0 +1,144 @@
+{
+  "object_type": "player_prop_profile",
+  "version": "v2",
+  "slug": "paul-reed",
+  "url": "https://sportsync-evidence.web.app/props/paul-reed",
+  "league": "NBA",
+  "season": "2025-26",
+  "player_name": "Paul Reed",
+  "summary": "Paul Reed — No strong signal — Top market by sample: Rebounds 50.0% (20 GP)",
+  "generated_at": "2026-03-29T06:34:11.920851+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "rebounds",
+      "market_label": "Rebounds",
+      "direction": "none",
+      "tier": "edge",
+      "is_hero": false,
+      "rate": 50,
+      "record": "10-10",
+      "gp": 20
+    },
+    {
+      "market": "assists",
+      "market_label": "Assists",
+      "direction": "over",
+      "tier": "display",
+      "is_hero": false,
+      "rate": 83.3,
+      "record": "10-2",
+      "gp": 12
+    },
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "display",
+      "is_hero": false,
+      "rate": 50,
+      "record": "6-6",
+      "gp": 12
+    }
+  ],
+  "markets": {
+    "rebounds": {
+      "baseline": {
+        "rate": 50,
+        "record": "10-10",
+        "avg": 7.3,
+        "median": 7,
+        "gp": 20,
+        "direction": "none",
+        "tier": "edge",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 5.5,
+        "rate": 80,
+        "record": "8-2",
+        "avg": 6.4,
+        "gp": 10
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "HOME",
+          "rate": 75,
+          "record": "6-2",
+          "gp": 8
+        },
+        {
+          "label": "LATE season",
+          "rate": 66.7,
+          "record": "4-2",
+          "gp": 6
+        }
+      ]
+    },
+    "assists": {
+      "baseline": {
+        "rate": 83.3,
+        "record": "10-2",
+        "avg": 3.8,
+        "median": 3,
+        "gp": 12,
+        "direction": "over",
+        "tier": "display",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 2.5,
+        "rate": 83.3,
+        "record": "10-2",
+        "avg": 3.8,
+        "gp": 12
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "HOME",
+          "rate": 100,
+          "record": "8-0",
+          "gp": 8
+        }
+      ]
+    },
+    "points": {
+      "baseline": {
+        "rate": 50,
+        "record": "6-6",
+        "avg": 6.5,
+        "median": 7,
+        "gp": 12,
+        "direction": "none",
+        "tier": "display",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 7.5,
+        "rate": 50,
+        "record": "6-6",
+        "avg": 6.5,
+        "gp": 12
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "HOME",
+          "rate": 75,
+          "record": "6-2",
+          "gp": 8
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
+}

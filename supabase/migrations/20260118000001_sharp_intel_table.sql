@@ -30,13 +30,11 @@ CREATE TABLE IF NOT EXISTS sharp_intel (
     closing_line NUMERIC, -- For CLV analysis
     clv NUMERIC -- Closing Line Value
 );
-
 -- Indexing for performance
 CREATE INDEX IF NOT EXISTS idx_sharp_intel_match ON sharp_intel(match_id);
 CREATE INDEX IF NOT EXISTS idx_sharp_intel_conv ON sharp_intel(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_sharp_intel_result ON sharp_intel(pick_result);
 CREATE INDEX IF NOT EXISTS idx_sharp_intel_generated ON sharp_intel(generated_at);
-
 -- View for sharp intel performance tracking
 DROP VIEW IF EXISTS sharp_intel_record;
 CREATE OR REPLACE VIEW sharp_intel_record AS

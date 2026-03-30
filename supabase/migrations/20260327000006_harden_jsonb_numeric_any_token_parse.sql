@@ -27,6 +27,5 @@ AS $$
     LIMIT 1
   );
 $$;
-
 COMMENT ON FUNCTION public.jsonb_numeric_any(jsonb, text[]) IS
 'Returns first numeric token found for the first matching JSON key in p_keys; tolerant of decorated strings.';

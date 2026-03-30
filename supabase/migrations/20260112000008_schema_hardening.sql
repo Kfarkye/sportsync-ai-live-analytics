@@ -5,10 +5,8 @@
 -- PART 1: Explicitly ensure public.matches.status exists
 -- ============================================================================
 ALTER TABLE IF EXISTS public.matches ADD COLUMN IF NOT EXISTS status TEXT;
-
 -- Index for kill threshold queries (qualified to public schema)
 CREATE INDEX IF NOT EXISTS idx_matches_league_status ON public.matches (league_id, status);
-
 -- ============================================================================
 -- PART 2: Invariant assertion - fail fast if schema is broken
 -- ============================================================================
@@ -34,7 +32,6 @@ BEGIN
   
   RAISE NOTICE 'Invariant passed: public.matches.status exists';
 END $$;
-
 -- ============================================================================
 -- PART 3: Stable external ID mapping (fixes IDENTITY_GAP permanently)
 -- ============================================================================
@@ -47,9 +44,7 @@ CREATE TABLE IF NOT EXISTS public.match_external_ids (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (provider, external_id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_match_external_ids_match_id ON public.match_external_ids (match_id);
-
 -- ============================================================================
 -- PART 4: Unmatched events table (for tracking IDENTITY_GAP without log spam)
 -- ============================================================================
@@ -64,5 +59,4 @@ CREATE TABLE IF NOT EXISTS public.unmatched_external_events (
   seen_count INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY (provider, external_id)
 );
-
 SELECT 'Schema hardening complete: status column verified, identity mapping tables created' as status;

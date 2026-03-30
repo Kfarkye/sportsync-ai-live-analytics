@@ -12,6 +12,5 @@ CREATE TABLE IF NOT EXISTS team_season_fatigue (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (team, league_id, game_date)
 );
-
 -- Index for fast lookup by worker
 CREATE INDEX IF NOT EXISTS idx_fatigue_lookup ON team_season_fatigue(team, game_date);

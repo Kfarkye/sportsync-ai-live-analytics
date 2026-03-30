@@ -54,7 +54,6 @@ EXCEPTION WHEN OTHERS THEN
     NULL; -- Job doesn't exist, ignore
 END;
 $$;
-
 DO $$
 BEGIN
     PERFORM cron.unschedule('nba-bridge-live-sync');
@@ -62,7 +61,6 @@ EXCEPTION WHEN OTHERS THEN
     NULL; -- Job doesn't exist, ignore
 END;
 $$;
-
 -- Create new robust job (runs every minute)
 SELECT cron.schedule(
     'nba-bridge-simple',
@@ -75,9 +73,8 @@ SELECT cron.schedule(
     ) as request_id;
     $$
 );
-
 -- =============================================
 -- VERIFICATION
 -- =============================================
 -- SELECT 'nba_team_priors' as check_name, COUNT(*) as records FROM nba_team_priors;
--- SELECT 'cron jobs' as check_name, jobname, schedule FROM cron.job WHERE jobname LIKE 'nba-%';
+-- SELECT 'cron jobs' as check_name, jobname, schedule FROM cron.job WHERE jobname LIKE 'nba-%';;

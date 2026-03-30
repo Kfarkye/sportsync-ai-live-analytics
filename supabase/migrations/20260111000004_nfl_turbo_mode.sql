@@ -45,7 +45,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- Schedule: Every Minute (Fast Lane)
 SELECT cron.schedule(
   'ingest-nfl-live-fast',

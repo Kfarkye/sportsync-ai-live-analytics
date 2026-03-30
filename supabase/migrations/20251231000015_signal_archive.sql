@@ -54,18 +54,14 @@ CREATE TABLE IF NOT EXISTS signal_archive (
     -- Indexes
     -- CONSTRAINT unique_match_signal UNIQUE (match_id, archived_at::date)
 );
-
 -- Enable RLS
 ALTER TABLE signal_archive ENABLE ROW LEVEL SECURITY;
-
 -- Service role write access
 CREATE POLICY "Service role write" ON signal_archive
     FOR ALL USING (auth.role() = 'service_role');
-
 -- Public read for analytics
 CREATE POLICY "Public read access" ON signal_archive
     FOR SELECT USING (true);
-
 -- Indexes for analytics queries
 CREATE INDEX idx_signal_archive_match_id ON signal_archive(match_id);
 CREATE INDEX idx_signal_archive_game_time ON signal_archive(game_time DESC);

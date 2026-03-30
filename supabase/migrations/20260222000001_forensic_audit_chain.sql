@@ -15,12 +15,10 @@
 -- 1. Add chain_hash column (nullable initially for backfill)
 ALTER TABLE nba_audit_log
   ADD COLUMN IF NOT EXISTS chain_hash TEXT;
-
 -- 2. Index for fast "latest hash" lookups
 CREATE INDEX IF NOT EXISTS idx_audit_log_chain
   ON nba_audit_log (log_id DESC)
   WHERE chain_hash IS NOT NULL;
-
 -- 3. Trigger function: computes chain_hash on every INSERT
 CREATE OR REPLACE FUNCTION audit_chain_hash()
 RETURNS TRIGGER
@@ -61,14 +59,12 @@ BEGIN
     RETURN NEW;
 END;
 $$;
-
 -- 4. Attach trigger (BEFORE INSERT so NEW.chain_hash is set before write)
 DROP TRIGGER IF EXISTS trg_audit_chain_hash ON nba_audit_log;
 CREATE TRIGGER trg_audit_chain_hash
     BEFORE INSERT ON nba_audit_log
     FOR EACH ROW
     EXECUTE FUNCTION audit_chain_hash();
-
 -- 5. Backfill existing rows in log_id order so the chain is consistent.
 --    Uses a cursor-style loop to set each row's chain_hash sequentially.
 DO $$
@@ -102,7 +98,6 @@ BEGIN
     END LOOP;
 END;
 $$;
-
 -- 6. Verification function: walk the chain and report any breaks
 CREATE OR REPLACE FUNCTION verify_audit_chain(
     start_id BIGINT DEFAULT NULL,
@@ -150,7 +145,6 @@ BEGIN
     END LOOP;
 END;
 $$;
-
 -- 7. Update cleanup to preserve a chain anchor before deleting old entries.
 --    The anchor stores the final chain_hash of deleted rows so verification
 --    can resume from the retention boundary.
@@ -161,10 +155,8 @@ CREATE TABLE IF NOT EXISTS audit_chain_anchors (
     chain_hash  TEXT NOT NULL,
     rows_pruned BIGINT NOT NULL DEFAULT 0
 );
-
 ALTER TABLE audit_chain_anchors ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Service role only" ON audit_chain_anchors FOR ALL USING (true);
-
 -- Replace cleanup function to anchor the chain before pruning
 CREATE OR REPLACE FUNCTION cleanup_old_nba_data()
 RETURNS void

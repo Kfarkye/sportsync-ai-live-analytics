@@ -1,4 +1,3 @@
-
 -- Fix for player_prop_bets trigger missing updated_at column
 -- Identify: record "new" has no field "updated_at"
 

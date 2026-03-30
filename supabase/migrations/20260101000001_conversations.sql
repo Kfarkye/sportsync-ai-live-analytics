@@ -34,7 +34,6 @@ CREATE TABLE IF NOT EXISTS public.conversations (
     -- Soft TTL: Conversations older than 24h can be cleaned up
     expires_at TIMESTAMPTZ DEFAULT (now() + INTERVAL '24 hours') NOT NULL
 );
-
 -- Indexes for fast lookup
 -- CREATE INDEX IF NOT EXISTS idx_conversations_session ON public.conversations(session_id);
 -- -- CREATE INDEX IF NOT EXISTS idx_conversations_user ON public.conversations(user_id);
@@ -68,7 +67,6 @@ CREATE TABLE IF NOT EXISTS public.match_engagement (
     
     UNIQUE(session_id, match_id)
 );
-
 -- CREATE INDEX IF NOT EXISTS idx_engagement_session ON public.match_engagement(session_id);
 -- CREATE INDEX IF NOT EXISTS idx_engagement_match ON public.match_engagement(match_id);
 -- CREATE INDEX IF NOT EXISTS idx_engagement_last_viewed ON public.match_engagement(last_viewed_at DESC);
@@ -79,14 +77,11 @@ CREATE TABLE IF NOT EXISTS public.match_engagement (
 
 ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.match_engagement ENABLE ROW LEVEL SECURITY;
-
 -- Service role can do everything
 CREATE POLICY "Service role full access" ON public.conversations
     FOR ALL USING (auth.role() = 'service_role');
-
 CREATE POLICY "Service role full access" ON public.match_engagement
     FOR ALL USING (auth.role() = 'service_role');
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- HELPER FUNCTION: Get or create conversation for session
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -130,7 +125,6 @@ BEGIN
     RETURN v_conversation_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- HELPER FUNCTION: Track match engagement
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -150,7 +144,6 @@ BEGIN
         last_viewed_at = now();
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- CLEANUP: Auto-expire old conversations (run via pg_cron if available)
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -163,7 +156,6 @@ COMMENT ON TABLE public.conversations IS
 'Stores AI chat conversation history with JSONB messages array. 
 Each session maintains context across the current browsing session.
 Current match context is injected automatically based on which page the user is viewing.';
-
 COMMENT ON TABLE public.match_engagement IS
 'Tracks which matches users engage with to infer context for AI responses.
 If a user asks "any props for this game?" we can infer which game based on recent engagement.';

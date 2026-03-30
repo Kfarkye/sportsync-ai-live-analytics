@@ -9,7 +9,6 @@ ADD COLUMN IF NOT EXISTS is_second_of_b2b BOOLEAN DEFAULT FALSE,
 ADD COLUMN IF NOT EXISTS is_3in4 BOOLEAN DEFAULT FALSE,
 ADD COLUMN IF NOT EXISTS is_4in5 BOOLEAN DEFAULT FALSE,
 ADD COLUMN IF NOT EXISTS game_number INTEGER;
-
 -- Add comment for documentation
 COMMENT ON COLUMN team_game_context.opponent IS 'Opponent team name from user JSON';
 COMMENT ON COLUMN team_game_context.is_home IS 'TRUE if team is playing at home';

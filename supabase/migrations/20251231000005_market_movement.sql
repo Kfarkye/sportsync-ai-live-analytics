@@ -22,15 +22,12 @@ CREATE TABLE IF NOT EXISTS nba_market_snapshots (
     pace_estimate NUMERIC,
     UNIQUE (game_id, window_name)
 );
-
 CREATE INDEX IF NOT EXISTS idx_market_snaps_game ON nba_market_snapshots(game_id);
-
 -- RLS
 ALTER TABLE nba_market_snapshots ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow read nba_market_snapshots" ON nba_market_snapshots;
 DROP POLICY IF EXISTS "Service role write nba_market_snapshots" ON nba_market_snapshots;
 CREATE POLICY "Allow read nba_market_snapshots" ON nba_market_snapshots FOR SELECT USING (true);
 CREATE POLICY "Service role write nba_market_snapshots" ON nba_market_snapshots FOR ALL TO service_role USING (true);
-
 -- Verification
 SELECT 'market_movement_tracking_added' as status;

@@ -1,4 +1,3 @@
-
 -- 20260108000001_schedule_discovery_cron.sql
 -- Systematic match discovery via capture-opening-lines Edge Function
 
@@ -39,7 +38,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- Schedule the discovery job to run every 6 hours
 -- Using 06:00, 12:00, 18:00, 00:00 UTC cycle
 SELECT cron.schedule(
@@ -47,5 +45,4 @@ SELECT cron.schedule(
   '0 */6 * * *',
   $$SELECT invoke_match_discovery()$$
 );
-
 COMMENT ON FUNCTION invoke_match_discovery() IS 'Invokes capture-opening-lines edge function to discover upcoming matches across all monitored leagues.';

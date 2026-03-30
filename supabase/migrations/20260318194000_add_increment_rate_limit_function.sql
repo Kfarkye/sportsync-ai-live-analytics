@@ -18,7 +18,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.increment_rate_limit(
   p_key_id uuid,
   p_window_start timestamptz,
@@ -38,6 +37,5 @@ BEGIN
   RETURNING public.rate_limit_buckets.request_count;
 END;
 $$;
-
 REVOKE ALL ON FUNCTION public.increment_rate_limit(uuid, timestamptz, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.increment_rate_limit(uuid, timestamptz, text) TO service_role;

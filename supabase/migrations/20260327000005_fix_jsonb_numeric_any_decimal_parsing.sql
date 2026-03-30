@@ -17,6 +17,5 @@ AS $$
     LIMIT 1
   );
 $$;
-
 COMMENT ON FUNCTION public.jsonb_numeric_any(jsonb, text[]) IS
 'Returns the first numeric value found in a JSON object for any candidate key. Supports signed decimal strings.';

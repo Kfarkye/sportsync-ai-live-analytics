@@ -14,15 +14,11 @@ CREATE TABLE IF NOT EXISTS public.ai_tool_logs (
   error text,
   meta jsonb NOT NULL DEFAULT '{}'::jsonb
 );
-
 CREATE INDEX IF NOT EXISTS idx_ai_tool_logs_created_at
   ON public.ai_tool_logs (created_at DESC);
-
 CREATE INDEX IF NOT EXISTS idx_ai_tool_logs_match_created
   ON public.ai_tool_logs (match_id, created_at DESC);
-
 ALTER TABLE public.ai_tool_logs ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Service role full access ai_tool_logs" ON public.ai_tool_logs;
 CREATE POLICY "Service role full access ai_tool_logs"
 ON public.ai_tool_logs
@@ -30,14 +26,12 @@ FOR ALL
 TO service_role
 USING (true)
 WITH CHECK (true);
-
 DROP POLICY IF EXISTS "Authenticated read ai_tool_logs" ON public.ai_tool_logs;
 CREATE POLICY "Authenticated read ai_tool_logs"
 ON public.ai_tool_logs
 FOR SELECT
 TO authenticated
 USING (false);
-
 CREATE OR REPLACE FUNCTION public.jsonb_first_numeric(p_payload jsonb, p_keys text[])
 RETURNS numeric
 LANGUAGE plpgsql
@@ -61,7 +55,6 @@ BEGIN
   RETURN NULL;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.get_ai_match_packet(
   p_match_id text,
   p_max_events integer DEFAULT 10
@@ -583,10 +576,8 @@ BEGIN
   );
 END;
 $$;
-
 REVOKE ALL ON FUNCTION public.get_ai_match_packet(text, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_ai_match_packet(text, integer) TO service_role;
-
 CREATE OR REPLACE VIEW public.v_ai_tool_alerts AS
 SELECT
   tool_name,
@@ -606,5 +597,4 @@ SELECT
   END AS alert_reason
 FROM public.ai_tool_logs
 WHERE created_at >= now() - interval '24 hours';
-
 GRANT SELECT ON public.v_ai_tool_alerts TO service_role;

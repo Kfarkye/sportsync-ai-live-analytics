@@ -20,7 +20,6 @@ SELECT
 FROM public.matches m
 WHERE m.status IN ('IN_PROGRESS', 'SCHEDULED')
   AND m.start_time > NOW() - INTERVAL '12 hours';
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SELF-HEALING BRIDGE: MARKET RESOLVER
 -- ═══════════════════════════════════════════════════════════════════════════

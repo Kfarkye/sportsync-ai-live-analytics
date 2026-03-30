@@ -1,0 +1,68 @@
+{
+  "object_type": "player_prop_profile",
+  "version": "v2",
+  "slug": "bradley-beal",
+  "url": "https://sportsync-evidence.web.app/props/bradley-beal",
+  "league": "NBA",
+  "season": "2025-26",
+  "player_name": "Bradley Beal",
+  "summary": "Bradley Beal — No strong signal — Top market by sample: Threes Made 33.3% (12 GP)",
+  "generated_at": "2026-03-29T06:34:11.920851+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "threes_made",
+      "market_label": "Threes Made",
+      "direction": "under",
+      "tier": "display",
+      "is_hero": false,
+      "rate": 33.3,
+      "record": "4-8",
+      "gp": 12
+    }
+  ],
+  "markets": {
+    "threes_made": {
+      "baseline": {
+        "rate": 33.3,
+        "record": "4-8",
+        "avg": 1.2,
+        "median": 1,
+        "gp": 12,
+        "direction": "under",
+        "tier": "display",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 1.5,
+        "rate": 33.3,
+        "record": "4-8",
+        "avg": 1.2,
+        "gp": 12
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "EARLY season",
+          "rate": 33.3,
+          "record": "4-8",
+          "gp": 12
+        },
+        {
+          "label": "HOME",
+          "rate": 50,
+          "record": "4-4",
+          "gp": 8
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
+}

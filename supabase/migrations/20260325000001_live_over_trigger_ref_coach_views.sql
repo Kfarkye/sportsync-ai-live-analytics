@@ -5,7 +5,6 @@
 
 DROP VIEW IF EXISTS public.v_nba_live_over_trigger CASCADE;
 DROP VIEW IF EXISTS public.v_nba_live_over_trigger_curve CASCADE;
-
 CREATE OR REPLACE VIEW public.v_nba_live_over_trigger_curve AS
 WITH live_latest AS (
   SELECT DISTINCT ON (los.match_id)
@@ -193,7 +192,6 @@ JOIN live_state2 ls
 JOIN comp_summary cs
   ON cs.match_id = c.match_id
 WHERE cs.comp_games >= 15;
-
 CREATE OR REPLACE VIEW public.v_nba_live_over_trigger AS
 WITH live_base AS (
   SELECT DISTINCT ON (v.match_id)
@@ -356,14 +354,11 @@ LEFT JOIN base_pick bp
   ON bp.match_id = lb.match_id
 LEFT JOIN ref_delta rd
   ON rd.match_id = lb.match_id;
-
 CREATE INDEX IF NOT EXISTS idx_live_odds_snapshots_nba_live_latest
   ON public.live_odds_snapshots (league_id, sport, match_id, captured_at DESC)
   WHERE sport = 'basketball' AND league_id = 'nba' AND total IS NOT NULL;
-
 CREATE INDEX IF NOT EXISTS idx_live_odds_snapshots_nba_period_scan
   ON public.live_odds_snapshots (league_id, sport, period, captured_at DESC)
   WHERE sport = 'basketball' AND league_id = 'nba' AND total IS NOT NULL;
-
 GRANT SELECT ON public.v_nba_live_over_trigger_curve TO anon, authenticated, service_role;
 GRANT SELECT ON public.v_nba_live_over_trigger TO anon, authenticated, service_role;

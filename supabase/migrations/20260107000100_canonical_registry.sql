@@ -22,7 +22,6 @@ CREATE TABLE IF NOT EXISTS public.canonical_teams (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 2. Team Aliases (The Fuzzy Linker)
 CREATE TABLE IF NOT EXISTS public.team_aliases (
     id BIGSERIAL PRIMARY KEY,
@@ -32,10 +31,8 @@ CREATE TABLE IF NOT EXISTS public.team_aliases (
     
     UNIQUE(alias, league_id)
 );
-
 -- Optimization: Function-based index for case-insensitive lookup (Audit Refinement 4)
 CREATE INDEX IF NOT EXISTS idx_team_aliases_lookup ON public.team_aliases(LOWER(alias), league_id);
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- CANONICAL GAME REGISTRY (Lineage & Evidence)
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -63,11 +60,9 @@ CREATE TABLE IF NOT EXISTS public.canonical_games (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- Optimization: Indexes for time-range queries (Audit Addition)
 CREATE INDEX IF NOT EXISTS idx_games_commence ON public.canonical_games(commence_time);
 CREATE INDEX IF NOT EXISTS idx_games_status ON public.canonical_games(status, commence_time);
-
 -- 4. Entity Mappings (The Bridge)
 CREATE TABLE IF NOT EXISTS public.entity_mappings (
     id BIGSERIAL PRIMARY KEY,
@@ -83,9 +78,7 @@ CREATE TABLE IF NOT EXISTS public.entity_mappings (
     UNIQUE(provider, external_id),
     UNIQUE(canonical_id, provider)
 );
-
 CREATE INDEX IF NOT EXISTS idx_mappings_resolution ON public.entity_mappings(provider, external_id);
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- HELPERS
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -101,12 +94,9 @@ CREATE TABLE IF NOT EXISTS public.canonical_property_log (
     provider TEXT, -- Which provider triggered the change
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 6. SNAP-IN MODULE (Add columns to existing tables)
 ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS canonical_id TEXT REFERENCES public.canonical_games(id);
 ALTER TABLE public.live_game_state ADD COLUMN IF NOT EXISTS canonical_id TEXT REFERENCES public.canonical_games(id);
-
 CREATE INDEX IF NOT EXISTS idx_matches_canonical ON public.matches(canonical_id);
 CREATE INDEX IF NOT EXISTS idx_live_state_canonical ON public.live_game_state(canonical_id);
-
 COMMENT ON TABLE public.canonical_property_log IS 'Tracks the lineage of property changes for a game to ensure data provenance.';

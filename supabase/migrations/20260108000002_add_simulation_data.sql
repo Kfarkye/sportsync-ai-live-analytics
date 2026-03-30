@@ -3,6 +3,5 @@
 
 ALTER TABLE public.pregame_intel 
 ADD COLUMN IF NOT EXISTS simulation_data JSONB;
-
 -- Verify
 SELECT 'simulation_data column added' as result;

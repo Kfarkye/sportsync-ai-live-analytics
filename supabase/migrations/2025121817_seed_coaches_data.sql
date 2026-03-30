@@ -5,7 +5,6 @@
 
 -- Clear existing data and reseed
 TRUNCATE TABLE coaches;
-
 -- ============================================================================
 -- NFL COACHES (2024-25 Season) - Using ESPN Team IDs
 -- ============================================================================
@@ -42,7 +41,6 @@ INSERT INTO coaches (team_id, team_name, team_abbrev, coach_name, sport, league_
 ('27', 'Tampa Bay Buccaneers', 'TB', 'Todd Bowles', 'NFL', 'nfl'),
 ('10', 'Tennessee Titans', 'TEN', 'Brian Callahan', 'NFL', 'nfl'),
 ('28', 'Washington Commanders', 'WSH', 'Dan Quinn', 'NFL', 'nfl');
-
 -- ============================================================================
 -- NBA COACHES (2024-25 Season) - Using ESPN Team IDs
 -- ============================================================================
@@ -77,7 +75,6 @@ INSERT INTO coaches (team_id, team_name, team_abbrev, coach_name, sport, league_
 ('28', 'Toronto Raptors', 'TOR', 'Darko Rajaković', 'NBA', 'nba'),
 ('26', 'Utah Jazz', 'UTAH', 'Will Hardy', 'NBA', 'nba'),
 ('27', 'Washington Wizards', 'WSH', 'Brian Keefe', 'NBA', 'nba');
-
 -- ============================================================================
 -- NHL COACHES (2024-25 Season) - Using ESPN Team IDs
 -- ============================================================================

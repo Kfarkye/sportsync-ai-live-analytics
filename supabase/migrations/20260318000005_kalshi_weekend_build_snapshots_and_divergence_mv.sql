@@ -1,5 +1,4 @@
 BEGIN;
-
 CREATE OR REPLACE FUNCTION public.apply_kalshi_closing_prices_from_snapshots(p_rows jsonb)
 RETURNS integer
 LANGUAGE plpgsql
@@ -46,9 +45,7 @@ BEGIN
   RETURN COALESCE(v_updated, 0);
 END;
 $$;
-
 GRANT EXECUTE ON FUNCTION public.apply_kalshi_closing_prices_from_snapshots(jsonb) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.kalshi_team_match_score(p_event_team text, p_match_team text)
 RETURNS integer
 LANGUAGE plpgsql
@@ -119,9 +116,7 @@ BEGIN
   RETURN 0;
 END;
 $$;
-
 DROP MATERIALIZED VIEW IF EXISTS public.mv_espn_kalshi_total_divergence_curve;
-
 CREATE MATERIALIZED VIEW public.mv_espn_kalshi_total_divergence_curve AS
 WITH kalshi_total_events AS (
   SELECT
@@ -328,16 +323,12 @@ final AS (
 )
 SELECT *
 FROM final;
-
 CREATE UNIQUE INDEX mv_espn_kalshi_total_divergence_curve_uidx
   ON public.mv_espn_kalshi_total_divergence_curve (match_id, kalshi_market_ticker);
-
 CREATE INDEX mv_espn_kalshi_total_divergence_curve_anchor_idx
   ON public.mv_espn_kalshi_total_divergence_curve (match_id, is_dk_anchor_line);
-
 CREATE INDEX mv_espn_kalshi_total_divergence_curve_event_idx
   ON public.mv_espn_kalshi_total_divergence_curve (kalshi_event_ticker, kalshi_line_value);
-
 CREATE OR REPLACE FUNCTION public.refresh_mv_espn_kalshi_total_divergence_curve()
 RETURNS void
 LANGUAGE plpgsql
@@ -348,10 +339,8 @@ BEGIN
   REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_espn_kalshi_total_divergence_curve;
 END;
 $$;
-
 GRANT SELECT ON public.mv_espn_kalshi_total_divergence_curve TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.refresh_mv_espn_kalshi_total_divergence_curve() TO service_role;
-
 DO $$
 DECLARE
   v_job_id bigint;
@@ -457,5 +446,4 @@ BEGIN
   END IF;
 END;
 $$;
-
 COMMIT;

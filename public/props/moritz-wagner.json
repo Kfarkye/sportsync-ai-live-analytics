@@ -1,0 +1,124 @@
+{
+  "object_type": "player_prop_profile",
+  "version": "v2",
+  "slug": "moritz-wagner",
+  "url": "https://sportsync-evidence.web.app/props/moritz-wagner",
+  "league": "NBA",
+  "season": "2025-26",
+  "player_name": "Moritz Wagner",
+  "summary": "Moritz Wagner — No strong signal — Top market by sample: Rebounds 40.0% (30 GP)",
+  "generated_at": "2026-03-29T06:34:11.920851+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "rebounds",
+      "market_label": "Rebounds",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 40,
+      "record": "12-18",
+      "gp": 30
+    },
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "edge",
+      "is_hero": false,
+      "rate": 35.7,
+      "record": "10-18",
+      "gp": 28
+    }
+  ],
+  "markets": {
+    "rebounds": {
+      "baseline": {
+        "rate": 40,
+        "record": "12-18",
+        "avg": 3.5,
+        "median": 3,
+        "gp": 30,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 3.5,
+        "rate": 40,
+        "record": "12-18",
+        "avg": 3.5,
+        "gp": 30
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "HOME",
+          "rate": 62.5,
+          "record": "10-6",
+          "gp": 16
+        },
+        {
+          "label": "AWAY",
+          "rate": 14.3,
+          "record": "2-12",
+          "gp": 14
+        },
+        {
+          "label": "LATE season",
+          "rate": 33.3,
+          "record": "4-8",
+          "gp": 12
+        }
+      ]
+    },
+    "points": {
+      "baseline": {
+        "rate": 35.7,
+        "record": "10-18",
+        "avg": 7.5,
+        "median": 6.8,
+        "gp": 28,
+        "direction": "none",
+        "tier": "edge",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 8.5,
+        "rate": 37.5,
+        "record": "6-10",
+        "avg": 6.9,
+        "gp": 16
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "STRETCH season",
+          "rate": 25,
+          "record": "2-6",
+          "gp": 8
+        },
+        {
+          "label": "AWAY",
+          "rate": 25,
+          "record": "2-6",
+          "gp": 8
+        },
+        {
+          "label": "HOME",
+          "rate": 50,
+          "record": "4-4",
+          "gp": 8
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
+}

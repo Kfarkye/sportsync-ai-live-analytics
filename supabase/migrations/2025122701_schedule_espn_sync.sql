@@ -36,7 +36,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- Schedule the cron job to run every hour at minute 0
 SELECT cron.schedule(
   'espn-sync-hourly',  -- Job name

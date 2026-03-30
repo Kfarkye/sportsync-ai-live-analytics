@@ -35,11 +35,9 @@ CREATE TABLE IF NOT EXISTS pregame_expectations (
     
     CONSTRAINT unique_pregame_match UNIQUE (match_id)
 );
-
 -- Index for fast lookups
 CREATE INDEX IF NOT EXISTS idx_pregame_expectations_match ON pregame_expectations(match_id);
 CREATE INDEX IF NOT EXISTS idx_pregame_expectations_sport ON pregame_expectations(sport_key);
-
 -- ============================================================================
 -- 2. LIVE EDGE ALERTS TABLE
 -- Stores detected price breaks for historical analysis and execution tracking
@@ -72,14 +70,12 @@ CREATE TABLE IF NOT EXISTS live_edge_alerts (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- Indexes for analysis
 CREATE INDEX IF NOT EXISTS idx_live_edge_alerts_match ON live_edge_alerts(match_id);
 CREATE INDEX IF NOT EXISTS idx_live_edge_alerts_detected ON live_edge_alerts(detected_at);
 CREATE INDEX IF NOT EXISTS idx_live_edge_alerts_direction ON live_edge_alerts(direction);
 CREATE INDEX IF NOT EXISTS idx_live_edge_alerts_confidence ON live_edge_alerts(confidence DESC);
 CREATE INDEX IF NOT EXISTS idx_live_edge_alerts_executable ON live_edge_alerts(edge_percent DESC) WHERE confidence > 0.7;
-
 -- ============================================================================
 -- 3. LIVE METRICS HISTORY TABLE
 -- Stores time-series of live metrics for charting and analysis
@@ -112,10 +108,8 @@ CREATE TABLE IF NOT EXISTS live_metrics_history (
     
     PRIMARY KEY (match_id, captured_at)
 );
-
 -- Partition by time for efficient queries
 CREATE INDEX IF NOT EXISTS idx_live_metrics_match_time ON live_metrics_history(match_id, captured_at DESC);
-
 -- ============================================================================
 -- 4. SPORT CONFIGURATIONS TABLE
 -- Stores sport-specific parameters for calculations
@@ -147,7 +141,6 @@ CREATE TABLE IF NOT EXISTS sport_configurations (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- Insert default configurations
 INSERT INTO sport_configurations (sport_key, sport_name, periods_per_game, minutes_per_period, possession_unit, efficiency_unit, min_possessions_for_stability, default_pace, default_efficiency, default_total)
 VALUES 
@@ -164,7 +157,6 @@ ON CONFLICT (sport_key) DO UPDATE SET
     possession_unit = EXCLUDED.possession_unit,
     efficiency_unit = EXCLUDED.efficiency_unit,
     updated_at = NOW();
-
 -- ============================================================================
 -- 5. HELPER FUNCTIONS
 -- ============================================================================
@@ -188,7 +180,6 @@ BEGIN
     WHERE pe.match_id = p_match_id;
 END;
 $$ LANGUAGE plpgsql;
-
 -- Function to calculate edge statistics
 CREATE OR REPLACE FUNCTION get_edge_statistics(p_days INTEGER DEFAULT 30)
 RETURNS TABLE (
@@ -216,7 +207,6 @@ BEGIN
     WHERE detected_at > NOW() - (p_days || ' days')::INTERVAL;
 END;
 $$ LANGUAGE plpgsql;
-
 -- Comment
 COMMENT ON TABLE live_edge_alerts IS 'Stores detected price breaks for the live-edge-calculator service';
 COMMENT ON TABLE pregame_expectations IS 'Stores pregame pace and efficiency expectations for live edge calculations';

@@ -4,7 +4,6 @@
 -- 3. Explicit sort order for UI priority
 
 DROP VIEW IF EXISTS pick_today_detail;
-
 CREATE OR REPLACE VIEW pick_today_detail AS
 WITH daily_picks AS (
     -- Use CTE to filter early, allowing Postgres to use idx_pregame_intel_performance
@@ -40,5 +39,4 @@ ORDER BY
         WHEN 'LOSS' THEN 4
         ELSE 5 
     END ASC;
-
 GRANT SELECT ON pick_today_detail TO anon, authenticated;

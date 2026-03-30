@@ -9,7 +9,6 @@ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
-
 DO $$ 
 BEGIN
     ALTER TABLE sharp_intel ADD CONSTRAINT check_pick_type 
@@ -17,11 +16,11 @@ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
-
 -- 2. Advanced Indexing for UI & Analytics
 CREATE INDEX IF NOT EXISTS idx_sharp_intel_league ON sharp_intel(league);
 CREATE INDEX IF NOT EXISTS idx_sharp_intel_graded_at ON sharp_intel(graded_at);
-CREATE INDEX IF NOT EXISTS idx_sharp_intel_match_side ON sharp_intel(match_id, pick_side); -- Helps identify duplicate picks
+CREATE INDEX IF NOT EXISTS idx_sharp_intel_match_side ON sharp_intel(match_id, pick_side);
+-- Helps identify duplicate picks
 
 -- 3. Enhanced Performance View (ROI & CLV Tracking)
 DROP VIEW IF EXISTS sharp_intel_record;

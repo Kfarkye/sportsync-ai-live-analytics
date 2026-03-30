@@ -9,20 +9,12 @@
 -- Drop permissive policies
 DROP POLICY IF EXISTS "Enable all access" ON public.raw_odds_log;
 DROP POLICY IF EXISTS "Enable all access" ON public.live_market_state;
-
--- Drop existings restrictive policies to allow re-run (Idempotency)
-DROP POLICY IF EXISTS "Service Role Only" ON public.raw_odds_log;
-DROP POLICY IF EXISTS "Service Role Only" ON public.live_market_state;
-
 -- Create restrictive policies (Service Role / Internal Only)
 -- This prevents anonymous users from injecting fake telemetry or deleting logs.
 CREATE POLICY "Service Role Only" ON public.raw_odds_log 
 FOR ALL TO service_role USING (true) WITH CHECK (true);
-
 CREATE POLICY "Service Role Only" ON public.live_market_state 
 FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-
 -- -----------------------------------------------------------------------------
 -- 2. PERFORMANCE: Drop Redundant Index
 -- -----------------------------------------------------------------------------
@@ -32,8 +24,6 @@ FOR ALL TO service_role USING (true) WITH CHECK (true);
 -- Postgres can effectively use the PK for this, making the secondary index 
 -- pure write overhead (doubling I/O).
 DROP INDEX IF EXISTS idx_live_market_state_lookup;
-
-
 -- -----------------------------------------------------------------------------
 -- 3. OPTIMIZATION: Index for Zombie Filter
 -- -----------------------------------------------------------------------------

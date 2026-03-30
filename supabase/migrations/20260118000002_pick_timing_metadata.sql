@@ -10,7 +10,6 @@ ADD COLUMN IF NOT EXISTS pick_spread_at_time NUMERIC,
 ADD COLUMN IF NOT EXISTS pick_total_at_time NUMERIC,
 ADD COLUMN IF NOT EXISTS pick_ml_home_at_time INTEGER,
 ADD COLUMN IF NOT EXISTS pick_ml_away_at_time INTEGER;
-
 -- sharp_intel table
 ALTER TABLE sharp_intel
 ADD COLUMN IF NOT EXISTS pick_game_clock TEXT,
@@ -20,7 +19,6 @@ ADD COLUMN IF NOT EXISTS pick_spread_at_time NUMERIC,
 ADD COLUMN IF NOT EXISTS pick_total_at_time NUMERIC,
 ADD COLUMN IF NOT EXISTS pick_ml_home_at_time INTEGER,
 ADD COLUMN IF NOT EXISTS pick_ml_away_at_time INTEGER;
-
 -- Index for analyzing pregame vs live picks
 CREATE INDEX IF NOT EXISTS idx_chat_picks_period ON ai_chat_picks(pick_period);
 CREATE INDEX IF NOT EXISTS idx_sharp_intel_period ON sharp_intel(pick_period);

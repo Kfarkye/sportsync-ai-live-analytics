@@ -25,11 +25,9 @@ CREATE TABLE IF NOT EXISTS league_snapshots (
     
     CONSTRAINT unique_team_league_season UNIQUE (league, team, season)
 );
-
 -- Enable RLS
 ALTER TABLE league_snapshots ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public read on snapshots" ON league_snapshots FOR SELECT USING (true);
-
 -- ============================================================================
 -- SEEDING: 2025-26 MID-SEASON "TRUTH" (JANUARY 2026)
 -- ============================================================================
@@ -50,7 +48,6 @@ ON CONFLICT (league, team, season) DO UPDATE SET
     power_rating = EXCLUDED.power_rating,
     identity_tags = EXCLUDED.identity_tags,
     updated_at = NOW();
-
 -- NFL SNAPSHOTS (Late Season Truth)
 INSERT INTO league_snapshots (league, team, win_record, streak, off_rank, def_rank, power_rating, identity_tags)
 VALUES

@@ -39,7 +39,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- Schedule the cron job to run every 4 hours
 -- 0 */4 * * * = "At minute 0 past every 4th hour"
 SELECT cron.schedule(
@@ -47,14 +46,12 @@ SELECT cron.schedule(
   '0 */4 * * *',
   $$SELECT invoke_generate_pregame_context()$$
 );
-
 -- Also run at 6 AM and 12 PM ET (11 AM and 5 PM UTC) for game day coverage
 SELECT cron.schedule(
   'generate-pregame-context-morning',
   '0 11 * * *',
   $$SELECT invoke_generate_pregame_context()$$
 );
-
 SELECT cron.schedule(
   'generate-pregame-context-afternoon',
   '0 17 * * *',

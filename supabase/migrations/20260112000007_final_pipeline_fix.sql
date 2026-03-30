@@ -6,13 +6,10 @@
 -- PART 1: Ensure matches.status column exists
 -- ============================================================================
 ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS status TEXT;
-
 -- Backfill NULL status values
 UPDATE public.matches SET status = 'scheduled' WHERE status IS NULL;
-
 -- Index for kill threshold queries
 CREATE INDEX IF NOT EXISTS idx_matches_league_status ON public.matches (league_id, status);
-
 -- ============================================================================
 -- PART 2: ALL invoke functions with HARDCODED secrets (no Vault dependency)
 -- ============================================================================
@@ -37,7 +34,6 @@ BEGIN
   );
 END;
 $$;
-
 -- 2) invoke_ingest_odds_staggered (high frequency general)
 CREATE OR REPLACE FUNCTION invoke_ingest_odds_staggered()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -53,7 +49,6 @@ BEGIN
   );
 END;
 $$;
-
 -- 3) invoke_ingest_nba_live (NBA Turbo - 3 calls per minute)
 CREATE OR REPLACE FUNCTION invoke_ingest_nba_live()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -72,7 +67,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
 -- 4) invoke_ingest_nfl_live (NFL Turbo - 3 calls per minute)
 CREATE OR REPLACE FUNCTION invoke_ingest_nfl_live()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -91,7 +85,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
 -- 5) invoke_live_odds_tracker
 CREATE OR REPLACE FUNCTION invoke_live_odds_tracker()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -107,7 +100,6 @@ BEGIN
   );
 END;
 $$;
-
 -- 6) invoke_ingest_live_games
 CREATE OR REPLACE FUNCTION invoke_ingest_live_games()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -123,7 +115,6 @@ BEGIN
   );
 END;
 $$;
-
 -- 7) invoke_match_discovery
 CREATE OR REPLACE FUNCTION invoke_match_discovery()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -139,7 +130,6 @@ BEGIN
   );
 END;
 $$;
-
 -- 8) invoke_espn_sync
 CREATE OR REPLACE FUNCTION invoke_espn_sync()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -155,5 +145,4 @@ BEGIN
   );
 END;
 $$;
-
 SELECT 'FINAL PIPELINE FIX: status column + all 8 invoke functions hardcoded' as status;

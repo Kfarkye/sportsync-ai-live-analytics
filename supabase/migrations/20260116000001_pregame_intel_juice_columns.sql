@@ -8,9 +8,7 @@ ADD COLUMN IF NOT EXISTS spread_juice TEXT,
 ADD COLUMN IF NOT EXISTS total_juice TEXT,
 ADD COLUMN IF NOT EXISTS home_ml TEXT,
 ADD COLUMN IF NOT EXISTS away_ml TEXT;
-
 -- 2. Add index for faster lookups by match_id (if not exists)
 CREATE INDEX IF NOT EXISTS idx_pregame_intel_match_id ON public.pregame_intel(match_id);
-
 -- 3. Verification
 SELECT 'Juice columns added to pregame_intel' as status;

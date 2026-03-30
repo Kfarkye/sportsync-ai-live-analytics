@@ -9,11 +9,9 @@ ADD COLUMN IF NOT EXISTS pick_result TEXT DEFAULT 'PENDING'
 ADD COLUMN IF NOT EXISTS graded_at TIMESTAMPTZ,
 ADD COLUMN IF NOT EXISTS actual_home_score INT,
 ADD COLUMN IF NOT EXISTS actual_away_score INT;
-
 -- 2. Index for Grading Cron (find pending picks efficiently)
 CREATE INDEX IF NOT EXISTS idx_pregame_intel_pending 
     ON pregame_intel(pick_result) WHERE pick_result = 'PENDING';
-
 -- 3. Record View (Aggregate Win/Loss)
 CREATE OR REPLACE VIEW public.pregame_intel_record AS
 SELECT
@@ -27,10 +25,8 @@ SELECT
     ) as win_pct
 FROM pregame_intel
 WHERE recommended_pick IS NOT NULL;
-
 -- 4. Grant read access for UI rendering
 GRANT SELECT ON public.pregame_intel_record TO authenticated;
 GRANT SELECT ON public.pregame_intel_record TO anon;
-
 -- Verification
 SELECT 'pick_grading_columns_added' as result;

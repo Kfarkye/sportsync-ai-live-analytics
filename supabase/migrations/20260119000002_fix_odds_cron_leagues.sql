@@ -3,7 +3,6 @@
 
 -- First, unschedule the old job
 SELECT cron.unschedule('ingest-odds-cron');
-
 -- Reschedule with complete league list
 SELECT cron.schedule(
   'ingest-odds-cron',
@@ -34,6 +33,5 @@ SELECT cron.schedule(
   )
   $$
 );
-
 -- Verify
 SELECT jobname, schedule, command FROM cron.job WHERE jobname = 'ingest-odds-cron';

@@ -25,15 +25,12 @@ CREATE TABLE IF NOT EXISTS team_rosters (
     
     UNIQUE(player_name, team, sport)
 );
-
 -- Index for fast team lookups
 CREATE INDEX IF NOT EXISTS idx_team_rosters_team 
 ON team_rosters(team);
-
 -- Index for status filtering
 CREATE INDEX IF NOT EXISTS idx_team_rosters_status 
 ON team_rosters(status);
-
 -- Trigger to auto-update updated_at
 CREATE OR REPLACE FUNCTION update_roster_timestamp()
 RETURNS TRIGGER AS $$
@@ -42,7 +39,6 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 DROP TRIGGER IF EXISTS trigger_update_roster_timestamp ON team_rosters;
 CREATE TRIGGER trigger_update_roster_timestamp
     BEFORE UPDATE ON team_rosters

@@ -1050,12 +1050,6 @@ function buildPlayerGameStatsRows(
           personal_fouls: toInt(readStatValue(statMap, ["fouls", "personalFouls", "pf"])),
           tech_fouls: toInt(readStatValue(statMap, ["technicalFouls", "techFouls"])) ?? 0,
           flagrant_fouls: toInt(readStatValue(statMap, ["flagrantFouls"])) ?? 0,
-          pra:
-            points !== null && rebounds !== null && assists !== null
-              ? points + rebounds + assists
-              : null,
-          pts_rebs: points !== null && rebounds !== null ? points + rebounds : null,
-          pts_asts: points !== null && assists !== null ? points + assists : null,
           venue: isHomeTeam ? "HOME" : isAwayTeam ? "AWAY" : null,
           source: "espn_boxscore",
           source_updated_at: nowIso,

@@ -5,7 +5,6 @@
 -- ============================================================
 
 BEGIN;
-
 -- 1. CLEANUP (Cascading drop to reset schema)
 DROP VIEW IF EXISTS vw_titan_api_gateway CASCADE;
 DROP VIEW IF EXISTS vw_titan_trends CASCADE;
@@ -14,21 +13,17 @@ DROP VIEW IF EXISTS vw_titan_buckets CASCADE;
 DROP VIEW IF EXISTS vw_titan_summary CASCADE;
 DROP VIEW IF EXISTS vw_titan_leagues CASCADE;
 DROP VIEW IF EXISTS vw_titan_master CASCADE;
-
 -- 2. SECURITY & PERFORMANCE
 -- RLS: Explicitly enable security
 ALTER TABLE pregame_intel ENABLE ROW LEVEL SECURITY;
-
 -- POLICY: Allow public read (Adjust 'true' to 'auth.role() = ''authenticated''' if private)
 DROP POLICY IF EXISTS "Public Analytics Access" ON pregame_intel;
 CREATE POLICY "Public Analytics Access" ON pregame_intel FOR SELECT USING (true);
-
 -- INDEXES: GIN for JSONB and BTREE for Range/Sort
 CREATE INDEX IF NOT EXISTS idx_pi_meta_gin ON pregame_intel USING GIN (grading_metadata);
-CREATE INDEX IF NOT EXISTS idx_pi_spread ON pregame_intel (analyzed_spread); -- Raw column index (no cast)
+CREATE INDEX IF NOT EXISTS idx_pi_spread ON pregame_intel (analyzed_spread);
+-- Raw column index (no cast)
 CREATE INDEX IF NOT EXISTS idx_pi_result_date ON pregame_intel (pick_result, game_date DESC);
-
-
 -- ============================================================
 -- 3. MASTER ANALYTICS LAYER (The Source of Truth)
 -- ============================================================
@@ -116,8 +111,6 @@ SELECT
     END AS unit_net
 
 FROM cleaned_spreads;
-
-
 -- ============================================================
 -- 4. KPI SUMMARY VIEW
 -- ============================================================
@@ -155,8 +148,6 @@ SELECT jsonb_build_object(
         'status', CASE WHEN fav_units > 0 THEN 'positive' ELSE 'negative' END
     )
 ) AS data FROM stats;
-
-
 -- ============================================================
 -- 5. LEAGUE BREAKDOWN (Restored v3.1)
 -- ============================================================
@@ -188,8 +179,6 @@ SELECT COALESCE(json_agg(json_build_object(
     )
 ) ORDER BY total_picks DESC), '[]'::json) AS data
 FROM league_stats;
-
-
 -- ============================================================
 -- 6. BUCKET DISTRIBUTION
 -- ============================================================
@@ -223,8 +212,6 @@ SELECT COALESCE(json_agg(json_build_object(
     )
 ) ORDER BY bucket_id), '[]'::json) AS data
 FROM bucket_stats;
-
-
 -- ============================================================
 -- 7. HEATMAP MATRIX
 -- ============================================================
@@ -253,8 +240,6 @@ SELECT COALESCE(json_agg(json_build_object(
     END
 ) ORDER BY units DESC), '[]'::json) AS data
 FROM category_stats;
-
-
 -- ============================================================
 -- 8. ROLLING TRENDS
 -- ============================================================
@@ -284,8 +269,6 @@ SELECT COALESCE(json_agg(json_build_object(
     'rollingVolatility', rolling_volatility
 ) ORDER BY game_date ASC), '[]'::json) AS data
 FROM rolling_stats;
-
-
 -- ============================================================
 -- 9. API GATEWAY (Titan One-Call)
 -- ============================================================
@@ -297,5 +280,4 @@ SELECT jsonb_build_object(
     'heatmap', (SELECT data FROM vw_titan_heatmap),
     'trends', (SELECT data FROM vw_titan_trends)
 ) AS payload;
-
 COMMIT;

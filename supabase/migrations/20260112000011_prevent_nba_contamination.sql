@@ -15,7 +15,6 @@ BEGIN
     RAISE NOTICE 'Deleted % unsuffixed NBA rows', bad_count;
   END IF;
 END $$;
-
 -- 2) Add constraints to prevent re-contamination for ALL leagues
 -- NBA must have _nba suffix
 DO $$
@@ -26,7 +25,6 @@ BEGIN
     CHECK (league_id <> 'nba' OR id LIKE '%_nba');
   END IF;
 END $$;
-
 -- NFL must have _nfl suffix
 DO $$
 BEGIN
@@ -36,7 +34,6 @@ BEGIN
     CHECK (league_id <> 'nfl' OR id LIKE '%_nfl');
   END IF;
 END $$;
-
 -- NHL must have _nhl suffix
 DO $$
 BEGIN
@@ -46,7 +43,6 @@ BEGIN
     CHECK (league_id <> 'nhl' OR id LIKE '%_nhl');
   END IF;
 END $$;
-
 -- MLB must have _mlb suffix
 DO $$
 BEGIN
@@ -56,5 +52,4 @@ BEGIN
     CHECK (league_id <> 'mlb' OR id LIKE '%_mlb');
   END IF;
 END $$;
-
 SELECT 'Suffix constraints added for NBA, NFL, NHL, MLB' as status;

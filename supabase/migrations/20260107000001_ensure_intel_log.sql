@@ -23,10 +23,8 @@ CREATE TABLE IF NOT EXISTS public.pregame_intel_log (
     
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- Enable RLS
 ALTER TABLE public.pregame_intel_log ENABLE ROW LEVEL SECURITY;
-
 -- Service role policy
 DO $$ 
 BEGIN
@@ -38,7 +36,6 @@ BEGIN
             FOR ALL TO service_role USING (true);
     END IF;
 END $$;
-
 -- Public read policy (optional for transparency)
 DO $$ 
 BEGIN
@@ -50,6 +47,5 @@ BEGIN
             FOR SELECT TO anon, authenticated USING (true);
     END IF;
 END $$;
-
 -- Notify PostgREST to refresh its cache
 NOTIFY pgrst, 'reload schema';

@@ -38,7 +38,6 @@ CREATE TABLE IF NOT EXISTS pregame_intel (
     
     UNIQUE(match_id, game_date)  -- One intel per game per day
 );
-
 -- 2. Individual intel cards (normalized for querying)
 -- This lets us search across ALL intel cards for injuries, trends, etc.
 CREATE TABLE IF NOT EXISTS pregame_intel_cards (
@@ -63,7 +62,6 @@ CREATE TABLE IF NOT EXISTS pregame_intel_cards (
     
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 3. Intel generation log (audit trail)
 CREATE TABLE IF NOT EXISTS pregame_intel_log (
     log_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -87,39 +85,30 @@ CREATE TABLE IF NOT EXISTS pregame_intel_log (
     
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- Indexes for fast queries
 CREATE INDEX IF NOT EXISTS idx_pregame_intel_match ON pregame_intel(match_id);
 CREATE INDEX IF NOT EXISTS idx_pregame_intel_date ON pregame_intel(game_date);
 CREATE INDEX IF NOT EXISTS idx_pregame_intel_sport ON pregame_intel(sport, league_id);
 CREATE INDEX IF NOT EXISTS idx_pregame_intel_freshness ON pregame_intel(freshness, expires_at);
-
 CREATE INDEX IF NOT EXISTS idx_intel_cards_category ON pregame_intel_cards(category);
 CREATE INDEX IF NOT EXISTS idx_intel_cards_match ON pregame_intel_cards(match_id);
 CREATE INDEX IF NOT EXISTS idx_intel_cards_entities ON pregame_intel_cards USING GIN(entity_names);
-
 -- RLS Policies
 ALTER TABLE pregame_intel ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pregame_intel_cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pregame_intel_log ENABLE ROW LEVEL SECURITY;
-
 -- Everyone can read intel (it's public content)
 CREATE POLICY "pregame_intel_public_read" ON pregame_intel
     FOR SELECT TO anon, authenticated USING (true);
-
 CREATE POLICY "pregame_intel_cards_public_read" ON pregame_intel_cards
     FOR SELECT TO anon, authenticated USING (true);
-
 -- Only service role can write
 CREATE POLICY "pregame_intel_service_write" ON pregame_intel
     FOR ALL TO service_role USING (true);
-
 CREATE POLICY "pregame_intel_cards_service_write" ON pregame_intel_cards
     FOR ALL TO service_role USING (true);
-
 CREATE POLICY "pregame_intel_log_service_all" ON pregame_intel_log
     FOR ALL TO service_role USING (true);
-
 -- Helper function to mark stale intel
 CREATE OR REPLACE FUNCTION mark_stale_intel()
 RETURNS void
@@ -132,6 +121,5 @@ BEGIN
     WHERE expires_at < NOW() AND freshness != 'STALE';
 END;
 $$;
-
 -- Verify
 SELECT 'pregame_intel tables created' AS status;

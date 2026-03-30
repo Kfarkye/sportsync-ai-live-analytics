@@ -1,9 +1,7 @@
 -- Enable pg_cron extension for scheduled jobs
 CREATE EXTENSION IF NOT EXISTS pg_cron;
-
 -- Grant usage to postgres user
 GRANT USAGE ON SCHEMA cron TO postgres;
-
 -- Setup Cron Job to call ingest-odds every minute
 -- This ensures live odds are refreshed regularly
 
@@ -48,7 +46,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- Schedule the cron job to run every minute
 -- NOTE: pg_cron syntax uses UTC time
 SELECT cron.schedule(
@@ -56,7 +53,6 @@ SELECT cron.schedule(
   '* * * * *',                  -- Every minute
   $$SELECT invoke_ingest_odds()$$
 );
-
 -- Also schedule live-odds-tracker for match status updates
 DROP FUNCTION IF EXISTS invoke_live_odds_tracker() CASCADE;
 CREATE OR REPLACE FUNCTION invoke_live_odds_tracker()
@@ -93,13 +89,11 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- Schedule live-odds-tracker every 2 minutes
 SELECT cron.schedule(
   'live-odds-tracker-every-2-min',
   '*/2 * * * *',  -- Every 2 minutes
   $$SELECT invoke_live_odds_tracker()$$
 );
-
 -- View scheduled jobs
--- SELECT * FROM cron.job;
+-- SELECT * FROM cron.job;;

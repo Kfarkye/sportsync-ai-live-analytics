@@ -39,18 +39,15 @@ CREATE TABLE IF NOT EXISTS nba_window_signals (
     -- One signal per window per game
     UNIQUE (game_id, window_number)
 );
-
 -- Indexes for fast lookups
 CREATE INDEX IF NOT EXISTS idx_window_signals_game ON nba_window_signals(game_id);
 CREATE INDEX IF NOT EXISTS idx_window_signals_pending ON nba_window_signals(result) WHERE result = 'PENDING';
-
 -- RLS
 ALTER TABLE nba_window_signals ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow read nba_window_signals" ON nba_window_signals;
 DROP POLICY IF EXISTS "Service role full access" ON nba_window_signals;
 CREATE POLICY "Allow read nba_window_signals" ON nba_window_signals FOR SELECT USING (true);
 CREATE POLICY "Service role full access" ON nba_window_signals FOR ALL USING (true);
-
 -- 2. View for signal record tracking
 CREATE OR REPLACE VIEW nba_signal_record AS
 SELECT 
@@ -68,7 +65,6 @@ FROM nba_window_signals
 WHERE signal_side != 'NO_PLAY'
 GROUP BY signal_side, window_name
 ORDER BY window_name, signal_side;
-
 -- 3. Function to grade signals after game ends
 CREATE OR REPLACE FUNCTION grade_nba_signals()
 RETURNS void
@@ -111,6 +107,5 @@ BEGIN
     END LOOP;
 END;
 $$;
-
 -- Verification
 SELECT 'nba_window_signals table created' as status;

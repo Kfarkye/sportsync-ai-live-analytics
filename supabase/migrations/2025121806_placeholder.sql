@@ -14,17 +14,13 @@ CREATE TABLE IF NOT EXISTS public.team_blowout_priors (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(league, season, team_abbr)
 );
-
 -- Index for lookup
 CREATE INDEX IF NOT EXISTS idx_team_blowout_priors_lookup ON team_blowout_priors(league, season, team_abbr);
-
 -- Enable RLS (adjust policies as needed)
 ALTER TABLE public.team_blowout_priors ENABLE ROW LEVEL SECURITY;
-
 -- Allow public read access (matches anon policy in other tables)
 DROP POLICY IF EXISTS "Allow public read access" ON public.team_blowout_priors;
 CREATE POLICY "Allow public read access" ON public.team_blowout_priors
     FOR SELECT TO anon, authenticated
     USING (true);
-
 COMMENT ON TABLE team_blowout_priors IS 'Stores team-specific blowout deltas and baseline priors for regime shift analysis.';

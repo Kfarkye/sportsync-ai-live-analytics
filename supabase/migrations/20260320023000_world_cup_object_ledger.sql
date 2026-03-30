@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS public.object_ledger_objects (
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (tournament_slug, object_type, slug)
 );
-
 CREATE TABLE IF NOT EXISTS public.object_ledger_current_state (
   object_id text PRIMARY KEY REFERENCES public.object_ledger_objects(object_id) ON DELETE CASCADE,
   state jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -28,7 +27,6 @@ CREATE TABLE IF NOT EXISTS public.object_ledger_current_state (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.object_ledger_events (
   event_id bigserial PRIMARY KEY,
   object_id text NOT NULL REFERENCES public.object_ledger_objects(object_id) ON DELETE CASCADE,
@@ -49,7 +47,6 @@ CREATE TABLE IF NOT EXISTS public.object_ledger_events (
   source text NOT NULL DEFAULT 'system',
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -77,16 +74,12 @@ BEGIN
   END IF;
 END
 $$;
-
 CREATE INDEX IF NOT EXISTS idx_object_ledger_objects_tournament_type
   ON public.object_ledger_objects (tournament_slug, object_type);
-
 CREATE INDEX IF NOT EXISTS idx_object_ledger_objects_parent
   ON public.object_ledger_objects (parent_object_id);
-
 CREATE INDEX IF NOT EXISTS idx_object_ledger_events_object_ts
   ON public.object_ledger_events (object_id, event_ts DESC);
-
 CREATE OR REPLACE FUNCTION public.set_object_ledger_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -96,19 +89,16 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_object_ledger_objects_updated_at ON public.object_ledger_objects;
 CREATE TRIGGER trg_object_ledger_objects_updated_at
 BEFORE UPDATE ON public.object_ledger_objects
 FOR EACH ROW
 EXECUTE FUNCTION public.set_object_ledger_updated_at();
-
 DROP TRIGGER IF EXISTS trg_object_ledger_current_state_updated_at ON public.object_ledger_current_state;
 CREATE TRIGGER trg_object_ledger_current_state_updated_at
 BEFORE UPDATE ON public.object_ledger_current_state
 FOR EACH ROW
 EXECUTE FUNCTION public.set_object_ledger_updated_at();
-
 CREATE OR REPLACE FUNCTION public.prevent_object_ledger_event_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -117,13 +107,11 @@ BEGIN
   RAISE EXCEPTION 'object_ledger_events is append-only; % is not allowed', TG_OP;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_object_ledger_events_append_only ON public.object_ledger_events;
 CREATE TRIGGER trg_object_ledger_events_append_only
 BEFORE UPDATE OR DELETE ON public.object_ledger_events
 FOR EACH ROW
 EXECUTE FUNCTION public.prevent_object_ledger_event_mutation();
-
 CREATE OR REPLACE FUNCTION public.upsert_object_current_state(
   p_object_id text,
   p_state jsonb,
@@ -190,29 +178,24 @@ BEGIN
   RETURN v_event_id;
 END;
 $$;
-
 ALTER TABLE public.object_ledger_objects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.object_ledger_current_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.object_ledger_events ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS object_ledger_objects_public_read ON public.object_ledger_objects;
 CREATE POLICY object_ledger_objects_public_read
 ON public.object_ledger_objects
 FOR SELECT
 USING (true);
-
 DROP POLICY IF EXISTS object_ledger_state_public_read ON public.object_ledger_current_state;
 CREATE POLICY object_ledger_state_public_read
 ON public.object_ledger_current_state
 FOR SELECT
 USING (true);
-
 DROP POLICY IF EXISTS object_ledger_events_public_read ON public.object_ledger_events;
 CREATE POLICY object_ledger_events_public_read
 ON public.object_ledger_events
 FOR SELECT
 USING (true);
-
 DROP POLICY IF EXISTS object_ledger_objects_service_all ON public.object_ledger_objects;
 CREATE POLICY object_ledger_objects_service_all
 ON public.object_ledger_objects
@@ -220,7 +203,6 @@ FOR ALL
 TO service_role
 USING (true)
 WITH CHECK (true);
-
 DROP POLICY IF EXISTS object_ledger_state_service_all ON public.object_ledger_current_state;
 CREATE POLICY object_ledger_state_service_all
 ON public.object_ledger_current_state
@@ -228,7 +210,6 @@ FOR ALL
 TO service_role
 USING (true)
 WITH CHECK (true);
-
 DROP POLICY IF EXISTS object_ledger_events_service_all ON public.object_ledger_events;
 CREATE POLICY object_ledger_events_service_all
 ON public.object_ledger_events
@@ -236,7 +217,6 @@ FOR ALL
 TO service_role
 USING (true)
 WITH CHECK (true);
-
 -- Required derived group summaries:
 -- at_a_glance, match_anchor, history, share_snapshot, seo_summary
 CREATE OR REPLACE VIEW public.v_wc_group_summaries AS
@@ -363,7 +343,6 @@ LEFT JOIN anchor_match am
   ON am.group_object_id = g.object_id
 LEFT JOIN group_events ge
   ON ge.group_object_id = g.object_id;
-
 -- Compatibility bridge for legacy readers that still look for canonical_registry fields.
 -- This is read-only and derived from ledger objects (no duplicate source of truth).
 CREATE OR REPLACE VIEW public.v_canonical_registry_compat AS
@@ -381,7 +360,6 @@ FROM public.object_ledger_objects o
 LEFT JOIN public.object_ledger_current_state cs
   ON cs.object_id = o.object_id
 WHERE o.tournament_slug = 'world-cup-2026';
-
 -- Seed baseline object map for first build slice: wc-2026-group-b.
 INSERT INTO public.object_ledger_objects (
   object_id,
@@ -501,7 +479,6 @@ SET
   parent_object_id = EXCLUDED.parent_object_id,
   identity = EXCLUDED.identity,
   updated_at = now();
-
 INSERT INTO public.object_ledger_current_state (
   object_id,
   state,
@@ -635,7 +612,6 @@ SET
   state = EXCLUDED.state,
   state_version = public.object_ledger_current_state.state_version + 1,
   updated_at = now();
-
 INSERT INTO public.object_ledger_events (
   object_id,
   event_type,
@@ -694,7 +670,6 @@ WHERE NOT EXISTS (
     AND existing.event_type = x.event_type
     AND existing.event_ts = x.event_ts
 );
-
 GRANT SELECT ON public.object_ledger_objects TO anon, authenticated, service_role;
 GRANT SELECT ON public.object_ledger_current_state TO anon, authenticated, service_role;
 GRANT SELECT ON public.object_ledger_events TO anon, authenticated, service_role;
@@ -704,6 +679,5 @@ GRANT INSERT, UPDATE, DELETE ON public.object_ledger_objects TO service_role;
 GRANT INSERT, UPDATE, DELETE ON public.object_ledger_current_state TO service_role;
 GRANT INSERT, UPDATE, DELETE ON public.object_ledger_events TO service_role;
 GRANT USAGE, SELECT ON SEQUENCE public.object_ledger_events_event_id_seq TO service_role;
-
 GRANT EXECUTE ON FUNCTION public.upsert_object_current_state(text, jsonb, text, jsonb, timestamptz, text)
 TO service_role;

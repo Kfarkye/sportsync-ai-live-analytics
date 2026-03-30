@@ -15,21 +15,17 @@ CREATE TABLE IF NOT EXISTS public.model_calibration_logs (
     actual_total FLOAT,             -- Updated later once game is final
     status TEXT DEFAULT 'PENDING'   -- PENDING / COMPLETED
 );
-
 -- Enable RLS
 ALTER TABLE public.model_calibration_logs ENABLE ROW LEVEL SECURITY;
-
 -- Allow public read of calibration stats (for transparency/legal review)
 CREATE POLICY "Allow public read of calibration logs"
 ON public.model_calibration_logs FOR SELECT
 USING (true);
-
 -- Allow service role to insert/update
 CREATE POLICY "Allow service_role full access"
 ON public.model_calibration_logs FOR ALL
 USING (auth.role() = 'service_role')
 WITH CHECK (auth.role() = 'service_role');
-
 -- Index for performance
 CREATE INDEX IF NOT EXISTS idx_calibration_match_id ON public.model_calibration_logs(match_id);
 CREATE INDEX IF NOT EXISTS idx_calibration_sport ON public.model_calibration_logs(sport);

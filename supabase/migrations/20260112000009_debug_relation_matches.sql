@@ -26,5 +26,4 @@ AS $$
   WHERE c.relname = 'matches'
   ORDER BY n.nspname ASC;
 $$;
-
 SELECT 'Debug RPC created: debug_relation_matches()' AS status;

@@ -16,7 +16,6 @@ BEGIN
   RETURN pg_try_advisory_lock(lock_id);
 END;
 $$ LANGUAGE plpgsql VOLATILE;
-
 -- 2. Atomic lock release helper
 DROP FUNCTION IF EXISTS release_originator_lock(text);
 CREATE OR REPLACE FUNCTION release_originator_lock(lock_key text)
@@ -27,5 +26,4 @@ BEGIN
   RETURN pg_advisory_unlock(lock_id);
 END;
 $$ LANGUAGE plpgsql VOLATILE;
-
 SELECT 'Advisory Lock protocol deployed' as status;

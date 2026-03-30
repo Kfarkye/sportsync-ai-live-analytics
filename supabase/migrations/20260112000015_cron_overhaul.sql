@@ -33,7 +33,6 @@ BEGIN
   );
 END;
 $$;
-
 -- B) invoke_ingest_odds (General Ingest)
 CREATE OR REPLACE FUNCTION invoke_ingest_odds()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -54,7 +53,6 @@ BEGIN
   );
 END;
 $$;
-
 -- C) invoke_ingest_live_games (Scoreboard Authority)
 CREATE OR REPLACE FUNCTION invoke_ingest_live_games()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -75,7 +73,6 @@ BEGIN
   );
 END;
 $$;
-
 -- D) invoke_espn_sync (Context Logic)
 CREATE OR REPLACE FUNCTION invoke_espn_sync()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -96,7 +93,6 @@ BEGIN
   );
 END;
 $$;
-
 -- E) invoke_match_discovery (Opening Lines)
 CREATE OR REPLACE FUNCTION invoke_match_discovery()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -117,7 +113,6 @@ BEGIN
   );
 END;
 $$;
-
 -- ============================================================================
 -- 3. SCHEDULE RE-ALIGNMENT
 -- ============================================================================
@@ -129,7 +124,6 @@ SELECT cron.schedule(
   '*/10 * * * *',
   $$SELECT invoke_pregame_intel_cron()$$
 );
-
 -- Ensure ingest-odds is staggered correctly (every minute)
 SELECT cron.unschedule('ingest-odds-high-frequency');
 SELECT cron.schedule(
@@ -137,7 +131,6 @@ SELECT cron.schedule(
   '* * * * *',
   $$SELECT invoke_ingest_odds()$$
 );
-
 -- Ensure live-games is firing (every minute)
 SELECT cron.unschedule('high-frequency-live-ingest');
 SELECT cron.schedule(
@@ -145,5 +138,4 @@ SELECT cron.schedule(
   '* * * * *',
   $$SELECT invoke_ingest_live_games()$$
 );
-
 SELECT 'CRON OVERHAUL COMPLETE: All triggers now use service_role + hardcoded secrets.' as status;

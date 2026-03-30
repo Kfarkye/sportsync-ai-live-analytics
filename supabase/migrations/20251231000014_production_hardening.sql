@@ -18,15 +18,12 @@ CREATE TABLE IF NOT EXISTS nba_audit_log (
     success BOOLEAN DEFAULT TRUE,
     error_message TEXT
 );
-
 CREATE INDEX IF NOT EXISTS idx_audit_log_ts ON nba_audit_log(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_log_game ON nba_audit_log(game_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_errors ON nba_audit_log(success) WHERE success = FALSE;
-
 -- RLS: Service role only
 ALTER TABLE nba_audit_log ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Service role only" ON nba_audit_log FOR ALL USING (true);
-
 -- =============================================
 -- 2. ENHANCED RLS POLICIES
 -- Lock down tables for anon users
@@ -82,7 +79,6 @@ BEGIN
     VALUES ('cleanup_old_nba_data', 'CLEANUP', jsonb_build_object('completed_at', NOW()));
 END;
 $$;
-
 -- Schedule cleanup to run daily at 4 AM UTC
 DO $$
 BEGIN
@@ -91,13 +87,11 @@ EXCEPTION WHEN OTHERS THEN
     NULL;
 END;
 $$;
-
 SELECT cron.schedule(
     'nba-daily-cleanup',
     '0 4 * * *',
     $$SELECT cleanup_old_nba_data()$$
 );
-
 -- =============================================
 -- 4. PERFORMANCE INDEXES
 -- =============================================
@@ -110,7 +104,6 @@ SELECT cron.schedule(
 -- 5. GRADING FUNCTION (Enhanced with logging)
 -- =============================================
 DROP FUNCTION IF EXISTS grade_nba_signals();
-
 -- CREATE OR REPLACE FUNCTION grade_nba_signals()
 -- RETURNS jsonb
 -- LANGUAGE plpgsql
@@ -135,7 +128,6 @@ EXCEPTION WHEN OTHERS THEN
     NULL;
 END;
 $$;
-
 -- SELECT cron.schedule(
 --     'nba-grade-signals',
 --     '*/15 * * * *',

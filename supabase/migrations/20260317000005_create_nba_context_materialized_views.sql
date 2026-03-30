@@ -8,7 +8,6 @@ DROP MATERIALIZED VIEW IF EXISTS public.mv_nba_live_state_context;
 DROP MATERIALIZED VIEW IF EXISTS public.mv_nba_weekly_context;
 DROP VIEW IF EXISTS public.v_nba_probability_context_base;
 DROP FUNCTION IF EXISTS public.refresh_nba_context_views();
-
 CREATE OR REPLACE FUNCTION public.jsonb_numeric_key(p_payload jsonb, p_key text)
 RETURNS numeric
 LANGUAGE sql
@@ -19,7 +18,6 @@ AS $$
     ELSE public.safe_to_numeric(p_payload->>p_key)
   END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.nba_probability_bucket(p_probability numeric)
 RETURNS text
 LANGUAGE sql
@@ -35,7 +33,6 @@ AS $$
     )
   END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.nba_progress_bucket(p_progress numeric)
 RETURNS text
 LANGUAGE sql
@@ -51,7 +48,6 @@ AS $$
     )
   END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.nba_score_diff_bucket(p_score_diff numeric)
 RETURNS text
 LANGUAGE sql
@@ -70,7 +66,6 @@ AS $$
     ELSE 'LEAD_15P_PLUS'
   END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.nba_remaining_minute_bucket(p_minutes numeric)
 RETURNS text
 LANGUAGE sql
@@ -88,7 +83,6 @@ AS $$
     ELSE '0-1'
   END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.nba_context_exposure_tier(
   p_rows bigint,
   p_matches bigint,
@@ -107,7 +101,6 @@ AS $$
     ELSE 'HIDE'
   END;
 $$;
-
 CREATE OR REPLACE VIEW public.v_nba_probability_context_base AS
 WITH final_matches AS (
   SELECT
@@ -572,7 +565,6 @@ LEFT JOIN live_odds_ranked lo
 LEFT JOIN live_context_ranked lc
   ON lc.match_id = pb.match_id
  AND lc.overlay_rank = pb.rich_overlay_rank_target;
-
 CREATE MATERIALIZED VIEW public.mv_nba_weekly_context AS
 WITH base AS (
   SELECT *
@@ -670,10 +662,8 @@ FROM weekly_row wr
 JOIN weekly_match wm
   ON wm.week_start = wr.week_start
 CROSS JOIN season_baseline sb;
-
 CREATE UNIQUE INDEX mv_nba_weekly_context_week_start_uidx
   ON public.mv_nba_weekly_context (week_start);
-
 CREATE MATERIALIZED VIEW public.mv_nba_live_state_context AS
 WITH base AS (
   SELECT *
@@ -765,7 +755,6 @@ SELECT
   ) AS exposure_tier,
   NOW() AS updated_at
 FROM aggregated;
-
 CREATE UNIQUE INDEX mv_nba_live_state_context_uidx
   ON public.mv_nba_live_state_context (
     context_scope,
@@ -777,7 +766,6 @@ CREATE UNIQUE INDEX mv_nba_live_state_context_uidx
     score_diff_bucket,
     bonus_shape
   );
-
 CREATE MATERIALIZED VIEW public.mv_nba_ref_environment AS
 WITH base AS (
   SELECT DISTINCT ON (match_id)
@@ -847,10 +835,8 @@ SELECT
   NOW() AS updated_at
 FROM aggregated a
 CROSS JOIN season_baseline sb;
-
 CREATE UNIQUE INDEX mv_nba_ref_environment_lead_ref_uidx
   ON public.mv_nba_ref_environment (lead_ref);
-
 CREATE MATERIALIZED VIEW public.mv_nba_venue_environment AS
 WITH base AS (
   SELECT DISTINCT ON (match_id)
@@ -917,10 +903,8 @@ SELECT
   NOW() AS updated_at
 FROM aggregated a
 CROSS JOIN season_baseline sb;
-
 CREATE UNIQUE INDEX mv_nba_venue_environment_venue_name_uidx
   ON public.mv_nba_venue_environment (venue_name);
-
 CREATE OR REPLACE FUNCTION public.refresh_nba_context_views()
 RETURNS void
 LANGUAGE plpgsql
@@ -932,7 +916,6 @@ BEGIN
   REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_nba_venue_environment;
 END;
 $$;
-
 GRANT SELECT ON public.v_nba_probability_context_base TO anon, authenticated, service_role;
 GRANT SELECT ON public.mv_nba_weekly_context TO anon, authenticated, service_role;
 GRANT SELECT ON public.mv_nba_live_state_context TO anon, authenticated, service_role;

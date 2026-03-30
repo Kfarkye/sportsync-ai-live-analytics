@@ -7,16 +7,12 @@ create table if not exists app_config (
     description text,
     updated_at timestamptz default now()
 );
-
 -- Enable RLS (Read-only for public/anon if needed, or service_role only)
 alter table app_config enable row level security;
-
 create policy "Allow public read access" on app_config
     for select to anon, authenticated using (true);
-
 create policy "Allow internal write access" on app_config
     for all to service_role using (true);
-
 -- Seed Initial "Golden" Values from v5.9 Patch
 -- These match src/config/gates.ts defaults
 insert into app_config (key, value, description) values
@@ -36,7 +32,6 @@ insert into app_config (key, value, description) values
         "MIN_REV_PER_MIN": 3.2
     }'::jsonb, 'NBA Thresholds')
     ON CONFLICT (key) DO NOTHING;
-
 -- Function to key-value upsert config (for admin dashboard tools)
 create or replace function set_app_config(k text, v jsonb, d text default null)
 returns void as $$

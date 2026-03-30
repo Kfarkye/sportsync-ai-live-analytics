@@ -39,5 +39,4 @@ BEGIN
   END LOOP;
 END;
 $$;
-
 SELECT 'NBA Turbo Mode: Active (10s intervals)' as status;

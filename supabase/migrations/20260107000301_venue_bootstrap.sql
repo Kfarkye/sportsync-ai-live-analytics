@@ -13,7 +13,6 @@ VALUES
 ON CONFLICT (id) DO UPDATE SET 
     altitude_feet = EXCLUDED.altitude_feet,
     surface_type = EXCLUDED.surface_type;
-
 -- NFL Venues
 INSERT INTO public.canonical_venues (id, display_name, city, state_province, capacity, is_indoor, surface_type, altitude_feet)
 VALUES 
@@ -25,7 +24,6 @@ VALUES
 ON CONFLICT (id) DO UPDATE SET 
     altitude_feet = EXCLUDED.altitude_feet,
     surface_type = EXCLUDED.surface_type;
-
 -- Alias Mapping (Ensuring resolution works for common names)
 INSERT INTO public.venue_aliases (canonical_id, alias)
 VALUES 

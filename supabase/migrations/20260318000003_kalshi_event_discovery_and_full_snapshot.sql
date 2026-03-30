@@ -1,5 +1,4 @@
 BEGIN;
-
 ALTER TABLE public.kalshi_orderbook_snapshots
   ADD COLUMN IF NOT EXISTS league text,
   ADD COLUMN IF NOT EXISTS market_type text,
@@ -11,13 +10,10 @@ ALTER TABLE public.kalshi_orderbook_snapshots
   ADD COLUMN IF NOT EXISTS last_trade_at timestamptz,
   ADD COLUMN IF NOT EXISTS yes_price numeric,
   ADD COLUMN IF NOT EXISTS no_price numeric;
-
 CREATE INDEX IF NOT EXISTS idx_kalshi_ob_type
   ON public.kalshi_orderbook_snapshots (market_type, captured_at DESC);
-
 CREATE INDEX IF NOT EXISTS idx_kalshi_ob_sport_date
   ON public.kalshi_orderbook_snapshots (sport, captured_at DESC);
-
 CREATE TABLE IF NOT EXISTS public.kalshi_events_active (
   event_ticker text PRIMARY KEY,
   sport text,
@@ -33,10 +29,8 @@ CREATE TABLE IF NOT EXISTS public.kalshi_events_active (
   last_snapshot_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_kalshi_events_date
   ON public.kalshi_events_active (game_date, status);
-
 CREATE OR REPLACE VIEW public.v_kalshi_event_flow AS
 SELECT
   k.event_ticker,
@@ -56,7 +50,6 @@ SELECT
     ORDER BY k.captured_at DESC
   ) AS rn
 FROM public.kalshi_orderbook_snapshots k;
-
 CREATE OR REPLACE VIEW public.v_kalshi_book_timeseries AS
 SELECT
   k.market_ticker,
@@ -71,7 +64,6 @@ SELECT
   k.captured_at
 FROM public.kalshi_orderbook_snapshots k
 ORDER BY k.market_ticker, k.captured_at;
-
 DO $$
 DECLARE
   v_old_job_id bigint;
@@ -144,5 +136,4 @@ BEGIN
   END IF;
 END;
 $$;
-
 COMMIT;

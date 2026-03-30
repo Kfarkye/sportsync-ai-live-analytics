@@ -7,7 +7,6 @@ BEGIN
 EXCEPTION 
     WHEN OTHERS THEN NULL;
 END $$;
-
 -- Schedule new simple job
 SELECT cron.schedule(
     'nba-bridge-simple',

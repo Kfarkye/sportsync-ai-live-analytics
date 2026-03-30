@@ -1,4 +1,3 @@
-
 -- 20260110000002_fix_pregame_cron_reliability.sql
 -- Overhauls the pregame-intel discovery cron for higher frequency and reliability.
 
@@ -12,7 +11,6 @@ BEGIN
         RAISE NOTICE 'app.settings.supabase_url is missing. Function will use Vault/Database fallbacks.';
     END IF;
 END $$;
-
 -- 2. Standardize reliable invocation function
 CREATE OR REPLACE FUNCTION invoke_pregame_intel_cron()
 RETURNS void
@@ -52,7 +50,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- 3. Increase Frequency (Every 10 minutes)
 -- This ensures gaps are filled quickly for upcoming NCAAB/NBA slates.
 SELECT cron.unschedule('pregame-intel-research-cron');
@@ -61,7 +58,6 @@ SELECT cron.schedule(
   '*/10 * * * *',
   $$SELECT invoke_pregame_intel_cron()$$
 );
-
 -- 4. EMERGENCY DATA INTEGRITY FIX (Backfill NULL Names)
 -- This fills existing NULL names in matches by pulling from the teams table.
 -- Note: home_team and away_team appear to be jsonb in the matches table based on migration errors.
@@ -72,6 +68,5 @@ FROM public.teams t_home, public.teams t_away
 WHERE m.home_team_id = t_home.id
 AND m.away_team_id = t_away.id
 AND (m.home_team IS NULL OR m.away_team IS NULL OR m.home_team::text = 'null');
-
 -- Final verification
 SELECT 'Pregame Cron Boosted & Data Patched' as status;

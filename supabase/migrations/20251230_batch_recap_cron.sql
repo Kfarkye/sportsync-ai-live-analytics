@@ -25,7 +25,6 @@ SELECT cron.schedule(
     );
     $$
 );
-
 -- Schedule 2: Daily sweep at 10:00 UTC (2 AM PT) for overnight west coast games
 SELECT cron.schedule(
     'batch-recap-generator-overnight',
@@ -42,7 +41,6 @@ SELECT cron.schedule(
     );
     $$
 );
-
 -- Schedule 3: Afternoon sweep at 22:00 UTC (2 PM PT) for east coast afternoon games
 SELECT cron.schedule(
     'batch-recap-generator-afternoon',
@@ -59,6 +57,5 @@ SELECT cron.schedule(
     );
     $$
 );
-
 -- Verify the jobs are scheduled
 SELECT jobid, jobname, schedule, active, command FROM cron.job WHERE jobname LIKE 'batch-recap%';

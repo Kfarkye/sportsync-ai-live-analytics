@@ -1,4 +1,3 @@
-
 -- PLAYER PROP STREAKS ARCHITECTURE
 -- Tracks consecutive occurrences of player performances hitting over/under thresholds.
 
@@ -23,17 +22,14 @@ CREATE TABLE IF NOT EXISTS player_prop_streaks (
     
     UNIQUE (player_id, prop_type, streak_type, threshold)
 );
-
 -- Indices for Scanning
 CREATE INDEX IF NOT EXISTS idx_prop_streaks_player ON player_prop_streaks (player_id);
 CREATE INDEX IF NOT EXISTS idx_prop_streaks_team ON player_prop_streaks (team);
 CREATE INDEX IF NOT EXISTS idx_prop_streaks_active ON player_prop_streaks (is_active) WHERE is_active = TRUE;
 CREATE INDEX IF NOT EXISTS idx_prop_streaks_count ON player_prop_streaks (streak_count DESC);
-
 -- Enable RLS
 ALTER TABLE player_prop_streaks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public Read Access" ON player_prop_streaks FOR SELECT USING (true);
-
 -- Function to Update Streaks (Logical Blueprint)
 -- This will be called by the Ingest/Sync functions after a game finalizes.
 CREATE OR REPLACE FUNCTION update_player_streak(

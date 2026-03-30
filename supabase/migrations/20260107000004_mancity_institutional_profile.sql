@@ -12,10 +12,8 @@ CREATE TABLE IF NOT EXISTS public.institutional_team_profiles (
     last_audited_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
 -- Enable RLS and Policies if they don't exist
 ALTER TABLE public.institutional_team_profiles ENABLE ROW LEVEL SECURITY;
-
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public read access' AND tablename = 'institutional_team_profiles') THEN
@@ -25,7 +23,6 @@ BEGIN
         CREATE POLICY "Allow service role full access" ON public.institutional_team_profiles USING (true) WITH CHECK (true);
     END IF;
 END $$;
-
 INSERT INTO public.institutional_team_profiles 
 (team_id, league_id, q4_pace_delta, q4_efficiency_delta, q4_defensive_delta, meta_notes)
 VALUES 

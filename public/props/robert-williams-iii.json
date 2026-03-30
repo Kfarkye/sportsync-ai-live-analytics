@@ -1,0 +1,124 @@
+{
+  "object_type": "player_prop_profile",
+  "version": "v2",
+  "slug": "robert-williams-iii",
+  "url": "https://sportsync-evidence.web.app/props/robert-williams-iii",
+  "league": "NBA",
+  "season": "2025-26",
+  "player_name": "Robert Williams III",
+  "summary": "Robert Williams III — Rebounds 65.7% Over (70 GP)",
+  "generated_at": "2026-03-29T06:34:11.920851+00:00",
+  "hero_count": 1,
+  "market_cards": [
+    {
+      "market": "rebounds",
+      "market_label": "Rebounds",
+      "direction": "over",
+      "tier": "feature",
+      "is_hero": true,
+      "rate": 65.7,
+      "record": "46-24",
+      "gp": 70
+    },
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 54.3,
+      "record": "38-32",
+      "gp": 70
+    }
+  ],
+  "markets": {
+    "rebounds": {
+      "baseline": {
+        "rate": 65.7,
+        "record": "46-24",
+        "avg": 7.8,
+        "median": 7.5,
+        "gp": 70,
+        "direction": "over",
+        "tier": "feature",
+        "is_hero": true
+      },
+      "current_line": {
+        "line": 6.5,
+        "rate": 56.3,
+        "record": "18-14",
+        "avg": 7.4,
+        "gp": 32
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "HOME",
+          "rate": 63.6,
+          "record": "14-8",
+          "gp": 22
+        },
+        {
+          "label": "MID season",
+          "rate": 57.1,
+          "record": "8-6",
+          "gp": 14
+        },
+        {
+          "label": "AWAY",
+          "rate": 40,
+          "record": "4-6",
+          "gp": 10
+        }
+      ]
+    },
+    "points": {
+      "baseline": {
+        "rate": 54.3,
+        "record": "38-32",
+        "avg": 7.3,
+        "median": 7,
+        "gp": 70,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 6.5,
+        "rate": 58.8,
+        "record": "20-14",
+        "avg": 8.2,
+        "gp": 34
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "HOME",
+          "rate": 63.6,
+          "record": "14-8",
+          "gp": 22
+        },
+        {
+          "label": "MID season",
+          "rate": 57.1,
+          "record": "8-6",
+          "gp": 14
+        },
+        {
+          "label": "AWAY",
+          "rate": 50,
+          "record": "6-6",
+          "gp": 12
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
+}

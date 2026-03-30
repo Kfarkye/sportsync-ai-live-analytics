@@ -94,6 +94,7 @@ Deno.serve(async (req: Request) => {
     const batchId = `finalize_${Date.now()}`;
     const trace: string[] = [];
     let finalized = 0;
+    let nbaFinalized = 0;
     let graded = 0;
 
     try {
@@ -157,6 +158,9 @@ Deno.serve(async (req: Request) => {
 
             trace.push(`[finalized] ${match.match_id}: ${result.awayScore}-${result.homeScore} (${result.status})`);
             finalized++;
+            if (match.league_id === "nba") {
+                nbaFinalized++;
+            }
         }
 
         // 4. Trigger grading cron if we finalized any games
@@ -191,25 +195,7 @@ Deno.serve(async (req: Request) => {
                 } else {
                     trace.push(`[ledger] Error updating edge trend ledger: ${ledgerRes.status}`);
                 }
-
-                // 4c. Refresh NBA master materialized views with settled game data
-                trace.push(`[master-views] Triggering refresh-nba-master-views...`);
-                const masterRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/refresh-nba-master-views`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if (masterRes.ok) {
-                    const masterData = await masterRes.json();
-                    trace.push(`[master-views] Refreshed: game=${masterData.mv_nba_game_master ?? '?'}, team=${masterData.mv_nba_team_game_master ?? '?'} rows (${masterData.duration_ms ?? '?'}ms)`);
-                } else {
-                    trace.push(`[master-views] Error refreshing NBA master views: ${masterRes.status}`);
-                }
-
-                // 4d. Refresh ref tendency aggregates consumed by ref-tendencies frontend
+                // 4c. Refresh ref tendency aggregates consumed by ref-tendencies frontend
                 trace.push(`[ref-tendencies] Triggering refresh-ref-tendencies...`);
                 const refRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/refresh-ref-tendencies`, {
                     method: 'POST',
@@ -225,6 +211,40 @@ Deno.serve(async (req: Request) => {
                 } else {
                     trace.push(`[ref-tendencies] Error refreshing ref tendencies: ${refRes.status}`);
                 }
+            } else {
+                trace.push(`[grading] grade-picks-cron returned HTTP ${gradeRes.status}`);
+            }
+
+            // 4d. Trigger one NBA refresh call per finalize batch.
+            // The refresh function itself gates execution to:
+            //  - NBA rows that changed to FINAL since the last run, or
+            //  - NBA rows with safe-odds updates since the last run.
+            trace.push(
+                nbaFinalized > 0
+                    ? `[master-views] Triggering refresh-nba-master-views for ${nbaFinalized} NBA finals...`
+                    : `[master-views] Triggering refresh-nba-master-views for safe-odds gate check (nba_finalized=0)...`
+            );
+            const masterRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/refresh-nba-master-views`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    trigger: 'finalize-games-cron',
+                    nba_finalized_count: nbaFinalized
+                })
+            });
+
+            if (masterRes.ok) {
+                const masterData = await masterRes.json();
+                trace.push(
+                    `[master-views] ${masterData.status ?? 'REFRESHED'}: master_game=${masterData.mv_nba_game_master ?? '?'} master_team=${masterData.mv_nba_team_game_master ?? '?'} ` +
+                    `struct_base=${masterData.mv_nba_team_venue_game_lines ?? '?'} totals=${masterData.mv_nba_team_venue_totals_trends ?? '?'} ` +
+                    `ats=${masterData.mv_nba_team_venue_ats_trends ?? '?'} flip=${masterData.mv_nba_team_venue_flip_trends ?? '?'} (${masterData.duration_ms ?? '?'}ms)`
+                );
+            } else {
+                trace.push(`[master-views] Error refreshing NBA views: HTTP ${masterRes.status}`);
             }
         }
 
@@ -240,6 +260,7 @@ Deno.serve(async (req: Request) => {
         return new Response(JSON.stringify({
             status: "COMPLETE",
             finalized,
+            nba_finalized: nbaFinalized,
             graded,
             trace
         }), { headers: CORS_HEADERS });

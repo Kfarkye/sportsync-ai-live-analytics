@@ -11,12 +11,10 @@ ADD COLUMN IF NOT EXISTS start_time TIMESTAMPTZ,
 ADD COLUMN IF NOT EXISTS home_team TEXT,
 ADD COLUMN IF NOT EXISTS away_team TEXT,
 ADD COLUMN IF NOT EXISTS display_clock TEXT;
-
 -- Add comment for documentation
 COMMENT ON COLUMN public.live_game_state.t60_snapshot IS 'Game state snapshot 60 minutes before tipoff (injuries, odds, lineups)';
 COMMENT ON COLUMN public.live_game_state.t0_snapshot IS 'Game state snapshot at tipoff (final lines, CLV baseline)';
 COMMENT ON COLUMN public.live_game_state.start_time IS 'Scheduled start time of the game';
-
 -- 2. Create index for temporal queries
 CREATE INDEX IF NOT EXISTS idx_live_game_state_start_time 
 ON public.live_game_state(start_time);

@@ -23,12 +23,10 @@ CREATE TABLE IF NOT EXISTS canonical_teams (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(odds_api_name, league_id)
 );
-
 -- Create index for fast lookups
 CREATE INDEX IF NOT EXISTS idx_canonical_teams_odds_api ON canonical_teams(odds_api_name);
 CREATE INDEX IF NOT EXISTS idx_canonical_teams_canonical ON canonical_teams(canonical_name);
 CREATE INDEX IF NOT EXISTS idx_canonical_teams_league ON canonical_teams(league_id);
-
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- SEED DATA: 154 Odds API teams mapped to ESPN canonical names
 -- ═══════════════════════════════════════════════════════════════════════════════
@@ -196,7 +194,6 @@ INSERT INTO canonical_teams (canonical_name, odds_api_name, league_id) VALUES
 
 ON CONFLICT (odds_api_name, league_id) DO UPDATE SET
     canonical_name = EXCLUDED.canonical_name;
-
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- HELPER FUNCTION: Resolve team name to canonical
 -- ═══════════════════════════════════════════════════════════════════════════════
@@ -229,6 +226,5 @@ BEGIN
     RETURN p_team_name;
 END;
 $$ LANGUAGE plpgsql STABLE;
-
 COMMENT ON TABLE canonical_teams IS 'SSOT for team name resolution between Odds API and ESPN';
 COMMENT ON FUNCTION resolve_canonical_team IS 'Resolves any team name variant to its canonical ESPN name';

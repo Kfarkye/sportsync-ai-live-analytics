@@ -4,13 +4,10 @@
 -- 1. Extend picks with run_id and model_id for auditability
 ALTER TABLE public.ai_chat_picks 
 ADD COLUMN IF NOT EXISTS run_id UUID;
-
 ALTER TABLE public.ai_chat_picks 
 ADD COLUMN IF NOT EXISTS model_id TEXT;
-
 CREATE INDEX IF NOT EXISTS idx_ai_chat_picks_run_id 
 ON public.ai_chat_picks(run_id);
-
 -- 2. Create ai_chat_runs with strict enforcement
 CREATE TABLE IF NOT EXISTS public.ai_chat_runs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -33,14 +30,11 @@ CREATE TABLE IF NOT EXISTS public.ai_chat_runs (
     -- Hard Idempotency Gate
     UNIQUE(conversation_id, run_id)
 );
-
 -- 3. Optimized Indexing for SRE & Logic
 CREATE INDEX IF NOT EXISTS idx_ai_chat_runs_lookup 
 ON public.ai_chat_runs(conversation_id, status);
-
 CREATE INDEX IF NOT EXISTS idx_ai_chat_runs_timestamp 
 ON public.ai_chat_runs(created_at DESC);
-
 -- 4. Automatic timestamp management
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER AS $$
@@ -49,7 +43,6 @@ BEGIN
     RETURN NEW;
 END;
 $$ language 'plpgsql';
-
 DROP TRIGGER IF EXISTS tr_ai_chat_runs_updated_at ON public.ai_chat_runs;
 CREATE TRIGGER tr_ai_chat_runs_updated_at
     BEFORE UPDATE ON public.ai_chat_runs

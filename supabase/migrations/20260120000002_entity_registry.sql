@@ -4,7 +4,6 @@
 
 -- 1. Ensure team_mappings has provider context
 ALTER TABLE team_mappings ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'THE_ODDS_API';
-
 -- 2. Create the Identity Gap View
 -- This exposes games in the feeds that have no mapping or canonical match
 DROP VIEW IF EXISTS v_identity_gaps;
@@ -24,7 +23,6 @@ LEFT JOIN matches m ON (
     similarity(f.home_team, m.home_team) > 0.4 
 )
 WHERE tm1.id IS NULL OR tm2.id IS NULL;
-
 -- 3. Function to Autonomously Heal Identity Gaps
 -- This is called by the Edge Function after a successful fuzzy match
 CREATE OR REPLACE FUNCTION heal_team_identity(

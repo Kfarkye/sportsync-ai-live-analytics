@@ -10,7 +10,6 @@
 -- ============================================================
 
 BEGIN;
-
 DROP VIEW IF EXISTS vw_titan_api_gateway CASCADE;
 DROP VIEW IF EXISTS vw_titan_trends CASCADE;
 DROP VIEW IF EXISTS vw_titan_heatmap CASCADE;
@@ -18,7 +17,6 @@ DROP VIEW IF EXISTS vw_titan_buckets CASCADE;
 DROP VIEW IF EXISTS vw_titan_summary CASCADE;
 DROP VIEW IF EXISTS vw_titan_leagues CASCADE;
 DROP VIEW IF EXISTS vw_titan_master CASCADE;
-
 -- ============================================================
 -- MASTER VIEW: Excludes garbage picks
 -- ============================================================
@@ -186,7 +184,6 @@ SELECT
     cover_margin
 FROM categorized_data
 WHERE category != 'UNCATEGORIZED';
-
 -- LEAGUES
 CREATE VIEW vw_titan_leagues AS
 WITH league_stats AS (
@@ -203,7 +200,6 @@ WITH league_stats AS (
 SELECT *,
     ROUND((wins::numeric / NULLIF(wins + losses, 0)) * 100, 1) as win_rate
 FROM league_stats;
-
 -- BUCKETS (only spread buckets 1-4, excludes totals and no-spread)
 CREATE VIEW vw_titan_buckets AS
 WITH bucket_stats AS (
@@ -222,7 +218,6 @@ SELECT
     *,
     ROUND((wins::numeric / NULLIF(wins + losses, 0)) * 100, 1) AS win_rate
 FROM bucket_stats;
-
 -- SUMMARY
 CREATE VIEW vw_titan_summary AS
 WITH stats AS (
@@ -252,7 +247,6 @@ SELECT
     bc.best_category,
     bc.best_category_win_rate
 FROM stats s, best_cat bc;
-
 -- HEATMAP
 CREATE VIEW vw_titan_heatmap AS
 SELECT 
@@ -265,7 +259,6 @@ SELECT
 FROM vw_titan_master
 WHERE pick_result IN ('WIN', 'LOSS')
 GROUP BY category, bucket_id;
-
 -- TRENDS
 CREATE VIEW vw_titan_trends AS
 WITH daily_stats AS (
@@ -290,7 +283,6 @@ SELECT
     ROUND((daily_wins::numeric / NULLIF(daily_wins + daily_losses, 0)) * 100, 1) as daily_win_rate
 FROM daily_stats
 ORDER BY game_date DESC;
-
 -- API GATEWAY
 CREATE VIEW vw_titan_api_gateway AS
 SELECT 
@@ -301,5 +293,4 @@ SELECT
         'heatmap', (SELECT json_agg(h) FROM vw_titan_heatmap h),
         'trends', (SELECT json_agg(t) FROM vw_titan_trends t)
     ) as payload;
-
 COMMIT;

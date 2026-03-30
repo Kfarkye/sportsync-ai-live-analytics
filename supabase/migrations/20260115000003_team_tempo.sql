@@ -41,13 +41,10 @@ CREATE TABLE IF NOT EXISTS public.team_tempo (
     
     UNIQUE(team, league_id)
 );
-
 -- Index for fast lookups
 CREATE INDEX IF NOT EXISTS idx_team_tempo_team ON team_tempo(team);
 CREATE INDEX IF NOT EXISTS idx_team_tempo_league ON team_tempo(league_id);
-
 -- Grant access
 GRANT SELECT ON public.team_tempo TO authenticated;
 GRANT SELECT ON public.team_tempo TO anon;
-
 SELECT 'team_tempo_table_created' as result;

@@ -81,6 +81,7 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
+  ScanText,
 } from "lucide-react";
 import type { Match, MatchOdds } from "@/types";
 import { ESSENCE } from "@/lib/essence";
@@ -311,7 +312,7 @@ interface GroundingSupport {
     text?: string;       // Actual text of the supported phrase
   };
   groundingChunkIndices: number[];
-  confidenceScores?: number[];  // Gemini 2.0 only, empty on 2.5+
+  confidenceScores?: number[];  // Legacy field — empty on Gemini 3+
 }
 interface GroundingMetadata {
   groundingChunks?: GroundingChunk[];
@@ -1403,7 +1404,8 @@ const edgeService = {
         // Wraps caller signal so manual abort still works.
         const fetchController = new AbortController();
         const ttfbTimeout = setTimeout(() => fetchController.abort(new Error("Connection timed out")), CHAT_TTFB_TIMEOUT_MS);
-        if (signal) signal.addEventListener("abort", () => fetchController.abort(), { once: true });
+        const abortHandler = () => fetchController.abort();
+        if (signal) signal.addEventListener("abort", abortHandler, { once: true });
 
         const res = await fetch("/api/chat", {
           method: "POST",
@@ -1449,6 +1451,7 @@ const edgeService = {
           if (streamIdleTimer) clearTimeout(streamIdleTimer);
           parser.ensureDone();
           try { reader.releaseLock(); } catch { /* already released */ }
+          if (signal) signal.removeEventListener("abort", abortHandler);
         }
 
         reportTiming("chat.total", requestStart, { attempt: String(attempt) });
@@ -1535,8 +1538,10 @@ function useAutoResizeTextArea(ref: RefObject<HTMLTextAreaElement | null>, value
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.style.height = "52px";
-    el.style.height = `${Math.min(Math.max(el.scrollHeight, 52), 120)}px`;
+    // Replaced scrollHeight measuring with efficient CSS field-sizing: content
+    if (el.style.fieldSizing !== "content") {
+      el.style.fieldSizing = "content";
+    }
   }, [value, ref]);
 }
 
@@ -1880,15 +1885,16 @@ const EdgeVerdictCard: FC<{
   trackingKey: string;
   cardIndex?: number;
   outcome?: VerdictOutcome;
-  onTrack?: (trackingKey: string, outcome: VerdictOutcome) => void;
   hasAnalysis?: boolean;
   analysisOpen?: boolean;
   onToggleAnalysis?: () => void;
 }> = memo(({
   content, confidence = "high", synopsis, matchupLine, trackingKey,
-  cardIndex = 0, outcome, onTrack,
+  cardIndex = 0,
   hasAnalysis, analysisOpen, onToggleAnalysis,
 }) => {
+  const { verdictOutcomes, onTrackVerdict } = useVerdict();
+  const outcome = verdictOutcomes[trackingKey];
   const parsedVerdict = useMemo(() => parseEdgeVerdict(content), [content]);
   const confidenceValue = useMemo(() => resolveConfidenceValue(confidence, content), [confidence, content]);
   const [entered, setEntered] = useState(false);
@@ -1938,7 +1944,7 @@ const EdgeVerdictCard: FC<{
     const next = outcome === selection ? null : selection;
     triggerHaptic();
     trackAction(`verdict.${selection}`, { trackingKey, selected: next === selection, cardIndex });
-    onTrack?.(trackingKey, next);
+    onTrackVerdict(trackingKey, next as VerdictOutcome);
 
     // Phase 2: Actionability — Wire deep linking router for Tail selection
     if (next === "tail") {
@@ -2426,7 +2432,7 @@ const SmartChips: FC<{
       switch (phase) {
         case "live": return ["Live Games", "In-Play Edge", "Line Moves", "Injury News"];
         case "postgame": return ["Tomorrow Slate", "Futures", "My Record", "Sharp Money"];
-        default: return ["Edge Today", "Line Moves", "Public Splits", "Injury News"];
+        default: return ["Edge Today", "Injury News", "Line Moves", "Sharp Money"];
       }
     }, [hasMatch, phase, messageCount]);
 
@@ -2493,11 +2499,9 @@ ConnectionBadge.displayName = "ConnectionBadge";
 
 const MessageBubble: FC<{
   message: Message;
-  onTrackVerdict?: (trackingKey: string, outcome: VerdictOutcome) => void;
-  verdictOutcomes?: Record<string, VerdictOutcome>;
   showCitations?: boolean;
 }> = memo(
-  ({ message, onTrackVerdict, verdictOutcomes, showCitations = true }) => {
+  ({ message, showCitations = true }) => {
     const isUser = message.role === "user";
     const responseClass: ResponseClass = message.responseClass || "state";
     const isEdgeClass = !isUser && responseClass === "edge";
@@ -2669,9 +2673,11 @@ const MessageBubble: FC<{
       ),
     }), [isFactClass, isStateClass, isUser]);
 
+    const verdictRenderCount = useRef(0);
+    verdictRenderCount.current = 0;
+
     const components: Components = useMemo(
       () => {
-        let verdictCardIndex = 0;
 
         return {
           h1: ({ children }) => renderSectionHeading(children),
@@ -2686,9 +2692,8 @@ const MessageBubble: FC<{
             if (isEdgeClass && hasEdgeVerdict && REGEX_VERDICT_MATCH.test(text)) {
               const verdictPayload = extractVerdictPayload(text);
               const confidence = extractConfidence(verdictPayload);
-              const trackingKey = `${message.id}:v${verdictCardIndex}`;
-              const cardIdx = verdictCardIndex;
-              verdictCardIndex++;
+              const cardIdx = verdictRenderCount.current++;
+              const trackingKey = `${message.id}:v${cardIdx}`;
               const analysisBlock = analysisBlocks[cardIdx];
               const isOpen = Boolean(analysisOpenByKey[trackingKey]);
               return (
@@ -2700,8 +2705,6 @@ const MessageBubble: FC<{
                     matchupLine={matchups[cardIdx]}
                     trackingKey={trackingKey}
                     cardIndex={cardIdx}
-                    outcome={verdictOutcomes?.[trackingKey] ?? message.verdictOutcome}
-                    onTrack={onTrackVerdict}
                     hasAnalysis={!!analysisBlock}
                     analysisOpen={isOpen}
                     onToggleAnalysis={() => toggleAnalysis(trackingKey)}
@@ -2845,7 +2848,7 @@ const MessageBubble: FC<{
           ),
         };
       },
-      [analysisBlocks, analysisComponents, analysisOpenByKey, hasEdgeVerdict, isEdgeClass, isFactClass, isStateClass, isUser, matchups, message.id, message.verdictOutcome, onTrackVerdict, synopses, toggleAnalysis, verdictOutcomes],
+      [analysisBlocks, analysisComponents, analysisOpenByKey, hasEdgeVerdict, isEdgeClass, isFactClass, isStateClass, isUser, matchups, message.id, message.verdictOutcome, synopses, toggleAnalysis],
     );
 
     return (
@@ -2951,6 +2954,8 @@ const InputDeck: FC<{
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const isOcr = e.target.dataset.intent === "ocr";
+    e.target.dataset.intent = "";
     const file = e.target.files?.[0];
     if (!file) { e.target.value = ""; return; }
 
@@ -2967,7 +2972,7 @@ const InputDeck: FC<{
       if (typeof r !== "string") return;
       onAttach([
         ...attachments,
-        { file, base64: r.split(",")[1] || "", mimeType: file.type || "application/octet-stream" },
+        { file, base64: r.split(",")[1] || "", mimeType: file.type || "application/octet-stream", isOcrIntent: isOcr },
       ]);
     };
     reader.onerror = () => { showToast("Failed to read file"); };
@@ -3064,6 +3069,23 @@ const InputDeck: FC<{
           disabled={isOffline || isProcessing}
         >
           <Plus size={20} strokeWidth={1.5} />
+        </button>
+        <button
+          onClick={() => {
+            if (fileInputRef.current) {
+              fileInputRef.current.dataset.intent = "ocr";
+              fileInputRef.current.click();
+            }
+          }}
+          className={cn(
+            "p-3.5 rounded-[18px] text-slate-500 hover:text-slate-900 transition-colors disabled:opacity-30 disabled:pointer-events-none",
+            CHAT_SURFACES.chip,
+            "hover:bg-slate-100",
+          )}
+          aria-label="Scan Bet Slip"
+          disabled={isOffline || isProcessing}
+        >
+          <ScanText size={20} strokeWidth={1.5} />
         </button>
         <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept="image/*,application/pdf" aria-hidden="true" />
 
@@ -3431,7 +3453,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
     if (connectionStatus === "offline") return;
 
     // ── Sweat My Slip: Intercept image attachments for OCR extraction ──
-    const imageAttachment = attachments.find(att => att.mimeType?.startsWith('image/'));
+    const imageAttachment = attachments.find(att => att.mimeType?.startsWith('image/') && att.isOcrIntent);
     if (imageAttachment && !queryOverride) {
       const slipText = text || "Can you track this slip for me?";
       sendingRef.current = true;
@@ -3684,6 +3706,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   const messages = msgState.ordered;
 
   return (
+    <VerdictContext.Provider value={{ verdictOutcomes, onTrackVerdict: handleTrackVerdict }}>
     <ToastProvider>
       <LayoutGroup>
         <motion.div
@@ -3756,14 +3779,14 @@ const InnerChatWidget: FC<ChatWidgetProps & {
                   </div>
                   <p className="text-[11px] text-slate-400 tracking-wide max-w-[240px] leading-relaxed">
                     {deriveGamePhase(normalizedContext) === "live"
-                      ? "Games are live. Ask for splits, momentum, or live props."
+                      ? "Games are live. Ask about scores, edges, props, or momentum."
                       : deriveGamePhase(normalizedContext) === "postgame"
-                        ? "Markets closed. Review your record or scout tomorrow."
-                        : "Pre-game window. Ask for injuries, line moves, or sharp action."}
+                        ? "Markets closed. Review results, scout tomorrow, or check trends."
+                        : "Ask about any game, team trend, injury, line move, or betting edge."}
                   </p>
                 </motion.div>
               ) : (
-                messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} verdictOutcomes={verdictOutcomes} showCitations={showCitations} />)
+                messages.map((msg) => <MessageBubble key={msg.id} message={msg} showCitations={showCitations} />)
               )}
 
               {/* 🔄 Sweat My Slip: OCR Loading State */}
@@ -3851,6 +3874,7 @@ const InnerChatWidget: FC<ChatWidgetProps & {
         </motion.div>
       </LayoutGroup>
     </ToastProvider>
+    </VerdictContext.Provider>
   );
 };
 

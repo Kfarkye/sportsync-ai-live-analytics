@@ -1,6 +1,5 @@
 -- 1. Enable pg_trgm for fuzzy matching support
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
 -- 2. League Configuration Table
 -- Decouples hardcoded switch/case mapping from Edge Functions
 CREATE TABLE IF NOT EXISTS league_config (
@@ -12,7 +11,6 @@ CREATE TABLE IF NOT EXISTS league_config (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 3. High-Precision Team Mapping Table
 -- Stores learned aliases (e.g., 'Kairat' -> 'Kairat Almaty')
 CREATE TABLE IF NOT EXISTS team_mappings (
@@ -25,7 +23,6 @@ CREATE TABLE IF NOT EXISTS team_mappings (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(raw_external_name, league_id, provider)
 );
-
 -- 4. Audit View: Discover Identity Gaps
 -- Finds unmatched teams that are appearing in odds feeds but missing from DB
 CREATE OR REPLACE VIEW v_identity_gaps AS
@@ -37,7 +34,6 @@ SELECT
 FROM market_feeds mf
 LEFT JOIN team_mappings tm ON (mf.home_team = tm.raw_external_name OR mf.away_team = tm.raw_external_name)
 WHERE tm.id IS NULL;
-
 -- 5. Gatekeeping View: Ready for Intelligence
 -- STRICT FILTER: Prevents AI from making picks on matches with invalid/null odds
 CREATE OR REPLACE VIEW v_ready_for_intel AS
@@ -52,11 +48,9 @@ WHERE m.status IN ('STATUS_SCHEDULED', 'SCHEDULED')
   AND m.current_odds IS NOT NULL
   AND (m.current_odds->>'homeSpread') IS NOT NULL
   AND (m.current_odds->>'total') IS NOT NULL;
-
 -- 6. Helper: Similarity Matching
 -- Use this in Edge Functions to find the best DB match for a generic string
 DROP FUNCTION IF EXISTS find_canonical_team(text, text, double precision);
-
 CREATE OR REPLACE FUNCTION find_canonical_team(
     search_name TEXT, 
     search_league_id TEXT, 

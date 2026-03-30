@@ -1,4 +1,3 @@
-
 -- RECOVERY MIGRATION: Ensure 'sport' column exists on intelligence tables
 -- Run this if you are getting "column 'sport' does not exist" errors.
 
@@ -28,7 +27,6 @@ BEGIN
     END IF;
 
 END $$;
-
 -- Re-apply indices just in case they failed previously
 CREATE INDEX IF NOT EXISTS idx_team_trends_sport ON team_trends (sport);
 CREATE INDEX IF NOT EXISTS idx_match_insights_sport ON match_insights (sport);

@@ -1,0 +1,68 @@
+{
+  "object_type": "player_prop_profile",
+  "version": "v2",
+  "slug": "rayan-rupert",
+  "url": "https://sportsync-evidence.web.app/props/rayan-rupert",
+  "league": "NBA",
+  "season": "2025-26",
+  "player_name": "Rayan Rupert",
+  "summary": "Rayan Rupert — No strong signal — Top market by sample: Rebounds 40.0% (10 GP)",
+  "generated_at": "2026-03-29T06:34:11.920851+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "rebounds",
+      "market_label": "Rebounds",
+      "direction": "none",
+      "tier": "display",
+      "is_hero": false,
+      "rate": 40,
+      "record": "4-6",
+      "gp": 10
+    }
+  ],
+  "markets": {
+    "rebounds": {
+      "baseline": {
+        "rate": 40,
+        "record": "4-6",
+        "avg": 2.2,
+        "median": 2,
+        "gp": 10,
+        "direction": "none",
+        "tier": "display",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 2.5,
+        "rate": 40,
+        "record": "4-6",
+        "avg": 2.2,
+        "gp": 10
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "MID season",
+          "rate": 40,
+          "record": "4-6",
+          "gp": 10
+        },
+        {
+          "label": "AWAY",
+          "rate": 33.3,
+          "record": "2-4",
+          "gp": 6
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
+}

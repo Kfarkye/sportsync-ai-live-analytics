@@ -2,7 +2,6 @@
 -- Align view to America/Los_Angeles (PST/PDT) to match worker
 
 DROP VIEW IF EXISTS pick_today_detail;
-
 CREATE OR REPLACE VIEW pick_today_detail AS
 WITH daily_picks AS (
     SELECT 
@@ -35,5 +34,4 @@ ORDER BY
         WHEN 'LOSS' THEN 4
         ELSE 5 
     END ASC;
-
 GRANT SELECT ON pick_today_detail TO anon, authenticated;

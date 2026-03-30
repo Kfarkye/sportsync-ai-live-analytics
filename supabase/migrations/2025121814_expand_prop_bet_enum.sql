@@ -1,4 +1,3 @@
-
 -- Update prop_bet_type enum to include missing markets from The Odds API
 -- We use a DO block to safely add values without failing if they already exist
 

@@ -1,0 +1,93 @@
+-- Ensure mlb_postgame can accept the full V4 drain payload.
+-- This migration is intentionally idempotent to handle environments where
+-- mlb_postgame was created outside migration history.
+
+CREATE TABLE IF NOT EXISTS public.mlb_postgame (
+  id text PRIMARY KEY
+);
+
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS espn_event_id text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS canonical_game_id text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_team text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_team text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_score int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_score int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS match_status text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS start_time timestamptz;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS venue text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS attendance int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS venue_city text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS venue_state text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS venue_indoor boolean;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS weather_temp int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS weather_condition text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS weather_gust int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS weather_precipitation int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_starter_name text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_starter_name text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_starter_id text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_starter_id text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS total_innings int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS is_extra_innings boolean;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS season_type text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_hits int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_hits int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_at_bats int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_at_bats int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_batting_avg numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_batting_avg numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_runs_batted_in int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_runs_batted_in int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_home_runs int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_home_runs int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_strikeouts_batting int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_strikeouts_batting int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_walks_batting int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_walks_batting int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_obp numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_obp numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_slg numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_slg numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_ops numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_ops numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_lob int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_lob int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_stolen_bases int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_stolen_bases int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_era numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_era numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_innings_pitched text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_innings_pitched text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_hits_allowed int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_hits_allowed int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_earned_runs int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_earned_runs int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_walks_pitching int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_walks_pitching int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_strikeouts_pitching int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_strikeouts_pitching int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_whip numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_whip numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_pitches_thrown int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_pitches_thrown int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_hr_allowed int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_hr_allowed int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_batting_stats jsonb;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_batting_stats jsonb;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_pitching_stats jsonb;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_pitching_stats jsonb;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS home_fielding_stats jsonb;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS away_fielding_stats jsonb;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS dk_home_ml int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS dk_away_ml int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS dk_spread numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS dk_total numeric;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS dk_over_price int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS dk_under_price int;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS drain_version text;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS last_drained_at timestamptz;
+ALTER TABLE public.mlb_postgame ADD COLUMN IF NOT EXISTS win_probability jsonb;
+
+CREATE INDEX IF NOT EXISTS idx_mlb_postgame_start_time ON public.mlb_postgame (start_time DESC);
+CREATE INDEX IF NOT EXISTS idx_mlb_postgame_espn_event_id ON public.mlb_postgame (espn_event_id);
+CREATE INDEX IF NOT EXISTS idx_mlb_postgame_canonical_game_id ON public.mlb_postgame (canonical_game_id);

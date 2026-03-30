@@ -43,10 +43,8 @@ CREATE TABLE IF NOT EXISTS nba_game_state_history (
     -- Source
     source TEXT DEFAULT 'espn'
 );
-
 CREATE INDEX IF NOT EXISTS idx_game_state_game_ts ON nba_game_state_history(game_id, ts DESC);
 CREATE INDEX IF NOT EXISTS idx_game_state_elapsed ON nba_game_state_history(game_id, elapsed_min);
-
 -- =============================================
 -- 2. MODEL PREDICTION HISTORY (Every run)
 -- =============================================
@@ -84,10 +82,8 @@ CREATE TABLE IF NOT EXISTS nba_model_predictions (
     is_window_signal BOOLEAN DEFAULT FALSE,
     window_name TEXT
 );
-
 CREATE INDEX IF NOT EXISTS idx_model_pred_game_ts ON nba_model_predictions(game_id, ts DESC);
 CREATE INDEX IF NOT EXISTS idx_model_pred_edge ON nba_model_predictions(edge_z);
-
 -- =============================================
 -- 3. MARKET LINE HISTORY (Every update)
 -- =============================================
@@ -115,10 +111,8 @@ CREATE TABLE IF NOT EXISTS nba_market_history (
     total_delta_since_open NUMERIC,
     spread_delta_since_open NUMERIC
 );
-
 CREATE INDEX IF NOT EXISTS idx_market_history_game_ts ON nba_market_history(game_id, ts DESC);
 CREATE INDEX IF NOT EXISTS idx_market_history_source ON nba_market_history(source);
-
 -- =============================================
 -- 4. SIGNAL PERFORMANCE (Enriched grading)
 -- =============================================
@@ -152,10 +146,8 @@ CREATE TABLE IF NOT EXISTS nba_signal_performance (
     
     graded_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE INDEX IF NOT EXISTS idx_signal_perf_window ON nba_signal_performance(window_name);
 CREATE INDEX IF NOT EXISTS idx_signal_perf_result ON nba_signal_performance(result);
-
 -- =============================================
 -- 5. MOMENTUM EVENTS (Key game moments)
 -- =============================================
@@ -181,10 +173,8 @@ CREATE TABLE IF NOT EXISTS nba_momentum_events (
     
     details JSONB DEFAULT '{}'
 );
-
 CREATE INDEX IF NOT EXISTS idx_momentum_game_ts ON nba_momentum_events(game_id, ts);
 CREATE INDEX IF NOT EXISTS idx_momentum_type ON nba_momentum_events(event_type);
-
 -- =============================================
 -- 6. PLAYER PERFORMANCE TRACKING
 -- =============================================
@@ -224,10 +214,8 @@ CREATE TABLE IF NOT EXISTS nba_player_game_stats (
     
     UNIQUE (game_id, player_id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_player_stats_game ON nba_player_game_stats(game_id);
 CREATE INDEX IF NOT EXISTS idx_player_stats_player ON nba_player_game_stats(player_id);
-
 -- =============================================
 -- 7. BETTING SIMULATION LOG (Paper trading)
 -- =============================================
@@ -251,9 +239,7 @@ CREATE TABLE IF NOT EXISTS nba_bet_simulation (
     
     graded_at TIMESTAMPTZ
 );
-
 CREATE INDEX IF NOT EXISTS idx_bet_sim_result ON nba_bet_simulation(result);
-
 -- =============================================
 -- 8. SYSTEM HEALTH METRICS
 -- =============================================
@@ -276,10 +262,8 @@ CREATE TABLE IF NOT EXISTS nba_system_metrics (
     success_rate NUMERIC,
     avg_latency_ms NUMERIC
 );
-
 CREATE INDEX IF NOT EXISTS idx_system_metrics_ts ON nba_system_metrics(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_system_metrics_fn ON nba_system_metrics(function_name);
-
 -- =============================================
 -- RLS POLICIES (READ for anon, WRITE for service)
 -- =============================================
@@ -307,7 +291,6 @@ BEGIN
     END LOOP;
 END;
 $$;
-
 -- =============================================
 -- SUMMARY VIEWS FOR ANALYTICS
 -- =============================================
@@ -326,7 +309,6 @@ SELECT
 FROM nba_signal_performance
 GROUP BY DATE(signal_ts), window_name, signal_side
 ORDER BY date DESC, window_name;
-
 -- Model accuracy by time of game
 CREATE OR REPLACE VIEW nba_model_accuracy_by_period AS
 SELECT 
@@ -342,7 +324,6 @@ SELECT
 FROM nba_model_predictions
 GROUP BY period
 ORDER BY period;
-
 -- =============================================
 -- VERIFICATION
 -- =============================================

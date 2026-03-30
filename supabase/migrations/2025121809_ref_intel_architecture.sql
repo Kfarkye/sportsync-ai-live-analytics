@@ -1,4 +1,3 @@
-
 -- Referee / Official Intelligence Table
 CREATE TABLE IF NOT EXISTS ref_intel (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -19,10 +18,8 @@ CREATE TABLE IF NOT EXISTS ref_intel (
     fetched_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
 -- Ensure sport column exists if table was already created
 ALTER TABLE ref_intel ADD COLUMN IF NOT EXISTS sport TEXT NOT NULL DEFAULT 'NFL';
-
 -- Indices for rapid lookup during pre-game render
 CREATE INDEX IF NOT EXISTS idx_ref_intel_match_id ON ref_intel (match_id);
 CREATE INDEX IF NOT EXISTS idx_ref_intel_sport ON ref_intel (sport);

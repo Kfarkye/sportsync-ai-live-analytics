@@ -20,7 +20,7 @@ BEGIN
     WHERE name = 'supabase_service_role_key' LIMIT 1;
   EXCEPTION WHEN OTHERS THEN v_key := NULL; END;
 
-  IF v_key IS NULL THEN v_key := 'anon_key_'; END IF;
+  IF v_key IS NULL THEN v_key := 'anon_key_placeholder'; END IF;
 
   IF v_url IS NOT NULL THEN
     PERFORM net.http_post(
@@ -34,7 +34,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- 2. Harden match-discovery trigger
 CREATE OR REPLACE FUNCTION invoke_match_discovery()
 RETURNS void
@@ -54,7 +53,7 @@ BEGIN
     WHERE name = 'supabase_service_role_key' LIMIT 1;
   EXCEPTION WHEN OTHERS THEN v_key := NULL; END;
 
-  IF v_key IS NULL THEN v_key := 'anon_key_'; END IF;
+  IF v_key IS NULL THEN v_key := 'anon_key_placeholder'; END IF;
 
   IF v_url IS NOT NULL THEN
     PERFORM net.http_post(
@@ -69,7 +68,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- 3. Ensure jobs are correctly scheduled and active
 SELECT cron.unschedule('live-odds-tracker-every-2-min');
 SELECT cron.schedule(
@@ -77,13 +75,11 @@ SELECT cron.schedule(
   '*/2 * * * *',
   $$SELECT invoke_live_odds_tracker()$$
 );
-
 SELECT cron.unschedule('match-discovery-6h');
 SELECT cron.schedule(
   'match-discovery-6h',
   '0 */6 * * *',
   $$SELECT invoke_match_discovery()$$
 );
-
 -- 4. Verification
 SELECT 'Cron triggers hardened and resubmitted' as status;

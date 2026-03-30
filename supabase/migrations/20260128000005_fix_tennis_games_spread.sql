@@ -4,7 +4,6 @@
 -- ============================================================
 
 BEGIN;
-
 -- 1. DROP EXISTING VIEWS
 DROP VIEW IF EXISTS vw_titan_api_gateway CASCADE;
 DROP VIEW IF EXISTS vw_titan_trends CASCADE;
@@ -13,7 +12,6 @@ DROP VIEW IF EXISTS vw_titan_buckets CASCADE;
 DROP VIEW IF EXISTS vw_titan_summary CASCADE;
 DROP VIEW IF EXISTS vw_titan_leagues CASCADE;
 DROP VIEW IF EXISTS vw_titan_master CASCADE;
-
 -- ============================================================
 -- 2. MASTER VIEW (The Core Fix)
 -- ============================================================
@@ -141,7 +139,6 @@ SELECT
     END AS cover_margin
 
 FROM cleaned_data;
-
 -- ============================================================
 -- 3. REBUILD DOWNSTREAM VIEWS (Standard Logic)
 -- ============================================================
@@ -162,7 +159,6 @@ WITH league_stats AS (
 SELECT *,
     ROUND((wins::numeric / NULLIF(wins + losses, 0)) * 100, 1) as win_rate
 FROM league_stats;
-
 -- BUCKETS
 CREATE VIEW vw_titan_buckets AS
 WITH bucket_stats AS (
@@ -178,7 +174,6 @@ WITH bucket_stats AS (
 SELECT *,
     ROUND((wins::numeric / NULLIF(wins + losses, 0)) * 100, 1) as win_rate
 FROM bucket_stats;
-
 -- HEATMAP
 CREATE VIEW vw_titan_heatmap AS
 WITH category_stats AS (
@@ -204,7 +199,6 @@ SELECT
         ELSE 'bg-red-500' -- Negative EV
     END as color_class
 FROM category_stats;
-
 -- TRENDS
 CREATE VIEW vw_titan_trends AS
 WITH rolling_stats AS (
@@ -222,7 +216,6 @@ SELECT
     daily_net,
     SUM(daily_net) OVER (ORDER BY game_date) as cumulative_net
 FROM rolling_stats;
-
 -- EXECUTIVE SUMMARY
 CREATE VIEW vw_titan_summary AS
 SELECT 
@@ -234,7 +227,6 @@ SELECT
     (SELECT category FROM vw_titan_heatmap ORDER BY win_rate DESC LIMIT 1) as best_category
 FROM vw_titan_master
 WHERE pick_result IN ('WIN', 'LOSS', 'PUSH');
-
 -- API GATEWAY
 CREATE VIEW vw_titan_api_gateway AS
 SELECT 
@@ -245,5 +237,4 @@ SELECT
         'heatmap', (SELECT json_agg(h) FROM vw_titan_heatmap h),
         'trends', (SELECT json_agg(t) FROM vw_titan_trends t)
     ) as payload;
-
 COMMIT;

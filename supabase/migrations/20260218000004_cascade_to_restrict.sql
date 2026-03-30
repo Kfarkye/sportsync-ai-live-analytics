@@ -24,7 +24,6 @@ ALTER TABLE public.nba_ticks
   ADD CONSTRAINT nba_ticks_game_id_fkey
   FOREIGN KEY (game_id) REFERENCES public.nba_games(game_id)
   ON DELETE RESTRICT;
-
 -- ───────────────────────────────────────────────────────────────────────────
 -- 2. nba_snapshots.game_id → nba_games (model output history)
 -- ───────────────────────────────────────────────────────────────────────────
@@ -34,7 +33,6 @@ ALTER TABLE public.nba_snapshots
   ADD CONSTRAINT nba_snapshots_game_id_fkey
   FOREIGN KEY (game_id) REFERENCES public.nba_games(game_id)
   ON DELETE RESTRICT;
-
 -- ───────────────────────────────────────────────────────────────────────────
 -- 3. nba_decisions.game_id → nba_games (decision audit trail)
 -- ───────────────────────────────────────────────────────────────────────────
@@ -44,7 +42,6 @@ ALTER TABLE public.nba_decisions
   ADD CONSTRAINT nba_decisions_game_id_fkey
   FOREIGN KEY (game_id) REFERENCES public.nba_games(game_id)
   ON DELETE RESTRICT;
-
 -- ───────────────────────────────────────────────────────────────────────────
 -- 4. live_forecast_snapshots.match_id → matches (historical forecasts)
 -- ───────────────────────────────────────────────────────────────────────────
@@ -54,7 +51,6 @@ ALTER TABLE public.live_forecast_snapshots
   ADD CONSTRAINT live_forecast_snapshots_match_id_fkey
   FOREIGN KEY (match_id) REFERENCES public.matches(id)
   ON DELETE RESTRICT;
-
 -- ───────────────────────────────────────────────────────────────────────────
 -- 5. match_external_ids.match_id → matches (ID mapping audit trail)
 -- ───────────────────────────────────────────────────────────────────────────
@@ -64,7 +60,6 @@ ALTER TABLE public.match_external_ids
   ADD CONSTRAINT match_external_ids_match_id_fkey
   FOREIGN KEY (match_id) REFERENCES public.matches(id)
   ON DELETE RESTRICT;
-
 -- ───────────────────────────────────────────────────────────────────────────
 -- 6. pregame_intel_cards.intel_id → pregame_intel (analytics cards)
 -- ───────────────────────────────────────────────────────────────────────────
@@ -74,7 +69,6 @@ ALTER TABLE public.pregame_intel_cards
   ADD CONSTRAINT pregame_intel_cards_intel_id_fkey
   FOREIGN KEY (intel_id) REFERENCES public.pregame_intel(intel_id)
   ON DELETE RESTRICT;
-
 -- ───────────────────────────────────────────────────────────────────────────
 -- 7. ai_chat_runs.conversation_id → conversations (idempotency ledger)
 -- ───────────────────────────────────────────────────────────────────────────

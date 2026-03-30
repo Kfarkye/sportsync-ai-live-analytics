@@ -68,7 +68,53 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="/index.css" data-app-style="1">
+  <script>
+    (() => {
+      const RECOVERY_KEY = 'sportsync-css-recovery';
+      const appStyle = document.querySelector('link[data-app-style="1"]');
+      if (!appStyle) return;
+
+      const recoverFromCssMiss = () => {
+        try {
+          if (sessionStorage.getItem(RECOVERY_KEY) === '1') return;
+          sessionStorage.setItem(RECOVERY_KEY, '1');
+        } catch {
+          // Storage is optional.
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.set('disable-sw', '1');
+        url.searchParams.set('css-recover', String(Date.now()));
+        window.location.replace(url.toString());
+      };
+
+      appStyle.addEventListener('error', recoverFromCssMiss, { once: true });
+
+      window.addEventListener('load', () => {
+        const href = appStyle.getAttribute('href') || '';
+        const expectsHashedAsset = href.includes('/assets/index-');
+        const hasLoadedHashedStyles = Array.from(document.styleSheets).some((sheet) => {
+          try {
+            return Boolean(sheet.href && sheet.href.includes('/assets/index-'));
+          } catch {
+            return false;
+          }
+        });
+
+        if (expectsHashedAsset && !hasLoadedHashedStyles) {
+          recoverFromCssMiss();
+          return;
+        }
+
+        try {
+          sessionStorage.removeItem(RECOVERY_KEY);
+        } catch {
+          // Storage is optional.
+        }
+      }, { once: true });
+    })();
+  </script>
 </head>
 
 <body>

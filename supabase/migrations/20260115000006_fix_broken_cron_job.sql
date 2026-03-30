@@ -12,7 +12,6 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'Could not unschedule pregame-intel-dispatcher: %', SQLERRM;
 END $$;
-
 -- Also clean up any jobs referencing the non-existent app.settings pattern
 DO $$
 BEGIN
@@ -22,6 +21,5 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'Could not unschedule app.settings jobs: %', SQLERRM;
 END $$;
-
 -- Verify remaining jobs
 SELECT jobid, jobname, schedule, command FROM cron.job ORDER BY jobid;

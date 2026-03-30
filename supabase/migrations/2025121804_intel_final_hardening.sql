@@ -1,4 +1,3 @@
-
 -- ============================================================================
 -- INTEL EXPERT LAYER - FINAL HARDENING
 -- Implements Player ID normalization, Math constraints, TTL enforcement, 
@@ -16,7 +15,6 @@ BEGIN
     END IF;
     -- player_id already exists in player_prop_bets (from infrastructure_expanded)
 END $$;
-
 -- 2. MARKET MATH CONSTRAINTS (Prevent Corruption)
 DO $$ 
 BEGIN
@@ -46,7 +44,6 @@ BEGIN
         -- ALTER TABLE match_insights ADD CONSTRAINT chk_insight_confidence CHECK (confidence_score BETWEEN 0 AND 1);
     END IF;
 END $$;
-
 -- 3. TTL ENFORCEMENT & PERFORMANCE
 -- CREATE INDEX IF NOT EXISTS idx_match_insights_expiry ON match_insights(valid_to);
 -- CREATE INDEX IF NOT EXISTS idx_player_props_expiry ON player_prop_bets(valid_to);
@@ -66,7 +63,6 @@ WHERE
     status != 'ACTIVE' 
     AND (valid_to IS NULL OR valid_to > NOW())
 GROUP BY team_id, sport;
-
 -- 5. SIGNAL COMPOSITION ENGINE (The "Expert" Logic)
 -- Standardizes how narrative weighting, confidence, and freshness combine into a final edge.
 CREATE OR REPLACE FUNCTION calculate_intel_signal(
@@ -95,7 +91,6 @@ BEGIN
     );
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
-
 -- 6. SOURCE PROVENANCE (Audit Layer)
 DO $$ 
 BEGIN

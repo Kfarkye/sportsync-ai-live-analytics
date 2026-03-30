@@ -22,11 +22,11 @@ BEGIN
     FROM vault.decrypted_secrets 
     WHERE name = 'supabase_service_role_key' LIMIT 1;
   EXCEPTION WHEN OTHERS THEN v_key := NULL; END;
-  IF v_key IS NULL THEN v_key := 'anon_key_'; END IF;
+  IF v_key IS NULL THEN v_key := 'anon_key_placeholder'; END IF;
 
-  -- Trigger Function (Specific NBA Payload) - TURBO MODE (6x per minute)
-  FOR i IN 0..5 LOOP
-      IF i > 0 THEN PERFORM pg_sleep(10); END IF;
+  -- Trigger Function (Specific NBA Payload) - TURBO MODE (3x per minute)
+  FOR i IN 0..2 LOOP
+      IF i > 0 THEN PERFORM pg_sleep(20); END IF;
 
       PERFORM net.http_post(
         url := v_url || '/functions/v1/ingest-odds',
@@ -40,7 +40,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
 -- 2. Harden Staggered Odds (General)
 CREATE OR REPLACE FUNCTION invoke_ingest_odds_staggered()
 RETURNS void
@@ -76,6 +75,5 @@ BEGIN
   );
 END;
 $$;
-
 -- 3. Verification
 SELECT 'Automation Hardened: NBA and Staggered crons now use hardcoded secrets.' as status;

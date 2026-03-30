@@ -22,7 +22,6 @@ BEGIN
   );
 END;
 $$;
-
 -- Also fix invoke_live_odds_tracker to use correct secret
 CREATE OR REPLACE FUNCTION invoke_live_odds_tracker()
 RETURNS void
@@ -45,5 +44,4 @@ BEGIN
   );
 END;
 $$;
-
 SELECT 'Original cron trigger functions fixed with correct CRON_SECRET' as status;

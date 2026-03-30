@@ -2,7 +2,6 @@
 
 ALTER TABLE league_config
 ADD COLUMN IF NOT EXISTS sport text;
-
 UPDATE league_config
 SET sport = CASE
   WHEN id IN ('nba', 'mens-college-basketball') THEN 'basketball'
@@ -15,7 +14,6 @@ SET sport = CASE
   ELSE 'soccer'
 END
 WHERE sport IS NULL;
-
 UPDATE league_config
 SET espn_league_id = CASE id
   WHEN 'nba' THEN 'nba'
@@ -44,12 +42,10 @@ SET espn_league_id = CASE id
   ELSE espn_league_id
 END
 WHERE espn_league_id IS NULL;
-
 INSERT INTO league_config (id, odds_api_key, espn_league_id, display_name, is_active, odds_provider, sport)
 VALUES ('uefa.europa', 'soccer_uefa_europa_league', 'uefa.europa', 'UEFA Europa League', true, 'THE_ODDS_API', 'soccer')
 ON CONFLICT (id) DO UPDATE
 SET espn_league_id = 'uefa.europa', sport = 'soccer', is_active = true;
-
 INSERT INTO league_config (id, odds_api_key, espn_league_id, display_name, is_active, odds_provider, sport)
 VALUES ('mex.1', 'soccer_mexico_ligamx', 'mex.1', 'Liga MX', true, 'THE_ODDS_API', 'soccer')
 ON CONFLICT (id) DO UPDATE

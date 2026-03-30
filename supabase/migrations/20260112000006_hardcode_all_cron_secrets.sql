@@ -28,7 +28,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
 -- 2. invoke_ingest_nfl_live (NFL Turbo)
 CREATE OR REPLACE FUNCTION invoke_ingest_nfl_live()
 RETURNS void
@@ -50,7 +49,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
 -- 3. invoke_ingest_odds_staggered (General High-Frequency)
 CREATE OR REPLACE FUNCTION invoke_ingest_odds_staggered()
 RETURNS void
@@ -69,5 +67,4 @@ BEGIN
   );
 END;
 $$;
-
 SELECT 'All invoke functions hardcoded with correct CRON_SECRET' as status;

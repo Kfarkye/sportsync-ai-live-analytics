@@ -5,7 +5,6 @@
 -- 1. Ensure columns exist in live_game_state
 ALTER TABLE public.live_game_state 
 ADD COLUMN IF NOT EXISTS opening_odds JSONB;
-
 -- 2. Harden the cron trigger function (same logic as ingest-odds)
 CREATE OR REPLACE FUNCTION invoke_ingest_live_games()
 RETURNS void

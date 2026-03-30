@@ -13,7 +13,6 @@ SELECT cron.schedule(
   )
   $$
 );
-
 -- 2. Ingest Odds (links ESPN to Odds API): 4x daily
 SELECT cron.schedule(
   'ingest-odds-cron',
@@ -26,7 +25,6 @@ SELECT cron.schedule(
   )
   $$
 );
-
 -- 3. Finalize Games (grading cleanup): 2x daily (2 AM & 6 AM PT = 10:00 & 14:00 UTC)
 SELECT cron.schedule(
   'finalize-games-cron',
@@ -39,6 +37,5 @@ SELECT cron.schedule(
   )
   $$
 );
-
 -- Verify scheduled jobs
 SELECT * FROM cron.job;

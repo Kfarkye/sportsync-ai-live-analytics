@@ -5,7 +5,6 @@
 ALTER TABLE public.entity_mappings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.canonical_teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.canonical_games ENABLE ROW LEVEL SECURITY;
-
 -- Add PUBLIC read access (Read-only for all clients)
 DO $$
 BEGIN

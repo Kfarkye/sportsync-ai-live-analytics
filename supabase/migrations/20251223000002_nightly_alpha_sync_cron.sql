@@ -1,4 +1,3 @@
-
 -- NIGHTLY ALPHA SYNC CRON JOB
 -- Automates high-fidelity AI narrative pre-generation for all upcoming games
 
@@ -40,7 +39,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- Schedule the cron job to run at 05:00 UTC (Midnight ET)
 -- 0 5 * * * = "At 05:00 every day"
 SELECT cron.schedule(
@@ -48,8 +46,7 @@ SELECT cron.schedule(
   '0 5 * * *',
   $$SELECT invoke_nightly_alpha_sync()$$
 );
-
 -- Documentation:
 -- This job ensures that all games for the next 24 hours have their "Mathematical Audit" 
 -- and "AI Narrative Synthesis" pre-generated and stored in match_news.
--- This reduces frontend latency to 0ms for the user in the morning.
+-- This reduces frontend latency to 0ms for the user in the morning.;

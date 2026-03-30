@@ -1,4 +1,3 @@
-
 -- TEMPORARY: Allow anon/authenticated to write to sharp_movements for local backfill
 -- (Since local .env lacks service_role_key)
 

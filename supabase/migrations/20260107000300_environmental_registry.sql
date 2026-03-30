@@ -21,7 +21,6 @@ CREATE TABLE IF NOT EXISTS public.canonical_venues (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 2. Canonical Officials Registry
 CREATE TABLE IF NOT EXISTS public.canonical_officials (
     id TEXT PRIMARY KEY, -- Slug-based: 'ref_name_league'
@@ -34,7 +33,6 @@ CREATE TABLE IF NOT EXISTS public.canonical_officials (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- 3. Game Officials (Join Table)
 -- Maps a crew of officials to a specific canonical game.
 CREATE TABLE IF NOT EXISTS public.game_officials (
@@ -45,7 +43,6 @@ CREATE TABLE IF NOT EXISTS public.game_officials (
     
     UNIQUE(canonical_game_id, official_id)
 );
-
 -- 4. Venue Aliases (Resolution Bridge)
 CREATE TABLE IF NOT EXISTS public.venue_aliases (
     id BIGSERIAL PRIMARY KEY,
@@ -54,7 +51,6 @@ CREATE TABLE IF NOT EXISTS public.venue_aliases (
     
     UNIQUE(alias)
 );
-
 -- 5. Official Aliases (Resolution Bridge)
 CREATE TABLE IF NOT EXISTS public.official_aliases (
     id BIGSERIAL PRIMARY KEY,
@@ -64,15 +60,12 @@ CREATE TABLE IF NOT EXISTS public.official_aliases (
     
     UNIQUE(alias, league_id)
 );
-
 -- Optimization: Indexes for quick resolution
 CREATE INDEX IF NOT EXISTS idx_venue_alias_lookup ON public.venue_aliases(LOWER(alias));
 CREATE INDEX IF NOT EXISTS idx_official_alias_lookup ON public.official_aliases(LOWER(alias), league_id);
 CREATE INDEX IF NOT EXISTS idx_game_officials_lookup ON public.game_officials(canonical_game_id);
-
 -- 6. Link Games to Venues
 ALTER TABLE public.canonical_games ADD COLUMN IF NOT EXISTS canonical_venue_id TEXT REFERENCES public.canonical_venues(id);
 CREATE INDEX IF NOT EXISTS idx_games_venue ON public.canonical_games(canonical_venue_id);
-
 COMMENT ON TABLE public.canonical_venues IS 'High-fidelity stadium/arena data for physics engine calibration.';
 COMMENT ON TABLE public.canonical_officials IS 'Master registry of league officials for bias and tendency analysis.';

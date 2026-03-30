@@ -27,20 +27,16 @@ CREATE TABLE IF NOT EXISTS public.live_game_state (
     -- Metadata
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 -- ============================================================================
 -- 2. PERFORMANCE & SECURITY
 -- ============================================================================
 
 CREATE INDEX IF NOT EXISTS idx_live_game_state_status ON public.live_game_state(game_status);
 CREATE INDEX IF NOT EXISTS idx_live_game_state_sport ON public.live_game_state(sport);
-
 ALTER TABLE public.live_game_state ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Public read access for live_game_state" ON public.live_game_state;
 CREATE POLICY "Public read access for live_game_state" 
 ON public.live_game_state FOR SELECT TO public USING (true);
-
 -- Enable Supabase Realtime
 DO $$
 BEGIN
@@ -53,13 +49,11 @@ BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.live_game_state;
     END IF;
 END $$;
-
 -- ============================================================================
 -- 3. INGESTION HUB CRON CONFIGURATION
 -- ============================================================================
 
 DROP FUNCTION IF EXISTS invoke_ingest_live_games() CASCADE;
-
 CREATE OR REPLACE FUNCTION invoke_ingest_live_games()
 RETURNS void
 LANGUAGE plpgsql
@@ -93,7 +87,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 SELECT cron.schedule(
   'high-frequency-live-ingest',
   '* * * * *', 

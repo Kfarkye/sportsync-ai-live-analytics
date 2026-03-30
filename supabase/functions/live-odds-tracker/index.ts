@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { writeCurrentOdds } from '../_shared/current-odds-writer.ts'
 // ============================================================================
 // 1. CONFIGURATION
 // ============================================================================
@@ -183,6 +182,7 @@ Deno.serve(async (_req: Request): Promise<Response> => {
         matches_updated: 0,
         snapshots_created: 0,
         closing_lines_captured: 0,
+        provider_failures: 0,
         errors: [] as string[]
     }
 
@@ -248,7 +248,6 @@ async function processLeague(sport: string, leagueId: string, apiKey: string, me
     const updates: any[] = [];
     const snapshots: any[] = [];
     const closingLines: any[] = [];
-    const oddsWritePromises: Promise<void>[] = [];
 
     const suffix = SUFFIX_MAP[leagueId] || `_${sport}`;
 
@@ -349,15 +348,6 @@ async function processLeague(sport: string, leagueId: string, apiKey: string, me
 
         // Only update odds if they exist (don't overwrite with nulls)
         if (odds.provider !== 'none') {
-            oddsWritePromises.push(writeCurrentOdds({
-                supabase,
-                matchId,
-                rawOdds: odds,
-                provider: odds.provider || 'Odds API',
-                isLive: true,
-                updatedAt: new Date().toISOString()
-            }).catch(e => { metrics.errors.push(`[Odds Sync] ${matchId}: ${e.message || String(e)}`) }));
-
             payload.odds_api_event_id = oddsMatch?.id;
 
             // Flattened Columns for easier querying
@@ -379,15 +369,35 @@ async function processLeague(sport: string, leagueId: string, apiKey: string, me
         updates.push(payload);
 
         // H. Live Snapshot
-        if (isLive && odds.provider !== 'none') {
+        const hasMeaningfulMarketData =
+            odds.total_value != null ||
+            odds.spread_home_value != null ||
+            odds.home_ml != null ||
+            odds.away_ml != null ||
+            odds.draw_ml != null;
+
+        if (isLive && odds.provider === 'none') {
+            metrics.provider_failures++;
+            metrics.errors.push(`[Provider Degradation] ${matchId}: no live market data`);
+        }
+
+        if (isLive && odds.provider !== 'none' && hasMeaningfulMarketData) {
             snapshots.push({
                 match_id: matchId,
-                sport_key: oddsKey || 'unknown',
+                league_id: leagueId,
+                sport,
+                provider: odds.provider || 'Odds API',
+                status: safeStatus,
+                period: event.status.period,
+                clock: event.status.displayClock,
                 home_score: payload.home_score,
                 away_score: payload.away_score,
-                spread_line: odds.spread_home,
-                total_line: odds.total,
+                spread_home: odds.spread_home_value,
+                spread_away: odds.spread_home_value ? -1 * odds.spread_home_value : null,
+                total: odds.total_value,
                 is_live: true,
+                market_type: 'live_odds_tracker',
+                source: 'live-odds-tracker',
                 captured_at: new Date().toISOString()
             });
         }
@@ -401,16 +411,37 @@ async function processLeague(sport: string, leagueId: string, apiKey: string, me
     }
 
     if (snapshots.length > 0) {
-        await supabase.from('live_odds_snapshots').insert(snapshots);
-        metrics.snapshots_created += snapshots.length;
+        const { error: snapshotInsertError } = await supabase.from('live_odds_snapshots').insert(snapshots);
+        if (!snapshotInsertError) {
+            metrics.snapshots_created += snapshots.length;
+        } else {
+            metrics.errors.push(`[DB live_odds_snapshots] ${leagueId}: ${snapshotInsertError.message}`);
+
+            // Fallback for stricter schemas requiring canonical non-null columns.
+            const legacySnapshots = snapshots.map((s: any) => ({
+                match_id: s.match_id,
+                league_id: s.league_id,
+                sport: s.sport,
+                provider: s.provider,
+                status: s.status,
+                home_score: s.home_score,
+                away_score: s.away_score,
+                is_live: true,
+                market_type: 'live_odds_tracker',
+                source: 'live-odds-tracker',
+                captured_at: s.captured_at
+            }));
+            const { error: legacyError } = await supabase.from('live_odds_snapshots').insert(legacySnapshots);
+            if (!legacyError) {
+                metrics.snapshots_created += legacySnapshots.length;
+            } else {
+                metrics.errors.push(`[DB live_odds_snapshots legacy] ${leagueId}: ${legacyError.message}`);
+            }
+        }
     }
 
     if (closingLines.length > 0) {
         await supabase.from('closing_lines').upsert(closingLines, { onConflict: 'match_id' });
-    }
-
-    if (oddsWritePromises.length > 0) {
-        await Promise.all(oddsWritePromises);
     }
 
     console.log(`[Tracker] ${leagueId}: ${updates.length} matches scanned, ${snapshots.length} snapshots created.`);

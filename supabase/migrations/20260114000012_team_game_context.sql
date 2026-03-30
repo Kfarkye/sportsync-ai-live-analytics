@@ -28,11 +28,9 @@ CREATE TABLE IF NOT EXISTS team_game_context (
     
     UNIQUE(team, game_date, league_id)
 );
-
 -- Index for fast lookups by team + date
 CREATE INDEX IF NOT EXISTS idx_team_game_context_lookup 
 ON team_game_context(team, game_date);
-
 -- Index for cleanup queries
 CREATE INDEX IF NOT EXISTS idx_team_game_context_date 
 ON team_game_context(game_date);

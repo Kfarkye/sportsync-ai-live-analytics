@@ -12,7 +12,6 @@ DECLARE
 BEGIN
   RAISE NOTICE 'Master Cron Key Fix: Using URL=%, Key length=%', v_url, length(v_key);
 END $$;
-
 -- 1. FIX: invoke_live_odds_tracker
 CREATE OR REPLACE FUNCTION invoke_live_odds_tracker()
 RETURNS void
@@ -30,7 +29,6 @@ BEGIN
   );
 END;
 $$;
-
 -- 2. FIX: invoke_match_discovery
 CREATE OR REPLACE FUNCTION invoke_match_discovery()
 RETURNS void
@@ -48,7 +46,6 @@ BEGIN
   );
 END;
 $$;
-
 -- 3. FIX: invoke_ingest_odds_staggered
 CREATE OR REPLACE FUNCTION invoke_ingest_odds_staggered()
 RETURNS void
@@ -67,7 +64,6 @@ BEGIN
   );
 END;
 $$;
-
 -- 4. FIX: invoke_ingest_nba_live (NBA Fast Lane)
 CREATE OR REPLACE FUNCTION invoke_ingest_nba_live()
 RETURNS void
@@ -90,7 +86,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
 -- 5. FIX: invoke_ingest_nfl_live (NFL Turbo Mode)
 CREATE OR REPLACE FUNCTION invoke_ingest_nfl_live()
 RETURNS void
@@ -113,7 +108,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
 -- 6. FIX: invoke_espn_sync (if exists)
 CREATE OR REPLACE FUNCTION invoke_espn_sync()
 RETURNS void
@@ -131,6 +125,5 @@ BEGIN
   );
 END;
 $$;
-
 -- Verification
 SELECT 'MASTER FIX APPLIED: All cron trigger functions now use hardcoded keys' as status;

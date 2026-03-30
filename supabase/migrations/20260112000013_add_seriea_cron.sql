@@ -16,12 +16,10 @@ BEGIN
   );
 END;
 $$;
-
 -- Schedule Serie A cron every 2 minutes (same as other live ingests)
 SELECT cron.schedule(
   'ingest-seriea-live',
   '*/2 * * * *',
   'SELECT invoke_ingest_seriea_live()'
 );
-
 SELECT 'Serie A cron job added: soccer_italy_serie_a every 2 minutes' as status;

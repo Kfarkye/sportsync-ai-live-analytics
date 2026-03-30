@@ -1,0 +1,274 @@
+{
+  "object_type": "player_prop_profile",
+  "version": "v2",
+  "slug": "herbert-jones",
+  "url": "https://sportsync-evidence.web.app/props/herbert-jones",
+  "league": "NBA",
+  "season": "2025-26",
+  "player_name": "Herbert Jones",
+  "summary": "Herbert Jones — No strong signal — Top market by sample: Threes Made 38.8% (98 GP)",
+  "generated_at": "2026-03-29T06:34:11.920851+00:00",
+  "hero_count": 0,
+  "market_cards": [
+    {
+      "market": "threes_made",
+      "market_label": "Threes Made",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 38.8,
+      "record": "38-60",
+      "gp": 98
+    },
+    {
+      "market": "points",
+      "market_label": "Points",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 45.8,
+      "record": "44-52",
+      "gp": 96
+    },
+    {
+      "market": "rebounds",
+      "market_label": "Rebounds",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 43.5,
+      "record": "40-52",
+      "gp": 92
+    },
+    {
+      "market": "assists",
+      "market_label": "Assists",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 51.2,
+      "record": "44-42",
+      "gp": 86
+    },
+    {
+      "market": "pra",
+      "market_label": "Pts+Reb+Ast",
+      "direction": "none",
+      "tier": "feature",
+      "is_hero": false,
+      "rate": 45.2,
+      "record": "28-34",
+      "gp": 62
+    }
+  ],
+  "markets": {
+    "threes_made": {
+      "baseline": {
+        "rate": 38.8,
+        "record": "38-60",
+        "avg": 1.5,
+        "median": 1,
+        "gp": 98,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 1.5,
+        "rate": 38.8,
+        "record": "38-60",
+        "avg": 1.5,
+        "gp": 98
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "HOME",
+          "rate": 36,
+          "record": "18-32",
+          "gp": 50
+        },
+        {
+          "label": "AWAY",
+          "rate": 41.7,
+          "record": "20-28",
+          "gp": 48
+        },
+        {
+          "label": "EARLY season",
+          "rate": 43.8,
+          "record": "14-18",
+          "gp": 32
+        }
+      ]
+    },
+    "points": {
+      "baseline": {
+        "rate": 45.8,
+        "record": "44-52",
+        "avg": 9.2,
+        "median": 8.6,
+        "gp": 96,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 8.5,
+        "rate": 60,
+        "record": "24-16",
+        "avg": 9.6,
+        "gp": 40
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "AWAY",
+          "rate": 63.6,
+          "record": "14-8",
+          "gp": 22
+        },
+        {
+          "label": "MID season",
+          "rate": 55.6,
+          "record": "10-8",
+          "gp": 18
+        },
+        {
+          "label": "HOME",
+          "rate": 55.6,
+          "record": "10-8",
+          "gp": 18
+        }
+      ]
+    },
+    "rebounds": {
+      "baseline": {
+        "rate": 43.5,
+        "record": "40-52",
+        "avg": 3.4,
+        "median": 3,
+        "gp": 92,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 3.5,
+        "rate": 40,
+        "record": "28-42",
+        "avg": 3.4,
+        "gp": 70
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "HOME",
+          "rate": 36.8,
+          "record": "14-24",
+          "gp": 38
+        },
+        {
+          "label": "AWAY",
+          "rate": 43.8,
+          "record": "14-18",
+          "gp": 32
+        },
+        {
+          "label": "EARLY season",
+          "rate": 45.5,
+          "record": "10-12",
+          "gp": 22
+        }
+      ]
+    },
+    "assists": {
+      "baseline": {
+        "rate": 51.2,
+        "record": "44-42",
+        "avg": 2.9,
+        "median": 2.8,
+        "gp": 86,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 2.5,
+        "rate": 57.6,
+        "record": "38-28",
+        "avg": 2.9,
+        "gp": 66
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "AWAY",
+          "rate": 60,
+          "record": "24-16",
+          "gp": 40
+        },
+        {
+          "label": "HOME",
+          "rate": 53.8,
+          "record": "14-12",
+          "gp": 26
+        },
+        {
+          "label": "EARLY season",
+          "rate": 50,
+          "record": "10-10",
+          "gp": 20
+        }
+      ]
+    },
+    "pra": {
+      "baseline": {
+        "rate": 45.2,
+        "record": "28-34",
+        "avg": 15.2,
+        "median": 16.1,
+        "gp": 62,
+        "direction": "none",
+        "tier": "feature",
+        "is_hero": false
+      },
+      "current_line": {
+        "line": 15.5,
+        "rate": 44.4,
+        "record": "16-20",
+        "avg": 15.1,
+        "gp": 36
+      },
+      "book_pricing_history": [],
+      "supporting_context": [
+        {
+          "label": "HOME",
+          "rate": 60,
+          "record": "12-8",
+          "gp": 20
+        },
+        {
+          "label": "AWAY",
+          "rate": 25,
+          "record": "4-12",
+          "gp": 16
+        },
+        {
+          "label": "LATE season",
+          "rate": 33.3,
+          "record": "4-8",
+          "gp": 12
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "baseline": "All games for this player × market, across all books and lines.",
+    "current_line": "Most common historical line (highest GP) across all sportsbooks.",
+    "book_context": "Hit rate per sportsbook × line combination.",
+    "supporting_context": "Venue, pace tier, rest days, season phase splits at the most common historical line.",
+    "over_rate": "Overs / (overs + unders), pushes excluded.",
+    "display_floor": "10 GP minimum. Feature tier: 30+ GP. Hero: 65%+ or 35%- over rate."
+  }
+}

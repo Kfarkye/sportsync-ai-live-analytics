@@ -19,5 +19,4 @@ begin
   where m.id = item->>'id';
 end;
 $$;
-
 SELECT 'RPC Fixed: Using correct status column (not status_state)' as status;

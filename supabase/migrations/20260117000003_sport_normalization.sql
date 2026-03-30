@@ -29,7 +29,6 @@ SET sport = CASE
     WHEN sport = 'SYSTEM' THEN 'unknown'
     ELSE LOWER(COALESCE(sport, 'unknown'))
 END;
-
 -- Step 2: Update the reporting view with clean display names
 CREATE OR REPLACE VIEW pick_record_by_sport AS
 SELECT 
@@ -51,6 +50,5 @@ FROM pregame_intel
 WHERE pick_result IN ('WIN', 'LOSS', 'PUSH')
 GROUP BY 1
 ORDER BY (COUNT(*) FILTER (WHERE pick_result = 'WIN') + COUNT(*) FILTER (WHERE pick_result = 'LOSS')) DESC;
-
 -- Step 3: Verify the fix
 SELECT * FROM pick_record_by_sport;
