@@ -227,7 +227,7 @@
     }
     .player-card:hover .pc-arrow { transform: translateX(3px); color: var(--accent); }
 
-    .pc-markets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .pc-markets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0; }
     .pc-market-chip {
       display: flex; flex-direction: column; gap: 1px;
       padding: 6px 10px; border-radius: 8px;
@@ -244,22 +244,6 @@
     .pc-market-rate.under { color: #2B6E9C; }
     .pc-market-rate.neutral { color: var(--ink-secondary); }
     .pc-market-gp { font-family: var(--mono); font-size: 9px; color: var(--ink-quaternary); }
-
-    .pc-meta {
-      display: flex; gap: 10px; align-items: center;
-      padding-top: 8px; border-top: 1px solid var(--border-subtle);
-    }
-    .pc-tag {
-      font-family: var(--mono); font-size: 9.5px; font-weight: 600;
-      padding: 2px 8px; border-radius: 6px; letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    .pc-tag.hero-tag { background: rgba(184,92,56,0.08); color: var(--accent); }
-    .pc-tag.edge-tag { background: rgba(75,156,211,0.08); color: #2B6E9C; }
-    .pc-tag.display-tag { background: rgba(168,163,150,0.08); color: var(--ink-tertiary); }
-    .pc-card-count {
-      font-family: var(--mono); font-size: 10px; color: var(--ink-quaternary); margin-left: auto;
-    }
 
     /* ══════════════════════════════════════════════════════════════════════════
        PROFILE PAGE — Single Player (3-Layer Model)
@@ -963,33 +947,19 @@ function renderIndex() {
       return `
         <div class="pc-market-chip">
           <div class="pc-market-name">${marketLabel(c.market)}</div>
-          <div class="pc-market-rate ${rc}">${Number(c.baseline.rate).toFixed(1)}% Over Rate</div>
+          <div class="pc-market-rate ${rc}">${Number(c.baseline.rate).toFixed(1)}%</div>
           <div class="pc-market-gp">${c.baseline.gp} GP · O/U ${lineText}</div>
         </div>
       `;
     }).join('');
 
-    const tierTag = p.maxTier === 'feature'
-      ? '<span class="pc-tag hero-tag">Feature</span>'
-      : p.maxTier === 'edge'
-        ? '<span class="pc-tag edge-tag">Edge</span>'
-        : '<span class="pc-tag display-tag">Display</span>';
-
-    const heroTag = p.heroCount > 0
-      ? `<span class="pc-tag hero-tag">${p.heroCount} strong signal${p.heroCount > 1 ? 's' : ''}</span>`
-      : '';
-
     return `
-      <a class="player-card ${p.heroCount > 0 ? 'has-hero' : ''}" href="/props/${p.slug}" style="animation-delay: ${Math.min(i * 40, 600)}ms">
+      <a class="player-card ${p.heroCount > 0 ? 'has-hero' : ''}" href="/props#/player/${p.slug}" style="animation-delay: ${Math.min(i * 40, 600)}ms">
         <div class="pc-top">
           <div class="pc-name">${p.name}</div>
           <svg class="pc-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <div class="pc-markets">${chipHtml}</div>
-        <div class="pc-meta">
-          ${tierTag}${heroTag}
-          <span class="pc-card-count">${marketCards.length} card${marketCards.length > 1 ? 's' : ''}</span>
-        </div>
       </a>
     `;
   }).join('');
