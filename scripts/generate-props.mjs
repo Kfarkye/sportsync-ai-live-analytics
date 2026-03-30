@@ -125,6 +125,34 @@ function formatGeneratedAt(value) {
   });
 }
 
+function normalizePackContract(rawPack) {
+  const source = rawPack && typeof rawPack === 'object' ? rawPack : {};
+  const cards = Array.isArray(source.cards) ? source.cards : [];
+  const derivedMarkets = [...new Set(cards.map(card => card?.market).filter(Boolean))];
+  const markets = Array.isArray(source.markets) && source.markets.length > 0 ? source.markets : derivedMarkets;
+  const heroCards = cards.filter(card => Boolean(card?.baseline?.is_hero)).length;
+
+  return {
+    ...source,
+    cards,
+    markets,
+    total_cards: Number.isFinite(Number(source.total_cards)) ? Number(source.total_cards) : cards.length,
+    hero_cards: Number.isFinite(Number(source.hero_cards)) ? Number(source.hero_cards) : heroCards,
+    generated_at: source.generated_at || new Date().toISOString(),
+    version: source.version || 'v2',
+    model: source.model || '3-layer: market_baseline + book_normalized + supporting_context',
+    gates: source.gates || {
+      book_min_gp: 3,
+      edge_min_gp: 15,
+      feature_min_gp: 30,
+      support_min_gp: 5,
+      baseline_min_gp: 10,
+      max_support_chips: 3,
+      hero_rate_threshold: 65,
+    },
+  };
+}
+
 function renderIndexCards(entries) {
   return entries.map((p, i) => {
     const byMarket = {};
@@ -174,8 +202,17 @@ function renderIndexCards(entries) {
 function buildPropsShell(templateHtml, packForShell, entries) {
   const freshness = `Pack ${packForShell.version || 'unknown'} · Generated ${formatGeneratedAt(packForShell.generated_at)}`;
   const resultCount = `${entries.length} player${entries.length !== 1 ? 's' : ''}`;
-  const gridHtml = renderIndexCards(entries);
-  const preloadedPack = JSON.stringify(packForShell);
+  // Keep first paint lightweight on mobile Safari; hydrate cards from live fetch/cache.
+  const gridHtml = '';
+  const preloadedPack = JSON.stringify({
+    version: packForShell.version || 'v2',
+    generated_at: packForShell.generated_at || new Date().toISOString(),
+    total_cards: Number.isFinite(Number(packForShell.total_cards)) ? Number(packForShell.total_cards) : 0,
+    hero_cards: Number.isFinite(Number(packForShell.hero_cards)) ? Number(packForShell.hero_cards) : 0,
+    markets: Array.isArray(packForShell.markets) ? packForShell.markets : [],
+    gates: packForShell.gates || null,
+    cards: [],
+  });
 
   let html = templateHtml;
   html = replaceMarkerBlock(html, '<!-- PRELOADED_INDEX_FRESHNESS_START -->', '<!-- PRELOADED_INDEX_FRESHNESS_END -->', freshness);
@@ -574,7 +611,7 @@ function playerPage(player, generatedAt) {
     dateModified: dateStr,
     datePublished: dateStr,
     description: `${player.name} prop hit rates for the 2025-26 NBA season. ${headline}. ${subParts.join(', ')}.`,
-    publisher: { '@type': 'Organization', name: 'SportsSync Intelligence' },
+    publisher: { '@type': 'Organization', name: 'SportsSync' },
     mainEntityOfPage: { '@type': 'WebPage', '@id': `${BASE_URL}/props/${player.slug}` },
   });
 
@@ -613,11 +650,12 @@ function playerPage(player, generatedAt) {
 
   <nav class="nav">
     <div class="nav-inner">
-      <a class="nav-brand" href="/props">SportsSync Intelligence</a>
+      <a class="nav-brand" href="/">Today's Board</a>
       <div class="nav-tabs">
-        <a class="nav-tab" href="https://ref-tendencies.web.app/">Ref Tendencies</a>
-        <a class="nav-tab" href="/trends/">Team Trends</a>
-        <a class="nav-tab active" href="/props">Props</a>
+        <a class="nav-tab active" href="/props">Player Props</a>
+        <a class="nav-tab" href="/trends/">ATS &amp; O/U</a>
+        <a class="nav-tab" href="/pregame">Matchups</a>
+        <a class="nav-tab" href="https://ref-tendencies.web.app/">Referees</a>
       </div>
     </div>
   </nav>
@@ -683,14 +721,17 @@ async function main() {
   if (localFile) {
     console.log('[generate-props] Reading evidence pack from local file: %s', localFile);
     const raw = readFileSync(localFile, 'utf-8');
-    pack = JSON.parse(raw);
+    pack = normalizePackContract(JSON.parse(raw));
   } else {
     console.log('[generate-props] Fetching evidence pack from %s', PACK_URL);
     const res = await fetch(PACK_URL);
     if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
-    pack = await res.json();
+    pack = normalizePackContract(await res.json());
   }
   console.log('[generate-props] Received %d cards', pack.cards.length);
+  if (pack.cards.length === 0) {
+    throw new Error('[generate-props] Evidence pack returned zero cards; refusing to publish an empty props surface.');
+  }
 
   const players = buildPlayerIndex(pack.cards);
   const sorted = sortPlayers(players);
@@ -712,6 +753,7 @@ async function main() {
   const renderedPropsShell = buildPropsShell(livePropsTemplate, packForShell, selected);
   writeFileSync(resolve(OUTPUT_DIR, '../props.html'), renderedPropsShell, 'utf-8');
   writeFileSync(join(OUTPUT_DIR, 'index.html'), renderedPropsShell, 'utf-8');
+  writeFileSync(join(OUTPUT_DIR, 'evidence-pack-fallback.json'), JSON.stringify(pack), 'utf-8');
 
   let count = 0;
   for (const player of selected) {
