@@ -243,9 +243,19 @@ const WorldCupGroupPage: React.FC = () => {
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <Link to="/" className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70 hover:text-white">
-            The Drip
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/" className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70 hover:text-white">
+              The Drip
+            </Link>
+            <a
+              href="https://thedrip.to/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60 underline-offset-2 hover:text-white hover:underline"
+            >
+              thedrip.to
+            </a>
+          </div>
           <span className="rounded-full border border-white/15 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-white/65">
             Object Ledger Surface
           </span>
