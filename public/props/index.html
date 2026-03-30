@@ -13220,6 +13220,8 @@
 const PACK_URL = 'https://refreshpropevidencepack-7r57xex2ea-uc.a.run.app';
 const FALLBACK_URL = 'https://qffzvrnbzabcokqqrwbv.supabase.co/rest/v1/rpc/generate_prop_evidence_pack';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZnp2cm5iemFiY29rcXFyd2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTc2NjgsImV4cCI6MjA3MDkzMzY2OH0.PCSnC5E7sG7FvasHy_9DdwiN61xW0GzFROLzZ0bTVnc';
+const LOCAL_PACK_CACHE_KEY = 'sportsync-props-pack-v2';
+const RECOVERY_KEY = 'sportsync-props-load-recovery';
 
 const MARKET_LABEL = { threes_made: 'Threes Made', rebounds: 'Rebounds', assists: 'Assists', points: 'Points', pra: 'Pts+Reb+Ast' };
 const CONTEXT_LABEL = {
@@ -13331,16 +13333,61 @@ function getPreloadedPack() {
   }
 }
 
+function readCachedPack() {
+  try {
+    const raw = localStorage.getItem(LOCAL_PACK_CACHE_KEY);
+    if (!raw) return null;
+    const normalized = normalizePackContract(JSON.parse(raw));
+    return normalized.cards.length > 0 ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
+function cachePack(nextPack) {
+  try {
+    localStorage.setItem(LOCAL_PACK_CACHE_KEY, JSON.stringify(normalizePackContract(nextPack)));
+  } catch {
+    // Storage is optional.
+  }
+}
+
+function tryOneShotRecovery() {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('disable-sw') === '1') return false;
+
+  try {
+    if (sessionStorage.getItem(RECOVERY_KEY) === '1') return false;
+    sessionStorage.setItem(RECOVERY_KEY, '1');
+  } catch {
+    // Storage is optional.
+  }
+
+  url.searchParams.set('disable-sw', '1');
+  url.searchParams.set('props-recover', String(Date.now()));
+  window.location.replace(url.toString());
+  return true;
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Fetch
 // ══════════════════════════════════════════════════════════════════════════════
 async function fetchPack() {
+  const failures = [];
   try {
     const r = await fetch(PACK_URL);
     if (!r.ok) throw new Error(`CF ${r.status}`);
-    return normalizePackContract(await r.json());
+    const normalized = normalizePackContract(await r.json());
+    if (normalized.cards.length > 0) {
+      cachePack(normalized);
+      return normalized;
+    }
+    failures.push('CF empty');
   } catch (e) {
-    console.warn('CF unavailable, fallback:', e.message);
+    failures.push(e?.message || 'CF unavailable');
+  }
+
+  try {
     const r = await fetch(FALLBACK_URL, {
       method: 'POST',
       headers: {
@@ -13351,7 +13398,34 @@ async function fetchPack() {
       body: '{}',
     });
     if (!r.ok) throw new Error(`RPC ${r.status}`);
-    return normalizePackContract(await r.json());
+    const normalized = normalizePackContract(await r.json());
+    if (normalized.cards.length > 0) {
+      cachePack(normalized);
+      return normalized;
+    }
+    failures.push('RPC empty');
+  } catch (e) {
+    failures.push(e?.message || 'RPC unavailable');
+  }
+
+  const preloaded = getPreloadedPack();
+  if (preloaded && preloaded.cards.length > 0) return preloaded;
+
+  const cached = readCachedPack();
+  if (cached && cached.cards.length > 0) return cached;
+
+  throw new Error(failures.join(' · ') || 'No evidence pack available');
+}
+
+function bootWithPack(nextPack) {
+  pack = normalizePackContract(nextPack);
+  players = buildPlayerIndex(pack.cards);
+  injectMachineContract(pack, players);
+  route();
+  try {
+    sessionStorage.removeItem(RECOVERY_KEY);
+  } catch {
+    // Storage is optional.
   }
 }
 
@@ -13854,28 +13928,24 @@ function injectMachineContract(pack, players) {
 (async function init() {
   bindEvents();
   const preloaded = getPreloadedPack();
-  if (preloaded && preloaded.cards.length > 0) {
-    pack = preloaded;
-    players = buildPlayerIndex(pack.cards);
-    injectMachineContract(pack, players);
-    route();
+  const cached = readCachedPack();
+  const bootPack = preloaded || cached;
+  if (bootPack && bootPack.cards.length > 0) {
+    bootWithPack(bootPack);
     return;
   }
   $('loading').style.display = '';
   try {
     const livePack = await fetchPack();
-    pack = livePack.cards.length > 0
-      ? livePack
-      : (preloaded && preloaded.cards.length > 0 ? preloaded : livePack);
-    players = buildPlayerIndex(pack.cards);
-
-    // Inject machine contract layer (same source object → two surfaces)
-    injectMachineContract(pack, players);
-
+    if (!livePack || !Array.isArray(livePack.cards) || livePack.cards.length === 0) {
+      throw new Error('No cards available');
+    }
+    cachePack(livePack);
     $('loading').style.display = 'none';
-    route();
+    bootWithPack(livePack);
   } catch (err) {
-    $('loading').innerHTML = `<div class="empty-state"><p>Failed to load evidence pack.</p><p>${err.message}</p></div>`;
+    if (tryOneShotRecovery()) return;
+    $('loading').innerHTML = `<div class="empty-state"><p>Failed to load evidence pack.</p><p>${err?.message || 'Unknown error'}</p></div>`;
   }
 })();
 </script>
