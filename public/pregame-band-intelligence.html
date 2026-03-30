@@ -1,1090 +1,1062 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>By Price Range | SportsSync</title>
-  <meta name="description" content="Moneyline range research for NBA and NHL, including record, ROI, and underdog counterpart performance." />
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://sportsync-evidence.web.app/pregame-band-intelligence" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --bg: #FAFAF8;
-      --surface: #FFFFFF;
-      --accent: #C85A3A;
-      --text-primary: #1A1A18;
-      --text-secondary: #6B6B63;
-      --text-tertiary: #9B9B91;
-      --border: #E8E7E3;
-      --roi-pos: #2D8F5C;
-      --roi-neg: #C85A3A;
-      --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      --font-serif: "Source Serif 4", Georgia, serif;
-      --font-mono: "JetBrains Mono", SFMono-Regular, Menlo, monospace;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>By Price Range — NBA | SportsSync</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAFAF8;
+    --surface: #FFFFFF;
+    --text-primary: #1A1A18;
+    --text-secondary: #6B6B63;
+    --text-tertiary: #9B9B91;
+    --accent: #C85A3A;
+    --border: #E8E7E3;
+    --green: #2D8F5C;
+    --green-dim: rgba(45,143,92,0.08);
+    --red-dim: rgba(200,90,58,0.08);
+    --mono: 'JetBrains Mono', monospace;
+    --serif: 'Source Serif 4', serif;
+    --sans: 'DM Sans', sans-serif;
+  }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    body {
-      background: var(--bg);
-      color: var(--text-primary);
-      font-family: var(--font-sans);
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-      font-variant-numeric: tabular-nums;
-      min-height: 100vh;
-    }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+  }
 
-    .top-nav {
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      border-bottom: 1px solid var(--border);
-      background: rgba(250, 250, 248, 0.95);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
+  nav {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
 
-    .top-nav-inner {
-      max-width: 1080px;
-      margin: 0 auto;
-      min-height: 58px;
-      padding: 0 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
+  .nav-brand {
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 15px;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    text-decoration: none;
+  }
 
-    .top-nav-brand {
-      font-family: var(--font-mono);
-      font-size: 15px;
-      font-weight: 500;
-      letter-spacing: -0.02em;
-      color: var(--text-primary);
-      text-decoration: none;
-    }
+  .nav-links { display: flex; gap: 24px; list-style: none; }
+  .nav-links a { font-size: 14px; color: var(--text-secondary); text-decoration: none; font-weight: 500; }
+  .nav-links a:hover { color: var(--text-primary); }
+  .nav-links a.active { color: var(--text-primary); font-weight: 600; }
 
-    .top-nav-links {
-      list-style: none;
-      display: flex;
-      align-items: center;
-      gap: 28px;
-    }
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
 
-    .top-nav-links a {
-      color: var(--text-tertiary);
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
-    }
+  .hero {
+    padding: 48px 0 16px;
+  }
 
-    .top-nav-links a:hover {
-      color: var(--text-primary);
-    }
+  .hero h1 {
+    font-family: var(--serif);
+    font-size: clamp(28px, 4vw, 38px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin-bottom: 10px;
+  }
 
-    .top-nav-links a.active {
-      color: var(--text-primary);
-      font-weight: 600;
-    }
+  .hero-sub {
+    font-size: 15px;
+    color: var(--text-secondary);
+    max-width: 520px;
+    line-height: 1.6;
+  }
 
-    .page {
-      max-width: 1080px;
-      margin: 0 auto;
-      padding: 24px 24px 56px;
-    }
+  .filters {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 20px 0 28px;
+  }
 
-    .matchups-switch {
-      display: inline-flex;
-      align-items: center;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-      background: var(--surface);
-      margin-bottom: 26px;
-    }
+  .filter-group {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+  }
 
-    .matchups-switch a {
-      padding: 8px 14px;
-      border-right: 1px solid var(--border);
-      color: var(--text-tertiary);
-      text-decoration: none;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
+  .filter-group + .filter-group {
+    margin-left: 16px;
+    padding-left: 16px;
+    border-left: 1px solid var(--border);
+  }
 
-    .matchups-switch a:last-child {
-      border-right: none;
-    }
+  .filter-btn {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: color 0.15s;
+  }
 
-    .matchups-switch a.active {
-      color: var(--text-primary);
-      font-weight: 600;
-    }
+  .filter-btn:hover { color: var(--text-secondary); }
 
-    .hero h1 {
-      font-family: var(--font-serif);
-      font-size: clamp(34px, 4.8vw, 46px);
-      line-height: 1.05;
-      letter-spacing: -0.02em;
-      margin-bottom: 10px;
-    }
+  .filter-btn.active {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
 
-    .hero p {
-      font-size: 15px;
-      color: var(--text-secondary);
-      max-width: 720px;
-      margin-bottom: 10px;
-    }
+  .filter-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-left: auto;
+  }
 
-    .hero-updated {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-tertiary);
-      margin-bottom: 20px;
-    }
+  .lead-callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 40px;
+  }
 
-    .filters {
-      display: flex;
-      align-items: flex-end;
-      flex-wrap: wrap;
-      gap: 18px 24px;
-      margin-bottom: 18px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
-    }
+  .lead-text {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--text-primary);
+  }
 
-    .filter-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
+  .lead-text strong { font-weight: 600; }
+  .lead-text .green { color: var(--green); font-weight: 600; }
+  .lead-text .red { color: var(--accent); font-weight: 600; }
 
-    .filter-label,
-    .sort-label {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-tertiary);
-    }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 40px;
+  }
 
-    .filter-link,
-    .sort-link {
-      border: 0;
-      background: transparent;
-      padding: 0;
-      margin: 0;
-      color: var(--text-tertiary);
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      font-family: var(--font-sans);
-    }
+  .summary-card {
+    background: var(--surface);
+    padding: 20px;
+  }
 
-    .filter-link:hover,
-    .sort-link:hover {
-      color: var(--accent);
-    }
+  .sc-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 10px;
+  }
 
-    .filter-link.active,
-    .sort-link.active {
-      color: var(--text-primary);
-      font-weight: 600;
-    }
+  .sc-value {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    letter-spacing: -0.02em;
+  }
 
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1px;
-      border-radius: 8px;
-      overflow: hidden;
-      background: var(--border);
-      margin-bottom: 28px;
-    }
+  .sc-meta {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
 
-    .summary-card {
-      background: var(--surface);
-      padding: 16px 18px;
-      min-height: 86px;
-    }
+  .sc-roi.pos { color: var(--green); }
+  .sc-roi.neg { color: var(--accent); }
 
-    .summary-label {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-tertiary);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-bottom: 8px;
-    }
+  .section-title {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 16px;
+  }
 
-    .summary-value {
-      font-family: var(--font-sans);
-      font-size: 15px;
-      color: var(--text-primary);
-      line-height: 1.45;
-    }
+  .section-sub {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+  }
 
-    .section {
-      margin-bottom: 26px;
-    }
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 40px;
+  }
 
-    .section h2 {
-      font-family: var(--font-serif);
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 10px;
-      letter-spacing: -0.01em;
-    }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
 
-    .table-card {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-      background: var(--surface);
-    }
+  thead th {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    text-align: left;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
 
-    .table-wrap {
-      overflow-x: auto;
-    }
+  thead th:not(:first-child) { text-align: right; }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
+  tbody tr {
+    transition: background 0.1s;
+  }
 
-    thead th {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-tertiary);
-      text-align: left;
-      font-weight: 600;
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      white-space: nowrap;
-    }
+  tbody tr:hover { background: #FDFCFA; }
 
-    tbody td {
-      font-family: var(--font-mono);
-      font-size: 13px;
-      color: var(--text-secondary);
-      padding: 11px 12px;
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-      vertical-align: middle;
-    }
+  tbody td {
+    padding: 12px 16px;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(232,231,227,0.4);
+    vertical-align: middle;
+  }
 
-    tbody tr:last-child td {
-      border-bottom: none;
-    }
+  tbody td:not(:first-child) {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+  }
 
-    tbody tr:hover td {
-      background: #FDFCFA;
-    }
+  tbody tr:last-child td { border-bottom: none; }
 
-    .td-text {
-      color: var(--text-primary);
-      font-family: var(--font-sans);
-      font-size: 14px;
-      font-weight: 500;
-    }
+  .cell-range {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
 
-    .roi-pos {
-      color: var(--roi-pos);
-      font-weight: 600;
-    }
+  .cell-record { color: var(--text-secondary); }
+  .cell-pct { color: var(--text-secondary); }
 
-    .roi-neg {
-      color: var(--roi-neg);
-      font-weight: 600;
-    }
+  .cell-roi {
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+    display: inline-block;
+  }
 
-    .expand-link {
-      border: 0;
-      background: transparent;
-      color: var(--text-tertiary);
-      font-size: 13px;
-      font-family: var(--font-sans);
-      cursor: pointer;
-      padding: 0;
-      text-decoration: underline;
-      text-underline-offset: 2px;
-    }
+  .cell-roi.pos {
+    color: var(--green);
+    background: var(--green-dim);
+  }
 
-    .expand-link:hover {
-      color: var(--accent);
-    }
+  .cell-roi.neg {
+    color: var(--accent);
+    background: var(--red-dim);
+  }
 
-    .detail-row td {
-      background: #FDFCFA;
-      border-top: 1px solid var(--border);
-    }
+  .row-best td:first-child,
+  .row-worst td:first-child {
+    position: relative;
+  }
 
-    .detail-grid {
-      width: 100%;
-      border-collapse: collapse;
-    }
+  .row-best td:first-child::before,
+  .row-worst td:first-child::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 2px;
+  }
 
-    .detail-grid th,
-    .detail-grid td {
-      padding: 7px 8px;
-      border-bottom: 1px solid var(--border);
-      text-align: right;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
+  .row-best td:first-child::before { background: var(--green); }
+  .row-worst td:first-child::before { background: var(--accent); }
 
-    .detail-grid th {
-      font-size: 10px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--text-tertiary);
-      background: transparent;
-    }
+  .cp-vs {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 400;
+  }
 
-    .detail-grid th:first-child,
-    .detail-grid td:first-child {
-      text-align: left;
-    }
+  .expand-link {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+  }
 
-    .empty,
-    .error {
-      padding: 14px 12px;
-      font-size: 14px;
-      color: var(--text-tertiary);
-      font-family: var(--font-sans);
-    }
+  .expand-link:hover { color: var(--accent); }
 
-    .error {
-      color: var(--roi-neg);
-      border-top: 1px solid var(--border);
-    }
+  .detail-row td {
+    background: #FDFCFA;
+    border-top: 1px solid var(--border);
+    padding: 0;
+  }
 
-    @media (max-width: 900px) {
-      .summary-grid {
-        grid-template-columns: 1fr;
-      }
-    }
+  .detail-wrap {
+    padding: 12px 16px;
+  }
 
-    @media (max-width: 760px) {
-      .top-nav-inner {
-        padding: 0 14px;
-      }
+  .detail-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
 
-      .top-nav-links {
-        display: none;
-      }
+  .detail-table th,
+  .detail-table td {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
 
-      .page {
-        padding: 20px 14px 44px;
-      }
+  .detail-table th {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+  }
 
-      .filters {
-        gap: 14px 18px;
-      }
-    }
-  </style>
+  .detail-table th:first-child,
+  .detail-table td:first-child {
+    text-align: left;
+  }
+
+  .empty {
+    padding: 16px;
+    color: var(--text-tertiary);
+    font-size: 14px;
+    font-family: var(--sans);
+    text-align: left;
+  }
+
+  footer {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  footer span { font-size: 13px; color: var(--text-tertiary); }
+  footer a { font-size: 13px; color: var(--text-secondary); text-decoration: none; }
+  .footer-links { display: flex; gap: 24px; }
+
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .page { padding: 0 20px 48px; }
+    .table-card { overflow-x: auto; }
+    table { min-width: 620px; }
+    .filter-group + .filter-group { margin-left: 8px; padding-left: 8px; }
+  }
+</style>
 </head>
 <body>
-  <nav class="top-nav">
-    <div class="top-nav-inner">
-      <a class="top-nav-brand" href="/">SportsSync</a>
-      <ul class="top-nav-links">
-        <li><a href="/props">Props</a></li>
-        <li><a href="/trends/">Trends</a></li>
-        <li><a href="/pregame" class="active">Matchups</a></li>
-        <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
-      </ul>
+
+<nav>
+  <a class="nav-brand" href="/">SportsSync</a>
+  <ul class="nav-links">
+    <li><a href="/props">Props</a></li>
+    <li><a href="/trends/">Trends</a></li>
+    <li><a href="/pregame" class="active">Matchups</a></li>
+    <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
+  </ul>
+</nav>
+
+<main class="page">
+
+  <section class="hero">
+    <h1>By Price Range</h1>
+    <p class="hero-sub">Which moneyline ranges have been profitable this season and which haven't.</p>
+  </section>
+
+  <div class="filters">
+    <div class="filter-group">
+      <button class="filter-btn active" data-sport="nba">NBA</button>
+      <button class="filter-btn" data-sport="nhl">NHL</button>
     </div>
-  </nav>
-
-  <main class="page">
-    <div class="matchups-switch">
-      <a href="/pregame">Pregame Script</a>
-      <a href="/pregame-band-intelligence" class="active">By Price Range</a>
+    <div class="filter-group">
+      <button class="filter-btn active" data-study="pregame">Pregame</button>
+      <button class="filter-btn" data-study="live">Live</button>
     </div>
+    <div class="filter-group">
+      <button class="filter-btn active" data-scope="all">All</button>
+      <button class="filter-btn" data-scope="home">Home Favs</button>
+      <button class="filter-btn" data-scope="road">Road Favs</button>
+    </div>
+    <span class="filter-count" id="filterCount">— games</span>
+  </div>
 
-    <section class="hero">
-      <h1>By Price Range</h1>
-      <p>See how moneyline ranges have actually performed, where favorites hold up, and where underdogs have offered value.</p>
-      <div class="hero-updated" id="lastUpdated">Updated: —</div>
-    </section>
+  <div class="lead-callout">
+    <p class="lead-text" id="leadText">Loading range performance...</p>
+  </div>
 
-    <section class="filters">
-      <div class="filter-group">
-        <span class="filter-label">Sport</span>
-        <button class="filter-link active" data-sport="nba">NBA</button>
-        <button class="filter-link" data-sport="nhl">NHL</button>
-      </div>
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="sc-label">Strongest range</div>
+      <div class="sc-value" id="summaryStrongBand">—</div>
+      <div class="sc-meta" id="summaryStrongMeta">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-label">Weakest range</div>
+      <div class="sc-value" id="summaryWeakBand">—</div>
+      <div class="sc-meta" id="summaryWeakMeta">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-label">Best underdog play</div>
+      <div class="sc-value" id="summaryDogBand">—</div>
+      <div class="sc-meta" id="summaryDogMeta">—</div>
+    </div>
+  </div>
 
-      <div class="filter-group">
-        <span class="filter-label">Game State</span>
-        <button class="filter-link active" data-study="pregame">Pregame</button>
-        <button class="filter-link" data-study="live">Live</button>
-      </div>
+  <h2 class="section-title">Where favorites are covering</h2>
+  <p class="section-sub">ATS record and ROI by moneyline range.</p>
 
-      <div class="filter-group">
-        <span class="filter-label">Venue</span>
-        <button class="filter-link active" data-scope="all">All</button>
-        <button class="filter-link" data-scope="home">Home</button>
-        <button class="filter-link" data-scope="road">Road</button>
-      </div>
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Range</th>
+          <th>Sample</th>
+          <th>Record</th>
+          <th>Win %</th>
+          <th>ATS</th>
+          <th>Cover %</th>
+          <th>ROI</th>
+        </tr>
+      </thead>
+      <tbody id="favoritesBody"></tbody>
+    </table>
+  </div>
 
-      <div class="filter-group">
-        <span class="sort-label">Sort</span>
-        <button class="sort-link active" data-sort="roi_desc">ROI</button>
-        <button class="sort-link" data-sort="sample_desc">Sample</button>
-      </div>
-    </section>
+  <h2 class="section-title">How underdogs perform against them</h2>
+  <p class="section-sub">Underdog moneyline range vs the favorite range they typically face.</p>
 
-    <section class="summary-grid">
-      <article class="summary-card">
-        <div class="summary-label">Strongest range</div>
-        <div class="summary-value" id="summaryStrongest">—</div>
-      </article>
-      <article class="summary-card">
-        <div class="summary-label">Weakest range</div>
-        <div class="summary-value" id="summaryWeakest">—</div>
-      </article>
-      <article class="summary-card">
-        <div class="summary-label">Best dog play</div>
-        <div class="summary-value" id="summaryDog">—</div>
-      </article>
-    </section>
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Underdog range</th>
+          <th>Faces</th>
+          <th>Sample</th>
+          <th>Cover %</th>
+          <th>ROI</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="counterpartBody"></tbody>
+    </table>
+  </div>
 
-    <section class="section">
-      <h2>Where favorites are covering</h2>
-      <div class="table-card">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Range</th>
-                <th>Sample</th>
-                <th>Record</th>
-                <th>Win %</th>
-                <th>ROI %</th>
-                <th>ATS</th>
-                <th>ATS %</th>
-                <th>ATS ROI</th>
-              </tr>
-            </thead>
-            <tbody id="favoritesBody"></tbody>
-          </table>
-        </div>
-        <div id="favoritesError" class="error" style="display:none"></div>
-      </div>
-    </section>
+</main>
 
-    <section class="section">
-      <h2>How underdogs perform against them</h2>
-      <div class="table-card">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Dog Range</th>
-                <th>Favorite Mix</th>
-                <th>Dog Record</th>
-                <th>Dog ROI</th>
-                <th>Favorite ROI</th>
-                <th>Sample</th>
-                <th>Expand</th>
-              </tr>
-            </thead>
-            <tbody id="counterpartBody"></tbody>
-          </table>
-        </div>
-        <div id="counterpartError" class="error" style="display:none"></div>
-      </div>
-    </section>
-  </main>
+<footer>
+  <span>&copy; 2026 SportsSync</span>
+  <div class="footer-links">
+    <a href="/props">Props</a>
+    <a href="/trends/">Trends</a>
+    <a href="mailto:api@sportsync.io">Contact</a>
+  </div>
+</footer>
 
-  <script>
-    const SUPABASE_URL = 'https://qffzvrnbzabcokqqrwbv.supabase.co';
-    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZnp2cm5iemFiY29rcXFyd2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTc2NjgsImV4cCI6MjA3MDkzMzY2OH0.PCSnC5E7sG7FvasHy_9DdwiN61xW0GzFROLzZ0bTVnc';
-    const POLL_MS = 60_000;
-    const FETCH_LIMIT = 1000;
+<script>
+  const SUPABASE_URL = 'https://qffzvrnbzabcokqqrwbv.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZnp2cm5iemFiY29rcXFyd2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTc2NjgsImV4cCI6MjA3MDkzMzY2OH0.PCSnC5E7sG7FvasHy_9DdwiN61xW0GzFROLzZ0bTVnc';
+  const POLL_MS = 60_000;
+  const FETCH_LIMIT = 1000;
+  const FAVORITE_BAND_ORDER = ['-101 to -130', '-131 to -159', '-160 to -199', '-200 to -249', '-250+', 'Other favorite', 'other', 'Unknown'];
 
-    const FAVORITE_BAND_ORDER = ['-101 to -130', '-131 to -159', '-160 to -199', '-200 to -249', '-250+', 'Other favorite', 'other', 'Unknown'];
+  const SPORT_CONFIG = {
+    nba: { table: 'nba_postgame', suffix: 'nba' },
+    nhl: { table: 'nhl_postgame', suffix: 'nhl' }
+  };
 
-    const SPORT_CONFIG = {
-      nba: { table: 'nba_postgame', suffix: 'nba' },
-      nhl: { table: 'nhl_postgame', suffix: 'nhl' }
-    };
+  const state = {
+    sport: 'nba',
+    study: 'pregame',
+    locationScope: 'all',
+    openDogBand: null,
+    data: {
+      pregame: [],
+      live: [],
+      counterpart: []
+    },
+    cache: {
+      pregameRowsBySport: {},
+      liveEntriesBySport: {}
+    }
+  };
 
-    const state = {
-      sport: 'nba',
-      study: 'pregame',
-      locationScope: 'all',
-      sort: 'roi_desc',
-      openDogBand: null,
-      updatedAt: null,
-      data: {
-        pregame: [],
-        live: [],
-        counterpart: []
-      },
-      errors: {
-        favorites: null,
-        counterpart: null
-      },
-      cache: {
-        pregameRowsBySport: {},
-        liveEntriesBySport: {}
+  const els = {
+    filterCount: document.getElementById('filterCount'),
+    leadText: document.getElementById('leadText'),
+    summaryStrongBand: document.getElementById('summaryStrongBand'),
+    summaryStrongMeta: document.getElementById('summaryStrongMeta'),
+    summaryWeakBand: document.getElementById('summaryWeakBand'),
+    summaryWeakMeta: document.getElementById('summaryWeakMeta'),
+    summaryDogBand: document.getElementById('summaryDogBand'),
+    summaryDogMeta: document.getElementById('summaryDogMeta'),
+    favoritesBody: document.getElementById('favoritesBody'),
+    counterpartBody: document.getElementById('counterpartBody')
+  };
+
+  function toNumber(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function normalizeFavoriteBand(band) {
+    if (!band) return 'Unknown';
+    if (band === 'other') return 'Other favorite';
+    return band;
+  }
+
+  function normalizeDogBand(band) {
+    if (!band) return 'Unknown';
+    if (band === 'other') return 'Other';
+    return band;
+  }
+
+  function formatPct(value, precision = 1) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+    return `${Number(value).toFixed(precision)}%`;
+  }
+
+  function formatRoi(value, precision = 2) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+    const n = Number(value);
+    const sign = n > 0 ? '+' : '';
+    return `${sign}${n.toFixed(precision)}%`;
+  }
+
+  function formatRecord(wins, losses, pushes = 0) {
+    if (wins === null || wins === undefined || losses === null || losses === undefined) return '—';
+    if (pushes && Number(pushes) > 0) return `${wins}-${losses}-${pushes}`;
+    return `${wins}-${losses}`;
+  }
+
+  function sortFavoriteBand(a, b) {
+    const ai = FAVORITE_BAND_ORDER.indexOf(a);
+    const bi = FAVORITE_BAND_ORDER.indexOf(b);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  }
+
+  function bandProfitUnits(odds, won) {
+    const n = toNumber(odds);
+    if (n === null || n === 0) return null;
+    if (won) return n > 0 ? n / 100 : 100 / Math.abs(n);
+    return -1;
+  }
+
+  function classifyFavoriteMlBand(odds) {
+    const n = toNumber(odds);
+    if (n === null) return 'Unknown';
+    if (n >= -130 && n <= -101) return '-101 to -130';
+    if (n >= -159 && n <= -131) return '-131 to -159';
+    if (n >= -199 && n <= -160) return '-160 to -199';
+    if (n >= -249 && n <= -200) return '-200 to -249';
+    if (n <= -250) return '-250+';
+    return 'Other favorite';
+  }
+
+  async function fetchJson(path) {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        apikey: SUPABASE_ANON,
+        Authorization: `Bearer ${SUPABASE_ANON}`,
+        Accept: 'application/json'
       }
-    };
+    });
 
-    const els = {
-      lastUpdated: document.getElementById('lastUpdated'),
-      summaryStrongest: document.getElementById('summaryStrongest'),
-      summaryWeakest: document.getElementById('summaryWeakest'),
-      summaryDog: document.getElementById('summaryDog'),
-      favoritesBody: document.getElementById('favoritesBody'),
-      favoritesError: document.getElementById('favoritesError'),
-      counterpartBody: document.getElementById('counterpartBody'),
-      counterpartError: document.getElementById('counterpartError')
-    };
-
-    function toNumber(value) {
-      const n = Number(value);
-      return Number.isFinite(n) ? n : null;
+    if (!response.ok) {
+      let body = '';
+      try { body = await response.text(); } catch (_) {}
+      throw new Error(`${response.status} ${response.statusText}${body ? `\n${body}` : ''}`);
     }
 
-    function normalizeFavoriteBand(band) {
-      if (!band) return 'Unknown';
-      if (band === 'other') return 'Other favorite';
-      return band;
+    return response.json();
+  }
+
+  async function fetchAllRows(pathBase) {
+    const rows = [];
+    let offset = 0;
+
+    while (true) {
+      const connector = pathBase.includes('?') ? '&' : '?';
+      const batch = await fetchJson(`${pathBase}${connector}limit=${FETCH_LIMIT}&offset=${offset}`);
+      if (!Array.isArray(batch) || batch.length === 0) break;
+      rows.push(...batch);
+      if (batch.length < FETCH_LIMIT) break;
+      offset += FETCH_LIMIT;
     }
 
-    function normalizeDogBand(band) {
-      if (!band) return 'Unknown';
-      if (band === 'other') return 'Other dog';
-      return band;
+    return rows;
+  }
+
+  function filterIds(ids) {
+    return ids.filter(Boolean).filter((id, idx, arr) => arr.indexOf(id) === idx);
+  }
+
+  async function fetchRowsByIds(table, ids, selectClause, extraFilters = '') {
+    const cleanIds = filterIds(ids);
+    if (!cleanIds.length) return [];
+
+    const chunks = [];
+    const chunkSize = 40;
+    for (let i = 0; i < cleanIds.length; i += chunkSize) {
+      chunks.push(cleanIds.slice(i, i + chunkSize));
     }
 
-    function formatPct(value, precision = 1) {
-      if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-      return `${Number(value).toFixed(precision)}%`;
+    const out = [];
+    for (const chunk of chunks) {
+      const inFilter = `id=in.(${chunk.join(',')})`;
+      const path = `${table}?select=${selectClause}&${inFilter}${extraFilters ? `&${extraFilters}` : ''}`;
+      const rows = await fetchAllRows(path);
+      out.push(...rows);
     }
 
-    function formatRoi(value, precision = 1) {
-      if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-      const n = Number(value);
-      const sign = n > 0 ? '+' : '';
-      return `${sign}${n.toFixed(precision)}%`;
+    return out;
+  }
+
+  async function fetchSnapshotsByMatchIds(ids, sport) {
+    const cleanIds = filterIds(ids);
+    if (!cleanIds.length) return [];
+
+    const chunks = [];
+    const chunkSize = 25;
+    for (let i = 0; i < cleanIds.length; i += chunkSize) {
+      chunks.push(cleanIds.slice(i, i + chunkSize));
     }
 
-    function formatRecord(wins, losses, pushes = 0) {
-      if (wins === null || wins === undefined || losses === null || losses === undefined) return '—';
-      if (pushes && Number(pushes) > 0) return `${wins}-${losses}-${pushes}`;
-      return `${wins}-${losses}`;
+    const out = [];
+    for (const chunk of chunks) {
+      const filter = `match_id=in.(${chunk.join(',')})`;
+      const base = `live_odds_snapshots?select=match_id,captured_at,home_ml,away_ml&period,clock&league_id=eq.${sport}&is_live=eq.true&home_ml=not.is.null&away_ml=not.is.null&${filter}&order=match_id.asc,captured_at.asc`;
+      const rows = await fetchAllRows(base);
+      out.push(...rows);
     }
+    return out;
+  }
 
-    function sortFavoriteBand(a, b) {
-      return FAVORITE_BAND_ORDER.indexOf(a) - FAVORITE_BAND_ORDER.indexOf(b);
-    }
+  function scopeRows(rows, scope) {
+    if (scope === 'home') return rows.filter((row) => row.favorite_location === 'home');
+    if (scope === 'road') return rows.filter((row) => row.favorite_location === 'road');
+    return rows;
+  }
 
-    function bandProfitUnits(odds, won) {
-      const n = toNumber(odds);
-      if (n === null || n === 0) return null;
-      if (won) {
-        if (n > 0) return n / 100;
-        return 100 / Math.abs(n);
-      }
-      return -1;
-    }
+  function aggregatePregame(rows, scope) {
+    const filtered = scopeRows(rows, scope);
+    const groups = new Map();
 
-    function classifyFavoriteMlBand(odds) {
-      const n = toNumber(odds);
-      if (n === null) return 'Unknown';
-      if (n >= -130 && n <= -101) return '-101 to -130';
-      if (n >= -159 && n <= -131) return '-131 to -159';
-      if (n >= -199 && n <= -160) return '-160 to -199';
-      if (n >= -249 && n <= -200) return '-200 to -249';
-      if (n <= -250) return '-250+';
-      return 'Other favorite';
-    }
-
-    async function fetchJson(path) {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-        method: 'GET',
-        cache: 'no-store',
-        headers: {
-          apikey: SUPABASE_ANON,
-          Authorization: `Bearer ${SUPABASE_ANON}`,
-          Accept: 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        let body = '';
-        try { body = await response.text(); } catch (_) {}
-        throw new Error(`${response.status} ${response.statusText}${body ? `\n${body}` : ''}`);
-      }
-
-      return response.json();
-    }
-
-    async function fetchAllRows(pathBase) {
-      const rows = [];
-      let offset = 0;
-
-      while (true) {
-        const connector = pathBase.includes('?') ? '&' : '?';
-        const batch = await fetchJson(`${pathBase}${connector}limit=${FETCH_LIMIT}&offset=${offset}`);
-        if (!Array.isArray(batch) || batch.length === 0) break;
-        rows.push(...batch);
-        if (batch.length < FETCH_LIMIT) break;
-        offset += FETCH_LIMIT;
-      }
-
-      return rows;
-    }
-
-    function scopeRows(rows, scope) {
-      if (scope === 'home') return rows.filter((row) => row.favorite_location === 'home');
-      if (scope === 'road') return rows.filter((row) => row.favorite_location === 'road');
-      return rows;
-    }
-
-    function aggregatePregame(rows, scope) {
-      const filtered = scopeRows(rows, scope);
-      const groups = new Map();
-
-      for (const row of filtered) {
-        const band = normalizeFavoriteBand(row.favorite_ml_band);
-        if (!groups.has(band)) {
-          groups.set(band, {
-            band,
-            sample_size: 0,
-            wins: 0,
-            losses: 0,
-            pushes: 0,
-            su_units: 0,
-            ats_wins: 0,
-            ats_losses: 0,
-            ats_pushes: 0,
-            ats_sample: 0,
-            ats_priced_sample: 0,
-            ats_units: 0
-          });
-        }
-
-        const g = groups.get(band);
-        const won = !!row.favorite_won_su;
-        const mlUnits = toNumber(row.favorite_ml_unit_pl) ?? 0;
-        const atsWon = row.favorite_covered_ats === true;
-        const atsPush = row.favorite_ats_push === true;
-        const atsKnown = row.favorite_covered_ats !== null || row.favorite_ats_push !== null;
-        const atsUnits = toNumber(row.favorite_ats_unit_pl);
-
-        g.sample_size += 1;
-        g.wins += won ? 1 : 0;
-        g.losses += won ? 0 : 1;
-        g.su_units += mlUnits;
-
-        if (atsKnown) {
-          g.ats_sample += 1;
-          if (atsPush) g.ats_pushes += 1;
-          else if (atsWon) g.ats_wins += 1;
-          else g.ats_losses += 1;
-        }
-
-        if (atsUnits !== null) {
-          g.ats_priced_sample += 1;
-          g.ats_units += atsUnits;
-        }
-      }
-
-      return [...groups.values()]
-        .map((g) => ({
-          ...g,
-          win_rate_pct: g.sample_size ? (100 * g.wins) / g.sample_size : null,
-          roi_pct: g.sample_size ? (100 * g.su_units) / g.sample_size : null,
-          ats_win_pct: (g.ats_wins + g.ats_losses) ? (100 * g.ats_wins) / (g.ats_wins + g.ats_losses) : null,
-          ats_roi_pct: g.ats_priced_sample ? (100 * g.ats_units) / g.ats_priced_sample : null
-        }))
-        .sort((a, b) => sortFavoriteBand(a.band, b.band));
-    }
-
-    function aggregateCounterpart(rows, scope) {
-      const filtered = scopeRows(rows, scope);
-      const groups = new Map();
-
-      for (const row of filtered) {
-        const dogBand = normalizeDogBand(row.dog_ml_band);
-        const counterpartBand = normalizeFavoriteBand(row.favorite_ml_band);
-        const key = `${dogBand}__${counterpartBand}`;
-        if (!groups.has(key)) {
-          groups.set(key, {
-            dog_ml_band: dogBand,
-            counterpart_band: counterpartBand,
-            sample_size: 0,
-            dog_wins: 0,
-            dog_losses: 0,
-            dog_units: 0,
-            favorite_wins: 0,
-            favorite_losses: 0,
-            favorite_units: 0
-          });
-        }
-
-        const g = groups.get(key);
-        const favoriteWon = !!row.favorite_won_su;
-        const dogWon = !favoriteWon;
-
-        g.sample_size += 1;
-        g.favorite_wins += favoriteWon ? 1 : 0;
-        g.favorite_losses += favoriteWon ? 0 : 1;
-        g.favorite_units += toNumber(row.favorite_ml_unit_pl) ?? 0;
-        g.dog_wins += dogWon ? 1 : 0;
-        g.dog_losses += dogWon ? 0 : 1;
-        g.dog_units += bandProfitUnits(row.underdog_ml, dogWon) ?? 0;
-      }
-
-      const out = [...groups.values()].map((g) => ({
-        ...g,
-        dog_roi_pct: g.sample_size ? (100 * g.dog_units) / g.sample_size : null,
-        favorite_roi_pct: g.sample_size ? (100 * g.favorite_units) / g.sample_size : null
-      }));
-
-      const totalsByDog = out.reduce((acc, row) => {
-        acc[row.dog_ml_band] = (acc[row.dog_ml_band] || 0) + row.sample_size;
-        return acc;
-      }, {});
-
-      for (const row of out) {
-        const total = totalsByDog[row.dog_ml_band] || 0;
-        row.counterpart_share_pct = total ? (100 * row.sample_size) / total : null;
-      }
-
-      return out.sort((a, b) => {
-        if (a.dog_ml_band === b.dog_ml_band) {
-          return (b.counterpart_share_pct || 0) - (a.counterpart_share_pct || 0);
-        }
-        return String(a.dog_ml_band).localeCompare(String(b.dog_ml_band));
-      });
-    }
-
-    async function getPregameRows(sport) {
-      const cached = state.cache.pregameRowsBySport[sport];
-      if (cached && (Date.now() - cached.fetchedAt) < POLL_MS) {
-        return cached.rows;
-      }
-
-      const viewName = sport === 'nba' ? 'vw_nba_pregame_band_study' : 'vw_nhl_pregame_band_study';
-      const rows = await fetchAllRows(`${viewName}?select=sport,match_id,start_time,home_team,away_team,favorite_ml_band,dog_ml_band,favorite_location,favorite_won_su,favorite_ml_unit_pl,favorite_covered_ats,favorite_ats_push,favorite_ats_unit_pl,underdog_ml&order=start_time.asc`);
-      state.cache.pregameRowsBySport[sport] = { rows, fetchedAt: Date.now() };
-      return rows;
-    }
-
-    function filterIds(ids) {
-      return ids.filter(Boolean).filter((id, idx, arr) => arr.indexOf(id) === idx);
-    }
-
-    async function fetchRowsByIds(table, ids, selectClause, extraFilters = '') {
-      const cleanIds = filterIds(ids);
-      if (!cleanIds.length) return [];
-
-      const chunks = [];
-      const chunkSize = 40;
-      for (let i = 0; i < cleanIds.length; i += chunkSize) {
-        chunks.push(cleanIds.slice(i, i + chunkSize));
-      }
-
-      const out = [];
-      for (const chunk of chunks) {
-        const inFilter = `id=in.(${chunk.join(',')})`;
-        const path = `${table}?select=${selectClause}&${inFilter}${extraFilters ? `&${extraFilters}` : ''}`;
-        const rows = await fetchAllRows(path);
-        out.push(...rows);
-      }
-
-      return out;
-    }
-
-    async function fetchSnapshotsByMatchIds(ids, sport) {
-      const cleanIds = filterIds(ids);
-      if (!cleanIds.length) return [];
-
-      const chunks = [];
-      const chunkSize = 25;
-      for (let i = 0; i < cleanIds.length; i += chunkSize) {
-        chunks.push(cleanIds.slice(i, i + chunkSize));
-      }
-
-      const out = [];
-      for (const chunk of chunks) {
-        const filter = `match_id=in.(${chunk.join(',')})`;
-        const base = `live_odds_snapshots?select=match_id,captured_at,home_ml,away_ml&period,clock&league_id=eq.${sport}&is_live=eq.true&home_ml=not.is.null&away_ml=not.is.null&${filter}&order=match_id.asc,captured_at.asc`;
-        const rows = await fetchAllRows(base);
-        out.push(...rows);
-      }
-      return out;
-    }
-
-    function aggregateLive(entries, scope) {
-      const filtered = scopeRows(entries, scope);
-      const groups = new Map();
-
-      for (const row of filtered) {
-        const band = normalizeFavoriteBand(row.band);
-        if (!groups.has(band)) {
-          groups.set(band, {
-            band,
-            sample_size: 0,
-            wins: 0,
-            losses: 0,
-            pushes: 0,
-            units: 0
-          });
-        }
-
-        const g = groups.get(band);
-        g.sample_size += 1;
-        g.wins += row.favorite_won_su ? 1 : 0;
-        g.losses += row.favorite_won_su ? 0 : 1;
-        g.units += row.favorite_profit ?? 0;
-      }
-
-      return [...groups.values()]
-        .map((g) => ({
-          ...g,
-          win_rate_pct: g.sample_size ? (100 * g.wins) / g.sample_size : null,
-          roi_pct: g.sample_size ? (100 * g.units) / g.sample_size : null
-        }))
-        .sort((a, b) => sortFavoriteBand(a.band, b.band));
-    }
-
-    async function getLiveAggregates(sport, scope) {
-      const cached = state.cache.liveEntriesBySport[sport];
-      if (cached && (Date.now() - cached.fetchedAt) < POLL_MS) {
-        return aggregateLive(cached.entries, scope);
-      }
-
-      const coverageRows = await fetchAllRows(`vw_live_pipeline_coverage?select=match_id,league_id,final,has_live_odds_snapshot&league_id=eq.${sport}&final=is.true&has_live_odds_snapshot=is.true`);
-      const matchIds = filterIds(coverageRows.map((row) => row.match_id));
-      if (!matchIds.length) {
-        state.cache.liveEntriesBySport[sport] = { entries: [], fetchedAt: Date.now() };
-        return [];
-      }
-
-      const sportConfig = SPORT_CONFIG[sport];
-      const postgameRows = await fetchRowsByIds(
-        sportConfig.table,
-        matchIds,
-        'id,start_time,home_score,away_score',
-        `and=(id.like.%25_${sportConfig.suffix},home_score.not.is.null,away_score.not.is.null)`
-      );
-      const snapshots = await fetchSnapshotsByMatchIds(matchIds, sport);
-      const postgameById = new Map(postgameRows.map((row) => [row.id, row]));
-      const firstByMatch = new Map();
-
-      for (const snap of snapshots) {
-        if (firstByMatch.has(snap.match_id)) continue;
-        const game = postgameById.get(snap.match_id);
-        if (!game) continue;
-
-        const captured = new Date(snap.captured_at).getTime();
-        const start = new Date(game.start_time).getTime();
-        if (!Number.isFinite(captured) || !Number.isFinite(start) || captured < start) continue;
-        firstByMatch.set(snap.match_id, snap);
-      }
-
-      const entries = [];
-      for (const [matchId, snap] of firstByMatch.entries()) {
-        const game = postgameById.get(matchId);
-        if (!game) continue;
-
-        const homeMl = toNumber(snap.home_ml);
-        const awayMl = toNumber(snap.away_ml);
-        const homeScore = toNumber(game.home_score);
-        const awayScore = toNumber(game.away_score);
-        if (homeMl === null || awayMl === null || homeScore === null || awayScore === null) continue;
-
-        const favoriteIsHome = homeMl <= awayMl;
-        const favoriteMl = favoriteIsHome ? homeMl : awayMl;
-        const favoriteWonSu = favoriteIsHome ? homeScore > awayScore : awayScore > homeScore;
-
-        entries.push({
-          match_id: matchId,
-          favorite_location: favoriteIsHome ? 'home' : 'road',
-          band: classifyFavoriteMlBand(favoriteMl),
-          favorite_won_su: favoriteWonSu,
-          favorite_profit: bandProfitUnits(favoriteMl, favoriteWonSu)
+    for (const row of filtered) {
+      const band = normalizeFavoriteBand(row.favorite_ml_band);
+      if (!groups.has(band)) {
+        groups.set(band, {
+          band,
+          sample_size: 0,
+          wins: 0,
+          losses: 0,
+          pushes: 0,
+          su_units: 0,
+          ats_wins: 0,
+          ats_losses: 0,
+          ats_pushes: 0,
+          ats_sample: 0,
+          ats_priced_sample: 0,
+          ats_units: 0
         });
       }
 
-      state.cache.liveEntriesBySport[sport] = { entries, fetchedAt: Date.now() };
-      return aggregateLive(entries, scope);
-    }
+      const g = groups.get(band);
+      const won = !!row.favorite_won_su;
+      const mlUnits = toNumber(row.favorite_ml_unit_pl) ?? 0;
+      const atsWon = row.favorite_covered_ats === true;
+      const atsPush = row.favorite_ats_push === true;
+      const atsKnown = row.favorite_covered_ats !== null || row.favorite_ats_push !== null;
+      const atsUnits = toNumber(row.favorite_ats_unit_pl);
 
-    function sortRows(rows) {
-      const sorted = [...rows];
-      if (state.sort === 'sample_desc') {
-        sorted.sort((a, b) => (Number(b.sample_size) || 0) - (Number(a.sample_size) || 0));
-        return sorted;
+      g.sample_size += 1;
+      g.wins += won ? 1 : 0;
+      g.losses += won ? 0 : 1;
+      g.su_units += mlUnits;
+
+      if (atsKnown) {
+        g.ats_sample += 1;
+        if (atsPush) g.ats_pushes += 1;
+        else if (atsWon) g.ats_wins += 1;
+        else g.ats_losses += 1;
       }
 
-      sorted.sort((a, b) => {
-        const br = Number(b.roi_pct);
-        const ar = Number(a.roi_pct);
-        if (!Number.isNaN(br) && !Number.isNaN(ar) && br !== ar) return br - ar;
-        return (Number(b.sample_size) || 0) - (Number(a.sample_size) || 0);
+      if (atsUnits !== null) {
+        g.ats_priced_sample += 1;
+        g.ats_units += atsUnits;
+      }
+    }
+
+    return [...groups.values()]
+      .map((g) => ({
+        ...g,
+        win_rate_pct: g.sample_size ? (100 * g.wins) / g.sample_size : null,
+        roi_pct: g.sample_size ? (100 * g.su_units) / g.sample_size : null,
+        ats_win_pct: (g.ats_wins + g.ats_losses) ? (100 * g.ats_wins) / (g.ats_wins + g.ats_losses) : null,
+        ats_roi_pct: g.ats_priced_sample ? (100 * g.ats_units) / g.ats_priced_sample : null
+      }))
+      .sort((a, b) => sortFavoriteBand(a.band, b.band));
+  }
+
+  function aggregateCounterpart(rows, scope) {
+    const filtered = scopeRows(rows, scope);
+    const groups = new Map();
+
+    for (const row of filtered) {
+      const dogBand = normalizeDogBand(row.dog_ml_band);
+      const counterpartBand = normalizeFavoriteBand(row.favorite_ml_band);
+      const key = `${dogBand}__${counterpartBand}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          dog_ml_band: dogBand,
+          counterpart_band: counterpartBand,
+          sample_size: 0,
+          dog_wins: 0,
+          dog_losses: 0,
+          dog_units: 0,
+          favorite_wins: 0,
+          favorite_losses: 0,
+          favorite_units: 0
+        });
+      }
+
+      const g = groups.get(key);
+      const favoriteWon = !!row.favorite_won_su;
+      const dogWon = !favoriteWon;
+
+      g.sample_size += 1;
+      g.favorite_wins += favoriteWon ? 1 : 0;
+      g.favorite_losses += favoriteWon ? 0 : 1;
+      g.favorite_units += toNumber(row.favorite_ml_unit_pl) ?? 0;
+      g.dog_wins += dogWon ? 1 : 0;
+      g.dog_losses += dogWon ? 0 : 1;
+      g.dog_units += bandProfitUnits(row.underdog_ml, dogWon) ?? 0;
+    }
+
+    const out = [...groups.values()].map((g) => ({
+      ...g,
+      dog_roi_pct: g.sample_size ? (100 * g.dog_units) / g.sample_size : null,
+      favorite_roi_pct: g.sample_size ? (100 * g.favorite_units) / g.sample_size : null
+    }));
+
+    const totalsByDog = out.reduce((acc, row) => {
+      acc[row.dog_ml_band] = (acc[row.dog_ml_band] || 0) + row.sample_size;
+      return acc;
+    }, {});
+
+    for (const row of out) {
+      const total = totalsByDog[row.dog_ml_band] || 0;
+      row.counterpart_share_pct = total ? (100 * row.sample_size) / total : null;
+    }
+
+    return out.sort((a, b) => {
+      if (a.dog_ml_band === b.dog_ml_band) {
+        return (b.counterpart_share_pct || 0) - (a.counterpart_share_pct || 0);
+      }
+      return String(a.dog_ml_band).localeCompare(String(b.dog_ml_band));
+    });
+  }
+
+  async function getPregameRows(sport) {
+    const cached = state.cache.pregameRowsBySport[sport];
+    if (cached && (Date.now() - cached.fetchedAt) < POLL_MS) return cached.rows;
+
+    const viewName = sport === 'nba' ? 'vw_nba_pregame_band_study' : 'vw_nhl_pregame_band_study';
+    const rows = await fetchAllRows(`${viewName}?select=sport,match_id,start_time,home_team,away_team,favorite_ml_band,dog_ml_band,favorite_location,favorite_won_su,favorite_ml_unit_pl,favorite_covered_ats,favorite_ats_push,favorite_ats_unit_pl,underdog_ml&order=start_time.asc`);
+    state.cache.pregameRowsBySport[sport] = { rows, fetchedAt: Date.now() };
+    return rows;
+  }
+
+  function aggregateLive(entries, scope) {
+    const filtered = scopeRows(entries, scope);
+    const groups = new Map();
+
+    for (const row of filtered) {
+      const band = normalizeFavoriteBand(row.band);
+      if (!groups.has(band)) {
+        groups.set(band, {
+          band,
+          sample_size: 0,
+          wins: 0,
+          losses: 0,
+          pushes: 0,
+          units: 0
+        });
+      }
+
+      const g = groups.get(band);
+      g.sample_size += 1;
+      g.wins += row.favorite_won_su ? 1 : 0;
+      g.losses += row.favorite_won_su ? 0 : 1;
+      g.units += row.favorite_profit ?? 0;
+    }
+
+    return [...groups.values()]
+      .map((g) => ({
+        ...g,
+        win_rate_pct: g.sample_size ? (100 * g.wins) / g.sample_size : null,
+        roi_pct: g.sample_size ? (100 * g.units) / g.sample_size : null,
+        ats_wins: null,
+        ats_losses: null,
+        ats_pushes: 0,
+        ats_win_pct: null
+      }))
+      .sort((a, b) => sortFavoriteBand(a.band, b.band));
+  }
+
+  async function getLiveAggregates(sport, scope) {
+    const cached = state.cache.liveEntriesBySport[sport];
+    if (cached && (Date.now() - cached.fetchedAt) < POLL_MS) {
+      return aggregateLive(cached.entries, scope);
+    }
+
+    const coverageRows = await fetchAllRows(`vw_live_pipeline_coverage?select=match_id,league_id,final,has_live_odds_snapshot&league_id=eq.${sport}&final=is.true&has_live_odds_snapshot=is.true`);
+    const matchIds = filterIds(coverageRows.map((row) => row.match_id));
+    if (!matchIds.length) {
+      state.cache.liveEntriesBySport[sport] = { entries: [], fetchedAt: Date.now() };
+      return [];
+    }
+
+    const sportConfig = SPORT_CONFIG[sport];
+    const postgameRows = await fetchRowsByIds(
+      sportConfig.table,
+      matchIds,
+      'id,start_time,home_score,away_score',
+      `and=(id.like.%25_${sportConfig.suffix},home_score.not.is.null,away_score.not.is.null)`
+    );
+
+    const snapshots = await fetchSnapshotsByMatchIds(matchIds, sport);
+    const postgameById = new Map(postgameRows.map((row) => [row.id, row]));
+    const firstByMatch = new Map();
+
+    for (const snap of snapshots) {
+      if (firstByMatch.has(snap.match_id)) continue;
+      const game = postgameById.get(snap.match_id);
+      if (!game) continue;
+
+      const captured = new Date(snap.captured_at).getTime();
+      const start = new Date(game.start_time).getTime();
+      if (!Number.isFinite(captured) || !Number.isFinite(start) || captured < start) continue;
+      firstByMatch.set(snap.match_id, snap);
+    }
+
+    const entries = [];
+    for (const [matchId, snap] of firstByMatch.entries()) {
+      const game = postgameById.get(matchId);
+      if (!game) continue;
+
+      const homeMl = toNumber(snap.home_ml);
+      const awayMl = toNumber(snap.away_ml);
+      const homeScore = toNumber(game.home_score);
+      const awayScore = toNumber(game.away_score);
+      if (homeMl === null || awayMl === null || homeScore === null || awayScore === null) continue;
+
+      const favoriteIsHome = homeMl <= awayMl;
+      const favoriteMl = favoriteIsHome ? homeMl : awayMl;
+      const favoriteWonSu = favoriteIsHome ? homeScore > awayScore : awayScore > homeScore;
+
+      entries.push({
+        match_id: matchId,
+        favorite_location: favoriteIsHome ? 'home' : 'road',
+        band: classifyFavoriteMlBand(favoriteMl),
+        favorite_won_su: favoriteWonSu,
+        favorite_profit: bandProfitUnits(favoriteMl, favoriteWonSu)
       });
-      return sorted;
     }
 
-    function dogBandSummary(counterpartRows) {
-      const grouped = {};
-      for (const row of counterpartRows) {
-        if (!grouped[row.dog_ml_band]) {
-          grouped[row.dog_ml_band] = {
-            dog_ml_band: row.dog_ml_band,
-            sample_size: 0,
-            weighted_dog_roi: 0,
-            weighted_favorite_roi: 0
-          };
-        }
-        const g = grouped[row.dog_ml_band];
-        const sample = Number(row.sample_size) || 0;
-        g.sample_size += sample;
-        g.weighted_dog_roi += (Number(row.dog_roi_pct) || 0) * sample;
-        g.weighted_favorite_roi += (Number(row.favorite_roi_pct) || 0) * sample;
-      }
+    state.cache.liveEntriesBySport[sport] = { entries, fetchedAt: Date.now() };
+    return aggregateLive(entries, scope);
+  }
 
-      return Object.values(grouped).map((g) => ({
+  function summarizeDogBands(counterpartRows) {
+    const grouped = {};
+    for (const row of counterpartRows) {
+      if (!grouped[row.dog_ml_band]) {
+        grouped[row.dog_ml_band] = {
+          dog_ml_band: row.dog_ml_band,
+          sample_size: 0,
+          dog_wins: 0,
+          dog_losses: 0,
+          weighted_dog_roi: 0,
+          weighted_favorite_roi: 0,
+          rows: []
+        };
+      }
+      const g = grouped[row.dog_ml_band];
+      const sample = Number(row.sample_size) || 0;
+      g.sample_size += sample;
+      g.dog_wins += Number(row.dog_wins) || 0;
+      g.dog_losses += Number(row.dog_losses) || 0;
+      g.weighted_dog_roi += (Number(row.dog_roi_pct) || 0) * sample;
+      g.weighted_favorite_roi += (Number(row.favorite_roi_pct) || 0) * sample;
+      g.rows.push(row);
+    }
+
+    return Object.values(grouped).map((g) => {
+      const sortedRows = [...g.rows].sort((a, b) => Number(b.counterpart_share_pct || 0) - Number(a.counterpart_share_pct || 0));
+      return {
         dog_ml_band: g.dog_ml_band,
         sample_size: g.sample_size,
+        dog_wins: g.dog_wins,
+        dog_losses: g.dog_losses,
+        dog_win_pct: (g.dog_wins + g.dog_losses) ? (100 * g.dog_wins) / (g.dog_wins + g.dog_losses) : null,
         dog_roi_pct: g.sample_size ? g.weighted_dog_roi / g.sample_size : null,
-        favorite_roi_pct: g.sample_size ? g.weighted_favorite_roi / g.sample_size : null
-      }));
+        favorite_roi_pct: g.sample_size ? g.weighted_favorite_roi / g.sample_size : null,
+        top: sortedRows[0] || null,
+        rows: sortedRows
+      };
+    }).sort((a, b) => b.sample_size - a.sample_size);
+  }
+
+  function rankRows(rows) {
+    return rows
+      .filter((row) => Number(row.sample_size) >= 10 && row.roi_pct !== null && row.roi_pct !== undefined)
+      .sort((a, b) => Number(b.roi_pct) - Number(a.roi_pct));
+  }
+
+  function renderLeadAndSummary() {
+    const rows = state.study === 'pregame' ? state.data.pregame : state.data.live;
+    const ranked = rankRows(rows);
+    const strongest = ranked[0] || null;
+    const weakest = ranked[ranked.length - 1] || null;
+
+    const dogRanked = summarizeDogBands(state.data.counterpart)
+      .filter((row) => Number(row.sample_size) >= 10 && row.dog_roi_pct !== null && row.dog_roi_pct !== undefined)
+      .sort((a, b) => Number(b.dog_roi_pct) - Number(a.dog_roi_pct));
+    const bestDog = dogRanked[0] || null;
+
+    els.summaryStrongBand.textContent = strongest ? strongest.band : '—';
+    els.summaryStrongMeta.innerHTML = strongest
+      ? `${formatRecord(strongest.wins, strongest.losses, strongest.pushes)} · <span class="sc-roi ${Number(strongest.roi_pct) >= 0 ? 'pos' : 'neg'}">${formatRoi(strongest.roi_pct)} ROI</span>`
+      : 'No qualified range yet.';
+
+    els.summaryWeakBand.textContent = weakest ? weakest.band : '—';
+    els.summaryWeakMeta.innerHTML = weakest
+      ? `${formatRecord(weakest.wins, weakest.losses, weakest.pushes)} · <span class="sc-roi ${Number(weakest.roi_pct) >= 0 ? 'pos' : 'neg'}">${formatRoi(weakest.roi_pct)} ROI</span>`
+      : 'No qualified range yet.';
+
+    els.summaryDogBand.textContent = bestDog ? bestDog.dog_ml_band : '—';
+    els.summaryDogMeta.innerHTML = bestDog
+      ? `Dog ${formatPct(bestDog.dog_win_pct)} · Fav ${formatRoi(bestDog.favorite_roi_pct)} · <span class="sc-roi ${Number(bestDog.dog_roi_pct) >= 0 ? 'pos' : 'neg'}">${formatRoi(bestDog.dog_roi_pct)} ROI</span>`
+      : 'No qualified dog range yet.';
+
+    if (strongest && weakest) {
+      els.leadText.innerHTML = `${strongest.band} favorites have been strongest at <span class="green">${formatRoi(strongest.roi_pct)} ROI</span> across <strong>${strongest.sample_size}</strong> games. ${weakest.band} has been weakest at <span class="red">${formatRoi(weakest.roi_pct)} ROI</span>.`;
+    } else {
+      els.leadText.textContent = 'Not enough completed games for a clean range signal yet.';
+    }
+  }
+
+  function renderFavorites() {
+    const rows = (state.study === 'pregame' ? state.data.pregame : state.data.live)
+      .sort((a, b) => Number(b.roi_pct || -9999) - Number(a.roi_pct || -9999));
+
+    const ranked = rankRows(rows);
+    const bestBand = ranked[0]?.band || null;
+    const worstBand = ranked[ranked.length - 1]?.band || null;
+
+    if (!rows.length) {
+      els.favoritesBody.innerHTML = '<tr><td class="empty" colspan="7">No range data for this filter.</td></tr>';
+      return;
     }
 
-    function renderSummary() {
-      const activeRows = state.study === 'pregame' ? state.data.pregame : state.data.live;
-      const qualified = activeRows.filter((row) => Number(row.sample_size) >= 10 && row.roi_pct !== null && row.roi_pct !== undefined);
-      const strongest = [...qualified].sort((a, b) => Number(b.roi_pct) - Number(a.roi_pct))[0] || null;
-      const weakest = [...qualified].sort((a, b) => Number(a.roi_pct) - Number(b.roi_pct))[0] || null;
+    els.favoritesBody.innerHTML = rows.map((row) => {
+      const roiClass = Number(row.roi_pct) >= 0 ? 'pos' : 'neg';
+      const trClass = row.band === bestBand ? 'row-best' : (row.band === worstBand ? 'row-worst' : '');
+      const showAts = state.study === 'pregame';
+      return `
+        <tr class="${trClass}">
+          <td class="cell-range">${row.band}</td>
+          <td class="cell-record">${row.sample_size}</td>
+          <td class="cell-record">${formatRecord(row.wins, row.losses, row.pushes)}</td>
+          <td class="cell-pct">${formatPct(row.win_rate_pct)}</td>
+          <td class="cell-record">${showAts ? formatRecord(row.ats_wins, row.ats_losses, row.ats_pushes) : '—'}</td>
+          <td class="cell-pct">${showAts ? formatPct(row.ats_win_pct) : '—'}</td>
+          <td><span class="cell-roi ${roiClass}">${formatRoi(row.roi_pct)}</span></td>
+        </tr>
+      `;
+    }).join('');
+  }
 
-      const dogRows = dogBandSummary(state.data.counterpart)
-        .filter((row) => Number(row.sample_size) >= 10 && row.dog_roi_pct !== null && row.dog_roi_pct !== undefined)
-        .sort((a, b) => Number(b.dog_roi_pct) - Number(a.dog_roi_pct));
-      const bestDog = dogRows[0] || null;
+  function renderCounterpart() {
+    const groups = summarizeDogBands(state.data.counterpart);
 
-      els.summaryStrongest.textContent = strongest
-        ? `${strongest.band} · ${formatRecord(strongest.wins, strongest.losses, strongest.pushes)} · ${formatRoi(strongest.roi_pct)} ROI`
-        : 'No range with a usable sample yet.';
-
-      els.summaryWeakest.textContent = weakest
-        ? `${weakest.band} · ${formatRecord(weakest.wins, weakest.losses, weakest.pushes)} · ${formatRoi(weakest.roi_pct)} ROI`
-        : 'No range with a usable sample yet.';
-
-      els.summaryDog.textContent = bestDog
-        ? `${bestDog.dog_ml_band} · ${formatRoi(bestDog.dog_roi_pct)} ROI`
-        : 'No dog range with a usable sample yet.';
+    if (!groups.length) {
+      els.counterpartBody.innerHTML = '<tr><td class="empty" colspan="6">No counterpart data for this filter.</td></tr>';
+      return;
     }
 
-    function renderFavoritesTable() {
-      const rows = sortRows(state.study === 'pregame' ? state.data.pregame : state.data.live);
-      if (!rows.length) {
-        els.favoritesBody.innerHTML = '<tr><td class="empty" colspan="8">No data for this filter.</td></tr>';
-        return;
-      }
+    els.counterpartBody.innerHTML = groups.map((g) => {
+      const open = state.openDogBand === g.dog_ml_band;
+      const details = (g.rows || []).map((row) => `
+        <tr>
+          <td>${row.counterpart_band}</td>
+          <td>${formatPct(row.counterpart_share_pct, 1)}</td>
+          <td>${row.sample_size}</td>
+          <td>${formatRecord(row.dog_wins, row.dog_losses)}</td>
+          <td class="${Number(row.dog_roi_pct) >= 0 ? 'roi-pos' : 'roi-neg'}">${formatRoi(row.dog_roi_pct)}</td>
+          <td>${formatRecord(row.favorite_wins, row.favorite_losses)}</td>
+          <td class="${Number(row.favorite_roi_pct) >= 0 ? 'roi-pos' : 'roi-neg'}">${formatRoi(row.favorite_roi_pct)}</td>
+        </tr>
+      `).join('');
 
-      els.favoritesBody.innerHTML = rows.map((row) => {
-        const roiClass = Number(row.roi_pct) >= 0 ? 'roi-pos' : 'roi-neg';
-        const atsRoiClass = Number(row.ats_roi_pct) >= 0 ? 'roi-pos' : 'roi-neg';
-        const showAts = state.study === 'pregame';
-        return `
-          <tr>
-            <td class="td-text">${row.band}</td>
-            <td>${row.sample_size}</td>
-            <td>${formatRecord(row.wins, row.losses, row.pushes)}</td>
-            <td>${formatPct(row.win_rate_pct)}</td>
-            <td class="${roiClass}">${formatRoi(row.roi_pct)}</td>
-            <td>${showAts ? formatRecord(row.ats_wins, row.ats_losses, row.ats_pushes) : '—'}</td>
-            <td>${showAts ? formatPct(row.ats_win_pct) : '—'}</td>
-            <td class="${showAts ? atsRoiClass : ''}">${showAts ? formatRoi(row.ats_roi_pct) : '—'}</td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function renderCounterpartTable() {
-      if (!state.data.counterpart.length) {
-        els.counterpartBody.innerHTML = '<tr><td class="empty" colspan="7">No counterpart data for this filter.</td></tr>';
-        return;
-      }
-
-      const grouped = {};
-      for (const row of state.data.counterpart) {
-        if (!grouped[row.dog_ml_band]) grouped[row.dog_ml_band] = [];
-        grouped[row.dog_ml_band].push(row);
-      }
-
-      const groupRows = Object.entries(grouped).map(([dogBand, items]) => {
-        const sample = items.reduce((sum, item) => sum + Number(item.sample_size || 0), 0);
-        const dogWins = items.reduce((sum, item) => sum + Number(item.dog_wins || 0), 0);
-        const dogLosses = items.reduce((sum, item) => sum + Number(item.dog_losses || 0), 0);
-        const dogRoi = items.reduce((sum, item) => sum + Number(item.dog_roi_pct || 0) * Number(item.sample_size || 0), 0) / (sample || 1);
-        const favRoi = items.reduce((sum, item) => sum + Number(item.favorite_roi_pct || 0) * Number(item.sample_size || 0), 0) / (sample || 1);
-        const top = [...items].sort((a, b) => Number(b.counterpart_share_pct || 0) - Number(a.counterpart_share_pct || 0))[0];
-
-        return {
-          dogBand,
-          sample,
-          dogWins,
-          dogLosses,
-          dogRoi,
-          favRoi,
-          top,
-          items
-        };
-      }).sort((a, b) => b.sample - a.sample);
-
-      const html = groupRows.map((g) => {
-        const open = state.openDogBand === g.dogBand;
-        const detailRows = g.items.map((item) => `
-          <tr>
-            <td>${item.counterpart_band}</td>
-            <td>${formatPct(item.counterpart_share_pct, 2)}</td>
-            <td>${item.sample_size}</td>
-            <td>${formatRecord(item.dog_wins, item.dog_losses)}</td>
-            <td class="${Number(item.dog_roi_pct) >= 0 ? 'roi-pos' : 'roi-neg'}">${formatRoi(item.dog_roi_pct)}</td>
-            <td>${formatRecord(item.favorite_wins, item.favorite_losses)}</td>
-            <td class="${Number(item.favorite_roi_pct) >= 0 ? 'roi-pos' : 'roi-neg'}">${formatRoi(item.favorite_roi_pct)}</td>
-          </tr>
-        `).join('');
-
-        return `
-          <tr data-dog-band="${g.dogBand}">
-            <td class="td-text">${g.dogBand}</td>
-            <td>${g.top.counterpart_band} (${formatPct(g.top.counterpart_share_pct, 1)})</td>
-            <td>${formatRecord(g.dogWins, g.dogLosses)}</td>
-            <td class="${g.dogRoi >= 0 ? 'roi-pos' : 'roi-neg'}">${formatRoi(g.dogRoi)}</td>
-            <td class="${g.favRoi >= 0 ? 'roi-pos' : 'roi-neg'}">${formatRoi(g.favRoi)}</td>
-            <td>${g.sample}</td>
-            <td><button class="expand-link" data-expand="${g.dogBand}">${open ? 'Hide' : 'Expand'}</button></td>
-          </tr>
-          ${open ? `
-            <tr class="detail-row">
-              <td colspan="7">
-                <table class="detail-grid">
+      return `
+        <tr>
+          <td class="cell-range">${g.dog_ml_band}</td>
+          <td class="cp-vs">${g.top ? `${g.top.counterpart_band} (${formatPct(g.top.counterpart_share_pct, 1)})` : '—'}</td>
+          <td class="cell-record">${g.sample_size}</td>
+          <td class="cell-pct">${formatPct(g.dog_win_pct)}</td>
+          <td><span class="cell-roi ${Number(g.dog_roi_pct) >= 0 ? 'pos' : 'neg'}">${formatRoi(g.dog_roi_pct)}</span></td>
+          <td><a class="expand-link" data-expand="${g.dog_ml_band}">${open ? 'Hide' : 'Expand'}</a></td>
+        </tr>
+        ${open ? `
+          <tr class="detail-row">
+            <td colspan="6">
+              <div class="detail-wrap">
+                <table class="detail-table">
                   <thead>
                     <tr>
                       <th>Favorite Band</th>
@@ -1092,133 +1064,93 @@
                       <th>Sample</th>
                       <th>Dog SU</th>
                       <th>Dog ROI</th>
-                      <th>Favorite SU</th>
-                      <th>Favorite ROI</th>
+                      <th>Fav SU</th>
+                      <th>Fav ROI</th>
                     </tr>
                   </thead>
-                  <tbody>${detailRows}</tbody>
+                  <tbody>${details}</tbody>
                 </table>
-              </td>
-            </tr>
-          ` : ''}
-        `;
-      }).join('');
+              </div>
+            </td>
+          </tr>
+        ` : ''}
+      `;
+    }).join('');
 
-      els.counterpartBody.innerHTML = html;
-      els.counterpartBody.querySelectorAll('[data-expand]').forEach((el) => {
-        el.addEventListener('click', () => {
-          const band = el.getAttribute('data-expand');
-          state.openDogBand = state.openDogBand === band ? null : band;
-          renderCounterpartTable();
-        });
+    els.counterpartBody.querySelectorAll('[data-expand]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const band = el.getAttribute('data-expand');
+        state.openDogBand = state.openDogBand === band ? null : band;
+        renderCounterpart();
       });
+    });
+  }
+
+  async function loadData() {
+    state.openDogBand = null;
+
+    const pregameRows = await getPregameRows(state.sport);
+    state.data.pregame = aggregatePregame(pregameRows, state.locationScope);
+    state.data.counterpart = aggregateCounterpart(pregameRows, state.locationScope);
+
+    if (state.study === 'live') {
+      state.data.live = await getLiveAggregates(state.sport, state.locationScope);
+    } else {
+      state.data.live = [];
     }
 
-    function renderErrors() {
-      if (state.errors.favorites) {
-        els.favoritesError.style.display = 'block';
-        els.favoritesError.textContent = 'Could not load price-range data right now.';
-      } else {
-        els.favoritesError.style.display = 'none';
-        els.favoritesError.textContent = '';
-      }
+    const activeRows = state.study === 'pregame' ? state.data.pregame : state.data.live;
+    const totalSample = activeRows.reduce((sum, row) => sum + (Number(row.sample_size) || 0), 0);
+    els.filterCount.textContent = `${totalSample} games`;
 
-      if (state.errors.counterpart) {
-        els.counterpartError.style.display = 'block';
-        els.counterpartError.textContent = 'Could not load underdog counterpart data right now.';
-      } else {
-        els.counterpartError.style.display = 'none';
-        els.counterpartError.textContent = '';
-      }
-    }
+    renderLeadAndSummary();
+    renderFavorites();
+    renderCounterpart();
+  }
 
-    function render() {
-      document.querySelectorAll('[data-sport]').forEach((el) => el.classList.toggle('active', el.dataset.sport === state.sport));
-      document.querySelectorAll('[data-study]').forEach((el) => el.classList.toggle('active', el.dataset.study === state.study));
-      document.querySelectorAll('[data-scope]').forEach((el) => el.classList.toggle('active', el.dataset.scope === state.locationScope));
-      document.querySelectorAll('[data-sort]').forEach((el) => el.classList.toggle('active', el.dataset.sort === state.sort));
+  function setActive(selector, value, attr) {
+    document.querySelectorAll(selector).forEach((el) => {
+      el.classList.toggle('active', el.dataset[attr] === value);
+    });
+  }
 
-      els.lastUpdated.textContent = state.updatedAt
-        ? `Updated: ${new Date(state.updatedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
-        : 'Updated: —';
-
-      renderSummary();
-      renderFavoritesTable();
-      renderCounterpartTable();
-      renderErrors();
-    }
-
-    async function loadData() {
-      state.errors.favorites = null;
-      state.errors.counterpart = null;
-      state.openDogBand = null;
-
-      try {
-        const rows = await getPregameRows(state.sport);
-        state.data.pregame = aggregatePregame(rows, state.locationScope);
-        state.data.counterpart = aggregateCounterpart(rows, state.locationScope);
-      } catch (error) {
-        state.errors.favorites = error;
-        state.errors.counterpart = error;
-        state.data.pregame = [];
-        state.data.counterpart = [];
-      }
-
-      if (state.study === 'live') {
-        try {
-          state.data.live = await getLiveAggregates(state.sport, state.locationScope);
-        } catch (error) {
-          state.errors.favorites = error;
-          state.data.live = [];
-        }
-      } else {
-        state.data.live = [];
-      }
-
-      state.updatedAt = new Date().toISOString();
-      render();
-    }
-
-    function bindControls() {
-      document.querySelectorAll('[data-sport]').forEach((button) => {
-        button.addEventListener('click', async () => {
-          state.sport = button.dataset.sport;
-          await loadData();
-        });
+  function bindControls() {
+    document.querySelectorAll('[data-sport]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        state.sport = button.dataset.sport;
+        setActive('[data-sport]', state.sport, 'sport');
+        await loadData();
       });
+    });
 
-      document.querySelectorAll('[data-study]').forEach((button) => {
-        button.addEventListener('click', async () => {
-          state.study = button.dataset.study;
-          await loadData();
-        });
+    document.querySelectorAll('[data-study]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        state.study = button.dataset.study;
+        setActive('[data-study]', state.study, 'study');
+        await loadData();
       });
+    });
 
-      document.querySelectorAll('[data-scope]').forEach((button) => {
-        button.addEventListener('click', async () => {
-          state.locationScope = button.dataset.scope;
-          await loadData();
-        });
+    document.querySelectorAll('[data-scope]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        state.locationScope = button.dataset.scope;
+        setActive('[data-scope]', state.locationScope, 'scope');
+        await loadData();
       });
+    });
+  }
 
-      document.querySelectorAll('[data-sort]').forEach((button) => {
-        button.addEventListener('click', () => {
-          state.sort = button.dataset.sort;
-          render();
-        });
-      });
-    }
+  async function init() {
+    bindControls();
+    await loadData();
+    setInterval(loadData, POLL_MS);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') loadData();
+    });
+  }
 
-    async function init() {
-      bindControls();
-      await loadData();
-      setInterval(loadData, POLL_MS);
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') loadData();
-      });
-    }
+  init();
+</script>
 
-    init();
-  </script>
 </body>
 </html>
