@@ -3,125 +3,278 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>SportsSync Evidence Hub</title>
-  <meta name="description" content="SportsSync evidence surfaces for NBA props, team trends, pregame intelligence, and ref tendencies." />
+  <title>SportsSync | Today's Board</title>
+  <meta name="description" content="Today's NBA board — player props, ATS & O/U trends, game matchups, and referee stats." />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #f8f7f3;
-      --card: #ffffff;
-      --ink: #1d1b18;
-      --ink-soft: #5f5a51;
-      --line: #e8e3d8;
-      --accent: #b85c38;
-      --accent-soft: #d88561;
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --text-primary: #1A1A18;
+      --text-secondary: #6B6B63;
+      --text-tertiary: #9B9B91;
+      --accent: #C85A3A;
+      --border: #E8E7E3;
     }
+
     body {
       min-height: 100vh;
-      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--ink);
-      background:
-        radial-gradient(900px 360px at 0% 0%, rgba(184,92,56,0.08), transparent 55%),
-        radial-gradient(900px 360px at 100% 0%, rgba(87,132,170,0.08), transparent 55%),
-        var(--bg);
-      display: grid;
-      place-items: center;
-      padding: 28px;
-    }
-    .hub {
-      width: min(920px, 100%);
-      background: rgba(255,255,255,0.9);
-      backdrop-filter: blur(8px);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      box-shadow: 0 18px 60px rgba(0,0,0,0.08);
-      padding: 30px;
-    }
-    .kicker {
-      font-size: 11px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--ink-soft);
-    }
-    h1 {
-      margin-top: 8px;
-      font-size: clamp(28px, 5vw, 42px);
-      line-height: 1.1;
-      letter-spacing: -0.02em;
-    }
-    .sub {
-      margin-top: 10px;
-      color: var(--ink-soft);
-      font-size: 15px;
-      max-width: 68ch;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text-primary);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
       line-height: 1.6;
     }
-    .grid {
-      margin-top: 22px;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 12px;
+
+    nav {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
+
+    .nav-brand {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      font-size: 15px;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 14px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .nav-links a:hover { color: var(--text-primary); }
+
+    .hero {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 56px 24px 32px;
+    }
+
+    .hero-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .hero h1 {
+      font-family: 'Source Serif 4', serif;
+      font-size: clamp(34px, 4.8vw, 50px);
+      font-weight: 700;
+      line-height: 1.08;
+      letter-spacing: -0.025em;
+      margin-bottom: 12px;
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      color: var(--text-secondary);
+      max-width: 520px;
+      line-height: 1.6;
+    }
+
+    .hero-proof {
+      margin-top: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      letter-spacing: 0.02em;
+    }
+
+    .board {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    .board-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
     .tile {
       display: block;
       text-decoration: none;
       color: inherit;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 16px;
-      transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+      background: var(--surface);
+      padding: 28px 24px;
+      position: relative;
+      transition: background 0.2s;
     }
-    .tile:hover {
-      transform: translateY(-2px);
-      border-color: var(--accent-soft);
-      box-shadow: 0 10px 24px rgba(0,0,0,0.07);
+
+    .tile:hover { background: #FDFCFA; }
+
+    .tile-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
     }
+
     .tile-title {
-      font-size: 15px;
-      font-weight: 700;
-      margin-bottom: 6px;
+      font-family: 'Source Serif 4', serif;
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      margin-bottom: 8px;
     }
+
     .tile-copy {
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      max-width: 320px;
+    }
+
+    .tile-arrow {
+      position: absolute;
+      top: 28px;
+      right: 24px;
+      width: 20px;
+      height: 20px;
+      color: var(--text-tertiary);
+      transition: transform 0.2s, color 0.2s;
+    }
+
+    .tile:hover .tile-arrow {
+      transform: translateX(3px);
+      color: var(--accent);
+    }
+
+    footer {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer span {
       font-size: 13px;
-      line-height: 1.45;
-      color: var(--ink-soft);
+      color: var(--text-tertiary);
     }
-    .footer {
-      margin-top: 16px;
-      font-size: 12px;
-      color: var(--ink-soft);
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
     }
-    .footer a { color: var(--accent); text-underline-offset: 2px; }
+
+    footer a {
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+
+    footer a:hover { color: var(--text-primary); }
+
+    @media (max-width: 700px) {
+      .nav-links { display: none; }
+      .hero { padding: 36px 20px 24px; }
+      .board { padding: 0 20px 56px; }
+      .board-grid { grid-template-columns: 1fr; }
+      .tile { padding: 22px 18px; }
+      .tile-arrow { top: 22px; right: 18px; }
+      .tile-title { font-size: 22px; }
+      footer { padding: 20px; }
+      .footer-links { gap: 16px; }
+    }
   </style>
 </head>
 <body>
-  <main class="hub">
-    <div class="kicker">SportsSync Intelligence</div>
-    <h1>Evidence Hub</h1>
-    <p class="sub">Root page restored. Use the surfaces below for live evidence and trend views.</p>
+  <nav>
+    <a class="nav-brand" href="/">SportsSync</a>
+    <ul class="nav-links">
+      <li><a href="/props">Props</a></li>
+      <li><a href="/trends/">Trends</a></li>
+      <li><a href="/pregame">Matchups</a></li>
+      <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
+    </ul>
+  </nav>
 
-    <section class="grid" aria-label="Evidence Surfaces">
+  <section class="hero">
+    <div class="hero-eyebrow">Today's Board</div>
+    <h1>TODAY'S BOARD</h1>
+    <p class="hero-sub">Props, odds, and trends.</p>
+    <div class="hero-proof">NBA surfaces · Live pages · Canonical routing</div>
+  </section>
+
+  <section class="board">
+    <div class="board-label">The Grid</div>
+    <div class="board-grid">
       <a class="tile" href="/props">
-        <div class="tile-title">NBA Props</div>
-        <p class="tile-copy">Live evidence pack profiles with baseline + context splits.</p>
+        <svg class="tile-arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+        <div class="tile-label">Player Props</div>
+        <div class="tile-title">NBA PLAYER PROPS</div>
+        <p class="tile-copy">Prop odds and player trends.</p>
       </a>
-      <a class="tile" href="/trends/">
-        <div class="tile-title">Team Trends</div>
-        <p class="tile-copy">Team-level trend cards and directional summaries.</p>
-      </a>
-      <a class="tile" href="/pregame">
-        <div class="tile-title">Pregame Intel</div>
-        <p class="tile-copy">Pregame intelligence dashboard and game-level context.</p>
-      </a>
-      <a class="tile" href="https://ref-tendencies.web.app/">
-        <div class="tile-title">Ref Tendencies</div>
-        <p class="tile-copy">Official-level bias and totals tendency surfaces.</p>
-      </a>
-    </section>
 
-    <p class="footer">If you expected a different root destination, tell me and I’ll route `/` directly there.</p>
-  </main>
+      <a class="tile" href="/trends/">
+        <svg class="tile-arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+        <div class="tile-label">Team Trends</div>
+        <div class="tile-title">ATS &amp; O/U TRENDS</div>
+        <p class="tile-copy">ATS records and totals trends.</p>
+      </a>
+
+      <a class="tile" href="/pregame">
+        <svg class="tile-arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+        <div class="tile-label">Pregame</div>
+        <div class="tile-title">GAME MATCHUPS</div>
+        <p class="tile-copy">Odds, matchups, and trends.</p>
+      </a>
+
+      <a class="tile" href="https://ref-tendencies.web.app/">
+        <svg class="tile-arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+        <div class="tile-label">Officials</div>
+        <div class="tile-title">NBA REFEREES</div>
+        <p class="tile-copy">Ref betting stats and totals trends.</p>
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <span>&copy; 2026 SportsSync</span>
+    <div class="footer-links">
+      <a href="https://sportsync-api.vercel.app/docs/index.html">API Docs</a>
+      <a href="mailto:api@sportsync.io">Contact</a>
+    </div>
+  </footer>
 </body>
 </html>
