@@ -1,46 +1,59 @@
 // ============================================================================
 // SSOT Bridge — Analytics pages import from here ONLY.
-// All values are forwarded from ESSENCE (the single design source of truth).
+// All values are forwarded from SportsSync warm-light tokens.
 // No hex literals outside of ESSENCE. No per-page palette objects.
 //
 // SSOT COLOR RULES:
-// - UI accent: ESSENCE.colors.accent.primary only (links, focus, primary buttons)
-// - Outcomes only: ESSENCE.colors.accent.success / danger (win/loss). Push uses text3.
+// - UI accent: SPORTSSYNC_TOKENS.color.accent only (links, focus, primary buttons)
+// - Outcomes only: SPORTSSYNC_TOKENS.color.positive / negative (win/loss). Push uses text3.
 // - Team colors only in logos + tiny markers + charts. Never for tabs/buttons/borders.
 // - Do not use emerald/amber/violet/cyan keys directly in UI components.
 // ============================================================================
 
-import { ESSENCE } from './essence';
+import { SPORTSSYNC_TOKENS } from './design-tokens';
 
 // ── Colors — direct semantic mapping from ESSENCE ────────────────
 export const color = {
-    bg: ESSENCE.colors.surface.base,
-    surface: ESSENCE.colors.surface.card,
-    surface2: ESSENCE.colors.surface.subtle,
-    border: ESSENCE.colors.border.default,
+    bg: SPORTSSYNC_TOKENS.color.bg,
+    surface: SPORTSSYNC_TOKENS.color.surface,
+    surface2: SPORTSSYNC_TOKENS.color.surface,
+    border: SPORTSSYNC_TOKENS.color.border,
 
-    text: ESSENCE.colors.text.primary,
-    text2: ESSENCE.colors.text.secondary,
-    text3: ESSENCE.colors.text.tertiary,
+    text: SPORTSSYNC_TOKENS.color.textPrimary,
+    text2: SPORTSSYNC_TOKENS.color.textSecondary,
+    text3: SPORTSSYNC_TOKENS.color.textTertiary,
 
     // ✅ UI accent — primary, NOT win
-    accent: ESSENCE.colors.accent.primary,
+    accent: SPORTSSYNC_TOKENS.color.accent,
 
     // ✅ Outcome semantics
-    win: ESSENCE.colors.accent.success,
-    loss: ESSENCE.colors.accent.danger,
+    win: SPORTSSYNC_TOKENS.color.positive,
+    loss: SPORTSSYNC_TOKENS.color.negative,
 } as const;
 
 // ── Typography ───────────────────────────────────────────────────
 export const font = {
-    mono: `'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`,
-    sans: `'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif`,
-    serif: `'Newsreader', Georgia, 'Times New Roman', serif`,
+    mono: SPORTSSYNC_TOKENS.font.mono,
+    sans: SPORTSSYNC_TOKENS.font.body,
+    serif: SPORTSSYNC_TOKENS.font.title,
 } as const;
 
 // ── Radius + Spacing — forwarded from ESSENCE ────────────────────
-export const radius = ESSENCE.radius;
-export const spacing = ESSENCE.spacing;
+export const radius = {
+    sm: '4px',
+    md: SPORTSSYNC_TOKENS.radius.control,
+    lg: SPORTSSYNC_TOKENS.radius.card,
+    xl: '12px',
+    '2xl': '16px',
+} as const;
+
+export const spacing = {
+    xs: '4px',
+    sm: '8px',
+    md: '12px',
+    lg: '16px',
+    xl: '24px',
+} as const;
 
 // ── Helpers (namespaced to avoid collisions with postgame.ts) ────
 export const fmt = {

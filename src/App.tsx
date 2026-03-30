@@ -8,8 +8,8 @@ import { GlobalErrorBoundary } from './components/GlobalErrorBoundary';
 import { configService } from './services/configService';
 import { bindIOSVisualViewport } from './hooks/useIOSVisualViewport';
 
-// SSOT: apply ESSENCE tokens globally once
-import { applyEssenceToRoot } from './lib/applyEssenceToRoot';
+// SSOT: apply SportsSync warm-light tokens globally once
+import { applySportsSyncTokensToRoot } from './lib/design-tokens';
 
 // SSOT: tokenized fallback
 import { AppLoadingScreen } from './components/system/AppLoadingScreen';
@@ -28,8 +28,8 @@ const App: FC = () => {
     : false;
 
   useEffect(() => {
-    // 0) Apply ESSENCE -> CSS vars (SSOT)
-    applyEssenceToRoot();
+    // 0) Apply SportsSync warm-light tokens to :root (SSOT)
+    applySportsSyncTokensToRoot();
 
     // 1) Initialize Remote Config
     configService.init();
@@ -40,7 +40,7 @@ const App: FC = () => {
 
     // 3) Craftsmanship mark
     console.log(
-      "%c███ SPORTSYNC AI ███\n%cCrafted by humans who watch the games.\nEngine: Gemini 3 Flash · Protocol: Obsidian Weissach v29.1\n\nCome build with us → github.com/Kfarkye",
+      "%c███ SPORTSYNC AI ███\n%cCrafted by humans who watch the games.\nEngine: Gemini 3 Flash · Protocol: SportsSync Warm-Light v1\n\nCome build with us → github.com/Kfarkye",
       'font-weight:900;font-size:16px;color:#0F172A;',
       'font-size:11px;color:#64748B;line-height:1.6;'
     );

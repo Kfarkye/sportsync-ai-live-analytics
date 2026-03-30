@@ -66,50 +66,10 @@
 
     .nav-links a:hover { color: var(--text-primary); }
 
-    .hero {
-      max-width: 1080px;
-      margin: 0 auto;
-      padding: 56px 24px 32px;
-    }
-
-    .hero-eyebrow {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text-tertiary);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      margin-bottom: 14px;
-    }
-
-    .hero h1 {
-      font-family: 'Source Serif 4', serif;
-      font-size: clamp(34px, 4.8vw, 50px);
-      font-weight: 700;
-      line-height: 1.08;
-      letter-spacing: -0.025em;
-      margin-bottom: 12px;
-    }
-
-    .hero-sub {
-      font-size: 17px;
-      color: var(--text-secondary);
-      max-width: 520px;
-      line-height: 1.6;
-    }
-
-    .hero-proof {
-      margin-top: 14px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      color: var(--text-tertiary);
-      letter-spacing: 0.02em;
-    }
-
     .board {
       max-width: 1080px;
       margin: 0 auto;
-      padding: 0 24px 80px;
+      padding: 44px 24px 80px;
     }
 
     .board-label {
@@ -213,8 +173,7 @@
 
     @media (max-width: 700px) {
       .nav-links { display: none; }
-      .hero { padding: 36px 20px 24px; }
-      .board { padding: 0 20px 56px; }
+      .board { padding: 28px 20px 56px; }
       .board-grid { grid-template-columns: 1fr; }
       .tile { padding: 22px 18px; }
       .tile-arrow { top: 22px; right: 18px; }
@@ -234,13 +193,6 @@
       <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
     </ul>
   </nav>
-
-  <section class="hero">
-    <div class="hero-eyebrow">Today's Board</div>
-    <h1>TODAY'S BOARD</h1>
-    <p class="hero-sub">Props, odds, and trends.</p>
-    <div class="hero-proof">NBA surfaces · Live pages · Canonical routing</div>
-  </section>
 
   <section class="board">
     <div class="board-label">The Grid</div>
@@ -278,6 +230,13 @@
         <div class="tile-label">Live Board</div>
         <div class="tile-title">THEDRIP.BET</div>
         <p class="tile-copy">Live slate board with in-game state and market context.</p>
+      </a>
+
+      <a class="tile" href="https://thedrip.to/" target="_blank" rel="noopener noreferrer">
+        <svg class="tile-arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+        <div class="tile-label">World Cup</div>
+        <div class="tile-title">THEDRIP.TO</div>
+        <p class="tile-copy">Live World Cup board with match state and market context.</p>
       </a>
     </div>
   </section>

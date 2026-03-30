@@ -63,7 +63,7 @@
       --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
       --shadow-md: 0 4px 12px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.03);
       --shadow-lg: 0 12px 40px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
-      --radius: 14px;
+      --radius: 8px;
       --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -167,7 +167,7 @@
     .search-input {
       width: 100%; padding: 10px 14px 10px 38px;
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; color: var(--ink);
+      border-radius: 6px; color: var(--ink);
       font-family: var(--sans); font-size: 14px; font-weight: 450;
       outline: none; transition: border-color var(--transition), box-shadow var(--transition);
     }
@@ -177,7 +177,7 @@
       box-shadow: 0 0 0 3px rgba(200,90,58,0.08);
     }
     .venue-group {
-      display: flex; gap: 1px; background: var(--border); border-radius: 10px;
+      display: flex; gap: 1px; background: var(--border); border-radius: 6px;
       overflow: hidden; box-shadow: var(--shadow-sm);
     }
     .venue-btn {
@@ -186,8 +186,8 @@
       color: var(--ink-tertiary); cursor: pointer;
       transition: all var(--transition); letter-spacing: 0.01em;
     }
-    .venue-btn:first-child { border-radius: 10px 0 0 10px; }
-    .venue-btn:last-child { border-radius: 0 10px 10px 0; }
+    .venue-btn:first-child { border-radius: 6px 0 0 6px; }
+    .venue-btn:last-child { border-radius: 0 6px 6px 0; }
     .venue-btn.active { background: var(--accent); color: #fff; }
     .venue-btn:hover:not(.active) { color: var(--ink); background: #F5F4F0; }
     .controls-right { display: flex; gap: 8px; align-items: center; margin-left: auto; }
@@ -206,15 +206,15 @@
     }
     .player-card {
       background: var(--surface); border: 1px solid rgba(232,230,223,0.6);
-      border-radius: 12px; padding: 18px 20px;
+      border-radius: 8px; padding: 18px 20px;
       cursor: pointer; position: relative; overflow: hidden;
-      transition: box-shadow 200ms ease, transform 200ms ease;
+      transition: background 180ms ease, border-color 180ms ease;
       animation: card-enter 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
       text-decoration: none; color: inherit; display: block;
     }
     .player-card:hover {
-      box-shadow: 0 8px 24px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.03);
-      transform: translateY(-2px);
+      background: #FDFCFA;
+      border-color: rgba(232,231,227,0.9);
     }
     .pc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
     .pc-heading { display: flex; flex-direction: column; gap: 3px; }
@@ -353,7 +353,7 @@
     .current-line-card {
       background: rgba(255,255,255,0.5);
       border: 1px solid rgba(232,230,223,0.45);
-      border-radius: 12px; padding: 16px 20px; margin-bottom: 12px;
+      border-radius: 8px; padding: 16px 20px; margin-bottom: 12px;
     }
     .cl-header {
       display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;

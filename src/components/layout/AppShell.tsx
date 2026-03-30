@@ -141,7 +141,7 @@ const AppShell: FC = () => {
         // Layout
         'min-h-screen h-(--vvh,100vh) relative flex flex-col antialiased',
         // Yahoo-inspired shell surface
-        'bg-[#F4F6FF] text-slate-900 font-sans kalshi-shell',
+        'bg-[var(--ss-bg,#FAFAF8)] text-[var(--ss-text-primary,#1A1A18)] font-sans kalshi-shell',
         // selection rule
         'selection:bg-blue-300/30'
       )}
@@ -162,7 +162,7 @@ const AppShell: FC = () => {
                 {/* LOADING STATE */}
                 {isLoading && filteredMatches.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 opacity-80">
-                    <div className="w-6 h-6 border-2 border-blue-200 border-t-[#0B63F6] rounded-full animate-spin mb-4" />
+                    <div className="w-6 h-6 border-2 border-[rgba(200,90,58,0.18)] border-t-[var(--ss-accent,#C85A3A)] rounded-full animate-spin mb-4" />
                     <p className={cn(ESSENCE.tier.t2Header, 'text-slate-500')}>Refreshing board</p>
                     <button
                       onClick={() => window.location.reload()}
@@ -265,7 +265,7 @@ const AppShell: FC = () => {
                 <Suspense
                   fallback={
                     <div className="flex items-center justify-center py-24">
-                      <div className="w-6 h-6 border-2 border-blue-200 border-t-[#0B63F6] rounded-full animate-spin" />
+                      <div className="w-6 h-6 border-2 border-[rgba(200,90,58,0.18)] border-t-[var(--ss-accent,#C85A3A)] rounded-full animate-spin" />
                     </div>
                   }
                 >
@@ -277,7 +277,7 @@ const AppShell: FC = () => {
         </div>
 
         {/* Global Legal & Responsibility Footer (inside scroll context) */}
-        <footer className={cn('w-full border-t border-slate-200/80 bg-linear-to-b from-transparent to-[#EFF6FF]/80')}>
+        <footer className={cn('w-full border-t border-slate-200/80 bg-linear-to-b from-transparent to-[rgba(200,90,58,0.06)]')}>
           <div className="max-w-7xl mx-auto px-7 py-9 md:py-10">
             <div className="flex flex-col items-center text-center gap-3 opacity-80">
               <span className="text-[11px] text-slate-600 max-w-2xl">
