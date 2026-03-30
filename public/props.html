@@ -831,6 +831,20 @@ async function fetchPack() {
   throw new Error(failures.join(' · ') || 'No evidence pack available');
 }
 
+async function fetchStaticFallbackPack() {
+  try {
+    const staticFallbackUrl = new URL(STATIC_FALLBACK_URL, window.location.origin);
+    staticFallbackUrl.searchParams.set(CACHE_BUST_PARAM, Date.now().toString());
+    const r = await fetch(staticFallbackUrl.toString(), { cache: 'no-store' });
+    if (!r.ok) return null;
+    const normalized = normalizePackContract(await r.json());
+    if (normalized.cards.length > 0) return normalized;
+  } catch {
+    // Best effort.
+  }
+  return null;
+}
+
 function bootWithPack(nextPack) {
   pack = normalizePackContract(nextPack);
   players = buildPlayerIndex(pack.cards);
@@ -840,6 +854,20 @@ function bootWithPack(nextPack) {
     sessionStorage.removeItem(RECOVERY_KEY);
   } catch {
     // Storage is optional.
+  }
+}
+
+async function refreshPackInBackground(currentPack) {
+  try {
+    const livePack = await fetchPack();
+    if (!livePack || !Array.isArray(livePack.cards) || livePack.cards.length === 0) return;
+    const currentSig = `${currentPack?.generated_at || ''}|${currentPack?.cards?.length || 0}`;
+    const nextSig = `${livePack?.generated_at || ''}|${livePack?.cards?.length || 0}`;
+    if (currentSig !== nextSig) {
+      bootWithPack(livePack);
+    }
+  } catch (err) {
+    console.warn('[props] Background refresh failed:', err?.message || err);
   }
 }
 
@@ -1327,10 +1355,24 @@ function injectMachineContract(pack, players) {
   const preloaded = getPreloadedPack();
   if (preloaded && preloaded.cards.length > 0) {
     bootWithPack(preloaded);
+    void refreshPackInBackground(preloaded);
+    return;
+  }
+  const cached = readCachedPack();
+  if (cached && cached.cards.length > 0) {
+    bootWithPack(cached);
+    void refreshPackInBackground(cached);
     return;
   }
   $('loading').style.display = '';
   try {
+    const staticFallback = await fetchStaticFallbackPack();
+    if (staticFallback && staticFallback.cards.length > 0) {
+      $('loading').style.display = 'none';
+      bootWithPack(staticFallback);
+      void refreshPackInBackground(staticFallback);
+      return;
+    }
     const livePack = await fetchPack();
     if (!livePack || !Array.isArray(livePack.cards) || livePack.cards.length === 0) {
       throw new Error('No cards available');
@@ -1339,10 +1381,10 @@ function injectMachineContract(pack, players) {
     $('loading').style.display = 'none';
     bootWithPack(livePack);
   } catch (err) {
-    const cached = readCachedPack();
-    if (cached && cached.cards.length > 0) {
+    const staleCached = readCachedPack();
+    if (staleCached && staleCached.cards.length > 0) {
       $('loading').style.display = 'none';
-      bootWithPack(cached);
+      bootWithPack(staleCached);
       return;
     }
     if (tryOneShotRecovery()) return;
