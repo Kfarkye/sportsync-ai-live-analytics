@@ -9,6 +9,33 @@
     },
     "headers": [
         {
+            "source": "/props",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "no-store, max-age=0, must-revalidate"
+                }
+            ]
+        },
+        {
+            "source": "/props/:path*",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "no-store, max-age=0, must-revalidate"
+                }
+            ]
+        },
+        {
+            "source": "/props/evidence-pack-fallback.json",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=300, stale-while-revalidate=60"
+                }
+            ]
+        },
+        {
             "source": "/assets/:path*",
             "headers": [
                 {
@@ -31,7 +58,7 @@
             "headers": [
                 {
                     "key": "Cache-Control",
-                    "value": "public, max-age=60, must-revalidate"
+                    "value": "no-store, max-age=0, must-revalidate"
                 }
             ]
         },
@@ -67,6 +94,26 @@
         {
             "source": "/api/:path*",
             "destination": "/api/:path*"
+        },
+        {
+            "source": "/props",
+            "destination": "/props.html"
+        },
+        {
+            "source": "/props/:slug",
+            "destination": "/props/:slug.html"
+        },
+        {
+            "source": "/trends",
+            "destination": "/trends/index.html"
+        },
+        {
+            "source": "/trends/:slug",
+            "destination": "/trends/:slug.html"
+        },
+        {
+            "source": "/pregame",
+            "destination": "/pregame.html"
         },
         {
             "source": "/:path*",
