@@ -207,11 +207,15 @@ function buildPropsShell(templateHtml, packForShell, entries) {
   const preloadedPack = JSON.stringify({
     version: packForShell.version || 'v2',
     generated_at: packForShell.generated_at || new Date().toISOString(),
-    total_cards: Number.isFinite(Number(packForShell.total_cards)) ? Number(packForShell.total_cards) : 0,
-    hero_cards: Number.isFinite(Number(packForShell.hero_cards)) ? Number(packForShell.hero_cards) : 0,
+    total_cards: Number.isFinite(Number(packForShell.total_cards))
+      ? Number(packForShell.total_cards)
+      : (Array.isArray(packForShell.cards) ? packForShell.cards.length : 0),
+    hero_cards: Number.isFinite(Number(packForShell.hero_cards))
+      ? Number(packForShell.hero_cards)
+      : (Array.isArray(packForShell.cards) ? packForShell.cards.filter((card) => Boolean(card?.baseline?.is_hero)).length : 0),
     markets: Array.isArray(packForShell.markets) ? packForShell.markets : [],
     gates: packForShell.gates || null,
-    cards: [],
+    cards: Array.isArray(packForShell.cards) ? packForShell.cards : [],
   });
 
   let html = templateHtml;

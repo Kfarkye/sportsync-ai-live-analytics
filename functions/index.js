@@ -39,7 +39,12 @@ import {
 // ── Compute + render modules ─────────────────────────────────────────────────
 import { NBA_TEAMS } from './lib/teams.js';
 import { computeTeamStats } from './lib/compute.js';
-import { renderTeamPage } from './lib/render.js';
+import {
+  buildTeamTrendPayload,
+  renderTeamTrendPage,
+  buildTrendsIndexPayload,
+  renderTrendsIndexPage,
+} from './lib/render.js';
 
 const gzipAsync = promisify(gzip);
 initializeApp();
@@ -327,37 +332,7 @@ class FirebaseHostingDeployer {
   }
 }
 
-// ── 5. Presentation Layer ────────────────────────────────────────────────────
-
-function renderIndexPage(teamSummaries, dataDrivenDate) {
-  const rows = teamSummaries
-    .sort((a, b) => b.home.overPct - a.home.overPct)
-    .map(s => {
-      const team = NBA_TEAMS.find(t => t.name === s.teamName);
-      if (!team) return '';
-      return `<tr>
-        <td style="font-family:var(--font-sans);font-size:14px"><a href="/trends/${team.slug}" style="font-weight:600">${team.name}</a></td>
-        <td style="text-align:right">${s.totalGames}</td>
-        <td style="text-align:right;${s.home.overPct >= 55 ? 'color:#1f6b2e;font-weight:600' : ''}">${s.home.overs}-${s.home.unders} (${s.home.overPct}%)</td>
-        <td style="text-align:right;${s.home.avgVsClose >= 0 ? 'color:#1f6b2e;font-weight:600' : 'color:#8f281f;font-weight:600'}">${s.home.avgVsClose >= 0 ? '+' : ''}${s.home.avgVsClose}</td>
-        <td style="text-align:right;${s.home.coverPct >= 55 ? 'color:#1f6b2e;font-weight:600' : ''}">${s.home.covers}-${s.home.nonCovers} (${s.home.coverPct}%)</td>
-        <td style="text-align:right;${s.away.overPct >= 55 ? 'color:#1f6b2e;font-weight:600' : ''}">${s.away.overs}-${s.away.unders} (${s.away.overPct}%)</td>
-      </tr>`;
-    }).filter(Boolean).join('\n');
-
-  const today = dataDrivenDate || new Date().toISOString().slice(0, 10);
-
-  return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>NBA Team Betting Profiles — 2025-26 Season | SportsSync</title>
-<meta name="description" content="Over/under and ATS trends for all 30 NBA teams."/><link rel="canonical" href="https://sportsync-evidence.web.app/trends/"/>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet"/>
-<style>:root{--font-sans:"DM Sans",sans-serif;--font-serif:"Source Serif 4",Georgia,serif;--font-mono:"SF Mono","Menlo",monospace}*{margin:0;padding:0;box-sizing:border-box}body{font-family:var(--font-sans);background:#fdfbf7;color:#1a1a1a;line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}a{color:#2d5da1;text-decoration:none;font-weight:500}a:hover{text-decoration:underline}.p{max-width:960px;margin:0 auto;padding:56px 24px}h1{font-family:var(--font-serif);font-size:42px;font-weight:700;margin-bottom:12px}.s{font-size:18px;color:#454545;margin-bottom:48px;max-width:640px}.tc{overflow-x:auto;background:#fff;border:1px solid #ece6de;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04)}table{width:100%;border-collapse:collapse;text-align:left;font-size:14px;white-space:nowrap}thead th{padding:14px 20px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#454545;border-bottom:1px solid #e2ddd5}tbody td{padding:14px 20px;border-bottom:1px solid #ece6de;font-family:var(--font-mono);font-size:13px;color:#454545}tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:#faf9f6}.f{padding-top:40px;font-size:14px;color:#454545}</style></head>
-<body><main class="p"><h1>NBA Betting Profiles</h1><p class="s">Over/under and ATS trends for all 30 NBA teams. Sorted by home over rate. Trends as of ${today}.</p>
-<div class="tc"><table><thead><tr><th>Team</th><th style="text-align:right">GP</th><th style="text-align:right">Home O/U</th><th style="text-align:right">vs Close</th><th style="text-align:right">Home ATS</th><th style="text-align:right">Away O/U</th></tr></thead><tbody>${rows}</tbody></table></div>
-<div class="f"><p>Auto-generated from data thru ${today}. <a href="https://ref-tendencies.web.app/">Ref Tendencies →</a></p></div></main></body></html>`;
-}
-
-// ── 6. Core Orchestration ────────────────────────────────────────────────────
+// ── 5. Core Orchestration ────────────────────────────────────────────────────
 
 async function orchestratePipeline(config) {
   const db = new SupabaseClient(config);
@@ -379,7 +354,7 @@ async function orchestratePipeline(config) {
     : new Date().toISOString().slice(0, 10);
 
   const files = {};
-  const allStats = [];
+  const teamPayloads = [];
 
   for (const team of NBA_TEAMS) {
     const stats = computeTeamStats(team.name, completedGames, upcomingGames);
@@ -387,13 +362,17 @@ async function orchestratePipeline(config) {
       logger.warn(`⚠️  No games for ${team.name}`);
       continue;
     }
-    allStats.push(stats);
-    files[`trends/${team.slug}.html`] = renderTeamPage(team, stats, latestDataDate);
+    const teamPayload = buildTeamTrendPayload(team, stats, { generatedDate: latestDataDate });
+    teamPayloads.push(teamPayload);
+    files[`trends/${team.slug}.html`] = renderTeamTrendPage(teamPayload);
+    files[`trends/${team.slug}.json`] = JSON.stringify(teamPayload, null, 2);
   }
 
-  if (allStats.length > 0) {
-    files['trends/index.html'] = renderIndexPage(allStats, latestDataDate);
-    logger.info(`✅ Index (${allStats.length} teams)`);
+  if (teamPayloads.length > 0) {
+    const indexPayload = buildTrendsIndexPayload(teamPayloads, { generatedDate: latestDataDate });
+    files['trends/index.html'] = renderTrendsIndexPage(indexPayload);
+    files['trends/index.json'] = JSON.stringify(indexPayload, null, 2);
+    logger.info(`✅ Index (${teamPayloads.length} teams)`);
   }
 
   const deployed = await hosting.deploy(files);

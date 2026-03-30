@@ -26,7 +26,8 @@
     "backfill:historical-props": "npx tsx scripts/backfill/backfill_historical_props.ts",
     "sync:shared": "node scripts/sync_shared.js",
     "verify:ssot": "node scripts/verify_ssot.js",
-    "check:nba-structural-baseline": "node scripts/audit/check_nba_structural_baseline.mjs"
+    "check:nba-structural-baseline": "node scripts/audit/check_nba_structural_baseline.mjs",
+    "validate:payload-contracts": "node scripts/audit/validate_payload_contracts.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.13",

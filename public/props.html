@@ -966,7 +966,7 @@ function renderIndex() {
     }).join('');
 
     return `
-      <a class="player-card ${p.heroCount > 0 ? 'has-hero' : ''}" href="/props#/player/${p.slug}" style="animation-delay: ${Math.min(i * 40, 600)}ms">
+      <a class="player-card ${p.heroCount > 0 ? 'has-hero' : ''}" href="/props/${p.slug}" style="animation-delay: ${Math.min(i * 40, 600)}ms">
         <div class="pc-top">
           <div class="pc-name">${p.name}</div>
           <svg class="pc-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -1156,10 +1156,6 @@ function renderProfile(slug) {
 // ══════════════════════════════════════════════════════════════════════════════
 // Router
 // ══════════════════════════════════════════════════════════════════════════════
-function navigateTo(path) {
-  window.location.hash = path ? '#/' + path : '#/';
-}
-
 function detailSlugFromLocation(hashValue) {
   const hash = hashValue || '';
   if (hash.startsWith('player/')) {
@@ -1174,30 +1170,22 @@ function route() {
   const hash = (window.location.hash || '#/').replace('#/', '');
   const slug = detailSlugFromLocation(hash);
 
-  // Hide all pages
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-
   if (slug) {
-    $('profilePage').classList.add('active');
-    renderProfile(slug);
-    const player = players[slug];
-    const summary = player ? buildPlayerSummary(player) : 'Prop profile';
-    document.title = `${player?.name || 'Player'} — ${summary} | SportsSync`;
-    const description = document.querySelector('meta[name="description"]');
-    if (description) {
-      description.setAttribute('content', player
-        ? `${player.name} player prop odds and historical trends. ${summary}. ${freshnessLabel()}.`
-        : DEFAULT_META_DESCRIPTION);
+    // Legacy compatibility: retire hash-based detail route in favor of canonical path.
+    const canonical = `/props/${encodeURIComponent(slug)}`;
+    if (window.location.pathname !== canonical || window.location.hash) {
+      window.location.replace(canonical);
+      return;
     }
-    window.scrollTo(0, 0);
-  } else {
-    $('indexPage').classList.add('active');
-    renderIndex();
-    document.title = 'NBA Player Props | SportsSync';
-    const description = document.querySelector('meta[name="description"]');
-    if (description) description.setAttribute('content', DEFAULT_META_DESCRIPTION);
   }
 
+  // Canonical /props index render
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  $('indexPage').classList.add('active');
+  renderIndex();
+  document.title = 'NBA Player Props | SportsSync';
+  const description = document.querySelector('meta[name="description"]');
+  if (description) description.setAttribute('content', DEFAULT_META_DESCRIPTION);
   $('footer').style.display = '';
 }
 

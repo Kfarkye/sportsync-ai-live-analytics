@@ -6,8 +6,31 @@
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+const BASE_URL = 'https://sportsync-evidence.web.app';
+const LEAGUE = 'NBA';
+const SEASON = '2025-26';
+const CONTRACT_VERSION = 'v1';
+const INDEX_COLUMNS = [
+  { key: 'team', label: 'Team', align: 'left' },
+  { key: 'gp', label: 'GP', align: 'right' },
+  { key: 'home_ou', label: 'Home O/U', align: 'right' },
+  { key: 'vs_close', label: 'vs Close', align: 'right' },
+  { key: 'home_ats', label: 'Home ATS', align: 'right' },
+  { key: 'away_ou', label: 'Away O/U', align: 'right' },
+];
+const TEAM_SECTION_ORDER = [
+  'season_summary',
+  'strongest_plays',
+  'home_away',
+  'rest_splits',
+  'largest_over_beats',
+  'line_movements',
+  'upcoming_schedule',
+  'recent_games',
+  'methodology',
+];
+
 const fmt = (n) => n != null ? (n >= 0 ? `+${n}` : `${n}`) : '—';
-const pct = (n) => n != null ? `${n}%` : '—';
 const tagClass = (result) => result === 'OVER' ? 'over' : result === 'UNDER' ? 'under' : 'split';
 
 function cardSubtitle(teamName, loc) {
@@ -45,6 +68,31 @@ function metaDescription(team, stats) {
   const { home } = stats;
   return `${team.name} over/under and ATS trends for the 2025-26 NBA season. ` +
     `${home.overPct}% over rate at home, rest splits, opponent matchups, and upcoming games to watch.`;
+}
+
+function normalizeDateOnly(input) {
+  if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
+  const parsed = input ? new Date(input) : new Date();
+  if (Number.isNaN(parsed.getTime())) return new Date().toISOString().slice(0, 10);
+  return parsed.toISOString().slice(0, 10);
+}
+
+function sanitizePayloadStats(stats) {
+  const source = stats && typeof stats === 'object' ? stats : {};
+  return {
+    ...source,
+    home: source.home || {},
+    away: source.away || {},
+    afterLoss: source.afterLoss || {},
+    restSplitsHome: Array.isArray(source.restSplitsHome) ? source.restSplitsHome : (Array.isArray(source.restSplits) ? source.restSplits : []),
+    restSplitsAway: Array.isArray(source.restSplitsAway) ? source.restSplitsAway : [],
+    restSplits: Array.isArray(source.restSplits) ? source.restSplits : [],
+    biggestOvers: Array.isArray(source.biggestOvers) ? source.biggestOvers : [],
+    recentGames: Array.isArray(source.recentGames) ? source.recentGames : [],
+    lineMovements: Array.isArray(source.lineMovements) ? source.lineMovements : [],
+    upcomingGames: Array.isArray(source.upcomingGames) ? source.upcomingGames : [],
+    strongestPlays: Array.isArray(source.strongestPlays) ? source.strongestPlays : [],
+  };
 }
 
 function renderRestSplitsTable(title, id, splits) {
@@ -104,12 +152,13 @@ export function renderTeamPage(team, stats) {
   <title>${team.name} — Betting Profile | 2025-26 Season</title>
   <meta name="description" content="${metaDescription(team, stats)}" />
   <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://sportsync-evidence.web.app/trends/${team.slug}" />
+  <link rel="canonical" href="${BASE_URL}/trends/${team.slug}" />
+  <link rel="alternate" type="application/json" href="${BASE_URL}/trends/${team.slug}.json" title="${team.name} Trend Payload" />
 
   <meta property="og:title" content="${team.name} — ${home.overPct}% Over Rate at Home | SportsSync" />
   <meta property="og:description" content="${metaDescription(team, stats)}" />
   <meta property="og:type" content="article" />
-  <meta property="og:url" content="https://sportsync-evidence.web.app/trends/${team.slug}" />
+  <meta property="og:url" content="${BASE_URL}/trends/${team.slug}" />
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${team.name} — ${home.overPct}% Over Rate at Home" />
@@ -129,7 +178,7 @@ export function renderTeamPage(team, stats) {
     "datePublished": "${stats.generatedDate}",
     "description": "${metaDescription(team, stats)}",
     "publisher": { "@type": "Organization", "name": "SportsSync Intelligence" },
-    "mainEntityOfPage": { "@type": "WebPage", "@id": "https://sportsync-evidence.web.app/trends/${team.slug}" }
+    "mainEntityOfPage": { "@type": "WebPage", "@id": "${BASE_URL}/trends/${team.slug}" }
   }
   </script>
   ${CSS_BLOCK(accent)}
@@ -479,4 +528,218 @@ function CSS_BLOCK(accent) {
     .page-footer{padding-top:40px;padding-bottom:64px;font-size:14px;color:var(--text-secondary);line-height:1.6}
     @media(max-width:768px){.top-nav-inner{padding:0 16px}.top-nav-links{display:none}.team-name{font-size:40px}.season-grid{grid-template-columns:1fr}.splits-grid{grid-template-columns:1fr}.bet-row{flex-wrap:wrap;padding:16px}.bet-desc{min-width:100%;order:-1;margin-bottom:8px}.bet-sample{text-align:left;margin-right:auto;width:auto}}
   </style>`;
+}
+
+function normalizeTeamForPayload(team = {}) {
+  return {
+    name: team.name || 'Unknown Team',
+    slug: team.slug || '',
+    city: team.city || '',
+    mascot: team.mascot || '',
+    accent: team.accent || '#2d5da1',
+  };
+}
+
+export function buildTeamTrendPayload(teamInput, statsInput, options = {}) {
+  const team = normalizeTeamForPayload(teamInput);
+  const stats = sanitizePayloadStats(statsInput);
+  const generatedDate = normalizeDateOnly(options.generatedDate || stats.generatedDate);
+  const throughDate = normalizeDateOnly(stats.throughDate || generatedDate);
+  const meta = {
+    title: `${team.name} — Betting Profile | ${SEASON} Season`,
+    description: metaDescription(team, stats),
+    headline: headlineText(team, stats),
+  };
+
+  return {
+    object_type: 'nba_team_trends_profile',
+    contract_version: CONTRACT_VERSION,
+    league: LEAGUE,
+    season: SEASON,
+    url: `${BASE_URL}/trends/${team.slug}`,
+    json_url: `${BASE_URL}/trends/${team.slug}.json`,
+    generated_at: `${generatedDate}T00:00:00.000Z`,
+    section_order: TEAM_SECTION_ORDER,
+    team,
+    meta,
+    stats: {
+      ...stats,
+      generatedDate,
+      throughDate,
+      totalGames: Number.isFinite(Number(stats.totalGames)) ? Number(stats.totalGames) : 0,
+      strongestPlays: Array.isArray(stats.strongestPlays) ? stats.strongestPlays : [],
+      restSplitsHome: Array.isArray(stats.restSplitsHome) ? stats.restSplitsHome : [],
+      restSplitsAway: Array.isArray(stats.restSplitsAway) ? stats.restSplitsAway : [],
+      biggestOvers: Array.isArray(stats.biggestOvers) ? stats.biggestOvers : [],
+      recentGames: Array.isArray(stats.recentGames) ? stats.recentGames : [],
+      lineMovements: Array.isArray(stats.lineMovements) ? stats.lineMovements : [],
+      upcomingGames: Array.isArray(stats.upcomingGames) ? stats.upcomingGames : [],
+    },
+    labels: {
+      nav_trends: 'Trends',
+      section_titles: {
+        season_summary: 'Season Summary',
+        strongest_plays: 'Strongest Plays',
+        home_away: 'Home vs Away',
+        rest_splits: 'Rest Splits',
+        largest_over_beats: 'Largest Over Beats (Home)',
+        line_movements: 'Opening vs Closing Lines',
+        upcoming_schedule: 'Upcoming Schedule',
+        recent_games: 'Recent Game Log',
+        methodology: 'Methodology',
+      },
+      color_rules: {
+        positive_metric_threshold: 55,
+        strong_metric_threshold: 60,
+        over_highlight_threshold: 65,
+      },
+    },
+    methodology: [
+      `Data: ${SEASON} NBA regular season through ${throughDate} (${stats.totalGames || 0} games: ${stats.home?.games || 0} home, ${stats.away?.games || 0} away).`,
+      'vs Close: actual combined score minus closing total. Games without a verified closing line are excluded from O/U percentages.',
+      'Close game: final margin ≤ 10 points.',
+      `O/U computed on ${stats.home?.gamesWithLine || 0} of ${stats.home?.games || 0} home games and ${stats.away?.gamesWithLine || 0} of ${stats.away?.games || 0} away games with verified lines.`,
+    ],
+  };
+}
+
+export function renderTeamTrendPage(payload) {
+  return renderTeamPage(payload.team, payload.stats);
+}
+
+export function buildTrendsIndexPayload(teamPayloads, options = {}) {
+  const payloads = Array.isArray(teamPayloads) ? teamPayloads : [];
+  const generatedDate = normalizeDateOnly(options.generatedDate || payloads[0]?.stats?.generatedDate);
+  const sortedTeams = [...payloads]
+    .sort((a, b) => Number(b?.stats?.home?.overPct || 0) - Number(a?.stats?.home?.overPct || 0))
+    .map((entry) => ({
+      name: entry.team.name,
+      slug: entry.team.slug,
+      url: `${BASE_URL}/trends/${entry.team.slug}`,
+      json_url: `${BASE_URL}/trends/${entry.team.slug}.json`,
+      total_games: Number(entry?.stats?.totalGames || 0),
+      home: {
+        overs: Number(entry?.stats?.home?.overs || 0),
+        unders: Number(entry?.stats?.home?.unders || 0),
+        over_pct: Number(entry?.stats?.home?.overPct || 0),
+        avg_vs_close: Number(entry?.stats?.home?.avgVsClose || 0),
+        covers: Number(entry?.stats?.home?.covers || 0),
+        non_covers: Number(entry?.stats?.home?.nonCovers || 0),
+        cover_pct: Number(entry?.stats?.home?.coverPct || 0),
+      },
+      away: {
+        overs: Number(entry?.stats?.away?.overs || 0),
+        unders: Number(entry?.stats?.away?.unders || 0),
+        over_pct: Number(entry?.stats?.away?.overPct || 0),
+      },
+    }));
+
+  return {
+    object_type: 'nba_team_trends_index',
+    contract_version: CONTRACT_VERSION,
+    league: LEAGUE,
+    season: SEASON,
+    url: `${BASE_URL}/trends/`,
+    json_url: `${BASE_URL}/trends/index.json`,
+    generated_at: `${generatedDate}T00:00:00.000Z`,
+    sort: { field: 'home.over_pct', direction: 'desc' },
+    columns: INDEX_COLUMNS,
+    teams: sortedTeams,
+  };
+}
+
+export function renderTrendsIndexPage(indexPayload) {
+  const payload = indexPayload && typeof indexPayload === 'object' ? indexPayload : {};
+  const teams = Array.isArray(payload.teams) ? payload.teams : [];
+  const generatedDate = normalizeDateOnly(payload.generated_at);
+  const rows = teams.map((row) => {
+    const homeOu = `${row.home.overs}-${row.home.unders}`;
+    const awayOu = `${row.away.overs}-${row.away.unders}`;
+    return `            <tr>
+              <td class="text-cell"><a href="/trends/${row.slug}" class="fw-600">${row.name}</a></td>
+              <td class="align-right">${row.total_games}</td>
+              <td class="align-right ${row.home.over_pct >= 55 ? 'color-green' : ''}">${homeOu} (${row.home.over_pct}%)</td>
+              <td class="align-right ${row.home.avg_vs_close >= 0 ? 'color-green' : 'color-red'}">${row.home.avg_vs_close >= 0 ? '+' : ''}${row.home.avg_vs_close}</td>
+              <td class="align-right ${row.home.cover_pct >= 55 ? 'color-green' : ''}">${row.home.covers}-${row.home.non_covers} (${row.home.cover_pct}%)</td>
+              <td class="align-right ${row.away.over_pct >= 55 ? 'color-green' : ''}">${awayOu} (${row.away.over_pct}%)</td>
+            </tr>`;
+  }).join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NBA Team Betting Profiles — ${SEASON} Season | SportsSync</title>
+  <meta name="description" content="Over/under and ATS trends for all 30 NBA teams. Home vs away splits, rest patterns, and strongest plays for the ${SEASON} season." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="${BASE_URL}/trends/" />
+  <link rel="alternate" type="application/json" href="${BASE_URL}/trends/index.json" title="NBA Trends Index Payload" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700&display=swap" rel="stylesheet" />
+  <style>
+    :root{--bg-canvas:#fdfbf7;--bg-surface:#fff;--bg-surface-hover:#faf9f6;--bg-subtle:#f5f2ed;--text-primary:#1a1a1a;--text-secondary:#454545;--text-tertiary:#666;--border-subtle:#ece6de;--border-strong:#e2ddd5;--color-accent:#2d5da1;--color-success:#1f6b2e;--color-danger:#8f281f;--radius-lg:14px;--shadow-sm:0 1px 3px rgba(0,0,0,.04),0 1px 2px rgba(0,0,0,.02);--font-sans:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;--font-serif:"Source Serif 4",Georgia,serif;--font-mono:"SF Mono","Menlo",monospace}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:var(--font-sans);background:var(--bg-canvas);color:var(--text-primary);line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+    a{color:var(--color-accent);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}
+    .top-nav{position:sticky;top:0;z-index:100;background:rgba(250,250,248,.92);backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid rgba(232,230,223,.8)}
+    .top-nav-inner{max-width:1080px;margin:0 auto;min-height:56px;padding:0 24px;display:flex;align-items:center;justify-content:space-between}
+    .top-nav-brand{font-family:'JetBrains Mono',monospace;font-weight:500;font-size:15px;letter-spacing:-.02em;color:var(--text-primary);text-decoration:none}
+    .top-nav-links{display:flex;gap:32px;list-style:none;align-items:center}
+    .top-nav-links a{font-size:14px;color:var(--text-tertiary);text-decoration:none;font-weight:500}
+    .top-nav-links a:hover{color:var(--text-primary)}
+    .top-nav-links a.active{color:var(--text-primary);font-weight:600}
+    .page{max-width:960px;margin:0 auto;padding:56px 24px}
+    .page-title{font-family:var(--font-serif);font-size:42px;font-weight:700;letter-spacing:-.01em;line-height:1.1;margin-bottom:12px}
+    .page-subtitle{font-size:18px;color:var(--text-secondary);margin-bottom:48px;max-width:640px}
+    .table-container{overflow-x:auto;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
+    table{width:100%;border-collapse:collapse;text-align:left;font-size:14px;white-space:nowrap}
+    thead th{padding:14px 20px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);border-bottom:1px solid var(--border-strong)}
+    tbody td{padding:14px 20px;border-bottom:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:13px;color:var(--text-secondary);vertical-align:middle}
+    tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--bg-surface-hover)}
+    .text-cell{font-family:var(--font-sans);font-size:14px}.fw-600{font-weight:600;color:var(--text-primary)}
+    .align-right{text-align:right}.color-green{color:var(--color-success)!important;font-weight:600}.color-red{color:var(--color-danger)!important;font-weight:600}
+    .page-footer{padding-top:40px;font-size:14px;color:var(--text-secondary)}
+    @media(max-width:768px){.top-nav-inner{padding:0 16px}.top-nav-links{display:none}.page-title{font-size:32px}}
+  </style>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="top-nav-inner">
+      <a class="top-nav-brand" href="/">SportsSync</a>
+      <ul class="top-nav-links">
+        <li><a href="/props">Props</a></li>
+        <li><a href="/trends/" class="active">Trends</a></li>
+        <li><a href="/pregame">Matchups</a></li>
+        <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
+      </ul>
+    </div>
+  </nav>
+  <main class="page">
+    <h1 class="page-title">NBA Betting Profiles</h1>
+    <p class="page-subtitle">Over/under and ATS trends for all 30 NBA teams. Sorted by home over rate. Updated ${generatedDate}.</p>
+    <div class="table-container" tabindex="0">
+      <table>
+        <thead>
+          <tr>
+            <th class="align-left">Team</th>
+            <th class="align-right">GP</th>
+            <th class="align-right">Home O/U</th>
+            <th class="align-right">vs Close</th>
+            <th class="align-right">Home ATS</th>
+            <th class="align-right">Away O/U</th>
+          </tr>
+        </thead>
+        <tbody>
+${rows}
+        </tbody>
+      </table>
+    </div>
+    <div class="page-footer">
+      <p>Auto-generated ${generatedDate}. For live intelligence, visit <a href="https://ref-tendencies.web.app/">Ref Tendencies</a>.</p>
+    </div>
+  </main>
+</body>
+</html>`;
 }

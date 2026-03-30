@@ -1,0 +1,677 @@
+{
+  "object_type": "nba_team_trends_index",
+  "contract_version": "v1",
+  "league": "NBA",
+  "season": "2025-26",
+  "url": "https://sportsync-evidence.web.app/trends/",
+  "json_url": "https://sportsync-evidence.web.app/trends/index.json",
+  "generated_at": "2026-03-30T00:00:00.000Z",
+  "sort": {
+    "field": "home.over_pct",
+    "direction": "desc"
+  },
+  "columns": [
+    {
+      "key": "team",
+      "label": "Team",
+      "align": "left"
+    },
+    {
+      "key": "gp",
+      "label": "GP",
+      "align": "right"
+    },
+    {
+      "key": "home_ou",
+      "label": "Home O/U",
+      "align": "right"
+    },
+    {
+      "key": "vs_close",
+      "label": "vs Close",
+      "align": "right"
+    },
+    {
+      "key": "home_ats",
+      "label": "Home ATS",
+      "align": "right"
+    },
+    {
+      "key": "away_ou",
+      "label": "Away O/U",
+      "align": "right"
+    }
+  ],
+  "teams": [
+    {
+      "name": "Utah Jazz",
+      "slug": "utah-jazz",
+      "url": "https://sportsync-evidence.web.app/trends/utah-jazz",
+      "json_url": "https://sportsync-evidence.web.app/trends/utah-jazz.json",
+      "total_games": 79,
+      "home": {
+        "overs": 28,
+        "unders": 12,
+        "over_pct": 70,
+        "avg_vs_close": 10.3,
+        "covers": 20,
+        "non_covers": 19,
+        "cover_pct": 51.3
+      },
+      "away": {
+        "overs": 18,
+        "unders": 19,
+        "over_pct": 48.6
+      }
+    },
+    {
+      "name": "Portland Trail Blazers",
+      "slug": "portland-trail-blazers",
+      "url": "https://sportsync-evidence.web.app/trends/portland-trail-blazers",
+      "json_url": "https://sportsync-evidence.web.app/trends/portland-trail-blazers.json",
+      "total_games": 80,
+      "home": {
+        "overs": 25,
+        "unders": 14,
+        "over_pct": 64.1,
+        "avg_vs_close": 3.4,
+        "covers": 21,
+        "non_covers": 16,
+        "cover_pct": 56.8
+      },
+      "away": {
+        "overs": 18,
+        "unders": 22,
+        "over_pct": 45
+      }
+    },
+    {
+      "name": "Golden State Warriors",
+      "slug": "golden-state-warriors",
+      "url": "https://sportsync-evidence.web.app/trends/golden-state-warriors",
+      "json_url": "https://sportsync-evidence.web.app/trends/golden-state-warriors.json",
+      "total_games": 80,
+      "home": {
+        "overs": 23,
+        "unders": 15,
+        "over_pct": 60.5,
+        "avg_vs_close": 4.8,
+        "covers": 15,
+        "non_covers": 22,
+        "cover_pct": 40.5
+      },
+      "away": {
+        "overs": 22,
+        "unders": 19,
+        "over_pct": 53.7
+      }
+    },
+    {
+      "name": "Los Angeles Lakers",
+      "slug": "los-angeles-lakers",
+      "url": "https://sportsync-evidence.web.app/trends/los-angeles-lakers",
+      "json_url": "https://sportsync-evidence.web.app/trends/los-angeles-lakers.json",
+      "total_games": 78,
+      "home": {
+        "overs": 23,
+        "unders": 15,
+        "over_pct": 60.5,
+        "avg_vs_close": 1.8,
+        "covers": 20,
+        "non_covers": 18,
+        "cover_pct": 52.6
+      },
+      "away": {
+        "overs": 17,
+        "unders": 22,
+        "over_pct": 43.6
+      }
+    },
+    {
+      "name": "Philadelphia 76ers",
+      "slug": "philadelphia-76ers",
+      "url": "https://sportsync-evidence.web.app/trends/philadelphia-76ers",
+      "json_url": "https://sportsync-evidence.web.app/trends/philadelphia-76ers.json",
+      "total_games": 77,
+      "home": {
+        "overs": 23,
+        "unders": 17,
+        "over_pct": 57.5,
+        "avg_vs_close": 3.2,
+        "covers": 18,
+        "non_covers": 21,
+        "cover_pct": 46.2
+      },
+      "away": {
+        "overs": 19,
+        "unders": 17,
+        "over_pct": 52.8
+      }
+    },
+    {
+      "name": "Milwaukee Bucks",
+      "slug": "milwaukee-bucks",
+      "url": "https://sportsync-evidence.web.app/trends/milwaukee-bucks",
+      "json_url": "https://sportsync-evidence.web.app/trends/milwaukee-bucks.json",
+      "total_games": 77,
+      "home": {
+        "overs": 21,
+        "unders": 16,
+        "over_pct": 56.8,
+        "avg_vs_close": 5.9,
+        "covers": 18,
+        "non_covers": 19,
+        "cover_pct": 48.6
+      },
+      "away": {
+        "overs": 13,
+        "unders": 25,
+        "over_pct": 34.2
+      }
+    },
+    {
+      "name": "Orlando Magic",
+      "slug": "orlando-magic",
+      "url": "https://sportsync-evidence.web.app/trends/orlando-magic",
+      "json_url": "https://sportsync-evidence.web.app/trends/orlando-magic.json",
+      "total_games": 78,
+      "home": {
+        "overs": 22,
+        "unders": 17,
+        "over_pct": 56.4,
+        "avg_vs_close": 2.7,
+        "covers": 19,
+        "non_covers": 19,
+        "cover_pct": 50
+      },
+      "away": {
+        "overs": 22,
+        "unders": 16,
+        "over_pct": 57.9
+      }
+    },
+    {
+      "name": "Miami Heat",
+      "slug": "miami-heat",
+      "url": "https://sportsync-evidence.web.app/trends/miami-heat",
+      "json_url": "https://sportsync-evidence.web.app/trends/miami-heat.json",
+      "total_games": 81,
+      "home": {
+        "overs": 23,
+        "unders": 18,
+        "over_pct": 56.1,
+        "avg_vs_close": 3.9,
+        "covers": 21,
+        "non_covers": 19,
+        "cover_pct": 52.5
+      },
+      "away": {
+        "overs": 21,
+        "unders": 18,
+        "over_pct": 53.8
+      }
+    },
+    {
+      "name": "Washington Wizards",
+      "slug": "washington-wizards",
+      "url": "https://sportsync-evidence.web.app/trends/washington-wizards",
+      "json_url": "https://sportsync-evidence.web.app/trends/washington-wizards.json",
+      "total_games": 77,
+      "home": {
+        "overs": 21,
+        "unders": 17,
+        "over_pct": 55.3,
+        "avg_vs_close": 3.5,
+        "covers": 19,
+        "non_covers": 19,
+        "cover_pct": 50
+      },
+      "away": {
+        "overs": 21,
+        "unders": 17,
+        "over_pct": 55.3
+      }
+    },
+    {
+      "name": "Brooklyn Nets",
+      "slug": "brooklyn-nets",
+      "url": "https://sportsync-evidence.web.app/trends/brooklyn-nets",
+      "json_url": "https://sportsync-evidence.web.app/trends/brooklyn-nets.json",
+      "total_games": 78,
+      "home": {
+        "overs": 19,
+        "unders": 17,
+        "over_pct": 52.8,
+        "avg_vs_close": 2.6,
+        "covers": 16,
+        "non_covers": 19,
+        "cover_pct": 45.7
+      },
+      "away": {
+        "overs": 16,
+        "unders": 24,
+        "over_pct": 40
+      }
+    },
+    {
+      "name": "Memphis Grizzlies",
+      "slug": "memphis-grizzlies",
+      "url": "https://sportsync-evidence.web.app/trends/memphis-grizzlies",
+      "json_url": "https://sportsync-evidence.web.app/trends/memphis-grizzlies.json",
+      "total_games": 78,
+      "home": {
+        "overs": 20,
+        "unders": 18,
+        "over_pct": 52.6,
+        "avg_vs_close": -1.6,
+        "covers": 17,
+        "non_covers": 21,
+        "cover_pct": 44.7
+      },
+      "away": {
+        "overs": 19,
+        "unders": 19,
+        "over_pct": 50
+      }
+    },
+    {
+      "name": "Sacramento Kings",
+      "slug": "sacramento-kings",
+      "url": "https://sportsync-evidence.web.app/trends/sacramento-kings",
+      "json_url": "https://sportsync-evidence.web.app/trends/sacramento-kings.json",
+      "total_games": 79,
+      "home": {
+        "overs": 20,
+        "unders": 19,
+        "over_pct": 51.3,
+        "avg_vs_close": 1,
+        "covers": 16,
+        "non_covers": 22,
+        "cover_pct": 42.1
+      },
+      "away": {
+        "overs": 19,
+        "unders": 19,
+        "over_pct": 50
+      }
+    },
+    {
+      "name": "New Orleans Pelicans",
+      "slug": "new-orleans-pelicans",
+      "url": "https://sportsync-evidence.web.app/trends/new-orleans-pelicans",
+      "json_url": "https://sportsync-evidence.web.app/trends/new-orleans-pelicans.json",
+      "total_games": 80,
+      "home": {
+        "overs": 21,
+        "unders": 20,
+        "over_pct": 51.2,
+        "avg_vs_close": 2.2,
+        "covers": 25,
+        "non_covers": 15,
+        "cover_pct": 62.5
+      },
+      "away": {
+        "overs": 18,
+        "unders": 18,
+        "over_pct": 50
+      }
+    },
+    {
+      "name": "New York Knicks",
+      "slug": "new-york-knicks",
+      "url": "https://sportsync-evidence.web.app/trends/new-york-knicks",
+      "json_url": "https://sportsync-evidence.web.app/trends/new-york-knicks.json",
+      "total_games": 81,
+      "home": {
+        "overs": 21,
+        "unders": 20,
+        "over_pct": 51.2,
+        "avg_vs_close": -1.7,
+        "covers": 25,
+        "non_covers": 15,
+        "cover_pct": 62.5
+      },
+      "away": {
+        "overs": 18,
+        "unders": 21,
+        "over_pct": 46.2
+      }
+    },
+    {
+      "name": "Dallas Mavericks",
+      "slug": "dallas-mavericks",
+      "url": "https://sportsync-evidence.web.app/trends/dallas-mavericks",
+      "json_url": "https://sportsync-evidence.web.app/trends/dallas-mavericks.json",
+      "total_games": 78,
+      "home": {
+        "overs": 19,
+        "unders": 20,
+        "over_pct": 48.7,
+        "avg_vs_close": -3.2,
+        "covers": 19,
+        "non_covers": 19,
+        "cover_pct": 50
+      },
+      "away": {
+        "overs": 14,
+        "unders": 24,
+        "over_pct": 36.8
+      }
+    },
+    {
+      "name": "Indiana Pacers",
+      "slug": "indiana-pacers",
+      "url": "https://sportsync-evidence.web.app/trends/indiana-pacers",
+      "json_url": "https://sportsync-evidence.web.app/trends/indiana-pacers.json",
+      "total_games": 79,
+      "home": {
+        "overs": 19,
+        "unders": 20,
+        "over_pct": 48.7,
+        "avg_vs_close": -0.2,
+        "covers": 21,
+        "non_covers": 17,
+        "cover_pct": 55.3
+      },
+      "away": {
+        "overs": 20,
+        "unders": 19,
+        "over_pct": 51.3
+      }
+    },
+    {
+      "name": "LA Clippers",
+      "slug": "la-clippers",
+      "url": "https://sportsync-evidence.web.app/trends/la-clippers",
+      "json_url": "https://sportsync-evidence.web.app/trends/la-clippers.json",
+      "total_games": 79,
+      "home": {
+        "overs": 18,
+        "unders": 19,
+        "over_pct": 48.6,
+        "avg_vs_close": 1.6,
+        "covers": 20,
+        "non_covers": 17,
+        "cover_pct": 54.1
+      },
+      "away": {
+        "overs": 20,
+        "unders": 19,
+        "over_pct": 51.3
+      }
+    },
+    {
+      "name": "San Antonio Spurs",
+      "slug": "san-antonio-spurs",
+      "url": "https://sportsync-evidence.web.app/trends/san-antonio-spurs",
+      "json_url": "https://sportsync-evidence.web.app/trends/san-antonio-spurs.json",
+      "total_games": 80,
+      "home": {
+        "overs": 18,
+        "unders": 19,
+        "over_pct": 48.6,
+        "avg_vs_close": 0.9,
+        "covers": 21,
+        "non_covers": 16,
+        "cover_pct": 56.8
+      },
+      "away": {
+        "overs": 16,
+        "unders": 25,
+        "over_pct": 39
+      }
+    },
+    {
+      "name": "Denver Nuggets",
+      "slug": "denver-nuggets",
+      "url": "https://sportsync-evidence.web.app/trends/denver-nuggets",
+      "json_url": "https://sportsync-evidence.web.app/trends/denver-nuggets.json",
+      "total_games": 81,
+      "home": {
+        "overs": 18,
+        "unders": 20,
+        "over_pct": 47.4,
+        "avg_vs_close": -0.2,
+        "covers": 17,
+        "non_covers": 19,
+        "cover_pct": 47.2
+      },
+      "away": {
+        "overs": 28,
+        "unders": 14,
+        "over_pct": 66.7
+      }
+    },
+    {
+      "name": "Oklahoma City Thunder",
+      "slug": "oklahoma-city-thunder",
+      "url": "https://sportsync-evidence.web.app/trends/oklahoma-city-thunder",
+      "json_url": "https://sportsync-evidence.web.app/trends/oklahoma-city-thunder.json",
+      "total_games": 81,
+      "home": {
+        "overs": 18,
+        "unders": 21,
+        "over_pct": 46.2,
+        "avg_vs_close": -4.2,
+        "covers": 16,
+        "non_covers": 22,
+        "cover_pct": 42.1
+      },
+      "away": {
+        "overs": 22,
+        "unders": 19,
+        "over_pct": 53.7
+      }
+    },
+    {
+      "name": "Detroit Pistons",
+      "slug": "detroit-pistons",
+      "url": "https://sportsync-evidence.web.app/trends/detroit-pistons",
+      "json_url": "https://sportsync-evidence.web.app/trends/detroit-pistons.json",
+      "total_games": 78,
+      "home": {
+        "overs": 17,
+        "unders": 21,
+        "over_pct": 44.7,
+        "avg_vs_close": -1.8,
+        "covers": 17,
+        "non_covers": 20,
+        "cover_pct": 45.9
+      },
+      "away": {
+        "overs": 16,
+        "unders": 22,
+        "over_pct": 42.1
+      }
+    },
+    {
+      "name": "Atlanta Hawks",
+      "slug": "atlanta-hawks",
+      "url": "https://sportsync-evidence.web.app/trends/atlanta-hawks",
+      "json_url": "https://sportsync-evidence.web.app/trends/atlanta-hawks.json",
+      "total_games": 79,
+      "home": {
+        "overs": 17,
+        "unders": 22,
+        "over_pct": 43.6,
+        "avg_vs_close": -2.3,
+        "covers": 18,
+        "non_covers": 20,
+        "cover_pct": 47.4
+      },
+      "away": {
+        "overs": 23,
+        "unders": 15,
+        "over_pct": 60.5
+      }
+    },
+    {
+      "name": "Toronto Raptors",
+      "slug": "toronto-raptors",
+      "url": "https://sportsync-evidence.web.app/trends/toronto-raptors",
+      "json_url": "https://sportsync-evidence.web.app/trends/toronto-raptors.json",
+      "total_games": 80,
+      "home": {
+        "overs": 17,
+        "unders": 22,
+        "over_pct": 43.6,
+        "avg_vs_close": -3.1,
+        "covers": 17,
+        "non_covers": 21,
+        "cover_pct": 44.7
+      },
+      "away": {
+        "overs": 14,
+        "unders": 26,
+        "over_pct": 35
+      }
+    },
+    {
+      "name": "Boston Celtics",
+      "slug": "boston-celtics",
+      "url": "https://sportsync-evidence.web.app/trends/boston-celtics",
+      "json_url": "https://sportsync-evidence.web.app/trends/boston-celtics.json",
+      "total_games": 78,
+      "home": {
+        "overs": 15,
+        "unders": 23,
+        "over_pct": 39.5,
+        "avg_vs_close": -3.9,
+        "covers": 19,
+        "non_covers": 18,
+        "cover_pct": 51.4
+      },
+      "away": {
+        "overs": 12,
+        "unders": 27,
+        "over_pct": 30.8
+      }
+    },
+    {
+      "name": "Charlotte Hornets",
+      "slug": "charlotte-hornets",
+      "url": "https://sportsync-evidence.web.app/trends/charlotte-hornets",
+      "json_url": "https://sportsync-evidence.web.app/trends/charlotte-hornets.json",
+      "total_games": 80,
+      "home": {
+        "overs": 15,
+        "unders": 23,
+        "over_pct": 39.5,
+        "avg_vs_close": -3.6,
+        "covers": 23,
+        "non_covers": 14,
+        "cover_pct": 62.2
+      },
+      "away": {
+        "overs": 18,
+        "unders": 22,
+        "over_pct": 45
+      }
+    },
+    {
+      "name": "Chicago Bulls",
+      "slug": "chicago-bulls",
+      "url": "https://sportsync-evidence.web.app/trends/chicago-bulls",
+      "json_url": "https://sportsync-evidence.web.app/trends/chicago-bulls.json",
+      "total_games": 78,
+      "home": {
+        "overs": 16,
+        "unders": 25,
+        "over_pct": 39,
+        "avg_vs_close": -3.4,
+        "covers": 20,
+        "non_covers": 20,
+        "cover_pct": 50
+      },
+      "away": {
+        "overs": 21,
+        "unders": 14,
+        "over_pct": 60
+      }
+    },
+    {
+      "name": "Cleveland Cavaliers",
+      "slug": "cleveland-cavaliers",
+      "url": "https://sportsync-evidence.web.app/trends/cleveland-cavaliers",
+      "json_url": "https://sportsync-evidence.web.app/trends/cleveland-cavaliers.json",
+      "total_games": 78,
+      "home": {
+        "overs": 15,
+        "unders": 24,
+        "over_pct": 38.5,
+        "avg_vs_close": -3.2,
+        "covers": 14,
+        "non_covers": 25,
+        "cover_pct": 35.9
+      },
+      "away": {
+        "overs": 22,
+        "unders": 16,
+        "over_pct": 57.9
+      }
+    },
+    {
+      "name": "Houston Rockets",
+      "slug": "houston-rockets",
+      "url": "https://sportsync-evidence.web.app/trends/houston-rockets",
+      "json_url": "https://sportsync-evidence.web.app/trends/houston-rockets.json",
+      "total_games": 78,
+      "home": {
+        "overs": 13,
+        "unders": 24,
+        "over_pct": 35.1,
+        "avg_vs_close": -2.8,
+        "covers": 15,
+        "non_covers": 22,
+        "cover_pct": 40.5
+      },
+      "away": {
+        "overs": 21,
+        "unders": 19,
+        "over_pct": 52.5
+      }
+    },
+    {
+      "name": "Minnesota Timberwolves",
+      "slug": "minnesota-timberwolves",
+      "url": "https://sportsync-evidence.web.app/trends/minnesota-timberwolves",
+      "json_url": "https://sportsync-evidence.web.app/trends/minnesota-timberwolves.json",
+      "total_games": 80,
+      "home": {
+        "overs": 13,
+        "unders": 26,
+        "over_pct": 33.3,
+        "avg_vs_close": -4.8,
+        "covers": 17,
+        "non_covers": 22,
+        "cover_pct": 43.6
+      },
+      "away": {
+        "overs": 24,
+        "unders": 15,
+        "over_pct": 61.5
+      }
+    },
+    {
+      "name": "Phoenix Suns",
+      "slug": "phoenix-suns",
+      "url": "https://sportsync-evidence.web.app/trends/phoenix-suns",
+      "json_url": "https://sportsync-evidence.web.app/trends/phoenix-suns.json",
+      "total_games": 78,
+      "home": {
+        "overs": 13,
+        "unders": 27,
+        "over_pct": 32.5,
+        "avg_vs_close": -5.4,
+        "covers": 22,
+        "non_covers": 17,
+        "cover_pct": 56.4
+      },
+      "away": {
+        "overs": 19,
+        "unders": 18,
+        "over_pct": 51.4
+      }
+    }
+  ]
+}

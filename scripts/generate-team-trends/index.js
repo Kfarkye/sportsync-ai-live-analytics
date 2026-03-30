@@ -19,9 +19,14 @@
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { NBA_TEAMS, teamBySlug } from './teams.js';
-import { computeTeamStats } from './compute.js';
-import { renderTeamPage } from './render.js';
+import { NBA_TEAMS } from '../../functions/lib/teams.js';
+import { computeTeamStats } from '../../functions/lib/compute.js';
+import {
+  buildTeamTrendPayload,
+  renderTeamTrendPage,
+  buildTrendsIndexPayload,
+  renderTrendsIndexPage,
+} from '../../functions/lib/render.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -63,108 +68,6 @@ async function fetchGames(status) {
   return allRows;
 }
 
-// ── Index Page Generator ─────────────────────────────────────────────────────
-
-function renderIndexPage(teamSummaries) {
-  const rows = teamSummaries
-    .sort((a, b) => b.home.overPct - a.home.overPct)
-    .map(s => {
-      const team = NBA_TEAMS.find(t => t.name === s.teamName);
-      if (!team) return '';
-      const homeOvUn = `${s.home.overs}-${s.home.unders}`;
-      const awayOvUn = `${s.away.overs}-${s.away.unders}`;
-      return `            <tr>
-              <td class="text-cell"><a href="/trends/${team.slug}" class="fw-600">${team.name}</a></td>
-              <td class="align-right">${s.totalGames}</td>
-              <td class="align-right ${s.home.overPct >= 55 ? 'color-green' : ''}">${homeOvUn} (${s.home.overPct}%)</td>
-              <td class="align-right ${s.home.avgVsClose >= 0 ? 'color-green' : 'color-red'}">${s.home.avgVsClose >= 0 ? '+' : ''}${s.home.avgVsClose}</td>
-              <td class="align-right ${s.home.coverPct >= 55 ? 'color-green' : ''}">${s.home.covers}-${s.home.nonCovers} (${s.home.coverPct}%)</td>
-              <td class="align-right ${s.away.overPct >= 55 ? 'color-green' : ''}">${awayOvUn} (${s.away.overPct}%)</td>
-            </tr>`;
-    })
-    .filter(Boolean)
-    .join('\n');
-
-  const today = new Date().toISOString().slice(0, 10);
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NBA Team Betting Profiles — 2025-26 Season | SportsSync</title>
-  <meta name="description" content="Over/under and ATS trends for all 30 NBA teams. Home vs away splits, rest patterns, and strongest plays for the 2025-26 season." />
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://sportsync-evidence.web.app/trends/" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700&display=swap" rel="stylesheet" />
-  <style>
-    :root{--bg-canvas:#fdfbf7;--bg-surface:#fff;--bg-surface-hover:#faf9f6;--bg-subtle:#f5f2ed;--text-primary:#1a1a1a;--text-secondary:#454545;--text-tertiary:#666;--border-subtle:#ece6de;--border-strong:#e2ddd5;--color-accent:#2d5da1;--color-success:#1f6b2e;--color-danger:#8f281f;--radius-lg:14px;--shadow-sm:0 1px 3px rgba(0,0,0,.04),0 1px 2px rgba(0,0,0,.02);--font-sans:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;--font-serif:"Source Serif 4",Georgia,serif;--font-mono:"SF Mono","Menlo",monospace}
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:var(--font-sans);background:var(--bg-canvas);color:var(--text-primary);line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
-    a{color:var(--color-accent);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}
-    .top-nav{position:sticky;top:0;z-index:100;background:rgba(250,250,248,.92);backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid rgba(232,230,223,.8)}
-    .top-nav-inner{max-width:1080px;margin:0 auto;min-height:56px;padding:0 24px;display:flex;align-items:center;justify-content:space-between}
-    .top-nav-brand{font-family:'JetBrains Mono',monospace;font-weight:500;font-size:15px;letter-spacing:-.02em;color:var(--text-primary);text-decoration:none}
-    .top-nav-links{display:flex;gap:32px;list-style:none;align-items:center}
-    .top-nav-links a{font-size:14px;color:var(--text-tertiary);text-decoration:none;font-weight:500}
-    .top-nav-links a:hover{color:var(--text-primary)}
-    .top-nav-links a.active{color:var(--text-primary);font-weight:600}
-    .page{max-width:960px;margin:0 auto;padding:56px 24px}
-    .page-title{font-family:var(--font-serif);font-size:42px;font-weight:700;letter-spacing:-.01em;line-height:1.1;margin-bottom:12px}
-    .page-subtitle{font-size:18px;color:var(--text-secondary);margin-bottom:48px;max-width:640px}
-    .table-container{overflow-x:auto;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
-    table{width:100%;border-collapse:collapse;text-align:left;font-size:14px;white-space:nowrap}
-    thead th{padding:14px 20px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);border-bottom:1px solid var(--border-strong)}
-    tbody td{padding:14px 20px;border-bottom:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:13px;color:var(--text-secondary);vertical-align:middle}
-    tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--bg-surface-hover)}
-    .text-cell{font-family:var(--font-sans);font-size:14px}.fw-600{font-weight:600;color:var(--text-primary)}
-    .align-right{text-align:right}.color-green{color:var(--color-success)!important;font-weight:600}.color-red{color:var(--color-danger)!important;font-weight:600}
-    .page-footer{padding-top:40px;font-size:14px;color:var(--text-secondary)}
-    @media(max-width:768px){.top-nav-inner{padding:0 16px}.top-nav-links{display:none}.page-title{font-size:32px}}
-  </style>
-</head>
-<body>
-  <nav class="top-nav">
-    <div class="top-nav-inner">
-      <a class="top-nav-brand" href="/">SportsSync</a>
-      <ul class="top-nav-links">
-        <li><a href="/props">Props</a></li>
-        <li><a href="/trends/" class="active">Trends</a></li>
-        <li><a href="/pregame">Matchups</a></li>
-        <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
-      </ul>
-    </div>
-  </nav>
-  <main class="page">
-    <h1 class="page-title">NBA Betting Profiles</h1>
-    <p class="page-subtitle">Over/under and ATS trends for all 30 NBA teams. Sorted by home over rate. Updated ${today}.</p>
-    <div class="table-container" tabindex="0">
-      <table>
-        <thead>
-          <tr>
-            <th class="align-left">Team</th>
-            <th class="align-right">GP</th>
-            <th class="align-right">Home O/U</th>
-            <th class="align-right">vs Close</th>
-            <th class="align-right">Home ATS</th>
-            <th class="align-right">Away O/U</th>
-          </tr>
-        </thead>
-        <tbody>
-${rows}
-        </tbody>
-      </table>
-    </div>
-    <div class="page-footer">
-      <p>Auto-generated ${today}. For live intelligence, visit <a href="https://ref-tendencies.web.app/">Ref Tendencies</a>.</p>
-    </div>
-  </main>
-</body>
-</html>`;
-}
-
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -180,6 +83,9 @@ async function main() {
   console.log('⏳ Fetching upcoming games...');
   const upcomingGames = await fetchGames('upcoming');
   console.log(`   → ${upcomingGames.length} upcoming games`);
+  const latestDataDate = completedGames.length > 0
+    ? new Date(completedGames[0].start_time).toISOString().slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
 
   const teamsToGenerate = singleSlug
     ? NBA_TEAMS.filter(t => t.slug === singleSlug)
@@ -194,7 +100,7 @@ async function main() {
     mkdirSync(OUTPUT_DIR, { recursive: true });
   }
 
-  const allStats = [];
+  const teamPayloads = [];
   let generated = 0;
 
   for (const team of teamsToGenerate) {
@@ -204,24 +110,32 @@ async function main() {
       continue;
     }
 
-    allStats.push(stats);
+    const teamPayload = buildTeamTrendPayload(team, stats, {
+      generatedDate: latestDataDate,
+    });
+    teamPayloads.push(teamPayload);
 
     if (dryRun) {
       console.log(`📊 ${team.name}: ${stats.totalGames} GP | Home O/U: ${stats.home.overs}-${stats.home.unders} (${stats.home.overPct}%) | Away O/U: ${stats.away.overs}-${stats.away.unders} (${stats.away.overPct}%) | Home ATS: ${stats.home.covers}-${stats.home.nonCovers} (${stats.home.coverPct}%)`);
     } else {
-      const html = renderTeamPage(team, stats);
+      const html = renderTeamTrendPage(teamPayload);
       const outPath = join(OUTPUT_DIR, `${team.slug}.html`);
       writeFileSync(outPath, html, 'utf-8');
+      writeFileSync(join(OUTPUT_DIR, `${team.slug}.json`), JSON.stringify(teamPayload, null, 2), 'utf-8');
       generated++;
       console.log(`✅ ${team.name} → ${team.slug}.html (${stats.totalGames} games)`);
     }
   }
 
   // Generate index page
-  if (!dryRun && !singleSlug && allStats.length > 0) {
-    const indexHtml = renderIndexPage(allStats);
+  if (!dryRun && !singleSlug && teamPayloads.length > 0) {
+    const indexPayload = buildTrendsIndexPayload(teamPayloads, {
+      generatedDate: latestDataDate,
+    });
+    const indexHtml = renderTrendsIndexPage(indexPayload);
     writeFileSync(join(OUTPUT_DIR, 'index.html'), indexHtml, 'utf-8');
-    console.log(`✅ Index page → index.html (${allStats.length} teams)`);
+    writeFileSync(join(OUTPUT_DIR, 'index.json'), JSON.stringify(indexPayload, null, 2), 'utf-8');
+    console.log(`✅ Index page → index.html (${teamPayloads.length} teams)`);
     generated++;
   }
 
