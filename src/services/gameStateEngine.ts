@@ -6,6 +6,9 @@ const toNumber = (value: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+type SportFamily = 'basketball' | 'hockey' | 'soccer' | 'baseball' | 'football' | 'generic';
+type DeterministicRegime = NonNullable<AISignals['deterministic_regime']>;
+
 const parseClockSeconds = (clock: unknown): number => {
   const raw = String(clock ?? '').trim();
   if (!raw) return 0;
@@ -16,6 +19,24 @@ const parseClockSeconds = (clock: unknown): number => {
   if (mins) return Number(mins[1]) * 60 + Number(mins[2] ?? 0);
   return 0;
 };
+
+const inferSportFamily = (sport: string, leagueId: string): SportFamily => {
+  const raw = `${sport} ${leagueId}`.toLowerCase();
+  if (raw.includes('hockey') || raw.includes('nhl') || raw.includes('icehockey')) return 'hockey';
+  if (
+    raw.includes('basketball') ||
+    raw.includes('nba') ||
+    raw.includes('wnba') ||
+    raw.includes('college_basketball') ||
+    raw.includes('mens-college-basketball')
+  ) return 'basketball';
+  if (raw.includes('soccer') || raw.includes('fifa') || raw.includes('football/soccer')) return 'soccer';
+  if (raw.includes('baseball') || raw.includes('mlb')) return 'baseball';
+  if (raw.includes('football') || raw.includes('nfl')) return 'football';
+  return 'generic';
+};
+
+const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
 export function computeAISignals(match: Match): AISignals {
   const existing = (match.ai_signals || {}) as Record<string, any>;
@@ -33,34 +54,128 @@ export function computeAISignals(match: Match): AISignals {
   const marketHomeMl = toNumber(odds.homeML ?? odds.moneylineHome ?? odds.homeWin ?? odds.home_ml ?? odds.main?.h2h?.home?.price);
   const marketAwayMl = toNumber(odds.awayML ?? odds.moneylineAway ?? odds.awayWin ?? odds.away_ml ?? odds.main?.h2h?.away?.price);
 
+  const sportFamily = inferSportFamily(sport, leagueId);
   const gameTotalMins =
-    sport === 'basketball' ? (leagueId === 'mens-college-basketball' ? 40 : 48) :
-      sport === 'icehockey' || sport === 'hockey' ? 60 :
-        sport === 'soccer' ? 90 :
-          sport === 'baseball' ? 54 :
-            sport === 'americanfootball' || sport === 'football' ? 60 :
+    sportFamily === 'basketball' ? (leagueId.includes('mens-college-basketball') || leagueId.includes('college_basketball') ? 40 : 48) :
+      sportFamily === 'hockey' ? 60 :
+        sportFamily === 'soccer' ? 90 :
+          sportFamily === 'baseball' ? 54 :
+            sportFamily === 'football' ? 60 :
               48;
 
   const period = Number(match.period ?? 0);
-  const clockSecs = parseClockSeconds(match.displayClock);
+  const clockSecs = parseClockSeconds(match.displayClock ?? (match as unknown as Record<string, unknown>).clock);
   const elapsedSecs = (() => {
-    if (sport === 'basketball') {
+    if (sportFamily === 'basketball') {
       const periodMins = leagueId === 'mens-college-basketball' ? 20 : 12;
       const completedPeriods = Math.max(0, period - 1);
       return completedPeriods * periodMins * 60 + Math.max(0, periodMins * 60 - clockSecs);
     }
-    if (sport === 'soccer') return clockSecs;
+    if (sportFamily === 'hockey') {
+      const periodMins = 20;
+      const completedPeriods = Math.max(0, period - 1);
+      return completedPeriods * periodMins * 60 + Math.max(0, periodMins * 60 - clockSecs);
+    }
+    if (sportFamily === 'football') {
+      const periodMins = 15;
+      const completedPeriods = Math.max(0, period - 1);
+      return completedPeriods * periodMins * 60 + Math.max(0, periodMins * 60 - clockSecs);
+    }
+    if (sportFamily === 'soccer') return clockSecs;
     return 0;
   })();
 
   const elapsedMins = Math.max(1, elapsedSecs / 60);
+  const remainingMins = Math.max(0, gameTotalMins - elapsedMins);
   const observedPPM = currentTotal / elapsedMins;
   const projectedPPM = marketTotal ? marketTotal / gameTotalMins : 0;
   const ppmDelta = observedPPM - projectedPPM;
 
-  const isLive = status.toUpperCase() === 'STATUS_IN_PROGRESS';
-  const isBlowout = Math.abs(homeScore - awayScore) > (sport === 'basketball' ? 20 : sport === 'soccer' ? 3 : 4);
-  const regime = isBlowout ? 'BLOWOUT' : (elapsedSecs > gameTotalMins * 55 ? 'ENDGAME' : 'NORMAL');
+  const statusUpper = status.toUpperCase();
+  const isLive =
+    statusUpper === 'STATUS_IN_PROGRESS' ||
+    statusUpper === 'IN_PROGRESS' ||
+    statusUpper === 'LIVE' ||
+    statusUpper === 'STATUS_HALFTIME' ||
+    statusUpper === 'HALFTIME';
+
+  const scoreDiff = Math.abs(homeScore - awayScore);
+  const varianceFlags: NonNullable<AISignals['variance_flags']> = {
+    blowout: false,
+    foul_trouble: false,
+    endgame: remainingMins <= 2,
+  };
+
+  let regime: DeterministicRegime = 'NORMAL';
+  let fairTotal = marketTotal ?? currentTotal;
+  let regimeMultiplier = 1;
+  const notesLower = String((match as any).notes ?? '').toLowerCase();
+  const traceDump: Record<string, unknown> = {
+    sportFamily,
+    elapsedMins: Number(elapsedMins.toFixed(2)),
+    remainingMins: Number(remainingMins.toFixed(2)),
+    scoreDiff,
+  };
+
+  if (sportFamily === 'hockey') {
+    const isLateThird = period >= 3;
+    const isBackToBack = /back[-\s]?to[-\s]?back|b2b/.test(notesLower);
+    const possessionText = String((match as any).situation?.possessionText ?? '').toLowerCase();
+    const isPowerPlay = Boolean((match as any).situation?.isPowerPlay) || possessionText.includes('power play');
+    const isBlowout = isLateThird && scoreDiff >= 3 && remainingMins <= 10;
+    const isEnRisk = isLateThird && scoreDiff === 1 && remainingMins <= 3;
+
+    if (isEnRisk) {
+      regime = 'CHAOS';
+      const enInjection = 0.85;
+      const timeDecayTail = projectedPPM * remainingMins * 0.25;
+      fairTotal = currentTotal + enInjection + timeDecayTail;
+      regimeMultiplier = 1.2;
+      traceDump.enInjection = enInjection;
+      traceDump.is_en_risk = true;
+    } else if (isBlowout) {
+      regime = 'BLOWOUT';
+      varianceFlags.blowout = true;
+      let surrenderScalar = isBackToBack ? 0.65 : 0.8;
+      if (isPowerPlay) {
+        surrenderScalar += 0.25;
+        varianceFlags.power_play_decay = true;
+      }
+      surrenderScalar = clamp(surrenderScalar, 0.4, 1.25);
+      fairTotal = currentTotal + (projectedPPM * remainingMins * surrenderScalar);
+      regimeMultiplier = 0.92;
+      traceDump.surrenderScalar = Number(surrenderScalar.toFixed(2));
+      traceDump.isBackToBack = isBackToBack;
+      traceDump.isPowerPlay = isPowerPlay;
+      traceDump.is_en_risk = false;
+    } else {
+      fairTotal = currentTotal + (projectedPPM * remainingMins);
+    }
+  } else if (sportFamily === 'basketball') {
+    const elapsedPct = elapsedMins / gameTotalMins;
+    const isBlowout = scoreDiff >= 22 && elapsedPct >= 0.6;
+    if (isBlowout) {
+      regime = 'BLOWOUT';
+      varianceFlags.blowout = true;
+      regimeMultiplier = 0.9;
+    } else if (remainingMins <= 3 && scoreDiff <= 6) {
+      regime = 'CHAOS';
+      regimeMultiplier = 1.1;
+    }
+    fairTotal = currentTotal + (projectedPPM * remainingMins * regimeMultiplier);
+    traceDump.elapsedPct = Number(elapsedPct.toFixed(3));
+    traceDump.match_phase_multiplier = regimeMultiplier;
+  } else {
+    const isBlowout = scoreDiff > (sportFamily === 'soccer' ? 3 : 4);
+    if (isBlowout) {
+      regime = 'BLOWOUT';
+      varianceFlags.blowout = true;
+      regimeMultiplier = 0.92;
+    }
+    fairTotal = currentTotal + (projectedPPM * remainingMins * regimeMultiplier);
+  }
+
+  fairTotal = Number(fairTotal.toFixed(2));
   const edgeState = isLive && Math.abs(ppmDelta / (projectedPPM || 1)) > 0.12 ? 'LEAN' : 'NEUTRAL';
   const marketLean = ppmDelta > 0.05 ? 'OVER' : ppmDelta < -0.05 ? 'UNDER' : 'NEUTRAL';
 
@@ -83,11 +198,16 @@ export function computeAISignals(match: Match): AISignals {
     evidence_pack: existing.evidence_pack || [],
     risk_flags: existing.risk_flags || [],
     context_summary: existing.context_summary || 'Market passthrough reference',
-    deterministic_fair_total: marketTotal,
+    deterministic_fair_total: fairTotal,
     deterministic_regime: regime,
+    variance_flags: {
+      ...(existing.variance_flags || {}),
+      ...varianceFlags,
+    },
     edge_state: edgeState,
     edge_points: existing.edge_points ?? 0,
     game_progress: Math.min(1, elapsedSecs / (gameTotalMins * 60)),
+    regime_multiplier: regimeMultiplier,
     market_spread: marketSpread,
     market_home_ml: marketHomeMl,
     market_away_ml: marketAwayMl,
@@ -106,6 +226,15 @@ export function computeAISignals(match: Match): AISignals {
       `regime:${regime}`,
       `ppm_delta:${ppmDelta.toFixed(3)}`,
     ],
+    trace_id: `${match.id || 'match'}:${Date.now().toString(36)}`,
+    trace_dump: {
+      ...traceDump,
+      marketTotal,
+      projectedPPM: Number(projectedPPM.toFixed(4)),
+      observedPPM: Number(observedPPM.toFixed(4)),
+      regime,
+      fairTotal,
+    },
   };
 
   return { ...existing, ...base } as AISignals;
