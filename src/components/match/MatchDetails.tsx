@@ -71,6 +71,7 @@ import {
   useBaseballLive,
   type BaseballLiveData,
 } from '@/components/baseball';
+import LiveBasketballMatchDetails from './LiveBasketballMatchDetails';
 import { LiveSweatProvider, type AIWatchTrigger } from '@/context/LiveSweatContext';
 import { useNbaProductContextPacket } from '@/hooks/useNbaContext';
 
@@ -1252,6 +1253,12 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
   const sportKey = String(match.sport || '').toUpperCase();
   const leagueKey = String(match.leagueId || '').toLowerCase();
+  const isBasketball =
+    match.sport === Sport.NBA ||
+    match.sport === Sport.WNBA ||
+    match.sport === Sport.COLLEGE_BASKETBALL ||
+    match.sport === Sport.BASKETBALL ||
+    sportKey.includes('BASKETBALL');
   const isBaseball =
     match.sport === Sport.BASEBALL ||
     sportKey.includes('BASEBALL') ||
@@ -1531,6 +1538,10 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
 
   if (!match?.homeTeam || !match?.awayTeam) {
     return <MatchupLoader className="h-screen bg-[#FBFBFD]" label="Synchronizing Hub" />;
+  }
+
+  if (isBasketball) {
+    return <LiveBasketballMatchDetails match={match} liveState={liveState} onBack={onBack} />;
   }
 
   return (
