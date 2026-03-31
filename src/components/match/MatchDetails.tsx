@@ -1258,7 +1258,12 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     match.sport === Sport.WNBA ||
     match.sport === Sport.COLLEGE_BASKETBALL ||
     match.sport === Sport.BASKETBALL ||
-    sportKey.includes('BASKETBALL');
+    sportKey.includes('BASKETBALL') ||
+    leagueKey.includes('nba') ||
+    leagueKey.includes('wnba') ||
+    leagueKey.includes('ncaab') ||
+    leagueKey.includes('college-basketball') ||
+    leagueKey.includes('basketball');
   const isBaseball =
     match.sport === Sport.BASEBALL ||
     sportKey.includes('BASEBALL') ||
