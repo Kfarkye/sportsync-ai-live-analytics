@@ -72,6 +72,7 @@ const App: FC = () => {
                 <Route path="/welcome" element={<ApiKeyWelcomePage />} />
                 <Route path="/world-cup-2026" element={<Navigate to="/world-cup-2026/groups/group-b" replace />} />
                 <Route path="/world-cup-2026/groups/:groupSlug" element={<WorldCupGroupPage />} />
+                <Route path="/live" element={<AppShell />} />
                 <Route path="*" element={<AppShell />} />
               </Routes>
             </Suspense>

@@ -14,6 +14,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { initializeApp } from 'firebase-admin/app';
+import { handleChat } from './chat-core.js';
 import { GoogleAuth } from 'google-auth-library';
 import { createHash } from 'node:crypto';
 import { gzip } from 'node:zlib';
@@ -798,6 +799,174 @@ export const refreshPropEvidencePack = onRequest(
     } catch (err) {
       logger.error(`refreshPropEvidencePack error: ${err.message}`);
       res.status(500).json({ error: 'generation_failed', message: err.message });
+    }
+  }
+);
+
+// ── AI Chat Endpoint (Obsidian Citadel) ─────────────────────────────────────
+export const chat = onRequest(
+  {
+    region: 'us-central1',
+    timeoutSeconds: 300,
+    memory: '1GiB',
+    secrets: ['GOOGLE_GENERATIVE_AI_API_KEY', 'SUPABASE_SERVICE_KEY'],
+    cors: true,
+  },
+  async (req, res) => {
+    // Set Supabase env vars from secrets for chat-core.js
+    if (!process.env.SUPABASE_URL) {
+      process.env.SUPABASE_URL = 'https://qffzvrnbzabcokqqrwbv.supabase.co';
+    }
+    await handleChat(req, res);
+  }
+);
+
+// ── ESPN CORS Proxy Endpoint ────────────────────────────────────────────────
+const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
+const ESPN_TIMEOUT_MS = 8000;
+
+const sanitizeEspnEndpoint = (endpoint) => {
+  if (!endpoint || typeof endpoint !== 'string') return null;
+  let decoded = endpoint;
+  try { decoded = decodeURIComponent(endpoint); } catch {}
+
+  const trimmed = decoded.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.origin !== 'https://site.api.espn.com') return null;
+      const normalized = parsed.pathname + parsed.search + parsed.hash;
+      return normalized.startsWith('/apis/site/v2/sports/')
+        ? normalized.replace('/apis/site/v2/sports/', '')
+        : null;
+    } catch { return null; }
+  }
+
+  if (trimmed.includes('://')) return null;
+  return trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+};
+
+export const espnProxy = onRequest(
+  {
+    region: 'us-central1',
+    timeoutSeconds: 60,
+    memory: '256MiB',
+    cors: true,
+  },
+  async (req, res) => {
+    if (req.method === 'OPTIONS') {
+      res.status(200).json({});
+      return;
+    }
+
+    if (req.method !== 'GET' && req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    let endpoint = req.query?.endpoint;
+
+    if (req.method === 'POST' && !endpoint) {
+      try {
+        const body = typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}');
+        endpoint = body?.endpoint;
+      } catch { endpoint = null; }
+    }
+
+    const cleanedEndpoint = sanitizeEspnEndpoint(endpoint);
+    if (!cleanedEndpoint) {
+      res.status(400).json({ error: 'Missing or invalid endpoint parameter' });
+      return;
+    }
+
+    const targetUrl = `${ESPN_BASE}/${cleanedEndpoint}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ESPN_TIMEOUT_MS);
+
+    try {
+      const upstream = await fetch(targetUrl, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'sportsync-drip-proxy/1.0',
+          Accept: 'application/json'
+        }
+      });
+      clearTimeout(timeout);
+
+      if (!upstream.ok) {
+        res.status(upstream.status).json({
+          error: `ESPN API error ${upstream.status}: ${upstream.statusText}`
+        });
+        return;
+      }
+
+      const payload = await upstream.json();
+      res.set('Cache-Control', 'public, max-age=10');
+      res.json(payload);
+    } catch (error) {
+      clearTimeout(timeout);
+      logger.error('[ESPN Proxy] Upstream fetch failed:', error);
+      res.status(502).json({ error: 'Upstream fetch failed' });
+    }
+  }
+);
+
+// ── Cron: Ingest Odds (triggers Supabase Edge Function) ─────────────────────
+export const cronIngestOdds = onSchedule(
+  {
+    schedule: 'every 15 minutes',
+    region: 'us-central1',
+    timeoutSeconds: 120,
+    memory: '256MiB',
+    secrets: ['SUPABASE_SERVICE_KEY'],
+  },
+  async () => {
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://qffzvrnbzabcokqqrwbv.supabase.co';
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+    if (!supabaseKey) {
+      logger.error('[Cron-IngestOdds] SUPABASE_SERVICE_KEY not set');
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 100000);
+
+    try {
+      logger.info('[Firebase-Cron] Triggering Odds Ingestion...');
+      const response = await fetch(`${supabaseUrl}/functions/v1/ingest-odds`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          leagues: [
+            'nba', 'nhl', 'mlb', 'mens-college-basketball',
+            'soccer_epl', 'soccer_spain_la_liga', 'soccer_italy_serie_a',
+            'soccer_germany_bundesliga', 'soccer_france_ligue_one',
+            'soccer_uefa_champs_league'
+          ]
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch { logger.error('[Firebase-Cron] Non-JSON response:', text.slice(0, 200)); return; }
+
+      logger.info('[Firebase-Cron] Odds ingestion complete:', { status: response.status, data });
+    } catch (error) {
+      clearTimeout(timeout);
+      if (error.name === 'AbortError') {
+        logger.error('[Firebase-Cron] Timeout after 100s');
+      } else {
+        logger.error('[Firebase-Cron] Failed:', error.message);
+      }
     }
   }
 );

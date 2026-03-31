@@ -157,8 +157,8 @@ const ProbabilityPill = memo(({
       className={cn(
         'inline-flex items-center justify-center h-[36px] min-w-[86px] max-[390px]:min-w-[78px] rounded-full border px-3.5 max-[390px]:px-3 tabular-nums font-mono font-semibold text-[13px] max-[390px]:text-[12px] tracking-tight transition-all duration-300',
         isFavorite
-          ? 'border-[#49BA95] text-[#084F3D] bg-[linear-gradient(180deg,#F2FFF9_0%,#E7FAF2_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-14px_rgba(29,158,117,0.55)]'
-          : 'border-[#C6D3E7] text-slate-700 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]'
+          ? 'border-slate-300 text-slate-900 bg-slate-50'
+          : 'border-slate-200 text-slate-700 bg-white'
       )}
     >
       {formatProbabilityValue(value, oddsLens)}
@@ -181,8 +181,8 @@ const GapPill = memo(({ value }: { value: number | undefined }) => {
     abs < 0.2
       ? 'border-[#C6D3E7] text-slate-700 bg-white'
       : value > 0
-        ? 'border-[#49BA95] text-[#084F3D] bg-[linear-gradient(180deg,#F2FFF9_0%,#E7FAF2_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-14px_rgba(29,158,117,0.55)]'
-        : 'border-[#F4B3B3] text-[#8A1E1E] bg-[linear-gradient(180deg,#FFF6F6_0%,#FFECEC_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-14px_rgba(185,59,59,0.45)]';
+        ? 'border-emerald-200 text-emerald-800 bg-emerald-50'
+        : 'border-rose-200 text-rose-800 bg-rose-50';
 
   return (
     <span
@@ -297,6 +297,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const spread = match.odds?.homeSpread ?? match.odds?.spread ?? match.odds?.spread_home;
   const total = match.odds?.overUnder ?? match.odds?.total;
   const homeML = match.odds?.moneylineHome ?? match.odds?.homeML ?? match.odds?.homeWin ?? match.odds?.home_ml;
+  const awayML = match.odds?.moneylineAway ?? match.odds?.awayML ?? match.odds?.awayWin ?? match.odds?.away_ml ?? match.odds?.awayMoneyline;
   const oddsPayload = useMemo(
     () => buildMatchRowOdds(spread, total, homeML, oddsLens, { maxMobileChips: 2, dedupeByValue: true }),
     [spread, total, homeML, oddsLens]
@@ -343,7 +344,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
   const liveClock = match.displayClock || match.minute || 'LIVE';
   const liveMeta = isTennis && roundStr ? roundStr : getPeriodDisplay(match);
-  const topAccentColor = isLive ? '#E11D48' : isFinal ? '#7C879A' : '#1D9E75';
+  const topAccentColor = isLive ? '#E11D48' : isFinal ? '#7C879A' : 'transparent';
   const handleSelect = () => onSelect?.(match);
   const railPrimaryLabel = isLive ? liveClock : isFinal ? dateStr : startTimeStr;
   const railSecondaryLabel = isLive ? (liveMeta || 'In Play') : isFinal ? '' : dateStr;
@@ -364,11 +365,11 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       className={cn(
         'group relative overflow-hidden px-3 py-3 sm:px-4 sm:py-4 max-[390px]:px-2.5 max-[390px]:py-2.5 cursor-pointer transform-gpu [-webkit-tap-highlight-color:transparent]',
         'focus-visible:ring-2 focus-visible:ring-[#BFDBFE] focus-visible:outline-none focus-visible:ring-inset',
-        'transition-all duration-300 active:scale-[0.992]',
-        'border border-[#D4DEEF] bg-[linear-gradient(180deg,#FFFFFF_0%,#F6F9FF_100%)] shadow-[0_16px_30px_-24px_rgba(16,34,58,0.38),inset_0_1px_0_rgba(255,255,255,0.95)] rounded-2xl',
+        'transition-all duration-200 active:scale-[0.992]',
+        'bg-white rounded-xl',
         isSelected
-          ? 'border-[#9ED8C5] bg-[linear-gradient(180deg,#F8FFFB_0%,#F1F9FF_100%)] shadow-[0_18px_34px_-24px_rgba(29,158,117,0.36),inset_0_1px_0_rgba(255,255,255,0.95)]'
-          : 'hover:border-[#B7C8E4] hover:bg-[linear-gradient(180deg,#FFFFFF_0%,#F3F8FF_100%)] hover:shadow-[0_24px_42px_-30px_rgba(16,34,58,0.55),inset_0_1px_0_rgba(255,255,255,0.95)]'
+          ? 'bg-slate-50'
+          : 'hover:bg-[#F8F9FB]'
       )}
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${topAccentColor}, transparent)` }} />
@@ -395,13 +396,9 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
             </span>
           ) : (
             <>
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] font-bold text-[#1D9E75]">Scheduled</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] font-bold text-slate-400">Scheduled</span>
             </>
           )}
-
-          <span className="sm:hidden text-[9px] font-medium uppercase tracking-[0.08em] text-slate-500 truncate max-w-[140px]">
-            {leagueDisplayName}
-          </span>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
@@ -459,17 +456,24 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
             const displayEdge = typeof edge === 'number' ? `${edge > 0 ? '+' : ''}${edge.toFixed(1)}%` : null;
             const teamRing = team.color ? `#${String(team.color).replace(/^#/, '')}` : '#D8E2F2';
 
+            // Favorite ML: show each team's moneyline, highlight the fav
+            const rawML = isHome ? homeML : awayML;
+            const parsedML = parseOddsLikeNumber(rawML);
+            const mlLabel = parsedML !== null
+              ? (parsedML > 0 ? `+${Math.round(parsedML)}` : `${Math.round(parsedML)}`)
+              : null;
+            const isMlFav = parsedML !== null && parsedML < 0;
+
             return (
               <div key={team.id || idx} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3 max-[390px]:gap-2">
                     <div
-                      className="shrink-0 flex items-center justify-center rounded-full bg-white border shadow-[0_5px_12px_-10px_rgba(16,34,58,0.45)]"
+                      className="shrink-0 flex items-center justify-center rounded-full bg-white border"
                       style={{
                         width: LOGO_W + 8,
                         height: LOGO_W + 8,
-                        borderColor: `${teamRing}66`,
-                        boxShadow: `0 5px 12px -10px rgba(16,34,58,0.45), inset 0 0 0 1px ${teamRing}22`
+                        borderColor: `${teamRing}66`
                       }}
                       aria-hidden="true"
                     >
@@ -495,8 +499,16 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
                         {team.name}
                       </span>
                       {team.record && !isLive && (
-                        <span className="text-[10px] font-mono font-medium text-slate-400 tabular-nums shrink-0 hidden sm:inline">
+                        <span className="text-[10px] font-mono font-medium text-slate-400 tabular-nums shrink-0">
                           {team.record}
+                        </span>
+                      )}
+                      {mlLabel && !isFinal && !isLive && (
+                        <span className={cn(
+                          'text-[10px] font-mono font-semibold tabular-nums shrink-0',
+                          isMlFav ? 'text-slate-700' : 'text-slate-400'
+                        )}>
+                          {mlLabel}
                         </span>
                       )}
                       {displayEdge && !shouldShowGapRail && (
@@ -549,11 +561,11 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
               <div className="min-w-0">
                 <div className="flex items-center gap-3 max-[390px]:gap-2">
                   <span
-                    className="shrink-0 inline-flex items-center justify-center rounded-full bg-white border border-[#D8E2F2] shadow-[0_5px_12px_-10px_rgba(16,34,58,0.45)]"
+                    className="shrink-0 inline-flex items-center justify-center rounded-full bg-slate-50 border border-slate-200"
                     style={{ width: LOGO_W + 8, height: LOGO_W + 8 }}
                     aria-hidden="true"
                   >
-                    <span className="h-4 w-4 rounded-full border border-[#9CA9BF] bg-[linear-gradient(90deg,#9CA9BF_0%,#9CA9BF_50%,#F8FAFF_50%,#F8FAFF_100%)]" />
+                    <span className="h-4 w-4 rounded-full border border-slate-300 bg-slate-200" />
                   </span>
 
                   <div className="min-w-0 flex items-baseline gap-2">
