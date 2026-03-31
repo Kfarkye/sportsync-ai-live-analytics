@@ -256,7 +256,7 @@ const CHAT_SURFACES = {
 
 const RETRY_CONFIG = { maxAttempts: 3, baseDelay: 1000, maxDelay: 8000, jitterFactor: 0.3 } as const;
 const CHAT_TTFB_TIMEOUT_MS = 30_000;
-const CHAT_STREAM_IDLE_TIMEOUT_MS = 25_000;
+const CHAT_STREAM_IDLE_TIMEOUT_MS = 90_000;
 const SEND_DEBOUNCE_MS = 300;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -1427,7 +1427,9 @@ const edgeService = {
         return;
       } catch (err: unknown) {
         lastError = err;
-        if (err instanceof DOMException && err.name === "AbortError") throw err;
+        // Only re-throw if the *caller* aborted (user stop button); timeout-initiated
+        // aborts should fall through to retry logic instead of surfacing as blank.
+        if (err instanceof DOMException && err.name === "AbortError" && signal?.aborted) throw err;
         reportError(err, { attempt, run_id: context.run_id });
         if (attempt >= RETRY_CONFIG.maxAttempts - 1) break;
         onRetry?.(attempt + 1);
@@ -3519,7 +3521,14 @@ const InnerChatWidget: FC<ChatWidgetProps & {
         () => {
           if (!mountedRef.current) return;
           flushBatch(); // Ensure final text is dispatched before marking complete
-          dispatch({ type: "UPDATE", id: aiMsgId, patch: { isStreaming: false } });
+          // If stream completed but no text was produced (e.g. model only emitted
+          // thoughts, hit a safety filter, or returned an empty response), show a
+          // user-visible message instead of going blank.
+          if (!fullText.trim()) {
+            dispatch({ type: "UPDATE", id: aiMsgId, patch: { content: "Unable to generate a response. Please try again.", isStreaming: false } });
+          } else {
+            dispatch({ type: "UPDATE", id: aiMsgId, patch: { isStreaming: false } });
+          }
           setSrAnnouncement("Analysis complete.");
           reportTiming("chat.e2e", sendStart);
         },
@@ -3534,7 +3543,10 @@ const InnerChatWidget: FC<ChatWidgetProps & {
 
       if (err instanceof DOMException && err.name === "AbortError") {
         flushBatch();
-        dispatch({ type: "UPDATE", id: aiMsgId, patch: { isStreaming: false } });
+        // If the user aborted mid-stream but content was already populated, keep it.
+        // If content is still empty (e.g. aborted before first chunk), show a message.
+        const hasContent = !!fullText.trim();
+        dispatch({ type: "UPDATE", id: aiMsgId, patch: { content: hasContent ? fullText : "Stopped — no response received.", isStreaming: false } });
         setSrAnnouncement("Stopped.");
         return;
       }
