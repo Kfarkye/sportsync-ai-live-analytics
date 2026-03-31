@@ -182,6 +182,7 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
   .drip-live .top-bar { max-width: 900px; margin: 0 auto; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
   .drip-live .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: var(--text-secondary); text-decoration: none; }
   .drip-live .back-link:hover { color: var(--text-primary); }
+  .drip-live .layout-stamp { font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-tertiary); border: 1px solid var(--border); padding: 4px 8px; border-radius: 6px; background: var(--surface); }
   .drip-live .scoreboard { max-width: 900px; margin: 0 auto; padding: 0 20px; }
   .drip-live .scoreboard-card { background: var(--scoreboard-bg); border-radius: 12px 12px 0 0; overflow: hidden; }
   .drip-live .scoreboard-main { padding: 28px 32px 16px; display: flex; align-items: center; justify-content: center; gap: 40px; }
@@ -335,6 +336,7 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
           </svg>
           Scores
         </button>
+        <span className="layout-stamp">Layout_V2</span>
       </div>
 
       <div className="scoreboard">
