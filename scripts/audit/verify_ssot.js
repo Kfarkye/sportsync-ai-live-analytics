@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
+const root = path.resolve(__dirname, '..', '..');
 
 const sharedRoot = path.join(root, 'packages', 'shared', 'src');
 const supaRoot = path.join(root, 'supabase', 'functions', '_shared');
@@ -21,19 +21,6 @@ function read(file) {
   return fs.readFileSync(file, 'utf8');
 }
 
-function listFiles(dir) {
-  const out = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      out.push(...listFiles(full));
-    } else if (entry.isFile()) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
 function assertEqual(label, a, b) {
   if (a !== b) {
     throw new Error(`SSOT mismatch: ${label}`);
@@ -43,7 +30,6 @@ function assertEqual(label, a, b) {
 function checkSharedPairs() {
   const sharedFiles = [
     'gates.ts',
-    'gameStateEngine.ts',
     'oddsUtils.ts',
     'espnAdapters.ts',
     'espnService.ts',
@@ -52,43 +38,24 @@ function checkSharedPairs() {
     'resilience.ts',
     'constants.ts',
     'dateUtils.ts',
+    'types.ts',
   ];
 
-  for (const name of sharedFiles) {
-    const sharedPath = path.join(sharedRoot, name);
-    const supaPath = path.join(supaRoot, name);
+  const sharedPairs = [
+    ...sharedFiles.map((name) => ({ source: name, target: name })),
+    { source: path.join('types', 'engine.ts'), target: 'engine.ts' },
+  ];
+
+  for (const { source, target } of sharedPairs) {
+    const sharedPath = path.join(sharedRoot, source);
+    const supaPath = path.join(supaRoot, target);
     if (!fs.existsSync(sharedPath)) {
       throw new Error(`Missing shared file: ${sharedPath}`);
     }
     if (!fs.existsSync(supaPath)) {
       throw new Error(`Missing supabase file: ${supaPath}`);
     }
-    assertEqual(name, read(sharedPath), read(supaPath));
-  }
-}
-
-function checkEngineMirror() {
-  const sharedEngine = path.join(sharedRoot, 'engine');
-  const supaEngine = path.join(supaRoot, 'engine');
-  const sharedFiles = listFiles(sharedEngine).map((p) => path.relative(sharedEngine, p));
-  const supaFiles = listFiles(supaEngine).map((p) => path.relative(supaEngine, p));
-
-  const sharedSet = new Set(sharedFiles);
-  const supaSet = new Set(supaFiles);
-
-  for (const rel of sharedFiles) {
-    const a = path.join(sharedEngine, rel);
-    const b = path.join(supaEngine, rel);
-    if (!fs.existsSync(b)) {
-      throw new Error(`Missing supabase engine file: ${rel}`);
-    }
-    assertEqual(`engine/${rel}`, read(a), read(b));
-  }
-
-  for (const rel of supaFiles) {
-    if (!sharedSet.has(rel)) {
-      throw new Error(`Extra supabase engine file: ${rel}`);
-    }
+    assertEqual(target, read(sharedPath), read(supaPath));
   }
 }
 
@@ -103,7 +70,6 @@ try {
   run('node', ['scripts/sync_shared.js']);
   checkNoLegacyDuplicates();
   checkSharedPairs();
-  checkEngineMirror();
   run('npm', ['run', 'build']);
   console.log('SSOT verification complete.');
 } catch (err) {

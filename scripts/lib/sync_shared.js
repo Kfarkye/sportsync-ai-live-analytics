@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
+const root = path.resolve(__dirname, '..', '..');
 
 const sharedRoot = path.join(root, 'packages', 'shared', 'src');
 const sharedTypes = path.join(sharedRoot, 'types');
@@ -84,7 +84,6 @@ async function syncSharedRuntime() {
 
   const sharedFiles = [
     'gates.ts',
-    'gameStateEngine.ts',
     'oddsUtils.ts',
     'espnAdapters.ts',
     'espnService.ts',
@@ -99,7 +98,8 @@ async function syncSharedRuntime() {
     await copyFile(path.join(sharedRoot, name), path.join(sharedOut, name));
   }
 
-  await copyDir(path.join(sharedRoot, 'engine'), path.join(sharedOut, 'engine'));
+  await copyFile(path.join(sharedRoot, 'types.ts'), path.join(sharedOut, 'types.ts'));
+  await copyFile(path.join(sharedTypes, 'engine.ts'), path.join(sharedOut, 'engine.ts'));
 }
 
 async function main() {
