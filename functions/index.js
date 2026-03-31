@@ -970,3 +970,104 @@ export const cronIngestOdds = onSchedule(
     }
   }
 );
+
+// ── Helper: Trigger Supabase Edge Function ──────────────────────────────────
+async function triggerSupabaseFunction(functionName, body = {}, timeoutMs = 30000) {
+  const supabaseUrl = process.env.SUPABASE_URL || 'https://qffzvrnbzabcokqqrwbv.supabase.co';
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!supabaseKey) {
+    throw new Error(`SUPABASE_SERVICE_KEY not set for ${functionName}`);
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch { logger.warn(`[Firebase-Cron] ${functionName} non-JSON:`, text.slice(0, 200)); return { raw: text.slice(0, 200) }; }
+
+    logger.info(`[Firebase-Cron] ${functionName} complete:`, { status: response.status, data });
+    return data;
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error.name === 'AbortError') {
+      logger.error(`[Firebase-Cron] ${functionName} timeout after ${timeoutMs}ms`);
+    } else {
+      logger.error(`[Firebase-Cron] ${functionName} failed:`, error.message);
+    }
+    throw error;
+  }
+}
+
+// ── Cron: Pregame Intel (every 5 minutes) ───────────────────────────────────
+export const cronPregameIntel = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    region: 'us-central1',
+    timeoutSeconds: 60,
+    memory: '256MiB',
+    secrets: ['SUPABASE_SERVICE_KEY'],
+  },
+  async () => {
+    logger.info('[Firebase-Cron] Triggering Pregame Intel Researcher...');
+    await triggerSupabaseFunction('pregame-intel-cron', { is_cron: true }, 10000);
+  }
+);
+
+// ── Cron: Finalize Games (10am, 2pm UTC) ────────────────────────────────────
+export const cronFinalizeGames = onSchedule(
+  {
+    schedule: '0 10,14 * * *',
+    region: 'us-central1',
+    timeoutSeconds: 120,
+    memory: '256MiB',
+    secrets: ['SUPABASE_SERVICE_KEY'],
+  },
+  async () => {
+    logger.info('[Firebase-Cron] Triggering Game Finalization Sweep...');
+    await triggerSupabaseFunction('finalize-games-cron', {}, 100000);
+  }
+);
+
+// ── Cron: Sharp Picks (top of every hour) ───────────────────────────────────
+export const cronSharpPicks = onSchedule(
+  {
+    schedule: '0 * * * *',
+    region: 'us-central1',
+    timeoutSeconds: 120,
+    memory: '256MiB',
+    secrets: ['SUPABASE_SERVICE_KEY'],
+  },
+  async () => {
+    logger.info('[Firebase-Cron] Triggering Sharp Picks Researcher...');
+    await triggerSupabaseFunction('sharp-picks-cron', { is_cron: true }, 100000);
+  }
+);
+
+// ── Cron: Sync Player Props (6x daily: 2,6,10,14,18,22 UTC) ────────────────
+export const cronSyncPlayerProps = onSchedule(
+  {
+    schedule: '0 2,6,10,14,18,22 * * *',
+    region: 'us-central1',
+    timeoutSeconds: 120,
+    memory: '256MiB',
+    secrets: ['SUPABASE_SERVICE_KEY'],
+  },
+  async () => {
+    logger.info('[Firebase-Cron] Triggering Player Props Sync...');
+    await triggerSupabaseFunction('sync-player-props', {}, 100000);
+  }
+);
