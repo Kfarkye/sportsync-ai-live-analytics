@@ -180,7 +180,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                                         {activeTab !== 'NEXT' && (
                                             <button
                                                 onClick={() => useAppStore.getState().setLiveTab('NEXT')}
-                                                className="mt-10 px-6 py-2.5 rounded-full bg-white border border-blue-200 text-caption font-bold uppercase tracking-widest text-blue-700 hover:text-blue-800 hover:bg-blue-50 active:scale-95 transition-all duration-300 shadow-sm"
+                                                className="mt-10 px-6 py-2.5 rounded-full bg-white border border-slate-200 text-caption font-bold uppercase tracking-widest text-slate-600 hover:text-slate-800 hover:bg-slate-50 active:scale-95 transition-all duration-300 shadow-sm"
                                             >
                                                 View Schedule
                                             </button>
@@ -203,21 +203,6 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
                         </div>
                     ) : null}
 
-                    {/* Pro Terminal */}
-                    <div className="relative overflow-hidden rounded-[20px] border border-slate-200 bg-white p-6 shadow-[0_20px_38px_-28px_rgba(30,64,175,0.24)]">
-                        {/* Subtle gradient accent */}
-                        <div className="absolute top-0 left-0 right-0 h-[2px] bg-linear-to-r from-transparent via-blue-500/70 to-transparent" />
-
-                        <h3 className="text-caption font-black text-blue-700 uppercase tracking-widest mb-3">
-                            Pro Terminal
-                        </h3>
-                        <p className="text-small text-slate-600 leading-relaxed mb-5 font-medium">
-                            Access real-time order flow, sharp money splits, and institutional line movement data.
-                        </p>
-                        <button className="w-full py-2.5 bg-blue-50 text-blue-700 text-caption font-bold uppercase tracking-loose rounded-xl border border-blue-200 hover:bg-blue-100 hover:border-blue-300 hover:text-blue-800 transition-all duration-200">
-                            Unlock Data
-                        </button>
-                    </div>
                 </div>
 
             </div>

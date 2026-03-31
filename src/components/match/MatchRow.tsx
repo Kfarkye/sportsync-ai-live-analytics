@@ -150,10 +150,10 @@ const ProbabilityPill = memo(({
   return (
     <span
       className={cn(
-        'inline-flex items-center justify-center h-[36px] min-w-[86px] max-[390px]:min-w-[78px] rounded-full border px-3.5 max-[390px]:px-3 tabular-nums font-mono font-semibold text-[13px] max-[390px]:text-[12px] tracking-tight transition-all duration-300',
+        'inline-flex items-center justify-center h-[36px] min-w-[86px] max-[390px]:min-w-[78px] rounded-full border px-3.5 max-[390px]:px-3 tabular-nums font-mono text-[13px] max-[390px]:text-[12px] tracking-tight transition-all duration-300',
         isFavorite
-          ? 'border-[#49BA95] text-[#084F3D] bg-[linear-gradient(180deg,#F2FFF9_0%,#E7FAF2_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-14px_rgba(29,158,117,0.55)]'
-          : 'border-[#C6D3E7] text-slate-700 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]'
+          ? 'font-bold border-[#C6D3E7] text-[#10223A] bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-14px_rgba(16,34,58,0.25)]'
+          : 'font-semibold border-[#C6D3E7] text-slate-500 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]'
       )}
     >
       {formatProbabilityValue(value, oddsLens)}
@@ -166,17 +166,12 @@ const OddsChip = memo(({ label, display, mobileHidden }: MatchRowOddPayload) => 
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 select-none rounded-full border border-[#D5DFEE] bg-white/90 px-2 py-1',
+        'inline-flex items-center select-none font-mono font-semibold tabular-nums text-[12px] text-slate-500',
         mobileHidden ? 'max-[390px]:hidden' : undefined
       )}
       aria-label={`${label} ${display}`}
     >
-      <span className="font-semibold uppercase text-[8px] tracking-[0.14em] text-slate-400" aria-hidden="true">
-        {label}
-      </span>
-      <span className="font-mono font-semibold tabular-nums text-[10px] text-slate-700">
-        {display}
-      </span>
+      {display}
     </span>
   );
 });
@@ -300,7 +295,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
   const liveClock = match.displayClock || match.minute || 'LIVE';
   const liveMeta = isTennis && roundStr ? roundStr : getPeriodDisplay(match);
-  const topAccentColor = isLive ? '#E11D48' : isFinal ? '#7C879A' : '#1D9E75';
+  const topAccentColor = isLive ? '#E11D48' : isFinal ? '#7C879A' : '#94A3B8';
   const handleSelect = () => onSelect?.(match);
   const railPrimaryLabel = isLive ? liveClock : isFinal ? 'FINAL' : startTimeStr;
   const railSecondaryLabel = isLive ? (liveMeta || 'In Play') : isFinal ? 'Closed' : dateStr;
@@ -322,10 +317,10 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
         'group relative overflow-hidden px-3 py-3 sm:px-4 sm:py-4 max-[390px]:px-2.5 max-[390px]:py-2.5 cursor-pointer transform-gpu [-webkit-tap-highlight-color:transparent]',
         'focus-visible:ring-2 focus-visible:ring-[#BFDBFE] focus-visible:outline-none focus-visible:ring-inset',
         'transition-all duration-300 active:scale-[0.992]',
-        'border border-[#D4DEEF] bg-[linear-gradient(180deg,#FFFFFF_0%,#F6F9FF_100%)] shadow-[0_16px_30px_-24px_rgba(16,34,58,0.38),inset_0_1px_0_rgba(255,255,255,0.95)] rounded-2xl',
+        'border border-[#CBD5E1] bg-white shadow-[0_1px_3px_rgba(16,34,58,0.06),0_8px_24px_-16px_rgba(16,34,58,0.12)] rounded-2xl',
         isSelected
-          ? 'border-[#9ED8C5] bg-[linear-gradient(180deg,#F8FFFB_0%,#F1F9FF_100%)] shadow-[0_18px_34px_-24px_rgba(29,158,117,0.36),inset_0_1px_0_rgba(255,255,255,0.95)]'
-          : 'hover:border-[#B7C8E4] hover:bg-[linear-gradient(180deg,#FFFFFF_0%,#F3F8FF_100%)] hover:shadow-[0_24px_42px_-30px_rgba(16,34,58,0.55),inset_0_1px_0_rgba(255,255,255,0.95)]'
+          ? 'border-[#94A3B8] shadow-[0_1px_3px_rgba(16,34,58,0.08),0_12px_28px_-16px_rgba(16,34,58,0.18)]'
+          : 'hover:border-[#94A3B8] hover:shadow-[0_1px_3px_rgba(16,34,58,0.08),0_16px_32px_-16px_rgba(16,34,58,0.16)]'
       )}
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${topAccentColor}, transparent)` }} />
@@ -353,7 +348,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
             </span>
           ) : (
             <>
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] font-bold text-[#1D9E75]">Scheduled</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-400">Scheduled</span>
               <span className="font-mono text-[12px] tabular-nums font-semibold text-[#10223A] sm:hidden" suppressHydrationWarning>{startTimeStr}</span>
             </>
           )}
@@ -386,7 +381,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
           <div className="hidden sm:flex items-center justify-end -mb-1">
             {shouldShowProbabilities && (
               <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-                Model Win Share
+                Win Prob
               </span>
             )}
           </div>
@@ -410,7 +405,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
             const edge = isHome ? homeEdge : awayEdge;
             const hasProbability = typeof prob === 'number' && prob > 0 && prob <= 100;
             const trackWidth = hasProbability ? `${Math.max(8, Math.min(100, Math.round(prob)))}%` : '0%';
-            const railColor = isFav ? '#1D9E75' : '#98A4B8';
+            const railColor = team.color ? `#${String(team.color).replace(/^#/, '')}` : (isFav ? '#10223A' : '#98A4B8');
             const displayEdge = typeof edge === 'number' ? `${edge > 0 ? '+' : ''}${edge.toFixed(1)}%` : null;
             const teamRing = team.color ? `#${String(team.color).replace(/^#/, '')}` : '#D8E2F2';
 
@@ -467,7 +462,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
                   {hasProbability && (
                     <div className="pl-[44px] pt-1.5 pr-1.5 max-[390px]:pl-[40px]">
-                      <div className="h-[3px] rounded-full bg-[#E3E9F4] overflow-hidden">
+                      <div className="h-[4px] rounded-full bg-[#E3E9F4] overflow-hidden">
                         <span className="block h-full rounded-full transition-all duration-500" style={{ width: trackWidth, backgroundColor: railColor }} />
                       </div>
                     </div>
@@ -542,7 +537,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
           {!isFinal && !isLive && trendPreview ? (
             <div className="mt-2 pt-2 border-t border-[#EAF0F9] flex items-center gap-2 min-w-0">
-              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#0F5B45] border border-[#BEE3D4] bg-[#F1FAF6] shrink-0">
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-slate-500 border border-[#D5DFEE] bg-[#F5F8FE] shrink-0">
                 Trend
               </span>
               <span className="text-[11px] text-slate-600 leading-tight truncate">
@@ -553,17 +548,16 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
           {(hasOdds && !isFinal && !isLive) || hasEdgeInsights ? (
             <div className="mt-3 pt-2.5 border-t border-[#E4EAF5] flex items-center justify-between gap-3">
-              <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1.5 min-w-0">
-                <span className="inline-flex items-center rounded-full px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.14em] text-slate-500 border border-[#D5DFEE] bg-[#F5F8FE]">
-                  Markets
-                </span>
-                {hasOdds && !isFinal && !isLive ? oddsPayload.map((item) => (
-                  <OddsChip
-                    key={`${item.label}-${item.display}`}
-                    label={item.label}
-                    display={item.display}
-                    mobileHidden={item.mobileHidden}
-                  />
+              <div className="flex items-center flex-wrap gap-x-1 gap-y-1.5 min-w-0">
+                {hasOdds && !isFinal && !isLive ? oddsPayload.map((item, i) => (
+                  <React.Fragment key={`${item.label}-${item.display}`}>
+                    {i > 0 && <span className="text-slate-300 text-[12px] mx-0.5">·</span>}
+                    <OddsChip
+                      label={item.label}
+                      display={item.display}
+                      mobileHidden={item.mobileHidden}
+                    />
+                  </React.Fragment>
                 )) : null}
                 {typeof homeEdge === 'number' && (
                   <span className={cn(

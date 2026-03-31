@@ -217,8 +217,8 @@ export const UnifiedHeader: FC = () => {
                             className={cn(
                                 "h-11 min-w-11 flex items-center gap-1.5 px-4 rounded-lg text-[11px] font-semibold tracking-[0.08em] transition-all active:scale-95 select-none border",
                                 activeView === 'LIVE'
-                                    ? "kalshi-live-btn-active"
-                                    : "border-[#106856] bg-linear-to-b from-[#1D9E75] to-[#177F60] text-white shadow-[0_10px_24px_-14px_rgba(29,158,117,0.65)] hover:brightness-105",
+                                    ? "border-[#A04830] bg-[#C85A3A] text-white shadow-[0_10px_24px_-14px_rgba(200,90,58,0.5)]"
+                                    : "border-[#A04830] bg-linear-to-b from-[#C85A3A] to-[#B04E32] text-white shadow-[0_10px_24px_-14px_rgba(200,90,58,0.65)] hover:brightness-105",
                                 focusRing
                             )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
@@ -226,8 +226,8 @@ export const UnifiedHeader: FC = () => {
                             LIVE
                             {hasActiveLiveGames ? (
                                 <span className="relative inline-flex h-2 w-2 items-center justify-center" aria-label={`${liveGamesCount} live games`}>
-                                    <span className="absolute inline-flex h-2 w-2 rounded-full bg-emerald-400/40 animate-ping [animation-duration:2s]" />
-                                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                                    <span className="absolute inline-flex h-2 w-2 rounded-full bg-white/40 animate-ping [animation-duration:2s]" />
+                                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white/90" />
                                 </span>
                             ) : null}
                         </button>

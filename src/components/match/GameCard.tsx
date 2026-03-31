@@ -36,12 +36,10 @@ const ProbPill = memo(({ value, isFav }: { value: number | undefined; isFav: boo
                 padding: '0 8px',
                 borderRadius: 999, // Perfect pill shape
                 letterSpacing: '-0.02em',
-                color: isFav ? ESSENCE.colors.accent.emerald : ESSENCE.colors.text.tertiary,
-                backgroundColor: isFav ? 'rgba(16, 185, 129, 0.08)' : ESSENCE.colors.surface.subtle,
-                // Ultra-delicate hairline inset border with a subtle top highlight to mimic physical milling
-                boxShadow: isFav
-                    ? 'inset 0 0 0 1px rgba(16, 185, 129, 0.12), inset 0 1px 1px rgba(255,255,255,0.6)'
-                    : 'inset 0 0 0 1px rgba(0,0,0,0.04), inset 0 1px 1px rgba(255,255,255,0.6)',
+                color: isFav ? '#10223A' : ESSENCE.colors.text.tertiary,
+                backgroundColor: isFav ? 'rgba(0,0,0,0.04)' : ESSENCE.colors.surface.subtle,
+                fontWeight: isFav ? 600 : 500,
+                boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.06), inset 0 1px 1px rgba(255,255,255,0.6)',
             }}
         >
             {Math.round(value)}%
@@ -156,7 +154,7 @@ const GameCard: React.FC<MatchCardProps> = memo(({
         group relative overflow-hidden flex flex-col h-full bg-white select-none cursor-pointer outline-none transform-gpu
         transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]
         hover:-translate-y-1 hover:shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_16px_32px_-8px_rgba(0,0,0,0.08),0_4px_12px_-2px_rgba(0,0,0,0.04)]
-        active:scale-[0.99] active:duration-150 focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2
+        active:scale-[0.99] active:duration-150 focus-visible:ring-2 focus-visible:ring-slate-400/50 focus-visible:ring-offset-2
       `}
             style={{
                 borderRadius: 24, // Continuous curve
@@ -305,13 +303,12 @@ const GameCard: React.FC<MatchCardProps> = memo(({
                         <div
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.08em]"
                             style={{
-                                color: ESSENCE.colors.accent.emerald,
-                                backgroundColor: 'rgba(16,185,129,0.08)',
-                                boxShadow: 'inset 0 0 0 1px rgba(16,185,129,0.15), inset 0 1px 1px rgba(255,255,255,0.5)',
+                                color: '#C85A3A',
+                                backgroundColor: 'rgba(200,90,58,0.08)',
+                                boxShadow: 'inset 0 0 0 1px rgba(200,90,58,0.15), inset 0 1px 1px rgba(255,255,255,0.5)',
                             }}
                         >
-                            {/* Tiny inner LED dot for the Action badge. Nested div inside div is valid HTML */}
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.5)]" aria-hidden="true" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#C85A3A] shadow-[0_0_4px_rgba(200,90,58,0.5)]" aria-hidden="true" />
                             <span>Action</span>
                         </div>
                     )}
