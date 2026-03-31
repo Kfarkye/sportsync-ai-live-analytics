@@ -141,7 +141,7 @@ const AppShell: FC = () => {
         // Layout
         'min-h-screen h-(--vvh,100vh) relative flex flex-col antialiased',
         // Yahoo-inspired shell surface
-        'bg-[#F4F6FF] text-slate-900 font-sans kalshi-shell',
+        'bg-[#FAFAF8] text-[#1A1A18] font-sans kalshi-shell',
         // selection rule
         'selection:bg-blue-300/30'
       )}

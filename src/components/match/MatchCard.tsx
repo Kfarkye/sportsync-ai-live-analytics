@@ -2,30 +2,11 @@ import React, { useMemo } from 'react';
 import { Match, Sport } from '@/types';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
-import { cn, ESSENCE } from '@/lib/essence';
-import { getTeamLogo } from '@/lib/teamColors';
-import { motion } from 'framer-motion';
+import { cn } from '@/lib/essence';
 import { getLeagueDisplayName } from '@/constants';
-import { analyzeSpread, analyzeMoneyline } from '../../utils/oddsUtils';
-import { useAppStore } from '@/store/appStore';
-import { formatOddsByMode } from '@/lib/oddsDisplay';
+import { motion } from 'framer-motion';
 
 const MotionDiv = motion.div;
-
-/**
- * ────────────────────────────────────────────────────────────────────────────
- * MATCH CARD — Editorial Light
- * Clean white cards with crisp slate-200 borders on slate-50 canvas.
- * ────────────────────────────────────────────────────────────────────────────
- */
-
-const COLORS = {
-    primary: '#0F172A',    // slate-900 — scores, team names
-    secondary: '#64748B',  // slate-500 — records, dates, labels
-    muted: '#94A3B8',      // slate-400 — disabled, dim
-    live: '#DC2626',       // red-600
-    pinned: '#F59E0B',     // amber-500
-} as const;
 
 interface MatchCardProps {
     match: Match;
@@ -38,17 +19,23 @@ interface MatchCardProps {
     onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
 }
 
-const MatchCard: React.FC<MatchCardProps> = ({
-    match,
-    viewMode,
-    isPinned,
-    isLive,
-    isFinal,
-    onSelect,
-    onTogglePin
-}) => {
-    const oddsMode = useAppStore((state) => state.oddsLens);
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
+const formatML = (value: unknown): string => {
+    if (value == null) return '';
+    const n = typeof value === 'number' ? value : Number(String(value).replace(/[^0-9.+-]/g, ''));
+    if (!Number.isFinite(n)) return '';
+    if (n === 0) return 'EV';
+    return n > 0 ? `+${Math.round(n)}` : `${Math.round(n)}`;
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MATCH CARD — ESPN-Quality Grid Card
+// ═════════════════════════════════════════════════════════════════════════════
+
+const MatchCard: React.FC<MatchCardProps> = ({
+    match, viewMode, isPinned, isLive, isFinal, onSelect, onTogglePin,
+}) => {
     if (viewMode === 'LIST') {
         return (
             <MatchRow
@@ -62,62 +49,30 @@ const MatchCard: React.FC<MatchCardProps> = ({
         );
     }
 
-    const homeWinner = isFinal && match.homeScore > match.awayScore;
-    const awayWinner = isFinal && match.awayScore > match.homeScore;
-    const isTie = isFinal && match.homeScore === match.awayScore;
-    const homeLost = isFinal && !homeWinner && !isTie;
-    const awayLost = isFinal && !awayWinner && !isTie;
-
+    // ── GRID VIEW ───────────────────────────────────────────────────────────
+    const showScores = isLive || isFinal;
+    const league = getLeagueDisplayName(match.leagueId);
     const clockDisplay = match.displayClock || match.minute || '';
-
-    const getPeriodLabel = () => {
+    const periodLabel = (() => {
         if (!match.period) return '';
-        if (match.sport === Sport.SOCCER || match.sport === Sport.COLLEGE_BASKETBALL) return `H${match.period}`;
+        if (match.sport === Sport.SOCCER) return `H${match.period}`;
         if (match.sport === Sport.HOCKEY) return `P${match.period}`;
         return `Q${match.period}`;
-    };
-    const periodLabel = getPeriodLabel();
+    })();
 
-    const showScores = isLive || isFinal;
-    const isScheduled = !isLive && !isFinal;
+    const homeML = match.odds?.moneylineHome ?? match.odds?.homeML ?? match.odds?.homeWin ?? match.odds?.home_ml;
+    const awayML = match.odds?.moneylineAway ?? match.odds?.awayML ?? match.odds?.awayWin ?? match.odds?.away_ml;
 
-    const leagueName = getLeagueDisplayName(match.leagueId);
+    const startTimeStr = useMemo(() => {
+        try {
+            return new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        } catch { return 'TBD'; }
+    }, [match.startTime]);
 
-    const odds = useMemo(() => {
-        if (!isScheduled) return null;
-        const spread = analyzeSpread(match);
-        const ml = analyzeMoneyline(match);
-        return { spread, ml };
-    }, [match, isScheduled]);
-
-    const getPregameLine = (isHome: boolean) => {
-        if (!odds) return null;
-
-        if (odds.spread.line !== null || odds.spread.awayLine !== null) {
-            const spreadDisplay = isHome ? odds.spread.display : odds.spread.awayDisplay;
-            if (spreadDisplay && spreadDisplay !== '-') {
-                return spreadDisplay;
-            }
-        }
-
-        const rawMoneyline = isHome
-            ? (match.odds?.moneylineHome ?? match.odds?.homeWin ?? match.odds?.home_ml ?? match.odds?.homeML)
-            : (match.odds?.moneylineAway ?? match.odds?.awayWin ?? match.odds?.away_ml ?? match.odds?.awayML);
-        const formattedMoneyline = formatOddsByMode(rawMoneyline, oddsMode, 'moneyline');
-        if (formattedMoneyline) {
-            return formattedMoneyline;
-        }
-
-        const mlFallback = isHome ? odds.ml.home : odds.ml.away;
-        if (mlFallback && mlFallback !== '-') {
-            return mlFallback;
-        }
-
-        return null;
-    };
-
-    const awayLine = getPregameLine(false);
-    const homeLine = getPregameLine(true);
+    const teams = [
+        { team: match.awayTeam, score: match.awayScore, ml: awayML, other: match.homeScore },
+        { team: match.homeTeam, score: match.homeScore, ml: homeML, other: match.awayScore },
+    ];
 
     return (
         <MotionDiv
@@ -125,104 +80,69 @@ const MatchCard: React.FC<MatchCardProps> = ({
             whileTap={{ scale: 0.985 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             className={cn(
-                "relative cursor-pointer overflow-hidden bg-white rounded-2xl border border-slate-200",
-                isLive && "ring-1 ring-red-200"
+                'relative cursor-pointer bg-white rounded-lg border border-[#E8E7E3] p-4 select-none',
+                'transition-colors duration-150 hover:bg-[#FDFCFA]',
             )}
         >
-            <div className="p-5">
-                {/* Status Row */}
-                <div className="flex items-center justify-between mb-5">
-                    {isLive ? (
-                        <div className="flex items-center gap-2">
-                            <motion.span
-                                animate={{ opacity: [1, 0.35, 1] }}
-                                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-                                className="w-1.5 h-1.5 rounded-full bg-red-600"
-                            />
-                            <span className="text-[11px] font-bold uppercase tracking-wide text-red-600">
-                                {clockDisplay} {periodLabel}
-                            </span>
-                        </div>
-                    ) : (
-                        <span
-                            className="text-[11px] font-black uppercase tracking-[0.2em] tabular-nums"
-                            style={{ color: isFinal ? COLORS.muted : COLORS.secondary }}
-                        >
-                            {isFinal ? 'FINAL' : new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M/, '')}
-                        </span>
-                    )}
-
-                    {!isFinal && (
-                        <span className="text-[10px] font-medium uppercase tracking-widest text-slate-400">
-                            {leagueName}
-                        </span>
-                    )}
-                </div>
-
-                {/* Teams */}
-                <div className="space-y-3">
-                    {/* Away Team */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <TeamLogo logo={match.awayTeam.logo || getTeamLogo(match.awayTeam.name)} name={match.awayTeam.name} className="w-7 h-7 shrink-0" />
-                            <div className="min-w-0">
-                                <span
-                                    className={cn("block text-[15px] truncate", awayWinner ? "font-bold" : awayLost ? "font-normal" : "font-semibold")}
-                                    style={{ color: awayWinner ? COLORS.primary : awayLost ? COLORS.muted : COLORS.primary }}
-                                >
-                                    {match.awayTeam.name}
-                                </span>
-                                {match.awayTeam.record && (
-                                    <span className="block text-[11px] mt-0.5 text-slate-500 font-medium">
-                                        {match.awayTeam.record}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-
-                        <span
-                            className={cn("text-[24px] tabular-nums min-w-[40px] text-right", awayWinner ? "font-bold" : "font-normal")}
-                            style={{ color: showScores ? (awayWinner ? COLORS.primary : COLORS.muted) : COLORS.secondary }}
-                        >
-                            {showScores ? match.awayScore : (awayLine || '–')}
+            {/* Status */}
+            <div className="flex items-center justify-between mb-4">
+                {isLive ? (
+                    <div className="flex items-center gap-1.5">
+                        <span className="inline-flex h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                        <span className="text-[11px] font-mono font-bold text-red-600 uppercase tracking-wide">
+                            {periodLabel} {clockDisplay}
                         </span>
                     </div>
-
-                    {/* Home Team */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <TeamLogo logo={match.homeTeam.logo || getTeamLogo(match.homeTeam.name)} name={match.homeTeam.name} className="w-7 h-7 shrink-0" />
-                            <div className="min-w-0">
-                                <span
-                                    className={cn("block text-[15px] truncate", homeWinner ? "font-bold" : homeLost ? "font-normal" : "font-semibold")}
-                                    style={{ color: homeWinner ? COLORS.primary : homeLost ? COLORS.muted : COLORS.primary }}
-                                >
-                                    {match.homeTeam.name}
-                                </span>
-                                {match.homeTeam.record && (
-                                    <span className="block text-[11px] mt-0.5 text-slate-500 font-medium">
-                                        {match.homeTeam.record}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-
-                        <span
-                            className={cn("text-[24px] tabular-nums min-w-[40px] text-right", homeWinner ? "font-bold" : "font-normal")}
-                            style={{ color: showScores ? (homeWinner ? COLORS.primary : COLORS.muted) : COLORS.secondary }}
-                        >
-                            {showScores ? match.homeScore : (homeLine || '–')}
-                        </span>
-                    </div>
-                </div>
+                ) : isFinal ? (
+                    <span className="text-[11px] font-mono font-semibold text-[#9B9B91] uppercase tracking-wide">Final</span>
+                ) : (
+                    <span className="text-[11px] font-mono font-semibold text-[#9B9B91] tabular-nums" suppressHydrationWarning>
+                        {startTimeStr}
+                    </span>
+                )}
+                <span className="text-[10px] text-[#9B9B91] font-medium">{league}</span>
             </div>
 
-            {/* Pinned Indicator */}
+            {/* Teams */}
+            <div className="flex flex-col gap-3">
+                {teams.map(({ team, score, ml, other }, idx) => {
+                    if (!team) return null;
+                    const nS = Number(score), nO = Number(other);
+                    const valid = score != null && other != null && !isNaN(nS) && !isNaN(nO);
+                    const lost = isFinal && valid && nS < nO;
+
+                    return (
+                        <div key={team.id || idx} className="flex items-center gap-3">
+                            <TeamLogo logo={team.logo} name={team.name} className="w-7 h-7 shrink-0 object-contain" />
+                            <div className="flex-1 min-w-0">
+                                <span className={cn(
+                                    'block text-[14px] truncate',
+                                    lost ? 'text-[#9B9B91] font-normal' : 'text-[#1A1A18] font-semibold'
+                                )}>
+                                    {team.name}
+                                </span>
+                                {team.record && (
+                                    <span className="block text-[11px] font-mono text-[#9B9B91] mt-0.5">
+                                        {team.record}
+                                    </span>
+                                )}
+                            </div>
+                            <span className={cn(
+                                'font-mono tabular-nums shrink-0',
+                                showScores
+                                    ? cn('text-[20px]', lost ? 'text-[#9B9B91] font-semibold' : 'text-[#1A1A18] font-bold')
+                                    : 'text-[14px] font-bold text-[#1A1A18]'
+                            )}>
+                                {showScores ? (score ?? '-') : formatML(ml)}
+                            </span>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Pinned indicator */}
             {isPinned && (
-                <div
-                    className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: COLORS.pinned }}
-                />
+                <div className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-[#C85A3A]" />
             )}
         </MotionDiv>
     );

@@ -20,14 +20,15 @@
    ========================================================================== */
 
 :root {
-  /* Palette — Yahoo Sports inspired light */
-  --color-background: #F4F6FF;
+  /* Palette — ESPN / Yahoo Sports editorial */
+  --color-background: #FAFAF8;
   --color-surface: #FFFFFF;
-  --color-text-primary: #111827;
-  --color-text-secondary: #5B6478;
-  --color-border: #DDE3F0;
-  --color-accent: #0B63F6;
-  --color-accent-soft: #F2E9FF;
+  --color-text-primary: #1A1A18;
+  --color-text-secondary: #6B6B63;
+  --color-text-tertiary: #9B9B91;
+  --color-border: #E8E7E3;
+  --color-accent: #C85A3A;
+  --color-accent-soft: #FDF2EE;
   --color-kalshi-yes: #1D9E75;
   --color-kalshi-no: #E24B4A;
   --color-kalshi-ink: #10223A;
@@ -53,15 +54,15 @@ html {
   -webkit-overflow-scrolling: touch;
   -webkit-text-size-adjust: 100%;
   color-scheme: light;
-  background: radial-gradient(circle at top, #eef1ff 0%, var(--color-background) 45%);
+  background: #FAFAF8;
 }
 
 body {
   min-height: 100%;
   margin: 0;
-  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-variant-numeric: tabular-nums;
-  background: radial-gradient(circle at top, #eef1ff 0%, var(--color-background) 45%);
+  background: #FAFAF8;
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

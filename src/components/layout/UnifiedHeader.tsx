@@ -40,7 +40,7 @@ const parseWeekValue = (value: string): Date => {
 
 const formatDateValue = (date: Date): string =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-white';
+const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C85A3A]/25 focus-visible:ring-offset-2 focus-visible:ring-offset-white';
 
 export const UnifiedHeader: FC = () => {
     const navigate = useNavigate();
@@ -138,7 +138,7 @@ export const UnifiedHeader: FC = () => {
     const selectedDateValue = useMemo(() => formatDateValue(new Date(selectedDate)), [selectedDate]);
 
     return (
-        <header className="sticky top-0 z-40 w-full bg-white/95 supports-backdrop-filter:bg-white/88 backdrop-blur-md print:hidden pt-safe shadow-[0_1px_0_rgba(17,24,39,0.07)] kalshi-panel">
+        <header className="sticky top-0 z-40 w-full bg-white/95 supports-backdrop-filter:bg-white/88 backdrop-blur-md print:hidden pt-safe shadow-[0_1px_0_rgba(26,26,24,0.06)] kalshi-panel">
             {/* ─── PRIMARY ROW: Brand + Sport Tabs + Actions ──── */}
             <div className="max-w-7xl mx-auto w-full">
                 <div className="h-16 max-[390px]:h-14 px-4 max-[390px]:px-3 md:px-7 flex items-center justify-between border-b border-slate-200/90">
@@ -150,7 +150,7 @@ export const UnifiedHeader: FC = () => {
                             className={`h-11 min-w-11 px-1 flex items-center select-none active:scale-[0.97] transition-transform md:cursor-default ${focusRing}`}
                         >
                             <span
-                                className="text-[21px] max-[390px]:text-[19px] tracking-[-0.03em] text-[#0B63F6] leading-none font-extrabold"
+                                className="text-[21px] max-[390px]:text-[19px] tracking-[-0.03em] text-[#1A1A18] leading-none font-extrabold"
                             >
                                 The Drip
                             </span>
@@ -175,14 +175,14 @@ export const UnifiedHeader: FC = () => {
                                                 onClick={() => handleSportTab(sport)}
                                                 className={cn(
                                                     "relative px-2.5 py-[6px] rounded-md text-[12.5px] tracking-tight transition-colors select-none",
-                                                    isActive ? "font-semibold text-[#312E81]" : "font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50",
+                                                    isActive ? "font-semibold text-[#1A1A18]" : "font-medium text-[#9B9B91] hover:text-[#1A1A18] hover:bg-[#FAFAF8]",
                                                     focusRing
                                                 )}
                                             >
                                             {isActive && (
                                                 <MotionSpan
                                                     layoutId="sport-active-pill"
-                                                    className="absolute inset-0 rounded-md bg-[#EFF6FF] ring-1 ring-[#BFDBFE]"
+                                                    className="absolute inset-0 rounded-md bg-[#F5F4F0] ring-1 ring-[#E8E7E3]"
                                                     transition={ESSENCE.transition.spring}
                                                 />
                                             )}
@@ -201,7 +201,7 @@ export const UnifiedHeader: FC = () => {
                             className={cn(
                                 "h-11 min-w-11 flex items-center justify-center gap-1.5 px-3 rounded-lg text-[11px] font-medium tracking-[0.06em] transition-all active:scale-95 select-none",
                                 isTrendsPage
-                                    ? "text-[#12396F] underline underline-offset-4 decoration-[#93C5FD]"
+                                    ? "text-[#1A1A18] underline underline-offset-4 decoration-[#C85A3A]"
                                     : "text-slate-500 hover:text-slate-800",
                                 focusRing
                             )}
@@ -282,7 +282,7 @@ export const UnifiedHeader: FC = () => {
                                         <span className="text-[13px] max-[390px]:text-[12px] font-semibold text-slate-900">{dateDisplay.label}</span>
                                         {dateDisplay.isToday && (
                                             <span
-                                                className="text-[9.5px] font-bold tracking-[0.06em] text-[#1E40AF] px-1.5 py-px rounded bg-[#EFF6FF]"
+                                                className="text-[9.5px] font-bold tracking-[0.06em] text-[#C85A3A] px-1.5 py-px rounded bg-[#FDF2EE]"
                                                 style={{
                                                     fontFamily: "ui-monospace, SFMono-Regular, monospace",
                                                 }}
@@ -315,8 +315,8 @@ export const UnifiedHeader: FC = () => {
                                                 className={cn(
                                                     "h-11 px-3 rounded-[8px] text-[11px] transition-all select-none",
                                                     isSelected
-                                                        ? "text-[#1D4ED8] bg-[#EFF6FF] ring-1 ring-[#BFDBFE]"
-                                                        : "text-slate-500 hover:text-[#1D4ED8] hover:bg-[#EFF6FF]",
+                                                        ? "text-[#1A1A18] bg-[#F5F4F0] ring-1 ring-[#E8E7E3] font-semibold"
+                                                        : "text-[#9B9B91] hover:text-[#1A1A18] hover:bg-[#F5F4F0]",
                                                     focusRing
                                                 )}
                                                 aria-current={isSelected ? 'date' : undefined}
@@ -347,7 +347,7 @@ export const UnifiedHeader: FC = () => {
                                                 aria-label={`${labels[tab]} games`}
                                                 className={cn(
                                                     "relative h-11 min-w-[72px] px-3 max-[390px]:px-2.5 rounded-md text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.02em] transition-colors",
-                                                    isActive ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
+                                                    isActive ? "text-[#1A1A18] bg-[#F5F4F0] shadow-sm font-bold" : "text-[#9B9B91] hover:text-[#6B6B63]",
                                                     focusRing
                                                 )}
                                                 style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
@@ -365,7 +365,7 @@ export const UnifiedHeader: FC = () => {
                                             placeholder="Filter..."
                                             value={liveFilter}
                                             onChange={(e) => setLiveFilter(e.target.value)}
-                                            className="w-32 max-[390px]:w-28 h-11 bg-white border border-slate-300 rounded-lg py-1.5 pl-2 pr-2 text-[11px] max-[390px]:text-[10px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#93C5FD] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                                            className="w-32 max-[390px]:w-28 h-11 bg-white border border-slate-300 rounded-lg py-1.5 pl-2 pr-2 text-[11px] max-[390px]:text-[10px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#E8E7E3] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C85A3A]/25 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                                         />
                                     </div>
                                     <div className="flex bg-slate-50 rounded-lg p-0.5 border border-slate-300">
@@ -375,7 +375,7 @@ export const UnifiedHeader: FC = () => {
                                             onClick={() => setLiveLayout('LIST')}
                                             className={cn(
                                                 "w-11 h-11 flex items-center justify-center rounded-md transition-colors",
-                                                liveLayout === 'LIST' ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
+                                                liveLayout === 'LIST' ? "text-[#1A1A18] bg-[#F5F4F0] shadow-sm" : "text-[#9B9B91] hover:text-[#6B6B63]",
                                                 focusRing
                                             )}
                                         >
@@ -387,7 +387,7 @@ export const UnifiedHeader: FC = () => {
                                             onClick={() => setLiveLayout('GRID')}
                                             className={cn(
                                                 "w-11 h-11 flex items-center justify-center rounded-md transition-colors",
-                                                liveLayout === 'GRID' ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
+                                                liveLayout === 'GRID' ? "text-[#1A1A18] bg-[#F5F4F0] shadow-sm" : "text-[#9B9B91] hover:text-[#6B6B63]",
                                                 focusRing
                                             )}
                                         >

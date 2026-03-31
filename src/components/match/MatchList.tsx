@@ -407,7 +407,7 @@ PremiumProCTA.displayName = 'PremiumProCTA';
 
 const MatchRowSkeleton = () => (
     <div
-        className="w-full rounded-2xl border border-[#D4DEEF] bg-[linear-gradient(180deg,#FFFFFF_0%,#F6F9FF_100%)] shadow-[0_16px_30px_-24px_rgba(16,34,58,0.28)] px-3 py-3 sm:px-4 sm:py-3.5"
+        className="w-full rounded-lg border border-[#E8E7E3] bg-white p-4"
         aria-hidden="true"
     >
         <div className="flex items-center justify-between pb-3">
@@ -479,23 +479,23 @@ const LeagueGroup = memo(({
                 className={cn(
                     'flex items-center justify-between w-full h-11 px-3 sm:px-4 max-[390px]:px-2.5 [-webkit-tap-highlight-color:transparent]',
                     // Keep group headers static so ordering never shifts behind match rows.
-                    'bg-white backdrop-blur-sm border-b border-[#D9E2F2] z-20',
-                    'transition-colors hover:bg-[#F8FFFB]',
-                    'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300',
-                    isExpanded ? 'border border-[#D9E2F2] border-b-[#D9E2F2] rounded-t-xl shadow-[0_12px_24px_-20px_rgba(16,34,58,0.26)]' : 'border border-[#D9E2F2] border-b-transparent rounded-xl shadow-[0_12px_24px_-20px_rgba(16,34,58,0.26)]'
+                    'bg-white backdrop-blur-sm border-b border-[#E8E7E3] z-20',
+                    'transition-colors hover:bg-[#FDFCFA]',
+                    'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C85A3A]/25',
+                    isExpanded ? 'border border-[#E8E7E3] border-b-[#E8E7E3] rounded-t-lg' : 'border border-[#E8E7E3] border-b-transparent rounded-lg'
                 )}
                 aria-expanded={isExpanded}
                 aria-controls={`league-content-${leagueId}`}
             >
                 <div className="flex items-center gap-2 max-[390px]:gap-1.5 min-w-0">
                     <h3 className="text-[12px] max-[390px]:text-[11px] font-semibold text-[#0A0A0A] tracking-tight truncate">{leagueName}</h3>
-                    <span className="text-[14px] text-[#B9C5D7] leading-none" aria-hidden="true">·</span>
+                    <span className="text-[14px] text-[#9B9B91] leading-none" aria-hidden="true">·</span>
                     <span className="text-[11px] max-[390px]:text-[10px] font-mono tabular-nums font-normal text-[#555555] whitespace-nowrap">
                         {enrichedMatches.length} {enrichedMatches.length === 1 ? 'game' : 'games'}
                     </span>
                     {earliestTime && (
                         <>
-                            <span className="text-[14px] text-[#B9C5D7] leading-none" aria-hidden="true">·</span>
+                            <span className="text-[14px] text-[#9B9B91] leading-none" aria-hidden="true">·</span>
                             <span className="text-[11px] max-[390px]:text-[10px] font-mono tabular-nums font-normal text-[#555555] whitespace-nowrap" suppressHydrationWarning>
                                 {earliestTime}
                             </span>
@@ -505,7 +505,7 @@ const LeagueGroup = memo(({
                     <motion.svg
                     xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                     fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                        className="text-[#67BFA2]" animate={{ rotate: isExpanded ? 0 : -90 }} transition={{ duration: 0.2 }}
+                        className="text-[#9B9B91]" animate={{ rotate: isExpanded ? 0 : -90 }} transition={{ duration: 0.2 }}
                     >
                     <path d="m6 9 6 6 6-6" />
                 </motion.svg>
@@ -522,7 +522,7 @@ const LeagueGroup = memo(({
                         transition={prefersReducedMotion ? { duration: 0 } : ACCORDION_SPRING}
                         className={cn(
                             'overflow-hidden relative z-0 -mt-px',
-                            'bg-white ring-1 ring-[#D9E2F2] rounded-b-xl shadow-[0_14px_28px_-20px_rgba(16,34,58,0.22)]'
+                            'bg-[#FAFAF8] ring-1 ring-[#E8E7E3] rounded-b-lg'
                         )}
                     >
                         <div ref={measureRef} className="flex flex-col gap-2 sm:gap-2.5 p-2 sm:p-2.5">
@@ -739,10 +739,10 @@ const MatchList: React.FC<MatchListProps> = ({
     // Steal #5: Upgraded loading skeleton
     if (isLoading && matches.length === 0) {
         return (
-            <div className="min-h-screen bg-[#F4F6FF] pt-2 sm:pt-6 lg:pt-6" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
+            <div className="min-h-screen bg-[#FAFAF8] pt-2 sm:pt-6 lg:pt-6" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
                 <div className="max-w-7xl mx-auto w-full px-0 lg:px-6" aria-busy="true" aria-label="Loading matches">
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-6 items-start">
-                        <div className="flex flex-col gap-2 sm:gap-2.5 p-2 sm:p-2.5 w-full rounded-2xl overflow-hidden bg-white ring-1 ring-slate-200 shadow-[0_14px_28px_-20px_rgba(30,64,175,0.22)]">
+                        <div className="flex flex-col gap-2 sm:gap-2.5 p-2 sm:p-2.5 w-full rounded-lg overflow-hidden bg-white border border-[#E8E7E3]">
                             {Array.from({ length: 8 }, (_, i) => <MatchRowSkeleton key={`skel-${i}`} />)}
                         </div>
                         <aside className="hidden lg:flex flex-col gap-4">
@@ -762,7 +762,7 @@ const MatchList: React.FC<MatchListProps> = ({
                 initial={prefersReducedMotion ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.99 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.3, ease: "easeOut" }}
-                className="flex flex-col items-center justify-center min-h-[50vh] text-zinc-400 select-none bg-[#F4F6FF] px-6 text-center"
+                className="flex flex-col items-center justify-center min-h-[50vh] text-zinc-400 select-none bg-[#FAFAF8] px-6 text-center"
                 style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}
             >
                 <div className="w-14 h-14 rounded-[14px] bg-white ring-1 ring-zinc-900/5 flex items-center justify-center mb-4 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)]">
@@ -801,7 +801,7 @@ const MatchList: React.FC<MatchListProps> = ({
     }
 
     return (
-        <div className="min-h-screen bg-[#F4F6FF]" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
+        <div className="min-h-screen bg-[#FAFAF8]" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
             <LayoutGroup id="editorial-feed">
                 <div className="max-w-7xl mx-auto px-0 lg:px-6 w-full">
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-6 sm:gap-8 items-start">
