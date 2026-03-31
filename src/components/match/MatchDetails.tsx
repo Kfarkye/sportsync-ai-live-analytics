@@ -2110,7 +2110,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   }
 
   if (isBasketball) {
-    return <LiveBasketballMatchDetails match={match} liveState={liveState} onBack={onBack} />;
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <LiveBasketballMatchDetails match={match} liveState={liveState} onBack={onBack} />
+      </div>
+    );
   }
 
   return (
