@@ -25,7 +25,8 @@
     "seed:injuries": "export $(grep SUPABASE_SERVICE_ROLE_KEY .env | xargs) && npx tsx scripts/seed_injury_report.ts",
     "backfill:historical-props": "npx tsx scripts/backfill/backfill_historical_props.ts",
     "sync:shared": "node scripts/sync_shared.js",
-    "verify:ssot": "node scripts/verify_ssot.js",
+    "verify:ssot": "node scripts/audit/verify_ssot.js",
+    "verify:ssot:design": "node scripts/audit/verify_design_ssot.js",
     "check:nba-structural-baseline": "node scripts/audit/check_nba_structural_baseline.mjs",
     "validate:payload-contracts": "node scripts/audit/validate_payload_contracts.mjs"
   },

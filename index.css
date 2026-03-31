@@ -1,5 +1,5 @@
 /* ==========================================================================
-   SPORTSYNC AI — Global Stylesheet (Cleaned v2)
+   SPORTSYNC AI — Global Stylesheet (Warm-Light SSOT)
    ==========================================================================
    CHANGES from v1:
      - Merged 2x body, 2x #root, 2x html into single declarations
@@ -90,14 +90,14 @@ body {
    §2.1  KALSHI POLISH LAYER — subtle exchange-style depth
    ========================================================================== */
 
-.kalshi-shell {
+.ss-shell {
   background:
     radial-gradient(980px 320px at 92% -12%, rgba(200, 90, 58, 0.08) 0%, transparent 64%),
     radial-gradient(1200px 360px at 8% -10%, rgba(45, 143, 92, 0.06) 0%, transparent 64%),
     linear-gradient(180deg, #fbfbf9 0%, var(--color-background) 42%, #f7f7f4 100%);
 }
 
-.kalshi-panel {
+.ss-panel {
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid var(--color-border);
   box-shadow:
@@ -105,31 +105,31 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
-.kalshi-tab-btn {
+.ss-tab-btn {
   border-color: #c9d4e7;
   background: #ffffff;
 }
 
-.kalshi-tab-btn:hover {
+.ss-tab-btn:hover {
   border-color: #aebed8;
   background: #f8fbff;
 }
 
-.kalshi-tab-btn-active {
+.ss-tab-btn-active {
   border-color: var(--color-accent);
   background: linear-gradient(180deg, rgba(200, 90, 58, 0.93) 0%, #b75032 100%);
   color: #ffffff;
   box-shadow: 0 10px 20px -16px rgba(200, 90, 58, 0.65);
 }
 
-.kalshi-live-btn-active {
+.ss-live-btn-active {
   border-color: var(--color-positive);
   background: linear-gradient(180deg, var(--color-positive) 0%, #24734a 100%);
   color: #ffffff;
   box-shadow: 0 10px 24px -14px rgba(45, 143, 92, 0.65);
 }
 
-.kalshi-fab {
+.ss-fab {
   border: 1px solid #cad5e9;
   background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
   box-shadow:
@@ -217,7 +217,7 @@ input, textarea {
    §7  ANIMATIONS & KEYFRAMES
    ========================================================================== */
 
-/* Obsidian Weissach — specular edge breathe for live games */
+/* SportsSync live-state micro pulse */
 @keyframes ow-breathe {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 0.85; }
@@ -305,7 +305,7 @@ input, textarea {
 .top-safe-header { top: env(safe-area-inset-top); }
 
 /* ==========================================================================
-   §10  CITATION LINKS — Obsidian Grounding System
+   §10  CITATION LINKS — SportsSync grounding links
    ========================================================================== */
 
 .cite-link {

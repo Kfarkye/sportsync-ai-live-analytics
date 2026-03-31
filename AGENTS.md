@@ -1,5 +1,9 @@
 # AGENTS.md — The Drip (thedrip.to)
 
+> Canonical rule for this repo:
+> **SportsSync consumer-facing pages must follow the SportsSync warm-light design system.**
+> TheDrip is a separate product family and may use its own shell/tokens.
+
 ## What This Project Is
 
 A sports betting intelligence platform. We don't just show scores — we explain why results happen structurally, calibrated against league-wide baselines (draw rates, foul rates, SOT rates, goal distributions). The product moat: Yahoo/ESPN show what happened; The Drip explains why it matters for betting.
@@ -32,7 +36,8 @@ If the task is already a full Task Batch with Objective, Scope, Requirements, Ac
 
 - **Frontend**: React (Vite), deployed on Vercel
 - **Backend**: Supabase (Postgres + Edge Functions, project ref: qffzvrnbzabcokqqrwbv)
-- **Design System**: Obsidian Weissach v7 — dark ground, monospace accents, minimal chrome, team accent colors, Porsche-level craft
+- **SportsSync Design System**: warm-light, neutral surface, restrained borders, Source Serif + DM Sans + JetBrains Mono tokens
+- **TheDrip**: separate product family (may use its own visual system)
 - **Data Sources**: ESPN APIs, Bet365 (via soccer_player_odds), The Odds API (US sports), Polymarket
 - **AI Analysis**: Pregame intel pipeline (pregame_intel table)
 
@@ -73,11 +78,13 @@ Deployed to Supabase. Key functions:
 - **No stubs, TODOs, placeholders, or mock logic.** Every function complete, every error path handled, every edge case covered.
 - **No unverifiable architecture claims.** Do not claim multi-model orchestration unless it is implemented and provably traceable in code.
 - **No fabricated performance stats.** Do not cite hit rates unless backed by verified data.
-- **Obsidian Weissach v7** is the canonical design for all edge cards (Pregame, Prop, Live). Dark aesthetic, earned minimalism, team accent colors, monospace data, luxury engineered not announced.
+- **SportsSync warm-light** is the canonical design for consumer pages (Pregame, Prop, Live, Matchups, Trends).
+- Do not introduce dark-mode token behavior in these pages.
+- TheDrip pages remain separate and should not share SportsSync consumer tokens.
 
 ## UI Prompt System and Quality Gates
 
-- Default product UI standard remains **Obsidian Weissach v7** for sports surfaces in this repo.
+- Default sports UI standard for the SportsSync app is the **SportsSync warm-light** system.
 - For cross-property or category-agnostic premium UI work, use:
   - `docs/design/premium-ui-master-prompt.md`
   - `docs/design/premium-ui-addons.md`
@@ -99,7 +106,7 @@ Deployed to Supabase. Key functions:
 
 Unless the task explicitly says otherwise:
 - Do not modify working pipelines for other sports when fixing one sport.
-- Do not change the Obsidian Weissach v7 design tokens without explicit approval.
+- Do not change SportsSync consumer tokens without explicit approval (see `DESIGN_SSOT.md`).
 - Do not alter materialized view refresh schedules.
 - Do not modify CODEOWNERS without approval.
 

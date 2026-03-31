@@ -21,12 +21,14 @@
 * **AUDIT TRAIL**: Logs must include exactly which API key/source was used and which model version responded.
 
 ## 5. Branding & Verbiage
-* **STYLE**: Maintain the ESSENCE / Obsidian Weissach aesthetic—no glassmorphism, no gradient meshes, and no grain overlays.
+* **STYLE**: SportsSync consumer surfaces follow `DESIGN_SSOT.md` (warm-light, restrained borders, Source Serif/DM Sans/JetBrains Mono, no ad hoc dark themes).
 * **TERMINOLOGY**: Use sports-betting specific language ("Market Edge", "Pace Dislocation", "Fair Value") rather than clinical/legal language ("Forensic Audit", "Deterministic Baseline").
 
 ## 6. SSOT & Shared Code
-* **Canonical SSOT** lives in `packages/shared/src`.
-* **App code** must import from `@shared/*` (re-export shims in `src/` are not editable).
+* **Design SSOT** lives in:
+  * `DESIGN_SSOT.md`
+  * `src/lib/design-tokens.ts`
+* **App code** must import shared style contracts from `@/lib/tokens` for sports-facing UI.
 * **Supabase `_shared`** is generated via `npm run sync:shared` — never edit directly.
 * Run `npm run verify:ssot` before merge to ensure sync + build + parity.
 * Root shims (`types.ts`, `constants.ts`, `lib/essence.ts`) exist only for legacy imports.

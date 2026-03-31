@@ -36,6 +36,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Design SSOT Audit
+        run: npm run verify:ssot:design
+
       - name: NBA Structural Baseline Assertion
         id: nba_structural_assertion
         if: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
