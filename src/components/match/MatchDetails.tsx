@@ -2114,14 +2114,14 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
   }
 
   return (
-    <div className="min-h-dvh text-black relative overflow-y-auto overflow-x-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white pb-[calc(env(safe-area-inset-bottom)+8rem)]">
+    <div className="h-dvh max-h-dvh flex flex-col text-black relative overflow-hidden font-sans bg-[#FBFBFD] selection:bg-black selection:text-white">
       {/* SOTA Dynamic Mix-Blend Radiance (Hardware Accelerated) */}
       <div className="absolute top-0 left-0 w-full h-[40vh] opacity-[0.06] pointer-events-none z-0 mix-blend-multiply transform-gpu" style={{
         background: `radial-gradient(circle at 20% 0%, ${homeColor} 0%, transparent 60%), radial-gradient(circle at 80% 0%, ${awayColor} 0%, transparent 60%)`
       }} />
 
       <LiveSweatProvider latestPlayByPlayText={playByPlayText} aiTriggers={sweatTriggers}>
-        <header className="sticky top-0 z-50 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(249,252,255,0.92)_100%)] pt-safe backdrop-blur-2xl transition-colors duration-500 shadow-[0_1px_0_rgba(16,34,58,0.08),0_18px_32px_-28px_rgba(16,34,58,0.65)] border-b border-[#DAE3F1]/70 transform-gpu">
+        <header className="sticky top-0 z-50 shrink-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(249,252,255,0.92)_100%)] pt-safe backdrop-blur-2xl transition-colors duration-500 shadow-[0_1px_0_rgba(16,34,58,0.08),0_18px_32px_-28px_rgba(16,34,58,0.65)] border-b border-[#DAE3F1]/70 transform-gpu">
           <div className="flex items-center justify-between px-4 sm:px-6 py-3">
             <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-black/[0.04] rounded-full transition-colors duration-200 transform-gpu">
               <BackArrow />
@@ -2175,7 +2175,11 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
           </div>
         </header>
 
-        <main className="relative z-10 mx-auto max-w-[1200px] px-4 pt-8 sm:px-6 lg:pt-10">
+        <main
+          className="relative z-10 flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pt-8 pb-[calc(env(safe-area-inset-bottom)+8rem)] sm:px-6 lg:pt-10"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <div className="mx-auto max-w-[1200px]">
           <LayoutGroup>
             <AnimatePresence mode="wait">
               {/* Tab panel */}
@@ -2358,6 +2362,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
               </motion.div>
             </AnimatePresence>
           </LayoutGroup>
+          </div>
         </main>
       </LiveSweatProvider>
 
