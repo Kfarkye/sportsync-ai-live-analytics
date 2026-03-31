@@ -200,8 +200,20 @@ const calculateLineMovement = (currentOdds, t60Snapshot) => {
     };
 };
 
-const classifyQuestionType = (query) => {
+const EDGE_QUERY_RE = /\b(live edges?|available edges|edge available|edges? available|market edge|best bet|tail|fade|value|mispriced|take|lean|lock|odds edge)\b/i;
+
+export const LIVE_QUESTION_TYPES = new Set([
+    "power_play",
+    "top_scorer",
+    "rebounds",
+    "assists",
+    "events",
+    "market",
+]);
+
+export const classifyQuestionType = (query) => {
     const q = (query || "").toLowerCase();
+    if (EDGE_QUERY_RE.test(q)) return "market";
     if (/(power play|powerplay|penalt(?:y|ies)|last penalty|penalty summary)/i.test(q)) return "power_play";
     if (/(top scorer|most points|points leader|who scored)/i.test(q)) return "top_scorer";
     if (/(rebounds|rebounding leader)/i.test(q)) return "rebounds";
@@ -211,7 +223,7 @@ const classifyQuestionType = (query) => {
     return "general";
 };
 
-const QUALITY_FAILURE_CODES = Object.freeze({
+export const QUALITY_FAILURE_CODES = Object.freeze({
     OK: "OK",
     STALE_CONFIDENT_ANSWER: "F1_STALE_CONFIDENT_ANSWER",
     PARTIAL_PACKET_OVERREACH: "F2_PARTIAL_PACKET_OVERREACH",
@@ -221,8 +233,10 @@ const QUALITY_FAILURE_CODES = Object.freeze({
     PACKET_BYPASS: "F6_PACKET_BYPASS",
 });
 
-const LIVE_QUESTION_TYPES = new Set(["power_play", "top_scorer", "rebounds", "assists", "events", "market"]);
+const VALID_LIVE_STATUSES = ["IN_PROGRESS", "LIVE", "HALFTIME", "END_PERIOD"];
 const PACKET_STALE_THRESHOLD_SECONDS = 60;
+
+const EDGE_TOKEN_RE = /\bedge\b/i;
 
 const RESPONSE_CLASSES = Object.freeze({
     FACT: "fact",
@@ -487,10 +501,10 @@ const classifyResponseClass = ({ questionType, userQuery }) => {
     if (questionType === "market") {
         return EDGE_INTENT_RE.test(userQuery || "") ? RESPONSE_CLASSES.EDGE : RESPONSE_CLASSES.STATE;
     }
-    return EDGE_INTENT_RE.test(userQuery || "") ? RESPONSE_CLASSES.EDGE : RESPONSE_CLASSES.STATE;
+    return (EDGE_INTENT_RE.test(userQuery || "") || EDGE_TOKEN_RE.test(userQuery || "")) ? RESPONSE_CLASSES.EDGE : RESPONSE_CLASSES.STATE;
 };
 
-const getRequiredAnswerabilityKeys = (questionType) => {
+export const getRequiredAnswerabilityKeys = (questionType) => {
     switch (questionType) {
         case "power_play":
             return ["can_answer_recent_events"];
@@ -515,25 +529,36 @@ const deriveInferenceMode = (packet) => {
     return hasTransitionEvidence ? "transition_grounded" : "snapshot_only";
 };
 
-const getGuardrailMessage = ({ failureCode, questionType, freshnessSeconds = null }) => {
+const formatGuardrailReason = (reason) => {
+    if (!reason) return null;
+    if (reason.includes("trusted_packet_missing")) return "live packet missing";
+    if (reason.includes("trusted_packet_stale")) return "live update stale";
+    if (reason.includes("missing_required_fields")) return "missing live fields";
+    if (reason.includes("market_query_without_transition_evidence")) return "transition evidence missing";
+    return "live details unavailable";
+};
+
+const getGuardrailMessage = ({ failureCode, questionType, freshnessSeconds = null, reason = null }) => {
+    const reasonText = formatGuardrailReason(reason);
+    const reasonLine = reasonText ? ` Reason: ${reasonText}.` : "";
     switch (failureCode) {
         case QUALITY_FAILURE_CODES.PACKET_BYPASS:
             if (questionType === "market") {
-                return "I can’t see the live line update for this game right now. Ask again in a few seconds and I’ll check it against the pregame number.";
+                return `I can’t see the live line update for this game right now.${reasonLine} Ask again in a few seconds and I’ll check it against the pregame number.`;
             }
-            return "I’m missing the live game update right now. Ask again in a few seconds.";
+            return `I’m missing the live game update right now.${reasonLine} Ask again in a few seconds.`;
         case QUALITY_FAILURE_CODES.STALE_CONFIDENT_ANSWER:
-            return `Live updates are delayed (${freshnessSeconds ?? "unknown"}s behind). I can give a light read, but wait for a fresh update for a firm call.`;
+            return `Live updates are delayed (${freshnessSeconds ?? "unknown"}s behind).${reasonLine} I can give a light read, but wait for a fresh update for a firm call.`;
         case QUALITY_FAILURE_CODES.PARTIAL_PACKET_OVERREACH: {
-            if (questionType === "top_scorer") return "Live scorer feed not available yet.";
-            if (questionType === "rebounds") return "Live rebound leader feed not available yet.";
-            if (questionType === "assists") return "Live assist leader feed not available yet.";
-            if (questionType === "events") return "Recent live event feed not available yet.";
-            if (questionType === "market") return "Live line-movement feed not available yet.";
-            return "I don’t have enough live details to answer that right now.";
+            if (questionType === "top_scorer") return `Live scorer feed not available yet.${reasonLine}`;
+            if (questionType === "rebounds") return `Live rebound leader feed not available yet.${reasonLine}`;
+            if (questionType === "assists") return `Live assist leader feed not available yet.${reasonLine}`;
+            if (questionType === "events") return `Recent live event feed not available yet.${reasonLine}`;
+            if (questionType === "market") return `Live line-movement feed not available yet.${reasonLine}`;
+            return `I don’t have enough live details to answer that right now.${reasonLine}`;
         }
         default:
-            return "Live updates are limited right now. Ask again in a few seconds.";
+            return `Live updates are limited right now.${reasonLine} Ask again in a few seconds.`;
     }
 };
 
@@ -1084,6 +1109,114 @@ async function buildEvidencePacket(context) {
     return packet;
 }
 
+async function hydrateLiveContext(activeContext, userQuery, deps = {}) {
+    const scanLiveGame = deps.scanForLiveGame || scanForLiveGame;
+    const buildPacket = deps.buildEvidencePacket || buildEvidencePacket;
+
+    let liveScan = { ok: false };
+    let evidence = { injuries: { home: [], away: [] }, liveState: null, temporal: { t60: null, t0: null }, lineMovement: null };
+
+    try {
+        liveScan = await scanLiveGame(userQuery);
+    } catch (e) {
+        console.warn("[Live Context] scanForLiveGame failed:", e?.message || e);
+    }
+
+    let hydratedContext = { ...(activeContext || {}) };
+    if (liveScan?.ok && liveScan.data && liveScan.data.id) {
+        console.log("[Live Context] Matched live game from query scan", liveScan.data.id);
+        hydratedContext = {
+            ...hydratedContext,
+            ...liveScan.data,
+            match_id: String(liveScan.data.id),
+            clock: liveScan.data.display_clock,
+            status: liveScan.data.game_status,
+            current_odds: liveScan.data.odds
+        };
+    } else if (!activeContext?.match_id) {
+        console.log("[Live Context] No live match found from query scan");
+    }
+
+    try {
+        evidence = await buildPacket(hydratedContext);
+    } catch (e) {
+        console.warn("[Live Context] buildEvidencePacket failed:", e?.message || e);
+    }
+
+    if (evidence?.liveState && hydratedContext?.match_id) {
+        return {
+            activeContext: {
+                ...hydratedContext,
+                ...evidence.liveState,
+                current_odds: evidence.liveState.odds
+            },
+            liveScan,
+            evidence
+        };
+    }
+
+    if (!evidence?.liveState && hydratedContext?.match_id) {
+        console.warn("[Live Context] No liveState on packet for matched match", hydratedContext.match_id);
+    }
+
+    return { activeContext: hydratedContext, liveScan, evidence };
+}
+
+export function assessLiveQualityState({
+    questionType,
+    isLive,
+    trustedPacketMatchId,
+    trustedPacket,
+    trustedFreshnessSeconds,
+    inferenceMode,
+    qualityFailureReasonOverride = null,
+}) {
+    const requiredAnswerabilityKeys = getRequiredAnswerabilityKeys(questionType);
+    const missingRequiredKeys = trustedPacket
+        ? requiredAnswerabilityKeys.filter((key) => trustedPacket?.answerability?.[key] !== true)
+        : requiredAnswerabilityKeys;
+    const requiresTrustedPacket = isLive || (LIVE_QUESTION_TYPES.has(questionType) && Boolean(trustedPacketMatchId));
+    const packetIsStale = Number.isFinite(trustedFreshnessSeconds)
+        && trustedFreshnessSeconds > PACKET_STALE_THRESHOLD_SECONDS;
+
+    let qualityFailureCode = QUALITY_FAILURE_CODES.OK;
+    let qualityFailureReason = qualityFailureReasonOverride;
+
+    if (requiresTrustedPacket && !trustedPacket) {
+        qualityFailureCode = QUALITY_FAILURE_CODES.PACKET_BYPASS;
+        qualityFailureReason = qualityFailureReason || "trusted_packet_missing";
+    } else if (requiresTrustedPacket && packetIsStale) {
+        qualityFailureCode = QUALITY_FAILURE_CODES.STALE_CONFIDENT_ANSWER;
+        qualityFailureReason = qualityFailureReason || "trusted_packet_stale";
+    } else if (requiresTrustedPacket && missingRequiredKeys.length > 0) {
+        qualityFailureCode = QUALITY_FAILURE_CODES.PARTIAL_PACKET_OVERREACH;
+        qualityFailureReason = qualityFailureReason || `missing_required_fields:${missingRequiredKeys.join(",")}`;
+    } else if (questionType === "market" && inferenceMode === "snapshot_only") {
+        qualityFailureCode = QUALITY_FAILURE_CODES.SNAPSHOT_AS_TRANSITION;
+        qualityFailureReason = qualityFailureReason || "market_query_without_transition_evidence";
+    }
+
+    if (qualityFailureCode !== QUALITY_FAILURE_CODES.OK && trustedPacketMatchId) {
+        console.warn("[Live Quality] Guardrail engaged", {
+            match_id: trustedPacketMatchId,
+            code: qualityFailureCode,
+            questionType,
+            reason: qualityFailureReason,
+            missingRequiredKeys,
+            requiresTrustedPacket,
+            packetIsStale,
+        });
+    }
+
+    return {
+        qualityFailureCode,
+        qualityFailureReason,
+        missingRequiredKeys,
+        requiresTrustedPacket,
+        packetIsStale,
+    };
+}
+
 function buildClaimMap(response, thoughts) {
     // 🛡️ PERF: Aggressively restrict string length to prevent Regex Event Loop DOS
     const evalText = truncateText(response + " " + thoughts, 12000).toLowerCase();
@@ -1232,24 +1365,21 @@ export async function POST(req) {
 
     const MODE = detectMode(userQuery, hasImage);
 
-    // --- PARALLEL: LIVE SENTINEL + EVIDENCE PACKET ---
+    // --- LIVE CONTEXT: PREFERRED LIVE SCAN -> EVIDENCE ORDER ---
     let liveScan = { ok: false }, evidence = { injuries: { home: [], away: [] }, liveState: null, temporal: { t60: null, t0: null }, lineMovement: null };
     try {
-        [liveScan, evidence] = await Promise.all([scanForLiveGame(userQuery), buildEvidencePacket(activeContext)]);
+        ({ activeContext, liveScan, evidence } = await hydrateLiveContext(activeContext, userQuery));
     } catch (e) {
         console.warn("[WARN] Middle logic failed:", e?.message || e);
     }
 
     let isLive = false;
+    const activeContextMatchId = activeContext?.match_id ? String(activeContext.match_id) : null;
     if (liveScan.ok) {
-        activeContext = { ...activeContext, ...liveScan.data, match_id: String(liveScan.data.id), clock: liveScan.data.display_clock, status: liveScan.data.game_status, current_odds: liveScan.data.odds };
         isLive = true;
+    } else if (activeContext?.status) {
+        isLive = VALID_LIVE_STATUSES.some(st => (activeContext.status || "").toUpperCase().includes(st));
     }
-
-    if (evidence.liveState) activeContext = { ...activeContext, ...evidence.liveState, current_odds: evidence.liveState.odds };
-
-    const validLiveStatuses = ["IN_PROGRESS", "LIVE", "HALFTIME", "END_PERIOD"];
-    isLive = isLive || validLiveStatuses.some(st => (activeContext?.status || "").toUpperCase().includes(st));
     const questionType = classifyQuestionType(userQuery);
     const responseClass = classifyResponseClass({ questionType, userQuery });
     const modeForPrompt = responseClass === RESPONSE_CLASSES.EDGE ? "ANALYSIS" : "CONVERSATION";
@@ -1262,34 +1392,37 @@ export async function POST(req) {
         : null;
     const trustedPacketAsOf = trustedPacket?.packet_meta?.as_of || null;
     const inferenceMode = deriveInferenceMode(trustedPacket);
-    const requiredAnswerabilityKeys = getRequiredAnswerabilityKeys(questionType);
-    const missingRequiredKeys = trustedPacket
-        ? requiredAnswerabilityKeys.filter((key) => trustedPacket?.answerability?.[key] !== true)
-        : requiredAnswerabilityKeys;
-    const requiresTrustedPacket = isLive || (LIVE_QUESTION_TYPES.has(questionType) && Boolean(trustedPacketMatchId));
-    const packetIsStale = Number.isFinite(trustedFreshnessSeconds)
-        && trustedFreshnessSeconds > PACKET_STALE_THRESHOLD_SECONDS;
     const deterministicFactAnswer = buildDeterministicFactAnswer({
         questionType,
         userQuery,
         trustedPacket,
     });
 
-    let qualityFailureCode = QUALITY_FAILURE_CODES.OK;
-    let qualityFailureReason = null;
+    const {
+        qualityFailureCode,
+        qualityFailureReason,
+        missingRequiredKeys,
+        requiresTrustedPacket,
+        packetIsStale,
+    } = assessLiveQualityState({
+        questionType,
+        isLive: isLive,
+        trustedPacketMatchId,
+        trustedPacket,
+        trustedFreshnessSeconds,
+        inferenceMode,
+        qualityFailureReasonOverride: null
+    });
 
-    if (requiresTrustedPacket && !trustedPacket) {
-        qualityFailureCode = QUALITY_FAILURE_CODES.PACKET_BYPASS;
-        qualityFailureReason = "trusted_packet_missing";
-    } else if (requiresTrustedPacket && packetIsStale) {
-        qualityFailureCode = QUALITY_FAILURE_CODES.STALE_CONFIDENT_ANSWER;
-        qualityFailureReason = "trusted_packet_stale";
-    } else if (requiresTrustedPacket && missingRequiredKeys.length > 0) {
-        qualityFailureCode = QUALITY_FAILURE_CODES.PARTIAL_PACKET_OVERREACH;
-        qualityFailureReason = `missing_required_fields:${missingRequiredKeys.join(",")}`;
-    } else if (questionType === "market" && inferenceMode === "snapshot_only") {
-        qualityFailureCode = QUALITY_FAILURE_CODES.SNAPSHOT_AS_TRANSITION;
-        qualityFailureReason = "market_query_without_transition_evidence";
+    if (qualityFailureCode !== QUALITY_FAILURE_CODES.OK) {
+        console.warn("[Live Guardrail] Live answer blocked", {
+            matchId: trustedPacketMatchId,
+            code: qualityFailureCode,
+            reason: qualityFailureReason,
+            questionType,
+            modeForPrompt,
+            isLive,
+        });
     }
 
     const marketPhase = getMarketPhase(activeContext);
@@ -1390,6 +1523,16 @@ export async function POST(req) {
                 ]);
 
                 if (hardStopFailureCodes.has(qualityFailureCode)) {
+                    console.warn("[Live Guardrail] Fallback response issued", {
+                        match_id: trustedPacketMatchId,
+                        code: qualityFailureCode,
+                        questionType,
+                        reason: qualityFailureReason,
+                        missingRequiredKeys,
+                        isLive,
+                        requiresTrustedPacket,
+                        packetIsStale,
+                    });
                     if (questionType === "market") {
                         const fallbackMarketRead = buildDeterministicMarketFallbackAnswer({
                             userQuery,
@@ -1405,6 +1548,7 @@ export async function POST(req) {
                                 failureCode: qualityFailureCode,
                                 questionType,
                                 freshnessSeconds: trustedFreshnessSeconds,
+                                reason: qualityFailureReason,
                             });
                         }
                     } else {
@@ -1412,6 +1556,7 @@ export async function POST(req) {
                             failureCode: qualityFailureCode,
                             questionType,
                             freshnessSeconds: trustedFreshnessSeconds,
+                            reason: qualityFailureReason,
                         });
                     }
                     safeWrite({ type: "text", content: fullText });
