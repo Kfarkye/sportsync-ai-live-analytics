@@ -178,7 +178,7 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
 
   const styles = `
   .drip-live, .drip-live * { margin: 0; padding: 0; box-sizing: border-box; }
-  .drip-live { font-family: var(--sans); background: var(--bg); color: var(--text-primary); -webkit-font-smoothing: antialiased; line-height: 1.6; }
+  .drip-live { font-family: var(--sans); background: var(--bg); color: var(--text-primary); -webkit-font-smoothing: antialiased; line-height: 1.6; height: 100%; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
   .drip-live .top-bar { max-width: 900px; margin: 0 auto; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
   .drip-live .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: var(--text-secondary); text-decoration: none; }
   .drip-live .back-link:hover { color: var(--text-primary); }
