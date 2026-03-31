@@ -1,14 +1,9 @@
-// ============================================================================
-// src/components/match/MatchDetails.tsx
-// ============================================================================
-//
-//  THE DRIP — MATCH INTELLIGENCE HUB (BROADCAST MASTER)
-//  AESTHETIC: SOTA Consumer Sports App • Apple Sports Clarity • Yahoo Density
-//  ARCHITECTURE: Progressive SWR Engine • Decoupled Streams • Zero-Block UI
-//  PERFORMANCE: CPU-Aware Polling • Hash-Memoization • GPU Accelerated
-//  AUDIT VERDICT: ⚡ Zero-Race Condition • ✅ 100% Type Strict • 🔒 Secure
-//
-// ============================================================================
+// MatchDetails
+// - Primary match overlay for all sports.
+// - Basketball routes to LiveBasketballMatchDetails.
+// - Non-basketball uses tabbed layout + ESPN/Supabase polling.
+// - Scroll contract: sticky header, body scroll container inside overlay.
+// - Keep data fetch + layout in sync with liveState schema.
 
 import React, {
   useState,
