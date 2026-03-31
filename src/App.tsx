@@ -21,6 +21,7 @@ const SportsyncApiLandingPage = lazy(() => import('./pages/SportsyncApiLandingPa
 const SportsyncApiDocsPage = lazy(() => import('./pages/SportsyncApiDocsPage'));
 const ApiKeyWelcomePage = lazy(() => import('./pages/ApiKeyWelcomePage'));
 const WorldCupGroupPage = lazy(() => import('./pages/WorldCupGroupPage'));
+const BullpensPage = lazy(() => import('./pages/BullpensPage'));
 
 const App: FC = () => {
   const isSwDebugDisabled = typeof window !== 'undefined'
@@ -70,6 +71,7 @@ const App: FC = () => {
                 <Route path="/sportsync" element={<SportsyncApiLandingPage />} />
                 <Route path="/sportsync/docs" element={<SportsyncApiDocsPage />} />
                 <Route path="/welcome" element={<ApiKeyWelcomePage />} />
+                <Route path="/bullpens" element={<BullpensPage />} />
                 <Route path="/world-cup-2026" element={<Navigate to="/world-cup-2026/groups/group-b" replace />} />
                 <Route path="/world-cup-2026/groups/:groupSlug" element={<WorldCupGroupPage />} />
                 <Route path="*" element={<AppShell />} />
