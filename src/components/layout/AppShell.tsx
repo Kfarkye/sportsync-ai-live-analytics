@@ -141,7 +141,7 @@ const AppShell: FC = () => {
         // Layout
         'min-h-screen h-(--vvh,100vh) relative flex flex-col antialiased',
         // Yahoo-inspired shell surface
-        'bg-[#F4F6FF] text-slate-900 font-sans kalshi-shell',
+        'bg-slate-50 text-slate-900 font-sans kalshi-shell',
         // selection rule
         'selection:bg-blue-300/30'
       )}
@@ -276,8 +276,7 @@ const AppShell: FC = () => {
           </AnimatePresence>
         </div>
 
-        {/* Global Legal & Responsibility Footer (inside scroll context) */}
-        <footer className={cn('w-full border-t border-slate-200/80 bg-linear-to-b from-transparent to-[#EFF6FF]/80')}>
+        <footer className={cn('w-full border-t border-slate-200/80 bg-linear-to-b from-transparent to-slate-100/50')}>
           <div className="max-w-7xl mx-auto px-7 py-9 md:py-10">
             <div className="flex flex-col items-center text-center gap-3 opacity-80">
               <span className="text-[11px] text-slate-600 max-w-2xl">

@@ -175,14 +175,14 @@ export const UnifiedHeader: FC = () => {
                                                 onClick={() => handleSportTab(sport)}
                                                 className={cn(
                                                     "relative px-2.5 py-[6px] rounded-md text-[12.5px] tracking-tight transition-colors select-none",
-                                                    isActive ? "font-semibold text-[#312E81]" : "font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50",
+                                                    isActive ? "font-bold text-white shadow-sm" : "font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100",
                                                     focusRing
                                                 )}
                                             >
                                             {isActive && (
                                                 <MotionSpan
                                                     layoutId="sport-active-pill"
-                                                    className="absolute inset-0 rounded-md bg-[#EFF6FF] ring-1 ring-[#BFDBFE]"
+                                                    className="absolute inset-0 rounded-md bg-slate-800"
                                                     transition={ESSENCE.transition.spring}
                                                 />
                                             )}
@@ -217,8 +217,8 @@ export const UnifiedHeader: FC = () => {
                             className={cn(
                                 "h-11 min-w-11 flex items-center gap-1.5 px-4 rounded-lg text-[11px] font-semibold tracking-[0.08em] transition-all active:scale-95 select-none border",
                                 activeView === 'LIVE'
-                                    ? "kalshi-live-btn-active"
-                                    : "border-[#106856] bg-linear-to-b from-[#1D9E75] to-[#177F60] text-white shadow-[0_10px_24px_-14px_rgba(29,158,117,0.65)] hover:brightness-105",
+                                    ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400",
                                 focusRing
                             )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
@@ -226,8 +226,8 @@ export const UnifiedHeader: FC = () => {
                             LIVE
                             {hasActiveLiveGames ? (
                                 <span className="relative inline-flex h-2 w-2 items-center justify-center" aria-label={`${liveGamesCount} live games`}>
-                                    <span className="absolute inline-flex h-2 w-2 rounded-full bg-emerald-400/40 animate-ping [animation-duration:2s]" />
-                                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                                    <span className="absolute inline-flex h-2 w-2 rounded-full bg-rose-400/40 animate-ping [animation-duration:2s]" />
+                                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-500" />
                                 </span>
                             ) : null}
                         </button>
@@ -280,16 +280,7 @@ export const UnifiedHeader: FC = () => {
                                         className={`h-11 flex items-center gap-2 max-[390px]:gap-1.5 px-3.5 max-[390px]:px-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors select-none ${focusRing}`}
                                     >
                                         <span className="text-[13px] max-[390px]:text-[12px] font-semibold text-slate-900">{dateDisplay.label}</span>
-                                        {dateDisplay.isToday && (
-                                            <span
-                                                className="text-[9.5px] font-bold tracking-[0.06em] text-[#1E40AF] px-1.5 py-px rounded bg-[#EFF6FF]"
-                                                style={{
-                                                    fontFamily: "ui-monospace, SFMono-Regular, monospace",
-                                                }}
-                                            >
-                                                TODAY
-                                            </span>
-                                        )}
+
                                         <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="#64748B" strokeWidth="1.5"><path d="M2 4L5 7L8 4" /></svg>
                                     </button>
 
@@ -315,8 +306,8 @@ export const UnifiedHeader: FC = () => {
                                                 className={cn(
                                                     "h-11 px-3 rounded-[8px] text-[11px] transition-all select-none",
                                                     isSelected
-                                                        ? "text-[#1D4ED8] bg-[#EFF6FF] ring-1 ring-[#BFDBFE]"
-                                                        : "text-slate-500 hover:text-[#1D4ED8] hover:bg-[#EFF6FF]",
+                                                        ? "text-white bg-slate-800 shadow-sm font-semibold"
+                                                        : "text-slate-500 font-medium hover:text-slate-900 hover:bg-slate-100",
                                                     focusRing
                                                 )}
                                                 aria-current={isSelected ? 'date' : undefined}
@@ -347,7 +338,7 @@ export const UnifiedHeader: FC = () => {
                                                 aria-label={`${labels[tab]} games`}
                                                 className={cn(
                                                     "relative h-11 min-w-[72px] px-3 max-[390px]:px-2.5 rounded-md text-[11px] max-[390px]:text-[10px] font-semibold tracking-[0.02em] transition-colors",
-                                                    isActive ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
+                                                    isActive ? "text-slate-900 bg-white shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50",
                                                     focusRing
                                                 )}
                                                 style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
@@ -375,7 +366,7 @@ export const UnifiedHeader: FC = () => {
                                             onClick={() => setLiveLayout('LIST')}
                                             className={cn(
                                                 "w-11 h-11 flex items-center justify-center rounded-md transition-colors",
-                                                liveLayout === 'LIST' ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
+                                                liveLayout === 'LIST' ? "text-slate-900 bg-white shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50",
                                                 focusRing
                                             )}
                                         >
@@ -387,7 +378,7 @@ export const UnifiedHeader: FC = () => {
                                             onClick={() => setLiveLayout('GRID')}
                                             className={cn(
                                                 "w-11 h-11 flex items-center justify-center rounded-md transition-colors",
-                                                liveLayout === 'GRID' ? "text-[#1D4ED8] bg-[#EFF6FF] shadow-sm" : "text-slate-500 hover:text-slate-700",
+                                                liveLayout === 'GRID' ? "text-slate-900 bg-white shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50",
                                                 focusRing
                                             )}
                                         >

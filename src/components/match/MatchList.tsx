@@ -362,44 +362,7 @@ const PropRow = memo(({
 });
 PropRow.displayName = 'PropRow';
 
-// ============================================================================
-// PREMIUM PRO CTA (Extracted for reuse)
-// ============================================================================
-
-const PremiumProCTA = memo(({ onPricing, className }: { onPricing: () => void; className?: string }) => (
-    <section className={cn(
-        "relative rounded-2xl bg-[linear-gradient(145deg,#ffffff,#f2fbf7)] p-4 max-[390px]:p-3.5 overflow-hidden shadow-[0_10px_24px_-12px_rgba(16,34,58,0.22)] ring-1 ring-[#9ED8C5]",
-        className
-    )}>
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[#1D9E75] to-transparent opacity-70" />
-        <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-2.5">
-                <div className="flex items-center justify-center w-[20px] h-[20px] rounded bg-[#1D9E75] text-white shadow-[0_8px_14px_-8px_rgba(29,158,117,0.45)]">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                    </svg>
-                </div>
-                <h3 className="font-mono text-[10px] font-bold tracking-[0.14em] text-[#0b5a45] uppercase">
-                    Pro Access
-                </h3>
-            </div>
-            <p className="text-[12px] max-[390px]:text-[11.5px] text-slate-600 leading-relaxed mb-3.5 max-[390px]:mb-3 font-medium">
-                Unlock deep AI prop analysis, L5 hit rates, and real-time line movement alerts.
-            </p>
-            <button
-                type="button"
-                onClick={onPricing}
-                className="group/btn w-full h-[38px] max-[390px]:h-[36px] bg-[#1D9E75] text-white text-[12px] max-[390px]:text-[11px] font-bold rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-[#9ED8C5] flex items-center justify-center gap-2 shadow-sm hover:bg-[#177f60]"
-            >
-                Upgrade
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover/btn:translate-x-0.5 text-blue-100 group-hover/btn:text-white">
-                    <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
-                </svg>
-            </button>
-        </div>
-    </section>
-));
-PremiumProCTA.displayName = 'PremiumProCTA';
+// PremiumProCTA — removed
 
 // ============================================================================
 // SKELETON
@@ -478,11 +441,10 @@ const LeagueGroup = memo(({
                 onClick={toggle}
                 className={cn(
                     'flex items-center justify-between w-full h-11 px-3 sm:px-4 max-[390px]:px-2.5 [-webkit-tap-highlight-color:transparent]',
-                    // Keep group headers static so ordering never shifts behind match rows.
-                    'bg-white backdrop-blur-sm border-b border-[#D9E2F2] z-20',
-                    'transition-colors hover:bg-[#F8FFFB]',
+                    'bg-white z-20',
+                    'transition-colors hover:bg-slate-50',
                     'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300',
-                    isExpanded ? 'border border-[#D9E2F2] border-b-[#D9E2F2] rounded-t-xl shadow-[0_12px_24px_-20px_rgba(16,34,58,0.26)]' : 'border border-[#D9E2F2] border-b-transparent rounded-xl shadow-[0_12px_24px_-20px_rgba(16,34,58,0.26)]'
+                    isExpanded ? 'rounded-t-xl border-b border-slate-200' : 'rounded-xl'
                 )}
                 aria-expanded={isExpanded}
                 aria-controls={`league-content-${leagueId}`}
@@ -505,7 +467,7 @@ const LeagueGroup = memo(({
                     <motion.svg
                     xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                     fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                        className="text-[#67BFA2]" animate={{ rotate: isExpanded ? 0 : -90 }} transition={{ duration: 0.2 }}
+                        className="text-slate-400" animate={{ rotate: isExpanded ? 0 : -90 }} transition={{ duration: 0.2 }}
                     >
                     <path d="m6 9 6 6 6-6" />
                 </motion.svg>
@@ -522,10 +484,10 @@ const LeagueGroup = memo(({
                         transition={prefersReducedMotion ? { duration: 0 } : ACCORDION_SPRING}
                         className={cn(
                             'overflow-hidden relative z-0 -mt-px',
-                            'bg-white ring-1 ring-[#D9E2F2] rounded-b-xl shadow-[0_14px_28px_-20px_rgba(16,34,58,0.22)]'
+                            'bg-white rounded-b-xl'
                         )}
                     >
-                        <div ref={measureRef} className="flex flex-col gap-2 sm:gap-2.5 p-2 sm:p-2.5">
+                        <div ref={measureRef} className="flex flex-col divide-y divide-slate-100 px-0">
                             {enrichedMatches.map(({ match, isPinned, isLive, isFinal }) => (
                                 <OptimizedMatchRow
                                     key={match.id}
@@ -891,7 +853,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                     </section>
                                 )}
 
-                                <PremiumProCTA onPricing={handlePricing} />
+                                {/* PremiumProCTA hidden */}
                             </div>
                         </div>
 
@@ -952,8 +914,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                 </section>
                             )}
 
-                            {/* Pro CTA — Obsidian gradient */}
-                            <PremiumProCTA onPricing={handlePricing} />
+                            {/* PremiumProCTA hidden */}
                         </aside>
 
                     </div>

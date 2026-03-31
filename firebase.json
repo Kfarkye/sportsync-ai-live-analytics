@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "public",
+    "public": "dist",
     "cleanUrls": true,
     "ignore": [
       "firebase.json",
@@ -9,15 +9,27 @@
     ],
     "headers": [
       {
-        "source": "props",
+        "source": "/assets/**",
         "headers": [
-          { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
         ]
       },
       {
-        "source": "props/**",
+        "source": "/icons/**",
         "headers": [
-          { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
+          { "key": "Cache-Control", "value": "public, max-age=86400, immutable" }
+        ]
+      },
+      {
+        "source": "/screenshots/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400, immutable" }
+        ]
+      },
+      {
+        "source": "/manifest.webmanifest",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" }
         ]
       },
       {
@@ -27,17 +39,29 @@
         ]
       },
       {
-        "source": "props/evidence-pack-fallback.json",
-        "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=60" }
-        ]
-      },
-      {
         "source": "**",
         "headers": [
           { "key": "X-Frame-Options", "value": "DENY" },
           { "key": "X-Content-Type-Options", "value": "nosniff" }
         ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/api/chat",
+        "function": "chat"
+      },
+      {
+        "source": "/api/espn-proxy",
+        "function": "espnProxy"
+      },
+      {
+        "source": "/hub",
+        "destination": "/hub.html"
+      },
+      {
+        "source": "**",
+        "destination": "/app.html"
       }
     ]
   },
@@ -49,3 +73,4 @@
     }
   ]
 }
+

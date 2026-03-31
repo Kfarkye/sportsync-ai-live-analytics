@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>SportsSync | Today's Board</title>
+  <meta name="description" content="Today's NBA board — player props, ATS & O/U trends, game matchups, and referee stats." />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --text-primary: #1A1A18;
+      --text-secondary: #6B6B63;
+      --text-tertiary: #9B9B91;
+      --accent: #C85A3A;
+      --border: #E8E7E3;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text-primary);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(250, 250, 248, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .nav-brand {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      font-size: 15px;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 14px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .nav-links a:hover { color: var(--text-primary); }
+
+    .board {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 44px 24px 80px;
+    }
+
+    .board-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .tile {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      background: var(--surface);
+      padding: 28px 24px;
+      position: relative;
+      transition: background 0.2s;
+    }
+
+    .tile:hover { background: #FDFCFA; }
+
+    .tile-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .tile-title {
+      font-family: 'Source Serif 4', serif;
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      margin-bottom: 8px;
+    }
+
+    .tile-copy {
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      max-width: 320px;
+    }
+
+    .tile-arrow {
+      position: absolute;
+      top: 28px;
+      right: 24px;
+      width: 20px;
+      height: 20px;
+      color: var(--text-tertiary);
+      transition: transform 0.2s, color 0.2s;
+    }
+
+    .tile:hover .tile-arrow {
+      transform: translateX(3px);
+      color: var(--accent);
+    }
+
+    footer {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer span {
+      font-size: 13px;
+      color: var(--text-tertiary);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+
+    footer a {
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+
+    footer a:hover { color: var(--text-primary); }
+
+    @media (max-width: 700px) {
+      .nav-links { display: none; }
+      .board { padding: 28px 20px 56px; }
+      .board-grid { grid-template-columns: 1fr; }
+      .tile { padding: 22px 18px; }
+      .tile-arrow { top: 22px; right: 18px; }
+      .tile-title { font-size: 22px; }
+      footer { padding: 20px; }
+      .footer-links { gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-brand" href="/">SportsSync</a>
+    <ul class="nav-links">
+      <li><a href="/props">Props</a></li>
+      <li><a href="/trends/">Trends</a></li>
+      <li><a href="/pregame">Matchups</a></li>
+      <li><a href="https://ref-tendencies.web.app/">Referees</a></li>
+    </ul>
+  </nav>
+
+  <section class="board">
+    <div class="board-label">The Grid</div>
+    <div class="board-grid">
+      <a class="tile" href="/props">
+        <svg class="tile-arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+        <div class="tile-label">Player Props</div>
+        <div class="tile-title">NBA PLAYER PROPS</div>
+        <p class="tile-copy">Prop odds and player trends.</p>
+      </a>
+
+      <a class="tile" href="/trends/">
+        <svg class="tile-arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+        <div class="tile-label">Team Trends</div>
+        <div class="tile-title">ATS &amp; O/U TRENDS</div>
+        <p class="tile-copy">ATS records and totals trends.</p>
+      </a>
+
+      <a class="tile" href="/pregame">
+        <svg class="tile-arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+        <div class="tile-label">Pregame</div>
+        <div class="tile-title">GAME MATCHUPS</div>
+        <p class="tile-copy">Odds, matchups, and trends.</p>
+      </a>
+
+      <a class="tile" href="/bullpens">
+        <svg class="tile-arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+        <div class="tile-label">MLB</div>
+        <div class="tile-title">BULLPENS</div>
+        <p class="tile-copy">Bullpen risk with weather and late-inning stress.</p>
+      </a>
+
+      <a class="tile" href="https://ref-tendencies.web.app/">
+        <svg class="tile-arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+        <div class="tile-label">Officials</div>
+        <div class="tile-title">NBA REFEREES</div>
+        <p class="tile-copy">Ref betting stats and totals trends.</p>
+      </a>
+
+      <a class="tile" href="https://thedrip.bet/" target="_blank" rel="noopener noreferrer">
+        <svg class="tile-arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+        <div class="tile-label">Live Board</div>
+        <div class="tile-title">THEDRIP.BET</div>
+        <p class="tile-copy">Live slate board with in-game state and market context.</p>
+      </a>
+
+      <a class="tile" href="https://thedrip.to/" target="_blank" rel="noopener noreferrer">
+        <svg class="tile-arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+        <div class="tile-label">World Cup</div>
+        <div class="tile-title">THEDRIP.TO</div>
+        <p class="tile-copy">Live World Cup board with match state and market context.</p>
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <span>&copy; 2026 SportsSync</span>
+    <div class="footer-links">
+      <a href="https://sportsync-api.vercel.app/docs/index.html">API Docs</a>
+      <a href="mailto:api@sportsync.io">Contact</a>
+    </div>
+  </footer>
+  <script>
+    // Kill stale SPA service workers so the hub loads from network
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(r) { r.unregister(); });
+      });
+      caches.keys().then(function(names) {
+        names.forEach(function(n) { caches.delete(n); });
+      });
+    }
+  </script>
+</body>
+</html>
