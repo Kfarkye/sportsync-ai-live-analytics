@@ -46,9 +46,10 @@
    ========================================================================== */
 
 html {
-  height: 100%;
+  height: auto;
+  min-height: 100vh;
   overflow-x: hidden;
-  overflow-y: scroll;
+  overflow-y: auto;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   -webkit-text-size-adjust: 100%;
@@ -57,7 +58,8 @@ html {
 }
 
 body {
-  min-height: 100%;
+  height: auto;
+  min-height: 100vh;
   margin: 0;
   font-family: var(--ss-font-body, 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
   font-variant-numeric: tabular-nums;
@@ -67,8 +69,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
-  overscroll-behavior: none;
-  overscroll-behavior-y: none;
+  overflow-y: auto;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   position: relative;
@@ -77,13 +78,11 @@ body {
 #root {
   width: 100%;
   min-height: 100vh;
-  height: 100dvh;
-  height: var(--vvh, 100vh);
+  height: auto;
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 /* ==========================================================================

@@ -102,22 +102,6 @@ const AppShell: FC = () => {
   }, [toggleCmdk, selectedMatch, setSelectedMatch, closeAllOverlays]);
 
   useEffect(() => {
-    if (!selectedMatch) return undefined;
-    const prevBodyOverflow = document.body.style.overflow;
-    const prevHtmlOverflow = document.documentElement.style.overflow;
-    const root = document.getElementById('root');
-    const prevRootOverflow = root?.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-    if (root) root.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prevBodyOverflow;
-      document.documentElement.style.overflow = prevHtmlOverflow;
-      if (root) root.style.overflow = prevRootOverflow || '';
-    };
-  }, [selectedMatch]);
-
-  useEffect(() => {
     if (defaultSportResolved || persistedSportExists || isLoading) return;
     if (!matches.length) {
       setDefaultSportResolved(true);
@@ -155,7 +139,7 @@ const AppShell: FC = () => {
     <div
       className={cn(
         // Layout
-        'min-h-screen h-(--vvh,100vh) relative flex flex-col antialiased',
+        'min-h-screen relative flex flex-col antialiased',
         // Yahoo-inspired shell surface
         'bg-[var(--ss-bg,#FAFAF8)] text-[var(--ss-text-primary,#1A1A18)] font-sans kalshi-shell',
         // selection rule
@@ -317,19 +301,14 @@ const AppShell: FC = () => {
             exit={prefersReducedMotion ? { opacity: 0 } : { y: '100%' }}
             transition={prefersReducedMotion ? { duration: 0.15 } : { type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
             className={cn(
-              'fixed inset-0 z-[60] flex flex-col h-screen max-h-screen h-dvh max-h-dvh overflow-hidden',
+              'fixed inset-0 z-[60] flex flex-col overflow-y-auto overflow-x-hidden overscroll-contain',
               ESSENCE.tw.surface.subtle, // bg-slate-50
               'kalshi-shell'
             )}
           >
             {/* Sheet Handle for Mobile */}
             <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-[70] md:hidden" />
-            <div
-              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain"
-              style={{ WebkitOverflowScrolling: 'touch' }}
-            >
-              <MatchDetails match={selectedMatch} matches={filteredMatches} onSelectMatch={setSelectedMatch} onBack={() => setSelectedMatch(null)} />
-            </div>
+            <MatchDetails match={selectedMatch} matches={filteredMatches} onSelectMatch={setSelectedMatch} onBack={() => setSelectedMatch(null)} />
           </MotionDiv>
         )}
       </AnimatePresence>
