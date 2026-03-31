@@ -178,9 +178,8 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
 
   const styles = `
   .drip-live, .drip-live * { margin: 0; padding: 0; box-sizing: border-box; }
-  .drip-live { font-family: var(--sans); background: var(--bg); color: var(--text-primary); -webkit-font-smoothing: antialiased; line-height: 1.6; height: 100vh; max-height: 100vh; min-height: 100vh; height: 100dvh; max-height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+  .drip-live { font-family: var(--sans); background: var(--bg); color: var(--text-primary); -webkit-font-smoothing: antialiased; line-height: 1.6; min-height: 100%; display: flex; flex-direction: column; }
   .drip-live .top-bar { max-width: 900px; margin: 0 auto; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 30; background: var(--bg); border-bottom: 1px solid var(--border); }
-  .drip-live .body-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .drip-live .layout-stamp { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
   .drip-live .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: var(--text-secondary); text-decoration: none; }
   .drip-live .back-link:hover { color: var(--text-primary); }
@@ -340,7 +339,6 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
         <span className="layout-stamp">Layout_V2</span>
       </div>
 
-      <div className="body-scroll">
       <div className="scoreboard">
         <div className="scoreboard-card">
           <div className="scoreboard-main">
@@ -696,7 +694,6 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
         <span>&copy; 2026 The Drip</span>
         <a href="https://thedrip.bet" rel="noreferrer">thedrip.bet</a>
       </footer>
-      </div>
     </div>
   );
 };
