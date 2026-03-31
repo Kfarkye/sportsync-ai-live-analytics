@@ -301,7 +301,7 @@ const AppShell: FC = () => {
             exit={prefersReducedMotion ? { opacity: 0 } : { y: '100%' }}
             transition={prefersReducedMotion ? { duration: 0.15 } : { type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
             className={cn(
-              'fixed inset-0 z-[60] flex flex-col h-dvh max-h-dvh overflow-hidden',
+              'fixed inset-0 z-[60] flex flex-col h-screen max-h-screen h-dvh max-h-dvh overflow-hidden',
               ESSENCE.tw.surface.subtle, // bg-slate-50
               'kalshi-shell'
             )}
