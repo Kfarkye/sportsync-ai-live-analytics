@@ -198,7 +198,7 @@ const LiveDashboard: React.FC<LiveDashboardProps> = ({ matches, onSelectMatch, i
 
                     {/* Live Forecast Panel - Shows first live match's forecast */}
                     {live.length > 0 ? (
-                        <div className="overflow-hidden rounded-[20px] border border-slate-200 shadow-[0_20px_38px_-28px_rgba(30,64,175,0.28)] bg-white">
+                        <div className="overflow-hidden rounded-lg border border-[#E8E7E3] bg-white">
                             <LiveTotalCard match={live[0]} />
                         </div>
                     ) : null}

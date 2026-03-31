@@ -479,10 +479,9 @@ const LeagueGroup = memo(({
                 className={cn(
                     'flex items-center justify-between w-full h-11 px-3 sm:px-4 max-[390px]:px-2.5 [-webkit-tap-highlight-color:transparent]',
                     // Keep group headers static so ordering never shifts behind match rows.
-                    'bg-white backdrop-blur-sm border-b border-[#E8E7E3] z-20',
-                    'transition-colors hover:bg-[#FDFCFA]',
+                    'bg-transparent z-20',
+                    'transition-colors hover:bg-[#F5F4F0] rounded-lg',
                     'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C85A3A]/25',
-                    isExpanded ? 'border border-[#E8E7E3] border-b-[#E8E7E3] rounded-t-lg' : 'border border-[#E8E7E3] border-b-transparent rounded-lg'
                 )}
                 aria-expanded={isExpanded}
                 aria-controls={`league-content-${leagueId}`}
@@ -522,7 +521,7 @@ const LeagueGroup = memo(({
                         transition={prefersReducedMotion ? { duration: 0 } : ACCORDION_SPRING}
                         className={cn(
                             'overflow-hidden relative z-0 -mt-px',
-                            'bg-[#FAFAF8] ring-1 ring-[#E8E7E3] rounded-b-lg'
+                            'bg-transparent rounded-b-lg'
                         )}
                     >
                         <div ref={measureRef} className="flex flex-col gap-2 sm:gap-2.5 p-2 sm:p-2.5">

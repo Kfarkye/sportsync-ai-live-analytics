@@ -148,10 +148,9 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
       }}
       aria-label={`${match.awayTeam?.name || 'Away'} at ${match.homeTeam?.name || 'Home'}`}
       className={cn(
-        'group relative bg-white rounded-lg border border-[#E8E7E3] p-4 cursor-pointer select-none',
-        'transition-colors duration-150 hover:bg-[#FDFCFA]',
+        'group relative bg-white rounded-lg p-4 cursor-pointer select-none',
+        'transition-colors duration-150 hover:bg-[#F5F4F0]',
         'focus-visible:ring-2 focus-visible:ring-[#C85A3A]/25 focus-visible:outline-none',
-        isSelected && 'border-[#C85A3A]/20'
       )}
     >
       {/* ── Header: Status · League ─────────────────────────────── */}
@@ -243,7 +242,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
 
       {/* ── Footer: Odds Line ───────────────────────────────────── */}
       {footer && !showScores && (
-        <div className="mt-3 pt-3 border-t border-[#E8E7E3]">
+        <div className="mt-3 pt-1">
           <span className="font-mono text-[12px] text-[#9B9B91] tabular-nums">{footer}</span>
         </div>
       )}

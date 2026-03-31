@@ -215,10 +215,10 @@ export const UnifiedHeader: FC = () => {
                             aria-label={activeView === 'LIVE' ? 'Switch to feed view' : 'Switch to live view'}
                             onClick={handleLiveClick}
                             className={cn(
-                                "h-11 min-w-11 flex items-center gap-1.5 px-4 rounded-lg text-[11px] font-semibold tracking-[0.08em] transition-all active:scale-95 select-none border",
+                                "h-11 min-w-11 flex items-center gap-1.5 px-3 rounded-lg text-[11px] font-bold tracking-[0.08em] uppercase transition-all active:scale-95 select-none",
                                 activeView === 'LIVE'
-                                    ? "border-[#A04830] bg-[#C85A3A] text-white shadow-[0_10px_24px_-14px_rgba(200,90,58,0.5)]"
-                                    : "border-[#A04830] bg-linear-to-b from-[#C85A3A] to-[#B04E32] text-white shadow-[0_10px_24px_-14px_rgba(200,90,58,0.65)] hover:brightness-105",
+                                    ? "text-[#1A1A18] border border-[#E8E7E3] bg-[#F5F4F0]"
+                                    : "text-[#9B9B91] border border-transparent hover:text-[#1A1A18]",
                                 focusRing
                             )}
                             style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
@@ -226,8 +226,8 @@ export const UnifiedHeader: FC = () => {
                             LIVE
                             {hasActiveLiveGames ? (
                                 <span className="relative inline-flex h-2 w-2 items-center justify-center" aria-label={`${liveGamesCount} live games`}>
-                                    <span className="absolute inline-flex h-2 w-2 rounded-full bg-white/40 animate-ping [animation-duration:2s]" />
-                                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white/90" />
+                                    <span className="absolute inline-flex h-2 w-2 rounded-full bg-red-500/30 animate-ping [animation-duration:2s]" />
+                                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
                                 </span>
                             ) : null}
                         </button>
@@ -282,7 +282,7 @@ export const UnifiedHeader: FC = () => {
                                         <span className="text-[13px] max-[390px]:text-[12px] font-semibold text-slate-900">{dateDisplay.label}</span>
                                         {dateDisplay.isToday && (
                                             <span
-                                                className="text-[9.5px] font-bold tracking-[0.06em] text-[#C85A3A] px-1.5 py-px rounded bg-[#FDF2EE]"
+                                                className="text-[9.5px] font-bold tracking-[0.06em] text-[#1A1A18] px-1.5 py-px rounded bg-[#F5F4F0]"
                                                 style={{
                                                     fontFamily: "ui-monospace, SFMono-Regular, monospace",
                                                 }}

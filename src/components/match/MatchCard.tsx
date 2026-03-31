@@ -80,8 +80,8 @@ const MatchCard: React.FC<MatchCardProps> = ({
             whileTap={{ scale: 0.985 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             className={cn(
-                'relative cursor-pointer bg-white rounded-lg border border-[#E8E7E3] p-4 select-none',
-                'transition-colors duration-150 hover:bg-[#FDFCFA]',
+                'relative cursor-pointer bg-white rounded-lg p-4 select-none',
+                'transition-colors duration-150 hover:bg-[#F5F4F0]',
             )}
         >
             {/* Status */}
