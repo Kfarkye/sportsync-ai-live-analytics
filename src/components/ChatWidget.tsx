@@ -1586,9 +1586,9 @@ FilmGrain.displayName = "FilmGrain";
 
 const OrbitalRadar = memo(() => (
   <div className="relative w-4 h-4 flex items-center justify-center">
-    <div className="absolute w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+    <div className="absolute w-1 h-1 bg-[#1A1A18] rounded-full shadow-[0_0_8px_rgba(26,26,24,0.4)]" />
     <motion.div
-      className="absolute inset-0 border border-emerald-500/30 rounded-full"
+      className="absolute inset-0 border border-[#1A1A18]/20 rounded-full"
       animate={{ scale: [0.8, 1.8], opacity: [1, 0] }}
       transition={{ duration: 1.2, repeat: Infinity, ease: "easeOut" }}
     />
@@ -1601,10 +1601,10 @@ export const NeuralPulse: FC<{ active?: boolean; size?: number; className?: stri
   if (!active) return <span className={cn("inline-block rounded-full bg-zinc-700", className)} style={{ width: s, height: s }} />;
   return (
     <span className={cn("inline-flex items-center justify-center relative", className)} style={{ width: s, height: s }}>
-      <span className="absolute inset-0 rounded-full bg-emerald-500/20" />
-      <span className="absolute rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.9)]" style={{ width: s / 2.5, height: s / 2.5 }} />
+      <span className="absolute inset-0 rounded-full bg-[#1A1A18]/10" />
+      <span className="absolute rounded-full bg-[#1A1A18] shadow-[0_0_10px_rgba(26,26,24,0.4)]" style={{ width: s / 2.5, height: s / 2.5 }} />
       <motion.span
-        className="absolute inset-0 rounded-full border border-emerald-500/35"
+        className="absolute inset-0 rounded-full border border-[#1A1A18]/20"
         animate={{ scale: [0.9, 1.9], opacity: [0.9, 0] }}
         transition={{ duration: 1.25, repeat: Infinity, ease: "easeOut" }}
       />
@@ -1629,7 +1629,7 @@ const ScrollAnchor: FC<{ visible: boolean; onClick: () => void }> = memo(({ visi
         )}
         aria-label="Scroll to latest messages"
       >
-        <ArrowDown size={10} className="text-emerald-400" />
+        <ArrowDown size={10} className="text-[#9B9B91]" />
         <span className="text-[10px] font-medium text-slate-600 tracking-wide uppercase">Latest</span>
       </motion.button>
     )}
@@ -1677,7 +1677,7 @@ const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
               CHAT_SURFACES.textGlass,
             )}
             >
-            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]" />
+            <div className="w-1.5 h-1.5 bg-[#1A1A18] rounded-full shadow-[0_0_6px_rgba(26,26,24,0.3)]" />
             <span className="text-[12px] font-medium text-slate-900 tracking-tight">{toast.message}</span>
           </motion.div>
         )}

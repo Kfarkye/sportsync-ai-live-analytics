@@ -890,7 +890,6 @@ const MatchList: React.FC<MatchListProps> = ({
                                     </section>
                                 )}
 
-                                <PremiumProCTA onPricing={handlePricing} />
                             </div>
                         </div>
 
@@ -951,8 +950,6 @@ const MatchList: React.FC<MatchListProps> = ({
                                 </section>
                             )}
 
-                            {/* Pro CTA — Obsidian gradient */}
-                            <PremiumProCTA onPricing={handlePricing} />
                         </aside>
 
                     </div>
