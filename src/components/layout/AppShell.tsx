@@ -105,11 +105,15 @@ const AppShell: FC = () => {
     if (!selectedMatch) return undefined;
     const prevBodyOverflow = document.body.style.overflow;
     const prevHtmlOverflow = document.documentElement.style.overflow;
+    const root = document.getElementById('root');
+    const prevRootOverflow = root?.style.overflow;
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
+    if (root) root.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = prevBodyOverflow;
       document.documentElement.style.overflow = prevHtmlOverflow;
+      if (root) root.style.overflow = prevRootOverflow || '';
     };
   }, [selectedMatch]);
 
