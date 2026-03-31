@@ -179,45 +179,45 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
   const styles = `
   .drip-live, .drip-live * { margin: 0; padding: 0; box-sizing: border-box; }
   .drip-live { font-family: var(--sans); background: var(--bg); color: var(--text-primary); -webkit-font-smoothing: antialiased; line-height: 1.6; height: 100%; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
-  .drip-live .top-bar { max-width: 900px; margin: 0 auto; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+  .drip-live .top-bar { max-width: 700px; margin: 0 auto; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
   .drip-live .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: var(--text-secondary); text-decoration: none; }
   .drip-live .back-link:hover { color: var(--text-primary); }
   .drip-live .layout-stamp { font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-tertiary); border: 1px solid var(--border); padding: 4px 8px; border-radius: 6px; background: var(--surface); }
-  .drip-live .scoreboard { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+  .drip-live .scoreboard { max-width: 700px; margin: 0 auto; padding: 0 20px; }
   .drip-live .scoreboard-card { background: var(--scoreboard-bg); border-radius: 12px 12px 0 0; overflow: hidden; }
-  .drip-live .scoreboard-main { padding: 28px 32px 16px; display: flex; align-items: center; justify-content: center; gap: 40px; }
-  .drip-live .sb-team { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 120px; }
-  .drip-live .sb-logo { width: 56px; height: 56px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--scoreboard-text); overflow: hidden; }
+  .drip-live .scoreboard-main { padding: 20px 24px 14px; display: flex; align-items: center; justify-content: center; gap: 32px; }
+  .drip-live .sb-team { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 100px; }
+  .drip-live .sb-logo { width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--scoreboard-text); overflow: hidden; }
   .drip-live .sb-name { font-size: 14px; font-weight: 600; color: var(--scoreboard-text); text-align: center; }
   .drip-live .sb-record { font-family: var(--mono); font-size: 11px; color: var(--scoreboard-dim); }
   .drip-live .sb-center { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .drip-live .sb-score { font-family: var(--mono); font-size: 44px; font-weight: 700; color: var(--scoreboard-text); letter-spacing: -0.02em; display: flex; align-items: baseline; gap: 12px; }
-  .drip-live .sb-dash { font-size: 28px; color: var(--scoreboard-dim); font-weight: 400; }
+  .drip-live .sb-score { font-family: var(--mono); font-size: 36px; font-weight: 700; color: var(--scoreboard-text); letter-spacing: -0.02em; display: flex; align-items: baseline; gap: 10px; }
+  .drip-live .sb-dash { font-size: 22px; color: var(--scoreboard-dim); font-weight: 400; }
   .drip-live .sb-period { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--scoreboard-dim); letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 10px; background: rgba(255,255,255,0.06); border-radius: 4px; }
-  .drip-live .line-strip { padding: 0 32px 12px; display: flex; justify-content: center; gap: 24px; }
+  .drip-live .line-strip { padding: 0 24px 10px; display: flex; justify-content: center; gap: 20px; }
   .drip-live .line-item { font-family: var(--mono); font-size: 12px; color: var(--scoreboard-dim); display: flex; align-items: center; gap: 6px; }
   .drip-live .line-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.3); }
   .drip-live .line-value { font-weight: 600; color: var(--scoreboard-text); }
-  .drip-live .prob-strip { padding: 0 32px 20px; display: flex; align-items: center; gap: 12px; }
+  .drip-live .prob-strip { padding: 0 24px 16px; display: flex; align-items: center; gap: 12px; }
   .drip-live .prob-label { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--scoreboard-dim); white-space: nowrap; min-width: 60px; }
   .drip-live .prob-label.right { text-align: right; }
   .drip-live .prob-track { flex: 1; height: 4px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; display: flex; }
   .drip-live .prob-fill-home { height: 100%; background: var(--home-color); border-radius: 3px 0 0 3px; }
   .drip-live .prob-fill-away { height: 100%; background: var(--away-color); border-radius: 0 3px 3px 0; }
-  .drip-live .court-section { max-width: 900px; margin: 0 auto; padding: 0 20px; }
-  .drip-live .court-wrap { background: #2A2926; border-radius: 0 0 12px 12px; position: relative; overflow: hidden; }
-  .drip-live .court-svg { width: 100%; height: auto; display: block; }
+  .drip-live .court-section { max-width: 700px; margin: 0 auto; padding: 0 20px; }
+  .drip-live .court-wrap { background: #2A2926; border-radius: 0 0 12px 12px; position: relative; overflow: hidden; max-height: 240px; display: flex; align-items: center; justify-content: center; }
+  .drip-live .court-svg { width: 100%; height: auto; display: block; max-height: 240px; }
   .drip-live .last-play { display: flex; align-items: center; gap: 10px; padding: 12px 20px; background: rgba(0,0,0,0.3); }
   .drip-live .last-play-icon { width: 20px; height: 20px; border-radius: 50%; object-fit: contain; flex-shrink: 0; }
   .drip-live .last-play-text { display: flex; flex-direction: column; gap: 1px; }
   .drip-live .last-play-action { font-size: 13px; font-weight: 500; color: var(--scoreboard-text); }
   .drip-live .last-play-meta { font-family: var(--mono); font-size: 11px; color: var(--scoreboard-dim); }
-  .drip-live .tabs { max-width: 900px; margin: 0 auto; padding: 16px 20px 0; }
+  .drip-live .tabs { max-width: 700px; margin: 0 auto; padding: 16px 20px 0; }
   .drip-live .tab-row { display: flex; border-bottom: 1px solid var(--border); }
   .drip-live .tab-btn { font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 12px 24px; background: none; border: none; color: var(--text-tertiary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s; }
   .drip-live .tab-btn.active { color: var(--text-primary); border-bottom-color: var(--text-primary); }
   .drip-live .tab-btn:hover:not(.active) { color: var(--text-secondary); }
-  .drip-live .content { max-width: 900px; margin: 0 auto; padding: 20px 20px 80px; }
+  .drip-live .content { max-width: 700px; margin: 0 auto; padding: 20px 20px 80px; }
   .drip-live .quarter-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
   .drip-live .quarter-table { width: 100%; border-collapse: collapse; }
   .drip-live .quarter-table th { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); padding: 10px 14px; text-align: center; border-bottom: 1px solid var(--border); background: var(--bg); }
@@ -291,15 +291,17 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
   .drip-live footer span { font-size: 13px; color: var(--text-tertiary); }
   .drip-live footer a { font-size: 13px; color: var(--text-secondary); text-decoration: none; }
   @media (max-width: 640px) {
-    .drip-live .scoreboard-main { gap: 20px; padding: 20px 16px 14px; }
-    .drip-live .sb-logo { width: 44px; height: 44px; font-size: 12px; }
-    .drip-live .sb-score { font-size: 32px; }
+    .drip-live .scoreboard-main { gap: 16px; padding: 16px 14px 12px; }
+    .drip-live .sb-logo { width: 40px; height: 40px; font-size: 11px; }
+    .drip-live .sb-score { font-size: 28px; }
     .drip-live .sb-name { font-size: 12px; }
-    .drip-live .line-strip { gap: 12px; padding: 0 16px 10px; flex-wrap: wrap; justify-content: center; }
-    .drip-live .prob-strip { padding: 0 16px 16px; }
-    .drip-live .content { padding: 16px 16px 48px; }
+    .drip-live .sb-team { min-width: 90px; }
+    .drip-live .line-strip { gap: 10px; padding: 0 14px 8px; flex-wrap: wrap; justify-content: center; }
+    .drip-live .prob-strip { padding: 0 14px 14px; }
+    .drip-live .content { padding: 14px 14px 48px; }
     .drip-live .leaders-grid { grid-template-columns: 1fr; }
-    .drip-live .tab-btn { padding: 10px 16px; font-size: 11px; }
+    .drip-live .tab-btn { padding: 10px 14px; font-size: 11px; }
+    .drip-live .court-wrap, .drip-live .court-svg { max-height: 180px; }
   }
   `;
 
