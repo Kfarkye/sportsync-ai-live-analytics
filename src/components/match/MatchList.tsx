@@ -50,7 +50,6 @@ interface MatchListProps {
     onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
     isMatchLive: (match: Match) => boolean;
     isMatchFinal: (match: Match) => boolean;
-    onOpenPricing: () => void;
 }
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -362,7 +361,7 @@ const PropRow = memo(({
 });
 PropRow.displayName = 'PropRow';
 
-// PremiumProCTA — removed
+
 
 // ============================================================================
 // SKELETON
@@ -514,7 +513,7 @@ LeagueGroup.displayName = 'LeagueGroup';
 // ============================================================================
 
 const MatchList: React.FC<MatchListProps> = ({
-    matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal, onOpenPricing,
+    matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal,
 }) => {
     const prefersReducedMotion = useReducedMotion();
     const oddsLens = useAppStore((state) => state.oddsLens);
@@ -524,7 +523,6 @@ const MatchList: React.FC<MatchListProps> = ({
     // ONLY UI user-interactions use event callbacks. State/Data derivatives MUST stay as standard dependencies.
     const handleSelect = useEventCallback(onSelectMatch);
     const handleToggle = useEventCallback(onTogglePin);
-    const handlePricing = useEventCallback(onOpenPricing);
 
     const [isMounted, setIsMounted] = useState(false);
     useEffect(() => setIsMounted(true), []);
@@ -853,7 +851,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                     </section>
                                 )}
 
-                                {/* PremiumProCTA hidden */}
+    
                             </div>
                         </div>
 
@@ -914,7 +912,7 @@ const MatchList: React.FC<MatchListProps> = ({
                                 </section>
                             )}
 
-                            {/* PremiumProCTA hidden */}
+
                         </aside>
 
                     </div>

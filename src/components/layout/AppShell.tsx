@@ -9,7 +9,7 @@ import MatchDetails from '../match/MatchDetails';
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
 import ChatWidget from '../ChatWidget';
-import LiveAccessGate from '../live/LiveAccessGate';
+
 import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
@@ -17,7 +17,6 @@ import { Sport } from '@/types';
 
 const CommandPalette = lazy(() => import('../modals/CommandPalette'));
 const AuthModal = lazy(() => import('../modals/AuthModal'));
-const PricingModal = lazy(() => import('../modals/PricingModal'));
 const MobileSportDrawer = lazy(() => import('./MobileSportDrawer'));
 const RankingsDrawer = lazy(() => import('../modals/RankingsDrawer'));
 const TitanAnalytics = lazy(() => import('../../pages/TitanAnalytics'));
@@ -37,12 +36,10 @@ const AppShell: FC = () => {
     isCmdkOpen,
     isAuthModalOpen,
     isSportDrawerOpen,
-    isPricingModalOpen,
     isRankingsDrawerOpen,
     isGlobalChatOpen,
     toggleCmdk,
     toggleAuthModal,
-    togglePricingModal,
     toggleSportDrawer,
     toggleRankingsDrawer,
     toggleGlobalChat,
@@ -228,7 +225,6 @@ const AppShell: FC = () => {
                     onTogglePin={(id) => togglePin(id)}
                     isMatchLive={(m) => isGameInProgress(m.status)}
                     isMatchFinal={(m) => isGameFinished(m.status)}
-                    onOpenPricing={() => togglePricingModal(true)}
                   />
                 )}
               </MotionDiv>
@@ -242,7 +238,6 @@ const AppShell: FC = () => {
                 exit={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
                 transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
-                <LiveAccessGate>
                   <LiveDashboard
                     matches={matches}
                     onSelectMatch={setSelectedMatch}
@@ -250,7 +245,6 @@ const AppShell: FC = () => {
                     pinnedMatchIds={pinnedSet}
                     onTogglePin={togglePin}
                   />
-                </LiveAccessGate>
               </MotionDiv>
             )}
 
@@ -340,7 +334,6 @@ const AppShell: FC = () => {
         />
         <RankingsDrawer isOpen={isRankingsDrawerOpen} onClose={() => toggleRankingsDrawer(false)} sport={selectedSport} leagueId={currentLeagueId} />
         <AuthModal isOpen={isAuthModalOpen} onClose={() => toggleAuthModal(false)} />
-        <PricingModal isOpen={isPricingModalOpen} onClose={() => togglePricingModal(false)} />
       </Suspense>
     </div>
   );
