@@ -1,4 +1,4 @@
-import React, { FC, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { FC, lazy, Suspense, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { useAppStore, usePinStore } from '../../store/appStore';
@@ -82,8 +82,6 @@ const AppShell: FC = () => {
 
   const pinnedSet = useMemo(() => new Set<string>(pinnedMatchIds), [pinnedMatchIds]);
   const currentLeagueId = useMemo(() => LEAGUES.find((l) => l.sport === selectedSport)?.id || 'unknown', [selectedSport]);
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  const [scrollDebug, setScrollDebug] = useState<{ overlay: string; root: string; body: string }>({ overlay: '—', root: '—', body: '—' });
 
   // Unique key to force animation when Date/Sport changes
   const viewKey = `feed-${new Date(selectedDate).toISOString().split('T')[0]}-${selectedSport}`;
@@ -102,31 +100,6 @@ const AppShell: FC = () => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [toggleCmdk, selectedMatch, setSelectedMatch, closeAllOverlays]);
-
-  useEffect(() => {
-    if (!selectedMatch) return undefined;
-    let rafId = 0;
-
-    const update = () => {
-      const overlayEl = overlayRef.current;
-      const rootEl = document.getElementById('root');
-      const overlayValue = overlayEl
-        ? `${Math.round(overlayEl.scrollTop)} / ${Math.round(overlayEl.scrollHeight)} / ${Math.round(overlayEl.clientHeight)}`
-        : '—';
-      const rootValue = rootEl
-        ? `${Math.round(rootEl.scrollTop)} / ${Math.round(rootEl.scrollHeight)} / ${Math.round(rootEl.clientHeight)}`
-        : '—';
-      const bodyValue = `${Math.round(document.body.scrollTop)} / ${Math.round(document.body.scrollHeight)} / ${Math.round(document.body.clientHeight)}`;
-
-      setScrollDebug({ overlay: overlayValue, root: rootValue, body: bodyValue });
-      rafId = window.requestAnimationFrame(update);
-    };
-
-    rafId = window.requestAnimationFrame(update);
-    return () => {
-      window.cancelAnimationFrame(rafId);
-    };
-  }, [selectedMatch]);
 
   useEffect(() => {
     if (defaultSportResolved || persistedSportExists || isLoading) return;
@@ -328,20 +301,13 @@ const AppShell: FC = () => {
             exit={prefersReducedMotion ? { opacity: 0 } : { y: '100%' }}
             transition={prefersReducedMotion ? { duration: 0.15 } : { type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
             className={cn(
-              'fixed inset-0 z-[60] flex flex-col overflow-y-auto overflow-x-hidden overscroll-contain',
+              'fixed inset-0 z-[60] flex flex-col overflow-hidden',
               ESSENCE.tw.surface.subtle, // bg-slate-50
               'kalshi-shell'
             )}
-            ref={overlayRef}
-            style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
           >
             {/* Sheet Handle for Mobile */}
             <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-[70] md:hidden" />
-            <div className="fixed left-3 bottom-3 z-[80] rounded-md border border-slate-200 bg-white/90 px-2 py-1 text-[10px] font-mono text-slate-600 shadow-sm">
-              <div>overlay: {scrollDebug.overlay}</div>
-              <div>root: {scrollDebug.root}</div>
-              <div>body: {scrollDebug.body}</div>
-            </div>
             <MatchDetails match={selectedMatch} matches={filteredMatches} onSelectMatch={setSelectedMatch} onBack={() => setSelectedMatch(null)} />
           </MotionDiv>
         )}
