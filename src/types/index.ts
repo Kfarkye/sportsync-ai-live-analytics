@@ -136,6 +136,7 @@ export interface PlayerPropBet {
   l5Results?: Array<'HIT' | 'MISS' | 'PUSH'>;
   streakLabel?: string;
   streakCount?: number;
+  fantasyDvpRank?: number;
 
   notes?: string;
   createdAt: string;
@@ -382,7 +383,7 @@ export interface MomentumPoint {
 }
 
 export interface MatchContext {
-  [key: string]: any; // Broad index signature to satisfy Record<string, ContextValue> in MatchDetails
+  [key: string]: unknown;
   weather?: {
     temp: string;
     condition: string;
@@ -467,6 +468,26 @@ export interface MatchLeader {
   }>;
 }
 
+export interface MatchEdgePayload {
+  trigger?: string;
+  recommended_side?: string;
+  market_total?: number | string;
+  draw_price?: number | string;
+  threshold?: number | string;
+  home_team?: string;
+  away_team?: string;
+  spread?: number | string;
+  source?: string;
+  [key: string]: unknown;
+}
+
+export interface MatchEdgeTag {
+  trend_key: string;
+  tag_type: 'structural_edge' | 'price_edge';
+  status: 'active' | 'inactive' | 'expired';
+  edge_payload: MatchEdgePayload;
+}
+
 export interface Match {
   id: string;
   odds_api_event_id?: string;
@@ -535,23 +556,6 @@ export interface Match {
   // Tennis-specific fields
   round?: string;       // e.g., "Quarterfinal", "Round of 128"
   court?: string;       // e.g., "Rod Laver Arena", "Court 5"
-}
-
-export interface MatchEdgeTag {
-  trend_key: string;
-  tag_type: 'structural_edge' | 'price_edge';
-  status: 'active' | 'inactive' | 'expired';
-  edge_payload: {
-    trigger?: string;
-    recommended_side?: string;
-    market_total?: number;
-    draw_price?: number;
-    threshold?: number;
-    home_team?: string;
-    away_team?: string;
-    spread?: number;
-    source?: string;
-  };
 }
 
 export interface GoalieProfile {
