@@ -45,15 +45,15 @@ export const LEAGUE_SUFFIX_MAP: Readonly<Record<string, string>> = Object.freeze
     'ger.1': '_bundesliga', 'soccer_germany_bundesliga': '_bundesliga',
     'ita.1': '_seriea', 'soccer_italy_serie_a': '_seriea',
     'fra.1': '_ligue1', 'soccer_france_ligue_one': '_ligue1',
+    'ned.1': '_ned.1', 'soccer_netherlands_eredivisie': '_ned.1',
+    'por.1': '_por.1', 'soccer_portugal_primeira_liga': '_por.1',
+    'bel.1': '_bel.1', 'soccer_belgium_first_div': '_bel.1',
+    'tur.1': '_tur.1', 'soccer_turkey_super_league': '_tur.1',
+    'bra.1': '_bra.1', 'soccer_brazil_campeonato': '_bra.1',
+    'arg.1': '_arg.1', 'soccer_argentina_primera_division': '_arg.1',
+    'sco.1': '_sco.1', 'soccer_spl': '_sco.1',
     'uefa.champions': '_ucl', 'soccer_uefa_champions_league': '_ucl',
     'uefa.europa': '_uel', 'soccer_uefa_europa_league': '_uel',
-    'ned.1': '_ned.1', 'soccer_ned_1': '_ned.1',
-    'por.1': '_por.1', 'soccer_por_1': '_por.1',
-    'bel.1': '_bel.1', 'soccer_bel_1': '_bel.1',
-    'tur.1': '_tur.1', 'soccer_tur_1': '_tur.1',
-    'bra.1': '_bra.1', 'soccer_bra_1': '_bra.1',
-    'arg.1': '_arg.1', 'soccer_arg_1': '_arg.1',
-    'sco.1': '_sco.1', 'soccer_sco_1': '_sco.1',
     'caf.nations': '_afcon', 'soccer_caf_nations': '_afcon',
     'fifa.world': '_worldcup', 'soccer_fifa_world_cup': '_worldcup',
     'atp': '_tennis', 'wta': '_tennis', 'tennis_atp': '_tennis', 'tennis_wta': '_tennis'
@@ -72,15 +72,15 @@ export const LEAGUE_ID_MAP: Readonly<Record<string, string>> = Object.freeze({
     'bundesliga': 'ger.1', 'soccer_germany_bundesliga': 'ger.1',
     'seriea': 'ita.1', 'soccer_italy_serie_a': 'ita.1',
     'ligue1': 'fra.1', 'soccer_france_ligue_one': 'fra.1',
+    'eredivisie': 'ned.1', 'soccer_netherlands_eredivisie': 'ned.1',
+    'primeira': 'por.1', 'soccer_portugal_primeira_liga': 'por.1',
+    'belgian': 'bel.1', 'soccer_belgium_first_div': 'bel.1',
+    'superlig': 'tur.1', 'soccer_turkey_super_league': 'tur.1',
+    'brasileirao': 'bra.1', 'soccer_brazil_campeonato': 'bra.1',
+    'argentina': 'arg.1', 'soccer_argentina_primera_division': 'arg.1',
+    'scottish': 'sco.1', 'soccer_spl': 'sco.1',
     'ucl': 'uefa.champions', 'soccer_uefa_champions_league': 'uefa.champions', 'soccer_uefa_champs_league': 'uefa.champions',
     'uel': 'uefa.europa', 'soccer_uefa_europa_league': 'uefa.europa',
-    'ned.1': 'ned.1', 'soccer_ned_1': 'ned.1',
-    'por.1': 'por.1', 'soccer_por_1': 'por.1',
-    'bel.1': 'bel.1', 'soccer_bel_1': 'bel.1',
-    'tur.1': 'tur.1', 'soccer_tur_1': 'tur.1',
-    'bra.1': 'bra.1', 'soccer_bra_1': 'bra.1',
-    'arg.1': 'arg.1', 'soccer_arg_1': 'arg.1',
-    'sco.1': 'sco.1', 'soccer_sco_1': 'sco.1',
     'afcon': 'caf.nations', 'soccer_caf_nations': 'caf.nations',
     'worldcup': 'fifa.world', 'soccer_fifa_world_cup': 'fifa.world',
     'wnba': 'wnba', 'basketball_wnba': 'wnba',
@@ -316,6 +316,9 @@ export async function resolveCanonicalMatch(
             'nba': '_nba', 'nfl': '_nfl', 'nhl': '_nhl', 'mlb': '_mlb',
             'college-football': '_ncaaf', 'mens-college-basketball': '_ncaab',
             'eng.1': '_epl', 'ita.1': '_seriea', 'esp.1': '_laliga', 'ger.1': '_bundesliga',
+            'fra.1': '_ligue1',
+            'ned.1': '_ned.1', 'por.1': '_por.1', 'bel.1': '_bel.1', 'tur.1': '_tur.1',
+            'bra.1': '_bra.1', 'arg.1': '_arg.1', 'sco.1': '_sco.1',
             'uefa.champions': '_ucl', 'uefa.europa': '_uel', 'fifa.world': '_worldcup'
         } as Record<string, string>;
         const expectedSuffix = LEAGUE_SUFFIX[canonicalLeague] || `_${canonicalLeague}`;
@@ -480,4 +483,3 @@ export const toLocalGameDate = (isoStr: string | Date): string => {
 
     return dateStr;
 };
-

@@ -73,12 +73,17 @@ export interface RefAnalysis {
 }
 // ---------------------
 
+export type JsonValue = string | number | boolean | null | JsonRecord | JsonValue[];
+export interface JsonRecord { [key: string]: JsonValue; }
+
 export type PropBetType =
   | 'points' | 'rebounds' | 'assists' | 'steals' | 'blocks'
   | 'threes_made' | 'pra' | 'pr' | 'ra' | 'pa'
   | 'passing_yards' | 'rushing_yards' | 'receiving_yards'
   | 'receptions' | 'tackles' | 'sacks' | 'hits'
   | 'shots_on_goal' | 'goals' | 'saves'
+  | 'threes' | 'points_rebounds' | 'points_assists' | 'rebounds_assists'
+  | 'touchdowns'
   | 'custom';
 
 export type PropResult = 'pending' | 'won' | 'lost' | 'push' | 'void';
@@ -132,7 +137,7 @@ export interface PlayerPropBet {
 }
 
 export interface Linescore {
-  value?: number;
+  value?: number | string;
   label?: string;
   period?: number;
   tiebreak?: number;  // Tennis: tiebreak score (e.g., 7 for "7-6(7)")
@@ -175,6 +180,7 @@ export interface Team {
 }
 
 export interface MatchOdds {
+  [key: string]: string | number | boolean | undefined;
   provider?: string;
   hasOdds?: boolean;
   fairValue?: number;
@@ -192,15 +198,51 @@ export interface MatchOdds {
   home_ml?: string | number;
   away_ml?: string | number;
   draw_ml?: string | number;
+  homeML?: string | number;
+  awayML?: string | number;
+  drawML?: string | number;
+  drawWin?: string | number;
+  moneylineDraw?: string | number;
+  homeMoneyline?: string | number;
+  awayMoneyline?: string | number;
+  draw_moneyline?: string | number;
   overOdds?: string | number;
   underOdds?: string | number;
+  over_odds?: string | number;
+  under_odds?: string | number;
+  overLine?: string | number;
+  underLine?: string | number;
+  overPrice?: string | number;
+  underPrice?: string | number;
+  over_price?: string | number;
+  under_price?: string | number;
+  overJuice?: string | number;
+  underJuice?: string | number;
+  over_juice?: string | number;
+  under_juice?: string | number;
   total?: string | number;
   total_line?: string | number;
   totalOver?: string | number;
+  totalUnder?: string | number;
+  totalOverOdds?: string | number;
+  totalUnderOdds?: string | number;
+  total_value?: string | number;
+  total_best?: string | number;
   homeSpreadOdds?: string | number;
   awaySpreadOdds?: string | number;
   home_spread?: string | number;
   away_spread?: string | number;
+  spread_home?: string | number;
+  spread_home_value?: string | number;
+  spread_home_odds?: string | number;
+  spread_away_odds?: string | number;
+  home_spread_odds?: string | number;
+  away_spread_odds?: string | number;
+  spread_best?: string | number;
+  lastUpdated?: string;
+  last_updated?: string;
+  updated_at?: string;
+  isLive?: boolean;
 
   winProbability?: number;
   draftkingsLink?: string;
@@ -334,6 +376,7 @@ export interface MomentumPoint {
 }
 
 export interface MatchContext {
+  [key: string]: unknown;
   weather?: {
     temp: string;
     condition: string;
@@ -772,6 +815,24 @@ export interface MatchNews {
   expiresAt: string;
 }
 
+export interface RefIntelContent {
+  crewName?: string;
+  crewChief?: string;
+  [key: string]: JsonValue;
+}
+
+export interface PregameContext {
+  injuries: Array<{ player: string; team: string; status: string; note: string }>;
+  travel: Array<{ team: string; flag: string; note: string }>;
+  market_signals: {
+    sharp: Array<{ signal: string; note: string }>;
+    public: Array<{ signal: string; note: string }>;
+  };
+  context_notes: string[];
+  generated_at: string;
+  [key: string]: unknown;
+}
+
 export type SharpSide = 'PASS' | 'AVOID' | 'OVER' | 'UNDER' | 'HOME' | 'AWAY' | 'DRAW' | string;
 
 export interface SharpRecommendation {
@@ -783,6 +844,15 @@ export interface SharpRecommendation {
 export interface SharpData {
   recommendation?: SharpRecommendation;
   confidence_level?: number;
+  confidence_rating?: number;
+  headline?: string;
+  the_read?: string;
+  executive_bullets?: {
+    driver?: string;
+    risk?: string;
+    catalyst?: string;
+    [key: string]: string | undefined;
+  };
 }
 
 export interface LiveAIAnalysis {
