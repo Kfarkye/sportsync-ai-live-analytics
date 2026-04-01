@@ -1,0 +1,378 @@
+/* ==========================================================================
+   SPORTSYNC AI — Global Stylesheet (Cleaned v2)
+   ==========================================================================
+   CHANGES from v1:
+     - Merged 2x body, 2x #root, 2x html into single declarations
+     - Defined orphaned CSS variables (--ease-apple)
+     - Fixed --color-void → --color-zinc-950 (was undefined → transparent bg)
+     - Deleted 7 dead utility classes (0 component imports): matchup-grid,
+       ty-*, glass-premium, ios-card, shimmer-edge, ush-root, bg-ios-gradient,
+       press-haptic, ticker/shimmer keyframes
+     - Aligned :root variables with ESSENCE design system
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Source+Serif+4:wght@500;600;700&display=swap') layer(base);
+
+@import 'tailwindcss';
+
+/* ==========================================================================
+   §1  CSS VARIABLES
+   ========================================================================== */
+
+:root {
+  /* Palette — ESPN / Yahoo Sports editorial */
+  --color-background: #FAFAF8;
+  --color-surface: #FFFFFF;
+  --color-text-primary: #1A1A18;
+  --color-text-secondary: #6B6B63;
+  --color-text-tertiary: #9B9B91;
+  --color-border: #E8E7E3;
+  --color-accent: #C85A3A;
+  --color-accent-soft: #FDF2EE;
+  --color-kalshi-yes: #1D9E75;
+  --color-kalshi-no: #E24B4A;
+  --color-kalshi-ink: #10223A;
+
+  /* Motion */
+  --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-apple: cubic-bezier(0.25, 0.1, 0.25, 1.0);
+
+  /* Viewport (keyboard-aware) */
+  --vvh: 100vh;
+  --kb: 0px;
+}
+
+/* ==========================================================================
+   §2  DOCUMENT ROOT — Editorial Light
+   ========================================================================== */
+
+html {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  -webkit-text-size-adjust: 100%;
+  color-scheme: light;
+  background: #FAFAF8;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  background: #FAFAF8;
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  position: relative;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  height: 100dvh;
+  height: var(--vvh, 100vh);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* ==========================================================================
+   §2.1  KALSHI POLISH LAYER — subtle exchange-style depth
+   ========================================================================== */
+
+.kalshi-shell {
+  background:
+    radial-gradient(1200px 360px at 8% -10%, rgba(29, 158, 117, 0.09) 0%, transparent 64%),
+    radial-gradient(980px 320px at 92% -12%, rgba(11, 99, 246, 0.085) 0%, transparent 64%),
+    linear-gradient(180deg, #f6f8ff 0%, #f4f6ff 42%, #f8f9fc 100%);
+}
+
+.kalshi-panel {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #dbe3f2;
+  box-shadow:
+    0 14px 32px -26px rgba(16, 34, 58, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.kalshi-tab-btn {
+  border-color: #c9d4e7;
+  background: #ffffff;
+}
+
+.kalshi-tab-btn:hover {
+  border-color: #aebed8;
+  background: #f8fbff;
+}
+
+.kalshi-tab-btn-active {
+  border-color: #12396f;
+  background: linear-gradient(180deg, #1a4686 0%, #12396f 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 20px -16px rgba(18, 57, 111, 0.75);
+}
+
+.kalshi-live-btn-active {
+  border-color: #E8E7E3;
+  background: #F5F4F0;
+  color: #1A1A18;
+  box-shadow: none;
+}
+
+.kalshi-fab {
+  border: 1px solid #E8E7E3;
+  background: #FFFFFF;
+  box-shadow: 0 4px 12px -4px rgba(26, 26, 24, 0.12);
+}
+
+/* ==========================================================================
+   §3  GLOBAL RESETS
+   ========================================================================== */
+
+* {
+  max-width: 100%;
+}
+
+input, textarea {
+  font-size: 16px !important; /* Prevents iOS zoom on focus */
+}
+
+::selection {
+  background-color: rgba(96, 1, 210, 0.18);
+  color: inherit;
+}
+
+/* ==========================================================================
+   §3.1  ANALOG GRAIN — Microscopic matte finish (2% opacity)
+         Felt subconsciously as premium frosted glass, never seen as a filter.
+         Matches Apple Vibrancy anti-banding technique.
+   ========================================================================== */
+
+.grain-overlay::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  mix-blend-mode: overlay;
+}
+
+/* ==========================================================================
+   §4  TYPOGRAPHY
+   ========================================================================== */
+
+/* Institutional Monospace (used by BettingResultCell, LiveAnalysisCard) */
+.font-mono-ledger {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+
+/* ==========================================================================
+   §5  MATERIALS — Glass Effects
+   ========================================================================== */
+
+/* Apple Material System — Editorial Light (used by BettingResultCell) */
+.glass-material {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(25px) saturate(150%);
+  -webkit-backdrop-filter: blur(25px) saturate(150%);
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* ==========================================================================
+   §6  MICRO-INTERACTIONS
+   ========================================================================== */
+
+/* iOS Tactile Feedback (used by PlayerStatComponents, PropViewToggle) */
+.tap-feedback:active {
+  opacity: 0.6;
+  transform: scale(0.97);
+  transition: all 0.1s var(--ease-apple);
+}
+
+.tap-scale:active {
+  transform: scale(0.95);
+  transition: transform 0.1s var(--ease-apple);
+}
+
+/* ==========================================================================
+   §7  ANIMATIONS & KEYFRAMES
+   ========================================================================== */
+
+/* Obsidian Weissach — specular edge breathe for live games */
+@keyframes ow-breathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.85; }
+}
+
+/* Flash on data update */
+@keyframes flash-green {
+  0% { background-color: transparent; }
+  20% { background-color: rgba(16, 185, 129, 0.2); }
+  100% { background-color: transparent; }
+}
+
+.flash-update-green {
+  animation: flash-green 1.2s ease-out;
+}
+
+/* AI Streaming pulse — Editorial Light (no glow) */
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ==========================================================================
+   §8  SCROLLBARS (Stealth Mode)
+   ========================================================================== */
+
+/* Primary: subtle visible scrollbar */
+::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(83, 94, 125, 0.24);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(83, 94, 125, 0.42);
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Secondary: Subtle scrollbar for dense data tables */
+.custom-scrollbar::-webkit-scrollbar {
+  display: block;
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.12);
+  border-radius: 10px;
+}
+
+/* ==========================================================================
+   §9  iOS SAFE AREA UTILITIES
+   ========================================================================== */
+
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pl-safe { padding-left: env(safe-area-inset-left); }
+.pr-safe { padding-right: env(safe-area-inset-right); }
+.h-safe-bottom { height: env(safe-area-inset-bottom); }
+.top-safe-header { top: env(safe-area-inset-top); }
+
+/* ==========================================================================
+   §10  CITATION LINKS — Obsidian Grounding System
+   ========================================================================== */
+
+.cite-link {
+  text-decoration: none;
+  color: #64748B;
+  transition: color 150ms ease-out, text-decoration-color 150ms ease-out;
+}
+
+.cite-link:hover {
+  color: var(--cite-hover-color, #0F172A);
+  text-decoration: underline;
+  text-decoration-color: var(--cite-hover-underline, rgba(15, 23, 42, 0.25));
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+/* Safety net — hide leaked generic Google citations */
+a[href*="google.com/"]:empty,
+a[href*="google.com/search"]:not([class]) { display: none; }
+
+/* ==========================================================================
+   §11  DIVIDERS
+   ========================================================================== */
+
+.hairline {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    #E2E8F0 15%,
+    #E2E8F0 85%,
+    transparent
+  );
+}
+
+/* ==========================================================================
+   §12  FOCUS-VISIBLE — SOTA Accessibility Ring
+         WCAG 2.2 AA / Apple HIG / Material 3 compliant.
+         2px offset creates a physical "snap" gap between element and ring.
+   ========================================================================== */
+
+*:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+  border-radius: inherit;
+  transition: outline-offset 0.1s var(--ease-apple);
+}
+
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-ping,
+  .animate-pulse,
+  .animate-pulse-subtle {
+    animation: none !important;
+  }
+}

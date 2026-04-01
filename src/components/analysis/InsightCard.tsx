@@ -1,0 +1,735 @@
+"use client";
+
+// ============================================================================
+// src/components/analysis/InsightCard.tsx
+// ============================================================================
+//
+//  THE DRIP — INTELLIGENCE CARD (SHAREABLE ASSET)
+//  Architecture: Single-File Ecosystem • Runtime-Safe • Export-Ready
+//  Aesthetic: Porsche Luxury • Jony Ive Minimalism • Jobs Narrative
+//
+//  Features:
+//    1. Strict Data Contract (InsightCardData)
+//    2. Runtime-Safe Transformer (toInsightCard)
+//    3. Native PNG Export Engine (html-to-image)
+//
+// ============================================================================
+
+import React, { memo, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn, ESSENCE } from "@/lib/essence";
+
+// Lazy import type for the export engine
+type HtmlToImageModule = typeof import("html-to-image");
+
+// ─────────────────────────────────────────────────────────────────
+// 1) DATA CONTRACT (STRICT)
+// ─────────────────────────────────────────────────────────────────
+
+export type InsightOutcome = "HIT" | "MISS" | "PUSH";
+export type BetSide = "OVER" | "UNDER";
+
+export interface BookOffer {
+  book: string;
+  odds: string; // "+104"
+  deepLink?: string;
+  isBest?: boolean;
+}
+
+export interface InsightCardData {
+  id: string;
+  headerMode?: "player" | "team";
+  player: {
+    name: string;
+    team: string; // "CLE"
+    opponent: string; // "LAC"
+    matchup?: string; // "DAL @ HOU"
+    headshotUrl?: string;
+  };
+  bet: {
+    segment: string; // "Over 6.5 Assists"
+    line: number;
+    side: BetSide;
+    odds: string; // "+104" (best odds)
+    book: string; // "FanDuel" | "DraftKings" | ...
+    deepLink?: string; // Affiliate URL
+    books?: BookOffer[]; // Optional multi-book chips
+  };
+  analysis: {
+    rationale: string; // Max 360 chars
+  };
+  metrics: {
+    dvpRank: number; // 1-30 (0 allowed as unknown)
+    edgePercent: number; // e.g. 4.0
+    probPercent: number; // e.g. 53.0
+  };
+  history: {
+    l5HitRate: number; // 0-100
+    outcomes: InsightOutcome[]; // [Newest ... Oldest]
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 2) TRANSFORMER ADAPTER (RUNTIME SAFE)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Adapter: Maps any upstream analysis object to strict InsightCardData.
+ * Usage: <InsightCard data={toInsightCard(myPropObject)} />
+ */
+export function toInsightCard(input: unknown): InsightCardData {
+  const compress = (text: string, limit = 360) => {
+    const t = (text ?? "").trim();
+    if (!t) return "Analysis pending...";
+    if (t.length <= limit) return t;
+    // Intelligent truncation at the last space before the limit
+    const cut = t.lastIndexOf(" ", limit);
+    return (cut > 0 ? t.slice(0, cut) : t.slice(0, limit)).trim() + "...";
+  };
+
+  const fmtOdds = (o: unknown) => {
+    if (typeof o === "string" && o.trim()) {
+      const s = o.trim();
+      return s.startsWith("+") || s.startsWith("-") ? s : `+${s}`;
+    }
+    const n = toFiniteNumber(o, NaN);
+    if (!Number.isFinite(n)) return "+0";
+    const i = Math.trunc(n);
+    return i > 0 ? `+${i}` : String(i);
+  };
+
+  const prop = isRecord(input) ? input : {};
+
+  // Extraction & Sanitization
+  const sideRaw = asString(prop["side"], "OVER").toUpperCase();
+  const side: BetSide = sideRaw === "UNDER" ? "UNDER" : "OVER";
+  const line = toFiniteNumber(prop["line"], 0);
+  const statType = asString(prop["statType"], "Stat");
+
+  const headerModeRaw = asString(prop["headerMode"], "player").toLowerCase();
+  const headerMode: InsightCardData["headerMode"] = headerModeRaw === "team" ? "team" : "player";
+
+  const playerName = asString(prop["playerName"], "Unknown");
+  const team = asString(prop["team"], "UNK");
+  const opponent = asString(prop["opponent"], "UNK");
+  const matchupOverride = asOptionalString(prop["matchup"]);
+  const derivedMatchup = matchupOverride || (team && opponent ? `${team} @ ${opponent}` : undefined);
+
+  const teamName = asString(prop["teamName"], playerName);
+  const opponentName = asString(prop["opponentName"], opponent);
+  const teamLogoUrl = asOptionalString(prop["teamLogoUrl"]);
+  const headshotUrl = headerMode === "team"
+    ? (teamLogoUrl || asOptionalString(prop["headshotUrl"]))
+    : asOptionalString(prop["headshotUrl"]);
+
+  const bestBook = asString(prop["bestBook"], "Generic");
+  const affiliateLink = asOptionalString(prop["affiliateLink"]);
+
+  const dvpRank = clampInt(toFiniteNumber(prop["dvpRank"], 0), 0, 30);
+  const edge = round1(toFiniteNumber(prop["edge"], 0));
+  const prob = clamp(round1(toFiniteNumber(prop["probability"], 50)), 0, 100);
+
+  const outcomes = normalizeOutcomes(prop["l5Results"]);
+  const l5HitRate = clampInt(toFiniteNumber(prop["l5HitRate"], computeHitRate(outcomes)), 0, 100);
+
+  const id = asString(prop["id"], randomId());
+
+  const booksRaw = Array.isArray(prop["books"]) ? (prop["books"] as Array<Record<string, unknown>>) : [];
+  const books: BookOffer[] = booksRaw.map((b) => ({
+    book: asString(b.book ?? b.name, "Generic"),
+    odds: fmtOdds(b.odds ?? b.price ?? b.american),
+    deepLink: asOptionalString(b.deepLink ?? b.url ?? b.link),
+    isBest: Boolean(b.isBest),
+  }));
+
+  const fallbackBook: BookOffer = {
+    book: bestBook,
+    odds: fmtOdds(prop["bestOdds"] ?? prop["odds"] ?? prop["best_odds"]),
+    deepLink: affiliateLink,
+    isBest: true,
+  };
+
+  const finalBooks = books.length ? books : [fallbackBook];
+  const bestOffer = finalBooks.find((b) => b.isBest) || finalBooks[0];
+  const customSegment = asOptionalString(prop["customSegment"]);
+
+  return {
+    id,
+    headerMode,
+    player: {
+      name: headerMode === "team" ? teamName : playerName,
+      team: headerMode === "team" ? asString(prop["teamAbbr"], team) : team,
+      opponent: headerMode === "team" ? opponentName : opponent,
+      matchup: derivedMatchup,
+      headshotUrl,
+    },
+    bet: {
+      segment: customSegment || `${side === "OVER" ? "Over" : "Under"} ${formatLine(line)} ${statType}`,
+      line,
+      side,
+      odds: bestOffer.odds,
+      book: bestOffer.book,
+      deepLink: bestOffer.deepLink,
+      books: finalBooks,
+    },
+    analysis: {
+      rationale: compress(asString(prop["aiAnalysis"], "Intelligence unavailable.")),
+    },
+    metrics: {
+      dvpRank,
+      edgePercent: edge,
+      probPercent: prob,
+    },
+    history: {
+      l5HitRate,
+      outcomes,
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3) DESIGN TOKENS
+// ─────────────────────────────────────────────────────────────────
+
+const PHYSICS_HOVER = { type: "spring", stiffness: 400, damping: 25 } as const;
+const NOISE_TEXTURE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E")`;
+
+function metricColor(type: "DVP" | "EDGE" | "PROB", value: number) {
+  if (type === "DVP") return value > 0 && value <= 10 ? "text-emerald-400" : value >= 20 ? "text-rose-400" : "text-blue-300";
+  if (type === "EDGE") return value >= 3 ? "text-emerald-400" : value > 0 ? "text-blue-300" : "text-slate-400";
+  if (type === "PROB") return value >= 55 ? "text-emerald-400" : value >= 50 ? "text-blue-300" : "text-slate-400";
+  return "text-slate-900";
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 4) MICRO COMPONENTS (PURE SVG / NO EXTERNAL DEPS)
+// ─────────────────────────────────────────────────────────────────
+
+function IconShare(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M16 8a3 3 0 1 0-2.82-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M6 14a3 3 0 1 0 0 6a3 3 0 0 0 0-6Z" stroke="currentColor" strokeWidth="2" />
+      <path d="M18 13a3 3 0 1 0 0 6a3 3 0 0 0 0-6Z" stroke="currentColor" strokeWidth="2" />
+      <path d="M8.6 15.2l6.8 2.6M15.4 8.2L8.6 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconCheck(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconSpinner(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M12 2a10 10 0 1 0 10 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const DripMark = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 48 48" fill="none" aria-hidden="true" {...props}>
+    <path d="M24 5c6 8 12 14 12 22a12 12 0 1 1-24 0c0-8 6-14 12-22Z" fill="currentColor" opacity="0.9" />
+    <circle cx="24" cy="29" r="7" fill="#050505" />
+    <path d="M21 29h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
+const getFaviconUrl = (book: string) => {
+  const domainMap: Record<string, string> = {
+    fanduel: "fanduel.com",
+    draftkings: "draftkings.com",
+    betmgm: "betmgm.com",
+    caesars: "caesars.com",
+    betrivers: "betrivers.com",
+    pointsbet: "pointsbet.com",
+    bovada: "bovada.lv",
+  };
+  const key = Object.keys(domainMap).find((k) => book.toLowerCase().includes(k));
+  const domain = key ? domainMap[key] : `${book.toLowerCase().replace(/\s/g, "")}.com`;
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+};
+
+const BookFavicon = ({ offer }: { offer: BookOffer }) => {
+  const isBest = Boolean(offer.isBest);
+  const [hasError, setHasError] = useState(false);
+  const fallbackLetter = (offer.book || "B").trim().charAt(0).toUpperCase();
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (offer.deepLink) window.open(offer.deepLink, "_blank", "noopener,noreferrer");
+      }}
+      disabled={!offer.deepLink}
+      className={cn(
+        "relative w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300",
+        offer.deepLink ? "opacity-60 grayscale hover:opacity-100 hover:grayscale-0 hover:scale-110" : "opacity-40",
+        isBest && "opacity-100 grayscale-0"
+      )}
+      aria-label={`Open ${offer.book} odds ${offer.odds}`}
+      title={offer.book}
+    >
+      {hasError ? (
+        <div className="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center">
+          <span className="text-[8px] font-bold text-slate-500">{fallbackLetter}</span>
+        </div>
+      ) : (
+        <img
+          src={getFaviconUrl(offer.book)}
+          alt=""
+          className="w-5 h-5 object-contain"
+          onError={() => setHasError(true)}
+        />
+      )}
+      {isBest && (
+        <span className="absolute -bottom-1 -right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+      )}
+    </button>
+  );
+};
+
+const BookTicker = ({ offers, bestOdds }: { offers: BookOffer[]; bestOdds: string }) => (
+  <div className="flex flex-col items-end gap-2">
+    <div className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50">
+      <span className="text-[13px] font-mono font-bold text-slate-900 tabular-nums">{bestOdds}</span>
+    </div>
+    <div className="flex items-center gap-3">
+      {offers.map((offer, i) => (
+        <BookFavicon key={`${offer.book}-${i}`} offer={offer} />
+      ))}
+    </div>
+  </div>
+);
+
+const SpecLabel = ({ label }: { label: string }) => (
+  <div className="flex items-center gap-3 mb-3 opacity-50 select-none">
+    <div className="h-px w-5 bg-white" />
+    <span className="text-[9px] font-bold text-slate-900 uppercase tracking-[0.3em] font-mono">{label}</span>
+  </div>
+);
+
+const SmartChip = ({ label, value, colorClass }: { label: string; value: string; colorClass: string }) => (
+  <div className="flex flex-col justify-center px-4 py-3 rounded-lg border shadow-[0_2px_10px_rgba(0,0,0,0.3)] relative overflow-hidden group/chip" style={{ backgroundColor: ESSENCE.colors.surface.elevated, borderColor: ESSENCE.colors.border.default }}>
+    <div className="absolute inset-0 bg-linear-to-b from-white/3 to-transparent opacity-50 pointer-events-none" />
+    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1 opacity-80">{label}</span>
+    <span className={cn("text-[16px] font-mono font-medium tabular-nums tracking-tight leading-none", colorClass)}>{value}</span>
+    <div className={cn("absolute bottom-0 left-0 right-0 h-[2px] opacity-20 bg-current", colorClass)} />
+  </div>
+);
+
+const L5Strip = ({ outcomes, hitRate }: { outcomes: InsightOutcome[]; hitRate: number }) => (
+  <div className="mt-6 pt-5 border-t border-slate-200 flex items-center justify-between">
+    <div className="flex items-baseline gap-2">
+      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Trajectory</span>
+      <span className={cn("text-[14px] font-mono font-bold tabular-nums", hitRate >= 60 ? "text-emerald-400" : hitRate <= 40 ? "text-rose-400" : "text-slate-600")}>
+        {hitRate}% <span className="text-[10px] text-slate-500 font-normal ml-0.5">L5</span>
+      </span>
+    </div>
+
+    <div className="flex items-center gap-[2px]">
+      {outcomes.slice(0, 5).map((res, i) => (
+        <div
+          key={`${res}-${i}`}
+          className={cn(
+            "h-2 rounded-[1px] transition-all duration-300",
+            i === 0 ? "w-8" : "w-5",
+            res === "HIT" ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]" :
+            res === "PUSH" ? "bg-zinc-700" : "bg-rose-500/80 shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+          )}
+        />
+      ))}
+    </div>
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────────
+// 5) MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────
+
+type ExportStatus = "IDLE" | "SUCCESS" | "ERROR";
+
+type ExportPreset = "FEED" | "STORY";
+
+export const InsightCard = memo(({ data }: { data: InsightCardData }) => {
+  const { player, bet, analysis, metrics, history } = data;
+
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportStatus>("IDLE");
+  const [showShareMenu, setShowShareMenu] = useState(false);
+
+  const isOver = bet.side === "OVER";
+  const selectionColor = isOver ? "text-emerald-400" : "text-rose-400";
+  const accentColor = isOver ? "text-emerald-500" : "text-rose-500";
+
+  const matchupText = useMemo(() => {
+    if (player.matchup) return player.matchup;
+    if (player.team && player.opponent) return `${player.team} @ ${player.opponent}`;
+    if (player.opponent) return `@ ${player.opponent}`;
+    return player.team || "";
+  }, [player.matchup, player.team, player.opponent]);
+
+  const bookOffers = bet.books?.length ? bet.books : [{ book: bet.book, odds: bet.odds, deepLink: bet.deepLink, isBest: true }];
+  const bestOffer = bookOffers.find((b) => b.isBest) || bookOffers[0];
+
+  // Memoized formatters
+  const dvpText = useMemo(() => {
+    const r = clampInt(metrics.dvpRank, 0, 30);
+    return r > 0 ? `${r}${ordinalSuffix(r)}` : "—";
+  }, [metrics.dvpRank]);
+
+  const edgeText = useMemo(() => {
+    const e = round1(metrics.edgePercent);
+    return e > 0 ? `+${e.toFixed(1)}%` : `${e.toFixed(1)}%`;
+  }, [metrics.edgePercent]);
+
+  const probText = useMemo(() => `${clamp(round1(metrics.probPercent), 0, 100).toFixed(1)}%`, [metrics.probPercent]);
+
+  // 📸 EXPORT ENGINE
+  const handleExport = async (preset: ExportPreset) => {
+    if (!cardRef.current || isExporting) return;
+
+    const target = preset === "STORY" ? { w: 1080, h: 1920 } : { w: 1080, h: 1350 };
+
+    setExportStatus("IDLE");
+    setShowShareMenu(false);
+
+    try {
+      setIsExporting(true);
+
+      // 1. Wait for Fonts
+      if (typeof document !== "undefined" && (document as any).fonts?.ready) {
+        await (document as any).fonts.ready;
+      }
+
+      // 2. Wait for Render Cycle (Shows Watermark)
+      await nextFrame();
+      await sleep(20);
+
+      // 3. Lazy Load Engine
+      const mod: HtmlToImageModule = await import("html-to-image");
+      const node = cardRef.current;
+      const rect = node.getBoundingClientRect();
+      const scale = Math.min(target.w / rect.width, target.h / rect.height);
+
+      // 4. Build offscreen frame for consistent export size
+      const frame = document.createElement("div");
+      frame.style.width = `${target.w}px`;
+      frame.style.height = `${target.h}px`;
+      frame.style.background = "#050505";
+      frame.style.display = "flex";
+      frame.style.alignItems = "center";
+      frame.style.justifyContent = "center";
+      frame.style.position = "fixed";
+      frame.style.left = "-99999px";
+      frame.style.top = "0";
+      frame.style.overflow = "hidden";
+
+      const clone = node.cloneNode(true) as HTMLElement;
+      clone.style.transform = `scale(${scale})`;
+      clone.style.transformOrigin = "center";
+      clone.style.margin = "0";
+
+      frame.appendChild(clone);
+      document.body.appendChild(frame);
+
+      // 5. Generate PNG
+      const dataUrl = await mod.toPng(frame, {
+        cacheBust: true,
+        pixelRatio: 1,
+        backgroundColor: "#050505",
+      });
+
+      document.body.removeChild(frame);
+
+      downloadDataUrl(dataUrl, buildFileName(player.name, bet.segment));
+
+      setExportStatus("SUCCESS");
+      setTimeout(() => setExportStatus("IDLE"), 2000);
+    } catch (err) {
+      console.error("InsightCard export failed:", err);
+      setExportStatus("ERROR");
+      setTimeout(() => setExportStatus("IDLE"), 2500);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <div className="relative group/card w-full max-w-[420px]">
+
+      {/* Export Action Button */}
+      <AnimatePresence>
+        {!isExporting && (
+          <motion.button
+            type="button"
+            aria-label="Export InsightCard PNG"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowShareMenu((v) => !v)}
+            className={cn(
+              "absolute -top-3 -right-3 z-50 p-2.5 rounded-full shadow-sm backdrop-blur-md transition-all duration-300",
+              "opacity-0 group-hover/card:opacity-100 translate-y-2 group-hover/card:translate-y-0",
+              exportStatus === "SUCCESS"
+                ? "bg-emerald-500 border border-emerald-400 text-black"
+                : exportStatus === "ERROR"
+                ? "bg-rose-500 border border-rose-400 text-black"
+                : "bg-white/80 border border-white/10 text-slate-400 hover:text-slate-900 hover:bg-zinc-900"
+            )}
+          >
+            {exportStatus === "SUCCESS" ? (
+              <IconCheck width={16} height={16} />
+            ) : exportStatus === "ERROR" ? (
+              <IconShare width={16} height={16} />
+            ) : (
+              <IconShare width={16} height={16} />
+            )}
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Export Size Menu */}
+      <AnimatePresence>
+        {showShareMenu && !isExporting && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            className="absolute -top-2 right-10 z-50 bg-[#0b0b0c] border border-slate-200 rounded-xl shadow-sm p-2 flex flex-col gap-1"
+          >
+            <button
+              type="button"
+              onClick={() => handleExport("FEED")}
+              className="px-3 py-2 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 text-left"
+            >
+              Export 1080×1350 (Feed)
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExport("STORY")}
+              className="px-3 py-2 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 text-left"
+            >
+              Export 1080×1920 (Story)
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Card Content (Capture Target) */}
+      <motion.div
+        ref={cardRef}
+        layout
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={!isExporting ? { y: -4, backgroundColor: "rgba(255,255,255,0.02)" } : {}}
+        transition={PHYSICS_HOVER}
+        data-exporting={isExporting ? "true" : "false"}
+        className={cn("relative w-full p-6 overflow-hidden cursor-default select-none", ESSENCE.card.base)}
+      >
+        {/* Background Noise Texture */}
+        <div className="absolute inset-0 opacity-40 pointer-events-none mix-blend-overlay" style={{ backgroundImage: NOISE_TEXTURE }} />
+
+        {/* Active Edge Accent */}
+        <div
+          className={cn(
+            "absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-current to-transparent opacity-60",
+            isOver ? "text-emerald-500" : "text-rose-500"
+          )}
+        />
+
+        {/* 1) HEADER ROW */}
+        <div className="relative flex items-start justify-between mb-6 z-10">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="relative w-12 h-12 shrink-0">
+              <div className="absolute inset-0 rounded-xl border border-white/10 bg-zinc-900/50 overflow-hidden">
+                {player.headshotUrl ? (
+                  <img
+                    src={player.headshotUrl}
+                    crossOrigin="anonymous"
+                    alt={player.name}
+                    className="w-full h-full object-cover grayscale-[0.2]"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">
+                    {initials(player.name)}
+                  </div>
+                )}
+              </div>
+              <div className="absolute -bottom-1 -right-1 px-1.5 py-0.5 bg-white border border-white/10 rounded-[4px]">
+                <span className="text-[8px] font-black text-slate-400 block leading-none tracking-tighter">{player.team}</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col justify-center min-w-0">
+              <div className="flex items-baseline gap-2 min-w-0">
+                <h3 className="text-[18px] font-bold text-slate-900 tracking-tight leading-none truncate">
+                  {player.name}
+                </h3>
+                {matchupText && (
+                  <span className="text-[10px] font-medium text-slate-500 font-mono shrink-0 tracking-wide">
+                    • {matchupText}
+                  </span>
+                )}
+              </div>
+
+              <div className={cn("text-[13px] font-bold tracking-wide mt-1.5 uppercase font-mono", selectionColor)}>
+                {bet.segment}
+              </div>
+            </div>
+          </div>
+
+          <BookTicker offers={bookOffers} bestOdds={bestOffer.odds} />
+        </div>
+
+        {/* 2) ANALYSIS BLOCK */}
+        <div className="relative mb-8 pl-1 z-10">
+          <SpecLabel label="01 // INTELLIGENCE" />
+          <div className="relative pl-4 border-l-2 border-white/10">
+            <p className="text-[14px] leading-[1.6] text-slate-600 font-light text-pretty tracking-wide">
+              {analysis.rationale}
+            </p>
+          </div>
+        </div>
+
+        {/* 3) TRUTH ROW */}
+        <div className="relative z-10">
+          <SpecLabel label="02 // TELEMETRY" />
+          <div className="grid grid-cols-3 gap-3 mb-1">
+            <SmartChip label="DVP Rank" value={dvpText} colorClass={metricColor("DVP", metrics.dvpRank)} />
+            <SmartChip label="Edge" value={edgeText} colorClass={metricColor("EDGE", metrics.edgePercent)} />
+            <SmartChip label="Win Prob" value={probText} colorClass={metricColor("PROB", metrics.probPercent)} />
+          </div>
+        </div>
+
+        {/* 4) FOOTER STRIP */}
+        <L5Strip outcomes={history.outcomes} hitRate={history.l5HitRate} />
+
+        {/* EXPORT WATERMARK */}
+        {isExporting && (
+          <div className="absolute bottom-3 right-4 opacity-60 flex items-center gap-2">
+            <DripMark width={18} height={18} className="text-slate-400" />
+            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-500">THE DRIP</span>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+});
+
+InsightCard.displayName = "InsightCard";
+export default InsightCard;
+
+// ─────────────────────────────────────────────────────────────────
+// UTILITIES (LOCAL ONLY)
+// ─────────────────────────────────────────────────────────────────
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return Boolean(v) && typeof v === "object" && !Array.isArray(v);
+}
+
+function asString(v: unknown, fallback: string): string {
+  if (typeof v === "string" && v.trim()) return v.trim();
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  return fallback;
+}
+
+function asOptionalString(v: unknown): string | undefined {
+  if (typeof v === "string" && v.trim()) return v.trim();
+  return undefined;
+}
+
+function toFiniteNumber(v: unknown, fallback: number): number {
+  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, n));
+}
+
+function clampInt(n: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, Math.trunc(n)));
+}
+
+function round1(n: number) {
+  return Math.round(n * 10) / 10;
+}
+
+function formatLine(line: number) {
+  if (!Number.isFinite(line)) return "0";
+  const isInt = Math.abs(line - Math.trunc(line)) < 1e-9;
+  return isInt ? String(Math.trunc(line)) : String(line);
+}
+
+function normalizeOutcomes(v: unknown): InsightOutcome[] {
+  if (!Array.isArray(v)) return ["MISS", "MISS", "MISS", "MISS", "MISS"];
+  const out: InsightOutcome[] = [];
+  for (const item of v.slice(0, 5)) {
+    const s = typeof item === "string" ? item.toUpperCase() : "";
+    if (s === "HIT" || s === "MISS" || s === "PUSH") out.push(s as InsightOutcome);
+  }
+  while (out.length < 5) out.push("MISS");
+  return out;
+}
+
+function computeHitRate(outcomes: InsightOutcome[]) {
+  const o = outcomes.slice(0, 5);
+  const hits = o.filter((x) => x === "HIT").length;
+  return Math.round((hits / 5) * 100);
+}
+
+function randomId() {
+  return Math.random().toString(36).slice(2, 11);
+}
+
+function initials(name: string) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "UN";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function ordinalSuffix(n: number) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return "th";
+  switch (n % 10) {
+    case 1: return "st";
+    case 2: return "nd";
+    case 3: return "rd";
+    default: return "th";
+  }
+}
+
+function buildFileName(playerName: string, segment: string) {
+  const safe = (s: string) =>
+    (s || "")
+      .replace(/[^\w\-]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 80);
+  const p = safe(playerName);
+  const b = safe(segment);
+  return `TheDrip_${p}_${b}.png`;
+}
+
+function downloadDataUrl(dataUrl: string, fileName: string) {
+  const link = document.createElement("a");
+  link.download = fileName;
+  link.href = dataUrl;
+  link.click();
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+function nextFrame() {
+  return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+}

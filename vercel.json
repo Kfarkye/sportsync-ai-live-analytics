@@ -1,0 +1,98 @@
+{
+    "functions": {
+        "api/chat.js": {
+            "maxDuration": 300
+        },
+        "api/**/*.js": {
+            "maxDuration": 60
+        }
+    },
+    "headers": [
+        {
+            "source": "/assets/:path*",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
+        },
+        {
+            "source": "/",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=60, must-revalidate"
+                }
+            ]
+        },
+        {
+            "source": "/:path*",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=60, must-revalidate"
+                }
+            ]
+        },
+        {
+            "source": "/icons/:path*",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=86400, immutable"
+                }
+            ]
+        },
+        {
+            "source": "/manifest.webmanifest",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=300, must-revalidate"
+                }
+            ]
+        },
+        {
+            "source": "/screenshots/:path*",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=86400, immutable"
+                }
+            ]
+        }
+    ],
+    "rewrites": [
+        {
+            "source": "/api/:path*",
+            "destination": "/api/:path*"
+        },
+        {
+            "source": "/:path*",
+            "destination": "/index.html"
+        }
+    ],
+    "crons": [
+        {
+            "path": "/api/cron/pregame-intel",
+            "schedule": "*/5 * * * *"
+        },
+        {
+            "path": "/api/cron/sharp-picks",
+            "schedule": "0 * * * *"
+        },
+        {
+            "path": "/api/cron/sync-player-props",
+            "schedule": "0 2,6,10,14,18,22 * * *"
+        },
+        {
+            "path": "/api/cron/ingest-odds",
+            "schedule": "0 4,10,16,22 * * *"
+        },
+        {
+            "path": "/api/cron/finalize-games",
+            "schedule": "0 10,14 * * *"
+        }
+    ]
+}

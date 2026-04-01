@@ -1,0 +1,640 @@
+import React, { useMemo, memo } from 'react';
+import { motion } from 'framer-motion';
+import { User, Target } from 'lucide-react';
+import { Match, StatItem, Team, PlayerPropBet, Sport } from '@/types';
+import TeamLogo from '../shared/TeamLogo';
+import { cn, ESSENCE } from '@/lib/essence';
+import { getMatchDisplayStats, hasLineScoreData } from '../../utils/statDisplay';
+import { useIsEntityPulsing } from '@/context/LiveSweatContext';
+import { getLeagueDisplayName } from '@/utils/leagueDisplay';
+
+// ============================================================================
+// 1. LINE SCORE GRID - ELITE EDITION
+// ============================================================================
+
+interface LineScoreGridProps {
+  match: Match;
+  isLive?: boolean;
+}
+
+/**
+ * LineScoreGrid - Period by period breakdown with elite polish
+ */
+export const LineScoreGrid: React.FC<LineScoreGridProps> = memo(({ match, isLive }) => {
+  const sportKey = String(match.sport || '').toUpperCase();
+  const leagueKey = match.leagueId?.toLowerCase() || '';
+  const isTennis = match.sport === Sport.TENNIS || ['atp', 'wta'].includes(leagueKey);
+  const isBaseball = sportKey.includes('BASEBALL') || leagueKey.includes('mlb');
+  const isSoccer = sportKey.includes('SOCCER') || leagueKey.includes('mls');
+  const isHockey = sportKey.includes('HOCKEY') || leagueKey.includes('nhl');
+  const isCollegeBasketball = leagueKey.includes('mens-college-basketball') ||
+    leagueKey.includes('womens-college-basketball') ||
+    leagueKey.includes('ncaab') ||
+    leagueKey.includes('ncaawb');
+  const isBasketball = sportKey.includes('BASKETBALL') || leagueKey.includes('nba') || leagueKey.includes('wnba');
+  const isFootball = sportKey.includes('FOOTBALL') || leagueKey.includes('nfl') || leagueKey.includes('cfb');
+
+  const periods = useMemo(() => {
+    const homeLen = match.homeTeam.linescores?.length || 0;
+    const awayLen = match.awayTeam.linescores?.length || 0;
+    const regulation = (() => {
+      if (isTennis) return Math.max(homeLen, awayLen, 3);
+      if (isSoccer) return 2;
+      if (isHockey) return 3;
+      if (isBaseball) return 9;
+      if (isFootball) return 4;
+      if (isCollegeBasketball) return 2;
+      if (isBasketball) return 4;
+      if (typeof match.regulationPeriods === 'number' && match.regulationPeriods > 0) {
+        return match.regulationPeriods;
+      }
+      return 4;
+    })();
+    return Math.max(homeLen, awayLen, regulation);
+  }, [
+    match.homeTeam.linescores,
+    match.awayTeam.linescores,
+    match.regulationPeriods,
+    isTennis,
+    isSoccer,
+    isHockey,
+    isBaseball,
+    isFootball,
+    isCollegeBasketball,
+    isBasketball,
+  ]);
+
+  const periodRange = useMemo(() => {
+    if (!isCollegeBasketball) {
+      return Array.from({ length: periods }, (_, i) => i + 1);
+    }
+
+    const visiblePeriods = new Set<number>([1, 2]);
+    const lines = [...(match.homeTeam.linescores || []), ...(match.awayTeam.linescores || [])];
+
+    lines.forEach((entry) => {
+      const period = Number(entry?.period);
+      if (!Number.isFinite(period) || period <= 2) return;
+
+      const value = entry?.value as unknown;
+      const hasValue = typeof value === 'number'
+        ? Number.isFinite(value)
+        : typeof value === 'string'
+          ? value.trim().length > 0
+          : false;
+
+      const label = String(entry?.label || '').toUpperCase();
+      const isOvertimeLabel = label.includes('OT');
+
+      if (hasValue || isOvertimeLabel) {
+        visiblePeriods.add(period);
+      }
+    });
+
+    return Array.from(visiblePeriods).sort((a, b) => a - b);
+  }, [isCollegeBasketball, periods, match.homeTeam.linescores, match.awayTeam.linescores]);
+
+  const getScore = (team: Team, period: number) => {
+    const list = team.linescores || [];
+    const byPeriod = list.find(l => l.period === period);
+    const byIndex = list[period - 1];
+    const entry = byPeriod || byIndex;
+    if (!entry) return '-';
+    const raw = entry.value;
+    if (isTennis && raw !== undefined && raw !== null && typeof entry.tiebreak === 'number') {
+      return `${raw}(${entry.tiebreak})`;
+    }
+    if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
+    if (typeof raw === 'string' && (raw as string).trim().length > 0) return raw as string;
+    return '-';
+  };
+  const getPeriodLabel = (period: number) => {
+    if (isCollegeBasketball && period <= 2) return `H${period}`;
+
+    const label =
+      match.homeTeam.linescores?.find(l => l.period === period)?.label ||
+      match.awayTeam.linescores?.find(l => l.period === period)?.label;
+    if (label) return String(label).toUpperCase();
+
+    if (isCollegeBasketball && period > 2) {
+      const otIndex = period - 2;
+      return otIndex <= 1 ? 'OT' : `OT${otIndex}`;
+    }
+
+    if (isTennis) return `S${period}`;
+    if (isSoccer && period <= 2) return `H${period}`;
+    if (isBaseball) return String(period);
+    const regulation = isSoccer ? 2 : isHockey ? 3 : isBaseball ? 9 : (isFootball || isBasketball) ? 4
+      : (typeof match.regulationPeriods === 'number' && match.regulationPeriods > 0 ? match.regulationPeriods : 4);
+    if (isSoccer && period > regulation) {
+      if (period === regulation + 1) return 'ET';
+      if (period === regulation + 2) return 'PEN';
+      return `ET${period - regulation}`;
+    }
+    if (period > regulation) {
+      const otIndex = period - regulation;
+      return otIndex <= 1 ? 'OT' : `OT${otIndex}`;
+    }
+    return String(period);
+  };
+
+  const hasLines = hasLineScoreData(match);
+
+  if (!hasLines && !isSoccer) {
+    const homeTotal = match.homeScore ?? 0;
+    const awayTotal = match.awayScore ?? 0;
+    const isHomeWinning = homeTotal > awayTotal;
+    const isAwayWinning = awayTotal > homeTotal;
+    const isTied = homeTotal === awayTotal;
+
+    return (
+      <div className="w-full overflow-x-auto no-scrollbar">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="border-b border-slate-200">
+              <th className="py-3 text-left w-28 px-1">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Team</span>
+              </th>
+              <th className="py-3 px-3 text-center w-16 bg-slate-50 rounded-t-lg">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tot</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {[match.awayTeam, match.homeTeam].map((team, idx) => {
+              const isWinning = idx === 0 ? isAwayWinning : isHomeWinning;
+              const totalScore = idx === 0 ? awayTotal : homeTotal;
+              return (
+                <tr key={team.id} className="group transition-colors hover:bg-white/1.5">
+                  <td className="py-4 px-1">
+                    <div className="flex items-center gap-2.5">
+                      <TeamLogo logo={team.logo} className="w-6 h-6 opacity-80 group-hover:opacity-100 transition-opacity" />
+                      <span className="text-[10px] font-black text-slate-400 group-hover:text-slate-700 transition-colors uppercase tracking-widest">
+                        {team.abbreviation || team.shortName}
+                      </span>
+                    </div>
+                  </td>
+                  <td className={cn("py-4 px-3 text-center bg-slate-50 border-l border-slate-200", idx === 1 && "rounded-b-lg")}>
+                    <span className={cn(
+                      "font-mono text-[18px] font-black tabular-nums tracking-tighter",
+                      isWinning ? "text-slate-900 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" : "text-slate-400",
+                      isTied && "text-slate-600"
+                    )}>
+                      {totalScore}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  // Determine winner for total highlight
+  const homeTotal = match.homeScore ?? 0;
+  const awayTotal = match.awayScore ?? 0;
+  const isHomeWinning = homeTotal > awayTotal;
+  const isAwayWinning = awayTotal > homeTotal;
+  const isTied = homeTotal === awayTotal;
+
+  // Stagger animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.08 }
+    }
+  };
+
+  const rowVariants = {
+    hidden: { opacity: 0, x: -8 },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.3, ease: "easeOut" as const } }
+  };
+
+  return (
+    <motion.div
+      className="w-full overflow-x-auto no-scrollbar"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="border-b border-slate-200">
+            <th className="py-3 text-left w-28 px-1">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Team</span>
+            </th>
+            {periodRange.map(p => (
+              <th key={p} className="py-3 px-3 text-center">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  {getPeriodLabel(p)}
+                </span>
+              </th>
+            ))}
+            <th className="py-3 px-3 text-center w-16 bg-slate-50 rounded-t-lg">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tot</span>
+            </th>
+          </tr>
+        </thead>
+        <motion.tbody variants={containerVariants}>
+          {[match.awayTeam, match.homeTeam].map((team, idx) => {
+            const isWinning = idx === 0 ? isAwayWinning : isHomeWinning;
+            const totalScore = idx === 0 ? awayTotal : homeTotal;
+
+            return (
+              <motion.tr
+                key={team.id}
+                className="group transition-colors hover:bg-white/1.5"
+                variants={rowVariants}
+              >
+                <td className="py-4 px-1">
+                  <div className="flex items-center gap-2.5">
+                    <TeamLogo logo={team.logo} className="w-6 h-6 opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <span className="text-[10px] font-black text-slate-400 group-hover:text-slate-700 transition-colors uppercase tracking-widest">
+                      {team.abbreviation || team.shortName}
+                    </span>
+                  </div>
+                </td>
+                {periodRange.map(p => (
+                  <td key={p} className="py-4 px-3 text-center">
+                    <span className="font-mono text-[14px] font-medium text-slate-500 tabular-nums">
+                      {getScore(team, p)}
+                    </span>
+                  </td>
+                ))}
+                <td className={cn(
+                  "py-4 px-3 text-center bg-slate-50 border-l border-slate-200",
+                  idx === 1 && "rounded-b-lg"
+                )}>
+                  <span className={cn(
+                    "font-mono text-[18px] font-black tabular-nums tracking-tighter",
+                    isWinning ? "text-slate-900 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" : "text-slate-400",
+                    isTied && "text-slate-600"
+                  )}>
+                    {totalScore}
+                  </span>
+                </td>
+              </motion.tr>
+            );
+          })}
+        </motion.tbody>
+      </table>
+    </motion.div>
+  );
+});
+
+LineScoreGrid.displayName = 'LineScoreGrid';
+
+// ============================================================================
+// 2. TEAM STATS GRID
+// ============================================================================
+
+interface TeamStatsGridProps {
+  stats: StatItem[];
+  match: Match;
+  colors: { home: string; away: string };
+}
+
+/**
+ * TeamStatsGrid - Comparison bar chart for match statistics
+ */
+export const TeamStatsGrid: React.FC<TeamStatsGridProps> = memo(({ stats, colors }) => {
+  if (!stats || stats.length === 0) return null;
+
+  return (
+    <div className="relative">
+      <div className="space-y-5">
+        {stats.map((stat, i) => {
+          const parseStat = (val: string | number | null | undefined) => {
+            if (typeof val !== 'string' && typeof val !== 'number') return 0;
+            const parsed = parseFloat(String(val).replace(/[^0-9.]/g, ''));
+            return isNaN(parsed) ? 0 : parsed;
+          };
+
+          const hVal = parseStat(stat.homeValue);
+          const aVal = parseStat(stat.awayValue);
+          const total = hVal + aVal;
+          const hPct = total > 0 ? (hVal / total) * 100 : 50;
+          const aPct = total > 0 ? (aVal / total) * 100 : 50;
+
+          return (
+            <div key={i} className="space-y-2">
+              <div className="flex justify-between items-end">
+                <span className="text-[12px] font-mono font-semibold text-slate-900/90 tabular-nums">{stat.awayValue}</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.2em]">{stat.label}</span>
+                <span className="text-[12px] font-mono font-semibold text-slate-900/90 tabular-nums">{stat.homeValue}</span>
+              </div>
+              <div className="relative h-1.5 w-full bg-slate-50 rounded-full overflow-hidden flex">
+                <div className="absolute left-0 top-0 bottom-0 w-px bg-white/10" />
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${aPct}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  className="h-full"
+                  style={{ backgroundColor: colors.away, boxShadow: `0 0 12px ${colors.away}30` }}
+                />
+                <div className="w-px h-full bg-black/40" />
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${hPct}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  className="h-full"
+                  style={{ backgroundColor: colors.home, boxShadow: `0 0 12px ${colors.home}30` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
+TeamStatsGrid.displayName = 'TeamStatsGrid';
+
+// ============================================================================
+// 3. LIVE PLAYER PROPS
+// ============================================================================
+
+interface PlayerPropGroup {
+  playerName: string;
+  headshotUrl?: string | undefined;
+  team?: string | undefined;
+  props: PlayerPropBet[];
+}
+
+const normalizeL5Results = (prop: PlayerPropBet): Array<'HIT' | 'MISS' | 'PUSH'> => {
+  if (Array.isArray(prop.l5Results) && prop.l5Results.length > 0) {
+    return prop.l5Results
+      .map((value) => String(value).toUpperCase())
+      .filter((value): value is 'HIT' | 'MISS' | 'PUSH' => value === 'HIT' || value === 'MISS' || value === 'PUSH')
+      .slice(0, 5);
+  }
+  if (!Array.isArray(prop.l5Values) || prop.l5Values.length === 0) return [];
+  const side = String(prop.side || '').toLowerCase();
+  const line = Number(prop.lineValue);
+  return prop.l5Values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+    .slice(0, 5)
+    .map((value) => {
+      if (side === 'under') return value < line ? 'HIT' : value > line ? 'MISS' : 'PUSH';
+      if (side === 'over') return value > line ? 'HIT' : value < line ? 'MISS' : 'PUSH';
+      return 'MISS';
+    });
+};
+
+const computeL5HitRate = (prop: PlayerPropBet, results: Array<'HIT' | 'MISS' | 'PUSH'>): number => {
+  if (typeof prop.l5HitRate === 'number' && Number.isFinite(prop.l5HitRate)) {
+    return Math.max(0, Math.min(100, Math.round(prop.l5HitRate)));
+  }
+  const settled = results.filter((value) => value !== 'PUSH');
+  if (settled.length === 0) return 0;
+  const hits = settled.filter((value) => value === 'HIT').length;
+  return Math.round((hits / settled.length) * 100);
+};
+
+const computeStreak = (results: Array<'HIT' | 'MISS' | 'PUSH'>): { label: string; count: number } | null => {
+  let count = 0;
+  let anchor: 'HIT' | 'MISS' | null = null;
+  for (const result of results) {
+    if (result === 'PUSH') continue;
+    if (!anchor) {
+      anchor = result;
+      count = 1;
+      continue;
+    }
+    if (result === anchor) {
+      count += 1;
+      continue;
+    }
+    break;
+  }
+  if (!anchor || count === 0) return null;
+  return { label: anchor === 'HIT' ? 'HIT' : 'MISS', count };
+};
+
+/**
+ * ClassicPlayerProps - Apple x Stripe x Vercel Design Language
+ * 
+ * Design Principles:
+ * - Apple: Clean whitespace, precise typography, subtle hierarchy
+ * - Stripe: Table precision, clean data alignment, professional focus
+ * - Vercel: Dark-first, monospace numbers, minimal decoration
+ */
+export const ClassicPlayerProps: React.FC<{ match: Match }> = memo(({ match }) => {
+  const dbProps = match.dbProps || [];
+
+  const groups = useMemo(() => {
+    const map = new Map<string, PlayerPropGroup>();
+    const scoreProp = (prop: PlayerPropBet) => {
+      const confidence = typeof prop.confidenceScore === 'number' ? prop.confidenceScore : 0;
+      const hitRate = typeof prop.l5HitRate === 'number' ? prop.l5HitRate : 0;
+      const implied = typeof prop.impliedProbPct === 'number' ? prop.impliedProbPct : 0;
+      return confidence * 100 + hitRate + implied;
+    };
+
+    dbProps.forEach(p => {
+      if (!map.has(p.playerName)) {
+        map.set(p.playerName, {
+          playerName: p.playerName,
+          headshotUrl: p.headshotUrl || undefined,
+          team: p.team || undefined,
+          props: [] as PlayerPropBet[]
+        });
+      }
+      const group = map.get(p.playerName)!;
+      const dedupeKey = `${String(p.betType || '').toLowerCase()}|${String(p.lineValue)}|${String(p.side || '').toLowerCase()}`;
+      const existingIndex = group.props.findIndex((candidate) => {
+        const candidateKey = `${String(candidate.betType || '').toLowerCase()}|${String(candidate.lineValue)}|${String(candidate.side || '').toLowerCase()}`;
+        return candidateKey === dedupeKey;
+      });
+
+      if (existingIndex === -1) {
+        group.props.push(p);
+        return;
+      }
+
+      if (scoreProp(p) > scoreProp(group.props[existingIndex])) {
+        group.props[existingIndex] = p;
+      }
+    });
+    return Array.from(map.values());
+  }, [dbProps]);
+
+  if (groups.length === 0) {
+    return (
+      <div className="py-16 flex flex-col items-center justify-center">
+        <div className="w-12 h-12 rounded-2xl bg-zinc-900/50 flex items-center justify-center mb-4">
+          <Target size={20} className="text-slate-400" />
+        </div>
+        <span className="text-[11px] font-medium text-slate-500 uppercase tracking-widest">No Active Props</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {groups.map((group) => (
+        <ClassicPlayerGroup key={group.playerName} group={group} />
+      ))}
+    </div>
+  );
+});
+
+const ClassicPlayerGroup = memo(({ group }: { group: PlayerPropGroup }) => {
+  const isPulsing = useIsEntityPulsing(group.playerName);
+
+  return (
+    <div
+      className={cn(
+        "group bg-slate-50 border rounded-2xl p-4 transition-all duration-300 active:scale-[0.99] touch-pan-y",
+        isPulsing ? "border-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.15)] ring-1 ring-emerald-400/50" : "border-slate-200"
+      )}
+    >
+      {/* Player Identity — Concise for mobile */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className={cn("relative w-10 h-10 rounded-full overflow-hidden ring-1 ring-white/10 transition-colors duration-300", isPulsing ? "bg-emerald-950" : "bg-zinc-900")}>
+          {group.headshotUrl ? (
+            <img
+              src={group.headshotUrl}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <User size={16} className={isPulsing ? "text-emerald-400" : "text-slate-400"} />
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h4 className={cn("text-[15px] font-bold tracking-tight truncate leading-none transition-colors", isPulsing ? "text-emerald-500" : "text-slate-900")}>
+            {group.playerName}
+          </h4>
+          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1 opacity-70">
+            {group.team}
+          </p>
+        </div>
+      </div>
+
+      {/* High-Density Row Layout */}
+      <div className="space-y-1">
+        {group.props.map((prop, j) => {
+          const isOver = prop.side === 'over';
+          const l5Results = normalizeL5Results(prop);
+          const l5HitRate = computeL5HitRate(prop, l5Results);
+          const streak = computeStreak(l5Results);
+
+          return (
+            <div
+              key={j}
+              className={cn("flex items-center justify-between py-3 px-3 rounded-xl transition-all duration-300 active:bg-slate-100", isPulsing ? "bg-emerald-50/50 border border-emerald-500/10" : "bg-slate-50 border border-white/2")}
+            >
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-1 h-3 rounded-full transition-all duration-500",
+                  isOver ? "bg-emerald-500/40" : "bg-rose-500/40",
+                  isPulsing && isOver && "bg-emerald-400 animate-pulse"
+                )} />
+                <div className="min-w-0">
+                  <span className={cn("block text-[12px] font-medium transition-colors", isPulsing ? "text-emerald-700/80" : "text-slate-400")}>
+                    {prop.betType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </span>
+                  {l5Results.length > 0 && (
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.08em] text-slate-500">
+                      <span className="font-semibold tabular-nums">L5 {l5HitRate}%</span>
+                      {streak ? (
+                        <span
+                          className={cn(
+                            "rounded px-1 py-px font-bold",
+                            streak.label === 'HIT' ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700",
+                          )}
+                        >
+                          {streak.label} {streak.count}
+                        </span>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <span className={cn("text-[15px] font-black font-mono tabular-nums tracking-tighter transition-colors", isPulsing ? "text-emerald-600" : "text-slate-900")}>
+                  {prop.lineValue}
+                </span>
+
+                <div className={cn(
+                  "flex items-center justify-center min-w-[56px] py-1 px-2 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all",
+                  isOver
+                    ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
+                    : "text-rose-400 bg-rose-500/10 border border-rose-500/20"
+                )}>
+                  {prop.side}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
+ClassicPlayerProps.displayName = 'ClassicPlayerProps';
+
+// ============================================================================
+// 4. MAIN BOX SCORE COMPONENT
+// ============================================================================
+
+const normalizeColor = (color: string | undefined, fallback: string): string => {
+  if (!color) return fallback;
+  const c = color.trim();
+  if (c.startsWith('#')) return c;
+  return `#${c}`;
+};
+
+/**
+ * BoxScore - Primary statistical overview for a match (all sports)
+ */
+const BoxScore: React.FC<{ match: Match }> = memo(({ match }) => {
+  const stats = useMemo(() => getMatchDisplayStats(match, 8), [match]);
+  const homeColor = normalizeColor(match.homeTeam?.color, '#3B82F6');
+  const awayColor = normalizeColor(match.awayTeam?.color, '#EF4444');
+  const leagueLabel = getLeagueDisplayName(match.leagueId, String(match.sport || ''));
+
+  if (!stats.length && !hasLineScoreData(match)) return null;
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Line Score</span>
+          </div>
+          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
+            {leagueLabel}
+          </span>
+        </div>
+        <LineScoreGrid match={match} />
+      </div>
+
+      {stats.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Team Stats</span>
+          </div>
+          <TeamStatsGrid stats={stats} match={match} colors={{ home: homeColor, away: awayColor }} />
+        </div>
+      )}
+    </div>
+  );
+});
+
+BoxScore.displayName = 'BoxScore';
+
+export default BoxScore;

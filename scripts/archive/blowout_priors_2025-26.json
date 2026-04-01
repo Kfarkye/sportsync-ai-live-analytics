@@ -1,0 +1,124 @@
+{
+  "league": "NBA",
+  "season": "2025-26",
+  "generated_at": "2025-12-25T03:09:40.640502+00:00",
+  "priors": [
+    {
+      "team": "ATL",
+      "baseline": {
+        "pace": 103.08,
+        "ortg": 114.72,
+        "nPoss": 669
+      },
+      "trailing": {
+        "paceDelta": 1.0205,
+        "pppDelta": 0.9489,
+        "nPoss": 26
+      }
+    },
+    {
+      "team": "BKN",
+      "baseline": {
+        "pace": 99.36,
+        "ortg": 107.5,
+        "nPoss": 470
+      },
+      "leading": {
+        "paceDelta": 1.0058,
+        "pppDelta": 1.1771,
+        "nPoss": 25
+      }
+    },
+    {
+      "team": "CLE",
+      "baseline": {
+        "pace": 103.49,
+        "ortg": 115.18,
+        "nPoss": 677
+      },
+      "trailing": {
+        "paceDelta": 1.0131,
+        "pppDelta": 1.0766,
+        "nPoss": 26
+      }
+    },
+    {
+      "team": "DEN",
+      "baseline": {
+        "pace": 101.28,
+        "ortg": 123.67,
+        "nPoss": 558
+      },
+      "leading": {
+        "paceDelta": 1.0104,
+        "pppDelta": 1.0702,
+        "nPoss": 25
+      }
+    },
+    {
+      "team": "DET",
+      "baseline": {
+        "pace": 103.52,
+        "ortg": 112.27,
+        "nPoss": 521
+      },
+      "leading": {
+        "paceDelta": 1.0217,
+        "pppDelta": 1.196,
+        "nPoss": 26
+      }
+    },
+    {
+      "team": "IND",
+      "baseline": {
+        "pace": 102.6,
+        "ortg": 105.76,
+        "nPoss": 537
+      },
+      "trailing": {
+        "paceDelta": 0.8796,
+        "pppDelta": 0.9326,
+        "nPoss": 22
+      }
+    },
+    {
+      "team": "MIL",
+      "baseline": {
+        "pace": 100.83,
+        "ortg": 112.51,
+        "nPoss": 609
+      },
+      "trailing": {
+        "paceDelta": 0.9905,
+        "pppDelta": 0.7358,
+        "nPoss": 24
+      }
+    },
+    {
+      "team": "SAC",
+      "baseline": {
+        "pace": 103.14,
+        "ortg": 105.78,
+        "nPoss": 595
+      },
+      "trailing": {
+        "paceDelta": 0.9998,
+        "pppDelta": 0.9626,
+        "nPoss": 25
+      }
+    },
+    {
+      "team": "WAS",
+      "baseline": {
+        "pace": 103.46,
+        "ortg": 108.2,
+        "nPoss": 650
+      },
+      "leading": {
+        "paceDelta": 0.9639,
+        "pppDelta": 1.0894,
+        "nPoss": 49
+      }
+    }
+  ]
+}

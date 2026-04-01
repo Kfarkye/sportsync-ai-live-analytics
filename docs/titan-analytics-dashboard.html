@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Titan Analytics | Performance Dashboard</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #111111;
+            --bg-card: rgba(22, 22, 24, .8);
+            --bg-card-hover: rgba(30, 30, 35, .9);
+            --border-subtle: rgba(255, 255, 255, .06);
+            --border-active: rgba(255, 255, 255, .12);
+            --text-primary: #fff;
+            --text-secondary: rgba(255, 255, 255, .6);
+            --text-tertiary: rgba(255, 255, 255, .4);
+            --accent-green: #10b981;
+            --accent-green-glow: rgba(16, 185, 129, .15);
+            --accent-red: #ef4444;
+            --accent-red-glow: rgba(239, 68, 68, .15);
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --gradient-stripe: linear-gradient(135deg, #635bff 0%, #a855f7 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            opacity: .02;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 48px 24px
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--gradient-stripe);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -.02em
+        }
+
+        .logo-badge {
+            font-size: 11px;
+            font-weight: 500;
+            background: rgba(139, 92, 246, .15);
+            color: #a78bfa;
+            padding: 4px 8px;
+            border-radius: 6px;
+            margin-left: 8px;
+        }
+
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 16px
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite
+        }
+
+        .live-dot.error {
+            background: var(--accent-red)
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .4
+            }
+        }
+
+        .timestamp {
+            font-size: 13px;
+            color: var(--text-tertiary)
+        }
+
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 20px;
+            color: var(--text-secondary);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-subtle);
+            border-top-color: var(--accent-purple);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        .error-state {
+            background: rgba(239, 68, 68, .08);
+            border: 1px solid rgba(239, 68, 68, .22);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .error-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fecaca;
+            margin-bottom: 8px
+        }
+
+        .error-details {
+            font-size: 13px;
+            color: rgba(255, 255, 255, .65)
+        }
+
+        .integrity-banner {
+            display: none;
+            margin: 0 0 24px 0;
+            background: rgba(245, 158, 11, .08);
+            border: 1px solid rgba(245, 158, 11, .22);
+            border-radius: 12px;
+            padding: 14px 16px;
+        }
+
+        .integrity-banner.show {
+            display: block
+        }
+
+        .integrity-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #fde68a;
+            margin-bottom: 4px
+        }
+
+        .integrity-details {
+            font-size: 12px;
+            color: rgba(255, 255, 255, .65)
+        }
+
+        /* hero stats */
+        .hero-stats {
+            --cols: 4;
+            display: grid;
+            grid-template-columns: repeat(var(--cols), 1fr);
+            gap: 1px;
+            background: var(--border-subtle);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 32px;
+        }
+
+        .hero-stat {
+            background: var(--bg-card);
+            padding: 32px 28px;
+            transition: background .2s ease
+        }
+
+        .hero-stat:hover {
+            background: var(--bg-card-hover)
+        }
+
+        .hero-stat-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            margin-bottom: 8px;
+        }
+
+        .hero-stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -.02em;
+            margin-bottom: 4px
+        }
+
+        .hero-stat-value.positive {
+            color: var(--accent-green)
+        }
+
+        .hero-stat-change {
+            font-size: 13px;
+            color: var(--text-secondary)
+        }
+
+        .hero-stat-change.positive {
+            color: var(--accent-green)
+        }
+
+        .hero-stat-change.negative {
+            color: var(--accent-red)
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: .1em;
+        }
+
+        .section-subtitle {
+            font-size: 12px;
+            color: var(--text-tertiary)
+        }
+
+        /* categories table */
+        .categories-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            background: var(--border-subtle);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 40px;
+        }
+
+        .category-row {
+            display: grid;
+            grid-template-columns: 1fr 220px 92px;
+            align-items: center;
+            background: var(--bg-card);
+            padding: 20px 24px;
+            transition: all .2s ease;
+        }
+
+        .category-row:hover {
+            background: var(--bg-card-hover)
+        }
+
+        .category-row.header {
+            padding: 14px 24px;
+            background: rgba(255, 255, 255, .02);
+        }
+
+        .category-row.header span {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .category-name {
+            display: flex;
+            align-items: center;
+            gap: 12px
+        }
+
+        .category-label {
+            font-size: 15px;
+            font-weight: 500
+        }
+
+        .category-record {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums
+        }
+
+        .category-winrate {
+            font-size: 14px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            text-align: right;
+        }
+
+        .category-winrate.positive {
+            color: var(--accent-green)
+        }
+
+        .category-winrate.negative {
+            color: var(--text-secondary)
+        }
+
+        .winrate-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 12px
+        }
+
+        .winrate-bar {
+            flex: 1;
+            height: 6px;
+            background: rgba(255, 255, 255, .06);
+            border-radius: 3px;
+            overflow: hidden
+        }
+
+        .winrate-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width .8s cubic-bezier(.16, 1, .3, 1)
+        }
+
+        .winrate-bar-fill.positive {
+            background: linear-gradient(90deg, var(--accent-green), #22d3ee)
+        }
+
+        .winrate-bar-fill.negative {
+            background: linear-gradient(90deg, var(--accent-red), #f97316)
+        }
+
+        .winrate-bar-fill.neutral {
+            background: linear-gradient(90deg, #6366f1, #8b5cf6)
+        }
+
+        /* two columns cards */
+        .two-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-subtle)
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary)
+        }
+
+        .bucket-row {
+            display: grid;
+            grid-template-columns: 1fr 100px 70px;
+            align-items: center;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .bucket-row:last-child {
+            border-bottom: none
+        }
+
+        .bucket-name {
+            font-size: 14px;
+            font-weight: 500
+        }
+
+        .bucket-record {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums
+        }
+
+        .bucket-winrate {
+            font-size: 13px;
+            font-weight: 600;
+            text-align: right;
+            font-variant-numeric: tabular-nums
+        }
+
+        .bucket-winrate.positive {
+            color: var(--accent-green)
+        }
+
+        .bucket-winrate.negative {
+            color: var(--text-secondary)
+        }
+
+        .league-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 20px 24px
+        }
+
+        .league-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            transition: all .2s ease;
+        }
+
+        .league-pill:hover {
+            background: rgba(255, 255, 255, .08);
+            border-color: var(--border-active)
+        }
+
+        .league-name {
+            font-size: 13px;
+            font-weight: 500;
+            text-transform: uppercase
+        }
+
+        .league-record {
+            font-size: 12px;
+            color: var(--text-tertiary)
+        }
+
+        .league-winrate {
+            font-size: 12px;
+            font-weight: 600
+        }
+
+        .league-winrate.positive {
+            color: var(--accent-green)
+        }
+
+        .league-winrate.negative {
+            color: var(--text-secondary)
+        }
+
+        .footer {
+            margin-top: 64px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-text {
+            font-size: 12px;
+            color: var(--text-tertiary)
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px
+        }
+
+        .footer-link {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color .2s ease
+        }
+
+        .footer-link:hover {
+            color: var(--text-primary)
+        }
+
+        @media (max-width: 768px) {
+            .hero-stats {
+                --cols: 2
+            }
+
+            .two-columns {
+                grid-template-columns: 1fr
+            }
+
+            .category-row {
+                grid-template-columns: 1fr 170px 80px
+            }
+
+            .footer {
+                flex-direction: column;
+                gap: 14px;
+                align-items: flex-start
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">T</div>
+                <span class="logo-text">Titan Analytics</span>
+                <span class="logo-badge">v3.7</span>
+            </div>
+            <div class="header-meta">
+                <div class="live-dot" id="statusDot"></div>
+                <span class="timestamp" id="timestamp">Loading...</span>
+            </div>
+        </header>
+
+        <div class="integrity-banner" id="integrityBanner">
+            <div class="integrity-title">⚠️ Data Integrity Notice</div>
+            <div class="integrity-details" id="integrityDetails"></div>
+        </div>
+
+        <main id="mainContent">
+            <div class="loading-state" id="loadingState">
+                <div class="loading-spinner"></div>
+                <div>Fetching live data from Supabase...</div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <span class="footer-text">© 2026 Titan Analytics Engine v3.5.3</span>
+            <div class="footer-links">
+                <a href="#" class="footer-link">Documentation</a>
+                <a href="#" class="footer-link">API</a>
+                <a href="#" class="footer-link">Support</a>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        "use strict";
+
+        // ============================================================
+        // SUPABASE CONFIG
+        // ============================================================
+        const SUPABASE_URL = 'https://qffzvrnbzabcokqqrwbv.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZnp2cm5iemFiY29rcXFyd2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTc2NjgsImV4cCI6MjA3MDkzMzY2OH0.PCSnC5E7sG7FvasHy_9DdwiN61xW0GzFROLzZ0bTVnc';
+        const BASELINE_WIN_RATE = 0.50;
+
+        // ============================================================
+        // UTILITY FUNCTIONS
+        // ============================================================
+        const $ = (id) => document.getElementById(id);
+
+        function safeNum(n) {
+            return Number.isFinite(n) ? n : 0;
+        }
+
+        function winRate(w, l) {
+            const total = safeNum(w) + safeNum(l);
+            return total > 0 ? safeNum(w) / total : 0;
+        }
+
+        function formatPct(p) {
+            return (p * 100).toFixed(1) + '%';
+        }
+
+        function formatRecord(w, l) {
+            return `${safeNum(w)}-${safeNum(l)}`;
+        }
+
+        function rateClass(rate) {
+            return rate > BASELINE_WIN_RATE ? 'positive' : 'negative';
+        }
+
+        function el(tag, attrs = {}, children = []) {
+            const node = document.createElement(tag);
+            Object.entries(attrs).forEach(([k, v]) => {
+                if (k === 'class') node.className = v;
+                else if (k === 'text') node.textContent = v;
+                else if (k === 'html') node.innerHTML = v;
+                else node.setAttribute(k, v);
+            });
+            children.forEach(c => node.appendChild(c));
+            return node;
+        }
+
+        // ============================================================
+        // SUPABASE FETCH
+        // ============================================================
+        async function fetchView(viewName) {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/${viewName}?select=*`, {
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                }
+            });
+            if (!res.ok) throw new Error(`Failed to fetch ${viewName}: ${res.status}`);
+            return res.json();
+        }
+
+        async function fetchAllData() {
+            const [summary, leagues, buckets, heatmap] = await Promise.all([
+                fetchView('vw_titan_summary'),
+                fetchView('vw_titan_leagues'),
+                fetchView('vw_titan_buckets'),
+                fetchView('vw_titan_heatmap')
+            ]);
+
+            return {
+                summary: summary[0] || {},
+                leagues: leagues || [],
+                buckets: buckets || [],
+                heatmap: heatmap || []
+            };
+        }
+
+        // ============================================================
+        // CATEGORY NAME MAPPING
+        // ============================================================
+        const CATEGORY_LABELS = {
+            'FAVORITE': 'Tennis (Favorites)',
+            'UNDERDOG': 'Tennis (Underdog)',
+            'HOME_FAV': 'Home Spread (Fav)',
+            'HOME_DOG': 'Home Spread (Dog)',
+            'ROAD_FAV': 'Away Spread (Fav)',
+            'ROAD_DOG': 'Away Spread (Dog)',
+            'OVER': 'Total Over',
+            'UNDER': 'Total Under',
+            'PICK_EM': 'Moneyline',
+            'MONEYLINE': 'Moneyline'
+        };
+
+        const BUCKET_LABELS = {
+            '1_Tight (0-3)': 'Tight (0-3)',
+            '2_Key (3.5-7)': 'Key Number (3.5-7)',
+            '3_Medium (7.5-10)': 'Medium (7.5-10)',
+            '4_Blowout (10+)': 'Blowout (10+)',
+            '5_Moneyline': 'Moneyline Only'
+        };
+
+        // ============================================================
+        // RENDER FUNCTIONS
+        // ============================================================
+        function renderHeroStats(summary) {
+            const { total_picks, total_wins, total_losses, global_win_rate, best_category, best_category_win_rate } = summary;
+
+            const wr = safeNum(global_win_rate) / 100;
+            const delta = wr - BASELINE_WIN_RATE;
+            const deltaLabel = (delta >= 0 ? '+' : '') + (delta * 100).toFixed(1) + '% vs baseline';
+
+            const html = `
+        <div class="hero-stats" style="--cols:4">
+          <div class="hero-stat">
+            <div class="hero-stat-label">Total Picks</div>
+            <div class="hero-stat-value">${safeNum(total_picks)}</div>
+            <div class="hero-stat-change">Graded picks (W/L/P)</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-label">Win Rate</div>
+            <div class="hero-stat-value ${rateClass(wr)}">${formatPct(wr)}</div>
+            <div class="hero-stat-change ${delta >= 0 ? 'positive' : 'negative'}">${deltaLabel}</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-label">Record</div>
+            <div class="hero-stat-value">${formatRecord(total_wins, total_losses)}</div>
+            <div class="hero-stat-change">W-L (excludes pushes)</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-label">Best Category</div>
+            <div class="hero-stat-value positive">${safeNum(best_category_win_rate).toFixed(1)}%</div>
+            <div class="hero-stat-change">${CATEGORY_LABELS[best_category] || best_category || '—'}</div>
+          </div>
+        </div>
+      `;
+            return html;
+        }
+
+        function renderCategories(heatmap) {
+            // Aggregate by category
+            const catMap = {};
+            heatmap.forEach(row => {
+                const cat = row.category;
+                if (!catMap[cat]) catMap[cat] = { wins: 0, losses: 0 };
+                catMap[cat].wins += safeNum(row.wins);
+                catMap[cat].losses += safeNum(row.losses);
+            });
+
+            const categories = Object.entries(catMap)
+                .map(([cat, stats]) => ({
+                    name: CATEGORY_LABELS[cat] || cat,
+                    w: stats.wins,
+                    l: stats.losses,
+                    rate: winRate(stats.wins, stats.losses)
+                }))
+                .sort((a, b) => b.rate - a.rate);
+
+            let html = `
+        <div class="section-header">
+          <span class="section-title">Category Performance</span>
+          <span class="section-subtitle">Win rate by pick type</span>
+        </div>
+        <div class="categories-grid">
+          <div class="category-row header">
+            <span>Category</span>
+            <span>Record</span>
+            <span style="text-align:right">Win Rate</span>
+          </div>
+      `;
+
+            categories.forEach(c => {
+                const cls = rateClass(c.rate);
+                const barWidth = Math.min(100, c.rate * 100).toFixed(1);
+                html += `
+          <div class="category-row">
+            <div class="category-name">
+              <span class="category-label">${c.name}</span>
+            </div>
+            <div class="winrate-bar-container">
+              <span class="category-record">${formatRecord(c.w, c.l)}</span>
+              <div class="winrate-bar">
+                <div class="winrate-bar-fill ${cls}" style="width:${barWidth}%"></div>
+              </div>
+            </div>
+            <span class="category-winrate ${cls}">${formatPct(c.rate)}</span>
+          </div>
+        `;
+            });
+
+            html += '</div>';
+            return html;
+        }
+
+        function renderBuckets(buckets) {
+            // Sort by bucket_id to maintain order
+            const sorted = [...buckets].sort((a, b) => (a.bucket_id || '').localeCompare(b.bucket_id || ''));
+
+            let html = '';
+            sorted.forEach(b => {
+                const rate = winRate(b.wins, b.losses);
+                const cls = rateClass(rate);
+                const label = BUCKET_LABELS[b.bucket_id] || b.bucket_id;
+
+                html += `
+          <div class="bucket-row">
+            <span class="bucket-name">${label}</span>
+            <span class="bucket-record">${formatRecord(b.wins, b.losses)}</span>
+            <span class="bucket-winrate ${cls}">${formatPct(rate)}</span>
+          </div>
+        `;
+            });
+
+            return html;
+        }
+
+        function renderLeagues(leagues) {
+            // Sort by total picks descending
+            const sorted = [...leagues].sort((a, b) => safeNum(b.total_picks) - safeNum(a.total_picks));
+
+            let html = '';
+            sorted.forEach(lg => {
+                const rate = winRate(lg.wins, lg.losses);
+                const cls = rateClass(rate);
+                const name = (lg.league_id || '').toUpperCase().replace('MENS-COLLEGE-BASKETBALL', 'NCAAB');
+
+                html += `
+          <div class="league-pill">
+            <span class="league-name">${name}</span>
+            <span class="league-record">${formatRecord(lg.wins, lg.losses)}</span>
+            <span class="league-winrate ${cls}">${formatPct(rate)}</span>
+          </div>
+        `;
+            });
+
+            return html;
+        }
+
+        function renderDashboard(data) {
+            const { summary, leagues, buckets, heatmap } = data;
+
+            // Check integrity
+            const recordTotal = safeNum(summary.total_wins) + safeNum(summary.total_losses);
+            const integrityIssues = [];
+
+            if (safeNum(summary.total_picks) !== recordTotal) {
+                integrityIssues.push(
+                    `Total Picks (${summary.total_picks}) includes pushes. Record W+L = ${recordTotal}.`
+                );
+            }
+
+            if (integrityIssues.length > 0) {
+                $('integrityBanner').classList.add('show');
+                $('integrityDetails').textContent = integrityIssues.join(' ');
+            }
+
+            const mainHtml = `
+        ${renderHeroStats(summary)}
+
+        ${renderCategories(heatmap)}
+
+        <div class="two-columns">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Spread Buckets</div>
+            </div>
+            <div class="card-body">
+              ${renderBuckets(buckets)}
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">League Performance</div>
+            </div>
+            <div class="card-body">
+              <div class="league-grid">
+                ${renderLeagues(leagues)}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+            $('mainContent').innerHTML = mainHtml;
+            $('timestamp').textContent = `Last updated: ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+            $('statusDot').classList.remove('error');
+        }
+
+        function renderError(err) {
+            $('mainContent').innerHTML = `
+        <div class="error-state">
+          <div class="error-title">Failed to load data</div>
+          <div class="error-details">${err.message}</div>
+        </div>
+      `;
+            $('statusDot').classList.add('error');
+            $('timestamp').textContent = 'Connection failed';
+        }
+
+        // ============================================================
+        // INIT
+        // ============================================================
+        async function init() {
+            try {
+                const data = await fetchAllData();
+                renderDashboard(data);
+            } catch (err) {
+                console.error('Dashboard error:', err);
+                renderError(err);
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

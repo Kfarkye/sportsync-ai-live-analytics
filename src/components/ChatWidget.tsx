@@ -1,0 +1,3813 @@
+/* ============================================================================
+   ChatWidget.tsx
+   "Obsidian Weissach" — Production Release (v30.1 - The Receipt)
+
+   Architecture:
+   ├─ Core: useReducer message store, Map-indexed updates, stable refs
+   ├─ Network: Retry w/ exponential backoff, connection health, guarded SSE
+   ├─ UI: Inline Citation Hyperlinks, LRU hydration cache
+   ├─ Design: "The Pick" Card, ConfidenceRing, Progressive Disclosure, Smart Odds
+   ├─ Reliability: Debounced send, abort safety, RAF-batched streaming
+   ├─ Ops: Pluggable telemetry layer, structured error reporting
+
+   Changelog v30.1 (Weissach — Bug Sweep):
+   ── Fixes ──
+   - FIX: ScrollAnchor triggers when messages arrive while scrolled up
+   - FIX: AbortController wired — Stop button truly aborts stream
+   - FIX: Thoughts accumulation uses dedicated accumulator
+   - FIX: Attachments cleared after send
+   - FIX: Section numbering sequential (§0–§13)
+
+   Changelog v30.0 (The Receipt Redesign):
+   ── EdgeVerdictCard ──
+   - AESTHETIC: Borderless "Phantom Slab" — deep void background, top specular light
+   - FEATURE: Smart Odds Detection — auto-highlights (+1300, -110, u22.5)
+   - LAYOUT: Hero-class typography (30px) with maximal negative space
+   - UI: ConfidenceRing SVG radial gauge — animated fill with percent label
+   - UX: Command strip footer for Tail/Fade validation
+   - ADD: Watermark + Share action for screenshot readiness
+
+   CSP Requirement: `img-src data: https://www.google.com;`
+============================================================================ */
+
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  memo,
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useReducer,
+  Component,
+  type FC,
+  type ReactNode,
+  type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
+} from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import {
+  motion,
+  AnimatePresence,
+  LayoutGroup,
+  MotionConfig,
+  type Transition,
+} from "framer-motion";
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import BetSlipReviewArea from "./bet-slip/BetSlipReviewArea";
+import type { AppBetSlip } from "../../lib/schemas/betSlipSchema";
+import { useBetLink, type SupportedBook } from "../hooks/useBetLink";
+import { useChatContext } from "../hooks/useChatContext";
+import { useAppStore } from "../store/appStore";
+import {
+  X,
+  Plus,
+  ArrowUp,
+  ArrowDown,
+  Copy,
+  CheckCircle2,
+  Minimize2,
+  Mic,
+  MicOff,
+  StopCircle,
+  Image as ImageIcon,
+  RotateCcw,
+  WifiOff,
+  Eye,
+  EyeOff,
+  ChevronDown,
+} from "lucide-react";
+import type { Match, MatchOdds } from "@/types";
+import { ESSENCE } from "@/lib/essence";
+import { useNbaProductContextPacket } from "@/hooks/useNbaContext";
+import type { NbaProductContextPacket } from "@/services/nbaProductContext";
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §0  STATIC CONFIG & REGEX (Hoisted — Zero Allocation at Runtime)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const REGEX_VERDICT_MATCH = /\bverdict\s*:/i;
+const REGEX_WATCH_PREFIX = /.*what to watch(?:\s+live)?.*?:\s*/i;
+const REGEX_WATCH_MATCH = /what to watch(?:\s+live)?/i;
+
+const REGEX_EDGE_SECTION_HEADER = /^(?:\*{0,2})?(THE EDGE|KEY FACTORS|MARKET DYNAMICS|WHY(?:\s*\(.*\))?|WHAT TO WATCH(?:\s+LIVE)?|TRIPLE CONFLUENCE|WINNING EDGE\??|ANALYTICAL WALKTHROUGH|SENTIMENT SIGNAL|STRUCTURAL ASSESSMENT|INVALIDATION(?:\s+CONDITIONS)?|EXECUTION(?:\s+PLAN)?|FRESHNESS(?:\s+CHECK)?|EVIDENCE)(?:\*{0,2})?:?/i;
+// Match "MATCHUP 2: Team A vs Team B — Feb 16, 7:00 PM ET" with optional brackets, bullets, markdown.
+const REGEX_MATCHUP_LINE = /^\s*(?:\[)?\s*(?:[●•·‣-]\s*)?(?:\*{1,3}\s*)?MATCHUP(?:\s*\d+)?\s*[:—-]\s*(.+?)(?:\s*\*{1,3})?\s*(?:\])?\s*$/i;
+
+/** Sections that should never render in analysis */
+const EXCLUDED_SECTIONS = ['the edge', 'the_edge', 'edge', 'triple confluence', 'triple_confluence'];
+
+const REGEX_SIGNED_NUMERIC = /[+\-\u2212]\d+(?:\.\d+)?/g;
+
+/**
+ * Matches bracket citation tokens: [1], [1, 2], [1.1]
+ * Negative lookahead (?!\() prevents matching markdown links [text](url).
+ */
+const REGEX_CITATION_PLACEHOLDER =
+  /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
+
+const REGEX_SPLIT_COMMA = /[,\s]+/;
+const REGEX_MULTI_SPACE = /\s{2,}/g;
+
+/** URL fragment appended to citation links — lets the <a> renderer distinguish citations from content links. */
+const CITE_MARKER = "#__cite__";
+
+/** Strips inline citation links (phrase-as-link): [any text](url#__cite__) → "any text" */
+const REGEX_CLEAN_CITE_LINK = /\[([^\]]+)\]\([^)]*#__cite__[^)]*\)/g;
+
+/** Strips old-style support-injected brand citations: " per [ESPN](url#__cite__), [BBRef](url#__cite__)" */
+const REGEX_CLEAN_SUPPORT_CITE = /\s*per\s+(?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+/g;
+
+/** Strips old-style hydration-path parenthesized citations: " ([ESPN](url), [BBRef](url))" */
+const REGEX_CLEAN_HYDRATED_CITE = /\s*\((?:\[[^\]]+\]\([^)]+\)(?:,\s*)?)+\)/g;
+
+/** Strips superscript fallback citations: text¹² → text */
+const REGEX_CLEAN_SUPERSCRIPT_CITE = /\s*\[([^\]]+)\]\([^)]*#__cite_sup__[^)]*\)/g;
+
+/** Removes hydrated markdown links: [1](https://...) */
+const REGEX_CLEAN_LINK = /\s*\[\d+(?:\.\d+)?\]\([^)]+\)/g;
+/** Removes raw bracket tokens: [1] or [1.1] */
+const REGEX_CLEAN_REF = /\s*\[\d+(?:\.\d+)?\]/g;
+/** Removes confidence annotations: (Confidence: High) — note escaped parens. */
+const REGEX_CLEAN_CONF = /\s*\(Confidence:\s*\w+\)/gi;
+/** Extracts confidence level from verdict text before cleaning. */
+const REGEX_EXTRACT_CONF = /\(Confidence:\s*(\w+)\)/i;
+
+/**
+ * Brand color map — used ONLY for hover styling and debug logging.
+ * Brand names never appear in the response text. The phrase IS the link.
+ */
+interface BrandInfo { name: string; color: string }
+const BRAND_COLOR_MAP: Record<string, BrandInfo> = {
+  "espn.com": { name: "ESPN", color: "#C2372E" },
+  "covers.com": { name: "Covers", color: "#1A8F3C" },
+  "actionnetwork.com": { name: "Action", color: "#0066CC" },
+  "draftkings.com": { name: "DK", color: "#53D337" },
+  "fanduel.com": { name: "FanDuel", color: "#1493FF" },
+  "rotowire.com": { name: "RotoWire", color: "#C2372E" },
+  "basketball-reference.com": { name: "BBRef", color: "#D46A2F" },
+  "sports-reference.com": { name: "SportsRef", color: "#D46A2F" },
+  "pro-football-reference.com": { name: "PFRef", color: "#D46A2F" },
+  "nba.com": { name: "NBA", color: "#1D428A" },
+  "nfl.com": { name: "NFL", color: "#013369" },
+  "mlb.com": { name: "MLB", color: "#002D72" },
+  "nhl.com": { name: "NHL", color: "#000000" },
+  "cbssports.com": { name: "CBS", color: "#0033A0" },
+  "yahoo.com": { name: "Yahoo", color: "#6001D2" },
+  "bleacherreport.com": { name: "BR", color: "#000000" },
+  "theathletic.com": { name: "Athletic", color: "#222222" },
+  "x.com": { name: "X", color: "#000000" },
+  "twitter.com": { name: "X", color: "#000000" },
+  "google.com": { name: "Google", color: "#4285F4" },
+  "ai.google.dev": { name: "Google AI", color: "#4285F4" },
+  "vertexaisearch.cloud.google.com": { name: "Google", color: "#4285F4" },
+  "discoveryengine.googleapis.com": { name: "Google", color: "#4285F4" },
+};
+
+/** Default brand info for unrecognized sources. */
+const DEFAULT_BRAND: BrandInfo = { name: "Web", color: "#71717A" };
+/** Brand info for live satellite endpoints. */
+const LIVE_BRAND: BrandInfo = { name: "Live", color: "#10B981" };
+
+/** Path-based brand overrides for live proxy endpoints. */
+const LIVE_PATH_BRANDS: Array<[RegExp, BrandInfo]> = [
+  [/\/api\/live\/scores\//, { name: "Scores", color: "#10B981" }],
+  [/\/api\/live\/odds\//, { name: "Odds", color: "#10B981" }],
+  [/\/api\/live\/pbp\//, { name: "PBP", color: "#10B981" }],
+];
+
+const EDGE_CARD_STAGE_DELAYS_MS = [0, 120, 220, 300, 480] as const;
+const EDGE_CARD_STAGGER_PER_CARD_MS = 150;
+const EDGE_CARD_SPRING = "cubic-bezier(0.16, 1, 0.3, 1)";
+const EDGE_CARD_EASE_OUT = "cubic-bezier(0.0, 0.0, 0.2, 1)";
+
+const LIVE_STATUS_TOKENS = ["IN_PROGRESS", "LIVE", "HALFTIME", "END_PERIOD", "Q1", "Q2", "Q3", "Q4", "OT"];
+const FINAL_STATUS_TOKENS = ["FINAL", "FINISHED", "COMPLETE"];
+
+/** Static query map for SmartChips — hoisted to avoid per-render allocation. */
+const SMART_CHIP_QUERIES: Record<string, string> = {
+  "Sharp Report": "Give me the full sharp report on this game.",
+  "Best Bet": "What is the best bet for this game?",
+  "Public Fade": "Where is the public heavy? Should I fade?",
+  "Player Props": "Analyze the top player props.",
+  "Edge Today": "What games have edge today?",
+  "Line Moves": "Show me significant line moves.",
+  "Public Splits": "What are the public betting splits?",
+  "Injury News": "What's the latest injury news?",
+  "Live Edge": "What live edges are available right now?",
+  Momentum: "How has momentum shifted? Any live play?",
+  "Live Games": "Which games are live right now with edge?",
+  "In-Play Edge": "What are the best in-play opportunities?",
+  Recap: "Recap tonight's results.",
+  "What Tailed / Faded": "Which positions should I tail or fade based on tonight's outcomes?",
+  "Tomorrow Slate": "Preview tomorrow's slate.",
+  Bankroll: "How's my bankroll looking?",
+  "New Slate": "What's on the slate today?",
+  "My Record": "Show my recent record and ROI.",
+  "Best Edge": "What's the highest confidence edge right now?",
+  Promos: "Any sportsbook promos worth grabbing?",
+  Futures: "Any futures with value right now?",
+  "Sharp Money": "Where is the sharp money flowing?",
+};
+
+/**
+ * Design system tokens — single source of truth.
+ * `as Transition` casts required: Framer Motion's Transition union type
+ * doesn't accept object literals directly. Safe — runtime values match shape.
+ */
+const SYSTEM = {
+  anim: {
+    fluid: { type: "spring", damping: 30, stiffness: 380, mass: 0.8 } as Transition,
+    snap: { type: "spring", damping: 22, stiffness: 450 } as Transition,
+    draw: { duration: 0.6, ease: "circOut" } as Transition,
+    morph: { type: "spring", damping: 25, stiffness: 280 } as Transition,
+  },
+  surface: {
+    void: "bg-white shadow-[0_28px_90px_-36px_rgba(15,23,42,0.45)]",
+    panel: "bg-white border border-slate-200/90",
+    /** Quiet glass: support material only, not the primary shell aesthetic. */
+    glass: "bg-white/98 border border-slate-200/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]",
+    hud: "bg-[linear-gradient(180deg,rgba(251,191,36,0.05)_0%,rgba(0,0,0,0)_100%)] border border-amber-500/20 shadow-[inset_0_1px_0_rgba(245,158,11,0.1)]",
+    milled: "border border-slate-200",
+    alert: "bg-[linear-gradient(180deg,rgba(225,29,72,0.05)_0%,rgba(0,0,0,0)_100%)] border border-rose-500/20 shadow-[inset_0_1px_0_rgba(225,29,72,0.1)]",
+  },
+  type: {
+    mono: "font-mono text-[10px] tracking-widest uppercase text-slate-500 tabular-nums",
+    body: "text-[15px] leading-[1.72] tracking-[-0.005em] text-slate-600",
+    h1: "text-[13px] font-medium tracking-[-0.02em] text-slate-900",
+    label: "text-[9px] font-bold tracking-[0.05em] uppercase text-slate-500",
+  },
+  geo: { pill: "rounded-full", card: "rounded-[22px]", input: "rounded-[24px]" },
+} as const;
+
+const CHAT_SURFACES = {
+  shell: "bg-white border border-slate-200/90",
+  panel: "bg-slate-950/96 border border-slate-800",
+  chip: "bg-slate-50 border border-slate-200",
+  soft: "bg-white border border-slate-200",
+  textGlass: "bg-white border border-slate-200",
+} as const;
+
+const RETRY_CONFIG = { maxAttempts: 3, baseDelay: 1000, maxDelay: 8000, jitterFactor: 0.3 } as const;
+const CHAT_TTFB_TIMEOUT_MS = 30_000;
+const CHAT_STREAM_IDLE_TIMEOUT_MS = 90_000;
+const SEND_DEBOUNCE_MS = 300;
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §1  TELEMETRY (Pluggable — swap no-op for Sentry/DataDog/PostHog)
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface TelemetryProvider {
+  captureError(error: unknown, context?: Record<string, unknown>): void;
+  timing(name: string, durationMs: number, tags?: Record<string, string>): void;
+  trackAction(name: string, properties?: Record<string, unknown>): void;
+}
+
+const noopTelemetry: TelemetryProvider = {
+  captureError: (error, context) => {
+    if (process.env.NODE_ENV === "development") console.error("[Telemetry]", error, context);
+  },
+  timing: (name, durationMs, tags) => {
+    if (process.env.NODE_ENV === "development") console.debug(`[Timing] ${name}: ${durationMs}ms`, tags);
+  },
+  trackAction: (name, properties) => {
+    if (process.env.NODE_ENV === "development") console.debug(`[Action] ${name}`, properties);
+  },
+};
+
+/** Swap this ref to integrate your error/analytics provider. */
+export const chatTelemetry = { current: noopTelemetry as TelemetryProvider };
+
+function reportError(error: unknown, context?: Record<string, unknown>): void {
+  chatTelemetry.current.captureError(error, context);
+}
+function reportTiming(name: string, startMs: number, tags?: Record<string, string>): void {
+  chatTelemetry.current.timing(name, Date.now() - startMs, tags);
+}
+function trackAction(name: string, properties?: Record<string, unknown>): void {
+  chatTelemetry.current.trackAction(name, properties);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §2  TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface GroundingChunk {
+  web?: { uri: string; title?: string };
+}
+interface GroundingSupport {
+  segment: {
+    startIndex: number;  // Byte offset, inclusive
+    endIndex: number;    // Byte offset, exclusive
+    text?: string;       // Actual text of the supported phrase
+  };
+  groundingChunkIndices: number[];
+  confidenceScores?: number[];  // Gemini 2.0 only, empty on 2.5+
+}
+interface GroundingMetadata {
+  groundingChunks?: GroundingChunk[];
+  groundingSupports?: GroundingSupport[];
+  searchEntryPoint?: { renderedContent: string };
+  webSearchQueries?: string[];
+}
+
+interface TextContent { type: "text"; text: string }
+interface ImageContent { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+interface FileContent { type: "file"; source: { type: "base64"; media_type: string; data: string } }
+type MessagePart = TextContent | ImageContent | FileContent;
+type MessageContent = string | MessagePart[];
+type VerdictOutcome = "tail" | "fade" | null;
+
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: MessageContent;
+  thoughts?: string;
+  groundingMetadata?: GroundingMetadata;
+  isStreaming?: boolean;
+  timestamp: string;
+  verdictOutcome?: VerdictOutcome;
+}
+
+interface Attachment { file: File; base64: string; mimeType: string }
+
+interface GameContext {
+  match_id?: string;
+  home_team?: string;
+  away_team?: string;
+  league?: string;
+  sport?: string;
+  start_time?: string;
+  status?: string;
+  period?: number;
+  clock?: string;
+  home_score?: number;
+  away_score?: number;
+  current_odds?: MatchOdds;
+  opening_odds?: MatchOdds;
+  closing_odds?: MatchOdds;
+}
+
+interface ChatWidgetProps { currentMatch?: GameContext | Match; matches?: Match[]; inline?: boolean }
+
+interface StreamChunk {
+  type: "text" | "thought" | "grounding" | "error";
+  content?: string;
+  metadata?: GroundingMetadata;
+  done?: boolean;
+}
+
+type WireMessage = { role: "user" | "assistant"; content: MessageContent };
+
+interface ChatContextPayload {
+  session_id?: string | null;
+  conversation_id?: string | null;
+  gameContext?: GameContext | null;
+  run_id: string;
+  live_snapshot?: any;
+  nba_product_context?: NbaProductContextPacket | null;
+}
+
+type ConnectionStatus = "connected" | "reconnecting" | "offline";
+
+declare global {
+  interface Window {
+    webkitSpeechRecognition?: new () => SpeechRecognition;
+    SpeechRecognition?: new () => SpeechRecognition;
+  }
+  interface SpeechRecognition extends EventTarget {
+    continuous: boolean;
+    interimResults: boolean;
+    onresult: ((event: SpeechRecognitionEvent) => void) | null;
+    onend: (() => void) | null;
+    start: () => void;
+    stop: () => void;
+    abort: () => void;
+  }
+  interface SpeechRecognitionEvent extends Event { results: SpeechRecognitionResultList }
+  interface SpeechRecognitionResultList { readonly length: number;[index: number]: SpeechRecognitionResult }
+  interface SpeechRecognitionResult { readonly length: number; readonly isFinal: boolean;[index: number]: SpeechRecognitionAlternative }
+  interface SpeechRecognitionAlternative { readonly transcript: string; readonly confidence: number }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §3  UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+function generateId(): string {
+  try {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  } catch { /* fallback */ }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function triggerHaptic(): void {
+  try { if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(4); } catch { /* silent */ }
+}
+
+function flattenText(children: ReactNode): string {
+  return React.Children.toArray(children).reduce<string>((acc, child) => {
+    if (typeof child === "string") return acc + child;
+    if (typeof child === "number") return acc + String(child);
+    if (React.isValidElement<{ children?: ReactNode }>(child)) return acc + flattenText(child.props.children);
+    return acc;
+  }, "");
+}
+
+function isTextInputFocused(): boolean {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName.toLowerCase();
+  return tag === "textarea" || tag === "input" || el.getAttribute("contenteditable") === "true";
+}
+
+function formatTimestamp(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** DJB2 hash of chunk URIs for collision-safe cache keys. */
+function chunkFingerprint(chunks: GroundingChunk[]): string {
+  let hash = 0;
+  const uris = chunks.map((c) => c.web?.uri ?? "").join("|");
+  for (let i = 0; i < uris.length; i++) hash = ((hash << 5) - hash + uris.charCodeAt(i)) | 0;
+  return hash.toString(36);
+}
+
+/**
+ * LRU cache using Map insertion-order guarantee.
+ * On get: re-inserts entry to mark as recently used.
+ * On set: evicts oldest entry when capacity exceeded.
+ * Eliminates the full-wipe render spikes of the previous Map.clear() strategy.
+ */
+class LRUCache<K, V> {
+  private readonly max: number;
+  private readonly map = new Map<K, V>();
+
+  constructor(max: number) {
+    this.max = max;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.map.get(key);
+    if (value === undefined) return undefined;
+    // Move to end (most recently used)
+    this.map.delete(key);
+    this.map.set(key, value);
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.map.has(key)) this.map.delete(key);
+    this.map.set(key, value);
+    if (this.map.size > this.max) {
+      // Delete oldest (first entry in insertion order)
+      const oldest = this.map.keys().next().value;
+      if (oldest !== undefined) this.map.delete(oldest);
+    }
+  }
+}
+
+const supportCitationCache = new LRUCache<string, string>(256);
+
+/**
+ * Support-based Citation Inserter (Descending Index Algorithm).
+ *
+ * Maps Gemini groundingSupports to exact phrases in the response text,
+ * wrapping each supported phrase as an invisible inline hyperlink.
+ *
+ * Design: The phrase IS the link. No brand names appear in the text.
+ * No "per ESPN", no "[1]", no attribution language. Clean prose.
+ * Hover reveals source via brand-color underline.
+ *
+ * Falls back to hydrateCitations() when groundingSupports is absent.
+ */
+function injectSupportCitations(
+  text: string,
+  metadata?: GroundingMetadata,
+  isStreaming?: boolean,
+): string {
+  // Gate: only run on completed (non-streaming) messages with valid supports
+  if (
+    !text ||
+    isStreaming ||
+    !metadata?.groundingSupports?.length ||
+    !metadata?.groundingChunks?.length
+  ) {
+    return hydrateCitations(text, metadata);
+  }
+
+  const supports = metadata.groundingSupports;
+  const chunks = metadata.groundingChunks;
+  const cacheKey = `support2:${text.length}:${text.slice(0, 64)}:${supports.length}:${chunkFingerprint(chunks)}`;
+  const cached = supportCitationCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const textBytes = encoder.encode(text);
+
+  // Step 1: Build resolved supports with character-level positions
+  interface ResolvedSupport {
+    charStart: number;
+    charEnd: number;
+    uri: string;           // First valid source URI
+    brandColor: string;    // Brand hover color (for data attribute)
+  }
+
+  const resolved: ResolvedSupport[] = [];
+
+  for (const support of supports) {
+    const { segment, groundingChunkIndices } = support;
+    if (!segment || !groundingChunkIndices?.length) continue;
+
+    const startIndex = segment.startIndex ?? 0;
+    const endIndex = segment.endIndex ?? 0;
+    // Degenerate segment guard
+    if (endIndex <= 0 || startIndex >= endIndex) continue;
+    if (endIndex > textBytes.length) continue;
+
+    // Resolve character positions from byte offsets
+    let charStart: number;
+    let charEnd: number;
+
+    const decodedStart = decoder.decode(textBytes.slice(0, startIndex));
+    charStart = decodedStart.length;
+    const decodedEnd = decoder.decode(textBytes.slice(0, endIndex));
+    charEnd = decodedEnd.length;
+
+    // Verification: if segment.text is provided, confirm alignment
+    if (segment.text) {
+      const decodedSegment = decoder.decode(textBytes.slice(startIndex, endIndex));
+      if (decodedSegment !== segment.text) {
+        // Byte/char mismatch — fall back to indexOf
+        const found = text.indexOf(segment.text);
+        if (found === -1) continue;
+        charStart = found;
+        charEnd = found + segment.text.length;
+      }
+    }
+
+    // Skip segments inside fenced code blocks
+    const prefix = text.slice(0, charStart);
+    const fenceCount = (prefix.match(/```/g) || []).length;
+    if (fenceCount % 2 !== 0) continue;
+
+    // Also skip inline code spans
+    const segmentText = text.slice(charStart, charEnd);
+    if (segmentText.includes("`")) continue;
+
+    // Resolve chunk indices to first valid source URI
+    // M-10: Filter out generic "Google" citations
+    let bestUri = "";
+    let bestBrand: BrandInfo = DEFAULT_BRAND;
+    for (const idx of groundingChunkIndices) {
+      if (idx < 0 || idx >= chunks.length) continue;
+      const chunk = chunks[idx];
+      if (!shouldRenderCitation(chunk)) continue; // M-10
+      const uri = chunk?.web?.uri;
+      if (!uri) continue;
+      bestUri = uri;
+      bestBrand = uriToBrandInfo(uri, chunk?.web?.title);
+      break; // First valid source
+    }
+
+    if (!bestUri) continue;
+    resolved.push({ charStart, charEnd, uri: bestUri, brandColor: bestBrand.color });
+  }
+
+  if (resolved.length === 0) {
+    return hydrateCitations(text, metadata);
+  }
+
+  // Step 2: Sort by endIndex DESCENDING — bottom-to-top insertion prevents index shifting
+  resolved.sort((a, b) => b.charEnd - a.charEnd);
+
+  // Step 3: Remove overlapping segments — keep the longer segment
+  const deduped: ResolvedSupport[] = [];
+  for (const r of resolved) {
+    const last = deduped[deduped.length - 1];
+    // Since sorted descending by charEnd, overlaps occur when r.charEnd > last.charStart
+    if (last && r.charEnd > last.charStart) {
+      // Overlap detected — keep whichever is longer
+      const lastLen = last.charEnd - last.charStart;
+      const rLen = r.charEnd - r.charStart;
+      if (rLen > lastLen) {
+        deduped[deduped.length - 1] = r; // Replace with longer
+      }
+      // else: keep existing (already longer)
+    } else {
+      deduped.push(r);
+    }
+  }
+
+  // Step 4: Splice — wrap each supported phrase as a markdown link (descending order preserves indices)
+  let result = text;
+  for (const { charStart, charEnd, uri, brandColor } of deduped) {
+    const phraseText = result.slice(charStart, charEnd);
+    // Skip empty or whitespace-only segments
+    if (!phraseText.trim()) continue;
+    // Escape any markdown link syntax already in the phrase
+    const safePhrase = phraseText.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+    // Encode brand color in the CITE_MARKER for the renderer
+    const wrappedPhrase = `[${safePhrase}](${uri}${CITE_MARKER}${encodeURIComponent(brandColor)})`;
+    result = result.slice(0, charStart) + wrappedPhrase + result.slice(charEnd);
+  }
+
+  supportCitationCache.set(cacheKey, result);
+  return result;
+}
+
+const hydrationCache = new LRUCache<string, string>(256);
+
+/** Unicode superscript digits for fallback citation numbers. */
+const SUPERSCRIPT_DIGITS = ["⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"];
+function toSuperscript(n: number): string {
+  return String(n).split("").map((d) => SUPERSCRIPT_DIGITS[parseInt(d, 10)] || d).join("");
+}
+
+/**
+ * Fallback Citation Hydration (Superscript Numbers).
+ *
+ * Fires only when groundingSupports is absent. Replaces bracket citation
+ * tokens ([1], [1.1], [1, 2]) with small superscript number links.
+ * No brand names appear in the text — the fallback is degraded but invisible.
+ *
+ * Before: "Price fell to $15K [1] [2]. Erased all gains [1]."
+ * After:  "Price fell to $15K[¹](url#__cite_sup__)[²](url#__cite_sup__). Erased all gains[¹](url#__cite_sup__)."
+ */
+function hydrateCitations(text: string, metadata?: GroundingMetadata): string {
+  if (!text || !metadata?.groundingChunks?.length) return text;
+  const chunks = metadata.groundingChunks;
+  const cacheKey = `inline2:${text.length}:${text.slice(0, 64)}:${chunks.length}:${chunkFingerprint(chunks)}`;
+  const cached = hydrationCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const maxIndex = chunks.length;
+
+  // Guard: Split on fenced code blocks — only hydrate prose segments.
+  const CODE_FENCE = /(```[\s\S]*?```)/g;
+  const segments = text.split(CODE_FENCE);
+
+  // Matches one or more adjacent bracket tokens: [1] [2] or [1, 2] [3]
+  const REGEX_ADJACENT_CITATIONS = /(?:\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()[\s]*)+/g;
+
+  const hydrated = segments.map((segment) => {
+    if (segment.startsWith("```")) return segment;
+
+    return segment.replace(REGEX_ADJACENT_CITATIONS, (fullMatch) => {
+      const superscripts: string[] = [];
+      const seenUri = new Set<string>();
+
+      let m: RegExpExecArray | null;
+      const tokenRe = /\[(\d+(?:\.\d+)?(?:[\s,]+\d+(?:\.\d+)?)*)\](?!\()/g;
+      while ((m = tokenRe.exec(fullMatch)) !== null) {
+        const parts = m[1].split(REGEX_SPLIT_COMMA).filter((p: string) => p.trim());
+        for (const part of parts) {
+          const trimmed = part.trim();
+          const num = parseFloat(trimmed);
+          if (Number.isNaN(num)) continue;
+          const index = Math.floor(num) - 1;
+          if (index < 0 || index >= maxIndex) continue;
+          const chunk = chunks[index];
+          if (!shouldRenderCitation(chunk)) continue; // M-10
+          const uri = chunk?.web?.uri;
+          if (uri && !seenUri.has(uri)) {
+            seenUri.add(uri);
+            const sup = toSuperscript(index + 1);
+            superscripts.push(`[${sup}](${uri}#__cite_sup__)`);
+          }
+        }
+      }
+
+      if (superscripts.length === 0) return fullMatch;
+      return superscripts.join("");
+    });
+  }).join("");
+
+  const cleaned = hydrated.replace(REGEX_MULTI_SPACE, " ");
+  hydrationCache.set(cacheKey, cleaned);
+  return cleaned;
+}
+
+
+function extractTextContent(content: MessageContent): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.find((c) => c.type === "text")?.text ?? "";
+  return "";
+}
+
+function cleanVerdictContent(text: string): string {
+  if (!text) return "";
+  const cleaned = text
+    .replace(REGEX_CLEAN_CITE_LINK, "$1")       // [phrase](url#__cite__...) → phrase
+    .replace(REGEX_CLEAN_SUPERSCRIPT_CITE, "")   // [¹](url#__cite_sup__) → ""
+    .replace(REGEX_CLEAN_SUPPORT_CITE, "")       // legacy: " per [Brand](url)" → ""
+    .replace(REGEX_CLEAN_HYDRATED_CITE, "")      // legacy: " ([Brand](url))" → ""
+    .replace(REGEX_CLEAN_LINK, "")               // [1](url) → ""
+    .replace(REGEX_CLEAN_REF, "")                // [1] → ""
+    .replace(REGEX_CLEAN_CONF, "")               // (Confidence: High) → ""
+    .replace(REGEX_MULTI_SPACE, " ")
+    .trim();
+  // M-26: Normalize typography
+  return normalizeTypography(cleaned);
+}
+
+type ConfidenceLevel = "high" | "medium" | "low";
+
+/** Extract confidence level from raw verdict text before it gets cleaned. */
+function extractConfidence(text: string): ConfidenceLevel {
+  const match = REGEX_EXTRACT_CONF.exec(text);
+  if (!match) return "high"; // default — most verdicts are high confidence
+  const level = match[1].toLowerCase();
+  if (level === "medium" || level === "med") return "medium";
+  if (level === "low") return "low";
+  return "high";
+}
+
+/** Maps confidence level to visual bar percentage. */
+function confidenceToPercent(level: ConfidenceLevel): number {
+  switch (level) {
+    case "high": return 88;
+    case "medium": return 58;
+    case "low": return 30;
+  }
+}
+
+function hostnameToBrandInfo(hostname: string): BrandInfo {
+  const h = hostname.replace(/^www\./, "").toLowerCase();
+  if (BRAND_COLOR_MAP[h]) return BRAND_COLOR_MAP[h];
+  // Walk up subdomains: "vertexaisearch.cloud.google.com" → "cloud.google.com" → "google.com"
+  const parts = h.split(".");
+  for (let i = 1; i < parts.length - 1; i++) {
+    const parent = parts.slice(i).join(".");
+    if (BRAND_COLOR_MAP[parent]) return BRAND_COLOR_MAP[parent];
+  }
+  const base = parts[0] || "Source";
+  return { name: base.charAt(0).toUpperCase() + base.slice(1), color: DEFAULT_BRAND.color };
+}
+
+function getHostname(href?: string): string {
+  if (!href) return "Source";
+  try { return new URL(href).hostname.replace(/^www\./, ""); } catch { return "Source"; }
+}
+
+/**
+ * Brand resolution — resolves source identity (name + hover color) for a grounding chunk.
+ *
+ * Google Search grounding returns redirect URIs through vertexaisearch.cloud.google.com.
+ * The URI hostname resolves to "Google" for every source. The chunk's title field contains
+ * the ACTUAL source domain (e.g. "espn.com", "basketball-reference.com"). Title takes
+ * priority over hostname when it looks like a domain.
+ *
+ * Brand names are used ONLY for hover color resolution and debug logging.
+ * They never appear as visible text in the response.
+ */
+/**
+ * M-10: Filter out generic search engine citations that should never be visible.
+ * Returns true if the citation should be rendered, false if it should be hidden.
+ */
+function shouldRenderCitation(chunk: GroundingChunk): boolean {
+  const title = (chunk?.web?.title || "").toLowerCase().trim();
+  const uri = chunk?.web?.uri || "";
+
+  // Filter generic "Google" / "Google Search" citations
+  if (title === "google" || title === "google search") return false;
+  if (/^https?:\/\/(www\.)?google\.(com|[a-z]{2})\/?$/.test(uri)) return false;
+
+  return true;
+}
+
+function uriToBrandInfo(href?: string, title?: string): BrandInfo {
+  if (!href) return DEFAULT_BRAND;
+  // 1. Live endpoint paths (satellite proxies)
+  try {
+    const url = new URL(href);
+    for (const [pattern, brand] of LIVE_PATH_BRANDS) {
+      if (pattern.test(url.pathname)) return brand;
+    }
+  } catch { /* fall through */ }
+  // 2. Title field — actual source domain for Google Search grounding
+  if (title) {
+    const t = title.replace(/^www\./, "").toLowerCase().trim();
+    if (t.includes(".")) return hostnameToBrandInfo(t);
+    // Title without dots — check if it contains a known brand keyword
+    const tLower = t.toLowerCase();
+    if (tLower.includes("espn")) return BRAND_COLOR_MAP["espn.com"];
+    if (tLower.includes("basketball-reference")) return BRAND_COLOR_MAP["basketball-reference.com"];
+    if (tLower.includes("the athletic") || tLower.includes("theathletic")) return BRAND_COLOR_MAP["theathletic.com"];
+    if (tLower.includes("covers")) return BRAND_COLOR_MAP["covers.com"];
+  }
+  // 3. URI hostname fallback
+  return hostnameToBrandInfo(getHostname(href));
+}
+
+function buildWireContent(text: string, attachments: Attachment[]): MessageContent {
+  if (attachments.length === 0) return text;
+  const parts: MessagePart[] = [{ type: "text", text: text || "Analyze this." }];
+  for (const a of attachments) {
+    parts.push(
+      a.mimeType.startsWith("image/")
+        ? { type: "image", source: { type: "base64", media_type: a.mimeType, data: a.base64 } }
+        : { type: "file", source: { type: "base64", media_type: a.mimeType, data: a.base64 } }
+    );
+  }
+  return parts;
+}
+
+function getRetryDelay(attempt: number): number {
+  const delay = Math.min(RETRY_CONFIG.baseDelay * Math.pow(2, attempt), RETRY_CONFIG.maxDelay);
+  const jitter = delay * RETRY_CONFIG.jitterFactor * (Math.random() * 2 - 1);
+  return Math.max(0, delay + jitter);
+}
+
+function getTimePhase(): "pregame" | "live" | "postgame" {
+  const hour = new Date().getHours();
+  if (hour < 16) return "pregame";
+  if (hour < 23) return "live";
+  return "postgame";
+}
+
+function toStringOrUndefined(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function toNumberOrUndefined(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeGameContext(
+  currentMatch?: GameContext | null,
+  storedMatch?: Record<string, unknown> | null,
+): GameContext | null {
+  const raw = (currentMatch || {}) as Record<string, unknown>;
+  const store = (storedMatch || {}) as Record<string, unknown>;
+  const homeTeam = (raw.homeTeam as Record<string, unknown> | undefined)?.name;
+  const awayTeam = (raw.awayTeam as Record<string, unknown> | undefined)?.name;
+  const startRaw = raw.start_time ?? raw.startTime ?? store.start_time;
+  const startIso =
+    typeof startRaw === "string"
+      ? startRaw
+      : startRaw instanceof Date
+        ? startRaw.toISOString()
+        : undefined;
+  const normalized: GameContext = {
+    ...store,
+    match_id: toStringOrUndefined(store.match_id) || toStringOrUndefined(raw.match_id) || toStringOrUndefined(raw.id),
+    home_team: toStringOrUndefined(store.home_team) || toStringOrUndefined(raw.home_team) || toStringOrUndefined(homeTeam),
+    away_team: toStringOrUndefined(store.away_team) || toStringOrUndefined(raw.away_team) || toStringOrUndefined(awayTeam),
+    league: toStringOrUndefined(store.league) || toStringOrUndefined(raw.league) || toStringOrUndefined(raw.leagueId),
+    sport: toStringOrUndefined(store.sport) || toStringOrUndefined(raw.sport),
+    start_time: startIso,
+    status: toStringOrUndefined(raw.status) || toStringOrUndefined(raw.game_status) || toStringOrUndefined(store.status),
+    period: toNumberOrUndefined(raw.period),
+    clock: toStringOrUndefined(raw.displayClock) || toStringOrUndefined(raw.display_clock) || toStringOrUndefined(raw.clock) || toStringOrUndefined(store.clock),
+    home_score: toNumberOrUndefined(raw.homeScore) ?? toNumberOrUndefined(raw.home_score),
+    away_score: toNumberOrUndefined(raw.awayScore) ?? toNumberOrUndefined(raw.away_score),
+    current_odds: (raw.current_odds as MatchOdds | undefined) || (raw.odds as MatchOdds | undefined) || (store.current_odds as MatchOdds | undefined),
+    opening_odds: (raw.opening_odds as MatchOdds | undefined) || (store.opening_odds as MatchOdds | undefined),
+    closing_odds: (raw.closing_odds as MatchOdds | undefined) || (store.closing_odds as MatchOdds | undefined),
+  };
+  const hasSignal = Boolean(
+    normalized.match_id ||
+    normalized.home_team ||
+    normalized.away_team ||
+    normalized.current_odds ||
+    normalized.home_score !== undefined ||
+    normalized.away_score !== undefined,
+  );
+  return hasSignal ? normalized : null;
+}
+
+function resolveConfidenceValue(level: ConfidenceLevel, rawText?: string): number {
+  const explicit = rawText?.match(/\b(\d{1,3})%\b/);
+  if (explicit) {
+    const numeric = Number(explicit[1]);
+    if (Number.isFinite(numeric)) {
+      return Math.max(0, Math.min(100, numeric));
+    }
+  }
+  return confidenceToPercent(level);
+}
+
+interface ParsedEdgeVerdict {
+  teamName: string;
+  spread: string;
+  odds: string;
+  summaryLabel: string;
+}
+
+function parseEdgeVerdict(rawVerdict: string): ParsedEdgeVerdict {
+  const cleaned = cleanVerdictContent(rawVerdict)
+    .replace(/^\*+|\*+$/g, "")
+    // Strip parenthetical bet-type labels: (Live Spread), (Moneyline), (ML), (Asian Handicap), (Pregame), etc.
+    .replace(/\s*\((?:Live\s+)?(?:Spread|Moneyline|ML|Asian\s+Handicap|Pregame|Alt(?:ernate)?\s+\w+|Game\s+\w+|Match\s+\w+)[^)]*\)/gi, "")
+    // Strip trailing "/ value" patterns — raw total leaking from schema
+    .replace(/\s*\/\s*[OoUu]?\d+(?:\.\d+)?\s*$/, "")
+    // Fix leading zeros on numeric values: 01.5 → 1.5
+    .replace(/\b0+(\d+(?:\.\d+)?)/g, "$1")
+    // Replace hyphen-minus before digits with proper minus sign (U+2212)
+    .replace(/-(?=\d)/g, "\u2212")
+    .trim();
+  if (!cleaned) {
+    return { teamName: "No Edge", spread: "N/A", odds: "N/A", summaryLabel: "" };
+  }
+  const signedMatches = Array.from(cleaned.matchAll(REGEX_SIGNED_NUMERIC));
+  const totalMatch = cleaned.match(/^(.*?)\b(over|under)\s*(\d+(?:\.\d+)?)/i);
+  if (signedMatches.length === 0) {
+    if (totalMatch) {
+      const prefix = (totalMatch[1] || "").replace(/[—:-]+$/g, "").trim();
+      const totalPrefix = totalMatch[2].charAt(0).toLowerCase();
+      return {
+        teamName: prefix || "Total",
+        spread: `${totalPrefix}${totalMatch[3]}`,
+        odds: "N/A",
+        summaryLabel: cleaned,
+      };
+    }
+    return {
+      teamName: cleaned,
+      spread: /\bML\b/i.test(cleaned) ? "ML" : "N/A",
+      odds: "N/A",
+      summaryLabel: cleaned,
+    };
+  }
+  if (totalMatch) {
+    const prefix = (totalMatch[1] || "").replace(/[—:-]+$/g, "").trim();
+    const totalPrefix = totalMatch[2].charAt(0).toLowerCase();
+    const lastSigned = signedMatches[signedMatches.length - 1][0];
+    return {
+      teamName: prefix || "Total",
+      spread: `${totalPrefix}${totalMatch[3]}`,
+      odds: lastSigned,
+      summaryLabel: cleaned,
+    };
+  }
+  if (/\bML\b/i.test(cleaned) && signedMatches.length >= 1) {
+    const firstSigned = signedMatches[0];
+    const teamRaw = cleaned
+      .slice(0, firstSigned.index)
+      .replace(/\bML\b/i, "")
+      .replace(/[(@-]+$/g, "")
+      .trim();
+    const odds = signedMatches[signedMatches.length - 1][0];
+    return { teamName: teamRaw || cleaned, spread: "ML", odds, summaryLabel: cleaned };
+  }
+  const firstSigned = signedMatches[0];
+  const lastSigned = signedMatches[signedMatches.length - 1];
+  const teamRaw = cleaned
+    .slice(0, firstSigned.index)
+    .replace(/\bML\b/i, "")
+    .replace(/[(@-]+$/g, "")
+    .trim();
+  const spread = signedMatches.length >= 2
+    ? firstSigned[0]
+    : /\bML\b/i.test(cleaned) ? "ML" : firstSigned[0];
+  const odds = signedMatches.length >= 2 ? lastSigned[0] : "N/A";
+  return { teamName: teamRaw || cleaned, spread, odds, summaryLabel: cleaned };
+}
+
+function extractEdgeSynopses(rawText: string): string[] {
+  if (!rawText) return [];
+  const lines = rawText.split(/\r?\n/);
+  const synopses: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]?.trim() || "";
+    if (!REGEX_VERDICT_MATCH.test(line)) continue;
+    let synopsis = "";
+    for (let j = i + 1; j < lines.length; j++) {
+      const nextLine = (lines[j] || "").trim();
+      if (!nextLine) continue;
+      if (REGEX_VERDICT_MATCH.test(nextLine)) break;
+      // If line IS a section header, extract any content after the header label
+      const headerMatch = nextLine.match(REGEX_EDGE_SECTION_HEADER);
+      const candidate = headerMatch
+        ? nextLine.slice(headerMatch[0].length).replace(/^[:\s*]+/, "").trim()
+        : nextLine;
+      if (!candidate) continue;
+      const cleanedLine = candidate
+        .replace(/^[-*•]\s*/, "")
+        .replace(/\*+/g, "")
+        .replace(REGEX_CITATION_PLACEHOLDER, "")
+        .replace(REGEX_MULTI_SPACE, " ")
+        .trim();
+      if (!cleanedLine || cleanedLine.length < 10) continue;
+      synopsis = cleanedLine;
+      break;
+    }
+    synopses.push(synopsis);
+  }
+  return synopses;
+}
+
+function extractMatchupLines(rawText: string): string[] {
+  if (!rawText) return [];
+  const lines = rawText.split(/\r?\n/);
+  const matchups: string[] = [];
+  for (const line of lines) {
+    const match = line.trim().match(REGEX_MATCHUP_LINE);
+    if (match?.[1]) {
+      const cleaned = match[1].replace(/\*+/g, "").replace(/^:+/, "").trim();
+      matchups.push(normalizeTypography(cleaned));
+    }
+  }
+  return matchups;
+}
+
+function stripMatchupLines(content: string): string {
+  if (!content) return content;
+  const lines = content.split(/\r?\n/);
+  return lines.filter(line => !REGEX_MATCHUP_LINE.test(line.trim())).join("\n");
+}
+
+function splitPickContent(rawContent: string): { pickContent: string; analysisBlocks: string[] } {
+  if (!rawContent) return { pickContent: rawContent, analysisBlocks: [] };
+  const lines = rawContent.split("\n");
+  const verdictIndices: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (REGEX_VERDICT_MATCH.test(lines[i])) verdictIndices.push(i);
+  }
+  if (verdictIndices.length === 0) return { pickContent: rawContent, analysisBlocks: [] };
+
+  const pickSegments: string[] = [];
+  const analysisBlocks: string[] = [];
+  const preamble = lines.slice(0, verdictIndices[0]).join("\n").trim();
+  if (preamble) pickSegments.push(preamble);
+
+  for (let v = 0; v < verdictIndices.length; v++) {
+    const start = verdictIndices[v];
+    const end = v + 1 < verdictIndices.length ? verdictIndices[v + 1] : lines.length;
+    const block = lines.slice(start, end);
+
+    let analysisStartIndex = -1;
+    for (let i = 1; i < block.length; i++) {
+      const trimmed = block[i].trim();
+      if (!trimmed) continue;
+      const stripped = trimmed.replace(/\*+/g, "").trim().toUpperCase();
+      if (REGEX_EDGE_SECTION_HEADER.test(stripped)) {
+        analysisStartIndex = i;
+        break;
+      }
+      let nextNonEmpty = "";
+      for (let j = i + 1; j < block.length; j++) {
+        if (block[j].trim()) { nextNonEmpty = block[j].trim().replace(/\*+/g, "").trim().toUpperCase(); break; }
+      }
+      if (REGEX_EDGE_SECTION_HEADER.test(nextNonEmpty)) {
+        continue;
+      }
+    }
+
+    const pickPart = analysisStartIndex === -1 ? block.join("\n") : block.slice(0, analysisStartIndex).join("\n");
+    const analysisPart = analysisStartIndex === -1 ? "" : block.slice(analysisStartIndex).join("\n");
+
+    if (pickPart.trim()) pickSegments.push(pickPart.trim());
+    if (analysisPart.trim()) analysisBlocks.push(stripExcludedSections(analysisPart.trim()));
+  }
+
+  return {
+    pickContent: stripExcludedSections(pickSegments.join("\n\n")),
+    analysisBlocks,
+  };
+}
+
+/**
+ * M-05/M-06: Normalize section header text.
+ * Strips trailing "LIVE", "PREGAME", trailing colons/punctuation.
+ * Also strips leading bullet characters (M-13).
+ */
+function normalizeHeader(raw: string): string {
+  return raw
+    .replace(/^[●•·‣]\s*/, "")             // M-13: Strip leading bullet (incl. emerald ●)
+    .replace(/\*+/g, "")                    // Strip bold markdown artifacts
+    .replace(/\s+LIVE\s*$/i, "")           // M-05: "WHAT TO WATCH LIVE" → "WHAT TO WATCH"
+    .replace(/\s+PREGAME\s*$/i, "")        // Guard against "WHAT TO WATCH PREGAME"
+    .replace(/:+\s*$/, "")                 // M-06: "INVALIDATION:" → "INVALIDATION"
+    .trim();
+}
+
+function renderSectionHeading(children: ReactNode) {
+  const rawText = flattenText(children);
+  const normalized = normalizeHeader(rawText);
+  if (!normalized) return null;
+  if (EXCLUDED_SECTIONS.some(s => normalized.toLowerCase() === s)) return null;
+
+  return (
+    <div className="mb-3">
+      <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
+      <div className="mt-8 flex items-center gap-2.5">
+        <div className="w-1 h-1 rounded-full bg-zinc-600" />
+        <span className="text-[12px] font-mono font-medium text-slate-500 uppercase tracking-[0.12em]">{normalized}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Strip excluded sections (e.g. "THE EDGE") from markdown content.
+ * Walks lines: when an excluded section header is found, skips all lines
+ * until the next recognized (non-excluded) section header.
+ */
+function stripExcludedSections(content: string): string {
+  if (!content) return content;
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let skipping = false;
+
+  for (const line of lines) {
+    const stripped = line.replace(/\*+/g, "").replace(/^[●•·‣]\s*/, "").trim();
+    const upper = stripped.toUpperCase();
+
+    if (REGEX_EDGE_SECTION_HEADER.test(upper)) {
+      const headerName = stripped.replace(/[:\s]+$/, "").toLowerCase();
+      if (EXCLUDED_SECTIONS.some(s => headerName === s)) {
+        skipping = true;
+        continue;
+      }
+      // Non-excluded section header — stop skipping
+      skipping = false;
+    }
+
+    if (!skipping) {
+      result.push(line);
+    }
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * M-26: Normalize typography — proper em-dashes, ellipsis, smart quotes.
+ * Applied to prose content for typographic polish.
+ * Note: Smart quote replacement is conservative — only applies to clear prose
+ * patterns, never inside numbers, odds values, or code-like content.
+ */
+function normalizeTypography(text: string): string {
+  return text
+    .replace(/--/g, "\u2014")               // Double hyphen → em-dash
+    .replace(/(\d)\u2013(\d)/g, "$1\u2013$2") // Keep en-dash between numbers
+    .replace(/(?<!\d)\u2013(?!\d)/g, "\u2014") // En-dash in prose → em-dash
+    .replace(/\.{3}/g, "\u2026")            // Three dots → ellipsis
+    .replace(/(^|[\s(])"(?=\S)/gm, "$1\u201C") // Smart open double quote (after whitespace/start)
+    .replace(/"(?=[\s,.;:!?)—\u2014]|$)/gm, "\u201D") // Smart close double quote (before punct/end)
+    .replace(/(^|[\s(])'(?=\S)/gm, "$1\u2018") // Smart open single quote (after whitespace/start)
+    .replace(/'(?=[\s,.;:!?)—\u2014]|$)/gm, "\u2019"); // Smart close single/apostrophe
+}
+
+/**
+ * M-15: Normalize team names to canonical display forms.
+ * Maps formal/abbreviated names to the common display name.
+ */
+const TEAM_DISPLAY_NAMES: Record<string, string> = {
+  // Serie A
+  "Internazionale": "Inter Milan",
+  "Inter": "Inter Milan",
+  "FC Internazionale Milano": "Inter Milan",
+  "Juventus FC": "Juventus",
+  "AC Milan": "Milan",
+  "SSC Napoli": "Napoli",
+  "AS Roma": "Roma",
+  "SS Lazio": "Lazio",
+  // La Liga
+  "FC Barcelona": "Barcelona",
+  "Real Madrid CF": "Real Madrid",
+  "Club Atletico de Madrid": "Atlético Madrid",
+  "Atletico Madrid": "Atlético Madrid",
+  // Bundesliga
+  "FC Bayern München": "Bayern München",
+  "Bayern Munich": "Bayern München",
+  "Borussia Dortmund": "Dortmund",
+  "RB Leipzig": "Leipzig",
+  "Bayer 04 Leverkusen": "Leverkusen",
+  // Ligue 1
+  "Paris Saint-Germain": "PSG",
+  "Paris Saint-Germain FC": "PSG",
+  "Olympique de Marseille": "Marseille",
+  "Olympique Lyonnais": "Lyon",
+  // Premier League
+  "Manchester United": "Man United",
+  "Manchester City": "Man City",
+  "Tottenham Hotspur": "Tottenham",
+  "Wolverhampton Wanderers": "Wolves",
+  "West Ham United": "West Ham",
+  "Newcastle United": "Newcastle",
+  // Liga MX
+  "Club América": "América",
+  "CF Monterrey": "Monterrey",
+  "Club León": "León",
+  "Guadalajara": "Chivas",
+  "CD Guadalajara": "Chivas",
+  // MLS
+  "Los Angeles FC": "LAFC",
+  "New York Red Bulls": "NY Red Bulls",
+  "Inter Miami CF": "Inter Miami",
+  // NFL formal names
+  "New England Patriots": "Patriots",
+  "Kansas City Chiefs": "Chiefs",
+  "San Francisco 49ers": "49ers",
+  "Green Bay Packers": "Packers",
+  "Tampa Bay Buccaneers": "Buccaneers",
+};
+
+function normalizeTeamName(raw: string): string {
+  return TEAM_DISPLAY_NAMES[raw] || raw;
+}
+
+/**
+ * M-07: Parse "WHAT TO WATCH" flat prose into structured layers.
+ * Splits "IF X → THEN Y, as Z" into condition/action/reasoning.
+ */
+function parseWatchFallback(text: string): {
+  condition: string; action: string; reasoning: string;
+} {
+  const arrowSplit = text.split(/\s*→\s*/);
+  if (arrowSplit.length >= 2) {
+    const condition = arrowSplit[0]
+      .replace(/^(?:WHAT TO WATCH\s*(?:LIVE)?\s*)?/i, "")
+      .replace(/^IF\s+/i, "")
+      .trim();
+    const afterArrow = arrowSplit.slice(1).join("→");
+    const commaSplit = afterArrow.split(/,\s*(?:as|because|since)\s+/i);
+    const action = (commaSplit[0] || "")
+      .replace(/^THEN\s+/i, "")
+      .replace(/^look for\s+/i, "")
+      .trim();
+    const reasoning = (commaSplit[1] || "").trim();
+    return { condition, action, reasoning };
+  }
+  return { condition: text, action: "", reasoning: "" };
+}
+
+function extractVerdictPayload(text: string): string {
+  if (!text) return "";
+  const verdictIdx = text.toLowerCase().indexOf("verdict:");
+  if (verdictIdx === -1) return text.trim();
+  return text.slice(verdictIdx + "verdict:".length).trim();
+}
+
+function deriveGamePhase(gameContext?: GameContext | null): "pregame" | "live" | "postgame" {
+  if (!gameContext) return getTimePhase();
+  const status = String(gameContext.status || "").toUpperCase();
+  if (LIVE_STATUS_TOKENS.some((token) => status.includes(token))) return "live";
+  if (FINAL_STATUS_TOKENS.some((token) => status.includes(token))) return "postgame";
+  if (gameContext.start_time) {
+    const kickoff = new Date(gameContext.start_time).getTime();
+    if (Number.isFinite(kickoff)) {
+      const deltaMs = kickoff - Date.now();
+      if (deltaMs <= -2 * 60 * 60 * 1000) return "postgame";
+      if (deltaMs <= 0) return "live";
+    }
+  }
+  return "pregame";
+}
+
+function getMatchupLabel(gameContext?: GameContext | null): string | null {
+  const home = gameContext?.home_team;
+  const away = gameContext?.away_team;
+  if (home && away) return `${away} @ ${home}`;
+  if (home || away) return `${away || home}`;
+  return null;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §4  SSE PARSER (Guarded — onDone fires exactly once)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class SSEParser {
+  private buffer = "";
+  private completed = false;
+  private readonly onChunk: (chunk: StreamChunk) => void;
+  private readonly onDone: () => void;
+
+  constructor(onChunk: (chunk: StreamChunk) => void, onDone: () => void) {
+    this.onChunk = onChunk;
+    this.onDone = onDone;
+  }
+
+  private signalDone(): void {
+    if (this.completed) return;
+    this.completed = true;
+    this.onDone();
+  }
+
+  /**
+   * Feed decoded text from the stream.
+   * UTF-8 multi-byte boundary handling is done by TextDecoder({ stream: true }) upstream.
+   */
+  feed(text: string): void {
+    this.buffer += text;
+    const lines = this.buffer.split(/\r?\n/);
+    this.buffer = lines.pop() ?? "";
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (!payload) continue;
+      if (payload === "[DONE]") { this.signalDone(); return; }
+      try {
+        const data = JSON.parse(payload) as StreamChunk;
+        this.onChunk(data);
+        if (data.done) this.signalDone();
+      } catch { /* malformed JSON — skip */ }
+    }
+  }
+
+  flush(): void {
+    if (!this.buffer.trim()) return;
+    const line = this.buffer.trim();
+    this.buffer = "";
+    if (!line.startsWith("data:")) return;
+    const payload = line.slice(5).trim();
+    if (!payload || payload === "[DONE]") { this.signalDone(); return; }
+    try {
+      const data = JSON.parse(payload) as StreamChunk;
+      this.onChunk(data);
+    } catch { /* discard */ }
+  }
+
+  ensureDone(): void { this.signalDone(); }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §5  EDGE SERVICE (Retryable SSE + telemetry)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const edgeService = {
+  async chat(
+    messages: WireMessage[],
+    context: ChatContextPayload,
+    onChunk: (c: StreamChunk) => void,
+    onDone: () => void,
+    onRetry?: (attempt: number) => void,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    let lastError: unknown = null;
+    const requestStart = Date.now();
+
+    for (let attempt = 0; attempt < RETRY_CONFIG.maxAttempts; attempt++) {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      try {
+        // 30s TTFB timeout — prevents indefinite hangs on bad networks.
+        // Wraps caller signal so manual abort still works.
+        const fetchController = new AbortController();
+        const ttfbTimeout = setTimeout(() => fetchController.abort(new Error("Connection timed out")), CHAT_TTFB_TIMEOUT_MS);
+        if (signal) signal.addEventListener("abort", () => fetchController.abort(), { once: true });
+
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages, ...context }),
+          signal: fetchController.signal,
+        });
+
+        clearTimeout(ttfbTimeout);
+
+        if (!res.ok) {
+          if (res.status >= 400 && res.status < 500 && res.status !== 429)
+            throw new Error(`Request failed: ${res.status}`);
+          throw new Error(`Server error: ${res.status}`);
+        }
+
+        reportTiming("chat.ttfb", requestStart, { attempt: String(attempt) });
+
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("No response body");
+
+        const decoder = new TextDecoder();
+        const parser = new SSEParser(onChunk, onDone);
+        let streamIdleTimer: ReturnType<typeof setTimeout> | null = null;
+        const resetStreamIdleTimeout = () => {
+          if (streamIdleTimer) clearTimeout(streamIdleTimer);
+          streamIdleTimer = setTimeout(() => {
+            fetchController.abort(new Error("Stream stalled"));
+          }, CHAT_STREAM_IDLE_TIMEOUT_MS);
+        };
+
+        try {
+          resetStreamIdleTimeout();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+            resetStreamIdleTimeout();
+            parser.feed(decoder.decode(value, { stream: true }));
+          }
+          parser.flush();
+        } finally {
+          if (streamIdleTimer) clearTimeout(streamIdleTimer);
+          parser.ensureDone();
+          try { reader.releaseLock(); } catch { /* already released */ }
+        }
+
+        reportTiming("chat.total", requestStart, { attempt: String(attempt) });
+        return;
+      } catch (err: unknown) {
+        lastError = err;
+        // Only re-throw if the *caller* aborted (user stop button); timeout-initiated
+        // aborts should fall through to retry logic instead of surfacing as blank.
+        if (err instanceof DOMException && err.name === "AbortError" && signal?.aborted) throw err;
+        reportError(err, { attempt, run_id: context.run_id });
+        if (attempt >= RETRY_CONFIG.maxAttempts - 1) break;
+        onRetry?.(attempt + 1);
+        const delay = getRetryDelay(attempt);
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, delay);
+          signal?.addEventListener("abort", () => { clearTimeout(timer); resolve(); }, { once: true });
+        });
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error("Connection failed after retries");
+  },
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §6  MESSAGE STORE
+//     UPDATE is O(1) Map lookup + O(n) shallow array copy.
+//     Sub-millisecond for sessions under 200 messages.
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface MessageState { ordered: Message[]; index: Map<string, number> }
+type MessageAction =
+  | { type: "APPEND_BATCH"; messages: Message[] }
+  | { type: "UPDATE"; id: string; patch: Partial<Message> }
+  | { type: "SET_VERDICT"; id: string; outcome: VerdictOutcome }
+  | { type: "CLEAR" };
+
+function messageReducer(state: MessageState, action: MessageAction): MessageState {
+  switch (action.type) {
+    case "APPEND_BATCH": {
+      const newOrdered = [...state.ordered, ...action.messages];
+      const newIndex = new Map<string, number>();
+      for (let i = 0; i < newOrdered.length; i++) newIndex.set(newOrdered[i].id, i);
+      return { ordered: newOrdered, index: newIndex };
+    }
+    case "UPDATE": {
+      const idx = state.index.get(action.id);
+      if (idx === undefined) return state;
+      const newOrdered = [...state.ordered];
+      newOrdered[idx] = { ...newOrdered[idx], ...action.patch };
+      return { ordered: newOrdered, index: state.index };
+    }
+    case "SET_VERDICT": {
+      const idx = state.index.get(action.id);
+      if (idx === undefined) return state;
+      const newOrdered = [...state.ordered];
+      newOrdered[idx] = { ...newOrdered[idx], verdictOutcome: action.outcome };
+      return { ordered: newOrdered, index: state.index };
+    }
+    case "CLEAR":
+      return { ordered: [], index: new Map() };
+    default:
+      return state;
+  }
+}
+
+const INITIAL_MESSAGE_STATE: MessageState = { ordered: [], index: new Map() };
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §7  HOOKS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Stable callback ref — survives re-renders without invalidating dependents.
+ * `as T` cast is structurally necessary. Safe for plain functions (not method types).
+ */
+function useStableCallback<T extends (...args: unknown[]) => unknown>(callback: T): T {
+  const ref = useRef(callback);
+  useLayoutEffect(() => { ref.current = callback; });
+  return useCallback((...args: Parameters<T>) => ref.current(...args), []) as T;
+}
+
+function useAutoResizeTextArea(ref: RefObject<HTMLTextAreaElement | null>, value: string) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "52px";
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 52), 120)}px`;
+  }, [value, ref]);
+}
+
+function useConnectionHealth(): ConnectionStatus {
+  const [status, setStatus] = useState<ConnectionStatus>("connected");
+  useEffect(() => {
+    const goOnline = () => setStatus("connected");
+    const goOffline = () => setStatus("offline");
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    if (!navigator.onLine) setStatus("offline");
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
+  return status;
+}
+
+/**
+ * Scoped keyboard shortcuts.
+ * Skips when a text input is focused (user keeps draft, no hijacking).
+ * Handlers must be stable (useStableCallback).
+ */
+function useKeyboardShortcuts(onToggle: () => void, onClose: () => void, isOpen: boolean) {
+  useEffect(() => {
+    const onKeyDown = (e: globalThis.KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      const inputFocused = isTextInputFocused();
+      if (mod && e.key === "k" && !inputFocused) { e.preventDefault(); onToggle(); return; }
+      if (!isOpen) return;
+      if (e.key === "Escape" && !inputFocused) onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onToggle, onClose]);
+}
+
+function useSendGuard() {
+  const lastSendRef = useRef(0);
+  return useCallback((): boolean => {
+    const now = Date.now();
+    if (now - lastSendRef.current < SEND_DEBOUNCE_MS) return false;
+    lastSendRef.current = now;
+    return true;
+  }, []);
+}
+
+/** Focus an element after a brief delay (allows DOM to settle after mount). */
+function useAutoFocus(ref: RefObject<HTMLElement | null>, shouldFocus: boolean) {
+  useEffect(() => {
+    if (!shouldFocus) return;
+    const timer = setTimeout(() => ref.current?.focus(), 100);
+    return () => clearTimeout(timer);
+  }, [shouldFocus, ref]);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §8  VISUAL PRIMITIVES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** CSP: Requires `img-src data:` in your Content-Security-Policy. */
+const FilmGrain = memo(() => (
+  <div
+    className="absolute inset-0 pointer-events-none z-0 opacity-[0.03] mix-blend-overlay"
+    style={{
+      backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+    }}
+  />
+));
+FilmGrain.displayName = "FilmGrain";
+
+const OrbitalRadar = memo(() => (
+  <div className="relative w-4 h-4 flex items-center justify-center">
+    <div className="absolute w-1 h-1 bg-[#1A1A18] rounded-full shadow-[0_0_8px_rgba(26,26,24,0.4)]" />
+    <motion.div
+      className="absolute inset-0 border border-[#1A1A18]/20 rounded-full"
+      animate={{ scale: [0.8, 1.8], opacity: [1, 0] }}
+      transition={{ duration: 1.2, repeat: Infinity, ease: "easeOut" }}
+    />
+  </div>
+));
+OrbitalRadar.displayName = "OrbitalRadar";
+
+export const NeuralPulse: FC<{ active?: boolean; size?: number; className?: string }> = memo(({ active = true, size = 10, className }) => {
+  const s = Math.max(6, Math.min(16, size));
+  if (!active) return <span className={cn("inline-block rounded-full bg-zinc-700", className)} style={{ width: s, height: s }} />;
+  return (
+    <span className={cn("inline-flex items-center justify-center relative", className)} style={{ width: s, height: s }}>
+      <span className="absolute inset-0 rounded-full bg-[#1A1A18]/10" />
+      <span className="absolute rounded-full bg-[#1A1A18] shadow-[0_0_10px_rgba(26,26,24,0.4)]" style={{ width: s / 2.5, height: s / 2.5 }} />
+      <motion.span
+        className="absolute inset-0 rounded-full border border-[#1A1A18]/20"
+        animate={{ scale: [0.9, 1.9], opacity: [0.9, 0] }}
+        transition={{ duration: 1.25, repeat: Infinity, ease: "easeOut" }}
+      />
+    </span>
+  );
+});
+NeuralPulse.displayName = "NeuralPulse";
+
+/** Floating scroll-to-bottom anchor — shown when auto-scroll is disengaged. */
+const ScrollAnchor: FC<{ visible: boolean; onClick: () => void }> = memo(({ visible, onClick }) => (
+  <AnimatePresence>
+    {visible && (
+      <motion.button
+        initial={{ opacity: 0, y: 8, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 8, scale: 0.9 }}
+        transition={SYSTEM.anim.fluid}
+        onClick={() => { triggerHaptic(); onClick(); }}
+        className={cn(
+          "absolute bottom-32 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 transition-colors",
+          CHAT_SURFACES.textGlass,
+        )}
+        aria-label="Scroll to latest messages"
+      >
+        <ArrowDown size={10} className="text-[#9B9B91]" />
+        <span className="text-[10px] font-medium text-slate-600 tracking-wide uppercase">Latest</span>
+      </motion.button>
+    )}
+  </AnimatePresence>
+));
+ScrollAnchor.displayName = "ScrollAnchor";
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §9  TOAST SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ToastContext = createContext<{ showToast: (m: string) => void }>({ showToast: () => { } });
+function useToast() { return useContext(ToastContext); }
+
+const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
+  const [toast, setToast] = useState<{ id: string; message: string } | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    const id = generateId();
+    setToast({ id, message });
+    triggerHaptic();
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setToast((c) => (c?.id === id ? null : c)), 2500);
+  }, []);
+
+  const value = useMemo(() => ({ showToast }), [showToast]);
+
+  return (
+    <ToastContext.Provider value={value}>
+      {children}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key={toast.id}
+            role="status"
+            aria-live="polite"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={SYSTEM.anim.fluid}
+            className={cn(
+              "absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-2.5 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.5)] will-change-transform",
+              CHAT_SURFACES.textGlass,
+            )}
+            >
+            <div className="w-1.5 h-1.5 bg-[#1A1A18] rounded-full shadow-[0_0_6px_rgba(26,26,24,0.3)]" />
+            <span className="text-[12px] font-medium text-slate-900 tracking-tight">{toast.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </ToastContext.Provider>
+  );
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §10  ARTIFACT COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CopyButton: FC<{ content: string }> = memo(({ content }) => {
+  const [copied, setCopied] = useState(false);
+  const { showToast } = useToast();
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      triggerHaptic();
+      showToast("Copied");
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      showToast("Copy failed");
+    }
+  }, [content, showToast]);
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={cn(
+        "p-1.5 rounded-md transition-all duration-200",
+        copied ? "text-emerald-400 bg-emerald-500/10" : "text-slate-500 hover:text-slate-600 hover:bg-slate-50",
+      )}
+      aria-label={copied ? "Copied" : "Copy to clipboard"}
+    >
+      {copied ? <CheckCircle2 size={12} /> : <Copy size={12} />}
+    </button>
+  );
+});
+CopyButton.displayName = "CopyButton";
+
+/**
+ * ─────────────────────────────────────────────────
+ * Obsidian Weissach — Design Tokens (local to EdgeVerdictCard)
+ * All values mirror ESSENCE but as inline-style primitives.
+ * ─────────────────────────────────────────────────
+ */
+const OW = {
+  card: ESSENCE.colors.surface.card,
+  elevated: ESSENCE.colors.surface.elevated,
+  mint: ESSENCE.colors.accent.mint,
+  mintDim: ESSENCE.colors.accent.mintDim,
+  mintEdge: ESSENCE.colors.accent.mintEdge,
+  gold: ESSENCE.colors.accent.gold,
+  goldDim: ESSENCE.colors.accent.goldDim,
+  red: ESSENCE.colors.accent.rose,
+  t1: ESSENCE.colors.text.primary,
+  t2: ESSENCE.colors.text.secondary,
+  t3: ESSENCE.colors.text.tertiary,
+  t4: ESSENCE.colors.text.muted,
+  tSys: ESSENCE.colors.text.ghost,
+  border: ESSENCE.colors.border.default,
+  sans: "'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+  mono: "'DM Mono', 'SF Mono', 'Fira Code', monospace",
+  r: 16,   // M-23: Outer card radius — 16px
+  ri: 10,   // M-23: Button/inner element radius — 10px
+  ease: "cubic-bezier(0.25, 0.1, 0.25, 1)",
+  shadow: ESSENCE.shadows.obsidian,
+} as const;
+
+/** ShareIcon — upload arrow for share button */
+const OWShareIcon: FC = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+    <path d="M8 2v8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    <path d="M4.5 5.5L8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13 10v2.5a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 013 12.5V10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
+/** CheckIcon — confirmation for copied state */
+const OWCheckIcon: FC = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+    <path d="M3.5 8.5L6.5 11.5 12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/**
+ * MetricsPanel — Obsidian Weissach collapsible metrics tray.
+ * M-01: Three-column grid, center-distributed, no pipes, no ring.
+ * M-02: CONF value in white (only EDGE gets color).
+ * Numbers ABOVE labels for scanability.
+ */
+const MetricsPanel: FC<{
+  confidence: number; edge?: number; winProb?: number; open: boolean;
+}> = memo(({ confidence, edge, winProb, open }) => {
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateRows: open ? "1fr" : "0fr",
+      opacity: open ? 1 : 0,
+      transition: `grid-template-rows 0.3s ${OW.ease}, opacity 0.25s ${OW.ease}`,
+      marginTop: open ? 12 : 0,
+    }}>
+      <div style={{ overflow: "hidden" }}>
+        <div style={{
+          display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
+          textAlign: "center", padding: "20px 0",
+          background: OW.elevated, borderRadius: OW.ri,
+        }}>
+          {/* CONF — always white */}
+          <div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 20, fontWeight: 500,
+              letterSpacing: "-0.01em", color: OW.t1,
+            }}>{confidence}%</div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 12, fontWeight: 500,
+              letterSpacing: "0.12em", textTransform: "uppercase",
+              color: OW.t4, marginTop: 4,
+            }}>CONF</div>
+          </div>
+          {/* EDGE — emerald when positive, amber when negative, white when zero */}
+          <div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 20, fontWeight: 500,
+              letterSpacing: "-0.01em",
+              color: edge != null && edge > 0 ? OW.mint : edge != null && edge < 0 ? OW.gold : OW.t1,
+            }}>{edge != null ? `${edge > 0 ? "+" : ""}${edge}%` : "—"}</div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 12, fontWeight: 500,
+              letterSpacing: "0.12em", textTransform: "uppercase",
+              color: OW.t4, marginTop: 4,
+            }}>EDGE</div>
+          </div>
+          {/* WIN — always white */}
+          <div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 20, fontWeight: 500,
+              letterSpacing: "-0.01em", color: OW.t1,
+            }}>{winProb != null ? `${winProb}%` : "—"}</div>
+            <div style={{
+              fontFamily: OW.mono, fontSize: 12, fontWeight: 500,
+              letterSpacing: "0.12em", textTransform: "uppercase",
+              color: OW.t4, marginTop: 4,
+            }}>WIN</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+MetricsPanel.displayName = "MetricsPanel";
+
+/**
+ * EdgeVerdictCard — "Obsidian Weissach" FINAL
+ *
+ * Full card: THE PICK label → Hero headline →
+ * Divider → Matchup line → Collapsible Metrics →
+ * Synopsis block → Tail/Fade/Share footer → Analysis disclosure
+ *
+ * Features:
+ * - Live game breathe animation on specular edge light
+ * - Share button with capture state + watermark
+ * - Tail/Fade hover states (mint glow on Tail, subtle lift on Fade)
+ */
+const EdgeVerdictCard: FC<{
+  content: string;
+  confidence?: ConfidenceLevel;
+  synopsis?: string;
+  matchupLine?: string;
+  trackingKey: string;
+  cardIndex?: number;
+  outcome?: VerdictOutcome;
+  onTrack?: (trackingKey: string, outcome: VerdictOutcome) => void;
+  hasAnalysis?: boolean;
+  analysisOpen?: boolean;
+  onToggleAnalysis?: () => void;
+}> = memo(({
+  content, confidence = "high", synopsis, matchupLine, trackingKey,
+  cardIndex = 0, outcome, onTrack,
+  hasAnalysis, analysisOpen, onToggleAnalysis,
+}) => {
+  const parsedVerdict = useMemo(() => parseEdgeVerdict(content), [content]);
+  const confidenceValue = useMemo(() => resolveConfidenceValue(confidence, content), [confidence, content]);
+  const [entered, setEntered] = useState(false);
+  const [metricsOpen, setMetricsOpen] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "capturing" | "copied">("idle");
+
+  // Derive game phase and sportsbook from content
+  const gamePhase = useMemo(() => getTimePhase(), []);
+  const isLive = gamePhase === "live";
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setEntered(true), 80);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const stageStyle = useCallback((baseDelayMs: number): React.CSSProperties => {
+    const effectiveDelay = (baseDelayMs + cardIndex * EDGE_CARD_STAGGER_PER_CARD_MS) / 1000;
+    return {
+      opacity: entered ? 1 : 0,
+      transform: entered ? "translateY(0)" : "translateY(16px)",
+      transition: `opacity 0.55s ${EDGE_CARD_EASE_OUT} ${effectiveDelay}s, transform 0.7s ${EDGE_CARD_SPRING} ${effectiveDelay}s`,
+    };
+  }, [cardIndex, entered]);
+
+  // M-14: Ensure synopsis always exists — fallback to summaryLabel if extraction yielded nothing
+  const resolvedSynopsis = (synopsis && synopsis.length > 0)
+    ? synopsis
+    : (parsedVerdict.summaryLabel && parsedVerdict.summaryLabel.length > 10 ? parsedVerdict.summaryLabel : "");
+  const hasSynopsis = Boolean(resolvedSynopsis && resolvedSynopsis.length > 0);
+
+  // Decompose headline into primary (team) + qualifier (spread/ML/odds)
+  // M-15: Normalize team name to canonical display form
+  const teamDisplay = normalizeTeamName(parsedVerdict.teamName);
+  const odds = parsedVerdict.odds !== "N/A" ? parsedVerdict.odds : null;
+  const qualifierPrimary = parsedVerdict.spread !== "N/A"
+    ? (parsedVerdict.spread === "ML" ? "ML" : parsedVerdict.spread)
+    : odds;
+  const qualifierSecondary = parsedVerdict.spread !== "N/A" && odds ? odds : null;
+  const qualifierForShare = qualifierPrimary
+    ? `${qualifierPrimary}${qualifierSecondary ? ` ${qualifierSecondary}` : ""}`
+    : "";
+  const headline = teamDisplay + (qualifierForShare ? ` ${qualifierForShare}` : "");
+
+  const { handleDeepLink } = useBetLink();
+
+  const handleToggle = useCallback((selection: "tail" | "fade") => {
+    const next = outcome === selection ? null : selection;
+    triggerHaptic();
+    trackAction(`verdict.${selection}`, { trackingKey, selected: next === selection, cardIndex });
+    onTrack?.(trackingKey, next);
+
+    // Phase 2: Actionability — Wire deep linking router for Tail selection
+    if (next === "tail") {
+      // Future-proofing: Read preferred sportsbook from User Settings Context. 
+      // Hardcoded to DraftKings for V1 launch parity.
+      const preferredBook: SupportedBook = "DraftKings";
+
+      // We pass the canonical team name so the sportsbook search engine handles the query reliably 
+      // (e.g. "Rhode Island Rams" instead of "+2.5 Rhode Island")
+      handleDeepLink(preferredBook, teamDisplay);
+    }
+  }, [cardIndex, onTrack, outcome, trackingKey, handleDeepLink, teamDisplay]);
+
+  const handleShare = useCallback(() => {
+    if (shareState !== "idle") return;
+    triggerHaptic();
+    setShareState("capturing");
+    const shareText = hasSynopsis
+      ? `${headline}\n${resolvedSynopsis}\n\nthedrip.app`
+      : `${headline}\n\nthedrip.app`;
+    navigator.clipboard?.writeText(shareText.trim()).catch(() => { });
+    trackAction("verdict.share", { trackingKey, cardIndex });
+    setTimeout(() => {
+      setShareState("copied");
+      setTimeout(() => setShareState("idle"), 2200);
+    }, 500);
+  }, [shareState, headline, hasSynopsis, synopsis, trackingKey, cardIndex]);
+
+  const isCaptureMode = shareState === "capturing" || shareState === "copied";
+
+  return (
+    <motion.div layout className="relative overflow-hidden mb-3" style={{ borderRadius: OW.r }}>
+      {/* Obsidian card surface */}
+      <div style={{
+        position: "relative", width: "100%",
+        background: OW.card, borderRadius: OW.r,
+        padding: "32px 24px 24px",
+        boxShadow: OW.shadow, overflow: "hidden",
+        fontFamily: OW.sans, color: OW.t1,
+      }}>
+        {/* Specular edge light — breathes on live games */}
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 1,
+          background: `linear-gradient(90deg, transparent, ${OW.mintEdge} 30%, ${OW.mintEdge} 70%, transparent)`,
+          opacity: isLive ? 1 : 0.65,
+          animation: isLive ? "ow-breathe 3.5s ease-in-out infinite" : "none",
+          zIndex: 3,
+        }} aria-hidden="true" />
+
+        {/* §1 THE PICK label */}
+        <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[0])}>
+          <div style={{
+            fontFamily: OW.mono, fontSize: 9, fontWeight: 600,
+            letterSpacing: "0.12em", textTransform: "uppercase",
+            color: OW.t4, marginBottom: 8,
+          }}>THE PICK</div>
+        </div>
+
+        {/* §2 Hero headline — team primary, qualifier secondary */}
+        <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[1])}>
+          <h3 style={{
+            fontFamily: OW.sans, fontSize: 28, fontWeight: 700,
+            lineHeight: 1.12, letterSpacing: "-0.02em",
+            color: OW.t1, margin: 0,
+          }}>
+            {teamDisplay}
+            {qualifierPrimary && (
+              <span style={{
+                fontFamily: OW.mono, fontWeight: 500,
+                fontSize: 20, letterSpacing: "0.02em",
+                color: OW.t3, marginLeft: 10,
+              }}>
+                {qualifierPrimary}
+                {qualifierSecondary && (
+                  <span style={{
+                    marginLeft: 8,
+                    fontSize: 12,
+                    letterSpacing: "0.06em",
+                    color: OW.t4,
+                  }}>
+                    {qualifierSecondary}
+                  </span>
+                )}
+              </span>
+            )}
+          </h3>
+        </div>
+
+        {/* Matchup row — replaces "Best available odds" */}
+        <>
+          {/* M-16: Hairline divider — gradient-faded edges, consistent everywhere */}
+          <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "20px 0 14px" }} />
+
+          {/* §3 Matchup line + metrics toggle */}
+          <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[2])}>
+            <div style={{
+              display: "flex", alignItems: "center",
+              userSelect: "none", WebkitTapHighlightColor: "transparent",
+            }}>
+              {matchupLine && (
+                <span style={{
+                  fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+                  color: OW.t3, letterSpacing: "0.005em", lineHeight: "20px",
+                }}>
+                  {matchupLine}
+                </span>
+              )}
+              <div style={{ flex: 1, minWidth: 12 }} />
+              <button onClick={() => setMetricsOpen(p => !p)} style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 28, height: 28, borderRadius: 8,
+                border: "none", cursor: "pointer", flexShrink: 0,
+                background: metricsOpen ? "rgba(255,255,255,0.03)" : "transparent",
+                color: OW.t4, transition: `all 0.2s ${OW.ease}`,
+              }}>
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
+                  style={{
+                    transform: metricsOpen ? "rotate(180deg)" : "rotate(0)",
+                    transition: `transform 0.25s ${OW.ease}`,
+                  }}>
+                  <path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor"
+                    strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </>
+
+        {/* §4 Collapsible Metrics tray */}
+        <MetricsPanel
+          confidence={confidenceValue}
+          edge={confidenceValue >= 70 ? Math.round((confidenceValue - 50) * 0.3 * 10) / 10 : undefined}
+          winProb={confidenceValue >= 50 ? Math.min(99, Math.round(confidenceValue * 0.65 + 5)) : undefined}
+          open={metricsOpen && !isCaptureMode}
+        />
+
+        {/* §5 Synopsis — M-14: Always rendered when available (live and pregame alike) */}
+        {hasSynopsis && (
+          <div style={{
+            marginTop: 20,
+            fontFamily: OW.sans, fontSize: 14, fontWeight: 400,
+            lineHeight: 1.78,
+            color: OW.t2, letterSpacing: "0.005em",
+            ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[3]),
+          }}>
+            {resolvedSynopsis}
+          </div>
+        )}
+
+        {/* §6 Footer — M-11: Tail/Fade primary, Share ghost utility + M-22: 44px min touch targets */}
+        <div style={{ marginTop: 20, position: "relative", minHeight: 44, ...stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4]) }}>
+          {/* Action buttons layer */}
+          <div style={{
+            position: "absolute", inset: 0,
+            display: "flex", alignItems: "center", gap: 8,
+            opacity: isCaptureMode ? 0 : 1,
+            transition: `opacity 0.2s ${OW.ease}`,
+            pointerEvents: isCaptureMode ? "none" : "auto",
+          }}>
+            {onTrack && (
+              <>
+                {(["Tail", "Fade"] as const).map(label => {
+                  const isTail = label === "Tail";
+                  const isActive = outcome === label.toLowerCase();
+                  return (
+                    <button key={label}
+                      onClick={() => handleToggle(label.toLowerCase() as "tail" | "fade")}
+                      onMouseEnter={e => {
+                        if (isActive) return;
+                        const el = e.currentTarget;
+                        el.style.borderColor = "transparent";
+                        el.style.color = OW.t1;
+                        el.style.background = "rgba(255,255,255,0.10)";
+                      }}
+                      onMouseLeave={e => {
+                        if (isActive) return;
+                        const el = e.currentTarget;
+                        el.style.borderColor = "transparent";
+                        el.style.color = OW.t1;
+                        el.style.background = "rgba(255,255,255,0.06)";
+                      }}
+                      style={{
+                        flex: 1, minHeight: 44, borderRadius: 10, // M-22: 44px touch target, M-23: 10px button radius
+                        border: isActive ? `1px solid ${isTail ? OW.mintEdge : "rgba(239,68,68,0.15)"}` : "1px solid transparent",
+                        background: isActive ? (isTail ? OW.mintDim : "rgba(239,68,68,0.04)") : "rgba(255,255,255,0.06)", // M-11: Filled bg
+                        color: isActive ? (isTail ? OW.mint : OW.red) : OW.t1,
+                        fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+                        letterSpacing: "0.08em", textTransform: "uppercase",
+                        cursor: "pointer", transition: `all 0.15s ${OW.ease}`,
+                      }}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </>
+            )}
+            {/* Share button — M-11: Ghost style, narrower (content-width) */}
+            <button onClick={handleShare} style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              gap: 4, minHeight: 44, padding: "0 16px", borderRadius: 10, // M-22, M-23
+              border: `1px solid ${shareState === "copied" ? "rgba(54,232,150,0.2)" : OW.border}`,
+              background: shareState === "copied" ? OW.mintDim : "transparent", // M-11: Ghost bg
+              color: shareState === "copied" ? OW.mint : OW.t4, // M-11: Dimmer text
+              fontFamily: OW.sans, fontSize: 12, fontWeight: 500,
+              letterSpacing: "0.08em",
+              cursor: shareState === "capturing" ? "wait" : "pointer",
+              transition: `all 0.15s ${OW.ease}`, whiteSpace: "nowrap",
+            }}>
+              {shareState === "copied" ? <OWCheckIcon /> : shareState === "idle" ? <OWShareIcon /> : null}
+              {shareState === "idle" ? "Share" : shareState === "capturing" ? "···" : "Copied"}
+            </button>
+          </div>
+
+          {/* Watermark layer — visible in capture mode */}
+          <div style={{
+            position: "absolute", inset: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            opacity: isCaptureMode ? 1 : 0,
+            transition: `opacity 0.25s ${OW.ease} ${isCaptureMode ? "0.1s" : "0s"}`,
+            pointerEvents: "none",
+          }}>
+            <span style={{
+              fontFamily: OW.mono, fontSize: 10, fontWeight: 400,
+              letterSpacing: "0.06em", color: "rgba(255,255,255,0.18)",
+            }}>thedrip.app</span>
+          </div>
+        </div>
+
+        {/* §7 Disclosure Trigger — Analysis */}
+        {hasAnalysis && (
+          <div style={stageStyle(EDGE_CARD_STAGE_DELAYS_MS[4])}>
+            {/* M-16: Consistent gradient-faded hairline */}
+            <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)", margin: "16px 0 12px" }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => { onToggleAnalysis?.(); triggerHaptic(); }}
+                aria-expanded={analysisOpen}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  minHeight: 44, borderRadius: OW.ri, cursor: "pointer", transition: `all 0.15s ${OW.ease}`, // M-22: 44px touch target
+                  background: analysisOpen ? OW.mintDim : "rgba(255,255,255,0.02)",
+                  border: `1px solid ${analysisOpen ? OW.mintEdge : OW.border}`,
+                }}
+              >
+                <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: analysisOpen ? OW.mint : OW.t4 }}>
+                  Analysis
+                </span>
+                <motion.div animate={{ rotate: analysisOpen ? 180 : 0 }} transition={SYSTEM.anim.snap}>
+                  <ChevronDown size={10} style={{ color: analysisOpen ? OW.mint : OW.t4 }} />
+                </motion.div>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+});
+EdgeVerdictCard.displayName = "EdgeVerdictCard";
+
+/**
+ * TacticalHUD — "What to Watch" — M-07: Three-layer hierarchy.
+ * Condition (white) → Action (emerald, with arrow) → Reasoning (dimmed).
+ * Elevated card with amber glow. Border radius 12px (inner card per M-23).
+ */
+const TacticalHUD: FC<{ content: string }> = memo(({ content }) => {
+  const c = useMemo(() => cleanVerdictContent(content), [content]);
+  const parsed = useMemo(() => parseWatchFallback(c), [c]);
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={SYSTEM.anim.fluid}
+      className={cn(
+        "my-8 relative overflow-hidden",
+        "rounded-xl",                          // M-23: 12px inner card radius
+        CHAT_SURFACES.soft,                   // M-24: Glass surface with subtle depth
+        "shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
+      )}
+    >
+      {/* Ambient amber glow */}
+      <div className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(ellipse_at_top_left,rgba(245,158,11,0.08)_0%,transparent_55%)]" />
+      <div className="relative z-10 p-5">
+        {/* M-04: Section header in zinc-500 — neutral */}
+        <p className="text-[12px] font-mono font-medium tracking-[0.12em] uppercase text-slate-500 mb-4">
+          WHAT TO WATCH
+        </p>
+
+        {/* M-07: Three-layer structured rendering */}
+        {parsed.action ? (
+          <>
+            {/* Condition — white, readable */}
+            <p className="text-[15px] text-slate-700 leading-relaxed">
+              {parsed.condition}
+            </p>
+            {/* Action — emerald, the thing to do */}
+            <p className="text-[15px] font-medium text-emerald-400 mt-2">
+              → {parsed.action}
+            </p>
+            {/* Reasoning — dimmed, supporting */}
+            {parsed.reasoning && (
+              <p className="text-[12px] text-slate-500 leading-relaxed mt-2">
+                {parsed.reasoning}
+              </p>
+            )}
+          </>
+        ) : (
+          /* Fallback: flat prose when no arrow pattern found */
+          <div className="text-[15px] leading-[1.72] tracking-[-0.005em] text-slate-600">{c}</div>
+        )}
+      </div>
+    </motion.div>
+  );
+});
+TacticalHUD.displayName = "TacticalHUD";
+
+/**
+ * M-27: Pick card skeleton — shows while model generates verdict.
+ * Matches final card dimensions for seamless cross-fade.
+ */
+const PickCardSkeleton: FC = memo(() => (
+  <div style={{
+    borderRadius: 16, background: OW.card,
+    border: `1px solid ${OW.border}`, padding: "32px 24px 24px",
+    boxShadow: OW.shadow, marginBottom: 12,
+  }}>
+    {/* THE PICK label skeleton */}
+    <div style={{ height: 12, width: 64, borderRadius: 4, background: "rgba(255,255,255,0.04)" }}
+      className="animate-pulse" />
+    {/* Team name skeleton */}
+    <div style={{ height: 28, width: 192, borderRadius: 4, background: "rgba(255,255,255,0.06)", marginTop: 16 }}
+      className="animate-pulse" />
+    {/* Hairline */}
+    <div style={{ height: 1, width: "100%", background: "rgba(255,255,255,0.04)", margin: "24px 0 16px" }} />
+    {/* Summary skeleton — two lines */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ height: 16, width: "100%", borderRadius: 4, background: "rgba(255,255,255,0.04)" }}
+        className="animate-pulse" />
+      <div style={{ height: 16, width: "80%", borderRadius: 4, background: "rgba(255,255,255,0.04)" }}
+        className="animate-pulse" />
+    </div>
+  </div>
+));
+PickCardSkeleton.displayName = "PickCardSkeleton";
+
+/**
+ * M-25: AnalysisDisclosure — scroll-position-aware fade gradient.
+ * Shows a bottom fade when more content exists below the fold.
+ * Hides the fade when the user has scrolled to the bottom.
+ */
+const AnalysisDisclosure: FC<{
+  analysisContent: string;
+  components: Components;
+}> = memo(({ analysisContent, components }) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [showFade, setShowFade] = useState(true);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const checkScroll = () => {
+      // Check if the content overflows the parent scroll container
+      // Use the nearest scrollable ancestor to determine if content is cut off
+      const parent = el.closest("[role='log']") || el.parentElement;
+      if (!parent) return;
+      const rect = el.getBoundingClientRect();
+      const parentRect = parent.getBoundingClientRect();
+      // If the bottom of the content is within 80px of the parent's bottom, consider it scrolled to end
+      const isNearBottom = rect.bottom <= parentRect.bottom + 80;
+      setShowFade(!isNearBottom);
+    };
+
+    // Initial check after mount + render
+    const timer = setTimeout(checkScroll, 100);
+    // Listen to scroll on the nearest scrollable ancestor
+    const scrollParent = el.closest("[role='log']");
+    scrollParent?.addEventListener("scroll", checkScroll, { passive: true });
+
+    return () => {
+      clearTimeout(timer);
+      scrollParent?.removeEventListener("scroll", checkScroll);
+    };
+  }, [analysisContent]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ ...SYSTEM.anim.fluid, opacity: { duration: 0.25 } }}
+      className="relative"
+      style={{ overflow: "hidden" }}
+    >
+      <div ref={contentRef}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+          {analysisContent}
+        </ReactMarkdown>
+      </div>
+      {/* M-25: Dynamic bottom fade — hides when scrolled to bottom */}
+      <div
+        className={cn(
+          "sticky bottom-0 left-0 right-0 h-12 bg-linear-to-t from-[#08080A] to-transparent pointer-events-none transition-opacity duration-300",
+          showFade ? "opacity-100" : "opacity-0",
+        )}
+      />
+    </motion.div>
+  );
+});
+AnalysisDisclosure.displayName = "AnalysisDisclosure";
+
+const ThinkingPill: FC<{ onStop?: () => void; status?: string; retryCount?: number }> = memo(
+  ({ onStop, status = "thinking", retryCount = 0 }) => {
+    const [idx, setIdx] = useState(0);
+    const phrases = useMemo(() => ["CHECKING LINES", "SCANNING", "GRADING EDGE", "VERIFYING"], []);
+    const displayText = useMemo(() => {
+      if (retryCount > 0) return `RETRY ${retryCount}/${RETRY_CONFIG.maxAttempts}`;
+      if (status === "streaming") return "LIVE FEED";
+      if (status === "grounding") return "VERIFYING SOURCES";
+      return phrases[idx];
+    }, [status, idx, phrases, retryCount]);
+
+    useEffect(() => {
+      if (status !== "thinking") return;
+      const interval = setInterval(() => setIdx((p) => (p + 1) % phrases.length), 2200);
+      return () => clearInterval(interval);
+    }, [status, phrases.length]);
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+        transition={SYSTEM.anim.fluid}
+        role="status"
+        aria-live="polite"
+        className={cn(
+          "absolute bottom-full left-1/2 -translate-x-1/2 mb-6 flex items-center gap-3 px-4 py-2 rounded-full shadow-sm z-30 will-change-transform",
+          CHAT_SURFACES.textGlass,
+        )}
+      >
+        <OrbitalRadar />
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={displayText}
+            initial={{ opacity: 0, filter: "blur(4px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, filter: "blur(4px)" }}
+            className={cn(SYSTEM.type.mono, "text-slate-600 min-w-[100px] text-center")}
+          >
+            {displayText}
+          </motion.span>
+        </AnimatePresence>
+        {onStop && (
+          <button onClick={onStop} className="ml-1 p-2 -m-2 text-slate-500 hover:text-slate-700 transition-colors" aria-label="Stop processing">
+            <StopCircle size={10} />
+          </button>
+        )}
+      </motion.div>
+    );
+  },
+);
+ThinkingPill.displayName = "ThinkingPill";
+
+const SmartChips: FC<{
+  onSelect: (t: string) => void;
+  hasMatch: boolean;
+  messageCount: number;
+  gameContext?: GameContext | null;
+}> = memo(
+  ({ onSelect, hasMatch, messageCount, gameContext }) => {
+    const phase = deriveGamePhase(gameContext);
+    const matchupLabel = useMemo(() => getMatchupLabel(gameContext), [gameContext]);
+
+    const chips = useMemo(() => {
+      if (hasMatch) {
+        switch (phase) {
+          case "live": return ["Live Edge", "Sharp Report", "Momentum", "Live Games"];
+          case "postgame": return ["Recap", "What Tailed / Faded", "Tomorrow Slate", "Bankroll"];
+          default: return ["Sharp Report", "Best Bet", "Public Fade", "Player Props"];
+        }
+      }
+      if (messageCount > 5) return ["New Slate", "My Record", "Best Edge", "Promos"];
+      switch (phase) {
+        case "live": return ["Live Games", "In-Play Edge", "Line Moves", "Injury News"];
+        case "postgame": return ["Tomorrow Slate", "Futures", "My Record", "Sharp Money"];
+        default: return ["Edge Today", "Line Moves", "Public Splits", "Injury News"];
+      }
+    }, [hasMatch, phase, messageCount]);
+
+    return (
+      <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide px-6" role="group" aria-label="Quick actions">
+        {/* Matchup context chip — emerald accent, shows attached game */}
+        {matchupLabel && (
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/6 border border-emerald-500/12 shrink-0 rounded-full">
+            <div className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_4px_#10b981]" />
+            <span className="text-[10px] font-mono font-medium text-emerald-400/90 tracking-wide uppercase whitespace-nowrap">{matchupLabel}</span>
+          </div>
+        )}
+        {chips.map((chip, i) => (
+          <motion.button
+            key={chip}
+            onClick={() => { triggerHaptic(); onSelect(SMART_CHIP_QUERIES[chip] ?? chip); }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: (matchupLabel ? i + 1 : i) * 0.04, ...SYSTEM.anim.fluid }}
+            whileHover={{ scale: 1.02, y: -1, backgroundColor: "rgba(255,255,255,0.06)" }}
+            whileTap={{ scale: 0.98 }}
+            className={cn("px-3.5 py-2 transition-all backdrop-blur-sm shrink-0", SYSTEM.geo.pill, CHAT_SURFACES.chip)}
+          >
+            <span className="text-[10px] font-medium text-slate-600 tracking-wide uppercase whitespace-nowrap">{chip}</span>
+          </motion.button>
+        ))}
+      </div>
+    );
+  },
+);
+SmartChips.displayName = "SmartChips";
+
+const ConnectionBadge: FC<{ status: ConnectionStatus }> = memo(({ status }) => {
+  if (status === "connected") return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      role="status"
+      className={cn(
+        "flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-mono uppercase tracking-wider",
+        status === "offline"
+          ? "bg-red-500/10 border border-red-500/20 text-red-400"
+          : "bg-amber-500/10 border border-amber-500/20 text-amber-400",
+      )}
+    >
+      {status === "offline" ? <WifiOff size={10} /> : <RotateCcw size={10} className="animate-spin" />}
+      <span>{status === "offline" ? "Offline" : "Reconnecting..."}</span>
+    </motion.div>
+  );
+});
+ConnectionBadge.displayName = "ConnectionBadge";
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §11  (Cleared — citations are now inline hyperlinks)
+// ═══════════════════════════════════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §12  MESSAGE BUBBLE
+// ═══════════════════════════════════════════════════════════════════════════
+
+const MessageBubble: FC<{
+  message: Message;
+  onTrackVerdict?: (trackingKey: string, outcome: VerdictOutcome) => void;
+  verdictOutcomes?: Record<string, VerdictOutcome>;
+  showCitations?: boolean;
+}> = memo(
+  ({ message, onTrackVerdict, verdictOutcomes, showCitations = true }) => {
+    const isUser = message.role === "user";
+    const rawText = useMemo(() => extractTextContent(message.content), [message.content]);
+    const verifiedContent = useMemo(() => {
+      const t = rawText;
+      if (isUser) return t;
+      const cited = showCitations
+        ? injectSupportCitations(t, message.groundingMetadata, message.isStreaming)
+        : t;
+      // M-26: Apply typography normalization to all AI prose (em-dashes, ellipsis, smart quotes)
+      // Only on completed messages to avoid interfering with streaming text
+      return message.isStreaming ? cited : normalizeTypography(cited);
+    }, [message.content, message.groundingMetadata, message.isStreaming, isUser, showCitations]);
+
+    const formattedTime = useMemo(() => formatTimestamp(message.timestamp), [message.timestamp]);
+
+    /** Edge synopses extracted once per message for verdict card enrichment */
+    const synopses = useMemo(() => extractEdgeSynopses(rawText), [rawText]);
+    const matchups = useMemo(() => extractMatchupLines(rawText), [rawText]);
+    const contentSansMatchups = useMemo(
+      () => (isUser ? verifiedContent : stripMatchupLines(verifiedContent)),
+      [verifiedContent, isUser],
+    );
+
+    /**
+     * Progressive Disclosure: Split content at verdict boundary.
+     * The pick card is always visible. The analytical breakdown
+     * (Key Factors, Market Dynamics, etc.) collapses behind disclosure.
+     * During streaming, show everything — split only on completed messages.
+     */
+    const { pickContent, analysisBlocks } = useMemo(() => {
+      if (isUser || !contentSansMatchups || message.isStreaming) {
+        return { pickContent: contentSansMatchups, analysisBlocks: [] };
+      }
+      return splitPickContent(contentSansMatchups);
+    }, [contentSansMatchups, isUser, message.isStreaming]);
+
+    /** Double-disclosure state — controlled from here, triggered from the pick card */
+    const [analysisOpenByKey, setAnalysisOpenByKey] = useState<Record<string, boolean>>({});
+    const toggleAnalysis = useCallback((key: string) => {
+      setAnalysisOpenByKey(prev => ({ ...prev, [key]: !prev[key] }));
+    }, []);
+
+    const analysisComponents: Components = useMemo(() => ({
+      h1: ({ children }) => renderSectionHeading(children),
+      h2: ({ children }) => renderSectionHeading(children),
+      h3: ({ children }) => renderSectionHeading(children),
+      h4: ({ children }) => renderSectionHeading(children),
+      h5: ({ children }) => renderSectionHeading(children),
+      h6: ({ children }) => renderSectionHeading(children),
+      p: ({ children }) => {
+        const text = flattenText(children);
+        if (REGEX_WATCH_MATCH.test(text)) {
+          const c = text.replace(REGEX_WATCH_PREFIX, "").trim();
+          return c.length > 5 ? <TacticalHUD content={c} /> : null;
+        }
+        return (
+          <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-6 last:mb-0")}>
+            {children}
+          </div>
+        );
+      },
+      strong: ({ children }) => {
+        const rawText = flattenText(children);
+        const text = rawText.toUpperCase();
+        const isSection = REGEX_EDGE_SECTION_HEADER.test(text);
+        if (isSection) {
+          const normalized = normalizeHeader(rawText);
+          if (EXCLUDED_SECTIONS.some(s => normalized.toLowerCase() === s)) {
+            return null;
+          }
+          return (
+            <div className="mb-3">
+              <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
+              <div className="mt-8 flex items-center gap-2.5">
+                <div className="w-1 h-1 rounded-full bg-zinc-600" />
+                <span className="text-[12px] font-mono font-medium text-slate-500 uppercase tracking-[0.12em]">{normalized}</span>
+              </div>
+            </div>
+          );
+        }
+        const stripped = rawText.replace(/^[●•·‣]\s*/, "");
+        return <strong className={cn("font-semibold", isUser ? "text-black" : "text-slate-900")}>{stripped}</strong>;
+      },
+      a: ({ href, children }) => {
+        const isCitation = href?.includes(CITE_MARKER);
+        const isSuperscript = href?.includes("#__cite_sup__");
+        let brandColor = "";
+        let cleanHref = href || "";
+        if (isCitation) {
+          const markerIdx = cleanHref.indexOf(CITE_MARKER);
+          const colorFragment = cleanHref.slice(markerIdx + CITE_MARKER.length);
+          brandColor = decodeURIComponent(colorFragment);
+          cleanHref = cleanHref.slice(0, markerIdx);
+        } else if (isSuperscript) {
+          cleanHref = cleanHref.replace("#__cite_sup__", "");
+        }
+        if (isSuperscript) {
+          return (
+            <a
+              href={cleanHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-500 no-underline hover:text-slate-400 text-[0.65em] align-super transition-colors duration-200"
+            >
+              {children}
+            </a>
+          );
+        }
+        if (isCitation) {
+          const hoverStyle = brandColor
+            ? { "--cite-hover-color": brandColor, "--cite-hover-underline": `${brandColor}40` } as React.CSSProperties
+            : {};
+          return (
+            <a
+              href={cleanHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cite-link text-[#63636E] no-underline transition-all duration-200 hover:underline underline-offset-4 decoration-1"
+              style={hoverStyle}
+            >
+              {children}
+            </a>
+          );
+        }
+        return (
+          <a
+            href={cleanHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
+          >
+            {children}
+          </a>
+        );
+      },
+      ul: ({ children }) => <ul className="space-y-2 mb-4 ml-1">{children}</ul>,
+      li: ({ children }) => (
+        <li className="flex gap-3 items-start pl-1">
+          <span className="mt-2 w-1 h-1 bg-zinc-700 rounded-full shrink-0" />
+          <span className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]")}>{children}</span>
+        </li>
+      ),
+    }), [isUser]);
+
+    const components: Components = useMemo(
+      () => {
+        let verdictCardIndex = 0;
+
+        return {
+          h1: ({ children }) => renderSectionHeading(children),
+          h2: ({ children }) => renderSectionHeading(children),
+          h3: ({ children }) => renderSectionHeading(children),
+          h4: ({ children }) => renderSectionHeading(children),
+          h5: ({ children }) => renderSectionHeading(children),
+          h6: ({ children }) => renderSectionHeading(children),
+          p: ({ children }) => {
+            const text = flattenText(children);
+
+            if (REGEX_VERDICT_MATCH.test(text)) {
+              const verdictPayload = extractVerdictPayload(text);
+              const confidence = extractConfidence(verdictPayload);
+              const trackingKey = `${message.id}:v${verdictCardIndex}`;
+              const cardIdx = verdictCardIndex;
+              verdictCardIndex++;
+              const analysisBlock = analysisBlocks[cardIdx];
+              const isOpen = Boolean(analysisOpenByKey[trackingKey]);
+              return (
+                <>
+                  <EdgeVerdictCard
+                    content={verdictPayload}
+                    confidence={confidence}
+                    synopsis={synopses[cardIdx]}
+                    matchupLine={matchups[cardIdx]}
+                    trackingKey={trackingKey}
+                    cardIndex={cardIdx}
+                    outcome={verdictOutcomes?.[trackingKey] ?? message.verdictOutcome}
+                    onTrack={onTrackVerdict}
+                    hasAnalysis={!!analysisBlock}
+                    analysisOpen={isOpen}
+                    onToggleAnalysis={() => toggleAnalysis(trackingKey)}
+                  />
+                  <AnimatePresence initial={false}>
+                    {isOpen && analysisBlock && (
+                      <AnalysisDisclosure analysisContent={analysisBlock} components={analysisComponents} />
+                    )}
+                  </AnimatePresence>
+                </>
+              );
+            }
+
+            if (REGEX_WATCH_MATCH.test(text)) {
+              const c = text.replace(REGEX_WATCH_PREFIX, "").trim();
+              return c.length > 5 ? <TacticalHUD content={c} /> : null;
+            }
+
+            // Suppress paragraphs already rendered inside EdgeVerdictCard as synopsis
+            if (synopses.length > 0) {
+              const cleaned = text.replace(/\*+/g, "").replace(/\s+/g, " ").trim();
+              if (synopses.some(s => s && cleaned.length > 10 && cleaned.includes(s))) return null;
+            }
+
+            // M-26: Apply typography normalization to body paragraphs
+            return (
+              <div className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]", "mb-6 last:mb-0")}>
+                {children}
+              </div>
+            );
+          },
+
+          strong: ({ children }) => {
+            const rawText = flattenText(children);
+            const text = rawText.toUpperCase();
+            const isSection = REGEX_EDGE_SECTION_HEADER.test(text);
+
+            if (isSection) {
+              // M-04: All section headers zinc-500 — no emerald, no amber
+              // M-05/M-06: Normalize header — strip LIVE, PREGAME, trailing colons
+              // M-13: Strip inline bullet characters (•, ·, ‣, ●) before headers
+              const normalized = normalizeHeader(rawText);
+              // Safety net: skip excluded sections (e.g. THE EDGE) in case content filter missed them
+              if (EXCLUDED_SECTIONS.some(s => normalized.toLowerCase() === s)) {
+                return null;
+              }
+              return (
+                <div className="mb-3">
+                  {/* M-16/M-17: Hairline divider after 24px body bottom margin (from mb-6 on paragraphs) */}
+                  <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 15%, rgba(255,255,255,0.06) 85%, transparent)" }} />
+                  {/* M-17: 32px gap between hairline and section header */}
+                  <div className="mt-8 flex items-center gap-2.5">
+                    <div className="w-1 h-1 rounded-full bg-zinc-600" />
+                    <span className="text-[12px] font-mono font-medium text-slate-500 uppercase tracking-[0.12em]">{normalized}</span>
+                  </div>
+                </div>
+              );
+            }
+
+            // M-13: Strip bullet-prefixed bold sub-headers in prose (incl. ●)
+            const stripped = rawText.replace(/^[●•·‣]\s*/, "");
+            return <strong className={cn("font-semibold", isUser ? "text-black" : "text-slate-900")}>{stripped}</strong>;
+          },
+
+          a: ({ href, children }) => {
+            const isCitation = href?.includes(CITE_MARKER);
+            const isSuperscript = href?.includes("#__cite_sup__");
+            // Extract brand color from CITE_MARKER fragment: #__cite__%23RRGGBB or #__cite__#RRGGBB
+            let brandColor = "";
+            let cleanHref = href || "";
+            if (isCitation) {
+              const markerIdx = cleanHref.indexOf(CITE_MARKER);
+              const colorFragment = cleanHref.slice(markerIdx + CITE_MARKER.length);
+              brandColor = decodeURIComponent(colorFragment);
+              cleanHref = cleanHref.slice(0, markerIdx);
+            } else if (isSuperscript) {
+              cleanHref = cleanHref.replace("#__cite_sup__", "");
+            }
+
+            if (isSuperscript) {
+              // Superscript fallback: small, subtle, invisible-ish
+              return (
+                <a
+                  href={cleanHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-500 no-underline hover:text-slate-400 text-[0.65em] align-super transition-colors duration-200"
+                >
+                  {children}
+                </a>
+              );
+            }
+
+            if (isCitation) {
+              // Invisible inline citation: phrase IS the link
+              // Resting: zinc-500 (#63636E), no underline
+              // Hover: brand color + hairline underline at 25% opacity
+              const hoverStyle = brandColor
+                ? { "--cite-hover-color": brandColor, "--cite-hover-underline": `${brandColor}40` } as React.CSSProperties
+                : {};
+              return (
+                <a
+                  href={cleanHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cite-link text-[#63636E] no-underline transition-all duration-200 hover:underline underline-offset-4 decoration-1"
+                  style={hoverStyle}
+                >
+                  {children}
+                </a>
+              );
+            }
+
+            // Standard content link (non-citation)
+            return (
+              <a
+                href={cleanHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-400/70 no-underline hover:text-emerald-300 hover:underline decoration-emerald-500/30 underline-offset-4 transition-colors duration-200"
+              >
+                {children}
+              </a>
+            );
+          },
+
+          ul: ({ children }) => <ul className="space-y-2 mb-4 ml-1">{children}</ul>,
+          li: ({ children }) => (
+            <li className="flex gap-3 items-start pl-1">
+              <span className="mt-2 w-1 h-1 bg-zinc-700 rounded-full shrink-0" />
+              <span className={cn(SYSTEM.type.body, isUser && "text-[#1a1a1a]")}>{children}</span>
+            </li>
+          ),
+        };
+      },
+      [analysisBlocks, analysisComponents, analysisOpenByKey, isUser, matchups, message.id, message.verdictOutcome, onTrackVerdict, synopses, toggleAnalysis, verdictOutcomes],
+    );
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20, filter: "blur(4px)" }}
+        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+        transition={SYSTEM.anim.fluid}
+        className={cn("flex flex-col mb-10 w-full relative group isolate", isUser ? "items-end" : "items-start")}
+      >
+        {/* M-18: iMessage-style flattened top-right corner for user bubbles */}
+        <div className={cn(
+          "relative max-w-[92%] md:max-w-[88%]",
+          isUser
+            ? `${CHAT_SURFACES.soft} text-slate-900 rounded-[20px] rounded-tr-[6px] shadow-[0_2px_10px_rgba(0,0,0,0.1)] px-5 py-3.5`
+            : "bg-transparent text-slate-900 px-0 max-w-full md:max-w-[96%]",
+        )}>
+          <div className={cn("prose prose-invert max-w-none", isUser && "prose-p:text-black/90")}>
+            {/* M-27: Show skeleton while AI is generating but no content yet */}
+            {!isUser && message.isStreaming && !pickContent?.trim() ? (
+              <PickCardSkeleton />
+            ) : (
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+                {pickContent}
+              </ReactMarkdown>
+            )}
+
+          </div>
+
+          {!isUser && !message.isStreaming && verifiedContent && !REGEX_VERDICT_MATCH.test(extractTextContent(message.content)) && (
+            <div className="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity delay-75">
+              <CopyButton content={verifiedContent} />
+            </div>
+          )}
+        </div>
+
+        {/* M-19: Timestamp always below, right-aligned, consistent for both roles */}
+        {formattedTime && (
+          <div className="text-right mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none">
+            <time dateTime={message.timestamp} className="text-[11px] text-slate-500">
+              {formattedTime}
+            </time>
+          </div>
+        )}
+      </motion.div>
+    );
+  },
+);
+MessageBubble.displayName = "MessageBubble";
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §13  INPUT DECK
+// ═══════════════════════════════════════════════════════════════════════════
+
+const InputDeck: FC<{
+  value: string;
+  onChange: (v: string) => void;
+  onSend: (queryOverride?: string) => void;
+  onStop: () => void;
+  attachments: Attachment[];
+  onAttach: (a: Attachment[]) => void;
+  isProcessing: boolean;
+  isVoiceMode: boolean;
+  onVoiceModeChange: (v: boolean) => void;
+  isOffline: boolean;
+  inputRef: RefObject<HTMLTextAreaElement | null>;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+}> = memo(({
+  value, onChange, onSend, onStop, attachments, onAttach,
+  isProcessing, isVoiceMode, onVoiceModeChange, isOffline,
+  inputRef, fileInputRef,
+}) => {
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const { showToast } = useToast();
+  useAutoResizeTextArea(inputRef, value);
+
+  useEffect(() => () => {
+    try { recognitionRef.current?.abort(); } catch { /* silent */ }
+  }, []);
+
+  const handleKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (value.trim() || attachments.length) onSend();
+    }
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) { e.target.value = ""; return; }
+
+    // File size validation
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      showToast(`File too large (${formatFileSize(file.size)}). Max 10 MB.`);
+      e.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const r = reader.result;
+      if (typeof r !== "string") return;
+      onAttach([
+        ...attachments,
+        { file, base64: r.split(",")[1] || "", mimeType: file.type || "application/octet-stream" },
+      ]);
+    };
+    reader.onerror = () => { showToast("Failed to read file"); };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const toggleVoice = () => {
+    const API = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!API) { showToast("Voice input not supported"); return; }
+
+    if (isVoiceMode) {
+      try { recognitionRef.current?.abort(); } catch { /* */ }
+      recognitionRef.current = null;
+      onVoiceModeChange(false);
+    } else {
+      const r = new API();
+      r.continuous = false;
+      r.interimResults = true;
+      r.onresult = (ev: SpeechRecognitionEvent) => {
+        const t = ev?.results?.[0]?.[0]?.transcript;
+        if (typeof t === "string" && t.length) onChange(t);
+      };
+      r.onend = () => { recognitionRef.current = null; onVoiceModeChange(false); };
+      recognitionRef.current = r;
+      onVoiceModeChange(true);
+
+      try {
+        r.start();
+      } catch (err: unknown) {
+        recognitionRef.current = null;
+        onVoiceModeChange(false);
+        const msg = err instanceof DOMException && err.name === "NotAllowedError"
+          ? "Microphone access denied"
+          : "Voice input failed";
+        showToast(msg);
+      }
+    }
+
+    triggerHaptic();
+  };
+
+  const canSend = (value.trim() || attachments.length > 0) && !isOffline;
+
+  return (
+    <motion.div
+      layout
+      className={cn(
+        "flex flex-col gap-2 p-1.5 relative overflow-hidden transition-colors duration-500 will-change-transform",
+        SYSTEM.geo.input, CHAT_SURFACES.shell, "focus-within:ring-1 focus-within:ring-sky-200/80",
+        isVoiceMode
+          ? "border-emerald-500/30 shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)]"
+          : isOffline ? "border-red-500/20" : SYSTEM.surface.milled,
+      )}
+      transition={SYSTEM.anim.fluid}
+    >
+      <AnimatePresence>
+        {attachments.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex gap-2 overflow-x-auto p-2 mb-1 scrollbar-hide"
+          >
+            {attachments.map((a, i) => (
+              <div key={i} className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-full",
+                CHAT_SURFACES.chip,
+              )}>
+                <ImageIcon size={12} className="text-slate-900/50" />
+                <span className="text-[10px] text-slate-600 max-w-[80px] truncate">{a.file.name}</span>
+                <button
+                  onClick={() => onAttach(attachments.filter((_, j) => j !== i))}
+                  className="text-slate-500 hover:text-slate-900 transition-colors"
+                  aria-label={`Remove ${a.file.name}`}
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex items-end gap-2">
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className={cn(
+            "p-3.5 rounded-[18px] text-slate-500 hover:text-slate-900 transition-colors disabled:opacity-30 disabled:pointer-events-none",
+            CHAT_SURFACES.chip,
+            "hover:bg-slate-100",
+          )}
+          aria-label="Attach file"
+          disabled={isOffline || isProcessing}
+        >
+          <Plus size={20} strokeWidth={1.5} />
+        </button>
+        <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept="image/*,application/pdf" aria-hidden="true" />
+
+        {isVoiceMode ? (
+          <div className="flex-1 flex items-center justify-center h-[52px] gap-3">
+            <OrbitalRadar />
+            <span className={cn(SYSTEM.type.mono, "text-emerald-500 tracking-widest")}>LISTENING</span>
+          </div>
+        ) : (
+          <textarea
+            ref={inputRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={isOffline ? "Offline -- waiting for connection..." : isProcessing ? "Waiting for response..." : "Ask for edge, splits, or props..."}
+            rows={1}
+            disabled={isOffline || isProcessing}
+            aria-label="Message input"
+            className={cn(
+              "flex-1 bg-transparent border-none outline-none resize-none py-4 min-h-[52px] max-h-[120px]",
+              SYSTEM.type.body, "text-slate-900 placeholder:text-slate-500 disabled:opacity-40",
+              "caret-amber-500/80 selection:bg-emerald-500/20",
+            )}
+          />
+        )}
+
+        {/* Unified action button — Send / Stop / Mic in one position */}
+        <div className="flex items-center pb-1.5 pr-1">
+          <motion.button
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => {
+              if (isProcessing) { onStop(); return; }
+              if (canSend) { onSend(); return; }
+              toggleVoice();
+            }}
+            className={cn(
+              "p-3 rounded-[18px] transition-all duration-300",
+              isProcessing
+                ? `${CHAT_SURFACES.textGlass} text-slate-900 shadow-[0_6px_18px_-14px_rgba(15,23,42,0.45)]`
+                : canSend
+                  ? `${CHAT_SURFACES.soft} text-slate-900 shadow-[0_6px_18px_-14px_rgba(15,23,42,0.45)]`
+                  : isVoiceMode
+                    ? "text-rose-400 bg-rose-500/10"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
+            )}
+            aria-label={isProcessing ? "Stop processing" : canSend ? "Send message" : isVoiceMode ? "Stop voice input" : "Start voice input"}
+          >
+            {isProcessing ? (
+              <StopCircle size={18} className="animate-pulse" />
+            ) : canSend ? (
+              <ArrowUp size={18} strokeWidth={2.5} />
+            ) : isVoiceMode ? (
+              <MicOff size={18} />
+            ) : (
+              <Mic size={18} />
+            )}
+          </motion.button>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+InputDeck.displayName = "InputDeck";
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §14  ERROR BOUNDARY
+// ═══════════════════════════════════════════════════════════════════════════
+
+class ChatErrorBoundary extends Component<
+  { children: ReactNode; onReset?: () => void },
+  { hasError: boolean; error?: Error }
+> {
+  state: { hasError: boolean; error?: Error } = { hasError: false };
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(e: Error, info: React.ErrorInfo) {
+    reportError(e, { componentStack: info.componentStack ?? "unknown" });
+  }
+
+  render() {
+    if (this.state.hasError)
+      return (
+        <div className="p-6 flex flex-col items-center justify-center gap-4" role="alert">
+          <div className="text-rose-400 font-mono text-xs text-center">System Error. {this.state.error?.message}</div>
+          <button
+            onClick={() => { this.setState({ hasError: false, error: undefined }); this.props.onReset?.(); }}
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-50 border border-slate-200 text-slate-900 text-xs hover:bg-slate-50 transition-colors"
+          >
+            <RotateCcw size={12} />
+            Reset
+          </button>
+        </div>
+      );
+
+    return this.props.children;
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §15  INNER CHAT WIDGET
+// ═══════════════════════════════════════════════════════════════════════════
+
+const InnerChatWidget: FC<ChatWidgetProps & {
+  isMinimized?: boolean;
+  setIsMinimized?: (v: boolean) => void;
+}> = ({ currentMatch, inline, isMinimized, setIsMinimized }) => {
+  const { toggleGlobalChat } = useAppStore();
+  const [msgState, dispatch] = useReducer(messageReducer, INITIAL_MESSAGE_STATE);
+  const [input, setInput] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [hasUnseenContent, setHasUnseenContent] = useState(false);
+  const [showCitations, setShowCitations] = useState(true);
+  const unseenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevMsgCountRef = useRef(0);
+  const wasStreamingRef = useRef(false);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // ── Sweat My Slip: Dedicated OCR state (decoupled from chat history) ──
+  const [isExtractingSlip, setIsExtractingSlip] = useState(false);
+  const [pendingSlipData, setPendingSlipData] = useState<AppBetSlip | null>(null);
+  const [srAnnouncement, setSrAnnouncement] = useState("");
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
+  const sendingRef = useRef(false);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  // Measure footer height to set scroll container bottom padding dynamically
+  const [footerHeight, setFooterHeight] = useState(88);
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setFooterHeight(entry.contentRect.height + 16);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const { session_id, conversation_id, getChatPayload } = useChatContext({ match: currentMatch });
+  const connectionStatus = useConnectionHealth();
+  const canSend = useSendGuard();
+
+  /** Resilient game-context normalization — handles varied data shapes from API */
+  const normalizedContext = useMemo(() => normalizeGameContext(currentMatch), [currentMatch]);
+  const isNbaMatch = useMemo(
+    () => String(normalizedContext?.sport || '').toUpperCase() === 'NBA',
+    [normalizedContext?.sport],
+  );
+  const nbaContextInput = useMemo(() => {
+    if (!isNbaMatch) return null;
+    const raw = (currentMatch || {}) as Record<string, unknown>;
+    const winProbability = (raw.win_probability || {}) as Record<string, unknown>;
+    const venue = (raw.venue || {}) as Record<string, unknown>;
+    const officials = Array.isArray(raw.officials)
+      ? (raw.officials as Array<Record<string, unknown>>)
+      : [];
+    const leadOfficial = officials[0] || {};
+
+    return {
+      asOf: normalizedContext?.start_time || new Date().toISOString(),
+      period: normalizedContext?.period ?? null,
+      clock: normalizedContext?.clock ?? null,
+      homeScore: normalizedContext?.home_score ?? null,
+      awayScore: normalizedContext?.away_score ?? null,
+      homeWinProb: (winProbability.home as number | string | null | undefined) ?? null,
+      totalOverProb: (winProbability.over as number | string | null | undefined) ?? null,
+      venueName:
+        (venue.name as string | null | undefined) ||
+        normalizedContext?.home_team ||
+        null,
+      leadRef:
+        (leadOfficial.fullName as string | null | undefined) ||
+        (leadOfficial.name as string | null | undefined) ||
+        null,
+    };
+  }, [
+    currentMatch,
+    isNbaMatch,
+    normalizedContext?.start_time,
+    normalizedContext?.period,
+    normalizedContext?.clock,
+    normalizedContext?.home_score,
+    normalizedContext?.away_score,
+    normalizedContext?.home_team,
+  ]);
+  const nbaContextQuery = useNbaProductContextPacket(
+    nbaContextInput || {},
+    { enabled: Boolean(nbaContextInput && normalizedContext?.match_id) },
+  );
+  const nbaProductContext = useMemo(
+    () => (isNbaMatch && nbaContextQuery.isFetched ? nbaContextQuery.data ?? null : null),
+    [isNbaMatch, nbaContextQuery.isFetched, nbaContextQuery.data],
+  );
+
+  /** Per-card verdict outcomes, persisted to localStorage for session continuity */
+  const [verdictOutcomes, setVerdictOutcomes] = useState<Record<string, VerdictOutcome>>(() => {
+    try {
+      const stored = localStorage.getItem("obsidian_verdict_outcomes");
+      return stored ? JSON.parse(stored) : {};
+    } catch { return {}; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem("obsidian_verdict_outcomes", JSON.stringify(verdictOutcomes)); } catch { /* quota exceeded — silent */ }
+  }, [verdictOutcomes]);
+
+  // Focus management
+  useAutoFocus(inputRef, !isMinimized && !inline);
+  useEffect(() => {
+    if (!inline) previousFocusRef.current = document.activeElement as HTMLElement | null;
+    return () => { previousFocusRef.current?.focus(); };
+  }, [inline]);
+
+  // Lifecycle
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      try { abortRef.current?.abort(); } catch { /* */ }
+    };
+  }, []);
+
+  // ── Auto-fire: Contextual opening analysis on AI tab open ──
+  const autoFiredMatchRef = useRef<string | null>(null);
+  useEffect(() => {
+    const matchId = normalizedContext?.match_id;
+
+    // Guard 1: Must be inline (AI tab) with a valid match
+    if (!inline || !matchId) return;
+    // Guard 2: If there's already conversation history, don't interrupt
+    if (msgState.ordered.length > 0) return;
+    // Guard 3: Strict exactly-once per match execution
+    if (autoFiredMatchRef.current === matchId) return;
+    // Guard 4: Don't stack requests
+    if (isProcessing || sendingRef.current) return;
+
+    const phase = deriveGamePhase(normalizedContext);
+    const matchup = getMatchupLabel(normalizedContext) || "this game";
+    const liveSpread =
+      normalizedContext?.current_odds?.homeSpread ??
+      normalizedContext?.current_odds?.spread ??
+      "N/A";
+    const liveTotal =
+      normalizedContext?.current_odds?.total ??
+      normalizedContext?.current_odds?.overUnder ??
+      "N/A";
+    const pregameSpread =
+      normalizedContext?.opening_odds?.homeSpread ??
+      normalizedContext?.opening_odds?.spread ??
+      "N/A";
+    const pregameTotal =
+      normalizedContext?.opening_odds?.total ??
+      normalizedContext?.opening_odds?.overUnder ??
+      "N/A";
+
+    const autoQuery =
+      phase === "live"
+        ? `This game is LIVE. Score: ${normalizedContext?.home_team || "Home"} ${normalizedContext?.home_score ?? 0} - ${normalizedContext?.away_team || "Away"} ${normalizedContext?.away_score ?? 0}, ${normalizedContext?.clock || "N/A"} remaining. Live spread: ${liveSpread}, Live total: ${liveTotal}. Pregame spread was ${pregameSpread}, pregame total was ${pregameTotal}. Give me a sharp live read on ${matchup}. Analyze the current game state, not pregame factors.`
+        : phase === "postgame"
+          ? `${matchup} just finished. How did the line perform? Any takeaways for future spots?`
+          : `Give me the full sharp report on ${matchup}. What's the best bet and why?`;
+
+    // Delay allows mount animations to settle.
+    // By setting the ref INSIDE the timeout, we natively support React Strict Mode
+    // (the immediate unmount clears the timer before the ref is locked).
+    const timer = setTimeout(() => {
+      if (mountedRef.current && !sendingRef.current && autoFiredMatchRef.current !== matchId) {
+        autoFiredMatchRef.current = matchId;
+        handleSend(autoQuery);
+      }
+    }, 600);
+
+    // If the user sends a message manually within 600ms, this cleanup runs,
+    // cancelling the auto-fire so they don't get double requests.
+    return () => clearTimeout(timer);
+  }, [
+    inline,
+    normalizedContext?.match_id,
+    msgState.ordered.length,
+    isProcessing,
+  ]);
+
+  // Auto-scroll
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      const nearBottom = scrollHeight - scrollTop - clientHeight < 200;
+      setShouldAutoScroll(nearBottom);
+      if (nearBottom) setHasUnseenContent(false);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Show LATEST only at opportune moments:
+  // 1. A new message appears while user is scrolled up
+  // 2. Streaming finishes while user is scrolled up
+  useEffect(() => {
+    const msgCount = msgState.ordered.length;
+    const newMessage = msgCount > prevMsgCountRef.current;
+    const streamingJustEnded = wasStreamingRef.current && !isProcessing;
+
+    prevMsgCountRef.current = msgCount;
+    wasStreamingRef.current = isProcessing;
+
+    if (shouldAutoScroll || msgCount === 0) return;
+    if (!newMessage && !streamingJustEnded) return;
+
+    setHasUnseenContent(true);
+    if (unseenTimerRef.current) clearTimeout(unseenTimerRef.current);
+    unseenTimerRef.current = setTimeout(() => setHasUnseenContent(false), 4000);
+    return () => { if (unseenTimerRef.current) clearTimeout(unseenTimerRef.current); };
+  }, [msgState.ordered.length, isProcessing, shouldAutoScroll]);
+
+  useLayoutEffect(() => {
+    if (!shouldAutoScroll || !scrollRef.current) return;
+    const el = scrollRef.current;
+    if (isProcessing) {
+      el.scrollTop = el.scrollHeight;
+    } else {
+      requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }));
+    }
+  }, [msgState.ordered, isProcessing, shouldAutoScroll]);
+
+  const scrollToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    setShouldAutoScroll(true);
+    setHasUnseenContent(false);
+  }, []);
+
+  // Verdict tracking — persists per-card outcomes + updates message-level state
+  const handleTrackVerdict = useStableCallback((trackingKey: string, outcome: VerdictOutcome) => {
+    setVerdictOutcomes(prev => ({ ...prev, [trackingKey]: outcome }));
+    const messageId = trackingKey.split(":")[0];
+    dispatch({ type: "SET_VERDICT", id: messageId, outcome });
+    trackAction("verdict.track", { trackingKey, outcome });
+  });
+
+  // NOTE: Keyboard shortcuts registered ONLY in outer ChatWidget (§16) — not here.
+
+  // ── Send handler with RAF-batched streaming ──
+  const handleSend = useStableCallback(async (queryOverride?: string) => {
+    const text = (queryOverride ?? input).trim();
+    if ((!text && !attachments.length) || isProcessing || sendingRef.current) return;
+    if (!canSend()) return;
+    if (connectionStatus === "offline") return;
+
+    // ── Sweat My Slip: Intercept image attachments for OCR extraction ──
+    const imageAttachment = attachments.find(att => att.mimeType?.startsWith('image/'));
+    if (imageAttachment && !queryOverride) {
+      const slipText = text || "Can you track this slip for me?";
+      sendingRef.current = true;
+      setIsProcessing(true);
+      setInput("");
+      setAttachments([]);
+      setShouldAutoScroll(true);
+      triggerHaptic();
+
+      // Add user message to chat
+      const userMsgId = generateId();
+      const now = new Date().toISOString();
+      dispatch({
+        type: "APPEND_BATCH", messages: [
+          { id: userMsgId, role: "user" as const, content: slipText, timestamp: now },
+        ]
+      });
+
+      setIsExtractingSlip(true);
+
+      try {
+        // 🛡️ Strip Data URI prefix if it exists to prevent double-prefixing crash
+        const cleanBase64 = imageAttachment.base64.replace(/^data:image\/[a-z+]+;base64,/i, '');
+
+        const response = await fetch('/api/extract-slip', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: cleanBase64,
+            mimeType: imageAttachment.mimeType || 'image/jpeg',
+          }),
+        });
+
+        if (!response.ok) throw new Error(`Server responded with status ${response.status}`);
+        const result = await response.json();
+        if (!result.success || !result.data) throw new Error(result.error || 'Failed to parse image');
+
+        // Show the review UI
+        setPendingSlipData(result.data);
+        dispatch({
+          type: "APPEND_BATCH", messages: [
+            { id: generateId(), role: "assistant" as const, content: "I've extracted the legs from your slip. Please verify the highlighted fields below before I track it.", timestamp: new Date().toISOString() },
+          ]
+        });
+        trackAction('slip.extracted', { legCount: result.data.legs.length, sportsbook: result.data.sportsbook });
+      } catch (err) {
+        console.error('[Slip OCR] Error:', err);
+        dispatch({
+          type: "APPEND_BATCH", messages: [
+            { id: generateId(), role: "assistant" as const, content: "❌ Sorry, I couldn't read the odds on that slip clearly. Please try a higher-resolution screenshot, or tell me the picks manually.", timestamp: new Date().toISOString() },
+          ]
+        });
+      } finally {
+        setIsExtractingSlip(false);
+        setIsProcessing(false);
+        sendingRef.current = false;
+      }
+      return; // Exit early — don't enter the normal streaming flow
+    }
+
+    sendingRef.current = true;
+    const sendStart = Date.now();
+
+    // Close the abort-null window with a sentinel controller
+    const prevController = abortRef.current;
+    const sentinelController = new AbortController();
+    abortRef.current = sentinelController;
+    try { prevController?.abort(); } catch { /* */ }
+
+    setIsProcessing(true);
+    setInput("");
+    setIsVoiceMode(false);
+    setShouldAutoScroll(true);
+    setRetryCount(0);
+    setSrAnnouncement("Analyzing...");
+    triggerHaptic();
+
+    const userMsgId = generateId();
+    const aiMsgId = generateId();
+    const now = new Date().toISOString();
+
+    const userMsg: Message = {
+      id: userMsgId,
+      role: "user",
+      content: attachments.length > 0 ? buildWireContent(text || "Analyze this.", attachments) : text || "Analyze this.",
+      timestamp: now,
+    };
+    const aiMsg: Message = { id: aiMsgId, role: "assistant", content: "", isStreaming: true, timestamp: now };
+
+    dispatch({ type: "APPEND_BATCH", messages: [userMsg, aiMsg] });
+    const currentAttachments = [...attachments];
+    setAttachments([]);
+    trackAction("message.send", { hasAttachments: currentAttachments.length > 0, hasMatch: !!currentMatch });
+
+    // ── RAF batching: coalesces streaming updates to one dispatch per animation frame ──
+    let batchRaf: number | null = null;
+    let batchPatch: Partial<Message> | null = null;
+
+    const flushBatch = () => {
+      if (batchRaf !== null) { cancelAnimationFrame(batchRaf); batchRaf = null; }
+      if (batchPatch && mountedRef.current) {
+        dispatch({ type: "UPDATE", id: aiMsgId, patch: batchPatch });
+        batchPatch = null;
+      }
+    };
+
+    const enqueuePatch = (patch: Partial<Message>) => {
+      batchPatch = batchPatch ? { ...batchPatch, ...patch } : patch;
+      if (batchRaf === null) {
+        batchRaf = requestAnimationFrame(flushBatch);
+      }
+    };
+
+    try {
+      const wireMessages: WireMessage[] = [
+        ...msgState.ordered.map((m) => ({ role: m.role, content: m.content })),
+        { role: userMsg.role, content: userMsg.content },
+      ];
+
+      if (currentAttachments.length > 0) {
+        wireMessages[wireMessages.length - 1].content = buildWireContent(text || "Analyze this.", currentAttachments);
+      }
+
+      const livePayload = getChatPayload();
+      const context: ChatContextPayload = {
+        session_id: livePayload.session_id,
+        conversation_id: livePayload.conversation_id,
+        gameContext: livePayload.current_match || normalizedContext,
+        run_id: generateId(),
+        live_snapshot: livePayload.live_snapshot,
+        nba_product_context: nbaProductContext,
+      };
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      let fullText = "";
+      let fullThought = "";
+      let groundingData: GroundingMetadata | null = null;
+
+      await edgeService.chat(
+        wireMessages,
+        context,
+        (chunk: StreamChunk) => {
+          if (!mountedRef.current) return;
+
+          if (chunk.type === "text") {
+            fullText += chunk.content || "";
+            enqueuePatch({ content: fullText, groundingMetadata: groundingData || undefined });
+          }
+          if (chunk.type === "thought") {
+            fullThought += chunk.content || "";
+            enqueuePatch({ thoughts: fullThought });
+          }
+          if (chunk.type === "grounding") {
+            groundingData = chunk.metadata || null;
+            enqueuePatch({ groundingMetadata: groundingData || undefined });
+          }
+          if (chunk.type === "error") {
+            const errMsg = chunk.content || "An error occurred. Please try again.";
+            fullText += `\n\n⚠️ ${errMsg}`;
+            enqueuePatch({ content: fullText });
+          }
+        },
+        () => {
+          if (!mountedRef.current) return;
+          flushBatch(); // Ensure final text is dispatched before marking complete
+          // If stream completed but no text was produced (e.g. model only emitted
+          // thoughts, hit a safety filter, or returned an empty response), show a
+          // user-visible message instead of going blank.
+          if (!fullText.trim()) {
+            dispatch({ type: "UPDATE", id: aiMsgId, patch: { content: "Unable to generate a response. Please try again.", isStreaming: false } });
+          } else {
+            dispatch({ type: "UPDATE", id: aiMsgId, patch: { isStreaming: false } });
+          }
+          setSrAnnouncement("Analysis complete.");
+          reportTiming("chat.e2e", sendStart);
+        },
+        (attempt: number) => {
+          if (!mountedRef.current) return;
+          setRetryCount(attempt);
+        },
+        controller.signal,
+      );
+    } catch (err: unknown) {
+      if (!mountedRef.current) return;
+
+      if (err instanceof DOMException && err.name === "AbortError") {
+        flushBatch();
+        // If the user aborted mid-stream but content was already populated, keep it.
+        // If content is still empty (e.g. aborted before first chunk), show a message.
+        const hasContent = !!fullText.trim();
+        dispatch({ type: "UPDATE", id: aiMsgId, patch: { content: hasContent ? fullText : "Stopped — no response received.", isStreaming: false } });
+        setSrAnnouncement("Stopped.");
+        return;
+      }
+
+      const errorMessage = err instanceof Error ? err.message : "Connection interrupted";
+      flushBatch();
+      dispatch({ type: "UPDATE", id: aiMsgId, patch: { content: `${errorMessage}. Please try again.`, isStreaming: false } });
+      setSrAnnouncement("Error occurred.");
+      reportError(err, { phase: "handleSend" });
+    } finally {
+      // Cancel any dangling RAF
+      if (batchRaf !== null) cancelAnimationFrame(batchRaf);
+      if (mountedRef.current) {
+        setIsProcessing(false);
+        setRetryCount(0);
+        abortRef.current = null;
+      }
+      sendingRef.current = false;
+    }
+  });
+
+  const handleAbort = useCallback(() => {
+    try { abortRef.current?.abort(); } catch { /* */ }
+  }, []);
+
+  // ── Minimized state ──
+  if (isMinimized && !inline) {
+    return (
+      <motion.button
+        layoutId="chat"
+        onClick={() => setIsMinimized?.(false)}
+        className={cn("flex items-center gap-3 px-6 py-3 rounded-full shadow-sm border-t border-slate-200", SYSTEM.surface.glass)}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        aria-label="Open chat"
+      >
+        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+        <span className={SYSTEM.type.h1}>Edge</span>
+      </motion.button>
+    );
+  }
+
+  const messages = msgState.ordered;
+
+  return (
+    <ToastProvider>
+      <LayoutGroup>
+        <motion.div
+          layoutId={inline ? undefined : "chat"}
+          role="dialog"
+          aria-label="Obsidian Weissach -- Betting Intelligence"
+          className={cn(
+            "flex flex-col overflow-hidden transition-all duration-500 isolate relative z-50 will-change-transform",
+            inline
+              ? "w-full h-full bg-white border border-slate-200/90"
+              : cn(
+                "w-full md:w-[460px] h-dvh md:h-[min(840px,90dvh)]",
+                "rounded-[28px] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]",
+                "border border-slate-200",
+                SYSTEM.surface.void,
+              ),
+          )}
+        >
+          <FilmGrain />
+
+          {/* SR-only live region for state announcements */}
+          <div aria-live="polite" aria-atomic="true" className="sr-only">{srAnnouncement}</div>
+
+          {!inline && (
+            <header className="flex items-center justify-between px-8 pt-6 pb-2 shrink-0 z-20 select-none">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
+                <span className={SYSTEM.type.h1}>
+                  Obsidian<span className="text-slate-900/30 font-normal ml-1">Weissach</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <AnimatePresence><ConnectionBadge status={connectionStatus} /></AnimatePresence>
+                <button
+                  onClick={() => setShowCitations(prev => !prev)}
+                  className={cn("p-2 transition-colors", showCitations ? "text-emerald-400 hover:text-emerald-300" : "text-slate-500 hover:text-slate-400")}
+                  aria-label={showCitations ? "Hide citations" : "Show citations"}
+                  title={showCitations ? "Citations on" : "Citations off"}
+                >
+                  {showCitations ? <Eye size={14} /> : <EyeOff size={14} />}
+                </button>
+                <button onClick={() => setIsMinimized?.(true)} className="p-2 text-slate-500 hover:text-slate-900 transition-colors" aria-label="Minimize chat">
+                  <Minimize2 size={16} />
+                </button>
+                <button onClick={() => toggleGlobalChat(false)} className="p-2 text-slate-500 hover:text-slate-900 transition-colors" aria-label="Close chat">
+                  <X size={16} />
+                </button>
+              </div>
+            </header>
+          )}
+
+          <div
+            ref={scrollRef}
+            role="log"
+            aria-relevant="additions"
+            aria-busy={isProcessing}
+            aria-label="Conversation messages"
+            className="relative flex-1 overflow-y-auto px-6 pt-4 scroll-smooth no-scrollbar z-10 will-change-transform"
+            style={{ paddingBottom: footerHeight }}
+          >
+            <AnimatePresence mode="popLayout">
+              {messages.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="h-full flex flex-col items-center justify-center text-center opacity-40"
+                >
+                  <div className="w-16 h-16 rounded-[20px] border border-slate-200 bg-slate-50 flex items-center justify-center mb-5">
+                    <div className="w-1.5 h-1.5 bg-emerald-500/60 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
+                  </div>
+                  <p className="text-[11px] text-slate-400 tracking-wide max-w-[240px] leading-relaxed">
+                    {deriveGamePhase(normalizedContext) === "live"
+                      ? "Games are live. Ask for splits, momentum, or live props."
+                      : deriveGamePhase(normalizedContext) === "postgame"
+                        ? "Markets closed. Review your record or scout tomorrow."
+                        : "Pre-game window. Ask for injuries, line moves, or sharp action."}
+                  </p>
+                </motion.div>
+              ) : (
+                messages.map((msg) => <MessageBubble key={msg.id} message={msg} onTrackVerdict={handleTrackVerdict} verdictOutcomes={verdictOutcomes} showCitations={showCitations} />)
+              )}
+
+              {/* 🔄 Sweat My Slip: OCR Loading State */}
+              {isExtractingSlip && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mx-2 mb-4 p-4 rounded-2xl border border-amber-400/20 bg-amber-500/5"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-[12px] font-semibold text-amber-400 tracking-wide">Scanning slip via Gemini Vision...</span>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* 🌟 Sweat My Slip: Verification Form */}
+              {pendingSlipData && (
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mx-2 mb-4"
+                >
+                  <BetSlipReviewArea
+                    initialData={pendingSlipData}
+                    onConfirm={(verifiedSlip) => {
+                      setPendingSlipData(null);
+                      dispatch({
+                        type: "APPEND_BATCH", messages: [
+                          { id: generateId(), role: "assistant" as const, content: `✅ **Slip Tracked!** You're sweating a **$${verifiedSlip.total_stake || '?'}** wager across **${verifiedSlip.legs.length} legs**. I'll monitor these in your dashboard.`, timestamp: new Date().toISOString() },
+                        ]
+                      });
+                      trackAction('slip.confirmed', { legCount: verifiedSlip.legs.length, sportsbook: verifiedSlip.sportsbook });
+                      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]);
+                      }
+                    }}
+                    onCancel={() => {
+                      setPendingSlipData(null);
+                      dispatch({
+                        type: "APPEND_BATCH", messages: [
+                          { id: generateId(), role: "assistant" as const, content: "No worries — slip discarded. You can upload another one anytime.", timestamp: new Date().toISOString() },
+                        ]
+                      });
+                    }}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Scroll anchor — visible when user has scrolled up */}
+          <ScrollAnchor visible={hasUnseenContent || (!shouldAutoScroll && msgState.ordered.length > 0)} onClick={scrollToBottom} />
+
+          <footer ref={footerRef} className="absolute bottom-0 left-0 right-0 z-30 px-5 pb-8 pt-6 bg-white border-t border-slate-200/90 pointer-events-none">
+            <div className="pointer-events-auto relative">
+              <AnimatePresence>
+                {isProcessing && <ThinkingPill onStop={handleAbort} retryCount={retryCount} />}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {messages.length < 2 && !isProcessing && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-4">
+                    <SmartChips onSelect={handleSend} hasMatch={!!currentMatch} messageCount={messages.length} gameContext={normalizedContext} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <InputDeck
+                value={input}
+                onChange={setInput}
+                onSend={handleSend}
+                onStop={handleAbort}
+                attachments={attachments}
+                onAttach={setAttachments}
+                isProcessing={isProcessing}
+                isVoiceMode={isVoiceMode}
+                onVoiceModeChange={setIsVoiceMode}
+                isOffline={connectionStatus === "offline"}
+                inputRef={inputRef}
+                fileInputRef={fileInputRef}
+              />
+            </div>
+          </footer>
+        </motion.div>
+      </LayoutGroup>
+    </ToastProvider>
+  );
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §16  MAIN EXPORT
+//      Cmd+K registered here — works even when chat is closed.
+//      MotionConfig respects prefers-reduced-motion system preference.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ChatWidget: FC<ChatWidgetProps> = (props) => {
+  const { isGlobalChatOpen, toggleGlobalChat } = useAppStore();
+  const [isMinimized, setIsMinimized] = useState(false);
+  const handleReset = useCallback(() => setIsMinimized(false), []);
+
+  // Stable callbacks for keyboard shortcuts — single registration point
+  const handleToggle = useStableCallback(() => toggleGlobalChat(!isGlobalChatOpen));
+  const handleClose = useStableCallback(() => toggleGlobalChat(false));
+
+  useKeyboardShortcuts(handleToggle, handleClose, isGlobalChatOpen);
+
+  if (props.inline)
+    return (
+      <MotionConfig reducedMotion="user">
+        <ChatErrorBoundary onReset={handleReset}>
+          <InnerChatWidget {...props} inline />
+        </ChatErrorBoundary>
+      </MotionConfig>
+    );
+
+  return (
+    <MotionConfig reducedMotion="user">
+      <ChatErrorBoundary onReset={handleReset}>
+        <AnimatePresence>
+          {isGlobalChatOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 80, scale: 0.95, filter: "blur(10px)" }}
+              animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: 80, scale: 0.95, filter: "blur(10px)" }}
+              transition={SYSTEM.anim.fluid}
+              className={cn("fixed z-[9999]", isMinimized ? "bottom-8 right-8" : "inset-0 md:inset-auto md:bottom-8 md:right-8")}
+            >
+              <InnerChatWidget {...props} inline={false} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </ChatErrorBoundary>
+    </MotionConfig>
+  );
+};
+
+export default ChatWidget;

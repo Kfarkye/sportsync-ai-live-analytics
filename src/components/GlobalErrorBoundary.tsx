@@ -1,0 +1,149 @@
+import React, { ErrorInfo, ReactNode } from 'react';
+import { Activity, RefreshCcw } from 'lucide-react';
+import { cn, ESSENCE } from '@/lib/essence';
+
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
+
+const SW_DISABLE_STORAGE_KEY = 'sportsync-sw-disabled';
+
+const clearServiceWorkerDisabled = () => {
+  try {
+    sessionStorage.removeItem(SW_DISABLE_STORAGE_KEY);
+  } catch {
+    // Storage is optional in constrained environments.
+  }
+};
+
+const isStorageAccessError = (error: unknown): boolean => {
+  if (!error) return false;
+  const normalized = [((error as { name?: unknown }).name as string | undefined), (error as Error)?.message].filter(Boolean).join(' ').toLowerCase();
+  const message = String((error as Error)?.message ?? error).toLowerCase();
+  return (
+    normalized.includes('invalidstateerror') ||
+    normalized.includes('databaseclosederror') ||
+    message.includes('backing store') ||
+    message.includes('opening backing store') ||
+    message.includes('storage') ||
+    message.includes('database connection') ||
+    message.includes('database is closing') ||
+    message.includes('connection is closing') ||
+    message.includes('indexeddb') ||
+    message.includes('idb') ||
+    message.includes('request storage') ||
+    message.includes('failed to access storage') ||
+    message.includes('quota')
+  );
+};
+
+export class GlobalErrorBoundary extends React.Component<Props, State> {
+  public state: State = {
+    hasError: false,
+    error: null,
+  };
+
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Uncaught error:', error, errorInfo);
+
+    const message = String(error?.message || '').toLowerCase();
+    const isChunkLoadError =
+      message.includes('failed to fetch dynamically imported module') ||
+      message.includes('loading chunk') ||
+      message.includes('chunkloaderror');
+
+    if (!isChunkLoadError) return;
+
+    window.setTimeout(() => {
+      if (typeof window === 'undefined') return;
+
+      const clearCachedShell = async () => {
+        if ('serviceWorker' in navigator) {
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+            clearServiceWorkerDisabled();
+          } catch (error) {
+            if (!isStorageAccessError(error)) {
+              console.warn('[GlobalErrorBoundary] Failed to clear service worker registrations', error);
+            }
+          }
+        }
+
+        if ('caches' in window) {
+          const names = await caches.keys().catch(() => []);
+          await Promise.all(names.map((name) => caches.delete(name)));
+        }
+
+        window.location.reload();
+      };
+
+      clearCachedShell().catch(() => {
+        window.location.reload();
+      });
+    }, 350);
+  }
+
+  private handleReset = () => {
+    this.setState({ hasError: false, error: null });
+    window.location.reload();
+  };
+
+  public render() {
+    if (!this.state.hasError) return this.props.children;
+
+    return (
+      <div className={cn('relative flex min-h-screen flex-col items-center justify-center p-6', ESSENCE.tw.surface.subtle)}>
+        <div className={cn('relative z-10 flex w-full max-w-md flex-col items-center text-center', ESSENCE.card.base)}>
+          <div
+            className={cn('mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border')}
+            style={{ borderColor: ESSENCE.colors.accent.danger, background: ESSENCE.colors.accent.dangerMuted }}
+          >
+            <Activity className="h-8 w-8" style={{ color: ESSENCE.colors.accent.danger }} />
+          </div>
+
+          <h1 className="mb-3 text-xl font-bold tracking-tight" style={{ color: ESSENCE.colors.text.primary }}>
+            Application Halted
+          </h1>
+          <p className="mb-2 text-sm leading-relaxed" style={{ color: ESSENCE.colors.text.secondary }}>
+            A critical rendering error interrupted the session.
+          </p>
+          <p className="mb-8 font-mono text-xs leading-relaxed" style={{ color: ESSENCE.colors.text.tertiary }}>
+            {this.state.error?.message || 'Unknown exception'}
+          </p>
+
+          <button
+            onClick={this.handleReset}
+            className="flex items-center gap-2 rounded-lg px-6 py-3 text-sm font-bold uppercase tracking-wider transition-all active:scale-95"
+            style={{ background: ESSENCE.colors.accent.primary, color: ESSENCE.colors.surface.pure }}
+          >
+            <RefreshCcw size={16} />
+            Restart
+          </button>
+
+          {process.env.NODE_ENV === 'development' && (
+            <pre
+              className="mt-8 max-w-full overflow-auto rounded-lg p-4 text-left text-[10px]"
+              style={{
+                border: `1px solid ${ESSENCE.colors.border.default}`,
+                background: ESSENCE.colors.surface.subtle,
+                color: ESSENCE.colors.text.secondary,
+              }}
+            >
+              {this.state.error?.toString()}
+            </pre>
+          )}
+        </div>
+      </div>
+    );
+  }
+}

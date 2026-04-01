@@ -1,0 +1,5854 @@
+[
+  {
+    "intel_id": "4fb55150-b155-4342-b285-f47e40adaba9",
+    "league_id": "mens-college-basketball",
+    "home_team": "St. John's Red Storm",
+    "away_team": "Seton Hall Pirates",
+    "recommended_pick": "Seton Hall Pirates +9.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Seton Hall Pirates"
+    }
+  },
+  {
+    "intel_id": "112f97af-0f6f-44c6-8b5a-1c049c582a9e",
+    "league_id": "mens-college-basketball",
+    "home_team": "UAlbany Great Danes",
+    "away_team": "Vermont Catamounts",
+    "recommended_pick": "UAlbany Great Danes +5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "UAlbany Great Danes"
+    }
+  },
+  {
+    "intel_id": "451a989c-37b7-47ac-875e-07dbc19b6d24",
+    "league_id": "mens-college-basketball",
+    "home_team": "Sacramento State Hornets",
+    "away_team": "Northern Colorado Bears",
+    "recommended_pick": "Sacramento State +5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Sacramento State Hornets"
+    }
+  },
+  {
+    "intel_id": "2c70bfc7-7b16-4a41-a382-9b093db7a794",
+    "league_id": "mens-college-basketball",
+    "home_team": "North Texas Mean Green",
+    "away_team": "East Carolina Pirates",
+    "recommended_pick": "East Carolina +10.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "East Carolina"
+    }
+  },
+  {
+    "intel_id": "8afeb3f7-d4d6-45ac-80bb-ad4b504cd9ad",
+    "league_id": "mens-college-basketball",
+    "home_team": "Seattle U Redhawks",
+    "away_team": "Gonzaga Bulldogs",
+    "recommended_pick": "Seattle U +14.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Seattle U Redhawks"
+    }
+  },
+  {
+    "intel_id": "5a379f20-db0d-4738-888d-6e322481f278",
+    "league_id": "uefa.champions",
+    "home_team": "FK Qarabag",
+    "away_team": "Eintracht Frankfurt",
+    "recommended_pick": "FK Qarabag +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "FK Qarabag"
+    }
+  },
+  {
+    "intel_id": "ce13abde-5481-4187-8e23-ece474c2028a",
+    "league_id": "mens-college-basketball",
+    "home_team": "Le Moyne Dolphins",
+    "away_team": "Wagner Seahawks",
+    "recommended_pick": "Le Moyne Dolphins 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Le Moyne Dolphins"
+    }
+  },
+  {
+    "intel_id": "da533ac5-4b37-4621-97b0-a3e3536aecce",
+    "league_id": "mens-college-basketball",
+    "home_team": "Southern Indiana Screaming Eagles",
+    "away_team": "Western Illinois Leathernecks",
+    "recommended_pick": "Western Illinois +6.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Western Illinois"
+    }
+  },
+  {
+    "intel_id": "4cb2a522-5f92-426b-ab86-b41d41163670",
+    "league_id": "mens-college-basketball",
+    "home_team": "Charlotte 49ers",
+    "away_team": "Tulsa Golden Hurricane",
+    "recommended_pick": "Tulsa Golden Hurricane -4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Tulsa Golden Hurricane"
+    }
+  },
+  {
+    "intel_id": "1f3aae8c-28b8-415d-a11c-ec4f5b6d90c6",
+    "league_id": "mens-college-basketball",
+    "home_team": "Tulane Green Wave",
+    "away_team": "UAB Blazers",
+    "recommended_pick": "Tulane Green Wave +2.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Tulane +2.5"
+    }
+  },
+  {
+    "intel_id": "2a572552-3533-46ff-9b9e-8f5b1e213bd2",
+    "league_id": "mens-college-basketball",
+    "home_team": "Ohio Bobcats",
+    "away_team": "Northern Illinois Huskies",
+    "recommended_pick": "Northern Illinois +12.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Northern Illinois Huskies"
+    }
+  },
+  {
+    "intel_id": "89224303-7bf6-48e7-b633-b958ed3516cc",
+    "league_id": "mens-college-basketball",
+    "home_team": "Western Kentucky Hilltoppers",
+    "away_team": "Liberty Flames",
+    "recommended_pick": "Liberty Flames -1.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Liberty Flames"
+    }
+  },
+  {
+    "intel_id": "5074d365-7aa3-440a-8bc6-c49c03d873dd",
+    "league_id": "nhl",
+    "home_team": "Montreal Canadiens",
+    "away_team": "Calgary Flames",
+    "recommended_pick": "CANADIENS ML",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Montreal Canadiens"
+    }
+  },
+  {
+    "intel_id": "2fad2eec-03e9-4573-8969-aee599c440e1",
+    "league_id": "mens-college-basketball",
+    "home_team": "Old Dominion Monarchs",
+    "away_team": "Troy Trojans",
+    "recommended_pick": "Old Dominion +7.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Old Dominion"
+    }
+  },
+  {
+    "intel_id": "4a91d4cb-7da0-496e-aceb-f820e64997d0",
+    "league_id": "mens-college-basketball",
+    "home_team": "Washington State Cougars",
+    "away_team": "Gonzaga Bulldogs",
+    "recommended_pick": "Washington State +5.2",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Washington State +5.2"
+    }
+  },
+  {
+    "intel_id": "34be2818-29f7-423f-9c35-bafee54e148e",
+    "league_id": "mens-college-basketball",
+    "home_team": "Marshall Thundering Herd",
+    "away_team": "Coastal Carolina Chanticleers",
+    "recommended_pick": "Marshall -2.6",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Marshall -2.6"
+    }
+  },
+  {
+    "intel_id": "6e5469fe-b7b6-4856-9109-5ab308a08dfd",
+    "league_id": "mens-college-basketball",
+    "home_team": "LSU Tigers",
+    "away_team": "Kentucky Wildcats",
+    "recommended_pick": "LSU Tigers +4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "LSU Tigers"
+    }
+  },
+  {
+    "intel_id": "9fe9602a-4418-44ba-b723-4a12d3d4a7a3",
+    "league_id": "mens-college-basketball",
+    "home_team": "George Washington Revolutionaries",
+    "away_team": "Davidson Wildcats",
+    "recommended_pick": "George Washington -11",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "George Washington"
+    }
+  },
+  {
+    "intel_id": "dcf11261-5f89-40b1-8450-6b1bf2f16e1a",
+    "league_id": "mens-college-basketball",
+    "home_team": "South Florida Bulls",
+    "away_team": "East Carolina Pirates",
+    "recommended_pick": "East Carolina +19.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "+19.5"
+    }
+  },
+  {
+    "intel_id": "2e20e314-093f-4c10-84e9-39e70d898104",
+    "league_id": "mens-college-basketball",
+    "home_team": "Robert Morris Colonials",
+    "away_team": "Milwaukee Panthers",
+    "recommended_pick": "Milwaukee Panthers +5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Milwaukee Panthers"
+    }
+  },
+  {
+    "intel_id": "b530cb53-e58d-464b-854f-0f683df2774f",
+    "league_id": "mens-college-basketball",
+    "home_team": "Western Kentucky Hilltoppers",
+    "away_team": "Missouri State Bears",
+    "recommended_pick": "Western Kentucky -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Western Kentucky -2.6"
+    }
+  },
+  {
+    "intel_id": "dad023c0-075e-4805-a452-80264ba87e46",
+    "league_id": "mens-college-basketball",
+    "home_team": "Georgia Southern Eagles",
+    "away_team": "Arkansas State Red Wolves",
+    "recommended_pick": "Arkansas State -2",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Arkansas State"
+    }
+  },
+  {
+    "intel_id": "c321f44e-6b5d-4a7a-82af-712fe9789905",
+    "league_id": "mens-college-basketball",
+    "home_team": "Memphis Tigers",
+    "away_team": "Temple Owls",
+    "recommended_pick": "Memphis -2.6 (Valuation)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Memphis"
+    }
+  },
+  {
+    "intel_id": "e45a1481-674b-4eb8-bbd4-af239521512b",
+    "league_id": "mens-college-basketball",
+    "home_team": "Oregon State Beavers",
+    "away_team": "Loyola Marymount Lions",
+    "recommended_pick": "Oregon State -2.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Oregon State -2.5"
+    }
+  },
+  {
+    "intel_id": "16d3c6f0-466d-4fe8-9081-4d5cb163a106",
+    "league_id": "mens-college-basketball",
+    "home_team": "Samford Bulldogs",
+    "away_team": "Furman Paladins",
+    "recommended_pick": "Samford Bulldogs +3.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Samford Bulldogs"
+    }
+  },
+  {
+    "intel_id": "7ceddb52-a3eb-4d69-9ed4-5690c6b382f5",
+    "league_id": "mens-college-basketball",
+    "home_team": "North Dakota State Bison",
+    "away_team": "South Dakota State Jackrabbits",
+    "recommended_pick": "North Dakota State -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "North Dakota State -2.6"
+    }
+  },
+  {
+    "intel_id": "cef3ebee-5d17-47ef-85cd-db9d136f6dd7",
+    "league_id": "nhl",
+    "home_team": "Montreal Canadiens",
+    "away_team": "Florida Panthers",
+    "recommended_pick": "CANADIENS ML",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Montreal Canadiens"
+    }
+  },
+  {
+    "intel_id": "716464c0-0b3e-47e0-964f-a38eb7f6fa2c",
+    "league_id": "mens-college-basketball",
+    "home_team": "Denver Pioneers",
+    "away_team": "Oral Roberts Golden Eagles",
+    "recommended_pick": "Denver -2.6 (Valuation)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Denver -2.6"
+    }
+  },
+  {
+    "intel_id": "5c6e4d43-bc52-448b-a41f-1c57284cad80",
+    "league_id": "mens-college-basketball",
+    "home_team": "Bethune-Cookman Wildcats",
+    "away_team": "Alcorn State Braves",
+    "recommended_pick": "Bethune-Cookman Wildcats 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Bethune-Cookman Wildcats"
+    }
+  },
+  {
+    "intel_id": "120dd2cf-2f4a-44c5-8ec3-438d743400ae",
+    "league_id": "mens-college-basketball",
+    "home_team": "Bucknell Bison",
+    "away_team": "Lafayette Leopards",
+    "recommended_pick": "Bucknell -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Bucknell -2.6"
+    }
+  },
+  {
+    "intel_id": "eff00da8-e082-4181-bcd4-0e7f2342bfe8",
+    "league_id": "mens-college-basketball",
+    "home_team": "Iowa State Cyclones",
+    "away_team": "UCF Knights",
+    "recommended_pick": "Iowa State -13.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Iowa State Cyclones"
+    }
+  },
+  {
+    "intel_id": "58249b33-cb28-49e6-ab2e-ab3ab0783c2a",
+    "league_id": "mens-college-basketball",
+    "home_team": "West Georgia Wolves",
+    "away_team": "Central Arkansas Bears",
+    "recommended_pick": "West Georgia Wolves +3.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "West Georgia Wolves"
+    }
+  },
+  {
+    "intel_id": "f539cee0-1bd0-4781-ba46-6b7a430cc058",
+    "league_id": "mens-college-basketball",
+    "home_team": "Texas State Bobcats",
+    "away_team": "Louisiana Ragin' Cajuns",
+    "recommended_pick": "Texas State -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "-2.6"
+    }
+  },
+  {
+    "intel_id": "d97fab3c-cb08-4f5a-bafc-3768d3444d5c",
+    "league_id": "mens-college-basketball",
+    "home_team": "Temple Owls",
+    "away_team": "Florida Atlantic Owls",
+    "recommended_pick": "Florida Atlantic -2",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Florida Atlantic Owls"
+    }
+  },
+  {
+    "intel_id": "83b75728-ca51-464c-b965-aca4b8dafbb8",
+    "league_id": "mens-college-basketball",
+    "home_team": "Seattle U Redhawks",
+    "away_team": "San Diego Toreros",
+    "recommended_pick": "Seattle U Redhawks -9.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Seattle U Redhawks -9.5"
+    }
+  },
+  {
+    "intel_id": "b8a196fb-f060-4427-bec4-9a9b6b26590c",
+    "league_id": "mens-college-basketball",
+    "home_team": "Miami Hurricanes",
+    "away_team": "Florida State Seminoles",
+    "recommended_pick": "Florida State Seminoles +11.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Florida State Seminoles"
+    }
+  },
+  {
+    "intel_id": "ebe4ecf9-9a6a-4d06-b03e-93c202f0ac9f",
+    "league_id": "mens-college-basketball",
+    "home_team": "Tulane Green Wave",
+    "away_team": "UAB Blazers",
+    "recommended_pick": "UAB Blazers -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "UAB -2.6"
+    }
+  },
+  {
+    "intel_id": "dbe34849-b9a7-4903-95af-09d0af130271",
+    "league_id": "mens-college-basketball",
+    "home_team": "Georgia Bulldogs",
+    "away_team": "Ole Miss Rebels",
+    "recommended_pick": "Georgia Bulldogs -2.6",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Georgia -2.6"
+    }
+  },
+  {
+    "intel_id": "08defbe3-b364-4800-a72d-0b5cbba61aaf",
+    "league_id": "mens-college-basketball",
+    "home_team": "Fairfield Stags",
+    "away_team": "Manhattan Jaspers",
+    "recommended_pick": "Manhattan +5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Manhattan +5.5"
+    }
+  },
+  {
+    "intel_id": "5fc40739-94cb-4350-a440-2d4c14132747",
+    "league_id": "mens-college-basketball",
+    "home_team": "Gardner-Webb Runnin' Bulldogs",
+    "away_team": "Radford Highlanders",
+    "recommended_pick": "Gardner-Webb Runnin' Bulldogs (-2.6 Valuation)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Gardner-Webb Runnin' Bulldogs"
+    }
+  },
+  {
+    "intel_id": "6a269131-a3b0-4844-9534-77c0e162ed20",
+    "league_id": "mens-college-basketball",
+    "home_team": "Rider Broncs",
+    "away_team": "Iona Gaels",
+    "recommended_pick": "Rider Broncs +7.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Rider +7.5"
+    }
+  },
+  {
+    "intel_id": "9df0bfb3-cb1d-4ae8-ac5a-2545b37f0eeb",
+    "league_id": "mens-college-basketball",
+    "home_team": "East Carolina Pirates",
+    "away_team": "Charlotte 49ers",
+    "recommended_pick": "Charlotte 49ers -1.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Charlotte 49ers"
+    }
+  },
+  {
+    "intel_id": "13d860ff-eb6d-469d-aa9b-6d3f1a032df3",
+    "league_id": "mens-college-basketball",
+    "home_team": "Bucknell Bison",
+    "away_team": "Lafayette Leopards",
+    "recommended_pick": "Lafayette +5.2",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Lafayette +5.2"
+    }
+  },
+  {
+    "intel_id": "860c952b-cf77-44c4-9ed7-fe12b7056434",
+    "league_id": "fra.1",
+    "home_team": "Stade Rennais",
+    "away_team": "Lorient",
+    "recommended_pick": "Stade Rennais 0",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Stade Rennais"
+    }
+  },
+  {
+    "intel_id": "818cb3c7-ea4d-4d51-9e92-e6d5457ed2f2",
+    "league_id": "mens-college-basketball",
+    "home_team": "Bowling Green Falcons",
+    "away_team": "Eastern Michigan Eagles",
+    "recommended_pick": "Eastern Michigan +11.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Eastern Michigan"
+    }
+  },
+  {
+    "intel_id": "7629503b-dc50-4d7a-98a6-7a1dc96b777a",
+    "league_id": "mens-college-basketball",
+    "home_team": "Green Bay Phoenix",
+    "away_team": "Oakland Golden Grizzlies",
+    "recommended_pick": "Oakland Golden Grizzlies -2.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Oakland Golden Grizzlies"
+    }
+  },
+  {
+    "intel_id": "a10abba6-1fa0-4b71-afb8-e7801d5bd20c",
+    "league_id": "mens-college-basketball",
+    "home_team": "South Florida Bulls",
+    "away_team": "Wichita State Shockers",
+    "recommended_pick": "South Florida Bulls -6.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "South Florida Bulls"
+    }
+  },
+  {
+    "intel_id": "11c0df5d-dd16-4370-a90f-69ea0a924381",
+    "league_id": "mens-college-basketball",
+    "home_team": "South Carolina State Bulldogs",
+    "away_team": "Mid-Atlantic Christian Mustangs",
+    "recommended_pick": "South Carolina State Bulldogs -0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "South Carolina State Bulldogs"
+    }
+  },
+  {
+    "intel_id": "9f6ca5bf-d149-42dc-9938-24c0a3bfd8de",
+    "league_id": "mens-college-basketball",
+    "home_team": "Arizona State Sun Devils",
+    "away_team": "West Virginia Mountaineers",
+    "recommended_pick": "Arizona State Moneyline (-125)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Arizona State Sun Devils"
+    }
+  },
+  {
+    "intel_id": "e5a0f0e1-70d0-4afb-8836-67c070db28c9",
+    "league_id": "mens-college-basketball",
+    "home_team": "Purdue Fort Wayne Mastodons",
+    "away_team": "Milwaukee Panthers",
+    "recommended_pick": "Purdue Fort Wayne -4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Purdue Fort Wayne Mastodons"
+    }
+  },
+  {
+    "intel_id": "f89cc8e8-7f60-4d66-ad48-23b66ca191d7",
+    "league_id": "mens-college-basketball",
+    "home_team": "West Virginia Mountaineers",
+    "away_team": "Colorado Buffaloes",
+    "recommended_pick": "Colorado Buffaloes +5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Colorado Buffaloes"
+    }
+  },
+  {
+    "intel_id": "352f2389-ea35-4dc0-8bf5-c1bba07133f1",
+    "league_id": "mens-college-basketball",
+    "home_team": "Miami (OH) RedHawks",
+    "away_team": "Buffalo Bulls",
+    "recommended_pick": "Miami (OH) -10.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Miami (OH) RedHawks"
+    }
+  },
+  {
+    "intel_id": "86062814-29ac-41e2-a095-b419bcc03218",
+    "league_id": "mens-college-basketball",
+    "home_team": "Auburn Tigers",
+    "away_team": "South Carolina Gamecocks",
+    "recommended_pick": "South Carolina +10.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "South Carolina Gamecocks"
+    }
+  },
+  {
+    "intel_id": "c1cee25b-73be-43f7-88fa-2a3a12432aac",
+    "league_id": "mens-college-basketball",
+    "home_team": "Texas Tech Red Raiders",
+    "away_team": "BYU Cougars",
+    "recommended_pick": "Texas Tech -2.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Texas Tech Red Raiders"
+    }
+  },
+  {
+    "intel_id": "a5723150-21e0-4f3f-b99d-596b75fd1817",
+    "league_id": "mens-college-basketball",
+    "home_team": "North Carolina Tar Heels",
+    "away_team": "Notre Dame Fighting Irish",
+    "recommended_pick": "North Carolina -11.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "North Carolina Tar Heels"
+    }
+  },
+  {
+    "intel_id": "69a7924f-ac2d-4829-b33e-68647fa34be4",
+    "league_id": "mens-college-basketball",
+    "home_team": "UCF Knights",
+    "away_team": "Arizona Wildcats",
+    "recommended_pick": "UCF Knights +9.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "UCF Knights"
+    }
+  },
+  {
+    "intel_id": "6a951289-dc9d-475f-a380-11ae208b971e",
+    "league_id": "mens-college-basketball",
+    "home_team": "California Golden Bears",
+    "away_team": "North Carolina Tar Heels",
+    "recommended_pick": "North Carolina -5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "North Carolina Tar Heels"
+    }
+  },
+  {
+    "intel_id": "16046d00-d8ff-4f02-a55d-fec2fcb244f1",
+    "league_id": "caf.nations",
+    "home_team": "Nigeria",
+    "away_team": "Morocco",
+    "recommended_pick": "Morocco ML (-115)",
+    "analyzed_spread": null,
+    "pick_result": "PUSH",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Morocco"
+    }
+  },
+  {
+    "intel_id": "f0a78f12-64d6-48e2-a106-73a879851705",
+    "league_id": "mens-college-basketball",
+    "home_team": "Cal State Bakersfield Roadrunners",
+    "away_team": "UC San Diego Tritons",
+    "recommended_pick": "Cal State Bakersfield +8.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Cal State Bakersfield"
+    }
+  },
+  {
+    "intel_id": "67a1c450-5363-4b28-a6d0-5510f8955dd7",
+    "league_id": "mens-college-basketball",
+    "home_team": "Northwestern Wildcats",
+    "away_team": "Nebraska Cornhuskers",
+    "recommended_pick": "Northwestern +5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Northwestern Wildcats"
+    }
+  },
+  {
+    "intel_id": "175474ff-8ad7-402c-9db2-abb0da737abb",
+    "league_id": "mens-college-basketball",
+    "home_team": "UT Martin Skyhawks",
+    "away_team": "Lindenwood Lions",
+    "recommended_pick": "UT Martin -3.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "UT Martin Skyhawks"
+    }
+  },
+  {
+    "intel_id": "1057c124-eb3c-49bd-af2a-7016e3d98a1f",
+    "league_id": "mens-college-basketball",
+    "home_team": "Clemson Tigers",
+    "away_team": "Boston College Eagles",
+    "recommended_pick": "Clemson Tigers (Spread)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Clemson Tigers (Spread)"
+    }
+  },
+  {
+    "intel_id": "3a7dd55e-185f-45c8-b865-ba9d685003bf",
+    "league_id": "mens-college-basketball",
+    "home_team": "High Point Panthers",
+    "away_team": "South Carolina Upstate Spartans",
+    "recommended_pick": "High Point Panthers -16.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "High Point Panthers"
+    }
+  },
+  {
+    "intel_id": "c9c3b5e7-e50c-45ea-ad83-0bbbebcb6a7d",
+    "league_id": "mens-college-basketball",
+    "home_team": "Little Rock Trojans",
+    "away_team": "Western Illinois Leathernecks",
+    "recommended_pick": "Little Rock Trojans -10.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Little Rock Trojans"
+    }
+  },
+  {
+    "intel_id": "cce7d3df-45e7-42b5-a4c8-6088a167e6d8",
+    "league_id": "mens-college-basketball",
+    "home_team": "Washington Huskies",
+    "away_team": "Michigan State Spartans",
+    "recommended_pick": "Washington Huskies +4.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Washington Huskies"
+    }
+  },
+  {
+    "intel_id": "7d0ef6ff-49d8-4ed3-8637-7d861b13c647",
+    "league_id": "mens-college-basketball",
+    "home_team": "Stony Brook Seawolves",
+    "away_team": "Charleston Cougars",
+    "recommended_pick": "Stony Brook Seawolves +4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Stony Brook Seawolves"
+    }
+  },
+  {
+    "intel_id": "e30660a7-01b7-40fe-9de4-b6d171b03a09",
+    "league_id": "mens-college-basketball",
+    "home_team": "San Francisco Dons",
+    "away_team": "Washington State Cougars",
+    "recommended_pick": "San Francisco -5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "San Francisco Dons"
+    }
+  },
+  {
+    "intel_id": "7f7c7461-28d1-4e6f-aefb-8fe41b05414e",
+    "league_id": "mens-college-basketball",
+    "home_team": "Boston University Terriers",
+    "away_team": "Lehigh Mountain Hawks",
+    "recommended_pick": "Boston University Terriers (PK)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Boston University Terriers"
+    }
+  },
+  {
+    "intel_id": "c3fa5bc3-3ec0-46a2-885c-5da99cedf0df",
+    "league_id": "mens-college-basketball",
+    "home_team": "Houston Cougars",
+    "away_team": "Arizona State Sun Devils",
+    "recommended_pick": "Houston Cougars -17.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Houston Cougars"
+    }
+  },
+  {
+    "intel_id": "7f4a4020-43fd-4871-9600-e970a088fe24",
+    "league_id": "fra.1",
+    "home_team": "Le Havre AC",
+    "away_team": "AS Monaco",
+    "recommended_pick": "AS Monaco 0",
+    "analyzed_spread": null,
+    "pick_result": "PUSH",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "AS Monaco"
+    }
+  },
+  {
+    "intel_id": "943efe6f-f044-4069-8a38-107d4a0a297f",
+    "league_id": "mens-college-basketball",
+    "home_team": "San José State Spartans",
+    "away_team": "UNLV Rebels",
+    "recommended_pick": "UNLV Rebels -5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "UNLV Rebels"
+    }
+  },
+  {
+    "intel_id": "e3854217-0e38-434a-aaf6-02dcb52bcd91",
+    "league_id": "mens-college-basketball",
+    "home_team": "Southeast Missouri State Redhawks",
+    "away_team": "Little Rock Trojans",
+    "recommended_pick": "Little Rock Trojans +6.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Little Rock Trojans"
+    }
+  },
+  {
+    "intel_id": "b7e99c72-876b-4e89-a9bb-ade8ad1d3bba",
+    "league_id": "mens-college-basketball",
+    "home_team": "Portland State Vikings",
+    "away_team": "Northern Arizona Lumberjacks",
+    "recommended_pick": "Portland State -12.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Portland State Vikings"
+    }
+  },
+  {
+    "intel_id": "df84dc8a-7f85-4a6d-b7db-093989d800a3",
+    "league_id": "mens-college-basketball",
+    "home_team": "Virginia Tech Hokies",
+    "away_team": "Notre Dame Fighting Irish",
+    "recommended_pick": "Virginia Tech -5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Virginia Tech Hokies"
+    }
+  },
+  {
+    "intel_id": "3db33b06-3cc6-4b46-bb2b-44ed7c57b049",
+    "league_id": "mens-college-basketball",
+    "home_team": "Utah Utes",
+    "away_team": "TCU Horned Frogs",
+    "recommended_pick": "Utah Utes +4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Utah Utes"
+    }
+  },
+  {
+    "intel_id": "6b94e980-3327-484e-8851-ef36d3832dca",
+    "league_id": "mens-college-basketball",
+    "home_team": "NC State Wolfpack",
+    "away_team": "Georgia Tech Yellow Jackets",
+    "recommended_pick": "NC State -16.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "NC State Wolfpack"
+    }
+  },
+  {
+    "intel_id": "d95874f4-aaaf-4183-a07c-3f5eee479595",
+    "league_id": "mens-college-basketball",
+    "home_team": "Oklahoma Sooners",
+    "away_team": "Alabama Crimson Tide",
+    "recommended_pick": "Alabama -5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Alabama Crimson Tide"
+    }
+  },
+  {
+    "intel_id": "98b58a87-272c-429d-ad14-1cdb4292eaeb",
+    "league_id": "mens-college-basketball",
+    "home_team": "Howard Bison",
+    "away_team": "Morehouse Maroon Tigers",
+    "recommended_pick": "Howard Bison +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Howard Bison"
+    }
+  },
+  {
+    "intel_id": "7a728397-4d03-4e8c-8132-d49e3c5f4e76",
+    "league_id": "mens-college-basketball",
+    "home_team": "Harvard Crimson",
+    "away_team": "Princeton Tigers",
+    "recommended_pick": "Princeton Tigers +4.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Princeton Tigers"
+    }
+  },
+  {
+    "intel_id": "1fe16fbb-5c92-43cb-a7bf-2794d20d3da5",
+    "league_id": "mens-college-basketball",
+    "home_team": "App State Mountaineers",
+    "away_team": "Old Dominion Monarchs",
+    "recommended_pick": "App State -6.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "App State Mountaineers"
+    }
+  },
+  {
+    "intel_id": "fb70579e-d95d-4104-98f3-f03cddc4997a",
+    "league_id": "mens-college-basketball",
+    "home_team": "Seton Hall Pirates",
+    "away_team": "Butler Bulldogs",
+    "recommended_pick": "Butler Bulldogs +6.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Butler Bulldogs"
+    }
+  },
+  {
+    "intel_id": "08c2564a-c774-495d-9410-2748e50abf5e",
+    "league_id": "mens-college-basketball",
+    "home_team": "Cleveland State Vikings",
+    "away_team": "Youngstown State Penguins",
+    "recommended_pick": "Cleveland State +7.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Cleveland State Vikings"
+    }
+  },
+  {
+    "intel_id": "088bf6f3-91b5-4717-8fe5-eba2222285cf",
+    "league_id": "mens-college-basketball",
+    "home_team": "Tennessee Volunteers",
+    "away_team": "Kentucky Wildcats",
+    "recommended_pick": "Tennessee Volunteers -5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Tennessee Volunteers"
+    }
+  },
+  {
+    "intel_id": "888e42f1-636d-49fa-941f-edcca69a7fad",
+    "league_id": "mens-college-basketball",
+    "home_team": "Boston College Eagles",
+    "away_team": "Syracuse Orange",
+    "recommended_pick": "Syracuse -6.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Syracuse Orange"
+    }
+  },
+  {
+    "intel_id": "b2c0d588-900a-49f0-867f-ef97ff87a914",
+    "league_id": "mens-college-basketball",
+    "home_team": "Charleston Southern Buccaneers",
+    "away_team": "South Carolina Upstate Spartans",
+    "recommended_pick": "Charleston Southern Buccaneers -5.5 (Projected)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Charleston Southern Buccaneers"
+    }
+  },
+  {
+    "intel_id": "eae73e78-c479-4e2c-aae6-e82b3ce545c8",
+    "league_id": "mens-college-basketball",
+    "home_team": "Akron Zips",
+    "away_team": "Western Michigan Broncos",
+    "recommended_pick": "Akron Zips -18.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Akron Zips"
+    }
+  },
+  {
+    "intel_id": "3079d7f5-94c5-4afd-bd7c-5bd871dbb729",
+    "league_id": "mens-college-basketball",
+    "home_team": "Air Force Falcons",
+    "away_team": "Nevada Wolf Pack",
+    "recommended_pick": "Nevada Wolf Pack -15.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Nevada Wolf Pack"
+    }
+  },
+  {
+    "intel_id": "4742fb63-6d69-4d4f-91fe-215610055da1",
+    "league_id": "mens-college-basketball",
+    "home_team": "Wofford Terriers",
+    "away_team": "Chattanooga Mocs",
+    "recommended_pick": "Wofford -2.6",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Wofford -2.6"
+    }
+  },
+  {
+    "intel_id": "620e0d12-3e26-440d-80e8-37a73101c815",
+    "league_id": "mens-college-basketball",
+    "home_team": "New Hampshire Wildcats",
+    "away_team": "Binghamton Bearcats",
+    "recommended_pick": "New Hampshire Wildcats -8.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "New Hampshire Wildcats"
+    }
+  },
+  {
+    "intel_id": "70b87838-4715-4c2d-84a0-b832fae75530",
+    "league_id": "mens-college-basketball",
+    "home_team": "UNC Wilmington Seahawks",
+    "away_team": "Campbell Fighting Camels",
+    "recommended_pick": "Campbell Fighting Camels +6.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Campbell Fighting Camels"
+    }
+  },
+  {
+    "intel_id": "2f53cb82-553b-414d-af5f-36ad51e6cab4",
+    "league_id": "mens-college-basketball",
+    "home_team": "Wisconsin Badgers",
+    "away_team": "Rutgers Scarlet Knights",
+    "recommended_pick": "Wisconsin Badgers -14.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Wisconsin Badgers"
+    }
+  },
+  {
+    "intel_id": "925738d0-5fdc-4877-8864-de291ff0dee7",
+    "league_id": "mens-college-basketball",
+    "home_team": "VCU Rams",
+    "away_team": "Saint Joseph's Hawks",
+    "recommended_pick": "VCU Rams +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "VCU Rams"
+    }
+  },
+  {
+    "intel_id": "2e2a0c71-3464-40e5-8b8f-8d6e0e38281f",
+    "league_id": "mens-college-basketball",
+    "home_team": "William & Mary Tribe",
+    "away_team": "North Carolina A&T Aggies",
+    "recommended_pick": "William & Mary Tribe",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "William & Mary Tribe"
+    }
+  },
+  {
+    "intel_id": "37b33354-1469-435f-ae2c-beae65b2a584",
+    "league_id": "mens-college-basketball",
+    "home_team": "Marist Red Foxes",
+    "away_team": "Fairfield Stags",
+    "recommended_pick": "Fairfield Stags +9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Fairfield Stags"
+    }
+  },
+  {
+    "intel_id": "543aa6c1-12c3-4d36-9579-967c941bee82",
+    "league_id": "ger.1",
+    "home_team": "Bayern Munich",
+    "away_team": "FC Augsburg",
+    "recommended_pick": "Bayern Munich 0",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Bayern Munich"
+    }
+  },
+  {
+    "intel_id": "c09420e2-0d2b-40fe-abda-f7e7962c8cf5",
+    "league_id": "mens-college-basketball",
+    "home_team": "Dartmouth Big Green",
+    "away_team": "Pennsylvania Quakers",
+    "recommended_pick": "Dartmouth Big Green -1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Dartmouth Big Green"
+    }
+  },
+  {
+    "intel_id": "99d1ab22-0ca2-43bc-b9bd-7e15e31ff176",
+    "league_id": "mens-college-basketball",
+    "home_team": "Xavier Musketeers",
+    "away_team": "Butler Bulldogs",
+    "recommended_pick": "Xavier Musketeers +1.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Xavier Musketeers +1.5"
+    }
+  },
+  {
+    "intel_id": "58daf033-12b8-4966-86b1-82105272b112",
+    "league_id": "mens-college-basketball",
+    "home_team": "Kansas State Wildcats",
+    "away_team": "UCF Knights",
+    "recommended_pick": "Kansas State -2.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Kansas State -2.5"
+    }
+  },
+  {
+    "intel_id": "7a0c5fe6-f4a9-4db9-8b26-95771b21137e",
+    "league_id": "mens-college-basketball",
+    "home_team": "North Alabama Lions",
+    "away_team": "Jacksonville Dolphins",
+    "recommended_pick": "North Alabama Lions +1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "North Alabama Lions"
+    }
+  },
+  {
+    "intel_id": "6b0cba0a-5214-4c58-9ce0-1ce051a2ba12",
+    "league_id": "mens-college-basketball",
+    "home_team": "Tennessee Volunteers",
+    "away_team": "Texas A&M Aggies",
+    "recommended_pick": "Tennessee Volunteers",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Tennessee Volunteers"
+    }
+  },
+  {
+    "intel_id": "ecc3d6cf-99e4-4721-8a1b-4b1ccf96edc9",
+    "league_id": "mens-college-basketball",
+    "home_team": "Georgia Southern Eagles",
+    "away_team": "Coastal Carolina Chanticleers",
+    "recommended_pick": "Coastal Carolina +5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Coastal Carolina Chanticleers"
+    }
+  },
+  {
+    "intel_id": "78192c65-b1bd-42b5-a98b-99ca8f1cecb8",
+    "league_id": "mens-college-basketball",
+    "home_team": "Pittsburgh Panthers",
+    "away_team": "Louisville Cardinals",
+    "recommended_pick": "Pittsburgh Panthers +7.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Pittsburgh Panthers"
+    }
+  },
+  {
+    "intel_id": "35c727a1-24ae-4a8c-813b-64acb8dbe4b2",
+    "league_id": "mens-college-basketball",
+    "home_team": "Buffalo Bulls",
+    "away_team": "Massachusetts Minutemen",
+    "recommended_pick": "Massachusetts 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Massachusetts"
+    }
+  },
+  {
+    "intel_id": "6941f53a-508b-4c1f-854f-a404f80d76a2",
+    "league_id": "mens-college-basketball",
+    "home_team": "Utah State Aggies",
+    "away_team": "Nevada Wolf Pack",
+    "recommended_pick": "Nevada Wolf Pack (+13.5)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Nevada Wolf Pack"
+    }
+  },
+  {
+    "intel_id": "29240d0e-d124-4e4b-b0fb-3a40a5ba310d",
+    "league_id": "mens-college-basketball",
+    "home_team": "Wyoming Cowboys",
+    "away_team": "San Diego State Aztecs",
+    "recommended_pick": "San Diego State -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "San Diego State"
+    }
+  },
+  {
+    "intel_id": "b47dd400-e4de-4ff9-9069-83bd2fd27ad9",
+    "league_id": "mens-college-basketball",
+    "home_team": "La Salle Explorers",
+    "away_team": "St. Bonaventure Bonnies",
+    "recommended_pick": "St. Bonaventure -3.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "St. Bonaventure"
+    }
+  },
+  {
+    "intel_id": "4434ddcf-80a2-4e0f-af74-967deed61a05",
+    "league_id": "mens-college-basketball",
+    "home_team": "Purdue Boilermakers",
+    "away_team": "Iowa Hawkeyes",
+    "recommended_pick": "Iowa Hawkeyes +10.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "+10.5"
+    }
+  },
+  {
+    "intel_id": "c52d9af9-9e0b-4868-94bc-cdc6ddf339fd",
+    "league_id": "mens-college-basketball",
+    "home_team": "Yale Bulldogs",
+    "away_team": "Cornell Big Red",
+    "recommended_pick": "Yale Bulldogs -9.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Yale Bulldogs"
+    }
+  },
+  {
+    "intel_id": "51cd716f-5384-4ae3-8fb8-bf4a7bc8741e",
+    "league_id": "mens-college-basketball",
+    "home_team": "Kennesaw State Owls",
+    "away_team": "Florida International Panthers",
+    "recommended_pick": "Kennesaw State Owls (-2.6 Valuation)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Kennesaw State"
+    }
+  },
+  {
+    "intel_id": "6d9da684-54ea-48bc-96dc-bae18e8120c4",
+    "league_id": "mens-college-basketball",
+    "home_team": "Northwestern Wildcats",
+    "away_team": "Illinois Fighting Illini",
+    "recommended_pick": "Northwestern +9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Northwestern +9.5"
+    }
+  },
+  {
+    "intel_id": "9227f300-ca84-4c53-94e1-c3b2a58fd4e3",
+    "league_id": "mens-college-basketball",
+    "home_team": "Southern Illinois Salukis",
+    "away_team": "Drake Bulldogs",
+    "recommended_pick": "Drake +5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Drake +5.5"
+    }
+  },
+  {
+    "intel_id": "7ea82395-9b8a-4dd4-a1f2-13d300e6ef96",
+    "league_id": "mens-college-basketball",
+    "home_team": "Montana State Bobcats",
+    "away_team": "Montana Grizzlies",
+    "recommended_pick": "Montana Grizzlies +5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Montana Grizzlies"
+    }
+  },
+  {
+    "intel_id": "c4eabbe3-ae36-4b03-857d-91c3fc88f6bb",
+    "league_id": "mens-college-basketball",
+    "home_team": "Winthrop Eagles",
+    "away_team": "High Point Panthers",
+    "recommended_pick": "High Point Panthers (-2.6 Valuation)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "High Point Panthers"
+    }
+  },
+  {
+    "intel_id": "ec268417-0cba-4de4-85ae-b06b42f1b19a",
+    "league_id": "mens-college-basketball",
+    "home_team": "Vermont Catamounts",
+    "away_team": "Maine Black Bears",
+    "recommended_pick": "Vermont Catamounts -13.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Vermont Catamounts"
+    }
+  },
+  {
+    "intel_id": "7e85f202-0046-4312-a20c-06faf516b3dd",
+    "league_id": "mens-college-basketball",
+    "home_team": "Texas Tech Red Raiders",
+    "away_team": "Utah Utes",
+    "recommended_pick": "Texas Tech -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Texas Tech -2.6"
+    }
+  },
+  {
+    "intel_id": "12011718-e356-4db3-b233-ffc6718ed304",
+    "league_id": "mens-college-basketball",
+    "home_team": "Arkansas Razorbacks",
+    "away_team": "South Carolina Gamecocks",
+    "recommended_pick": "Arkansas -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Arkansas -2.6"
+    }
+  },
+  {
+    "intel_id": "eb5154cf-4ca4-4e02-b486-e9d38d10d882",
+    "league_id": "mens-college-basketball",
+    "home_team": "Southeast Missouri State Redhawks",
+    "away_team": "Lindenwood Lions",
+    "recommended_pick": "Southeast Missouri State Redhawks -6.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Southeast Missouri State Redhawks"
+    }
+  },
+  {
+    "intel_id": "c3743e55-7fdf-4064-8e85-870127dee5e9",
+    "league_id": "mens-college-basketball",
+    "home_team": "Memphis Tigers",
+    "away_team": "UTSA Roadrunners",
+    "recommended_pick": "Memphis Tigers -21.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Memphis Tigers"
+    }
+  },
+  {
+    "intel_id": "9ee95e3a-6e71-4c7a-9611-d7588f737c91",
+    "league_id": "mens-college-basketball",
+    "home_team": "Rhode Island Rams",
+    "away_team": "VCU Rams",
+    "recommended_pick": "VCU Rams -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "VCU Rams"
+    }
+  },
+  {
+    "intel_id": "dbbe65cd-0da2-4a84-8454-21930b6105bb",
+    "league_id": "mens-college-basketball",
+    "home_team": "Holy Cross Crusaders",
+    "away_team": "Army Black Knights",
+    "recommended_pick": "Army +6.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Army +6.5"
+    }
+  },
+  {
+    "intel_id": "b3f30727-5419-4e0d-ab3d-f89987ff434e",
+    "league_id": "mens-college-basketball",
+    "home_team": "Santa Clara Broncos",
+    "away_team": "Pacific Tigers",
+    "recommended_pick": "Pacific Tigers +13.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Pacific Tigers +13.5"
+    }
+  },
+  {
+    "intel_id": "be53839b-e421-4c00-8aeb-478b22cecdef",
+    "league_id": "mens-college-basketball",
+    "home_team": "Austin Peay Governors",
+    "away_team": "Eastern Kentucky Colonels",
+    "recommended_pick": "Austin Peay -7.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Austin Peay -7.5"
+    }
+  },
+  {
+    "intel_id": "f3bdeb48-fa3e-4508-98f1-72ee8e3c819d",
+    "league_id": "mens-college-basketball",
+    "home_team": "Tulane Green Wave",
+    "away_team": "North Texas Mean Green",
+    "recommended_pick": "Tulane Green Wave -1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Tulane Green Wave"
+    }
+  },
+  {
+    "intel_id": "b87b24d4-bbec-40fc-abf4-a302503c4d90",
+    "league_id": "mens-college-basketball",
+    "home_team": "Central Arkansas Bears",
+    "away_team": "Jacksonville Dolphins",
+    "recommended_pick": "Central Arkansas Bears -8.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Central Arkansas Bears -8.5"
+    }
+  },
+  {
+    "intel_id": "c6fb9286-2f30-4173-81b4-ac80c041774c",
+    "league_id": "mens-college-basketball",
+    "home_team": "Northern Colorado Bears",
+    "away_team": "Montana State Bobcats",
+    "recommended_pick": "Northern Colorado Bears -2.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Northern Colorado Bears"
+    }
+  },
+  {
+    "intel_id": "5bffeb6c-5694-4df8-8c8b-0e3bf1b173b5",
+    "league_id": "mens-college-basketball",
+    "home_team": "VMI Keydets",
+    "away_team": "Mercer Bears",
+    "recommended_pick": "VMI Keydets +9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "VMI Keydets +9.5"
+    }
+  },
+  {
+    "intel_id": "ccf32fe0-2a39-4788-8d67-c955e557a95a",
+    "league_id": "mens-college-basketball",
+    "home_team": "Northern Arizona Lumberjacks",
+    "away_team": "Montana Grizzlies",
+    "recommended_pick": "Montana Grizzlies -4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Montana Grizzlies"
+    }
+  },
+  {
+    "intel_id": "6871ed1e-dfa4-4697-93a4-84c94e53d0e2",
+    "league_id": "mens-college-basketball",
+    "home_team": "Texas A&M-Corpus Christi Islanders",
+    "away_team": "McNeese Cowboys",
+    "recommended_pick": "Texas A&M-Corpus Christi +7.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Texas A&M-Corpus Christi"
+    }
+  },
+  {
+    "intel_id": "87e39270-9f39-4706-a151-2dfbba60955b",
+    "league_id": "mens-college-basketball",
+    "home_team": "Mississippi Valley State Delta Devils",
+    "away_team": "Florida A&M Rattlers",
+    "recommended_pick": "Mississippi Valley State +12.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Mississippi Valley State"
+    }
+  },
+  {
+    "intel_id": "e95f0e61-3b23-4fc4-9d64-252c0bd48063",
+    "league_id": "mens-college-basketball",
+    "home_team": "Hampton Pirates",
+    "away_team": "North Carolina A&T Aggies",
+    "recommended_pick": "North Carolina A&T +5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "North Carolina A&T Aggies"
+    }
+  },
+  {
+    "intel_id": "b73d3e37-d045-4176-8c91-7513684484fa",
+    "league_id": "mens-college-basketball",
+    "home_team": "Saint Joseph's Hawks",
+    "away_team": "St. Bonaventure Bonnies",
+    "recommended_pick": "St. Bonaventure Bonnies +3.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "St. Bonaventure Bonnies"
+    }
+  },
+  {
+    "intel_id": "da2cded9-df44-4dc5-aa99-2aac30bc9b71",
+    "league_id": "mens-college-basketball",
+    "home_team": "Incarnate Word Cardinals",
+    "away_team": "East Texas A&M Lions",
+    "recommended_pick": "Incarnate Word Cardinals -8.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Incarnate Word Cardinals"
+    }
+  },
+  {
+    "intel_id": "ad7fde53-5d8a-48e5-b78a-167195fb70e6",
+    "league_id": "mens-college-basketball",
+    "home_team": "Cal State Bakersfield Roadrunners",
+    "away_team": "UC Santa Barbara Gauchos",
+    "recommended_pick": "Cal State Bakersfield +6.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Cal State Bakersfield +6.5"
+    }
+  },
+  {
+    "intel_id": "55a0cd69-8286-415b-a240-7cf727fee091",
+    "league_id": "mens-college-basketball",
+    "home_team": "App State Mountaineers",
+    "away_team": "James Madison Dukes",
+    "recommended_pick": "App State Mountaineers",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "App State Mountaineers"
+    }
+  },
+  {
+    "intel_id": "8afb9a34-42ed-4014-b3e4-ce17e4727478",
+    "league_id": "mens-college-basketball",
+    "home_team": "Chicago State Cougars",
+    "away_team": "New Haven Chargers",
+    "recommended_pick": "Chicago State Cougars -1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Chicago State Cougars"
+    }
+  },
+  {
+    "intel_id": "ab9c852e-4478-4e5b-ae52-701c13cf51d0",
+    "league_id": "mens-college-basketball",
+    "home_team": "Nicholls Colonels",
+    "away_team": "Stephen F. Austin Lumberjacks",
+    "recommended_pick": "Stephen F. Austin -3.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Stephen F. Austin"
+    }
+  },
+  {
+    "intel_id": "aaacadfc-9645-4f0b-9298-4f8bb109e81b",
+    "league_id": "fra.1",
+    "home_team": "AJ Auxerre",
+    "away_team": "Paris Saint-Germain",
+    "recommended_pick": "Paris Saint-Germain 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Paris Saint-Germain"
+    }
+  },
+  {
+    "intel_id": "7b3a0f74-2a55-46fc-870c-283f6fdcaadf",
+    "league_id": "mens-college-basketball",
+    "home_team": "Sacramento State Hornets",
+    "away_team": "Northern Arizona Lumberjacks",
+    "recommended_pick": "Sacramento State Hornets -3.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Sacramento State Hornets"
+    }
+  },
+  {
+    "intel_id": "3f1a1c8f-bb56-4a98-8373-00ed0b03c0c8",
+    "league_id": "mens-college-basketball",
+    "home_team": "Ball State Cardinals",
+    "away_team": "Ohio Bobcats",
+    "recommended_pick": "Ball State +5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Ball State Cardinals"
+    }
+  },
+  {
+    "intel_id": "923b2b76-39b6-4005-a024-4acb92511223",
+    "league_id": "mens-college-basketball",
+    "home_team": "Stanford Cardinal",
+    "away_team": "Duke Blue Devils",
+    "recommended_pick": "Duke Blue Devils -9.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Duke Blue Devils"
+    }
+  },
+  {
+    "intel_id": "c0de1f0c-96d7-4cfe-bd81-3d4c555004af",
+    "league_id": "mens-college-basketball",
+    "home_team": "Kent State Golden Flashes",
+    "away_team": "Toledo Rockets",
+    "recommended_pick": "Toledo Rockets +5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Toledo Rockets"
+    }
+  },
+  {
+    "intel_id": "d3d3eea0-9114-4ddf-b7c7-b8b94ce927fb",
+    "league_id": "mens-college-basketball",
+    "home_team": "St. Bonaventure Bonnies",
+    "away_team": "Loyola Chicago Ramblers",
+    "recommended_pick": "Loyola Chicago +10.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Loyola Chicago Ramblers"
+    }
+  },
+  {
+    "intel_id": "0c7c5532-2b81-4567-b384-249d8798770a",
+    "league_id": "ligue1",
+    "home_team": "Stade Rennais",
+    "away_team": "Le Havre AC",
+    "recommended_pick": "Stade Rennais ML",
+    "analyzed_spread": null,
+    "pick_result": "PUSH",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Stade Rennais"
+    }
+  },
+  {
+    "intel_id": "1b06f14c-7a7e-49bc-8dd3-dbe58d7b176d",
+    "league_id": "mens-college-basketball",
+    "home_team": "SMU Mustangs",
+    "away_team": "Virginia Cavaliers",
+    "recommended_pick": "Virginia Cavaliers -1.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Virginia Cavaliers"
+    }
+  },
+  {
+    "intel_id": "71cc08f3-8f79-4454-bb9b-e0563b871ca6",
+    "league_id": "mens-college-basketball",
+    "home_team": "Florida Gators",
+    "away_team": "LSU Tigers",
+    "recommended_pick": "LSU Tigers +14.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "LSU Tigers"
+    }
+  },
+  {
+    "intel_id": "d140d744-3f8c-4a67-a071-b0b54ea30d81",
+    "league_id": "mens-college-basketball",
+    "home_team": "Oregon Ducks",
+    "away_team": "Michigan State Spartans",
+    "recommended_pick": "Michigan State -10.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Michigan State Spartans"
+    }
+  },
+  {
+    "intel_id": "5e6450b1-127b-4977-a2b3-c93c37ccf5b4",
+    "league_id": "mens-college-basketball",
+    "home_team": "Ole Miss Rebels",
+    "away_team": "Auburn Tigers",
+    "recommended_pick": "Ole Miss Rebels +2.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Ole Miss Rebels"
+    }
+  },
+  {
+    "intel_id": "69d5b56a-e51a-4af9-8137-f0a8ef022ce1",
+    "league_id": "mens-college-basketball",
+    "home_team": "DePaul Blue Demons",
+    "away_team": "Marquette Golden Eagles",
+    "recommended_pick": "DePaul Blue Demons ML",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "DePaul Blue Demons"
+    }
+  },
+  {
+    "intel_id": "de4ff9a0-7056-451d-879f-349158383cce",
+    "league_id": "mens-college-basketball",
+    "home_team": "Nevada Wolf Pack",
+    "away_team": "San José State Spartans",
+    "recommended_pick": "Nevada -17.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Nevada Wolf Pack"
+    }
+  },
+  {
+    "intel_id": "7e773139-a859-4c4f-a9db-ca4fdc2d45e4",
+    "league_id": "mens-college-basketball",
+    "home_team": "San Diego Toreros",
+    "away_team": "Bethesda University Flames",
+    "recommended_pick": "San Diego Toreros -0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "San Diego Toreros"
+    }
+  },
+  {
+    "intel_id": "a2644e1b-500e-4558-b52b-80246746a7bc",
+    "league_id": "mens-college-basketball",
+    "home_team": "Tulsa Golden Hurricane",
+    "away_team": "Memphis Tigers",
+    "recommended_pick": "Tulsa Golden Hurricane -5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Tulsa Golden Hurricane"
+    }
+  },
+  {
+    "intel_id": "ef7b58b2-8bce-4baf-a4fe-81f91f65b0a9",
+    "league_id": "mens-college-basketball",
+    "home_team": "Nebraska Cornhuskers",
+    "away_team": "Washington Huskies",
+    "recommended_pick": "Nebraska Cornhuskers -11.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Nebraska Cornhuskers"
+    }
+  },
+  {
+    "intel_id": "c95b87ff-ebca-44da-9c05-da542f13af63",
+    "league_id": "mens-college-basketball",
+    "home_team": "Winthrop Eagles",
+    "away_team": "Radford Highlanders",
+    "recommended_pick": "Winthrop Eagles -10",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Winthrop Eagles"
+    }
+  },
+  {
+    "intel_id": "e81f0fc2-4c9e-4074-aa40-f60b8bc882c3",
+    "league_id": "mens-college-basketball",
+    "home_team": "Queens University Royals",
+    "away_team": "North Alabama Lions",
+    "recommended_pick": "North Alabama +12.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "North Alabama Lions"
+    }
+  },
+  {
+    "intel_id": "27baae11-2e8f-43e5-b4ce-34cd70ceace9",
+    "league_id": "mens-college-basketball",
+    "home_team": "Creighton Bluejays",
+    "away_team": "Xavier Musketeers",
+    "recommended_pick": "Xavier Musketeers +7.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Xavier Musketeers"
+    }
+  },
+  {
+    "intel_id": "d98f5c54-703d-42b3-a1a3-ecb3f7cb0e54",
+    "league_id": "mens-college-basketball",
+    "home_team": "Chattanooga Mocs",
+    "away_team": "East Tennessee State Buccaneers",
+    "recommended_pick": "Chattanooga Mocs +5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Chattanooga Mocs"
+    }
+  },
+  {
+    "intel_id": "a392282e-f3a1-4275-904f-20228e163383",
+    "league_id": "mens-college-basketball",
+    "home_team": "Wright State Raiders",
+    "away_team": "Cleveland State Vikings",
+    "recommended_pick": "Wright State Raiders -16.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Wright State Raiders"
+    }
+  },
+  {
+    "intel_id": "11448e5b-c920-47f1-8321-d06ea5acd1e8",
+    "league_id": "mens-college-basketball",
+    "home_team": "Manhattan Jaspers",
+    "away_team": "Siena Saints",
+    "recommended_pick": "Siena Saints PK",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "MONEYLINE",
+      "selection": "Siena Saints"
+    }
+  },
+  {
+    "intel_id": "a4d22226-5f21-4d13-a837-08cb96d241b5",
+    "league_id": "mens-college-basketball",
+    "home_team": "Kennesaw State Owls",
+    "away_team": "Florida International Panthers",
+    "recommended_pick": "Kennesaw State -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Kennesaw State -2.6"
+    }
+  },
+  {
+    "intel_id": "859f1d6f-b0fd-4dbb-ac76-e82e76956a00",
+    "league_id": "mens-college-basketball",
+    "home_team": "Illinois Fighting Illini",
+    "away_team": "Minnesota Golden Gophers",
+    "recommended_pick": "Illinois Fighting Illini -16.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Illinois Fighting Illini"
+    }
+  },
+  {
+    "intel_id": "0936908e-cccd-470b-8a12-6a1da015e9eb",
+    "league_id": "mens-college-basketball",
+    "home_team": "California Baptist Lancers",
+    "away_team": "Utah Tech Trailblazers",
+    "recommended_pick": "California Baptist -8.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "California Baptist Lancers"
+    }
+  },
+  {
+    "intel_id": "d811faab-b08d-4517-b55d-8b59bf9729fd",
+    "league_id": "mens-college-basketball",
+    "home_team": "Chicago State Cougars",
+    "away_team": "Le Moyne Dolphins",
+    "recommended_pick": "Le Moyne Dolphins +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Le Moyne Dolphins"
+    }
+  },
+  {
+    "intel_id": "983a8954-414e-41d8-8a9b-e0125db4b32c",
+    "league_id": "mens-college-basketball",
+    "home_team": "Brown Bears",
+    "away_team": "Columbia Lions",
+    "recommended_pick": "Columbia Lions +0",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Columbia Lions"
+    }
+  },
+  {
+    "intel_id": "2758365f-ce07-41d2-8be8-d4aa5edb3911",
+    "league_id": "mens-college-basketball",
+    "home_team": "Fairleigh Dickinson Knights",
+    "away_team": "Long Island University Sharks",
+    "recommended_pick": "LIU Sharks +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Long Island University Sharks"
+    }
+  },
+  {
+    "intel_id": "5ff0d6e5-bced-44ad-b656-ae80b8ad665b",
+    "league_id": "mens-college-basketball",
+    "home_team": "Delaware Blue Hens",
+    "away_team": "New Mexico State Aggies",
+    "recommended_pick": "New Mexico State Aggies +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "New Mexico State Aggies"
+    }
+  },
+  {
+    "intel_id": "123340e3-20f9-4b48-9925-a921f3d9d884",
+    "league_id": "mens-college-basketball",
+    "home_team": "Clemson Tigers",
+    "away_team": "Miami Hurricanes",
+    "recommended_pick": "Clemson Tigers -4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Clemson Tigers"
+    }
+  },
+  {
+    "intel_id": "374810af-7a5b-4271-929c-e5d7befbe13a",
+    "league_id": "mens-college-basketball",
+    "home_team": "South Dakota State Jackrabbits",
+    "away_team": "Kansas City Roos",
+    "recommended_pick": "South Dakota State Jackrabbits +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "South Dakota State Jackrabbits"
+    }
+  },
+  {
+    "intel_id": "41fec376-1fcb-4e3c-953a-3a8676c06faa",
+    "league_id": "mens-college-basketball",
+    "home_team": "Grand Canyon Lopes",
+    "away_team": "Utah State Aggies",
+    "recommended_pick": "Utah State Aggies +0",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Utah State Aggies"
+    }
+  },
+  {
+    "intel_id": "17e54bdc-3818-4e01-a463-ae5744dd8ec2",
+    "league_id": "mens-college-basketball",
+    "home_team": "Santa Clara Broncos",
+    "away_team": "Saint Mary's Gaels",
+    "recommended_pick": "Santa Clara Broncos PK",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Santa Clara Broncos"
+    }
+  },
+  {
+    "intel_id": "4aae16f1-f464-4b03-adad-52c2f73fc4c1",
+    "league_id": "mens-college-basketball",
+    "home_team": "Missouri Tigers",
+    "away_team": "Auburn Tigers",
+    "recommended_pick": "Auburn Tigers +1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Auburn Tigers"
+    }
+  },
+  {
+    "intel_id": "8c97da0c-7386-4aa4-9710-d644e4ed5d26",
+    "league_id": "mens-college-basketball",
+    "home_team": "Valparaiso Beacons",
+    "away_team": "Northern Iowa Panthers",
+    "recommended_pick": "Northern Iowa -1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Northern Iowa"
+    }
+  },
+  {
+    "intel_id": "d39eba83-51bb-4d2b-bbf3-5f3953deb2bb",
+    "league_id": "mens-college-basketball",
+    "home_team": "Maine Black Bears",
+    "away_team": "UAlbany Great Danes",
+    "recommended_pick": "Maine Black Bears +5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Maine Black Bears"
+    }
+  },
+  {
+    "intel_id": "9aa202b2-ffab-4a47-9f40-c71ac8b7c74c",
+    "league_id": "mens-college-basketball",
+    "home_team": "UC Santa Barbara Gauchos",
+    "away_team": "Cal Poly Mustangs",
+    "recommended_pick": "UC Santa Barbara -8.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "UC Santa Barbara"
+    }
+  },
+  {
+    "intel_id": "1811190d-a657-4c02-b37d-0d48cf06e500",
+    "league_id": "mens-college-basketball",
+    "home_team": "St. Thomas-Minnesota Tommies",
+    "away_team": "South Dakota State Jackrabbits",
+    "recommended_pick": "South Dakota State +7.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "South Dakota State Jackrabbits"
+    }
+  },
+  {
+    "intel_id": "7efe6588-76f2-45e4-ac21-f00d9d6511e1",
+    "league_id": "mens-college-basketball",
+    "home_team": "The Citadel Bulldogs",
+    "away_team": "Furman Paladins",
+    "recommended_pick": "The Citadel +10.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "The Citadel Bulldogs"
+    }
+  },
+  {
+    "intel_id": "3252f439-e85c-4f3c-a756-50d78d45f973",
+    "league_id": "mens-college-basketball",
+    "home_team": "App State Mountaineers",
+    "away_team": "Louisiana Ragin' Cajuns",
+    "recommended_pick": "Louisiana Ragin' Cajuns +8.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Louisiana Ragin' Cajuns"
+    }
+  },
+  {
+    "intel_id": "fdff6fd9-0a99-4a9b-b483-40b267e1b7c2",
+    "league_id": "mens-college-basketball",
+    "home_team": "Texas Longhorns",
+    "away_team": "Texas A&M Aggies",
+    "recommended_pick": "Texas Longhorns -4.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Texas Longhorns"
+    }
+  },
+  {
+    "intel_id": "d8826947-e758-4bfc-8e96-81c5c88d7bad",
+    "league_id": "mens-college-basketball",
+    "home_team": "Hofstra Pride",
+    "away_team": "Elon Phoenix",
+    "recommended_pick": "Elon Phoenix +6.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Elon Phoenix"
+    }
+  },
+  {
+    "intel_id": "6307da64-f086-4a2f-b991-9bd7d2bb501f",
+    "league_id": "mens-college-basketball",
+    "home_team": "Fairfield Stags",
+    "away_team": "Niagara Purple Eagles",
+    "recommended_pick": "Fairfield Stags -10.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Fairfield Stags"
+    }
+  },
+  {
+    "intel_id": "4f9e21e2-4e94-4f9e-80c5-e98be856ecd3",
+    "league_id": "mens-college-basketball",
+    "home_team": "Charleston Cougars",
+    "away_team": "Campbell Fighting Camels",
+    "recommended_pick": "Charleston Cougars -3.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Charleston Cougars"
+    }
+  },
+  {
+    "intel_id": "d25ff117-58d1-4339-bcfb-dc69c81624e7",
+    "league_id": "mens-college-basketball",
+    "home_team": "Northeastern Huskies",
+    "away_team": "Stony Brook Seawolves",
+    "recommended_pick": "Stony Brook +3.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Stony Brook Seawolves"
+    }
+  },
+  {
+    "intel_id": "cde6451d-f832-4f61-bfe9-b4ddc6a1a10f",
+    "league_id": "mens-college-basketball",
+    "home_team": "North Florida Ospreys",
+    "away_team": "Eastern Kentucky Colonels",
+    "recommended_pick": "North Florida +7.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "North Florida Ospreys"
+    }
+  },
+  {
+    "intel_id": "a4b3e3c4-73fd-4b46-9b23-7d2e9745c4f0",
+    "league_id": "nhl",
+    "home_team": "Winnipeg Jets",
+    "away_team": "St. Louis Blues",
+    "recommended_pick": "Winnipeg Jets PK (-110)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Winnipeg Jets"
+    }
+  },
+  {
+    "intel_id": "1ab9cb70-740e-44f8-9e2d-566c0d4270ba",
+    "league_id": "uefa.champions",
+    "home_team": "Olympiacos",
+    "away_team": "Bayer Leverkusen",
+    "recommended_pick": "Bayer Leverkusen +0 Spread",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Bayer Leverkusen"
+    }
+  },
+  {
+    "intel_id": "f9310754-2377-40ba-8381-45d78ad9a522",
+    "league_id": "mens-college-basketball",
+    "home_team": "Hawai'i Rainbow Warriors",
+    "away_team": "Cal State Bakersfield Roadrunners",
+    "recommended_pick": "Cal State Bakersfield +15.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Cal State Bakersfield Roadrunners"
+    }
+  },
+  {
+    "intel_id": "d7ee66f7-bb2d-459a-8fc5-b17551ad7339",
+    "league_id": "mens-college-basketball",
+    "home_team": "UMBC Retrievers",
+    "away_team": "NJIT Highlanders",
+    "recommended_pick": "NJIT Highlanders +7.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "NJIT Highlanders"
+    }
+  },
+  {
+    "intel_id": "450f350c-8dae-4a3f-8304-2bf06563b7b1",
+    "league_id": "mens-college-basketball",
+    "home_team": "UC Riverside Highlanders",
+    "away_team": "UC Irvine Anteaters",
+    "recommended_pick": "UC Irvine -8.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "UC Irvine"
+    }
+  },
+  {
+    "intel_id": "ac5e3600-b74f-4f3e-aae8-845d79bc92a4",
+    "league_id": "mens-college-basketball",
+    "home_team": "Mississippi State Bulldogs",
+    "away_team": "Ole Miss Rebels",
+    "recommended_pick": "Ole Miss Rebels +3.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Ole Miss Rebels"
+    }
+  },
+  {
+    "intel_id": "460028b8-9755-4d16-9b62-33b2c47aff72",
+    "league_id": "mens-college-basketball",
+    "home_team": "Lipscomb Bisons",
+    "away_team": "Stetson Hatters",
+    "recommended_pick": "Stetson Hatters +14.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Stetson Hatters"
+    }
+  },
+  {
+    "intel_id": "ef1bc8f9-f149-45b8-abf9-31604ffa7937",
+    "league_id": "mens-college-basketball",
+    "home_team": "UTEP Miners",
+    "away_team": "Florida International Panthers",
+    "recommended_pick": "UTEP Miners +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "UTEP Miners"
+    }
+  },
+  {
+    "intel_id": "b532d127-22f3-45c8-ada3-dc3f2bcd4878",
+    "league_id": "mens-college-basketball",
+    "home_team": "Texas A&M Aggies",
+    "away_team": "Mississippi State Bulldogs",
+    "recommended_pick": "Mississippi State +8.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Mississippi State Bulldogs"
+    }
+  },
+  {
+    "intel_id": "13de31e4-5704-4d47-bac0-48f54df6b2c0",
+    "league_id": "mens-college-basketball",
+    "home_team": "Western Carolina Catamounts",
+    "away_team": "East Tennessee State Buccaneers",
+    "recommended_pick": "Western Carolina -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Western Carolina -2.6"
+    }
+  },
+  {
+    "intel_id": "4195dc92-a109-4a32-bd98-d7c2ff298ad5",
+    "league_id": "mens-college-basketball",
+    "home_team": "North Dakota State Bison",
+    "away_team": "St. Thomas-Minnesota Tommies",
+    "recommended_pick": "North Dakota State Bison -1.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "North Dakota State Bison"
+    }
+  },
+  {
+    "intel_id": "42afced4-d273-4a0c-a424-236782732991",
+    "league_id": "mens-college-basketball",
+    "home_team": "Charlotte 49ers",
+    "away_team": "Tulsa Golden Hurricane",
+    "recommended_pick": "Charlotte 49ers +4.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Charlotte 49ers"
+    }
+  },
+  {
+    "intel_id": "f8231969-429d-4c7c-aa6d-b33e4682e6e1",
+    "league_id": "mens-college-basketball",
+    "home_team": "UNC Greensboro Spartans",
+    "away_team": "Mercer Bears",
+    "recommended_pick": "Mercer Bears -6.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Mercer Bears"
+    }
+  },
+  {
+    "intel_id": "fb773d47-8706-47c8-bdd4-62c0e02a60b6",
+    "league_id": "mens-college-basketball",
+    "home_team": "Loyola Marymount Lions",
+    "away_team": "Portland Pilots",
+    "recommended_pick": "Loyola Marymount Lions -8.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Loyola Marymount Lions"
+    }
+  },
+  {
+    "intel_id": "c61d4ddb-823a-49f2-9c9b-b499ec39c21a",
+    "league_id": "mens-college-basketball",
+    "home_team": "South Alabama Jaguars",
+    "away_team": "Louisiana Ragin' Cajuns",
+    "recommended_pick": "South Alabama -9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "South Alabama Jaguars"
+    }
+  },
+  {
+    "intel_id": "8e4d2bf9-1dce-44ee-b639-06f3e224edf0",
+    "league_id": "mens-college-basketball",
+    "home_team": "Kansas State Wildcats",
+    "away_team": "Utah Utes",
+    "recommended_pick": "Kansas State Wildcats -8.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Kansas State Wildcats"
+    }
+  },
+  {
+    "intel_id": "9f5f716d-5f9b-4bc2-aa22-c5db1cf42199",
+    "league_id": "mens-college-basketball",
+    "home_team": "Georgia Tech Yellow Jackets",
+    "away_team": "Pittsburgh Panthers",
+    "recommended_pick": "Pittsburgh Panthers (-2.6)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Pittsburgh Panthers"
+    }
+  },
+  {
+    "intel_id": "64d459a4-5fbc-4a91-bf99-adc1518483ad",
+    "league_id": "mens-college-basketball",
+    "home_team": "Western Kentucky Hilltoppers",
+    "away_team": "Kennesaw State Owls",
+    "recommended_pick": "Western Kentucky -7.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Western Kentucky Hilltoppers"
+    }
+  },
+  {
+    "intel_id": "c4f3992b-3b79-40c6-b968-97f2c571f3cd",
+    "league_id": "mens-college-basketball",
+    "home_team": "Austin Peay Governors",
+    "away_team": "Florida Gulf Coast Eagles",
+    "recommended_pick": "Austin Peay -5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Austin Peay Governors"
+    }
+  },
+  {
+    "intel_id": "960728d0-3d3f-4ea2-bd3a-f7861cfb4ede",
+    "league_id": "mens-college-basketball",
+    "home_team": "Rider Broncs",
+    "away_team": "Iona Gaels",
+    "recommended_pick": "Iona Gaels -8.5 (Projected)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Iona Gaels"
+    }
+  },
+  {
+    "intel_id": "93b9e4ff-ee0d-42df-83ae-f55655c4130c",
+    "league_id": "mens-college-basketball",
+    "home_team": "Little Rock Trojans",
+    "away_team": "Eastern Illinois Panthers",
+    "recommended_pick": "Little Rock Trojans -6.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Little Rock Trojans -6.5"
+    }
+  },
+  {
+    "intel_id": "dcb0d468-98fa-4da2-a69c-9233ee6428ce",
+    "league_id": "mens-college-basketball",
+    "home_team": "Western Kentucky Hilltoppers",
+    "away_team": "Missouri State Bears",
+    "recommended_pick": "Western Kentucky -2.6 (Valuation)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Western Kentucky -2.6"
+    }
+  },
+  {
+    "intel_id": "03b4c795-6a9d-4968-975d-d3fdb15101c1",
+    "league_id": "mens-college-basketball",
+    "home_team": "Stony Brook Seawolves",
+    "away_team": "Hofstra Pride",
+    "recommended_pick": "Stony Brook Seawolves +7.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Stony Brook Seawolves"
+    }
+  },
+  {
+    "intel_id": "9efac99d-c41f-44c5-b2bf-600a7eba40e8",
+    "league_id": "mens-college-basketball",
+    "home_team": "UC Riverside Highlanders",
+    "away_team": "Cal State Fullerton Titans",
+    "recommended_pick": "Cal State Fullerton -3.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Cal State Fullerton"
+    }
+  },
+  {
+    "intel_id": "302f079e-0ce9-4f96-828b-b5fefbe966cf",
+    "league_id": "mens-college-basketball",
+    "home_team": "Morgan State Bears",
+    "away_team": "Virginia-Lynchburg Dragons",
+    "recommended_pick": "Morgan State -0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Morgan State Bears"
+    }
+  },
+  {
+    "intel_id": "cfc1329e-fe72-4871-a40b-5e7dd03c635d",
+    "league_id": "uefa.champions",
+    "home_team": "F.C. København",
+    "away_team": "Napoli",
+    "recommended_pick": "Napoli +0",
+    "analyzed_spread": null,
+    "pick_result": "PUSH",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Napoli"
+    }
+  },
+  {
+    "intel_id": "49b72ae5-f6cd-40c7-a99a-d1f330352e88",
+    "league_id": "mens-college-basketball",
+    "home_team": "Kansas Jayhawks",
+    "away_team": "Baylor Bears",
+    "recommended_pick": "Baylor Bears +7.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Baylor Bears"
+    }
+  },
+  {
+    "intel_id": "182ca8ef-81ea-4f12-92b8-47d1e5df70e7",
+    "league_id": "mens-college-basketball",
+    "home_team": "New Orleans Privateers",
+    "away_team": "Stephen F. Austin Lumberjacks",
+    "recommended_pick": "New Orleans Privateers +6.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "New Orleans Privateers"
+    }
+  },
+  {
+    "intel_id": "537e86b7-c7b8-48c3-ac4a-0de131b63e2e",
+    "league_id": "mens-college-basketball",
+    "home_team": "Georgetown Hoyas",
+    "away_team": "UConn Huskies",
+    "recommended_pick": "UConn Huskies -12.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "UConn Huskies"
+    }
+  },
+  {
+    "intel_id": "9212093e-036d-4065-b7a2-2741fbc05c64",
+    "league_id": "mens-college-basketball",
+    "home_team": "Ohio State Buckeyes",
+    "away_team": "UCLA Bruins",
+    "recommended_pick": "UCLA Bruins +4.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "UCLA Bruins"
+    }
+  },
+  {
+    "intel_id": "05c8796f-803f-4f58-92ed-4204f1c731db",
+    "league_id": "mens-college-basketball",
+    "home_team": "Boise State Broncos",
+    "away_team": "Colorado State Rams",
+    "recommended_pick": "Colorado State Rams +5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Colorado State Rams"
+    }
+  },
+  {
+    "intel_id": "68f3e0a6-1089-480c-8b0a-9f295f298e40",
+    "league_id": "mens-college-basketball",
+    "home_team": "Arizona Wildcats",
+    "away_team": "Arizona State Sun Devils",
+    "recommended_pick": "Arizona State Sun Devils +5.2 (Implied)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Arizona State Sun Devils"
+    }
+  },
+  {
+    "intel_id": "f9583b8e-e6e9-4fcd-b972-d6274e927b93",
+    "league_id": "mens-college-basketball",
+    "home_team": "Siena Saints",
+    "away_team": "Sacred Heart Pioneers",
+    "recommended_pick": "Siena Saints -2.6",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Siena Saints -2.6"
+    }
+  },
+  {
+    "intel_id": "ebc39909-ba9e-4278-a84c-974dbc2dcd87",
+    "league_id": "mens-college-basketball",
+    "home_team": "Kentucky Wildcats",
+    "away_team": "Texas Longhorns",
+    "recommended_pick": "Texas Longhorns +7.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Texas Longhorns"
+    }
+  },
+  {
+    "intel_id": "af7d3f58-2443-45c2-9333-8eefacfcd25f",
+    "league_id": "mens-college-basketball",
+    "home_team": "Austin Peay Governors",
+    "away_team": "Stetson Hatters",
+    "recommended_pick": "Austin Peay -13.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Austin Peay Governors"
+    }
+  },
+  {
+    "intel_id": "c2f213c3-b99b-471f-926b-0d6cfa6b62e9",
+    "league_id": "mens-college-basketball",
+    "home_team": "Wofford Terriers",
+    "away_team": "Samford Bulldogs",
+    "recommended_pick": "Samford Bulldogs +4.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Samford Bulldogs"
+    }
+  },
+  {
+    "intel_id": "af679e6a-2751-42a9-b806-8075f79de059",
+    "league_id": "mens-college-basketball",
+    "home_team": "Louisiana Tech Bulldogs",
+    "away_team": "Kennesaw State Owls",
+    "recommended_pick": "Louisiana Tech -0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Louisiana Tech Bulldogs"
+    }
+  },
+  {
+    "intel_id": "b1889e98-514b-4530-aa22-d5004d507849",
+    "league_id": "mens-college-basketball",
+    "home_team": "UMass Lowell River Hawks",
+    "away_team": "NJIT Highlanders",
+    "recommended_pick": "UMass Lowell River Hawks",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "UMass Lowell River Hawks"
+    }
+  },
+  {
+    "intel_id": "dbd1b118-3f9e-48e7-aeca-2131f60eff97",
+    "league_id": "mens-college-basketball",
+    "home_team": "App State Mountaineers",
+    "away_team": "UL Monroe Warhawks",
+    "recommended_pick": "App State Mountaineers -14.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "App State Mountaineers"
+    }
+  },
+  {
+    "intel_id": "7de395ec-f3c3-417f-8069-9509d58e7c1c",
+    "league_id": "mens-college-basketball",
+    "home_team": "Navy Midshipmen",
+    "away_team": "Holy Cross Crusaders",
+    "recommended_pick": "Holy Cross +9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Holy Cross Crusaders"
+    }
+  },
+  {
+    "intel_id": "43e7e78c-fa6d-4b1d-8146-bce27e97b538",
+    "league_id": "bundesliga",
+    "home_team": "VfL Wolfsburg",
+    "away_team": "St. Pauli",
+    "recommended_pick": "VfL Wolfsburg Moneyline (-110)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "VfL Wolfsburg"
+    }
+  },
+  {
+    "intel_id": "bf0fe317-3318-492d-ab84-f258c5a4e7f4",
+    "league_id": "fra.1",
+    "home_team": "Paris FC",
+    "away_team": "Angers",
+    "recommended_pick": "Paris FC 0",
+    "analyzed_spread": null,
+    "pick_result": "PUSH",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Paris FC"
+    }
+  },
+  {
+    "intel_id": "7d02be50-389d-4cbc-9758-c0a9ce132f08",
+    "league_id": "mens-college-basketball",
+    "home_team": "USC Trojans",
+    "away_team": "Purdue Boilermakers",
+    "recommended_pick": "USC Trojans +9.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "USC Trojans"
+    }
+  },
+  {
+    "intel_id": "985532f2-e58e-4469-8987-bc5d634d7bb9",
+    "league_id": "mens-college-basketball",
+    "home_team": "Buffalo Bulls",
+    "away_team": "Akron Zips",
+    "recommended_pick": "Buffalo Bulls +8.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Buffalo Bulls"
+    }
+  },
+  {
+    "intel_id": "c7a21037-a117-45ef-9352-85f24a21d502",
+    "league_id": "uefa.champions",
+    "home_team": "Kairat Almaty",
+    "away_team": "Club Brugge",
+    "recommended_pick": "Club Brugge +0 (PK)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Club Brugge"
+    }
+  },
+  {
+    "intel_id": "a5599559-2ed2-4627-9d59-49f36f3721eb",
+    "league_id": "mens-college-basketball",
+    "home_team": "Coastal Carolina Chanticleers",
+    "away_team": "Texas State Bobcats",
+    "recommended_pick": "Coastal Carolina -2.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Coastal Carolina Chanticleers"
+    }
+  },
+  {
+    "intel_id": "d97f2641-3d4d-4eef-9c55-5fdc3d3b75ba",
+    "league_id": "mens-college-basketball",
+    "home_team": "Butler Bulldogs",
+    "away_team": "Marquette Golden Eagles",
+    "recommended_pick": "Butler Bulldogs 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Butler Bulldogs"
+    }
+  },
+  {
+    "intel_id": "15fefd4f-e659-45d1-8224-8405ec378388",
+    "league_id": "mens-college-basketball",
+    "home_team": "Idaho State Bengals",
+    "away_team": "Eastern Washington Eagles",
+    "recommended_pick": "Idaho State Bengals -5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Idaho State Bengals"
+    }
+  },
+  {
+    "intel_id": "df98b5c6-4801-4fd5-881f-b054e5c16fc0",
+    "league_id": "mens-college-basketball",
+    "home_team": "Stanford Cardinal",
+    "away_team": "North Carolina Tar Heels",
+    "recommended_pick": "Stanford -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Stanford -2.6"
+    }
+  },
+  {
+    "intel_id": "2b8b8cf3-caf9-432b-ab85-4934d58798ec",
+    "league_id": "mens-college-basketball",
+    "home_team": "Abilene Christian Wildcats",
+    "away_team": "California Baptist Lancers",
+    "recommended_pick": "Abilene Christian Wildcats -1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Abilene Christian Wildcats -1.5"
+    }
+  },
+  {
+    "intel_id": "13018394-61d5-4499-8fb7-a16df3db10be",
+    "league_id": "mens-college-basketball",
+    "home_team": "Arizona Wildcats",
+    "away_team": "Cincinnati Bearcats",
+    "recommended_pick": "Cincinnati Bearcats +13.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Cincinnati Bearcats"
+    }
+  },
+  {
+    "intel_id": "cd7c5c61-9bbd-4790-9133-6e86c57cc724",
+    "league_id": "mens-college-basketball",
+    "home_team": "South Alabama Jaguars",
+    "away_team": "Arkansas State Red Wolves",
+    "recommended_pick": "South Alabama Jaguars +3.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "South Alabama Jaguars"
+    }
+  },
+  {
+    "intel_id": "442cd597-c5d6-4194-8d5f-8acf083723f2",
+    "league_id": "mens-college-basketball",
+    "home_team": "Furman Paladins",
+    "away_team": "Wofford Terriers",
+    "recommended_pick": "Wofford Terriers +5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Wofford Terriers"
+    }
+  },
+  {
+    "intel_id": "520f8c7f-bae0-46d4-8cb9-d2aaeea2ad26",
+    "league_id": "mens-college-basketball",
+    "home_team": "Oregon Ducks",
+    "away_team": "Michigan Wolverines",
+    "recommended_pick": "Michigan Wolverines -18.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Michigan Wolverines"
+    }
+  },
+  {
+    "intel_id": "528fd00e-0b6a-4a08-b425-5682e5f3aba6",
+    "league_id": "mens-college-basketball",
+    "home_team": "Jacksonville State Gamecocks",
+    "away_team": "Louisiana Tech Bulldogs",
+    "recommended_pick": "Jacksonville State -4.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Jacksonville State Gamecocks"
+    }
+  },
+  {
+    "intel_id": "fb950966-4210-4ff1-baf9-ca1a96bfbc59",
+    "league_id": "mens-college-basketball",
+    "home_team": "Illinois State Redbirds",
+    "away_team": "Northern Iowa Panthers",
+    "recommended_pick": "Illinois State -6.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Illinois State Redbirds"
+    }
+  },
+  {
+    "intel_id": "8dced4d8-46a9-46a0-992d-4aa86b682717",
+    "league_id": "mens-college-basketball",
+    "home_team": "Milwaukee Panthers",
+    "away_team": "Oakland Golden Grizzlies",
+    "recommended_pick": "Milwaukee Panthers +3.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Milwaukee Panthers +3.5"
+    }
+  },
+  {
+    "intel_id": "778edb8c-d2da-45ee-bba0-1b70ac8e920e",
+    "league_id": "mens-college-basketball",
+    "home_team": "Florida Atlantic Owls",
+    "away_team": "Tulane Green Wave",
+    "recommended_pick": "Tulane Green Wave +10.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Tulane Green Wave"
+    }
+  },
+  {
+    "intel_id": "21edf30f-e57b-49a1-ad56-9c2e27c9407c",
+    "league_id": "mens-college-basketball",
+    "home_team": "California Golden Bears",
+    "away_team": "Duke Blue Devils",
+    "recommended_pick": "California -2.6",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "California -2.6"
+    }
+  },
+  {
+    "intel_id": "ab396d8e-64ae-4bd2-8a16-723150b5c978",
+    "league_id": "mens-college-basketball",
+    "home_team": "Indiana State Sycamores",
+    "away_team": "Illinois State Redbirds",
+    "recommended_pick": "Indiana State Sycamores (-2.6 Valuation)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Indiana State Sycamores"
+    }
+  },
+  {
+    "intel_id": "5b109f06-a990-41b7-bbe2-f1801a11bd8f",
+    "league_id": "mens-college-basketball",
+    "home_team": "Tennessee Tech Golden Eagles",
+    "away_team": "Southern Indiana Screaming Eagles",
+    "recommended_pick": "Tennessee Tech -5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Tennessee Tech -5.5"
+    }
+  },
+  {
+    "intel_id": "753f2252-db46-4567-bec9-331ea7230108",
+    "league_id": "mens-college-basketball",
+    "home_team": "Grand Canyon Lopes",
+    "away_team": "San Diego State Aztecs",
+    "recommended_pick": "San Diego State +0",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "San Diego State"
+    }
+  },
+  {
+    "intel_id": "743ce151-d117-495a-aacc-24e8e007b0f1",
+    "league_id": "mens-college-basketball",
+    "home_team": "Montana State Bobcats",
+    "away_team": "Idaho State Bengals",
+    "recommended_pick": "Idaho State Bengals +6.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Idaho State Bengals"
+    }
+  },
+  {
+    "intel_id": "507cf7e1-c742-4b8f-be4e-1a90dfa486fa",
+    "league_id": "nba",
+    "home_team": "LA Clippers",
+    "away_team": "Los Angeles Lakers",
+    "recommended_pick": "LA Clippers PK",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "LA Clippers"
+    }
+  },
+  {
+    "intel_id": "1d5e6ef5-ffe7-4f94-bfba-ee6526127fa3",
+    "league_id": "mens-college-basketball",
+    "home_team": "VMI Keydets",
+    "away_team": "The Citadel Bulldogs",
+    "recommended_pick": "VMI Keydets -5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "VMI Keydets"
+    }
+  },
+  {
+    "intel_id": "a1f1fe8b-b15b-4905-8265-a2ebc2b8f9f4",
+    "league_id": "mens-college-basketball",
+    "home_team": "Mercer Bears",
+    "away_team": "Western Carolina Catamounts",
+    "recommended_pick": "Western Carolina +10.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Western Carolina Catamounts"
+    }
+  },
+  {
+    "intel_id": "15d42ec2-471c-4138-83e7-80ae2d3d1a12",
+    "league_id": "mens-college-basketball",
+    "home_team": "Fresno State Bulldogs",
+    "away_team": "Wyoming Cowboys",
+    "recommended_pick": "Fresno State Bulldogs +2.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Fresno State Bulldogs"
+    }
+  },
+  {
+    "intel_id": "df448493-b230-4491-aced-713448adc3a2",
+    "league_id": "bundesliga",
+    "home_team": "Hamburg SV",
+    "away_team": "Borussia Mönchengladbach",
+    "recommended_pick": "Hamburg SV +0",
+    "analyzed_spread": null,
+    "pick_result": "PUSH",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Hamburg SV"
+    }
+  },
+  {
+    "intel_id": "40dd2b06-3272-4643-8474-67827f418e9a",
+    "league_id": "mens-college-basketball",
+    "home_team": "North Alabama Lions",
+    "away_team": "North Florida Ospreys",
+    "recommended_pick": "North Alabama Lions -9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "North Alabama Lions -9.5"
+    }
+  },
+  {
+    "intel_id": "71b2fb3f-d6b6-419c-be93-55efeb201110",
+    "league_id": "mens-college-basketball",
+    "home_team": "Presbyterian Blue Hose",
+    "away_team": "Charleston Southern Buccaneers",
+    "recommended_pick": "Charleston Southern -1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Charleston Southern"
+    }
+  },
+  {
+    "intel_id": "a4392550-f0cd-4686-b114-b0e4c30132fe",
+    "league_id": "mens-college-basketball",
+    "home_team": "Rice Owls",
+    "away_team": "Temple Owls",
+    "recommended_pick": "Rice Owls -1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Rice Owls"
+    }
+  },
+  {
+    "intel_id": "1ea162f6-8d26-4340-8f45-36f7e00491f3",
+    "league_id": "mens-college-basketball",
+    "home_team": "Georgia Bulldogs",
+    "away_team": "Ole Miss Rebels",
+    "recommended_pick": "Ole Miss Rebels +10.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Ole Miss"
+    }
+  },
+  {
+    "intel_id": "c4d8939c-c075-4281-85a3-fb25aeda76d9",
+    "league_id": "mens-college-basketball",
+    "home_team": "East Tennessee State Buccaneers",
+    "away_team": "The Citadel Bulldogs",
+    "recommended_pick": "East Tennessee State 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "East Tennessee State"
+    }
+  },
+  {
+    "intel_id": "9604ce81-e225-42b4-b3ed-98c9493c4bfd",
+    "league_id": "mens-college-basketball",
+    "home_team": "Penn State Nittany Lions",
+    "away_team": "UCLA Bruins",
+    "recommended_pick": "UCLA -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "UCLA -2.6"
+    }
+  },
+  {
+    "intel_id": "86a099f2-fc59-4650-b0eb-eb9c170587ba",
+    "league_id": "mens-college-basketball",
+    "home_team": "Bradley Braves",
+    "away_team": "Indiana State Sycamores",
+    "recommended_pick": "Indiana State Sycamores +8.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Indiana State Sycamores"
+    }
+  },
+  {
+    "intel_id": "8be2d558-3225-46f3-be34-0a2e2e4642f5",
+    "league_id": "mens-college-basketball",
+    "home_team": "Utah State Aggies",
+    "away_team": "UNLV Rebels",
+    "recommended_pick": "Utah State -16.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Utah State Aggies"
+    }
+  },
+  {
+    "intel_id": "59ff9850-9b9a-4372-9b46-b4254d8248c2",
+    "league_id": "mens-college-basketball",
+    "home_team": "UNC Greensboro Spartans",
+    "away_team": "Furman Paladins",
+    "recommended_pick": "Furman Paladins 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Furman Paladins"
+    }
+  },
+  {
+    "intel_id": "fe77338f-266b-40cc-b879-b65f6be7671c",
+    "league_id": "mens-college-basketball",
+    "home_team": "Ohio Bobcats",
+    "away_team": "Akron Zips",
+    "recommended_pick": "Akron Zips 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Akron Zips"
+    }
+  },
+  {
+    "intel_id": "fbdaa65d-7a79-4440-a8a0-817b457482dc",
+    "league_id": "caf.nations",
+    "home_team": "Senegal",
+    "away_team": "Morocco",
+    "recommended_pick": "Morocco PK (Spread 0)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Morocco"
+    }
+  },
+  {
+    "intel_id": "2be6f332-6a40-4c67-b871-93bd48bc6dda",
+    "league_id": "mens-college-basketball",
+    "home_team": "Houston Christian Huskies",
+    "away_team": "Northwestern State Demons",
+    "recommended_pick": "Houston Christian Huskies +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Houston Christian Huskies"
+    }
+  },
+  {
+    "intel_id": "f19b0b3d-9787-42e6-8d6d-b3e6f6cbf49f",
+    "league_id": "mens-college-basketball",
+    "home_team": "UL Monroe Warhawks",
+    "away_team": "Georgia State Panthers",
+    "recommended_pick": "UL Monroe +5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "UL Monroe Warhawks"
+    }
+  },
+  {
+    "intel_id": "9287b7a5-b947-4942-ada6-f80576c07dea",
+    "league_id": "mens-college-basketball",
+    "home_team": "Florida Atlantic Owls",
+    "away_team": "Wichita State Shockers",
+    "recommended_pick": "Florida Atlantic Owls -5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Florida Atlantic Owls"
+    }
+  },
+  {
+    "intel_id": "133dbbeb-6aea-4356-9b77-0f801c21f872",
+    "league_id": "mens-college-basketball",
+    "home_team": "Utah Tech Trailblazers",
+    "away_team": "UT Arlington Mavericks",
+    "recommended_pick": "Utah Tech Trailblazers",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Utah Tech Trailblazers"
+    }
+  },
+  {
+    "intel_id": "646592b6-1b9b-44d6-a6ce-767a90a75ed8",
+    "league_id": "mens-college-basketball",
+    "home_team": "Fairleigh Dickinson Knights",
+    "away_team": "Wagner Seahawks",
+    "recommended_pick": "Wagner Seahawks +0",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Wagner Seahawks"
+    }
+  },
+  {
+    "intel_id": "52a687b7-95be-4858-88ac-d0317fd77ed0",
+    "league_id": "mens-college-basketball",
+    "home_team": "Marshall Thundering Herd",
+    "away_team": "James Madison Dukes",
+    "recommended_pick": "Marshall Thundering Herd -5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Marshall Thundering Herd"
+    }
+  },
+  {
+    "intel_id": "f19af9fd-013c-4733-8429-ce91159b75f7",
+    "league_id": "mens-college-basketball",
+    "home_team": "Missouri Tigers",
+    "away_team": "Auburn Tigers",
+    "recommended_pick": "Auburn Tigers -2.6",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Auburn Tigers -2.6"
+    }
+  },
+  {
+    "intel_id": "16351559-163e-4bb3-9018-0a3e8e8de92b",
+    "league_id": "mens-college-basketball",
+    "home_team": "Pepperdine Waves",
+    "away_team": "Portland Pilots",
+    "recommended_pick": "Portland Pilots -2.6",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Portland Pilots -2.6"
+    }
+  },
+  {
+    "intel_id": "3ad80b59-a5e9-4e6e-8ac9-5fb977afbe32",
+    "league_id": "mens-college-basketball",
+    "home_team": "Towson Tigers",
+    "away_team": "Drexel Dragons",
+    "recommended_pick": "Towson Tigers +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Towson Tigers"
+    }
+  },
+  {
+    "intel_id": "c661929d-02d7-4767-b75f-4cee1f8615ff",
+    "league_id": "mens-college-basketball",
+    "home_team": "Louisiana Tech Bulldogs",
+    "away_team": "Middle Tennessee Blue Raiders",
+    "recommended_pick": "Middle Tennessee -2.6",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "-2.6"
+    }
+  },
+  {
+    "intel_id": "5637480d-dc6d-4881-90c1-dfac8d089eef",
+    "league_id": "mens-college-basketball",
+    "home_team": "Canisius Golden Griffins",
+    "away_team": "Niagara Purple Eagles",
+    "recommended_pick": "Canisius Golden Griffins -2.6 (Valuation Target)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Canisius Golden Griffins"
+    }
+  },
+  {
+    "intel_id": "0eb177a5-e56a-43c3-8c07-e3c8f51f34c9",
+    "league_id": "mens-college-basketball",
+    "home_team": "Michigan Wolverines",
+    "away_team": "Ohio State Buckeyes",
+    "recommended_pick": "Michigan -15.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Michigan Wolverines"
+    }
+  },
+  {
+    "intel_id": "7820658f-07c9-4ea7-b7c4-02651d390acc",
+    "league_id": "mens-college-basketball",
+    "home_team": "Utah Valley Wolverines",
+    "away_team": "UT Arlington Mavericks",
+    "recommended_pick": "UT Arlington Mavericks +11.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "UT Arlington Mavericks"
+    }
+  },
+  {
+    "intel_id": "5cbb3804-17bd-4e4b-9087-1c977e1ac179",
+    "league_id": "mens-college-basketball",
+    "home_team": "Florida State Seminoles",
+    "away_team": "Wake Forest Demon Deacons",
+    "recommended_pick": "Wake Forest -1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Wake Forest"
+    }
+  },
+  {
+    "intel_id": "a5bc3083-3d0b-41ef-9fae-05d32eb94ef4",
+    "league_id": "mens-college-basketball",
+    "home_team": "Gardner-Webb Runnin' Bulldogs",
+    "away_team": "Radford Highlanders",
+    "recommended_pick": "Radford Highlanders -4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Radford Highlanders"
+    }
+  },
+  {
+    "intel_id": "aed24ba6-c0ea-497b-baa0-34b5a3c49228",
+    "league_id": "mens-college-basketball",
+    "home_team": "San Diego State Aztecs",
+    "away_team": "Colorado State Rams",
+    "recommended_pick": "Colorado State +9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Colorado State"
+    }
+  },
+  {
+    "intel_id": "c87d7fb7-4cac-4b78-acad-c252fd95d111",
+    "league_id": "mens-college-basketball",
+    "home_team": "Charleston Southern Buccaneers",
+    "away_team": "South Carolina Upstate Spartans",
+    "recommended_pick": "South Carolina Upstate (+5.5)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "South Carolina Upstate"
+    }
+  },
+  {
+    "intel_id": "1611ef84-1935-4aef-ad5f-be8b1076094b",
+    "league_id": "mens-college-basketball",
+    "home_team": "Stetson Hatters",
+    "away_team": "Queens University Royals",
+    "recommended_pick": "Stetson Hatters +8.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Stetson Hatters"
+    }
+  },
+  {
+    "intel_id": "3de4678e-f656-479a-87e4-82927cb1a0e7",
+    "league_id": "mens-college-basketball",
+    "home_team": "Providence Friars",
+    "away_team": "Creighton Bluejays",
+    "recommended_pick": "Creighton Bluejays PK",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "MONEYLINE",
+      "selection": "Creighton Bluejays"
+    }
+  },
+  {
+    "intel_id": "e415a51d-3c15-40c4-8e31-71b5fe000a24",
+    "league_id": "ligue1",
+    "home_team": "Paris Saint-Germain",
+    "away_team": "Lille",
+    "recommended_pick": "Paris Saint-Germain +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Paris Saint-Germain"
+    }
+  },
+  {
+    "intel_id": "0aeda5b3-d2cf-4c9c-a8b4-86500b575b73",
+    "league_id": "mens-college-basketball",
+    "home_team": "Fairfield Stags",
+    "away_team": "Manhattan Jaspers",
+    "recommended_pick": "Manhattan +5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Manhattan +5.5"
+    }
+  },
+  {
+    "intel_id": "fa0d17d3-8ae6-4c58-948a-783c8ae891d4",
+    "league_id": "mens-college-basketball",
+    "home_team": "Merrimack Warriors",
+    "away_team": "Quinnipiac Bobcats",
+    "recommended_pick": "Quinnipiac Bobcats -1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Quinnipiac Bobcats"
+    }
+  },
+  {
+    "intel_id": "07e5217c-a83d-4b7a-b14a-7d39533f5764",
+    "league_id": "mens-college-basketball",
+    "home_team": "Cincinnati Bearcats",
+    "away_team": "Iowa State Cyclones",
+    "recommended_pick": "Cincinnati Bearcats +6.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Cincinnati Bearcats"
+    }
+  },
+  {
+    "intel_id": "503434a5-0bcb-4ec0-940c-36a0a6781e7f",
+    "league_id": "mens-college-basketball",
+    "home_team": "Colgate Raiders",
+    "away_team": "Bucknell Bison",
+    "recommended_pick": "Bucknell Bison +9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Bucknell Bison"
+    }
+  },
+  {
+    "intel_id": "15db4898-6c4b-49ca-8230-32a1d8d685eb",
+    "league_id": "mens-college-basketball",
+    "home_team": "Alabama State Hornets",
+    "away_team": "Alabama A&M Bulldogs",
+    "recommended_pick": "Alabama State Hornets PK",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Alabama State Hornets"
+    }
+  },
+  {
+    "intel_id": "ec92d1ea-a0f4-4a69-833b-e15e7ba028a8",
+    "league_id": "mens-college-basketball",
+    "home_team": "Monmouth Hawks",
+    "away_team": "Northeastern Huskies",
+    "recommended_pick": "Monmouth Hawks +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Monmouth Hawks"
+    }
+  },
+  {
+    "intel_id": "36590c7c-1ae9-4270-b64f-5a214e1d5460",
+    "league_id": "esp.1",
+    "home_team": "Elche",
+    "away_team": "Sevilla",
+    "recommended_pick": "Elche +0 (PK)",
+    "analyzed_spread": null,
+    "pick_result": "PUSH",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Elche"
+    }
+  },
+  {
+    "intel_id": "43f01131-a1c7-4da4-b3cb-1103acfe6026",
+    "league_id": "mens-college-basketball",
+    "home_team": "Central Michigan Chippewas",
+    "away_team": "Ball State Cardinals",
+    "recommended_pick": "Central Michigan PK",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Central Michigan Chippewas"
+    }
+  },
+  {
+    "intel_id": "fc873597-a7c8-4c15-937a-b8d7494a5b85",
+    "league_id": "bundesliga",
+    "home_team": "FC Cologne",
+    "away_team": "Bayern Munich",
+    "recommended_pick": "Bayern Munich -2.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Bayern Munich -2.5"
+    }
+  },
+  {
+    "intel_id": "d2437ced-c025-4db5-a7ce-8c577597688d",
+    "league_id": "mens-college-basketball",
+    "home_team": "Liberty Flames",
+    "away_team": "UTEP Miners",
+    "recommended_pick": "Liberty Flames -13.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Liberty Flames"
+    }
+  },
+  {
+    "intel_id": "d86b02f7-14a2-42b3-88c1-9465b2018898",
+    "league_id": "mens-college-basketball",
+    "home_team": "Quinnipiac Bobcats",
+    "away_team": "Saint Peter's Peacocks",
+    "recommended_pick": "Quinnipiac Bobcats -4.5 (Projected)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Quinnipiac Bobcats"
+    }
+  },
+  {
+    "intel_id": "a31a5f34-9c7e-4496-8d89-3f05f03e2f2f",
+    "league_id": "bundesliga",
+    "home_team": "FC Augsburg",
+    "away_team": "1. FC Union Berlin",
+    "recommended_pick": "FC Augsburg PK",
+    "analyzed_spread": null,
+    "pick_result": "PUSH",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "FC Augsburg"
+    }
+  },
+  {
+    "intel_id": "bfa3db93-c351-45ec-a3e4-384ff2308ba1",
+    "league_id": "mens-college-basketball",
+    "home_team": "Southern Utah Thunderbirds",
+    "away_team": "Utah Valley Wolverines",
+    "recommended_pick": "Southern Utah +11.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Southern Utah Thunderbirds"
+    }
+  },
+  {
+    "intel_id": "c3bc0033-bb5a-4d31-a66f-cda68ad3845d",
+    "league_id": "mens-college-basketball",
+    "home_team": "North Texas Mean Green",
+    "away_team": "UTSA Roadrunners",
+    "recommended_pick": "North Texas -16.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "North Texas Mean Green"
+    }
+  },
+  {
+    "intel_id": "d2644cb3-700a-456f-8bd4-e6a2cccaaa09",
+    "league_id": "mens-college-basketball",
+    "home_team": "Gonzaga Bulldogs",
+    "away_team": "Pepperdine Waves",
+    "recommended_pick": "Gonzaga Bulldogs -28.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Gonzaga Bulldogs"
+    }
+  },
+  {
+    "intel_id": "5fde18e1-2c6e-4082-96bf-938efa0bbfd5",
+    "league_id": "ger.1",
+    "home_team": "Bayer Leverkusen",
+    "away_team": "Werder Bremen",
+    "recommended_pick": "Bayer Leverkusen 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Bayer Leverkusen"
+    }
+  },
+  {
+    "intel_id": "c505ee88-7367-40fb-9c27-4bf546dc4676",
+    "league_id": "mens-college-basketball",
+    "home_team": "Cal Poly Mustangs",
+    "away_team": "Hawai'i Rainbow Warriors",
+    "recommended_pick": "Cal Poly Mustangs +6.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Cal Poly Mustangs"
+    }
+  },
+  {
+    "intel_id": "8d6df87f-5fcb-40b8-b68e-cc286a8053fa",
+    "league_id": "mens-college-basketball",
+    "home_team": "Clemson Tigers",
+    "away_team": "NC State Wolfpack",
+    "recommended_pick": "NC State Wolfpack +4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "NC State Wolfpack"
+    }
+  },
+  {
+    "intel_id": "e1d9c47b-6fdc-4c1a-a592-48d489f5fa7c",
+    "league_id": "mens-college-basketball",
+    "home_team": "VMI Keydets",
+    "away_team": "UNC Greensboro Spartans",
+    "recommended_pick": "UNC Greensboro -2.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "UNC Greensboro Spartans"
+    }
+  },
+  {
+    "intel_id": "cb44e844-b6d7-43e0-8082-17b00494cb7a",
+    "league_id": "mens-college-basketball",
+    "home_team": "Utah Tech Trailblazers",
+    "away_team": "Tarleton State Texans",
+    "recommended_pick": "Utah Tech Trailblazers Moneyline (-115)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Utah Tech Trailblazers"
+    }
+  },
+  {
+    "intel_id": "c04a4a9d-6196-48e7-8198-25088ade9c88",
+    "league_id": "mens-college-basketball",
+    "home_team": "UAB Blazers",
+    "away_team": "South Florida Bulls",
+    "recommended_pick": "South Florida Bulls -2.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "South Florida Bulls"
+    }
+  },
+  {
+    "intel_id": "10701b20-68e9-4666-80d6-c5a7dbecae3b",
+    "league_id": "nba",
+    "home_team": "New Orleans Pelicans",
+    "away_team": "Denver Nuggets",
+    "recommended_pick": "New Orleans Pelicans +2.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "New Orleans Pelicans +2.5"
+    }
+  },
+  {
+    "intel_id": "1ced2b32-b518-47cc-9b85-2b6b94223d5e",
+    "league_id": "mens-college-basketball",
+    "home_team": "Boston University Terriers",
+    "away_team": "Lafayette Leopards",
+    "recommended_pick": "Lafayette Leopards +4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Lafayette Leopards"
+    }
+  },
+  {
+    "intel_id": "6a59d946-0612-4401-9177-1c21afe2964d",
+    "league_id": "mens-college-basketball",
+    "home_team": "UC San Diego Tritons",
+    "away_team": "Cal State Northridge Matadors",
+    "recommended_pick": "UC San Diego Tritons -7.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "UC San Diego Tritons -7.5"
+    }
+  },
+  {
+    "intel_id": "05e9d9ff-031f-41b0-a48c-a4cdfa1969be",
+    "league_id": "mens-college-basketball",
+    "home_team": "Ohio State Buckeyes",
+    "away_team": "Minnesota Golden Gophers",
+    "recommended_pick": "Ohio State Buckeyes -8.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Ohio State Buckeyes"
+    }
+  },
+  {
+    "intel_id": "509be73f-f56d-4db0-b25d-f10f5948b32d",
+    "league_id": "mens-college-basketball",
+    "home_team": "Canisius Golden Griffins",
+    "away_team": "Niagara Purple Eagles",
+    "recommended_pick": "Canisius -2.6",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Canisius -2.6"
+    }
+  },
+  {
+    "intel_id": "8f8a18dd-ec8b-4541-b4d7-d35032ce50c4",
+    "league_id": "mens-college-basketball",
+    "home_team": "Syracuse Orange",
+    "away_team": "Virginia Tech Hokies",
+    "recommended_pick": "Syracuse Orange -3.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Syracuse Orange"
+    }
+  },
+  {
+    "intel_id": "85e8fde1-65e0-4dd6-99b3-8e4ee968c74e",
+    "league_id": "mens-college-basketball",
+    "home_team": "Troy Trojans",
+    "away_team": "Arkansas State Red Wolves",
+    "recommended_pick": "Troy Trojans -3.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Troy Trojans"
+    }
+  },
+  {
+    "intel_id": "70473727-415f-44b1-9c4e-4a26cf68931a",
+    "league_id": "ger.1",
+    "home_team": "Eintracht Frankfurt",
+    "away_team": "TSG Hoffenheim",
+    "recommended_pick": "TSG Hoffenheim 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "TSG Hoffenheim"
+    }
+  },
+  {
+    "intel_id": "4cd957b1-e88e-4c92-91e0-0368e42986cd",
+    "league_id": "mens-college-basketball",
+    "home_team": "Saint Joseph's Hawks",
+    "away_team": "St. Bonaventure Bonnies",
+    "recommended_pick": "Saint Joseph's +2.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Saint Joseph's +2.5"
+    }
+  },
+  {
+    "intel_id": "5217c084-c0dc-483b-a08f-769398f95513",
+    "league_id": "mens-college-basketball",
+    "home_team": "Wichita State Shockers",
+    "away_team": "East Carolina Pirates",
+    "recommended_pick": "East Carolina Pirates +11.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "East Carolina Pirates"
+    }
+  },
+  {
+    "intel_id": "66fd142d-7737-4c94-a9b9-a4e59a588565",
+    "league_id": "uefa.europa",
+    "home_team": "Braga",
+    "away_team": "Nottingham Forest",
+    "recommended_pick": "Braga +0 (PK)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Braga"
+    }
+  },
+  {
+    "intel_id": "99b3ee34-bb4c-4dcf-87c8-3b80ccbdd41b",
+    "league_id": "caf.nations",
+    "home_team": "Senegal",
+    "away_team": "Egypt",
+    "recommended_pick": "SENEGAL ML",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "SENEGAL"
+    }
+  },
+  {
+    "intel_id": "0ff13000-21d7-4744-87a6-6acd86c41177",
+    "league_id": "mens-college-basketball",
+    "home_team": "LSU Tigers",
+    "away_team": "Missouri Tigers",
+    "recommended_pick": "LSU Tigers +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "LSU Tigers"
+    }
+  },
+  {
+    "intel_id": "8de37001-8ddc-4399-b7d9-17b85e62b133",
+    "league_id": "mens-college-basketball",
+    "home_team": "Lindenwood Lions",
+    "away_team": "Tennessee Tech Golden Eagles",
+    "recommended_pick": "Lindenwood Lions -8.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Lindenwood Lions"
+    }
+  },
+  {
+    "intel_id": "17660f84-710b-404c-a44c-b2c1194a249d",
+    "league_id": "ger.1",
+    "home_team": "Mainz",
+    "away_team": "VfL Wolfsburg",
+    "recommended_pick": "Mainz 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Mainz"
+    }
+  },
+  {
+    "intel_id": "cdca17a6-27e8-418e-9b7a-a34358ca19dd",
+    "league_id": "mens-college-basketball",
+    "home_team": "UCLA Bruins",
+    "away_team": "Purdue Boilermakers",
+    "recommended_pick": "Purdue Boilermakers -5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Purdue Boilermakers"
+    }
+  },
+  {
+    "intel_id": "c17653d7-7c9d-42c5-98c0-fed41b4a5ae2",
+    "league_id": "mens-college-basketball",
+    "home_team": "Cincinnati Bearcats",
+    "away_team": "Colorado Buffaloes",
+    "recommended_pick": "Colorado Buffaloes +5.5 (or better)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Colorado Buffaloes"
+    }
+  },
+  {
+    "intel_id": "c87af690-3c4e-4a0c-b62a-954c89a3282e",
+    "league_id": "mens-college-basketball",
+    "home_team": "Southern Illinois Salukis",
+    "away_team": "Drake Bulldogs",
+    "recommended_pick": "Drake Bulldogs +5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Drake Bulldogs +5.5"
+    }
+  },
+  {
+    "intel_id": "c9e0330f-6f67-407f-ab14-2ce3efb38ea4",
+    "league_id": "mens-college-basketball",
+    "home_team": "Binghamton Bearcats",
+    "away_team": "UMBC Retrievers",
+    "recommended_pick": "UMBC Retrievers +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "UMBC Retrievers"
+    }
+  },
+  {
+    "intel_id": "a6c8a851-7cd9-4eda-93c8-2b6a849a993a",
+    "league_id": "nba",
+    "home_team": "Miami Heat",
+    "away_team": "Phoenix Suns",
+    "recommended_pick": "Phoenix Suns +1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Phoenix Suns +1.5"
+    }
+  },
+  {
+    "intel_id": "7d6ea6ce-f57d-4e31-b2f0-9e7d1f2eb419",
+    "league_id": "mens-college-basketball",
+    "home_team": "UIC Flames",
+    "away_team": "Drake Bulldogs",
+    "recommended_pick": "UIC Flames ML (-160)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "UIC Flames"
+    }
+  },
+  {
+    "intel_id": "b4ab0481-45a5-4e94-935f-d8539b5a1570",
+    "league_id": "nba",
+    "home_team": "LA Clippers",
+    "away_team": "Washington Wizards",
+    "recommended_pick": "LAC -12.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "LAC -12.5"
+    }
+  },
+  {
+    "intel_id": "e983baf8-f58a-4c42-801e-7670ae0a9608",
+    "league_id": "mens-college-basketball",
+    "home_team": "UNC Greensboro Spartans",
+    "away_team": "The Citadel Bulldogs",
+    "recommended_pick": "UNC Greensboro Spartans -9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "UNC Greensboro Spartans -9.5"
+    }
+  },
+  {
+    "intel_id": "d0d61ec2-8322-4184-9639-b9083b6c0a9e",
+    "league_id": "mens-college-basketball",
+    "home_team": "Southern Utah Thunderbirds",
+    "away_team": "Abilene Christian Wildcats",
+    "recommended_pick": "Southern Utah +4",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Southern Utah Thunderbirds"
+    }
+  },
+  {
+    "intel_id": "837a39ce-68ef-4b08-98b6-205d2e283f3b",
+    "league_id": "mens-college-basketball",
+    "home_team": "Davidson Wildcats",
+    "away_team": "Fordham Rams",
+    "recommended_pick": "Davidson Wildcats -4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Davidson Wildcats"
+    }
+  },
+  {
+    "intel_id": "a42e0ae1-9b4e-4895-b587-a0d2e58e6db3",
+    "league_id": "nba",
+    "home_team": "Utah Jazz",
+    "away_team": "Dallas Mavericks",
+    "recommended_pick": "UTAH JAZZ PK",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Utah Jazz"
+    }
+  },
+  {
+    "intel_id": "1dd4517b-4b0e-468e-81a1-76351c1c909a",
+    "league_id": "mens-college-basketball",
+    "home_team": "Texas Longhorns",
+    "away_team": "Vanderbilt Commodores",
+    "recommended_pick": "Texas Longhorns +5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Texas Longhorns"
+    }
+  },
+  {
+    "intel_id": "70c27408-2e6f-42f9-bcb4-23b087e836e5",
+    "league_id": "mens-college-basketball",
+    "home_team": "Rutgers Scarlet Knights",
+    "away_team": "Indiana Hoosiers",
+    "recommended_pick": "Indiana Hoosiers 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Indiana Hoosiers"
+    }
+  },
+  {
+    "intel_id": "ce09d5b4-c583-44d3-9a4f-d2db352f7422",
+    "league_id": "mens-college-basketball",
+    "home_team": "LSU Tigers",
+    "away_team": "Kentucky Wildcats",
+    "recommended_pick": "LSU Tigers +4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "LSU Tigers +4.5"
+    }
+  },
+  {
+    "intel_id": "e47ede10-8ac6-4686-980d-624ef79ed305",
+    "league_id": "mens-college-basketball",
+    "home_team": "Loyola Maryland Greyhounds",
+    "away_team": "Colgate Raiders",
+    "recommended_pick": "Colgate Raiders -2.6",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Colgate Raiders -2.6"
+    }
+  },
+  {
+    "intel_id": "79598288-ab6a-4a48-8e9c-c060330f62e8",
+    "league_id": "mens-college-basketball",
+    "home_team": "Yale Bulldogs",
+    "away_team": "Columbia Lions",
+    "recommended_pick": "Yale Bulldogs -8.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Yale Bulldogs"
+    }
+  },
+  {
+    "intel_id": "69403f8c-54a8-4d93-a079-a41c0931ef2a",
+    "league_id": "mens-college-basketball",
+    "home_team": "Saint Francis Red Flash",
+    "away_team": "Chicago State Cougars",
+    "recommended_pick": "Saint Francis Red Flash 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Saint Francis Red Flash"
+    }
+  },
+  {
+    "intel_id": "acc38e0a-83fc-4f38-a17b-8b858054437c",
+    "league_id": "mens-college-basketball",
+    "home_team": "Bucknell Bison",
+    "away_team": "Army Black Knights",
+    "recommended_pick": "Bucknell Bison -5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Bucknell Bison"
+    }
+  },
+  {
+    "intel_id": "9f1e7d09-5afe-4062-8787-bfbf0e0383db",
+    "league_id": "mens-college-basketball",
+    "home_team": "Charlotte 49ers",
+    "away_team": "Tulane Green Wave",
+    "recommended_pick": "Charlotte 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Charlotte 49ers"
+    }
+  },
+  {
+    "intel_id": "6b780f65-eb5b-425c-9feb-20629b77b60a",
+    "league_id": "mens-college-basketball",
+    "home_team": "Oakland Golden Grizzlies",
+    "away_team": "IU Indianapolis Jaguars",
+    "recommended_pick": "Oakland Golden Grizzlies -16.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Oakland Golden Grizzlies"
+    }
+  },
+  {
+    "intel_id": "193d3bcc-994f-4e53-9bdb-0e2f668658af",
+    "league_id": "mens-college-basketball",
+    "home_team": "Marshall Thundering Herd",
+    "away_team": "UL Monroe Warhawks",
+    "recommended_pick": "UL Monroe +18.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "UL Monroe"
+    }
+  },
+  {
+    "intel_id": "ca118e12-3a06-48b8-a91c-cb5e623e2e80",
+    "league_id": "mens-college-basketball",
+    "home_team": "Radford Highlanders",
+    "away_team": "High Point Panthers",
+    "recommended_pick": "High Point Panthers 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "High Point Panthers"
+    }
+  },
+  {
+    "intel_id": "ed904db4-4154-4ce9-a058-d3e62c6bc438",
+    "league_id": "mens-college-basketball",
+    "home_team": "Southeast Missouri State Redhawks",
+    "away_team": "SIU Edwardsville Cougars",
+    "recommended_pick": "SIU Edwardsville +7.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "SIU Edwardsville"
+    }
+  },
+  {
+    "intel_id": "f321b970-a340-4765-9b0a-8ccfe0ed8f14",
+    "league_id": "uefa.europa",
+    "home_team": "AS Roma",
+    "away_team": "VfB Stuttgart",
+    "recommended_pick": "VfB Stuttgart 0",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "VfB Stuttgart"
+    }
+  },
+  {
+    "intel_id": "20778388-219b-44ec-82c6-96abaa4ed956",
+    "league_id": "mens-college-basketball",
+    "home_team": "Sacred Heart Pioneers",
+    "away_team": "Canisius Golden Griffins",
+    "recommended_pick": "Sacred Heart -9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Sacred Heart Pioneers"
+    }
+  },
+  {
+    "intel_id": "f2929bdd-e19c-4d56-89d8-129b9e337460",
+    "league_id": "mens-college-basketball",
+    "home_team": "Lipscomb Bisons",
+    "away_team": "Florida Gulf Coast Eagles",
+    "recommended_pick": "Florida Gulf Coast Eagles +7.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Florida Gulf Coast Eagles"
+    }
+  },
+  {
+    "intel_id": "7480cb25-c7f6-47a4-870b-552d11b3e5c5",
+    "league_id": "nba",
+    "home_team": "Sacramento Kings",
+    "away_team": "New York Knicks",
+    "recommended_pick": "New York Knicks",
+    "analyzed_spread": null,
+    "pick_result": "PUSH",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "New York Knicks"
+    }
+  },
+  {
+    "intel_id": "812cff86-932c-4306-861b-67fe595ea5ca",
+    "league_id": "uefa.europa",
+    "home_team": "FC Utrecht",
+    "away_team": "Racing Genk",
+    "recommended_pick": "Racing Genk 0 Spread",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Racing Genk"
+    }
+  },
+  {
+    "intel_id": "b5b92d9e-dc24-46f7-a3c4-8dad07b66e3d",
+    "league_id": "mens-college-basketball",
+    "home_team": "Hampton Pirates",
+    "away_team": "Monmouth Hawks",
+    "recommended_pick": "Monmouth Hawks PK",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "MONEYLINE",
+      "selection": "Monmouth Hawks"
+    }
+  },
+  {
+    "intel_id": "b7630290-b6a7-4aaf-a0df-7e19d283d161",
+    "league_id": "mens-college-basketball",
+    "home_team": "Michigan Wolverines",
+    "away_team": "Indiana Hoosiers",
+    "recommended_pick": "Indiana Hoosiers +15.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Indiana Hoosiers"
+    }
+  },
+  {
+    "intel_id": "97a9d741-fb40-443f-b13f-1e5baa4ea130",
+    "league_id": "mens-college-basketball",
+    "home_team": "North Carolina A&T Aggies",
+    "away_team": "Hofstra Pride",
+    "recommended_pick": "North Carolina A&T +9.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "North Carolina A&T"
+    }
+  },
+  {
+    "intel_id": "39c8b800-4478-4b3e-90f6-10006f16463e",
+    "league_id": "mens-college-basketball",
+    "home_team": "Omaha Mavericks",
+    "away_team": "South Dakota Coyotes",
+    "recommended_pick": "South Dakota Coyotes +5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "South Dakota Coyotes"
+    }
+  },
+  {
+    "intel_id": "012d445f-fc1f-42a3-8c26-1ddac4757b83",
+    "league_id": "mens-college-basketball",
+    "home_team": "Montana Grizzlies",
+    "away_team": "Weber State Wildcats",
+    "recommended_pick": "Weber State Wildcats +5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Weber State Wildcats"
+    }
+  },
+  {
+    "intel_id": "a7feb455-a085-43f3-9b19-1b1e1627f93c",
+    "league_id": "mens-college-basketball",
+    "home_team": "Maryland Terrapins",
+    "away_team": "Penn State Nittany Lions",
+    "recommended_pick": "Maryland Terrapins -2.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Maryland Terrapins"
+    }
+  },
+  {
+    "intel_id": "9fed9b36-77e5-435c-929d-6c33db62c1d6",
+    "league_id": "mens-college-basketball",
+    "home_team": "Lehigh Mountain Hawks",
+    "away_team": "Loyola Maryland Greyhounds",
+    "recommended_pick": "Loyola Maryland +5.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Loyola Maryland Greyhounds"
+    }
+  },
+  {
+    "intel_id": "52bac567-bd9d-4a44-961a-69db17102f8d",
+    "league_id": "mens-college-basketball",
+    "home_team": "George Mason Patriots",
+    "away_team": "George Washington Revolutionaries",
+    "recommended_pick": "George Mason Patriots +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "George Mason Patriots"
+    }
+  },
+  {
+    "intel_id": "734c8ebf-0cc4-4f42-8d6e-a2cbbb0bf7aa",
+    "league_id": "mens-college-basketball",
+    "home_team": "Dayton Flyers",
+    "away_team": "Loyola Chicago Ramblers",
+    "recommended_pick": "Dayton Flyers -16.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Dayton Flyers"
+    }
+  },
+  {
+    "intel_id": "a3a3e203-ea8f-4654-9653-a0a5f013fdc7",
+    "league_id": "mens-college-basketball",
+    "home_team": "New Mexico Lobos",
+    "away_team": "Fresno State Bulldogs",
+    "recommended_pick": "New Mexico -14.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "New Mexico Lobos"
+    }
+  },
+  {
+    "intel_id": "ac94b19c-eb1e-4fc2-80fd-855e806d5b73",
+    "league_id": "mens-college-basketball",
+    "home_team": "Quinnipiac Bobcats",
+    "away_team": "Saint Peter's Peacocks",
+    "recommended_pick": "Quinnipiac Bobcats -2.6",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Quinnipiac Bobcats"
+    }
+  },
+  {
+    "intel_id": "46c674d0-b541-4e47-8418-dc688ed02e4c",
+    "league_id": "mens-college-basketball",
+    "home_team": "Western Michigan Broncos",
+    "away_team": "Bowling Green Falcons",
+    "recommended_pick": "Western Michigan +7.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Western Michigan Broncos"
+    }
+  },
+  {
+    "intel_id": "c79a7015-7f77-4c79-846f-31787dbd68b6",
+    "league_id": "mens-college-basketball",
+    "home_team": "UC Davis Aggies",
+    "away_team": "UC San Diego Tritons",
+    "recommended_pick": "UC San Diego Tritons PK",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "MONEYLINE",
+      "selection": "UC San Diego Tritons"
+    }
+  },
+  {
+    "intel_id": "781cccbc-a77e-4976-bd95-45f92b9e5339",
+    "league_id": "mens-college-basketball",
+    "home_team": "Georgia Bulldogs",
+    "away_team": "Arkansas Razorbacks",
+    "recommended_pick": "Georgia Bulldogs ML (-140)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Georgia Bulldogs"
+    }
+  },
+  {
+    "intel_id": "f40bfc43-d27c-4d6e-a4e2-62d9d80cdb2b",
+    "league_id": "mens-college-basketball",
+    "home_team": "Idaho Vandals",
+    "away_team": "Sacramento State Hornets",
+    "recommended_pick": "Idaho Vandals -9.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Idaho Vandals"
+    }
+  },
+  {
+    "intel_id": "698fcea6-3804-485b-98c7-4cd6fe54a53a",
+    "league_id": "mens-college-basketball",
+    "home_team": "Saint Mary's Gaels",
+    "away_team": "Oregon State Beavers",
+    "recommended_pick": "Saint Mary's Gaels -18.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Saint Mary's Gaels"
+    }
+  },
+  {
+    "intel_id": "0d7d9b03-80d8-4d95-8052-139f4f47a3db",
+    "league_id": "mens-college-basketball",
+    "home_team": "Eastern Washington Eagles",
+    "away_team": "Portland State Vikings",
+    "recommended_pick": "Portland State -2.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Portland State"
+    }
+  },
+  {
+    "intel_id": "1b43c4f8-ba6b-45b7-b711-42f9b0d42dbf",
+    "league_id": "mens-college-basketball",
+    "home_team": "Harvard Crimson",
+    "away_team": "Pennsylvania Quakers",
+    "recommended_pick": "Harvard Crimson +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Harvard Crimson"
+    }
+  },
+  {
+    "intel_id": "7ec4e0e0-fb58-474c-85ff-d67726fc7c2a",
+    "league_id": "mens-college-basketball",
+    "home_team": "Florida International Panthers",
+    "away_team": "Sam Houston Bearkats",
+    "recommended_pick": "Sam Houston Bearkats PK",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "MONEYLINE",
+      "selection": "Sam Houston Bearkats"
+    }
+  },
+  {
+    "intel_id": "27e447a8-81c0-4d8e-ba2d-ff7d458d7583",
+    "league_id": "mens-college-basketball",
+    "home_team": "Duquesne Dukes",
+    "away_team": "Saint Louis Billikens",
+    "recommended_pick": "Saint Louis -9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Saint Louis Billikens"
+    }
+  },
+  {
+    "intel_id": "d520c444-7d33-4930-ac0e-7a9b28223cf7",
+    "league_id": "mens-college-basketball",
+    "home_team": "Illinois Fighting Illini",
+    "away_team": "Maryland Terrapins",
+    "recommended_pick": "Maryland Terrapins +18.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Maryland Terrapins"
+    }
+  },
+  {
+    "intel_id": "4b3459b5-5190-4078-a7a3-ef61377f5440",
+    "league_id": "mens-college-basketball",
+    "home_team": "William & Mary Tribe",
+    "away_team": "UNC Wilmington Seahawks",
+    "recommended_pick": "William & Mary Tribe +0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "William & Mary Tribe"
+    }
+  },
+  {
+    "intel_id": "12b83ca2-2d1f-4ea9-9542-0284785ee3f4",
+    "league_id": "mens-college-basketball",
+    "home_team": "James Madison Dukes",
+    "away_team": "South Alabama Jaguars",
+    "recommended_pick": "South Alabama Jaguars +4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "South Alabama Jaguars"
+    }
+  },
+  {
+    "intel_id": "363f7ae9-12da-4482-b382-47ad7459a3d9",
+    "league_id": "nba",
+    "home_team": "Houston Rockets",
+    "away_team": "San Antonio Spurs",
+    "recommended_pick": "Houston Rockets -3",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Houston Rockets"
+    }
+  },
+  {
+    "intel_id": "85151829-f89c-4e3d-a703-3caad05b78de",
+    "league_id": "ger.1",
+    "home_team": "1. FC Union Berlin",
+    "away_team": "Borussia Dortmund",
+    "recommended_pick": "Borussia Dortmund 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Borussia Dortmund"
+    }
+  },
+  {
+    "intel_id": "c6b88bea-7e0c-4b24-93dd-7235b8f37e05",
+    "league_id": "esp.1",
+    "home_team": "Sevilla",
+    "away_team": "Athletic Club",
+    "recommended_pick": "Athletic Club 0",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Athletic Club"
+    }
+  },
+  {
+    "intel_id": "c093572e-44c0-42ff-9a8f-9c0b2eeb8b5b",
+    "league_id": "eng.1",
+    "home_team": "Newcastle United",
+    "away_team": "Aston Villa",
+    "recommended_pick": "Aston Villa 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Aston Villa"
+    }
+  },
+  {
+    "intel_id": "94519a8e-af43-4c22-b41b-44cdfda9bd83",
+    "league_id": "mens-college-basketball",
+    "home_team": "Northern Kentucky Norse",
+    "away_team": "Robert Morris Colonials",
+    "recommended_pick": "Robert Morris +6.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Robert Morris"
+    }
+  },
+  {
+    "intel_id": "08981366-5329-4108-bdd2-756b4757b83f",
+    "league_id": "ger.1",
+    "home_team": "SC Freiburg",
+    "away_team": "FC Cologne",
+    "recommended_pick": "SC Freiburg 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "SC Freiburg"
+    }
+  },
+  {
+    "intel_id": "6e2c28bb-01c7-4437-a142-772a024f6db7",
+    "league_id": "nhl",
+    "home_team": "Columbus Blue Jackets",
+    "away_team": "Dallas Stars",
+    "recommended_pick": "Dallas Stars Moneyline (-115)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "MONEYLINE",
+      "selection": "Dallas Stars"
+    }
+  },
+  {
+    "intel_id": "478e8079-beeb-4f27-ac28-2413c152dd78",
+    "league_id": "mens-college-basketball",
+    "home_team": "Jacksonville State Gamecocks",
+    "away_team": "Sam Houston Bearkats",
+    "recommended_pick": "Sam Houston State Bearkats (PK)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "MONEYLINE",
+      "selection": "Sam Houston State Bearkats"
+    }
+  },
+  {
+    "intel_id": "401ff5bf-a26d-479a-9e62-9ff76a60c740",
+    "league_id": "mens-college-basketball",
+    "home_team": "Saint Peter's Peacocks",
+    "away_team": "Rider Broncs",
+    "recommended_pick": "Saint Peter's -10.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Saint Peter's Peacocks"
+    }
+  },
+  {
+    "intel_id": "dfc16f9e-2489-406b-867f-6a6ca21a90a1",
+    "league_id": "fra.1",
+    "home_team": "Metz",
+    "away_team": "Lyon",
+    "recommended_pick": "Lyon 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Lyon"
+    }
+  },
+  {
+    "intel_id": "2e7a182e-afdb-4a8d-9ae2-d0e842701106",
+    "league_id": "fra.1",
+    "home_team": "Brest",
+    "away_team": "Toulouse",
+    "recommended_pick": "Brest 0",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Brest"
+    }
+  },
+  {
+    "intel_id": "929b7f6f-9720-4139-a96c-0742ea060456",
+    "league_id": "mens-college-basketball",
+    "home_team": "San Diego Toreros",
+    "away_team": "Washington State Cougars",
+    "recommended_pick": "Washington State -2.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Washington State"
+    }
+  },
+  {
+    "intel_id": "afb75b0a-7b0f-4a7c-9694-f0540b248219",
+    "league_id": "nba",
+    "home_team": "Oklahoma City Thunder",
+    "away_team": "San Antonio Spurs",
+    "recommended_pick": "San Antonio Spurs +8.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "San Antonio Spurs +8.5"
+    }
+  },
+  {
+    "intel_id": "d8ca5dcb-1f0c-4109-9807-22eb312536f5",
+    "league_id": "nba",
+    "home_team": "Philadelphia 76ers",
+    "away_team": "Cleveland Cavaliers",
+    "recommended_pick": "Cleveland Cavaliers -0.4",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Cleveland Cavaliers"
+    }
+  },
+  {
+    "intel_id": "e852f904-fcdf-4fae-ad23-e4fad749db3e",
+    "league_id": "uefa.europa",
+    "home_team": "SK Brann",
+    "away_team": "FC Midtjylland",
+    "recommended_pick": "FC Midtjylland 0",
+    "analyzed_spread": null,
+    "pick_result": "PUSH",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "FC Midtjylland"
+    }
+  },
+  {
+    "intel_id": "34b30c01-95f5-49f0-ba4b-74f8f7f417ee",
+    "league_id": "mens-college-basketball",
+    "home_team": "Stanford Cardinal",
+    "away_team": "North Carolina Tar Heels",
+    "recommended_pick": "North Carolina -2.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "-2.5"
+    }
+  },
+  {
+    "intel_id": "5d87296c-bedd-48b9-bc91-f197120fa043",
+    "league_id": "bundesliga",
+    "home_team": "RB Leipzig",
+    "away_team": "SC Freiburg",
+    "recommended_pick": "RB Leipzig -1.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "RB Leipzig -1.5"
+    }
+  },
+  {
+    "intel_id": "848e4ff4-4abf-4c23-8b7e-c5d99a842a80",
+    "league_id": "nhl",
+    "home_team": "Boston Bruins",
+    "away_team": "Seattle Kraken",
+    "recommended_pick": "Boston Bruins",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Boston Bruins"
+    }
+  },
+  {
+    "intel_id": "09b43967-dbfb-4bc9-a776-c2d64041402e",
+    "league_id": "bundesliga",
+    "home_team": "Borussia Dortmund",
+    "away_team": "St. Pauli",
+    "recommended_pick": "Borussia Dortmund 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Borussia Dortmund"
+    }
+  },
+  {
+    "intel_id": "a9772f26-16d4-455a-ac27-92394e07f479",
+    "league_id": "nba",
+    "home_team": "Milwaukee Bucks",
+    "away_team": "Minnesota Timberwolves",
+    "recommended_pick": "Milwaukee Bucks",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Milwaukee Bucks"
+    }
+  },
+  {
+    "intel_id": "4de9c6cd-46d7-49ea-8f48-7d957dbf47ac",
+    "league_id": "mens-college-basketball",
+    "home_team": "Richmond Spiders",
+    "away_team": "La Salle Explorers",
+    "recommended_pick": "La Salle +8.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "La Salle +8.5"
+    }
+  },
+  {
+    "intel_id": "4db2ad57-066c-4573-8455-8ccbd4c574c3",
+    "league_id": "mens-college-basketball",
+    "home_team": "Samford Bulldogs",
+    "away_team": "Furman Paladins",
+    "recommended_pick": "SAMFORD +1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Samford +1.5"
+    }
+  },
+  {
+    "intel_id": "f8c0abdb-1af6-4992-beaf-02063df60958",
+    "league_id": "mens-college-basketball",
+    "home_team": "UMass Lowell River Hawks",
+    "away_team": "Vermont Catamounts",
+    "recommended_pick": "Vermont -4.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Vermont Catamounts"
+    }
+  },
+  {
+    "intel_id": "09149441-e10e-4fae-920c-e234920ba453",
+    "league_id": "nba",
+    "home_team": "Houston Rockets",
+    "away_team": "Chicago Bulls",
+    "recommended_pick": "Houston Rockets -13.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Houston Rockets -13.5"
+    }
+  },
+  {
+    "intel_id": "fc0c9976-0833-43c0-8b40-97da1f27815d",
+    "league_id": "mens-college-basketball",
+    "home_team": "USC Trojans",
+    "away_team": "Northwestern Wildcats",
+    "recommended_pick": "Northwestern Wildcats +6.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Northwestern Wildcats"
+    }
+  },
+  {
+    "intel_id": "f15123c3-617a-40d9-bbdd-f4e53b73c016",
+    "league_id": "mens-college-basketball",
+    "home_team": "UT Rio Grande Valley Vaqueros",
+    "away_team": "McNeese Cowboys",
+    "recommended_pick": "McNeese Cowboys -9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "McNeese Cowboys"
+    }
+  },
+  {
+    "intel_id": "5e38a1dd-3185-4bd0-bc1e-38e611289bf7",
+    "league_id": "mens-college-basketball",
+    "home_team": "Colorado Buffaloes",
+    "away_team": "Kansas Jayhawks",
+    "recommended_pick": "Colorado Buffaloes +4.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Colorado Buffaloes"
+    }
+  },
+  {
+    "intel_id": "509ed274-5e7d-488b-9012-00780484354b",
+    "league_id": "mens-college-basketball",
+    "home_team": "Gardner-Webb Runnin' Bulldogs",
+    "away_team": "South Carolina Upstate Spartans",
+    "recommended_pick": "South Carolina Upstate Spartans 0",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "South Carolina Upstate Spartans"
+    }
+  },
+  {
+    "intel_id": "4b83bffc-acfb-480c-904a-779d1b3a315c",
+    "league_id": "mens-college-basketball",
+    "home_team": "La Salle Explorers",
+    "away_team": "Dayton Flyers",
+    "recommended_pick": "Dayton Flyers -9.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Dayton Flyers"
+    }
+  },
+  {
+    "intel_id": "f1ac50a7-bc88-4942-a23e-76f500298b61",
+    "league_id": "mens-college-basketball",
+    "home_team": "Central Connecticut Blue Devils",
+    "away_team": "Fairleigh Dickinson Knights",
+    "recommended_pick": "Central Connecticut Blue Devils 0",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Central Connecticut Blue Devils"
+    }
+  },
+  {
+    "intel_id": "001e99fc-0047-43be-9c08-7551c994317d",
+    "league_id": "mens-college-basketball",
+    "home_team": "Villanova Wildcats",
+    "away_team": "Georgetown Hoyas",
+    "recommended_pick": "Villanova Wildcats -9.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Villanova Wildcats"
+    }
+  },
+  {
+    "intel_id": "82e662c4-d86f-4adf-a4a7-0a440dc1fdcd",
+    "league_id": "ger.1",
+    "home_team": "1. FC Heidenheim 1846",
+    "away_team": "RB Leipzig",
+    "recommended_pick": "RB Leipzig 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "RB Leipzig"
+    }
+  },
+  {
+    "intel_id": "0b5b95fb-e102-43b1-a7c1-6dbf52e53aeb",
+    "league_id": "uefa.champions",
+    "home_team": "Atalanta",
+    "away_team": "Athletic Club",
+    "recommended_pick": "Atalanta Moneyline (-140)",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Atalanta"
+    }
+  },
+  {
+    "intel_id": "1b71436e-e365-4816-9ab5-24c3ea59e616",
+    "league_id": "eng.1",
+    "home_team": "Newcastle United",
+    "away_team": "Leeds United",
+    "recommended_pick": "NEWCASTLE ML",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Newcastle United"
+    }
+  },
+  {
+    "intel_id": "1dc818aa-0934-4420-80a3-f0c4c7ba22aa",
+    "league_id": "mens-college-basketball",
+    "home_team": "Longwood Lancers",
+    "away_team": "Charleston Southern Buccaneers",
+    "recommended_pick": "Charleston Southern Buccaneers -125",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "MONEYLINE",
+      "selection": "Charleston Southern Buccaneers"
+    }
+  },
+  {
+    "intel_id": "27fa3e3b-6e9e-4be7-86d8-21260b3cba45",
+    "league_id": "mens-college-basketball",
+    "home_team": "Mount St. Mary's Mountaineers",
+    "away_team": "Quinnipiac Bobcats",
+    "recommended_pick": "Mount St. Mary's +4.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Mount St. Mary's Mountaineers"
+    }
+  },
+  {
+    "intel_id": "43fd1ee7-2c70-4f58-9bc1-00952f758aca",
+    "league_id": "mens-college-basketball",
+    "home_team": "St. Bonaventure Bonnies",
+    "away_team": "Saint Louis Billikens",
+    "recommended_pick": "Saint Louis 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Saint Louis"
+    }
+  },
+  {
+    "intel_id": "4ee0c924-187b-40cc-8bd2-f0af15debaae",
+    "league_id": "eng.1",
+    "home_team": "Burnley",
+    "away_team": "Manchester United",
+    "recommended_pick": "MAN UTD ML (-145)",
+    "analyzed_spread": null,
+    "pick_result": "PUSH",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "MONEYLINE",
+      "selection": "Manchester United"
+    }
+  },
+  {
+    "intel_id": "506e6400-20bd-4fca-bfda-809aff08c624",
+    "league_id": "mens-college-basketball",
+    "home_team": "Presbyterian Blue Hose",
+    "away_team": "UNC Asheville Bulldogs",
+    "recommended_pick": "Presbyterian Blue Hose +2.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Presbyterian Blue Hose"
+    }
+  },
+  {
+    "intel_id": "76ad5a5f-655b-4d96-bd04-aafdf0daf237",
+    "league_id": "mens-college-basketball",
+    "home_team": "Richmond Spiders",
+    "away_team": "Rhode Island Rams",
+    "recommended_pick": "Richmond Spiders -2.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Richmond Spiders"
+    }
+  },
+  {
+    "intel_id": "8b32d798-b6cf-4228-9f84-dce96a94d500",
+    "league_id": "mens-college-basketball",
+    "home_team": "Longwood Lancers",
+    "away_team": "Gardner-Webb Runnin' Bulldogs",
+    "recommended_pick": "Longwood Lancers -14.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Longwood Lancers"
+    }
+  },
+  {
+    "intel_id": "a5364030-f677-404a-8e9e-80e32e83a1b6",
+    "league_id": "nhl",
+    "home_team": "Columbus Blue Jackets",
+    "away_team": "Calgary Flames",
+    "recommended_pick": "Columbus Blue Jackets (Moneyline)",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Columbus Blue Jackets"
+    }
+  },
+  {
+    "intel_id": "aca7de60-69c1-42c2-be30-4822dcc70ba2",
+    "league_id": "uefa.champions",
+    "home_team": "Slavia Prague",
+    "away_team": "Barcelona",
+    "recommended_pick": "Barcelona -1.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Barcelona"
+    }
+  },
+  {
+    "intel_id": "bbc10fa7-446a-4ccb-aba0-9d27c582c7f8",
+    "league_id": "nhl",
+    "home_team": "Edmonton Oilers",
+    "away_team": "Washington Capitals",
+    "recommended_pick": "Edmonton Oilers 0",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Edmonton Oilers"
+    }
+  },
+  {
+    "intel_id": "dce4bde5-cc20-4329-95ca-f86bbb07e1bd",
+    "league_id": "nhl",
+    "home_team": "Washington Capitals",
+    "away_team": "Montreal Canadiens",
+    "recommended_pick": "Montreal Canadiens Moneyline",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "MONEYLINE",
+      "selection": "Montreal Canadiens"
+    }
+  },
+  {
+    "intel_id": "e190e491-5cdb-4e31-8658-d2d175a5c76f",
+    "league_id": "mens-college-basketball",
+    "home_team": "Youngstown State Penguins",
+    "away_team": "Green Bay Phoenix",
+    "recommended_pick": "Youngstown State Penguins -6.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "Youngstown State Penguins"
+    }
+  },
+  {
+    "intel_id": "e2672636-a344-4abc-88e8-d721c7a9e75c",
+    "league_id": "nhl",
+    "home_team": "Boston Bruins",
+    "away_team": "New York Rangers",
+    "recommended_pick": "Boston Bruins Moneyline",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "MONEYLINE",
+      "selection": "Boston Bruins"
+    }
+  },
+  {
+    "intel_id": "e37e1e92-960d-4f8b-8ca8-9110837d6fb9",
+    "league_id": "mens-college-basketball",
+    "home_team": "South Carolina Upstate Spartans",
+    "away_team": "UNC Asheville Bulldogs",
+    "recommended_pick": "South Carolina Upstate Spartans -1.5",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "HOME",
+      "type": "SPREAD",
+      "selection": "South Carolina Upstate Spartans"
+    }
+  },
+  {
+    "intel_id": "e8ade58a-247e-451f-84fa-de00a8e469f2",
+    "league_id": "mens-college-basketball",
+    "home_team": "Penn State Nittany Lions",
+    "away_team": "Wisconsin Badgers",
+    "recommended_pick": "Wisconsin Badgers -5.5",
+    "analyzed_spread": null,
+    "pick_result": "WIN",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Wisconsin Badgers"
+    }
+  },
+  {
+    "intel_id": "ece31c05-e18b-4c0e-9757-719a5e2e6607",
+    "league_id": "mens-college-basketball",
+    "home_team": "Jacksonville State Gamecocks",
+    "away_team": "Middle Tennessee Blue Raiders",
+    "recommended_pick": "Middle Tennessee Blue Raiders -0",
+    "analyzed_spread": null,
+    "pick_result": "LOSS",
+    "grading_metadata": {
+      "side": "AWAY",
+      "type": "SPREAD",
+      "selection": "Middle Tennessee Blue Raiders"
+    }
+  }
+]

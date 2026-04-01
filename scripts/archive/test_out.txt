@@ -1,0 +1,4 @@
+stderr works
+stdout works
+pandas version: 2.3.0+4.g1dfc98e16a
+nba_api load fail: module 'nba_api' has no attribute '__version__'

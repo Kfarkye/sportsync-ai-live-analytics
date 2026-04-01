@@ -1,0 +1,26 @@
+/Users/k.far.88/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Successfully imported nba_api
+Fetching data for 2025-26 season...
+Data fetched: 1070 rows
+Total NBA regular season games played so far (2025-26): 533
+Games with < 200 total points: 17
+
+Detail of low-scoring games:
+- 2025-11-26: IND (95) vs TOR (97) | Total: 192
+- 2025-10-27: DAL (94) vs OKC (101) | Total: 195
+- 2025-10-28: GSW (98) vs LAC (79) | Total: 177
+- 2025-11-09: IND (83) vs GSW (114) | Total: 197
+- 2025-11-22: DAL (96) vs MEM (102) | Total: 198
+- 2025-12-01: ATL (98) vs DET (99) | Total: 197
+- 2025-12-04: PHI (99) vs GSW (98) | Total: 197
+- 2025-12-05: TOR (86) vs CHA (111) | Total: 197
+- 2025-12-06: GSW (99) vs CLE (94) | Total: 193
+- 2025-12-18: GSW (98) vs PHX (99) | Total: 197
+- 2025-12-20: DET (112) vs CHA (86) | Total: 198
+- 2025-12-20: POR (98) vs SAC (93) | Total: 191
+- 2025-12-20: LAL (88) vs LAC (103) | Total: 191
+- 2025-12-21: BKN (96) vs TOR (81) | Total: 177
+- 2025-12-22: BOS (103) vs IND (95) | Total: 198
+- 2026-01-05: PHX (97) vs HOU (100) | Total: 197
+- 2025-12-14: IND (89) vs WAS (108) | Total: 197
