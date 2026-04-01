@@ -217,9 +217,9 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
   .drip-live .prob-fill-home { height: 100%; background: var(--home-color); border-radius: 3px 0 0 3px; }
   .drip-live .prob-fill-away { height: 100%; background: var(--away-color); border-radius: 0 3px 3px 0; }
   .drip-live .court-section { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
-  .drip-live .court-wrap { background: #2A2926; border-radius: 0 0 12px 12px; position: relative; overflow: hidden; max-height: 140px; display: flex; align-items: center; justify-content: center; }
-  .drip-live .court-svg { width: 100%; height: auto; display: block; max-height: 140px; }
-  .drip-live .last-play { display: flex; align-items: center; gap: 10px; padding: 10px 20px; background: rgba(0,0,0,0.3); }
+  .drip-live .court-wrap { background: #2A2926; border-radius: 0; position: relative; overflow: hidden; max-height: 160px; display: flex; align-items: center; justify-content: center; }
+  .drip-live .court-svg { width: 100%; height: auto; display: block; max-height: 160px; }
+  .drip-live .last-play { display: flex; align-items: center; gap: 12px; padding: 14px 24px; background: #232220; border-radius: 0 0 12px 12px; }
   .drip-live .last-play-icon { width: 18px; height: 18px; border-radius: 50%; object-fit: contain; flex-shrink: 0; }
   .drip-live .last-play-text { display: flex; flex-direction: column; gap: 1px; }
   .drip-live .last-play-action { font-size: 13px; font-weight: 500; color: var(--scoreboard-text); }
@@ -313,7 +313,7 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
     .drip-live .content { padding: 14px 14px 48px; }
     .drip-live .leaders-grid { grid-template-columns: 1fr; }
     .drip-live .tab-btn { padding: 10px 14px; font-size: 11px; }
-    .drip-live .court-wrap, .drip-live .court-svg { max-height: 100px; }
+    .drip-live .court-wrap, .drip-live .court-svg { max-height: 110px; }
   }
   `;
 
@@ -428,13 +428,13 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
             <circle cx="370" cy="150" r="8" fill="#C85A3A" opacity="0.9" />
             <circle cx="370" cy="150" r="14" fill="#C85A3A" opacity="0.15" />
           </svg>
+        </div>
 
-          <div className="last-play">
-            <img className="last-play-icon" src={awayLogo || homeLogo} alt="last" />
-            <div className="last-play-text">
-              <span className="last-play-action">{match.lastPlay?.text || 'Live play-by-play updating'}</span>
-              <span className="last-play-meta">{periodLabel} · {homeScore} – {awayScore}</span>
-            </div>
+        <div className="last-play">
+          <img className="last-play-icon" src={awayLogo || homeLogo} alt="last" />
+          <div className="last-play-text">
+            <span className="last-play-action">{match.lastPlay?.text || 'Live play-by-play updating'}</span>
+            <span className="last-play-meta">{periodLabel} · {homeScore} – {awayScore}</span>
           </div>
         </div>
       </div>
