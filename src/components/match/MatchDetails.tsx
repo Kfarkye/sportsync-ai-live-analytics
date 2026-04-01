@@ -1310,6 +1310,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     if (!isSched && activeTab === 'DETAILS') setActiveTab('OVERVIEW');
   }, [isSched, activeTab]);
 
+
   useEffect(() => {
     setMarketsTab('TRENDS');
   }, [match.id]);
@@ -1332,6 +1333,15 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
     if (isBaseball) live.splice(1, 0, { id: "PLAYS", label: "Plays" });
     return live;
   }, [isSched, isBaseball]);
+
+  // Guard: reset tab when switching to a match whose tab set doesn't include activeTab
+  // (e.g., leaving baseball PLAYS tab → NBA match has no PLAYS)
+  useEffect(() => {
+    const tabIds = TABS.map(t => t.id);
+    if (!tabIds.includes(activeTab)) {
+      setActiveTab(tabIds[0] || 'OVERVIEW');
+    }
+  }, [TABS, activeTab]);
 
   const trendLines = useMemo(() => {
     const lines: string[] = [];
