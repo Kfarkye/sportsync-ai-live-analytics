@@ -1,6 +1,7 @@
 import React, { FC, useEffect, useMemo, useState } from 'react';
 import type { Match, MatchEvent, MatchOdds, PlayerPropBet, MatchLeader } from '@/types';
 import { getPeriodDisplay, isGameFinished, getDbMatchId } from '@/utils/matchUtils';
+import { useLiveGameIntel, type PlayerStat } from '@/hooks/useLiveGameIntel';
 import LivePlayByPlay from './LivePlayByPlay';
 
 interface LiveBasketballMatchDetailsProps {
@@ -77,6 +78,50 @@ const leaderRowsForTeam = (leaders: MatchLeader[] | undefined, teamId?: string) 
     });
   });
   return rows.slice(0, 3);
+};
+
+/**
+ * Derive leader rows from live box score player_stats.
+ * Extracts top scorer by PTS, REB, AST for each team side.
+ */
+const deriveLeadersFromStats = (players: PlayerStat[]): Array<{ name: string; detail: string; value: string }> => {
+  if (!players || players.length === 0) return [];
+
+  const categories: { label: string; statKey: string }[] = [
+    { label: 'PTS', statKey: 'PTS' },
+    { label: 'REB', statKey: 'REB' },
+    { label: 'AST', statKey: 'AST' },
+  ];
+
+  const rows: Array<{ name: string; detail: string; value: string }> = [];
+
+  for (const cat of categories) {
+    let bestPlayer: PlayerStat | null = null;
+    let bestValue = -1;
+
+    for (const p of players) {
+      const raw = p.stats?.[cat.statKey];
+      if (raw === null || raw === undefined) continue;
+      const num = parseInt(String(raw), 10);
+      if (Number.isFinite(num) && num > bestValue) {
+        bestValue = num;
+        bestPlayer = p;
+      }
+    }
+
+    if (bestPlayer && bestValue >= 0) {
+      const pos = bestPlayer.position ? ` · ${bestPlayer.position}` : '';
+      const mins = bestPlayer.stats?.['MIN'] ?? null;
+      const detail = mins ? `${mins} min${pos}` : (bestPlayer.position || '');
+      rows.push({
+        name: bestPlayer.short_name || bestPlayer.name,
+        detail,
+        value: `${bestValue} ${cat.label}`,
+      });
+    }
+  }
+
+  return rows;
 };
 
 const labelForBetType = (value: string) => {
@@ -160,8 +205,24 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
     }));
   }, [match.homeTeam.linescores, match.awayTeam.linescores]);
 
-  const homeLeaders = leaderRowsForTeam(match.leaders, match.homeTeam.id);
-  const awayLeaders = leaderRowsForTeam(match.leaders, match.awayTeam.id);
+  // Wire live game intel for leader data
+  const gameId = useMemo(() => getDbMatchId(match.id, match.leagueId), [match.id, match.leagueId]);
+  const { data: intel } = useLiveGameIntel(gameId);
+
+  // Derive leaders: prefer live box score stats, fallback to match.leaders
+  const homeLeaders = useMemo(() => {
+    if (intel?.player_stats?.home && intel.player_stats.home.length > 0) {
+      return deriveLeadersFromStats(intel.player_stats.home);
+    }
+    return leaderRowsForTeam(match.leaders, match.homeTeam.id);
+  }, [intel?.player_stats?.home, match.leaders, match.homeTeam.id]);
+
+  const awayLeaders = useMemo(() => {
+    if (intel?.player_stats?.away && intel.player_stats.away.length > 0) {
+      return deriveLeadersFromStats(intel.player_stats.away);
+    }
+    return leaderRowsForTeam(match.leaders, match.awayTeam.id);
+  }, [intel?.player_stats?.away, match.leaders, match.awayTeam.id]);
 
   const homeProps = pickTeamProps(match.dbProps, match.homeTeam.name);
   const awayProps = pickTeamProps(match.dbProps, match.awayTeam.name);
