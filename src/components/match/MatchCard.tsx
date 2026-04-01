@@ -4,6 +4,7 @@ import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
 import { cn } from '@/lib/essence';
 import { getLeagueDisplayName } from '@/constants';
+import { getPeriodDisplay } from '@/utils/matchUtils';
 import { motion } from 'framer-motion';
 
 const MotionDiv = motion.div;
@@ -52,8 +53,10 @@ const MatchCard: React.FC<MatchCardProps> = ({
     // ── GRID VIEW ───────────────────────────────────────────────────────────
     const showScores = isLive || isFinal;
     const league = getLeagueDisplayName(match.leagueId);
-    const clockDisplay = match.displayClock || match.minute || '';
+    const isBaseball = match.sport === Sport.BASEBALL || match.leagueId === 'mlb';
+    const clockDisplay = isBaseball ? '' : (match.displayClock || match.minute || '');
     const periodLabel = (() => {
+        if (isBaseball) return getPeriodDisplay(match as any) || 'LIVE';
         if (!match.period) return '';
         if (match.sport === Sport.SOCCER) return `H${match.period}`;
         if (match.sport === Sport.HOCKEY) return `P${match.period}`;
@@ -90,7 +93,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                     <div className="flex items-center gap-1.5">
                         <span className="inline-flex h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
                         <span className="text-[11px] font-mono font-bold text-red-600 uppercase tracking-wide">
-                            {periodLabel} {clockDisplay}
+                            {[periodLabel, clockDisplay].filter(Boolean).join(' ') || 'LIVE'}
                         </span>
                     </div>
                 ) : isFinal ? (

@@ -102,7 +102,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const total = match.odds?.overUnder ?? match.odds?.total;
 
   // Time / Clock
-  const isBaseball = match.sport === Sport.BASEBALL;
+  const isBaseball = match.sport === Sport.BASEBALL || match.leagueId === 'mlb';
   const { startTime, clock, period } = useMemo(() => {
     const d = new Date(match.startTime);
     const periodStr = isTennis

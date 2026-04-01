@@ -119,7 +119,7 @@ const GameCard: React.FC<MatchCardProps> = memo(({
     const homeFav = hasProb && (homeProb ?? 0) >= (awayProb ?? 0);
 
     // Clock Formatting safely handling malformed dates
-    const isBaseball = match.sport === Sport.BASEBALL;
+    const isBaseball = match.sport === Sport.BASEBALL || match.leagueId === 'mlb';
     let clockDisplay = match.displayClock || match.minute || '';
     let periodDisplay = '';
 

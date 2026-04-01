@@ -112,7 +112,8 @@ export const getPeriodDisplay = (match: Match): string => {
 
   if (match.sport === Sport.BASEBALL) {
     const outs = match.situation?.outs;
-    const base = match.displayClock || (period ? `INNING ${period}` : '');
+    // Baseball has no game clock — displayClock is meaningless, derive from inning only
+    const base = period ? `INNING ${period}` : '';
     if (!base) return outs !== undefined && outs !== null ? `${outs} OUTS` : '';
     return outs !== undefined && outs !== null ? `${base} • ${outs} OUTS` : base;
   }
