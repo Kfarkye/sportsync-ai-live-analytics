@@ -63,10 +63,10 @@ const marketLabel = (odds?: MatchOdds, homeShort?: string, awayShort?: string) =
   return `${team ?? 'Line'} ${formatSigned(spread)}`;
 };
 
-const leaderRowsForTeam = (leaders: MatchLeader[] | undefined, teamId?: string) => {
-  if (!leaders || leaders.length === 0 || !teamId) return [] as Array<{ name: string; detail: string; value: string }>;
+const leaderRowsForTeam = (leaders: MatchLeader[] | undefined, teamId?: string): LeaderRow[] => {
+  if (!leaders || leaders.length === 0 || !teamId) return [];
 
-  const rows: Array<{ name: string; detail: string; value: string }> = [];
+  const rows: LeaderRow[] = [];
   leaders.forEach((group) => {
     const leader = group.leaders?.find((entry) => entry.team?.id === teamId) ?? group.leaders?.[0];
     if (!leader?.athlete?.displayName) return;
@@ -75,6 +75,7 @@ const leaderRowsForTeam = (leaders: MatchLeader[] | undefined, teamId?: string) 
       name: leader.athlete.displayName,
       detail: detail ? `${detail}` : '',
       value: String(leader.value ?? leader.displayValue ?? ''),
+      headshot: leader.athlete.headshot || null,
     });
   });
   return rows.slice(0, 3);
@@ -84,7 +85,9 @@ const leaderRowsForTeam = (leaders: MatchLeader[] | undefined, teamId?: string) 
  * Derive leader rows from live box score player_stats.
  * Extracts top scorer by PTS, REB, AST for each team side.
  */
-const deriveLeadersFromStats = (players: PlayerStat[]): Array<{ name: string; detail: string; value: string }> => {
+type LeaderRow = { name: string; detail: string; value: string; headshot: string | null };
+
+const deriveLeadersFromStats = (players: PlayerStat[]): LeaderRow[] => {
   if (!players || players.length === 0) return [];
 
   const categories: { label: string; statKey: string }[] = [
@@ -93,7 +96,7 @@ const deriveLeadersFromStats = (players: PlayerStat[]): Array<{ name: string; de
     { label: 'AST', statKey: 'AST' },
   ];
 
-  const rows: Array<{ name: string; detail: string; value: string }> = [];
+  const rows: LeaderRow[] = [];
 
   for (const cat of categories) {
     let bestPlayer: PlayerStat | null = null;
@@ -117,6 +120,7 @@ const deriveLeadersFromStats = (players: PlayerStat[]): Array<{ name: string; de
         name: bestPlayer.short_name || bestPlayer.name,
         detail,
         value: `${bestValue} ${cat.label}`,
+        headshot: bestPlayer.headshot || null,
       });
     }
   }
@@ -302,10 +306,12 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
   .drip-live .leaders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
   .drip-live .leader-card { background: var(--surface); padding: 20px 22px; min-height: 140px; }
   .drip-live .leader-team { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 12px; }
-  .drip-live .leader-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+  .drip-live .leader-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
   .drip-live .leader-row + .leader-row { border-top: 1px solid rgba(232,231,227,0.4); }
-  .drip-live .leader-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-  .drip-live .leader-stat { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--text-primary); }
+  .drip-live .leader-headshot { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--surface-warm); flex-shrink: 0; border: 1.5px solid var(--border); }
+  .drip-live .leader-info { flex: 1; min-width: 0; }
+  .drip-live .leader-name { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drip-live .leader-stat { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--text-primary); white-space: nowrap; flex-shrink: 0; }
   .drip-live .leader-detail { font-family: var(--mono); font-size: 11px; color: var(--text-tertiary); }
   .drip-live .plays-section { margin-top: 4px; }
   .drip-live .plays-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 0 10px; border-bottom: 1px solid var(--border); }
@@ -556,7 +562,8 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
               ) : (
                 homeLeaders.map((row) => (
                   <div key={row.name} className="leader-row">
-                    <div>
+                    {row.headshot && <img className="leader-headshot" src={row.headshot} alt="" loading="lazy" />}
+                    <div className="leader-info">
                       <div className="leader-name">{row.name}</div>
                       <div className="leader-detail">{row.detail}</div>
                     </div>
@@ -572,7 +579,8 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
               ) : (
                 awayLeaders.map((row) => (
                   <div key={row.name} className="leader-row">
-                    <div>
+                    {row.headshot && <img className="leader-headshot" src={row.headshot} alt="" loading="lazy" />}
+                    <div className="leader-info">
                       <div className="leader-name">{row.name}</div>
                       <div className="leader-detail">{row.detail}</div>
                     </div>
