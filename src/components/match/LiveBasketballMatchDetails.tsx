@@ -192,31 +192,31 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
   const styles = `
   .drip-live, .drip-live * { margin: 0; padding: 0; box-sizing: border-box; }
   .drip-live { font-family: var(--sans); background: var(--bg); color: var(--text-primary); -webkit-font-smoothing: antialiased; line-height: 1.6; height: 100%; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
-  .drip-live .top-bar { max-width: 960px; margin: 0 auto; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+  .drip-live .top-bar { max-width: 1120px; margin: 0 auto; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
   .drip-live .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: var(--text-secondary); text-decoration: none; cursor: pointer; background: none; border: none; }
   .drip-live .back-link:hover { color: var(--text-primary); }
-  .drip-live .scoreboard { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+  .drip-live .scoreboard { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
   .drip-live .scoreboard-card { background: var(--scoreboard-bg); border-radius: 12px 12px 0 0; overflow: hidden; }
-  .drip-live .scoreboard-main { padding: 28px 40px 18px; display: flex; align-items: center; justify-content: center; gap: 48px; }
+  .drip-live .scoreboard-main { padding: 40px 48px 24px; display: flex; align-items: center; justify-content: center; gap: 56px; }
   .drip-live .sb-team { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 110px; }
-  .drip-live .sb-logo { width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--scoreboard-text); overflow: hidden; }
+  .drip-live .sb-logo { width: 72px; height: 72px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--scoreboard-text); overflow: hidden; }
   .drip-live .sb-name { font-size: 16px; font-weight: 600; color: var(--scoreboard-text); text-align: center; }
   .drip-live .sb-record { font-family: var(--mono); font-size: 13px; color: var(--scoreboard-dim); }
-  .drip-live .sb-center { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 160px; }
-  .drip-live .sb-score { font-family: var(--mono); font-size: 48px; font-weight: 700; color: var(--scoreboard-text); letter-spacing: -0.02em; display: flex; align-items: baseline; gap: 14px; }
-  .drip-live .sb-dash { font-size: 28px; color: var(--scoreboard-dim); font-weight: 400; }
-  .drip-live .sb-period { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--scoreboard-dim); letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 10px; background: rgba(255,255,255,0.06); border-radius: 4px; }
-  .drip-live .line-strip { padding: 0 40px 12px; display: flex; justify-content: center; gap: 24px; }
+  .drip-live .sb-center { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 180px; }
+  .drip-live .sb-score { font-family: var(--mono); font-size: 56px; font-weight: 700; color: var(--scoreboard-text); letter-spacing: -0.02em; display: flex; align-items: baseline; gap: 16px; }
+  .drip-live .sb-dash { font-size: 32px; color: var(--scoreboard-dim); font-weight: 400; }
+  .drip-live .sb-period { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--scoreboard-dim); letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 12px; background: rgba(255,255,255,0.06); border-radius: 4px; }
+  .drip-live .line-strip { padding: 0 48px 16px; display: flex; justify-content: center; gap: 28px; }
   .drip-live .line-item { font-family: var(--mono); font-size: 12px; color: var(--scoreboard-dim); display: flex; align-items: center; gap: 6px; }
   .drip-live .line-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.3); }
   .drip-live .line-value { font-weight: 600; color: var(--scoreboard-text); }
-  .drip-live .prob-strip { padding: 0 40px 20px; display: flex; align-items: center; gap: 12px; }
+  .drip-live .prob-strip { padding: 0 48px 24px; display: flex; align-items: center; gap: 12px; }
   .drip-live .prob-label { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--scoreboard-dim); white-space: nowrap; min-width: 60px; }
   .drip-live .prob-label.right { text-align: right; }
   .drip-live .prob-track { flex: 1; height: 4px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; display: flex; }
   .drip-live .prob-fill-home { height: 100%; background: var(--home-color); border-radius: 3px 0 0 3px; }
   .drip-live .prob-fill-away { height: 100%; background: var(--away-color); border-radius: 0 3px 3px 0; }
-  .drip-live .court-section { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+  .drip-live .court-section { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
   .drip-live .court-wrap { background: #2A2926; border-radius: 0 0 12px 12px; position: relative; overflow: hidden; max-height: 140px; display: flex; align-items: center; justify-content: center; }
   .drip-live .court-svg { width: 100%; height: auto; display: block; max-height: 140px; }
   .drip-live .last-play { display: flex; align-items: center; gap: 10px; padding: 10px 20px; background: rgba(0,0,0,0.3); }
@@ -224,22 +224,22 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
   .drip-live .last-play-text { display: flex; flex-direction: column; gap: 1px; }
   .drip-live .last-play-action { font-size: 13px; font-weight: 500; color: var(--scoreboard-text); }
   .drip-live .last-play-meta { font-family: var(--mono); font-size: 11px; color: var(--scoreboard-dim); }
-  .drip-live .tabs { max-width: 960px; margin: 0 auto; padding: 16px 20px 0; }
+  .drip-live .tabs { max-width: 1120px; margin: 0 auto; padding: 16px 20px 0; }
   .drip-live .tab-row { display: flex; justify-content: center; border-bottom: 1px solid var(--border); }
-  .drip-live .tab-btn { font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 12px 24px; background: none; border: none; color: var(--text-tertiary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s; }
+  .drip-live .tab-btn { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 14px 32px; background: none; border: none; color: var(--text-tertiary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s; }
   .drip-live .tab-btn.active { color: var(--text-primary); border-bottom-color: var(--text-primary); }
   .drip-live .tab-btn:hover:not(.active) { color: var(--text-secondary); }
-  .drip-live .content { max-width: 960px; margin: 0 auto; padding: 20px 20px 80px; }
+  .drip-live .content { max-width: 1120px; margin: 0 auto; padding: 24px 20px 40px; }
   .drip-live .quarter-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
   .drip-live .quarter-table { width: 100%; border-collapse: collapse; }
-  .drip-live .quarter-table th { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); padding: 10px 14px; text-align: center; border-bottom: 1px solid var(--border); background: var(--bg); }
+  .drip-live .quarter-table th { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); padding: 13px 16px; text-align: center; border-bottom: 1px solid var(--border); background: var(--bg); }
   .drip-live .quarter-table th:first-child { text-align: left; }
-  .drip-live .quarter-table td { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--text-secondary); padding: 10px 14px; text-align: center; border-bottom: 1px solid rgba(232,231,227,0.4); }
+  .drip-live .quarter-table td { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--text-secondary); padding: 13px 16px; text-align: center; border-bottom: 1px solid rgba(232,231,227,0.4); }
   .drip-live .quarter-table td:first-child { text-align: left; font-family: var(--sans); font-weight: 600; color: var(--text-primary); }
   .drip-live .quarter-table td:last-child { font-weight: 700; color: var(--text-primary); }
   .drip-live .quarter-table tr:last-child td { border-bottom: none; }
   .drip-live .leaders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
-  .drip-live .leader-card { background: var(--surface); padding: 16px 18px; }
+  .drip-live .leader-card { background: var(--surface); padding: 20px 22px; min-height: 140px; }
   .drip-live .leader-team { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 12px; }
   .drip-live .leader-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
   .drip-live .leader-row + .leader-row { border-top: 1px solid rgba(232,231,227,0.4); }
@@ -250,7 +250,7 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
   .drip-live .plays-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 0 10px; border-bottom: 1px solid var(--border); }
   .drip-live .plays-title { font-family: var(--serif); font-size: 17px; font-weight: 600; }
   .drip-live .plays-period { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
-  .drip-live .period-break { background: var(--surface-warm); border: 1px solid var(--border); border-radius: 8px; padding: 12px 20px; text-align: center; margin: 16px 0; }
+  .drip-live .period-break { background: var(--surface-warm); border: 1px solid var(--border); border-radius: 8px; padding: 24px 20px; text-align: center; margin: 16px 0; min-height: 100px; display: flex; align-items: center; justify-content: center; }
   .drip-live .period-break-text { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.04em; text-transform: uppercase; }
   .drip-live .play-row { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(232,231,227,0.35); }
   .drip-live .play-row:last-child { border-bottom: none; }
@@ -299,7 +299,7 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
   .drip-live .quarter-header { background: var(--surface-warm); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; margin: 16px 0 8px; display: flex; justify-content: space-between; align-items: center; }
   .drip-live .quarter-header-label { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.04em; text-transform: uppercase; }
   .drip-live .quarter-header-score { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-tertiary); }
-  .drip-live footer { max-width: 960px; margin: 0 auto; padding: 24px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .drip-live footer { max-width: 1120px; margin: 0 auto; padding: 24px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
   .drip-live footer span { font-size: 13px; color: var(--text-tertiary); }
   .drip-live footer a { font-size: 13px; color: var(--text-secondary); text-decoration: none; }
   @media (max-width: 640px) {
