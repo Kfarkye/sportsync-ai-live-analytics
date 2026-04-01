@@ -172,7 +172,13 @@ const LivePlayByPlay: React.FC<LivePlayByPlayProps> = ({
         ) : (
           plays.map((play, idx) => {
             const isHome = play.teamId && homeTeamName;
-            const logo = play.teamId ? (play.teamId === intel.score.home.team ? homeLogo : awayLogo) : undefined;
+            // Primary: compare against numeric teamId emitted by backend
+            // Fallback: compare against team name (legacy compat)
+            const homeId = intel.score?.home?.teamId;
+            const awayId = intel.score?.away?.teamId;
+            const logo = play.teamId
+              ? (play.teamId === homeId || play.teamId === intel.score.home.team ? homeLogo : awayLogo)
+              : undefined;
             const scoring = isScoringPlay(play);
 
             return (

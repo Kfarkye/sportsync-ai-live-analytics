@@ -37,8 +37,8 @@ export interface GameIntel {
   clock: string | null;
   start_time: string | null;
   score: {
-    home: { team: string; score: number };
-    away: { team: string; score: number };
+    home: { team: string; teamId?: string | null; score: number };
+    away: { team: string; teamId?: string | null; score: number };
   };
   last_play: PlayEvent | null;
   recent_plays: PlayEvent[];

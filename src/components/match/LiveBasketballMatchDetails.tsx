@@ -1,6 +1,6 @@
 import React, { FC, useMemo, useState } from 'react';
 import type { Match, MatchEvent, MatchOdds, PlayerPropBet, MatchLeader } from '@/types';
-import { getPeriodDisplay, isGameFinished } from '@/utils/matchUtils';
+import { getPeriodDisplay, isGameFinished, getDbMatchId } from '@/utils/matchUtils';
 import LivePlayByPlay from './LivePlayByPlay';
 
 interface LiveBasketballMatchDetailsProps {
@@ -608,7 +608,7 @@ const LiveBasketballMatchDetails: FC<LiveBasketballMatchDetailsProps> = ({ match
 
         <div className={`plays-pane ${activeTab === 'plays' ? 'active' : ''}`}>
           <LivePlayByPlay
-            gameId={`${match.id}_${match.leagueId}`}
+            gameId={getDbMatchId(match.id, match.leagueId)}
             homeTeamName={homeName}
             awayTeamName={awayName}
             homeLogo={homeLogo}

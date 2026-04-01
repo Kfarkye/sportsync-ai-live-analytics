@@ -197,7 +197,7 @@ export async function handleLiveGameIntel(req, res) {
     let row = data;
     if (!row && /^\d+$/.test(gameId)) {
       logger.info(`Exact match not found for ${gameId}, trying prefix match`);
-      const { data: fallbackData, error: fallbackError } = await supabase
+      const { data: fallbackRows, error: fallbackError } = await supabase
         .from('live_game_state')
         .select(`
           id, sport, league_id, game_status, period, clock, display_clock,
@@ -209,9 +209,10 @@ export async function handleLiveGameIntel(req, res) {
           start_time, updated_at
         `)
         .like('id', `${gameId}_%`)
-        .maybeSingle();
+        .order('updated_at', { ascending: false })
+        .limit(1);
       if (fallbackError) throw fallbackError;
-      row = fallbackData;
+      row = fallbackRows?.[0] || null;
     }
     
     if (!row) {
@@ -219,20 +220,24 @@ export async function handleLiveGameIntel(req, res) {
       return;
     }
 
-    // Determine team IDs from player_stats blocks (ESPN uses teamId in the data)
+    // Determine team IDs from player_stats blocks by matching team name to row.home_team/row.away_team
     let homeTeamId = null;
     let awayTeamId = null;
     if (Array.isArray(row.player_stats) && row.player_stats.length >= 2) {
-      // Convention: first block is away, second is home (ESPN pattern)
-      // We identify by checking if team names match
+      const homeNameLower = (row.home_team || '').toLowerCase();
+      const awayNameLower = (row.away_team || '').toLowerCase();
       for (const block of row.player_stats) {
         if (!block?.teamId) continue;
-        // We can't definitively map without team IDs in the main row,
-        // so we use position: first block = away team in ESPN data
+        const blockName = (block.team?.displayName || block.team?.shortDisplayName || block.team || '').toLowerCase();
+        if (blockName && homeNameLower && blockName.includes(homeNameLower.split(' ').pop())) {
+          homeTeamId = block.teamId;
+        } else if (blockName && awayNameLower && blockName.includes(awayNameLower.split(' ').pop())) {
+          awayTeamId = block.teamId;
+        }
       }
-      // Heuristic: just use the teamIds from the blocks
-      awayTeamId = row.player_stats[0]?.teamId || null;
-      homeTeamId = row.player_stats[1]?.teamId || null;
+      // Final fallback: if name matching didn't resolve both, use block order (ESPN convention: [0]=away [1]=home)
+      if (!awayTeamId && row.player_stats[0]?.teamId) awayTeamId = row.player_stats[0].teamId;
+      if (!homeTeamId && row.player_stats[1]?.teamId) homeTeamId = row.player_stats[1].teamId;
     }
 
     // Determine league from id suffix or league_id
@@ -255,8 +260,8 @@ export async function handleLiveGameIntel(req, res) {
       
       // === Score ===
       score: {
-        home: { team: row.home_team, score: row.home_score },
-        away: { team: row.away_team, score: row.away_score },
+        home: { team: row.home_team, teamId: homeTeamId, score: row.home_score },
+        away: { team: row.away_team, teamId: awayTeamId, score: row.away_score },
       },
       
       // === Play-by-Play ===
