@@ -144,7 +144,6 @@ const LivePlayByPlay: React.FC<LivePlayByPlayProps> = ({
       {/* ── Last Play Highlight ───────────────────────────── */}
       {intel.last_play && (
         <div className="pbp-last-play">
-          <span className="pbp-last-play-badge">LATEST</span>
           <span className="pbp-last-play-text">{intel.last_play.text}</span>
           <span className="pbp-last-play-clock">{intel.last_play.clock}</span>
         </div>
@@ -326,11 +325,11 @@ const componentStyles = `
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 16px;
+    padding: 12px 16px;
     margin: 12px 0;
     background: linear-gradient(135deg, rgba(200, 90, 58, 0.06) 0%, rgba(200, 90, 58, 0.02) 100%);
-    border: 1px solid rgba(200, 90, 58, 0.15);
-    border-radius: 10px;
+    border-left: 3px solid #C85A3A;
+    border-radius: 0 10px 10px 0;
   }
   .pbp-last-play-badge {
     font-family: 'JetBrains Mono', monospace;
@@ -422,7 +421,7 @@ const componentStyles = `
     align-items: center;
     width: 28px;
     flex-shrink: 0;
-    padding-top: 12px;
+    padding-top: 8px;
   }
   .pbp-play-team-logo {
     width: 20px;
@@ -444,7 +443,7 @@ const componentStyles = `
 
   .pbp-play-content {
     flex: 1;
-    padding: 10px 0;
+    padding: 6px 0;
     border-bottom: 1px solid rgba(232, 231, 227, 0.4);
     min-width: 0;
   }
