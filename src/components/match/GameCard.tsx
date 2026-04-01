@@ -5,7 +5,8 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import React, { memo } from 'react';
-import { Match } from '@/types';
+import { Match, Sport } from '@/types';
+import { getPeriodDisplay } from '@/utils/matchUtils';
 import MatchRow from './MatchRow';
 import TeamLogo from '../shared/TeamLogo';
 import { ESSENCE } from '@/lib/essence';
@@ -118,8 +119,17 @@ const GameCard: React.FC<MatchCardProps> = memo(({
     const homeFav = hasProb && (homeProb ?? 0) >= (awayProb ?? 0);
 
     // Clock Formatting safely handling malformed dates
+    const isBaseball = match.sport === Sport.BASEBALL;
     let clockDisplay = match.displayClock || match.minute || '';
-    let periodDisplay = match.period ? (match.sport === 'SOCCER' ? '' : `Q${match.period}`) : '';
+    let periodDisplay = '';
+
+    if (isBaseball) {
+      // Baseball has no game clock — show inning status from getPeriodDisplay
+      clockDisplay = getPeriodDisplay(match as any) || 'LIVE';
+      periodDisplay = '';
+    } else {
+      periodDisplay = match.period ? (match.sport === 'SOCCER' ? '' : `Q${match.period}`) : '';
+    }
 
     if (!isLive && !isFinal && match.startTime) {
         try {

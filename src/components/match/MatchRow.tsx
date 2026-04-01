@@ -102,16 +102,22 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
   const total = match.odds?.overUnder ?? match.odds?.total;
 
   // Time / Clock
+  const isBaseball = match.sport === Sport.BASEBALL;
   const { startTime, clock, period } = useMemo(() => {
     const d = new Date(match.startTime);
+    const periodStr = isTennis
+      ? (match.round?.replace(/Qualifying |Round (of )?/g, 'R') ?? '')
+      : (getPeriodDisplay(match) || '');
+    // Baseball has no game clock — suppress "0:00" and derive display from period only
+    const clockStr = isBaseball
+      ? ''
+      : (match.displayClock || match.minute || 'LIVE');
     return {
       startTime: d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-      clock: match.displayClock || match.minute || 'LIVE',
-      period: isTennis
-        ? (match.round?.replace(/Qualifying |Round (of )?/g, 'R') ?? '')
-        : (getPeriodDisplay(match) || ''),
+      clock: clockStr,
+      period: periodStr,
     };
-  }, [match, isTennis]);
+  }, [match, isTennis, isBaseball]);
 
   // Footer: "ORL -1.5 · 224.5"
   const footer = useMemo(() => {
@@ -160,7 +166,7 @@ const MatchRow = forwardRef<HTMLDivElement, MatchRowProps>(({
             <>
               <span className="inline-flex h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
               <span className="font-mono font-bold text-red-600 uppercase tracking-wide">
-                {period ? `${period} ${clock}` : clock}
+                {[period, clock].filter(Boolean).join(' ') || 'LIVE'}
               </span>
               <span>·</span>
             </>

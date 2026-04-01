@@ -29,13 +29,20 @@ const CompactLiveRow: React.FC<CompactLiveRowProps> = ({ match, onClick }) => {
     const totalDisplay = totalData.line !== null ? totalData.displayLine : '-';
 
     // --- CLOCK / TIME LOGIC ---
-    let clockDisplay = match.displayClock || match.minute || '00:00';
+    const isBaseball = match.sport === 'BASEBALL';
+    let clockDisplay = isBaseball ? '' : (match.displayClock || match.minute || '00:00');
     let periodText = '';
 
     if (isScheduled) {
         clockDisplay = new Date(match.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     } else if (isFinal) {
         clockDisplay = 'Final';
+    } else if (isBaseball) {
+        // Baseball: derive from period + situation, no game clock
+        const period = match.period || 0;
+        const outs = (match as any).situation?.outs;
+        clockDisplay = period ? `INN ${period}` : 'LIVE';
+        if (outs !== undefined && outs !== null) periodText = `${outs} OUT`;
     } else {
         const period = match.period || 0;
         const isOvertime = period > 4;
