@@ -256,8 +256,8 @@ const CHAT_SURFACES = {
 } as const;
 
 const RETRY_CONFIG = { maxAttempts: 3, baseDelay: 1000, maxDelay: 8000, jitterFactor: 0.3 } as const;
-const CHAT_TTFB_TIMEOUT_MS = 30_000;
-const CHAT_STREAM_IDLE_TIMEOUT_MS = 90_000;
+const CHAT_TTFB_TIMEOUT_MS = 75_000;
+const CHAT_STREAM_IDLE_TIMEOUT_MS = 120_000;
 const SEND_DEBOUNCE_MS = 300;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
