@@ -9,7 +9,7 @@
  *
  * Resolution strategy:
  *   1. Attempt to find the match in the already-loaded feed (from useMatches cache)
- *   2. If not cached, fetch today's slate and resolve from it
+ *   2. If not cached, fetch the hinted slate date (with nearby fallback days)
  *   3. If still not found, show a clean error state
  *
  * The ChatWidget is mounted alongside MatchDetails so that the chat
@@ -17,7 +17,7 @@
  */
 
 import React, { type FC, useEffect, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import SEOHead from '@/components/seo/SEOHead';
 import MatchDetails from '@/components/match/MatchDetails';
@@ -26,20 +26,43 @@ import { useAppStore } from '@/store/appStore';
 import type { Match } from '@/types';
 import { cn } from '@/lib/essence';
 import { isSupabaseConfigured, getSupabaseUrl } from '@/lib/supabase';
-import { formatLocalDate, safeParseDate } from '@/utils/dateUtils';
+import { formatLocalDate } from '@/utils/dateUtils';
+import { SLUG_TO_SPORT } from '@/lib/sportSlugs';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // §  Direct game fetch (when not in cache)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const fetchSingleGame = async (gameId: string): Promise<Match | null> => {
-  // Strategy: fetch today's full slate and find the game.
-  // This reuses the same Edge function as useMatches, so cache is shared.
-  if (!isSupabaseConfigured()) return null;
+const DATE_PARAM_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-  const today = formatLocalDate(new Date());
+const parseDateHint = (raw: string | null): Date | null => {
+  if (!raw || !DATE_PARAM_RE.test(raw)) return null;
+  const [year, month, day] = raw.split('-').map(Number);
+  const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const shiftDateKey = (dateKey: string, days: number): string => {
+  const base = parseDateHint(dateKey);
+  if (!base) return dateKey;
+  const next = new Date(base);
+  next.setDate(next.getDate() + days);
+  return formatLocalDate(next);
+};
+
+const normalizeGameId = (value: string): string => String(value || '').trim();
+const toGameBaseId = (value: string): string => normalizeGameId(value).split('_')[0];
+const gameIdsMatch = (a: string, b: string): boolean => {
+  const left = normalizeGameId(a);
+  const right = normalizeGameId(b);
+  if (!left || !right) return false;
+  return left === right || toGameBaseId(left) === toGameBaseId(right);
+};
+
+const fetchMatchesForDate = async (dateKey: string, limit = 300): Promise<Match[]> => {
+  if (!isSupabaseConfigured()) return [];
   const baseUrl = getSupabaseUrl();
-  if (!baseUrl) return null;
+  if (!baseUrl) return [];
   const anonKey = (
     typeof import.meta.env.VITE_SUPABASE_ANON_KEY === 'string'
       ? import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -47,10 +70,10 @@ const fetchSingleGame = async (gameId: string): Promise<Match | null> => {
         ? (import.meta as any).env.NEXT_PUBLIC_SUPABASE_ANON_KEY
         : ''
   ).trim();
-  if (!anonKey) return null;
+  if (!anonKey) return [];
 
   try {
-    const response = await fetch(`${baseUrl}/functions/v1/fetch-matches`, {
+    const response = await fetch(`${baseUrl}/functions/v1/fetch-matches?date=${encodeURIComponent(dateKey)}&limit=${limit}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${anonKey}`,
@@ -58,17 +81,50 @@ const fetchSingleGame = async (gameId: string): Promise<Match | null> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        date: today,
-        oddsSportKey: 'all',
+        date: dateKey,
+        limit,
       }),
     });
 
-    if (!response.ok) return null;
-    const data: Match[] = await response.json();
-    return data.find((m) => m.id === gameId) ?? null;
+    if (!response.ok) return [];
+    const payload = await response.json();
+    const rawMatches = Array.isArray(payload)
+      ? payload
+      : (payload && typeof payload === 'object' && Array.isArray(payload.data))
+        ? payload.data
+        : (payload && typeof payload === 'object' && Array.isArray(payload.matches))
+          ? payload.matches
+          : [];
+    if (!Array.isArray(rawMatches)) return [];
+    const fetchedAt = Date.now();
+    return rawMatches.map((item: Match) => (
+      typeof item?.fetched_at === 'number'
+        ? item
+        : { ...item, fetched_at: fetchedAt }
+    ));
   } catch {
-    return null;
+    return [];
   }
+};
+
+const buildCandidateDateKeys = (hintedDate: Date | null): string[] => {
+  const todayKey = formatLocalDate(new Date());
+  if (hintedDate) {
+    const hintKey = formatLocalDate(hintedDate);
+    return [...new Set([hintKey, shiftDateKey(hintKey, -1), shiftDateKey(hintKey, 1), todayKey])];
+  }
+  return [...new Set([todayKey, shiftDateKey(todayKey, -1), shiftDateKey(todayKey, 1)])];
+};
+
+const fetchSingleGame = async (gameId: string, hintedDate: Date | null): Promise<Match | null> => {
+  if (!normalizeGameId(gameId)) return null;
+  const candidateDateKeys = buildCandidateDateKeys(hintedDate);
+  for (const dateKey of candidateDateKeys) {
+    const matches = await fetchMatchesForDate(dateKey, 300);
+    const found = matches.find((m) => gameIdsMatch(String(m.id || ''), gameId));
+    if (found) return found;
+  }
+  return null;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -77,9 +133,29 @@ const fetchSingleGame = async (gameId: string): Promise<Match | null> => {
 
 const GamePage: FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const setSelectedMatch = useAppStore((s) => s.setSelectedMatch);
+  const query = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const hintedDate = useMemo(() => parseDateHint(query.get('date')), [query]);
+  const hintedDateKey = useMemo(() => (hintedDate ? formatLocalDate(hintedDate) : 'none'), [hintedDate]);
+  const hintedSportSlug = useMemo(() => {
+    const raw = (query.get('sport') || '').toLowerCase().trim();
+    return raw && SLUG_TO_SPORT[raw] ? raw : null;
+  }, [query]);
+  const hintedView = useMemo<'live' | 'feed'>(() => {
+    const raw = (query.get('view') || '').toLowerCase();
+    return raw === 'live' ? 'live' : 'feed';
+  }, [query]);
+  const fallbackSlateHref = useMemo(() => {
+    const dateKey = hintedDate ? formatLocalDate(hintedDate) : formatLocalDate(new Date());
+    const params = new URLSearchParams();
+    params.set('date', dateKey);
+    params.set('view', hintedView);
+    const pathname = hintedSportSlug ? `/${hintedSportSlug}` : '/';
+    return `${pathname}?${params.toString()}`;
+  }, [hintedDate, hintedView, hintedSportSlug]);
 
   // 1) Try to resolve from existing useMatches cache first
   const cachedMatch = useMemo((): Match | null => {
@@ -89,7 +165,7 @@ const GamePage: FC = () => {
     const allQueries = queryClient.getQueriesData<Match[]>({ queryKey: ['matches'] });
     for (const [, matches] of allQueries) {
       if (!matches) continue;
-      const found = matches.find((m) => m.id === gameId);
+      const found = matches.find((m) => gameIdsMatch(String(m.id || ''), gameId));
       if (found) return found;
     }
     return null;
@@ -97,14 +173,20 @@ const GamePage: FC = () => {
 
   // 2) If not in cache, fetch directly
   const { data: fetchedMatch, isLoading: isFetching } = useQuery({
-    queryKey: ['game', gameId],
-    queryFn: () => fetchSingleGame(gameId!),
+    queryKey: ['game', gameId, hintedDateKey],
+    queryFn: () => fetchSingleGame(gameId!, hintedDate),
     enabled: !!gameId && !cachedMatch,
     staleTime: 15_000,
     refetchInterval: 15_000,
   });
 
   const match = cachedMatch ?? fetchedMatch ?? null;
+
+  useEffect(() => {
+    if (!match || !gameId) return;
+    if (String(match.id) === gameId) return;
+    navigate(`/game/${match.id}${location.search || ''}`, { replace: true });
+  }, [match, gameId, location.search, navigate]);
 
   // 3) Sync the resolved match into appStore so useActiveObject picks it up
   useEffect(() => {
@@ -122,9 +204,9 @@ const GamePage: FC = () => {
     if (window.history.length > 1) {
       navigate(-1);
     } else {
-      navigate('/');
+      navigate(fallbackSlateHref);
     }
-  }, [navigate]);
+  }, [navigate, fallbackSlateHref]);
 
   // ── Loading state ──────────────────────────────────────────────────────
   if (!gameId) {
@@ -162,7 +244,7 @@ const GamePage: FC = () => {
         </p>
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onClick={() => navigate(fallbackSlateHref)}
           className={cn(
             'mt-2 px-5 py-2 rounded-full',
             'border border-slate-200 bg-white',

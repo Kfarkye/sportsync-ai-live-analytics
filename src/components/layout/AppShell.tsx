@@ -135,11 +135,16 @@ const AppShell: FC = () => {
   // This creates a real URL-based object surface.
   const handleSelectMatch = useCallback((match: import('@/types').Match | null) => {
     if (match) {
-      navigate(`/game/${match.id}`);
+      const params = new URLSearchParams();
+      params.set('date', formatLocalDate(selectedDate));
+      params.set('view', activeView === 'LIVE' ? 'live' : 'feed');
+      const sportSlug = (SPORT_TO_SLUG[String(match.sport)] || '').toLowerCase();
+      if (sportSlug) params.set('sport', sportSlug);
+      navigate(`/game/${match.id}?${params.toString()}`);
     } else {
       setSelectedMatch(null);
     }
-  }, [navigate, setSelectedMatch]);
+  }, [navigate, selectedDate, activeView, setSelectedMatch]);
 
   // Unique key to force animation when Date/Sport changes
   const viewKey = `feed-${new Date(selectedDate).toISOString().split('T')[0]}-${selectedSport}`;

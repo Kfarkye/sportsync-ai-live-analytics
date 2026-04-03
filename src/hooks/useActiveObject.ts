@@ -71,6 +71,14 @@ const parseDateParam = (raw: string | null): Date => {
 };
 const formatDateValue = (date: Date): string =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+const normalizeGameId = (value: string): string => String(value || '').trim();
+const toGameBaseId = (value: string): string => normalizeGameId(value).split('_')[0];
+const gameIdsMatch = (a: string, b: string): boolean => {
+  const left = normalizeGameId(a);
+  const right = normalizeGameId(b);
+  if (!left || !right) return false;
+  return left === right || toGameBaseId(left) === toGameBaseId(right);
+};
 
 export function useActiveObject(): ActiveObject {
   const location = useLocation();
@@ -104,16 +112,20 @@ export function useActiveObject(): ActiveObject {
     // /game/:gameId — the first public object surface
     const gameRoute = pathname.match(/^\/game\/([^/]+)/);
     if (gameRoute) {
-      const gameId = gameRoute[1];
-      // If selectedMatch is loaded and matches this gameId, attach it.
-      // Otherwise resolve with just the ID (GamePage will hydrate it).
-      const resolvedMatch = selectedMatch?.id === gameId ? selectedMatch : undefined;
+      const gameId = normalizeGameId(gameRoute[1]);
+      // Attach selectedMatch when it is the same canonical game object,
+      // including legacy unsuffixed IDs (e.g. 4016... vs 4016..._mlb).
+      const resolvedMatch = selectedMatch && gameIdsMatch(String(selectedMatch.id || ''), gameId)
+        ? selectedMatch
+        : undefined;
+      const canonicalGameId = resolvedMatch?.id ? String(resolvedMatch.id) : gameId;
+      const inferredSport = resolvedMatch?.sport || (urlSport === 'all' ? undefined : (urlSport as Sport));
       return {
         type: 'game',
-        id: gameId,
+        id: canonicalGameId,
         source_url: sourceUrl,
         match: resolvedMatch,
-        sport: resolvedMatch?.sport as Sport | undefined,
+        sport: inferredSport as Sport | undefined,
       };
     }
 
