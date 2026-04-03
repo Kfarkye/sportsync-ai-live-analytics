@@ -50,7 +50,7 @@ interface MatchListProps {
     onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
     isMatchLive: (match: Match) => boolean;
     isMatchFinal: (match: Match) => boolean;
-
+    onAdvanceDate?: (days: number) => void;
 }
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -514,12 +514,11 @@ LeagueGroup.displayName = 'LeagueGroup';
 // ============================================================================
 
 const MatchList: React.FC<MatchListProps> = ({
-    matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal,
+    matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal, onAdvanceDate,
 }) => {
     const prefersReducedMotion = useReducedMotion();
     const oddsLens = useAppStore((state) => state.oddsLens);
     const selectedDate = useAppStore((state) => state.selectedDate);
-    const setSelectedDate = useAppStore((state) => state.setSelectedDate);
 
     // ONLY UI user-interactions use event callbacks. State/Data derivatives MUST stay as standard dependencies.
     const handleSelect = useEventCallback(onSelectMatch);
@@ -741,7 +740,7 @@ const MatchList: React.FC<MatchListProps> = ({
                 <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
                     <button
                         type="button"
-                        onClick={() => setSelectedDate(1)}
+                        onClick={() => onAdvanceDate?.(1)}
                         className="h-11 rounded-lg border border-zinc-300 bg-white px-3.5 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
                     >
                         Next Date

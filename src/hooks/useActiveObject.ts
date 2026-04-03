@@ -8,15 +8,16 @@
  * It does NOT build the packet. It resolves the locator.
  *
  * Resolution priority:
- *   1. Explicit game selection (detail overlay is open)
- *   2. URL-resolved routes (/team/:slug, /match/:slug, /trends, /edge)
- *   3. Default: live slate (sport + date from store)
+ *   1. URL-resolved routes (/game/:id, /team/:slug, /match/:slug, /trends, /edge)
+ *   2. Legacy in-memory selected match (fallback only)
+ *   3. Default: URL-bound live slate (sport + date + view from URL)
  */
 
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAppStore, type ViewType } from '@/store/appStore';
 import type { Sport, Match } from '@/types';
+import { SLUG_TO_SPORT, resolveSportFromPath } from '@/lib/sportSlugs';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // §  Object Types
@@ -60,31 +61,44 @@ export interface ActiveObject {
 // ═══════════════════════════════════════════════════════════════════════════
 // §  Hook
 // ═══════════════════════════════════════════════════════════════════════════
+type LiveSlateSport = Sport | 'all';
+const DATE_PARAM_RE = /^\d{4}-\d{2}-\d{2}$/;
+const parseDateParam = (raw: string | null): Date => {
+  if (!raw || !DATE_PARAM_RE.test(raw)) return new Date();
+  const [year, month, day] = raw.split('-').map(Number);
+  const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+};
+const formatDateValue = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 export function useActiveObject(): ActiveObject {
   const location = useLocation();
   const selectedMatch = useAppStore((s) => s.selectedMatch);
-  const selectedSport = useAppStore((s) => s.selectedSport);
-  const selectedDate = useAppStore((s) => s.selectedDate);
   const activeView = useAppStore((s) => s.activeView);
 
   return useMemo((): ActiveObject => {
     const pathname = location.pathname;
+    const sourceUrl = `${location.pathname}${location.search}`;
+    const query = new URLSearchParams(location.search);
+    const urlDate = parseDateParam(query.get('date'));
+    const urlDateKey = formatDateValue(urlDate);
+    const urlView: ViewType = (() => {
+      const raw = (query.get('view') || '').toLowerCase();
+      if (raw === 'live') return 'LIVE';
+      if (raw === 'feed') return 'FEED';
+      if (pathname === '/live') return 'LIVE';
+      return activeView === 'LIVE' ? 'LIVE' : 'FEED';
+    })();
+    const urlSport: LiveSlateSport = (() => {
+      const fromPath = resolveSportFromPath(pathname);
+      if (fromPath) return fromPath;
+      const raw = (query.get('sport') || '').toLowerCase().trim();
+      if (!raw || raw === 'all') return 'all';
+      return SLUG_TO_SPORT[raw] ?? 'all';
+    })();
 
-    // ── Priority 1: Game detail overlay is active ──────────────────────
-    // When a user taps a game card, the detail sheet opens over the feed.
-    // The game object is THE active object, regardless of the underlying URL.
-    if (selectedMatch) {
-      return {
-        type: 'game',
-        id: selectedMatch.id,
-        source_url: pathname,
-        match: selectedMatch,
-        sport: selectedMatch.sport as Sport | undefined,
-      };
-    }
-
-    // ── Priority 2: URL-resolved routes ────────────────────────────────
+    // ── Priority 1: URL-resolved routes ────────────────────────────────
 
     // /game/:gameId — the first public object surface
     const gameRoute = pathname.match(/^\/game\/([^/]+)/);
@@ -96,7 +110,7 @@ export function useActiveObject(): ActiveObject {
       return {
         type: 'game',
         id: gameId,
-        source_url: pathname,
+        source_url: sourceUrl,
         match: resolvedMatch,
         sport: resolvedMatch?.sport as Sport | undefined,
       };
@@ -108,7 +122,7 @@ export function useActiveObject(): ActiveObject {
       return {
         type: 'team',
         id: `team:${teamMatch[1]}`,
-        source_url: pathname,
+        source_url: sourceUrl,
         slug: teamMatch[1],
       };
     }
@@ -119,7 +133,7 @@ export function useActiveObject(): ActiveObject {
       return {
         type: 'postgame',
         id: `postgame:${matchSlug[1]}`,
-        source_url: pathname,
+        source_url: sourceUrl,
         slug: matchSlug[1],
       };
     }
@@ -130,58 +144,59 @@ export function useActiveObject(): ActiveObject {
       return {
         type: 'league',
         id: `league:${leagueMatch[1]}`,
-        source_url: pathname,
+        source_url: sourceUrl,
         slug: leagueMatch[1],
       };
     }
 
     // /trends
     if (pathname === '/trends') {
-      const dateKey = selectedDate instanceof Date
-        ? selectedDate.toISOString().slice(0, 10)
-        : String(selectedDate);
       return {
         type: 'trend',
-        id: `trends:${dateKey}`,
-        source_url: pathname,
-        sport: selectedSport,
-        date: selectedDate instanceof Date ? selectedDate : new Date(selectedDate),
+        id: `trends:${urlDateKey}`,
+        source_url: sourceUrl,
+        sport: urlSport === 'all' ? undefined : (urlSport as Sport),
+        date: urlDate,
       };
     }
 
     // /edge or /reports
     if (pathname === '/edge' || pathname === '/reports') {
-      const dateKey = selectedDate instanceof Date
-        ? selectedDate.toISOString().slice(0, 10)
-        : String(selectedDate);
       return {
         type: 'report',
-        id: `reports:${dateKey}`,
-        source_url: pathname,
-        sport: selectedSport,
-        date: selectedDate instanceof Date ? selectedDate : new Date(selectedDate),
+        id: `reports:${urlDateKey}`,
+        source_url: sourceUrl,
+        sport: urlSport === 'all' ? undefined : (urlSport as Sport),
+        date: urlDate,
       };
     }
 
-    // ── Priority 3: Default — live slate ───────────────────────────────
-    // The user is on the main feed (/, /nba, /mlb, etc.)
-    // The object is the day's slate for the selected sport.
-    const dateKey = selectedDate instanceof Date
-      ? selectedDate.toISOString().slice(0, 10)
-      : String(selectedDate);
+    // ── Priority 2: Legacy in-memory selected match (fallback only) ─────
+    if (selectedMatch) {
+      return {
+        type: 'game',
+        id: selectedMatch.id,
+        source_url: sourceUrl,
+        match: selectedMatch,
+        sport: selectedMatch.sport as Sport | undefined,
+      };
+    }
+
+    // ── Priority 3: Default — URL-bound live slate ──────────────────────
+    const sportKey = urlSport === 'all' ? 'all' : String(urlSport);
+    const viewKey = urlView.toLowerCase();
     return {
       type: 'live_slate',
-      id: `slate:${selectedSport}:${dateKey}`,
-      source_url: pathname,
-      sport: selectedSport,
-      date: selectedDate instanceof Date ? selectedDate : new Date(selectedDate),
-      activeView,
+      id: `slate:${sportKey}:${urlDateKey}:${viewKey}`,
+      source_url: sourceUrl,
+      sport: urlSport === 'all' ? undefined : (urlSport as Sport),
+      date: urlDate,
+      activeView: urlView,
     };
   }, [
     location.pathname,
+    location.search,
     selectedMatch,
-    selectedSport,
-    selectedDate,
     activeView,
   ]);
 }

@@ -2,7 +2,7 @@
 import React, { FC, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Grid3X3, List } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../store/appStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeekNavigation } from '../../hooks/useWeekNavigation';
@@ -11,6 +11,7 @@ import { OddsLensToggle } from '../shared/OddsLens';
 import { Sport } from '@/types';
 import { isGameInProgress } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
+import { SLUG_TO_SPORT, SPORT_TO_SLUG, resolveSportFromPath } from '@/lib/sportSlugs';
 
 const MotionSpan = motion.span;
 const MotionDiv = motion.div;
@@ -41,9 +42,18 @@ const parseWeekValue = (value: string): Date => {
 const formatDateValue = (date: Date): string =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C85A3A]/25 focus-visible:ring-offset-2 focus-visible:ring-offset-white';
+type LiveSlateSport = Sport | 'all';
+const DATE_PARAM_RE = /^\d{4}-\d{2}-\d{2}$/;
+const parseDateParam = (raw: string | null): Date => {
+    if (!raw || !DATE_PARAM_RE.test(raw)) return new Date();
+    const [year, month, day] = raw.split('-').map(Number);
+    const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+};
 
 export const UnifiedHeader: FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const {
         selectedSport,
         selectedDate,
@@ -51,9 +61,6 @@ export const UnifiedHeader: FC = () => {
         liveTab,
         liveFilter,
         liveLayout,
-        setSelectedDate,
-        setSelectedSport,
-        setActiveView,
         setLiveTab,
         setLiveFilter,
         setLiveLayout,
@@ -64,16 +71,58 @@ export const UnifiedHeader: FC = () => {
     const { user } = useAuth();
 
     const weekScrollRef = useRef<HTMLDivElement>(null);
+    const query = useMemo(() => new URLSearchParams(location.search), [location.search]);
+    const urlSport = useMemo<LiveSlateSport>(() => {
+        const fromPath = resolveSportFromPath(location.pathname);
+        if (fromPath) return fromPath;
+        const raw = (query.get('sport') || '').toLowerCase().trim();
+        if (!raw || raw === 'all') return 'all';
+        return SLUG_TO_SPORT[raw] ?? 'all';
+    }, [location.pathname, query]);
+    const urlDate = useMemo(() => parseDateParam(query.get('date')), [query]);
+    const urlView = useMemo<'feed' | 'live'>(() => {
+        const raw = (query.get('view') || '').toLowerCase();
+        if (raw === 'live') return 'live';
+        if (raw === 'feed') return 'feed';
+        if (location.pathname === '/live') return 'live';
+        return activeView === 'LIVE' ? 'live' : 'feed';
+    }, [query, location.pathname, activeView]);
+    const buildLiveSlateHref = useCallback((overrides: Partial<{
+        sport: LiveSlateSport;
+        date: Date;
+        view: 'feed' | 'live';
+    }> = {}) => {
+        const sport = overrides.sport ?? urlSport;
+        const date = overrides.date ?? urlDate;
+        const view = overrides.view ?? urlView;
+        const params = new URLSearchParams();
+        params.set('date', formatDateValue(date));
+        params.set('view', view);
+
+        let pathname = '/';
+        if (sport !== 'all') {
+            const slug = (SPORT_TO_SLUG[String(sport)] || '').toLowerCase();
+            // "/soccer" is owned by the postgame hub route; keep soccer slate on root.
+            if (slug && slug !== 'soccer') {
+                pathname = `/${slug}`;
+            } else if (slug) {
+                params.set('sport', slug);
+            }
+        }
+
+        return `${pathname}?${params.toString()}`;
+    }, [urlSport, urlDate, urlView]);
+
     const weekOptions = useWeekNavigation(selectedDate, selectedSport);
     const { data: liveStatusMatches = [] } = useMatches(selectedDate);
-    const navStep = (selectedSport === Sport.NFL || selectedSport === Sport.COLLEGE_FOOTBALL) ? 7 : 1;
+    const navStep = (urlSport === Sport.NFL || urlSport === Sport.COLLEGE_FOOTBALL) ? 7 : 1;
     const liveGamesCount = useMemo(
         () => liveStatusMatches.filter((m) => isGameInProgress(m.status)).length,
         [liveStatusMatches]
     );
     const hasActiveLiveGames = liveGamesCount > 0;
-    const isTrendsPage = typeof window !== 'undefined' && (
-        window.location.pathname.includes('/edge') || window.location.pathname.includes('/reports') || window.location.pathname.includes('/trends')
+    const isTrendsPage = (
+        location.pathname.includes('/edge') || location.pathname.includes('/reports') || location.pathname.includes('/trends')
     );
 
     useEffect(() => {
@@ -89,23 +138,23 @@ export const UnifiedHeader: FC = () => {
 
     const handleWeekSelect = useCallback((isoValue: string) => {
         const date = parseWeekValue(isoValue);
-        if (!isNaN(date.getTime())) setSelectedDate(date);
-    }, [setSelectedDate]);
+        if (!isNaN(date.getTime())) navigate(buildLiveSlateHref({ date }));
+    }, [navigate, buildLiveSlateHref]);
+
+    const handleDateShift = useCallback((days: number) => {
+        const next = new Date(urlDate);
+        next.setDate(next.getDate() + days);
+        navigate(buildLiveSlateHref({ date: next }));
+    }, [urlDate, navigate, buildLiveSlateHref]);
 
     const handleSportTab = useCallback((sport: Sport | 'all') => {
-        if (activeView === 'LIVE') setActiveView('FEED');
-        setSelectedSport(sport as Sport);
-    }, [setSelectedSport, setActiveView, activeView]);
+        navigate(buildLiveSlateHref({ sport, view: 'feed' }));
+    }, [navigate, buildLiveSlateHref]);
 
     const handleLiveClick = useCallback(() => {
-        if (activeView === 'LIVE') {
-            setActiveView('FEED');
-            navigate('/');
-            return;
-        }
-        setActiveView('LIVE');
-        navigate('/live');
-    }, [setActiveView, activeView, navigate]);
+        const nextView = urlView === 'live' ? 'feed' : 'live';
+        navigate(buildLiveSlateHref({ view: nextView }));
+    }, [urlView, navigate, buildLiveSlateHref]);
 
     // Date display
     const dateDisplay = useMemo(() => {
@@ -268,7 +317,7 @@ export const UnifiedHeader: FC = () => {
                                     <button
                                         type="button"
                                         aria-label={dateDisplay.isToday ? 'Previous day' : 'Go to previous date step'}
-                                        onClick={() => setSelectedDate(-navStep)}
+                                        onClick={() => handleDateShift(-navStep)}
                                         className={`w-11 h-11 flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-300 rounded-lg bg-white transition-all active:scale-90 ${focusRing}`}
                                     >
                                         <ChevronLeft size={16} />
@@ -296,7 +345,7 @@ export const UnifiedHeader: FC = () => {
                                     <button
                                         type="button"
                                         aria-label="Next day"
-                                        onClick={() => setSelectedDate(navStep)}
+                                        onClick={() => handleDateShift(navStep)}
                                         className={`w-11 h-11 flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-300 rounded-lg bg-white transition-all active:scale-90 ${focusRing}`}
                                     >
                                         <ChevronRight size={16} />

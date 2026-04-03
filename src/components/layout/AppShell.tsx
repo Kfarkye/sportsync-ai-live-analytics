@@ -10,10 +10,12 @@ import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
 import ChatWidget from '../ChatWidget';
 
-import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
+import { isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
 import { Sport } from '@/types';
+import { formatLocalDate } from '@/utils/dateUtils';
+import { SLUG_TO_SPORT, SPORT_TO_SLUG, resolveSportFromPath } from '@/lib/sportSlugs';
 
 const CommandPalette = lazy(() => import('../modals/CommandPalette'));
 const AuthModal = lazy(() => import('../modals/AuthModal'));
@@ -24,6 +26,15 @@ const TitanAnalytics = lazy(() => import('../../pages/TitanAnalytics'));
 
 const MotionMain = motion.main;
 const MotionDiv = motion.div;
+type LiveSlateSport = Sport | 'all';
+const DATE_PARAM_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const parseDateParam = (raw: string | null): Date => {
+  if (!raw || !DATE_PARAM_RE.test(raw)) return new Date();
+  const [year, month, day] = raw.split('-').map(Number);
+  const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+};
 
 const AppShell: FC = () => {
   const navigate = useNavigate();
@@ -54,8 +65,51 @@ const AppShell: FC = () => {
   const { pinnedMatchIds, togglePin } = usePinStore();
   const location = useLocation();
   const prefersReducedMotion = useReducedMotion();
-  const [defaultSportResolved, setDefaultSportResolved] = React.useState(false);
-  const persistedSportExists = React.useMemo(() => hasPersistedSportContext(), []);
+  const query = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const hasSlateQuery = useMemo(
+    () => query.has('date') || query.has('view') || query.has('sport'),
+    [query]
+  );
+  const urlDate = useMemo(() => parseDateParam(query.get('date')), [query]);
+  const urlView = useMemo<'FEED' | 'LIVE'>(() => {
+    const raw = (query.get('view') || '').toLowerCase();
+    if (raw === 'live') return 'LIVE';
+    if (location.pathname === '/live') return 'LIVE';
+    return 'FEED';
+  }, [query, location.pathname]);
+  const urlSport = useMemo<LiveSlateSport>(() => {
+    const fromPath = resolveSportFromPath(location.pathname);
+    if (fromPath) return fromPath;
+    const raw = (query.get('sport') || '').toLowerCase().trim();
+    if (!raw || raw === 'all') return 'all';
+    return SLUG_TO_SPORT[raw] ?? 'all';
+  }, [location.pathname, query]);
+
+  const buildLiveSlateHref = useCallback((overrides: Partial<{
+    sport: LiveSlateSport;
+    date: Date;
+    view: 'FEED' | 'LIVE';
+  }> = {}) => {
+    const sport = overrides.sport ?? urlSport;
+    const date = overrides.date ?? urlDate;
+    const view = overrides.view ?? urlView;
+    const params = new URLSearchParams();
+    params.set('date', formatLocalDate(date));
+    params.set('view', view === 'LIVE' ? 'live' : 'feed');
+
+    let pathname = '/';
+    if (sport !== 'all') {
+      const slug = (SPORT_TO_SLUG[String(sport)] || '').toLowerCase();
+      // "/soccer" is already reserved by the postgame hub route.
+      if (slug && slug !== 'soccer') {
+        pathname = `/${slug}`;
+      } else if (slug) {
+        params.set('sport', slug);
+      }
+    }
+
+    return `${pathname}?${params.toString()}`;
+  }, [urlSport, urlDate, urlView]);
 
   // 1) Fetch data (date-filtered in hook)
   const { data: matches = [], isLoading } = useMatches(selectedDate);
@@ -111,36 +165,58 @@ const AppShell: FC = () => {
   }, [toggleCmdk, selectedMatch, setSelectedMatch, closeAllOverlays]);
 
   useEffect(() => {
-    if (defaultSportResolved || persistedSportExists || isLoading) return;
-    if (!matches.length) {
-      setDefaultSportResolved(true);
-      return;
+    if (selectedSport !== urlSport) {
+      setSelectedSport(urlSport as Sport);
     }
 
-    const hasSoccerGames = matches.some((m) => String(m.sport).toUpperCase() === Sport.SOCCER);
-    if (!hasSoccerGames && selectedSport === Sport.SOCCER) {
-      setSelectedSport(Sport.NBA);
+    const currentDateKey = formatLocalDate(selectedDate);
+    const nextDateKey = formatLocalDate(urlDate);
+    if (currentDateKey !== nextDateKey) {
+      setSelectedDate(urlDate);
     }
-    setDefaultSportResolved(true);
+
+    if (activeView !== urlView) {
+      setActiveView(urlView);
+    }
   }, [
-    defaultSportResolved,
-    persistedSportExists,
-    isLoading,
-    matches,
     selectedSport,
+    urlSport,
+    selectedDate,
+    urlDate,
+    activeView,
+    urlView,
     setSelectedSport,
+    setSelectedDate,
+    setActiveView,
   ]);
 
   useEffect(() => {
     if (location.pathname === '/live') {
-      setShowLanding(false);
-      if (activeView !== 'LIVE') {
-        setActiveView('LIVE');
-      }
+      navigate(buildLiveSlateHref({ view: 'LIVE' }), { replace: true });
     }
-  }, [location.pathname, activeView, setActiveView, setShowLanding]);
+  }, [location.pathname, navigate, buildLiveSlateHref]);
 
-  const shouldShowLanding = showLanding && location.pathname === '/';
+  useEffect(() => {
+    if (showLanding && (location.pathname !== '/' || hasSlateQuery)) {
+      setShowLanding(false);
+    }
+  }, [showLanding, location.pathname, hasSlateQuery, setShowLanding]);
+
+  const shiftSlateDate = useCallback((days: number) => {
+    const next = new Date(urlDate);
+    next.setDate(next.getDate() + days);
+    navigate(buildLiveSlateHref({ date: next }));
+  }, [urlDate, navigate, buildLiveSlateHref]);
+
+  const goToToday = useCallback(() => {
+    navigate(buildLiveSlateHref({ date: new Date() }));
+  }, [navigate, buildLiveSlateHref]);
+
+  const handleSelectSportFromDrawer = useCallback((sport: LiveSlateSport) => {
+    navigate(buildLiveSlateHref({ sport, view: 'FEED' }));
+  }, [navigate, buildLiveSlateHref]);
+
+  const shouldShowLanding = showLanding && location.pathname === '/' && !hasSlateQuery;
 
   if (shouldShowLanding) return <LandingPage onEnter={() => setShowLanding(false)} />;
 
@@ -200,7 +276,7 @@ const AppShell: FC = () => {
                     <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
                       <button
                         type="button"
-                        onClick={() => setSelectedDate(new Date())}
+                        onClick={goToToday}
                         className={cn(
                           ESSENCE.nav.pill,
                           'h-11 px-4',
@@ -237,6 +313,7 @@ const AppShell: FC = () => {
                     onTogglePin={(id) => togglePin(id)}
                     isMatchLive={(m) => isGameInProgress(m.status)}
                     isMatchFinal={(m) => isGameFinished(m.status)}
+                    onAdvanceDate={shiftSlateDate}
                   />
                 )}
               </MotionDiv>
@@ -321,7 +398,7 @@ const AppShell: FC = () => {
         <MobileSportDrawer
           isOpen={isSportDrawerOpen}
           onClose={() => toggleSportDrawer(false)}
-          onSelect={setSelectedSport}
+          onSelect={handleSelectSportFromDrawer}
           selectedSport={selectedSport}
           liveCounts={liveCountsBySport}
           orderedSports={ORDERED_SPORTS}
