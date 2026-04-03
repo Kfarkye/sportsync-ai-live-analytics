@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Drip — Live AI Analysis for Sports Betting</title>
+<meta name="description" content="One card per team, built around tonight's line. Pregame records, live context, every league.">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #FAFAF8;
+    --surface: #FFFFFF;
+    --surface-hover: #FDFCFA;
+    --text-primary: #1A1A1A;
+    --text-secondary: #5A5A5A;
+    --text-tertiary: #8E8E8E;
+    --border: #E5E3DF;
+    --accent: #C85A3A;
+    --serif: 'Source Serif 4', Georgia, serif;
+    --sans: 'DM Sans', -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', 'SF Mono', monospace;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--sans);
+    line-height: 1.5;
+  }
+
+  /* -- NAV -- */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(250, 250, 248, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  nav {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .wordmark {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 1.25rem;
+    letter-spacing: 0.02em;
+    color: var(--text-primary);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .wordmark::after {
+    content: '';
+    display: block;
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  .nav-link {
+    font-family: var(--sans);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .nav-link:hover {
+    color: var(--text-primary);
+  }
+
+  /* -- HERO -- */
+  .hero {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 80px 20px 48px;
+    text-align: center;
+  }
+
+  .hero h1 {
+    font-family: var(--serif);
+    font-size: 2.75rem;
+    font-weight: 600;
+    line-height: 1.15;
+    margin-bottom: 20px;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  .hero-sub {
+    font-family: var(--sans);
+    font-size: 1.0625rem;
+    color: var(--text-secondary);
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* -- LIVE CARD -- */
+  .card-container {
+    max-width: 440px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  .team-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: background 0.15s ease;
+  }
+
+  .team-card:hover {
+    background: var(--surface-hover);
+  }
+
+  .card-header {
+    padding: 24px 24px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .team-info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .team-logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background: #F4F4F2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .team-logo img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+  }
+
+  .team-name {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 1.125rem;
+    line-height: 1.2;
+    color: var(--text-primary);
+  }
+
+  .team-record {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+  }
+
+  .game-status {
+    font-family: var(--sans);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+  }
+
+  .card-matchup {
+    padding: 0 24px 20px;
+    font-family: var(--sans);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  .card-matchup span {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  /* -- LINE ANCHOR -- */
+  .line-anchor {
+    margin: 0 24px;
+    padding: 20px 0;
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    text-align: center;
+  }
+
+  .anchor-item:not(:last-child) {
+    border-right: 1px solid var(--border);
+  }
+
+  .anchor-label {
+    font-family: var(--sans);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .anchor-value {
+    font-family: var(--mono);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .anchor-value.gap {
+    font-weight: 700;
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  /* -- TRENDS -- */
+  .trends-section {
+    padding: 4px 24px 12px;
+  }
+
+  .trends-group-label {
+    font-family: var(--sans);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 16px 0 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .trend-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+  }
+
+  .trend-text {
+    font-family: var(--sans);
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    font-weight: 500;
+    flex: 1;
+  }
+
+  .trend-stats {
+    display: flex;
+    align-items: center;
+  }
+
+  .trend-record {
+    font-family: var(--mono);
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--text-primary);
+  }
+
+  .trend-sample {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+    margin-left: 12px;
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .card-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .card-footer-text {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+    letter-spacing: 0.02em;
+  }
+
+  /* -- BELOW THE CARD -- */
+  .product-line {
+    text-align: center;
+    padding: 48px 20px 0;
+    font-family: var(--sans);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    max-width: 440px;
+    margin: 0 auto;
+  }
+
+  /* -- EXPLAINER -- */
+  .explain {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 96px 20px 0;
+  }
+
+  .explain h2 {
+    font-family: var(--serif);
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-bottom: 24px;
+    line-height: 1.3;
+    color: var(--text-primary);
+  }
+
+  .explain p {
+    font-family: var(--sans);
+    font-size: 1.0625rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 20px;
+  }
+
+  .explain p:last-child { margin-bottom: 0; }
+
+  /* -- PRICING -- */
+  .pricing {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 96px 20px 80px;
+  }
+
+  .pricing h2 {
+    font-family: var(--serif);
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-bottom: 48px;
+    text-align: center;
+  }
+
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: stretch;
+  }
+
+  .price-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .price-card.featured {
+    border: 2px solid var(--text-primary);
+  }
+
+  .featured-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text-primary);
+    color: var(--surface);
+    font-family: var(--sans);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+
+  .price-tier {
+    font-family: var(--sans);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 12px;
+  }
+
+  .price-amount {
+    font-family: var(--serif);
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+  }
+
+  .price-period {
+    font-family: var(--sans);
+    font-size: 0.875rem;
+    color: var(--text-tertiary);
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .price-desc {
+    font-family: var(--sans);
+    font-size: 0.9375rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    flex-grow: 1;
+  }
+
+  .price-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex-grow: 1;
+  }
+
+  .price-list li {
+    font-family: var(--sans);
+    font-size: 0.9375rem;
+    color: var(--text-secondary);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    line-height: 1.5;
+  }
+
+  .price-list li:last-child {
+    border-bottom: none;
+  }
+
+  .cta-btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    margin-top: 32px;
+    font-family: var(--sans);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-align: center;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    letter-spacing: 0.01em;
+    transition: background 0.15s ease;
+  }
+
+  .cta-btn.primary {
+    background: var(--text-primary);
+    color: var(--surface);
+  }
+
+  .cta-btn.primary:hover {
+    background: #000000;
+  }
+
+  .cta-btn.secondary {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+  }
+
+  .cta-btn.secondary:hover {
+    border-color: var(--text-primary);
+  }
+
+  /* -- FOOTER -- */
+  footer {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 0 20px 64px;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    padding-top: 48px;
+  }
+
+  footer p {
+    font-family: var(--sans);
+    font-size: 0.8125rem;
+    color: var(--text-tertiary);
+    line-height: 1.7;
+  }
+
+  /* -- RESPONSIVE -- */
+  @media (max-width: 640px) {
+    .pricing-grid { grid-template-columns: 1fr; gap: 32px; }
+    .hero h1 { font-size: 2.25rem; }
+    .hero-sub { font-size: 1rem; }
+    .explain h2 { font-size: 1.5rem; }
+  }
+
+  @media (max-width: 480px) {
+    .hero h1 { font-size: 1.875rem; }
+    .card-container { padding: 0 16px; }
+    .card-header, .card-matchup, .trends-section, .card-footer { padding-left: 20px; padding-right: 20px; }
+    .line-anchor { margin: 0 20px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <a href="#" class="wordmark">The Drip</a>
+    <a href="#pricing" class="nav-link">Pricing</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>The Drip</h1>
+    <p class="hero-sub">Plays first.</p>
+  </section>
+
+  <div class="card-container">
+    <div class="team-card">
+
+      <div class="card-header">
+        <div class="team-info">
+          <div class="team-logo">
+            <img src="https://a.espncdn.com/i/teamlogos/nba/500/den.png" alt="Denver Nuggets Logo">
+          </div>
+          <div>
+            <div class="team-name">Denver Nuggets</div>
+            <div class="team-record">48-30 · Home</div>
+          </div>
+        </div>
+        <div class="game-status">Pregame</div>
+      </div>
+
+      <div class="card-matchup">vs <span>Minnesota Timberwolves</span> · 9:00 PM ET</div>
+
+      <div class="line-anchor">
+        <div class="anchor-item">
+          <div class="anchor-label">Avg L10</div>
+          <div class="anchor-value">224.8</div>
+        </div>
+        <div class="anchor-item">
+          <div class="anchor-label">Line</div>
+          <div class="anchor-value">217.5</div>
+        </div>
+        <div class="anchor-item">
+          <div class="anchor-label">Gap</div>
+          <div class="anchor-value gap">+7.3</div>
+        </div>
+      </div>
+
+      <div class="trends-section">
+        <div class="trends-group-label">Totals</div>
+        <div class="trend-row">
+          <span class="trend-text">Over the Total</span>
+          <div class="trend-stats">
+            <span class="trend-record">8-2</span>
+            <span class="trend-sample">L10</span>
+          </div>
+        </div>
+        <div class="trend-row">
+          <span class="trend-text">Over the Total at Home</span>
+          <div class="trend-stats">
+            <span class="trend-record">6-1</span>
+            <span class="trend-sample">L7</span>
+          </div>
+        </div>
+
+        <div class="trends-group-label">Spread</div>
+        <div class="trend-row">
+          <span class="trend-text">Covers as Favorite</span>
+          <div class="trend-stats">
+            <span class="trend-record">7-3</span>
+            <span class="trend-sample">L10</span>
+          </div>
+        </div>
+        <div class="trend-row">
+          <span class="trend-text">Covers as Home Favorite</span>
+          <div class="trend-stats">
+            <span class="trend-record">5-2</span>
+            <span class="trend-sample">L7</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <div class="card-footer-text">Updated Apr 1, 2026</div>
+      </div>
+
+    </div>
+  </div>
+
+  <p class="product-line">Every league. Every night.</p>
+
+
+  <section class="pricing" id="pricing">
+    <h2>Two ways in.</h2>
+    <div class="pricing-grid">
+
+      <div class="price-card">
+        <div class="price-tier">Free</div>
+        <div class="price-amount">$0</div>
+        <div class="price-period">Forever</div>
+        <ul class="price-list">
+          <li>Pregame team cards</li>
+          <li>Trend records</li>
+          <li>Nightly feed access</li>
+        </ul>
+        <a href="#" class="cta-btn secondary">Open the feed</a>
+      </div>
+
+      <div class="price-card featured">
+        <div class="featured-badge">Full Access</div>
+        <div class="price-tier">Live</div>
+        <div class="price-amount">$200</div>
+        <div class="price-period">per month</div>
+        <ul class="price-list">
+          <li>Live lines</li>
+          <li>Live game state</li>
+          <li>In-game analysis</li>
+        </ul>
+        <a href="#" class="cta-btn primary">Get live access</a>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>Pregame records. Live context. You make the call.</p>
+</footer>
+
+</body>
+</html>

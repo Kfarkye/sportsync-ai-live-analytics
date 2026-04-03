@@ -86,13 +86,14 @@ import type { Match, MatchOdds } from "@/types";
 import { ESSENCE } from "@/lib/essence";
 import { useNbaProductContextPacket } from "@/hooks/useNbaContext";
 import type { NbaProductContextPacket } from "@/services/nbaProductContext";
+import { useActiveObject, type ActiveObject } from "@/hooks/useActiveObject";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
 // §0  STATIC CONFIG & REGEX (Hoisted — Zero Allocation at Runtime)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const REGEX_VERDICT_MATCH = /\bverdict\s*:/i;
+const REGEX_VERDICT_MATCH = /^[\s*•·\-]*\**\s*verdict\s*:/im;
 const REGEX_WATCH_PREFIX = /.*what to watch(?:\s+live)?.*?:\s*/i;
 const REGEX_WATCH_MATCH = /what to watch(?:\s+live)?/i;
 
@@ -375,6 +376,13 @@ interface ChatContextPayload {
   run_id: string;
   live_snapshot?: any;
   nba_product_context?: NbaProductContextPacket | null;
+  /** P0 canonical object — single resolution point for context anchoring */
+  active_object?: {
+    type: ActiveObject['type'];
+    id: string;
+    source_url: string;
+    sport?: string;
+  };
 }
 
 type ConnectionStatus = "connected" | "reconnecting" | "offline";
@@ -720,6 +728,12 @@ function extractTextContent(content: MessageContent): string {
   return "";
 }
 
+/** Strip internal protocol tokens that must never reach the UI. */
+const REGEX_PROTOCOL_TOKENS = /\b(?:VERDICT|THE PLAY)\s*:/gi;
+function stripProtocolTokens(text: string): string {
+  return text.replace(REGEX_PROTOCOL_TOKENS, "").replace(/^\s*\**\s*/, "").trim();
+}
+
 function cleanVerdictContent(text: string): string {
   if (!text) return "";
   const cleaned = text
@@ -732,8 +746,10 @@ function cleanVerdictContent(text: string): string {
     .replace(REGEX_CLEAN_CONF, "")               // (Confidence: High) → ""
     .replace(REGEX_MULTI_SPACE, " ")
     .trim();
+  // Contract boundary: strip any surviving protocol tokens before render
+  const sanitized = stripProtocolTokens(cleaned);
   // M-26: Normalize typography
-  return normalizeTypography(cleaned);
+  return normalizeTypography(sanitized);
 }
 
 type ConfidenceLevel = "high" | "medium" | "low";
@@ -1091,6 +1107,72 @@ function splitPickContent(rawContent: string): { pickContent: string; analysisBl
     pickContent: stripExcludedSections(pickSegments.join("\n\n")),
     analysisBlocks,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §  CONTRACT BOUNDARY: Pre-parsed Pick Blocks
+//    Parser decides what is a pick. Renderer only displays structured data.
+//    VERDICT regex runs HERE (parser layer), never inside <p> renderer.
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface PreParsedPick {
+  payload: string;           // VERDICT: prefix stripped, cleaned
+  confidence: ConfidenceLevel;
+  synopsis: string;
+  matchupLine: string;
+}
+
+interface RenderBlock {
+  type: 'prose' | 'pick';
+  content: string;           // prose: markdown text
+  pickIndex: number;         // pick: index into picks[]
+}
+
+/**
+ * Contract boundary: Separates pick blocks from prose BEFORE markdown rendering.
+ * REGEX_VERDICT_MATCH runs here (parser layer). The renderer never inspects
+ * raw text for protocol tokens — it only iterates structured RenderBlock[].
+ */
+function buildRenderBlocks(
+  content: string,
+  synopses: string[],
+  matchups: string[],
+): { blocks: RenderBlock[]; picks: PreParsedPick[] } {
+  if (!content) return { blocks: [], picks: [] };
+
+  const lines = content.split('\n');
+  const blocks: RenderBlock[] = [];
+  const picks: PreParsedPick[] = [];
+  let currentProse: string[] = [];
+
+  for (const line of lines) {
+    if (REGEX_VERDICT_MATCH.test(line)) {
+      // Flush accumulated prose
+      const prose = currentProse.join('\n').trim();
+      if (prose) blocks.push({ type: 'prose', content: prose, pickIndex: -1 });
+      currentProse = [];
+
+      // Extract structured pick data at parse time
+      const payload = extractVerdictPayload(line);
+      const confidence = extractConfidence(payload);
+      const pickIdx = picks.length;
+      picks.push({
+        payload,
+        confidence,
+        synopsis: synopses[pickIdx] || '',
+        matchupLine: matchups[pickIdx] || '',
+      });
+      blocks.push({ type: 'pick', content: '', pickIndex: pickIdx });
+    } else {
+      currentProse.push(line);
+    }
+  }
+
+  // Flush remaining prose
+  const remaining = currentProse.join('\n').trim();
+  if (remaining) blocks.push({ type: 'prose', content: remaining, pickIndex: -1 });
+
+  return { blocks, picks };
 }
 
 /**
@@ -2508,6 +2590,21 @@ const MessageBubble: FC<{
       return splitPickContent(contentSansMatchups);
     }, [contentSansMatchups, isUser, message.isStreaming]);
 
+    /**
+     * CONTRACT BOUNDARY: Pre-parse pick blocks at the message level.
+     * REGEX_VERDICT_MATCH runs here (parser). The renderer below iterates
+     * structured RenderBlock[] and never inspects raw text for protocol tokens.
+     */
+    const { blocks: renderBlocks, picks: preParsedPicks } = useMemo(() => {
+      if (isUser || !pickContent) {
+        return {
+          blocks: pickContent ? [{ type: 'prose' as const, content: pickContent, pickIndex: -1 }] : [],
+          picks: [],
+        };
+      }
+      return buildRenderBlocks(pickContent, synopses, matchups);
+    }, [pickContent, synopses, matchups, isUser]);
+
     /** Double-disclosure state — controlled from here, triggered from the pick card */
     const [analysisOpenByKey, setAnalysisOpenByKey] = useState<Record<string, boolean>>({});
     const toggleAnalysis = useCallback((key: string) => {
@@ -2618,8 +2715,6 @@ const MessageBubble: FC<{
 
     const components: Components = useMemo(
       () => {
-        let verdictCardIndex = 0;
-
         return {
           h1: ({ children }) => renderSectionHeading(children),
           h2: ({ children }) => renderSectionHeading(children),
@@ -2629,38 +2724,6 @@ const MessageBubble: FC<{
           h6: ({ children }) => renderSectionHeading(children),
           p: ({ children }) => {
             const text = flattenText(children);
-
-            if (REGEX_VERDICT_MATCH.test(text)) {
-              const verdictPayload = extractVerdictPayload(text);
-              const confidence = extractConfidence(verdictPayload);
-              const trackingKey = `${message.id}:v${verdictCardIndex}`;
-              const cardIdx = verdictCardIndex;
-              verdictCardIndex++;
-              const analysisBlock = analysisBlocks[cardIdx];
-              const isOpen = Boolean(analysisOpenByKey[trackingKey]);
-              return (
-                <>
-                  <EdgeVerdictCard
-                    content={verdictPayload}
-                    confidence={confidence}
-                    synopsis={synopses[cardIdx]}
-                    matchupLine={matchups[cardIdx]}
-                    trackingKey={trackingKey}
-                    cardIndex={cardIdx}
-                    outcome={verdictOutcomes?.[trackingKey] ?? message.verdictOutcome}
-                    onTrack={onTrackVerdict}
-                    hasAnalysis={!!analysisBlock}
-                    analysisOpen={isOpen}
-                    onToggleAnalysis={() => toggleAnalysis(trackingKey)}
-                  />
-                  <AnimatePresence initial={false}>
-                    {isOpen && analysisBlock && (
-                      <AnalysisDisclosure analysisContent={analysisBlock} components={analysisComponents} />
-                    )}
-                  </AnimatePresence>
-                </>
-              );
-            }
 
             if (REGEX_WATCH_MATCH.test(text)) {
               const c = text.replace(REGEX_WATCH_PREFIX, "").trim();
@@ -2806,14 +2869,49 @@ const MessageBubble: FC<{
             {!isUser && message.isStreaming && !pickContent?.trim() ? (
               <PickCardSkeleton />
             ) : (
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-                {pickContent}
-              </ReactMarkdown>
+              <>
+                {renderBlocks.map((block, blockIdx) => {
+                  if (block.type === 'pick') {
+                    const pick = preParsedPicks[block.pickIndex];
+                    if (!pick) return null;
+                    const trackingKey = `${message.id}:v${block.pickIndex}`;
+                    const analysisBlock = analysisBlocks[block.pickIndex];
+                    const isOpen = Boolean(analysisOpenByKey[trackingKey]);
+                    return (
+                      <React.Fragment key={`pick-${blockIdx}`}>
+                        <EdgeVerdictCard
+                          content={pick.payload}
+                          confidence={pick.confidence}
+                          synopsis={pick.synopsis}
+                          matchupLine={pick.matchupLine}
+                          trackingKey={trackingKey}
+                          cardIndex={block.pickIndex}
+                          outcome={verdictOutcomes?.[trackingKey] ?? message.verdictOutcome}
+                          onTrack={onTrackVerdict}
+                          hasAnalysis={!!analysisBlock}
+                          analysisOpen={isOpen}
+                          onToggleAnalysis={() => toggleAnalysis(trackingKey)}
+                        />
+                        <AnimatePresence initial={false}>
+                          {isOpen && analysisBlock && (
+                            <AnalysisDisclosure analysisContent={analysisBlock} components={analysisComponents} />
+                          )}
+                        </AnimatePresence>
+                      </React.Fragment>
+                    );
+                  }
+                  return block.content.trim() ? (
+                    <ReactMarkdown key={`prose-${blockIdx}`} remarkPlugins={[remarkGfm]} components={components}>
+                      {block.content}
+                    </ReactMarkdown>
+                  ) : null;
+                })}
+              </>
             )}
 
           </div>
 
-          {!isUser && !message.isStreaming && verifiedContent && !REGEX_VERDICT_MATCH.test(extractTextContent(message.content)) && (
+          {!isUser && !message.isStreaming && verifiedContent && preParsedPicks.length === 0 && (
             <div className="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity delay-75">
               <CopyButton content={verifiedContent} />
             </div>
@@ -3100,6 +3198,10 @@ const InnerChatWidget: FC<ChatWidgetProps & {
   setIsMinimized?: (v: boolean) => void;
 }> = ({ currentMatch, inline, isMinimized, setIsMinimized }) => {
   const { toggleGlobalChat } = useAppStore();
+
+  // ── P0: Single resolution point — "what object am I on?" ──────────
+  const activeObject = useActiveObject();
+
   const [msgState, dispatch] = useReducer(messageReducer, INITIAL_MESSAGE_STATE);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -3467,6 +3569,10 @@ const InnerChatWidget: FC<ChatWidgetProps & {
       }
     };
 
+    let fullText = "";
+    let fullThought = "";
+    let groundingData: GroundingMetadata | null = null;
+
     try {
       const wireMessages: WireMessage[] = [
         ...msgState.ordered.map((m) => ({ role: m.role, content: m.content })),
@@ -3485,14 +3591,19 @@ const InnerChatWidget: FC<ChatWidgetProps & {
         run_id: generateId(),
         live_snapshot: livePayload.live_snapshot,
         nba_product_context: nbaProductContext,
+        // P0: Canonical resolved object — the server should adopt this
+        // as the primary context source. The old gameContext/live_snapshot
+        // remain for backward compatibility until server migrates.
+        active_object: {
+          type: activeObject.type,
+          id: activeObject.id,
+          source_url: activeObject.source_url,
+          sport: activeObject.sport ?? normalizedContext?.sport ?? undefined,
+        },
       };
 
       const controller = new AbortController();
       abortRef.current = controller;
-
-      let fullText = "";
-      let fullThought = "";
-      let groundingData: GroundingMetadata | null = null;
 
       await edgeService.chat(
         wireMessages,

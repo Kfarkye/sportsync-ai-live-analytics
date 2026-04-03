@@ -29,6 +29,23 @@
         ]
       }
     ],
+    "redirects": [
+      {
+        "regex": "/teams/(.*)",
+        "destination": "https://thedrip.to/teams/:1",
+        "type": 301
+      },
+      {
+        "regex": "/group/(.*)",
+        "destination": "https://thedrip.to/group/:1",
+        "type": 301
+      },
+      {
+        "regex": "/edges/(.*)",
+        "destination": "https://thedrip.to/edges/:1",
+        "type": 301
+      }
+    ],
     "rewrites": [
       {
         "source": "/api/live/game/**",

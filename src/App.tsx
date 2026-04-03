@@ -17,9 +17,8 @@ import { AppLoadingScreen } from './components/system/AppLoadingScreen';
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const TrendsPage = lazy(() => import('./pages/TrendsPage'));
 const PostgameRouter = lazy(() => import('./pages/postgame/PostgameRouter'));
-const SportsyncApiLandingPage = lazy(() => import('./pages/SportsyncApiLandingPage'));
-const SportsyncApiDocsPage = lazy(() => import('./pages/SportsyncApiDocsPage'));
-const ApiKeyWelcomePage = lazy(() => import('./pages/ApiKeyWelcomePage'));
+const GamePage = lazy(() => import('./pages/GamePage'));
+
 
 const App: FC = () => {
   const isSwDebugDisabled = typeof window !== 'undefined'
@@ -59,6 +58,7 @@ const App: FC = () => {
             ) : null}
             <Suspense fallback={<AppLoadingScreen />}>
               <Routes>
+                <Route path="/game/:gameId" element={<GamePage />} />
                 <Route path="/soccer" element={<PostgameRouter />} />
                 <Route path="/league/:slug" element={<PostgameRouter />} />
                 <Route path="/team/:slug" element={<PostgameRouter />} />
@@ -66,9 +66,19 @@ const App: FC = () => {
                 <Route path="/edge" element={<ReportsPage />} />
                 <Route path="/reports" element={<Navigate to="/edge" replace />} />
                 <Route path="/trends" element={<TrendsPage />} />
-                <Route path="/sportsync" element={<SportsyncApiLandingPage />} />
-                <Route path="/sportsync/docs" element={<SportsyncApiDocsPage />} />
-                <Route path="/welcome" element={<ApiKeyWelcomePage />} />
+
+                {/* Tier 2: Sport-specific entry points — each is a real URL surface */}
+                <Route path="/nba" element={<AppShell />} />
+                <Route path="/mlb" element={<AppShell />} />
+                <Route path="/nhl" element={<AppShell />} />
+                <Route path="/nfl" element={<AppShell />} />
+                <Route path="/ncaaf" element={<AppShell />} />
+                <Route path="/ncaab" element={<AppShell />} />
+                <Route path="/wnba" element={<AppShell />} />
+                <Route path="/ufc" element={<AppShell />} />
+                <Route path="/tennis" element={<AppShell />} />
+                <Route path="/golf" element={<AppShell />} />
+
                 <Route path="*" element={<AppShell />} />
               </Routes>
             </Suspense>

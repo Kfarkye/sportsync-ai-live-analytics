@@ -351,7 +351,7 @@ export const LiveAIInsight: React.FC<LiveAIInsightProps> = ({ match }) => {
         return [
             { label: 'Situational', val: bullets.spot },
             { label: 'Tactical', val: bullets.driver },
-            { label: 'Verdict', val: bullets.verdict }
+            { label: 'The Read', val: bullets.verdict }
         ].filter(p => p.val);
     }, [sharp_data?.executive_bullets]);
 

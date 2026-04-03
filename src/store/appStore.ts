@@ -33,7 +33,7 @@ interface AppState {
   isCmdkOpen: boolean;
   isAuthModalOpen: boolean;
   isSportDrawerOpen: boolean;
-  isPricingModalOpen: boolean;
+
   isRankingsDrawerOpen: boolean;
   isGlobalChatOpen: boolean;
   showLanding: boolean;
@@ -52,7 +52,7 @@ interface AppState {
   toggleCmdk: (open?: boolean) => void;
   toggleAuthModal: (open?: boolean) => void;
   toggleSportDrawer: (open?: boolean) => void;
-  togglePricingModal: (open?: boolean) => void;
+
   toggleRankingsDrawer: (open?: boolean) => void;
   toggleGlobalChat: (open?: boolean) => void;
   setShowLanding: (show: boolean) => void;
@@ -80,7 +80,7 @@ export const useAppStore = create<AppState>()(
       isCmdkOpen: false,
       isAuthModalOpen: false,
       isSportDrawerOpen: false,
-      isPricingModalOpen: false,
+
       isRankingsDrawerOpen: false,
       isGlobalChatOpen: false,
       showLanding: true,
@@ -111,7 +111,7 @@ export const useAppStore = create<AppState>()(
       toggleCmdk: (open) => set((s) => ({ isCmdkOpen: open ?? !s.isCmdkOpen })),
       toggleAuthModal: (open) => set((s) => ({ isAuthModalOpen: open ?? !s.isAuthModalOpen })),
       toggleSportDrawer: (open) => set((s) => ({ isSportDrawerOpen: open ?? !s.isSportDrawerOpen })),
-      togglePricingModal: (open) => set((s) => ({ isPricingModalOpen: open ?? !s.isPricingModalOpen })),
+
       toggleRankingsDrawer: (open) => set((s) => ({ isRankingsDrawerOpen: open ?? !s.isRankingsDrawerOpen })),
       toggleGlobalChat: (open) => set((s) => ({ isGlobalChatOpen: open ?? !s.isGlobalChatOpen })),
       setShowLanding: (show) => set({ showLanding: show }),
@@ -120,7 +120,7 @@ export const useAppStore = create<AppState>()(
         isCmdkOpen: false,
         isAuthModalOpen: false,
         isSportDrawerOpen: false,
-        isPricingModalOpen: false,
+
         isRankingsDrawerOpen: false,
         isGlobalChatOpen: false
       })

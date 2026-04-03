@@ -570,7 +570,7 @@ export default function TeamPage() {
           <div className="px-5 py-4 border-b border-slate-200/80 bg-white flex items-center justify-between rounded-t-2xl">
             <div>
               <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Match Ledger</h2>
-              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 font-medium">Chronological record with verdicts.</p>
+              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 font-medium">Chronological record with results.</p>
             </div>
           </div>
 

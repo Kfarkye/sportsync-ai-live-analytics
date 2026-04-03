@@ -315,9 +315,9 @@ const PreGameView: React.FC<PreGameViewProps> = ({ match }) => {
                                     </div>
                                 </div>
 
-                                {/* Section 3: The Verdict */}
+                                {/* Section 3: The Read */}
                                 <div className="relative border-l-2 border-zinc-200 pl-4">
-                                    <div className="absolute -top-3 left-4 mb-3 bg-white px-2 text-[10px] font-bold uppercase tracking-widest text-zinc-900">The Verdict</div>
+                                    <div className="absolute -top-3 left-4 mb-3 bg-white px-2 text-[10px] font-bold uppercase tracking-widest text-zinc-900">The Read</div>
                                     <div className="prose prose-sm max-w-none text-zinc-700 prose-p:mb-2 prose-p:leading-relaxed prose-strong:text-zinc-900">
                                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{structured.analysis}</ReactMarkdown>
                                     </div>

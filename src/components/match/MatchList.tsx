@@ -50,7 +50,7 @@ interface MatchListProps {
     onTogglePin: (id: string, e: React.MouseEvent | React.KeyboardEvent) => void;
     isMatchLive: (match: Match) => boolean;
     isMatchFinal: (match: Match) => boolean;
-    onOpenPricing: () => void;
+
 }
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -362,44 +362,7 @@ const PropRow = memo(({
 });
 PropRow.displayName = 'PropRow';
 
-// ============================================================================
-// PREMIUM PRO CTA (Extracted for reuse)
-// ============================================================================
 
-const PremiumProCTA = memo(({ onPricing, className }: { onPricing: () => void; className?: string }) => (
-    <section className={cn(
-        "relative rounded-2xl bg-[linear-gradient(145deg,#ffffff,#f2fbf7)] p-4 max-[390px]:p-3.5 overflow-hidden shadow-[0_10px_24px_-12px_rgba(16,34,58,0.22)] ring-1 ring-[#9ED8C5]",
-        className
-    )}>
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[#1D9E75] to-transparent opacity-70" />
-        <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-2.5">
-                <div className="flex items-center justify-center w-[20px] h-[20px] rounded bg-[#1D9E75] text-white shadow-[0_8px_14px_-8px_rgba(29,158,117,0.45)]">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                    </svg>
-                </div>
-                <h3 className="font-mono text-[10px] font-bold tracking-[0.14em] text-[#0b5a45] uppercase">
-                    Pro Access
-                </h3>
-            </div>
-            <p className="text-[12px] max-[390px]:text-[11.5px] text-slate-600 leading-relaxed mb-3.5 max-[390px]:mb-3 font-medium">
-                Unlock deep AI prop analysis, L5 hit rates, and real-time line movement alerts.
-            </p>
-            <button
-                type="button"
-                onClick={onPricing}
-                className="group/btn w-full h-[38px] max-[390px]:h-[36px] bg-[#1D9E75] text-white text-[12px] max-[390px]:text-[11px] font-bold rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-[#9ED8C5] flex items-center justify-center gap-2 shadow-sm hover:bg-[#177f60]"
-            >
-                Upgrade
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover/btn:translate-x-0.5 text-blue-100 group-hover/btn:text-white">
-                    <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
-                </svg>
-            </button>
-        </div>
-    </section>
-));
-PremiumProCTA.displayName = 'PremiumProCTA';
 
 // ============================================================================
 // SKELETON
@@ -551,7 +514,7 @@ LeagueGroup.displayName = 'LeagueGroup';
 // ============================================================================
 
 const MatchList: React.FC<MatchListProps> = ({
-    matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal, onOpenPricing,
+    matches, onSelectMatch, isLoading, pinnedMatchIds, onTogglePin, isMatchLive, isMatchFinal,
 }) => {
     const prefersReducedMotion = useReducedMotion();
     const oddsLens = useAppStore((state) => state.oddsLens);
@@ -561,7 +524,7 @@ const MatchList: React.FC<MatchListProps> = ({
     // ONLY UI user-interactions use event callbacks. State/Data derivatives MUST stay as standard dependencies.
     const handleSelect = useEventCallback(onSelectMatch);
     const handleToggle = useEventCallback(onTogglePin);
-    const handlePricing = useEventCallback(onOpenPricing);
+
 
     const [isMounted, setIsMounted] = useState(false);
     useEffect(() => setIsMounted(true), []);
@@ -809,12 +772,37 @@ const MatchList: React.FC<MatchListProps> = ({
                         <div className="min-w-0 flex flex-col">
                             <div className="space-y-3.5 sm:space-y-6 pt-0 sm:pt-4">
                                 <div className="px-2.5 sm:px-0">
-                                    <div className="inline-flex items-center gap-2.5 text-[11px] text-[#888888] font-normal">
-                                        <span className="font-mono tabular-nums tracking-[0.01em]">Updated {updatedClockLabel}</span>
-                                        <span aria-hidden="true">·</span>
-                                        <span className="font-mono tabular-nums">{freshnessLabel}</span>
-                                        {isLoading ? <span className="text-[#555555]">Refreshing…</span> : null}
-                                        {isDataStale ? <span className="text-amber-700 font-medium">Data may be stale</span> : null}
+                                    <div className="inline-flex items-center gap-2 text-[11px] font-normal">
+                                        <span className={cn(
+                                            "relative flex h-2 w-2 shrink-0",
+                                            isDataStale ? undefined : undefined
+                                        )}>
+                                            {!isDataStale && !isLoading && (
+                                                <><span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" /><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" /></>
+                                            )}
+                                            {isDataStale && !isLoading && (
+                                                <><span className="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75 animate-pulse" /><span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" /></>
+                                            )}
+                                            {isLoading && (
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-400 animate-pulse" />
+                                            )}
+                                        </span>
+                                        <span className="font-mono tabular-nums tracking-[0.01em] text-[#888888]">
+                                            {updatedClockLabel}
+                                        </span>
+                                        <span aria-hidden="true" className="text-[#ccc]">·</span>
+                                        <span className={cn(
+                                            "font-mono tabular-nums",
+                                            isDataStale ? "text-amber-700 font-medium" : "text-[#888888]"
+                                        )}>
+                                            {freshnessLabel}
+                                        </span>
+                                        {isLoading && <span className="text-[#555555] font-medium">Refreshing…</span>}
+                                        {isDataStale && !isLoading && (
+                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-mono font-bold uppercase tracking-wider">
+                                                Stale
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 {groupedMatches.map(([leagueId, enrichedMatchArray], groupIndex) => {

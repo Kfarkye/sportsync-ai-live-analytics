@@ -258,21 +258,49 @@ const BackArrow = memo(() => (
   </svg>
 ));
 
-const ConnectionBadge = memo(({ status }: { status: 'connected' | 'error' | 'connecting' }) => {
+const ConnectionBadge = memo(({ status, dataFetchedAt }: { status: 'connected' | 'error' | 'connecting'; dataFetchedAt?: number }) => {
   const isConnected = status === 'connected';
   const isConnecting = status === 'connecting';
+
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNowMs(Date.now()), 15_000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  const ageMs = dataFetchedAt ? Math.max(0, nowMs - dataFetchedAt) : null;
+  const ageLabel = ageMs === null ? null
+    : ageMs < 60_000 ? 'just now'
+    : ageMs < 3_600_000 ? `${Math.floor(ageMs / 60_000)}m ago`
+    : `${Math.floor(ageMs / 3_600_000)}h ago`;
+  const isStale = ageMs !== null && ageMs > 10 * 60_000; // 10 min
+
   return (
     <div className="flex items-center gap-2.5 bg-[linear-gradient(180deg,#FFFFFF_0%,#F6FAFF_100%)] px-3 py-1.5 rounded-full border border-[#D4DEEF] shadow-[0_10px_22px_-18px_rgba(16,34,58,0.48),inset_0_1px_0_rgba(255,255,255,0.95)] backdrop-blur-md">
       <div className="relative flex items-center justify-center w-[12px] h-[12px]">
-        {isConnected && (
+        {isConnected && !isStale && (
           <><span className="absolute w-full h-full rounded-full bg-emerald-500/30 animate-ping" /><span className="relative w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" /></>
+        )}
+        {isConnected && isStale && (
+          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
         )}
         {isConnecting && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.6)]" />}
         {!isConnected && !isConnecting && <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.6)]" />}
       </div>
-      <span className="text-[10px] font-sans font-bold text-zinc-700 tracking-wider uppercase mt-px hidden sm:block">
-        {isConnected ? 'Live Sync' : isConnecting ? 'Syncing' : 'Offline'}
+      <span className={cn(
+        "text-[10px] font-sans font-bold tracking-wider uppercase mt-px hidden sm:block",
+        isStale ? 'text-amber-700' : 'text-zinc-700'
+      )}>
+        {isConnected && !isStale ? 'Live Sync' : isConnected && isStale ? 'Stale' : isConnecting ? 'Syncing' : 'Offline'}
       </span>
+      {ageLabel && (
+        <span className={cn(
+          "text-[9px] font-mono tabular-nums tracking-wide hidden sm:block",
+          isStale ? 'text-amber-600' : 'text-zinc-500'
+        )}>
+          {ageLabel}
+        </span>
+      )}
     </div>
   );
 });
@@ -388,6 +416,16 @@ const GameInfoStrip = memo(({ match }: { match: Match }) => {
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-black/20" />
             <span className="text-[11px] font-bold text-black/60 uppercase tracking-widest">{linesLabel}</span>
+            {isLive && oddsTimestamp && (
+              <span className={cn(
+                "text-[9px] font-mono tabular-nums ml-1.5 px-1.5 py-0.5 rounded-full",
+                oddsAreFresh
+                  ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+                  : 'text-amber-700 bg-amber-50 border border-amber-200 animate-pulse'
+              )}>
+                {oddsAreFresh ? 'Live' : 'Pre-Game'}
+              </span>
+            )}
           </div>
           {match.edge_tags && match.edge_tags.length > 0 && (
             <MatchEdgeTags tags={match.edge_tags} size="sm" />
@@ -883,6 +921,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
   const [error, setError] = useState<Error | null>(null);
   const [forecastHistory, setForecastHistory] = useState<ForecastPoint[]>([]);
   const [isInitialLoad, setIsInitialLoad] = useState(!hasCachedData);
+  const [dataFetchedAt, setDataFetchedAt] = useState<number>(hasCachedData ? Date.now() : 0);
 
   const matchRef = useRef<ExtendedMatch>(initialMatch);
   const isFetchingRef = useRef(false);
@@ -999,6 +1038,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
         });
         setConnectionStatus('connected');
         setIsInitialLoad(false);
+        setDataFetchedAt(Date.now());
       })
       .catch((e) => {
         console.warn('Silent fail fetching extended match:', e);
@@ -1031,6 +1071,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
         });
         setConnectionStatus('connected');
         setIsInitialLoad(false);
+        setDataFetchedAt(Date.now());
       } catch (e) {
         console.warn('Silent fail fetching db match:', e);
       }
@@ -1213,7 +1254,7 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
     };
   }, [fetchData]);
 
-  return { match, liveState, connectionStatus, error, forecastHistory, isInitialLoad };
+  return { match, liveState, connectionStatus, error, forecastHistory, isInitialLoad, dataFetchedAt };
 }
 
 function useKeyboardNavigation(matches: Match[], currentMatchId: string, onSelectMatch?: (match: Match) => void) {
@@ -1252,7 +1293,7 @@ export interface MatchDetailsProps {
 }
 
 const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matches = [], onSelectMatch }) => {
-  const { match, liveState, connectionStatus, error, isInitialLoad } = useMatchPolling(initialMatch as ExtendedMatch);
+  const { match, liveState, connectionStatus, error, isInitialLoad, dataFetchedAt } = useMatchPolling(initialMatch as ExtendedMatch);
 
   const sportKey = String(match.sport || '').toUpperCase();
   const leagueKey = String(match.leagueId || '').toLowerCase();
@@ -1577,7 +1618,7 @@ const MatchDetails: FC<MatchDetailsProps> = ({ match: initialMatch, onBack, matc
             <button onClick={onBack} className="group flex items-center justify-center w-10 h-10 hover:bg-black/[0.04] rounded-full transition-colors duration-200 transform-gpu">
               <BackArrow />
             </button>
-            <ConnectionBadge status={connectionStatus} />
+            <ConnectionBadge status={connectionStatus} dataFetchedAt={dataFetchedAt} />
           </div>
 
           <div className="px-4 sm:px-6 pb-2">

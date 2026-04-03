@@ -1,15 +1,15 @@
-import React, { FC, lazy, Suspense, useEffect, useMemo } from 'react';
+import React, { FC, lazy, Suspense, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore, usePinStore } from '../../store/appStore';
 import { useMatches } from '../../hooks/useMatches';
 import { UnifiedHeader } from './UnifiedHeader';
 import MatchList from '../match/MatchList';
-import MatchDetails from '../match/MatchDetails';
+
 import LandingPage from './LandingPage';
 import LiveDashboard from '../analysis/LiveDashboard';
 import ChatWidget from '../ChatWidget';
-import LiveAccessGate from '../live/LiveAccessGate';
+
 import { hasPersistedSportContext, isGameInProgress, isGameFinished } from '../../utils/matchUtils';
 import { cn, ESSENCE } from '@/lib/essence';
 import { ORDERED_SPORTS, SPORT_CONFIG, LEAGUES } from '@/constants';
@@ -17,7 +17,7 @@ import { Sport } from '@/types';
 
 const CommandPalette = lazy(() => import('../modals/CommandPalette'));
 const AuthModal = lazy(() => import('../modals/AuthModal'));
-const PricingModal = lazy(() => import('../modals/PricingModal'));
+
 const MobileSportDrawer = lazy(() => import('./MobileSportDrawer'));
 const RankingsDrawer = lazy(() => import('../modals/RankingsDrawer'));
 const TitanAnalytics = lazy(() => import('../../pages/TitanAnalytics'));
@@ -26,6 +26,7 @@ const MotionMain = motion.main;
 const MotionDiv = motion.div;
 
 const AppShell: FC = () => {
+  const navigate = useNavigate();
   const {
     activeView,
     selectedDate,
@@ -37,12 +38,10 @@ const AppShell: FC = () => {
     isCmdkOpen,
     isAuthModalOpen,
     isSportDrawerOpen,
-    isPricingModalOpen,
     isRankingsDrawerOpen,
     isGlobalChatOpen,
     toggleCmdk,
     toggleAuthModal,
-    togglePricingModal,
     toggleSportDrawer,
     toggleRankingsDrawer,
     toggleGlobalChat,
@@ -82,6 +81,16 @@ const AppShell: FC = () => {
 
   const pinnedSet = useMemo(() => new Set<string>(pinnedMatchIds), [pinnedMatchIds]);
   const currentLeagueId = useMemo(() => LEAGUES.find((l) => l.sport === selectedSport)?.id || 'unknown', [selectedSport]);
+
+  // Navigate to /game/:id instead of setting Zustand state directly.
+  // This creates a real URL-based object surface.
+  const handleSelectMatch = useCallback((match: import('@/types').Match | null) => {
+    if (match) {
+      navigate(`/game/${match.id}`);
+    } else {
+      setSelectedMatch(null);
+    }
+  }, [navigate, setSelectedMatch]);
 
   // Unique key to force animation when Date/Sport changes
   const viewKey = `feed-${new Date(selectedDate).toISOString().split('T')[0]}-${selectedSport}`;
@@ -222,13 +231,12 @@ const AppShell: FC = () => {
                 {filteredMatches.length > 0 && (
                   <MatchList
                     matches={filteredMatches}
-                    onSelectMatch={setSelectedMatch}
+                    onSelectMatch={handleSelectMatch}
                     isLoading={isLoading}
                     pinnedMatchIds={pinnedSet}
                     onTogglePin={(id) => togglePin(id)}
                     isMatchLive={(m) => isGameInProgress(m.status)}
                     isMatchFinal={(m) => isGameFinished(m.status)}
-                    onOpenPricing={() => togglePricingModal(true)}
                   />
                 )}
               </MotionDiv>
@@ -242,15 +250,13 @@ const AppShell: FC = () => {
                 exit={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
                 transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
-                <LiveAccessGate>
-                  <LiveDashboard
-                    matches={matches}
-                    onSelectMatch={setSelectedMatch}
-                    isMatchLive={(m) => isGameInProgress(m.status)}
-                    pinnedMatchIds={pinnedSet}
-                    onTogglePin={togglePin}
-                  />
-                </LiveAccessGate>
+                <LiveDashboard
+                  matches={matches}
+                  onSelectMatch={handleSelectMatch}
+                  isMatchLive={(m) => isGameInProgress(m.status)}
+                  pinnedMatchIds={pinnedSet}
+                  onTogglePin={togglePin}
+                />
               </MotionDiv>
             )}
 
@@ -293,25 +299,7 @@ const AppShell: FC = () => {
         </footer>
       </MotionMain>
 
-      <AnimatePresence>
-        {selectedMatch && (
-          <MotionDiv
-            initial={prefersReducedMotion ? { opacity: 1 } : { y: '100%' }}
-            animate={prefersReducedMotion ? { opacity: 1 } : { y: 0 }}
-            exit={prefersReducedMotion ? { opacity: 0 } : { y: '100%' }}
-            transition={prefersReducedMotion ? { duration: 0.15 } : { type: 'spring', damping: 32, stiffness: 350, mass: 1 }}
-            className={cn(
-              'fixed inset-0 z-[60] overflow-hidden flex flex-col',
-              ESSENCE.tw.surface.subtle, // bg-slate-50
-              'kalshi-shell'
-            )}
-          >
-            {/* Sheet Handle for Mobile */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 rounded-full z-[70] md:hidden" />
-            <MatchDetails match={selectedMatch} matches={filteredMatches} onSelectMatch={setSelectedMatch} onBack={() => setSelectedMatch(null)} />
-          </MotionDiv>
-        )}
-      </AnimatePresence>
+
 
       <ChatWidget currentMatch={selectedMatch ?? undefined} matches={filteredMatches} />
       {!isGlobalChatOpen && (
@@ -329,7 +317,7 @@ const AppShell: FC = () => {
       )}
 
       <Suspense fallback={null}>
-        <CommandPalette isOpen={isCmdkOpen} onClose={() => toggleCmdk(false)} matches={matches} onSelect={setSelectedMatch} />
+        <CommandPalette isOpen={isCmdkOpen} onClose={() => toggleCmdk(false)} matches={matches} onSelect={handleSelectMatch} />
         <MobileSportDrawer
           isOpen={isSportDrawerOpen}
           onClose={() => toggleSportDrawer(false)}
@@ -341,7 +329,7 @@ const AppShell: FC = () => {
         />
         <RankingsDrawer isOpen={isRankingsDrawerOpen} onClose={() => toggleRankingsDrawer(false)} sport={selectedSport} leagueId={currentLeagueId} />
         <AuthModal isOpen={isAuthModalOpen} onClose={() => toggleAuthModal(false)} />
-        <PricingModal isOpen={isPricingModalOpen} onClose={() => togglePricingModal(false)} />
+
       </Suspense>
     </div>
   );
