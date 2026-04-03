@@ -40,7 +40,8 @@ const CONFIG = Object.freeze({
   MAX_PAYLOAD_SIZE: 2 * 1024 * 1024,
   MAX_MESSAGES: 40,
   MAX_HISTORY: 8,
-  MAX_MESSAGE_CHARS: 6000
+  MAX_MESSAGE_CHARS: 6000,
+  NON_FATAL_LOG_INTERVAL_MS: 2 * 60 * 1000
 });
 
 const VERDICT_PATTERNS = Object.freeze([
@@ -53,6 +54,7 @@ const ANALYSIS_TRIGGER_RE = new RegExp(
 );
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ENCODER = new TextEncoder();
+const NON_FATAL_LOG_STATE = new Map();
 
 // Lazy singletons (initialized on first invocation to read secrets)
 let _genAI = null;
@@ -92,6 +94,27 @@ const safeJsonStringify = (obj, maxLen = 1200) => { try { if (obj == null) retur
 const truncateText = (text, maxLen = CONFIG.MAX_MESSAGE_CHARS) => { if (!text) return ''; return text.length > maxLen ? text.slice(0, maxLen) + '…' : text; };
 const detectMode = (query, hasImage) => { if (hasImage) return 'ANALYSIS'; if (!query) return 'CONVERSATION'; return ANALYSIS_TRIGGER_RE.test(query) ? 'ANALYSIS' : 'CONVERSATION'; };
 const normalizeOddsNumber = (val) => { if (val == null) return null; if (typeof val === 'number' && Number.isFinite(val)) return val; if (typeof val === 'string') { const c = val.replace(/[^\d.+-]/g, ''); if (!c || c === '+' || c === '-') return null; const n = Number(c); return Number.isFinite(n) ? n : null; } return null; };
+const formatErrorMessage = (err) => {
+  if (!err) return 'Unknown error';
+  if (typeof err === 'string') return err;
+  if (typeof err?.message === 'string') return err.message;
+  return safeJsonStringify(err);
+};
+const isTransientFailure = (err) => {
+  const msg = formatErrorMessage(err).toLowerCase();
+  return ['fetch failed', 'network', 'timeout', 'timed out', 'econnreset', 'enotfound', 'ecanceled'].some(s => msg.includes(s));
+};
+const warnThrottled = (key, message, meta = null) => {
+  const now = Date.now();
+  const state = NON_FATAL_LOG_STATE.get(key) || { lastLoggedAt: 0, suppressed: 0 };
+  if ((now - state.lastLoggedAt) >= CONFIG.NON_FATAL_LOG_INTERVAL_MS) {
+    const payload = state.suppressed > 0 ? { ...(meta || {}), suppressed_since_last: state.suppressed } : (meta || undefined);
+    logger.warn(message, payload);
+    NON_FATAL_LOG_STATE.set(key, { lastLoggedAt: now, suppressed: 0 });
+    return;
+  }
+  NON_FATAL_LOG_STATE.set(key, { lastLoggedAt: state.lastLoggedAt, suppressed: state.suppressed + 1 });
+};
 
 const getMarketPhase = (match) => {
   if (!match) return 'UNKNOWN';
@@ -305,7 +328,10 @@ async function scanForLiveGame(userQuery) {
     const { data, error } = await supabase.from('live_game_state').select('*').in('game_status', ['IN_PROGRESS','HALFTIME','END_PERIOD','LIVE']).or(orClauses).order('updated_at', { ascending: false }).limit(1).abortSignal(AbortSignal.timeout(3000));
     if (error) throw new Error(error.message);
     return data?.[0] ? { ok: true, data: data[0], isLiveOverride: true } : { ok: false };
-  } catch (e) { logger.warn('[Live Sentinel] Scan failed:', e?.message); return { ok: false }; }
+  } catch (e) {
+    warnThrottled('live-sentinel-scan', '[Live Sentinel] Scan failed (non-fatal)', { message: formatErrorMessage(e) });
+    return { ok: false };
+  }
 }
 
 async function fetchESPNInjuries(teamId, sportKey) {
@@ -323,7 +349,10 @@ async function fetchESPNInjuries(teamId, sportKey) {
     const result = { injuries };
     INJURY_CACHE.set(ck, result);
     return structuredClone(result);
-  } catch (e) { logger.warn(`[Injury Fetch] Failed for ${teamId}:`, e?.message); return { injuries: [] }; }
+  } catch (e) {
+    warnThrottled(`injury-fetch:${teamId}`, `[Injury Fetch] Failed for ${teamId} (non-fatal)`, { message: formatErrorMessage(e) });
+    return { injuries: [] };
+  }
 }
 
 async function buildEvidencePacket(context) {
@@ -334,7 +363,19 @@ async function buildEvidencePacket(context) {
     promises.push(Promise.allSettled([fetchESPNInjuries(context.home_team_id, context.sport || context.league), fetchESPNInjuries(context.away_team_id, context.sport || context.league)]).then(([h, a]) => { packet.injuries.home = h.status === 'fulfilled' ? (h.value.injuries || []) : []; packet.injuries.away = a.status === 'fulfilled' ? (a.value.injuries || []) : []; }));
   }
   if (context?.match_id && supabase) {
-    promises.push(supabase.from('live_game_state').select('*').eq('id', String(context.match_id)).maybeSingle().abortSignal(AbortSignal.timeout(3000)).then(({ data, error }) => { if (error) throw new Error(error.message); if (data) { packet.liveState = { score: { home: data.home_score, away: data.away_score }, clock: data.display_clock, period: data.period, status: data.game_status, odds: data.odds }; packet.temporal.t60 = data.t60_snapshot; packet.temporal.t0 = data.t0_snapshot; if (data.odds && data.t60_snapshot) packet.lineMovement = calculateLineMovement(data.odds, data.t60_snapshot); } }).catch(e => logger.warn('[Evidence] Live state fetch failed:', e?.message)));
+    promises.push(
+      supabase.from('live_game_state').select('*').eq('id', String(context.match_id)).maybeSingle().abortSignal(AbortSignal.timeout(3000))
+        .then(({ data, error }) => {
+          if (error) throw new Error(error.message);
+          if (data) {
+            packet.liveState = { score: { home: data.home_score, away: data.away_score }, clock: data.display_clock, period: data.period, status: data.game_status, odds: data.odds };
+            packet.temporal.t60 = data.t60_snapshot;
+            packet.temporal.t0 = data.t0_snapshot;
+            if (data.odds && data.t60_snapshot) packet.lineMovement = calculateLineMovement(data.odds, data.t60_snapshot);
+          }
+        })
+        .catch(e => warnThrottled('evidence-live-state-fetch', '[Evidence] Live state fetch failed (non-fatal)', { message: formatErrorMessage(e) }))
+    );
   }
   await Promise.allSettled(promises);
   return packet;
@@ -557,8 +598,23 @@ export const chatHandler = onRequest(
               dbTasks.push(supabase.from('conversations').update({ messages: [...rawMessages, { role: 'assistant', content: fullText, thoughts: rawThoughts, groundingMetadata: finalMetadata, sources, model: CONFIG.MODEL_ID }].slice(-CONFIG.MAX_MESSAGES), last_message_at: new Date().toISOString() }).eq('id', conversation_id).then(({ error }) => { if (error) throw new Error(`Conversation Update Failed: ${error.message}`); }));
             }
             const results = await Promise.allSettled(dbTasks);
-            results.forEach((r, idx) => { if (r.status === 'rejected') logger.error(`🔥 Background Task [${idx}] Failed:`, r.reason); });
-          } catch (dbErr) { logger.error('🔥 Fatal Background Setup Error:', dbErr?.message || dbErr); }
+            results.forEach((r, idx) => {
+              if (r.status !== 'rejected') return;
+              const reason = formatErrorMessage(r.reason);
+              const meta = { task_index: idx, reason };
+              if (isTransientFailure(r.reason)) {
+                warnThrottled(`background-task:${idx}`, `[Chat Background] Task ${idx} failed (transient/non-fatal)`, meta);
+                return;
+              }
+              logger.error(`[Chat Background] Task ${idx} failed`, meta);
+            });
+          } catch (dbErr) {
+            if (isTransientFailure(dbErr)) {
+              warnThrottled('background-setup', '[Chat Background] Setup failed (transient/non-fatal)', { reason: formatErrorMessage(dbErr) });
+              return;
+            }
+            logger.error('[Chat Background] Setup failed', { reason: formatErrorMessage(dbErr) });
+          }
         })();
       }
 
