@@ -103,7 +103,6 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
         apikey: SUPABASE_ANON_KEY,
         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
         'Content-Type': 'application/json',
-        ...(cached?.etag ? { 'If-None-Match': cached.etag } : {}),
       },
       // Safe fallback: send date in body too, just in case the Edge Function expects it there
       body: JSON.stringify({ date: dateStr, limit: 140 }),
