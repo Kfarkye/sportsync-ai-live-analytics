@@ -100,12 +100,7 @@ const AppShell: FC = () => {
     let pathname = '/';
     if (sport !== 'all') {
       const slug = (SPORT_TO_SLUG[String(sport)] || '').toLowerCase();
-      // "/soccer" is already reserved by the postgame hub route.
-      if (slug && slug !== 'soccer') {
-        pathname = `/${slug}`;
-      } else if (slug) {
-        params.set('sport', slug);
-      }
+      if (slug) pathname = `/${slug}`;
     }
 
     return `${pathname}?${params.toString()}`;
@@ -195,6 +190,20 @@ const AppShell: FC = () => {
       navigate(buildLiveSlateHref({ view: 'LIVE' }), { replace: true });
     }
   }, [location.pathname, navigate, buildLiveSlateHref]);
+
+  useEffect(() => {
+    const querySport = (query.get('sport') || '').toLowerCase().trim();
+    if (!querySport) return;
+
+    const mappedSport = querySport === 'all' ? 'all' : (SLUG_TO_SPORT[querySport] ?? null);
+    if (!mappedSport) return;
+
+    const canonicalHref = buildLiveSlateHref({ sport: mappedSport });
+    const currentHref = `${location.pathname}${location.search}`;
+    if (currentHref !== canonicalHref) {
+      navigate(canonicalHref, { replace: true });
+    }
+  }, [query, location.pathname, location.search, navigate, buildLiveSlateHref]);
 
   useEffect(() => {
     if (showLanding && (location.pathname !== '/' || hasSlateQuery)) {

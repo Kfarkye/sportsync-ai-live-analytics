@@ -12,7 +12,7 @@ export const TopNav: FC = () => (
     <a href="/" className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900">
       Live Feed
     </a>
-    <a href="/soccer" className="text-xs font-medium uppercase tracking-[0.12em] text-slate-700 hover:text-slate-900">
+    <a href="/soccer/hub" className="text-xs font-medium uppercase tracking-[0.12em] text-slate-700 hover:text-slate-900">
       Soccer Hub
     </a>
   </nav>

@@ -1415,7 +1415,7 @@ export const hasPostgameForToday = async (): Promise<boolean> => {
 };
 
 export const POSTGAME_SSG_ROUTES = {
-  hub: '/soccer',
+  hub: '/soccer/hub',
   league: (leagueId: string): string => `/league/${normalizeLeagueId(leagueId)}`,
   team: (teamSlug: string, leagueId?: string): string =>
     leagueId ? `/team/${teamSlug}?league=${normalizeLeagueId(leagueId)}` : `/team/${teamSlug}`,

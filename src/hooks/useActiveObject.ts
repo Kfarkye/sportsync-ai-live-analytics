@@ -93,6 +93,7 @@ export function useActiveObject(): ActiveObject {
     const urlSport: LiveSlateSport = (() => {
       const fromPath = resolveSportFromPath(pathname);
       if (fromPath) return fromPath;
+      // Legacy fallback for older shared links (e.g. "/?sport=soccer").
       const raw = (query.get('sport') || '').toLowerCase().trim();
       if (!raw || raw === 'all') return 'all';
       return SLUG_TO_SPORT[raw] ?? 'all';
@@ -146,6 +147,16 @@ export function useActiveObject(): ActiveObject {
         id: `league:${leagueMatch[1]}`,
         source_url: sourceUrl,
         slug: leagueMatch[1],
+      };
+    }
+
+    // /soccer/hub or /soccer/postgame (legacy alias)
+    if (pathname === '/soccer/hub' || pathname === '/soccer/postgame') {
+      return {
+        type: 'postgame',
+        id: 'postgame:hub',
+        source_url: sourceUrl,
+        slug: 'soccer-hub',
       };
     }
 

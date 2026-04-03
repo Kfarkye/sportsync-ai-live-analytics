@@ -59,7 +59,8 @@ const App: FC = () => {
             <Suspense fallback={<AppLoadingScreen />}>
               <Routes>
                 <Route path="/game/:gameId" element={<GamePage />} />
-                <Route path="/soccer" element={<PostgameRouter />} />
+                <Route path="/soccer/hub" element={<PostgameRouter />} />
+                <Route path="/soccer/postgame" element={<Navigate to="/soccer/hub" replace />} />
                 <Route path="/league/:slug" element={<PostgameRouter />} />
                 <Route path="/team/:slug" element={<PostgameRouter />} />
                 <Route path="/match/:slug" element={<PostgameRouter />} />
@@ -78,6 +79,7 @@ const App: FC = () => {
                 <Route path="/ufc" element={<AppShell />} />
                 <Route path="/tennis" element={<AppShell />} />
                 <Route path="/golf" element={<AppShell />} />
+                <Route path="/soccer" element={<AppShell />} />
 
                 <Route path="*" element={<AppShell />} />
               </Routes>

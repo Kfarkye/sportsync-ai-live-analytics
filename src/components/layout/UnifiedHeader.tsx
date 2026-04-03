@@ -102,12 +102,7 @@ export const UnifiedHeader: FC = () => {
         let pathname = '/';
         if (sport !== 'all') {
             const slug = (SPORT_TO_SLUG[String(sport)] || '').toLowerCase();
-            // "/soccer" is owned by the postgame hub route; keep soccer slate on root.
-            if (slug && slug !== 'soccer') {
-                pathname = `/${slug}`;
-            } else if (slug) {
-                params.set('sport', slug);
-            }
+            if (slug) pathname = `/${slug}`;
         }
 
         return `${pathname}?${params.toString()}`;

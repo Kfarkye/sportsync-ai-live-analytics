@@ -32,13 +32,13 @@ export const PostgameRouter: FC = () => {
     return { pathname: url.pathname, query: url.searchParams };
   }, []);
 
-  if (pathname === '/soccer') {
+  if (pathname === '/soccer/hub' || pathname === '/soccer/postgame') {
     return (
       <>
         <SEOHead
           title="Soccer Postgame Hub | The Drip"
           description="Postgame hub for soccer leagues with match archives, scorelines, and betting context."
-          canonicalPath="/soccer"
+          canonicalPath="/soccer/hub"
         />
         <SoccerHubPage />
       </>
