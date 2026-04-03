@@ -28,6 +28,8 @@ import { cn } from '@/lib/essence';
 import { isSupabaseConfigured, getSupabaseUrl } from '@/lib/supabase';
 import { formatLocalDate } from '@/utils/dateUtils';
 import { SLUG_TO_SPORT } from '@/lib/sportSlugs';
+import { fetchAllMatches } from '@/services/espnService';
+import { LEAGUES } from '@/constants';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // §  Direct game fetch (when not in cache)
@@ -57,6 +59,37 @@ const gameIdsMatch = (a: string, b: string): boolean => {
   const right = normalizeGameId(b);
   if (!left || !right) return false;
   return left === right || toGameBaseId(left) === toGameBaseId(right);
+};
+const FALLBACK_LEAGUE_IDS = new Set([
+  'nba',
+  'nhl',
+  'nfl',
+  'college-football',
+  'mens-college-basketball',
+  'mlb',
+  'eng.1',
+  'usa.1',
+  'ita.1',
+  'esp.1',
+  'ger.1',
+  'fra.1',
+  'ned.1',
+  'por.1',
+  'bel.1',
+  'tur.1',
+  'bra.1',
+  'arg.1',
+  'sco.1',
+  'uefa.champions',
+  'uefa.europa',
+  'mex.1',
+]);
+const FALLBACK_LEAGUES = LEAGUES.filter((league) => FALLBACK_LEAGUE_IDS.has(league.id));
+const toDateFromKey = (dateKey: string): Date => {
+  const hinted = parseDateHint(dateKey);
+  if (hinted) return hinted;
+  const parsed = new Date(`${dateKey}T12:00:00`);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
 const fetchMatchesForDate = async (dateKey: string, limit = 300): Promise<Match[]> => {
@@ -107,6 +140,20 @@ const fetchMatchesForDate = async (dateKey: string, limit = 300): Promise<Match[
   }
 };
 
+const fetchFallbackMatchesForDate = async (dateKey: string): Promise<Match[]> => {
+  try {
+    const fallback = await fetchAllMatches(FALLBACK_LEAGUES, toDateFromKey(dateKey));
+    const fetchedAt = Date.now();
+    return (fallback || []).map((item: Match) => (
+      typeof item?.fetched_at === 'number'
+        ? item
+        : { ...item, fetched_at: fetchedAt }
+    ));
+  } catch {
+    return [];
+  }
+};
+
 const buildCandidateDateKeys = (hintedDate: Date | null): string[] => {
   const todayKey = formatLocalDate(new Date());
   if (hintedDate) {
@@ -123,6 +170,10 @@ const fetchSingleGame = async (gameId: string, hintedDate: Date | null): Promise
     const matches = await fetchMatchesForDate(dateKey, 300);
     const found = matches.find((m) => gameIdsMatch(String(m.id || ''), gameId));
     if (found) return found;
+
+    const fallbackMatches = await fetchFallbackMatchesForDate(dateKey);
+    const fallbackFound = fallbackMatches.find((m) => gameIdsMatch(String(m.id || ''), gameId));
+    if (fallbackFound) return fallbackFound;
   }
   return null;
 };
