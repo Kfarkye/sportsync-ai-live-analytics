@@ -63,6 +63,39 @@ const parseInningHalf = (competition, fallback = 'top') => {
   return fallback;
 };
 
+const buildFallbackPayload = (rawMatchId) => ({
+  matchId: rawMatchId,
+  inningHalf: 'top',
+  pitcher: {
+    name: 'Pitcher',
+    shortName: 'Pitcher',
+    initials: 'P',
+    ip: '0.0',
+    pitchCount: 0,
+    er: 0,
+    k: 0,
+  },
+  batter: {
+    name: 'Batter',
+    shortName: 'Batter',
+    initials: 'B',
+    todayLine: '0-0',
+    avg: '.000',
+  },
+  pitches: [],
+  dueUp: [],
+  scoringPlays: [],
+  asOfTs: Date.now(),
+  oddsTs: Date.now(),
+  inning: 1,
+  balls: 0,
+  strikes: 0,
+  outs: 0,
+  onFirst: false,
+  onSecond: false,
+  onThird: false,
+});
+
 const toScoringPlays = (data, competitorsById) => {
   const plays = Array.isArray(data?.scoringPlays) ? data.scoringPlays.slice(-12) : [];
   return plays.map(play => {
@@ -93,7 +126,11 @@ export const baseballLive = onRequest(
 
     try {
       const data = await fetchSummary(eventId);
-      if (!data) { res.status(502).json({ error: 'Failed to fetch ESPN summary' }); return; }
+      if (!data) {
+        res.set('Cache-Control', 'public, max-age=8');
+        res.status(200).json(buildFallbackPayload(rawMatchId));
+        return;
+      }
       const competition = data?.header?.competitions?.[0];
       const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
       if (competitors.length < 2) {
@@ -135,7 +172,9 @@ export const baseballLive = onRequest(
         onFirst: asBool(situation?.onFirst, false), onSecond: asBool(situation?.onSecond, false), onThird: asBool(situation?.onThird, false),
       });
     } catch (error) {
-      res.status(500).json({ error: error?.message || 'Unknown error' });
+      logger.warn('[baseballLive] fail-open fallback', { message: error?.message || 'Unknown error' });
+      res.set('Cache-Control', 'public, max-age=8');
+      res.status(200).json(buildFallbackPayload(rawMatchId));
     }
   }
 );

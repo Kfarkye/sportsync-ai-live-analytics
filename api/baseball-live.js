@@ -180,6 +180,39 @@ const parseInningHalf = (competition, fallback = 'top') => {
   return fallback;
 };
 
+const buildFallbackPayload = (rawMatchId) => ({
+  matchId: rawMatchId,
+  inningHalf: 'top',
+  pitcher: {
+    name: 'Pitcher',
+    shortName: 'Pitcher',
+    initials: 'P',
+    ip: '0.0',
+    pitchCount: 0,
+    er: 0,
+    k: 0,
+  },
+  batter: {
+    name: 'Batter',
+    shortName: 'Batter',
+    initials: 'B',
+    todayLine: '0-0',
+    avg: '.000',
+  },
+  pitches: [],
+  dueUp: [],
+  scoringPlays: [],
+  asOfTs: Date.now(),
+  oddsTs: Date.now(),
+  inning: 1,
+  balls: 0,
+  strikes: 0,
+  outs: 0,
+  onFirst: false,
+  onSecond: false,
+  onThird: false,
+});
+
 const toScoringPlays = (data, competitorsById) => {
   const plays = Array.isArray(data?.scoringPlays) ? data.scoringPlays.slice(-12) : [];
   return plays.map((play) => {
@@ -238,7 +271,7 @@ export default async function handler(req, res) {
 
   try {
     const data = await fetchSummary(eventId);
-    if (!data) return respondJson(502, { error: 'Failed to fetch ESPN summary' });
+    if (!data) return respondJson(200, buildFallbackPayload(rawMatchId));
 
     const competition = data?.header?.competitions?.[0];
     const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
@@ -388,6 +421,6 @@ export default async function handler(req, res) {
 
     return respondJson(200, response);
   } catch (error) {
-    return respondJson(500, { error: error?.message || 'Unknown error' });
+    return respondJson(200, buildFallbackPayload(rawMatchId));
   }
 }

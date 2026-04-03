@@ -4,7 +4,6 @@
 // ============================================================================
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
 import type { MatchStatus } from '@/types';
 import type { BaseballLiveData } from './types';
 
@@ -54,39 +53,12 @@ async function fetchBaseballLiveData(matchId: string): Promise<BaseballLiveData 
     }
   };
 
-  try {
-    const { data, error } = await supabase.functions.invoke('baseball-live', {
-      body: { matchId },
-    });
+  // Use same-origin API route first to avoid cross-origin CORS failures from
+  // third-party/deployed edge surfaces.
+  const primary = await fetchFromApiRoute();
+  if (primary) return primary;
 
-    if (error) {
-      // Non-fatal: edge function may not be deployed yet
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[useBaseballLive] Edge function error:', error.message);
-      }
-      return fetchFromApiRoute();
-    }
-
-    if (!data || typeof data !== 'object') {
-      return fetchFromApiRoute();
-    }
-
-    const candidate = data as BaseballLiveData;
-    const hasPitches = Array.isArray((candidate as { pitches?: unknown[] }).pitches)
-      && ((candidate as { pitches?: unknown[] }).pitches?.length ?? 0) > 0;
-
-    if (hasPitches) return candidate;
-
-    const fallback = await fetchFromApiRoute();
-    if (fallback) return fallback;
-
-    return candidate;
-  } catch (err) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('[useBaseballLive] Fetch failed:', err);
-    }
-    return fetchFromApiRoute();
-  }
+  return null;
 }
 
 /**
