@@ -431,6 +431,16 @@ export const chatHandler = onRequest(
 
     const MODE = detectMode(userQuery, hasImage);
 
+    // ── SSE STREAMING (open immediately to avoid client TTFB timeout) ──
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    if (typeof res.flushHeaders === 'function') res.flushHeaders();
+    res.write(':ok\n\n');
+
     // Parallel: live sentinel + evidence
     let liveScan = { ok: false }, evidence = { injuries: { home: [], away: [] }, liveState: null, temporal: { t60: null, t0: null }, lineMovement: null };
     try { [liveScan, evidence] = await Promise.all([scanForLiveGame(userQuery), buildEvidencePacket(activeContext)]); }
@@ -461,19 +471,19 @@ export const chatHandler = onRequest(
 
     const geminiHistory = normalizeGeminiHistory(messages, liveDataUrls);
 
-    // ── SSE STREAMING (Express-style, replaces Web Response API) ──
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream; charset=utf-8',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    });
-    res.write(':ok\n\n');
-
     let fullText = '';
     let rawThoughts = '';
     let finalMetadata = null;
     let streamActive = true;
+    const heartbeat = setInterval(() => {
+      if (!streamActive) return;
+      try { res.write(':hb\n\n'); }
+      catch { streamActive = false; }
+    }, 15000);
+    req.on('close', () => {
+      streamActive = false;
+      clearInterval(heartbeat);
+    });
 
     const safeWrite = (payload) => {
       if (!streamActive) return;
@@ -514,6 +524,7 @@ export const chatHandler = onRequest(
       }
 
       sendDone();
+      clearInterval(heartbeat);
       res.end();
 
       // ── BACKGROUND DB TASKS (fire-and-forget, replaces waitUntil) ──
@@ -552,6 +563,7 @@ export const chatHandler = onRequest(
       }
 
     } catch (e) {
+      clearInterval(heartbeat);
       if (!streamActive) return;
       logger.error('🔥 Stream Generation Error:', e);
       safeWrite({ type: 'error', content: e?.message || 'An unexpected error occurred.' });
