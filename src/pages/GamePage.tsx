@@ -40,11 +40,23 @@ const fetchSingleGame = async (gameId: string): Promise<Match | null> => {
   const today = formatLocalDate(new Date());
   const baseUrl = getSupabaseUrl();
   if (!baseUrl) return null;
+  const anonKey = (
+    typeof import.meta.env.VITE_SUPABASE_ANON_KEY === 'string'
+      ? import.meta.env.VITE_SUPABASE_ANON_KEY
+      : typeof (import.meta as any).env?.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'string'
+        ? (import.meta as any).env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        : ''
+  ).trim();
+  if (!anonKey) return null;
 
   try {
     const response = await fetch(`${baseUrl}/functions/v1/fetch-matches`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${anonKey}`,
+        apikey: anonKey,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         date: today,
         oddsSportKey: 'all',
