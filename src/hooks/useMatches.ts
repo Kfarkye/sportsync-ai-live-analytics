@@ -6,6 +6,22 @@ import { fetchAllMatches } from '@/services/espnService';
 import { LEAGUES } from '@/constants';
 
 const matchCache = new Map<string, { etag: string; data: Match[] }>();
+const LOG_THROTTLE_MS = 2 * 60 * 1000;
+const logState = new Map<string, number>();
+const shouldLog = (key: string): boolean => {
+  const now = Date.now();
+  const last = logState.get(key) ?? 0;
+  if ((now - last) < LOG_THROTTLE_MS) return false;
+  logState.set(key, now);
+  return true;
+};
+const warnThrottled = (key: string, ...args: unknown[]) => {
+  if (shouldLog(key)) console.warn(...args);
+};
+const errorThrottled = (key: string, ...args: unknown[]) => {
+  if (shouldLog(key)) console.error(...args);
+};
+
 const FALLBACK_LEAGUE_IDS = new Set([
   'nba',
   'nhl',
@@ -57,7 +73,7 @@ const fetchFallbackWithCache = async (
       return fallback;
     }
   } catch (error) {
-    console.warn('ESPN fallback failed:', error);
+    warnThrottled('matches:espn-fallback-failed', 'ESPN fallback failed:', error);
   }
 
   if (cached?.data?.length) return cached.data;
@@ -66,14 +82,14 @@ const fetchFallbackWithCache = async (
 
 const fetchMatches = async (date: Date): Promise<Match[]> => {
   if (!date || isNaN(date.getTime())) {
-    console.error("useMatches: Invalid date provided to fetchMatches");
+    errorThrottled('matches:invalid-date', "useMatches: Invalid date provided to fetchMatches");
     return [];
   }
 
   const dateStr = formatLocalDate(date);
 
   if (!isSupabaseConfigured()) {
-    console.warn("Supabase not configured. Cannot call fetch-matches.");
+    warnThrottled('matches:supabase-not-configured', "Supabase not configured. Cannot call fetch-matches.");
     return [];
   }
 
@@ -108,7 +124,7 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
       body: JSON.stringify({ date: dateStr, limit: 140 }),
     });
   } catch (err) {
-    console.warn('fetch-matches network error, using ESPN fallback:', err);
+    warnThrottled('matches:network-error', 'fetch-matches network error, using ESPN fallback:', err);
     return fetchFallbackWithCache(date, dateStr, Date.now(), cached);
   }
 
@@ -119,7 +135,7 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
 
   if (!res.ok) {
     const errText = await res.text();
-    console.error("fetch-matches failed:", res.status, errText);
+    errorThrottled(`matches:non-ok:${res.status}`, "fetch-matches failed:", res.status, errText);
     return fetchFallbackWithCache(date, dateStr, Date.now(), cached);
   }
 
@@ -129,7 +145,7 @@ const fetchMatches = async (date: Date): Promise<Match[]> => {
   try {
     data = await res.json();
   } catch (error) {
-    console.warn('fetch-matches JSON parse failed:', error);
+    warnThrottled('matches:json-parse-failed', 'fetch-matches JSON parse failed:', error);
     return fetchFallbackWithCache(date, dateStr, fetchedAt, cached);
   }
 
