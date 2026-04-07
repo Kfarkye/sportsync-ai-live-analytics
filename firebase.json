@@ -64,6 +64,10 @@
         "destination": "/live.html"
       },
       {
+        "source": "/api/live/page-data",
+        "function": "livePageData"
+      },
+      {
         "source": "**",
         "destination": "/app.html"
       }
