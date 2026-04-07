@@ -17,6 +17,7 @@ const DEFAULT_MAX_EVENTS = 24;
 const ABSOLUTE_MAX_EVENTS = 120;
 const DISCOVERY_PAGE_LIMIT = 200;
 const DISCOVERY_MAX_PAGES = 8;
+const EXTRA_DISCOVERY_MAX_PAGES = 2;
 
 type Phase = "discover" | "snapshot" | "both";
 type SnapshotType = "pregame" | "live" | "settled";
@@ -78,6 +79,7 @@ interface MarketIdentity {
   marketLabel: string | null;
   lineValue: number | null;
   lineSide: string | null;
+  teamName: string | null;
 }
 
 interface MatchWindowRow {
@@ -315,11 +317,92 @@ function discoverySeriesTickers(filter: SportFilter): string[] {
   return DISCOVERY_SERIES_BY_FILTER[filter] || DISCOVERY_SERIES_BY_FILTER.all;
 }
 
+function shouldIncludeSeriesTicker(seriesTicker: string): boolean {
+  if (!seriesTicker) return false;
+  const upper = seriesTicker.toUpperCase();
+  if (!upper.startsWith("KX")) return false;
+  return (
+    upper.includes("TOTAL") ||
+    upper.includes("SPREAD") ||
+    upper.includes("GAME") ||
+    upper.includes("TEAM") ||
+    upper.includes("1H") ||
+    upper.includes("HALF") ||
+    upper.includes("PROP") ||
+    upper.includes("PLAYER") ||
+    upper.startsWith("KXMVE")
+  );
+}
+
+async function discoverExtraSeriesTickers(
+  keyId: string | null,
+  privateKeyPem: string | null,
+  sportFilter: SportFilter,
+  baseTickers: string[]
+): Promise<string[]> {
+  const baseSet = new Set(baseTickers.map((t) => t.toUpperCase()));
+  const discovered = new Set<string>();
+  let cursor: string | null = null;
+
+  for (let page = 0; page < EXTRA_DISCOVERY_MAX_PAGES; page++) {
+    const path =
+      `/trade-api/v2/events?status=open&limit=${DISCOVERY_PAGE_LIMIT}` +
+      `${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
+    const res = await kalshiGetWithRetry(path, keyId, privateKeyPem, 2);
+    if (!res.ok) break;
+
+    const events = Array.isArray(res.data?.events) ? res.data.events : [];
+    for (const eventRow of events) {
+      const seriesTicker = getStringField(eventRow, ["series_ticker", "seriesTicker"]);
+      if (!seriesTicker) continue;
+      const upper = seriesTicker.toUpperCase();
+      if (baseSet.has(upper)) continue;
+
+      if (!shouldIncludeSeriesTicker(seriesTicker)) continue;
+
+      const inferred = inferSportLeague(
+        seriesTicker,
+        getStringField(eventRow, ["title"]),
+        getStringField(eventRow, ["category"]) || getStringField(eventRow?.product_metadata, ["competition"]),
+        getStringField(eventRow, ["event_ticker", "eventTicker"]),
+        null
+      );
+      if (!matchesSportFilter(sportFilter, inferred.sport, inferred.league)) continue;
+
+      discovered.add(seriesTicker);
+    }
+
+    cursor = getStringField(res.data, ["cursor"]);
+    if (!cursor || events.length < DISCOVERY_PAGE_LIMIT) break;
+    await sleep(REQUEST_DELAY_MS);
+  }
+
+  return Array.from(discovered);
+}
+
+const VALID_MARKET_KINDS = new Set([
+  "game", "spread", "total", "team_total",
+  "1h_game", "1h_spread", "1h_total",
+  "player_prop", "prop",
+]);
+
 function resolveMarketKind(identity: MarketIdentity): string {
-  if (identity.marketType === "moneyline" || identity.marketType === "1h_winner") return "game";
-  if (identity.marketType === "spread") return "spread";
-  if (identity.marketType === "total" || identity.marketType === "1h_total") return "total";
-  return identity.marketType || "prop";
+  let kind: string;
+  if (identity.marketType === "1h_winner") kind = "1h_game";
+  else if (identity.marketType === "moneyline") kind = "game";
+  else if (identity.marketType === "spread") kind = "spread";
+  else if (identity.marketType === "total") kind = "total";
+  else if (identity.marketType === "team_total") kind = "team_total";
+  else if (identity.marketType === "1h_total") kind = "1h_total";
+  else if (identity.marketType === "1h_spread") kind = "1h_spread";
+  else if (identity.marketType === "player_prop") kind = "player_prop";
+  else kind = identity.marketType || "prop";
+
+  if (!VALID_MARKET_KINDS.has(kind)) {
+    console.error(`[INVARIANT] resolveMarketKind produced unknown kind="${kind}" from marketType="${identity.marketType}". Falling back to "prop".`);
+    return "prop";
+  }
+  return kind;
 }
 
 function inferHomeTeamSide(yesLabel: string | null, homeTeam: string | null, awayTeam: string | null): boolean | null {
@@ -435,7 +518,15 @@ function isLeagueCompatible(eventLeagueRaw: string | null, matchLeagueRaw: strin
 }
 
 function isLikelyTotalMarketTicker(ticker: string): boolean {
-  return ticker.toUpperCase().includes("TOTAL");
+  const upper = ticker.toUpperCase();
+  return (
+    upper.includes("TOTAL") ||
+    upper.includes("TEAM") ||
+    upper.includes("1H") ||
+    upper.includes("HALF") ||
+    upper.includes("PROP") ||
+    upper.startsWith("KXMVE")
+  );
 }
 
 async function filterEventsBySnapshotWindow(
@@ -699,6 +790,52 @@ function parseLineSide(text: string | null): string | null {
   return null;
 }
 
+function inferTeamNameFromText(text: string, homeTeam: string | null, awayTeam: string | null): string | null {
+  const candidates = [homeTeam, awayTeam].filter(Boolean) as string[];
+  const hay = String(text || "");
+  let bestScore = 0;
+  let bestTeam: string | null = null;
+
+  for (const candidate of candidates) {
+    const score = teamMatchScore(candidate, hay);
+    if (score > bestScore) {
+      bestScore = score;
+      bestTeam = candidate;
+    }
+  }
+
+  if (bestTeam && bestScore >= 66) return bestTeam;
+
+  const prefix = hay.match(/^([A-Za-z][A-Za-z .&'-]+?)\s+(scores?|to score|scored)\b/i);
+  if (prefix) return prefix[1].trim();
+
+  const byMatch = hay.match(/\b(?:by|for)\s+([A-Za-z][A-Za-z .&'-]+)$/i);
+  if (byMatch) return byMatch[1].trim();
+
+  return null;
+}
+
+function extractTeamTotalDetails(
+  labels: Array<string | null>,
+  homeTeam: string | null,
+  awayTeam: string | null
+): { teamName: string | null; lineValue: number | null; lineSide: string | null } {
+  const cleanedLabels = labels.filter(Boolean) as string[];
+  let teamName: string | null = null;
+  for (const label of cleanedLabels) {
+    teamName = inferTeamNameFromText(label, homeTeam, awayTeam);
+    if (teamName) break;
+  }
+  if (!teamName) {
+    teamName = inferTeamNameFromText(cleanedLabels.join(" "), homeTeam, awayTeam);
+  }
+  return {
+    teamName,
+    lineValue: parseLineValue(...labels),
+    lineSide: parseLineSide(cleanedLabels[0] || cleanedLabels[1] || cleanedLabels[2] || null),
+  };
+}
+
 function classifyMarketIdentity(marketTicker: string, market: any): MarketIdentity {
   const title = getStringField(market, ["title"]);
   const subtitle = getStringField(market, ["subtitle", "yes_sub_title", "no_sub_title"]);
@@ -711,13 +848,37 @@ function classifyMarketIdentity(marketTicker: string, market: any): MarketIdenti
 
   const isHalf = text.includes("1h") || text.includes("1st half") || text.includes("first half") || text.includes("halftime");
   const hasOverUnder = text.includes("over") || text.includes("under") || text.includes("total");
+  const hasSpread = text.includes("spread") || text.includes(" by ");
+  const tickerUpper = marketTicker.toUpperCase();
+  const hasTeamTicker = tickerUpper.includes("TEAM") || /KX[A-Z]{2,6}TT/.test(tickerUpper);
+  const hasTeamReference =
+    hasTeamTicker ||
+    text.includes("team total") ||
+    text.includes("team points") ||
+    text.includes("team runs") ||
+    text.includes("team goals") ||
+    text.includes("scores") ||
+    text.includes("to score") ||
+    /\b(points|goals|runs)\s+(by|for|scored by)\b/.test(text);
+  const isPlayerProp =
+    tickerUpper.includes("KXMVE") ||
+    tickerUpper.includes("PROP") ||
+    /\b(player|rebounds|assists|strikeouts|passing|rushing|receiving|shots on goal|saves)\b/.test(text);
 
-  if (isHalf) {
-    marketType = hasOverUnder ? "1h_total" : "1h_winner";
+  if (isPlayerProp) {
+    marketType = "player_prop";
+  } else if (isHalf && hasSpread) {
+    marketType = "1h_spread";
+  } else if (isHalf && hasOverUnder) {
+    marketType = "1h_total";
+  } else if (isHalf) {
+    marketType = "1h_winner";
   } else if (text.includes("winner") || text.includes(" to win") || text.includes(" game")) {
     marketType = "moneyline";
-  } else if (text.includes("spread") || text.includes(" by ")) {
+  } else if (hasSpread) {
     marketType = "spread";
+  } else if (hasOverUnder && hasTeamReference) {
+    marketType = "team_total";
   } else if (hasOverUnder) {
     marketType = "total";
   } else if (text.includes("points") || text.includes("reb") || text.includes("ast") || text.includes("player")) {
@@ -728,7 +889,7 @@ function classifyMarketIdentity(marketTicker: string, market: any): MarketIdenti
   const lineValue = parseLineValue(yesLabel, noLabel, subtitle, title);
   const lineSide = parseLineSide(yesLabel || subtitle || title);
 
-  return { marketType, marketLabel, lineValue, lineSide };
+  return { marketType, marketLabel, lineValue, lineSide, teamName: null };
 }
 
 function marketPriorityKey(marketTicker: string): number {
@@ -829,6 +990,8 @@ async function discoverPhase(
     events_upserted: 0,
     line_markets_upserted: 0,
     events_skipped: 0,
+    series_tickers: [] as string[],
+    extra_series: [] as string[],
     errors: [] as string[],
   };
 
@@ -840,7 +1003,11 @@ async function discoverPhase(
   if (eventTickersOverride.length > 0) {
     for (const eventTicker of eventTickersOverride) eventTickers.add(eventTicker);
   } else {
-    const seriesTickers = discoverySeriesTickers(sportFilter);
+    const baseSeriesTickers = discoverySeriesTickers(sportFilter);
+    const extraSeriesTickers = await discoverExtraSeriesTickers(keyId, privateKeyPem, sportFilter, baseSeriesTickers);
+    const seriesTickers = Array.from(new Set([...baseSeriesTickers, ...extraSeriesTickers]));
+    stats.series_tickers = seriesTickers;
+    stats.extra_series = extraSeriesTickers;
 
     for (const seriesTicker of seriesTickers) {
       let cursor: string | null = null;
@@ -1062,6 +1229,10 @@ async function discoverPhase(
           market?.result_value
       );
 
+      const teamTotalDetails = identity.marketType === "team_total"
+        ? extractTeamTotalDetails([yesLabel, noLabel, marketSubtitle, marketTitle], home, away)
+        : null;
+
       lineMarketRows.push({
         event_ticker: eventTicker,
         series_ticker: seriesTicker,
@@ -1071,11 +1242,11 @@ async function discoverPhase(
         market_kind: resolveMarketKind(identity),
         title: marketTitle,
         subtitle: marketSubtitle,
-        team_name: yesLabel || identity.marketLabel,
+        team_name: teamTotalDetails?.teamName || yesLabel || identity.marketLabel,
         opponent_name: noLabel,
-        is_home_team: inferHomeTeamSide(yesLabel || identity.marketLabel, home, away),
-        line_value: identity.lineValue,
-        line_side: identity.lineSide || yesLabel || identity.marketLabel,
+        is_home_team: inferHomeTeamSide(teamTotalDetails?.teamName || yesLabel || identity.marketLabel, home, away),
+        line_value: teamTotalDetails?.lineValue ?? identity.lineValue,
+        line_side: teamTotalDetails?.lineSide ?? identity.lineSide ?? yesLabel ?? identity.marketLabel,
         game_date: marketGameDate,
         settlement_price: settlementPrice,
         settlement_value: settlementValue,
@@ -1518,7 +1689,7 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         status: "ok",
-        version: "2026-03-18.v3",
+        version: "2026-04-06.v4",
         phase,
         sport: sportFilter,
         window: snapshotWindow,
